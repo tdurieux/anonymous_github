@@ -48,12 +48,12 @@ class Anonymous_Github:
                     content = content.replace(term, "XXX")
                 return content
             if ".md" in file.name:
-                return removeTerms(Markup(self.github.render_markdown(file.decoded_content)), terms)
+                return "<div class='markdown-body'>%s</div>" % removeTerms(Markup(self.github.render_markdown(file.decoded_content)), terms)
             if ".jpg" in file.name or ".png" in file.name or ".png" in file.name or ".gif" in file.name:
                 return Markup("<img src='%s' alt='%s'>" % (file.url, file.name))
             if ".html" in file.name:
                 return removeTerms(Markup(file.decoded_content), terms)
-            if ".txt" in file.name:
+            if ".txt" in file.name or ".java" in file.name or ".py" in file.name:
                 return removeTerms(Markup("<pre>" + file.decoded_content + "</pre>"), terms)
             return Markup("<a href='%s'>Download %s</a>" % (file.url, file.name))
 
