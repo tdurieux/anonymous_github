@@ -40,6 +40,7 @@ class Anonymous_Github:
         application = Flask(__name__)
         application.log = {}
         application.killurl = str(uuid.uuid4())
+        application.jinja_env.add_extension('jinja2.ext.do')
 
         @application.template_filter('file_render', )
         def file_render(file, terms):

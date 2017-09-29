@@ -16,11 +16,12 @@
         <div class="main">
             <div class="container-fluid">
                 <div class="paths">
-                    {% set current_path = '/repository/' + current_repository %}
-                    <span class="path"><a href="{{ current_path }}/">{{ name }}</a></span>
+                    {% set current_path = [] %}
+                    {% do current_path.append('/repository/' + current_repository) %}
+                    <span class="path"><a href="{{ current_path|join("/") }}">{{ name }}</a></span>
                 {% for item in path %}
-                    {% set current_path = current_path + "/" + item %}
-                    <span class="path"><a href="{{ current_path }}/">{{ item }}</a></span>
+                    {% do current_path.append(item) %}
+                    <span class="path"><a href="{{ current_path|join("/") }}">{{ item }}</a></span>
                 {% endfor %}
                 </div>
                 <div class="files">
