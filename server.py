@@ -3,7 +3,7 @@ import uuid
 import json
 import socket
 import os
-
+import urllib
 
 # non standards, in requirements.txt
 from flask import Flask, request, Markup, render_template, redirect, url_for
@@ -48,12 +48,12 @@ class Anonymous_Github:
                     content = content.replace(term, "XXX")
                 return content
             if ".md" in file.name:
-                return "<div class='markdown-body'>%s</div>" % removeTerms(Markup(self.github.render_markdown(file.decoded_content)), terms)
+                return Markup("<div class='markdown-body'>%s</div>" % removeTerms(self.github.render_markdown(file.decoded_content), terms))
             if ".jpg" in file.name or ".png" in file.name or ".png" in file.name or ".gif" in file.name:
                 return Markup("<img src='%s' alt='%s'>" % (file.url, file.name))
             if ".html" in file.name:
                 return removeTerms(Markup(file.decoded_content), terms)
-            if ".txt" in file.name or ".java" in file.name or ".py" in file.name:
+            if ".txt" in file.name or ".log" in file.name or ".xml" in file.name or ".java" in file.name or ".py" in file.name:
                 return removeTerms(Markup("<pre>" + file.decoded_content + "</pre>"), terms)
             return Markup("<a href='%s'>Download %s</a>" % (file.url, file.name))
 
@@ -78,17 +78,24 @@ class Anonymous_Github:
                 if repo[-1] == '/':
                     repo = repo[:-1]
                 g_repo = self.github.get_repo(repo)
-                current_folder = g_repo.get_contents(path)
+                current_folder = g_repo.get_contents(urllib.quote(path))
                 current_file = None
                 if type(current_folder) is github.ContentFile.ContentFile:
                     current_file = current_folder
-                    current_folder = g_repo.get_contents(os.path.dirname(path))
+                    current_folder = g_repo.get_contents(urllib.quote(os.path.dirname(path)))
                 else:
                     for f in current_folder:
                         if f.name.lower() == "readme.md" or f.name.lower() == "index.html":
                             current_file = f
                             break
-                return render_template('repo.html', terms=data["terms"], current_repository=id, current_file=current_file, current_folder=current_folder)
+
+                return render_template('repo.html',
+                                       name=data['name'],
+                                       terms=data["terms"],
+                                       current_repository=id,
+                                       current_file=current_file,
+                                       current_folder=current_folder,
+                                       path=path.split("/") if path != '' else [])
 
         @application.route('/', methods=['GET'])
         def index():
@@ -98,15 +105,17 @@ class Anonymous_Github:
         def add_repository():
             id = str(uuid.uuid4())
             repo = request.form['githubRepository']
-            terms = request.form['terms']
+            terms = request.form['terms'],
+            repo_name = request.form['name']
 
             config_path = self.config_dir + "/" + str(id)
             os.mkdir(config_path)
             with open(config_path + "/config.json", 'w') as outfile:
                 json.dump({
                     "id": id,
+                    "name": repo_name,
                     "repository": repo,
-                    "terms": terms.split("\n")
+                    "terms": terms.split()
                 }, outfile)
             return redirect(url_for('repository', id=id))
 

@@ -9,21 +9,31 @@
         <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta/css/bootstrap.min.css" integrity="sha384-/Y6pD6FV/Vv2HJnA6t+vslU6fwYXjCFtcEpHbNJ0lyAFsXTsjBbfaDjzALeQsN6M" crossorigin="anonymous">
 
         <link href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/2.8.0/github-markdown.min.css" rel="stylesheet" type="text/css" />
+
+        <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet" type="text/css" />
     </head>
     <body>
-        <div class="container-fluid">
-            <table class="table">
-                <tbody>
-                {% for item in current_folder %}
-                    <tr>
-                        <td><a href="/repository/{{ current_repository }}/{{ item.path }}">{{ item.name }}</a> </td>
-                    </tr>
+        <div class="main">
+            <div class="container-fluid">
+                <div class="paths">
+                    {% set current_path = '/repository/' + current_repository %}
+                    <span class="path"><a href="{{ current_path }}">{{ name }}</a></span>
+                {% for item in path %}
+                    {% set current_path = current_path + "/" + item %}
+                    <span class="path"><a href="{{ current_path }}">{{ item }}</a></span>
                 {% endfor %}
-                </tbody>
-            </table>
-            {% if current_file %}
-            {{ current_file|file_render(terms) }}
-            {% endif %}
+                </div>
+                <div class="files">
+                    {% for item in current_folder %}
+                    <div class="{{ item.type }} {% if item == current_file %}active{% endif %}">
+                        <a href="/repository/{{ current_repository }}/{{ item.path }}">{{ item.name }}</a>
+                    </div>
+                    {% endfor %}
+               </div>
+                {% if current_file %}
+                {{ current_file|file_render(terms) }}
+                {% endif %}
+            </div>
         </div>
 
         <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>

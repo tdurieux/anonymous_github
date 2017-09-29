@@ -1,0 +1,41 @@
+.main {
+    width: 80%;
+    margin: auto;
+}
+
+.files {
+    border: 1px solid #dddddd;
+    border-bottom: initial;
+    margin: 15px;
+    border-radius: 5px;
+}
+
+.files a {
+    display: block;
+    padding: 9px;
+}
+
+.files .file, .files .dir, .files .parent_folder {
+    border-bottom: 1px solid #dddddd;
+}
+
+.files .file.active, .files .file:hover, .files .dir:hover, .files .parent_folder:hover {
+    background: #f0f0f0;
+}
+
+.paths {
+    margin: 15px;
+    border: 1px solid #dddddd;
+    border-radius: 5px;
+    padding: 8px
+}
+
+.paths a {
+    color: #000000;
+}
+
+.paths .path::after {
+    content: '/';
+    color: #dddddd;
+    padding-left: 4px;
+}
