@@ -48,6 +48,8 @@ class Anonymous_Github:
                 for term in terms:
                     content = content.replace(term, "XXX")
                 return content
+            if file.size > 1000000:
+                return Markup("The file %s is too big please download it: <a href='%s'>Download %s</a>" % (file.name, file.url, file.name))
             if ".md" in file.name:
                 return Markup("<div class='markdown-body'>%s</div>" % removeTerms(self.github.render_markdown(file.decoded_content), terms))
             if ".jpg" in file.name or ".png" in file.name or ".png" in file.name or ".gif" in file.name:
