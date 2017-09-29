@@ -17,10 +17,10 @@
             <div class="container-fluid">
                 <div class="paths">
                     {% set current_path = '/repository/' + current_repository %}
-                    <span class="path"><a href="{{ current_path }}">{{ name }}</a></span>
+                    <span class="path"><a href="{{ current_path }}/">{{ name }}</a></span>
                 {% for item in path %}
                     {% set current_path = current_path + "/" + item %}
-                    <span class="path"><a href="{{ current_path }}">{{ item }}</a></span>
+                    <span class="path"><a href="{{ current_path }}/">{{ item }}</a></span>
                 {% endfor %}
                 </div>
                 <div class="files">
