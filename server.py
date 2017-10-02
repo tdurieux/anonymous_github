@@ -4,6 +4,7 @@ import json
 import socket
 import os
 import urllib
+import re
 
 # non standards, in requirements.txt
 from flask import Flask, request, Markup, render_template, redirect, url_for
@@ -52,7 +53,7 @@ class Anonymous_Github:
         def file_render(file, terms):
             def removeTerms(content, terms):
                 for term in terms:
-                    content = content.replace(term, "XXX")
+                    content = re.compile(term, re.IGNORECASE).sub("XXX", content)
                 return content
 
             if file.size > 1000000:
@@ -98,7 +99,6 @@ class Anonymous_Github:
                             break
 
                 return render_template('repo.html',
-                                       name=data['name'],
                                        terms=data["terms"],
                                        current_repository=id,
                                        current_file=current_file,
@@ -126,7 +126,6 @@ class Anonymous_Github:
             id = request.args.get('id', str(uuid.uuid4()))
             repo = request.form['githubRepository']
             terms = request.form['terms']
-            repo_name = request.form['name']
 
             config_path = self.config_dir + "/" + str(id)
             if not os.path.exists(config_path):
@@ -134,7 +133,6 @@ class Anonymous_Github:
             with open(config_path + "/config.json", 'w') as outfile:
                 json.dump({
                     "id": id,
-                    "name": repo_name,
                     "repository": repo,
                     "terms": terms.splitlines()
                 }, outfile)

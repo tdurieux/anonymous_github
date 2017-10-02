@@ -18,7 +18,7 @@
                 <div class="paths">
                     {% set current_path = [] %}
                     {% do current_path.append('/repository/' + current_repository) %}
-                    <span class="path"><a href="{{ current_path|join("/") }}">{{ name }}</a></span>
+                    <span class="path"><a href="{{ current_path|join("/") }}">Root</a></span>
                 {% for item in path %}
                     {% do current_path.append(item) %}
                     <span class="path"><a href="{{ current_path|join("/") }}">{{ item }}</a></span>
