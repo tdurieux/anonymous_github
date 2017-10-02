@@ -11,10 +11,18 @@ import requests
 import github
 
 
+def clean_github_repository(repo):
+    if repo is None:
+        return None
+    repo = repo.replace("http://github.com/", "") \
+        .replace("https://github.com/", "")
+    if repo[-1] == '/':
+        repo = repo[:-1]
+    return repo
 
 
 class Anonymous_Github:
-    def __init__(self, github_token="0e8f5af6801d89e533f5c045920e928b4535d41e", host="127.0.0.1", port=5000,
+    def __init__(self, github_token, host="127.0.0.1", port=5000,
                  config_dir='./repositories'):
         self.github_token = github_token if github_token != "" else os.environ["GITHUB_AUTH_TOKEN"]
         self.host = host
@@ -34,8 +42,6 @@ class Anonymous_Github:
         else:
             self.public_url = "http://" + self.host + ":" + str(self.port)
 
-
-
     def create_flask_application(self):
         application = Flask(__name__)
         application.log = {}
@@ -48,10 +54,13 @@ class Anonymous_Github:
                 for term in terms:
                     content = content.replace(term, "XXX")
                 return content
+
             if file.size > 1000000:
-                return Markup("The file %s is too big please download it: <a href='%s'>Download %s</a>" % (file.name, file.url, file.name))
+                return Markup("The file %s is too big please download it: <a href='%s'>Download %s</a>" % (
+                file.name, file.url, file.name))
             if ".md" in file.name:
-                return Markup("<div class='markdown-body'>%s</div>" % removeTerms(self.github.render_markdown(file.decoded_content), terms))
+                return Markup("<div class='markdown-body'>%s</div>" % removeTerms(
+                    self.github.render_markdown(file.decoded_content), terms))
             if ".jpg" in file.name or ".png" in file.name or ".png" in file.name or ".gif" in file.name:
                 return Markup("<img src='%s' alt='%s'>" % (file.url, file.name))
             if ".html" in file.name:
@@ -75,11 +84,7 @@ class Anonymous_Github:
                 return render_template('404.html'), 404
             with open(config_path) as f:
                 data = json.load(f)
-                repo = data['repository']\
-                    .replace("http://github.com/", "")\
-                    .replace("https://github.com/", "")
-                if repo[-1] == '/':
-                    repo = repo[:-1]
+                repo = clean_github_repository(data['repository'])
                 g_repo = self.github.get_repo(repo)
                 current_folder = g_repo.get_contents(urllib.quote(path))
                 current_file = None
@@ -102,23 +107,36 @@ class Anonymous_Github:
 
         @application.route('/', methods=['GET'])
         def index():
-            return render_template('index.html')
+            id = request.args.get('id', None)
+            repo_name = clean_github_repository(request.args.get('githubRepository', None))
+            repo = None
+            if id is not None:
+                config_path = self.config_dir + "/" + id + "/config.json"
+                if os.path.exists(config_path):
+                    with open(config_path) as f:
+                        data = json.load(f)
+                        repo_data = clean_github_repository(data['repository'])
+                        if repo_name == repo_data:
+                            repo = data
+
+            return render_template('index.html', repo=repo)
 
         @application.route('/', methods=['POST'])
         def add_repository():
-            id = str(uuid.uuid4())
+            id = request.args.get('id', str(uuid.uuid4()))
             repo = request.form['githubRepository']
-            terms = request.form['terms'],
+            terms = request.form['terms']
             repo_name = request.form['name']
 
             config_path = self.config_dir + "/" + str(id)
-            os.mkdir(config_path)
+            if not os.path.exists(config_path):
+                os.mkdir(config_path)
             with open(config_path + "/config.json", 'w') as outfile:
                 json.dump({
                     "id": id,
                     "name": repo_name,
                     "repository": repo,
-                    "terms": terms.split()
+                    "terms": terms.splitlines()
                 }, outfile)
             return redirect(url_for('repository', id=id))
 

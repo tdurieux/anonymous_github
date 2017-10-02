@@ -14,24 +14,41 @@
         <div class="main">
             <div class="container-fluid">
                 <h1>GihHub Anonymous</h1>
+                <h2>Anonymous a GitHub repository</h2>
                 <form action="" method="post">
                     <div class="form-group">
                         <label for="name">GitHub Repository</label>
-                        <input type="url" class="form-control" name="name" id="name" aria-describedby="name" placeholder="Anonymous Name">
+                        <input class="form-control" value="{{ repo.name }}" name="name" id="name" aria-describedby="name" placeholder="Anonymous Name">
                         <small id="nameHelp" class="form-text text-muted">The anonymous name of the repository.</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="githubRepository">GitHub Repository</label>
+                        <input type="url" value="{{ repo.repository }}" class="form-control" name="githubRepository" id="githubRepository" aria-describedby="githubRepository" placeholder="GitHub Repository">
+                        <small id="githubRepositoryHelp" class="form-text text-muted">The github url to the repository that you want to anonymous.</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="ignoredTerms">The text to remove from the repository</label>
+                        <textarea class="form-control" name="terms" id="ignoredTerms" rows="5">{{ repo.terms|join('\n') }}</textarea>
+                        <small id="ignoredTermsHelp" class="form-text text-muted">One term per line.</small>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Submit</button>
+                </form>
+                {% if not repo %}
+                <h2>Edit an Anonymous GitHub repository</h2>
+                <form action="" method="get">
+                    <div class="form-group">
+                        <label for="name">Anonymous GitHub Repository</label>
+                        <input class="form-control" name="id" id="name" aria-describedby="name" placeholder="Id Anonymous GitHub Repository">
+                        <small id="nameHelp" class="form-text text-muted">The id of the Anonymous GitHub repository.</small>
                     </div>
                     <div class="form-group">
                         <label for="githubRepository">GitHub Repository</label>
                         <input type="url" class="form-control" name="githubRepository" id="githubRepository" aria-describedby="githubRepository" placeholder="GitHub Repository">
                         <small id="githubRepositoryHelp" class="form-text text-muted">The github url to the repository that you want to anonymous.</small>
                     </div>
-                    <div class="form-group">
-                        <label for="ignoredTerms">The text to remove from the repository</label>
-                        <textarea class="form-control" name="terms" id="ignoredTerms" rows="5"></textarea>
-                        <small id="ignoredTermsHelp" class="form-text text-muted">One term per line.</small>
-                    </div>
                     <button type="submit" class="btn btn-primary">Submit</button>
                 </form>
+                {% endif %}
             </div>
         </div>
 
