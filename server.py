@@ -53,13 +53,14 @@ class Anonymous_Github:
         application.jinja_env.add_extension('jinja2.ext.do')
 
         def removeTerms(content, repository):
-            for term in repository['terms']:
-                content = re.compile(term, re.IGNORECASE).sub("XXX", content)
             repo = repository['repository']
             if repo[-1] == '/':
                 repo = repo[0:-1]
-            content = re.compile(repo + "/blob/master", re.IGNORECASE).sub(self.public_url + "/repository/" + repository["id"], content)
-            content = re.compile(repo, re.IGNORECASE).sub(self.public_url+"/repository/" + repository["id"], content)
+            content = re.compile(repo + "/blob/master", re.IGNORECASE).sub(
+                self.public_url + "/repository/" + repository["id"], content)
+            content = re.compile(repo, re.IGNORECASE).sub(self.public_url + "/repository/" + repository["id"], content)
+            for term in repository['terms']:
+                content = re.compile(term, re.IGNORECASE).sub("XXX", content)
             return content
 
         @application.template_filter('file_render', )
