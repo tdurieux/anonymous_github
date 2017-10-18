@@ -239,7 +239,7 @@ class Anonymous_Github:
         return application
 
     def run(self, **keywords):
-        self.application.run(host=self.host, port=self.port, **keywords)
+        self.application.run(host="127.0.0.1", port=self.port, **keywords)
 
 
 def initParser():
