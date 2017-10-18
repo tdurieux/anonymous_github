@@ -163,10 +163,10 @@ class Anonymous_Github:
                     else:
                         content = current_file.decoded_content
                     if ".html" in current_file.name:
-                        content = removeTerms(content, data['terms'])
+                        content = removeTerms(content, data)
                         content_type = 'text/html; charset=utf-8'
                     if ".md" in current_file.name:
-                        content = removeTerms(self.github.render_markdown(content), data['terms'])
+                        content = removeTerms(self.github.render_markdown(content), data)
                         content_type = 'text/html; charset=utf-8'
                     if ".jpg" in current_file.name \
                             or ".png" in current_file.name \
@@ -184,7 +184,7 @@ class Anonymous_Github:
                             or ".xml" in current_file.name \
                             or ".json" in current_file.name \
                             or ".js" in current_file.name:
-                        content = removeTerms(content, data['terms'])
+                        content = removeTerms(content, data)
                         content_type = 'text/plain; charset=utf-8'
                         if ".xml" in current_file.name:
                             content_type = 'application/xml; charset=utf-8'
