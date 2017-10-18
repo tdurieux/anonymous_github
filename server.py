@@ -42,7 +42,7 @@ class Anonymous_Github:
         if self.host == "0.0.0.0":
             self.public_url = "http://" + socket.getfqdn() + ":" + str(self.port)
         else:
-            self.public_url = "http://" + self.host + ":" + str(self.port)
+            self.public_url = self.host
         if self.public_url[-1] == '/':
             self.public_url = self.public_url[0:-1]
 
