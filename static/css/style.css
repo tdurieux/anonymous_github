@@ -15,11 +15,11 @@
     padding: 9px;
 }
 
-.files .file, .files .dir, .files .parent_folder {
+.files .blob, .files .tree, .files .parent_folder {
     border-bottom: 1px solid #dddddd;
 }
 
-.files .file.active, .files .file:hover, .files .dir:hover, .files .parent_folder:hover {
+.files .blob.active, .files .blob:hover, .files .tree:hover, .files .parent_folder:hover {
     background: #f0f0f0;
 }
 

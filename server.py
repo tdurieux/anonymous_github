@@ -5,6 +5,7 @@ import socket
 import os
 import urllib
 import re
+import base64
 
 # non standards, in requirements.txt
 from flask import Flask, request, Markup, render_template, redirect, url_for
@@ -42,6 +43,8 @@ class Anonymous_Github:
             self.public_url = "http://" + socket.getfqdn() + ":" + str(self.port)
         else:
             self.public_url = "http://" + self.host + ":" + str(self.port)
+        if self.public_url[-1] == '/':
+            self.public_url = self.public_url[0:-1]
 
     def create_flask_application(self):
         application = Flask(__name__)
@@ -49,25 +52,34 @@ class Anonymous_Github:
         application.killurl = str(uuid.uuid4())
         application.jinja_env.add_extension('jinja2.ext.do')
 
-        @application.template_filter('file_render', )
-        def file_render(file, terms):
-            def removeTerms(content, terms):
-                for term in terms:
-                    content = re.compile(term, re.IGNORECASE).sub("XXX", content)
-                return content
+        def removeTerms(content, repository):
+            for term in repository['terms']:
+                content = re.compile(term, re.IGNORECASE).sub("XXX", content)
+            repo = repository['repository']
+            if repo[-1] == '/':
+                repo = repo[0:-1]
+            content = re.compile(repo + "/blob/master", re.IGNORECASE).sub(self.public_url + "/repository/" + repository["id"], content)
+            content = re.compile(repo, re.IGNORECASE).sub(self.public_url+"/repository/" + repository["id"], content)
+            return content
 
+        @application.template_filter('file_render', )
+        def file_render(file, repository):
+            if type(file) == github.Commit.Commit:
+                return Markup(removeTerms(render_template('patch.html', patch=file), repository))
+            if file.type == 'dir':
+                return ""
             if file.size > 1000000:
                 return Markup("The file %s is too big please download it: <a href='%s'>Download %s</a>" % (
                 file.name, file.url, file.name))
             if ".md" in file.name:
                 return Markup("<div class='markdown-body'>%s</div>" % removeTerms(
-                    self.github.render_markdown(file.decoded_content), terms))
+                    self.github.render_markdown(file.decoded_content), repository))
             if ".jpg" in file.name or ".png" in file.name or ".png" in file.name or ".gif" in file.name:
                 return Markup("<img src='%s' alt='%s'>" % (file.url, file.name))
             if ".html" in file.name:
-                return removeTerms(Markup(file.decoded_content), terms)
+                return removeTerms(Markup(file.decoded_content), repository)
             if ".txt" in file.name or ".log" in file.name or ".xml" in file.name or ".json" in file.name or ".java" in file.name or ".py" in file.name:
-                return removeTerms(Markup("<pre>" + file.decoded_content + "</pre>"), terms)
+                return removeTerms(Markup("<pre>" + file.decoded_content + "</pre>"), repository)
             return Markup("<a href='%s'>Download %s</a>" % (file.url, file.name))
 
         @application.route('/' + application.killurl, methods=['POST'])
@@ -75,6 +87,33 @@ class Anonymous_Github:
             func = request.environ.get('werkzeug.server.shutdown')
             func()
             return "Shutting down..."
+
+        def get_current_element(g_repo, path):
+            if path == '':
+                return g_repo.get_contents('/')
+            current_element = os.path.basename(path)
+            folder_content = g_repo.get_contents(urllib.quote(os.path.dirname(path)))
+            for file in folder_content:
+                if file.name == current_element:
+                    return file
+            return None
+
+        @application.route('/repository/<id>/commit/<sha>', methods=['GET'])
+        def commit(id, sha):
+            config_path = self.config_dir + "/" + str(id) + "/config.json"
+            if not os.path.exists(config_path):
+                return render_template('404.html'), 404
+            with open(config_path) as f:
+                data = json.load(f)
+                repo = clean_github_repository(data['repository'])
+                g_repo = self.github.get_repo(repo)
+                commit = g_repo.get_commit(sha)
+                return render_template('repo.html',
+                                   repository=data,
+                                   current_repository=id,
+                                   current_file=commit,
+                                   files=[],
+                                   path=[])
 
         @application.route('/repository/<id>', methods=['GET'], defaults={'path': ''})
         @application.route('/repository/<id>/', methods=['GET'], defaults={'path': ''})
@@ -87,23 +126,82 @@ class Anonymous_Github:
                 data = json.load(f)
                 repo = clean_github_repository(data['repository'])
                 g_repo = self.github.get_repo(repo)
-                current_folder = g_repo.get_contents(urllib.quote(path))
-                current_file = None
-                if type(current_folder) is github.ContentFile.ContentFile:
-                    current_file = current_folder
-                    current_folder = g_repo.get_contents(urllib.quote(os.path.dirname(path)))
-                else:
-                    for f in current_folder:
+                clean_path = path
+                if len(clean_path) > 0 and clean_path[-1] == '/':
+                    clean_path = clean_path[0:-1]
+                current_file = get_current_element(g_repo, clean_path)
+                files = []
+                if type(current_file) is not github.ContentFile.ContentFile:
+                    files = g_repo.get_git_tree("master")
+                    for f in current_file:
                         if f.name.lower() == "readme.md" or f.name.lower() == "index.html":
                             current_file = f
                             break
+                elif current_file.type == 'file':
+                    if os.path.dirname(clean_path) == '':
+                        files = g_repo.get_git_tree("master")
+                    else:
+                        files = g_repo.get_git_tree(get_current_element(g_repo, os.path.dirname(clean_path)).sha)
+                else:
+                    if len(clean_path) > 0 and path[-1] != '/':
+                        return redirect(url_for('repository', id=id, path=path + '/'))
+                    files = g_repo.get_git_tree(current_file.sha)
+                    for f in files.tree:
+                        if f.path.lower() == "readme.md" or f.path.lower() == "index.html":
+                            current_file = get_current_element(g_repo, path + f.path)
+                            break
 
-                return render_template('repo.html',
-                                       terms=data["terms"],
-                                       current_repository=id,
-                                       current_file=current_file,
-                                       current_folder=current_folder,
-                                       path=path.split("/") if path != '' else [])
+                if clean_path[:4] == "docs":
+                    content_type = 'text/plain; charset=utf-8'
+                    if current_file.size > 1000000:
+                        blob = g_repo.get_git_blob(current_file.sha)
+                        if blob.encoding == 'base64':
+                            content = base64.b64decode(blob.content)
+                        else:
+                            content = blob.content
+                    else:
+                        content = current_file.decoded_content
+                    if ".html" in current_file.name:
+                        content = removeTerms(content, data['terms'])
+                        content_type = 'text/html; charset=utf-8'
+                    if ".md" in current_file.name:
+                        content = removeTerms(self.github.render_markdown(content), data['terms'])
+                        content_type = 'text/html; charset=utf-8'
+                    if ".jpg" in current_file.name \
+                            or ".png" in current_file.name \
+                            or ".gif" in current_file.name:
+                        content = current_file.decoded_content
+                        content_type = 'image/jpeg'
+                        if ".png" in current_file.name:
+                            content_type = 'image/png'
+                        elif".gif" in current_file.name:
+                            content_type = 'image/gif'
+                    if ".txt" in current_file.name \
+                            or ".log" in current_file.name \
+                            or ".java" in current_file.name \
+                            or ".py" in current_file.name \
+                            or ".xml" in current_file.name \
+                            or ".json" in current_file.name \
+                            or ".js" in current_file.name:
+                        content = removeTerms(content, data['terms'])
+                        content_type = 'text/plain; charset=utf-8'
+                        if ".xml" in current_file.name:
+                            content_type = 'application/xml; charset=utf-8'
+                        elif".json" in current_file.name:
+                            content_type = 'application/json; charset=utf-8'
+                        elif ".js" in current_file.name:
+                            content_type = 'application/javascript; charset=utf-8'
+                    if ".css" in current_file.name:
+                        content_type = 'text/css; charset=utf-8'
+                    return content, {'Content-Type': content_type}
+                else:
+                    return render_template('repo.html',
+                                        repository=data,
+                                        current_repository=id,
+                                        current_file=current_file,
+                                        files=files.tree,
+                                        path_directory=clean_path if type(current_file) is not github.ContentFile.ContentFile or current_file.type=='dir'else os.path.dirname(clean_path),
+                                        path=clean_path.split("/") if clean_path != '' else [])
 
         @application.route('/', methods=['GET'])
         def index():

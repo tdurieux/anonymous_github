@@ -25,14 +25,14 @@
                 {% endfor %}
                 </div>
                 <div class="files">
-                    {% for item in current_folder %}
-                    <div class="{{ item.type }} {% if item == current_file %}active{% endif %}">
-                        <a href="/repository/{{ current_repository }}/{{ item.path }}">{{ item.name }}</a>
+                    {% for item in files %}
+                    <div class="{{ item.type }} {% if item.path == current_file.name %}active{% endif %}">
+                        <a href="/repository/{{ current_repository }}/{{ path_directory }}{% if path_directory|length > 0%}/{% endif %}{{ item.path }}{% if item.type == 'tree'%}/{% endif %}">{{ item.path }}</a>
                     </div>
                     {% endfor %}
                </div>
                 {% if current_file %}
-                {{ current_file|file_render(terms) }}
+                {{ current_file|file_render(repository) }}
                 {% endif %}
             </div>
         </div>
