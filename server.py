@@ -164,7 +164,8 @@ class Anonymous_Github:
                     file_path = current_file.path
             cached_file_path = os.path.join(cache_path, file_path)
             if os.path.exists(cached_file_path):
-                return send_from_directory(os.path.dirname(cached_file_path), os.path.basename(cached_file_path), mimetype=get_type_content(path, path, data, g_repo))
+                return send_from_directory(os.path.dirname(cached_file_path), os.path.basename(cached_file_path),
+                                           mimetype=get_type_content(path, path, repository_config, g_repo).replace("; charset=utf-8", ""))
             content = ''
             if is_website(path, repository_config, g_repo):
                 if current_file.size > 1000000:
@@ -250,11 +251,11 @@ class Anonymous_Github:
                 cache_path = os.path.join(self.config_dir, id, "cache")
                 if os.path.isfile(os.path.join(cache_path, path)):
                     return send_from_directory(os.path.dirname(os.path.join(cache_path, path)),
-                                               os.path.basename(os.path.join(cache_path, path)), mimetype=get_type_content(path, path, data, g_repo)),
+                                               os.path.basename(os.path.join(cache_path, path)), mimetype=get_type_content(path, path, data, g_repo).replace("; charset=utf-8", "")),
                 elif os.path.exists(os.path.join(cache_path, path, "index.html")):
-                    return send_from_directory(os.path.join(cache_path, path), "index.html", mimetype='text/html; charset=utf-8')
+                    return send_from_directory(os.path.join(cache_path, path), "index.html", mimetype='text/html')
                 elif os.path.exists(os.path.join(cache_path, path, "README.md")):
-                    return send_from_directory(os.path.join(cache_path, path), "README.md", mimetype='text/html; charset=utf-8')
+                    return send_from_directory(os.path.join(cache_path, path), "README.md", mimetype='text/html')
 
                 clean_path = path
                 if len(clean_path) > 0 and clean_path[-1] == '/':
