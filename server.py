@@ -253,9 +253,9 @@ class Anonymous_Github:
                                                os.path.basename(os.path.join(cache_path, path))),\
                            {'Content-Type': get_type_content(path, path, data, g_repo)}
                 elif os.path.exists(os.path.join(cache_path, path, "index.html")):
-                    return send_from_directory(os.path.join(cache_path, path), "index.html")
+                    return send_from_directory(os.path.join(cache_path, path), "index.html"), {'Content-Type': 'text/html; charset=utf-8'}
                 elif os.path.exists(os.path.join(cache_path, path, "README.md")):
-                    return send_from_directory(os.path.join(cache_path, path), "README.md")
+                    return send_from_directory(os.path.join(cache_path, path), "README.md"), {'Content-Type': 'text/html; charset=utf-8'}
 
                 clean_path = path
                 if len(clean_path) > 0 and clean_path[-1] == '/':
