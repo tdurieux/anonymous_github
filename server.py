@@ -79,7 +79,7 @@ class Anonymous_Github:
             if ".jpg" in file.name or ".png" in file.name or ".png" in file.name or ".gif" in file.name:
                 return Markup("<img src='%s' alt='%s'>" % (file.url, file.name))
             if ".html" in file.name:
-                return removeTerms(Markup(file.decoded_content), repository)
+                return removeTerms(Markup("<pre><code>%s</code></pre>") % Markup.escape(file.decoded_content), repository)
             if ".txt" in file.name or ".log" in file.name or ".xml" in file.name or ".json" in file.name or ".java" in file.name or ".py" in file.name:
                 return removeTerms(Markup("<pre>" + file.decoded_content + "</pre>"), repository)
             return Markup("<a href='%s'>Download %s</a>" % (file.url, file.name))
@@ -195,7 +195,7 @@ class Anonymous_Github:
                                        files=files.tree,
                                        path_directory=path if type(
                                            current_file) is not github.ContentFile.ContentFile or current_file.type == 'dir' else os.path.dirname(
-                                           path),
+                                           current_file.path),
                                        path=path.split("/") if path != '' else [])
             content_cache_path = cached_file_path
             if not os.path.exists(os.path.dirname(content_cache_path)):
@@ -209,6 +209,8 @@ class Anonymous_Github:
 
         def get_current_folder_files(path, current_file, repository_config, g_repo):
             files = []
+            if current_file is None:
+                return files, current_file
             if type(current_file) is not github.ContentFile.ContentFile:
                 files = g_repo.get_git_tree("master")
                 for f in current_file:
@@ -262,6 +264,8 @@ class Anonymous_Github:
                     clean_path = clean_path[0:-1]
 
                 current_file = get_current_element(g_repo, clean_path)
+                if current_file is None:
+                    return render_template('404.html'), 404
                 if type(current_file) == github.ContentFile.ContentFile and current_file.type == 'dir' and len(path) > 0 and path[-1] != '/':
                     return redirect(url_for('repository', id=id, path=path + '/'))
 
