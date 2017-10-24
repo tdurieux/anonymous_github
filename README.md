@@ -16,8 +16,7 @@ Anonymous Github anonymizes:
 Using Anonymous Github
 -----------------------
 
-To use it, open the main page (eg [http://anonymous.4open.science/](http://anonymous.4open.science/)), and simply fill 
-1) the Github repo URL and 2) the word list (which can be updated afterwards). 
+To use it, open the main page (eg [http://anonymous.4open.science/](http://anonymous.4open.science/)), and simply fill 1. the Github repo URL and 2. the word list (which can be updated afterwards). 
 The anonymization of the content is done by replacing all occurrences of words in a list by "XXX". 
 The word list is provided by the authors, and typically contains the institution name, author names, logins, etc...
 
