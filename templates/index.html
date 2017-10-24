@@ -13,12 +13,12 @@
     <body>
         <div class="main">
             <div class="container-fluid">
-                <h1>GitHub Anonymous</h1>
+                <h1>Anonymous GitHub for Open-Science</h1>
                 <h2>Anonymize a GitHub repository</h2>
                 <form action="" method="post">
                     <div class="form-group">
                         <label for="githubRepository">GitHub Repository</label>
-                        <small id="githubRepositoryHelp" class="form-text text-muted">The github url to the repository that you want to anonymous.</small>
+                        <small id="githubRepositoryHelp" class="form-text text-muted">The github url to the repository that you want to anonymize.</small>
                         <input type="url" value="{{ repo.repository }}" class="form-control" name="githubRepository" id="githubRepository" aria-describedby="githubRepository" placeholder="GitHub Repository">
                     </div>
                     <div class="form-group">
@@ -38,7 +38,7 @@
                     </div>
                     <div class="form-group">
                         <label for="githubRepository">GitHub Repository</label>
-                        <small id="githubRepositoryHelp" class="form-text text-muted">The github url to the repository that you want to anonymous.</small>
+                        <small id="githubRepositoryHelp" class="form-text text-muted">Password: the real Github url.</small>
                         <input type="url" class="form-control" name="githubRepository" id="githubRepository" aria-describedby="githubRepository" placeholder="GitHub Repository">
                     </div>
                     <button type="submit" class="btn btn-primary">Submit</button>
