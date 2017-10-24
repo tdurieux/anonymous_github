@@ -21,8 +21,8 @@ To use it, open the main page (eg [http://anonymous.4open.science/](http://anony
 The anonymization of the content is done by replacing all occurrences of words in a list by "XXX". 
 The word list is provided by the authors, and typically contains the institution name, author names, logins, etc...
 
-In a paper under double-blind review, instead of putting a link to Github, one puts a link to the Anonymous Github instance (eg 
-<http://anonymous.4open.science/1234> which is an anomyous version of this repo).
+In a paper under double-blind review, instead of putting a link to Github, one puts a link to the Anonymous Github instance (e.g. 
+<http://anonymous.4open.science/repository/840c8c57-3c32-451e-bf12-0e20be300389/> which is an anomyous version of this repo).
 
 To start using Anonymous Github right now, a public instance of anonymous_github is hosted at 4open.science:
 
@@ -41,8 +41,9 @@ Installing Anonymous Github
 git clone https://github.com/tdurieux/anonymous_github/
 cd anonymous_github
 pip install -r requirements.txt
-python server.py
+python server.py -token <github_auth_token>
 ```
+
 See also
 --------
 
