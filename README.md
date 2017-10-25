@@ -22,12 +22,8 @@ Using Anonymous Github
 -----------------------
 
 
-#### How to create a new anonmized repository
+#### How to create a new anonymized repository
 ![Anonymous Github usage](https://user-images.githubusercontent.com/5577568/31989885-e1cecff0-b973-11e7-8e3d-a6ded2d1a8d5.gif)
-
-#### How to edit an anonmized repository
-![Anonymous Github usage](https://user-images.githubusercontent.com/5577568/31989888-e1e860c8-b973-11e7-8a45-b2dad401754d.gif)
-
 
 To use it, open the main page (eg [http://anonymous.4open.science/](http://anonymous.4open.science/)), and simply fill 1. the Github repo URL and 2. the word list (which can be updated afterwards). 
 The anonymization of the content is done by replacing all occurrences of words in a list by "XXX". 
@@ -44,6 +40,9 @@ To start using Anonymous Github right now, a public instance of anonymous_github
 By default, Anonymous Github and http://anonymous.4open.science access public repositories. If you want to get a public anonymized URL of a private repository, you must give @tdurieux read access to the repo by adding him as collaborator.
 
 Note that public Github repositories are  not modified and hence are still visible on Github and Google, even after anonymization.
+
+#### How to edit an anonymized repository
+![Anonymous Github usage](https://user-images.githubusercontent.com/5577568/31989888-e1e860c8-b973-11e7-8a45-b2dad401754d.gif)
 
 How it works?
 --------------
