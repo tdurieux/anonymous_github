@@ -91,8 +91,7 @@ class Anonymous_Github:
             if file.type == 'dir':
                 return ""
             if file.size > 1000000:
-                return Markup("The file %s is too big please download it: <a href='%s'>Download %s</a>" % (
-                file.name, file.url, file.name))
+                return Markup("The file %s is too big to be anonymized (beyond 1MB, Github limit)" % (file.name))
             if ".md" in file.name:
                 return Markup("<div class='markdown-body'>%s</div>" % remove_terms(
                     self.github.render_markdown(file.decoded_content), repository_configuration))
@@ -102,7 +101,7 @@ class Anonymous_Github:
                 return remove_terms(Markup("<pre><code>%s</code></pre>") % Markup.escape(file.decoded_content), repository_configuration)
             if ".txt" in file.name or ".log" in file.name or ".xml" in file.name or ".json" in file.name or ".java" in file.name or ".py" in file.name:
                 return remove_terms(Markup("<pre>" + file.decoded_content + "</pre>"), repository_configuration)
-            return Markup("<a href='%s'>Download %s</a>" % (file.url, file.name))
+            return Markup("<b>%s has an unknown extension, we are unable to anonymize it (known extensions md/txt/json/java/...)</b>" % (file.name))
 
         @application.route('/' + application.killurl, methods=['POST'])
         def seriouslykill():
