@@ -1,7 +1,9 @@
 Anonymous Github
 ================
 
-Similarly to paper anonymization, in a double-blind review process, the open-science data or code that is in the online appendix must be anonymized. The authors must
+Anonymous Github is a system to anonymize Github repositories before referring to them in a double-blind paper submission.
+
+Indeed, in a double-blind review process, the open-science data or code that is in the online appendix must be anonymized, similarly to paper anonymization. The authors must
 
 * anonymize URLs: the name of the institution/department/group/authors should not appear in the  URLs of the open-science appendix
 * anonymize the appendix content itself
