@@ -13,6 +13,8 @@ Anonymizing an open-science appendix needs some work, but fortunately, this can 
 Anonymous Github anonymizes:
 * the Github owner / organization / repository name
 * the content of the repository
+  * file contents (all extensions, md/txt/java/etc)
+  * file and directory names
 
 
 Using Anonymous Github
