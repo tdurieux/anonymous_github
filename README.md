@@ -2,6 +2,7 @@ Anonymous Github
 ================
 
 Anonymous Github is a system to anonymize Github repositories before referring to them in a double-blind paper submission.
+To start using Anonymous Github right now: **[http://anonymous.4open.science/](http://anonymous.4open.science/)**
 
 Indeed, in a double-blind review process, the open-science data or code that is in the online appendix must be anonymized, similarly to paper anonymization. The authors must
 
