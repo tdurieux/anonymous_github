@@ -10,11 +10,15 @@ import base64
 
 # non standards, in requirements.txt
 from flask import Flask, request, Markup, render_template, redirect, url_for, send_from_directory
-import requests
 import github
 
 
 def clean_github_repository(repo):
+    """
+    get the username/repository from a Github url
+    :param repo:str the Github url of the repository
+    :return: username/repository
+    """
     if repo is None:
         return None
     repo = repo.replace("http://github.com/", "") \
@@ -25,7 +29,10 @@ def clean_github_repository(repo):
 
 
 class Anonymous_Github:
-    def __init__(self, github_token, host="127.0.0.1", port=5000,
+    def __init__(self,
+                 github_token,
+                 host="127.0.0.1",
+                 port=5000,
                  config_dir='./repositories'):
         self.github_token = github_token if github_token != "" else os.environ["GITHUB_AUTH_TOKEN"]
         self.host = host
@@ -54,21 +61,33 @@ class Anonymous_Github:
         application.jinja_env.add_extension('jinja2.ext.do')
 
         @application.template_filter('remove_terms', )
-        def remove_terms(content, repository):
-            repo = repository['repository']
+        def remove_terms(content, repository_configuration):
+            """
+            remove the blacklisted terms from the content
+            :param content: the content to anonymize
+            :param repository_configuration: the configuration of the repository
+            :return: the anonimized content
+            """
+            repo = repository_configuration['repository']
             if repo[-1] == '/':
                 repo = repo[0:-1]
             content = re.compile(repo + "/blob/master", re.IGNORECASE).sub(
-                self.public_url + "/repository/" + repository["id"], content)
-            content = re.compile(repo, re.IGNORECASE).sub(self.public_url + "/repository/" + repository["id"], content)
-            for term in repository['terms']:
+                self.public_url + "/repository/" + repository_configuration["id"], content)
+            content = re.compile(repo, re.IGNORECASE).sub(self.public_url + "/repository/" + repository_configuration["id"], content)
+            for term in repository_configuration['terms']:
                 content = re.compile(term, re.IGNORECASE).sub("XXX", content)
             return content
 
         @application.template_filter('file_render', )
-        def file_render(file, repository):
+        def file_render(file, repository_configuration):
+            """
+            produce the html representation of a file
+            :param file: the file to display
+            :param repository_configuration: the configuration of the repository
+            :return: the html representation of the file
+            """
             if type(file) == github.Commit.Commit:
-                return Markup(remove_terms(render_template('patch.html', patch=file), repository))
+                return Markup(remove_terms(render_template('patch.html', patch=file), repository_configuration))
             if file.type == 'dir':
                 return ""
             if file.size > 1000000:
@@ -76,13 +95,13 @@ class Anonymous_Github:
                 file.name, file.url, file.name))
             if ".md" in file.name:
                 return Markup("<div class='markdown-body'>%s</div>" % remove_terms(
-                    self.github.render_markdown(file.decoded_content), repository))
+                    self.github.render_markdown(file.decoded_content), repository_configuration))
             if ".jpg" in file.name or ".png" in file.name or ".png" in file.name or ".gif" in file.name:
                 return Markup("<img src='%s' alt='%s'>" % (file.url, file.name))
             if ".html" in file.name:
-                return remove_terms(Markup("<pre><code>%s</code></pre>") % Markup.escape(file.decoded_content), repository)
+                return remove_terms(Markup("<pre><code>%s</code></pre>") % Markup.escape(file.decoded_content), repository_configuration)
             if ".txt" in file.name or ".log" in file.name or ".xml" in file.name or ".json" in file.name or ".java" in file.name or ".py" in file.name:
-                return remove_terms(Markup("<pre>" + file.decoded_content + "</pre>"), repository)
+                return remove_terms(Markup("<pre>" + file.decoded_content + "</pre>"), repository_configuration)
             return Markup("<a href='%s'>Download %s</a>" % (file.url, file.name))
 
         @application.route('/' + application.killurl, methods=['POST'])
@@ -91,7 +110,13 @@ class Anonymous_Github:
             func()
             return "Shutting down..."
 
-        def get_current_element(g_repo, path):
+        def get_element_from_path(g_repo, path):
+            """
+            get a github element from its path
+            :param g_repo: the github repository
+            :param path: the path of the element
+            :return: the element
+            """
             if path == '':
                 return g_repo.get_contents('/')
             current_element = os.path.basename(path)
@@ -103,6 +128,11 @@ class Anonymous_Github:
 
         @application.route('/repository/<id>/commit/<sha>', methods=['GET'])
         def commit(id, sha):
+            """
+            display anonymously a commit from the repository
+            :param id: the repository id
+            :param sha: the commit id
+            """
             config_path = self.config_dir + "/" + str(id) + "/config.json"
             if not os.path.exists(config_path):
                 return render_template('404.html'), 404
@@ -119,10 +149,24 @@ class Anonymous_Github:
                                    path=[])
 
         def is_up_to_date(repository_config, g_repo):
+            """
+            check is the cache is up to date
+            :param repository_config: the repository configuration
+            :param g_repo: the Github repository
+            :return: True if the cache is up to date
+            """
             return 'pushed_at' in repository_config and g_repo.pushed_at.strftime("%s") == repository_config["pushed_at"]
 
-        def get_type_content(file_name, path, data, g_repo):
-            if is_website(path, data, g_repo):
+        def get_type_content(file_name, path, repository_configuration, g_repo):
+            """
+            Get the content type of a file from its extension
+            :param file_name: the filename
+            :param path: the path of the file
+            :param repository_configuration: the repository configuration
+            :param g_repo: the Github repository
+            :return: the content type
+            """
+            if is_website(path, repository_configuration, g_repo):
                 content_type = 'text/plain; charset=utf-8'
                 if ".html" in file_name:
                     content_type = 'text/html; charset=utf-8'
@@ -156,6 +200,15 @@ class Anonymous_Github:
             return 'text/html; charset=utf-8'
 
         def get_content(current_file, files, path, repository_config, g_repo):
+            """
+            get the content if the page
+            :param current_file: the current file
+            :param files: the list of file of the current directory
+            :param path: the accessed path
+            :param repository_config: the repository configuration
+            :param g_repo: the Github repository
+            :return: the content of the page
+            """
             cache_path = os.path.join(self.config_dir, repository_config['id'], "cache")
             file_path = path
             if current_file is not None:
@@ -206,9 +259,24 @@ class Anonymous_Github:
             return content
 
         def is_website(path, repository_config, g_repo):
+            """
+            Check if the current request is a request to a GitHub pages
+            :param path: the current path
+            :param repository_config: the repository configuration
+            :param g_repo: the Github repository
+            :return: True if the current path is a website
+            """
             return path[:4] == "docs"
 
         def get_current_folder_files(path, current_file, repository_config, g_repo):
+            """
+            get the list of files of the current repository
+            :param path: the path to the current file
+            :param current_file: the current file
+            :param repository_config: the repository configuration
+            :param g_repo: the GitHub repository
+            :return: the list of file of the current repository
+            """
             files = []
             if current_file is None:
                 return files, current_file
@@ -222,12 +290,12 @@ class Anonymous_Github:
                 if os.path.dirname(path) == '':
                     files = g_repo.get_git_tree("master")
                 else:
-                    files = g_repo.get_git_tree(get_current_element(g_repo, os.path.dirname(path)).sha)
+                    files = g_repo.get_git_tree(get_element_from_path(g_repo, os.path.dirname(path)).sha)
             else:
                 files = g_repo.get_git_tree(current_file.sha)
                 for f in files.tree:
                     if f.path.lower() == "readme.md" or f.path.lower() == "index.html":
-                        current_file = get_current_element(g_repo, os.path.join(path, f.path))
+                        current_file = get_element_from_path(g_repo, os.path.join(path, f.path))
                         break
             return files, current_file
 
@@ -240,21 +308,22 @@ class Anonymous_Github:
             if not os.path.exists(config_path):
                 return render_template('404.html'), 404
             with open(config_path, 'rw') as f:
-                data = json.load(f)
-                repo = clean_github_repository(data['repository'])
+                repository_configuration = json.load(f)
+                repo = clean_github_repository(repository_configuration['repository'])
                 g_repo = self.github.get_repo(repo)
 
-                if not is_up_to_date(data, g_repo):
+                if not is_up_to_date(repository_configuration, g_repo):
                     if os.path.exists(os.path.join(repo_path, "cache")):
                         shutil.rmtree(os.path.join(repo_path, "cache"))
-                    data["pushed_at"] = g_repo.pushed_at.strftime("%s")
+                    repository_configuration["pushed_at"] = g_repo.pushed_at.strftime("%s")
                     with open(config_path, 'w') as fa:
-                        json.dump(data, fa)
+                        json.dump(repository_configuration, fa)
 
                 cache_path = os.path.join(self.config_dir, id, "cache")
                 if os.path.isfile(os.path.join(cache_path, path)):
                     return send_from_directory(os.path.dirname(os.path.join(cache_path, path)),
-                                               os.path.basename(os.path.join(cache_path, path)), mimetype=get_type_content(path, path, data, g_repo).replace("; charset=utf-8", "")),
+                                               os.path.basename(os.path.join(cache_path, path)),
+                                               mimetype=get_type_content(path, path, repository_configuration, g_repo).replace("; charset=utf-8", "")),
                 elif os.path.exists(os.path.join(cache_path, path, "index.html")):
                     return send_from_directory(os.path.join(cache_path, path), "index.html", mimetype='text/html')
                 elif os.path.exists(os.path.join(cache_path, path, "README.md")):
@@ -264,16 +333,16 @@ class Anonymous_Github:
                 if len(clean_path) > 0 and clean_path[-1] == '/':
                     clean_path = clean_path[0:-1]
 
-                current_file = get_current_element(g_repo, clean_path)
+                current_file = get_element_from_path(g_repo, clean_path)
                 if current_file is None:
                     return render_template('404.html'), 404
                 if type(current_file) == github.ContentFile.ContentFile and current_file.type == 'dir' and len(path) > 0 and path[-1] != '/':
                     return redirect(url_for('repository', id=id, path=path + '/'))
 
-                files, current_file = get_current_folder_files(clean_path, current_file, data, g_repo)
+                files, current_file = get_current_folder_files(clean_path, current_file, repository_configuration, g_repo)
 
-                content = get_content(current_file, files, clean_path, data, g_repo)
-                content_type = get_type_content(current_file.name, clean_path, data, g_repo)
+                content = get_content(current_file, files, clean_path, repository_configuration, g_repo)
+                content_type = get_type_content(current_file.name, clean_path, repository_configuration, g_repo)
 
                 return content, {'Content-Type': content_type}
 
