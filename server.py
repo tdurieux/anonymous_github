@@ -53,7 +53,8 @@ class Anonymous_Github:
         application.killurl = str(uuid.uuid4())
         application.jinja_env.add_extension('jinja2.ext.do')
 
-        def removeTerms(content, repository):
+        @application.template_filter('remove_terms', )
+        def remove_terms(content, repository):
             repo = repository['repository']
             if repo[-1] == '/':
                 repo = repo[0:-1]
@@ -67,21 +68,21 @@ class Anonymous_Github:
         @application.template_filter('file_render', )
         def file_render(file, repository):
             if type(file) == github.Commit.Commit:
-                return Markup(removeTerms(render_template('patch.html', patch=file), repository))
+                return Markup(remove_terms(render_template('patch.html', patch=file), repository))
             if file.type == 'dir':
                 return ""
             if file.size > 1000000:
                 return Markup("The file %s is too big please download it: <a href='%s'>Download %s</a>" % (
                 file.name, file.url, file.name))
             if ".md" in file.name:
-                return Markup("<div class='markdown-body'>%s</div>" % removeTerms(
+                return Markup("<div class='markdown-body'>%s</div>" % remove_terms(
                     self.github.render_markdown(file.decoded_content), repository))
             if ".jpg" in file.name or ".png" in file.name or ".png" in file.name or ".gif" in file.name:
                 return Markup("<img src='%s' alt='%s'>" % (file.url, file.name))
             if ".html" in file.name:
-                return removeTerms(Markup("<pre><code>%s</code></pre>") % Markup.escape(file.decoded_content), repository)
+                return remove_terms(Markup("<pre><code>%s</code></pre>") % Markup.escape(file.decoded_content), repository)
             if ".txt" in file.name or ".log" in file.name or ".xml" in file.name or ".json" in file.name or ".java" in file.name or ".py" in file.name:
-                return removeTerms(Markup("<pre>" + file.decoded_content + "</pre>"), repository)
+                return remove_terms(Markup("<pre>" + file.decoded_content + "</pre>"), repository)
             return Markup("<a href='%s'>Download %s</a>" % (file.url, file.name))
 
         @application.route('/' + application.killurl, methods=['POST'])
@@ -184,9 +185,9 @@ class Anonymous_Github:
                         or ".xml" in current_file.name \
                         or ".json" in current_file.name \
                         or ".js" in current_file.name:
-                    content = removeTerms(content, repository_config)
+                    content = remove_terms(content, repository_config)
                 if ".md" in current_file.name:
-                    content = removeTerms(self.github.render_markdown(content), repository_config)
+                    content = remove_terms(self.github.render_markdown(content), repository_config)
             else:
                 content = render_template('repo.html',
                                        repository=repository_config,

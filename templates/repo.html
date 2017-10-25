@@ -27,7 +27,9 @@
                 <div class="files">
                     {% for item in files %}
                     <div class="{{ item.type }} {% if item.path == current_file.name %}active{% endif %}">
-                        <a href="/repository/{{ current_repository }}/{{ path_directory }}{% if path_directory|length > 0%}/{% endif %}{{ item.path }}{% if item.type == 'tree'%}/{% endif %}">{{ item.path }}</a>
+                        <a href="/repository/{{ current_repository }}/{{ path_directory }}{% if path_directory|length > 0%}/{% endif %}{{ item.path }}{% if item.type == 'tree'%}/{% endif %}">
+                            {{ item.path|remove_terms(repository) }}
+                        </a>
                     </div>
                     {% endfor %}
                </div>
