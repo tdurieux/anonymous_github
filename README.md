@@ -23,6 +23,7 @@ Using Anonymous Github
 To use it, open the main page (eg [http://anonymous.4open.science/](http://anonymous.4open.science/)), and simply fill 1. the Github repo URL and 2. the word list (which can be updated afterwards). 
 The anonymization of the content is done by replacing all occurrences of words in a list by "XXX". 
 The word list is provided by the authors, and typically contains the institution name, author names, logins, etc...
+The README is anonymized as well as all files of the repository. Even filenames are anonymized. 
 
 In a paper under double-blind review, instead of putting a link to Github, one puts a link to the Anonymous Github instance (e.g. 
 <http://anonymous.4open.science/repository/840c8c57-3c32-451e-bf12-0e20be300389/> which is an anomyous version of this repo).
@@ -31,6 +32,9 @@ To start using Anonymous Github right now, a public instance of anonymous_github
 
 **[http://anonymous.4open.science/](http://anonymous.4open.science/)**
 
+By default, Anonymous Github and http://anonymous.4open.science access public repositories. If you want to get a public anonymized URL of a private repository, you must give @tdurieux read access to the repo by adding him as collaborator.
+
+Note that public Github repositories are  not modified and hence are still visible on Github and Google, even after anonymization.
 
 How it works?
 --------------
@@ -51,3 +55,16 @@ See also
 --------
 
 * [Open-science and Double-blind Peer-Review](http://www.monperrus.net/martin/open-science-double-blind)
+
+Todo
+----
+
+add support to:
+
+* Specify a list to file to ignore
+* Ignore file extensions given by the user
+* Remove an anonymized repository
+* Add a timeout on repo before automated removal (eg after the notification date)
+* Customize the XXX
+* Add support for custom Github tokens
+
