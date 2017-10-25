@@ -21,7 +21,13 @@ Anonymous Github anonymizes:
 Using Anonymous Github
 -----------------------
 
-![Anonymous Github usage](https://user-images.githubusercontent.com/5577568/31987418-10145518-b96c-11e7-8e52-58b47bb543b7.gif)
+
+#### How to create a new anonmized repository
+![Anonymous Github usage](https://user-images.githubusercontent.com/5577568/31989885-e1cecff0-b973-11e7-8e3d-a6ded2d1a8d5.gif)
+
+#### How to edit an anonmized repository
+![Anonymous Github usage](https://user-images.githubusercontent.com/5577568/31989888-e1e860c8-b973-11e7-8a45-b2dad401754d.gif)
+
 
 To use it, open the main page (eg [http://anonymous.4open.science/](http://anonymous.4open.science/)), and simply fill 1. the Github repo URL and 2. the word list (which can be updated afterwards). 
 The anonymization of the content is done by replacing all occurrences of words in a list by "XXX". 
