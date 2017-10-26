@@ -17,6 +17,7 @@ Anonymous Github anonymizes:
   * file contents (all extensions, md/txt/java/etc)
   * file and directory names
 
+Question / Feedback / Bug report: please open an issue in this repository.
 
 Using Anonymous Github
 -----------------------
