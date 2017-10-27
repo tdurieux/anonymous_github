@@ -1,6 +1,6 @@
 {% for item in patch.files %}
-<section class="diff">
+<section>
     <h3>{{ item.filename }}</h3>
-    <pre><code>{{ item.patch }}</code></pre>
+    <pre><code class="diff">{{ item.patch }}</code></pre>
 </section>
 {% endfor %}
