@@ -1,6 +1,11 @@
 language: python
 python:
-  - "2.7"
-  - "3.2"
+- '2.7'
+- '3.2'
 install:
-  - pip install -r requirements.txt
+- pip install -r requirements.txt
+script:
+- python -m unittest discover
+env:
+  global:
+    secure: PKmngr3eae91tw8QAWhG4u2Ad9sstHde5Q/1GObRXcH6Ky7AD+u1bekOWztLZCdmF83/FA4fDTMJK+7+GN1jtqnJCxpVd8jGcCzxdnP3ILIB5R6u9RNSQaQdnJ+mnC0wEXtHML4MTGJ331B1bttyo66XfEWz2szrB9u4Uic0HpexPoBnCD/zmmv+HJjVkZAC4KpAQmO6/JrMg3QFet2NBEnPl5wU33pxJ/SdbQl+A75Eqlix8bfs8yfapHhm9qKrfCCB90lMqaLVdSoYmzLo2WLv6TR+uAszzEe6YzglzXFlKFIm2h9+7ftCmRAJAHybEp/JjDhFvp4xD6svaLfbEFy1Ng6a447lGekike4a176QNs0jKxS+pf+TYzBVDJo+GhRZ1HESmOhCuESZcGZpFke1iQzcCZOR9jlgdjeahe6IiyHF2QgrX5NyJm7l7XvRaSv6jIhrCOAKvysxOV9YNr59wQu1nMWpuv9+LhrJ6bKgBqJkkmayVoSmnA5I8a219IA2WLWCDtZWfgiWWE1GW1J/t+P0YD/6mX71gPmLMymxK+vw+z6cfhQvgPBYllEk7cjDywXOajm54IE0s8lcmj9uGUJ21F6kLBLudAUTQbN4HCMMiSvemY069XzVvIhOTJy0OAYTdwbsXg6MOuCpf9n2S4vr1xC2cOkO62GXu7A=
