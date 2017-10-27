@@ -312,6 +312,8 @@ class Anonymous_Github:
                     if f.path.lower() == "readme.md" or f.path.lower() == "index.html":
                         current_file = get_element_from_path(g_repo, os.path.join(path, f.path))
                         break
+                if len(files.tree) == 1:
+                    current_file = get_element_from_path(g_repo, os.path.join(path, files.tree[0].path))
             return files, current_file
 
         @application.route('/repository/<id>', methods=['GET'], defaults={'path': ''})
