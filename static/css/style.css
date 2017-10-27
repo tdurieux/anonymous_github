@@ -3,8 +3,12 @@
     margin: auto;
 }
 
+.hljs {
+    background: #FFFFFF;
+}
+
 .files {
-    border: 1px solid #dddddd;
+    border: 1px solid #DDDDDD;
     border-bottom: initial;
     margin: 15px;
     border-radius: 5px;
@@ -38,4 +42,20 @@
     content: '/';
     color: #dddddd;
     padding-left: 4px;
+}
+
+
+@media (max-width: 640px) {
+    .main {
+        width: 100%;
+    }
+    .container-fluid {
+        padding: 0;
+    }
+    .files {
+        margin: 0;
+        border-left: 0;
+        border-right: 0;
+        border-radius: 0;
+    }
 }

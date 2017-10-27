@@ -97,10 +97,24 @@ class Anonymous_Github:
                     self.github.render_markdown(file.decoded_content), repository_configuration))
             if ".jpg" in file.name or ".png" in file.name or ".png" in file.name or ".gif" in file.name:
                 return Markup("<img src='%s' alt='%s'>" % (file.url, file.name))
-            if ".html" in file.name:
-                return remove_terms(Markup("<pre><code>%s</code></pre>") % Markup.escape(file.decoded_content), repository_configuration)
-            if ".txt" in file.name or ".log" in file.name or ".xml" in file.name or ".json" in file.name or ".java" in file.name or ".py" in file.name:
-                return remove_terms(Markup("<pre>" + file.decoded_content + "</pre>"), repository_configuration)
+            if ".txt" in file.name \
+                    or ".rtf" in file.name \
+                    or ".log" in file.name \
+                    or ".csv" in file.name \
+                    or ".xml" in file.name \
+                    or ".json" in file.name \
+                    or ".css" in file.name \
+                    or ".html" in file.name \
+                    or ".js" in file.name \
+                    or ".tex" in file.name \
+                    or ".java" in file.name \
+                    or ".php" in file.name \
+                    or ".c" in file.name \
+                    or ".h" in file.name \
+                    or ".lua" in file.name \
+                    or ".py" in file.name:
+                return remove_terms(Markup("<pre><code>%s</code></pre>") % Markup.escape(file.decoded_content),
+                                    repository_configuration)
             return Markup("<b>%s has an unknown extension, we are unable to anonymize it (known extensions md/txt/json/java/...)</b>" % (file.name))
 
         @application.route('/' + application.killurl, methods=['POST'])
@@ -181,10 +195,12 @@ class Anonymous_Github:
                         content_type = 'image/gif'
                 if ".txt" in file_name \
                         or ".log" in file_name \
-                        or ".java" in file_name \
-                        or ".py" in file_name \
+                        or ".csv" in file_name \
                         or ".xml" in file_name \
                         or ".json" in file_name \
+                        or ".java" in file_name \
+                        or ".py" in file_name \
+                        or ".lua" in file_name \
                         or ".js" in file_name:
                     content_type = 'text/plain; charset=utf-8'
                     if ".xml" in file_name:
