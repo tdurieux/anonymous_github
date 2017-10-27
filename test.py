@@ -27,8 +27,7 @@ class FlaskrTestCase(unittest.TestCase):
         try:
             ast.parse(open('server.py').read())
             assert True
-        except SyntaxError as exc:
-            print(exc)
+        except SyntaxError:
             assert False
 
     def test_index(self):
