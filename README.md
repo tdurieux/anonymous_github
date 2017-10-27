@@ -64,16 +64,3 @@ See also
 --------
 
 * [Open-science and Double-blind Peer-Review](http://www.monperrus.net/martin/open-science-double-blind)
-
-Todo
-----
-
-add support to:
-
-* Specify a list to file to ignore
-* Ignore file extensions given by the user
-* Remove an anonymized repository
-* Add a timeout on repo before automated removal (eg after the notification date)
-* Customize the XXX
-* Add support for custom Github tokens
-
