@@ -3,7 +3,10 @@ import uuid
 import json
 import socket
 import os
-import urllib
+try:
+    from urllib import quote  # Python 2.X
+except ImportError:
+    from urllib.parse import quote  # Python 3+
 import re
 import shutil
 import base64
@@ -71,9 +74,9 @@ class Anonymous_Github:
             repo = repository_configuration['repository']
             if repo[-1] == '/':
                 repo = repo[0:-1]
-            content = re.compile(repo + "/blob/master", re.IGNORECASE).sub(
-                self.public_url + "/repository/" + repository_configuration["id"], content)
-            content = re.compile(repo, re.IGNORECASE).sub(self.public_url + "/repository/" + repository_configuration["id"], content)
+            content = re.compile("%s/blob/master" % repo, re.IGNORECASE).sub(
+                "%s/repository/%s" % (self.public_url, repository_configuration["id"]), content)
+            content = re.compile(repo, re.IGNORECASE).sub("%s/repository/%s" % (self.public_url, repository_configuration["id"]), content)
             for term in repository_configuration['terms']:
                 content = re.compile(term, re.IGNORECASE).sub("XXX", content)
             return content
@@ -94,7 +97,8 @@ class Anonymous_Github:
                 return Markup("The file %s is too big to be anonymized (beyond 1MB, Github limit)" % (file.name))
             if ".md" in file.name:
                 return Markup("<div class='markdown-body'>%s</div>" % remove_terms(
-                    self.github.render_markdown(file.decoded_content), repository_configuration))
+                    self.github.render_markdown(file.decoded_content.decode('utf-8')).decode('utf-8'),
+                    repository_configuration))
             if ".jpg" in file.name or ".png" in file.name or ".png" in file.name or ".gif" in file.name:
                 return Markup("<img src='%s' alt='%s'>" % (file.url, file.name))
             if ".txt" in file.name \
@@ -113,8 +117,8 @@ class Anonymous_Github:
                     or ".h" in file.name \
                     or ".lua" in file.name \
                     or ".py" in file.name:
-                return remove_terms(Markup("<pre><code>%s</code></pre>") % Markup.escape(file.decoded_content),
-                                    repository_configuration)
+                return Markup("<pre><code>{}</code></pre>")\
+                           .format(Markup.escape(remove_terms(file.decoded_content.decode("utf-8"), repository_configuration)))
             return Markup("<b>%s has an unknown extension, we are unable to anonymize it (known extensions md/txt/json/java/...)</b>" % (file.name))
 
         @application.route('/' + application.killurl, methods=['POST'])
@@ -133,7 +137,7 @@ class Anonymous_Github:
             if path == '':
                 return g_repo.get_contents('/')
             current_element = os.path.basename(path)
-            folder_content = g_repo.get_contents(urllib.quote(os.path.dirname(path)))
+            folder_content = g_repo.get_contents(quote(os.path.dirname(path)))
             for file in folder_content:
                 if file.name == current_element:
                     return file
@@ -240,9 +244,9 @@ class Anonymous_Github:
                 if current_file.size > 1000000:
                     blob = g_repo.get_git_blob(current_file.sha)
                     if blob.encoding == 'base64':
-                        content = base64.b64decode(blob.content)
+                        content = base64.b64decode(blob.content).decode('utf-8')
                     else:
-                        content = blob.content
+                        content = blob.content.decode('utf-8')
                 else:
                     content = current_file.decoded_content
                 if ".html" in current_file.name \
@@ -255,7 +259,7 @@ class Anonymous_Github:
                         or ".js" in current_file.name:
                     content = remove_terms(content, repository_config)
                 if ".md" in current_file.name:
-                    content = remove_terms(self.github.render_markdown(content), repository_config)
+                    content = remove_terms(self.github.render_markdown(content).decode('utf-8'), repository_config)
             else:
                 content = render_template('repo.html',
                                        repository=repository_config,
@@ -324,7 +328,7 @@ class Anonymous_Github:
             config_path = repo_path + "/config.json"
             if not os.path.exists(config_path):
                 return render_template('404.html'), 404
-            with open(config_path, 'rw') as f:
+            with open(config_path, 'r') as f:
                 repository_configuration = json.load(f)
                 repo = clean_github_repository(repository_configuration['repository'])
                 g_repo = self.github.get_repo(repo)

@@ -1,4 +1,4 @@
-import os
+import ast
 import unittest
 import tempfile
 import uuid
@@ -23,14 +23,22 @@ class FlaskrTestCase(unittest.TestCase):
         })
         return anonymous_id
 
+    def test_source_code_compatible(self):
+        try:
+            ast.parse(open('server.py').read())
+            assert True
+        except SyntaxError as exc:
+            print(exc)
+            assert False
+
     def test_index(self):
         rv = self.app.get("/")
-        assert "<title>GitHub Anonymous</title>" in rv.data
+        assert b"<title>GitHub Anonymous</title>" in rv.data
 
     def test_create_repository(self):
         anonymous_id = self.create_repository("https://github.com/tdurieux/anonymous_github/", "github")
         rv = self.app.get("/repository/%s/" % anonymous_id)
-        assert "Anonymous XXX" in rv.data
+        assert b"Anonymous XXX" in rv.data
 
 
 if __name__ == '__main__':
