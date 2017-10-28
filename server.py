@@ -274,7 +274,7 @@ class Anonymous_Github:
             if not os.path.exists(os.path.dirname(content_cache_path)):
                 os.makedirs(os.path.dirname(content_cache_path))
             with open(content_cache_path, 'w') as f:
-                f.write(content)
+                f.write(content.encode('utf8'))
             return content
 
         def is_website(path, repository_config, g_repo):
