@@ -248,7 +248,7 @@ class Anonymous_Github:
                     else:
                         content = blob.content.decode('utf-8')
                 else:
-                    content = current_file.decoded_content
+                    content = current_file.decoded_content.decode('utf-8')
                 if ".html" in current_file.name \
                         or ".txt" in current_file.name \
                         or ".log" in current_file.name \
