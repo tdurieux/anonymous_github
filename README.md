@@ -23,7 +23,7 @@ Using Anonymous Github
 -----------------------
 
 
-#### How to create a new anonymized repository
+## How to create a new anonymized repository
 ![Anonymous Github usage](https://user-images.githubusercontent.com/5577568/31989885-e1cecff0-b973-11e7-8e3d-a6ded2d1a8d5.gif)
 
 To use it, open the main page (eg [http://anonymous.4open.science/](http://anonymous.4open.science/)), and simply fill 1. the Github repo URL and 2. the word list (which can be updated afterwards). 
@@ -38,11 +38,16 @@ To start using Anonymous Github right now, a public instance of anonymous_github
 
 **[http://anonymous.4open.science/](http://anonymous.4open.science/)**
 
-By default, Anonymous Github and http://anonymous.4open.science access public repositories. If you want to get a public anonymized URL of a private repository, you must give @tdurieux read access to the repo by adding him as collaborator.
+## What is the scope of anonymization?
 
-Note that public Github repositories are  not modified and hence are still visible on Github and Google, even after anonymization.
+In double-blind peer-review, the boundary of anonymization is the paper plus its online appendix, and only this, it's not the whole world. Googling any part of the paper or the online appendix can be considered as deliberate attempt to break anonymity ([explanation](http://www.monperrus.net/martin/open-science-double-blind))
 
-#### How to edit an anonymized repository
+By default, Anonymous Github and http://anonymous.4open.science access public repositories. Public Github repositories are  not modified and hence are still visible on Github and Google, even after anonymization.  
+
+**Anonymizing private repositories**: If you want to get a public anonymized URL of a private repository, you must give @tdurieux read access to the repo by adding him as collaborator.
+
+
+## How to edit an anonymized repository
 ![Anonymous Github usage](https://user-images.githubusercontent.com/5577568/31989888-e1e860c8-b973-11e7-8a45-b2dad401754d.gif)
 
 How it works?
