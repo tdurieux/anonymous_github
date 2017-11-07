@@ -65,6 +65,10 @@ pip install -r requirements.txt
 python server.py -token <github_auth_token>
 ```
 
+Related tools
+--------------
+[gitmask](https://www.gitmask.com/) is a tool to anonymously contribute to a Github repository.
+
 See also
 --------
 
