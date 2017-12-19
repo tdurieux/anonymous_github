@@ -69,6 +69,8 @@ Related tools
 --------------
 [gitmask](https://www.gitmask.com/) is a tool to anonymously contribute to a Github repository.
 
+[blind-reviews](https://github.com/zombie/blind-reviews/) is a browser add-on that enables a person reviewing a GitHub pull request to hide identifying information about the person submitting it.
+
 See also
 --------
 
