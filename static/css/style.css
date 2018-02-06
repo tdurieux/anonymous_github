@@ -16,15 +16,30 @@
 
 .files a {
     display: block;
-    padding: 9px;
+    padding: 9px 9px 9px 30px;
 }
 
 .files .blob, .files .tree, .files .parent_folder {
+    position: relative;
     border-bottom: 1px solid #dddddd;
 }
 
 .files .blob.active, .files .blob:hover, .files .tree:hover, .files .parent_folder:hover {
     background: #f0f0f0;
+}
+
+.files .tree::before, .files .blob::before {
+    content: "\f07b";
+    font-family: Font Awesome\ 5 Free;
+    position: absolute;
+    left: 0px;
+    width: 7px;
+    padding: 9px;
+    color: #007bff;
+}
+
+.files .blob::before {
+    content: "\f15b";
 }
 
 .paths {
