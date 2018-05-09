@@ -315,6 +315,8 @@ class Anonymous_Github:
                     if f.name.lower() == "readme" or f.name.lower() == "index.html":
                         current_file = f
                         break
+                if type(current_file) is not github.ContentFile.ContentFile:
+                    current_file = current_file[0]
             elif current_file.type == 'file':
                 if os.path.dirname(path) == '':
                     files = g_repo.get_git_tree(g_commit.sha)
