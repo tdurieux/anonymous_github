@@ -102,7 +102,7 @@ class Anonymous_Github:
                 return ""
             if file.size > 1000000:
                 return Markup("The file %s is too big to be anonymized (beyond 1MB, Github limit)" % (file.name))
-            if ".md" in file.name:
+            if ".md" in file.name or file.name == file.name.upper() or "changelog" == file.name.lower():
                 return Markup("<div class='markdown-body'>%s</div>" % remove_terms(
                     self.github.render_markdown(file.decoded_content.decode('utf-8')).decode('utf-8'),
                     repository_configuration))
@@ -197,7 +197,7 @@ class Anonymous_Github:
                 content_type = 'text/plain; charset=utf-8'
                 if ".html" in file_name:
                     content_type = 'text/html; charset=utf-8'
-                if ".md" in file_name:
+                if ".md" in file_name or file.name == file.name.upper():
                     content_type = 'text/html; charset=utf-8'
                 if ".jpg" in file_name \
                         or ".png" in file_name \
@@ -312,7 +312,7 @@ class Anonymous_Github:
             if type(current_file) is not github.ContentFile.ContentFile:
                 files = g_repo.get_git_tree(g_commit.sha)
                 for f in current_file:
-                    if f.name.lower() == "readme.md" or f.name.lower() == "index.html":
+                    if f.name.lower() == "readme" or f.name.lower() == "index.html":
                         current_file = f
                         break
             elif current_file.type == 'file':
@@ -376,7 +376,6 @@ class Anonymous_Github:
 
                 content = get_content(current_file, files, clean_path, repository_configuration, g_repo)
                 content_type = get_type_content(current_file.name, clean_path, repository_configuration, g_repo)
-
                 return content, {'Content-Type': content_type}
 
         @application.route('/', methods=['GET'])
