@@ -125,6 +125,7 @@ class Anonymous_Github:
                     or ".lua" in file.name \
                     or ".py" in file.name \
                     or ".sh" in file.name \
+                    or ".gitignore" in file.name \
                     or ".travis.yml" in file.name:
                 return Markup("<pre><code>{}</code></pre>")\
                            .format(Markup.escape(remove_terms(file.decoded_content.decode("utf-8"), repository_configuration)))
@@ -297,6 +298,18 @@ class Anonymous_Github:
             """
             return path[:4] == "docs"
 
+        def is_default_file(f):
+            try:
+                f.name.lower().index("readme")
+                return True
+            except ValueError:
+                try:
+                    f.name.lower().index("index")
+                    return True
+                except ValueError:
+                    pass
+            return False
+
         def get_current_folder_files(path, current_file, repository_config, g_repo, g_commit):
             """
             get the list of files of the current repository
@@ -312,7 +325,7 @@ class Anonymous_Github:
             if type(current_file) is not github.ContentFile.ContentFile:
                 files = g_repo.get_git_tree(g_commit.sha)
                 for f in current_file:
-                    if f.name.lower() == "readme" or f.name.lower() == "index.html":
+                    if is_default_file(f):
                         current_file = f
                         break
                 if type(current_file) is not github.ContentFile.ContentFile:
@@ -325,10 +338,10 @@ class Anonymous_Github:
             else:
                 files = g_repo.get_git_tree(current_file.sha)
                 for f in files.tree:
-                    if f.path.lower() == "readme.md" or f.path.lower() == "index.html":
+                    if is_default_file(f):
                         current_file = get_element_from_path(g_repo, g_commit, os.path.join(path, f.path))
                         break
-                if len(files.tree) == 1:
+                if len(files.tree) == 1 and type(files.tree[0]) is github.ContentFile.ContentFile:
                     current_file = get_element_from_path(g_repo, g_commit, os.path.join(path, files.tree[0].path))
             return files, current_file
 
