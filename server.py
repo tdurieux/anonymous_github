@@ -299,15 +299,16 @@ class Anonymous_Github:
             return path[:4] == "docs"
 
         def is_default_file(f):
-            try:
-                f.name.lower().index("readme")
-                return True
-            except ValueError:
+            default_name = ["readme", "index"]
+            for name in default_name:
                 try:
-                    f.name.lower().index("index")
+                    if type(f) is github.ContentFile.ContentFile:
+                        f.name.lower().index(name)
+                    elif type(f) is github.GitTreeElement.GitTreeElement:
+                        f.path.lower().index(name)
                     return True
                 except ValueError:
-                    pass
+                    continue
             return False
 
         def get_current_folder_files(path, current_file, repository_config, g_repo, g_commit):
