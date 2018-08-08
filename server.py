@@ -86,7 +86,7 @@ class Anonymous_Github:
         application.jinja_env.add_extension('jinja2.ext.do')
 
         @application.template_filter('remove_terms', )
-        def remove_terms(content, repository_configuration):
+        def remove_terms(content, repository_configuration, word_boundaries=True):
             """
             remove the blacklisted terms from the content
             :param content: the content to anonymize
@@ -100,7 +100,10 @@ class Anonymous_Github:
                 "%s/repository/%s" % (self.public_url, repository_configuration["id"]), content)
             content = re.compile(repo, re.IGNORECASE).sub("%s/repository/%s" % (self.public_url, repository_configuration["id"]), content)
             for term in repository_configuration['terms']:
-                content = re.compile(term, re.IGNORECASE).sub("XXX", content)
+                if word_boundaries:
+                    content = re.compile(r'\b%s\b' % term, re.IGNORECASE).sub("XXX", content)
+                else:
+                    content = re.compile(term, re.IGNORECASE).sub("XXX", content)
             return content
 
         @application.template_filter('file_render', )
