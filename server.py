@@ -9,6 +9,7 @@ except ImportError:
     from urllib.parse import quote  # Python 3+
 import re
 import shutil
+import string
 import base64
 from datetime import datetime
 
@@ -36,6 +37,20 @@ def clean_github_repository(repo):
         if split_repo[2] == "tree":
             branch = split_repo[3]
     return username, repository, branch
+
+TEXT_CHARACTERS = ''.join([chr(code) for code in range(32,127)] + list('\b\f\n\r\t'))
+def istext(s, threshold=0.30):
+    # if s contains any null, it's not text:
+    if '\x00' in s:
+        return False
+    # an "empty" string is "text" (arbitrary but reasonable choice):
+    if not s:
+        return True
+    # Get the substring of s made up of non-text characters
+    translate_table = dict((ord(char), None) for char in TEXT_CHARACTERS)
+    binary_length = float(len(s.translate(None, TEXT_CHARACTERS)))
+    # s is 'text' if less than 30% of its characters are non-text ones:
+    return binary_length/len(s) <= threshold
 
 
 class Anonymous_Github:
@@ -108,25 +123,7 @@ class Anonymous_Github:
                     repository_configuration))
             if ".jpg" in file.name or ".png" in file.name or ".png" in file.name or ".gif" in file.name:
                 return Markup("<img src='%s' alt='%s'>" % (file.url, file.name))
-            if ".txt" in file.name \
-                    or ".rtf" in file.name \
-                    or ".log" in file.name \
-                    or ".csv" in file.name \
-                    or ".xml" in file.name \
-                    or ".json" in file.name \
-                    or ".css" in file.name \
-                    or ".html" in file.name \
-                    or ".js" in file.name \
-                    or ".tex" in file.name \
-                    or ".java" in file.name \
-                    or ".php" in file.name \
-                    or ".c" in file.name \
-                    or ".h" in file.name \
-                    or ".lua" in file.name \
-                    or ".py" in file.name \
-                    or ".sh" in file.name \
-                    or ".gitignore" in file.name \
-                    or ".travis.yml" in file.name:
+            if istext(file.decoded_content):
                 return Markup("<pre><code>{}</code></pre>")\
                            .format(Markup.escape(remove_terms(file.decoded_content.decode("utf-8"), repository_configuration)))
             return Markup("<b>%s has an unknown extension, we are unable to anonymize it (known extensions md/txt/json/java/...)</b>" % (file.name))
