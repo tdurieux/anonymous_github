@@ -434,7 +434,7 @@ class Anonymous_Github:
 
 def initParser():
     parser = argparse.ArgumentParser(description='Start Anonymous Github')
-    parser.add_argument('-token', required=True, help='GitHuh token')
+    parser.add_argument('-token', required=True, help='GitHub token')
     parser.add_argument('-host', help='The hostname', default="127.0.0.1")
     parser.add_argument('-port', help='The port of the application', default=5000)
     parser.add_argument('-config_dir', help='The repository that will contains the configuration files',
