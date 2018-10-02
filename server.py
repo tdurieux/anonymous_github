@@ -15,7 +15,7 @@ from datetime import datetime
 
 # non standards, in requirements.txt
 from flask import Flask, request, Markup, render_template, redirect, url_for, send_from_directory
-import github
+import github   
 
 
 def clean_github_repository(repo):
@@ -40,15 +40,22 @@ def clean_github_repository(repo):
 
 TEXT_CHARACTERS = ''.join([chr(code) for code in range(32,127)] + list('\b\f\n\r\t'))
 def istext(s, threshold=0.30):
+    if type(s) != str:
+        s = s.decode('utf8')
     # if s contains any null, it's not text:
     if '\x00' in s:
         return False
     # an "empty" string is "text" (arbitrary but reasonable choice):
     if not s:
         return True
-    # Get the substring of s made up of non-text characters
-    translate_table = dict((ord(char), None) for char in TEXT_CHARACTERS)
-    binary_length = float(len(s.translate(None, TEXT_CHARACTERS)))
+    
+    binary_length = 0
+    try:
+        binary_length = float(len(s.translate(None, TEXT_CHARACTERS)))
+    except TypeError:
+        print("error")
+        translate_table = dict((ord(char), None) for char in TEXT_CHARACTERS)
+        binary_length = float(len(s.translate(str.maketrans(translate_table))))
     # s is 'text' if less than 30% of its characters are non-text ones:
     return binary_length/len(s) <= threshold
 
@@ -122,7 +129,7 @@ class Anonymous_Github:
                 return Markup("The file %s is too big to be anonymized (beyond 1MB, Github limit)" % (file.name))
             if ".md" in file.name or file.name == file.name.upper() or "changelog" == file.name.lower():
                 return Markup("<div class='markdown-body'>%s</div>" % remove_terms(
-                    self.github.render_markdown(file.decoded_content.decode('utf-8')).decode('utf-8'),
+                    self.github.render_markdown(file.decoded_content.decode('utf-8')),
                     repository_configuration))
             if ".jpg" in file.name or ".png" in file.name or ".png" in file.name or ".gif" in file.name:
                 return Markup("<img src='%s' alt='%s'>" % (file.url, file.name))
@@ -185,7 +192,7 @@ class Anonymous_Github:
             commit_date = datetime.strptime(g_commit.last_modified, "%a, %d %b %Y %H:%M:%S %Z")
             return 'pushed_at' in repository_config and commit_date.strftime("%s") == repository_config["pushed_at"]
 
-        def get_type_content(file_name, path, repository_configuration, g_repo):
+        def get_type_content(file_name, path, repository_configuration, g_repo, is_website):
             """
             Get the content type of a file from its extension
             :param file_name: the filename
@@ -194,11 +201,11 @@ class Anonymous_Github:
             :param g_repo: the Github repository
             :return: the content type
             """
-            if is_website(path, repository_configuration, g_repo):
+            if is_website:
                 content_type = 'text/plain; charset=utf-8'
                 if ".html" in file_name:
                     content_type = 'text/html; charset=utf-8'
-                if ".md" in file_name or file.name == file.name.upper():
+                if ".md" in file_name or file_name == file_name.upper():
                     content_type = 'text/html; charset=utf-8'
                 if ".jpg" in file_name \
                         or ".png" in file_name \
@@ -249,9 +256,9 @@ class Anonymous_Github:
             cached_file_path = os.path.join(cache_path, file_path)
             if os.path.exists(cached_file_path):
                 return send_from_directory(os.path.dirname(cached_file_path), os.path.basename(cached_file_path),
-                                           mimetype=get_type_content(path, path, repository_config, g_repo).replace("; charset=utf-8", ""))
+                                           mimetype=get_type_content(path, path, repository_config, g_repo, False).replace("; charset=utf-8", ""))
             content = ''
-            if is_website(path, repository_config, g_repo):
+            if current_file.type != 'dir' and is_website(path, repository_config, g_repo):
                 if current_file.size > 1000000:
                     blob = g_repo.get_git_blob(current_file.sha)
                     if blob.encoding == 'base64':
@@ -259,6 +266,7 @@ class Anonymous_Github:
                     else:
                         content = blob.content.decode('utf-8')
                 else:
+                    print(current_file.type)
                     content = current_file.decoded_content.decode('utf-8')
                 if ".html" in current_file.name \
                         or ".txt" in current_file.name \
@@ -270,7 +278,7 @@ class Anonymous_Github:
                         or ".js" in current_file.name:
                     content = remove_terms(content, repository_config)
                 if ".md" in current_file.name:
-                    content = remove_terms(self.github.render_markdown(content).decode('utf-8'), repository_config)
+                    content = remove_terms(self.github.render_markdown(content), repository_config)
             else:
                 content = render_template('repo.html',
                                        repository=repository_config,
@@ -285,7 +293,10 @@ class Anonymous_Github:
             if not os.path.exists(os.path.dirname(content_cache_path)):
                 os.makedirs(os.path.dirname(content_cache_path))
             with open(content_cache_path, 'w') as f:
-                f.write(content.encode('utf8'))
+                if type(content) == str:
+                    f.write(content)
+                else:
+                    f.write(content.encode('utf8'))
             return content
 
         def is_website(path, repository_config, g_repo):
@@ -370,9 +381,10 @@ class Anonymous_Github:
 
                 cache_path = os.path.join(self.config_dir, id, "cache")
                 if os.path.isfile(os.path.join(cache_path, path)):
+                    print("here", path)
                     return send_from_directory(os.path.dirname(os.path.join(cache_path, path)),
                                                os.path.basename(os.path.join(cache_path, path)),
-                                               mimetype=get_type_content(path, path, repository_configuration, g_repo).replace("; charset=utf-8", "")),
+                                               mimetype=get_type_content(path, path, repository_configuration, g_repo, is_website(path, repository_configuration, g_repo)).replace("; charset=utf-8", ""))
                 elif os.path.exists(os.path.join(cache_path, path, "index.html")):
                     return send_from_directory(os.path.join(cache_path, path), "index.html", mimetype='text/html')
                 elif os.path.exists(os.path.join(cache_path, path, "README.md")):
@@ -391,7 +403,7 @@ class Anonymous_Github:
                 files, current_file = get_current_folder_files(clean_path, current_file, repository_configuration, g_repo, g_commit)
 
                 content = get_content(current_file, files, clean_path, repository_configuration, g_repo)
-                content_type = get_type_content(current_file.name, clean_path, repository_configuration, g_repo)
+                content_type = get_type_content(current_file.name, clean_path, repository_configuration, g_repo, False)
                 return content, {'Content-Type': content_type}
 
         @application.route('/', methods=['GET'])

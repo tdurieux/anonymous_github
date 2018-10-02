@@ -39,6 +39,16 @@ class FlaskrTestCase(unittest.TestCase):
         rv = self.app.get("/repository/%s/" % anonymous_id)
         assert b"Anonymous XXX" in rv.data
 
+    def test_open_pomxml(self):
+        anonymous_id = self.create_repository("https://github.com/SpoonLabs/astor", "astor")
+        rv = self.app.get("/repository/%s/pom.xml" % anonymous_id)
+        assert b"XXX: AST transformation for Repairs" in rv.data
+
+    def test_web_site_repository(self):
+        anonymous_id = self.create_repository("https://github.com/SpoonLabs/astor", "astor")
+        rv = self.app.get("/repository/%s/docs/getting-starting.md" % anonymous_id)
+        assert b"Getting started XXX" in rv.data
+
 
 if __name__ == '__main__':
     unittest.main()
