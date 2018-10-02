@@ -58,11 +58,20 @@ The anonymization of the URL is achieved though proxying all requests.
 Installing Anonymous Github
 ----------------------------
 
+## From Source
+
 ```
 git clone https://github.com/tdurieux/anonymous_github/
 cd anonymous_github
 pip install -r requirements.txt
 python server.py -token <github_auth_token>
+```
+
+## From Docker
+
+```bash
+docker pull tdurieux/anonymous_github:latest
+docker run tdurieux/anonymous_github -token <github_auth_token> --host <hostname> --port <port>
 ```
 
 Related tools
