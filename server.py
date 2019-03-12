@@ -371,6 +371,9 @@ class Anonymous_Github:
         @application.route('/repository/<id>', methods=['GET'], defaults={'path': ''})
         @application.route('/repository/<id>/', methods=['GET'], defaults={'path': ''})
         @application.route('/repository/<id>/<path:path>', methods=['GET'])
+        @application.route('/r/<id>', methods=['GET'], defaults={'path': ''})
+        @application.route('/r/<id>/', methods=['GET'], defaults={'path': ''})
+        @application.route('/r/<id>/<path:path>', methods=['GET'])
         def repository(id, path):
             repo_path = self.config_dir + "/" + str(id)
             config_path = repo_path + "/config.json"
