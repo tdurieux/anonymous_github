@@ -93,7 +93,7 @@ class Anonymous_Github:
         application.jinja_env.add_extension('jinja2.ext.do')
 
         @application.template_filter('remove_terms', )
-        def remove_terms(content, repository_configuration, word_boundaries=True):
+        def remove_terms(content, repository_configuration, word_boundaries=True, whole_urls=True):
             """
             remove the blacklisted terms from the content
             :param content: the content to anonymize
@@ -108,9 +108,20 @@ class Anonymous_Github:
             content = re.compile(repo, re.IGNORECASE).sub("%s/repository/%s" % (self.public_url, repository_configuration["id"]), content)
             for term in repository_configuration['terms']:
                 if word_boundaries:
-                    content = re.compile(r'\b%s\b' % term, re.IGNORECASE).sub("XXX", content)
+                    regex = re.compile(r'\b%s\b' % term, re.IGNORECASE)
                 else:
-                    content = re.compile(term, re.IGNORECASE).sub("XXX", content)
+                    regex = re.compile(term, re.IGNORECASE)
+
+                if whole_urls:
+                    def sub_url(m):
+                        if regex.search(m.group(0)):
+                            return 'XXX'
+                        return m.group(0)
+
+                    url_regex = re.compile('\\b((https?|ftp|file)://)[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]\\b')
+                    content = url_regex.sub(sub_url, content)
+
+                content = regex.sub("XXX", content)
             return content
 
         @application.template_filter('file_render', )
