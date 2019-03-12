@@ -118,7 +118,7 @@ class Anonymous_Github:
                             return 'XXX'
                         return m.group(0)
 
-                    url_regex = re.compile('\b((https?|ftp|file)://)[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]\b')
+                    url_regex = re.compile('\\b((https?|ftp|file)://)[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]\\b')
                     content = url_regex.sub(sub_url, content)
 
                 content = regex.sub("XXX", content)
