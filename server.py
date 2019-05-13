@@ -15,6 +15,7 @@ from datetime import datetime
 
 # non standards, in requirements.txt
 from flask import Flask, request, Markup, render_template, redirect, url_for, send_from_directory
+from flask_gzip import Gzip
 import github   
 
 
@@ -88,6 +89,7 @@ class Anonymous_Github:
 
     def create_flask_application(self):
         application = Flask(__name__)
+        gzip = Gzip(application)
         application.log = {}
         application.killurl = str(uuid.uuid4())
         application.jinja_env.add_extension('jinja2.ext.do')
@@ -395,7 +397,6 @@ class Anonymous_Github:
 
                 cache_path = os.path.join(self.config_dir, id, "cache")
                 if os.path.isfile(os.path.join(cache_path, path)):
-                    print("here", path)
                     return send_from_directory(os.path.dirname(os.path.join(cache_path, path)),
                                                os.path.basename(os.path.join(cache_path, path)),
                                                mimetype=get_type_content(path, path, repository_configuration, g_repo, is_website(path, repository_configuration, g_repo)).replace("; charset=utf-8", ""))
