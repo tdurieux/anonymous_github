@@ -391,7 +391,11 @@ class Anonymous_Github:
                 repository_configuration = json.load(f)
                 (username, repo, branch) = clean_github_repository(repository_configuration['repository'])
                 g_repo = self.github.get_repo("%s/%s" % (username, repo))
-                g_commit = g_repo.get_commit(branch)
+                g_commit = None
+                try:
+                    g_commit = g_repo.get_commit(branch)
+                except:
+                    return render_template('empty.html'), 404
 
                 if not is_up_to_date(repository_configuration, g_commit):
                     if os.path.exists(os.path.join(repo_path, "cache")):
