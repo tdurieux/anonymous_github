@@ -165,13 +165,13 @@ class Anonymous_Github:
             :return: the element
             """
             if path == '':
-                return g_repo.get_contents('/', g_commit.sha)
+                return g_repo.get_contents('', g_commit.sha), None
             current_element = os.path.basename(path)
             folder_content = g_repo.get_contents(quote(os.path.dirname(path)), g_commit.sha)
             for file in folder_content:
                 if file.name == current_element:
-                    return file
-            return None
+                    return file, folder_content
+            return None, folder_content
 
         @application.route('/repository/<id>/commit/<sha>', methods=['GET'])
         def commit(id, sha):
@@ -279,7 +279,6 @@ class Anonymous_Github:
                     else:
                         content = blob.content.decode('utf-8')
                 else:
-                    print(current_file.type)
                     content = current_file.decoded_content.decode('utf-8')
                 if ".html" in current_file.name \
                         or ".txt" in current_file.name \
@@ -293,11 +292,14 @@ class Anonymous_Github:
                 if ".md" in current_file.name:
                     content = remove_terms(self.github.render_markdown(content), repository_config)
             else:
+                tree = files 
+                if type(tree) != list:
+                    tree = files.tree
                 content = render_template('repo.html',
                                        repository=repository_config,
                                        current_repository=repository_config['id'],
                                        current_file=current_file,
-                                       files=files.tree,
+                                       files=tree,
                                        path_directory=path if type(
                                            current_file) is not github.ContentFile.ContentFile or current_file.type == 'dir' else os.path.dirname(
                                            current_file.path),
@@ -359,15 +361,19 @@ class Anonymous_Github:
                 if os.path.dirname(path) == '':
                     files = g_repo.get_git_tree(g_commit.sha)
                 else:
-                    files = g_repo.get_git_tree(get_element_from_path(g_repo, g_commit, os.path.dirname(path)).sha)
+                    f, folder = get_element_from_path(g_repo, g_commit, os.path.dirname(path))
+                    if f is None:
+                        files = folder
+                    else:
+                        files = g_repo.get_git_tree(f.sha)
             else:
                 files = g_repo.get_git_tree(current_file.sha)
                 for f in files.tree:
                     if is_default_file(f):
-                        current_file = get_element_from_path(g_repo, g_commit, os.path.join(path, f.path))
+                        current_file, folder = get_element_from_path(g_repo, g_commit, os.path.join(path, f.path))
                         break
                 if len(files.tree) == 1 and type(files.tree[0]) is github.ContentFile.ContentFile:
-                    current_file = get_element_from_path(g_repo, g_commit, os.path.join(path, files.tree[0].path))
+                    current_file, folder = get_element_from_path(g_repo, g_commit, os.path.join(path, files.tree[0].path))
             return files, current_file
 
         @application.route('/repository/<id>', methods=['GET'], defaults={'path': ''})
@@ -408,8 +414,8 @@ class Anonymous_Github:
                 clean_path = path
                 if len(clean_path) > 0 and clean_path[-1] == '/':
                     clean_path = clean_path[0:-1]
-
-                current_file = get_element_from_path(g_repo, g_commit, clean_path)
+ 
+                current_file, files = get_element_from_path(g_repo, g_commit, clean_path)
                 if current_file is None:
                     return render_template('404.html'), 404
                 if type(current_file) == github.ContentFile.ContentFile and current_file.type == 'dir' and len(path) > 0 and path[-1] != '/':
