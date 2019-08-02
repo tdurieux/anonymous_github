@@ -145,7 +145,9 @@ class Anonymous_Github:
                     self.github.render_markdown(file.decoded_content.decode('utf-8')),
                     repository_configuration))
             if ".jpg" in file.name or ".png" in file.name or ".png" in file.name or ".gif" in file.name:
-                return Markup("<img src='%s' alt='%s'>" % (file.url, file.name))
+                index = file.name.index('.')
+                file_extension = file.name[index + 1:]
+                return Markup("<img src='data:image/%s;base64, %s' alt='%s'>" % (file_extension, file.content, file.name))
             if istext(file.decoded_content):
                 return Markup("<pre><code>{}</code></pre>")\
                            .format(Markup.escape(remove_terms(file.decoded_content.decode("utf-8"), repository_configuration)))
