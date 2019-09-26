@@ -505,7 +505,7 @@ class Anonymous_Github:
                         data = json.load(f, object_hook=json_util.object_hook)
                         if repo_name == clean_github_repository(data['repository']):
                             repo = data
-            return render_template('newversion.html', repo=repo)
+            return render_template('index.html', repo=repo)
 
         @application.route('/', methods=['POST'])
         def add_repository():
