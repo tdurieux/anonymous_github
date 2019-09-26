@@ -443,7 +443,7 @@ class Anonymous_Github:
             with open(config_path, 'r') as f:
                 repository_configuration = json.load(f, object_hook=json_util.object_hook)
                 if 'expiration_date' in repository_configuration:
-                    if repository_configuration['expiration_date'] > datetime.now(repository_configuration['expiration_date'].tzinfo):
+                    if repository_configuration['expiration_date'] <= datetime.now(repository_configuration['expiration_date'].tzinfo):
                         if repository_configuration['expiration'] == 'redirect':
                             return redirect(repository_configuration['repository'])
                         elif repository_configuration['expiration'] == 'remove':
