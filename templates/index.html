@@ -90,7 +90,7 @@
                         <div class="form-group" id="expiration-date-form" style="display: none;">
                             <label for="date">Expiration date.</label>
                             <small class="form-text text-muted">When the anonymous repository.</small>
-                            <input class="form-control .form-control-lg" type="date" name="expiration_date" id="date" value="{{ repo.expiration_date.date().isoformat() }}" />
+                            <input class="form-control .form-control-lg" type="date" name="expiration_date" id="date" value="{% if repo.expiration_date %}{{ repo.expiration_date.date().isoformat() }}{% endif %}" />
                         </div>
                         <button type="submit" class="white_border">Submit</button>`
                     </div>
