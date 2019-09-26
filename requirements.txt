@@ -1,3 +1,7 @@
 flask
 pygithub==1.40
 Flask-gzip
+Authlib
+loginpass
+Flask-Session
+pymongo

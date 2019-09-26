@@ -1,3 +1,110 @@
+.fadeIn {
+	opacity: 1;
+	animation-name: fadeInOpacity;
+	animation-iteration-count: 1;
+	animation-timing-function: ease-in;
+	animation-duration: 0.6s;
+}
+
+@keyframes fadeInOpacity {
+	0% {
+		opacity: 0;
+	}
+	100% {
+		opacity: 1;
+	}
+}
+
+textarea, select, input, button { outline: none; }
+
+html,
+body{
+  position: relative;
+  height: 100%;
+}
+header {
+    position: relative;
+    min-height: 100%;
+}
+.view {
+    width: 100%;
+    color: #ffffff;
+}
+
+.top-nav-collapse {
+    background: #4a507b !important;
+}
+
+.navbar {
+    box-shadow: 0 2px 5px 0 rgba(0,0,0,.16), 0 2px 10px 0 rgba(0,0,0,.12);
+    font-weight: 300;
+    transition: background-color 0.5s ease;
+}
+.navbar .nav-link.nav-icon {
+    padding: 0 .5rem;
+}
+.navbar .nav-link .fa {
+    font-size: 30px;
+    line-height: 40px;
+}
+.navbar:not(.top-nav-collapse) {
+  background: transparent !important;
+}
+
+@media (max-width: 991px) {
+  .navbar:not(.top-nav-collapse) {
+    background: #4a507b !important;
+  }
+}
+
+.rgba-gradient {
+  background: -moz-linear-gradient(45deg, rgba(51, 51, 51, 0.82), rgba(13, 17, 198, 0.69) 100%);
+  background: -webkit-linear-gradient(45deg, rgba(51, 51, 51, 0.82), rgba(13, 17, 198, 0.69) 100%);
+  background: linear-gradient(to 45deg, rgba(51, 51, 51, 0.82), rgba(13, 17, 198, 0.69) 100%);
+}
+a:hover {
+    text-decoration: none;
+}
+.white_border, .black_border {
+    border: 1px solid white;
+    padding: 7px;
+    background: transparent;
+    color: white;
+    min-width: 115px;
+}
+a.white_border, a.white_border:hover, a.black_border, a.black_border:hover {
+    padding: 10px;
+    color: white;
+}
+.white_border:focus, .black_border:focus {
+    background: #333333;
+    border: 1px solid #333333;
+}
+.white_border::placeholder, .black_border::placeholder { /* Chrome, Firefox, Opera, Safari 10.1+ */
+  color: #cccccc;
+  opacity: 1; /* Firefox */
+}
+
+.black_border {
+    border: 1px solid #333333;
+}
+ a.black_border, a.black_border:hover {
+    color: #333333;
+}
+.black_border::placeholder { /* Chrome, Firefox, Opera, Safari 10.1+ */
+  color: #666666;
+  opacity: 1; /* Firefox */
+}
+
+.active .container {
+    transition: height 1s ease;
+}
+.add_form {
+    display: none;
+}
+.active .add_form {
+    display: block;
+}
 .main {
     width: 80%;
     margin: auto;
@@ -73,4 +180,19 @@
         border-right: 0;
         border-radius: 0;
     }
+}
+.repos {
+    margin: 0;
+    padding: 0;
+}
+.repo {
+    list-style: none;
+    margin: 0;
+    padding: 3px 7px;
+    background: #fdfdfd;
+    border: 1px solid #ddd;
+    border-top: 0
+}
+.repo .options {
+    float: right;
 }

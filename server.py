@@ -3,6 +3,7 @@ import uuid
 import json
 import socket
 import os
+from bson import json_util
 try:
     from urllib import quote  # Python 2.X
 except ImportError:
@@ -13,11 +14,24 @@ import string
 import base64
 from datetime import datetime
 
-# non standards, in requirements.txt
-from flask import Flask, request, Markup, render_template, redirect, url_for, send_from_directory
-from flask_gzip import Gzip
-import github   
 
+# non standards, in requirements.txt
+from flask import Flask, request, Markup, render_template, redirect, url_for, send_from_directory, session
+from flask_session import Session
+from flask_gzip import Gzip
+import github
+from authlib.flask.client import OAuth
+# use loginpass to make OAuth connection simpler
+from loginpass import create_flask_blueprint, GitHub
+
+
+
+def handle_authorize(remote, token, user_info):
+    session['user'] = {
+        'user': user_info,
+        'token': token
+    }
+    return redirect('/myrepo')
 
 def clean_github_repository(repo):
     """
@@ -54,20 +68,24 @@ def istext(s, threshold=0.30):
     try:
         binary_length = float(len(s.translate(None, TEXT_CHARACTERS)))
     except TypeError:
-        print("error")
         translate_table = dict((ord(char), None) for char in TEXT_CHARACTERS)
         binary_length = float(len(s.translate(str.maketrans(translate_table))))
     # s is 'text' if less than 30% of its characters are non-text ones:
     return binary_length/len(s) <= threshold
-
 
 class Anonymous_Github:
     def __init__(self,
                  github_token,
                  host="127.0.0.1",
                  port=5000,
-                 config_dir='./repositories'):
+                 config_dir='./repositories',
+                 secret_key=None,
+                 client_id=None,
+                 client_secret=None):
         self.github_token = github_token if github_token != "" else os.environ["GITHUB_AUTH_TOKEN"]
+        self.secret_key = secret_key if secret_key != "" else os.environ["SECRET_KEY"]
+        self.client_id = client_id if client_id != "" else os.environ["GITHUB_CLIENT_ID"]
+        self.client_secret = client_secret if client_secret != "" else os.environ["GITHUB_CLIENT_SECRET"]
         self.host = host
         self.port = port
         self.config_dir = config_dir
@@ -94,13 +112,27 @@ class Anonymous_Github:
         application.killurl = str(uuid.uuid4())
         application.jinja_env.add_extension('jinja2.ext.do')
 
+        application.config.update(
+            SESSION_TYPE='filesystem',
+            SECRET_KEY=self.secret_key,
+            GITHUB_CLIENT_ID=self.client_id,
+            GITHUB_CLIENT_SECRET=self.client_secret,
+            GITHUB_CLIENT_KWARGS = {
+                'scope': 'repo'
+            }
+        )
+        Session(application)
+        oauth = OAuth(application)
+        github_bp = create_flask_blueprint(GitHub, oauth, handle_authorize)
+        application.register_blueprint(github_bp, url_prefix='/github')
+
         @application.template_filter('remove_terms', )
         def remove_terms(content, repository_configuration, word_boundaries=True, whole_urls=True):
             """
             remove the blacklisted terms from the content
             :param content: the content to anonymize
             :param repository_configuration: the configuration of the repository
-            :return: the anonimized content
+            :return: the anonymized content
             """
             repo = repository_configuration['repository']
             if repo[-1] == '/':
@@ -141,8 +173,11 @@ class Anonymous_Github:
             if file.size > 1000000:
                 return Markup("The file %s is too big to be anonymized (beyond 1MB, Github limit)" % (file.name))
             if ".md" in file.name or file.name == file.name.upper() or "changelog" == file.name.lower():
+                gh = self.github
+                if 'token' in repository_configuration:
+                    gh = github.Github(repository_configuration['token'])
                 return Markup("<div class='markdown-body'>%s</div>" % remove_terms(
-                    self.github.render_markdown(file.decoded_content.decode('utf-8')),
+                    gh.render_markdown(file.decoded_content.decode('utf-8')),
                     repository_configuration))
             if ".jpg" in file.name or ".png" in file.name or ".png" in file.name or ".gif" in file.name:
                 index = file.name.index('.')
@@ -175,6 +210,16 @@ class Anonymous_Github:
                     return file, folder_content
             return None, folder_content
 
+        @application.route('/myrepo', methods=['GET'])
+        def myrepo():
+            user = session.get('user', None)
+            g = github.Github(user['token']['access_token'])
+            repos = g.get_user().get_repos(sort="full_name")
+            for repo in repos:
+                repo.uuid = str(uuid.uuid4())
+            return render_template('newrepo.html', repos=repos)
+            
+
         @application.route('/repository/<id>/commit/<sha>', methods=['GET'])
         def commit(id, sha):
             """
@@ -186,9 +231,12 @@ class Anonymous_Github:
             if not os.path.exists(config_path):
                 return render_template('404.html'), 404
             with open(config_path) as f:
-                data = json.load(f)
+                data = json.load(f, object_hook=json_util.object_hook)
                 (username, repo, branch) = clean_github_repository(data['repository'])
-                g_repo = self.github.get_repo("%s/%s" % (username, repo))
+                gh = self.github
+                if 'token' in data:
+                    gh = github.Github(data['token'])
+                g_repo = gh.get_repo("%s/%s" % (username, repo))
                 commit = g_repo.get_commit(sha)
                 return render_template('repo.html',
                                    repository=data,
@@ -292,7 +340,10 @@ class Anonymous_Github:
                         or ".js" in current_file.name:
                     content = remove_terms(content, repository_config)
                 if ".md" in current_file.name:
-                    content = remove_terms(self.github.render_markdown(content), repository_config)
+                    gh = self.github
+                    if 'token' in repository_config:
+                        gh = github.Github(repository_config['token'])
+                    content = remove_terms(gh.render_markdown(content), repository_config)
             else:
                 tree = files 
                 if type(tree) != list:
@@ -390,9 +441,18 @@ class Anonymous_Github:
             if not os.path.exists(config_path):
                 return render_template('404.html'), 404
             with open(config_path, 'r') as f:
-                repository_configuration = json.load(f)
+                repository_configuration = json.load(f, object_hook=json_util.object_hook)
+                if 'expiration_date' in repository_configuration:
+                    if repository_configuration['expiration_date'] > datetime.now(repository_configuration['expiration_date'].tzinfo):
+                        if repository_configuration['expiration'] == 'redirect':
+                            return redirect(repository_configuration['repository'])
+                        elif repository_configuration['expiration'] == 'remove':
+                            return render_template('404.html'), 404
                 (username, repo, branch) = clean_github_repository(repository_configuration['repository'])
-                g_repo = self.github.get_repo("%s/%s" % (username, repo))
+                gh = self.github
+                if 'token' in repository_configuration:
+                    gh = github.Github(repository_configuration['token'])
+                g_repo = gh.get_repo("%s/%s" % (username, repo))
                 g_commit = None
                 try:
                     g_commit = g_repo.get_commit(branch)
@@ -442,27 +502,40 @@ class Anonymous_Github:
                 config_path = self.config_dir + "/" + id + "/config.json"
                 if os.path.exists(config_path):
                     with open(config_path) as f:
-                        data = json.load(f)
+                        data = json.load(f, object_hook=json_util.object_hook)
                         if repo_name == clean_github_repository(data['repository']):
                             repo = data
-
-            return render_template('index.html', repo=repo)
+            return render_template('newversion.html', repo=repo)
 
         @application.route('/', methods=['POST'])
         def add_repository():
             id = request.args.get('id', str(uuid.uuid4()))
             repo = request.form['githubRepository']
             terms = request.form['terms']
+            expiration_date = None
+            expiration = None
+            if 'expiration' in request.form:
+                expiration = request.form['expiration']
+            if 'expiration_date' in request.form:
+                expiration_date = datetime.strptime(request.form['expiration_date'], '%Y-%m-%d')
+
+            user = session.get('user', None)
 
             config_path = self.config_dir + "/" + str(id)
             if not os.path.exists(config_path):
                 os.mkdir(config_path)
             with open(config_path + "/config.json", 'w') as outfile:
+                token = None
+                if user is not None:
+                    token = user['token']['access_token']
                 json.dump({
                     "id": id,
                     "repository": repo,
-                    "terms": terms.splitlines()
-                }, outfile)
+                    "terms": terms.splitlines(),
+                    "token": token,
+                    "expiration_date": expiration_date,
+                    "expiration": expiration
+                }, outfile, default=json_util.default)
             return redirect(url_for('repository', id=id))
 
         return application
@@ -474,6 +547,9 @@ class Anonymous_Github:
 def initParser():
     parser = argparse.ArgumentParser(description='Start Anonymous Github')
     parser.add_argument('-token', required=True, help='GitHub token')
+    parser.add_argument('-secret', required=True, help='App secret')
+    parser.add_argument('-client_id', required=True, help='GitHub aouth client id')
+    parser.add_argument('-client_secret', required=True, help='GitHub aouth client secret')
     parser.add_argument('-host', help='The hostname', default="127.0.0.1")
     parser.add_argument('-port', help='The port of the application', default=5000)
     parser.add_argument('-config_dir', help='The repository that will contains the configuration files',
@@ -483,4 +559,4 @@ def initParser():
 
 if __name__ == "__main__":
     args = initParser()
-    Anonymous_Github(github_token=args.token, host=args.host, port=args.port, config_dir=args.config_dir).run()
+    Anonymous_Github(github_token=args.token, host=args.host, port=args.port, config_dir=args.config_dir, secret_key=args.secret, client_id=args.client_id, client_secret=args.client_secret).run()
