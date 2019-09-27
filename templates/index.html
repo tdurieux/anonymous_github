@@ -92,7 +92,9 @@
                             <small class="form-text text-muted">When the anonymous repository.</small>
                             <input class="form-control .form-control-lg" type="date" name="expiration_date" id="date" value="{% if repo.expiration_date %}{{ repo.expiration_date.date().isoformat() }}{% endif %}" />
                         </div>
-                        <button type="submit" class="white_border">Submit</button>`
+                        <button id="submit" type="submit" class="white_border">Submit</button>`
+
+                        <button id="delete" class="white_border" style="color: red;">Delete</button>`
                     </div>
               </div>
             </form>
@@ -245,6 +247,17 @@
           $(".edit_form").hide();
           $('.main-options').show();
           return false;
+      })
+      $('#delete').on('click', e => {
+        e.preventDefault();
+        if (confirm("Are you sure you want to delete the repository?")) {
+          $('#expiration')[0].value = 'remove';
+          var date = new Date();
+          date.setDate(date.getDate() - 1);
+          $('#date')[0].value = date.toISOString().split('T')[0];
+          $('#submit').click();
+        }
+        return false;
       })
       $('#edit-button').on('click', e=> {
           e.preventDefault();

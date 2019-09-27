@@ -317,9 +317,10 @@ class Anonymous_Github:
                 else:
                     file_path = current_file.path
             cached_file_path = os.path.join(cache_path, file_path)
+            content_type = get_type_content(path, path, repository_config, g_repo, False).replace("; charset=utf-8", "")
             if os.path.exists(cached_file_path):
                 return send_from_directory(os.path.dirname(cached_file_path), os.path.basename(cached_file_path),
-                                           mimetype=get_type_content(path, path, repository_config, g_repo, False).replace("; charset=utf-8", ""))
+                                           mimetype=content_type)
             content = ''
             if current_file.type != 'dir' and is_website(path, repository_config, g_repo):
                 if current_file.size > 1000000:
@@ -330,14 +331,7 @@ class Anonymous_Github:
                         content = blob.content.decode('utf-8')
                 else:
                     content = current_file.decoded_content.decode('utf-8')
-                if ".html" in current_file.name \
-                        or ".txt" in current_file.name \
-                        or ".log" in current_file.name \
-                        or ".java" in current_file.name \
-                        or ".py" in current_file.name \
-                        or ".xml" in current_file.name \
-                        or ".json" in current_file.name \
-                        or ".js" in current_file.name:
+                if "text" in content_type:
                     content = remove_terms(content, repository_config)
                 if ".md" in current_file.name:
                     gh = self.github
@@ -442,7 +436,7 @@ class Anonymous_Github:
                 return render_template('404.html'), 404
             with open(config_path, 'r') as f:
                 repository_configuration = json.load(f, object_hook=json_util.object_hook)
-                if 'expiration_date' in repository_configuration:
+                if 'expiration_date' in repository_configuration and repository_configuration['expiration_date'] is not None:
                     if repository_configuration['expiration_date'] <= datetime.now(repository_configuration['expiration_date'].tzinfo):
                         if repository_configuration['expiration'] == 'redirect':
                             return redirect(repository_configuration['repository'])
@@ -516,7 +510,7 @@ class Anonymous_Github:
             expiration = None
             if 'expiration' in request.form:
                 expiration = request.form['expiration']
-            if 'expiration_date' in request.form:
+            if 'expiration_date' in request.form and request.form['expiration_date'] != '':
                 expiration_date = datetime.strptime(request.form['expiration_date'], '%Y-%m-%d')
 
             user = session.get('user', None)
