@@ -213,6 +213,8 @@ class Anonymous_Github:
         @application.route('/myrepo', methods=['GET'])
         def myrepo():
             user = session.get('user', None)
+            if user is None or 'token' not in user or user['token'] is None:
+                return redirect('github/login')
             g = github.Github(user['token']['access_token'])
             repos = g.get_user().get_repos(sort="full_name")
             for repo in repos:
@@ -520,7 +522,7 @@ class Anonymous_Github:
                 os.mkdir(config_path)
             with open(config_path + "/config.json", 'w') as outfile:
                 token = None
-                if user is not None and 'token' in user:
+                if user is not None and 'token' in user and user['token'] is not None:
                     token = user['token']['access_token']
                 json.dump({
                     "id": id,
