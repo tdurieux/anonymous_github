@@ -520,7 +520,7 @@ class Anonymous_Github:
                 os.mkdir(config_path)
             with open(config_path + "/config.json", 'w') as outfile:
                 token = None
-                if user is not None:
+                if user is not None and 'token' in user:
                     token = user['token']['access_token']
                 json.dump({
                     "id": id,
