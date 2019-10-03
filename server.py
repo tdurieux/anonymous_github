@@ -114,6 +114,7 @@ class Anonymous_Github:
 
         application.config.update(
             SESSION_TYPE='filesystem',
+            PERMANENT_SESSION_LIFETIME=60*15, # 15 min
             SECRET_KEY=self.secret_key,
             GITHUB_CLIENT_ID=self.client_id,
             GITHUB_CLIENT_SECRET=self.client_secret,
@@ -174,7 +175,7 @@ class Anonymous_Github:
                 return Markup("The file %s is too big to be anonymized (beyond 1MB, Github limit)" % (file.name))
             if ".md" in file.name or file.name == file.name.upper() or "changelog" == file.name.lower():
                 gh = self.github
-                if 'token' in repository_configuration:
+                if 'token' in repository_configuration and repository_configuration['token'] is not None:
                     gh = github.Github(repository_configuration['token'])
                 return Markup("<div class='markdown-body'>%s</div>" % remove_terms(
                     gh.render_markdown(file.decoded_content.decode('utf-8')),
@@ -446,11 +447,11 @@ class Anonymous_Github:
                             return render_template('404.html'), 404
                 (username, repo, branch) = clean_github_repository(repository_configuration['repository'])
                 gh = self.github
-                if 'token' in repository_configuration:
+                if 'token' in repository_configuration and repository_configuration['token'] is not None:
                     gh = github.Github(repository_configuration['token'])
-                g_repo = gh.get_repo("%s/%s" % (username, repo))
                 g_commit = None
                 try:
+                    g_repo = gh.get_repo("%s/%s" % (username, repo))
                     g_commit = g_repo.get_commit(branch)
                 except:
                     return render_template('empty.html'), 404
