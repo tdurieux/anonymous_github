@@ -462,7 +462,7 @@ class Anonymous_Github:
                     commit_date = datetime.strptime(g_commit.last_modified, "%a, %d %b %Y %H:%M:%S %Z")
                     repository_configuration["pushed_at"] = commit_date.strftime("%s")
                     with open(config_path, 'w') as fa:
-                        json.dump(repository_configuration, fa)
+                        json.dump(repository_configuration, fa, default=json_util.default)
 
                 cache_path = os.path.join(self.config_dir, id, "cache")
                 if os.path.isfile(os.path.join(cache_path, path)):
