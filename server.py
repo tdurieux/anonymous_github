@@ -503,6 +503,10 @@ class Anonymous_Github:
                         if repo_name == clean_github_repository(data['repository']):
                             repo = data
             return render_template('index.html', repo=repo)
+        
+        @application.route('/robots.txt')
+        def robots():
+            return application.send_static_file('robots.txt')
 
         @application.route('/', methods=['POST'])
         def add_repository():
