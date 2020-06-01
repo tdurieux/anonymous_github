@@ -1,0 +1,22 @@
+{
+  "name": "anonymous_github",
+  "version": "2.0.0",
+  "description": "Anonymise github repositories for double blind reviews",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tdurieux/anonymous_github.git"
+  },
+  "author": "Thomas Durieux",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/tdurieux/anonymous_github/issues"
+  },
+  "homepage": "https://github.com/tdurieux/anonymous_github#readme",
+  "dependencies": {
+    "express": "^4.17.1"
+  }
+}
