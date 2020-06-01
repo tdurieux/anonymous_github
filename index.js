@@ -15,5 +15,12 @@ app.get("/myrepo", (req, res) => {
 app.get("/repository/:id/commit/:sha", (req, res) => {
     res.status(500).send("To implement!")
 })
+app.get("/r/:id/:path", (req, res) => {
+    res.status(500).send("To implement!")
+})
+
+app.post("/", (req, res) => {
+    res.status(500).send("To implement!")
+})
 
 app.route("api")
