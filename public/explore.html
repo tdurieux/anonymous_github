@@ -1,0 +1,84 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="en" ng-app="anonymous-github" ng-controller="mainController">
+  <head>
+    <meta charset="UTF-8" />
+    <title>{{title || "anonymous Github"}}</title>
+    <script>
+      var base = document.createElement("base");
+      base.href = `/r/${document.location.pathname.split("/")[2]}/`;
+      document.getElementsByTagName("head")[0].appendChild(base);
+    </script>
+
+    <!-- CSS -->
+    <link
+      rel="stylesheet"
+      href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+      integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh"
+      crossorigin="anonymous"
+    />
+    <link rel="stylesheet" href="/css/font-awesome.min.css" />
+
+    <link rel="stylesheet" href="/css/style.css" />
+
+    <!-- JS -->
+    <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.6.6/angular.min.js"></script>
+    <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.6.6/angular-animate.min.js"></script>
+    <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.6.6/angular-touch.min.js"></script>
+    <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.6.6/angular-route.js"></script>
+    <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.6.6/angular-sanitize.js"></script>
+
+    <script
+      src="https://code.jquery.com/jquery-3.4.1.min.js"
+      crossorigin="anonymous"
+    ></script>
+
+    <script
+      src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+      integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
+      integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6"
+      crossorigin="anonymous"
+    ></script>
+
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/2.8.0/github-markdown.min.css"
+      rel="stylesheet"
+      type="text/css"
+    />
+
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css"
+      rel="stylesheet"
+      type="text/css"
+    />
+
+    <script src="/script/exploreApp.js"></script>
+  </head>
+  <body keypress-events>
+    <div class="main">
+      <div class="container-fluid">
+        <div class="row">
+          <tree class="files col-3 shadow p-0" file="files" parent=""></tree>
+          <div class="col-9 p-0 body">
+            <nav aria-label="breadcrumb">
+              <ol class="breadcrumb shadow paths">
+                <li class="breadcrumb-item" ng-repeat="p in paths">{{p}}</li>
+              </ol>
+            </nav>
+            <div class="content" ng-view></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+  <script
+    src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"
+    crossorigin="anonymous"
+  ></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/highlightjs-line-numbers.js/2.8.0/highlightjs-line-numbers.min.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/marked/1.1.0/marked.min.js"></script>
+</html>

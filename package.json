@@ -4,7 +4,9 @@
   "description": "Anonymise github repositories for double blind reviews",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js",
+    "dev": "nodemon index.js"
   },
   "repository": {
     "type": "git",
@@ -17,6 +19,27 @@
   },
   "homepage": "https://github.com/tdurieux/anonymous_github#readme",
   "dependencies": {
-    "express": "^4.17.1"
+    "@octokit/rest": "^17.9.2",
+    "@umijs/linguist": "^1.0.1",
+    "compression": "^1.7.4",
+    "download-git-repo": "^3.0.2",
+    "express": "^4.17.1",
+    "express-session": "^1.17.1",
+    "jszip": "^3.4.0",
+    "parse-github-url": "^1.0.2",
+    "passport": "^0.4.1",
+    "passport-github2": "^0.1.12",
+    "path": "^0.12.7",
+    "request": "^2.88.2",
+    "session-file-store": "^1.4.0"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.4"
+  },
+  "nodemonConfig": {
+    "ignore": [
+      "public/*",
+      "session-store/*"
+    ]
   }
 }

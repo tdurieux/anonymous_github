@@ -1,0 +1,23 @@
+<div class="container" style="margin-top: 70px;">
+  <div class="list-group">
+    <div
+      class="list-group-item list-group-item-action"
+      ng-repeat="repo in repos"
+    >
+      <div class="d-flex mb-12 justify-content-between">
+        <h5 class="mb-1">{{ repo.full_name }}</h5>
+        <small>
+          {{ repo.private? "Private": "Public" }}
+        </small>
+      </div>
+      <p class="mb-1" ng-if="repo.description">{{ repo.description }}</p>
+      <div class="mb-1">
+        <a
+          class="btn btn-primary anonymize-btn"
+          href="/?githubRepository=https://github.com/{{ repo.full_name }}&id={{ repo.uuid }}"
+          >Anonymize</a
+        >
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,4 @@
+<pre ng-if="type == 'text'" ng-bind="content" class="file-content"></pre>
+<div ng-if="type == 'html'" ng-bind-html="content" class="file-content"></div>
+<pre ng-if="type == 'code'"><code class="hljs" ng-bind="content"></code></pre>
+<div ng-if="content == null" class="file-error">Empty file!</div>
