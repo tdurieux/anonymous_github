@@ -511,6 +511,8 @@ class Anonymous_Github:
         @application.route('/', methods=['POST'])
         def add_repository():
             id = request.args.get('id', str(uuid.uuid4()))
+            config_path = os.path.join(self.config_dir, str(id))
+            
             repo = request.form['githubRepository']
             terms = request.form['terms']
             expiration_date = None
@@ -522,13 +524,18 @@ class Anonymous_Github:
 
             user = session.get('user', None)
 
-            config_path = self.config_dir + "/" + str(id)
+            token = None
+            if os.path.exists(config_path):
+                with open(os.path.join(config_path, "config.json"), 'r') as r:
+                    data = json.load(r)
+                    if 'token' in data:
+                       token = data['token']
+            if token is None and user is not None and 'token' in user and user['token'] is not None:
+                token = user['token']['access_token']
+            
             if not os.path.exists(config_path):
                 os.mkdir(config_path)
             with open(config_path + "/config.json", 'w') as outfile:
-                token = None
-                if user is not None and 'token' in user and user['token'] is not None:
-                    token = user['token']['access_token']
                 json.dump({
                     "id": id,
                     "repository": repo,
