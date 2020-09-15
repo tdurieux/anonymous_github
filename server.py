@@ -47,7 +47,7 @@ def clean_github_repository(repo):
         repo = repo[:-1]
     split_repo = repo.split("/")
     (username, repository) = split_repo[0:2]
-    branch = "master"
+    branch = None
     if len(split_repo) > 2:
         if split_repo[2] == "tree":
             branch = split_repo[3]
@@ -452,6 +452,8 @@ class Anonymous_Github:
                 g_commit = None
                 try:
                     g_repo = gh.get_repo("%s/%s" % (username, repo))
+                    if branch is None:
+                        branch = g_repo.default_branch
                     g_commit = g_repo.get_commit(branch)
                 except:
                     return render_template('empty.html'), 404
