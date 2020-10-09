@@ -44,9 +44,6 @@ In double-blind peer-review, the boundary of anonymization is the paper plus its
 
 By default, Anonymous Github and http://anonymous.4open.science access public repositories. Public Github repositories are  not modified and hence are still visible on Github and Google, even after anonymization.  
 
-**Anonymizing private repositories**: If you want to get a public anonymized URL of a private repository, you must give @tdurieux read access to the repo by adding him as collaborator.
-
-
 ## How to edit an anonymized repository
 ![Anonymous Github usage](https://user-images.githubusercontent.com/5577568/31989888-e1e860c8-b973-11e7-8a45-b2dad401754d.gif)
 
