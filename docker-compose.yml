@@ -13,7 +13,7 @@ services:
       - .:/app
       # - ./repositories:/app/repositories
     ports:
-      - 5000:5000
+      - 5000:$PORT
     links:
       - mongodb
       - redis
