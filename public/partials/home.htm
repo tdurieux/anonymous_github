@@ -1,53 +1,8 @@
-<!-- Main navigation -->
-<header class="d-flex">
-  <!-- Navbar -->
-  <nav class="navbar navbar-expand-lg navbar-dark fixed-top scrolling-navbar">
-    <div class="container">
-      <a class="navbar-brand" href="#">Anonymous GitHub</a>
-      <button
-        class="navbar-toggler"
-        type="button"
-        data-toggle="collapse"
-        data-target="#navbarTogglerDemo02"
-        aria-controls="navbarTogglerDemo02"
-        aria-expanded="false"
-        aria-label="Toggle navigation"
-      >
-        <span class="navbar-toggler-icon"></span>
-      </button>
-      <div class="collapse navbar-collapse" id="navbarTogglerDemo02">
-        <ul class="navbar-nav mr-auto smooth-scroll">
-          <li class="nav-item">
-            <a class="nav-link" href="#home"
-              >Home
-              <span class="sr-only">(current)</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="#usage" data-offset="90">Usage</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="#features" data-offset="90">Features</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="#about" data-offset="90">About</a>
-          </li>
-          <li class="nav-item">
-            <a
-              class="nav-link nav-icon"
-              href="https://github.com/tdurieux/anonymous_github/"
-              data-offset="30"
-              ><i class="fa fa-github" aria-hidden="true"></i
-            ></a>
-          </li>
-          <li class="nav-link">{{user.username}}</li>
-        </ul>
-      </div>
-    </div>
-  </nav>
+<div class="container-fluid">
+  <ng-include src="'partials/header.htm'"></ng-include>
   <div
     id="home"
-    class="view rgba-gradient d-flex align-self-stretch justify-content-center align-items-center"
+    class="row view rgba-gradient d-flex align-self-stretch justify-content-center align-items-center"
   >
     <!-- Content -->
     <div class="container px-md-3 px-sm-0">
@@ -63,290 +18,126 @@
             <h4 class="subtext-header mt-2 mb-4">
               Double-blind your repository in 5 min!
             </h4>
-            <input
-              id="url_input"
-              type="text"
-              placeholder="Repository URL..."
-              name="githubRepository"
-              class="white_border"
-              value=""
-            />
-            or
             <span ng-if="!user">
-              <a href="github/login" class="white_border">Login to GitHub</a>
+              <a href="/github/login" target="_self" class="p-2 white_border"
+                >Login with GitHub to anonymize</a
+              >
             </span>
-            <span ng-if="user">
-              <a href="/myrepo" class="white_border">List my repositories</a>
-            </span>
-            or
-            <button id="edit-button" class="white_border">
-              Edit your existing repository
-            </button>
           </div>
           <!--Grid column-->
-        </div>
-        <div class="row add_form">
-          <div class="col-md-12 mb-4 white-text fadeIn">
-            <div class="alert alert-danger" role="alert">
-              The repository has to be public,
-              <a href="github/login">login to GitHub</a> for private
-              repositories!
-            </div>
-          </div>
-
-          <div class="col-md-12 mb-4 white-text fadeIn">
-            <div class="form-group">
-              <label for="ignoredTerms"
-                >The text to remove from the repository will be replaced by
-                XXX.</label
-              >
-              <small id="ignoredTermsHelp" class="form-text text-muted"
-                >One term per line (case insensitive).</small
-              >
-              <textarea
-                class="form-control .form-control-lg"
-                name="terms"
-                id="ignoredTerms"
-                rows="5"
-              ></textarea>
-            </div>
-            <div class="form-group">
-              <label for="expiration">Expiration options</label>
-              <select class="form-control" id="expiration" name="expiration">
-                <option value="never">Never</option>
-                <option value="redirect"
-                  >Redirect to the GitHub repository</option
-                >
-                <option value="remove">Remove anonymized repository</option>
-              </select>
-            </div>
-            <div
-              class="form-group"
-              id="expiration-date-form"
-              style="display: none;"
-            >
-              <label for="date">Expiration date.</label>
-              <small class="form-text text-muted"
-                >When the anonymous repository.</small
-              >
-              <input
-                class="form-control .form-control-lg"
-                type="date"
-                name="expiration_date"
-                id="date"
-                value=""
-              />
-            </div>
-            <button id="submit" type="submit" class="white_border">
-              Submit</button
-            >`
-
-            <button id="delete" class="white_border" style="color: red;">
-              Delete</button
-            >`
-          </div>
-        </div>
-      </form>
-      <form class="row edit_form" style="display: none;">
-        <h2>Edit Anonymized Repository</h2>
-        <div class="col-md-12 mb-4 white-text fadeIn">
-          <div class="form-group">
-            <label>Repository ID</label>
-            <input
-              class="form-control .form-control-lg"
-              type="text"
-              name="id"
-              id="id"
-            />
-          </div>
-          <div class="form-group">
-            <label>Repository URL</label>
-            <input
-              class="form-control .form-control-lg"
-              type="url"
-              name="githubRepository"
-              id="url"
-              value=""
-            />
-          </div>
-          <button type="submit" class="white_border">Submit</button>
-          <button id="edit_cancel" type="submit" class="white_border">
-            Cancel</button
-          >`
         </div>
       </form>
       <!--Grid row-->
     </div>
     <!-- Content -->
   </div>
-</header>
-<main>
-  <div class="container">
-    <!--Grid row-->
-    <div class="row py-5">
-      <div class="col-md-12">
-        <h2 id="usage">Usage</h2>
-        <div class="card-text mb-auto">
-          <ol>
-            <li>
-              Fill the Github repo URL
-            </li>
-            <li>
-              Complete the list of terms that will be anonymized.
-              <span class="text-muted"
-                >The anonymization of the content is done by replacing all
-                occurrences of words in a list by "XXX".The word list typically
-                contains the institution name, author names, logins,
-                etc...</span
-              >
-            </li>
-            <li>
-              Define if you want an expiration date for your anonymized
-              repository. You can keep it for ever, remove the repository after
-              a specific date or redirect the user to the GitHub repository.
-            </li>
-          </ol>
-          As result, a unique url is created with the content of your
-          repository, for example,
-          <a
-            href="http://anonymous.4open.science/repository/840c8c57-3c32-451e-bf12-0e20be300389/"
-            >http://anonymous.4open.science/repository/840c8c57-3c32-451e-bf12-0e20be300389/</a
-          >.
-        </div>
-      </div>
-      <!--Grid column-->
-      <div class="col-md-12">
-        <h2 id="features">Features</h2>
-      </div>
-      <div class="col-md-6">
-        <div
-          class="row no-gutters border rounded overflow-hidden flex-md-row mb-4 shadow-sm h-md-250 position-relative"
-        >
-          <div class="col p-4 d-flex flex-column position-static">
-            <h3 class="mb-0">Anonymized</h3>
-            <p class="card-text mb-auto">
-              Anonymous GitHub Anonymizes the content of the repository but also
-              hide the issues, pull-requests, history. This way you are sure
-              that your repository stays anonymized.
-            </p>
+  <main>
+    <div class="container">
+      <!--Grid row-->
+      <div class="row py-5">
+        <div class="col-md-12">
+          <h2 id="usage">Usage</h2>
+          <div class="card-text mb-auto">
+            <ol>
+              <li>
+                <a href="/github/login">Login</a> with Github access your
+                dashboard and anonymize your repositories.
+              </li>
+              <li>Complete the list of terms that will be anonymized.</li>
+              <li>Anonymize and share your link in your double-blind paper.</li>
+            </ol>
+            Example of an annoymized repository:
+            <a
+              href="https://anonymous.4open.science/r/840c8c57-3c32-451e-bf12-0e20be300389/"
+              >https://anonymous.4open.science/r/840c8c57-3c32-451e-bf12-0e20be300389/</a
+            >.
           </div>
         </div>
-      </div>
-      <div class="col-md-6">
-        <div
-          class="row no-gutters border rounded overflow-hidden flex-md-row mb-4 shadow-sm h-md-250 position-relative"
-        >
-          <div class="col p-4 d-flex flex-column position-static">
-            <h3 class="mb-0">Always up-to-date</h3>
-            <p class="card-text mb-auto">
-              Anonymous GitHub follows to track of the changes on your
-              repository and updates the anonymous version automatically.
-            </p>
+        <!--Grid column-->
+        <div class="col-md-12"><h2 id="features">Features</h2></div>
+        <div class="col-md-6">
+          <div
+            class="row no-gutters border rounded overflow-hidden flex-md-row mb-4 shadow-sm h-md-250 position-relative"
+          >
+            <div class="col p-4 d-flex flex-column position-static">
+              <h3 class="mb-0">Easy</h3>
+              <p class="card-text mb-auto">
+                In three clicks, you anonymize your repository. It makes it an
+                easy and quick step to do before the submission of paper.
+              </p>
+            </div>
           </div>
         </div>
-      </div>
-      <div class="col-md-6">
-        <div
-          class="row no-gutters border rounded overflow-hidden flex-md-row mb-4 shadow-sm h-md-250 position-relative"
-        >
-          <div class="col p-4 d-flex flex-column position-static">
-            <h3 class="mb-0">Fast</h3>
-            <p class="card-text mb-auto">
-              With Anonymous GitHub, it requires only 5min to anonymize your
-              repository. No more time lost to create a anonymized version of
-              your repository.
-            </p>
+        <div class="col-md-6">
+          <div
+            class="row no-gutters border rounded overflow-hidden flex-md-row mb-4 shadow-sm h-md-250 position-relative"
+          >
+            <div class="col p-4 d-flex flex-column position-static">
+              <h3 class="mb-0">Always up-to-date</h3>
+              <p class="card-text mb-auto">
+                Anonymous GitHub tracks the changes on your repository and
+                updates the anonymous version automatically.
+              </p>
+            </div>
           </div>
         </div>
-      </div>
-      <div class="col-md-6">
-        <div
-          class="row no-gutters border rounded overflow-hidden flex-md-row mb-4 shadow-sm h-md-250 position-relative"
-        >
-          <div class="col p-4 d-flex flex-column position-static">
-            <h3 class="mb-0">Open-source</h3>
-            <p class="card-text mb-auto">
-              Anonymous GitHub is open-source, you can easily deploy it for your
-              conference and simplify the life of your authors.
-            </p>
+        <div class="col-md-6">
+          <div
+            class="row no-gutters border rounded overflow-hidden flex-md-row mb-4 shadow-sm h-md-250 position-relative"
+          >
+            <div class="col p-4 d-flex flex-column position-static">
+              <h3 class="mb-0">Support many file formats</h3>
+              <p class="card-text mb-auto">
+                Anonymous GitHub renders mainly file, from source code to
+                images, notebook or PDF.
+              </p>
+            </div>
           </div>
         </div>
-      </div>
-      <div class="col-md-12">
-        <h2 id="about">Metrics</h2>
-      </div>
-      <div class="col-md-12">
-        <div
-          class="row no-gutters border rounded overflow-hidden flex-md-row mb-4 shadow-sm h-md-250 position-relative"
-        >
-          <div class="col p-4 d-flex flex-column position-static">
-            <h3 class="mb-auto text-center">2609 Anonymized Repositories</h3>
-            <p class="card-text mb-auto">
-              <strong></strong>
-            </p>
+        <div class="col-md-6">
+          <div
+            class="row no-gutters border rounded overflow-hidden flex-md-row mb-4 shadow-sm h-md-250 position-relative"
+          >
+            <div class="col p-4 d-flex flex-column position-static">
+              <h3 class="mb-0">Open-source</h3>
+              <p class="card-text mb-auto">
+                Anonymous GitHub is open-source
+                <a
+                  class="nav-icon"
+                  target="_blank"
+                  href="https://github.com/tdurieux/anonymous_github/"
+                  data-offset="30"
+                  ><i class="fa fa-github" aria-hidden="true"></i></a
+                >, you can easily deploy it for your conference and simplify the
+                life of your authors.
+              </p>
+            </div>
           </div>
         </div>
+        <div class="col-md-12"><h2 id="about">Metrics</h2></div>
+        <div class="col-md-6">
+          <div
+            class="row no-gutters border rounded overflow-hidden flex-md-row mb-4 shadow-sm h-md-250 position-relative"
+          >
+            <div class="col p-4 d-flex flex-column position-static">
+              <h3 class="mb-auto text-center">
+                {{stat.nbRepositories}} Anonymized Repositories
+              </h3>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div
+            class="row no-gutters border rounded overflow-hidden flex-md-row mb-4 shadow-sm h-md-250 position-relative"
+          >
+            <div class="col p-4 d-flex flex-column position-static">
+              <h3 class="mb-auto text-center">{{stat.nbUsers}} Users</h3>
+            </div>
+          </div>
+        </div>
+        <!--Grid column-->
       </div>
-      <!--Grid column-->
+      <!--Grid row-->
     </div>
-    <!--Grid row-->
-  </div>
-</main>
-<script>
-  if ($("#url_input")[0].value != "") {
-    $(".view").addClass("active");
-  }
-  $("#url_input").on("focus", (e) => {
-    $(".view").addClass("active");
-  });
-  if ($("#expiration")[0].value == "never") {
-    $("#expiration-date-form").hide();
-  } else {
-    $("#expiration-date-form").show();
-  }
-  $("#expiration").change((e) => {
-    value = e.currentTarget.value;
-    if (value == "never") {
-      $("#expiration-date-form").hide();
-    } else {
-      $("#expiration-date-form").show();
-    }
-  });
-  if ($(document).scrollTop() < 35) {
-    $(".navbar").removeClass("top-nav-collapse");
-  } else {
-    $(".navbar").addClass("top-nav-collapse");
-  }
-  $(document).scroll((e) => {
-    if ($(document).scrollTop() < 35) {
-      $(".navbar").removeClass("top-nav-collapse");
-    } else {
-      $(".navbar").addClass("top-nav-collapse");
-    }
-  });
-  $("#edit_cancel").on("click", (e) => {
-    e.preventDefault();
-    $(".edit_form").hide();
-    $(".main-options").show();
-    return false;
-  });
-  $("#delete").on("click", (e) => {
-    e.preventDefault();
-    if (confirm("Are you sure you want to delete the repository?")) {
-      $("#expiration")[0].value = "remove";
-      var date = new Date();
-      date.setDate(date.getDate() - 1);
-      $("#date")[0].value = date.toISOString().split("T")[0];
-      $("#submit").click();
-    }
-    return false;
-  });
-  $("#edit-button").on("click", (e) => {
-    e.preventDefault();
-    $(".view").removeClass("active");
-    $(".edit_form").show();
-    $(".main-options").hide();
-    $("#id").focus();
-    return false;
-  });
-</script>
+  </main>
+</div>

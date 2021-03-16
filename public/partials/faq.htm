@@ -1,0 +1,187 @@
+<div class="container-fluid main">
+  <ng-include src="'partials/header.htm'"></ng-include>
+  <div class="row center">
+    <div class="container px-md-3 px-sm-0">
+      <section
+        class="accordion-section clearfix mt-3"
+        aria-label="Question Accordions"
+      >
+        <div class="container">
+          <h2>Frequently Asked Questions</h2>
+          <div
+            class="panel-group"
+            id="accordion"
+            role="tablist"
+            aria-multiselectable="true"
+          >
+            <div class="panel panel-default">
+              <div class="panel-heading p-3 mb-3" role="tab" id="heading0">
+                <h3 class="panel-title">
+                  <a
+                    class="collapsed"
+                    role="button"
+                    title=""
+                    data-toggle="collapse"
+                    data-parent="#accordion"
+                    href="#collapse0"
+                    aria-expanded="true"
+                    aria-controls="collapse0"
+                  >
+                    Can I download the repository?
+                  </a>
+                </h3>
+              </div>
+              <div
+                id="collapse0"
+                class="panel-collapse collapse"
+                role="tabpanel"
+                aria-labelledby="heading0"
+              >
+                <div class="panel-body px-3 mb-4">
+                  <p>
+                    It is currently not possible to download an anonymized
+                    repository. It is technically possible to implement but
+                    would require much more processing and storage. I am
+                    currently not able to provide this option due to the
+                    increase cost.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel panel-default">
+              <div class="panel-heading p-3 mb-3" role="tab" id="heading1">
+                <h3 class="panel-title">
+                  <a
+                    class="collapsed"
+                    role="button"
+                    title=""
+                    data-toggle="collapse"
+                    data-parent="#accordion"
+                    href="#collapse1"
+                    aria-expanded="true"
+                    aria-controls="collapse1"
+                  >
+                    Which file formats are supported?
+                  </a>
+                </h3>
+              </div>
+              <div
+                id="collapse1"
+                class="panel-collapse collapse"
+                role="tabpanel"
+                aria-labelledby="heading1"
+              >
+                <div class="panel-body px-3 mb-4">
+                  <p>
+                    Anonymous Github is able to display pure textual files, such as text or source code. It can also render images, PDFs, and notbooks.
+                    However, only textual based files are anonymized. Anonymous Github considers the following file format as textual:
+                  </p>
+                  <p>
+                    <ul>
+                      <li ng-repeat="format in supportedFileTypes" ng-bind="format"></li>
+                    </ul>
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel panel-default">
+              <div class="panel-heading p-3 mb-3" role="tab" id="heading2">
+                <h3 class="panel-title">
+                  <a
+                    class="collapsed"
+                    role="button"
+                    title=""
+                    data-toggle="collapse"
+                    data-parent="#accordion"
+                    href="#collapse2"
+                    aria-expanded="true"
+                    aria-controls="collapse2"
+                  >
+                    How much is cost?
+                  </a>
+                </h3>
+              </div>
+              <div
+                id="collapse2"
+                class="panel-collapse collapse"
+                role="tabpanel"
+                aria-labelledby="heading2"
+              >
+                <div class="panel-body px-3 mb-4">
+                  <p>
+                    Anonymous Github is free to use, however the server costs me hundreds of dollars per year, a small donation to cover to cost is largely appricated.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel panel-default">
+              <div class="panel-heading p-3 mb-3" role="tab" id="heading3">
+                <h3 class="panel-title">
+                  <a
+                    class="collapsed"
+                    role="button"
+                    title=""
+                    data-toggle="collapse"
+                    data-parent="#accordion"
+                    href="#collapse3"
+                    aria-expanded="true"
+                    aria-controls="collapse3"
+                  >
+                    Data privacy?
+                  </a>
+                </h3>
+              </div>
+              <div
+                id="collapse3"
+                class="panel-collapse collapse"
+                role="tabpanel"
+                aria-labelledby="heading3"
+              >
+                <div class="panel-body px-3 mb-4">
+                  <p>
+                    The data stored on Anonymous Github are never used or shared in any cases. 
+                    When a repository is removed or expired only the configuration of the repository is conserved to be able to restore easily the reposiotry and to ensure that no future repository will use the same repository id. 
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel panel-default">
+              <div class="panel-heading p-3 mb-3" role="tab" id="heading4">
+                <h3 class="panel-title">
+                  <a
+                    class="collapsed"
+                    role="button"
+                    title=""
+                    data-toggle="collapse"
+                    data-parent="#accordion"
+                    href="#collapse4"
+                    aria-expanded="true"
+                    aria-controls="collapse4"
+                  >
+                    Privacy of the viewer?
+                  </a>
+                </h3>
+              </div>
+              <div
+                id="collapse4"
+                class="panel-collapse collapse"
+                role="tabpanel"
+                aria-labelledby="heading4"
+              >
+                <div class="panel-body px-3 mb-4">
+                  <p>
+                    No information is collected on the viewer of the repositories. 
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>

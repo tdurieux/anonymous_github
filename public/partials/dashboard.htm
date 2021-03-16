@@ -1,0 +1,188 @@
+<div class="container-fluid main">
+  <ng-include src="'partials/header.htm'"></ng-include>
+  <div class="row center">
+    <div class="leftCol shadow p-1 h-100 overflow-auto">
+      <h3>Filters</h3>
+      <h5>Status</h5>
+      <div class="form-check">
+        <input
+          class="form-check-input"
+          type="checkbox"
+          ng-model="filters.status.ready"
+          id="ready"
+        />
+        <label class="form-check-label" for="ready"> Ready </label>
+      </div>
+      <div class="form-check">
+        <input
+          class="form-check-input"
+          type="checkbox"
+          ng-model="filters.status.expired"
+          id="expired"
+        />
+        <label class="form-check-label" for="expired"> Expired </label>
+      </div>
+      <div class="form-check">
+        <input
+          class="form-check-input"
+          type="checkbox"
+          ng-model="filters.status.removed"
+          id="removed"
+        />
+        <label class="form-check-label" for="removed"> Removed </label>
+      </div>
+    </div>
+    <div class="col h-100 overflow-auto">
+      <div class="row">
+        <div class="col p-2">
+          <form>
+            <div class="form-row">
+              <div class="col">
+                <input
+                  type="search"
+                  class="form-control"
+                  id="search"
+                  placeholder="Search repository..."
+                  ng-model="search"
+                />
+              </div>
+              <div class="col">
+                <div class="input-group">
+                  <div class="input-group-prepend">
+                    <label class="input-group-text" for="Order">Order</label>
+                  </div>
+                  <select class="custom-select" ng-model="orderBy">
+                    <option value="repoId">Repository ID</option>
+                    <option value="fullName">Repository</option>
+                    <option value="-anonymizeDate">Anonymize Date</option>
+                    <option value="-status">Status</option>
+                    <option value="-lastView">Last View</option>
+                    <option value="-pageView">Page View</option>
+                  </select>
+                </div>
+              </div>
+              <div class="col text-right">
+                <a
+                  class="btn btn-secondary"
+                  href="/claim"
+                  title="Claim the ownership of an existing anonymized repository."
+                  data-toggle="tooltip"
+                  data-placement="bottom"
+                >
+                  Claim repository
+                </a>
+                <a class="btn btn-primary" href="/anonymize">
+                  Annoymize repository
+                </a>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col p-2">
+          <table class="table repositories">
+            <thead class="thead-light">
+              <tr>
+                <th scope="col">#</th>
+                <th scope="col">Repository ID</th>
+                <th scope="col">Anonymized repository</th>
+                <th scope="col">Branch</th>
+                <!-- <th scope="col">Commit</th> -->
+                <th scope="col" class="text-center"># Terms</th>
+                <th scope="col" class="text-center">Status</th>
+                <th scope="col" class="text-center">Anonymize date</th>
+                <th scope="col" class="text-center"># Views</th>
+                <th scope="col" class="text-center">Last view</th>
+                <th scope="col" class="text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                ng-repeat="repo in repositories| filter:repoFiler| orderBy:orderBy"
+              >
+                <th scope="row">{{$index + 1}}</th>
+                <td>
+                  <a href="/r/{{repo.repoId}}" target="__self"
+                    >{{repo.repoId}}</a
+                  >
+                </td>
+                <td>
+                  <a href="https://github.com/{{repo.fullName}}"
+                    >{{repo.fullName}}</a
+                  >
+                </td>
+                <td>{{repo.branch}}</td>
+                <!-- <td>{{repo.commit.substring(0, 6)}}</td> -->
+                <td class="text-center">{{repo.terms.length}}</td>
+                <td class="text-center">{{repo.status}}</td>
+                <td class="text-center">{{repo.anonymizeDate | date}}</td>
+                <td class="text-center">{{repo.pageView}}</td>
+                <td class="text-center">{{repo.lastView | date}}</td>
+                <td class="text-right">
+                  <div class="dropdown">
+                    <button
+                      class="btn btn-secondary dropdown-toggle"
+                      type="button"
+                      id="dropdownMenuButton"
+                      data-toggle="dropdown"
+                      aria-haspopup="true"
+                      aria-expanded="false"
+                    >
+                      Actions
+                    </button>
+                    <div
+                      class="dropdown-menu"
+                      aria-labelledby="dropdownMenuButton"
+                    >
+                      <a
+                        class="dropdown-item"
+                        href="/anonymize/{{repo.repoId}}"
+                        target="_self"
+                        >Edit</a
+                      >
+                      <a
+                        class="dropdown-item"
+                        href="#"
+                        ng-show="repo.status == 'ready'"
+                        ng-click="updateRepository(repo)"
+                        >Force update</a
+                      >
+                      <a
+                        class="dropdown-item"
+                        href="#"
+                        ng-show="repo.status == 'removed'"
+                        ng-click="updateRepository(repo)"
+                        >Enable</a
+                      >
+                      <a
+                        class="dropdown-item"
+                        href="#"
+                        ng-show="repo.status != 'removed'"
+                        ng-click="removeRepository(repo)"
+                        >Remove</a
+                      >
+                      <a
+                        class="dropdown-item"
+                        href="/r/{{repo.repoId}}"
+                        target="_self"
+                        >View</a
+                      >
+                      <a
+                        class="dropdown-item"
+                        href="/w/{{repo.repoId}}"
+                        target="_self"
+                        ng-if="repo.options.page"
+                        >View GitHub Page</a
+                      >
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

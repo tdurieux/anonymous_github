@@ -1,289 +1,95 @@
-const ofs = require("fs");
-const fs = require("fs").promises;
 const path = require("path");
-const downloadGit = require("download-git-repo");
-const { Octokit } = require("@octokit/rest");
-const loc = require("@umijs/linguist");
-const gh = require("parse-github-url");
 
-const passport = require("passport");
-const session = require("express-session");
-const FileStore = require("session-file-store")(session);
-const GitHubStrategy = require("passport-github2").Strategy;
-
+const redis = require("redis");
+const RateLimit = require("express-rate-limit");
+const RedisStore = require("rate-limit-redis");
 const express = require("express");
 const compression = require("compression");
 const bodyParser = require("body-parser");
 
-const config = require("./config");
+const rediscli = redis.createClient({
+  host: "redis",
+  ttl: 260,
+});
+
+const connection = require("./routes/connection");
+
+const db = require("./utils/database");
+const fileUtils = require("./utils/file");
+
+const PORT = process.env.PORT || 5000;
 
 const app = express();
 app.use(bodyParser.json());
 app.use(compression());
-
-passport.serializeUser(function (user, done) {
-  done(null, user);
-});
-
-passport.deserializeUser(function (obj, done) {
-  done(null, obj);
-});
-
-passport.use(
-  new GitHubStrategy(
-    {
-      clientID: config.clientId,
-      clientSecret: config.clientSecret,
-      callbackURL: config.authCallback,
-    },
-    (accessToken, refreshToken, profile, done) => {
-      // asynchronous verification, for effect...
-      console.log({ accessToken, refreshToken, profile });
-      done(null, { accessToken, refreshToken, profile });
-
-      // an example of how you might save a user
-      // new User({ username: profile.username }).fetch().then(user => {
-      //   if (!user) {
-      //     user = User.forge({ username: profile.username })
-      //   }
-      //
-      //   user.save({ profile: profile, access_token: accessToken }).then(() => {
-      //     return done(null, user)
-      //   })
-      // })
-    }
-  )
-);
 app.use(
-  session({
-    secret: "keyboard cat",
-    resave: true,
-    saveUninitialized: true,
-    store: new FileStore({
-      path: "./session-store",
+  new RateLimit({
+    store: new RedisStore({
+      client: rediscli,
     }),
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 200, // limit each IP to 100 requests per windowMs
+    // delayMs: 0, // disable delaying - full speed until the max limit is reached
   })
 );
-app.use(passport.initialize());
-app.use(passport.session());
+app.set("trust proxy", 1);
 
-app.get(
-  "/github/login",
-  passport.authenticate("github", { scope: ["repo"] }), /// Note the scope here
-  function (req, res) {
-    console.log("/github/login");
-  }
-);
+// handle session and connection
+app.use(connection.session);
+app.use(connection.passport.initialize());
+app.use(connection.passport.session());
 
-app.get(
-  "/github/auth",
-  passport.authenticate("github", { failureRedirect: "/" }),
-  function (req, res) {
-    console.log("here");
-    res.redirect("/");
-  }
-);
+app.use("/github", connection.router);
 
-function ensureAuthenticated(req, res, next) {
-  if (req.isAuthenticated()) {
-    return next();
-  }
-  res.redirect("/github/login");
-}
+// app routes
+app.use("/api/user", require("./routes/user"));
+app.use("/api/repo", require("./routes/file"));
+app.use("/api/repo", require("./routes/repositoy"));
 
-app.get("/api/user", async (req, res) => {
-  if (req.user) {
-    res.json({ username: req.user.profile.username });
-  } else {
-    res.status(403).json({ error: "not_connected" });
-  }
-});
-
-app.get("/api/repos", ensureAuthenticated, async (req, res) => {
-  const octokit = new Octokit({ auth: req.user.accessToken });
-  const repos = await octokit.repos.listForAuthenticatedUser({
-    visibility: "all",
-    sort: "pushed",
-    per_page: 100,
-  });
-  res.json(repos);
-});
-
-app.get("/([r|repository])/:id/commit/:sha", (req, res) => {
-  res.status(500).send("To implement!");
-});
-
-function downloadRepoAndAnonymize(repoConfig) {
-  const cachePath = path.resolve(
-    __dirname,
-    "repositories",
-    repoConfig.id,
-    "cache"
-  );
-
-  return new Promise(async (resolve, reject) => {
-    fs.access(cachePath, ofs.constants.F_OK).then(
-      () => {},
-      (_) => {
-        try {
-          const opt = {
-            filter: (file) => {
-              return true;
-            },
-            map: (file) => {
-              if (file.path.indexOf(".md") > -1) {
-                let content = file.data.toString();
-                for (let term of repoConfig.terms) {
-                  content = content.replace(new RegExp(term, "gi"), "XXX");
-                }
-                file.data = content;
-
-                let path = file.path;
-                for (let term of repoConfig.terms) {
-                  path = path.replace(new RegExp(term, "gi"), "XXX");
-                }
-                file.path = path;
-              }
-              return file;
-            },
-          };
-          const gurl = gh(repoConfig.repository);
-          if (repoConfig.token) {
-            opt.headers = {
-              "Authorization": `token ${repoConfig.token}`,
-              "user-agent":
-                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36",
-              "accept": "application/vnd.github.3.raw",
-            };
-            opt.clone = false;
-          }
-          const url = `direct:https://api.github.com/repos/${gurl.repo}/tarball`;
-          downloadGit(url, cachePath, opt, (err) => {
-            console.log(err);
-            resolve();
-          });
-        } catch (error) {
-          console.log(error);
-          resolve();
-        }
-      }
-    );
-  });
-}
-
-async function walk(dir, root) {
-  if (root == null) {
-    root = dir;
-  }
-  let files = await fs.readdir(dir);
-  const output = {};
-  for (let file of files) {
-    let filePath = path.join(dir, file);
-    const stats = await fs.stat(filePath);
-    if (stats.isDirectory()) {
-      output[file] = await walk(filePath, root);
-    } else if (stats.isFile()) {
-      output[file] = stats.size;
-    }
-  }
-  return output;
-}
-
-app.get("/api/files/:id/", (req, res) => {
-  const repo_id = req.params.id;
-  if (!repo_id) {
-    return res.status(404).json({ error: "invalid_repo_id" });
-  }
-  const repoPath = path.resolve(__dirname, "repositories", repo_id);
-  fs.access(repoPath, ofs.constants.F_OK).then(
-    (_) => {
-      fs.readFile(path.resolve(repoPath, "config.json")).then(
-        async (data) => {
-          data = JSON.parse(data);
-          const repoCache = path.join(repoPath, "cache");
-          if (!ofs.existsSync(repoCache)) {
-            await downloadRepoAndAnonymize(data, repo_id);
-          }
-          fs.access(repoCache, ofs.constants.F_OK).then(
-            async (_) => {
-              res.json(await walk(repoCache));
-            },
-            (_) => res.status(404).json({ error: "repo_not_found" })
-          );
-        },
-        (_) => res.status(404).json({ error: "config_error" })
-      );
-    },
-    (_) => res.status(404).json({ error: "repo_not_found" })
-  );
-});
-app.get("/api/repository/:id/:path*", (req, res) => {
-  const repo_id = req.params.id;
-  console.log(repo_id);
-  if (!repo_id) {
-    return res.status(404).json({ error: "invalid_repo_id" });
-  }
-  const repoPath = path.resolve(__dirname, "repositories", repo_id);
-  const repoConfig = path.join(repoPath, "config.json");
-  const repoCache = path.join(repoPath, "cache");
-  fs.access(repoConfig, ofs.constants.F_OK).then(
-    (_) => {
-      fs.readFile(repoConfig).then(
-        async (data) => {
-          data = JSON.parse(data);
-          if (!ofs.existsSync(repoCache)) {
-            await downloadRepoAndAnonymize(data, repo_id);
-          }
-          let requestPath = req.params.path;
-          if (req.params[0]) {
-            requestPath += req.params[0];
-          }
-          if (requestPath == null) {
-            requestPath = "README.md";
-          }
-
-          const ppath = path.join(repoCache, requestPath);
-          fs.access(ppath, ofs.constants.F_OK).then(
-            (ok) => res.sendFile(ppath, { dotfiles: "allow" }),
-            (ko) =>
-              res
-                .status(404)
-                .json({ error: "file_not_found", path: requestPath })
-          );
-        },
-        (_) => res.status(404).json({ error: "config_error" })
-      );
-    },
-    (_) => res.status(404).json({ error: "repo_not_found" })
-  );
-});
-
-app.get("/api/stat/:id/", (req, res) => {
-  const repo_id = req.params.id;
-  const repoPath = path.resolve(__dirname, "repositories", repo_id);
-  const repoCache = path.join(repoPath, "cache");
-  if (ofs.existsSync(repoCache)) {
-    res.json(loc(repoCache).languages);
-  } else {
-    res.status(404).json({ error: "repo_not_found" });
-  }
-});
-app.post("/", (req, res) => {
-  res.status(500).send("To implement!");
-});
+// wesite view
+app.use("/w/", require("./routes/webview"));
 
 app.use(express.static(__dirname + "/public"));
 
-function homeAppResponse(req, res) {
+async function homeAppResponse(_, res) {
   res.sendFile(path.resolve(__dirname, "public", "index.html"));
 }
 function exploreAppResponse(req, res) {
+  if (req.headers["accept"].indexOf("text/html") == -1) {
+    // if it is not an html request, it assumes that the browser try to load a different type of resource
+    return res.redirect(`/api/repo/${req.params.repoId}/file/${req.params[0]}`);
+  }
   res.sendFile(path.resolve(__dirname, "public", "explore.html"));
 }
+
+app.get("/api/supportedTypes", async (req, res) => {
+  res.json(
+    require("textextensions")
+      .default.concat(fileUtils.additionalExtensions)
+      .sort()
+  );
+});
+
+app.get("/api/stat", async (req, res) => {
+  const nbRepositories = await db
+    .get("anonymized_repositories")
+    .estimatedDocumentCount();
+
+  const nbUsers = (await db.get("anonymized_repositories").distinct("owner"))
+    .length; //await db.get("users").estimatedDocumentCount();
+  res.json({ nbRepositories, nbUsers });
+});
+
 app
   .get("/", homeAppResponse)
-  .get("/myrepo", homeAppResponse)
-  .get("/r/*", exploreAppResponse)
-  .get("/repository/*", exploreAppResponse);
+  .get("/404", homeAppResponse)
+  .get("/anonymize", homeAppResponse)
+  .get("/r/:repoId/?*", exploreAppResponse)
+  .get("/repository/:repoId/?*", exploreAppResponse)
+  .get("*", homeAppResponse);
 
-app.listen(5000, () => {});
+db.connect().then((_) => {
+  app.listen(PORT, () => {
+    console.log("Database connected and Server started on port: " + PORT);
+  });
+});

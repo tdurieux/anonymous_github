@@ -1,0 +1,46 @@
+version: "3"
+
+services:
+  anonymous_github:
+    build: .
+    restart: always
+    command: nodemon index.js
+    image: tdurieux/anonymous_github:v2
+    container_name: anonymous_github
+    env_file:
+      - ./.env
+    volumes:
+      - .:/app
+      # - ./repositories:/app/repositories
+    ports:
+      - 5000:5000
+    links:
+      - mongodb
+      - redis
+
+  redis:
+    image: "redis:alpine"
+
+  mongodb:
+    image: mongo:latest
+    restart: on-failure
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: rootpassword
+    volumes:
+      - mongodb_data_container:/data/db
+    command: --quiet
+    healthcheck:
+      test:
+        - CMD
+        - mongo
+        - --eval
+        - "db.adminCommand('ping')"
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+volumes:
+  mongodb_data_container:

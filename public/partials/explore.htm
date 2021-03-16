@@ -1,4 +1,10 @@
-<pre ng-if="type == 'text'" ng-bind="content" class="file-content"></pre>
-<div ng-if="type == 'html'" ng-bind-html="content" class="file-content"></div>
-<pre ng-if="type == 'code'"><code class="hljs" ng-bind="content"></code></pre>
+<div ng-if="type == 'text'" ng-model="content" ui-ace="aceOption"></div>
+<div ng-if="type == 'html'" ng-bind-html="content" class="file-content markdown-body"></div>
+<div ng-if="type == 'code'" ui-ace="aceOption" ng-model="content"></div>
+<img ng-if="type == 'image'" class="image-content" ng-src="{{url}}"></img>
+<div class="h-100 overflow-auto" ng-if="type == 'pdf'">
+  <pdfviewer class="h-100 overflow-auto" src="{{url}}" id="viewer"></pdfviewer>
+</div>
+<div ng-if="type == 'IPython'"><notebook file="url"></notebook></div>
+<div ng-if="type == 'error'" class="file-error" ng-bind="content"></div>
 <div ng-if="content == null" class="file-error">Empty file!</div>
