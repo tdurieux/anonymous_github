@@ -19,6 +19,13 @@ Anonymous Github anonymizes:
 
 Question / Feedback / Bug report: please open an issue in this repository.
 
+
+Beta
+----
+
+I am working on a new version of Anonymous Github, a beta is available here: https://beta.durieux.me. Please try it and give me feedback here: https://github.com/tdurieux/anonymous_github/issues/45 
+
+
 Using Anonymous Github
 -----------------------
 
