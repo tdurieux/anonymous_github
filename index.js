@@ -1,5 +1,6 @@
 const path = require("path");
-
+const ofs = require("fs");
+const fs = require("fs").promises;
 const redis = require("redis");
 const RateLimit = require("express-rate-limit");
 const RedisStore = require("rate-limit-redis");
@@ -22,16 +23,6 @@ const PORT = process.env.PORT || 5000;
 const app = express();
 app.use(bodyParser.json());
 app.use(compression());
-app.use(
-  new RateLimit({
-    store: new RedisStore({
-      client: rediscli,
-    }),
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 200, // limit each IP to 100 requests per windowMs
-    // delayMs: 0, // disable delaying - full speed until the max limit is reached
-  })
-);
 app.set("trust proxy", 1);
 
 // handle session and connection
@@ -39,15 +30,24 @@ app.use(connection.session);
 app.use(connection.passport.initialize());
 app.use(connection.passport.session());
 
-app.use("/github", connection.router);
+const rateLimit = new RateLimit({
+  store: new RedisStore({
+    client: rediscli,
+  }),
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 200, // limit each IP to 100 requests per windowMs
+  // delayMs: 0, // disable delaying - full speed until the max limit is reached
+});
+
+app.use("/github", rateLimit, connection.router);
 
 // app routes
-app.use("/api/user", require("./routes/user"));
-app.use("/api/repo", require("./routes/file"));
-app.use("/api/repo", require("./routes/repositoy"));
+app.use("/api/user", rateLimit, require("./routes/user"));
+app.use("/api/repo", rateLimit, require("./routes/file"));
+app.use("/api/repo", rateLimit, require("./routes/repositoy"));
 
 // wesite view
-app.use("/w/", require("./routes/webview"));
+app.use("/w/", rateLimit, require("./routes/webview"));
 
 app.use(express.static(__dirname + "/public"));
 
@@ -62,7 +62,7 @@ function exploreAppResponse(req, res) {
   res.sendFile(path.resolve(__dirname, "public", "explore.html"));
 }
 
-app.get("/api/supportedTypes", async (req, res) => {
+app.get("/api/supportedTypes", async (_, res) => {
   res.json(
     require("textextensions")
       .default.concat(fileUtils.additionalExtensions)
@@ -70,7 +70,14 @@ app.get("/api/supportedTypes", async (req, res) => {
   );
 });
 
-app.get("/api/stat", async (req, res) => {
+app.get("/api/message", async (_, res) => {
+  if (ofs.existsSync("./message.txt")) {
+    return res.sendFile(path.resolve(__dirname, "message.txt"));
+  }
+  res.sendStatus(404);
+});
+
+app.get("/api/stat", async (_, res) => {
   const nbRepositories = await db
     .get("anonymized_repositories")
     .estimatedDocumentCount();

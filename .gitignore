@@ -1,6 +1,8 @@
 .env
 repositories/
 repo/
+db_backups
+message.txt
 # Created by https://www.gitignore.io/api/node
 # Edit at https://www.gitignore.io/?templates=node
 

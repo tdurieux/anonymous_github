@@ -41,10 +41,6 @@ router.get("/anonymized_repositories", async (req, res) => {
       repo.options.expirationDate != null &&
       repo.options.expirationDate < new Date()
     ) {
-      console.log(
-        repo.options.expirationDate,
-        repo.options.expirationDate < new Date()
-      );
       await repoUtils.updateStatus({ repoId: repo.repoId }, "expired");
       repo.status = "expired";
     } else {

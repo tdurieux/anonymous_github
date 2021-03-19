@@ -202,7 +202,6 @@ module.exports.getRepoCommit = async (options) => {
     force: options.force,
   });
   if (!branches[repoConfig.branch]) {
-    console.log(branches, repoConfig.branch);
     throw "branch_not_found";
   }
   return branches[repoConfig.branch].commit.sha;

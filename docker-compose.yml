@@ -27,8 +27,8 @@ services:
     ports:
       - "27017:27017"
     environment:
-      MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: rootpassword
+      MONGO_INITDB_ROOT_USERNAME: $DB_USERNAME
+      MONGO_INITDB_ROOT_PASSWORD: $DB_PASSWORD
     volumes:
       - mongodb_data_container:/data/db
     command: --quiet
@@ -42,5 +42,21 @@ services:
       timeout: 10s
       retries: 5
 
+  mongodb-backup:
+    image: tiredofit/db-backup
+    links:
+     - mongodb
+    volumes:
+      - ./db_backups:/backup
+    environment:
+      - DB_TYPE=mongo
+      - DB_HOST=mongodb
+      - DB_DUMP_FREQ=60
+      - DB_CLEANUP_TIME=240
+      - COMPRESSION=XZ
+      - DB_USER=$DB_USERNAME
+      - DB_PASS=$DB_PASSWORD
+
+    restart: always
 volumes:
   mongodb_data_container:

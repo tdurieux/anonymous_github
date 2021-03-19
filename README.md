@@ -66,11 +66,14 @@ GITHUB_TOKEN=<GITHUB_TOKEN>
 CLIENT_ID=<CLIENT_ID>
 CLIENT_SECRET=<CLIENT_SECRET>
 PORT=5000
+DB_USERNAME=
+DB_PASSWORD=
+AUTH_CALLBACK=http://localhost:5000/github/auth,
 ```
 
 `GITHUB_TOKEN` can be generate here: https://github.com/settings/tokens/new with `repo` scope.
 `CLIENT_ID` and `CLIENT_SECRET` are the tokens are generated when you create a new GitHub app https://github.com/settings/applications/new.
-The callback of the GitHub app needs to be defined as `https://<host>/github/auth`.
+The callback of the GitHub app needs to be defined as `https://<host>/github/auth` (the same as defined in AUTH_CALLBACK).
 
 3. Run Anonymous Github
 ```bash
