@@ -3,7 +3,7 @@
 <html lang="en" ng-app="anonymous-github" ng-controller="mainController">
   <head>
     <meta charset="UTF-8" />
-    <title>{{title || "anonymous Github"}}</title>
+    <title ng-bind="title">Anonymous Github</title>
     <script>
       var base = document.createElement("base");
       base.href = `/r/${document.location.pathname.split("/")[2]}/`;
@@ -33,30 +33,15 @@
     <script src="/script/exploreApp.js"></script>
     <script src="/script/ng-pdfviewer.min.js"></script>
   </head>
-  <body keypress-events>
-    <div class="main">
-      <div class="container-fluid">
-        <ng-include
-          src="'/partials/header.htm'"
-          style="display:block;min-height: 50px;"
-        ></ng-include>
-        <div class="row center">
-          <div class="leftCol shadow p-2 h-100 overflow-auto" ng-show="files">
-            <button
-              class="btn btn-primary btn-lg btn-block"
-              ng-if="options.download"
-            >
-              Download
-            </button>
-            <tree class="files" file="files" parent=""></tree>
-            <div class="stats" ng-if="options.mode == 'download'">
-              <h5>Code Statistics (LOC)</h5>
-              <div ng-repeat="(lang, stat) in stats" ng-if="stat.code>0">
-                <span ng-bind="lang"></span> <span ng-bind="stat.code"></span>
-              </div>
-            </div>
+  <body keypress-events class="d-flex flex-column">
+    <ng-include src="'/partials/header.htm'"></ng-include>
+    <div class="align-items-stretch h-100 w-100 overflow-auto">
+      <div class="container-fluid h-100">
+        <div class="row h-100">
+          <div class="leftCol shadow p-1 h-100 overflow-auto" ng-show="files">
+            <tree class="files" file="files"></tree>
           </div>
-          <div class="col p-0 body">
+          <div class="col p-0 h-100 d-flex flex-column">
             <nav aria-label="breadcrumb">
               <ol class="breadcrumb shadow paths">
                 <li class="breadcrumb-item" ng-repeat="p in paths" ng-bind="p">
@@ -64,12 +49,13 @@
                 </li>
               </ol>
             </nav>
-            <div class="content" ng-view></div>
+            <loc stats="stats" ng-if="stats"></loc>
+            <div class="align-items-stretch h-100 w-100 overflow-auto" ng-view></div>
           </div>
         </div>
-        <div class="bottom"></div>
       </div>
     </div>
+
     <script src="https://storage.ko-fi.com/cdn/scripts/overlay-widget.js"></script>
     <script>
       kofiWidgetOverlay.draw("tdurieux", {
@@ -89,6 +75,8 @@
     <script src="/script/external/prism.min.js"></script>
     <script src="/script/external/purify.min.js"></script>
     <script src="/script/external/notebook.min.js"></script>
+
+    <script src="/script/langColors.js"></script>
 
     <script src="/script/external/ace/ace.js"></script>
     <script src="/script/external/ui-ace.min.js"></script>

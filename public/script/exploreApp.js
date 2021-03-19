@@ -10,75 +10,19 @@ angular
       .when("/:path*", {
         templateUrl: "/partials/explore.htm",
         controller: "exploreController",
-        title: "Explore",
+        title: "Anonymized Repository - Anonymous GitHub",
       })
       .otherwise({
         templateUrl: "/partials/loading.htm",
-        title: "Anonymous Github",
+        title: "Loading - Anonymous GitHub",
       });
     $locationProvider.html5Mode(true);
   })
-  .factory("RecursionHelper", [
-    "$compile",
-    function($compile) {
-      return {
-        /**
-         * Manually compiles the element, fixing the recursion loop.
-         * @param element
-         * @param [link] A post-link function, or an object with function(s) registered via pre and post properties.
-         * @returns An object containing the linking functions.
-         */
-        compile: function(element, link) {
-          // Normalize the link parameter
-          if (angular.isFunction(link)) {
-            link = { post: link };
-          }
-
-          // Break the recursion loop by removing the contents
-          var contents = element.contents().remove();
-          var compiledContents;
-          return {
-            pre: link && link.pre ? link.pre : null,
-            /**
-             * Compiles and re-adds the contents
-             */
-            post: function(scope, element) {
-              // Compile the contents
-              if (!compiledContents) {
-                compiledContents = $compile(contents);
-              }
-              // Re-add the compiled contents to the element
-              compiledContents(scope, function(clone) {
-                element.append(clone);
-              });
-
-              // Call the post-linking function, if any
-              if (link && link.post) {
-                link.post.apply(null, arguments);
-              }
-            },
-          };
-        },
-      };
-    },
-  ])
   .directive("tree", [
-    "RecursionHelper",
-    function(RecursionHelper) {
+    function() {
       return {
         restrict: "E",
         scope: { file: "=", parent: "@" },
-        // template:
-        //   "<ul>" +
-        //   '<li class="file" ng-repeat="f in afiles" ng-class="{folder: isDir(f.child), active: isActive(f.name), open: opens[f.name]}">' +
-        //   "<a href='/r/{{repoId}}/{{parent}}/{{f.name}}' ng-if='!isDir(f.child)'>{{f.name}}</a>" +
-        //   "<a ng-click='openFolder(f.name)' ng-if='isDir(f.child)'>{{f.name}}</a>" +
-        //   '<tree file="f.child" parent="{{parent}}/{{f.name}}" ng-if="isDir(f.child)""></tree>' +
-        //   "</li>" +
-        //   "</ul>",
-        compile: function(element) {
-          return RecursionHelper.compile(element);
-        },
         controller: function($element, $scope, $location, $compile) {
           $scope.repoId = document.location.pathname.split("/")[2];
 
@@ -216,6 +160,55 @@ angular
       };
     },
   ])
+  .directive("loc", [
+    function() {
+      return {
+        restrict: "E",
+        scope: { stats: "=" },
+        template:
+          "<div class='lang' ng-repeat='lang in elements' title='{{lang.lang|title}}: {{lang.loc | number}} lines' data-toggle='tooltip' data-placement='bottom'  style='width:{{lang.loc*100/total}}%;background:{{lang.color}};'></div>",
+        controller: function($scope) {
+          function render() {
+            $scope.elements = [];
+            $scope.total = 0;
+            for (let lang in $scope.stats) {
+              const loc = $scope.stats[lang].code;
+              if (!loc) {
+                continue;
+              }
+              $scope.total += loc;
+              $scope.elements.push({
+                lang,
+                loc,
+                color: langColors[lang],
+              });
+            }
+            setTimeout(() => {
+              $('[data-toggle="tooltip"]').tooltip();
+            }, 100);
+          }
+
+          $scope.$watch("stats", (v) => {
+            render();
+          });
+          render();
+        },
+      };
+    },
+  ])
+  .filter("title", function() {
+    return function(str) {
+      if (!str) return str;
+
+      str = str.toLowerCase();
+      var words = str.split(" ");
+
+      var capitalized = words.map(function(word) {
+        return word.charAt(0).toUpperCase() + word.substring(1, word.length);
+      });
+      return capitalized.join(" ");
+    };
+  })
   .filter("filterObj", function() {
     return function(input, search) {
       if (!input) return input;
@@ -239,6 +232,9 @@ angular
       .split("/");
 
     $scope.$on("$routeChangeSuccess", function(event, current) {
+      if (current) {
+        $scope.title = current.title;
+      }
       $scope.paths = $location
         .path()
         .substring(1)
@@ -288,6 +284,19 @@ angular
       );
     }
     getUser();
+
+    function getMessage() {
+      $http.get("/api/message").then(
+        (res) => {
+          if (res) $scope.generalMessage = res.data;
+        },
+        () => {
+          $scope.generalMessage = null;
+        }
+      );
+    }
+    getMessage();
+
     async function getOptions(callback) {
       $http.get(`/api/repo/${$scope.repoId}/options`).then(
         (res) => {

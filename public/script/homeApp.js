@@ -1,5 +1,5 @@
 angular
-  .module("anonymous-github", ["ngRoute"])
+  .module("anonymous-github", ["ngRoute", "ngSanitize"])
   .config(function($routeProvider, $locationProvider) {
     $routeProvider
       .when("/", {
@@ -10,30 +10,30 @@ angular
       .when("/dashboard", {
         templateUrl: "/partials/dashboard.htm",
         controller: "dashboardController",
-        title: "Anonymous GitHub",
+        title: "Dashboard - Anonymous GitHub",
       })
       .when("/anonymize/:repoId?", {
         templateUrl: "/partials/anonymize.htm",
         controller: "anonymizeController",
-        title: "Anonymous GitHub",
+        title: "Anonymize - Anonymous GitHub",
       })
       .when("/404", {
         templateUrl: "/partials/404.htm",
-        title: "Not Found!",
+        title: "Page not found - Anonymous GitHub",
       })
       .when("/faq", {
         templateUrl: "/partials/faq.htm",
         controller: "faqController",
-        title: "Not Found!",
+        title: "FAQ - Anonymous GitHub",
       })
       .when("/claim", {
         templateUrl: "/partials/claim.htm",
         controller: "claimController",
-        title: "Not Found!",
+        title: "Claim repository - Anonymous GitHub",
       })
       .otherwise({
         templateUrl: "/partials/404.htm",
-        title: "Not Found!",
+        title: "Page not found - Anonymous GitHub",
       });
     $locationProvider.html5Mode(true);
   })
@@ -66,6 +66,18 @@ angular
     }
     getUser();
 
+    function getMessage() {
+      $http.get("/api/message").then(
+        (res) => {
+          if (res) $scope.generalMessage = res.data;
+        },
+        () => {
+          $scope.generalMessage = null;
+        }
+      );
+    }
+    getMessage();
+
     $scope.$on("$routeChangeSuccess", function(event, current) {
       if (current) {
         $scope.title = current.title;
@@ -87,7 +99,6 @@ angular
     $scope.repoId = null;
     $scope.repoUrl = null;
     $scope.claim = () => {
-      console.log("here");
       $http
         .post("/api/repo/claim", {
           repoId: $scope.repoId,
@@ -339,7 +350,6 @@ angular
     }
     async function getDetails() {
       const o = parseGithubUrl($scope.repoUrl);
-      console.log(o, $scope.repoUrl)
       try {
         $scope.anonymize.repoUrl.$setValidity("missing", true);
         const res = await $http.get(`/api/repo/${o.owner}/${o.repo}/`);

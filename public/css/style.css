@@ -31,19 +31,12 @@ body {
   position: relative;
   height: 100%;
 }
-header {
-  position: relative;
-}
-.view {
-  color: #ffffff;
-}
 
-.top-nav-collapse {
+.navbar {
   background: #4a507b !important;
 }
 
 .navbar {
-  box-shadow: 0 2px 5px 0 rgba(0, 0, 0, 0.16), 0 2px 10px 0 rgba(0, 0, 0, 0.12);
   font-weight: 300;
   transition: background-color 0.5s ease;
 }
@@ -54,18 +47,16 @@ header {
   font-size: 30px;
   line-height: 40px;
 }
-.navbar:not(.top-nav-collapse) {
-  /* background: transparent !important; */
-}
+
 .navbar-brand {
   width: 280px;
   text-align: center;
 }
 
-@media (max-width: 991px) {
-  .navbar:not(.top-nav-collapse) {
-    background: #4a507b !important;
-  }
+.generalMessage {
+  display: block;
+  text-align: center;
+  color: #ffffff;
 }
 
 .rgba-gradient {
@@ -138,20 +129,6 @@ a.black_border:hover {
   opacity: 1; /* Firefox */
 }
 
-.active .container {
-  transition: height 1s ease;
-}
-.add_form {
-  display: none;
-}
-.active .add_form {
-  display: block;
-}
-.main {
-  width: 100%;
-  margin: auto;
-  height: 100%;
-}
 .leftCol {
   position: relative;
   height: 100%;
@@ -164,12 +141,7 @@ a.black_border:hover {
   position: relative;
   display: block;
   overflow: scroll;
-  height: calc(100% - 168px);
-}
-.stats {
-  height: 120px;
-  overflow: scroll;
-  border-top: 1px solid #ddd;
+  height: 100%;
 }
 
 .files a {
@@ -215,9 +187,7 @@ a.black_border:hover {
   padding-left: 1px;
   color: #858b90;
 }
-.ace_editor {
-  height: 100%;
-}
+
 .files .folder::before {
   content: "\f07b";
   color: #3ba3f8;
@@ -226,14 +196,21 @@ a.black_border:hover {
   content: "\f07c";
 }
 
+.stats {
+  height: 120px;
+  overflow: scroll;
+  border-top: 1px solid #ddd;
+}
+
+.ace_editor {
+  height: 100%;
+}
+
 .paths {
   background-color: #ffffff;
   padding: 8px 6px;
-  position: absolute;
-  top: 0;
-  right: 0;
-  left: 0;
-  z-index: 0;
+  margin: 0;
+  border-bottom: 1px solid #dddddd ;
   border-radius: 0;
 }
 
@@ -245,53 +222,6 @@ a.black_border:hover {
 }
 .paths .breadcrumb-item::before {
   padding-right: 3px;
-}
-@media (max-width: 640px) {
-  .main {
-    width: 100%;
-  }
-  .container-fluid {
-    padding: 0;
-  }
-  .files {
-    margin: 0;
-    border-left: 0;
-    border-right: 0;
-    border-radius: 0;
-  }
-}
-.repos {
-  margin: 0;
-  padding: 0;
-}
-.repo {
-  list-style: none;
-  margin: 0;
-  padding: 3px 7px;
-  background: #fdfdfd;
-  border: 1px solid #ddd;
-  border-top: 0;
-}
-.repo .options {
-  float: right;
-}
-.main > .container-fluid {
-  height: 100%;
-  position: relative;
-}
-.row.top {
-  padding-left: 0;
-  color: #ffffff;
-  background-color: #4a507b;
-}
-.row.center {
-  position: relative;
-  height: calc(100% - 56px);
-}
-.body {
-  position: relative;
-  height: 100%;
-  overflow: scroll;
 }
 
 .content {
@@ -317,7 +247,6 @@ a.black_border:hover {
   font-weight: bold;
   font-size: 50px;
   text-align: center;
-  padding-top: 100px;
 }
 
 .preview {
@@ -355,16 +284,11 @@ notebook {
   right: 10px !important;
 }
 
-#navbar {
-  padding-right: 150px;
-}
-
 .accordion-section .panel-default .panel-title a:after {
   font-family: "FontAwesome";
   font-style: normal;
   font-size: 3rem;
   content: "\f106";
-  color: #1f7de2;
   float: right;
   margin-top: -12px;
 }
@@ -377,4 +301,15 @@ notebook {
 
 .table.repositories td {
   word-break: break-word;
+}
+
+loc {
+  display: block;
+  position: relative;
+  width: 100%;
+  height: 5px;
+}
+loc .lang {
+  float: left;
+  height: 100%;
 }

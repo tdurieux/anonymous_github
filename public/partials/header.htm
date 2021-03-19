@@ -1,106 +1,99 @@
-<div class="row top navbar navbar-expand-lg navbar-dark">
-  <div class="container-fluid">
-    <div class=""><a class="navbar-brand" href="">Anonymous GitHub</a></div>
-    <div class="col">
-      <button
-        class="navbar-toggler"
-        type="button"
-        data-toggle="collapse"
-        data-target="#navbar"
-        aria-controls="navbar"
-        aria-expanded="false"
-        aria-label="Toggle navigation"
-      >
-        <span class="navbar-toggler-icon"></span>
-      </button>
-      <div class="collapse navbar-collapse" id="navbar">
-        <ul class="navbar-nav mr-auto smooth-scroll">
-          <li class="nav-item" ng-if="!user">
-            <a class="nav-link" ng-class="{'active': path == '/'}" href="/">
-              Home
-            </a>
-          </li>
-          <li class="nav-item" ng-if="user">
-            <a
-              class="nav-link"
-              ng-class="{'active': path == '/dashboard'}"
-              href="/dashboard"
-            >
-              Home
-            </a>
-          </li>
-          <li class="nav-item" ng-if="user">
-            <a
-              class="nav-link"
-              ng-class="{'active':path == '/anonymize'}"
-              href="/anonymize"
-              >Annoymize</a
-            >
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" ng-class="{'active':path == '/faq'}" href="/faq"
-              >FAQ</a
-            >
-          </li>
-          <li class="nav-item">
-            <a
-              class="nav-link"
-              target="_blank"
-              href="https://github.com/tdurieux/anonymous_github/issues/new"
-              data-offset="30"
-              >Report an issue
-            </a>
-          </li>
-          <li class="nav-item" ng-if="!user">
-            <a
-              class="nav-link"
-              target="_self"
-              href="/github/login"
-              data-offset="30"
-              >Login
-            </a>
-          </li>
-          <li class="nav-item">
-            <a
-              class="nav-link nav-icon"
-              target="_blank"
-              href="https://github.com/tdurieux/anonymous_github/"
-              data-offset="30"
-              ><i class="fa fa-github" aria-hidden="true"></i
-            ></a>
-          </li>
-          <li class="nav-item dropdown" ng-if="user">
-            <a
-              class="nav-link dropdown-toggle"
-              href="#"
-              id="navbarDropdownMenuLink"
-              role="button"
-              data-toggle="dropdown"
-              aria-haspopup="true"
-              aria-expanded="false"
-            >
-              <!-- <img
-                height="30"
-                class="d-inline-block align-middle"
-                src="{{user.photo}}"
-                ng-if="user.photo"
-                data-offset="30"
-              /> -->
-              {{user.username}}
-              <!-- <span ng-bind="user.username"></span> -->
-            </a>
-            <div class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
-              <!-- <a class="dropdown-item" href="/profile">My Profile</a> -->
-              <a class="dropdown-item" href="/dashboard">Projects</a>
-              <div class="dropdown-divider"></div>
-              <a class="dropdown-item" href="/api/user/logout" target="__self"
-                >Logout</a
-              >
-            </div>
-          </li>
-        </ul>
-        <ul class="navbar-nav"></ul>
-      </div>
-    </div>
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark" ng-class="{'shadow': !generalMessage}">
+  <a class="navbar-brand" href="/">Anonymous GitHub</a>
+  <button
+    class="navbar-toggler"
+    type="button"
+    data-toggle="collapse"
+    data-target="#navbarSupportedContent"
+    aria-controls="navbarSupportedContent"
+    aria-expanded="false"
+    aria-label="Toggle navigation"
+  >
+    <span class="navbar-toggler-icon"></span>
+  </button>
+
+  <div class="collapse navbar-collapse" id="navbarSupportedContent">
+    <ul class="navbar-nav mr-auto smooth-scroll">
+      <li class="nav-item" ng-if="!user">
+        <a class="nav-link" ng-class="{'active': path == '/'}" href="/">
+          Home
+        </a>
+      </li>
+      <li class="nav-item" ng-if="user">
+        <a
+          class="nav-link"
+          ng-class="{'active': path == '/dashboard'}"
+          href="/dashboard"
+        >
+          Home
+        </a>
+      </li>
+      <li class="nav-item" ng-if="user">
+        <a
+          class="nav-link"
+          ng-class="{'active':path == '/anonymize'}"
+          href="/anonymize"
+          >Annoymize</a
+        >
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" ng-class="{'active':path == '/faq'}" href="/faq"
+          >FAQ</a
+        >
+      </li>
+      <li class="nav-item">
+        <a
+          class="nav-link"
+          target="_blank"
+          href="https://github.com/tdurieux/anonymous_github/issues/new"
+          data-offset="30"
+          >Report an issue
+        </a>
+      </li>
+      <li class="nav-item" ng-if="!user">
+        <a class="nav-link" target="_self" href="/github/login" data-offset="30"
+          >Login
+        </a>
+      </li>
+      <li class="nav-item">
+        <a
+          class="nav-link nav-icon"
+          target="_blank"
+          href="https://github.com/tdurieux/anonymous_github/"
+          data-offset="30"
+          ><i class="fa fa-github" aria-hidden="true"></i
+        ></a>
+      </li>
+      <li class="nav-item dropdown" ng-if="user">
+        <a
+          class="nav-link dropdown-toggle"
+          href="#"
+          id="navbarDropdownMenuLink"
+          role="button"
+          data-toggle="dropdown"
+          aria-haspopup="true"
+          aria-expanded="false"
+        >
+          <!-- <img
+            height="30"
+            class="d-inline-block align-middle"
+            src="{{user.photo}}"
+            ng-if="user.photo"
+            data-offset="30"
+          /> -->
+          {{user.username}}
+          <!-- <span ng-bind="user.username"></span> -->
+        </a>
+        <div class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
+          <!-- <a class="dropdown-item" href="/profile">My Profile</a> -->
+          <a class="dropdown-item" href="/dashboard">Projects</a>
+          <div class="dropdown-divider"></div>
+          <a class="dropdown-item" href="/api/user/logout" target="__self"
+            >Logout</a
+          >
+        </div>
+      </li>
+    </ul>
   </div>
-</div>
+</nav>
+<div class="navbar shadow generalMessage" ng-bind-html="generalMessage" ng-if="generalMessage"></div>
