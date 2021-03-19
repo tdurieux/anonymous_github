@@ -460,7 +460,7 @@ module.exports.getStats = async (options) => {
   if (repoConfig == null) {
     throw "repo_not_found";
   }
-  if (repoConfig.mode != "download") {
+  if (repoConfig.options.mode != "download") {
     throw "stats_unsupported";
   }
 
