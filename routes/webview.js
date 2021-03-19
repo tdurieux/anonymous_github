@@ -62,7 +62,7 @@ async function webView(req, res) {
     console.error(error);
     return res.status(500).send({ error });
   }
-  return res.status(404).send("File_not_found");
+  return res.status(404).send("file_not_found");
 }
 
 router.get("/:repoId/*", webView);

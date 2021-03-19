@@ -60,7 +60,7 @@ router.get("/all_repositories", async (req, res) => {
       { projection: { repositories: 1 } }
     );
   if (!user) {
-    res.status(401).send("User not found");
+    res.status(401).send({error: "user_not_found"});
   }
   if (user.repositories && req.query.force !== "1") {
     return res.json(user.repositories);

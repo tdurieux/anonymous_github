@@ -1,6 +1,17 @@
 angular
-  .module("anonymous-github", ["ngRoute", "ngSanitize"])
-  .config(function($routeProvider, $locationProvider) {
+  .module("anonymous-github", [
+    "ngRoute",
+    "ngSanitize",
+    "pascalprecht.translate",
+  ])
+  .config(function($routeProvider, $locationProvider, $translateProvider) {
+    $translateProvider.useStaticFilesLoader({
+      prefix: "/i18n/locale-",
+      suffix: ".json",
+    });
+
+    $translateProvider.preferredLanguage("en");
+
     $routeProvider
       .when("/", {
         templateUrl: "/partials/home.htm",
@@ -199,7 +210,8 @@ angular
     $http,
     $sce,
     $routeParams,
-    $location
+    $location,
+    $translate
   ) {
     $scope.repoUrl = "";
     $scope.repoId = "";
@@ -233,8 +245,11 @@ angular
           $scope.repoUrl = "https://github.com/" + res.data.fullName;
 
           $scope.terms = res.data.terms.join("\n");
+          $scope.branch = res.data.branch;
           $scope.options = res.data.options;
-          $scope.options.expirationDate = new Date(res.data.options.expirationDate);
+          $scope.options.expirationDate = new Date(
+            res.data.options.expirationDate
+          );
 
           $scope.details = (await $http.get(
             `/api/repo/${res.data.fullName}/`
@@ -301,7 +316,7 @@ angular
       if ($scope.branches && $scope.branches[$scope.branch]) {
         $scope.commit = $scope.branches[$scope.branch].commit.sha;
       }
-      if ($scope.details.has_page) {
+      if ($scope.details && $scope.details.has_page) {
         $scope.anonymize.page.disabled(false);
         if ($scope.details.pageSource.branch != $scope.branch) {
           $scope.anonymize.page.disabled(true);
@@ -334,7 +349,9 @@ angular
         { params: { force: force === true ? "1" : "0" } }
       );
       $scope.branches = branches.data;
-      $scope.branch = $scope.details.default_branch;
+      if (!$scope.branch) {
+        $scope.branch = $scope.details.default_branch;
+      }
       if ($scope.branches[$scope.branch]) {
         $scope.commit = $scope.branches[$scope.branch].commit.sha;
       }
@@ -476,6 +493,9 @@ angular
         window.location.href = "/r/" + $scope.repoId;
       } catch (error) {
         if (error.data) {
+          $translate("ERRORS." + error.data.error).then((translation) => {
+            $scope.error = translation;
+          }, console.error);
           displayErrorMessage(error.data.error);
         } else {
           console.error(error);

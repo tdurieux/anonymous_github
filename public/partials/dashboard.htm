@@ -98,7 +98,7 @@
             </thead>
             <tbody>
               <tr
-                ng-repeat="repo in repositories| filter:repoFiler| orderBy:orderBy"
+                ng-repeat="repo in repositories| filter:repoFiler| orderBy:orderBy as filteredRepositories"
               >
                 <th scope="row">{{$index + 1}}</th>
                 <td>
@@ -177,6 +177,10 @@
                     </div>
                   </div>
                 </td>
+              </tr>
+              <tr ng-hide="filteredRepositories.length">
+                <td></td>
+                <td>No Repository</td>
               </tr>
             </tbody>
           </table>

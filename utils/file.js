@@ -416,13 +416,13 @@ module.exports.isFilePathValid = async (options) => {
         }
         if (error.status == 403) {
           console.log(error);
-          throw "content_too_large";
+          throw "file_too_big";
         }
         throw error;
       }
     }
     if (!ghRes.data.content && ghRes.data.size != 0) {
-      throw "content_not_accessible";
+      throw "file_not_accessible";
     }
     // empty file
     let content = "";
@@ -460,7 +460,7 @@ module.exports.getStats = async (options) => {
   if (repoConfig == null) {
     throw "repo_not_found";
   }
-  if (repoConfig.mode == "stream") {
+  if (repoConfig.mode != "download") {
     throw "stats_unsupported";
   }
 

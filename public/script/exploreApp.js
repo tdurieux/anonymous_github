@@ -4,8 +4,16 @@ angular
     "ngSanitize",
     "ui.ace",
     "ngPDFViewer",
+    "pascalprecht.translate",
   ])
-  .config(function($routeProvider, $locationProvider) {
+  .config(function($routeProvider, $locationProvider, $translateProvider) {
+    $translateProvider.useStaticFilesLoader({
+      prefix: "/i18n/locale-",
+      suffix: ".json",
+    });
+
+    $translateProvider.preferredLanguage("en");
+
     $routeProvider
       .when("/:path*", {
         templateUrl: "/partials/explore.htm",
@@ -311,13 +319,7 @@ angular
           }
         },
         (err) => {
-          if (err.data.error == "repository_expired") {
-            $scope.error = "The repository is not available!";
-          } else if (err.data.error == "repo_not_found") {
-            $scope.error = "The repository is not found!";
-          } else {
-            console.log(err);
-          }
+          $scope.error = err.data.error;
         }
       );
     }
@@ -451,8 +453,14 @@ angular
           },
           (err) => {
             $scope.type = "error";
-            console.log(err);
-            $scope.content = err.data;
+            try {
+              err.data = JSON.parse(err.data);
+            } catch (ignore) {}
+            if (err.data.error) {
+              $scope.content = err.data.error;
+            } else {
+              $scope.content = err.data;
+            }
           }
         );
     }

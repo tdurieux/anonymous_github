@@ -23,6 +23,7 @@ async function anonymizeRepository(options) {
       console.log("The repository is expired");
       await repoUtils.updateStatus(repoConfig, "expired");
       await repoUtils.removeRepository(repoConfig);
+      throw "repository_expired";
       return;
     }
   }
@@ -150,7 +151,7 @@ router.get("/:repoId/file/:path*", async (req, res) => {
       );
       return res.sendFile(ppath, { dotfiles: "allow" });
     } else {
-      return res.status(404).send({ error: "file_not_found" });
+      return res.status(404).json({ error: "file_not_found" });
     }
   } catch (error) {
     console.error(error);

@@ -277,7 +277,7 @@ router.post("/", async (req, res) => {
   if (repoConfig.options.mode == "download") {
     // details.size is in kilobytes
     if (details.size > config.MAX_REPO_SIZE) {
-      return res.status(500).send({ error: "invalid_mode" });
+      return res.status(500).send({ error: "non_supported_mode" });
     }
   }
 
@@ -326,7 +326,7 @@ router.post("/", async (req, res) => {
     await repoUtils.updateStatus(repoConfig, "error");
     return res
       .status(500)
-      .json({ error: "unable_to_access", message: error.message });
+      .json({ error: "unable_to_anonymize", message: error.message });
   }
   res.send("ok");
 });

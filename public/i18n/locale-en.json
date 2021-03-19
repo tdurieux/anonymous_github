@@ -1,0 +1,31 @@
+{
+  "ERRORS": {
+    "repo_not_found": "The repository is not found.",
+    "repo_not_accessible": "Anonymous GitHub does not have the persmission to access the repository.",
+    "repository_expired": "The repository is expired",
+    "repository_not_ready": "Anonymous GitHub is still processing the repository, it can take several minutes.",
+    "repo_is_updating": "Anonymous GitHub is still processing the repository, it can take several minutes.",
+    "repoUrl_not_defined": "The repository url needs to be defined.",
+    "repoId_already_used": "The repository id is already used.",
+    "invalid_repoId": "The format of the repository id is invalid",
+    "branch_not_specified": "The branch is not specified",
+    "options_not_provided": "options_not_provided",
+    "invalid_terms_format": "invalid_terms_format",
+    "unable_to_anonymize": "unable_to_anonymize",
+    "non_supported_mode": "The selected anonymization mode is invalid, only download and stream are supported.",
+    "invalid_path": "The provided path is invalid or missing.",
+    "file_not_found": "The requested file is not found.",
+    "file_not_accessible": "The requested file is not accessible.",
+    "file_not_supported": "The file type is not supported. Anonymous GitHub cannot handle it.",
+    "file_too_big": "The file size exceed the limit of Anonymous GitHub.",
+    "is_folder": "The path points to a folder.",
+    "unable_to_write_file": "Unable to write file on disk.",
+    "stats_unsupported": "Statistics are only supported in download mode.",
+    "branches_not_found": "The requested branch is not found.",
+    "readme_not_available": "No readme for the repository is found.",
+    "user_not_found": "The current user is not found in the database",
+    "not_connected": "User is not connectd",
+    "page_not_supported_on_different_branch": "Anonimized GitHub pages are only supported on the same branch.",
+    "page_not_activated": "Anonimized GitHub page is not enabled."
+  }
+}
