@@ -71,7 +71,8 @@
                   Claim repository
                 </a>
                 <a class="btn btn-primary" href="/anonymize">
-                  Annoymize repository
+                  <i class="fa fa-plus-circle" aria-hidden="true"></i> Annoymize
+                  repository
                 </a>
               </div>
             </div>
@@ -114,7 +115,7 @@
                 <td>{{repo.branch}}</td>
                 <!-- <td>{{repo.commit.substring(0, 6)}}</td> -->
                 <td class="text-center">{{repo.terms.length}}</td>
-                <td class="text-center">{{repo.status}}</td>
+                <td class="text-center">{{repo.status | title}}</td>
                 <td class="text-center">{{repo.anonymizeDate | date}}</td>
                 <td class="text-center">{{repo.pageView}}</td>
                 <td class="text-center">{{repo.lastView | date}}</td>
@@ -138,35 +139,49 @@
                         class="dropdown-item"
                         href="/anonymize/{{repo.repoId}}"
                         target="_self"
-                        >Edit</a
                       >
+                        <i class="fa fa-edit" aria-hidden="true"></i> Edit
+                      </a>
                       <a
                         class="dropdown-item"
                         href="#"
                         ng-show="repo.status == 'ready'"
                         ng-click="updateRepository(repo)"
-                        >Force update</a
                       >
+                        <i class="fa fa-undo" aria-hidden="true"></i> Force
+                        update
+                      </a>
                       <a
                         class="dropdown-item"
                         href="#"
                         ng-show="repo.status == 'removed'"
                         ng-click="updateRepository(repo)"
-                        >Enable</a
                       >
+                        <i class="fa fa-check-circle" aria-hidden="true"></i> Enable
+                      </a>
                       <a
                         class="dropdown-item"
                         href="#"
                         ng-show="repo.status != 'removed'"
                         ng-click="removeRepository(repo)"
-                        >Remove</a
                       >
+                        <i class="fa fa-remove" aria-hidden="true"></i> Remove
+                      </a>
                       <a
                         class="dropdown-item"
                         href="/r/{{repo.repoId}}"
                         target="_self"
-                        >View</a
                       >
+                        <i class="fa fa-eye" aria-hidden="true"></i> View Repo
+                      </a>
+                      <a
+                        class="dropdown-item"
+                        href="/w/{{repo.repoId}}"
+                        target="_self"
+                        ng-if="repo.options.page"
+                      >
+                        <i class="fa fa-globe" aria-hidden="true"></i> View Page
+                      </a>
                       <a
                         class="dropdown-item"
                         href="/w/{{repo.repoId}}"

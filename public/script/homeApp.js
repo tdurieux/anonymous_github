@@ -61,6 +61,19 @@ angular
       return result;
     };
   })
+  .filter("title", function() {
+    return function(str) {
+      if (!str) return str;
+
+      str = str.toLowerCase();
+      var words = str.split(" ");
+
+      var capitalized = words.map(function(word) {
+        return word.charAt(0).toUpperCase() + word.substring(1, word.length);
+      });
+      return capitalized.join(" ");
+    };
+  })
   .controller("mainController", function($scope, $http, $location) {
     $scope.title = "Main";
     $scope.user = { status: "connection" };

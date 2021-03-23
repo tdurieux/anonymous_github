@@ -152,7 +152,8 @@ router.delete("/:repoId/", async (req, res) => {
   try {
     await repoUtils.updateStatus(repoConfig, "removed");
     await repoUtils.removeRepository(repoConfig);
-    return res.send("ok");
+    console.log(`${req.params.repoId} is removed`);
+    return res.json("ok");
   } catch (error) {
     return res.status(500).json({ error });
   }

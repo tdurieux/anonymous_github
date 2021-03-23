@@ -43,9 +43,6 @@ router.get("/anonymized_repositories", async (req, res) => {
     ) {
       await repoUtils.updateStatus({ repoId: repo.repoId }, "expired");
       repo.status = "expired";
-    } else {
-      await repoUtils.updateStatus({ repoId: repo.repoId }, "ready");
-      repo.status = "ready";
     }
   }
   res.json(repos);
@@ -60,7 +57,7 @@ router.get("/all_repositories", async (req, res) => {
       { projection: { repositories: 1 } }
     );
   if (!user) {
-    res.status(401).send({error: "user_not_found"});
+    res.status(401).send({ error: "user_not_found" });
   }
   if (user.repositories && req.query.force !== "1") {
     return res.json(user.repositories);
