@@ -83,6 +83,7 @@
             </div>
           </div>
           <div ng-show="repoUrl">
+            <!-- Branch -->
             <div class="form-group">
               <label for="branch">Branch</label>
               <div class="input-group mb-3">
@@ -114,6 +115,7 @@
                 >The branch to anonymize</small
               >
             </div>
+            <!-- Commit -->
             <div class="form-group">
               <label for="commit">Commit</label>
               <input
@@ -126,7 +128,7 @@
                 >The commit to anonymize</small
               >
             </div>
-
+            <!-- Repo ID -->
             <div class="form-group">
               <label for="repoId">Anonymize repository id</label>
               <input
@@ -155,7 +157,7 @@
                 {{repoId}} is already used
               </div>
             </div>
-
+            <!-- Terms -->
             <div class="form-group">
               <label for="terms">Terms to anonymize</label>
               <textarea
@@ -175,6 +177,19 @@
               >
                 Terms are in an invalid format
               </div>
+            </div>
+            <!-- Conference -->
+            <div class="form-group">
+              <label for="conference">Conference</label>
+              <input
+                class="form-control"
+                id="conference"
+                name="conference"
+                ng-model="conference"
+              />
+              <small class="form-text text-muted"
+                >In which conference the paper has been submitted.</small
+              >
             </div>
 
             <div class="accordion mb-3" id="options">
@@ -299,7 +314,7 @@
                           >Github page</label
                         >
                         <small id="termsHelp" class="form-text text-muted"
-                          >Enable anonymized Github pages. It will be available
+                          >Enable anonymized Github pages. It currently only suported for Github pages that are defined in the same branch. It will be available
                           at https://anonymous.4open.science/w/{{repoId}}</small
                         >
                       </div>

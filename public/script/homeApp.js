@@ -247,6 +247,7 @@ angular
           $scope.terms = res.data.terms.join("\n");
           $scope.branch = res.data.branch;
           $scope.options = res.data.options;
+          $scope.conference = res.data.conference;
           $scope.options.expirationDate = new Date(
             res.data.options.expirationDate
           );
@@ -457,6 +458,7 @@ angular
         options: $scope.options,
         branch: $scope.branch,
         commit: $scope.commit,
+        conference: $scope.conference,
       };
     }
     function displayErrorMessage(message) {

@@ -289,6 +289,7 @@ router.post("/", async (req, res) => {
     owner: req.user.profile.username,
     token: req.user.accessToken,
     branch: repoConfig.branch,
+    conference: repoConfig.conference,
     commit: repoConfig.commit
       ? repoConfig.commit
       : details.branches[repoConfig.branch].commit.sha,
