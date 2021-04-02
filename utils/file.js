@@ -252,6 +252,7 @@ module.exports.additionalExtensions = [
   "ipynb",
   "gp",
   "out",
+  "sol",
 ];
 module.exports.isText = (p) => {
   if (isText(p)) {
