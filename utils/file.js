@@ -253,6 +253,7 @@ module.exports.additionalExtensions = [
   "gp",
   "out",
   "sol",
+  "in",
 ];
 module.exports.isText = (p) => {
   if (isText(p)) {
