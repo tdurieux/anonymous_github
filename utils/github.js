@@ -32,7 +32,7 @@ module.exports.downloadRepoAndAnonymize = async (repoConfig) => {
     return true;
   }
   if (repoConfig.options.mode == "download") {
-    // if cache folder does not exist download and anonumize it
+    // if cache folder does not exist download and anonymize it
 
     const originalPath = repoUtils.getOriginalPath(repoConfig.repoId);
 

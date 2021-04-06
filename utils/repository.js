@@ -308,7 +308,7 @@ module.exports.getRepoReadme = async (options) => {
   }
 };
 
-module.exports.updateAnonimizedRepository = async (repoConfig) => {
+module.exports.updateAnonymizedRepository = async (repoConfig) => {
   if (repoConfig.status == "updating") {
     throw "repo_is_updating";
   }

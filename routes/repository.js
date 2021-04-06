@@ -135,7 +135,7 @@ router.post("/:repoId/refresh", async (req, res) => {
     return res.status(401).json({ error: "not_authorized" });
   }
   try {
-    await repoUtils.updateAnonimizedRepository(repoConfig);
+    await repoUtils.updateAnonymizedRepository(repoConfig);
     return res.send("ok");
   } catch (error) {
     return res.status(500).json({ error });

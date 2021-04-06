@@ -1,7 +1,7 @@
 {
   "ERRORS": {
     "repo_not_found": "The repository is not found.",
-    "repo_not_accessible": "Anonymous GitHub does not have the persmission to access the repository.",
+    "repo_not_accessible": "Anonymous GitHub does not have the permission to access the repository.",
     "repository_expired": "The repository is expired",
     "repository_not_ready": "Anonymous GitHub is still processing the repository, it can take several minutes.",
     "repo_is_updating": "Anonymous GitHub is still processing the repository, it can take several minutes.",
@@ -9,9 +9,9 @@
     "repoId_already_used": "The repository id is already used.",
     "invalid_repoId": "The format of the repository id is invalid.",
     "branch_not_specified": "The branch is not specified.",
-    "options_not_provided": "Anonimization options are mendatory.",
+    "options_not_provided": "Anonymization options are mandatory.",
     "invalid_terms_format": "Terms are in an invalid format.",
-    "unable_to_anonymize": "An error happened during the anonimization proccess. Please try later or report the issue.",
+    "unable_to_anonymize": "An error happened during the anonymization process. Please try later or report the issue.",
     "non_supported_mode": "The selected anonymization mode is invalid, only download and stream are supported.",
     "invalid_path": "The provided path is invalid or missing.",
     "file_not_found": "The requested file is not found.",
@@ -24,8 +24,8 @@
     "branches_not_found": "The requested branch is not found.",
     "readme_not_available": "No readme for the repository is found.",
     "user_not_found": "The current user is not found in the database",
-    "not_connected": "User is not connectd",
-    "page_not_supported_on_different_branch": "Anonimized GitHub pages are only supported on the same branch.",
-    "page_not_activated": "Anonimized GitHub page is not enabled."
+    "not_connected": "User is not connected",
+    "page_not_supported_on_different_branch": "Anonymized GitHub pages are only supported on the same branch.",
+    "page_not_activated": "Anonymized GitHub page is not enabled."
   }
 }

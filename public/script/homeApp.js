@@ -292,7 +292,7 @@ angular
               $scope.progress = 25;
             } else if ($scope.repo.status == "preparing") {
               $scope.progress = 10;
-            } else if ($scope.repo.status == "anonimizing") {
+            } else if ($scope.repo.status == "anonymizing") {
               $scope.progress = 75;
             }
             if ($scope.repo.status != "ready") {

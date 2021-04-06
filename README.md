@@ -26,7 +26,7 @@ Using Anonymous Github
 ## How to create a new anonymized repository
 
 To use it, open the main page (e.g., [http://anonymous.4open.science/](http://anonymous.4open.science/)), login with GitHub, and click on "Anonymize".
-Simply fill 1. the Github repo URL and 2. the id of the anonymized repository, 3. the terms to anonymize (which can be updated afterwards). 
+Simply fill 1. the Github repo URL and 2. the id of the anonymized repository, 3. the terms to anonymize (which can be updated afterward). 
 The anonymization of the content is done by replacing all occurrences of words in a list by "XXX". 
 The word list is provided by the authors, and typically contains the institution name, author names, logins, etc...
 The README is anonymized as well as all files of the repository. Even filenames are anonymized. 
@@ -40,11 +40,11 @@ To start using Anonymous Github right now, a public instance of anonymous_github
 
 ## What is the scope of anonymization?
 
-In double-blind peer-review, the boundary of anonymization is the paper plus its online appendix, and only this, it's not the whole world. Googling any part of the paper or the online appendix can be considered as deliberate attempt to break anonymity ([explanation](http://www.monperrus.net/martin/open-science-double-blind))
+In double-blind peer-review, the boundary of anonymization is the paper plus its online appendix, and only this, it's not the whole world. Googling any part of the paper or the online appendix can be considered as a deliberate attempt to break anonymity ([explanation](http://www.monperrus.net/martin/open-science-double-blind))
 
 
-How it works?
---------------
+How does it work?
+-----------------
 
 Anonymous Github either download the complete repository and anonymize the content of the file or proxy the request to GitHub. In both case, the original and anonymized versions of the file are cached on the server. 
 
@@ -57,7 +57,7 @@ cd anonymous_github
 npm i
 ```
 
-2. Configure the Github tocken
+2. Configure the Github token
 
 Create a file `.env` that contains
 
@@ -71,7 +71,7 @@ DB_PASSWORD=
 AUTH_CALLBACK=http://localhost:5000/github/auth,
 ```
 
-`GITHUB_TOKEN` can be generate here: https://github.com/settings/tokens/new with `repo` scope.
+`GITHUB_TOKEN` can be generated here: https://github.com/settings/tokens/new with `repo` scope.
 `CLIENT_ID` and `CLIENT_SECRET` are the tokens are generated when you create a new GitHub app https://github.com/settings/applications/new.
 The callback of the GitHub app needs to be defined as `https://<host>/github/auth` (the same as defined in AUTH_CALLBACK).
 
@@ -82,7 +82,7 @@ docker-compose up -d
 
 4. Go to Anonymous Github
 
-By default, Anonymous Github uses the port 5000. It can be changed in `docker-compose.yml`.
+By default, Anonymous Github uses port 5000. It can be changed in `docker-compose.yml`.
 
 
 Related tools

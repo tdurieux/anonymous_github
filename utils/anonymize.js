@@ -3,7 +3,7 @@ const ofs = require("fs");
 const path = require("path");
 const fileUtils = require("./file");
 
-const ananymiseContent = (content, repoConfig) => {
+const anonymizeContent = (content, repoConfig) => {
   const urlRegex = /<?\b((https?|ftp|file):\/\/)[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]\b\/?>?/g;
 
   if (repoConfig.options.image === false) {
@@ -54,7 +54,7 @@ const ananymiseContent = (content, repoConfig) => {
   return content;
 };
 
-const ananymisePath = (path, repoConfig) => {
+const anonymizePath = (path, repoConfig) => {
   for (let term of repoConfig.terms) {
     if (term.trim() == "") {
       continue;
@@ -80,13 +80,13 @@ const anonymizeFolder = async (root, destination, repoConfig) => {
     for await (const originalFilePath of walk(root)) {
       const destinationFilePath = path.join(
         destination,
-        ananymisePath(originalFilePath.replace(root, ""), repoConfig)
+        anonymizePath(originalFilePath.replace(root, ""), repoConfig)
       );
       const destinationFolder = path.dirname(destinationFilePath);
       if (!ofs.existsSync(destinationFolder)) {
         await fs.mkdir(destinationFolder, { recursive: true });
       }
-      await ananymiseFile(originalFilePath, destinationFilePath, repoConfig);
+      await anonymizeFile(originalFilePath, destinationFilePath, repoConfig);
     }
   } catch (error) {
     fs.rm(destination, { recursive: true, force: true });
@@ -94,12 +94,12 @@ const anonymizeFolder = async (root, destination, repoConfig) => {
   }
 };
 
-const ananymiseFile = async (filePath, target, repoConfig) => {
+const anonymizeFile = async (filePath, target, repoConfig) => {
   if (!ofs.existsSync(path.dirname(target))) {
     await fs.mkdir(path.dirname(target), { recursive: true });
   }
   if (fileUtils.isText(filePath)) {
-    const content = ananymiseContent(
+    const content = anonymizeContent(
       (await fs.readFile(filePath)).toString(),
       repoConfig
     );
@@ -109,7 +109,7 @@ const ananymiseFile = async (filePath, target, repoConfig) => {
   }
 };
 
-module.exports.ananymiseFile = ananymiseFile;
-module.exports.ananymisePath = ananymisePath;
+module.exports.anonymizeFile = anonymizeFile;
+module.exports.anonymizePath = anonymizePath;
 module.exports.anonymizeFolder = anonymizeFolder;
-module.exports.ananymiseContent = ananymiseContent;
+module.exports.anonymizeContent = anonymizeContent;

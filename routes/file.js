@@ -40,7 +40,7 @@ async function anonymizeRepository(options) {
       console.error("Error while updating the repository.");
       console.error(error);
     }
-    await repoUtils.updateAnonimizedRepository(repoConfig);
+    await repoUtils.updateAnonymizedRepository(repoConfig);
   }
   await githubUtils.downloadRepoAndAnonymize(repoConfig);
 }

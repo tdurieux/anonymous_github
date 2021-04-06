@@ -44,7 +44,7 @@ app.use("/github", rateLimit, connection.router);
 // app routes
 app.use("/api/user", rateLimit, require("./routes/user"));
 app.use("/api/repo", rateLimit, require("./routes/file"));
-app.use("/api/repo", rateLimit, require("./routes/repositoy"));
+app.use("/api/repo", rateLimit, require("./routes/repository"));
 
 // wesite view
 app.use("/w/", rateLimit, require("./routes/webview"));

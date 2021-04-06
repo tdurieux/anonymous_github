@@ -201,7 +201,7 @@ function anonymizeTree(tree, repoConfig) {
   }
   const output = {};
   for (let file in tree.child) {
-    const anonymizedPath = anonymizeUtils.ananymisePath(file, repoConfig);
+    const anonymizedPath = anonymizeUtils.anonymizePath(file, repoConfig);
     output[anonymizedPath] = anonymizeTree(tree.child[file], repoConfig);
   }
   return output;
@@ -320,8 +320,8 @@ module.exports.isFilePathValid = async (options) => {
     throw "file_not_supported";
   }
 
-  let unanonymizePath = options.path;
-  if (unanonymizePath.indexOf("XXX") > -1) {
+  let anonymizePath = options.path;
+  if (anonymizePath.indexOf("XXX") > -1) {
     const files = await module.exports.getFileList({ repoConfig });
 
     const file = getFile(files, options.path);
@@ -335,23 +335,23 @@ module.exports.isFilePathValid = async (options) => {
 
       const shatree = tree2sha(r.originalFiles);
       if (shatree[file.sha]) {
-        unanonymizePath = shatree[file.sha];
+        anonymizePath = shatree[file.sha];
       }
     }
   }
-  const orignalFilePath = path.join(
+  const originalFilePath = path.join(
     repoUtils.getOriginalPath(repoConfig.repoId),
-    unanonymizePath
+    anonymizePath
   );
   if (ofs.existsSync(anonymizedFilePath)) {
     return true;
   }
-  if (ofs.existsSync(orignalFilePath)) {
+  if (ofs.existsSync(originalFilePath)) {
     if (!module.exports.isFileSupported(repoConfig, anonymizedFilePath)) {
       throw "file_not_supported";
     }
-    await anonymizeUtils.ananymiseFile(
-      orignalFilePath,
+    await anonymizeUtils.anonymizeFile(
+      originalFilePath,
       anonymizedFilePath,
       repoConfig
     );
@@ -432,14 +432,14 @@ module.exports.isFilePathValid = async (options) => {
     }
 
     try {
-      await fs.mkdir(path.dirname(orignalFilePath), { recursive: true });
+      await fs.mkdir(path.dirname(originalFilePath), { recursive: true });
     } catch (_) {
       // ignore
     }
     try {
-      await fs.writeFile(orignalFilePath, content, { encoding: "utf-8" });
-      await anonymizeUtils.ananymiseFile(
-        orignalFilePath,
+      await fs.writeFile(originalFilePath, content, { encoding: "utf-8" });
+      await anonymizeUtils.anonymiseFile(
+        originalFilePath,
         anonymizedFilePath,
         repoConfig
       );
