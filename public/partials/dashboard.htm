@@ -90,6 +90,7 @@
                 <!-- <th scope="col">Commit</th> -->
                 <th scope="col" class="text-center"># Terms</th>
                 <th scope="col" class="text-center">Status</th>
+                <th scope="col" class="text-center">Expiration</th>
                 <th scope="col" class="text-center">Anonymize date</th>
                 <th scope="col" class="text-center"># Views</th>
                 <th scope="col" class="text-center">Last view</th>
@@ -115,6 +116,16 @@
                 <!-- <td>{{repo.commit.substring(0, 6)}}</td> -->
                 <td class="text-center">{{repo.terms.length}}</td>
                 <td class="text-center">{{repo.status | title}}</td>
+                <td
+                  class="text-center"
+                  ng-bind="repo.options.expirationDate | date"
+                  ng-if="repo.options.expirationMode!='never'"
+                ></td>
+                <td
+                  class="text-center"
+                  ng-bind="repo.options.expirationMode | title"
+                  ng-if="repo.options.expirationMode=='never'"
+                ></td>
                 <td class="text-center">{{repo.anonymizeDate | date}}</td>
                 <td class="text-center">{{repo.pageView}}</td>
                 <td class="text-center">{{repo.lastView | date}}</td>
