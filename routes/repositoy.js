@@ -112,13 +112,15 @@ router.post("/:repoId/", async (req, res) => {
     );
 
     repoConfig = await repoUtils.getConfig(repoUpdate.repoId);
+    await repoUtils.updateStatus(repoConfig, "preparing");
 
+    res.send("ok");
+    
     await githubUtils.downloadRepoAndAnonymize(repoConfig);
     await repoUtils.updateStatus(repoConfig, "ready");
-
-    return res.send("ok");
   } catch (error) {
     console.error(error);
+    await repoUtils.updateStatus(repoConfig, "error", error);
     return res.status(500).json({ error });
   }
 });
@@ -320,17 +322,17 @@ router.post("/", async (req, res) => {
     },
     { upsert: true }
   );
+  res.send("ok");
   try {
     await githubUtils.downloadRepoAndAnonymize(data);
     await repoUtils.updateStatus(repoConfig, "ready");
   } catch (error) {
     console.error(error);
-    await repoUtils.updateStatus(repoConfig, "error");
+    await repoUtils.updateStatus(repoConfig, "error", "unable_to_anonymize");
     return res
       .status(500)
       .json({ error: "unable_to_anonymize", message: error.message });
   }
-  res.send("ok");
 });
 
 module.exports = router;

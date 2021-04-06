@@ -1,0 +1,116 @@
+<div class="container py-4">
+  <h2>Status of <strong ng-bind="repoId"></strong></h2>
+
+  <section class="py-4">
+    <h2>Progress</h2>
+
+    <p>
+      The current status of your repository. The repository will take few
+      minutes to get ready depending on the size of the repository.
+      Visit the <a href="/faq">FAQ</a> for more information.
+    </p>
+
+    <div class="progress" style="height: 25px;">
+      <div
+        class="progress-bar"
+        role="progressbar"
+        style="width: {{progress}}%;"
+        aria-valuenow="{{progress}}"
+        aria-valuemin="0"
+        aria-valuemax="100"
+      >
+        {{repo.status | title}}
+      </div>
+    </div>
+  </section>
+
+  <hr class="featurette-divider" />
+
+  <section class="py-4">
+    <h2>Support the project</h2>
+
+    <div class="row text-center">
+      <div class="col-lg-4">
+        <i class="rounded-circle fa fa-edit"></i>
+
+        <h2>Contribute</h2>
+        <p>
+          Collabore to the Anonymous GitHub by implementing new features and
+          fixing bugs. Contribution likes supporting new file format or
+          improving the deployment are more than welcome.
+        </p>
+        <p>
+          <a
+            class="btn btn-secondary"
+            href="https://github.com/tdurieux/anonymous_github/"
+            target="__self"
+            >Go to GitHub &raquo;</a
+          >
+        </p>
+      </div>
+      <!-- /.col-lg-4 -->
+      <div class="col-lg-4">
+        <i class="rounded-circle fa fa-comments"></i>
+
+        <h2>Feedback</h2>
+        <p>
+          Feedback is also really valuable for the project. It helps to project
+          to identify bugs, missing feature and define priorities for the
+          project.
+        </p>
+        <p>
+          <a
+            class="btn btn-secondary"
+            href="https://github.com/tdurieux/anonymous_github/issues/new"
+            target="__self"
+            >Create an issue &raquo;</a
+          >
+        </p>
+      </div>
+      <!-- /.col-lg-4 -->
+      <div class="col-lg-4">
+        <i class="rounded-circle fa fa-dollar"></i>
+
+        <h2>Finance</h2>
+        <p>
+          You can also help the project by supporting financiarly the project.
+          The server costs around 25$ per month. Any help to support the cost
+          would be gradly appriciated.
+        </p>
+        <p>
+          <a
+            class="btn btn-secondary"
+            href="https://github.com/sponsors/tdurieux/"
+            target="__self"
+            >GitHub Sponsor &raquo;</a
+          >
+          <a
+            class="btn btn-secondary"
+            href="https://ko-fi.com/tdurieux"
+            target="__self"
+            >Ko-fi &raquo;</a
+          >
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <hr class="featurette-divider" />
+
+  <section class="py-4">
+    <a
+      class="btn btn-primary"
+      href="/r/{{repoId}}"
+      target="__self"
+      ng-if="repo.status == 'ready'"
+      >Go to the anonymized repository</a
+    >
+    <a
+      class="btn btn-primary"
+      href="/w/{{repoId}}"
+      target="__self"
+      ng-if="repo.options.page && repo.status == 'ready'"
+      >Go to the anonymized Gh-page</a
+    >
+  </section>
+</div>

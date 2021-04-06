@@ -139,11 +139,19 @@ module.exports.downloadRepoZip = async (repoConfig, target) => {
   });
 };
 
-module.exports.updateStatus = async (repoConfig, status) => {
+module.exports.updateStatus = async (repoConfig, status, errorMessage) => {
   repoConfig.status = status;
+  repoConfig.errorMessage = errorMessage;
+  const update = { $set: { status } };
+  if (!errorMessage) {
+    update["$unset"] = { errorMessage: "" };
+  } else {
+    update["$set"].errorMessage = errorMessage;
+  }
+
   await db
     .get("anonymized_repositories")
-    .updateOne({ repoId: repoConfig.repoId }, { $set: { status } });
+    .updateOne({ repoId: repoConfig.repoId }, update);
 };
 
 module.exports.downloadOriginalRepo = async (repoConfig, destination) => {

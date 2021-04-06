@@ -211,7 +211,7 @@ a.black_border:hover {
   background-color: #ffffff;
   padding: 8px 6px;
   margin: 0;
-  border-bottom: 1px solid #dddddd ;
+  border-bottom: 1px solid #dddddd;
   border-radius: 0;
 }
 
@@ -313,4 +313,14 @@ loc {
 loc .lang {
   float: left;
   height: 100%;
+}
+
+.rounded-circle.fa {
+  display: inline-block;
+  font-size: 75px;
+  height: 140px;
+  width: 140px;
+  border: 4px solid;
+  line-height: 140px;
+  text-align: center;
 }

@@ -51,6 +51,7 @@ module.exports.downloadRepoAndAnonymize = async (repoConfig) => {
     return true;
   } else if (repoConfig.options.mode == "stream") {
     // in stream mode only download the list of file from github
+    await repoUtils.updateStatus(repoConfig, "downloading");
     await fileUtils.getFileList({ repoConfig });
     await repoUtils.updateStatus(repoConfig, "ready");
     return true;

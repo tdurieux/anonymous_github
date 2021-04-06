@@ -28,6 +28,11 @@ angular
         controller: "anonymizeController",
         title: "Anonymize - Anonymous GitHub",
       })
+      .when("/status/:repoId", {
+        templateUrl: "/partials/status.htm",
+        controller: "statusController",
+        title: "Repository status - Anonymous GitHub",
+      })
       .when("/404", {
         templateUrl: "/partials/404.htm",
         title: "Page not found - Anonymous GitHub",
@@ -217,6 +222,43 @@ angular
 
       return false;
     };
+  })
+  .controller("statusController", function($scope, $http, $routeParams) {
+    $scope.repoId = $routeParams.repoId;
+    $scope.repo = null;
+    $scope.progress = 0;
+    $scope.getStatus = () => {
+      $http
+        .get("/api/repo/" + $scope.repoId, {
+          repoId: $scope.repoId,
+          repoUrl: $scope.repoUrl,
+        })
+        .then(
+          (res) => {
+            $scope.repo = res.data;
+            if ($scope.repo.status == "ready") {
+              $scope.progress = 100;
+            } else if ($scope.repo.status == "queue") {
+              $scope.progress = 0;
+            } else if ($scope.repo.status == "downloaded") {
+              $scope.progress = 50;
+            } else if ($scope.repo.status == "downloading") {
+              $scope.progress = 25;
+            } else if ($scope.repo.status == "preparing") {
+              $scope.progress = 10;
+            } else if ($scope.repo.status == "anonimizing") {
+              $scope.progress = 75;
+            }
+            if ($scope.repo.status != "ready") {
+              setTimeout($scope.getStatus, 1000);
+            }
+          },
+          (err) => {
+            $scope.error = err.data;
+          }
+        );
+    };
+    $scope.getStatus();
   })
   .controller("anonymizeController", function(
     $scope,
@@ -505,7 +547,7 @@ angular
         await $http.post("/api/repo/", newRepo, {
           headers: { "Content-Type": "application/json" },
         });
-        window.location.href = "/r/" + $scope.repoId;
+        window.location.href = "/status/" + $scope.repoId;
       } catch (error) {
         if (error.data) {
           $translate("ERRORS." + error.data.error).then((translation) => {
@@ -530,7 +572,7 @@ angular
         await $http.post("/api/repo/" + newRepo.repoId, newRepo, {
           headers: { "Content-Type": "application/json" },
         });
-        window.location.href = "/r/" + $scope.repoId;
+        window.location.href = "/status/" + $scope.repoId;
       } catch (error) {
         if (error.data) {
           displayErrorMessage(error.data.error);
