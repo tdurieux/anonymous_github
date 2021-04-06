@@ -141,7 +141,7 @@ a.black_border:hover {
 .files {
   position: relative;
   display: block;
-  overflow: scroll;
+  overflow: auto;
   height: 100%;
 }
 
@@ -323,4 +323,8 @@ loc .lang {
   border: 4px solid;
   line-height: 140px;
   text-align: center;
+}
+
+.ace_scroller {
+  cursor: default;
 }

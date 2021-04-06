@@ -377,11 +377,13 @@ angular
       fontSize: 15,
       keyBinding: "vscode",
       fullLineSelection: true,
-      highlightActiveLine: true,
+      highlightActiveLine: false,
+      highlightGutterLine: false,
+      cursor: "hide",
       showInvisibles: false,
       showIndentGuides: true,
       showPrintMargin: false,
-      highlightSelectedWord: true,
+      highlightSelectedWord: false,
       enableBehaviours: true,
       fadeFoldWidgets: false,
       mode: getMode(extension),
@@ -395,6 +397,10 @@ angular
         );
         _editor.setOption("displayIndentGuides", true);
         _editor.setHighlightActiveLine($scope.aceOption.highlightActiveLine);
+        if ($scope.aceOption.cursor == "hide") {
+          _editor.renderer.$cursorLayer.element.style.display = "none";
+        }
+        _editor.setHighlightGutterLine($scope.aceOption.highlightGutterLine);
         _editor.setShowInvisibles($scope.aceOption.showInvisibles);
         _editor.setDisplayIndentGuides($scope.aceOption.showIndentGuides);
 
