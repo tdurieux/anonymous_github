@@ -22,6 +22,21 @@ router.get("/", async (req, res) => {
   res.json({ username: req.user.profile.username, photo });
 });
 
+router.get("/default", async (req, res) => {
+  const d = await db
+    .get("users")
+    .findOne({ username: req.user.username }, { projection: { default: 1 } });
+  res.json(d.default);
+});
+
+router.post("/default", async (req, res) => {
+  const d = req.body;
+  await db
+    .get("users")
+    .updateOne({ username: req.user.username }, { $set: { default: d } });
+  res.send("ok");
+});
+
 router.get("/anonymized_repositories", async (req, res) => {
   const repos = await db
     .get("anonymized_repositories")

@@ -42,6 +42,11 @@ angular
         controller: "faqController",
         title: "FAQ - Anonymous GitHub",
       })
+      .when("/profile", {
+        templateUrl: "/partials/profile.htm",
+        controller: "profileController",
+        title: "Profile - Anonymous GitHub",
+      })
       .when("/claim", {
         templateUrl: "/partials/claim.htm",
         controller: "claimController",
@@ -123,6 +128,47 @@ angular
       });
     }
     getSupportedFileTypes();
+  })
+  .controller("profileController", function($scope, $http) {
+    $scope.terms = "";
+    $scope.options = {
+      expirationMode: "remove",
+      update: false,
+      image: true,
+      pdf: true,
+      notebook: true,
+      loc: true,
+      link: true,
+      mode: "download",
+    };
+
+    function getDefault() {
+      $http.get("/api/user/default").then((res) => {
+        const data = res.data;
+        if (data.terms) {
+          $scope.terms = data.terms.join("\n");
+        }
+        $scope.option = Object.assign({}, $scope.option, data.options);
+      });
+    }
+    getDefault();
+
+    $scope.saveDefault = () => {
+      const params = {
+        terms: $scope.terms.trim().split("\n"),
+        options: $scope.options,
+      };
+      $http.post("/api/user/default", params).then(
+        () => {
+          getDefault();
+        },
+        (error) => {
+          $translate("ERRORS." + error.data.error).then((translation) => {
+            $scope.error = translation;
+          }, console.error);
+        }
+      );
+    };
   })
   .controller("claimController", function($scope, $location, $http) {
     $scope.repoId = null;
@@ -271,6 +317,7 @@ angular
     $scope.repoUrl = "";
     $scope.repoId = "";
     $scope.terms = "";
+    $scope.defaultTerms = "";
     $scope.branch = "";
 
     $scope.branches = [];
@@ -291,6 +338,18 @@ angular
     $scope.readme = "";
     $scope.html_readme = "";
     $scope.isUpdate = false;
+
+    function getDefault() {
+      $http.get("/api/user/default").then((res) => {
+        const data = res.data;
+        if (data.terms) {
+          $scope.defaultTerms = data.terms.join("\n");
+        }
+        $scope.options = Object.assign({}, $scope.options, data.options);
+        $scope.options.expirationDate = new Date($scope.options.expirationDate);
+      });
+    }
+    getDefault();
 
     if ($routeParams.repoId && $routeParams.repoId != "") {
       $scope.isUpdate = true;
@@ -341,7 +400,7 @@ angular
     $scope.getRepositories();
 
     $scope.repoSelected = async () => {
-      $scope.terms = "";
+      $scope.terms = $scope.defaultTerms;
       $scope.repoId = "";
       $scope.branch = "";
 

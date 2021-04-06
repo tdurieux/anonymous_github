@@ -1,0 +1,255 @@
+<div class="container py-4">
+  <h1 ng-bind="user.username"></h1>
+
+  <h2>Default anonymization options</h2>
+  <form class="form needs-validation" name="default" novalidate>
+    <!-- Terms -->
+    <div class="form-group">
+      <label for="terms">Terms to anonymize</label>
+      <textarea
+        class="form-control"
+        id="terms"
+        name="terms"
+        rows="3"
+        ng-model="terms"
+        ng-model-options="{ debounce: 250 }"
+      ></textarea>
+      <small id="termsHelp" class="form-text text-muted"
+        >One term per line. Each term will be replaced by XXX</small
+      >
+      <div class="invalid-feedback" ng-show="anonymize.terms.$error.format">
+        Terms are in an invalid format
+      </div>
+    </div>
+    <div class="accordion mb-3" id="options">
+      <div class="card">
+        <div class="card-header" id="headingOne">
+          <h2 class="mb-0">
+            <button
+              class="btn btn-block text-left"
+              type="button"
+              data-toggle="collapse"
+              data-target="#collapseOne"
+              aria-expanded="true"
+              aria-controls="collapseOne"
+            >
+              Rendering options
+            </button>
+          </h2>
+        </div>
+
+        <div
+          id="collapseOne"
+          class="collapse show"
+          aria-labelledby="headingOne"
+          data-parent="#options"
+        >
+          <div class="card-body">
+            <div class="form-group">
+              <div class="form-check">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  id="link"
+                  name="link"
+                  ng-model="options.link"
+                />
+                <label class="form-check-label" for="link">Keep links</label>
+                <small id="termsHelp" class="form-text text-muted"
+                  >Keep or remove all the links.</small
+                >
+              </div>
+              <div class="form-check">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  id="image"
+                  name="image"
+                  ng-model="options.image"
+                />
+                <label class="form-check-label" for="image"
+                  >Display images</label
+                >
+                <small id="termsHelp" class="form-text text-muted"
+                  >Images are not anonymized</small
+                >
+              </div>
+              <div class="form-check">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  id="pdf"
+                  name="pdf"
+                  ng-model="options.pdf"
+                />
+                <label class="form-check-label" for="pdf">Display PDFs</label>
+                <small id="termsHelp" class="form-text text-muted"
+                  >PDF are not anonymized</small
+                >
+              </div>
+              <div class="form-check">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  id="notebook"
+                  name="notebook"
+                  ng-model="options.notebook"
+                />
+                <label class="form-check-label" for="notebook"
+                  >Display Notebooks</label
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header" id="headingTwo">
+          <h2 class="mb-0">
+            <button
+              class="btn btn-block text-left collapsed"
+              type="button"
+              data-toggle="collapse"
+              data-target="#collapseTwo"
+              aria-expanded="false"
+              aria-controls="collapseTwo"
+            >
+              Features
+            </button>
+          </h2>
+        </div>
+        <div
+          id="collapseTwo"
+          class="collapse"
+          aria-labelledby="headingTwo"
+          data-parent="#options"
+        >
+          <div class="card-body">
+            <div class="form-group">
+              <div class="form-check">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  id="page"
+                  name="page"
+                  ng-model="options.page"
+                />
+                <label class="form-check-label" for="page">Github page</label>
+                <small id="termsHelp" class="form-text text-muted"
+                  >Enable anonymized Github pages. It currently only suported
+                  for Github pages that are defined in the same branch.</small
+                >
+              </div>
+              <div class="form-check">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  id="loc"
+                  name="loc"
+                  ng-model="options.loc"
+                />
+                <label class="form-check-label" for="page">Line of code</label>
+                <small id="termsHelp" class="form-text text-muted"
+                  >Display the number of line of code in the reposiotry</small
+                >
+              </div>
+              <div class="form-group">
+                <div class="form-check">
+                  <input
+                    class="form-check-input"
+                    type="checkbox"
+                    id="update"
+                    name="update"
+                    ng-model="options.update"
+                  />
+                  <label class="form-check-label" for="update"
+                    >Auto update</label
+                  >
+                  <small id="termsHelp" class="form-text text-muted"
+                    >Automatically update the anonymized repository with the
+                    latest commit of the repository. The repository is updated
+                    once per hour maximum.</small
+                  >
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="mode">Proxy mode</label>
+                <select
+                  class="form-control"
+                  id="mode"
+                  name="mode"
+                  ng-model="options.mode"
+                >
+                  <option value="stream" selected>Stream</option>
+                  <option value="download">Download</option>
+                </select>
+                <small class="form-text text-muted"
+                  >How the repository will be anonymized. Stream mode will
+                  request the content on the flight. This is the only option for
+                  repositories bigger than 10mb. Download will download the
+                  repository the repository on the anonymous.4open.science
+                  server, it is faster and offer more features.</small
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header" id="headingThree">
+          <h2 class="mb-0">
+            <button
+              class="btn btn-block text-left collapsed"
+              type="button"
+              data-toggle="collapse"
+              data-target="#collapseThree"
+              aria-expanded="false"
+              aria-controls="collapseThree"
+            >
+              Expiration
+            </button>
+          </h2>
+        </div>
+        <div
+          id="collapseThree"
+          class="collapse"
+          aria-labelledby="headingThree"
+          data-parent="#options"
+        >
+          <div class="card-body">
+            <div class="form-group">
+              <label for="expiration">Expiration options</label>
+              <select
+                class="form-control"
+                id="expiration"
+                name="expiration"
+                ng-model="options.expirationMode"
+              >
+                <option value="never" selected>Never expire</option>
+                <option value="redirect">Redirect to GitHub</option>
+                <option value="remove">Remove anonymized repository</option>
+              </select>
+              <small class="form-text text-muted"
+                >Define the expiration strategy for the repository.</small
+              >
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div
+      class="alert alert-danger"
+      role="alert"
+      ng-if="error"
+      ng-bind="error"
+    ></div>
+    <button
+      id="save"
+      type="submit"
+      class="btn btn-primary"
+      ng-click="saveDefault($event)"
+    >
+      Save
+    </button>
+  </form>
+</div>
