@@ -439,7 +439,7 @@ module.exports.isFilePathValid = async (options) => {
     }
     try {
       await fs.writeFile(originalFilePath, content, { encoding: "utf-8" });
-      await anonymizeUtils.anonymiseFile(
+      await anonymizeUtils.anonymizeFile(
         originalFilePath,
         anonymizedFilePath,
         repoConfig
