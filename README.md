@@ -27,7 +27,7 @@ Using Anonymous Github
 
 To use it, open the main page (e.g., [http://anonymous.4open.science/](http://anonymous.4open.science/)), login with GitHub, and click on "Anonymize".
 Simply fill 1. the Github repo URL and 2. the id of the anonymized repository, 3. the terms to anonymize (which can be updated afterward). 
-The anonymization of the content is done by replacing all occurrences of words in a list by "XXX". 
+The anonymization of the content is done by replacing all occurrences of words in a list by "XXXX" (can be changed in the configuration). 
 The word list is provided by the authors, and typically contains the institution name, author names, logins, etc...
 The README is anonymized as well as all files of the repository. Even filenames are anonymized. 
 

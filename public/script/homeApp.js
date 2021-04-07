@@ -454,6 +454,8 @@ angular
       if (v == "stream") {
         $scope.options.loc = false;
         $scope.anonymize.loc.$$element[0].disabled = true;
+      } else {
+        $scope.anonymize.loc.$$element[0].disabled = false;
       }
     });
 
@@ -530,7 +532,7 @@ angular
         );
       }
       if (!$scope.options.link) {
-        content = content.replace(urlRegex, "XXX");
+        content = content.replace(urlRegex, "XXXX");
       }
 
       content = content.replace(
@@ -553,12 +555,12 @@ angular
         // remove whole url if it contains the term
 
         content = content.replace(urlRegex, (match) => {
-          if (new RegExp(`\\b${term}\\b`, "gi").test(match)) return "XXX";
+          if (new RegExp(`\\b${term}\\b`, "gi").test(match)) return "XXXX";
           return match;
         });
 
         // remove the term in the text
-        content = content.replace(new RegExp(`\\b${term}\\b`, "gi"), "XXX");
+        content = content.replace(new RegExp(`\\b${term}\\b`, "gi"), "XXXX");
       }
 
       $scope.anonymize_readme = content;

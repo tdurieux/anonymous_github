@@ -5,6 +5,7 @@ const config = {
   MAX_FILE_SIZE: 10 * 1024 * 1024, // in b
   MAX_REPO_SIZE: 8 * 1024, // in kb
   AUTH_CALLBACK: "http://localhost:5000/github/auth",
+  ANONYMIZATION_MASK: "XXXX"
 };
 for (let conf in process.env) {
   if (config[conf] !== undefined) {

@@ -322,7 +322,7 @@ module.exports.isFilePathValid = async (options) => {
   }
 
   let anonymizePath = options.path;
-  if (anonymizePath.indexOf("XXX") > -1) {
+  if (anonymizePath.indexOf(config.ANONYMIZATION_MASK) > -1) {
     const files = await module.exports.getFileList({ repoConfig });
 
     const file = getFile(files, options.path);

@@ -2,6 +2,7 @@ const fs = require("fs").promises;
 const ofs = require("fs");
 const path = require("path");
 const fileUtils = require("./file");
+const config = require("../config")
 
 const anonymizeContent = (content, repoConfig) => {
   const urlRegex = /<?\b((https?|ftp|file):\/\/)[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]\b\/?>?/g;
@@ -16,7 +17,7 @@ const anonymizeContent = (content, repoConfig) => {
 
   if (!repoConfig.options.link) {
     // remove all links
-    content = content.replace(urlRegex, "XXX");
+    content = content.replace(urlRegex, config.ANONYMIZATION_MASK);
   }
 
   content = content.replace(
@@ -44,12 +45,12 @@ const anonymizeContent = (content, repoConfig) => {
     }
     // remove whole url if it contains the term
     content = content.replace(urlRegex, (match) => {
-      if (new RegExp(`\\b${term}\\b`, "gi").test(match)) return "XXX";
+      if (new RegExp(`\\b${term}\\b`, "gi").test(match)) return config.ANONYMIZATION_MASK;
       return match;
     });
 
     // remove the term in the text
-    content = content.replace(new RegExp(`\\b${term}\\b`, "gi"), "XXX");
+    content = content.replace(new RegExp(`\\b${term}\\b`, "gi"), config.ANONYMIZATION_MASK);
   }
   return content;
 };
@@ -59,7 +60,7 @@ const anonymizePath = (path, repoConfig) => {
     if (term.trim() == "") {
       continue;
     }
-    path = path.replace(new RegExp(term, "gi"), "XXX");
+    path = path.replace(new RegExp(term, "gi"), config.ANONYMIZATION_MASK);
   }
   return path;
 };
