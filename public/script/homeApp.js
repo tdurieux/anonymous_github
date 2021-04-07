@@ -161,7 +161,7 @@ angular
       $http.post("/api/user/default", params).then(
         () => {
           getDefault();
-          $scope.message = "Saved"
+          $scope.message = "Saved";
         },
         (error) => {
           $translate("ERRORS." + error.data.error).then((translation) => {
@@ -219,7 +219,9 @@ angular
       $location.url("/");
     }
 
-    $('[data-toggle="tooltip"]').tooltip();
+    setTimeout(() => {
+      $('[data-toggle="tooltip"]').tooltip();
+    }, 250)
 
     $scope.repositories = [];
     $scope.search = "";
@@ -232,6 +234,14 @@ angular
       $http.get("/api/user/anonymized_repositories").then(
         (res) => {
           $scope.repositories = res.data;
+          for (let repo of $scope.repositories) {
+            if (!repo.pageView) {
+              repo.pageView = 0;
+            }
+            if (!repo.lastView) {
+              repo.lastView = "";
+            }
+          }
         },
         (err) => {
           console.error(err);

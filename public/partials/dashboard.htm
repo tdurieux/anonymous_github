@@ -1,7 +1,41 @@
 <div class="container-fluid h-100">
   <div class="row h-100">
     <div class="leftCol shadow p-1 h-100 overflow-auto">
+      <a class="btn btn-block black_border" href="/anonymize">
+        <i class="fa fa-plus-circle" aria-hidden="true"></i> Anonymize
+      </a>
+      <a
+        class="btn btn-block black_border"
+        href="/claim"
+        title="Claim the ownership of an existing anonymized repository."
+        data-toggle="tooltip"
+        data-placement="bottom"
+      >
+        Claim repository
+      </a>
+
       <h3>Filters</h3>
+      <div class="form-group">
+        <label for="search">Search</label>
+        <input
+          type="search"
+          class="form-control"
+          id="search"
+          placeholder="Search..."
+          ng-model="search"
+        />
+      </div>
+      <div class="form-group">
+        <label for="order">Order</label>
+        <select class="custom-select" ng-model="orderBy">
+          <option value="repoId">Repository ID</option>
+          <option value="fullName">Repository</option>
+          <option value="-anonymizeDate">Anonymize Date</option>
+          <option value="-status">Status</option>
+          <option value="-lastView">Last View</option>
+          <option value="-pageView">Page View</option>
+        </select>
+      </div>
       <h5>Status</h5>
       <div class="form-check">
         <input
@@ -33,53 +67,7 @@
     </div>
     <div class="col h-100 overflow-auto">
       <div class="row">
-        <div class="col p-2">
-          <form>
-            <div class="form-row">
-              <div class="col">
-                <input
-                  type="search"
-                  class="form-control"
-                  id="search"
-                  placeholder="Search repository..."
-                  ng-model="search"
-                />
-              </div>
-              <div class="col">
-                <div class="input-group">
-                  <div class="input-group-prepend">
-                    <label class="input-group-text" for="Order">Order</label>
-                  </div>
-                  <select class="custom-select" ng-model="orderBy">
-                    <option value="repoId">Repository ID</option>
-                    <option value="fullName">Repository</option>
-                    <option value="-anonymizeDate">Anonymize Date</option>
-                    <option value="-status">Status</option>
-                    <option value="-lastView">Last View</option>
-                    <option value="-pageView">Page View</option>
-                  </select>
-                </div>
-              </div>
-              <div class="col text-right">
-                <a
-                  class="btn btn-secondary"
-                  href="/claim"
-                  title="Claim the ownership of an existing anonymized repository."
-                  data-toggle="tooltip"
-                  data-placement="bottom"
-                >
-                  Claim repository
-                </a>
-                <a class="btn btn-primary" href="/anonymize">
-                  <i class="fa fa-plus-circle" aria-hidden="true"></i> Anonymize
-                </a>
-              </div>
-            </div>
-          </form>
-        </div>
-      </div>
-      <div class="row">
-        <div class="col p-2">
+        <div class="col p-0">
           <table class="table repositories">
             <thead class="thead-light">
               <tr>
@@ -107,12 +95,23 @@
                     >{{repo.repoId}}</a
                   >
                 </td>
-                <td>
-                  <a href="https://github.com/{{repo.fullName}}"
+                <td
+                  title="Commit: {{repo.commit}}"
+                  data-toggle="tooltip"
+                  data-placement="bottom"
+                >
+                  <a
+                    href="https://github.com/{{repo.fullName}}/commit/{{repo.commit}}"
                     >{{repo.fullName}}</a
                   >
                 </td>
-                <td>{{repo.branch}}</td>
+                <td
+                  title="Commit: {{repo.commit}}"
+                  data-toggle="tooltip"
+                  data-placement="bottom"
+                >
+                  {{repo.branch}}
+                </td>
                 <!-- <td>{{repo.commit.substring(0, 6)}}</td> -->
                 <td class="text-center">{{repo.terms.length}}</td>
                 <td class="text-center">{{repo.status | title}}</td>
