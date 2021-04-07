@@ -52,6 +52,9 @@ body {
   width: 280px;
   text-align: center;
 }
+#navbarSupportedContent {
+  padding-right: 200px;
+}
 
 .generalMessage {
   display: block;
