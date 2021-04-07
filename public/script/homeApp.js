@@ -161,6 +161,7 @@ angular
       $http.post("/api/user/default", params).then(
         () => {
           getDefault();
+          $scope.message = "Saved"
         },
         (error) => {
           $translate("ERRORS." + error.data.error).then((translation) => {
