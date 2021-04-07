@@ -221,12 +221,12 @@ angular
 
     setTimeout(() => {
       $('[data-toggle="tooltip"]').tooltip();
-    }, 250)
+    }, 250);
 
     $scope.repositories = [];
     $scope.search = "";
     $scope.filters = {
-      status: { ready: true, expired: false, removed: false },
+      status: { ready: true, expired: true, removed: true },
     };
     $scope.orderBy = "-anonymizeDate";
 
