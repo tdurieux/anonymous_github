@@ -307,6 +307,45 @@
                         <input
                           class="form-check-input"
                           type="checkbox"
+                          id="update"
+                          name="update"
+                          ng-model="options.update"
+                        />
+                        <label class="form-check-label" for="update"
+                          >Auto update</label
+                        >
+                        <small id="termsHelp" class="form-text text-muted"
+                          >Automatically update the anonymized repository with
+                          the latest commit of the repository. The repository is
+                          updated once per hour maximum.</small
+                        >
+                      </div>
+                    </div>
+                    <div class="form-group">
+                      <label for="mode">Proxy mode</label>
+                      <select
+                        class="form-control"
+                        id="mode"
+                        name="mode"
+                        ng-model="options.mode"
+                      >
+                        <option value="stream" selected>Stream</option>
+                        <option value="download">Download</option>
+                      </select>
+                      <small class="form-text text-muted"
+                        >How the repository will be anonymized. Stream mode will
+                        request the content on the flight. This is the only
+                        option for repositories bigger than 10mb. Download will
+                        download the repository the repository on the
+                        anonymous.4open.science server, it is faster and offer
+                        more features.</small
+                      >
+                    </div>
+                    <div class="form-group">
+                      <div class="form-check">
+                        <input
+                          class="form-check-input"
+                          type="checkbox"
                           id="page"
                           name="page"
                           ng-model="options.page"
@@ -316,8 +355,10 @@
                           >Github page</label
                         >
                         <small id="termsHelp" class="form-text text-muted"
-                          >Enable anonymized Github pages. It currently only supported for Github pages that are defined in the same branch. It will be available
-                          at https://anonymous.4open.science/w/{{repoId}}</small
+                          >Enable anonymized Github pages. It currently only
+                          supported for Github pages that are defined in the
+                          same branch. It will be available at
+                          https://anonymous.4open.science/w/{{repoId}}</small
                         >
                       </div>
                       <div class="form-check">
@@ -371,14 +412,14 @@
                         ng-model="options.expirationMode"
                       >
                         <option value="never" selected>Never expire</option>
-                        <option value="redirect">Redirect to GitHub</option>
-                        <option value="remove"
-                          >Remove anonymized repository</option
+                        <option value="redirect"
+                          >Redirect to GitHub when expired</option
                         >
+                        <option value="remove">Remove when expired</option>
                       </select>
                       <small class="form-text text-muted"
-                        >Define the expiration strategy for the
-                        repository.</small
+                        >Define the expiration strategy for the repository
+                        expiration.</small
                       >
                     </div>
                     <div
@@ -386,7 +427,9 @@
                       id="expiration-date-form"
                       ng-hide="options.expirationMode=='never'"
                     >
-                      <label for="expirationDate">Expiration date</label>
+                      <label for="expirationDate"
+                        >Expiration date of the anonymized repository</label
+                      >
                       <input
                         class="form-control .form-control-lg"
                         type="date"
@@ -397,78 +440,16 @@
                       <small
                         class="form-text text-muted"
                         ng-show="options.expirationMode=='remove'"
-                        >The date when the anonymized repository will be
-                        removed.</small
+                        >After {{options.expirationDate | date}}, the repository
+                        will be removed and the visitor will not be able to see
+                        the content of the repository.</small
                       >
                       <small
                         class="form-text text-muted"
                         ng-show="options.expirationMode=='redirect'"
-                        >The date when the anonymized repository will be
-                        redirected.</small
-                      >
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div class="card">
-                <div class="card-header" id="headingFour">
-                  <h2 class="mb-0">
-                    <button
-                      class="btn btn-block text-left collapsed"
-                      type="button"
-                      data-toggle="collapse"
-                      data-target="#headingFour"
-                      aria-expanded="false"
-                      aria-controls="headingFour"
-                    >
-                      Advance options
-                    </button>
-                  </h2>
-                </div>
-                <div
-                  id="headingFour"
-                  class="collapse"
-                  aria-labelledby="headingThree"
-                  data-parent="#options"
-                >
-                  <div class="card-body">
-                    <div class="form-group">
-                      <div class="form-check">
-                        <input
-                          class="form-check-input"
-                          type="checkbox"
-                          id="update"
-                          name="update"
-                          ng-model="options.update"
-                        />
-                        <label class="form-check-label" for="update"
-                          >Auto update</label
-                        >
-                        <small id="termsHelp" class="form-text text-muted"
-                          >Automatically update the anonymized repository with
-                          the latest commit of the repository. The repository is
-                          updated once per hour maximum.</small
-                        >
-                      </div>
-                    </div>
-                    <div class="form-group">
-                      <label for="mode">Proxy mode</label>
-                      <select
-                        class="form-control"
-                        id="mode"
-                        name="mode"
-                        ng-model="options.mode"
-                      >
-                        <option value="stream" selected>Stream</option>
-                        <option value="download">Download</option>
-                      </select>
-                      <small class="form-text text-muted"
-                        >How the repository will be anonymized. Stream mode will
-                        request the content on the flight. This is the only
-                        option for repositories bigger than 10mb. Download will
-                        download the repository the repository on the
-                        anonymous.4open.science server, it is faster and offer
-                        more features.</small
+                        >After {{options.expirationDate | date}}, the visitors
+                        of the anonymized repository will be redirected to
+                        {{repoUrl}}.</small
                       >
                     </div>
                   </div>
