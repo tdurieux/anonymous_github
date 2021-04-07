@@ -87,15 +87,17 @@
             </thead>
             <tbody>
               <tr
+                class="align-middle"
                 ng-repeat="repo in repositories| filter:repoFiler| orderBy:orderBy as filteredRepositories"
               >
-                <th scope="row">{{$index + 1}}</th>
-                <td>
+                <th scope="row" class="align-middle">{{$index + 1}}</th>
+                <td class="align-middle">
                   <a href="/r/{{repo.repoId}}" target="__self"
                     >{{repo.repoId}}</a
                   >
                 </td>
                 <td
+                  class="align-middle"
                   title="Commit: {{repo.commit}}"
                   data-toggle="tooltip"
                   data-placement="bottom"
@@ -109,29 +111,36 @@
                   title="Commit: {{repo.commit}}"
                   data-toggle="tooltip"
                   data-placement="bottom"
+                  class="align-middle"
                 >
                   {{repo.branch}}
                 </td>
                 <!-- <td>{{repo.commit.substring(0, 6)}}</td> -->
-                <td class="text-center">{{repo.terms.length}}</td>
-                <td class="text-center">{{repo.status | title}}</td>
+                <td class="text-center align-middle">{{repo.terms.length}}</td>
+                <td class="text-center align-middle">
+                  {{repo.status | title}}
+                </td>
                 <td
-                  class="text-center"
+                  class="text-center align-middle"
                   ng-bind="repo.options.expirationDate | date"
                   ng-if="repo.options.expirationMode!='never'"
                 ></td>
                 <td
-                  class="text-center"
+                  class="text-center align-middle"
                   ng-bind="repo.options.expirationMode | title"
                   ng-if="repo.options.expirationMode=='never'"
                 ></td>
-                <td class="text-center">{{repo.anonymizeDate | date}}</td>
-                <td class="text-center">{{repo.pageView}}</td>
-                <td class="text-center">{{repo.lastView | date}}</td>
-                <td class="text-right">
+                <td class="text-center align-middle">
+                  {{repo.anonymizeDate | date}}
+                </td>
+                <td class="text-center align-middle">{{repo.pageView}}</td>
+                <td class="text-center align-middle">
+                  {{repo.lastView | date}}
+                </td>
+                <td class="text-right align-middle">
                   <div class="dropdown">
                     <button
-                      class="btn btn-secondary dropdown-toggle"
+                      class="btn black_border dropdown-toggle btn-sm"
                       type="button"
                       id="dropdownMenuButton"
                       data-toggle="dropdown"
