@@ -15,7 +15,7 @@
             </h3>
             <hr class="hr-light my-4 w-75" />
             <h4 class="subtext-header mt-2 mb-4">
-              Double-blind your repository in 5 min!
+              Double-blind your repository in 5 min as {{stat.nbUsers | number}} users already did.
             </h4>
             <span ng-if="!user">
               <a href="/github/login" target="_self" class="p-2 white_border"
@@ -33,14 +33,14 @@
   <main>
     <div class="container">
       <!--Grid row-->
-      <div class="row py-5">
+      <div class="row pt-5">
         <div class="col-md-12">
           <h2 id="usage">Usage</h2>
           <div class="card-text mb-auto">
             <ol>
               <li>
-                <a href="/github/login" target="_self">Login</a> with Github access your
-                dashboard and anonymize your repositories.
+                <a href="/github/login" target="_self">Login</a> with Github
+                access your dashboard and anonymize your repositories.
               </li>
               <li>Complete the list of terms that will be anonymized.</li>
               <li>Anonymize and share your link in your double-blind paper.</li>
@@ -52,75 +52,85 @@
             >.
           </div>
         </div>
+      </div>
+
+      <hr class="featurette-divider" />
+
+      <div class="row featurette">
+        <div class="col-md-7 order-md-2">
+          <h2 class="featurette-heading">
+            Double-blind
+            <span class="text-muted">Anonymize your repositories.</span>
+          </h2>
+          <p class="lead">
+            Anonymous Github allows you to simply anonymize your Github repository.
+            Several anonymization options are available to ensure that you do not break the double-blind such as removing links, images or specific terms.
+            You still keep control of your repository, define an expiration date to make your repository unavailable after the review. 
+          </p>
+        </div>
+        <div class="col-md-5 order-md-1">
+          <img
+            width="500"
+            src="/imgs/anonymize.png"
+            class="featurette-image img-fluid mx-auto"
+          />
+        </div>
+      </div>
+
+      <hr class="featurette-divider" />
+
+      <div class="row featurette">
+        <div class="col-md-7">
+          <h2 class="featurette-heading">
+            Explorer
+            <span class="text-muted">Navigate the content.</span>
+          </h2>
+          <p class="lead">
+            The reviewers can explore your repository with ease, the source code is highlighted, PDFs, images, Notebook are rendered.
+            The goal is to make is as easy as possible for the reviewer to explore and review the repository. GitHub pages are also supported.
+          </p>
+        </div>
+        <div class="col-md-5">
+          <img
+            width="500"
+            src="/imgs/explorer.png"
+            class="featurette-image img-fluid mx-auto"
+          />
+        </div>
+      </div>
+      <hr class="featurette-divider" />
+
+      <div class="row featurette">
+        <div class="col-md-7 order-md-2">
+          <h2 class="featurette-heading">
+            Manage
+            <span class="text-muted">Keep an eyes on your repositories.</span>
+          </h2>
+          <p class="lead">
+            Keep a view in your anonymized repositories. 
+            Edit your anonymization configuration, remove your repository and update the content of your repository.
+            You can also monitor the access and the number of views of your repository.
+          </p>
+        </div>
+        <div class="col-md-5 order-md-1">
+          <img
+            width="500"
+            src="/imgs/dashboard.png"
+            class="featurette-image img-fluid mx-auto"
+          />
+        </div>
+      </div>
+      <hr class="featurette-divider" />
+      <h2 id="about">Metrics</h2>
+      <div class="row pb-5">
         <!--Grid column-->
-        <div class="col-md-12"><h2 id="features">Features</h2></div>
-        <div class="col-md-6">
-          <div
-            class="row no-gutters border rounded overflow-hidden flex-md-row mb-4 shadow-sm h-md-250 position-relative"
-          >
-            <div class="col p-4 d-flex flex-column position-static">
-              <h3 class="mb-0">Easy</h3>
-              <p class="card-text mb-auto">
-                In three clicks, you anonymize your repository. It makes it an
-                easy and quick step to do before the submission of paper.
-              </p>
-            </div>
-          </div>
-        </div>
-        <div class="col-md-6">
-          <div
-            class="row no-gutters border rounded overflow-hidden flex-md-row mb-4 shadow-sm h-md-250 position-relative"
-          >
-            <div class="col p-4 d-flex flex-column position-static">
-              <h3 class="mb-0">Always up-to-date</h3>
-              <p class="card-text mb-auto">
-                Anonymous GitHub tracks the changes on your repository and
-                updates the anonymous version automatically.
-              </p>
-            </div>
-          </div>
-        </div>
-        <div class="col-md-6">
-          <div
-            class="row no-gutters border rounded overflow-hidden flex-md-row mb-4 shadow-sm h-md-250 position-relative"
-          >
-            <div class="col p-4 d-flex flex-column position-static">
-              <h3 class="mb-0">Support many file formats</h3>
-              <p class="card-text mb-auto">
-                Anonymous GitHub renders mainly file, from source code to
-                images, notebook or PDF.
-              </p>
-            </div>
-          </div>
-        </div>
-        <div class="col-md-6">
-          <div
-            class="row no-gutters border rounded overflow-hidden flex-md-row mb-4 shadow-sm h-md-250 position-relative"
-          >
-            <div class="col p-4 d-flex flex-column position-static">
-              <h3 class="mb-0">Open-source</h3>
-              <p class="card-text mb-auto">
-                Anonymous GitHub is open-source
-                <a
-                  class="nav-icon"
-                  target="_blank"
-                  href="https://github.com/tdurieux/anonymous_github/"
-                  data-offset="30"
-                  ><i class="fa fa-github" aria-hidden="true"></i></a
-                >, you can easily deploy it for your conference and simplify the
-                life of your authors.
-              </p>
-            </div>
-          </div>
-        </div>
-        <div class="col-md-12"><h2 id="about">Metrics</h2></div>
         <div class="col-md-6">
           <div
             class="row no-gutters border rounded overflow-hidden flex-md-row mb-4 shadow-sm h-md-250 position-relative"
           >
             <div class="col p-4 d-flex flex-column position-static">
               <h3 class="mb-auto text-center">
-                {{stat.nbRepositories}} Anonymized Repositories
+                {{stat.nbRepositories|number}} Anonymized Repositories
               </h3>
             </div>
           </div>
@@ -130,7 +140,7 @@
             class="row no-gutters border rounded overflow-hidden flex-md-row mb-4 shadow-sm h-md-250 position-relative"
           >
             <div class="col p-4 d-flex flex-column position-static">
-              <h3 class="mb-auto text-center">{{stat.nbUsers}} Users</h3>
+              <h3 class="mb-auto text-center">{{stat.nbUsers|number}} Users</h3>
             </div>
           </div>
         </div>
