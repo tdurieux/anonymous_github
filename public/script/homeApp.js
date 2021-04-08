@@ -3,8 +3,11 @@ angular
     "ngRoute",
     "ngSanitize",
     "pascalprecht.translate",
+    "angular-google-analytics",
   ])
-  .config(function($routeProvider, $locationProvider, $translateProvider) {
+  .config(function($routeProvider, $locationProvider, $translateProvider, AnalyticsProvider) {
+    AnalyticsProvider.setAccount("UA-5954162-28");
+
     $translateProvider.useStaticFilesLoader({
       prefix: "/i18n/locale-",
       suffix: ".json",
@@ -58,6 +61,7 @@ angular
       });
     $locationProvider.html5Mode(true);
   })
+  .run(['Analytics', function(Analytics) { }])
   .filter("filterObj", function() {
     return function(input, search) {
       if (!input) return input;
