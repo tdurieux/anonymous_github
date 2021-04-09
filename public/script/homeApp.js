@@ -214,6 +214,10 @@ angular
     getStat();
   })
   .controller("dashboardController", function($scope, $http, $location) {
+    $scope.$on('$routeChangeStart', function() { 
+      // remove tooltip
+      $('[data-toggle="tooltip"]').tooltip('dispose')
+    });
     $scope.$watch("user.status", () => {
       if ($scope.user == null) {
         $location.url("/");
