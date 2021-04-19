@@ -25,27 +25,27 @@
 
     <p>
       Your repository will be available at
-      <a href="/r/{{repoId}}" target="__self">/r/{{repoId}}</a>.
+      <a href="/r/{{repoId}}/" target="__self">/r/{{repoId}}/</a>.
     </p>
     <p ng-if="repo.options.page">
       Your GitHub Page will be available at
-      <a href="/w/{{repoId}}" target="__self">/w/{{repoId}}</a>.
+      <a href="/w/{{repoId}}/" target="__self">/w/{{repoId}}/</a>.
     </p>
 
     <p class="text-center">
       <a
         class="btn btn-primary"
-        href="/r/{{repoId}}"
+        href="/r/{{repoId}}/"
         target="__self"
         ng-if="repo.status == 'ready'"
         >Go to the anonymized repository</a
       >
       <a
         class="btn"
-        href="/w/{{repoId}}"
+        href="/w/{{repoId}}/"
         target="__self"
         ng-if="repo.options.page && repo.status == 'ready'"
-        >Go to the anonymized Gh-page</a
+        >Go to the anonymized Github page</a
       >
     </p>
   </section>
