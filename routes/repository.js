@@ -57,7 +57,7 @@ router.post("/:repoId/", async (req, res) => {
     force: true,
     token: req.user.accessToken,
   });
-  if (repoConfig.options.mode == "download") {
+  if (repoUpdate.options.mode == "download") {
     // details.size is in kilobytes
     if (details.size > config.MAX_REPO_SIZE) {
       return res.status(500).send({ error: "invalid_mode" });
@@ -99,7 +99,7 @@ router.post("/:repoId/", async (req, res) => {
         page: repoUpdate.options.page,
       },
     };
-    if (repoConfig.options.page) {
+    if (repoUpdate.options.page) {
       data.options.pageSource = details.pageSource;
     }
     await db.get("anonymized_repositories").updateOne(
