@@ -66,7 +66,7 @@ async function webView(req, res) {
 
 router.get("/:repoId/*", webView);
 router.get("/:repoId", (req, res) => {
-  res.redirect("/w/" + req.url + "/")
+  res.redirect("/w" + req.url + "/")
 });
 
 module.exports = router;
