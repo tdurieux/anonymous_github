@@ -25,7 +25,6 @@ async function webView(req, res) {
     let requestPath = req.path.substring(
       req.path.indexOf(repoId) + repoId.length
     );
-
     if (requestPath[requestPath.length - 1] == "/") {
       requestPath = path.join(requestPath, "index.html");
     }
@@ -66,5 +65,8 @@ async function webView(req, res) {
 }
 
 router.get("/:repoId/*", webView);
+router.get("/:repoId", (req, res) => {
+  res.redirect("/w/" + req.url + "/")
+});
 
 module.exports = router;
