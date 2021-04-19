@@ -1,7 +1,7 @@
 <div class="container-fluid h-100">
   <div class="row h-100">
     <div class="leftCol shadow p-1 h-100 overflow-auto">
-      <a class="btn btn-block black_border" href="/anonymize">
+      <a class="btn btn-primary btn-block black_border" href="/anonymize">
         <i class="fa fa-plus-circle" aria-hidden="true"></i> Anonymize
       </a>
       <a
@@ -117,11 +117,17 @@
                 </td>
                 <!-- <td>{{repo.commit.substring(0, 6)}}</td> -->
                 <td class="text-center align-middle">{{repo.terms.length}}</td>
-                <td class="text-center align-middle">
+                <td
+                  class="text-center align-middle"
+                  ng-class="{'alert-danger': repo.status == 'expired', 'alert-warning': repo.status == 'removed'}"
+                >
                   {{repo.status | title}}
                 </td>
                 <td
                   class="text-center align-middle"
+                  title="Expiration Mode: {{repo.options.expirationMode | title}}"
+                  data-toggle="tooltip"
+                  data-placement="bottom"
                   ng-bind="repo.options.expirationDate | date"
                   ng-if="repo.options.expirationMode!='never'"
                 ></td>

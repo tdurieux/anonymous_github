@@ -86,42 +86,34 @@ a:hover {
 .card-header .btn {
   border: none;
 }
-.btn,
-.white_border,
-.black_border {
-  border: 1px solid white;
-  background: transparent;
-  color: white;
-  border-radius: 4px;
-}
-.btn,
-.white_border,
-.black_border {
-  color: white;
-}
-.btn::placeholder,
-.white_border::placeholder,
-.black_border::placeholder {
-  /* Chrome, Firefox, Opera, Safari 10.1+ */
-  color: #cccccc;
-  opacity: 1; /* Firefox */
-}
-
-.btn,
-.black_border {
+.btn {
   color: #333333;
   border: 1px solid #333333;
+  background: transparent;
+  border-radius: 4px;
 }
-
 .btn:hover,
-a.black_border:hover,
-a.white_border:hover {
-  color: #333333;
-  background-color: #dddddd;
+.btn:active {
+  color: #333333 !important;
+  border: 1px solid #333333;
+  background-color: #dddddd !important;
+  box-shadow: none !important;
+}
+.btn.btn-primary {
+  color: #ffffff;
+  background-color: #4a507b !important;
+}
+.btn.btn-primary:active,
+.btn.btn-primary:hover {
+  color: #dddddd !important;
+  background-color: #363b61 !important;
+}
+.white_border {
+  border: 1px solid white;
+  color: white;
 }
 
-.btn::placeholder,
-.black_border::placeholder {
+.btn::placeholder {
   /* Chrome, Firefox, Opera, Safari 10.1+ */
   color: #666666;
   opacity: 1; /* Firefox */
@@ -175,6 +167,7 @@ a.white_border:hover {
 .files .folder.open > ul {
   display: block;
 }
+
 .files .file::before {
   content: "\f15b";
   font-family: FontAwesome;
@@ -190,18 +183,16 @@ a.white_border:hover {
   content: "\f07b";
   color: #3ba3f8;
 }
+
 .files .folder.open::before {
   content: "\f07c";
 }
 
-.stats {
-  height: 120px;
-  overflow: scroll;
-  border-top: 1px solid #ddd;
-}
-
 .ace_editor {
   height: 100%;
+}
+.ace_scroller {
+  cursor: default;
 }
 
 .paths {
@@ -282,7 +273,20 @@ notebook {
   right: 10px !important;
 }
 
-.accordion-section .panel-default .panel-title a:after {
+.faq-section .panel-default .panel-title a {
+  color: #333333;
+  display: block;
+}
+.faq-section .panel-heading {
+  background-color: #dddddd;
+}
+.faq-section .panel-default {
+  background-color: #f8f8f8;
+}
+.faq-section .panel-default .panel-title {
+  margin-bottom: 0;
+}
+.faq-section .panel-default .panel-title a:after {
   font-family: "FontAwesome";
   font-style: normal;
   font-size: 3rem;
@@ -290,10 +294,10 @@ notebook {
   float: right;
   margin-top: -12px;
 }
-.accordion-section .panel-default .panel-title a.collapsed:after {
+.faq-section .panel-default .panel-title a.collapsed:after {
   content: "\f107";
 }
-.accordion-section .panel-default .panel-body {
+.faq-section .panel-default .panel-body {
   font-size: 1.2rem;
 }
 
@@ -322,9 +326,6 @@ loc .lang {
   text-align: center;
 }
 
-.ace_scroller {
-  cursor: default;
-}
 .featurette-divider {
   margin: 5rem 0; /* Space out the Bootstrap <hr> more */
 }

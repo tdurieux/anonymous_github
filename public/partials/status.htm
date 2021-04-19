@@ -6,8 +6,8 @@
 
     <p>
       The current status of your repository. The repository will take few
-      minutes to get ready depending on the size of the repository.
-      Visit the <a href="/faq">FAQ</a> for more information.
+      minutes to get ready depending on the size of the repository. Visit the
+      <a href="/faq">FAQ</a> for more information.
     </p>
 
     <div class="progress" style="height: 25px;">
@@ -22,9 +22,35 @@
         {{repo.status | title}}
       </div>
     </div>
+
+    <p>
+      Your repository will be available at
+      <a href="/r/{{repoId}}" target="__self">/r/{{repoId}}</a>.
+    </p>
+    <p ng-if="repo.options.page">
+      Your GitHub Page will be available at
+      <a href="/w/{{repoId}}" target="__self">/w/{{repoId}}</a>.
+    </p>
+
+    <p class="text-center">
+      <a
+        class="btn btn-primary"
+        href="/r/{{repoId}}"
+        target="__self"
+        ng-if="repo.status == 'ready'"
+        >Go to the anonymized repository</a
+      >
+      <a
+        class="btn"
+        href="/w/{{repoId}}"
+        target="__self"
+        ng-if="repo.options.page && repo.status == 'ready'"
+        >Go to the anonymized Gh-page</a
+      >
+    </p>
   </section>
 
-  <hr class="featurette-divider" />
+  <hr />
 
   <section class="py-4">
     <h2>Support the project</h2>
@@ -93,24 +119,5 @@
         </p>
       </div>
     </div>
-  </section>
-
-  <hr class="featurette-divider" />
-
-  <section class="py-4">
-    <a
-      class="btn btn-primary"
-      href="/r/{{repoId}}"
-      target="__self"
-      ng-if="repo.status == 'ready'"
-      >Go to the anonymized repository</a
-    >
-    <a
-      class="btn btn-primary"
-      href="/w/{{repoId}}"
-      target="__self"
-      ng-if="repo.options.page && repo.status == 'ready'"
-      >Go to the anonymized Gh-page</a
-    >
   </section>
 </div>
