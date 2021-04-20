@@ -277,6 +277,9 @@ router.post("/", async (req, res) => {
     repoConfig,
     token: req.user.accessToken,
   });
+  if (details.branches[repoConfig.branch] == null) {
+    return res.status(500).send({ error: "invalid_branch" });
+  }
   if (repoConfig.options.mode == "download") {
     // details.size is in kilobytes
     if (details.size > config.MAX_REPO_SIZE) {
