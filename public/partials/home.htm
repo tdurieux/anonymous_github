@@ -15,10 +15,14 @@
             </h3>
             <hr class="hr-light my-4 w-75" />
             <h4 class="subtext-header mt-2 mb-4">
-              Double-blind your repository in 5 min as {{stat.nbUsers | number}} users already did.
+              Double-blind your repository in 5 min as {{stat.nbUsers | number}}
+              users already did.
             </h4>
             <span ng-if="!user">
-              <a href="/github/login" target="_self" class="btn p-2 white_border"
+              <a
+                href="/github/login"
+                target="_self"
+                class="btn p-2 white_border"
                 >Login with GitHub to anonymize</a
               >
             </span>
@@ -47,6 +51,7 @@
             </ol>
             Example of an anonymized repository:
             <a
+              target="_self"
               href="https://anonymous.4open.science/r/840c8c57-3c32-451e-bf12-0e20be300389/"
               >https://anonymous.4open.science/r/840c8c57-3c32-451e-bf12-0e20be300389/</a
             >.
@@ -63,9 +68,12 @@
             <span class="text-muted">Anonymize your repositories.</span>
           </h2>
           <p class="lead">
-            Anonymous Github allows you to simply anonymize your Github repository.
-            Several anonymization options are available to ensure that you do not break the double-blind such as removing links, images or specific terms.
-            You still keep control of your repository, define an expiration date to make your repository unavailable after the review. 
+            Anonymous Github allows you to simply anonymize your Github
+            repository. Several anonymization options are available to ensure
+            that you do not break the double-blind such as removing links,
+            images or specific terms. You still keep control of your repository,
+            define an expiration date to make your repository unavailable after
+            the review.
           </p>
         </div>
         <div class="col-md-5 order-md-1">
@@ -82,12 +90,13 @@
       <div class="row featurette">
         <div class="col-md-7">
           <h2 class="featurette-heading">
-            Explorer
-            <span class="text-muted">Navigate the content.</span>
+            Explorer <span class="text-muted">Navigate the content.</span>
           </h2>
           <p class="lead">
-            The reviewers can explore your repository with ease, the source code is highlighted, PDFs, images, Notebook are rendered.
-            The goal is to make is as easy as possible for the reviewer to explore and review the repository. GitHub pages are also supported.
+            The reviewers can explore your repository with ease, the source code
+            is highlighted, PDFs, images, Notebook are rendered. The goal is to
+            make is as easy as possible for the reviewer to explore and review
+            the repository. GitHub pages are also supported.
           </p>
         </div>
         <div class="col-md-5">
@@ -107,9 +116,10 @@
             <span class="text-muted">Keep an eyes on your repositories.</span>
           </h2>
           <p class="lead">
-            Keep a view in your anonymized repositories. 
-            Edit your anonymization configuration, remove your repository and update the content of your repository.
-            You can also monitor the access and the number of views of your repository.
+            Keep a view in your anonymized repositories. Edit your anonymization
+            configuration, remove your repository and update the content of your
+            repository. You can also monitor the access and the number of views
+            of your repository.
           </p>
         </div>
         <div class="col-md-5 order-md-1">
