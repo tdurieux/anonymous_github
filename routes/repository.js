@@ -52,19 +52,19 @@ router.post("/:repoId/", async (req, res) => {
     return res.status(500).send({ error: "invalid_terms_format" });
   }
 
-  const details = await repoUtils.getRepoDetails({
-    repoConfig,
-    force: true,
-    token: req.user.accessToken,
-  });
-  if (repoUpdate.options.mode == "download") {
-    // details.size is in kilobytes
-    if (details.size > config.MAX_REPO_SIZE) {
-      return res.status(500).send({ error: "invalid_mode" });
-    }
-  }
-
   try {
+    const details = await repoUtils.getRepoDetails({
+      repoConfig,
+      force: true,
+      token: req.user.accessToken,
+    });
+    if (repoUpdate.options.mode == "download") {
+      // details.size is in kilobytes
+      if (details.size > config.MAX_REPO_SIZE) {
+        return res.status(500).send({ error: "invalid_mode" });
+      }
+    }
+
     if (repoUpdate.commit != repoConfig.commit) {
       repoUpdate.anonymizeDate = new Date();
       await repoUtils.removeRepository(repoConfig);
@@ -115,7 +115,7 @@ router.post("/:repoId/", async (req, res) => {
     await repoUtils.updateStatus(repoConfig, "preparing");
 
     res.send("ok");
-    
+
     await githubUtils.downloadRepoAndAnonymize(repoConfig);
     await repoUtils.updateStatus(repoConfig, "ready");
   } catch (error) {
@@ -127,14 +127,15 @@ router.post("/:repoId/", async (req, res) => {
 
 // refresh a repository
 router.post("/:repoId/refresh", async (req, res) => {
-  const repoConfig = await repoUtils.getConfig(req.params.repoId);
-  if (repoConfig == null) {
-    return res.status(500).json({ error: "repo_not_found" });
-  }
-  if (repoConfig.owner != req.user.username) {
-    return res.status(401).json({ error: "not_authorized" });
-  }
   try {
+    const repoConfig = await repoUtils.getConfig(req.params.repoId);
+    if (repoConfig == null) {
+      return res.status(500).json({ error: "repo_not_found" });
+    }
+    if (repoConfig.owner != req.user.username) {
+      return res.status(401).json({ error: "not_authorized" });
+    }
+
     await repoUtils.updateAnonymizedRepository(repoConfig);
     return res.send("ok");
   } catch (error) {
@@ -144,14 +145,15 @@ router.post("/:repoId/refresh", async (req, res) => {
 
 // delete a repository
 router.delete("/:repoId/", async (req, res) => {
-  const repoConfig = await repoUtils.getConfig(req.params.repoId);
-  if (repoConfig == null) {
-    return res.status(500).json({ error: "repo_not_found" });
-  }
-  if (repoConfig.owner != req.user.username) {
-    return res.status(401).json({ error: "not_authorized" });
-  }
   try {
+    const repoConfig = await repoUtils.getConfig(req.params.repoId);
+    if (repoConfig == null) {
+      return res.status(500).json({ error: "repo_not_found" });
+    }
+    if (repoConfig.owner != req.user.username) {
+      return res.status(401).json({ error: "not_authorized" });
+    }
+
     await repoUtils.updateStatus(repoConfig, "removed");
     await repoUtils.removeRepository(repoConfig);
     console.log(`${req.params.repoId} is removed`);
@@ -163,25 +165,26 @@ router.delete("/:repoId/", async (req, res) => {
 
 // claim a repository
 router.post("/claim", async (req, res) => {
-  if (!req.body.repoId) {
-    return res.status(500).json({ error: "repoId_not_defined" });
-  }
-  if (!req.body.repoUrl) {
-    return res.status(500).json({ error: "repoUrl_not_defined" });
-  }
-
-  const repoConfig = await repoUtils.getConfig(req.body.repoId);
-  if (repoConfig == null) {
-    return res.status(500).json({ error: "repo_not_found" });
-  }
-
-  const repo = gh(req.body.repoUrl);
-  if (repoConfig.fullName != repo.repository) {
-    return res.status(500).json({ error: "repo_not_found" });
-  }
-
-  console.log(`${req.user.username} claims ${repoConfig.fullName}.`);
   try {
+    if (!req.body.repoId) {
+      return res.status(500).json({ error: "repoId_not_defined" });
+    }
+    if (!req.body.repoUrl) {
+      return res.status(500).json({ error: "repoUrl_not_defined" });
+    }
+
+    const repoConfig = await repoUtils.getConfig(req.body.repoId);
+    if (repoConfig == null) {
+      return res.status(500).json({ error: "repo_not_found" });
+    }
+
+    const repo = gh(req.body.repoUrl);
+    if (repoConfig.fullName != repo.repository) {
+      return res.status(500).json({ error: "repo_not_found" });
+    }
+
+    console.log(`${req.user.username} claims ${repoConfig.fullName}.`);
+
     await db
       .get("anonymized_repositories")
       .updateOne(
@@ -248,85 +251,89 @@ router.get("/:owner/:repo/readme", async (req, res) => {
 router.post("/", async (req, res) => {
   const repoConfig = req.body;
 
-  const repository = await repoUtils.getConfig(repoConfig.repoId);
-  const cacheExist = ofs.existsSync(
-    repoUtils.getOriginalPath(repoConfig.repoId)
-  );
-  if (repository && cacheExist) {
-    return res.status(500).send({ error: "repoId_already_used" });
-  }
-  var validCharacters = /^[0-9a-zA-Z\-\_]+$/;
-  if (
-    !repoConfig.repoId.match(validCharacters) ||
-    repoConfig.repoId.length < 3
-  ) {
-    return res.status(500).send({ error: "invalid_repoId" });
-  }
-  if (!repoConfig.branch) {
-    return res.status(500).json({ error: "branch_not_specified" });
-  }
-  if (!repoConfig.options) {
-    return res.status(500).json({ error: "options_not_provided" });
-  }
-  if (!Array.isArray(repoConfig.terms)) {
-    return res.status(500).send({ error: "invalid_terms_format" });
-  }
-
-  await repoUtils.getRepoBranches({ repoConfig, token: req.user.accessToken });
-  const details = await repoUtils.getRepoDetails({
-    repoConfig,
-    token: req.user.accessToken,
-  });
-  if (details.branches[repoConfig.branch] == null) {
-    return res.status(500).send({ error: "invalid_branch" });
-  }
-  if (repoConfig.options.mode == "download") {
-    // details.size is in kilobytes
-    if (details.size > config.MAX_REPO_SIZE) {
-      return res.status(500).send({ error: "non_supported_mode" });
-    }
-  }
-
-  const data = {
-    repoId: repoConfig.repoId,
-    fullName: repoConfig.fullName,
-    status: "preparing",
-    terms: repoConfig.terms,
-    owner: req.user.profile.username,
-    token: req.user.accessToken,
-    branch: repoConfig.branch,
-    conference: repoConfig.conference,
-    commit: repoConfig.commit
-      ? repoConfig.commit
-      : details.branches[repoConfig.branch].commit.sha,
-    anonymizeDate: new Date(),
-    options: {
-      expirationMode: repoConfig.options.expirationMode,
-      expirationDate: repoConfig.options.expirationDate,
-      update: repoConfig.options.update,
-      image: repoConfig.options.image,
-      pdf: repoConfig.options.pdf,
-      notebook: repoConfig.options.notebook,
-      loc: repoConfig.options.loc,
-      link: repoConfig.options.link,
-      mode: repoConfig.options.mode,
-      page: repoConfig.options.page,
-    },
-  };
-  if (repoConfig.options.page) {
-    data.options.pageSource = details.pageSource;
-  }
-  await db.get("anonymized_repositories").updateOne(
-    {
-      repoId: data.repoId,
-    },
-    {
-      $set: data,
-    },
-    { upsert: true }
-  );
-  res.send("ok");
   try {
+    const repository = await repoUtils.getConfig(repoConfig.repoId);
+    const cacheExist = ofs.existsSync(
+      repoUtils.getOriginalPath(repoConfig.repoId)
+    );
+    if (repository && cacheExist) {
+      return res.status(500).send({ error: "repoId_already_used" });
+    }
+    var validCharacters = /^[0-9a-zA-Z\-\_]+$/;
+    if (
+      !repoConfig.repoId.match(validCharacters) ||
+      repoConfig.repoId.length < 3
+    ) {
+      return res.status(500).send({ error: "invalid_repoId" });
+    }
+    if (!repoConfig.branch) {
+      return res.status(500).json({ error: "branch_not_specified" });
+    }
+    if (!repoConfig.options) {
+      return res.status(500).json({ error: "options_not_provided" });
+    }
+    if (!Array.isArray(repoConfig.terms)) {
+      return res.status(500).send({ error: "invalid_terms_format" });
+    }
+
+    await repoUtils.getRepoBranches({
+      repoConfig,
+      token: req.user.accessToken,
+    });
+    const details = await repoUtils.getRepoDetails({
+      repoConfig,
+      token: req.user.accessToken,
+    });
+    if (details.branches[repoConfig.branch] == null) {
+      return res.status(500).send({ error: "invalid_branch" });
+    }
+    if (repoConfig.options.mode == "download") {
+      // details.size is in kilobytes
+      if (details.size > config.MAX_REPO_SIZE) {
+        return res.status(500).send({ error: "non_supported_mode" });
+      }
+    }
+
+    const data = {
+      repoId: repoConfig.repoId,
+      fullName: repoConfig.fullName,
+      status: "preparing",
+      terms: repoConfig.terms,
+      owner: req.user.profile.username,
+      token: req.user.accessToken,
+      branch: repoConfig.branch,
+      conference: repoConfig.conference,
+      commit: repoConfig.commit
+        ? repoConfig.commit
+        : details.branches[repoConfig.branch].commit.sha,
+      anonymizeDate: new Date(),
+      options: {
+        expirationMode: repoConfig.options.expirationMode,
+        expirationDate: repoConfig.options.expirationDate,
+        update: repoConfig.options.update,
+        image: repoConfig.options.image,
+        pdf: repoConfig.options.pdf,
+        notebook: repoConfig.options.notebook,
+        loc: repoConfig.options.loc,
+        link: repoConfig.options.link,
+        mode: repoConfig.options.mode,
+        page: repoConfig.options.page,
+      },
+    };
+    if (repoConfig.options.page) {
+      data.options.pageSource = details.pageSource;
+    }
+    await db.get("anonymized_repositories").updateOne(
+      {
+        repoId: data.repoId,
+      },
+      {
+        $set: data,
+      },
+      { upsert: true }
+    );
+    res.send("ok");
+
     await githubUtils.downloadRepoAndAnonymize(data);
     await repoUtils.updateStatus(repoConfig, "ready");
   } catch (error) {
