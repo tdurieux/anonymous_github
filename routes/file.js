@@ -23,7 +23,7 @@ async function anonymizeRepository(options) {
 
   if (repoConfig.options.expirationMode != "never") {
     if (repoConfig.options.expirationDate <= new Date()) {
-      console.log("The repository is expired");
+      console.log(repoConfig.repoId, "The repository is expired");
       await repoUtils.updateStatus(repoConfig, "expired");
       await repoUtils.removeRepository(repoConfig);
       throw "repository_expired";
@@ -36,11 +36,11 @@ async function anonymizeRepository(options) {
   yesterday.setDate(yesterday.getDate() - 1);
 
   if (repoConfig.options.update && lastView < yesterday) {
-    console.log("check for updates in the repository.");
+    console.log(repoConfig.repoId, "check for updates in the repository.");
     try {
     } catch (error) {
       console.error("Error while updating the repository.");
-      console.error(error);
+      console.error(repoConfig.repoId, error);
     }
     await repoUtils.updateAnonymizedRepository(repoConfig);
   }
@@ -83,7 +83,7 @@ router.get("/:repoId/stats", async (req, res) => {
     const stats = await fileUtils.getStats({ repoConfig });
     return res.json(stats.languages);
   } catch (error) {
-    console.log(error);
+    console.error(req.params.repoId, req.params.path, error);
     return res.status(500).json({ error });
   }
 });
@@ -98,7 +98,7 @@ router.get("/:repoId/options", async (req, res) => {
       await anonymizeRepository({ repoConfig });
     } catch (error) {
       console.log("Error during the anonymization of the repository");
-      console.log(error);
+      console.error(req.params.repoId, error);
     }
     if (repoConfig.status == "removed") {
       throw "repository_expired";
@@ -115,7 +115,7 @@ router.get("/:repoId/options", async (req, res) => {
 
     return res.json(repoConfig.options);
   } catch (error) {
-    console.log(error);
+    console.error(req.params.repoId, error);
     return res.status(500).json({ error });
   }
 });
@@ -156,7 +156,7 @@ router.get("/:repoId/file/:path*", async (req, res) => {
       return res.status(404).json({ error: "file_not_found" });
     }
   } catch (error) {
-    console.error(error);
+    console.error(req.params.repoId, req.params.path, error);
     return res.status(500).send({ error });
   }
 });
