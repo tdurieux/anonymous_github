@@ -929,8 +929,14 @@ angular
       const imageFiles = ["png", "jpg", "jpeg", "gif"];
 
       $scope.repoId = $routeParams.repoId;
+      $scope.type = "loading";
+      $scope.filePath = $routeParams.path || "";
+      $scope.paths = $scope.filePath.split("/");
 
       $scope.$on("$routeUpdate", function(event, current, old) {
+        $scope.filePath = $routeParams.path || "";
+        $scope.paths = $scope.filePath.split("/");
+        
         updateContent();
       });
 
@@ -946,6 +952,7 @@ angular
                   if (uri[uri.length - 1] != "/") {
                     uri += "/";
                   }
+
                   // redirect to readme
                   $location.url(uri + file);
                 }
@@ -972,6 +979,7 @@ angular
           }
         );
       }
+
       async function getOptions(callback) {
         $http.get(`/api/repo/${$scope.repoId}/options`).then(
           (res) => {
@@ -986,18 +994,11 @@ angular
             }
           },
           (err) => {
-            $scope.error = err.data.error;
+            $scope.type = "error";
+            $scope.content = err.data.error;
           }
         );
       }
-
-      getOptions((options) => {
-        getFiles(() => {
-          if (options.mode == "download") {
-            getStats();
-          }
-        });
-      });
 
       function getMode(extension) {
         if (extensionModes[extension]) {
@@ -1069,9 +1070,6 @@ angular
       }
 
       function updateContent() {
-        $scope.filePath = $routeParams.path || "";
-        $scope.paths = $scope.filePath.split("/");
-
         $scope.content = "";
         $scope.url = `/api/repo/${$scope.repoId}/file/${$scope.filePath}`;
 
@@ -1142,6 +1140,14 @@ angular
         getContent($scope.filePath);
       }
 
-      updateContent();
+      getOptions((options) => {
+        getFiles(() => {
+          updateContent();
+
+          if (options.mode == "download") {
+            getStats();
+          }
+        });
+      });
     },
   ]);
