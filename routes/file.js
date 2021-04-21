@@ -83,7 +83,7 @@ router.get("/:repoId/stats", async (req, res) => {
     const stats = await fileUtils.getStats({ repoConfig });
     return res.json(stats.languages);
   } catch (error) {
-    console.error(req.params.repoId, req.params.path, error);
+    console.error(req.params.repoId, error);
     return res.status(500).json({ error });
   }
 });
