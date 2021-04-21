@@ -80,17 +80,27 @@
           <table class="table repositories">
             <thead class="thead-light">
               <tr>
-                <th scope="col">#</th>
+                <th scope="col" class="d-none d-xl-table-cell">#</th>
                 <th scope="col">Repository ID</th>
                 <th scope="col">Anonymized repository</th>
-                <th scope="col">Branch</th>
+                <th scope="col" class="d-none d-lg-table-cell">Branch</th>
                 <!-- <th scope="col">Commit</th> -->
-                <th scope="col" class="text-center"># Terms</th>
+                <th scope="col" class="text-center d-none d-lg-table-cell">
+                  # Terms
+                </th>
                 <th scope="col" class="text-center">Status</th>
-                <th scope="col" class="text-center">Expiration</th>
-                <th scope="col" class="text-center">Anonymize date</th>
-                <th scope="col" class="text-center"># Views</th>
-                <th scope="col" class="text-center">Last view</th>
+                <th scope="col" class="text-center d-none d-xl-table-cell">
+                  Expiration
+                </th>
+                <th scope="col" class="text-center d-none d-xl-table-cell">
+                  Anonymize date
+                </th>
+                <th scope="col" class="text-center d-none d-xl-table-cell">
+                  # Views
+                </th>
+                <th scope="col" class="text-center d-none d-xl-table-cell">
+                  Last view
+                </th>
                 <th scope="col" class="text-right">Actions</th>
               </tr>
             </thead>
@@ -99,7 +109,9 @@
                 class="align-middle"
                 ng-repeat="repo in repositories| filter:repoFiler| orderBy:orderBy as filteredRepositories"
               >
-                <th scope="row" class="align-middle">{{$index + 1}}</th>
+                <th scope="row" class="align-middle d-none d-xl-table-cell">
+                  {{$index + 1}}
+                </th>
                 <td class="align-middle">
                   <a href="/r/{{repo.repoId}}" target="__self"
                     >{{repo.repoId}}</a
@@ -120,12 +132,14 @@
                   title="Commit: {{repo.commit}}"
                   data-toggle="tooltip"
                   data-placement="bottom"
-                  class="align-middle"
+                  class="align-middle d-none d-lg-table-cell"
                 >
                   {{repo.branch}}
                 </td>
                 <!-- <td>{{repo.commit.substring(0, 6)}}</td> -->
-                <td class="text-center align-middle">{{repo.terms.length}}</td>
+                <td class="text-center align-middle d-none d-lg-table-cell">
+                  {{repo.terms.length}}
+                </td>
                 <td
                   class="text-center align-middle"
                   ng-class="{'alert-danger': repo.status == 'expired', 'alert-warning': repo.status == 'removed'}"
@@ -133,7 +147,7 @@
                   {{repo.status | title}}
                 </td>
                 <td
-                  class="text-center align-middle"
+                  class="text-center align-middle d-none d-xl-table-cell"
                   title="Expiration Mode: {{repo.options.expirationMode | title}}"
                   data-toggle="tooltip"
                   data-placement="bottom"
@@ -141,15 +155,15 @@
                   ng-if="repo.options.expirationMode!='never'"
                 ></td>
                 <td
-                  class="text-center align-middle"
+                  class="text-center align-middle d-none d-xl-table-cell"
                   ng-bind="repo.options.expirationMode | title"
                   ng-if="repo.options.expirationMode=='never'"
                 ></td>
-                <td class="text-center align-middle">
+                <td class="text-center align-middle d-none d-xl-table-cell">
                   {{repo.anonymizeDate | date}}
                 </td>
-                <td class="text-center align-middle">{{repo.pageView}}</td>
-                <td class="text-center align-middle">
+                <td class="text-center align-middle d-none d-xl-table-cell">{{repo.pageView}}</td>
+                <td class="text-center align-middle d-none d-xl-table-cell">
                   {{repo.lastView | date}}
                 </td>
                 <td class="text-right align-middle">
