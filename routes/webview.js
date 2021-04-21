@@ -58,7 +58,7 @@ async function webView(req, res) {
       });
     }
   } catch (error) {
-    console.error(error);
+    console.error(req.path, error);
     return res.status(500).send({ error });
   }
   return res.status(404).send("file_not_found");

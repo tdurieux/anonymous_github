@@ -27,6 +27,7 @@ router.get("/:repoId/", async (req, res) => {
     }
     res.status(404).send("repo_not_found");
   } catch (error) {
+    console.error(req.path, error);
     res.status(500).send(error);
   }
 });
@@ -119,7 +120,7 @@ router.post("/:repoId/", async (req, res) => {
     await githubUtils.downloadRepoAndAnonymize(repoConfig);
     await repoUtils.updateStatus(repoConfig, "ready");
   } catch (error) {
-    console.error(error);
+    console.error(req.path, error);
     await repoUtils.updateStatus(repoConfig, "error", error);
     return res.status(500).json({ error });
   }
@@ -139,6 +140,7 @@ router.post("/:repoId/refresh", async (req, res) => {
     await repoUtils.updateAnonymizedRepository(repoConfig);
     return res.send("ok");
   } catch (error) {
+    console.error(req.path, error);
     return res.status(500).json({ error });
   }
 });
@@ -159,6 +161,7 @@ router.delete("/:repoId/", async (req, res) => {
     console.log(`${req.params.repoId} is removed`);
     return res.json("ok");
   } catch (error) {
+    console.error(req.path, error);
     return res.status(500).json({ error });
   }
 });
@@ -193,6 +196,7 @@ router.post("/claim", async (req, res) => {
       );
     return res.send("Ok");
   } catch (error) {
+    console.error(req.path, error);
     return res.status(500).json({ error });
   }
 });
@@ -210,6 +214,7 @@ router.get("/:owner/:repo/", async (req, res) => {
     }
     res.status(404).send("repo_not_found");
   } catch (error) {
+    console.error(req.path, error);
     res.status(500).send(error);
   }
 });
@@ -227,6 +232,7 @@ router.get("/:owner/:repo/branches", async (req, res) => {
     }
     res.status(404).send("repo_not_found");
   } catch (error) {
+    console.error(req.path, error);
     res.status(500).send(error);
   }
 });
@@ -337,7 +343,7 @@ router.post("/", async (req, res) => {
     await githubUtils.downloadRepoAndAnonymize(data);
     await repoUtils.updateStatus(repoConfig, "ready");
   } catch (error) {
-    console.error(error);
+    console.error(req.path, error);
     await repoUtils.updateStatus(repoConfig, "error", "unable_to_anonymize");
     return res
       .status(500)

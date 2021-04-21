@@ -40,7 +40,7 @@ async function anonymizeRepository(options) {
     try {
     } catch (error) {
       console.error("Error while updating the repository.");
-      console.error(repoConfig.repoId, error);
+      console.error(repoConfig.repoId, req.path, error);
     }
     await repoUtils.updateAnonymizedRepository(repoConfig);
   }
@@ -61,6 +61,7 @@ router.get("/:repoId/files", async (req, res) => {
     const files = await fileUtils.getFileList({ repoConfig });
     return res.json(files);
   } catch (error) {
+    console.error(req.path, error);
     return res.status(500).json({ error });
   }
 });
@@ -83,7 +84,7 @@ router.get("/:repoId/stats", async (req, res) => {
     const stats = await fileUtils.getStats({ repoConfig });
     return res.json(stats.languages);
   } catch (error) {
-    console.error(req.params.repoId, error);
+    console.error(req.path, error);
     return res.status(500).json({ error });
   }
 });
@@ -98,7 +99,7 @@ router.get("/:repoId/options", async (req, res) => {
       await anonymizeRepository({ repoConfig });
     } catch (error) {
       console.log("Error during the anonymization of the repository");
-      console.error(req.params.repoId, error);
+      console.error(req.path, error);
     }
     if (repoConfig.status == "removed") {
       throw "repository_expired";
@@ -115,7 +116,7 @@ router.get("/:repoId/options", async (req, res) => {
 
     return res.json(repoConfig.options);
   } catch (error) {
-    console.error(req.params.repoId, error);
+    console.error(req.path, error);
     return res.status(500).json({ error });
   }
 });
@@ -156,7 +157,7 @@ router.get("/:repoId/file/:path*", async (req, res) => {
       return res.status(404).json({ error: "file_not_found" });
     }
   } catch (error) {
-    console.error(req.params.repoId, req.params.path, error);
+    console.error(req.path, error);
     return res.status(500).send({ error });
   }
 });
