@@ -17,6 +17,9 @@ async function anonymizeRepository(options) {
   if (repoConfig == null) {
     throw "repo_not_found";
   }
+  if (repoConfig.status == "removed" || repoConfig.status == "expired") {
+    return;
+  }
 
   if (repoConfig.options.expirationMode != "never") {
     if (repoConfig.options.expirationDate <= new Date()) {
@@ -24,7 +27,6 @@ async function anonymizeRepository(options) {
       await repoUtils.updateStatus(repoConfig, "expired");
       await repoUtils.removeRepository(repoConfig);
       throw "repository_expired";
-      return;
     }
   }
 
