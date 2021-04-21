@@ -591,13 +591,15 @@ angular
         link: true,
         mode: "download",
       };
-      $scope.options.expirationDate.setDate(90);
+      $scope.options.expirationDate.setDate(
+        $scope.options.expirationDate.getDate() + 90
+      );
       $scope.anonymize_readme = "";
       $scope.readme = "";
       $scope.html_readme = "";
       $scope.isUpdate = false;
 
-      function getDefault() {
+      function getDefault(cb) {
         $http.get("/api/user/default").then((res) => {
           const data = res.data;
           if (data.terms) {
@@ -607,44 +609,55 @@ angular
           $scope.options.expirationDate = new Date(
             $scope.options.expirationDate
           );
+          $scope.options.expirationDate.setDate(
+            $scope.options.expirationDate.getDate() + 90
+          );
+          if (cb) cb();
         });
       }
-      getDefault();
+      getDefault(() => {
+        if ($routeParams.repoId && $routeParams.repoId != "") {
+          $scope.isUpdate = true;
+          $scope.repoId = $routeParams.repoId;
+          $http.get("/api/repo/" + $scope.repoId).then(
+            async (res) => {
+              $scope.repoUrl = "https://github.com/" + res.data.fullName;
 
-      if ($routeParams.repoId && $routeParams.repoId != "") {
-        $scope.isUpdate = true;
-        $scope.repoId = $routeParams.repoId;
-        $http.get("/api/repo/" + $scope.repoId).then(
-          async (res) => {
-            $scope.repoUrl = "https://github.com/" + res.data.fullName;
+              $scope.terms = res.data.terms.join("\n");
+              $scope.branch = res.data.branch;
+              $scope.options = res.data.options;
+              $scope.conference = res.data.conference;
+              if (res.data.options.expirationDate) {
+                $scope.options.expirationDate = new Date(
+                  res.data.options.expirationDate
+                );
+              } else {
+                $scope.options.expirationDate = new Date();
+                $scope.options.expirationDate.setDate(
+                  $scope.options.expirationDate.getDate() + 90
+                );
+              }
 
-            $scope.terms = res.data.terms.join("\n");
-            $scope.branch = res.data.branch;
-            $scope.options = res.data.options;
-            $scope.conference = res.data.conference;
-            $scope.options.expirationDate = new Date(
-              res.data.options.expirationDate
-            );
+              $scope.details = (await $http.get(
+                `/api/repo/${res.data.fullName}/`
+              )).data;
 
-            $scope.details = (await $http.get(
-              `/api/repo/${res.data.fullName}/`
-            )).data;
-
-            await getReadme();
-            await $scope.getBranches();
-            anonymize();
-            $scope.$apply();
-          },
-          (err) => {
-            $location.url("/404");
-          }
-        );
-        $scope.$watch("anonymize", () => {
-          $scope.anonymize.repoId.$$element[0].disabled = true;
-          $scope.anonymize.repoUrl.$$element[0].disabled = true;
-          $scope.anonymize.repositories.$$element[0].disabled = true;
-        });
-      }
+              await getReadme();
+              await $scope.getBranches();
+              anonymize();
+              $scope.$apply();
+            },
+            (err) => {
+              $location.url("/404");
+            }
+          );
+          $scope.$watch("anonymize", () => {
+            $scope.anonymize.repoId.$$element[0].disabled = true;
+            $scope.anonymize.repoUrl.$$element[0].disabled = true;
+            $scope.anonymize.repositories.$$element[0].disabled = true;
+          });
+        }
+      });
 
       $scope.repositories = [];
 
@@ -936,7 +949,7 @@ angular
       $scope.$on("$routeUpdate", function(event, current, old) {
         $scope.filePath = $routeParams.path || "";
         $scope.paths = $scope.filePath.split("/");
-        
+
         updateContent();
       });
 
