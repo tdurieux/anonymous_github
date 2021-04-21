@@ -76,11 +76,9 @@ app.get("/api/stat", async (_, res) => {
 
 function indexResponse(req, res) {
   if (req.params.repoId && req.headers["accept"] && req.headers["accept"].indexOf("text/html") == -1) {
-    const repoId = req.path.split("/")[1];
-    req.path.substring(req.path.indexOf(repoId) + 1)
-    console.log(repoId, req.path.substring(req.path.indexOf(repoId) + 1))
+    const repoId = req.path.split("/")[2];
     // if it is not an html request, it assumes that the browser try to load a different type of resource
-    return res.redirect(`/api/repo/${repoId}/file/${req.params[0]}`);
+    return res.redirect(`/api/repo/${repoId}/file/${req.path.substring(req.path.indexOf(repoId) + 1)}`);
   }
   res.sendFile(path.resolve(__dirname, "public", "index.html"));
 }
