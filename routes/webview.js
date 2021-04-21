@@ -17,6 +17,13 @@ async function webView(req, res) {
     if (!repoConfig.options.pageSource) {
       throw "page_not_activated";
     }
+    
+    if (repoConfig.status == "expired") {
+      throw "repository_expired";
+    }
+    if (repoConfig.status == "removed") {
+      throw "repository_expired";
+    }
 
     if (repoConfig.options.pageSource.branch != repoConfig.branch) {
       throw "page_not_supported_on_different_branch";
