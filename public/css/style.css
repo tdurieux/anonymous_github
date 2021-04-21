@@ -48,8 +48,12 @@ body {
   line-height: 40px;
 }
 
+@media (min-width: 768px) {
+  .navbar-brand {
+    width: 280px;
+  }
+}
 .navbar-brand {
-  width: 280px;
   text-align: center;
 }
 #navbarSupportedContent {
@@ -121,11 +125,18 @@ a:hover {
 
 .leftCol {
   position: relative;
-  height: 100%;
-  width: 310px;
+  flex: 0 0 auto;
+  width: 100%;
   z-index: 9;
   background: #ecedef;
   background: white;
+}
+@media (min-width: 768px) {
+  .leftCol {
+    flex: 0 0 310px;
+    width: 310px;
+    height: 100%;
+  }
 }
 .files {
   position: relative;

@@ -1,22 +1,29 @@
 <div class="container-fluid h-100">
   <div class="row h-100">
-    <div class="leftCol shadow p-1 h-100 overflow-auto">
-      <a class="btn btn-primary btn-block black_border" href="/anonymize">
-        <i class="fa fa-plus-circle" aria-hidden="true"></i> Anonymize
-      </a>
-      <a
-        class="btn btn-block black_border"
-        href="/claim"
-        title="Claim the ownership of an existing anonymized repository."
-        data-toggle="tooltip"
-        data-placement="bottom"
-      >
-        Claim repository
-      </a>
+    <div class="leftCol shadow p-1 overflow-auto">
+      <div class="container">
+        <div class="row">
+          <div class="col-6 col-md-12 p-1">
+            <a class="btn btn-primary btn-block black_border" href="/anonymize">
+              <i class="fa fa-plus-circle" aria-hidden="true"></i> Anonymize
+            </a>
+          </div>
+          <div class="col-6 col-md-12 p-1">
+            <a
+              class="btn btn-block black_border"
+              href="/claim"
+              title="Claim the ownership of an existing anonymized repository."
+              data-toggle="tooltip"
+              data-placement="bottom"
+            >
+              Claim repository
+            </a>
+          </div>
+        </div>
+      </div>
 
       <h3>Filters</h3>
       <div class="form-group">
-        <label for="search">Search</label>
         <input
           type="search"
           class="form-control"
@@ -25,8 +32,10 @@
           ng-model="search"
         />
       </div>
-      <div class="form-group">
-        <label for="order">Order</label>
+      <div class="input-group">
+        <div class="input-group-prepend">
+          <label class="input-group-text" for="order">Sort</label>
+        </div>
         <select class="custom-select" ng-model="orderBy">
           <option value="repoId">Repository ID</option>
           <option value="fullName">Repository</option>
@@ -37,7 +46,7 @@
         </select>
       </div>
       <h5>Status</h5>
-      <div class="form-check">
+      <div class="form-check form-check-inline">
         <input
           class="form-check-input"
           type="checkbox"
@@ -46,7 +55,7 @@
         />
         <label class="form-check-label" for="ready"> Ready </label>
       </div>
-      <div class="form-check">
+      <div class="form-check form-check-inline">
         <input
           class="form-check-input"
           type="checkbox"
@@ -55,7 +64,7 @@
         />
         <label class="form-check-label" for="expired"> Expired </label>
       </div>
-      <div class="form-check">
+      <div class="form-check form-check-inline">
         <input
           class="form-check-input"
           type="checkbox"
@@ -65,7 +74,7 @@
         <label class="form-check-label" for="removed"> Removed </label>
       </div>
     </div>
-    <div class="col h-100 overflow-auto">
+    <div class="col-md h-100 overflow-auto">
       <div class="row">
         <div class="col p-0">
           <table class="table repositories">

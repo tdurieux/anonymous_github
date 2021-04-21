@@ -3,6 +3,8 @@
 <html lang="en" ng-app="anonymous-github" ng-controller="mainController">
   <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
     <title ng-bind="title">Anonymous Github</title>
     <script>
       var base = document.createElement("base");
@@ -38,13 +40,13 @@
   </head>
   <body keypress-events class="d-flex flex-column">
     <ng-include src="'/partials/header.htm'"></ng-include>
-    <div class="align-items-stretch h-100 w-100 overflow-auto">
+    <div class="h-100 w-100 overflow-auto">
       <div class="container-fluid h-100">
         <div class="row h-100">
-          <div class="leftCol shadow p-1 h-100 overflow-auto" ng-show="files">
+          <div class="leftCol shadow p-1 overflow-auto" ng-show="files">
             <tree class="files" file="files"></tree>
           </div>
-          <div class="col p-0 h-100 d-flex flex-column w-100 overflow-auto">
+          <div class="col-md h-100 overflow-auto p-0 d-flex flex-column">
             <nav aria-label="breadcrumb">
               <ol class="breadcrumb shadow paths">
                 <li class="breadcrumb-item" ng-repeat="p in paths" ng-bind="p">
