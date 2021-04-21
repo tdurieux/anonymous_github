@@ -49,19 +49,6 @@ app.use("/api/repo", rateLimit, require("./routes/repository"));
 // wesite view
 app.use("/w/", rateLimit, require("./routes/webview"));
 
-app.use(express.static(__dirname + "/public"));
-
-async function homeAppResponse(_, res) {
-  res.sendFile(path.resolve(__dirname, "public", "index.html"));
-}
-function exploreAppResponse(req, res) {
-  if (req.headers["accept"].indexOf("text/html") == -1) {
-    // if it is not an html request, it assumes that the browser try to load a different type of resource
-    return res.redirect(`/api/repo/${req.params.repoId}/file/${req.params[0]}`);
-  }
-  res.sendFile(path.resolve(__dirname, "public", "explore.html"));
-}
-
 app.get("/api/supportedTypes", async (_, res) => {
   res.json(
     require("textextensions")
@@ -87,16 +74,31 @@ app.get("/api/stat", async (_, res) => {
   res.json({ nbRepositories, nbUsers });
 });
 
+function indexResponse(req, res) {
+  if (req.params.repoId && req.headers["accept"] && req.headers["accept"].indexOf("text/html") == -1) {
+    const repoId = req.path.split("/")[1];
+    req.path.substring(req.path.indexOf(repoId) + 1)
+    console.log(repoId, req.path.substring(req.path.indexOf(repoId) + 1))
+    // if it is not an html request, it assumes that the browser try to load a different type of resource
+    return res.redirect(`/api/repo/${repoId}/file/${req.params[0]}`);
+  }
+  res.sendFile(path.resolve(__dirname, "public", "index.html"));
+}
+
 app
-  .get("/", homeAppResponse)
-  .get("/404", homeAppResponse)
-  .get("/anonymize", homeAppResponse)
-  .get("/r/:repoId/?*", exploreAppResponse)
-  .get("/repository/:repoId/?*", exploreAppResponse)
-  .get("*", homeAppResponse);
+  .get("/", indexResponse)
+  .get("/404", indexResponse)
+  .get("/anonymize", indexResponse)
+  .get("/r/:repoId/?*", indexResponse)
+  .get("/repository/:repoId/?*", indexResponse);
+
+app.use(express.static(__dirname + "/public"));
+
+app.get("*", indexResponse);
 
 db.connect().then((_) => {
   app.listen(PORT, () => {
     console.log("Database connected and Server started on port: " + PORT);
   });
 });
+

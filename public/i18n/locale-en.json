@@ -14,6 +14,7 @@
     "unable_to_anonymize": "An error happened during the anonymization process. Please try later or report the issue.",
     "non_supported_mode": "The selected anonymization mode is invalid, only download and stream are supported.",
     "invalid_path": "The provided path is invalid or missing.",
+    "no_file_selected": "Please select a file.",
     "file_not_found": "The requested file is not found.",
     "file_not_accessible": "The requested file is not accessible.",
     "file_not_supported": "The file type is not supported. Anonymous GitHub cannot handle it.",

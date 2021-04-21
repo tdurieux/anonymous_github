@@ -1,0 +1,20 @@
+<div class="container-fluid h-100">
+  <div class="row h-100">
+    <div class="leftCol shadow p-1 overflow-auto" ng-show="files">
+      <tree class="files" file="files"></tree>
+    </div>
+    <div class="col-md h-100 overflow-auto p-0 d-flex flex-column">
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb shadow paths">
+          <li class="breadcrumb-item" ng-repeat="p in paths" ng-bind="p">
+            Loading...
+          </li>
+        </ol>
+      </nav>
+      <loc stats="stats" ng-if="stats"></loc>
+      <div class="align-items-stretch h-100 w-100 overflow-auto">
+        <ng-include src="'./partials/pageView.htm'"></ng-include>
+      </div>
+    </div>
+  </div>
+</div>
