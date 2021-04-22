@@ -120,7 +120,11 @@ module.exports.getTree = async (repoConfig, sha, truncatedTree, parentPath) => {
   const repo = gh(repoConfig.fullName);
 
   if (!sha) {
-    sha = repoConfig.commit ? repoConfig.commit : "HEAD";
+    if (repoConfig.commit && !/^[a-f0-9]+$/.test(repoConfig.commit)) {
+      sha = repoConfig.commit
+    } else {
+      sha = "HEAD"
+    }
   }
   if (!parentPath) parentPath = "";
 
