@@ -116,13 +116,17 @@ router.post("/:repoId/", async (req, res) => {
     await repoUtils.updateStatus(repoConfig, "preparing");
 
     res.send("ok");
-
+  } catch (error) {
+    console.error(req.path, error);
+    await repoUtils.updateStatus(repoConfig, "error", error);
+    return res.status(500).json({ error });
+  }
+  try {
     await githubUtils.downloadRepoAndAnonymize(repoConfig);
     await repoUtils.updateStatus(repoConfig, "ready");
   } catch (error) {
     console.error(req.path, error);
     await repoUtils.updateStatus(repoConfig, "error", error);
-    return res.status(500).json({ error });
   }
 });
 
