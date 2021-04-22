@@ -52,6 +52,9 @@ router.post("/:repoId/", async (req, res) => {
   if (!Array.isArray(repoUpdate.terms)) {
     return res.status(500).send({ error: "invalid_terms_format" });
   }
+  if (!/^[a-f0-9]+$/.test(repoUpdate.commit)) {
+    return res.status(500).send({ error: "invalid_commit_format" });
+  }
 
   try {
     const details = await repoUtils.getRepoDetails({
@@ -284,6 +287,9 @@ router.post("/", async (req, res) => {
     }
     if (!Array.isArray(repoConfig.terms)) {
       return res.status(500).send({ error: "invalid_terms_format" });
+    }
+    if (!/^[a-f0-9]+$/.test(repoConfig.commit)) {
+      return res.status(500).send({ error: "invalid_commit_format" });
     }
 
     await repoUtils.getRepoBranches({
