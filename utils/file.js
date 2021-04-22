@@ -269,14 +269,19 @@ module.exports.additionalExtensions = [
   "in",
 ];
 module.exports.isText = (p) => {
-  if (isText(p)) {
-    return true;
-  }
   const filename = path.basename(p);
   const extensions = filename.split(".").reverse();
   const extension = extensions[0].toLowerCase();
   if (module.exports.additionalExtensions.includes(extension)) {
     return true;
+  }
+  if (isText(p)) {
+    return true;
+  }
+  if (ofs.existsSync(p)) {
+    if (isText(p, ofs.readFileSync(p))) {
+      return true;
+    }
   }
   return false;
 };
@@ -295,6 +300,7 @@ module.exports.isFileSupported = (repoConfig, p) => {
   if (
     repoConfig.options.image &&
     (extension == "png" ||
+      extension == "ico" ||
       extension == "jpg" ||
       extension == "jpeg" ||
       extension == "gif")
@@ -330,38 +336,38 @@ module.exports.isFilePathValid = async (options) => {
     options.path
   );
 
-  if (!module.exports.isFileSupported(repoConfig, anonymizedFilePath)) {
-    throw "file_not_supported";
-  }
-
-  let anonymizePath = options.path;
-  if (anonymizePath.indexOf(config.ANONYMIZATION_MASK) > -1) {
-    const files = await module.exports.getFileList({ repoConfig });
-
-    const file = getFile(files, options.path);
-    if (file) {
-      const r = await db
-        .get("anonymized_repositories")
-        .findOne(
-          { repoId: repoConfig.repoId },
-          { projection: { originalFiles: 1 } }
-        );
-
-      const shatree = tree2sha(r.originalFiles);
-      if (shatree[file.sha]) {
-        anonymizePath = shatree[file.sha];
-      }
-    }
-  }
-  const originalFilePath = path.join(
-    repoUtils.getOriginalPath(repoConfig.repoId),
-    anonymizePath
-  );
   if (ofs.existsSync(anonymizedFilePath)) {
     return true;
   }
+
+  let unanonymizePath = options.path;
+  const files = await module.exports.getFileList({ repoConfig });
+
+  const file = getFile(files, options.path);
+  if (file == null) {
+    throw "file_not_found";
+  }
+  if (file) {
+    const r = await db
+      .get("anonymized_repositories")
+      .findOne(
+        { repoId: repoConfig.repoId },
+        { projection: { originalFiles: 1 } }
+      );
+
+    const shatree = tree2sha(r.originalFiles);
+    if (shatree[file.sha]) {
+      unanonymizePath = shatree[file.sha];
+    }
+  }
+
+  const originalFilePath = path.join(
+    repoUtils.getOriginalPath(repoConfig.repoId),
+    unanonymizePath
+  );
+
   if (ofs.existsSync(originalFilePath)) {
-    if (!module.exports.isFileSupported(repoConfig, anonymizedFilePath)) {
+    if (!module.exports.isFileSupported(repoConfig, originalFilePath)) {
       throw "file_not_supported";
     }
     await anonymizeUtils.anonymizeFile(
@@ -373,12 +379,6 @@ module.exports.isFilePathValid = async (options) => {
   }
   // if stream mode check download the file
   if (repoConfig.options.mode == "stream") {
-    const repo = gh(repoConfig.fullName);
-    const files = await module.exports.getFileList({ repoConfig });
-    let file = getFile(files, options.path);
-    if (file == null) {
-      throw "file_not_found";
-    }
     if (!file.sha) {
       throw "is_folder";
     }
@@ -391,50 +391,22 @@ module.exports.isFilePathValid = async (options) => {
     });
 
     let ghRes = null;
-    if (file) {
-      if (!module.exports.isFileSupported(repoConfig, anonymizedFilePath)) {
-        throw "file_not_supported";
-      }
-      try {
-        ghRes = await octokit.request(
-          "GET /repos/{owner}/{repo}/git/blobs/{file_sha}",
-          {
-            owner: repo.owner,
-            repo: repo.name,
-            file_sha: file.sha,
-          }
-        );
-      } catch (error) {
-        if (error.status == 401 && config.GITHUB_TOKEN) {
-          try {
-            response = await getZip(config.GITHUB_TOKEN);
-          } catch (error) {
-            throw "repo_not_accessible";
-          }
-        } else if (error.status == 403) {
-          throw "file_too_big";
-        }
-        console.error(error);
-        throw "file_not_accessible";
-      }
-    } else {
-      try {
-        ghRes = await octokit.repos.getContents({
+    try {
+      const repo = gh(repoConfig.fullName);
+      ghRes = await octokit.request(
+        "GET /repos/{owner}/{repo}/git/blobs/{file_sha}",
+        {
           owner: repo.owner,
           repo: repo.name,
-          path: options.path,
-          ref: repoConfig.commit ? repoConfig.commit : "HEAD",
-        });
-      } catch (error) {
-        if (error.status == 404) {
-          return false;
+          file_sha: file.sha,
         }
-        if (error.status == 403) {
-          console.log(error);
-          throw "file_too_big";
-        }
-        throw error;
+      );
+    } catch (error) {
+      if (error.status == 403) {
+        throw "file_too_big";
       }
+      console.error(error);
+      throw "file_not_accessible";
     }
     if (!ghRes.data.content && ghRes.data.size != 0) {
       throw "file_not_accessible";
@@ -452,15 +424,18 @@ module.exports.isFilePathValid = async (options) => {
     }
     try {
       await fs.writeFile(originalFilePath, content, { encoding: "utf-8" });
-      await anonymizeUtils.anonymizeFile(
-        originalFilePath,
-        anonymizedFilePath,
-        repoConfig
-      );
     } catch (error) {
       console.error(error);
       throw "unable_to_write_file";
     }
+    if (!module.exports.isFileSupported(repoConfig, originalFilePath)) {
+      throw "file_not_supported";
+    }
+    await anonymizeUtils.anonymizeFile(
+      originalFilePath,
+      anonymizedFilePath,
+      repoConfig
+    );
     return true;
   }
   return false;
