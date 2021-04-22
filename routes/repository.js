@@ -16,6 +16,41 @@ const router = express.Router();
 // user needs to be connected for all user API
 router.use(connection.ensureAuthenticated);
 
+// claim a repository
+router.post("/claim", async (req, res) => {
+  try {
+    if (!req.body.repoId) {
+      return res.status(500).json({ error: "repoId_not_defined" });
+    }
+    if (!req.body.repoUrl) {
+      return res.status(500).json({ error: "repoUrl_not_defined" });
+    }
+    
+    const repoConfig = await repoUtils.getConfig(req.body.repoId);
+    if (repoConfig == null) {
+      return res.status(500).json({ error: "repo_not_found" });
+    }
+
+    const repo = gh(req.body.repoUrl);
+    if (repoConfig.fullName != repo.repository) {
+      return res.status(500).json({ error: "repo_not_found" });
+    }
+
+    console.log(`${req.user.username} claims ${repoConfig.fullName}.`);
+
+    await db
+      .get("anonymized_repositories")
+      .updateOne(
+        { repoId: repoConfig.repoId },
+        { $set: { owner: req.user.username } }
+      );
+    return res.send("Ok");
+  } catch (error) {
+    console.error(req.path, error);
+    return res.status(500).json({ error });
+  }
+});
+
 router.get("/:repoId/", async (req, res) => {
   try {
     const repository = await repoUtils.getAnonymizedRepoDetails(
@@ -167,41 +202,6 @@ router.delete("/:repoId/", async (req, res) => {
     await repoUtils.removeRepository(repoConfig);
     console.log(`${req.params.repoId} is removed`);
     return res.json("ok");
-  } catch (error) {
-    console.error(req.path, error);
-    return res.status(500).json({ error });
-  }
-});
-
-// claim a repository
-router.post("/claim", async (req, res) => {
-  try {
-    if (!req.body.repoId) {
-      return res.status(500).json({ error: "repoId_not_defined" });
-    }
-    if (!req.body.repoUrl) {
-      return res.status(500).json({ error: "repoUrl_not_defined" });
-    }
-
-    const repoConfig = await repoUtils.getConfig(req.body.repoId);
-    if (repoConfig == null) {
-      return res.status(500).json({ error: "repo_not_found" });
-    }
-
-    const repo = gh(req.body.repoUrl);
-    if (repoConfig.fullName != repo.repository) {
-      return res.status(500).json({ error: "repo_not_found" });
-    }
-
-    console.log(`${req.user.username} claims ${repoConfig.fullName}.`);
-
-    await db
-      .get("anonymized_repositories")
-      .updateOne(
-        { repoId: repoConfig.repoId },
-        { $set: { owner: req.user.username } }
-      );
-    return res.send("Ok");
   } catch (error) {
     console.error(req.path, error);
     return res.status(500).json({ error });
