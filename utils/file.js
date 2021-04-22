@@ -76,8 +76,13 @@ function tree2tree(tree, partialTree, parentPath) {
 async function getTruncatedTree(repoConfig, truncatedTree, sha, parentPath) {
   const repo = gh(repoConfig.fullName);
 
-  if (!sha) {
-    sha = repoConfig.commit ? repoConfig.commit : "HEAD";
+  if (!sha || !/^[a-f0-9]+$/.test(sha)) {
+    if (repoConfig.commit && /^[a-f0-9]+$/.test(repoConfig.commit)) {
+      sha = repoConfig.commit;
+    } else {
+      sha = "HEAD";
+    }
+    repoConfig.commit = sha;
   }
 
   const octokit = new Octokit({
@@ -119,13 +124,14 @@ async function getTruncatedTree(repoConfig, truncatedTree, sha, parentPath) {
 module.exports.getTree = async (repoConfig, sha, truncatedTree, parentPath) => {
   const repo = gh(repoConfig.fullName);
 
-  if (!sha) {
-    if (repoConfig.commit && !/^[a-f0-9]+$/.test(repoConfig.commit)) {
-      sha = repoConfig.commit
+  if (!sha || !/^[a-f0-9]+$/.test(sha)) {
+    if (repoConfig.commit && /^[a-f0-9]+$/.test(repoConfig.commit)) {
+      sha = repoConfig.commit;
     } else {
-      sha = "HEAD"
+      sha = "HEAD";
     }
   }
+
   if (!parentPath) parentPath = "";
 
   const octokit = new Octokit({
@@ -137,6 +143,8 @@ module.exports.getTree = async (repoConfig, sha, truncatedTree, parentPath) => {
     tree_sha: sha,
     recursive: true,
   });
+  sha = ghRes.data.sha;
+  repoConfig.commit = sha;
 
   const tree = tree2tree(ghRes.data.tree, truncatedTree, parentPath);
   if (ghRes.data.truncated) {
@@ -172,6 +180,7 @@ module.exports.getFileList = async (options) => {
       { repoId: repoConfig.repoId },
       {
         $set: {
+          commit: repoConfig.commit,
           originalFiles: tree.child,
           files,
         },
