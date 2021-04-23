@@ -349,7 +349,12 @@ router.post("/", async (req, res) => {
       { upsert: true }
     );
     res.send("ok");
-
+  } catch(error) {
+    console.error(req.path, error);
+    await repoUtils.updateStatus(repoConfig, "error", error);
+    return res.status(500).json({ error });
+  }
+  try {
     await githubUtils.downloadRepoAndAnonymize(data);
     await repoUtils.updateStatus(repoConfig, "ready");
   } catch (error) {
