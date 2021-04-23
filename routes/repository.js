@@ -263,7 +263,7 @@ router.get("/:owner/:repo/readme", async (req, res) => {
 
 router.post("/", async (req, res) => {
   const repoConfig = req.body;
-
+  let data = null;
   try {
     const repository = await repoUtils.getConfig(repoConfig.repoId);
     const cacheExist = ofs.existsSync(
@@ -310,7 +310,7 @@ router.post("/", async (req, res) => {
       }
     }
 
-    const data = {
+    data = {
       repoId: repoConfig.repoId,
       fullName: repoConfig.fullName,
       status: "preparing",
