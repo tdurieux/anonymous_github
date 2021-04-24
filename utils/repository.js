@@ -325,6 +325,7 @@ module.exports.updateAnonymizedRepository = async (repoConfig) => {
     console.log(`${repoConfig.repoId} is up to date`);
     return true;
   }
+  repoConfig.commit = commit;
   console.log(`${repoConfig.repoId} will be updated to ${commit}`);
   await module.exports.updateStatus(repoConfig, "updating");
   await db
