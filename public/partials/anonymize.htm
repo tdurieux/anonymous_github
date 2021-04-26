@@ -1,11 +1,6 @@
 <div class="container-fluid h-100">
   <div class="row h-100">
-    <div
-      class="col-9 p-2 preview markdown-body"
-      ng-bind-html="html_readme"
-      ng-if="html_readme"
-    ></div>
-    <div class="col shadow overflow-auto h-100 d-flex align-content-end">
+    <div class="col sidePanel shadow overflow-auto h-100 d-flex align-content-end">
       <div
         class="p-0 py-2 m-auto"
         ng-class="{'card': !repoUrl,'container': repoUrl}"
@@ -486,5 +481,10 @@
         </form>
       </div>
     </div>
+    <div
+      class="col-9 p-2 h-100 overflow-auto markdown-body body"
+      ng-bind-html="html_readme"
+      ng-if="html_readme"
+    ></div>
   </div>
 </div>

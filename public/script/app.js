@@ -295,6 +295,19 @@ angular
         .substring(1)
         .split("/");
 
+      $scope.darkMode = function(on) {
+        localStorage.setItem("darkMode", on);
+        $scope.isDarkMode = on;
+        if (on) {
+          $("body").addClass("dark-mode");
+        } else {
+          $("body").removeClass("dark-mode");
+        }
+        $scope.$broadcast("dark-mode", on);
+      };
+
+      $scope.darkMode(localStorage.getItem("darkMode") == "true")
+
       function getUser() {
         $http.get("/api/user").then(
           (res) => {
@@ -1147,7 +1160,16 @@ angular
             _editor.setFadeFoldWidgets($scope.aceOption.fadeFoldWidgets);
           },
         };
-
+        $scope.$on("dark-mode", (event, on) => {
+          if (on) {
+            $scope.aceOption.theme = "nord_dark";
+          } else {
+            $scope.aceOption.theme = "chrome";
+          }
+        });
+        if ($scope.isDarkMode) {
+          $scope.aceOption.theme = "nord_dark";
+        }
         $scope.type = getType(extension);
 
         getContent($scope.filePath);

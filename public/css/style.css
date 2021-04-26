@@ -1,3 +1,55 @@
+.dark-mode {
+  --canvas-bg-color: #1d1d1d;
+  --sidebar-bg-color: rgb(45, 50, 56);
+  --main-bg-color: rgb(45, 51, 59);
+  --header-bg-color: #3a3f61;
+
+  --hover-bg-color: rgb(255, 255, 255, 0.05);
+  --header-color: #ffffff;
+  --color: #a7b5c2;
+  --link-color: #549bf5;
+  --link-hover-color: #4a8ce4;
+  --border-color: #363f47;
+
+  --btn-color: #ffffff;
+
+  --input-color: #a7b5c2;
+  --input-bg: rgb(45, 50, 56);
+
+  --primary-bg: #3a3f61;
+  --primary-hover-bg: #2b304e;
+  --primary-color: #ffffff;
+  --primary-active-color: #dddddd;
+
+  background-color: var(--canvas-bg-color);
+  color: var(--color);
+}
+body {
+  --canvas-bg-color: #dddddd;
+  --sidebar-bg-color: #ffffff;
+  --header-bg-color: #4a507b;
+  --header-color: #ffffff;
+  --main-bg-color: #ffffff;
+  --hover-bg-color: rgb(0, 0, 0, 0.05);
+  --input-color: #333333;
+  --color: #333333;
+  --link-color: #549bf5;
+  --link-hover-color: #4a507b;
+  --border-color: #a9adb1;
+
+  --btn-color: #333333;
+
+  --input-bg: #ffffff;
+
+  --primary-bg: #4a507b;
+  --primary-hover-bg: #363b61;
+  --primary-color: #ffffff;
+  --primary-active-color: #dddddd;
+
+  background-color: var(--canvas-bg-color);
+  color: var(--color);
+}
+
 .fadeIn {
   opacity: 1;
   animation-name: fadeInOpacity;
@@ -14,6 +66,7 @@
     opacity: 1;
   }
 }
+
 .btn:focus,
 .btn:active {
   outline: none !important;
@@ -25,6 +78,35 @@ input,
 button {
   outline: none;
 }
+*:hover,
+*:active {
+  box-shadow: none !important;
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+select:-webkit-autofill,
+select:-webkit-autofill:hover,
+select:-webkit-autofill:focus {
+  border-color: var(--border-color);
+  -webkit-text-fill-color: var(--color);
+  -webkit-box-shadow: none;
+  transition: background-color 1000s ease-in-out 0s;
+}
+input:-internal-autofill-selected,
+.form-control,
+.custom-select {
+  color: var(--input-color);
+  background-color: var(--input-bg) !important;
+  border-color: var(--border-color);
+}
+.form-control:focus {
+  border-color: var(--border-color);
+}
 
 html,
 body {
@@ -32,8 +114,20 @@ body {
   height: 100%;
 }
 
+.dropdown-menu a,
+.markdown-body a,
+a {
+  color: var(--link-color);
+}
+.dropdown-menu a:hover,
+.markdown-body a:hover,
+a:hover {
+  text-decoration: none;
+  color: var(--link-hover-color);
+}
+
 .navbar {
-  background: #4a507b !important;
+  background: var(--header-bg-color) !important;
 }
 
 .navbar {
@@ -63,7 +157,7 @@ body {
 .generalMessage {
   display: block;
   text-align: center;
-  color: #ffffff;
+  color: var(--header-color);
 }
 
 .rgba-gradient {
@@ -82,45 +176,63 @@ body {
     rgba(51, 51, 51, 0.82),
     rgba(13, 17, 198, 0.69) 100%
   );
-  color: white;
+  color: var(--header-color);
 }
-a:hover {
-  text-decoration: none;
+
+.dropdown-menu,
+.body,
+.file-content,
+.markdown-body {
+  background-color: var(--main-bg-color) !important;
+  color: var(--color) !important;
 }
-.card-header .btn {
-  border: none;
+.file-content {
+  padding: 4px 7px;
+  text-align: left;
+  min-height: 100%;
+}
+
+.dropdown-item:focus,
+.dropdown-item:hover {
+  background-color: var(--hover-bg-color);
+}
+.card-header .btn,
+.card-header .btn:hover,
+.card-header .btn:focus {
+  border: none !important;
+  background: transparent !important;
 }
 .btn {
-  color: #333333;
-  border: 1px solid #333333;
+  color: var(--btn-color);
+  border: 1px solid var(--border-color);
   background: transparent;
   border-radius: 4px;
 }
+
 .btn:hover,
 .btn:active {
-  color: #333333 !important;
-  border: 1px solid #333333;
-  background-color: #dddddd !important;
+  color: var(--btn-color);
+  border: 1px solid var(--border-color);
+  background-color: var(--hover-bg-color);
   box-shadow: none !important;
 }
 .btn.btn-primary {
-  color: #ffffff;
-  background-color: #4a507b !important;
+  color: var(--primary-color);
+  background-color: var(--primary-bg);
 }
 .btn.btn-primary:active,
 .btn.btn-primary:hover {
-  color: #dddddd !important;
-  background-color: #363b61 !important;
+  color: var(--primary-active-color);
+  background-color: var(--primary-hover-bg) !important;
+}
+.btn::placeholder {
+  /* Chrome, Firefox, Opera, Safari 10.1+ */
+  color: var(--color);
+  opacity: 1; /* Firefox */
 }
 .white_border {
   border: 1px solid white;
   color: white;
-}
-
-.btn::placeholder {
-  /* Chrome, Firefox, Opera, Safari 10.1+ */
-  color: #666666;
-  opacity: 1; /* Firefox */
 }
 
 .leftCol {
@@ -128,9 +240,15 @@ a:hover {
   flex: 0 0 auto;
   width: 100%;
   z-index: 9;
-  background: #ecedef;
-  background: white;
 }
+
+.leftCol,
+.sidePanel,
+.card {
+  background-color: var(--sidebar-bg-color);
+  border: 1px solid var(--border-color);
+}
+
 @media (min-width: 768px) {
   .leftCol {
     flex: 0 0 310px;
@@ -138,6 +256,7 @@ a:hover {
     height: 100%;
   }
 }
+
 .files {
   position: relative;
   display: block;
@@ -147,22 +266,22 @@ a:hover {
 
 .files a {
   display: block;
-  padding: 0px 3px 0px 25px;
-  color: #555555;
+  padding: 0px 3px 0px 20px;
+  color: var(--color);
 }
 
 .files .file,
 .files .folder {
   position: relative;
-  color: #555555;
+  color: var(--color);
   cursor: pointer;
   word-break: break-all;
 }
 
 .files .file.active a,
 .files .file a:hover {
-  background: #ecedef;
-  color: #555555;
+  background: var(--hover-bg-color);
+  color: var(--color);
 }
 .files ul {
   list-style: none;
@@ -187,16 +306,17 @@ a:hover {
   width: 7px;
   padding: 1px;
   padding-left: 1px;
-  color: #858b90;
+  color: var(--primary-bg);
 }
 
 .files .folder::before {
   content: "\f07b";
-  color: #3ba3f8;
+  color: var(--primary-bg);
 }
 
 .files .folder.open::before {
   content: "\f07c";
+  color: var(--primary-hover-bg);
 }
 
 .ace_editor {
@@ -207,15 +327,15 @@ a:hover {
 }
 
 .paths {
-  background-color: #ffffff;
+  background-color: var(--main-bg-color);
   padding: 8px 6px;
   margin: 0;
-  border-bottom: 1px solid #dddddd;
+  border-bottom: 1px solid var(--border-color);
   border-radius: 0;
 }
 
 .paths a {
-  color: #000000;
+  color: var(--color);
 }
 .paths .breadcrumb-item {
   padding-left: 3px;
@@ -228,15 +348,10 @@ a:hover {
   height: 100%;
   overflow: scroll;
   padding-top: 42px;
-  background: #f8f8f8;
+  background-color: var(--main-bg-color);
   text-align: center;
 }
-.file-content {
-  padding: 4px 7px;
-  text-align: left;
-  background: #ffffff;
-  min-height: 100%;
-}
+
 .image-content {
   max-width: 100%;
   max-height: 100%;
@@ -249,10 +364,6 @@ a:hover {
   text-align: center;
 }
 
-.preview {
-  height: 100%;
-  overflow: scroll;
-}
 pdfviewer {
   display: block;
   padding: 15px;
@@ -285,14 +396,14 @@ notebook {
 }
 
 .faq-section .panel-default .panel-title a {
-  color: #333333;
+  color: var(--color);
   display: block;
 }
 .faq-section .panel-heading {
-  background-color: #dddddd;
+  background-color: var(--sidebar-bg-color);
 }
 .faq-section .panel-default {
-  background-color: #f8f8f8;
+  background-color: var(--hover-bg-color);
 }
 .faq-section .panel-default .panel-title {
   margin-bottom: 0;
@@ -310,6 +421,17 @@ notebook {
 }
 .faq-section .panel-default .panel-body {
   font-size: 1.2rem;
+}
+
+.table {
+  color: var(--color);
+}
+
+.table td,
+.table th,
+hr,
+.dropdown-divider {
+  border-color: var(--border-color);
 }
 
 .table.repositories td {
@@ -346,4 +468,42 @@ loc .lang {
   font-weight: 300;
   line-height: 1;
   letter-spacing: -0.05rem;
+}
+
+.dark-mode .shadow {
+  box-shadow: none;
+}
+
+.dark-mode .overflow-auto::-webkit-scrollbar {
+  width: 10px;
+}
+
+.dark-mode .overflow-auto::-webkit-scrollbar-track {
+  -webkit-box-shadow: none;
+  background: inherit;
+  border-radius: 0;
+}
+
+.dark-mode .overflow-auto::-webkit-scrollbar-thumb {
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background-color: var(--hover-bg-color);
+}
+
+.dark-mode .rgba-gradient {
+  background: -moz-linear-gradient(
+    45deg,
+    rgb(45 45 64 / 82%),
+    rgb(23 26 49) 100%
+  );
+  background: -webkit-linear-gradient(
+    45deg,
+    rgb(45 45 64 / 82%),
+    rgb(23 26 49) 100%
+  );
+  background: linear-gradient(
+    to 45deg,
+    rgb(45 45 64 / 82%),
+    rgb(23 26 49) 100%
+  );
 }
