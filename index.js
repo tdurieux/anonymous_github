@@ -8,6 +8,7 @@ const express = require("express");
 const compression = require("compression");
 const bodyParser = require("body-parser");
 
+const config = require("./config");
 const rediscli = redis.createClient({
   host: "redis",
   ttl: 260,
@@ -17,8 +18,6 @@ const connection = require("./routes/connection");
 
 const db = require("./utils/database");
 const fileUtils = require("./utils/file");
-
-const PORT = process.env.PORT || 5000;
 
 const app = express();
 app.use(bodyParser.json());
@@ -75,10 +74,18 @@ app.get("/api/stat", async (_, res) => {
 });
 
 function indexResponse(req, res) {
-  if (req.params.repoId && req.headers["accept"] && req.headers["accept"].indexOf("text/html") == -1) {
+  if (
+    req.params.repoId &&
+    req.headers["accept"] &&
+    req.headers["accept"].indexOf("text/html") == -1
+  ) {
     const repoId = req.path.split("/")[2];
     // if it is not an html request, it assumes that the browser try to load a different type of resource
-    return res.redirect(`/api/repo/${repoId}/file/${req.path.substring(req.path.indexOf(repoId) + repoId.length + 1)}`);
+    return res.redirect(
+      `/api/repo/${repoId}/file/${req.path.substring(
+        req.path.indexOf(repoId) + repoId.length + 1
+      )}`
+    );
   }
   res.sendFile(path.resolve(__dirname, "public", "index.html"));
 }
@@ -95,8 +102,9 @@ app.use(express.static(__dirname + "/public"));
 app.get("*", indexResponse);
 
 db.connect().then((_) => {
-  app.listen(PORT, () => {
-    console.log("Database connected and Server started on port: " + PORT);
+  app.listen(config.PORT, () => {
+    console.log(
+      "Database connected and Server started on port: " + config.PORT
+    );
   });
 });
-
