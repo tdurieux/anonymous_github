@@ -3,7 +3,7 @@ const fs = require("fs").promises;
 const path = require("path");
 const { Octokit } = require("@octokit/rest");
 const gh = require("parse-github-url");
-const loc = require("@umijs/linguist");
+const loc = require("github-linguist").default;
 const { isText } = require("istextorbinary");
 
 const db = require("./database");
@@ -464,8 +464,8 @@ module.exports.getStats = async (options) => {
   } catch (error) {
     throw "repo_not_found";
   }
-  const o = loc(repoCache);
-
+  const o = await loc(repoCache);
+  delete o.files;
   await db.get("anonymized_repositories").updateOne(
     { repoId: repoConfig.repoId },
     {
