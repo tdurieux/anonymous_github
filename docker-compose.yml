@@ -14,6 +14,14 @@ services:
       # - ./repositories:/app/repositories
     ports:
       - 5000:$PORT
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - healthcheck.js
+      interval: 10s
+      timeout: 10s
+      retries: 5
     links:
       - mongodb
       - redis
@@ -45,7 +53,7 @@ services:
   mongodb-backup:
     image: tiredofit/db-backup
     links:
-     - mongodb
+      - mongodb
     volumes:
       - ./db_backups:/backup
     environment:
