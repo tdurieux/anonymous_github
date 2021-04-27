@@ -102,6 +102,8 @@ module.exports.getRepoDetails = async (options) => {
     if (error.status == 401 && options.token != config.GITHUB_TOKEN) {
       options.token = config.GITHUB_TOKEN;
       return await module.exports.getRepoDetails(options);
+    } else if (error.status == 403) {
+      throw "repo_not_accessible";  
     }
     throw "repo_not_found";
   }

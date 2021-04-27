@@ -1,6 +1,8 @@
 <div class="container-fluid h-100">
   <div class="row h-100">
-    <div class="col sidePanel shadow overflow-auto h-100 d-flex align-content-end">
+    <div
+      class="col sidePanel shadow overflow-auto h-100 d-flex align-content-end"
+    >
       <div
         class="p-0 py-2 m-auto"
         ng-class="{'card': !repoUrl,'container': repoUrl}"
@@ -34,6 +36,13 @@
             >
               Please provide a valid Github url, e.g.,
               https://github.com/owner/repo.
+            </div>
+            <div
+              class="invalid-feedback"
+              ng-show="anonymize.repoUrl.$error.access"
+            >
+              {{repoUrl}} is not accessible. Some organizations are restricting
+              the access to the repositories.
             </div>
             <div
               class="invalid-feedback"
@@ -177,7 +186,9 @@
             </div>
             <!-- Conference -->
             <div class="form-group">
-              <label for="conference">Conference <span class="text-muted">Optional</span></label>
+              <label for="conference"
+                >Conference <span class="text-muted">Optional</span></label
+              >
               <input
                 class="form-control"
                 id="conference"

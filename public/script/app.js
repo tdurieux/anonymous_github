@@ -232,9 +232,13 @@ angular
             if (!$scope.file) return;
             $http.get($scope.file).then((res) => {
               var notebook = nb.parse(res.data);
-              var rendered = notebook.render();
-              $element.append(rendered);
-              Prism.highlightAll();
+              try {
+                var rendered = notebook.render();
+                $element.append(rendered);
+                Prism.highlightAll();
+              } catch (error) {
+                $element.html("Unable to render the notebook.")
+              }
             });
           }
           $scope.$watch("file", (v) => {
@@ -306,7 +310,7 @@ angular
         $scope.$broadcast("dark-mode", on);
       };
 
-      $scope.darkMode(localStorage.getItem("darkMode") == "true")
+      $scope.darkMode(localStorage.getItem("darkMode") == "true");
 
       function getUser() {
         $http.get("/api/user").then(
@@ -570,7 +574,7 @@ angular
               }
             },
             (err) => {
-              $scope.error = err.data;
+              $scope.error = err.data.error;
             }
           );
       };
@@ -771,7 +775,7 @@ angular
       async function getDetails() {
         const o = parseGithubUrl($scope.repoUrl);
         try {
-          $scope.anonymize.repoUrl.$setValidity("missing", true);
+          resetValidity();
           const res = await $http.get(`/api/repo/${o.owner}/${o.repo}/`);
           $scope.details = res.data;
           if ($scope.details.size > 1024 * 8) {
@@ -783,7 +787,12 @@ angular
           $scope.repoId = $scope.details.name + "-" + generateRandomId(4);
           await $scope.getBranches();
         } catch (error) {
-          console.error(error);
+          if (error.data) {
+            $translate("ERRORS." + error.data.error).then((translation) => {
+              $scope.error = translation;
+            }, console.error);
+            displayErrorMessage(error.data.error);
+          }
           $scope.anonymize.repoUrl.$setValidity("missing", false);
           throw error;
         }
@@ -848,22 +857,12 @@ angular
         $scope.anonymize.repoId.$setValidity("used", true);
         $scope.anonymize.repoId.$setValidity("format", true);
         $scope.anonymize.repoUrl.$setValidity("used", true);
+        $scope.anonymize.repoUrl.$setValidity("missing", true);
+        $scope.anonymize.repoUrl.$setValidity("access", true);
+        $scope.anonymize.terms.$setValidity("format", true);
         $scope.anonymize.terms.$setValidity("format", true);
       }
 
-      function getRepo() {
-        const o = parseGithubUrl($scope.repoUrl);
-        return {
-          repoId: $scope.repoId,
-          terms: $scope.terms.trim().split("\n"),
-          fullName: `${o.owner}/${o.repo}`,
-          repository: $scope.repoUrl,
-          options: $scope.options,
-          branch: $scope.branch,
-          commit: $scope.commit,
-          conference: $scope.conference,
-        };
-      }
       function displayErrorMessage(message) {
         switch (message) {
           case "repoId_already_used":
@@ -881,11 +880,35 @@ angular
           case "invalid_terms_format":
             $scope.anonymize.terms.$setValidity("format", false);
             break;
+          case "invalid_terms_format":
+            $scope.anonymize.terms.$setValidity("format", false);
+            break;
+          case "repo_not_found":
+            $scope.anonymize.repoUrl.$setValidity("missing", false);
+            break;
+          case "repo_not_accessible":
+            $scope.anonymize.repoUrl.$setValidity("access", false);
+            break;
           default:
             $scope.anonymize.$setValidity("error", false);
             break;
         }
       }
+
+      function getRepo() {
+        const o = parseGithubUrl($scope.repoUrl);
+        return {
+          repoId: $scope.repoId,
+          terms: $scope.terms.trim().split("\n"),
+          fullName: `${o.owner}/${o.repo}`,
+          repository: $scope.repoUrl,
+          options: $scope.options,
+          branch: $scope.branch,
+          commit: $scope.commit,
+          conference: $scope.conference,
+        };
+      }
+
       $scope.anonymizeRepo = async (event) => {
         event.target.disabled = true;
         resetValidity();

@@ -60,10 +60,10 @@ router.get("/:repoId/", async (req, res) => {
     if (repository) {
       return res.json(repository);
     }
-    res.status(404).send("repo_not_found");
+    res.status(404).send({error: "repo_not_found"});
   } catch (error) {
     console.error(req.path, error);
-    res.status(500).send(error);
+    res.status(500).json({ error });
   }
 });
 
@@ -219,10 +219,10 @@ router.get("/:owner/:repo/", async (req, res) => {
     if (repository) {
       return res.json(repository);
     }
-    res.status(404).send("repo_not_found");
+    res.status(404).send({error: "repo_not_found"});
   } catch (error) {
     console.error(req.path, error);
-    res.status(500).send(error);
+    res.status(500).json({ error });
   }
 });
 
@@ -237,10 +237,10 @@ router.get("/:owner/:repo/branches", async (req, res) => {
     if (repository) {
       return res.json(repository);
     }
-    res.status(404).send("repo_not_found");
+    res.status(404).send({error: "repo_not_found"});
   } catch (error) {
     console.error(req.path, error);
-    res.status(500).send(error);
+    res.status(500).json({ error });
   }
 });
 
@@ -255,9 +255,9 @@ router.get("/:owner/:repo/readme", async (req, res) => {
     if (readme) {
       return res.send(readme);
     }
-    res.status(404).send("repo_not_found");
+    res.status(404).send({error: "repo_not_found"});
   } catch (error) {
-    res.status(500).send(error);
+    res.status(500).json({ error });
   }
 });
 
