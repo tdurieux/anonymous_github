@@ -1,6 +1,5 @@
 const path = require("path");
 const ofs = require("fs");
-const fs = require("fs").promises;
 const redis = require("redis");
 const RateLimit = require("express-rate-limit");
 const RedisStore = require("rate-limit-redis");
