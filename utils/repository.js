@@ -166,6 +166,9 @@ module.exports.downloadOriginalRepo = async (repoConfig, destination) => {
   await extract(zipPath, { dir: destinationZip });
 
   const folders = await fs.readdir(destinationZip);
+  if (ofs.existsSync(destination)) {
+    await fs.rm(destination, {force: true, recursive: true})
+  }
   fs.rename(path.join(destinationZip, folders[0]), destination);
   await fs.rm(zipPath);
   await fs.rm(destinationZip, { recursive: true });
