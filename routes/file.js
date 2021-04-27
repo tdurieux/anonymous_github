@@ -43,8 +43,9 @@ async function anonymizeRepository(options) {
       console.error(repoConfig.repoId, req.path, error);
     }
     await repoUtils.updateAnonymizedRepository(repoConfig);
+  } else {
+    await githubUtils.downloadRepoAndAnonymize(repoConfig);
   }
-  await githubUtils.downloadRepoAndAnonymize(repoConfig);
 }
 
 router.get("/:repoId/files", async (req, res) => {
