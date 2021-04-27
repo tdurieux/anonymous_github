@@ -337,6 +337,9 @@ module.exports.isFilePathValid = async (options) => {
   );
 
   if (ofs.existsSync(anonymizedFilePath)) {
+    if (fs.lstatSync(anonymizedFilePath).isDirectory()) {
+      throw "is_folder";
+    }
     return true;
   }
 
@@ -367,6 +370,9 @@ module.exports.isFilePathValid = async (options) => {
   );
 
   if (ofs.existsSync(originalFilePath)) {
+    if (fs.lstatSync(originalFilePath).isDirectory()) {
+      throw "is_folder";
+    }
     if (!module.exports.isFileSupported(repoConfig, originalFilePath)) {
       throw "file_not_supported";
     }
