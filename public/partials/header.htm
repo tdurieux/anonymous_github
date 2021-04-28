@@ -65,6 +65,14 @@
         </a>
       </li>
 
+      <li class="nav-item" ng-if="!isDarkMode">
+        <a class="nav-link" href="#" ng-click="darkMode(true);">Dark Mode</a>
+      </li>
+
+      <li class="nav-item" ng-if="isDarkMode">
+        <a class="nav-link" href="#" ng-click="darkMode(false);">Light Mode</a>
+      </li>
+
       <li class="nav-item" ng-if="!user">
         <a class="nav-link" target="_self" href="/github/login" data-offset="30"
           >Login
@@ -93,21 +101,6 @@
         <div class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
           <a class="dropdown-item" href="/profile">Default settings</a>
           <a class="dropdown-item" href="/dashboard">Projects</a>
-          <div class="dropdown-divider"></div>
-          <a
-            class="dropdown-item"
-            href="#"
-            ng-click="darkMode(true);"
-            ng-if="!isDarkMode"
-            >Dark Mode</a
-          >
-          <a
-            class="dropdown-item"
-            href="#"
-            ng-click="darkMode(false);"
-            ng-if="isDarkMode"
-            >Light Mode</a
-          >
           <div class="dropdown-divider"></div>
           <a class="dropdown-item" href="/api/user/logout" target="__self"
             >Logout</a
