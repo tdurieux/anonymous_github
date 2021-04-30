@@ -1,10 +1,17 @@
 const ofs = require("fs");
+const { OAuthApp } = require("@octokit/oauth-app");
 
 const db = require("./database");
 const repoUtils = require("./repository");
 const fileUtils = require("./file");
 
 const config = require("../config");
+
+const app = new OAuthApp({
+  clientType: "github-app",
+  clientId: config.CLIENT_ID,
+  clientSecret: config.CLIENT_SECRET,
+});
 
 module.exports.getToken = async (repoConfig) => {
   if (repoConfig.owner) {
@@ -20,7 +27,15 @@ module.exports.getToken = async (repoConfig) => {
     }
   }
   if (repoConfig.token) {
-    return repoConfig.token;
+    try {
+      await app.checkToken({
+        token: repoConfig.token,
+      });
+      return repoConfig.token;
+    } catch (error) {
+      console.debug("Token is invalid.", error);
+      delete repoConfig.token;
+    }
   }
   return config.GITHUB_TOKEN;
 };
