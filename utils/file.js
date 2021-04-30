@@ -134,8 +134,10 @@ module.exports.getTree = async (repoConfig, sha, truncatedTree, parentPath) => {
 
   if (!parentPath) parentPath = "";
 
+  const token = await githubUtils.getToken(repoConfig);
+
   const octokit = new Octokit({
-    auth: await githubUtils.getToken(repoConfig),
+    auth: token,
   });
   const ghRes = await octokit.git.getTree({
     owner: repo.owner,
@@ -337,7 +339,7 @@ module.exports.isFilePathValid = async (options) => {
   );
 
   if (ofs.existsSync(anonymizedFilePath)) {
-    if (fs.lstatSync(anonymizedFilePath).isDirectory()) {
+    if (ofs.lstatSync(anonymizedFilePath).isDirectory()) {
       throw "is_folder";
     }
     return true;
