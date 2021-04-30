@@ -372,7 +372,7 @@ module.exports.isFilePathValid = async (options) => {
   );
 
   if (ofs.existsSync(originalFilePath)) {
-    if (fs.lstatSync(originalFilePath).isDirectory()) {
+    if (ofs.lstatSync(originalFilePath).isDirectory()) {
       throw "is_folder";
     }
     if (!module.exports.isFileSupported(repoConfig, originalFilePath)) {
