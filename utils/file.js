@@ -20,15 +20,19 @@ async function walk(dir, root) {
   const output = { child: {} };
   for (let file of files) {
     let filePath = path.join(dir, file);
-    const stats = await fs.stat(filePath);
-    if (file[0] == "$") {
-      file = "\\" + file;
-    }
-    if (stats.isDirectory()) {
-      output.child[file] = await walk(filePath, root);
-      output.child[file].sha = stats.ino;
-    } else if (stats.isFile()) {
-      output.child[file] = { size: stats.size, sha: stats.ino };
+    try {
+      const stats = await fs.stat(filePath);
+      if (file[0] == "$") {
+        file = "\\" + file;
+      }
+      if (stats.isDirectory()) {
+        output.child[file] = await walk(filePath, root);
+        output.child[file].sha = stats.ino;
+      } else if (stats.isFile()) {
+        output.child[file] = { size: stats.size, sha: stats.ino };
+      }
+    } catch (error) {
+      console.error(error);
     }
   }
   return output;
