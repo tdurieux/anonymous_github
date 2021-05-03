@@ -360,9 +360,6 @@ router.post("/", async (req, res) => {
   } catch (error) {
     console.error(req.path, error);
     await repoUtils.updateStatus(repoConfig, "error", "unable_to_anonymize");
-    return res
-      .status(500)
-      .json({ error: "unable_to_anonymize", message: error.message });
   }
 });
 
