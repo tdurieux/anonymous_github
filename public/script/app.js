@@ -7,7 +7,7 @@ angular
     "pascalprecht.translate",
     "angular-google-analytics",
   ])
-  .config(function(
+  .config(function (
     $routeProvider,
     $locationProvider,
     $translateProvider,
@@ -80,22 +80,22 @@ angular
       });
     $locationProvider.html5Mode(true);
   })
-  .run(["Analytics", function(Analytics) {}])
-  .filter("title", function() {
-    return function(str) {
+  .run(["Analytics", function (Analytics) {}])
+  .filter("title", function () {
+    return function (str) {
       if (!str) return str;
 
       str = str.toLowerCase();
       var words = str.split(" ");
 
-      var capitalized = words.map(function(word) {
+      var capitalized = words.map(function (word) {
         return word.charAt(0).toUpperCase() + word.substring(1, word.length);
       });
       return capitalized.join(" ");
     };
   })
   .directive("tree", [
-    function() {
+    function () {
       return {
         restrict: "E",
         scope: { file: "=", parent: "@" },
@@ -104,11 +104,11 @@ angular
           "$scope",
           "$routeParams",
           "$compile",
-          function($element, $scope, $routeParams, $compile) {
+          function ($element, $scope, $routeParams, $compile) {
             $scope.repoId = document.location.pathname.split("/")[2];
 
             $scope.opens = {};
-            const toArray = function(obj) {
+            const toArray = function (obj) {
               const output = [];
               for (let name in obj) {
                 if (obj[name].size != null) {
@@ -194,11 +194,11 @@ angular
               display();
             });
 
-            $scope.isActive = function(name) {
+            $scope.isActive = function (name) {
               return $routeParams.path == name.substring(1);
             };
 
-            $scope.openFolder = function(folder, event) {
+            $scope.openFolder = function (folder, event) {
               $scope.opens[folder] = !$scope.opens[folder];
               if (event.srcElement.nextSibling == null) {
                 const folders = folder.substring(1).split("/");
@@ -211,10 +211,10 @@ angular
                 });
               }
             };
-            const isFile = function(child) {
+            const isFile = function (child) {
               return child == null || child.size != null;
             };
-            const isDir = function(child) {
+            const isDir = function (child) {
               return !isFile(child);
             };
           },
@@ -223,11 +223,11 @@ angular
     },
   ])
   .directive("notebook", [
-    function() {
+    function () {
       return {
         restrict: "E",
         scope: { file: "=" },
-        controller: function($element, $scope, $http) {
+        controller: function ($element, $scope, $http) {
           function render() {
             if (!$scope.file) return;
             $http.get($scope.file).then((res) => {
@@ -237,7 +237,7 @@ angular
                 $element.append(rendered);
                 Prism.highlightAll();
               } catch (error) {
-                $element.html("Unable to render the notebook.")
+                $element.html("Unable to render the notebook.");
               }
             });
           }
@@ -250,13 +250,13 @@ angular
     },
   ])
   .directive("loc", [
-    function() {
+    function () {
       return {
         restrict: "E",
         scope: { stats: "=" },
         template:
           "<div class='lang' ng-repeat='lang in elements' title='{{lang.lang|title}}: {{lang.loc | number}} lines' data-toggle='tooltip' data-placement='bottom'  style='width:{{lang.loc*100/total}}%;background:{{lang.color}};'></div>",
-        controller: function($scope) {
+        controller: function ($scope) {
           function render() {
             $scope.elements = [];
             $scope.total = 0;
@@ -289,17 +289,14 @@ angular
     "$scope",
     "$http",
     "$location",
-    function($scope, $http, $location) {
+    function ($scope, $http, $location) {
       $scope.title = "Main";
       $scope.user = { status: "connection" };
 
       $scope.path = $location.url();
-      $scope.paths = $location
-        .path()
-        .substring(1)
-        .split("/");
+      $scope.paths = $location.path().substring(1).split("/");
 
-      $scope.darkMode = function(on) {
+      $scope.darkMode = function (on) {
         localStorage.setItem("darkMode", on);
         $scope.isDarkMode = on;
         if (on) {
@@ -341,10 +338,7 @@ angular
           $scope.title = current.title;
         }
         $scope.path = $location.url();
-        $scope.paths = $location
-          .path()
-          .substring(1)
-          .split("/");
+        $scope.paths = $location.path().substring(1).split("/");
       }
 
       $scope.$on("$routeChangeSuccess", changedUrl);
@@ -354,7 +348,7 @@ angular
   .controller("faqController", [
     "$scope",
     "$http",
-    function($scope, $http) {
+    function ($scope, $http) {
       function getSupportedFileTypes() {
         $http.get("/api/supportedTypes").then((res) => {
           $scope.supportedFileTypes = res.data;
@@ -366,7 +360,7 @@ angular
   .controller("profileController", [
     "$scope",
     "$http",
-    function($scope, $http) {
+    function ($scope, $http) {
       $scope.terms = "";
       $scope.options = {
         expirationMode: "remove",
@@ -413,7 +407,7 @@ angular
     "$scope",
     "$http",
     "$location",
-    function($scope, $http, $location) {
+    function ($scope, $http, $location) {
       $scope.repoId = null;
       $scope.repoUrl = null;
       $scope.claim = () => {
@@ -439,7 +433,7 @@ angular
     "$scope",
     "$http",
     "$location",
-    function($scope, $http, $location) {
+    function ($scope, $http, $location) {
       if ($scope.user && !$scope.user.status) {
         $location.url("/dashboard");
       }
@@ -461,8 +455,8 @@ angular
     "$scope",
     "$http",
     "$location",
-    function($scope, $http, $location) {
-      $scope.$on("$routeChangeStart", function() {
+    function ($scope, $http, $location) {
+      $scope.$on("$routeChangeStart", function () {
         // remove tooltip
         $('[data-toggle="tooltip"]').tooltip("dispose");
       });
@@ -509,9 +503,7 @@ angular
       $scope.removeRepository = (repo) => {
         if (
           confirm(
-            `Are you sure that you want to remove the repository ${
-              repo.repoId
-            }?`
+            `Are you sure that you want to remove the repository ${repo.repoId}?`
           )
         ) {
           $http.delete(`/api/repo/${repo.repoId}`).then(() => {
@@ -543,7 +535,7 @@ angular
     "$scope",
     "$http",
     "$routeParams",
-    function($scope, $http, $routeParams) {
+    function ($scope, $http, $routeParams) {
       $scope.repoId = $routeParams.repoId;
       $scope.repo = null;
       $scope.progress = 0;
@@ -588,7 +580,7 @@ angular
     "$routeParams",
     "$location",
     "$translate",
-    function($scope, $http, $sce, $routeParams, $location, $translate) {
+    function ($scope, $http, $sce, $routeParams, $location, $translate) {
       $scope.repoUrl = "";
       $scope.repoId = "";
       $scope.terms = "";
@@ -655,9 +647,9 @@ angular
                 );
               }
 
-              $scope.details = (await $http.get(
-                `/api/repo/${res.data.fullName}/`
-              )).data;
+              $scope.details = (
+                await $http.get(`/api/repo/${res.data.fullName}/`)
+              ).data;
 
               await getReadme();
               await $scope.getBranches();
@@ -805,7 +797,8 @@ angular
       }
 
       async function anonymize() {
-        const urlRegex = /<?\b((https?|ftp|file):\/\/)[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]\b\/?>?/g;
+        const urlRegex =
+          /<?\b((https?|ftp|file):\/\/)[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]\b\/?>?/g;
         let content = $scope.readme;
 
         if (!$scope.options.image) {
@@ -967,7 +960,7 @@ angular
     "$location",
     "$routeParams",
     "PDFViewerService",
-    function($scope, $http, $location, $routeParams, PDFViewerService) {
+    function ($scope, $http, $location, $routeParams, PDFViewerService) {
       const extensionModes = {
         yml: "yaml",
         txt: "text",
@@ -977,14 +970,13 @@ angular
       const textFiles = ["license", "txt"];
       const imageFiles = ["png", "jpg", "jpeg", "gif"];
 
-      $scope.repoId = $routeParams.repoId;
-      $scope.type = "loading";
-      $scope.filePath = $routeParams.path || "";
-      $scope.paths = $scope.filePath.split("/");
-
-      $scope.$on("$routeUpdate", function(event, current, old) {
+      $scope.$on("$routeUpdate", function (event, current, old) {
         $scope.filePath = $routeParams.path || "";
         $scope.paths = $scope.filePath.split("/");
+
+        if ($scope.repoId != $routeParams.repoId) {
+          return init();
+        }
 
         updateContent();
       });
@@ -1151,7 +1143,7 @@ angular
           fadeFoldWidgets: false,
           mode: getMode(extension),
 
-          onLoad: function(_editor) {
+          onLoad: function (_editor) {
             _editor.setFontSize($scope.aceOption.fontSize);
             _editor.setReadOnly($scope.aceOption.readOnly);
             _editor.setKeyboardHandler($scope.aceOption.keyBinding);
@@ -1198,14 +1190,23 @@ angular
         getContent($scope.filePath);
       }
 
-      getOptions((options) => {
-        getFiles(() => {
-          updateContent();
+      function init() {
+        $scope.repoId = $routeParams.repoId;
+        $scope.type = "loading";
+        $scope.filePath = $routeParams.path || "";
+        $scope.paths = $scope.filePath.split("/");
 
-          if (options.mode == "download") {
-            getStats();
-          }
+        getOptions((options) => {
+          getFiles(() => {
+            updateContent();
+
+            if (options.mode == "download") {
+              getStats();
+            }
+          });
         });
-      });
+      }
+
+      init();
     },
   ]);
