@@ -1,0 +1,96 @@
+import * as express from "express";
+import config from "../../config";
+import { ensureAuthenticated } from "./connection";
+import { handleError, getUser } from "./route-utils";
+
+const router = express.Router();
+
+// user needs to be connected for all user API
+router.use(ensureAuthenticated);
+
+router.get("/logout", async (req: express.Request, res: express.Response) => {
+  try {
+    req.logout();
+    res.redirect("/");
+  } catch (error) {
+    handleError(error, res);
+  }
+});
+
+router.get("/", async (req: express.Request, res: express.Response) => {
+  try {
+    const user = await getUser(req);
+    res.json({ username: user.username, photo: user.photo });
+  } catch (error) {
+    handleError(error, res);
+  }
+});
+
+router.get("/quota", async (req: express.Request, res: express.Response) => {
+  try {
+    const user = await getUser(req);
+    const sizes = await Promise.all(
+      (await user.getRepositories())
+        .filter((r) => r.status == "ready")
+        .map((r) => r.computeSize())
+    );
+    res.json({
+      used: sizes.reduce((sum, i) => sum + i, 0),
+      total: config.DEFAULT_QUOTA,
+    });
+  } catch (error) {
+    handleError(error, res);
+  }
+});
+
+router.get("/default", async (req: express.Request, res: express.Response) => {
+  const user = await getUser(req);
+  try {
+    res.json(user.default);
+  } catch (error) {
+    handleError(error, res);
+  }
+});
+
+router.post("/default", async (req: express.Request, res: express.Response) => {
+  const user = await getUser(req);
+  try {
+    const d = req.body;
+    user.default = d;
+    res.send("ok");
+  } catch (error) {
+    handleError(error, res);
+  }
+});
+
+router.get(
+  "/anonymized_repositories",
+  async (req: express.Request, res: express.Response) => {
+    const user = await getUser(req);
+    res.json(
+      (await user.getRepositories()).map((x) => {
+        return x.toJSON();
+      })
+    );
+  }
+);
+
+router.get(
+  "/all_repositories",
+  async (req: express.Request, res: express.Response) => {
+    const user = await getUser(req);
+    const repos = await user.getGitHubRepositories({
+      force: req.query.force == "1",
+    });
+    res.json(
+      repos.map((x) => {
+        return {
+          fullName: x.fullName,
+          id: x.id,
+        };
+      })
+    );
+  }
+);
+
+export default router;

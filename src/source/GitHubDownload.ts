@@ -1,0 +1,75 @@
+import { Octokit } from "@octokit/rest";
+import * as path from "path";
+import config from "../../config";
+import storage from "../storage";
+import Repository from "../Repository";
+
+import GitHubBase from "./GitHubBase";
+import AnonymizedFile from "../AnonymizedFile";
+import { SourceBase } from "../types";
+import * as got from "got";
+import * as stream from "stream";
+import { OctokitResponse } from "@octokit/types";
+
+export default class GitHubDownload extends GitHubBase implements SourceBase {
+  constructor(
+    data: {
+      type: "GitHubDownload" | "GitHubStream" | "Zip";
+      branch?: string;
+      commit?: string;
+      repositoryId?: string;
+      repositoryName?: string;
+      accessToken?: string;
+    },
+    repository: Repository
+  ) {
+    super(data, repository);
+  }
+
+  private async _getZipUrl(
+    auth?: string
+  ): Promise<OctokitResponse<unknown, 302>> {
+    const octokit = new Octokit({ auth });
+    return octokit.rest.repos.downloadTarballArchive({
+      owner: this.githubRepository.owner,
+      repo: this.githubRepository.repo,
+      ref: this.branch?.commit || "HEAD",
+      method: "HEAD",
+    });
+  }
+
+  async download() {
+    let response: OctokitResponse<unknown, number>;
+    try {
+      response = await this._getZipUrl(await this.getToken());
+    } catch (error) {
+      if (error.status == 401 && config.GITHUB_TOKEN) {
+        try {
+          response = await this._getZipUrl(config.GITHUB_TOKEN);
+        } catch (error) {
+          throw new Error("repo_not_accessible");
+        }
+      } else {
+        throw new Error("repo_not_accessible");
+      }
+    }
+    const originalPath = this.repository.originalCachePath;
+    await storage.mk(originalPath);
+    await storage.extractTar(originalPath, got.stream(response.url));
+  }
+
+  async getFileContent(file: AnonymizedFile): Promise<stream.Readable> {
+    await this.download();
+    // update the file list
+    await this.repository.files({ force: true });
+    return storage.read(file.originalCachePath);
+  }
+
+  async getFiles() {
+    const folder = this.repository.originalCachePath;
+    if (!(await storage.exists(folder))) {
+      await this.download();
+    }
+    return storage.listFiles(folder);
+  }
+}

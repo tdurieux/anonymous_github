@@ -9,6 +9,9 @@ services:
     container_name: anonymous_github
     env_file:
       - ./.env
+    environment: 
+      - REDIS_HOSTNAME=redis
+      - DB_HOSTNAME=mongodb
     volumes:
       - .:/app
       # - ./repositories:/app/repositories
