@@ -16,7 +16,7 @@ export interface SourceBase {
   url?: string;
 
   /**
-   * Retrieve the fie content 
+   * Retrieve the fie content
    * @param file the file of the content to retrieve
    */
   getFileContent(file: AnonymizedFile): Promise<stream.Readable>;
@@ -66,12 +66,13 @@ export interface Branch {
 }
 
 export type RepositoryStatus =
-  | "ready"
+  | "queue"
   | "preparing"
-  | "expired"
-  | "removed"
   | "download"
-  | "queue";
+  | "ready"
+  | "expired"
+  | "removed";
+
 export type SourceStatus = "available" | "unavailable";
 
 export interface Tree {
