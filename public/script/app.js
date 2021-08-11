@@ -582,13 +582,13 @@ angular
               if ($scope.repo.status == "ready") {
                 $scope.progress = 100;
               } else if ($scope.repo.status == "queue") {
-                $scope.progress = 0;
+                $scope.progress = 10;
               } else if ($scope.repo.status == "downloaded") {
                 $scope.progress = 50;
               } else if ($scope.repo.status == "downloading") {
                 $scope.progress = 25;
               } else if ($scope.repo.status == "preparing") {
-                $scope.progress = 10;
+                $scope.progress = 25;
               } else if ($scope.repo.status == "anonymizing") {
                 $scope.progress = 75;
               }
@@ -1008,6 +1008,7 @@ angular
         txt: "text",
         py: "python",
         js: "javascript",
+        ts: "typescript",
       };
       const textFiles = ["license", "txt"];
       const imageFiles = ["png", "jpg", "jpeg", "gif"];
