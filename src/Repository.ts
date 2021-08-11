@@ -164,7 +164,7 @@ export default class Repository {
    */
   async anonymize() {
     if (this._model.status == "ready") return;
-    await this.updateStatus("queue");
+    await this.updateStatus("preparing");
     await this.files();
     await this.updateStatus("ready");
   }
@@ -202,7 +202,7 @@ export default class Repository {
    * Remove the repository
    */
   async remove() {
-    this._model.size = 0;
+    await this.updateStatus("removed");
     await this.resetSate();
   }
 
