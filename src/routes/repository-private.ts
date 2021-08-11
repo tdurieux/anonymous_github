@@ -64,7 +64,7 @@ router.post("/claim", async (req: express.Request, res: express.Response) => {
 router.post(
   "/:repoId/refresh",
   async (req: express.Request, res: express.Response) => {
-    const repo = await getRepo(req, res);
+    const repo = await getRepo(req, res, { nocheck: true });
     if (!repo) return;
     const user = await getUser(req);
     if (repo.owner.username != user.username) {
@@ -213,6 +213,7 @@ router.post(
     if (repoUpdate.commit != repo.model.source.commit) {
       repo.model.anonymizeDate = new Date();
       repo.model.source.commit = repoUpdate.commit;
+      await repo.remove();
     }
 
     updateRepoModel(repo.model, repoUpdate);
@@ -221,7 +222,7 @@ router.post(
 
     await repo.model.save();
     res.send("ok");
-    repo.anonymize();
+    new Repository(repo.model).anonymize();
   }
 );
 
