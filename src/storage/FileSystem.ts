@@ -39,8 +39,11 @@ export default class FileSystem implements StorageBase {
   }
 
   /** @override */
-  async rm(path: string): Promise<void> {
-    await fs.promises.rm(path, { force: true, recursive: true });
+  async rm(dir: string): Promise<void> {
+    await fs.promises.rm(path.join(config.FOLDER, dir), {
+      force: true,
+      recursive: true,
+    });
   }
 
   /** @override */
