@@ -16,7 +16,6 @@ export interface IUser {
       image: boolean;
       pdf: boolean;
       notebook: boolean;
-      loc: boolean;
       link: boolean;
       page: string | null;
     };

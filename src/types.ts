@@ -85,15 +85,3 @@ export interface TreeFile {
   sha: string;
   size: number;
 }
-
-export interface Loc {
-  info: { total: number; code: number; commit: number };
-  languages: {
-    [key: string]: {
-      total: number;
-      code: number;
-      commit: number;
-      sum: number;
-    };
-  };
-}

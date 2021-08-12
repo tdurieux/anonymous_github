@@ -18,7 +18,6 @@ const UserSchema = new Schema({
       image: Boolean,
       pdf: Boolean,
       notebook: Boolean,
-      loc: Boolean,
       link: Boolean,
       page: { type: String },
     },
