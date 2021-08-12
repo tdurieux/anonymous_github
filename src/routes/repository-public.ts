@@ -1,4 +1,5 @@
 import * as express from "express";
+import config from "../../config";
 
 import * as db from "../database/database";
 import { getRepo, getUser, handleError } from "./route-utils";
@@ -19,6 +20,8 @@ router.get("/:repoId/", async (req: express.Request, res: express.Response) => {
 router.get(
   "/:repoId/zip",
   async (req: express.Request, res: express.Response) => {
+    if (!config.ENABLE_DOWNLOAD)
+      return res.status(403).send({ error: "download_not_enabled" });
     const repo = await getRepo(req, res);
     if (!repo) return;
 
