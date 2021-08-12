@@ -16,9 +16,9 @@ router.get(
     const repo = await getRepo(req, res);
     if (!repo) return;
 
-    await repo.countView();
-
     try {
+      await repo.countView();
+    
       const f = new AnonymizedFile(repo, {
         anonymizedPath,
       });

@@ -44,8 +44,9 @@ router.get("/quota", async (req: express.Request, res: express.Response) => {
 });
 
 router.get("/default", async (req: express.Request, res: express.Response) => {
-  const user = await getUser(req);
   try {
+    const user = await getUser(req);
+
     res.json(user.default);
   } catch (error) {
     handleError(error, res);
@@ -53,10 +54,13 @@ router.get("/default", async (req: express.Request, res: express.Response) => {
 });
 
 router.post("/default", async (req: express.Request, res: express.Response) => {
-  const user = await getUser(req);
   try {
+    const user = await getUser(req);
+
     const d = req.body;
-    user.default = d;
+    user.model.default = d;
+
+    await user.model.save();
     res.send("ok");
   } catch (error) {
     handleError(error, res);
@@ -66,30 +70,38 @@ router.post("/default", async (req: express.Request, res: express.Response) => {
 router.get(
   "/anonymized_repositories",
   async (req: express.Request, res: express.Response) => {
-    const user = await getUser(req);
-    res.json(
-      (await user.getRepositories()).map((x) => {
-        return x.toJSON();
-      })
-    );
+    try {
+      const user = await getUser(req);
+      res.json(
+        (await user.getRepositories()).map((x) => {
+          return x.toJSON();
+        })
+      );
+    } catch (error) {
+      handleError(error, res);
+    }
   }
 );
 
 router.get(
   "/all_repositories",
   async (req: express.Request, res: express.Response) => {
-    const user = await getUser(req);
-    const repos = await user.getGitHubRepositories({
-      force: req.query.force == "1",
-    });
-    res.json(
-      repos.map((x) => {
-        return {
-          fullName: x.fullName,
-          id: x.id,
-        };
-      })
-    );
+    try {
+      const user = await getUser(req);
+      const repos = await user.getGitHubRepositories({
+        force: req.query.force == "1",
+      });
+      res.json(
+        repos.map((x) => {
+          return {
+            fullName: x.fullName,
+            id: x.id,
+          };
+        })
+      );
+    } catch (error) {
+      handleError(error, res);
+    }
   }
 );
 

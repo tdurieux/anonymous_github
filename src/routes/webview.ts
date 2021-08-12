@@ -11,17 +11,17 @@ async function webView(req: express.Request, res: express.Response) {
   if (!repo) return;
   try {
     if (!repo.options.page) {
-      throw "page_not_activated";
+      throw new Error("page_not_activated");
     }
     if (!repo.options.pageSource) {
-      throw "page_not_activated";
+      throw new Error("page_not_activated");
     }
 
     if (
       repo.options.pageSource?.branch !=
       (repo.source as GitHubDownload).branch.name
     ) {
-      throw "page_not_supported_on_different_branch";
+      throw new Error("page_not_supported_on_different_branch");
     }
 
     let requestPath = path.join(

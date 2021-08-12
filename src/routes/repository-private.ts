@@ -55,8 +55,7 @@ router.post("/claim", async (req: express.Request, res: express.Response) => {
     );
     return res.send("Ok");
   } catch (error) {
-    console.error(req.path, error);
-    return res.status(500).json({ error });
+    handleError(error, res);
   }
 });
 
@@ -66,12 +65,17 @@ router.post(
   async (req: express.Request, res: express.Response) => {
     const repo = await getRepo(req, res, { nocheck: true });
     if (!repo) return;
-    const user = await getUser(req);
-    if (repo.owner.username != user.username) {
-      return res.status(401).json({ error: "not_authorized" });
+
+    try {
+      const user = await getUser(req);
+      if (repo.owner.username != user.username) {
+        return res.status(401).json({ error: "not_authorized" });
+      }
+      await repo.anonymize();
+      res.end("ok");
+    } catch (error) {
+      handleError(error, res);
     }
-    await repo.anonymize();
-    res.end("ok");
   }
 );
 
@@ -81,13 +85,17 @@ router.delete(
   async (req: express.Request, res: express.Response) => {
     const repo = await getRepo(req, res, { nocheck: false });
     if (!repo) return;
-    const user = await getUser(req);
-    if (repo.owner.username != user.username) {
-      return res.status(401).json({ error: "not_authorized" });
+    try {
+      const user = await getUser(req);
+      if (repo.owner.username != user.username) {
+        return res.status(401).json({ error: "not_authorized" });
+      }
+      await repo.remove();
+      console.log(`${req.params.repoId} is removed`);
+      return res.json("ok");
+    } catch (error) {
+      handleError(error, res);
     }
-    await repo.remove();
-    console.log(`${req.params.repoId} is removed`);
-    return res.json("ok");
   }
 );
 
@@ -133,19 +141,25 @@ router.get(
 router.get(
   "/:owner/:repo/readme",
   async (req: express.Request, res: express.Response) => {
-    const user = await getUser(req);
-    const repo = await RepositoryModel.findOne({
-      name: `${req.params.owner}/${req.params.repo}`,
-    });
-    if (!repo) return res.status(404).send({ error: "repo_not_found" });
-    const repository = new GitHubRepository(repo);
-    return res.send(
-      await repository.readme({
+    try {
+      const user = await getUser(req);
+
+      const repo = await getRepositoryFromGitHub({
+        owner: req.params.owner,
+        repo: req.params.repo,
         accessToken: user.accessToken,
-        force: req.query.force == "1",
-        branch: req.query.branch as string,
-      })
-    );
+      });
+      if (!repo) return res.status(404).send({ error: "repo_not_found" });
+      return res.send(
+        await repo.readme({
+          accessToken: user.accessToken,
+          force: req.query.force == "1",
+          branch: req.query.branch as string,
+        })
+      );
+    } catch (error) {
+      handleError(error, res);
+    }
   }
 );
 
@@ -206,23 +220,23 @@ router.post(
 
     try {
       validateNewRepo(repoUpdate);
+
+      if (repoUpdate.commit != repo.model.source.commit) {
+        repo.model.anonymizeDate = new Date();
+        repo.model.source.commit = repoUpdate.commit;
+        await repo.remove();
+      }
+
+      updateRepoModel(repo.model, repoUpdate);
+
+      await repo.updateStatus("preparing");
+
+      await repo.model.save();
+      res.send("ok");
+      new Repository(repo.model).anonymize();
     } catch (error) {
       return handleError(error, res);
     }
-
-    if (repoUpdate.commit != repo.model.source.commit) {
-      repo.model.anonymizeDate = new Date();
-      repo.model.source.commit = repoUpdate.commit;
-      await repo.remove();
-    }
-
-    updateRepoModel(repo.model, repoUpdate);
-
-    await repo.updateStatus("preparing");
-
-    await repo.model.save();
-    res.send("ok");
-    new Repository(repo.model).anonymize();
   }
 );
 
@@ -233,39 +247,41 @@ router.post("/", async (req: express.Request, res: express.Response) => {
 
   try {
     validateNewRepo(repoUpdate);
+
+    const r = gh(repoUpdate.fullName);
+    const repository = await getRepositoryFromGitHub({
+      accessToken: user.accessToken,
+      owner: r.owner,
+      repo: r.name,
+    });
+    
+    const repo = new AnonymizedRepositoryModel();
+    repo.repoId = repoUpdate.repoId;
+    repo.anonymizeDate = new Date();
+    repo.owner = user.username;
+    repo.source = {
+      type:
+        repoUpdate.options.mode == "download" ? "GitHubDownload" : "GitHubStream",
+      accessToken: user.accessToken,
+      repositoryId: repository.model.id,
+      repositoryName: repoUpdate.fullName,
+    };
+  
+    if (repo.source.type == "GitHubDownload") {
+      // details.size is in kilobytes
+      if (repository.size > config.MAX_REPO_SIZE) {
+        return res.status(500).send({ error: "invalid_mode" });
+      }
+    }
+  
+    updateRepoModel(repo, repoUpdate);
+  
+    await repo.save();
+    res.send("ok");
+    new Repository(repo).anonymize();
   } catch (error) {
     return handleError(error, res);
   }
-  const r = gh(repoUpdate.fullName);
-  const repository = await getRepositoryFromGitHub({
-    accessToken: user.accessToken,
-    owner: r.owner,
-    repo: r.name,
-  });
-  const repo = new AnonymizedRepositoryModel();
-  repo.repoId = repoUpdate.repoId;
-  repo.anonymizeDate = new Date();
-  repo.owner = user.username;
-  repo.source = {
-    type:
-      repoUpdate.options.mode == "download" ? "GitHubDownload" : "GitHubStream",
-    accessToken: user.accessToken,
-    repositoryId: repository.model.id,
-    repositoryName: repoUpdate.fullName,
-  };
-
-  if (repo.source.type == "GitHubDownload") {
-    // details.size is in kilobytes
-    if (repository.size > config.MAX_REPO_SIZE) {
-      return res.status(500).send({ error: "invalid_mode" });
-    }
-  }
-
-  updateRepoModel(repo, repoUpdate);
-
-  await repo.save();
-  res.send("ok");
-  new Repository(repo).anonymize();
 });
 
 export default router;

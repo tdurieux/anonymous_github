@@ -98,10 +98,14 @@ export default class User {
         repo.options.expirationDate != null &&
         repo.options.expirationDate < new Date()
       ) {
-        await repo.expire()
+        await repo.expire();
       }
     }
     return repositories;
+  }
+
+  get model() {
+    return this._model;
   }
 
   toJSON() {

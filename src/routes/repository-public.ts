@@ -8,7 +8,12 @@ const router = express.Router();
 router.get("/:repoId/", async (req: express.Request, res: express.Response) => {
   const repo = await getRepo(req, res, { nocheck: true });
   if (!repo) return;
-  res.json((await db.getRepository(req.params.repoId)).toJSON());
+
+  try {
+    res.json((await db.getRepository(req.params.repoId)).toJSON());
+  } catch (error) {
+    handleError(error, res);
+  }
 });
 
 router.get(
@@ -16,8 +21,13 @@ router.get(
   async (req: express.Request, res: express.Response) => {
     const repo = await getRepo(req, res);
     if (!repo) return;
-    res.attachment(`${repo.repoId}.zip`);
-    repo.zip().pipe(res);
+
+    try {
+      res.attachment(`${repo.repoId}.zip`);
+      repo.zip().pipe(res);
+    } catch (error) {
+      handleError(error, res);
+    }
   }
 );
 
@@ -26,7 +36,11 @@ router.get(
   async (req: express.Request, res: express.Response) => {
     const repo = await getRepo(req, res);
     if (!repo) return;
-    res.json(await repo.anonymizedFiles({ force: true }));
+    try {
+      res.json(await repo.anonymizedFiles({ force: true }));
+    } catch (error) {
+      handleError(error, res);
+    }
   }
 );
 
@@ -35,8 +49,13 @@ router.get(
   async (req: express.Request, res: express.Response) => {
     const repo = await getRepo(req, res);
     if (!repo) return;
-    await repo.updateIfNeeded();
-    res.json(repo.options);
+
+    try {
+      await repo.updateIfNeeded();
+      res.json(repo.options);
+    } catch (error) {
+      handleError(error, res);
+    }
   }
 );
 
