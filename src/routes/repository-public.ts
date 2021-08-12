@@ -2,20 +2,9 @@ import * as express from "express";
 import config from "../../config";
 
 import * as db from "../database/database";
-import { getRepo, getUser, handleError } from "./route-utils";
+import { getRepo, handleError } from "./route-utils";
 
 const router = express.Router();
-
-router.get("/:repoId/", async (req: express.Request, res: express.Response) => {
-  const repo = await getRepo(req, res, { nocheck: true });
-  if (!repo) return;
-
-  try {
-    res.json((await db.getRepository(req.params.repoId)).toJSON());
-  } catch (error) {
-    handleError(error, res);
-  }
-});
 
 router.get(
   "/:repoId/zip",
@@ -27,6 +16,10 @@ router.get(
 
     try {
       res.attachment(`${repo.repoId}.zip`);
+
+      // ache the file for 6 hours
+      res.header('Cache-Control', 'max-age=21600000');
+
       repo.zip().pipe(res);
     } catch (error) {
       handleError(error, res);
@@ -40,6 +33,9 @@ router.get(
     const repo = await getRepo(req, res);
     if (!repo) return;
     try {
+      // ache the file for 6 hours
+      res.header('Cache-Control', 'max-age=21600000');
+
       res.json(await repo.anonymizedFiles({ includeSha: false }));
     } catch (error) {
       handleError(error, res);

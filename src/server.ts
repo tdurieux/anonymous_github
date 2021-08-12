@@ -85,7 +85,13 @@ export default async function start() {
     .get("/r/:repoId/?*", indexResponse)
     .get("/repository/:repoId/?*", indexResponse);
 
-  app.use(express.static(path.join(__dirname, "..", "public")));
+  app.use(
+    express.static(path.join(__dirname, "..", "public"), {
+      etag: true,
+      lastModified: true,
+      maxAge: 3600000, // 1h
+    })
+  );
 
   app.get("*", indexResponse);
 

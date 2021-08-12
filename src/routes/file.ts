@@ -29,6 +29,8 @@ router.get(
       res.attachment(
         anonymizedPath.substring(anonymizedPath.lastIndexOf("/") + 1)
       );
+      // ache the file for 6 hours
+      res.header('Cache-Control', 'max-age=21600000');
       await f.send(res);
     } catch (error) {
       return handleError(error, res);

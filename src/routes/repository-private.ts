@@ -3,11 +3,7 @@ import { ensureAuthenticated } from "./connection";
 
 import * as db from "../database/database";
 import { getRepo, getUser, handleError } from "./route-utils";
-import RepositoryModel from "../database/repositories/repositories.model";
-import {
-  GitHubRepository,
-  getRepositoryFromGitHub,
-} from "../source/GitHubRepository";
+import { getRepositoryFromGitHub } from "../source/GitHubRepository";
 import gh = require("parse-github-url");
 import GitHubBase from "../source/GitHubBase";
 import AnonymizedRepositoryModel from "../database/anonymizedRepositories/anonymizedRepositories.model";
@@ -16,6 +12,22 @@ import { IAnonymizedRepositoryDocument } from "../database/anonymizedRepositorie
 import Repository from "../Repository";
 
 const router = express.Router();
+
+// get repository information
+router.get("/:repoId/", async (req: express.Request, res: express.Response) => {
+  const repo = await getRepo(req, res, { nocheck: true });
+  if (!repo) return;
+
+  try {
+    const user = await getUser(req);
+    if (user.username != repo.model.owner) {
+      return res.status(401).send({ error: "not_authorized" });
+    }
+    res.json((await db.getRepository(req.params.repoId)).toJSON());
+  } catch (error) {
+    handleError(error, res);
+  }
+});
 
 // user needs to be connected for all user API
 router.use(ensureAuthenticated);
@@ -254,28 +266,30 @@ router.post("/", async (req: express.Request, res: express.Response) => {
       owner: r.owner,
       repo: r.name,
     });
-    
+
     const repo = new AnonymizedRepositoryModel();
     repo.repoId = repoUpdate.repoId;
     repo.anonymizeDate = new Date();
     repo.owner = user.username;
     repo.source = {
       type:
-        repoUpdate.options.mode == "download" ? "GitHubDownload" : "GitHubStream",
+        repoUpdate.options.mode == "download"
+          ? "GitHubDownload"
+          : "GitHubStream",
       accessToken: user.accessToken,
       repositoryId: repository.model.id,
       repositoryName: repoUpdate.fullName,
     };
-  
+
     if (repo.source.type == "GitHubDownload") {
       // details.size is in kilobytes
       if (repository.size > config.MAX_REPO_SIZE) {
         return res.status(500).send({ error: "invalid_mode" });
       }
     }
-  
+
     updateRepoModel(repo, repoUpdate);
-  
+
     await repo.save();
     res.send("ok");
     new Repository(repo).anonymize();
