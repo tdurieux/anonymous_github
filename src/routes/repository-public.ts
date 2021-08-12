@@ -50,12 +50,26 @@ router.get(
 router.get(
   "/:repoId/options",
   async (req: express.Request, res: express.Response) => {
-    const repo = await getRepo(req, res);
-    if (!repo) return;
-
     try {
+      const repo = await getRepo(req, res, { nocheck: true });
+
+      let redirectURL = null;
+      if (
+        repo.status == "expired" &&
+        repo.options.expirationMode == "redirect" &&
+        repo.source.url
+      ) {
+        redirectURL = repo.source.url;
+      } else {
+        repo.check();
+      }
+
       await repo.updateIfNeeded();
-      res.json(repo.options);
+
+      res.json({
+        url: redirectURL,
+        download: !!config.ENABLE_DOWNLOAD,
+      });
     } catch (error) {
       handleError(error, res);
     }

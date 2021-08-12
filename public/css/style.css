@@ -78,8 +78,8 @@ input,
 button {
   outline: none;
 }
-*:hover,
-*:active {
+input:hover,
+input:active {
   box-shadow: none !important;
 }
 
@@ -326,12 +326,21 @@ a:hover {
   cursor: default;
 }
 
-.paths {
+.status-bar {
   background-color: var(--main-bg-color);
   padding: 8px 6px;
   margin: 0;
   border-bottom: 1px solid var(--border-color);
   border-radius: 0;
+}
+
+.paths {
+  padding: 0;
+  margin: 0;
+  background-color: initial;
+  border: none;
+  border-radius: 0;
+  align-items: center;
 }
 
 .paths a {
@@ -507,3 +516,4 @@ loc .lang {
     rgb(23 26 49) 100%
   );
 }
+
