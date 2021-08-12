@@ -40,20 +40,22 @@ export default class Repository {
    * @param opt force to get an updated list of files
    * @returns The anonymized file tree
    */
-  async anonymizedFiles(opt?: { force?: boolean }): Promise<Tree> {
+  async anonymizedFiles(opt?: {
+    /** Force to refresh the file tree */
+    force?: boolean;
+    /** Include the file sha in the response */
+    includeSha: boolean;
+  }): Promise<Tree> {
     const terms = this._model.options.terms || [];
 
     function anonymizeTreeRecursive(tree: TreeElement): TreeElement {
       if (Number.isInteger(tree.size) && tree.sha !== undefined) {
-        return tree as TreeFile;
+        if (opt?.includeSha) return tree as TreeFile;
+        return { size: tree.size } as TreeFile;
       }
       const output: Tree = {};
       for (const file in tree) {
         const anonymizedPath = anonymizePath(file, terms);
-        if (output[anonymizedPath]) {
-          // file anonymization conflict
-          
-        }
         output[anonymizedPath] = anonymizeTreeRecursive(tree[file]);
       }
       return output;

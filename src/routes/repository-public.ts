@@ -40,7 +40,7 @@ router.get(
     const repo = await getRepo(req, res);
     if (!repo) return;
     try {
-      res.json(await repo.anonymizedFiles({ force: true }));
+      res.json(await repo.anonymizedFiles({ includeSha: false }));
     } catch (error) {
       handleError(error, res);
     }

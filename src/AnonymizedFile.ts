@@ -55,8 +55,9 @@ export default class AnonymizedFile {
 
     const paths = this.anonymizedPath.trim().split("/");
 
-    let currentAnonymized: TreeElement =
-      await this.repository.anonymizedFiles();
+    let currentAnonymized: TreeElement = await this.repository.anonymizedFiles({
+      includeSha: true,
+    });
     let currentOriginal: TreeElement = await this.repository.files();
     let currentOriginalPath = "";
     let isAmbiguous = false;
