@@ -2,71 +2,127 @@ import * as path from "path";
 import * as express from "express";
 import * as stream from "stream";
 import Repository from "./Repository";
-import { Tree, TreeFile } from "./types";
+import { Tree, TreeElement, TreeFile } from "./types";
 import storage from "./storage";
 import config from "../config";
-import { anonymizeStream } from "./anonymize-utils";
+import { anonymizePath, anonymizeStream } from "./anonymize-utils";
+
+function tree2sha(
+  tree: any,
+  output: { [key: string]: string } = {},
+  parent: string = ""
+): { [key: string]: string } {
+  for (let i in tree) {
+    const sha = tree[i].sha as string;
+    const size = tree[i].size as number;
+    if (sha != null && size != null) {
+      output[sha] = path.join(parent, i);
+    } else if (tree[i].child) {
+      tree2sha(tree[i].child as Tree, output, path.join(parent, i));
+    } else {
+      tree2sha(tree[i] as Tree, output, path.join(parent, i));
+    }
+  }
+  return output;
+}
 
 /**
  * Represent a file in a anonymized repository
  */
 export default class AnonymizedFile {
-  repository: Repository;
-  sha?: string;
-  size?: number;
-  path?: string;
-  anonymizedPath: string;
+  private _originalPath: string;
+  private fileSize?: number;
 
-  constructor(
-    repository: Repository,
-    data: {
-      path?: string;
-      anonymizedPath: string;
-      sha?: string;
-      size?: number;
-    }
-  ) {
-    this.repository = repository;
+  repository: Repository;
+  anonymizedPath: string;
+  sha?: string;
+
+  constructor(data: { repository: Repository; anonymizedPath: string }) {
+    this.repository = data.repository;
     if (!this.repository.options.terms) throw new Error("terms_not_specified");
     this.anonymizedPath = data.anonymizedPath;
-    if (data.path) {
-      this.path = data.path;
-    }
-
-    if (!data.anonymizedPath && this.path) {
-      // anonymize the path
-      this.anonymizedPath = this.path;
-      for (let term of this.repository.options.terms) {
-        if (term.trim() == "") {
-          continue;
-        }
-        this.anonymizedPath = this.anonymizedPath.replace(
-          new RegExp(term, "gi"),
-          config.ANONYMIZATION_MASK
-        );
-      }
-    }
-    if (!this.sha) this.sha = data.sha;
-    if (!this.size) this.size = data.size;
   }
 
-  async send(res: express.Response): Promise<void> {
-    try {
-      const s = await this.anonymizedContent();
-      s.on("error", (err) => {
-        console.log(err);
-        res.status(500).send({ error: err.message });
-      });
-      s.pipe(res);
-    } catch (error) {
-      console.log("Error during anonymization", error);
-      res.status(500).send({ error: error.message });
+  /**
+   * De-anonymize the path
+   *
+   * @returns the origin relative path of the file
+   */
+  async originalPath(): Promise<string> {
+    // console.log(new Error().stack);
+    if (this._originalPath) return this._originalPath;
+    if (!this.anonymizedPath) throw new Error("path_not_specified");
+
+    const paths = this.anonymizedPath.trim().split("/");
+
+    let currentAnonymized: TreeElement =
+      await this.repository.anonymizedFiles();
+    let currentOriginal: TreeElement = await this.repository.files();
+    let currentOriginalPath = "";
+    let isAmbiguous = false;
+    for (let i = 0; i < paths.length; i++) {
+      const fileName = paths[i];
+      if (fileName == "") {
+        continue;
+      }
+      if (!currentAnonymized[fileName]) {
+        throw new Error("file_not_found");
+      }
+      currentAnonymized = currentAnonymized[fileName];
+
+      if (!isAmbiguous && !currentOriginal[fileName]) {
+        // anonymize all the file in the folder and check if there is one that match the current filename
+        const options = [];
+        for (let originalFileName in currentOriginal) {
+          if (
+            anonymizePath(originalFileName, this.repository.options.terms) ==
+            fileName
+          ) {
+            options.push(originalFileName);
+          }
+        }
+
+        // if only one option we found the original filename
+        if (options.length == 1) {
+          currentOriginalPath = path.join(currentOriginalPath, options[0]);
+          currentOriginal = currentOriginal[options[0]];
+        } else {
+          isAmbiguous = true;
+        }
+      } else if (!isAmbiguous) {
+        currentOriginalPath = path.join(currentOriginalPath, fileName);
+        currentOriginal = currentOriginal[fileName];
+      }
     }
+
+    if (
+      currentAnonymized.sha === undefined ||
+      currentAnonymized.size === undefined
+    ) {
+      throw new Error("folder_not_supported");
+    }
+
+    const file: TreeFile = currentAnonymized as TreeFile;
+    this.fileSize = file.size;
+    this.sha = file.sha;
+
+    if (isAmbiguous) {
+      // it should never happen
+      const shaTree = tree2sha(currentOriginal);
+      if (!currentAnonymized.sha || !shaTree[file.sha]) {
+        throw new Error("file_not_found");
+      }
+
+      this._originalPath = path.join(currentOriginalPath, shaTree[file.sha]);
+    } else {
+      this._originalPath = currentOriginalPath;
+    }
+
+    return this._originalPath;
   }
 
   async isFileSupported() {
-    this.path = await this.getOriginalPath();
-    const filename = path.basename(this.path);
+    const filename = path.basename(await this.originalPath());
     const extensions = filename.split(".").reverse();
     const extension = extensions[0].toLowerCase();
     if (!this.repository.options.pdf && extension == "pdf") {
@@ -85,16 +141,8 @@ export default class AnonymizedFile {
     return true;
   }
 
-  get originalCachePath() {
-    if (!this.path) throw "path_not_defined";
-    return path.join(
-      this.repository.originalCachePath,
-      this.path
-    );
-  }
-
   async content(): Promise<stream.Readable> {
-    if (this.size && this.size > config.MAX_FILE_SIZE) {
+    if (this.fileSize && this.fileSize > config.MAX_FILE_SIZE) {
       throw new Error("file_too_big");
     }
     if (await storage.exists(this.originalCachePath)) {
@@ -105,64 +153,27 @@ export default class AnonymizedFile {
   }
 
   async anonymizedContent() {
-    await this.getOriginalPath();
-    if (!this.path) throw new Error("path_not_specified");
-    if (!this.repository.options.terms) throw new Error("terms_not_specified");
+    await this.originalPath();
     const rs = await this.content();
-    const contentStream = rs.pipe(anonymizeStream(this.path, this.repository));
-    return contentStream;
+    return rs.pipe(anonymizeStream(await this.originalPath(), this.repository));
   }
 
-  /**
-   * De-anonymize the path
-   * 
-   * @returns the origin relative path of the file
-   */
-  async getOriginalPath(): Promise<string> {
-    if (!this.anonymizedPath) throw new Error("path_not_specified");
+  get originalCachePath() {
+    if (!this.originalPath) throw new Error("path_not_defined");
+    return path.join(this.repository.originalCachePath, this._originalPath);
+  }
 
-    const files = await this.repository.files();
-    const paths = this.anonymizedPath.trim().split("/");
-
-    let current: any = await this.repository.anonymizedFiles();
-    for (let i = 0; i < paths.length; i++) {
-      const fileName = paths[i];
-      if (fileName == "") {
-        continue;
-      }
-      if (current[fileName]) {
-        current = current[fileName];
-      } else {
-        throw new Error("file_not_found");
-      }
+  async send(res: express.Response): Promise<void> {
+    try {
+      const s = await this.anonymizedContent();
+      s.on("error", (err) => {
+        console.log(err);
+        res.status(500).send({ error: err.message });
+      });
+      s.pipe(res);
+    } catch (error) {
+      console.log("Error during anonymization", error);
+      res.status(500).send({ error: error.message });
     }
-
-    function tree2sha(
-      tree: any,
-      output: { [key: string]: string } = {},
-      parent: string = ""
-    ): { [key: string]: string } {
-      for (let i in tree) {
-        const sha = tree[i].sha as string;
-        const size = tree[i].size as number;
-        if (sha != null && size != null) {
-          output[sha] = path.join(parent, i);
-        } else if (tree[i].child) {
-          tree2sha(tree[i].child as Tree, output, path.join(parent, i));
-        } else {
-          tree2sha(tree[i] as Tree, output, path.join(parent, i));
-        }
-      }
-      return output;
-    }
-
-    const shaTree = tree2sha(files);
-    if (!current.sha || !shaTree[current.sha]) {
-      throw new Error("file_not_found");
-    }
-    this.path = shaTree[current.sha];
-    this.sha = current.sha;
-    if ((current as TreeFile).size) this.size = (current as TreeFile).size;
-    return this.path;
   }
 }

@@ -34,7 +34,8 @@ async function webView(req: express.Request, res: express.Response) {
       requestPath = path.join(requestPath, "index.html");
     }
     requestPath = requestPath;
-    const f = new AnonymizedFile(repo, {
+    const f = new AnonymizedFile({
+      repository: repo,
       anonymizedPath: requestPath,
     });
     if (!(await f.isFileSupported())) {

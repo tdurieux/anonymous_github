@@ -1,6 +1,6 @@
 import * as path from "path";
 import storage from "./storage";
-import { RepositoryStatus, Source, Tree } from "./types";
+import { RepositoryStatus, Source, Tree, TreeElement, TreeFile } from "./types";
 import * as stream from "stream";
 import User from "./User";
 import GitHubStream from "./source/GitHubStream";
@@ -43,23 +43,23 @@ export default class Repository {
   async anonymizedFiles(opt?: { force?: boolean }): Promise<Tree> {
     const terms = this._model.options.terms || [];
 
-    function anonymizeTreeRecursive(tree: Tree): any {
-      if (Number.isInteger(tree.size)) {
-        return tree;
+    function anonymizeTreeRecursive(tree: TreeElement): TreeElement {
+      if (Number.isInteger(tree.size) && tree.sha !== undefined) {
+        return tree as TreeFile;
       }
-      const output: any = {};
-      let current: any = tree;
-      if (current.child) {
-        current = current.child;
-      }
-      for (const file in current) {
+      const output: Tree = {};
+      for (const file in tree) {
         const anonymizedPath = anonymizePath(file, terms);
-        output[anonymizedPath] = anonymizeTreeRecursive(current[file]);
+        if (output[anonymizedPath]) {
+          // file anonymization conflict
+          
+        }
+        output[anonymizedPath] = anonymizeTreeRecursive(tree[file]);
       }
       return output;
     }
 
-    return anonymizeTreeRecursive(await this.files(opt));
+    return anonymizeTreeRecursive(await this.files(opt)) as Tree;
   }
 
   /**
@@ -85,6 +85,9 @@ export default class Repository {
     return files;
   }
 
+  /**
+   * Check the status of the repository
+   */
   check() {
     if (this._model.options.expirationMode != "never") {
       if (this._model.options.expirationDate > new Date()) {

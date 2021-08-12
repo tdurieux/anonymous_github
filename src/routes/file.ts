@@ -19,7 +19,8 @@ router.get(
     try {
       await repo.countView();
     
-      const f = new AnonymizedFile(repo, {
+      const f = new AnonymizedFile({
+        repository: repo,
         anonymizedPath,
       });
       if (!(await f.isFileSupported())) {

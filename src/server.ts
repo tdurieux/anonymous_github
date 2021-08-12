@@ -56,7 +56,7 @@ export default async function start() {
 
   app.use("/github", rate, connection.router);
 
-  // app routes
+  // api routes
   app.use("/api/user", rate, router.user);
   app.use("/api/repo", rate, router.repositoryPublic);
   app.use("/api/repo", rate, router.file);

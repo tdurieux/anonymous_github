@@ -37,7 +37,7 @@ export function anonymizeStream(filename: string, repository: Repository) {
       if (isTextFile(filename, data)) {
         data = anonymizeContent(data.toString(), repository);
       }
-      
+
       chunks = [];
       len = 0;
 
@@ -105,32 +105,38 @@ export function anonymizeContent(content: string, repository: Repository) {
     );
   }
 
-  for (let term of repository.options.terms || []) {
+  const terms = repository.options.terms || [];
+  for (let i = 0; i < terms.length; i++) {
+    const term = terms[i];
     if (term.trim() == "") {
       continue;
     }
     // remove whole url if it contains the term
     content = content.replace(urlRegex, (match) => {
       if (new RegExp(`\\b${term}\\b`, "gi").test(match))
-        return config.ANONYMIZATION_MASK;
+        return config.ANONYMIZATION_MASK + "-" + (i + 1);
       return match;
     });
 
     // remove the term in the text
     content = content.replace(
       new RegExp(`\\b${term}\\b`, "gi"),
-      config.ANONYMIZATION_MASK
+      config.ANONYMIZATION_MASK + "-" + (i + 1)
     );
   }
   return content;
 }
 
 export function anonymizePath(path: string, terms: string[]) {
-  for (let term of terms) {
+  for (let i = 0; i < terms.length; i++) {
+    const term = terms[i];
     if (term.trim() == "") {
       continue;
     }
-    path = path.replace(new RegExp(term, "gi"), config.ANONYMIZATION_MASK);
+    path = path.replace(
+      new RegExp(term, "gi"),
+      config.ANONYMIZATION_MASK + "-" + (i + 1)
+    );
   }
   return path;
 }
