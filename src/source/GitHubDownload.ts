@@ -1,5 +1,4 @@
 import { Octokit } from "@octokit/rest";
-import * as path from "path";
 import config from "../../config";
 import storage from "../storage";
 import Repository from "../Repository";
@@ -7,7 +6,7 @@ import Repository from "../Repository";
 import GitHubBase from "./GitHubBase";
 import AnonymizedFile from "../AnonymizedFile";
 import { SourceBase } from "../types";
-import * as got from "got";
+import got from "got";
 import * as stream from "stream";
 import { OctokitResponse } from "@octokit/types";
 
@@ -39,6 +38,8 @@ export default class GitHubDownload extends GitHubBase implements SourceBase {
   }
 
   async download() {
+    if (this.repository.status == "download")
+      throw new Error("repo_in_download");
     let response: OctokitResponse<unknown, number>;
     try {
       response = await this._getZipUrl(await this.getToken());
@@ -53,9 +54,11 @@ export default class GitHubDownload extends GitHubBase implements SourceBase {
         throw new Error("repo_not_accessible");
       }
     }
+    await this.repository.updateStatus("download");
     const originalPath = this.repository.originalCachePath;
     await storage.mk(originalPath);
     await storage.extractTar(originalPath, got.stream(response.url));
+    await this.repository.updateStatus("ready");
   }
 
   async getFileContent(file: AnonymizedFile): Promise<stream.Readable> {
