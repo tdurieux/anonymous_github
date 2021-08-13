@@ -73,6 +73,8 @@
         />
         <label class="form-check-label" for="removed"> Removed </label>
       </div>
+      <h5>Quota</h5>
+      {{quota.used | humanFileSize}}/{{quota.total| humanFileSize}}
     </div>
     <div class="col-md h-100 overflow-auto body">
       <div class="row">
@@ -96,6 +98,9 @@
                   Anonymize date
                 </th>
                 <th scope="col" class="text-center d-none d-xl-table-cell">
+                  Size
+                </th>
+                <th scope="col" class="text-center d-none d-xl-table-cell">
                   # Views
                 </th>
                 <th scope="col" class="text-center d-none d-xl-table-cell">
@@ -113,32 +118,30 @@
                   {{$index + 1}}
                 </th>
                 <td class="align-middle">
-                  <a href="/r/{{repo.repoId}}"
-                    >{{repo.repoId}}</a
-                  >
+                  <a href="/r/{{repo.repoId}}">{{repo.repoId}}</a>
                 </td>
                 <td
                   class="align-middle"
-                  title="Commit: {{repo.commit}}"
+                  title="Commit: {{repo.source.branch.commit}}"
                   data-toggle="tooltip"
                   data-placement="bottom"
                 >
                   <a
-                    href="https://github.com/{{repo.fullName}}/commit/{{repo.commit}}"
-                    >{{repo.fullName}}</a
+                    href="https://github.com/{{repo.source.fullName}}/commit/{{repo.source.branch.commit}}"
+                    >{{repo.source.fullName}}</a
                   >
                 </td>
                 <td
-                  title="Commit: {{repo.commit}}"
+                  title="Commit: {{repo.source.branch.commit}}"
                   data-toggle="tooltip"
                   data-placement="bottom"
                   class="align-middle d-none d-lg-table-cell"
                 >
-                  {{repo.branch}}
+                  {{repo.source.branch.name}}
                 </td>
                 <!-- <td>{{repo.commit.substring(0, 6)}}</td> -->
                 <td class="text-center align-middle d-none d-lg-table-cell">
-                  {{repo.terms.length}}
+                  {{repo.options.terms.length}}
                 </td>
                 <td
                   class="text-center align-middle"
@@ -162,7 +165,12 @@
                 <td class="text-center align-middle d-none d-xl-table-cell">
                   {{repo.anonymizeDate | date}}
                 </td>
-                <td class="text-center align-middle d-none d-xl-table-cell">{{repo.pageView}}</td>
+                <td class="text-center align-middle d-none d-xl-table-cell">
+                  {{repo.size | humanFileSize}}
+                </td>
+                <td class="text-center align-middle d-none d-xl-table-cell">
+                  {{repo.pageView}}
+                </td>
                 <td class="text-center align-middle d-none d-xl-table-cell">
                   {{repo.lastView | date}}
                 </td>
@@ -214,10 +222,7 @@
                       >
                         <i class="fa fa-remove" aria-hidden="true"></i> Remove
                       </a>
-                      <a
-                        class="dropdown-item"
-                        href="/r/{{repo.repoId}}/"
-                      >
+                      <a class="dropdown-item" href="/r/{{repo.repoId}}/">
                         <i class="fa fa-eye" aria-hidden="true"></i> View Repo
                       </a>
                       <a

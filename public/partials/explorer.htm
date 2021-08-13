@@ -4,14 +4,29 @@
       <tree class="files" file="files"></tree>
     </div>
     <div class="col-md h-100 overflow-auto p-0 d-flex flex-column">
-      <nav aria-label="breadcrumb">
-        <ol class="breadcrumb shadow paths">
+      <div class="d-flex align-content-between status-bar shadow">
+        <ol class="flex-grow-1 breadcrumb paths">
           <li class="breadcrumb-item" ng-repeat="p in paths" ng-bind="p">
             Loading...
           </li>
         </ol>
-      </nav>
-      <loc stats="stats" ng-if="stats"></loc>
+        <div class="">
+          <a
+            ng-if="options.download"
+            ng-href="{{url}}"
+            target="__self"
+            class="btn btn-outline-primary btn-sm"
+            >Download file</a
+          >
+          <a
+            ng-if="options.download"
+            ng-href="/api/repo/{{repoId}}/zip"
+            target="__self"
+            class="btn btn-outline-primary btn-sm"
+            >Download Repository</a
+          >
+        </div>
+      </div>
       <div class="align-items-stretch h-100 w-100 overflow-auto">
         <ng-include src="'./partials/pageView.htm'"></ng-include>
       </div>

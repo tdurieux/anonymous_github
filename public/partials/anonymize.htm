@@ -335,8 +335,8 @@
                         name="mode"
                         ng-model="options.mode"
                       >
-                        <option value="stream" selected>Stream</option>
-                        <option value="download">Download</option>
+                        <option value="GitHubStream" selected>Stream</option>
+                        <option value="GitHubDownload">Download</option>
                       </select>
                       <small class="form-text text-muted"
                         >How the repository will be anonymized. Stream mode will
@@ -365,22 +365,6 @@
                           supported for Github pages that are defined in the
                           same branch. It will be available at
                           https://anonymous.4open.science/w/{{repoId}}</small
-                        >
-                      </div>
-                      <div class="form-check">
-                        <input
-                          class="form-check-input"
-                          type="checkbox"
-                          id="loc"
-                          name="loc"
-                          ng-model="options.loc"
-                        />
-                        <label class="form-check-label" for="page"
-                          >Line of code</label
-                        >
-                        <small id="termsHelp" class="form-text text-muted"
-                          >Display the number of line of code in the
-                          repository</small
                         >
                       </div>
                     </div>

@@ -81,6 +81,30 @@ angular
     $locationProvider.html5Mode(true);
   })
   .run(["Analytics", function (Analytics) {}])
+  .filter("humanFileSize", function () {
+    return function humanFileSize(bytes, si = false, dp = 1) {
+      const thresh = si ? 1000 : 1024;
+
+      bytes = bytes / 8;
+
+      if (Math.abs(bytes) < thresh) {
+        return bytes + " B";
+      }
+
+      const units = si
+        ? ["kB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"]
+        : ["KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB"];
+      let u = -1;
+      const r = 10 ** dp;
+
+      do {
+        bytes /= thresh;
+        ++u;
+      } while (Math.round(Math.abs(bytes) * r) / r >= thresh && u < units.length - 1);
+
+      return bytes.toFixed(dp) + " " + units[u];
+    };
+  })
   .filter("title", function () {
     return function (str) {
       if (!str) return str;
@@ -370,7 +394,7 @@ angular
         notebook: true,
         loc: true,
         link: true,
-        mode: "download",
+        mode: "GitHubDownload",
       };
 
       function getDefault() {
@@ -500,6 +524,13 @@ angular
       }
       getRepositories();
 
+      function getQuota() {
+        $http.get("/api/user/quota").then((res) => {
+          $scope.quota = res.data;
+        }, console.error);
+      }
+      getQuota();
+
       $scope.removeRepository = (repo) => {
         if (
           confirm(
@@ -551,13 +582,13 @@ angular
               if ($scope.repo.status == "ready") {
                 $scope.progress = 100;
               } else if ($scope.repo.status == "queue") {
-                $scope.progress = 0;
+                $scope.progress = 10;
               } else if ($scope.repo.status == "downloaded") {
                 $scope.progress = 50;
               } else if ($scope.repo.status == "downloading") {
                 $scope.progress = 25;
               } else if ($scope.repo.status == "preparing") {
-                $scope.progress = 10;
+                $scope.progress = 25;
               } else if ($scope.repo.status == "anonymizing") {
                 $scope.progress = 75;
               }
@@ -596,9 +627,8 @@ angular
         image: true,
         pdf: true,
         notebook: true,
-        loc: true,
         link: true,
-        mode: "download",
+        mode: "GitHubDownload",
       };
       $scope.options.expirationDate.setDate(
         $scope.options.expirationDate.getDate() + 90
@@ -630,10 +660,10 @@ angular
           $scope.repoId = $routeParams.repoId;
           $http.get("/api/repo/" + $scope.repoId).then(
             async (res) => {
-              $scope.repoUrl = "https://github.com/" + res.data.fullName;
+              $scope.repoUrl = "https://github.com/" + res.data.source.fullName;
 
-              $scope.terms = res.data.terms.join("\n");
-              $scope.branch = res.data.branch;
+              $scope.terms = res.data.options.terms.join("\n");
+              $scope.branch = res.data.source.branch.name;
               $scope.options = res.data.options;
               $scope.conference = res.data.conference;
               if (res.data.options.expirationDate) {
@@ -648,11 +678,11 @@ angular
               }
 
               $scope.details = (
-                await $http.get(`/api/repo/${res.data.fullName}/`)
+                await $http.get(`/api/repo/${res.data.source.fullName}/`)
               ).data;
 
-              await getReadme();
               await $scope.getBranches();
+              await getReadme();
               anonymize();
               $scope.$apply();
             },
@@ -709,24 +739,32 @@ angular
       };
       $('[data-toggle="tooltip"]').tooltip();
 
-      $scope.$watch("branch", (v) => {
-        if ($scope.branches && $scope.branches[$scope.branch]) {
-          $scope.commit = $scope.branches[$scope.branch].commit.sha;
-        }
-        if ($scope.details && $scope.details.has_page) {
-          $scope.anonymize.page.disabled(false);
+      $scope.$watch("branch", async (v) => {
+        const selected = $scope.branches.filter(
+          (f) => f.name == $scope.branch
+        )[0];
+        if ($scope.details && $scope.details.hasPage) {
+          $scope.anonymize.page.$$element[0].disabled = false;
           if ($scope.details.pageSource.branch != $scope.branch) {
-            $scope.anonymize.page.disabled(true);
+            $scope.anonymize.page.$$element[0].disabled = true;
           }
+        }
+
+        if (selected) {
+          $scope.commit = selected.commit;
+          $scope.readme = selected.readme;
+          await getReadme();
+          anonymize();
+          $scope.$apply();
         }
       });
 
       $scope.$watch("options.mode", (v) => {
-        if (v == "stream") {
-          $scope.options.loc = false;
-          $scope.anonymize.loc.$$element[0].disabled = true;
+        if (v == "GitHubStream") {
+          $scope.options.page = false;
+          $scope.anonymize.page.$$element[0].disabled = true;
         } else {
-          $scope.anonymize.loc.$$element[0].disabled = false;
+          $scope.anonymize.page.$$element[0].disabled = false;
         }
       });
 
@@ -749,10 +787,12 @@ angular
         );
         $scope.branches = branches.data;
         if (!$scope.branch) {
-          $scope.branch = $scope.details.default_branch;
+          $scope.branch = $scope.details.defaultBranch;
         }
-        if ($scope.branches[$scope.branch]) {
-          $scope.commit = $scope.branches[$scope.branch].commit.sha;
+        const selected = $scope.branches.filter((b) => b.name == $scope.branch);
+        if (selected.length > 0) {
+          $scope.commit = selected[0].commit;
+          $scope.readme = selected[0].readme;
         }
         $scope.$apply();
       };
@@ -771,12 +811,10 @@ angular
           const res = await $http.get(`/api/repo/${o.owner}/${o.repo}/`);
           $scope.details = res.data;
           if ($scope.details.size > 1024 * 8) {
-            $scope.options.mode = "stream";
-            $scope.options.loc = false;
+            $scope.options.mode = "GitHubStream";
             $scope.anonymize.mode.$$element[0].disabled = true;
-            $scope.anonymize.loc.$$element[0].disabled = true;
           }
-          $scope.repoId = $scope.details.name + "-" + generateRandomId(4);
+          $scope.repoId = $scope.details.repo + "-" + generateRandomId(4);
           await $scope.getBranches();
         } catch (error) {
           if (error.data) {
@@ -790,13 +828,16 @@ angular
         }
       }
 
-      async function getReadme() {
+      async function getReadme(force) {
+        if ($scope.readme) return $scope.readme;
         const o = parseGithubUrl($scope.repoUrl);
-        const res = await $http.get(`/api/repo/${o.owner}/${o.repo}/readme`);
+        const res = await $http.get(`/api/repo/${o.owner}/${o.repo}/readme`, {
+          params: { force: force === true ? "1" : "0", branch: $scope.branch },
+        });
         $scope.readme = res.data;
       }
 
-      async function anonymize() {
+      function anonymize() {
         const urlRegex =
           /<?\b((https?|ftp|file):\/\/)[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]\b\/?>?/g;
         let content = $scope.readme;
@@ -890,6 +931,7 @@ angular
 
       function getRepo() {
         const o = parseGithubUrl($scope.repoUrl);
+        $scope.options.pageSource = $scope.details.pageSource;
         return {
           repoId: $scope.repoId,
           terms: $scope.terms.trim().split("\n"),
@@ -966,6 +1008,7 @@ angular
         txt: "text",
         py: "python",
         js: "javascript",
+        ts: "typescript",
       };
       const textFiles = ["license", "txt"];
       const imageFiles = ["png", "jpg", "jpeg", "gif"];
@@ -1200,7 +1243,7 @@ angular
           getFiles(() => {
             updateContent();
 
-            if (options.mode == "download") {
+            if (options.mode == "GitHubDownload") {
               getStats();
             }
           });
