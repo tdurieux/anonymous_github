@@ -15,7 +15,7 @@ const router = express.Router();
 
 // get repository information
 router.get("/:repoId/", async (req: express.Request, res: express.Response) => {
-  const repo = await getRepo(req, res, { nocheck: true });
+  const repo = await getRepo(req, res, { nocheck: false });
   if (!repo) return;
 
   try {
@@ -75,10 +75,10 @@ router.post("/claim", async (req: express.Request, res: express.Response) => {
 router.post(
   "/:repoId/refresh",
   async (req: express.Request, res: express.Response) => {
-    const repo = await getRepo(req, res, { nocheck: true });
-    if (!repo) return;
-
     try {
+      const repo = await getRepo(req, res, { nocheck: true });
+      if (!repo) throw new Error("repo_not_found");
+
       const user = await getUser(req);
       if (repo.owner.username != user.username) {
         return res.status(401).json({ error: "not_authorized" });
@@ -220,17 +220,17 @@ function updateRepoModel(model: IAnonymizedRepositoryDocument, repoUpdate) {
 router.post(
   "/:repoId/",
   async (req: express.Request, res: express.Response) => {
-    const repo = await getRepo(req, res, { nocheck: true });
-    if (!repo) return;
-    const user = await getUser(req);
-
-    if (repo.owner.username != user.username) {
-      return res.status(401).json({ error: "not_authorized" });
-    }
-
-    const repoUpdate = req.body;
-
     try {
+      const repo = await getRepo(req, res, { nocheck: true });
+      if (!repo) throw new Error("repo_not_found");
+      const user = await getUser(req);
+
+      if (repo.owner.username != user.username) {
+        return res.status(401).json({ error: "not_authorized" });
+      }
+
+      const repoUpdate = req.body;
+
       validateNewRepo(repoUpdate);
 
       if (repoUpdate.commit != repo.model.source.commit) {
