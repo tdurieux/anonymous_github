@@ -1117,6 +1117,9 @@ angular
           $scope.content = "no_file_selected";
           return;
         }
+        const originalType = $scope.type;
+        $scope.type = "loading";
+        $scope.content = "loading";
         $http
           .get(`/api/repo/${$scope.repoId}/file/${path}`, {
             transformResponse: (data) => {
@@ -1125,6 +1128,7 @@ angular
           })
           .then(
             (res) => {
+              $scope.type = originalType;
               $scope.content = res.data;
               if ($scope.content == "") {
                 $scope.content = null;
