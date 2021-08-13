@@ -4,7 +4,7 @@ services:
   anonymous_github:
     build: .
     restart: always
-    command: nodemon index.js
+    command: nodemon --transpile-only index.ts
     image: tdurieux/anonymous_github:v2
     container_name: anonymous_github
     env_file:
