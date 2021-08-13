@@ -18,7 +18,7 @@ router.get(
       res.attachment(`${repo.repoId}.zip`);
 
       // ache the file for 6 hours
-      res.header('Cache-Control', 'max-age=21600000');
+      res.header("Cache-Control", "max-age=21600000");
 
       repo.zip().pipe(res);
     } catch (error) {
@@ -34,7 +34,7 @@ router.get(
     if (!repo) return;
     try {
       // ache the file for 6 hours
-      res.header('Cache-Control', 'max-age=21600000');
+      res.header("Cache-Control", "max-age=21600000");
 
       res.json(await repo.anonymizedFiles({ includeSha: false }));
     } catch (error) {
@@ -48,7 +48,7 @@ router.get(
   async (req: express.Request, res: express.Response) => {
     try {
       const repo = await getRepo(req, res, { nocheck: true });
-
+      if (!repo) throw new Error("repo_not_found");
       let redirectURL = null;
       if (
         repo.status == "expired" &&
