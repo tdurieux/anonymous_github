@@ -1,7 +1,7 @@
 {
   "name": "anonymous_github",
   "version": "2.0.0",
-  "description": "Anonymise Github repositories for double blind reviews",
+  "description": "Anonymise Github repositories for double-anonymous reviews",
   "main": "index.js",
   "scripts": {
     "test": "mocha --reporter spec",
