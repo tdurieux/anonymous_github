@@ -1,3 +1,5 @@
+require("dotenv").config();
+
 import * as mongoose from "mongoose";
 import config from "./config";
 import * as database from "./src/database/database";
