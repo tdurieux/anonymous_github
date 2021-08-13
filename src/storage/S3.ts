@@ -160,20 +160,18 @@ export default class S3Storage implements StorageBase {
   /** @override */
   async extractTar(p: string, data: stream.Readable): Promise<void> {
     return new Promise<void>((resolve, reject) => {
-      const toS3 = new ArchiveStreamToS3(config.S3_BUCKET, p, this.client);
+      let toS3: ArchiveStreamToS3;
 
-      let rootFolder = null;
       (ArchiveStreamToS3 as any).prototype.onEntry = function (
         header: any,
         stream: any,
         next: any
       ) {
-        if (rootFolder == null) {
-          rootFolder = header.name.substr(0, header.name.indexOf("/") + 1);
-        }
-        header.name = header.name.replace(rootFolder, "");
+        header.name = header.name.substr(header.name.indexOf("/") + 1);
         originalArchiveStreamToS3Entry.call(toS3, header, stream, next);
       };
+
+      toS3 = new ArchiveStreamToS3(config.S3_BUCKET, p, this.client);
 
       toS3.on("finish", (result) => {
         resolve(result);
