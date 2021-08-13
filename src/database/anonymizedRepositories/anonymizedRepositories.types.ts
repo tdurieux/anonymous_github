@@ -34,7 +34,10 @@ export interface IAnonymizedRepository {
   };
   pageView: number;
   lastView: Date;
-  size: number;
+  size: {
+    storage: number;
+    file: number;
+  };
 }
 
 export interface IAnonymizedRepositoryDocument

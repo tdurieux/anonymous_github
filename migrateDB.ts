@@ -164,18 +164,21 @@ async function connect(db) {
           console.error(`Repository ${r.fullName} is not found (renamed)`);
         }
       }
-      let size = 0;
+      let size = { storage: 0, file: 0 };
       function recursiveCount(files) {
-        let total = 0;
+        const out = { storage: 0, file: 0 };
         for (const name in files) {
           const file = files[name];
           if (file.size && file.sha && parseInt(file.size) == file.size) {
-            total += file.size as number;
+            out.storage += file.size as number;
+            out.file++;
           } else if (typeof file == "object") {
-            total += recursiveCount(file);
+            const r = recursiveCount(file);
+            out.storage += r.storage;
+            out.file += r.file;
           }
         }
-        return total;
+        return out;
       }
 
       if (r.originalFiles) {

@@ -29,14 +29,25 @@ router.get("/", async (req: express.Request, res: express.Response) => {
 router.get("/quota", async (req: express.Request, res: express.Response) => {
   try {
     const user = await getUser(req);
+    const repositories = await user.getRepositories();
     const sizes = await Promise.all(
-      (await user.getRepositories())
+      repositories
         .filter((r) => r.status == "ready")
         .map((r) => r.computeSize())
     );
     res.json({
-      used: sizes.reduce((sum, i) => sum + i, 0),
-      total: config.DEFAULT_QUOTA,
+      storage: {
+        used: sizes.reduce((sum, i) => sum + i.storage, 0),
+        total: config.DEFAULT_QUOTA,
+      },
+      file: {
+        used: sizes.reduce((sum, i) => sum + i.file, 0),
+        total: 0,
+      },
+      repository: {
+        used: repositories.length,
+        total: 20,
+      },
     });
   } catch (error) {
     handleError(error, res);

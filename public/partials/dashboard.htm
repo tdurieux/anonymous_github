@@ -152,6 +152,55 @@
                   </div>
                 </div>
               </div>
+
+              <div class="progress m-1">
+                <div
+                  class="progress-bar p-2"
+                  ng-class="{'progress-bar-striped progress-bar-animated w-100 bg-dark': !quota, 'bg-success': quota.repository.percent < 25 || quota.repository.total == 0, 'bg-danger': quota.repository.percent > 95 && quota.repository.total > 0, 'bg-warning': quota.repository.percent > 75 && quota.repository.total > 0 }"
+                  role="progressbar"
+                  style="width: {{quota.repository.percent}}%;"
+                  aria-valuenow="{{quota.repository.used}}"
+                  aria-valuemin="0"
+                  aria-valuemax="{{quota.repository.total}}"
+                >
+                  <span ng-show="quota"
+                    >Repository: {{quota.repository.used |
+                    number}}/{{quota.repository.total}}</span
+                  >
+                </div>
+              </div>
+              <div class="progress m-1">
+                <div
+                  class="progress-bar p-2"
+                  ng-class="{'progress-bar-striped progress-bar-animated w-100 bg-dark': !quota, 'bg-success': quota.storage.percent < 25 || quota.storage.total == 0, 'bg-danger': quota.storage.percent > 95 && quota.storage.total > 0, 'bg-warning': quota.storage.percent > 75 && quota.storage.total > 0 }"
+                  role="progressbar"
+                  style="width: {{quota.storage.percent}}%;"
+                  aria-valuenow="{{quota.storage.used}}"
+                  aria-valuemin="0"
+                  aria-valuemax="{{quota.storage.total}}"
+                >
+                  <span ng-show="quota"
+                    >Storage: {{quota.storage.used |
+                    humanFileSize}}/{{quota.storage.total| humanFileSize}}</span
+                  >
+                </div>
+              </div>
+              <div class="progress m-1">
+                <div
+                  class="progress-bar p-2"
+                  ng-class="{'progress-bar-striped progress-bar-animated w-100 bg-dark': !quota, 'bg-success': quota.file.percent < 25 || quota.file.total == 0, 'bg-danger': quota.file.percent > 95 && quota.file.total > 0, 'bg-warning': quota.file.percent > 75 && quota.file.total > 0 }"
+                  role="progressbar"
+                  style="width: {{quota.file.percent}}%;"
+                  aria-valuenow="{{quota.file.used}}"
+                  aria-valuemin="0"
+                  aria-valuemax="{{quota.file.total}}"
+                >
+                  <span ng-show="quota"
+                    >File: {{quota.file.used | number}}/{{quota.file.total ||
+                    "∞"}}</span
+                  >
+                </div>
+              </div>
             </div>
           </div>
         </form>
