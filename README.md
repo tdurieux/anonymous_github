@@ -1,10 +1,10 @@
 Anonymous Github
 ================
 
-Anonymous Github is a system to anonymize Github repositories before referring to them in a double-blind paper submission.
+Anonymous Github is a system to anonymize Github repositories before referring to them in a double-anonymous paper submission.
 To start using Anonymous Github right now: **[http://anonymous.4open.science/](http://anonymous.4open.science/)**
 
-Indeed, in a double-blind review process, the open-science data or code that is in the online appendix must be anonymized, similarly to paper anonymization. The authors must
+Indeed, in a double-anonymous review process, the open-science data or code that is in the online appendix must be anonymized, similarly to paper anonymization. The authors must
 
 * anonymize URLs: the name of the institution/department/group/authors should not appear in the  URLs of the open-science appendix
 * anonymize the appendix content itself
@@ -38,7 +38,7 @@ The anonymization of the content is done by replacing all occurrences of words i
 The word list is provided by the authors, and typically contains the institution name, author names, logins, etc...
 The README is anonymized as well as all files of the repository. Even filenames are anonymized. 
 
-In a paper under double-blind review, instead of putting a link to Github, one puts a link to the Anonymous Github instance (e.g. 
+In a paper under double-anonymous review, instead of putting a link to Github, one puts a link to the Anonymous Github instance (e.g. 
 <http://anonymous.4open.science/repository/840c8c57-3c32-451e-bf12-0e20be300389/> which is an anomyous version of this repo).
 
 To start using Anonymous Github right now, a public instance of anonymous_github is hosted at 4open.science:
@@ -47,7 +47,7 @@ To start using Anonymous Github right now, a public instance of anonymous_github
 
 ## What is the scope of anonymization?
 
-In double-blind peer-review, the boundary of anonymization is the paper plus its online appendix, and only this, it's not the whole world. Googling any part of the paper or the online appendix can be considered as deliberate attempt to break anonymity ([explanation](http://www.monperrus.net/martin/open-science-double-blind))
+In double-anonymous peer-review, the boundary of anonymization is the paper plus its online appendix, and only this, it's not the whole world. Googling any part of the paper or the online appendix can be considered as deliberate attempt to break anonymity ([explanation](http://www.monperrus.net/martin/open-science-double-anonymous))
 
 By default, Anonymous Github and http://anonymous.4open.science access public repositories. Public Github repositories are  not modified and hence are still visible on Github and Google, even after anonymization.  
 
@@ -87,4 +87,4 @@ Related tools
 See also
 --------
 
-* [Open-science and Double-blind Peer-Review](http://www.monperrus.net/martin/open-science-double-blind)
+* [Open-science and double-anonymous Peer-Review](http://www.monperrus.net/martin/open-science-double-anonymous)
