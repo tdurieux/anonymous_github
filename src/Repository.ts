@@ -5,7 +5,7 @@ import * as stream from "stream";
 import User from "./User";
 import GitHubStream from "./source/GitHubStream";
 import GitHubDownload from "./source/GitHubDownload";
-import Zip from "./source/ZIP";
+import Zip from "./source/Zip";
 import { anonymizePath } from "./anonymize-utils";
 import UserModel from "./database/users/users.model";
 import { IAnonymizedRepositoryDocument } from "./database/anonymizedRepositories/anonymizedRepositories.types";

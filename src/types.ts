@@ -1,6 +1,6 @@
 import GitHubDownload from "./source/GitHubDownload";
 import GitHubStream from "./source/GitHubStream";
-import Zip from "./source/ZIP";
+import Zip from "./source/Zip";
 import S3Storage from "./storage/S3";
 import FileSystem from "./storage/FileSystem";
 import AnonymizedFile from "./AnonymizedFile";
