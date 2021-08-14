@@ -152,11 +152,10 @@ export default class Repository {
           (f) => f.name == branch.name
         )[0].commit;
         this._model.anonymizeDate = new Date();
-        await this.updateStatus("preparing");
         console.log(
           `${this._model.repoId} will be updated to ${this._model.source.commit}`
         );
-        await this.resetSate();
+        await this.resetSate("preparing");
         await this.anonymize();
       }
     }
@@ -191,7 +190,6 @@ export default class Repository {
   async updateStatus(status: RepositoryStatus, errorMessage?: string) {
     this._model.status = status;
     this._model.errorMessage = errorMessage;
-    this._model.status = status;
     await this._model.save();
   }
 
@@ -199,26 +197,27 @@ export default class Repository {
    * Expire the repository
    */
   async expire() {
-    await this.updateStatus("expired");
-    await this.resetSate();
+    this.resetSate("expired");
   }
 
   /**
    * Remove the repository
    */
   async remove() {
-    await this.updateStatus("removed");
-    await this.resetSate();
+    this.resetSate("removed");
   }
 
   /**
    * Reset/delete the state of the repository
    */
-  private async resetSate() {
+  private async resetSate(status?: RepositoryStatus) {
+    if (status) this._model.status = status;
     this._model.size = 0;
     this._model.originalFiles = null;
-    await this._model.save();
-    await storage.rm(this._model.repoId + "/");
+    return Promise.all([
+      this._model.save(),
+      storage.rm(this._model.repoId + "/"),
+    ]);
   }
 
   /**

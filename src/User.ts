@@ -116,6 +116,7 @@ export default class User {
     const promises = [];
     for (let repo of repositories) {
       if (
+        repo.status == "ready" &&
         repo.options.expirationMode != "never" &&
         repo.options.expirationDate != null &&
         repo.options.expirationDate < new Date()
