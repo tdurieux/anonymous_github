@@ -137,7 +137,7 @@ a:hover {
 .navbar .nav-link.nav-icon {
   padding: 0 0.5rem;
 }
-.navbar .nav-link .fa {
+.navbar .nav-link .fa, .navbar .nav-link .fab {
   font-size: 30px;
   line-height: 40px;
 }
