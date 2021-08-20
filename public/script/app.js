@@ -892,6 +892,42 @@ angular
       };
       $('[data-toggle="tooltip"]').tooltip();
 
+      $scope.$watch("options.update", (v) => {
+        if (v) {
+          $scope.anonymize.commit.$$element[0].disabled = true;
+        } else {
+          $scope.anonymize.commit.$$element[0].disabled = false;
+        }
+      })
+      $scope.$watch("source.branch", async () => {
+        const selected = $scope.branches.filter(
+          (f) => f.name == $scope.source.branch
+        )[0];
+        if ($scope.details && $scope.details.hasPage) {
+          $scope.anonymize.page.$$element[0].disabled = false;
+          if ($scope.details.pageSource.branch != $scope.source.branch) {
+            $scope.anonymize.page.$$element[0].disabled = true;
+          }
+        }
+
+        if (selected) {
+          $scope.source.commit = selected.commit;
+          $scope.readme = selected.readme;
+          await getReadme();
+          anonymize();
+          $scope.$apply();
+        }
+      });
+
+      $scope.$watch("options.mode", (v) => {
+        if (v == "GitHubStream") {
+          $scope.options.page = false;
+          $scope.anonymize.page.$$element[0].disabled = true;
+        } else {
+          $scope.anonymize.page.$$element[0].disabled = false;
+        }
+      });
+
       $scope.getBranches = async (force) => {
         const o = parseGithubUrl($scope.repoUrl);
         const branches = await $http.get(
@@ -1145,6 +1181,7 @@ angular
       $scope.$watch("conference", async (v) => {
         getConference();
       });
+
       $scope.$watch("source.branch", async (v) => {
         const selected = $scope.branches.filter(
           (f) => f.name == $scope.source.branch
@@ -1533,7 +1570,6 @@ angular
       getPlans();
       const start = new Date();
       start.setDate(1);
-      console.log(start);
       start.setMonth(start.getMonth() + 1);
       const end = new Date();
       end.setMonth(start.getMonth() + 7, 0);
@@ -1555,7 +1591,6 @@ angular
       $scope.plan = null;
 
       $scope.$watch("options.plan.planID", () => {
-        console.log($scope.plans, $scope.options);
         $scope.plan = $scope.plans.filter(
           (f) => f.id == $scope.options.plan.planID
         )[0];
