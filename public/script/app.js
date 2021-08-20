@@ -616,10 +616,12 @@ angular
       $scope.repoId = "";
       $scope.terms = "";
       $scope.defaultTerms = "";
-      $scope.branch = "";
-
       $scope.branches = [];
-
+      source = {
+        type: "GitHubDownload",
+        branch: "",
+        commit: "",
+      };
       $scope.options = {
         expirationMode: "remove",
         expirationDate: new Date(),
@@ -628,7 +630,6 @@ angular
         pdf: true,
         notebook: true,
         link: true,
-        mode: "GitHubDownload",
       };
       $scope.options.expirationDate.setDate(
         $scope.options.expirationDate.getDate() + 90
@@ -662,8 +663,8 @@ angular
             async (res) => {
               $scope.repoUrl = "https://github.com/" + res.data.source.fullName;
 
-              $scope.terms = res.data.options.terms.join("\n");
-              $scope.branch = res.data.source.branch.name;
+              $scope.terms = res.data.options.terms.filter((f) => f).join("\n");
+              $scope.source = res.data.source;
               $scope.options = res.data.options;
               $scope.conference = res.data.conference;
               if (res.data.options.expirationDate) {
@@ -712,9 +713,13 @@ angular
       $scope.getRepositories();
 
       $scope.repoSelected = async () => {
-        $scope.terms = $scope.defaultTerms;
+        $scope.terms = $scope.defaultTerms.filter((f) => f);
         $scope.repoId = "";
-        $scope.branch = "";
+        $scope.source = {
+          type: "GitHubDownload",
+          branch: "",
+          commit: "",
+        };
 
         $scope.anonymize_readme = "";
         $scope.readme = "";
@@ -739,19 +744,19 @@ angular
       };
       $('[data-toggle="tooltip"]').tooltip();
 
-      $scope.$watch("branch", async (v) => {
+      $scope.$watch("source.branch", async (v) => {
         const selected = $scope.branches.filter(
-          (f) => f.name == $scope.branch
+          (f) => f.name == $scope.source.branch
         )[0];
         if ($scope.details && $scope.details.hasPage) {
           $scope.anonymize.page.$$element[0].disabled = false;
-          if ($scope.details.pageSource.branch != $scope.branch) {
+          if ($scope.details.pageSource.branch != $scope.source.branch) {
             $scope.anonymize.page.$$element[0].disabled = true;
           }
         }
 
         if (selected) {
-          $scope.commit = selected.commit;
+          $scope.source.commit = selected.commit;
           $scope.readme = selected.readme;
           await getReadme();
           anonymize();
@@ -786,12 +791,14 @@ angular
           { params: { force: force === true ? "1" : "0" } }
         );
         $scope.branches = branches.data;
-        if (!$scope.branch) {
-          $scope.branch = $scope.details.defaultBranch;
+        if (!$scope.source.branch) {
+          $scope.source.branch = $scope.details.defaultBranch;
         }
-        const selected = $scope.branches.filter((b) => b.name == $scope.branch);
+        const selected = $scope.branches.filter(
+          (b) => b.name == $scope.source.branch
+        );
         if (selected.length > 0) {
-          $scope.commit = selected[0].commit;
+          $scope.source.commit = selected[0].commit;
           $scope.readme = selected[0].readme;
         }
         $scope.$apply();
@@ -854,11 +861,17 @@ angular
         }
 
         content = content.replace(
-          new RegExp(`\\b${$scope.repoUrl}/blob/${$scope.branch}\\b`, "gi"),
+          new RegExp(
+            `\\b${$scope.repoUrl}/blob/${$scope.source.branch}\\b`,
+            "gi"
+          ),
           `https://anonymous.4open.science/r/${$scope.repoId}`
         );
         content = content.replace(
-          new RegExp(`\\b${$scope.repoUrl}/tree/${$scope.branch}\\b`, "gi"),
+          new RegExp(
+            `\\b${$scope.repoUrl}/tree/${$scope.source.branch}\\b`,
+            "gi"
+          ),
           `https://anonymous.4open.science/r/${$scope.repoId}`
         );
         content = content.replace(
@@ -934,12 +947,14 @@ angular
         $scope.options.pageSource = $scope.details.pageSource;
         return {
           repoId: $scope.repoId,
-          terms: $scope.terms.trim().split("\n"),
+          terms: $scope.terms
+            .trim()
+            .split("\n")
+            .filter((f) => f),
           fullName: `${o.owner}/${o.repo}`,
           repository: $scope.repoUrl,
           options: $scope.options,
-          branch: $scope.branch,
-          commit: $scope.commit,
+          source: $scope.source,
           conference: $scope.conference,
         };
       }

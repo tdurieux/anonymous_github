@@ -13,22 +13,6 @@ import Repository from "../Repository";
 
 const router = express.Router();
 
-// get repository information
-router.get("/:repoId/", async (req: express.Request, res: express.Response) => {
-  const repo = await getRepo(req, res, { nocheck: false });
-  if (!repo) return;
-
-  try {
-    const user = await getUser(req);
-    if (user.username != repo.model.owner) {
-      return res.status(401).send({ error: "not_authorized" });
-    }
-    res.json((await db.getRepository(req.params.repoId)).toJSON());
-  } catch (error) {
-    handleError(error, res);
-  }
-});
-
 // user needs to be connected for all user API
 router.use(ensureAuthenticated);
 
@@ -71,7 +55,7 @@ router.post("/claim", async (req: express.Request, res: express.Response) => {
   }
 });
 
-// refresh a repository
+// refresh repository
 router.post(
   "/:repoId/refresh",
   async (req: express.Request, res: express.Response) => {
@@ -183,8 +167,11 @@ function validateNewRepo(repoUpdate) {
   ) {
     throw new Error("invalid_repoId");
   }
-  if (!repoUpdate.branch) {
+  if (!repoUpdate.source.branch) {
     throw new Error("branch_not_specified");
+  }
+  if (!repoUpdate.source.commit) {
+    throw new Error("commit_not_specified");
   }
   if (!repoUpdate.options) {
     throw new Error("options_not_provided");
@@ -192,14 +179,14 @@ function validateNewRepo(repoUpdate) {
   if (!Array.isArray(repoUpdate.terms)) {
     throw new Error("invalid_terms_format");
   }
-  if (!/^[a-f0-9]+$/.test(repoUpdate.commit)) {
+  if (!/^[a-f0-9]+$/.test(repoUpdate.source.commit)) {
     throw new Error("invalid_commit_format");
   }
 }
 
 function updateRepoModel(model: IAnonymizedRepositoryDocument, repoUpdate) {
-  model.source.commit = repoUpdate.commit;
-  model.source.branch = repoUpdate.branch;
+  model.source.commit = repoUpdate.source.commit;
+  model.source.branch = repoUpdate.source.branch;
   model.conference = repoUpdate.conference;
   model.options = {
     terms: repoUpdate.terms,
@@ -216,6 +203,23 @@ function updateRepoModel(model: IAnonymizedRepositoryDocument, repoUpdate) {
     pageSource: repoUpdate.options.pageSource,
   };
 }
+
+// get repository information
+router.get("/:repoId/", async (req: express.Request, res: express.Response) => {
+  try {
+    const repo = await getRepo(req, res, { nocheck: true });
+    if (!repo) throw new Error("repo_not_found");
+
+    const user = await getUser(req);
+    if (user.username != repo.model.owner) {
+      return res.status(401).send({ error: "not_authorized" });
+    }
+    res.json((await db.getRepository(req.params.repoId)).toJSON());
+  } catch (error) {
+    handleError(error, res);
+  }
+});
+
 // update a repository
 router.post(
   "/:repoId/",
@@ -233,17 +237,15 @@ router.post(
 
       validateNewRepo(repoUpdate);
 
-      if (repoUpdate.commit != repo.model.source.commit) {
+      if (repoUpdate.source.commit != repo.model.source.commit) {
         repo.model.anonymizeDate = new Date();
-        repo.model.source.commit = repoUpdate.commit;
+        repo.model.source.commit = repoUpdate.source.commit;
         await repo.remove();
       }
 
       updateRepoModel(repo.model, repoUpdate);
 
       await repo.updateStatus("preparing");
-
-      await repo.model.save();
       res.send("ok");
       new Repository(repo.model).anonymize();
     } catch (error) {

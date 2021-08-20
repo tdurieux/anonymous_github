@@ -170,7 +170,7 @@ export default class Repository {
     if (this._model.status == "ready") return;
     await this.updateStatus("preparing");
     await this.files();
-    await this.updateStatus("ready");
+    return this.updateStatus("ready");
   }
 
   /**
@@ -179,7 +179,7 @@ export default class Repository {
   async countView() {
     this._model.lastView = new Date();
     this._model.pageView = (this._model.pageView || 0) + 1;
-    await this._model.save();
+    return this._model.save();
   }
 
   /**
@@ -190,21 +190,21 @@ export default class Repository {
   async updateStatus(status: RepositoryStatus, errorMessage?: string) {
     this._model.status = status;
     this._model.errorMessage = errorMessage;
-    await this._model.save();
+    return this._model.save();
   }
 
   /**
    * Expire the repository
    */
   async expire() {
-    this.resetSate("expired");
+    return this.resetSate("expired");
   }
 
   /**
    * Remove the repository
    */
   async remove() {
-    this.resetSate("removed");
+    return this.resetSate("removed");
   }
 
   /**

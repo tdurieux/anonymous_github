@@ -77,7 +77,8 @@ export default abstract class GitHubBase {
     return {
       type: this.type,
       fullName: this.githubRepository.fullName?.toString(),
-      branch: this.branch,
+      branch: this.branch.name,
+      commit: this.branch.commit,
     };
   }
 }

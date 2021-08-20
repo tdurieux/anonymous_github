@@ -97,7 +97,7 @@
                   class="form-control"
                   id="branch"
                   name="branch"
-                  ng-model="branch"
+                  ng-model="source.branch"
                 >
                   <option
                     ng-repeat="b in branches"
@@ -128,7 +128,7 @@
                 class="form-control"
                 id="commit"
                 name="commit"
-                ng-model="commit"
+                ng-model="source.commit"
               />
               <small class="form-text text-muted"
                 >The commit to anonymize</small
@@ -333,7 +333,7 @@
                         class="form-control"
                         id="mode"
                         name="mode"
-                        ng-model="options.mode"
+                        ng-model="source.type"
                       >
                         <option value="GitHubStream" selected>Stream</option>
                         <option value="GitHubDownload">Download</option>
