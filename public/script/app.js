@@ -107,6 +107,9 @@ angular
   })
   .filter("humanTime", function () {
     return function humanTime(seconds) {
+      if (!seconds) {
+        return "never";
+      }
       if (seconds instanceof Date)
         seconds = Math.round((Date.now() - seconds) / 1000);
       if (typeof seconds == "string")
