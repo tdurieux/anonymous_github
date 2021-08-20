@@ -88,7 +88,7 @@ angular
       bytes = bytes / 8;
 
       if (Math.abs(bytes) < thresh) {
-        return bytes + " B";
+        return bytes + "B";
       }
 
       const units = si
@@ -102,7 +102,45 @@ angular
         ++u;
       } while (Math.round(Math.abs(bytes) * r) / r >= thresh && u < units.length - 1);
 
-      return bytes.toFixed(dp) + " " + units[u];
+      return bytes.toFixed(dp) + "" + units[u];
+    };
+  })
+  .filter("humanTime", function () {
+    return function humanTime(seconds) {
+      if (seconds instanceof Date)
+        seconds = Math.round((Date.now() - seconds) / 1000);
+      if (typeof seconds == "string")
+        seconds = Math.round((Date.now() - new Date(seconds)) / 1000);
+      var suffix = seconds < 0 ? "from now" : "ago";
+
+      // more than 2 days ago display Date
+      if (Math.abs(seconds) > 2 * 60 * 60 * 24) {
+        const now = new Date();
+        now.setSeconds(now.getSeconds() - seconds);
+        return "on " + now.toLocaleDateString();
+      }
+
+      seconds = Math.abs(seconds);
+
+      var times = [
+        seconds / 60 / 60 / 24 / 365, // years
+        seconds / 60 / 60 / 24 / 30, // months
+        seconds / 60 / 60 / 24 / 7, // weeks
+        seconds / 60 / 60 / 24, // days
+        seconds / 60 / 60, // hours
+        seconds / 60, // minutes
+        seconds, // seconds
+      ];
+      var names = ["year", "month", "week", "day", "hour", "minute", "second"];
+
+      for (var i = 0; i < names.length; i++) {
+        var time = Math.floor(times[i]);
+        var name = names[i];
+        if (time > 1) name += "s";
+
+        if (time >= 1) return time + " " + name + " " + suffix;
+      }
+      return "0 seconds " + suffix;
     };
   })
   .filter("title", function () {
@@ -515,6 +553,7 @@ angular
               if (!repo.lastView) {
                 repo.lastView = "";
               }
+              repo.options.terms = repo.options.terms.filter((f) => f);
             }
           },
           (err) => {
@@ -529,7 +568,7 @@ angular
           $scope.quota = res.data;
         }, console.error);
       }
-      getQuota();
+      // getQuota();
 
       $scope.removeRepository = (repo) => {
         if (
@@ -555,7 +594,7 @@ angular
 
         if ($scope.search.trim().length == 0) return true;
 
-        if (repo.fullName.indexOf($scope.search) > -1) return true;
+        if (repo.source.fullName.indexOf($scope.search) > -1) return true;
         if (repo.repoId.indexOf($scope.search) > -1) return true;
 
         return false;
@@ -839,7 +878,10 @@ angular
         if ($scope.readme) return $scope.readme;
         const o = parseGithubUrl($scope.repoUrl);
         const res = await $http.get(`/api/repo/${o.owner}/${o.repo}/readme`, {
-          params: { force: force === true ? "1" : "0", branch: $scope.branch },
+          params: {
+            force: force === true ? "1" : "0",
+            branch: $scope.source.branch,
+          },
         });
         $scope.readme = res.data;
       }
@@ -1068,17 +1110,6 @@ angular
         );
       }
 
-      function getStats() {
-        $http.get(`/api/repo/${$scope.repoId}/stats/`).then(
-          (res) => {
-            $scope.stats = res.data;
-          },
-          (err) => {
-            console.log(err);
-          }
-        );
-      }
-
       async function getOptions(callback) {
         $http.get(`/api/repo/${$scope.repoId}/options`).then(
           (res) => {
@@ -1261,10 +1292,6 @@ angular
         getOptions((options) => {
           getFiles(() => {
             updateContent();
-
-            if (options.mode == "GitHubDownload") {
-              getStats();
-            }
           });
         });
       }

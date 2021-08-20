@@ -25,7 +25,7 @@
   color: var(--color);
 }
 body {
-  --canvas-bg-color: #dddddd;
+  --canvas-bg-color: #ffffff;
   --sidebar-bg-color: #ffffff;
   --header-bg-color: #4a507b;
   --header-color: #ffffff;
@@ -192,6 +192,10 @@ a:hover {
   min-height: 100%;
 }
 
+.badge {
+  font-size: 45%;
+}
+
 .dropdown-item:focus,
 .dropdown-item:hover {
   background-color: var(--hover-bg-color);
@@ -207,6 +211,7 @@ a:hover {
   border: 1px solid var(--border-color);
   background: transparent;
   border-radius: 4px;
+  white-space: nowrap;
 }
 
 .btn:hover,
