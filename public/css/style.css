@@ -305,7 +305,7 @@ a:hover {
 
 .files .file::before {
   content: "\f15b";
-  font-family: FontAwesome;
+  font-family: 'Font Awesome 5 Free';
   position: absolute;
   left: 0px;
   width: 7px;
