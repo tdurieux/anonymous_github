@@ -1,0 +1,221 @@
+<div class="container py-4">
+  <h2>Create a conference</h2>
+  <p>
+    A conference allow the the chairs to access the complete list of anonymized
+    repositories. It also allows to increase the quota for authors.
+  </p>
+  <form class="form needs-validation" name="conference" novalidate>
+    <!-- name -->
+    <div class="form-group">
+      <label for="name">The name of the conference</label>
+      <input
+        type="text"
+        class="form-control"
+        name="name"
+        id="name"
+        ng-class="{'is-invalid': anonymize.name.$invalid}"
+        ng-model="options.name"
+        placeholder="The name of the conference"
+      />
+      <div class="invalid-feedback" ng-show="anonymize.name.$error.invalid">
+        The name of the conference is invalid.
+      </div>
+    </div>
+    <!-- url -->
+    <div class="form-group">
+      <label for="url">The url of the conference</label>
+      <input
+        type="text"
+        class="form-control"
+        name="url"
+        id="url"
+        ng-class="{'is-invalid': anonymize.url.$invalid}"
+        ng-model="options.url"
+        placeholder="The url of the conference"
+      />
+      <div class="invalid-feedback" ng-show="anonymize.url.$error.invalid">
+        The url of the conference is invalid.
+      </div>
+    </div>
+    <!-- conferenceID -->
+    <div class="form-group">
+      <label for="conferenceID">The conference ID</label>
+      <input
+        type="text"
+        class="form-control"
+        name="conferenceID"
+        id="conferenceID"
+        ng-class="{'is-invalid': anonymize.conferenceID.$invalid}"
+        ng-model="options.conferenceID"
+        placeholder="The conference ID that the authors will references"
+      />
+      <div
+        class="invalid-feedback"
+        ng-show="anonymize.conferenceID.$error.used"
+      >
+        {{conferenceID}} is already used.
+      </div>
+    </div>
+    <!-- startDate -->
+    <div class="form-group">
+      <label for="startDate">Start date of the conference</label>
+      <input
+        type="date"
+        class="form-control"
+        name="startDate"
+        id="startDate"
+        ng-class="{'is-invalid': anonymize.startDate.$invalid}"
+        ng-model="options.startDate"
+      />
+      <small class="form-text text-muted"
+        >The beginning date of the reviewing process.</small
+      >
+    </div>
+
+    <!-- endDate -->
+    <div class="form-group">
+      <label for="endDate">End date of the conference</label>
+      <input
+        type="date"
+        class="form-control"
+        name="endDate"
+        id="endDate"
+        ng-class="{'is-invalid': anonymize.endDate.$invalid}"
+        ng-model="options.endDate"
+      />
+      <small class="form-text text-muted"
+        >The end date of the reviewing process.</small
+      >
+    </div>
+
+    <!-- nbRepository -->
+    <div class="form-group">
+      <label for="nbRepository">The number of repositories</label>
+      <input
+        type="number"
+        class="form-control"
+        name="nbRepository"
+        id="nbRepository"
+        ng-class="{'is-invalid': anonymize.nbRepository.$invalid}"
+        ng-model="options.nbRepository"
+        placeholder="The number of repositories"
+      />
+      <small class="form-text text-muted"
+        >The number of repositories expected to receive.</small
+      >
+    </div>
+
+    <h3>Plan</h3>
+
+    <div class="card-deck mb-3 text-center">
+      <div class="card mb-4 shadow-sm">
+        <div class="card-header">
+          <h4 class="my-0 font-weight-normal">Free</h4>
+        </div>
+        <div class="card-body">
+          <h1 class="card-title pricing-card-title">
+            {{0 | currency}} <small class="text-muted"> / month</small>
+          </h1>
+          <ul class="list-unstyled mt-3 mb-4">
+            <li><strong>Quota is deducted from user account</strong></li>
+            <li>Unlimited repositories</li>
+            <li>No-download</li>
+            <li>Conference dashboard</li>
+          </ul>
+          <button
+            type="button"
+            class="btn btn-lg btn-block"
+            ng-class="{'btn-primary': options.mode == 'free'}"
+            ng-click="options.mode = 'free'"
+          >
+            Select
+            <small class="text-muted"
+              >Total {{ 0 * options.nbRepository * (options.endDate -
+              options.startDate) / 1000 / 60 / 60 / 24 / 30 | currency}}</small
+            >
+          </button>
+        </div>
+      </div>
+      <div class="card mb-4 shadow-sm">
+        <div class="card-header">
+          <h4 class="my-0 font-weight-normal">Premium</h4>
+        </div>
+        <div class="card-body">
+          <h1 class="card-title pricing-card-title">
+            {{5 + 0.5 * options.nbRepository | currency}}
+            <small class="text-muted"> / month</small>
+          </h1>
+          <ul class="list-unstyled mt-3 mb-4">
+            <li>500Mo / repository</li>
+            <li>{{options.nbRepository}} repositories included</li>
+            <li>Repository download</li>
+            <li>Conference dashboard</li>
+          </ul>
+          <button
+            type="button"
+            class="btn btn-lg btn-block"
+            ng-class="{'btn-primary': options.mode == 'small'}"
+            ng-click="options.mode = 'small'"
+          >
+            Select
+            <small class="text-muted"
+              >Total {{ 5 + 0.5 * options.nbRepository * (options.endDate -
+              options.startDate) / 1000 / 60 / 60 / 24 / 30 | currency}}</small
+            >
+          </button>
+        </div>
+      </div>
+
+      <div class="card mb-4 shadow-sm">
+        <div class="card-header">
+          <h4 class="my-0 font-weight-normal">Unlimited</h4>
+        </div>
+        <div class="card-body">
+          <h1 class="card-title pricing-card-title">
+            {{5 + 3 * options.nbRepository | currency}}
+            <small class="text-muted"> / month</small>
+          </h1>
+          <ul class="list-unstyled mt-3 mb-4">
+            <li><strong>Unlimited</strong> repository size</li>
+            <li>{{options.nbRepository}} repositories included</li>
+            <li>Repository download</li>
+            <li>Conference dashboard</li>
+          </ul>
+          <button
+            type="button"
+            class="btn btn-lg btn-block"
+            ng-class="{'btn-primary': options.mode == 'unlimited'}"
+            ng-click="options.mode = 'unlimited';"
+          >
+            Select
+            <small class="text-muted"
+              >Total {{ 5 + 3 * options.nbRepository * (options.endDate -
+              options.startDate) / 1000 / 60 / 60 / 24 / 30 | currency}}</small
+            >
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div
+      class="alert alert-danger"
+      role="alert"
+      ng-if="error"
+      ng-bind="error"
+    ></div>
+    <div
+      class="alert alert-success"
+      role="alert"
+      ng-if="message"
+      ng-bind="message"
+    ></div>
+    <button
+      id="save"
+      type="submit"
+      class="btn btn-primary"
+      ng-click="saveDefault($event)"
+    >
+      Create
+    </button>
+  </form>
+</div>

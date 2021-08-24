@@ -215,42 +215,46 @@
             </span>
           </div>
           <div class="color-text-secondary mt-2">
+            <span class="ml-0 mr-3" ng-if="::repo.conference">
+              <i class="fas fa-chalkboard-teacher"></i>
+              {{repo.conference}}
+            </span>
             <span
               class="ml-0 mr-3"
               class="terms"
-              title="Terms: {{repo.options.terms.join(', ')}}"
+              title="Terms: {{::repo.options.terms.join(', ')}}"
               data-toggle="tooltip"
               data-placement="bottom"
             >
               <i class="fas fa-shield-alt"></i>
-              {{repo.options.terms.length | number}}
+              {{::repo.options.terms.length | number}}
             </span>
             <span
               class="ml-0 mr-3"
-              title="Size: {{repo.size | humanFileSize}}"
+              title="Size: {{::repo.size | humanFileSize}}"
               data-toggle="tooltip"
               data-placement="bottom"
             >
-              <i class="fas fa-database"></i> {{repo.size |
+              <i class="fas fa-database"></i> {{::repo.size |
               humanFileSize}}</span
             >
             <span
               class="ml-0 mr-3"
-              title="View: {{repo.pageView | number}}"
+              title="View: {{::repo.pageView | number}}"
               data-toggle="tooltip"
               data-placement="bottom"
             >
               <i class="far fa-eye" aria-hidden="true"></i>
-              {{repo.pageView | number}}
+              {{::repo.pageView | number}}
             </span>
             <span
               class="ml-0 mr-3"
-              title="Last view: {{repo.lastView | date}}"
+              title="Last view: {{::repo.lastView | date}}"
               data-toggle="tooltip"
               data-placement="bottom"
             >
               <i class="far fa-calendar-alt" aria-hidden="true"></i>
-              Last view: {{repo.lastView | humanTime}}</span
+              Last view: {{::repo.lastView | humanTime}}</span
             >
             <span
               class="ml-0 mr-3"

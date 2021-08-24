@@ -58,6 +58,7 @@ export default async function start() {
 
   // api routes
   app.use("/api/options", rate, router.option);
+  app.use("/api/conferences", rate, router.conference);
   app.use("/api/user", rate, router.user);
   app.use("/api/repo", rate, router.repositoryPublic);
   app.use("/api/repo", rate, router.file);

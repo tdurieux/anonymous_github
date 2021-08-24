@@ -43,6 +43,21 @@ angular
         controller: "statusController",
         title: "Repository status - Anonymous GitHub",
       })
+      .when("/conferences", {
+        templateUrl: "/partials/conferences.htm",
+        controller: "conferencesController",
+        title: "Conferences - Anonymous GitHub",
+      })
+      .when("/conference/new", {
+        templateUrl: "/partials/newConference.htm",
+        controller: "newConferenceController",
+        title: "Add a conference - Anonymous GitHub",
+      })
+      .when("/conference/:conferenceId", {
+        templateUrl: "/partials/conference.htm",
+        controller: "conferenceController",
+        title: "Conference - Anonymous GitHub",
+      })
       .when("/faq", {
         templateUrl: "/partials/faq.htm",
         controller: "faqController",
@@ -1317,5 +1332,89 @@ angular
       }
 
       init();
+    },
+  ])
+  .controller("conferencesController", [
+    "$scope",
+    "$http",
+    "$location",
+    function ($scope, $http, $location) {
+      $scope.$watch("user.status", () => {
+        if ($scope.user == null) {
+          $location.url("/");
+        }
+      });
+      if ($scope.user == null) {
+        $location.url("/");
+      }
+
+      $scope.conferences = [];
+      $scope.search = "";
+      $scope.filters = {
+        status: { ready: true, expired: true, removed: true },
+      };
+      $scope.orderBy = "name";
+
+      function getConferences() {
+        $http.get("/api/conferences/").then(
+          (res) => {
+            $scope.conferences = res.data || [];
+          },
+          (err) => {
+            console.error(err);
+          }
+        );
+      }
+      getConferences();
+
+      $scope.conferenceFilter = (conference) => {
+        if ($scope.filters.status[conference.status] == false) return false;
+
+        if ($scope.search.trim().length == 0) return true;
+
+        if (conference.name.indexOf($scope.search) > -1) return true;
+        if (conference.conferenceID.indexOf($scope.search) > -1) return true;
+
+        return false;
+      };
+    },
+  ])
+  .controller("newConferenceController", [
+    "$scope",
+    "$http",
+    "$location",
+    function ($scope, $http, $location) {
+      $scope.$watch("user.status", () => {
+        if ($scope.user == null) {
+          $location.url("/");
+        }
+      });
+      if ($scope.user == null) {
+        $location.url("/");
+      }
+
+      const end = new Date()
+      end.setMonth(new Date().getMonth() + 6)
+      $scope.options = {
+        startDate: new Date(),
+        endDate: end,
+        mode: 'free',
+        nbRepository: 30
+      }
+    },
+  ])
+  .controller("conferenceController", [
+    "$scope",
+    "$http",
+    "$location",
+    function ($scope, $http, $location) {
+      $scope.$watch("user.status", () => {
+        if ($scope.user == null) {
+          $location.url("/");
+        }
+      });
+      if ($scope.user == null) {
+        $location.url("/");
+      }
     },
   ]);
