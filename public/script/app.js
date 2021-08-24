@@ -359,6 +359,13 @@ angular
       $scope.user = { status: "connection" };
       $scope.site_options;
 
+      $scope.toasts = [];
+
+      $scope.removeToast = function (toast) {
+        const index = $scope.toasts.indexOf(toast);
+        $scope.toasts = $scope.toasts.splice(index, index);
+      };
+
       $scope.path = $location.url();
       $scope.paths = $location.path().substring(1).split("/");
 
@@ -591,15 +598,32 @@ angular
             `Are you sure that you want to remove the repository ${repo.repoId}?`
           )
         ) {
+          const toast = {
+            title: `Removing ${repo.repoId}...`,
+            date: new Date(),
+            body: `The repository ${repo.repoId} is going to be removed.`,
+          };
+          $scope.toasts.push(toast);
           $http.delete(`/api/repo/${repo.repoId}`).then(() => {
+            toast.title = `${repo.repoId} is removed.`;
+            toast.body = `The repository ${repo.repoId} is removed.`;
             getRepositories();
           });
         }
       };
 
       $scope.updateRepository = (repo) => {
+        const toast = {
+          title: `Refreshing ${repo.repoId}...`,
+          date: new Date(),
+          body: `The repository ${repo.repoId} is going to be removed.`,
+        };
+        $scope.toasts.push(toast);
+        
         $http.post(`/api/repo/${repo.repoId}/refresh`).then(() => {
-          alert(`${repo.repoId} is refreshed.`);
+          toast.title = `${repo.repoId} is refreshed.`;
+          toast.body = `The repository ${repo.repoId} is refreshed.`;
+
           getRepositories();
         });
       };
