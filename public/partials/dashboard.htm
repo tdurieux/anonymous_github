@@ -191,7 +191,7 @@
               <span class="repository">
                 <i class="fab fa-github" aria-hidden="true"></i>
                 <a
-                  href="https://github.com/{{repo.source.fullName}}/commit/{{repo.source.commit}}"
+                  href="https://github.com/{{repo.source.fullName}}/"
                   class="fullName"
                   ng-bind="repo.source.fullName"
                 ></a>
@@ -199,14 +199,14 @@
               <span class="branch" ng-if="repo.options.update">
                 <i class="fas fa-code-branch" aria-hidden="true"></i>
                 <a
-                  href="https://github.com/{{repo.source.fullName}}/commit/{{repo.source.commit}}"
+                  href="https://github.com/{{repo.source.fullName}}/tree/{{repo.source.branch}}"
                   class="branch"
                   ng-bind="repo.source.branch"
                 ></a>
               </span>
               <span class="commit" ng-if="!repo.options.update">
                 @<a
-                  href="https://github.com/{{repo.source.fullName}}/commit/{{repo.source.commit}}"
+                  href="https://github.com/{{repo.source.fullName}}/tree/{{repo.source.commit}}"
                   class="commit"
                   ng-bind="repo.source.commit.substring(0, 8)"
                 ></a>
