@@ -659,7 +659,7 @@ angular
       $scope.terms = "";
       $scope.defaultTerms = "";
       $scope.branches = [];
-      source = {
+      $scope.source = {
         type: "GitHubDownload",
         branch: "",
         commit: "",
@@ -755,7 +755,7 @@ angular
       $scope.getRepositories();
 
       $scope.repoSelected = async () => {
-        $scope.terms = $scope.defaultTerms.filter((f) => f);
+        $scope.terms = $scope.defaultTerms;
         $scope.repoId = "";
         $scope.source = {
           type: "GitHubDownload",
