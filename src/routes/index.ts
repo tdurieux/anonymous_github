@@ -3,6 +3,7 @@ import repositoryPublic from "./repository-public";
 import file from "./file";
 import webview from "./webview";
 import user from "./user";
+import option from "./option";
 
 export default {
   repositoryPrivate,
@@ -10,4 +11,5 @@ export default {
   file,
   webview,
   user,
+  option,
 };

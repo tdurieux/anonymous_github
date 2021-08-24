@@ -159,6 +159,22 @@ router.get(
   }
 );
 
+// get repository information
+router.get("/:repoId/", async (req: express.Request, res: express.Response) => {
+  try {
+    const repo = await getRepo(req, res, { nocheck: true });
+    if (!repo) throw new Error("repo_not_found");
+
+    const user = await getUser(req);
+    if (user.username != repo.model.owner) {
+      return res.status(401).send({ error: "not_authorized" });
+    }
+    res.json((await db.getRepository(req.params.repoId)).toJSON());
+  } catch (error) {
+    handleError(error, res);
+  }
+});
+
 function validateNewRepo(repoUpdate) {
   const validCharacters = /^[0-9a-zA-Z\-\_]+$/;
   if (
@@ -184,7 +200,19 @@ function validateNewRepo(repoUpdate) {
   }
 }
 
-function updateRepoModel(model: IAnonymizedRepositoryDocument, repoUpdate) {
+function updateRepoModel(
+  model: IAnonymizedRepositoryDocument,
+  repoUpdate: any
+) {
+  if (repoUpdate.source.type) {
+    model.source.type = repoUpdate.source.type;
+    if (
+      model.source.type != "GitHubStream" &&
+      model.source.type != "GitHubDownload"
+    ) {
+      model.source.type = "GitHubStream";
+    }
+  }
   model.source.commit = repoUpdate.source.commit;
   model.source.branch = repoUpdate.source.branch;
   model.conference = repoUpdate.conference;
@@ -203,22 +231,6 @@ function updateRepoModel(model: IAnonymizedRepositoryDocument, repoUpdate) {
     pageSource: repoUpdate.options.pageSource,
   };
 }
-
-// get repository information
-router.get("/:repoId/", async (req: express.Request, res: express.Response) => {
-  try {
-    const repo = await getRepo(req, res, { nocheck: true });
-    if (!repo) throw new Error("repo_not_found");
-
-    const user = await getUser(req);
-    if (user.username != repo.model.owner) {
-      return res.status(401).send({ error: "not_authorized" });
-    }
-    res.json((await db.getRepository(req.params.repoId)).toJSON());
-  } catch (error) {
-    handleError(error, res);
-  }
-});
 
 // update a repository
 router.post(
@@ -273,15 +285,11 @@ router.post("/", async (req: express.Request, res: express.Response) => {
     repo.repoId = repoUpdate.repoId;
     repo.anonymizeDate = new Date();
     repo.owner = user.username;
-    repo.source = {
-      type:
-        repoUpdate.options.mode == "download"
-          ? "GitHubDownload"
-          : "GitHubStream",
-      accessToken: user.accessToken,
-      repositoryId: repository.model.id,
-      repositoryName: repoUpdate.fullName,
-    };
+    
+    updateRepoModel(repo, repoUpdate);
+    repo.source.accessToken = user.accessToken;
+    repo.source.repositoryId = repository.model.id;
+    repo.source.repositoryName = repoUpdate.fullName;
 
     if (repo.source.type == "GitHubDownload") {
       // details.size is in kilobytes
@@ -289,8 +297,6 @@ router.post("/", async (req: express.Request, res: express.Response) => {
         return res.status(500).send({ error: "invalid_mode" });
       }
     }
-
-    updateRepoModel(repo, repoUpdate);
 
     await repo.save();
     res.send("ok");

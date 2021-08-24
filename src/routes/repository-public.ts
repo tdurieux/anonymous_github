@@ -64,7 +64,8 @@ router.get(
 
       res.json({
         url: redirectURL,
-        download: !!config.ENABLE_DOWNLOAD,
+        download:
+          !!config.ENABLE_DOWNLOAD && repo.source.type == "GitHubDownload",
       });
     } catch (error) {
       handleError(error, res);

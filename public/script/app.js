@@ -357,6 +357,7 @@ angular
     function ($scope, $http, $location) {
       $scope.title = "Main";
       $scope.user = { status: "connection" };
+      $scope.site_options;
 
       $scope.path = $location.url();
       $scope.paths = $location.path().substring(1).split("/");
@@ -385,6 +386,18 @@ angular
         );
       }
       getUser();
+
+      function getOptions() {
+        $http.get("/api/options").then(
+          (res) => {
+            if (res) $scope.site_options = res.data;
+          },
+          () => {
+            $scope.site_options = null;
+          }
+        );
+      }
+      getOptions();
 
       function getMessage() {
         $http.get("/api/message").then(
@@ -435,7 +448,6 @@ angular
         notebook: true,
         loc: true,
         link: true,
-        mode: "GitHubDownload",
       };
 
       function getDefault() {
@@ -859,7 +871,7 @@ angular
           resetValidity();
           const res = await $http.get(`/api/repo/${o.owner}/${o.repo}/`);
           $scope.details = res.data;
-          if ($scope.details.size > 500 * 1024 * 8) {
+          if ($scope.details.size > $scope.site_options.MAX_REPO_SIZE) {
             $scope.options.mode = "GitHubStream";
             $scope.anonymize.mode.$$element[0].disabled = true;
           }
@@ -902,41 +914,51 @@ angular
           );
         }
         if (!$scope.options.link) {
-          content = content.replace(urlRegex, "XXXX");
+          content = content.replace(
+            urlRegex,
+            $scope.site_options.ANONYMIZATION_MASK
+          );
         }
+
+        const host = document.location.protocol + "//" + document.location.host;
 
         content = content.replace(
           new RegExp(
             `\\b${$scope.repoUrl}/blob/${$scope.source.branch}\\b`,
             "gi"
           ),
-          `https://anonymous.4open.science/r/${$scope.repoId}`
+          `${host}/r/${$scope.repoId}`
         );
         content = content.replace(
           new RegExp(
             `\\b${$scope.repoUrl}/tree/${$scope.source.branch}\\b`,
             "gi"
           ),
-          `https://anonymous.4open.science/r/${$scope.repoId}`
+          `${host}/r/${$scope.repoId}`
         );
         content = content.replace(
           new RegExp(`\\b${$scope.repoUrl}`, "gi"),
-          `https://anonymous.4open.science/r/${$scope.repoId}`
+          `${host}/r/${$scope.repoId}`
         );
-
-        for (let term of $scope.terms.split("\n")) {
+        const terms = $scope.terms.split("\n");
+        for (let i = 0; i < terms.length; i++) {
+          const term = terms[i];
           if (term.trim() == "") {
             continue;
           }
           // remove whole url if it contains the term
 
           content = content.replace(urlRegex, (match) => {
-            if (new RegExp(`\\b${term}\\b`, "gi").test(match)) return "XXXX";
+            if (new RegExp(`\\b${term}\\b`, "gi").test(match))
+              return $scope.site_options.ANONYMIZATION_MASK + "-" + (i + 1);
             return match;
           });
 
           // remove the term in the text
-          content = content.replace(new RegExp(`\\b${term}\\b`, "gi"), "XXXX");
+          content = content.replace(
+            new RegExp(`\\b${term}\\b`, "gi"),
+            $scope.site_options.ANONYMIZATION_MASK + "-" + (i + 1)
+          );
         }
 
         $scope.anonymize_readme = content;
