@@ -273,6 +273,7 @@ export default class Repository {
     return {
       repoId: this._model.repoId,
       options: this._model.options,
+      conference: this._model.conference,
       anonymizeDate: this._model.anonymizeDate,
       status: this._model.status,
       source: this.source.toJSON(),
