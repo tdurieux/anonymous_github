@@ -671,6 +671,7 @@ angular
       $scope.terms = "";
       $scope.defaultTerms = "";
       $scope.branches = [];
+      $scope.repositories = [];
       $scope.source = {
         type: "GitHubDownload",
         branch: "",
@@ -709,6 +710,7 @@ angular
           if (cb) cb();
         });
       }
+
       getDefault(() => {
         if ($routeParams.repoId && $routeParams.repoId != "") {
           $scope.isUpdate = true;
@@ -753,8 +755,6 @@ angular
         }
       });
 
-      $scope.repositories = [];
-
       $scope.getRepositories = (force) => {
         $http
           .get("/api/user/all_repositories", {
@@ -798,46 +798,6 @@ angular
       };
       $('[data-toggle="tooltip"]').tooltip();
 
-      $scope.$watch("source.branch", async (v) => {
-        const selected = $scope.branches.filter(
-          (f) => f.name == $scope.source.branch
-        )[0];
-        if ($scope.details && $scope.details.hasPage) {
-          $scope.anonymize.page.$$element[0].disabled = false;
-          if ($scope.details.pageSource.branch != $scope.source.branch) {
-            $scope.anonymize.page.$$element[0].disabled = true;
-          }
-        }
-
-        if (selected) {
-          $scope.source.commit = selected.commit;
-          $scope.readme = selected.readme;
-          await getReadme();
-          anonymize();
-          $scope.$apply();
-        }
-      });
-
-      $scope.$watch("options.mode", (v) => {
-        if (v == "GitHubStream") {
-          $scope.options.page = false;
-          $scope.anonymize.page.$$element[0].disabled = true;
-        } else {
-          $scope.anonymize.page.$$element[0].disabled = false;
-        }
-      });
-
-      function parseGithubUrl(url) {
-        var matches = url.match(/.*?github.com\/([\w-\._]+)\/([\w-\._]+)/);
-        if (matches && matches.length == 3) {
-          return {
-            owner: matches[1],
-            repo: matches[2],
-          };
-        } else {
-          throw "Invalid url";
-        }
-      }
       $scope.getBranches = async (force) => {
         const o = parseGithubUrl($scope.repoUrl);
         const branches = await $http.get(
@@ -857,14 +817,7 @@ angular
         }
         $scope.$apply();
       };
-      function generateRandomId(length) {
-        const alphabet = "ABCDEF0123456789";
-        let output = "";
-        for (let index = 0; index < length; index++) {
-          output += alphabet[Math.round(Math.random() * (alphabet.length - 1))];
-        }
-        return output;
-      }
+
       async function getDetails() {
         const o = parseGithubUrl($scope.repoUrl);
         try {
@@ -962,7 +915,7 @@ angular
         }
 
         $scope.anonymize_readme = content;
-        let html = marked($scope.anonymize_readme);
+        const html = marked($scope.anonymize_readme);
         $scope.html_readme = $sce.trustAsHtml(html);
         setTimeout(Prism.highlightAll, 150);
       }
@@ -1026,13 +979,11 @@ angular
         };
       }
 
-      $scope.anonymizeRepo = async (event) => {
-        event.target.disabled = true;
+      async function sendRepo(url) {
         resetValidity();
-
         const newRepo = getRepo();
         try {
-          await $http.post("/api/repo/", newRepo, {
+          await $http.post(url, newRepo, {
             headers: { "Content-Type": "application/json" },
           });
           window.location.href = "/status/" + $scope.repoId;
@@ -1045,33 +996,53 @@ angular
           } else {
             console.error(error);
           }
-        } finally {
-          event.target.disabled = false;
         }
-        $scope.$apply();
+      }
+
+      $scope.anonymizeRepo = (event) => {
+        event.target.disabled = true;
+        sendRepo("/api/repo/").finally(() => {
+          event.target.disabled = false;
+          $scope.$apply();
+        });
       };
 
       $scope.updateRepo = async (event) => {
         event.target.disabled = true;
-        resetValidity();
-
-        const newRepo = getRepo();
-        try {
-          await $http.post("/api/repo/" + newRepo.repoId, newRepo, {
-            headers: { "Content-Type": "application/json" },
-          });
-          window.location.href = "/status/" + $scope.repoId;
-        } catch (error) {
-          if (error.data) {
-            displayErrorMessage(error.data.error);
-          } else {
-            console.error(error);
-          }
-        } finally {
+        sendRepo("/api/repo/" + $scope.repoId).finally(() => {
           event.target.disabled = false;
-        }
-        $scope.$apply();
+          $scope.$apply();
+        });
       };
+
+      $scope.$watch("source.branch", async (v) => {
+        const selected = $scope.branches.filter(
+          (f) => f.name == $scope.source.branch
+        )[0];
+        if ($scope.details && $scope.details.hasPage) {
+          $scope.anonymize.page.$$element[0].disabled = false;
+          if ($scope.details.pageSource.branch != $scope.source.branch) {
+            $scope.anonymize.page.$$element[0].disabled = true;
+          }
+        }
+
+        if (selected) {
+          $scope.source.commit = selected.commit;
+          $scope.readme = selected.readme;
+          await getReadme();
+          anonymize();
+          $scope.$apply();
+        }
+      });
+
+      $scope.$watch("source.type", (v) => {
+        if (v == "GitHubStream") {
+          $scope.options.page = false;
+          $scope.anonymize.page.$$element[0].disabled = true;
+        } else {
+          $scope.anonymize.page.$$element[0].disabled = false;
+        }
+      });
 
       $scope.$watch("terms", anonymize);
       $scope.$watch("options.image", anonymize);
@@ -1206,7 +1177,7 @@ angular
               }
 
               if ($scope.type == "md") {
-                const md = res.data;
+                const md = contentAbs2Relative(res.data);
                 $scope.content = marked(md, { baseUrl: $location.url() });
                 $scope.type = "html";
               }
