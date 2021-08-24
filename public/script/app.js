@@ -859,7 +859,7 @@ angular
           resetValidity();
           const res = await $http.get(`/api/repo/${o.owner}/${o.repo}/`);
           $scope.details = res.data;
-          if ($scope.details.size > 1024 * 8) {
+          if ($scope.details.size > 500 * 1024 * 8) {
             $scope.options.mode = "GitHubStream";
             $scope.anonymize.mode.$$element[0].disabled = true;
           }
