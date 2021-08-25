@@ -31,17 +31,19 @@ const verify = async (
   let user;
   try {
     user = await UserModel.findOne({ username: profile.username });
+    const email = profile.emails ? profile.emails[0]?.value : null;
+    const photo = profile.photos ? profile.photos[0]?.value : null;
     if (user) {
       user.accessToken = accessToken;
-      user.email = profile.emails[0]?.value;
-      user.photo = profile.photos[0]?.value;
+      user.email = photo;
+      user.photo = photo;
       await user.save();
     } else {
       user = await new UserModel({
         username: profile.username,
         accessToken: accessToken,
-        email: profile.emails[0]?.value,
-        photo: profile.photos[0]?.value,
+        email,
+        photo,
       }).save();
     }
   } catch (error) {
