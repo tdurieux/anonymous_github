@@ -27,6 +27,7 @@
     "user_not_found": "The current user is not found in the database",
     "not_connected": "User is not connected",
     "page_not_supported_on_different_branch": "Anonymized GitHub pages are only supported on the same branch.",
-    "page_not_activated": "Anonymized GitHub page is not enabled."
+    "page_not_activated": "Anonymized GitHub page is not enabled.",
+    "conf_not_activated": "The conference is not activated."
   }
 }

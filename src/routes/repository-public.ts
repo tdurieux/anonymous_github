@@ -48,7 +48,7 @@ router.get(
   async (req: express.Request, res: express.Response) => {
     try {
       const repo = await getRepo(req, res, { nocheck: true });
-      if (!repo) throw new Error("repo_not_found");
+      if (!repo) return;
       let redirectURL = null;
       if (
         repo.status == "expired" &&
@@ -62,10 +62,19 @@ router.get(
 
       await repo.updateIfNeeded();
 
+      let download = false;
+      const conference = await repo.conference();
+      if (conference) {
+        console.log(conference.quota)
+        download =
+          conference.quota.size > -1 &&
+          !!config.ENABLE_DOWNLOAD &&
+          repo.source.type == "GitHubDownload";
+      }
+
       res.json({
         url: redirectURL,
-        download:
-          !!config.ENABLE_DOWNLOAD && repo.source.type == "GitHubDownload",
+        download,
       });
     } catch (error) {
       handleError(error, res);

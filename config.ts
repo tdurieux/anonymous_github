@@ -36,7 +36,7 @@ const config: Config = {
   DEFAULT_QUOTA: 2 * 1024 * 1024 * 1024 * 8,
   MAX_FILE_SIZE: 10 * 1024 * 1024, // in b
   MAX_REPO_SIZE: 500 * 8 * 1024, // in kb
-  ENABLE_DOWNLOAD: false,
+  ENABLE_DOWNLOAD: true,
   AUTH_CALLBACK: "http://localhost:5000/github/auth",
   ANONYMIZATION_MASK: "XXXX",
   PORT: 5000,

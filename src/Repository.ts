@@ -11,6 +11,8 @@ import UserModel from "./database/users/users.model";
 import { IAnonymizedRepositoryDocument } from "./database/anonymizedRepositories/anonymizedRepositories.types";
 import { anonymizeStream } from "./anonymize-utils";
 import GitHubBase from "./source/GitHubBase";
+import Conference from "./Conference";
+import ConferenceModel from "./database/conference/conferenes.model";
 
 export default class Repository {
   private _model: IAnonymizedRepositoryDocument;
@@ -245,6 +247,21 @@ export default class Repository {
     this._model.size = recursiveCount(files);
     await this._model.save();
     return this._model.size;
+  }
+
+  /**
+   * Returns the conference of the repository
+   *
+   * @returns conference of the repository
+   */
+  async conference(): Promise<Conference | null> {
+    if (!this._model.conference) {
+      return null;
+    }
+    const conference = await ConferenceModel.findOne({
+      conferenceID: this._model.conference,
+    });
+    return new Conference(conference);
   }
 
   /***** Getters ********/

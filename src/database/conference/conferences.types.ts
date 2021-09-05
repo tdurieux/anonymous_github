@@ -1,12 +1,19 @@
 import * as mongoose from "mongoose";
+import { ConferenceStatus } from "../../types";
 
 export interface IConference {
   name: string;
   conferenceID: string;
-  start: Date;
-  end: Date;
-  status: string;
+  startDate: Date;
+  endDate: Date;
+  url: string;
+  status: ConferenceStatus;
   owners: string[];
+  repositories: {
+    id: string;
+    addDate: Date;
+    removeDate?: Date;
+  }[];
   options: {
     expirationMode: "never" | "redirect" | "remove";
     expirationDate?: Date;
@@ -17,10 +24,24 @@ export interface IConference {
     link: boolean;
     page: boolean;
   };
-  quota: {
-    repository: number;
-    size: number;
-    file: number;
+  plan: {
+    planID: string;
+    pricePerRepository: number;
+    quota: {
+      repository: number;
+      size: number;
+      file: number;
+    };
+  };
+  billing?: {
+    name: string;
+    email: string;
+    address: string;
+    address2?: string;
+    city: string;
+    zip: string;
+    country: string;
+    vat?: string;
   };
 }
 

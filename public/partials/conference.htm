@@ -1,6 +1,39 @@
 <div class="container page">
-  <div class="row">
-    <h1>Conferences</h1>
+  <div>
+    <h1>
+      <a ng-href="{{conference.url}}">{{conference.name}}</a>
+      <span
+        class="badge"
+        ng-class="{'badge-warning': conference.status == 'removed' || conference.status == 'expired', 'badge-success': conference.status == 'ready'}"
+        ng-bind="conference.status | title"
+      ></span>
+    </h1>
+    <div class="row mb-3 m-0 py-2 border">
+      <div class="col-2 font-weight-bold">ID</div>
+      <div class="col-10">{{conference.conferenceID}}</div>
+
+      <div class="col-2 font-weight-bold">Name</div>
+      <div class="col-10">{{conference.name}}</div>
+
+      <div class="col-2 font-weight-bold">URL</div>
+      <div class="col-10">
+        <a ng-href="{{conference.url}}" ng-bind="conference.url"></a>
+      </div>
+
+      <div class="col-2 font-weight-bold">From</div>
+      <div class="col-10">{{conference.startDate | date}}</div>
+
+      <div class="col-2 font-weight-bold">End</div>
+      <div class="col-10">{{conference.endDate | date}}</div>
+
+      <div class="col-2 font-weight-bold"># Repositories</div>
+      <div class="col-10">{{::conference.repositories.length | number}}</div>
+
+      <div class="col-2 font-weight-bold">Price</div>
+      <div class="col-10">{{conference.price || 0 | number}} €</div>
+    </div>
+
+    <h3>Repositories</h3>
     <div class="border-bottom color-border-secondary py-3 w-100">
       <div class="d-flex flex-items-start w-100">
         <form class="w-100" aria-label="Repositories" accept-charset="UTF-8">
@@ -10,8 +43,8 @@
                 type="search"
                 id="search"
                 class="form-control"
-                aria-label="Find a conference…"
-                placeholder="Find a conference…"
+                aria-label="Find repositories"
+                placeholder="Find repositories"
                 autocomplete="off"
                 ng-model="search"
               />
@@ -36,12 +69,12 @@
                       class="form-check-input"
                       type="radio"
                       name="sort"
-                      id="sortName"
-                      value="name"
+                      id="anonymizeDate"
+                      value="-anonymizeDate"
                       ng-model="orderBy"
                     />
-                    <label class="form-check-label" for="sortName">
-                      Name
+                    <label class="form-check-label" for="anonymizeDate">
+                      Anonymize Date
                     </label>
                   </div>
                   <div class="form-check dropdown-item">
@@ -50,7 +83,7 @@
                       type="radio"
                       name="sort"
                       id="sortID"
-                      value="conferenceID"
+                      value="repoId"
                       ng-model="orderBy"
                     />
                     <label class="form-check-label" for="sortID"> ID </label>
@@ -128,97 +161,108 @@
             </div>
           </div>
         </form>
-        <div class="d-none d-md-flex flex-md-items-center flex-md-justify-end">
-          <a href="/conference/new" class="text-center btn btn-primary ml-3">
-            <i class="fa fa-plus-circle" aria-hidden="true"></i> Add
-          </a>
-        </div>
+        <div
+          class="d-none d-md-flex flex-md-items-center flex-md-justify-end"
+        ></div>
       </div>
     </div>
+
     <ul class="p-0 m-0 w-100">
       <li
         class="col-12 d-flex px-0 py-3 border-bottom color-border-secondary"
-        ng-class="{'expired': conference.status == 'expired','removed': conference.status == 'removed' }"
-        ng-repeat="conference in conferences| filter:conferenceFilter| orderBy:orderBy as filteredConferences"
+        ng-class="{'expired': repo.status == 'expired','removed': repo.status == 'removed' }"
+        ng-repeat="repo in conference.repositories| filter:repoFiler| orderBy:orderBy as filteredRepositories"
       >
         <div class="w-100">
           <div class="">
             <h3>
-              <a
-                ng-href="/conference/{{conference.conferenceID}}"
-                ng-bind="conference.name"
-              ></a>
+              <a ng-href="/r/{{repo.repoId}}" ng-bind="repo.repoId"></a>
               <span
                 class="badge"
-                ng-class="{'badge-warning': conference.status == 'removed' || conference.status == 'expired', 'badge-success': conference.status == 'ready', 'badge-danger': ''}"
-                ng-bind="conference.status | title"
+                ng-class="{'badge-warning': repo.status == 'removed' || repo.status == 'expired', 'badge-success': repo.status == 'ready', 'badge-danger': ''}"
+                ng-bind="repo.status | title"
               ></span>
             </h3>
-            <span class="color-text-secondary mb-1 ng-binding">
-              Conference ID: '{{conference.conferenceID}}'
+            <span class="color-text-secondary mb-1">
+              <span class="repository">
+                <i class="fab fa-github" aria-hidden="true"></i>
+                <a
+                  href="https://github.com/{{repo.source.fullName}}/"
+                  class="fullName"
+                  ng-bind="repo.source.fullName"
+                ></a>
+              </span>
+              <span class="branch" ng-if="repo.options.update">
+                <i class="fas fa-code-branch" aria-hidden="true"></i>
+                <a
+                  href="https://github.com/{{repo.source.fullName}}/tree/{{repo.source.branch}}"
+                  class="branch"
+                  ng-bind="repo.source.branch"
+                ></a>
+              </span>
+              <span class="commit" ng-if="!repo.options.update">
+                @<a
+                  href="https://github.com/{{repo.source.fullName}}/tree/{{repo.source.commit}}"
+                  class="commit"
+                  ng-bind="repo.source.commit.substring(0, 8)"
+                ></a>
+              </span>
+              anonymized {{repo.anonymizeDate | humanTime}}
             </span>
           </div>
           <div class="color-text-secondary mt-2">
             <span
               class="ml-0 mr-3"
-              title="# repository: {{conference.nbRepository || 0 | number}}"
+              class="terms"
+              title="Terms: {{::repo.options.terms.join(', ')}}"
               data-toggle="tooltip"
               data-placement="bottom"
             >
-              <i class="fas fa-table"></i>
-              {{::conference.nbRepositories || 0 | number}}</span
-            >
-            <span class="ml-0 mr-3">
-              <i class="fas fa-euro-sign"></i>
-              Total: {{conference.price || 0 | number}} €
+              <i class="fas fa-shield-alt"></i>
+              {{::repo.options.terms.length | number}}
             </span>
-            <span class="ml-0 mr-3">
-              <i class="fas fa-calendar-alt"></i>
-              From {{conference.startDate | date}} to {{conference.endDate |
-              date}}</span
+            <span
+              class="ml-0 mr-3"
+              title="Size: {{::repo.size | humanFileSize}}"
+              data-toggle="tooltip"
+              data-placement="bottom"
             >
-          </div>
-        </div>
-        <div class="d-flex">
-          <div class="dropdown">
-            <button
-              class="btn black_border dropdown-toggle btn-sm"
-              type="button"
-              id="dropdownMenuButton"
-              data-toggle="dropdown"
-              aria-haspopup="true"
-              aria-expanded="false"
+              <i class="fas fa-database"></i> {{::repo.size |
+              humanFileSize}}</span
             >
-              Actions
-            </button>
-            <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
-              <a
-                class="dropdown-item"
-                href="/conference/{{conference.conferenceID}}/edit"
-              >
-                <i class="far fa-edit" aria-hidden="true"></i> Edit
-              </a>
-              <a
-                class="dropdown-item"
-                href="#"
-                ng-show="conference.status != 'removed'"
-                ng-click="removeConference(repo)"
-              >
-                <i class="fas fa-trash-alt"></i> Remove
-              </a>
-              <a
-                class="dropdown-item"
-                href="/conference/{{conference.conferenceID}}/"
-              >
-                <i class="fa fa-eye" aria-hidden="true"></i> View conference
-              </a>
-            </div>
+            <span
+              class="ml-0 mr-3"
+              title="View: {{::repo.pageView | number}}"
+              data-toggle="tooltip"
+              data-placement="bottom"
+            >
+              <i class="far fa-eye" aria-hidden="true"></i>
+              {{::repo.pageView | number}}
+            </span>
+            <span
+              class="ml-0 mr-3"
+              title="Last view: {{::repo.lastView | date}}"
+              data-toggle="tooltip"
+              data-placement="bottom"
+            >
+              <i class="far fa-calendar-alt" aria-hidden="true"></i>
+              Last view: {{::repo.lastView | humanTime}}</span
+            >
+            <span
+              class="ml-0 mr-3"
+              ng-if="repo.options.expirationMode!='never' && repo.status == 'ready'"
+            >
+              <i class="far fa-clock" aria-hidden="true"></i>
+              Expire: {{repo.options.expirationDate | humanTime}}</span
+            >
           </div>
         </div>
       </li>
-      <li class="col-12 d-flex px-0 py-3 border-bottom color-border-secondary" ng-if="conferences.length == 0">
-        You have no conference. You a create a
-        <a href="/conference/new">new one</a>.
+      <li
+        class="col-12 d-flex px-0 py-3 border-bottom color-border-secondary"
+        ng-if="conference.repositories.length == 0"
+      >
+        There is no repository for this conference.
       </li>
     </ul>
   </div>

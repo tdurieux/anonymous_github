@@ -129,9 +129,11 @@
                 id="commit"
                 name="commit"
                 ng-model="source.commit"
+                required
+                ng-class="{'is-invalid': anonymize.commit.$invalid}"
               />
               <small class="form-text text-muted"
-                >The commit to anonymize</small
+                >The commit to anonymize.</small
               >
             </div>
             <!-- Repo ID -->
@@ -173,9 +175,10 @@
                 rows="3"
                 ng-model="terms"
                 ng-model-options="{ debounce: 250 }"
+                ng-class="{'is-invalid': anonymize.terms.$invalid}"
               ></textarea>
               <small id="termsHelp" class="form-text text-muted"
-                >One term per line. Each term will be replaced by XXX</small
+                >One term per line. Each term will be replaced by XXX.</small
               >
               <div
                 class="invalid-feedback"
@@ -194,10 +197,24 @@
                 id="conference"
                 name="conference"
                 ng-model="conference"
+                ng-class="{'is-invalid': anonymize.conference.$invalid}"
               />
-              <small class="form-text text-muted"
+              <small class="form-text text-muted" ng-show="!conference_data"
                 >In which conference the paper will be submitted.</small
               >
+              <small class="form-text text-muted" ng-show="conference_data"
+                ><a ng-href="{{conference_data.url}}" target="_target"
+                  >{{conference_data.name}}</a
+                >
+                will expire on {{conference_data.endDate | date}}.</small
+              >
+
+              <div
+                class="invalid-feedback"
+                ng-show="anonymize.conference.$error.activated"
+              >
+                The conference is not activated.
+              </div>
             </div>
 
             <div class="accordion mb-3" id="options">
@@ -341,10 +358,11 @@
                       <small class="form-text text-muted"
                         >How the repository will be anonymized. Stream mode will
                         request the content on the flight. This is the only
-                        option for repositories bigger than {{site_options.MAX_REPO_SIZE * 1024| humanFileSize}}. Download will
-                        download the repository the repository on the
-                        anonymous.4open.science server, it is faster and offer
-                        more features.</small
+                        option for repositories bigger than
+                        {{site_options.MAX_REPO_SIZE * 1024| humanFileSize}}.
+                        Download will download the repository the repository on
+                        the anonymous.4open.science server, it is faster and
+                        offer more features.</small
                       >
                     </div>
                     <div class="form-group">
@@ -402,9 +420,9 @@
                         ng-model="options.expirationMode"
                       >
                         <option value="never" selected>Never expire</option>
-                        <option value="redirect"
-                          >Redirect to GitHub when expired</option
-                        >
+                        <option value="redirect">
+                          Redirect to GitHub when expired
+                        </option>
                         <option value="remove">Remove when expired</option>
                       </select>
                       <small class="form-text text-muted"

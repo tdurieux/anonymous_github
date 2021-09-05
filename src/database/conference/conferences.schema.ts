@@ -3,11 +3,24 @@ const { Schema } = mongoose;
 
 const RepositorySchema = new Schema({
   name: String,
-  conferenceID: String,
-  start: Date,
-  end: Date,
+  conferenceID: {
+    type: String,
+    index: { unique: true },
+  },
+  url: String,
+  startDate: Date,
+  endDate: Date,
   status: String,
-  owners: [mongoose.Schema.Types.ObjectId],
+  owners: { type: [mongoose.Schema.Types.ObjectId] },
+  repositories: {
+    type: [
+      {
+        id: { type: mongoose.Schema.Types.ObjectId },
+        addDate: { type: Date },
+        removeDate: { type: Date },
+      },
+    ],
+  },
   options: {
     expirationMode: String,
     expirationDate: Date,
@@ -22,10 +35,24 @@ const RepositorySchema = new Schema({
     type: Date,
     default: new Date(),
   },
-  quota: {
-    repository: Number,
-    size: Number,
-    file: Number,
+  plan: {
+    planID: String,
+    pricePerRepository: Number,
+    quota: {
+      repository: Number,
+      size: Number,
+      file: Number,
+    },
+  },
+  billing: {
+    name: String,
+    email: String,
+    address: String,
+    address2: String,
+    city: String,
+    zip: String,
+    country: String,
+    vat: String,
   },
 });
 

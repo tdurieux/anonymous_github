@@ -13,27 +13,31 @@
         class="form-control"
         name="name"
         id="name"
-        ng-class="{'is-invalid': anonymize.name.$invalid}"
+        required
+        ng-class="{'is-invalid': conference.name.$invalid}"
         ng-model="options.name"
         placeholder="The name of the conference"
       />
-      <div class="invalid-feedback" ng-show="anonymize.name.$error.invalid">
+      <div class="invalid-feedback" ng-show="conference.name.$error.invalid">
         The name of the conference is invalid.
+      </div>
+      <div class="invalid-feedback" ng-show="conference.name.$error.required">
+        The name of the conference is required.
       </div>
     </div>
     <!-- url -->
     <div class="form-group">
       <label for="url">The url of the conference</label>
       <input
-        type="text"
+        type="url"
         class="form-control"
         name="url"
         id="url"
-        ng-class="{'is-invalid': anonymize.url.$invalid}"
+        ng-class="{'is-invalid': conference.url.$invalid}"
         ng-model="options.url"
         placeholder="The url of the conference"
       />
-      <div class="invalid-feedback" ng-show="anonymize.url.$error.invalid">
+      <div class="invalid-feedback" ng-show="conference.url.$error.invalid">
         The url of the conference is invalid.
       </div>
     </div>
@@ -45,15 +49,29 @@
         class="form-control"
         name="conferenceID"
         id="conferenceID"
-        ng-class="{'is-invalid': anonymize.conferenceID.$invalid}"
+        required
+        pattern="[a-zA-Z0-9\-_]{3,10}"
+        ng-class="{'is-invalid': conference.conferenceID.$invalid}"
         ng-model="options.conferenceID"
-        placeholder="The conference ID that the authors will references"
+        placeholder="The conference ID that the authors will reference"
       />
       <div
         class="invalid-feedback"
-        ng-show="anonymize.conferenceID.$error.used"
+        ng-show="conference.conferenceID.$error.used"
       >
-        {{conferenceID}} is already used.
+        The conference ID '{{options.conferenceID}}' is already used.
+      </div>
+      <div
+        class="invalid-feedback"
+        ng-show="conference.conferenceID.$error.required"
+      >
+        The conference ID is required.
+      </div>
+      <div
+        class="invalid-feedback"
+        ng-show="conference.conferenceID.$error.pattern"
+      >
+        The format of the conference ID is incorrect ([a-zA-Z0-9-_]{3,10}).
       </div>
     </div>
     <!-- startDate -->
@@ -64,12 +82,26 @@
         class="form-control"
         name="startDate"
         id="startDate"
-        ng-class="{'is-invalid': anonymize.startDate.$invalid}"
+        required
+        ng-class="{'is-invalid': conference.startDate.$invalid}"
         ng-model="options.startDate"
       />
       <small class="form-text text-muted"
         >The beginning date of the reviewing process.</small
       >
+      <div
+        class="invalid-feedback"
+        ng-show="conference.startDate.$error.required"
+      >
+        The start date of the conference is required.
+      </div>
+      <div
+        class="invalid-feedback"
+        ng-show="conference.startDate.$error.invalid"
+      >
+        The start date of the conference is invalid. The start date should
+        always be smaller than the end date.
+      </div>
     </div>
 
     <!-- endDate -->
@@ -80,120 +112,309 @@
         class="form-control"
         name="endDate"
         id="endDate"
-        ng-class="{'is-invalid': anonymize.endDate.$invalid}"
+        required
+        ng-class="{'is-invalid': conference.endDate.$invalid}"
         ng-model="options.endDate"
       />
       <small class="form-text text-muted"
-        >The end date of the reviewing process.</small
+        >The end date of the reviewing process. All the repositories will expire
+        and they will not be accessible after this date.</small
       >
+      <div
+        class="invalid-feedback"
+        ng-show="conference.endDate.$error.required"
+      >
+        The end date of the conference is required.
+      </div>
+      <div class="invalid-feedback" ng-show="conference.endDate.$error.invalid">
+        The end date of the conference is invalid. The end date should always be
+        smaller than today.
+      </div>
     </div>
 
-    <!-- nbRepository -->
-    <div class="form-group">
-      <label for="nbRepository">The number of repositories</label>
-      <input
-        type="number"
-        class="form-control"
-        name="nbRepository"
-        id="nbRepository"
-        ng-class="{'is-invalid': anonymize.nbRepository.$invalid}"
-        ng-model="options.nbRepository"
-        placeholder="The number of repositories"
-      />
-      <small class="form-text text-muted"
-        >The number of repositories expected to receive.</small
-      >
+    <h4>Anonymization options</h4>
+
+    <div class="accordion mb-3" id="options">
+      <div class="card">
+        <div class="card-header" id="headingOne">
+          <h2 class="mb-0">
+            <button
+              class="btn btn-block text-left"
+              type="button"
+              data-toggle="collapse"
+              data-target="#collapseOne"
+              aria-expanded="true"
+              aria-controls="collapseOne"
+            >
+              Rendering options
+            </button>
+          </h2>
+        </div>
+
+        <div
+          id="collapseOne"
+          class="collapse show"
+          aria-labelledby="headingOne"
+          data-parent="#options"
+        >
+          <div class="card-body">
+            <div class="form-group">
+              <div class="form-check">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  id="link"
+                  name="link"
+                  ng-model="options.options.link"
+                />
+                <label class="form-check-label" for="link">Keep links</label>
+                <small id="linkHelp" class="form-text text-muted"
+                  >Keep or remove all links from text files.</small
+                >
+              </div>
+              <div class="form-check">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  id="image"
+                  name="image"
+                  ng-model="options.options.image"
+                />
+                <label class="form-check-label" for="image"
+                  >Display images</label
+                >
+                <small id="imageHelp" class="form-text text-muted"
+                  >Display or hide images from the repositories and text
+                  files.</small
+                >
+              </div>
+              <div class="form-check">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  id="pdf"
+                  name="pdf"
+                  ng-model="options.options.pdf"
+                />
+                <label class="form-check-label" for="pdf">Display PDFs</label>
+                <small id="pdfHelp" class="form-text text-muted"
+                  >Display or hide PDF from the repositories.</small
+                >
+              </div>
+              <div class="form-check">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  id="notebook"
+                  name="notebook"
+                  ng-model="options.options.notebook"
+                />
+                <label class="form-check-label" for="notebook"
+                  >Display Notebooks</label
+                >
+                <small id="notebookHelp" class="form-text text-muted"
+                  >Display or hide Notebooks from the repositories.</small
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header" id="headingTwo">
+          <h2 class="mb-0">
+            <button
+              class="btn btn-block text-left collapsed"
+              type="button"
+              data-toggle="collapse"
+              data-target="#collapseTwo"
+              aria-expanded="false"
+              aria-controls="collapseTwo"
+            >
+              Features
+            </button>
+          </h2>
+        </div>
+        <div
+          id="collapseTwo"
+          class="collapse"
+          aria-labelledby="headingTwo"
+          data-parent="#options"
+        >
+          <div class="card-body">
+            <div class="form-group">
+              <div class="form-check">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  id="update"
+                  name="update"
+                  ng-model="options.options.update"
+                />
+                <label class="form-check-label" for="update">Auto update</label>
+                <small id="termsHelp" class="form-text text-muted"
+                  >Automatically update the anonymized repository with the
+                  latest commit of the repository. The repository is updated
+                  once per hour maximum.</small
+                >
+              </div>
+            </div>
+            <div class="form-group">
+              <div class="form-check">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  id="page"
+                  name="page"
+                  ng-model="options.options.page"
+                />
+                <label class="form-check-label" for="page">Github page</label>
+                <small id="termsHelp" class="form-text text-muted"
+                  >Enable anonymized Github pages.</small
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <h3>Plan</h3>
-
+    <h4>Plan</h4>
+    <small class="text-muted">The repositories are bill per hour.</small>
     <div class="card-deck mb-3 text-center">
-      <div class="card mb-4 shadow-sm">
+      <div class="card mb-4 shadow-sm" ng-repeat="plan in plans">
         <div class="card-header">
-          <h4 class="my-0 font-weight-normal">Free</h4>
+          <h4 class="my-0 font-weight-normal" ng-bind="plan.name"></h4>
         </div>
         <div class="card-body">
           <h1 class="card-title pricing-card-title">
-            {{0 | currency}} <small class="text-muted"> / month</small>
+            {{plan.pricePerRepo | currency}}
+            <small class="text-muted"> / repository / month</small>
           </h1>
-          <ul class="list-unstyled mt-3 mb-4">
-            <li><strong>Quota is deducted from user account</strong></li>
-            <li>Unlimited repositories</li>
-            <li>No-download</li>
-            <li>Conference dashboard</li>
-          </ul>
+          <ul
+            class="list-unstyled mt-3 mb-4"
+            ng-bind-html="plan.description"
+          ></ul>
           <button
             type="button"
             class="btn btn-lg btn-block"
-            ng-class="{'btn-primary': options.mode == 'free'}"
-            ng-click="options.mode = 'free'"
+            ng-class="{'btn-primary': options.plan.planID == plan.id}"
+            ng-click="options.plan.planID = plan.id"
           >
             Select
-            <small class="text-muted"
-              >Total {{ 0 * options.nbRepository * (options.endDate -
-              options.startDate) / 1000 / 60 / 60 / 24 / 30 | currency}}</small
-            >
           </button>
         </div>
       </div>
-      <div class="card mb-4 shadow-sm">
-        <div class="card-header">
-          <h4 class="my-0 font-weight-normal">Premium</h4>
+    </div>
+    <div ng-if="plan.pricePerRepo > 0">
+      <h3>Billing</h3>
+
+      <!-- name -->
+      <div class="form-group">
+        <label for="billing_name">The name & last name</label>
+        <input
+          type="text"
+          class="form-control"
+          name="billing_name"
+          id="billing_name"
+          required
+          ng-class="{'is-invalid': conference.billing_name.$invalid}"
+          ng-model="options.billing.name"
+          placeholder="Name & last name"
+        />
+      </div>
+
+      <!-- email -->
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input
+          type="email"
+          class="form-control"
+          name="email"
+          id="email"
+          required
+          ng-class="{'is-invalid': conference.email.$invalid}"
+          ng-model="options.billing.email"
+          placeholder="Email"
+        />
+      </div>
+
+      <!-- address -->
+      <div class="form-group">
+        <label for="inputAddress">Address</label>
+        <input
+          type="text"
+          class="form-control"
+          name="inputAddress"
+          id="inputAddress"
+          required
+          placeholder="1234 Main St"
+          ng-model="options.billing.address"
+          ng-class="{'is-invalid': conference.inputAddress.$invalid}"
+        />
+      </div>
+      <div class="form-group">
+        <input
+          type="text"
+          class="form-control"
+          name="inputAddress2"
+          id="inputAddress2"
+          ng-model="options.billing.address2"
+          ng-class="{'is-invalid': conference.inputAddress2.$invalid}"
+          placeholder="Apartment, studio, or floor"
+        />
+      </div>
+      <div class="form-row">
+        <div class="form-group col-md-6">
+          <input
+            type="text"
+            class="form-control"
+            name="city"
+            id="city"
+            ng-model="options.billing.city"
+            required
+            ng-class="{'is-invalid': conference.city.$invalid}"
+            placeholder="City"
+          />
         </div>
-        <div class="card-body">
-          <h1 class="card-title pricing-card-title">
-            {{5 + 0.5 * options.nbRepository | currency}}
-            <small class="text-muted"> / month</small>
-          </h1>
-          <ul class="list-unstyled mt-3 mb-4">
-            <li>500Mo / repository</li>
-            <li>{{options.nbRepository}} repositories included</li>
-            <li>Repository download</li>
-            <li>Conference dashboard</li>
-          </ul>
-          <button
-            type="button"
-            class="btn btn-lg btn-block"
-            ng-class="{'btn-primary': options.mode == 'small'}"
-            ng-click="options.mode = 'small'"
-          >
-            Select
-            <small class="text-muted"
-              >Total {{ 5 + 0.5 * options.nbRepository * (options.endDate -
-              options.startDate) / 1000 / 60 / 60 / 24 / 30 | currency}}</small
-            >
-          </button>
+        <div class="form-group col-md-4">
+          <input
+            type="text"
+            class="form-control"
+            name="country"
+            id="country"
+            ng-model="options.billing.country"
+            required
+            ng-class="{'is-invalid': conference.country.$invalid}"
+            placeholder="Country"
+          />
+        </div>
+        <div class="form-group col-md-2">
+          <input
+            type="text"
+            class="form-control"
+            name="zip"
+            id="zip"
+            ng-model="options.billing.zip"
+            required
+            ng-class="{'is-invalid': conference.zip.$invalid}"
+            placeholder="Zip"
+          />
         </div>
       </div>
 
-      <div class="card mb-4 shadow-sm">
-        <div class="card-header">
-          <h4 class="my-0 font-weight-normal">Unlimited</h4>
-        </div>
-        <div class="card-body">
-          <h1 class="card-title pricing-card-title">
-            {{5 + 3 * options.nbRepository | currency}}
-            <small class="text-muted"> / month</small>
-          </h1>
-          <ul class="list-unstyled mt-3 mb-4">
-            <li><strong>Unlimited</strong> repository size</li>
-            <li>{{options.nbRepository}} repositories included</li>
-            <li>Repository download</li>
-            <li>Conference dashboard</li>
-          </ul>
-          <button
-            type="button"
-            class="btn btn-lg btn-block"
-            ng-class="{'btn-primary': options.mode == 'unlimited'}"
-            ng-click="options.mode = 'unlimited';"
-          >
-            Select
-            <small class="text-muted"
-              >Total {{ 5 + 3 * options.nbRepository * (options.endDate -
-              options.startDate) / 1000 / 60 / 60 / 24 / 30 | currency}}</small
-            >
-          </button>
-        </div>
+      <!-- VAT -->
+      <div class="form-group">
+        <label for="vat">VAT Number</label>
+        <input
+          type="text"
+          class="form-control"
+          name="vat"
+          id="vat"
+          ng-class="{'is-invalid': conference.vat.$invalid}"
+          ng-model="options.billing.vat"
+          placeholder="VAT Number"
+        />
       </div>
     </div>
 
@@ -209,13 +430,14 @@
       ng-if="message"
       ng-bind="message"
     ></div>
+
     <button
-      id="save"
+      id="send"
       type="submit"
       class="btn btn-primary"
-      ng-click="saveDefault($event)"
+      ng-click="submit($event)"
     >
-      Create
+      {{editionMode ? "Update" : "Create"}}
     </button>
   </form>
 </div>
