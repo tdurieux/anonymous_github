@@ -914,7 +914,7 @@ angular
               $scope.conference_data.endDate
             );
             $scope.options.expirationMode = "remove";
-            
+
             $scope.options.update = $scope.conference_data.options.update;
             $scope.options.image = $scope.conference_data.options.image;
             $scope.options.pdf = $scope.conference_data.options.pdf;
@@ -1395,6 +1395,26 @@ angular
         status: { ready: true, expired: false, removed: false },
       };
       $scope.orderBy = "name";
+
+      $scope.removeConference = function (conf) {
+        if (
+          confirm(
+            `Are you sure that you want to remove the conference ${conf.name}? All the repositories linked to this conference will expire.`
+          )
+        ) {
+          const toast = {
+            title: `Removing ${conf.name}...`,
+            date: new Date(),
+            body: `The conference ${conf.name} is going to be removed.`,
+          };
+          $scope.toasts.push(toast);
+          $http.delete(`/api/conferences/${conf.conferenceID}`).then(() => {
+            toast.title = `${conf.name} is removed.`;
+            toast.body = `The conference ${conf.name} is removed.`;
+            getConferences();
+          });
+        }
+      };
 
       function getConferences() {
         $http.get("/api/conferences/").then(

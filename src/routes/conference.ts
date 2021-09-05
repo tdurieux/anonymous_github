@@ -176,4 +176,24 @@ router.get(
   }
 );
 
+router.delete(
+  "/:conferenceID",
+  async (req: express.Request, res: express.Response) => {
+    try {
+      const user = await getUser(req);
+      const data = await ConferenceModel.findOne({
+        conferenceID: req.params.conferenceID,
+      });
+      if (!data) throw new Error("conf_not_found");
+      const conference = new Conference(data);
+      if (conference.ownerIDs.indexOf(user.model.id) == -1)
+        throw new Error("not_authorized");
+      await conference.remove();
+      res.send("ok");
+    } catch (error) {
+      handleError(error, res);
+    }
+  }
+);
+
 export default router;
