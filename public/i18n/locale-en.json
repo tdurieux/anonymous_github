@@ -1,7 +1,7 @@
 {
   "ERRORS": {
     "repo_not_found": "The repository is not found.",
-    "repo_not_accessible": "Anonymous GitHub does not have the permission to access the repository.",
+    "repo_not_accessible": "Anonymous GitHub is unable to or is forbidden to access the repository.",
     "repository_expired": "The repository is expired",
     "repository_not_ready": "Anonymous GitHub is still processing the repository, it can take several minutes.",
     "repo_is_updating": "Anonymous GitHub is still processing the repository, it can take several minutes.",

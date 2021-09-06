@@ -1190,8 +1190,9 @@ angular
             }
           },
           (err) => {
-            console.log(err);
-            $scope.files = [];
+            $scope.type = "error";
+            $scope.content = err.data.error;
+            $scope.files = null;
           }
         );
       }

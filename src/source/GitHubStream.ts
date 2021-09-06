@@ -72,12 +72,19 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
     const octokit = new Octokit({
       auth: await this.getToken(),
     });
-    const ghRes = await octokit.git.getTree({
-      owner: this.githubRepository.owner,
-      repo: this.githubRepository.repo,
-      tree_sha: sha,
-      recursive: "1",
-    });
+
+    let ghRes;
+
+    try {
+      ghRes = await octokit.git.getTree({
+        owner: this.githubRepository.owner,
+        repo: this.githubRepository.repo,
+        tree_sha: sha,
+        recursive: "1",
+      });
+    } catch (error) {
+      throw new AnonymousError("repo_not_accessible", this.repository);
+    }
 
     const tree = this.tree2Tree(ghRes.data.tree, truncatedTree, parentPath);
     if (ghRes.data.truncated) {
