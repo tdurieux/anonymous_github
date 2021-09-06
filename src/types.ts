@@ -117,6 +117,8 @@ export type RepositoryStatus =
   | "expired"
   | "removed";
 
+export type ConferenceStatus = "ready" | "expired" | "removed";
+
 export type SourceStatus = "available" | "unavailable";
 
 export type TreeElement = Tree | TreeFile;

@@ -1,5 +1,6 @@
 import repositoryPrivate from "./repository-private";
 import repositoryPublic from "./repository-public";
+import conference from "./conference";
 import file from "./file";
 import webview from "./webview";
 import user from "./user";
@@ -12,4 +13,5 @@ export default {
   webview,
   user,
   option,
+  conference
 };

@@ -40,6 +40,7 @@
     "istextorbinary": "^6.0.0",
     "mime-types": "^2.1.30",
     "mongoose": "^5.13.5",
+    "node-schedule": "^2.0.0",
     "parse-github-url": "^1.0.2",
     "passport": "^0.4.1",
     "passport-github2": "^0.1.12",

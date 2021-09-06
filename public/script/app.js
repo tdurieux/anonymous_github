@@ -43,6 +43,26 @@ angular
         controller: "statusController",
         title: "Repository status - Anonymous GitHub",
       })
+      .when("/conferences", {
+        templateUrl: "/partials/conferences.htm",
+        controller: "conferencesController",
+        title: "Conferences - Anonymous GitHub",
+      })
+      .when("/conference/new", {
+        templateUrl: "/partials/newConference.htm",
+        controller: "newConferenceController",
+        title: "Add a conference - Anonymous GitHub",
+      })
+      .when("/conference/:conferenceId/edit", {
+        templateUrl: "/partials/newConference.htm",
+        controller: "newConferenceController",
+        title: "Edit conference - Anonymous GitHub",
+      })
+      .when("/conference/:conferenceId", {
+        templateUrl: "/partials/conference.htm",
+        controller: "conferenceController",
+        title: "Conference - Anonymous GitHub",
+      })
       .when("/faq", {
         templateUrl: "/partials/faq.htm",
         controller: "faqController",
@@ -619,7 +639,7 @@ angular
           body: `The repository ${repo.repoId} is going to be removed.`,
         };
         $scope.toasts.push(toast);
-        
+
         $http.post(`/api/repo/${repo.repoId}/refresh`).then(() => {
           toast.title = `${repo.repoId} is refreshed.`;
           toast.body = `The repository ${repo.repoId} is refreshed.`;
@@ -878,6 +898,35 @@ angular
         $scope.readme = res.data;
       }
 
+      function getConference() {
+        if (!$scope.conference) return;
+        $http.get("/api/conferences/" + $scope.conference).then(
+          (res) => {
+            $scope.conference_data = res.data;
+            $scope.conference_data.startDate = new Date(
+              $scope.conference_data.startDate
+            );
+            $scope.conference_data.endDate = new Date(
+              $scope.conference_data.endDate
+            );
+
+            $scope.options.expirationDate = new Date(
+              $scope.conference_data.endDate
+            );
+            $scope.options.expirationMode = "remove";
+
+            $scope.options.update = $scope.conference_data.options.update;
+            $scope.options.image = $scope.conference_data.options.image;
+            $scope.options.pdf = $scope.conference_data.options.pdf;
+            $scope.options.notebook = $scope.conference_data.options.notebook;
+            $scope.options.link = $scope.conference_data.options.link;
+          },
+          (err) => {
+            $scope.conference_data = null;
+          }
+        );
+      }
+
       function anonymize() {
         const urlRegex =
           /<?\b((https?|ftp|file):\/\/)[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]\b\/?>?/g;
@@ -950,6 +999,7 @@ angular
         $scope.anonymize.repoUrl.$setValidity("used", true);
         $scope.anonymize.repoUrl.$setValidity("missing", true);
         $scope.anonymize.repoUrl.$setValidity("access", true);
+        $scope.anonymize.conference.$setValidity("activated", true);
         $scope.anonymize.terms.$setValidity("format", true);
         $scope.anonymize.terms.$setValidity("format", true);
       }
@@ -979,6 +1029,9 @@ angular
             break;
           case "repo_not_accessible":
             $scope.anonymize.repoUrl.$setValidity("access", false);
+            break;
+          case "conf_not_activated":
+            $scope.anonymize.conference.$setValidity("activated", false);
             break;
           default:
             $scope.anonymize.$setValidity("error", false);
@@ -1039,6 +1092,9 @@ angular
         });
       };
 
+      $scope.$watch("conference", async (v) => {
+        getConference();
+      });
       $scope.$watch("source.branch", async (v) => {
         const selected = $scope.branches.filter(
           (f) => f.name == $scope.source.branch
@@ -1317,5 +1373,264 @@ angular
       }
 
       init();
+    },
+  ])
+  .controller("conferencesController", [
+    "$scope",
+    "$http",
+    "$location",
+    function ($scope, $http, $location) {
+      $scope.$watch("user.status", () => {
+        if ($scope.user == null) {
+          $location.url("/");
+        }
+      });
+      if ($scope.user == null) {
+        $location.url("/");
+      }
+
+      $scope.conferences = [];
+      $scope.search = "";
+      $scope.filters = {
+        status: { ready: true, expired: false, removed: false },
+      };
+      $scope.orderBy = "name";
+
+      $scope.removeConference = function (conf) {
+        if (
+          confirm(
+            `Are you sure that you want to remove the conference ${conf.name}? All the repositories linked to this conference will expire.`
+          )
+        ) {
+          const toast = {
+            title: `Removing ${conf.name}...`,
+            date: new Date(),
+            body: `The conference ${conf.name} is going to be removed.`,
+          };
+          $scope.toasts.push(toast);
+          $http.delete(`/api/conferences/${conf.conferenceID}`).then(() => {
+            toast.title = `${conf.name} is removed.`;
+            toast.body = `The conference ${conf.name} is removed.`;
+            getConferences();
+          });
+        }
+      };
+
+      function getConferences() {
+        $http.get("/api/conferences/").then(
+          (res) => {
+            $scope.conferences = res.data || [];
+          },
+          (err) => {
+            console.error(err);
+          }
+        );
+      }
+      getConferences();
+
+      $scope.conferenceFilter = (conference) => {
+        if ($scope.filters.status[conference.status] == false) return false;
+
+        if ($scope.search.trim().length == 0) return true;
+
+        if (conference.name.indexOf($scope.search) > -1) return true;
+        if (conference.conferenceID.indexOf($scope.search) > -1) return true;
+
+        return false;
+      };
+    },
+  ])
+  .controller("newConferenceController", [
+    "$scope",
+    "$http",
+    "$location",
+    "$routeParams",
+    function ($scope, $http, $location, $routeParams) {
+      $scope.$watch("user.status", () => {
+        if ($scope.user == null) {
+          $location.url("/");
+        }
+      });
+      if ($scope.user == null) {
+        $location.url("/");
+      }
+
+      $scope.plans = [];
+      $scope.editionMode = false;
+
+      function getConference() {
+        $http
+          .get("/api/conferences/" + $routeParams.conferenceId)
+          .then((res) => {
+            $scope.options = res.data;
+          });
+      }
+      if ($routeParams.conferenceId) {
+        $scope.editionMode = true;
+        getConference();
+      }
+
+      function getPlans() {
+        $http.get("/api/conferences/plans").then((res) => {
+          $scope.plans = res.data;
+
+          $scope.plan = $scope.plans.filter(
+            (f) => f.id == $scope.options.plan.planID
+          )[0];
+        });
+      }
+      getPlans();
+      const start = new Date();
+      start.setDate(1);
+      console.log(start);
+      start.setMonth(start.getMonth() + 1);
+      const end = new Date();
+      end.setMonth(start.getMonth() + 7, 0);
+      $scope.options = {
+        startDate: start,
+        endDate: end,
+        plan: {
+          planID: "free_conference",
+        },
+        options: {
+          link: true,
+          image: true,
+          pdf: true,
+          notebook: true,
+          update: true,
+          page: true,
+        },
+      };
+      $scope.plan = null;
+
+      $scope.$watch("options.plan.planID", () => {
+        console.log($scope.plans, $scope.options);
+        $scope.plan = $scope.plans.filter(
+          (f) => f.id == $scope.options.plan.planID
+        )[0];
+      });
+
+      function resetValidity() {
+        $scope.conference.name.$setValidity("required", true);
+        $scope.conference.conferenceID.$setValidity("pattern", true);
+        $scope.conference.conferenceID.$setValidity("required", true);
+        $scope.conference.conferenceID.$setValidity("used", true);
+        $scope.conference.startDate.$setValidity("required", true);
+        $scope.conference.startDate.$setValidity("invalid", true);
+        $scope.conference.endDate.$setValidity("required", true);
+        $scope.conference.endDate.$setValidity("invalid", true);
+        $scope.conference.$setValidity("error", true);
+      }
+
+      function displayErrorMessage(message) {
+        switch (message) {
+          case "conf_name_missing":
+            $scope.conference.name.$setValidity("required", false);
+            break;
+          case "conf_id_missing":
+            $scope.conference.conferenceID.$setValidity("required", false);
+            break;
+          case "conf_id_format":
+            $scope.conference.conferenceID.$setValidity("pattern", false);
+            break;
+          case "conf_id_used":
+            $scope.conference.conferenceID.$setValidity("used", false);
+            break;
+          case "conf_start_date_missing":
+            $scope.conference.startDate.$setValidity("required", false);
+            break;
+          case "conf_end_date_missing":
+            $scope.conference.endDate.$setValidity("required", false);
+            break;
+          case "conf_start_date_invalid":
+            $scope.conference.startDate.$setValidity("invalid", false);
+            break;
+          case "conf_end_date_invalid":
+            $scope.conference.endDate.$setValidity("invalid", false);
+            break;
+          default:
+            $scope.conference.$setValidity("error", false);
+            break;
+        }
+      }
+
+      $scope.submit = function () {
+        const toast = {
+          title: `Creating ${$scope.options.name}...`,
+          date: new Date(),
+          body: `The conference ${$scope.options.conferenceID} is in creation.`,
+        };
+        if ($scope.editionMode) {
+          toast.title = `Updating ${$scope.options.name}...`;
+          toast.body = `The conference '${$scope.options.conferenceID}' is updating.`;
+        }
+        $scope.toasts.push(toast);
+        resetValidity();
+        $http
+          .post(
+            "/api/conferences/" +
+              ($scope.editionMode ? $scope.options.conferenceID : ""),
+            $scope.options
+          )
+          .then(
+            () => {
+              if (!$scope.editionMode) {
+                toast.title = `${$scope.options.name} created`;
+                toast.body = `The conference '${$scope.options.conferenceID}' is created.`;
+              } else {
+                toast.title = `${$scope.options.name} updated`;
+                toast.body = `The conference '${$scope.options.conferenceID}' is updated.`;
+              }
+              $location.url("/conference/" + $scope.options.conferenceID);
+            },
+            (error) => {
+              displayErrorMessage(error.data.error);
+              $scope.removeToast(toast);
+            }
+          );
+      };
+    },
+  ])
+  .controller("conferenceController", [
+    "$scope",
+    "$http",
+    "$location",
+    "$routeParams",
+    function ($scope, $http, $location, $routeParams) {
+      $scope.$watch("user.status", () => {
+        if ($scope.user == null) {
+          $location.url("/");
+        }
+      });
+      if ($scope.user == null) {
+        $location.url("/");
+      }
+      $scope.conference = null;
+
+      $scope.search = "";
+      $scope.filters = {
+        status: { ready: true, expired: false, removed: false },
+      };
+      $scope.orderBy = "-anonymizeDate";
+
+      $scope.repoFiler = (repo) => {
+        if ($scope.filters.status[repo.status] == false) return false;
+
+        if ($scope.search.trim().length == 0) return true;
+
+        if (repo.source.fullName.indexOf($scope.search) > -1) return true;
+        if (repo.repoId.indexOf($scope.search) > -1) return true;
+
+        return false;
+      };
+
+      function getConference() {
+        $http
+          .get("/api/conferences/" + $routeParams.conferenceId)
+          .then((res) => {
+            $scope.conference = res.data;
+          });
+      }
+      getConference();
     },
   ]);

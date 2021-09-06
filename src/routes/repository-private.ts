@@ -10,6 +10,7 @@ import AnonymizedRepositoryModel from "../database/anonymizedRepositories/anonym
 import config from "../../config";
 import { IAnonymizedRepositoryDocument } from "../database/anonymizedRepositories/anonymizedRepositories.types";
 import Repository from "../Repository";
+import ConferenceModel from "../database/conference/conferences.model";
 
 const router = express.Router();
 
@@ -61,7 +62,7 @@ router.post(
   async (req: express.Request, res: express.Response) => {
     try {
       const repo = await getRepo(req, res, { nocheck: true });
-      if (!repo) throw new Error("repo_not_found");
+      if (!repo) return;
 
       const user = await getUser(req);
       if (repo.owner.username != user.username) {
@@ -163,7 +164,7 @@ router.get(
 router.get("/:repoId/", async (req: express.Request, res: express.Response) => {
   try {
     const repo = await getRepo(req, res, { nocheck: true });
-    if (!repo) throw new Error("repo_not_found");
+    if (!repo) return;
 
     const user = await getUser(req);
     if (user.username != repo.model.owner) {
@@ -215,7 +216,6 @@ function updateRepoModel(
   }
   model.source.commit = repoUpdate.source.commit;
   model.source.branch = repoUpdate.source.branch;
-  model.conference = repoUpdate.conference;
   model.options = {
     terms: repoUpdate.terms,
     expirationMode: repoUpdate.options.expirationMode,
@@ -238,7 +238,7 @@ router.post(
   async (req: express.Request, res: express.Response) => {
     try {
       const repo = await getRepo(req, res, { nocheck: true });
-      if (!repo) throw new Error("repo_not_found");
+      if (!repo) return;
       const user = await getUser(req);
 
       if (repo.owner.username != user.username) {
@@ -257,6 +257,48 @@ router.post(
 
       updateRepoModel(repo.model, repoUpdate);
 
+      async function removeRepoFromConference(conferenceID) {
+        const conf = await ConferenceModel.findOne({
+          conferenceID,
+        });
+        if (conf) {
+          const r = conf.repositories.filter((r) => r.id == repo.model.id);
+          if (r.length == 1) r[0].removeDate = new Date();
+          await conf.save();
+        }
+      }
+      if (!repoUpdate.conference) {
+        // remove conference
+        if (repo.model.conference) {
+          await removeRepoFromConference(repo.model.conference);
+        }
+      } else if (repoUpdate.conference != repo.model.conference) {
+        // update/add conference
+        const conf = await ConferenceModel.findOne({
+          conferenceID: repoUpdate.conference,
+        });
+        if (conf) {
+          if (new Date() < conf.startDate || new Date() > conf.endDate || conf.status !== "ready") {
+            throw new Error("conf_not_activated");
+          }
+          const f = conf.repositories.filter((r) => r.id == repo.model.id);
+          if (f.length) {
+            // the repository already referenced the conference
+            f[0].addDate = new Date();
+            f[0].removeDate = null;
+          } else {
+            conf.repositories.push({
+              id: repo.model.id,
+              addDate: new Date(),
+            });
+          }
+          if (repo.model.conference) {
+            await removeRepoFromConference(repo.model.conference);
+          }
+          await conf.save();
+        }
+      }
+      repo.model.conference = repoUpdate.conference;
       await repo.updateStatus("preparing");
       res.send("ok");
       new Repository(repo.model).anonymize();
@@ -285,7 +327,7 @@ router.post("/", async (req: express.Request, res: express.Response) => {
     repo.repoId = repoUpdate.repoId;
     repo.anonymizeDate = new Date();
     repo.owner = user.username;
-    
+
     updateRepoModel(repo, repoUpdate);
     repo.source.accessToken = user.accessToken;
     repo.source.repositoryId = repository.model.id;
@@ -297,8 +339,27 @@ router.post("/", async (req: express.Request, res: express.Response) => {
         return res.status(500).send({ error: "invalid_mode" });
       }
     }
+    repo.conference = repoUpdate.conference;
 
     await repo.save();
+
+    if (repoUpdate.conference) {
+      const conf = await ConferenceModel.findOne({
+        conferenceID: repoUpdate.conference,
+      });
+      if (conf) {
+        if (new Date() < conf.startDate || new Date() > conf.endDate || conf.status !== "ready") {
+          await repo.remove()
+          throw new Error("conf_not_activated");
+        }
+        conf.repositories.push({
+          id: repo.id,
+          addDate: new Date(),
+        });
+        await conf.save();
+      }
+    }
+
     res.send("ok");
     new Repository(repo).anonymize();
   } catch (error) {

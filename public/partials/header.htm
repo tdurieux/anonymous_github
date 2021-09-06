@@ -39,6 +39,14 @@
           >Anonymize</a
         >
       </li>
+      <li class="nav-item" ng-if="user">
+        <a
+          class="nav-link"
+          ng-class="{'active':path == '/conferences'}"
+          href="/conferences"
+          >Conferences</a
+        >
+      </li>
     </ul>
     <ul class="navbar-nav">
       <li class="nav-item">
