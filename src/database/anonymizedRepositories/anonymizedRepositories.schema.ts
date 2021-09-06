@@ -46,8 +46,14 @@ const AnonymizedRepositorySchema = new Schema({
     default: new Date(),
   },
   size: {
-    type: Number,
-    default: 0,
+    storage: {
+      type: Number,
+      default: 0,
+    },
+    file: {
+      type: Number,
+      default: 0,
+    },
   },
 });
 

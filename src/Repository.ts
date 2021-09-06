@@ -82,7 +82,7 @@ export default class Repository {
     }
     const files = await this.source.getFiles();
     this._model.originalFiles = files;
-    this._model.size = 0;
+    this._model.size = { storage: 0, file: 0 };
     await this.computeSize();
     await this._model.save();
 
@@ -149,14 +149,21 @@ export default class Repository {
         const branch = this.source.branch;
         if (
           branch.commit ==
-          branches.filter((f) => f.name == branch.name)[0].commit
+          branches.filter((f) => f.name == branch.name)[0]?.commit
         ) {
           console.log(`${this._model.repoId} is up to date`);
           return;
         }
         this._model.source.commit = branches.filter(
           (f) => f.name == branch.name
-        )[0].commit;
+        )[0]?.commit;
+
+        if (!this._model.source.commit) {
+          console.error(
+            `${branch.name} for ${this.source.githubRepository.fullName} is not found`
+          );
+          throw new Error("branch_not_found");
+        }
         this._model.anonymizeDate = new Date();
         console.log(
           `${this._model.repoId} will be updated to ${this._model.source.commit}`
@@ -218,7 +225,7 @@ export default class Repository {
    */
   private async resetSate(status?: RepositoryStatus) {
     if (status) this._model.status = status;
-    this._model.size = 0;
+    this._model.size = { storage: 0, file: 0 };
     this._model.originalFiles = null;
     return Promise.all([
       this._model.save(),
@@ -227,27 +234,39 @@ export default class Repository {
   }
 
   /**
-   * Compute the size of the repository in bite.
+   * Compute the size of the repository in term of storage and number of files.
    *
    * @returns The size of the repository in bite
    */
-  async computeSize(): Promise<number> {
-    if (this._model.status != "ready") return 0;
-    if (this._model.size) return this._model.size;
+  async computeSize(): Promise<{
+    /**
+     * Size of the repository in bit
+     */
+    storage: number;
+    /**
+     * The number of files
+     */
+    file: number;
+  }> {
+    if (this._model.status != "ready") return { storage: 0, file: 0 };
+    if (this._model.size.file) return this._model.size;
     function recursiveCount(files) {
-      let total = 0;
+      const out = { storage: 0, file: 0 };
       for (const name in files) {
         const file = files[name];
         if (file.size) {
-          total += file.size as number;
+          out.storage += file.size as number;
+          out.file++;
         } else if (typeof file == "object") {
-          total += recursiveCount(file);
+          const r = recursiveCount(file);
+          out.storage += r.storage;
+          out.file += r.file;
         }
       }
-      return total;
+      return out;
     }
 
-    const files = await this.files({ force: false });
+    const files = await this.files();
     this._model.size = recursiveCount(files);
     await this._model.save();
     return this._model.size;
@@ -291,7 +310,7 @@ export default class Repository {
   }
 
   get size() {
-    if (this._model.status != "ready") return 0;
+    if (this._model.status != "ready") return { storage: 0, file: 0 };
     return this._model.size;
   }
 
