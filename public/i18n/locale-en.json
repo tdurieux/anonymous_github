@@ -9,6 +9,7 @@
     "repoId_already_used": "The repository id is already used.",
     "invalid_repoId": "The format of the repository id is invalid.",
     "branch_not_specified": "The branch is not specified.",
+    "branch_not_found": "The branch of the repository cannot be found.",
     "options_not_provided": "Anonymization options are mandatory.",
     "invalid_terms_format": "Terms are in an invalid format.",
     "unable_to_anonymize": "An error happened during the anonymization process. Please try later or report the issue.",

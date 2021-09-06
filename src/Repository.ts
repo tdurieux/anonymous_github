@@ -149,14 +149,21 @@ export default class Repository {
         const branch = this.source.branch;
         if (
           branch.commit ==
-          branches.filter((f) => f.name == branch.name)[0].commit
+          branches.filter((f) => f.name == branch.name)[0]?.commit
         ) {
           console.log(`${this._model.repoId} is up to date`);
           return;
         }
         this._model.source.commit = branches.filter(
           (f) => f.name == branch.name
-        )[0].commit;
+        )[0]?.commit;
+
+        if (!this._model.source.commit) {
+          console.error(
+            `${branch.name} for ${this.source.githubRepository.fullName} is not found`
+          );
+          throw new Error("branch_not_found");
+        }
         this._model.anonymizeDate = new Date();
         console.log(
           `${this._model.repoId} will be updated to ${this._model.source.commit}`
@@ -303,7 +310,7 @@ export default class Repository {
   }
 
   get size() {
-    if (this._model.status != "ready") return 0;
+    if (this._model.status != "ready") return { storage: 0, file: 0 };
     return this._model.size;
   }
 
