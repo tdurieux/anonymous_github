@@ -93,7 +93,10 @@ export default class Repository {
    * Check the status of the repository
    */
   check() {
-    if (this._model.options.expirationMode !== "never") {
+    if (
+      this._model.options.expirationMode !== "never" &&
+      this._model.status == "ready"
+    ) {
       if (this._model.options.expirationDate <= new Date()) {
         this.expire();
       }
