@@ -9,7 +9,12 @@ const UserSchema = new Schema({
     type: String,
     index: { unique: true },
   },
-  email: String,
+  emails: [
+    {
+      email: { type: String },
+      default: Boolean,
+    },
+  ],
   photo: String,
   repositories: [String],
   default: {

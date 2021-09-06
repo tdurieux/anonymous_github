@@ -64,19 +64,24 @@ async function connect(db) {
             }).save()
           );
         }
-        const user = await new UserModel({
+        const user = new UserModel({
           accessTokens: {
             github: r.accessToken,
           },
           username: r.username,
-          email: r.profile.emails[0]?.value,
+          emails: r.profile.emails.map((email) => {
+            return { email: email.value, default: false };
+          }),
           photo: r.profile.photos[0]?.value,
           repositories: (await Promise.all(repositoryModels)).map((d) => d._id),
           default: {
             terms: r.default.terms,
             options: r.default.options,
           },
-        }).save();
+        });
+        if (user.emails.length) user.emails[0].default = true;
+
+        await user.save();
 
         localResolve(user);
       });

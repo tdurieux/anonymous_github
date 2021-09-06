@@ -6,7 +6,10 @@ export interface IUser {
   };
 
   username: string;
-  email: string;
+  emails: {
+    email: string;
+    default: boolean;
+  }[];
   photo?: string;
 
   repositories?: number[];
