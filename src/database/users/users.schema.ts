@@ -6,7 +6,7 @@ const UserSchema = new Schema({
     github: { type: String },
   },
   externalIDs: {
-    github: { type: String },
+    github: { type: String, index: true },
   },
   username: {
     type: String,
