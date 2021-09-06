@@ -72,7 +72,7 @@ async function connect(db) {
             github: r.profile.id,
           },
           username: r.username,
-          emails: r.profile.emails.map((email) => {
+          emails: r.profile.emails?.map((email) => {
             return { email: email.value, default: false };
           }),
           photo: r.profile.photos[0]?.value,
@@ -82,7 +82,7 @@ async function connect(db) {
             options: r.default.options,
           },
         });
-        if (user.emails.length) user.emails[0].default = true;
+        if (user.emails?.length) user.emails[0].default = true;
 
         await user.save();
 

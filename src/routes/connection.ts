@@ -32,21 +32,23 @@ const verify = async (
   let user: IUserDocument;
   try {
     user = await UserModel.findOne({ "externalIDs.github": profile.id });
-    const email = profile.emails ? profile.emails[0]?.value : null;
-    const photo = profile.photos ? profile.photos[0]?.value : null;
     if (user) {
-      user.accessToken = accessToken;
-      user.email = photo;
-      user.photo = photo;
-      await user.save();
+      user.accessTokens.github = accessToken;
     } else {
-      user = await new UserModel({
+      const photo = profile.photos ? profile.photos[0]?.value : null;
+      user = new UserModel({
         username: profile.username,
-        accessToken: accessToken,
-        email,
+        accessTokens: {
+          github: accessToken,
+        },
+        emails: profile.emails?.map((email) => {
+          return { email: email.value, default: false };
+        }),
         photo,
-      }).save();
+      });
+      if (user.emails?.length) user.emails[0].default = true;
     }
+    await user.save();
   } catch (error) {
     console.error(error);
   } finally {
