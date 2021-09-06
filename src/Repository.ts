@@ -158,6 +158,7 @@ export default class Repository {
         this._model.source.commit = branches.filter(
           (f) => f.name == branch.name
         )[0]?.commit;
+        branch.commit = this._model.source.commit;
 
         if (!this._model.source.commit) {
           console.error(
