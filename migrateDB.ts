@@ -68,6 +68,9 @@ async function connect(db) {
           accessTokens: {
             github: r.accessToken,
           },
+          externalIDs: {
+            github: r.profile.id,
+          },
           username: r.username,
           emails: r.profile.emails.map((email) => {
             return { email: email.value, default: false };

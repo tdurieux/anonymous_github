@@ -5,6 +5,9 @@ const UserSchema = new Schema({
   accessTokens: {
     github: { type: String },
   },
+  externalIDs: {
+    github: { type: String },
+  },
   username: {
     type: String,
     index: { unique: true },

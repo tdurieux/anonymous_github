@@ -8,6 +8,7 @@ import * as express from "express";
 
 import config from "../../config";
 import UserModel from "../database/users/users.model";
+import { IUserDocument } from "../database/users/users.types";
 
 const RedisStore = connectRedis(session);
 
@@ -28,9 +29,9 @@ const verify = async (
   profile: Profile,
   done: OAuth2Strategy.VerifyCallback
 ): Promise<void> => {
-  let user;
+  let user: IUserDocument;
   try {
-    user = await UserModel.findOne({ username: profile.username });
+    user = await UserModel.findOne({ "externalIDs.github": profile.id });
     const email = profile.emails ? profile.emails[0]?.value : null;
     const photo = profile.photos ? profile.photos[0]?.value : null;
     if (user) {
