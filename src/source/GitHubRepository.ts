@@ -98,23 +98,26 @@ export class GitHubRepository {
 
     this._data.branches = await this.branches(opt);
     model.branches = this._data.branches;
-    
+
     const selected = model.branches.filter((f) => f.name == opt.branch)[0];
     if (selected && (!selected.readme || opt?.force === true)) {
       // get the list of repo from github
       const octokit = new Octokit({ auth: opt.accessToken });
-      const ghRes = await octokit.repos.getReadme({
-        owner: this.owner,
-        repo: this.repo,
-        ref: selected?.commit,
-      });
-      const readme = Buffer.from(
-        ghRes.data.content,
-        ghRes.data.encoding as BufferEncoding
-      ).toString("utf-8");
-      selected.readme = readme;
-
-      await model.save();
+      try {
+        const ghRes = await octokit.repos.getReadme({
+          owner: this.owner,
+          repo: this.repo,
+          ref: selected?.commit,
+        });
+        const readme = Buffer.from(
+          ghRes.data.content,
+          ghRes.data.encoding as BufferEncoding
+        ).toString("utf-8");
+        selected.readme = readme;
+        await model.save();
+      } catch (error) {
+        throw new Error("readme_not_available");
+      }
     }
 
     return selected.readme;
