@@ -26,7 +26,7 @@ const plans = [
     id: "premium_conference",
     name: "Premium",
     pricePerRepo: 0.5,
-    storagePerRepo: 500,
+    storagePerRepo: 500 * 8 * 1024,
     description: `<li>500Mo / repository</li>
     <li>Repository download</li>
     <li>Conference dashboard</li>`,
