@@ -100,7 +100,7 @@ export class GitHubRepository {
     model.branches = this._data.branches;
     
     const selected = model.branches.filter((f) => f.name == opt.branch)[0];
-    if (!selected?.readme || opt?.force === true) {
+    if (selected && (!selected.readme || opt?.force === true)) {
       // get the list of repo from github
       const octokit = new Octokit({ auth: opt.accessToken });
       const ghRes = await octokit.repos.getReadme({
