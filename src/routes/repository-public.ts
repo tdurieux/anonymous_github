@@ -65,7 +65,6 @@ router.get(
       let download = false;
       const conference = await repo.conference();
       if (conference) {
-        console.log(conference.quota)
         download =
           conference.quota.size > -1 &&
           !!config.ENABLE_DOWNLOAD &&

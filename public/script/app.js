@@ -693,7 +693,7 @@ angular
                 $scope.progress = 10;
               } else if ($scope.repo.status == "downloaded") {
                 $scope.progress = 50;
-              } else if ($scope.repo.status == "downloading") {
+              } else if ($scope.repo.status == "download") {
                 $scope.progress = 25;
               } else if ($scope.repo.status == "preparing") {
                 $scope.progress = 25;
