@@ -330,7 +330,7 @@ router.post("/", async (req: express.Request, res: express.Response) => {
     const repo = new AnonymizedRepositoryModel();
     repo.repoId = repoUpdate.repoId;
     repo.anonymizeDate = new Date();
-    repo.owner = user.username;
+    repo.owner = user.id;
 
     updateRepoModel(repo, repoUpdate);
     repo.source.accessToken = user.accessToken;
