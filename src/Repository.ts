@@ -83,6 +83,7 @@ export default class Repository {
     const files = await this.source.getFiles();
     this._model.originalFiles = files;
     this._model.size = 0;
+    await this.computeSize();
     await this._model.save();
 
     this._model.originalFiles = files;
@@ -289,6 +290,11 @@ export default class Repository {
     return this._model.status;
   }
 
+  get size() {
+    if (this._model.status != "ready") return 0;
+    return this._model.size;
+  }
+
   toJSON() {
     return {
       repoId: this._model.repoId,
@@ -299,7 +305,7 @@ export default class Repository {
       source: this.source.toJSON(),
       lastView: this._model.lastView,
       pageView: this._model.pageView,
-      size: this._model.size,
+      size: this.size,
     };
   }
 }
