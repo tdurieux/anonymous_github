@@ -2,7 +2,9 @@ import * as mongoose from "mongoose";
 const { Schema } = mongoose;
 
 const UserSchema = new Schema({
-  accessToken: String,
+  accessTokens: {
+    github: { type: String },
+  },
   username: {
     type: String,
     index: { unique: true },

@@ -19,7 +19,7 @@ export default class User {
   }
 
   get accessToken(): string {
-    return this._model.accessToken;
+    return this._model.accessTokens.github;
   }
 
   get photo(): string {

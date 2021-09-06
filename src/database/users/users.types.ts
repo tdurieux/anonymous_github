@@ -1,7 +1,9 @@
 import * as mongoose from "mongoose";
 
 export interface IUser {
-  accessToken: string;
+  accessTokens: {
+    github: string;
+  };
 
   username: string;
   email: string;

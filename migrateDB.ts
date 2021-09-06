@@ -7,7 +7,6 @@ import RepositoryModel from "./src/database/repositories/repositories.model";
 import AnonymizedRepositoryModel from "./src/database/anonymizedRepositories/anonymizedRepositories.model";
 import UserModel from "./src/database/users/users.model";
 import { IRepositoryDocument } from "./src/database/repositories/repositories.types";
-import { LexRuntime } from "aws-sdk";
 
 const MONGO_URL = `mongodb://${config.DB_USERNAME}:${config.DB_PASSWORD}@${config.DB_HOSTNAME}:27017/`;
 
@@ -66,7 +65,9 @@ async function connect(db) {
           );
         }
         const user = await new UserModel({
-          accessToken: r.accessToken,
+          accessTokens: {
+            github: r.accessToken,
+          },
           username: r.username,
           email: r.profile.emails[0]?.value,
           photo: r.profile.photos[0]?.value,
