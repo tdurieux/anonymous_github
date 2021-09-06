@@ -11,7 +11,11 @@ export function conferenceStatusCheck() {
       async (data) => {
         const conference = new Conference(data);
         if (conference.isExpired() && conference.status == "ready") {
-          await conference.expire();
+          try {
+            await conference.expire();
+          } catch (error) {
+            console.error(error);
+          }
         }
       }
     );
@@ -25,7 +29,11 @@ export function repositoryStatusCheck() {
       await AnonymizedRepositoryModel.find({ status: { $eq: "ready" } })
     ).forEach((data) => {
       const repo = new Repository(data);
-      repo.check();
+      try {
+        repo.check();
+      } catch (error) {
+        console.log(`Repository ${repo.repoId} is expired`);
+      }
     });
   });
 }
