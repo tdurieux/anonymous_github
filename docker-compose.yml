@@ -6,7 +6,6 @@ services:
     restart: always
     command: nodemon --transpile-only index.ts
     image: tdurieux/anonymous_github:v2
-    container_name: anonymous_github
     env_file:
       - ./.env
     environment: 
@@ -14,9 +13,8 @@ services:
       - DB_HOSTNAME=mongodb
     volumes:
       - .:/app
-      # - ./repositories:/app/repositories
     ports:
-      - 5000:$PORT
+      - $PORT:$PORT
     healthcheck:
       test:
         - CMD
