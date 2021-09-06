@@ -49,6 +49,8 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
       } else {
         content = Buffer.from("");
       }
+      if (this.repository.status != "ready")
+        await this.repository.updateStatus("ready");
       await storage.write(file.originalCachePath, content);
       return stream.Readable.from(content.toString());
     } catch (error) {
@@ -83,6 +85,7 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
         recursive: "1",
       });
     } catch (error) {
+      await this.repository.resetSate("error");
       throw new AnonymousError("repo_not_accessible", this.repository);
     }
 
@@ -90,6 +93,8 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
     if (ghRes.data.truncated) {
       await this.getTruncatedTree(sha, tree, parentPath);
     }
+    if (this.repository.status != "ready")
+      await this.repository.updateStatus("ready");
     return tree;
   }
 

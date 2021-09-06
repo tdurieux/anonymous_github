@@ -109,7 +109,7 @@ export default class Repository {
     if (this._model.status == "removed") {
       throw new AnonymousError("repository_expired", this);
     }
-    if (this._model.status != "ready") {
+    if (this._model.status == "download") {
       throw new AnonymousError("repository_not_ready", this);
     }
   }
@@ -225,7 +225,7 @@ export default class Repository {
   /**
    * Reset/delete the state of the repository
    */
-  private async resetSate(status?: RepositoryStatus) {
+  async resetSate(status?: RepositoryStatus) {
     if (status) this._model.status = status;
     this._model.size = { storage: 0, file: 0 };
     this._model.originalFiles = null;

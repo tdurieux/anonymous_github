@@ -49,9 +49,11 @@ export default class GitHubDownload extends GitHubBase implements SourceBase {
         try {
           response = await this._getZipUrl(config.GITHUB_TOKEN);
         } catch (error) {
+          await this.repository.resetSate("error");
           throw new AnonymousError("repo_not_accessible", this.repository);
         }
       } else {
+        await this.repository.resetSate("error");
         throw new AnonymousError("repo_not_accessible", this.repository);
       }
     }
