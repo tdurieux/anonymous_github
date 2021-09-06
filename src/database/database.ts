@@ -12,7 +12,7 @@ export async function connect() {
   mongoose.set("useFindAndModify", true);
   mongoose.set("useUnifiedTopology", true);
 
-  await mongoose.connect(MONGO_URL + "test", {
+  await mongoose.connect(MONGO_URL + "production", {
     authSource: "admin",
     useCreateIndex: true,
     useFindAndModify: true,

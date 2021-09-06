@@ -146,13 +146,14 @@ async function connect(db) {
           console.error(`Repository ${r.fullName} is not found (renamed)`);
         }
       }
+      const owner = await UserModel.findOne({ username: r.owner });
       await new AnonymizedRepositoryModel({
         repoId: r.repoId,
         status: r.status,
         anonymizeDate: r.anonymizeDate,
         lastView: r.lastView,
         pageView: r.pageView,
-        owner: r.owner,
+        owner: owner?.id,
         source: {
           accessToken: r.token,
           type:

@@ -15,7 +15,7 @@ const AnonymizedRepositorySchema = new Schema({
   lastView: Date,
   pageView: Number,
   accessToken: String,
-  owner: String,
+  owner: mongoose.Schema.Types.ObjectId,
   conference: String,
   source: {
     type: { type: String },

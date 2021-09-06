@@ -34,7 +34,7 @@ export default class Repository {
       default:
         throw new Error("unsupported_source");
     }
-    this.owner = new User(new UserModel({ username: data.owner }));
+    this.owner = new User(new UserModel({ id: data.owner }));
   }
 
   /**

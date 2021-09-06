@@ -48,7 +48,7 @@ router.post("/claim", async (req: express.Request, res: express.Response) => {
 
     await AnonymizedRepositoryModel.updateOne(
       { repoId: repoConfig.repoId },
-      { $set: { owner: user.username } }
+      { $set: { owner: user.model.id } }
     );
     return res.send("Ok");
   } catch (error) {
@@ -65,7 +65,7 @@ router.post(
       if (!repo) return;
 
       const user = await getUser(req);
-      if (repo.owner.username != user.username) {
+      if (repo.owner.id != user.id) {
         return res.status(401).json({ error: "not_authorized" });
       }
       await repo.anonymize();
@@ -84,7 +84,7 @@ router.delete(
     if (!repo) return;
     try {
       const user = await getUser(req);
-      if (repo.owner.username != user.username) {
+      if (repo.owner.id != user.id) {
         return res.status(401).json({ error: "not_authorized" });
       }
       await repo.remove();
@@ -167,7 +167,7 @@ router.get("/:repoId/", async (req: express.Request, res: express.Response) => {
     if (!repo) return;
 
     const user = await getUser(req);
-    if (user.username != repo.model.owner) {
+    if (repo.owner.id != user.id) {
       return res.status(401).send({ error: "not_authorized" });
     }
     res.json((await db.getRepository(req.params.repoId)).toJSON());
@@ -241,7 +241,7 @@ router.post(
       if (!repo) return;
       const user = await getUser(req);
 
-      if (repo.owner.username != user.username) {
+      if (repo.owner.id != user.id) {
         return res.status(401).json({ error: "not_authorized" });
       }
 
@@ -278,7 +278,11 @@ router.post(
           conferenceID: repoUpdate.conference,
         });
         if (conf) {
-          if (new Date() < conf.startDate || new Date() > conf.endDate || conf.status !== "ready") {
+          if (
+            new Date() < conf.startDate ||
+            new Date() > conf.endDate ||
+            conf.status !== "ready"
+          ) {
             throw new Error("conf_not_activated");
           }
           const f = conf.repositories.filter((r) => r.id == repo.model.id);
@@ -348,8 +352,12 @@ router.post("/", async (req: express.Request, res: express.Response) => {
         conferenceID: repoUpdate.conference,
       });
       if (conf) {
-        if (new Date() < conf.startDate || new Date() > conf.endDate || conf.status !== "ready") {
-          await repo.remove()
+        if (
+          new Date() < conf.startDate ||
+          new Date() > conf.endDate ||
+          conf.status !== "ready"
+        ) {
+          await repo.remove();
           throw new Error("conf_not_activated");
         }
         conf.repositories.push({

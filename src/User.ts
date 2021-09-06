@@ -14,6 +14,10 @@ export default class User {
     this._model = model;
   }
 
+  get id(): string {
+    return this._model.id;
+  }
+
   get username(): string {
     return this._model.username;
   }
