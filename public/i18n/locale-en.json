@@ -21,6 +21,7 @@
     "file_not_supported": "The file type is not supported. Anonymous GitHub cannot handle it.",
     "file_too_big": "The file size exceed the limit of Anonymous GitHub.",
     "is_folder": "The path points to a folder.",
+    "folder_not_supported": "The path points to a folder. Please select a file.",
     "unable_to_write_file": "Unable to write file on disk.",
     "stats_unsupported": "Statistics are only supported in download mode.",
     "branches_not_found": "The requested branch is not found.",
