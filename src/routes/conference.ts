@@ -1,9 +1,7 @@
 import * as express from "express";
-import config from "../../config";
+import AnonymousError from "../AnonymousError";
 import Conference from "../Conference";
-import AnonymizedRepositoryModel from "../database/anonymizedRepositories/anonymizedRepositories.model";
 import ConferenceModel from "../database/conference/conferences.model";
-import Repository from "../Repository";
 import { ensureAuthenticated } from "./connection";
 import { handleError, getUser } from "./route-utils";
 
@@ -69,26 +67,26 @@ router.get("/", async (req: express.Request, res: express.Response) => {
 });
 
 function validateConferenceForm(conf) {
-  if (!conf.name) throw new Error("conf_name_missing");
-  if (!conf.conferenceID) throw new Error("conf_id_missing");
-  if (!conf.startDate) throw new Error("conf_start_date_missing");
-  if (!conf.endDate) throw new Error("conf_end_date_missing");
+  if (!conf.name) throw new AnonymousError("conf_name_missing");
+  if (!conf.conferenceID) throw new AnonymousError("conf_id_missing");
+  if (!conf.startDate) throw new AnonymousError("conf_start_date_missing");
+  if (!conf.endDate) throw new AnonymousError("conf_end_date_missing");
   if (new Date(conf.startDate) > new Date(conf.endDate))
-    throw new Error("conf_start_date_invalid");
+    throw new AnonymousError("conf_start_date_invalid");
   if (new Date() > new Date(conf.endDate))
-    throw new Error("conf_end_date_invalid");
+    throw new AnonymousError("conf_end_date_invalid");
   if (plans.filter((p) => p.id == conf.plan.planID).length != 1)
-    throw new Error("invalid_plan");
+    throw new AnonymousError("invalid_plan");
   const plan = plans.filter((p) => p.id == conf.plan.planID)[0];
   if (plan.pricePerRepo > 0) {
     const billing = conf.billing;
-    if (!billing) throw new Error("billing_missing");
-    if (!billing.name) throw new Error("billing_name_missing");
-    if (!billing.email) throw new Error("billing_email_missing");
-    if (!billing.address) throw new Error("billing_address_missing");
-    if (!billing.city) throw new Error("billing_city_missing");
-    if (!billing.zip) throw new Error("billing_zip_missing");
-    if (!billing.country) throw new Error("billing_country_missing");
+    if (!billing) throw new AnonymousError("billing_missing");
+    if (!billing.name) throw new AnonymousError("billing_name_missing");
+    if (!billing.email) throw new AnonymousError("billing_email_missing");
+    if (!billing.address) throw new AnonymousError("billing_address_missing");
+    if (!billing.city) throw new AnonymousError("billing_city_missing");
+    if (!billing.zip) throw new AnonymousError("billing_zip_missing");
+    if (!billing.country) throw new AnonymousError("billing_country_missing");
   }
 }
 
@@ -103,7 +101,7 @@ router.post(
           conferenceID: req.params.conferenceID,
         });
         if (model.owners.indexOf(user.model.id) == -1)
-          throw new Error("not_authorized");
+          throw new AnonymousError("not_authorized");
       }
       validateConferenceForm(req.body);
       model.name = req.body.name;
@@ -148,7 +146,7 @@ router.post(
       res.send("ok");
     } catch (error) {
       if (error.message?.indexOf(" duplicate key") > -1) {
-        return handleError(new Error("conf_id_used"), res);
+        return handleError(new AnonymousError("conf_id_used"), res);
       }
       handleError(error, res);
     }
@@ -163,10 +161,10 @@ router.get(
       const data = await ConferenceModel.findOne({
         conferenceID: req.params.conferenceID,
       });
-      if (!data) throw new Error("conf_not_found");
+      if (!data) throw new AnonymousError("conf_not_found");
       const conference = new Conference(data);
       if (conference.ownerIDs.indexOf(user.model.id) == -1)
-        throw new Error("not_authorized");
+        throw new AnonymousError("not_authorized");
       const o: any = conference.toJSON();
       o.repositories = (await conference.repositories()).map((r) => r.toJSON());
       res.json(o);
@@ -184,10 +182,10 @@ router.delete(
       const data = await ConferenceModel.findOne({
         conferenceID: req.params.conferenceID,
       });
-      if (!data) throw new Error("conf_not_found");
+      if (!data) throw new AnonymousError("conf_not_found");
       const conference = new Conference(data);
       if (conference.ownerIDs.indexOf(user.model.id) == -1)
-        throw new Error("not_authorized");
+        throw new AnonymousError("not_authorized");
       await conference.remove();
       res.send("ok");
     } catch (error) {

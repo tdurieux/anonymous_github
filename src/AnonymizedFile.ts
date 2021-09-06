@@ -6,6 +6,7 @@ import { Tree, TreeElement, TreeFile } from "./types";
 import storage from "./storage";
 import config from "../config";
 import { anonymizePath, anonymizeStream } from "./anonymize-utils";
+import AnonymousError from "./AnonymousError";
 
 function tree2sha(
   tree: any,
@@ -39,7 +40,8 @@ export default class AnonymizedFile {
 
   constructor(data: { repository: Repository; anonymizedPath: string }) {
     this.repository = data.repository;
-    if (!this.repository.options.terms) throw new Error("terms_not_specified");
+    if (!this.repository.options.terms)
+      throw new AnonymousError("terms_not_specified");
     this.anonymizedPath = data.anonymizedPath;
   }
 
@@ -49,9 +51,8 @@ export default class AnonymizedFile {
    * @returns the origin relative path of the file
    */
   async originalPath(): Promise<string> {
-    // console.log(new Error().stack);
     if (this._originalPath) return this._originalPath;
-    if (!this.anonymizedPath) throw new Error("path_not_specified");
+    if (!this.anonymizedPath) throw new AnonymousError("path_not_specified");
 
     const paths = this.anonymizedPath.trim().split("/");
 
@@ -67,7 +68,7 @@ export default class AnonymizedFile {
         continue;
       }
       if (!currentAnonymized[fileName]) {
-        throw new Error("file_not_found");
+        throw new AnonymousError("file_not_found", this);
       }
       currentAnonymized = currentAnonymized[fileName];
 
@@ -100,7 +101,7 @@ export default class AnonymizedFile {
       currentAnonymized.sha === undefined ||
       currentAnonymized.size === undefined
     ) {
-      throw new Error("folder_not_supported");
+      throw new AnonymousError("folder_not_supported", this);
     }
 
     const file: TreeFile = currentAnonymized as TreeFile;
@@ -111,7 +112,7 @@ export default class AnonymizedFile {
       // it should never happen
       const shaTree = tree2sha(currentOriginal);
       if (!currentAnonymized.sha || !shaTree[file.sha]) {
-        throw new Error("file_not_found");
+        throw new AnonymousError("file_not_found", this);
       }
 
       this._originalPath = path.join(currentOriginalPath, shaTree[file.sha]);
@@ -144,7 +145,7 @@ export default class AnonymizedFile {
 
   async content(): Promise<stream.Readable> {
     if (this.fileSize && this.fileSize > config.MAX_FILE_SIZE) {
-      throw new Error("file_too_big");
+      throw new AnonymousError("file_too_big", this);
     }
     if (await storage.exists(this.originalCachePath)) {
       return storage.read(this.originalCachePath);
@@ -160,7 +161,7 @@ export default class AnonymizedFile {
   }
 
   get originalCachePath() {
-    if (!this.originalPath) throw new Error("path_not_defined");
+    if (!this.originalPath) throw new AnonymousError("path_not_defined");
     return path.join(this.repository.originalCachePath, this._originalPath);
   }
 

@@ -48,6 +48,7 @@
     "redis": "^3.1.2",
     "tar-fs": "^2.1.1",
     "textextensions": "^5.12.0",
+    "ts-custom-error": "^3.2.0",
     "xml-flow": "^1.0.4"
   },
   "devDependencies": {

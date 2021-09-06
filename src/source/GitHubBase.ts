@@ -6,6 +6,7 @@ import { OAuthApp } from "@octokit/oauth-app";
 import Repository from "../Repository";
 import * as stream from "stream";
 import UserModel from "../database/users/users.model";
+import AnonymousError from "../AnonymousError";
 
 export default abstract class GitHubBase {
   type: "GitHubDownload" | "GitHubStream" | "Zip";
@@ -37,17 +38,18 @@ export default abstract class GitHubBase {
   }
 
   async getFileContent(file: AnonymizedFile): Promise<stream.Readable> {
-    throw new Error("Method not implemented.");
+    throw new AnonymousError("Method not implemented.");
   }
+  
   getFiles(): Promise<Tree> {
-    throw new Error("Method not implemented.");
+    throw new AnonymousError("Method not implemented.");
   }
 
   async getToken(owner?: string) {
     if (owner) {
       const user = await UserModel.findOne({ username: owner });
-      if (user && user.accessToken) {
-        return user.accessToken as string;
+      if (user && user.accessTokens.github) {
+        return user.accessTokens.github as string;
       }
     }
     if (this.accessToken) {

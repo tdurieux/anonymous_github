@@ -3,6 +3,7 @@ import { getRepo, handleError } from "./route-utils";
 import * as path from "path";
 import AnonymizedFile from "../AnonymizedFile";
 import GitHubDownload from "../source/GitHubDownload";
+import AnonymousError from "../AnonymousError";
 
 const router = express.Router();
 
@@ -10,18 +11,15 @@ async function webView(req: express.Request, res: express.Response) {
   const repo = await getRepo(req, res);
   if (!repo) return;
   try {
-    if (!repo.options.page) {
-      throw new Error("page_not_activated");
-    }
-    if (!repo.options.pageSource) {
-      throw new Error("page_not_activated");
+    if (!repo.options.page || !repo.options.pageSource) {
+      throw new AnonymousError("page_not_activated");
     }
 
     if (
       repo.options.pageSource?.branch !=
       (repo.source as GitHubDownload).branch.name
     ) {
-      throw new Error("page_not_supported_on_different_branch");
+      throw new AnonymousError("page_not_supported_on_different_branch");
     }
 
     let requestPath = path.join(

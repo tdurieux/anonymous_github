@@ -13,6 +13,7 @@ import { anonymizeStream } from "./anonymize-utils";
 import GitHubBase from "./source/GitHubBase";
 import Conference from "./Conference";
 import ConferenceModel from "./database/conference/conferences.model";
+import AnonymousError from "./AnonymousError";
 
 export default class Repository {
   private _model: IAnonymizedRepositoryDocument;
@@ -32,7 +33,7 @@ export default class Repository {
         this.source = new Zip(data.source, this);
         break;
       default:
-        throw new Error("unsupported_source");
+        throw new AnonymousError("unsupported_source", data.source.type);
     }
     this.owner = new User(new UserModel({ _id: data.owner }));
   }
@@ -103,13 +104,13 @@ export default class Repository {
       }
     }
     if (this._model.status == "expired") {
-      throw new Error("repository_expired");
+      throw new AnonymousError("repository_expired", this);
     }
     if (this._model.status == "removed") {
-      throw new Error("repository_expired");
+      throw new AnonymousError("repository_expired", this);
     }
     if (this._model.status != "ready") {
-      throw new Error("repository_not_ready");
+      throw new AnonymousError("repository_not_ready", this);
     }
   }
 
@@ -137,7 +138,7 @@ export default class Repository {
 
     if (this._model.options.update && this._model.lastView < yesterday) {
       if (this._model.status != "ready") {
-        throw new Error("repo_not_ready");
+        throw new AnonymousError("repository_not_ready", this);
       }
 
       // Only GitHubBase can be update for the moment
@@ -162,7 +163,7 @@ export default class Repository {
           console.error(
             `${branch.name} for ${this.source.githubRepository.fullName} is not found`
           );
-          throw new Error("branch_not_found");
+          throw new AnonymousError("branch_not_found", this);
         }
         this._model.anonymizeDate = new Date();
         console.log(

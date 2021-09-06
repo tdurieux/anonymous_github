@@ -3,6 +3,7 @@ import * as gh from "parse-github-url";
 import { IRepositoryDocument } from "../database/repositories/repositories.types";
 import { Octokit } from "@octokit/rest";
 import RepositoryModel from "../database/repositories/repositories.model";
+import AnonymousError from "../AnonymousError";
 
 export class GitHubRepository {
   private _data: Partial<
@@ -116,7 +117,7 @@ export class GitHubRepository {
         selected.readme = readme;
         await model.save();
       } catch (error) {
-        throw new Error("readme_not_available");
+        throw new AnonymousError("readme_not_available", this);
       }
     }
 
@@ -126,7 +127,7 @@ export class GitHubRepository {
   public get owner(): string {
     const repo = gh(this.fullName);
     if (!repo) {
-      throw "invalid_repo";
+      throw new AnonymousError("invalid_repo", this);
     }
     return repo.owner || this.fullName;
   }
@@ -134,7 +135,7 @@ export class GitHubRepository {
   public get repo(): string {
     const repo = gh(this.fullName);
     if (!repo) {
-      throw "invalid_repo";
+      throw new AnonymousError("invalid_repo", this);
     }
     return repo.name || this.fullName;
   }
@@ -152,7 +153,7 @@ export async function getRepositoryFromGitHub(opt: {
       repo: opt.repo,
     })
   ).data;
-  if (!r) throw new Error("repo_not_found");
+  if (!r) throw new AnonymousError("repo_not_found", this);
   let model = await RepositoryModel.findOne({ externalId: "gh_" + r.id });
   if (!model) {
     model = new RepositoryModel({ externalId: "gh_" + r.id });

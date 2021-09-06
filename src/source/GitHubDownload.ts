@@ -9,6 +9,7 @@ import { SourceBase } from "../types";
 import got from "got";
 import * as stream from "stream";
 import { OctokitResponse } from "@octokit/types";
+import AnonymousError from "../AnonymousError";
 
 export default class GitHubDownload extends GitHubBase implements SourceBase {
   constructor(
@@ -39,7 +40,7 @@ export default class GitHubDownload extends GitHubBase implements SourceBase {
 
   async download() {
     if (this.repository.status == "download")
-      throw new Error("repo_in_download");
+      throw new AnonymousError("repo_in_download", this.repository);
     let response: OctokitResponse<unknown, number>;
     try {
       response = await this._getZipUrl(await this.getToken());
@@ -48,10 +49,10 @@ export default class GitHubDownload extends GitHubBase implements SourceBase {
         try {
           response = await this._getZipUrl(config.GITHUB_TOKEN);
         } catch (error) {
-          throw new Error("repo_not_accessible");
+          throw new AnonymousError("repo_not_accessible", this.repository);
         }
       } else {
-        throw new Error("repo_not_accessible");
+        throw new AnonymousError("repo_not_accessible", this.repository);
       }
     }
     await this.repository.updateStatus("download");

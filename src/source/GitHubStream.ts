@@ -7,6 +7,7 @@ import { SourceBase, Tree } from "../types";
 import * as path from "path";
 
 import * as stream from "stream";
+import AnonymousError from "../AnonymousError";
 
 export default class GitHubStream extends GitHubBase implements SourceBase {
   constructor(
@@ -24,7 +25,7 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
   }
 
   async getFileContent(file: AnonymizedFile): Promise<stream.Readable> {
-    if (!file.sha) throw new Error("file_sha_not_provided");
+    if (!file.sha) throw new AnonymousError("file_sha_not_provided", file);
     const octokit = new Octokit({
       auth: await this.getToken(),
     });
@@ -36,7 +37,7 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
         file_sha: file.sha,
       });
       if (!ghRes.data.content && ghRes.data.size != 0) {
-        throw new Error("file_not_accessible");
+        throw new AnonymousError("file_not_accessible", file);
       }
       // empty file
       let content: Buffer;
@@ -52,11 +53,11 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
       return stream.Readable.from(content.toString());
     } catch (error) {
       if (error.status == 403) {
-        throw new Error("file_too_big");
+        throw new AnonymousError("file_too_big", file);
       }
       console.error(error);
     }
-    throw new Error("file_not_accessible");
+    throw new AnonymousError("file_not_accessible");
   }
 
   async getFiles() {

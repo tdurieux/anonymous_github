@@ -58,9 +58,9 @@ router.get(
         redirectURL = repo.source.url;
       } else {
         repo.check();
+        await repo.updateIfNeeded();
       }
 
-      await repo.updateIfNeeded();
 
       let download = false;
       const conference = await repo.conference();

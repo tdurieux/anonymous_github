@@ -11,6 +11,7 @@ import config from "../../config";
 import { IAnonymizedRepositoryDocument } from "../database/anonymizedRepositories/anonymizedRepositories.types";
 import Repository from "../Repository";
 import ConferenceModel from "../database/conference/conferences.model";
+import AnonymousError from "../AnonymousError";
 
 const router = express.Router();
 
@@ -182,22 +183,22 @@ function validateNewRepo(repoUpdate) {
     !repoUpdate.repoId.match(validCharacters) ||
     repoUpdate.repoId.length < 3
   ) {
-    throw new Error("invalid_repoId");
+    throw new AnonymousError("invalid_repoId");
   }
   if (!repoUpdate.source.branch) {
-    throw new Error("branch_not_specified");
+    throw new AnonymousError("branch_not_specified");
   }
   if (!repoUpdate.source.commit) {
-    throw new Error("commit_not_specified");
+    throw new AnonymousError("commit_not_specified");
   }
   if (!repoUpdate.options) {
-    throw new Error("options_not_provided");
+    throw new AnonymousError("options_not_provided");
   }
   if (!Array.isArray(repoUpdate.terms)) {
-    throw new Error("invalid_terms_format");
+    throw new AnonymousError("invalid_terms_format");
   }
   if (!/^[a-f0-9]+$/.test(repoUpdate.source.commit)) {
-    throw new Error("invalid_commit_format");
+    throw new AnonymousError("invalid_commit_format");
   }
 }
 
@@ -283,7 +284,7 @@ router.post(
             new Date() > conf.endDate ||
             conf.status !== "ready"
           ) {
-            throw new Error("conf_not_activated");
+            throw new AnonymousError("conf_not_activated");
           }
           const f = conf.repositories.filter((r) => r.id == repo.model.id);
           if (f.length) {
@@ -358,7 +359,7 @@ router.post("/", async (req: express.Request, res: express.Response) => {
           conf.status !== "ready"
         ) {
           await repo.remove();
-          throw new Error("conf_not_activated");
+          throw new AnonymousError("conf_not_activated");
         }
         conf.repositories.push({
           id: repo.id,
@@ -371,6 +372,9 @@ router.post("/", async (req: express.Request, res: express.Response) => {
     res.send("ok");
     new Repository(repo).anonymize();
   } catch (error) {
+    if (error.message?.indexOf(" duplicate key") > -1) {
+      return handleError(new AnonymousError("repoId_already_used", repoUpdate.repoId), res);
+    }
     return handleError(error, res);
   }
 });

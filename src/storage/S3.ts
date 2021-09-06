@@ -9,6 +9,7 @@ import * as flow from "xml-flow";
 import * as archiver from "archiver";
 import * as path from "path";
 import * as gunzip from "gunzip-maybe";
+import AnonymousError from "../AnonymousError";
 
 const originalArchiveStreamToS3Entry: Function = (ArchiveStreamToS3 as any)
   .prototype.onEntry;
@@ -18,7 +19,7 @@ export default class S3Storage implements StorageBase {
   client: S3;
 
   constructor() {
-    if (!config.S3_BUCKET) throw new Error("s3_config_not_provided");
+    if (!config.S3_BUCKET) throw new AnonymousError("s3_config_not_provided");
     this.client = new S3({
       region: config.S3_REGION,
       endpoint: config.S3_ENDPOINT,
