@@ -70,9 +70,9 @@
               >
                 <option selected value="">None</option>
                 <option
-                  ng-repeat="repo in repositories|orderBy:'full_name'"
-                  value="https://github.com/{{ repo.full_name }}"
-                  ng-bind="repo.full_name"
+                  ng-repeat="repo in repositories|orderBy:'fullName'"
+                  value="https://github.com/{{ repo.fullName }}"
+                  ng-bind="repo.fullName"
                 ></option>
               </select>
               <div class="input-group-append">
