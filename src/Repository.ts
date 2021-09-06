@@ -12,7 +12,7 @@ import { IAnonymizedRepositoryDocument } from "./database/anonymizedRepositories
 import { anonymizeStream } from "./anonymize-utils";
 import GitHubBase from "./source/GitHubBase";
 import Conference from "./Conference";
-import ConferenceModel from "./database/conference/conferenes.model";
+import ConferenceModel from "./database/conference/conferences.model";
 
 export default class Repository {
   private _model: IAnonymizedRepositoryDocument;

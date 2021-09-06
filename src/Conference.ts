@@ -6,6 +6,7 @@ import { ConferenceStatus } from "./types";
 export default class Conference {
   private _data: IConferenceDocument;
   private _repositories: Repository[] = null;
+  
   constructor(data: IConferenceDocument) {
     this._data = data;
   }
@@ -18,6 +19,13 @@ export default class Conference {
   async updateStatus(status: ConferenceStatus, errorMessage?: string) {
     this._data.status = status;
     return this._data.save();
+  }
+
+  /**
+   * Check if the conference is expired
+   */
+  isExpired() {
+    return this._data.endDate < new Date();
   }
 
   /**
@@ -40,6 +48,11 @@ export default class Conference {
     );
   }
 
+  /**
+   * Returns the list of repositories of this conference
+   *
+   * @returns the list of repositories of this conference
+   */
   async repositories(): Promise<Repository[]> {
     if (this._repositories) return this._repositories;
     const repoIds = this._data.repositories
@@ -60,6 +73,10 @@ export default class Conference {
 
   get quota() {
     return this._data.plan.quota;
+  }
+
+  get status() {
+    return this._data.status;
   }
 
   toJSON(opt?: { billing: boolean }): any {

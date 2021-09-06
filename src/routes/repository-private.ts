@@ -10,7 +10,7 @@ import AnonymizedRepositoryModel from "../database/anonymizedRepositories/anonym
 import config from "../../config";
 import { IAnonymizedRepositoryDocument } from "../database/anonymizedRepositories/anonymizedRepositories.types";
 import Repository from "../Repository";
-import ConferenceModel from "../database/conference/conferenes.model";
+import ConferenceModel from "../database/conference/conferences.model";
 
 const router = express.Router();
 

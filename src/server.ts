@@ -12,6 +12,7 @@ import * as passport from "passport";
 import * as connection from "./routes/connection";
 import router from "./routes";
 import AnonymizedRepositoryModel from "./database/anonymizedRepositories/anonymizedRepositories.model";
+import { conferenceStatusCheck } from "./schedule";
 
 function indexResponse(req: express.Request, res: express.Response) {
   if (
@@ -96,6 +97,9 @@ export default async function start() {
   );
 
   app.get("*", indexResponse);
+
+  // start schedules
+  conferenceStatusCheck();
 
   await db.connect();
   app.listen(config.PORT);

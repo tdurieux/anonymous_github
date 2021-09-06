@@ -2,7 +2,7 @@ import * as express from "express";
 import config from "../../config";
 import Conference from "../Conference";
 import AnonymizedRepositoryModel from "../database/anonymizedRepositories/anonymizedRepositories.model";
-import ConferenceModel from "../database/conference/conferenes.model";
+import ConferenceModel from "../database/conference/conferences.model";
 import Repository from "../Repository";
 import { ensureAuthenticated } from "./connection";
 import { handleError, getUser } from "./route-utils";
