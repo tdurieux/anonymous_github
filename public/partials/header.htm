@@ -28,16 +28,8 @@
           ng-class="{'active': path == '/dashboard'}"
           href="/dashboard"
         >
-          Dashboard
+          Repositories
         </a>
-      </li>
-      <li class="nav-item" ng-if="user">
-        <a
-          class="nav-link"
-          ng-class="{'active':path == '/anonymize'}"
-          href="/anonymize"
-          >Anonymize</a
-        >
       </li>
       <li class="nav-item" ng-if="user">
         <a
@@ -45,6 +37,14 @@
           ng-class="{'active':path == '/conferences'}"
           href="/conferences"
           >Conferences</a
+        >
+      </li>
+      <li class="nav-item" ng-if="user">
+        <a
+          class="nav-link"
+          ng-class="{'active':path == '/anonymize'}"
+          href="/anonymize"
+          >Anonymize</a
         >
       </li>
     </ul>
@@ -108,7 +108,6 @@
         </a>
         <div class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
           <a class="dropdown-item" href="/profile">Default settings</a>
-          <a class="dropdown-item" href="/dashboard">Projects</a>
           <div class="dropdown-divider"></div>
           <a class="dropdown-item" href="/api/user/logout" target="__self"
             >Logout</a
