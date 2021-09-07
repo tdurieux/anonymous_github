@@ -286,7 +286,8 @@ export default class Repository {
     const conference = await ConferenceModel.findOne({
       conferenceID: this._model.conference,
     });
-    return new Conference(conference);
+    if (conference) return new Conference(conference);
+    return null;
   }
 
   /***** Getters ********/
