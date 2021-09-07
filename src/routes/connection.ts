@@ -41,6 +41,9 @@ const verify = async (
         accessTokens: {
           github: accessToken,
         },
+        externalIDs: {
+          github: profile.id,
+        },
         emails: profile.emails?.map((email) => {
           return { email: email.value, default: false };
         }),
