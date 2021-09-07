@@ -147,13 +147,21 @@ export async function getRepositoryFromGitHub(opt: {
   accessToken: string;
 }) {
   const octokit = new Octokit({ auth: opt.accessToken });
-  const r = (
-    await octokit.repos.get({
-      owner: opt.owner,
-      repo: opt.repo,
-    })
-  ).data;
-  if (!r) throw new AnonymousError("repo_not_found", this);
+  let r;
+  try {
+    r = (
+      await octokit.repos.get({
+        owner: opt.owner,
+        repo: opt.repo,
+      })
+    ).data;
+  } catch (error) {
+    if (error.status == 404) {
+      throw new AnonymousError("repo_not_found", {owner: opt.owner, repo: opt.repo});
+    }
+    throw error;
+  }
+  if (!r) throw new AnonymousError("repo_not_found", {owner: opt.owner, repo: opt.repo});
   let model = await RepositoryModel.findOne({ externalId: "gh_" + r.id });
   if (!model) {
     model = new RepositoryModel({ externalId: "gh_" + r.id });
