@@ -137,7 +137,7 @@ export default class Repository {
     yesterday.setDate(yesterday.getDate() - 1);
 
     if (this._model.options.update && this._model.lastView < yesterday) {
-      if (this._model.status != "ready") {
+      if (this._model.status == "download") {
         throw new AnonymousError("repository_not_ready", this);
       }
 
