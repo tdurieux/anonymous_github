@@ -5,7 +5,7 @@ module.exports = {
       script: "./index.ts",
       exec_mode: "fork",
       watch: true,
-      ignore_watch: ["node_modules", "repositories", "repo"],
+      ignore_watch: ["node_modules", "repositories", "repo", "public", ".git", "db_backups"],
       interpreter: "node",
       interpreter_args: "--require ts-node/register",
     },
