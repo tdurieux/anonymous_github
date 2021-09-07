@@ -7,6 +7,7 @@ import storage from "./storage";
 import config from "../config";
 import { anonymizePath, anonymizeStream } from "./anonymize-utils";
 import AnonymousError from "./AnonymousError";
+import { handleError } from "./routes/route-utils";
 
 function tree2sha(
   tree: any,
@@ -174,8 +175,7 @@ export default class AnonymizedFile {
       });
       s.pipe(res);
     } catch (error) {
-      console.log("Error during anonymization", error);
-      res.status(500).send({ error: error.message });
+      handleError(error, res);
     }
   }
 }
