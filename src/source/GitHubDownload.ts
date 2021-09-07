@@ -61,27 +61,45 @@ export default class GitHubDownload extends GitHubBase implements SourceBase {
     const originalPath = this.repository.originalCachePath;
     await storage.mk(originalPath);
     let progress = null;
-    let progressInterval = setInterval(async () => {
+    let progressTimeout;
+    let inDownload = true;
+
+    const that = this;
+    async function updateProgress() {
       if (progress) {
-        await this.repository.updateStatus(
-          this.repository.status,
+        await that.repository.updateStatus(
+          that.repository.status,
           progress.transferred
         );
       }
-    }, 1000);
+      if (inDownload) {
+        progressTimeout = setTimeout(updateProgress, 1500);
+      }
+    }
+    updateProgress();
+
     await storage.extractTar(
       originalPath,
       got
         .stream(response.url)
         .on("downloadProgress", async (p) => {
-          console.log(p);
+          inDownload = true;
           progress = p;
         })
-        .on("error", () => clearInterval(progressInterval))
-        .on("end", () => clearInterval(progressInterval))
-        .on("close", () => clearInterval(progressInterval))
+        .on("error", (error) => {
+          inDownload = false;
+          clearTimeout(progressTimeout);
+        })
+        .on("end", () => {
+          inDownload = false;
+          console.log("download finished");
+          clearTimeout(progressTimeout);
+        })
+        .on("close", () => clearTimeout(progressTimeout))
     );
-    clearInterval(progressInterval);
+
+    inDownload = false;
+    clearTimeout(progressTimeout);
     await this.repository.updateStatus("ready");
   }
 
