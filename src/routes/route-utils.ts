@@ -5,9 +5,9 @@ import * as db from "../database/database";
 import UserModel from "../database/users/users.model";
 import Repository from "../Repository";
 import GitHubBase from "../source/GitHubBase";
-import GitHubDownload from "../source/GitHubDownload";
 import { GitHubRepository } from "../source/GitHubRepository";
 import User from "../User";
+import * as io from "@pm2/io";
 
 export async function getRepo(
   req: express.Request,
@@ -39,6 +39,7 @@ export async function getRepo(
 
 function printError(error: any) {
   if (error instanceof AnonymousError) {
+    io.notifyError(error, error.value);
     let detail = error.value ? JSON.stringify(error.value) : null;
     if (error.value instanceof Repository) {
       detail = error.value.repoId;
