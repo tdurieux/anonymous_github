@@ -2,6 +2,7 @@ import { StorageBase, Tree, TreeFile } from "../types";
 import { S3 } from "aws-sdk";
 import config from "../../config";
 import * as stream from "stream";
+import { promisify } from "util";
 import { ArchiveStreamToS3 } from "archive-stream-to-s3";
 import * as express from "express";
 import * as mime from "mime-types";
@@ -101,9 +102,10 @@ export default class S3Storage implements StorageBase {
           res.set("Content-Length", headers["content-length"]);
           res.set("Content-Type", headers["content-type"]);
         }
-        (
-          response.httpResponse.createUnbufferedStream() as stream.Readable
-        ).pipe(res);
+        stream.pipeline(
+          response.httpResponse.createUnbufferedStream() as stream.Readable,
+          res
+        );
       });
 
     s.send();
@@ -167,28 +169,22 @@ export default class S3Storage implements StorageBase {
 
   /** @override */
   async extractTar(p: string, data: stream.Readable): Promise<void> {
-    return new Promise<void>((resolve, reject) => {
-      let toS3: ArchiveStreamToS3;
+    const pipeline = promisify(stream.pipeline);
 
-      (ArchiveStreamToS3 as any).prototype.onEntry = function (
-        header: any,
-        stream: any,
-        next: any
-      ) {
-        header.name = header.name.substr(header.name.indexOf("/") + 1);
-        originalArchiveStreamToS3Entry.call(toS3, header, stream, next);
-      };
+    let toS3: ArchiveStreamToS3;
 
-      toS3 = new ArchiveStreamToS3(config.S3_BUCKET, p, this.client);
+    (ArchiveStreamToS3 as any).prototype.onEntry = function (
+      header: any,
+      stream: any,
+      next: any
+    ) {
+      header.name = header.name.substr(header.name.indexOf("/") + 1);
+      originalArchiveStreamToS3Entry.call(toS3, header, stream, next);
+    };
 
-      toS3.on("finish", (result) => {
-        resolve(result);
-      });
-      toS3.on("error", (e) => {
-        reject(e);
-      });
-      data.pipe(gunzip()).pipe(toS3);
-    });
+    toS3 = new ArchiveStreamToS3(config.S3_BUCKET, p, this.client);
+
+    return pipeline(data, gunzip(), toS3);
   }
 
   /** @override */

@@ -1,7 +1,9 @@
+import { promisify } from "util";
 import * as express from "express";
+import * as stream from "stream";
 import config from "../../config";
 
-import * as db from "../database/database";
+
 import { getRepo, handleError } from "./route-utils";
 
 const router = express.Router();
@@ -14,13 +16,14 @@ router.get(
     const repo = await getRepo(req, res);
     if (!repo) return;
 
+    const pipeline = promisify(stream.pipeline);
+
     try {
       res.attachment(`${repo.repoId}.zip`);
 
-      // ache the file for 6 hours
+      // cache the file for 6 hours
       res.header("Cache-Control", "max-age=21600000");
-
-      repo.zip().pipe(res);
+      await pipeline(repo.zip(), res)
     } catch (error) {
       handleError(error, res);
     }
@@ -60,7 +63,6 @@ router.get(
         repo.check();
         await repo.updateIfNeeded();
       }
-
 
       let download = false;
       const conference = await repo.conference();

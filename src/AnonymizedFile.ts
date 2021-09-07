@@ -1,6 +1,7 @@
 import * as path from "path";
 import * as express from "express";
 import * as stream from "stream";
+import { promisify } from "util";
 import Repository from "./Repository";
 import { Tree, TreeElement, TreeFile } from "./types";
 import storage from "./storage";
@@ -167,13 +168,9 @@ export default class AnonymizedFile {
   }
 
   async send(res: express.Response): Promise<void> {
+    const pipeline = promisify(stream.pipeline);
     try {
-      const s = await this.anonymizedContent();
-      s.on("error", (err) => {
-        console.log(err);
-        res.status(500).send({ error: err.message });
-      });
-      s.pipe(res);
+      await pipeline(await this.anonymizedContent(), res);
     } catch (error) {
       handleError(error, res);
     }
