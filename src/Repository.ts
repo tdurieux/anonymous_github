@@ -202,9 +202,10 @@ export default class Repository {
    * @param status the new status
    * @param errorMessage a potential error message to display
    */
-  async updateStatus(status: RepositoryStatus, errorMessage?: string) {
+  async updateStatus(status: RepositoryStatus, statusMessage?: string) {
     this._model.status = status;
-    this._model.errorMessage = errorMessage;
+    this._model.statusDate = new Date();
+    this._model.statusMessage = statusMessage;
     return this._model.save();
   }
 
@@ -323,7 +324,8 @@ export default class Repository {
       options: this._model.options,
       conference: this._model.conference,
       anonymizeDate: this._model.anonymizeDate,
-      status: this._model.status,
+      status: this.status,
+      statusMessage: this._model.statusMessage,
       source: this.source.toJSON(),
       lastView: this._model.lastView,
       pageView: this._model.pageView,

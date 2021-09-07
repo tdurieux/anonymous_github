@@ -4,7 +4,8 @@ import { RepositoryStatus, Tree } from "../../types";
 export interface IAnonymizedRepository {
   repoId: string;
   status?: RepositoryStatus;
-  errorMessage?: string;
+  statusMessage?: string;
+  statusDate: Date;
   anonymizeDate: Date;
   source: {
     type: "GitHubDownload" | "GitHubStream" | "Zip";

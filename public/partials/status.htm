@@ -10,7 +10,7 @@
       <a href="/faq">FAQ</a> for more information.
     </p>
 
-    <div class="progress" style="height: 25px;">
+    <div class="progress" style="height: 25px">
       <div
         class="progress-bar"
         role="progressbar"
@@ -19,7 +19,13 @@
         aria-valuemin="0"
         aria-valuemax="100"
       >
-        {{repo.status | title}}
+        <span>
+          {{repo.status | title}}
+          <span
+            ng-if="repo.status == 'download' && repo.statusMessage"
+            ng-bind="repo.statusMessage | humanFileSize"
+          ></span>
+        </span>
       </div>
     </div>
 
