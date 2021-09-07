@@ -92,7 +92,7 @@ function generateRandomId(length) {
 }
 
 function parseGithubUrl(url) {
-  var matches = url.match(/.*?github.com\/([\w-\._]+)\/([\w-\._]+)/);
+  var matches = url.replace(".git", "").match(/.*?github.com\/([\w-\._]+)\/([\w-\._]+)/);
   if (matches && matches.length == 3) {
     return {
       owner: matches[1],
