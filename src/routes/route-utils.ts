@@ -39,7 +39,7 @@ export async function getRepo(
 
 function printError(error: any) {
   if (error instanceof AnonymousError) {
-    let detail = error.value?.toString();
+    let detail = error.value ? JSON.stringify(error.value) : null;
     if (error.value instanceof Repository) {
       detail = error.value.repoId;
     } else if (error.value instanceof AnonymizedFile) {
@@ -54,7 +54,7 @@ function printError(error: any) {
     console.error(
       "[ERROR]",
       error.message,
-      `'${detail}'`,
+      detail ? `'${detail}'` : null,
       error.stack.split("\n")[1].trim()
     );
   } else if (error instanceof Error) {

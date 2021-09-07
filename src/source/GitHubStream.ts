@@ -59,7 +59,7 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
       }
       console.error(error);
     }
-    throw new AnonymousError("file_not_accessible");
+    throw new AnonymousError("file_not_accessible", file);
   }
 
   async getFiles() {
