@@ -34,8 +34,8 @@ const config: Config = {
   CLIENT_SECRET: "CLIENT_SECRET",
   GITHUB_TOKEN: "",
   DEFAULT_QUOTA: 2 * 1024 * 1024 * 1024 * 8,
-  MAX_FILE_SIZE: 10 * 1024 * 1024, // in b
-  MAX_REPO_SIZE: 500 * 8 * 1024, // in kb
+  MAX_FILE_SIZE: 100 * 1024 * 1024, // in b, 10MB
+  MAX_REPO_SIZE: 500 * 8 * 1024, // in kb, 500MB
   ENABLE_DOWNLOAD: true,
   AUTH_CALLBACK: "http://localhost:5000/github/auth",
   ANONYMIZATION_MASK: "XXXX",
