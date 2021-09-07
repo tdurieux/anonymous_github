@@ -1,4 +1,7 @@
 {
+  "ts-node": {
+    "transpileOnly": true
+  },
   "compilerOptions": {
     "target": "es6",
     "module": "commonjs",
@@ -6,7 +9,8 @@
     "removeComments": true,
     "preserveConstEnums": true,
     "forceConsistentCasingInFileNames": true,
-    "sourceMap": true
+    "sourceMap": false,
+    "skipLibCheck": true
   },
   "include": ["src/**/*.ts", "index.ts", "tests3.ts"],
   "exclude": ["node_modules", ".vscode"]
