@@ -183,7 +183,7 @@ function validateNewRepo(repoUpdate) {
     !repoUpdate.repoId.match(validCharacters) ||
     repoUpdate.repoId.length < 3
   ) {
-    throw new AnonymousError("invalid_repoId");
+    throw new AnonymousError("invalid_repoId", repoUpdate.repoId);
   }
   if (!repoUpdate.source.branch) {
     throw new AnonymousError("branch_not_specified");
@@ -195,10 +195,10 @@ function validateNewRepo(repoUpdate) {
     throw new AnonymousError("options_not_provided");
   }
   if (!Array.isArray(repoUpdate.terms)) {
-    throw new AnonymousError("invalid_terms_format");
+    throw new AnonymousError("invalid_terms_format", repoUpdate.terms);
   }
   if (!/^[a-f0-9]+$/.test(repoUpdate.source.commit)) {
-    throw new AnonymousError("invalid_commit_format");
+    throw new AnonymousError("invalid_commit_format", repoUpdate.source.commit);
   }
 }
 
