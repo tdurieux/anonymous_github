@@ -88,6 +88,13 @@ export default class S3Storage implements StorageBase {
         Bucket: config.S3_BUCKET,
         Key: p,
       })
+      .on("error", (error) => {
+        try {
+          res.status(error.statusCode);
+        } catch (err) {
+          console.error(err);
+        }
+      })
       .on("httpHeaders", (statusCode, headers, response) => {
         res.status(statusCode);
         if (statusCode < 300) {
