@@ -81,7 +81,7 @@ router.post(
 router.delete(
   "/:repoId/",
   async (req: express.Request, res: express.Response) => {
-    const repo = await getRepo(req, res, { nocheck: false });
+    const repo = await getRepo(req, res, { nocheck: true });
     if (!repo) return;
     try {
       const user = await getUser(req);
