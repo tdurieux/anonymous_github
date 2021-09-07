@@ -146,6 +146,9 @@ export async function getRepositoryFromGitHub(opt: {
   repo: string;
   accessToken: string;
 }) {
+  if (opt.repo.indexOf(".git") > -1) {
+    opt.repo = opt.repo.replace(".git", "");
+  }
   const octokit = new Octokit({ auth: opt.accessToken });
   let r;
   try {
@@ -157,11 +160,18 @@ export async function getRepositoryFromGitHub(opt: {
     ).data;
   } catch (error) {
     if (error.status == 404) {
-      throw new AnonymousError("repo_not_found", {owner: opt.owner, repo: opt.repo});
+      throw new AnonymousError("repo_not_found", {
+        owner: opt.owner,
+        repo: opt.repo,
+      });
     }
     throw error;
   }
-  if (!r) throw new AnonymousError("repo_not_found", {owner: opt.owner, repo: opt.repo});
+  if (!r)
+    throw new AnonymousError("repo_not_found", {
+      owner: opt.owner,
+      repo: opt.repo,
+    });
   let model = await RepositoryModel.findOne({ externalId: "gh_" + r.id });
   if (!model) {
     model = new RepositoryModel({ externalId: "gh_" + r.id });
