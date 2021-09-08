@@ -727,7 +727,7 @@ angular
       $scope.branches = [];
       $scope.repositories = [];
       $scope.source = {
-        type: "GitHubDownload",
+        type: "GitHubStream",
         branch: "",
         commit: "",
       };
