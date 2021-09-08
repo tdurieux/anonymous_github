@@ -244,7 +244,7 @@
               <a ng-href="/r/{{repo.repoId}}" ng-bind="repo.repoId"></a>
               <span
                 class="badge"
-                ng-class="{'badge-warning': repo.status == 'removed' || repo.status == 'expired', 'badge-success': repo.status == 'ready', 'badge-danger': repo.status == 'error'}"
+                ng-class="{'badge-warning': repo.status == 'removed' || repo.status == 'expired' ||  repo.status == 'removing' || repo.status == 'expiring', 'badge-info': repo.status == 'preparing', 'badge-success': repo.status == 'ready', 'badge-danger': repo.status == 'error'}"
                 ><span ng-bind="repo.status | title"></span>
                 <span
                   ng-if="repo.status == 'error'"
