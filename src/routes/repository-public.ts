@@ -80,7 +80,15 @@ router.get(
             await repo.updateStatus("preparing");
             await downloadQueue.add(this, { jobId: repo.repoId });
           }
-          throw new AnonymousError("repository_not_ready", this);
+          if (repo.status == "error") {
+            throw new AnonymousError(
+              repo.model.statusMessage
+                ? repo.model.statusMessage
+                : "repository_not_available",
+              repo
+            );
+          }
+          throw new AnonymousError("repository_not_ready", repo);
         }
 
         await repo.updateIfNeeded();
