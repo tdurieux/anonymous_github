@@ -45,7 +45,7 @@ router.get("/quota", async (req: express.Request, res: express.Response) => {
         total: 0,
       },
       repository: {
-        used: repositories.length,
+        used: repositories.filter((f) => f.status == "ready").length,
         total: 20,
       },
     });
