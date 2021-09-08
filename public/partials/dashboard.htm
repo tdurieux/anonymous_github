@@ -155,7 +155,7 @@
 
               <div class="mt-1 mr-1" style="margin-top: -0.25rem !important">
                 <strong>Repository</strong>
-                <div class="progress" style="min-width: 150px">
+                <div class="progress position-relative" style="min-width: 150px">
                   <div
                     class="progress-bar"
                     ng-class="{'progress-bar-striped progress-bar-animated w-100 bg-dark': !quota, 'bg-success': quota.repository.percent < 25 || quota.repository.total == 0, 'bg-danger': quota.repository.percent > 95 && quota.repository.total > 0, 'bg-warning': quota.repository.percent > 75 && quota.repository.total > 0 }"
@@ -164,18 +164,27 @@
                     aria-valuenow="{{quota.repository.used}}"
                     aria-valuemin="0"
                     aria-valuemax="{{quota.repository.total}}"
+                  ></div>
+                  <span
+                    class="
+                      justify-content-center
+                      d-flex
+                      position-absolute
+                      w-100
+                    "
+                    ng-show="quota"
+                    >{{quota.repository.used |
+                    number}}/{{quota.repository.total}}</span
                   >
-                    <span ng-show="quota"
-                      >{{quota.repository.used |
-                      number}}/{{quota.repository.total}}</span
-                    >
-                  </div>
                 </div>
               </div>
 
               <div class="mt-1 mr-1" style="margin-top: -0.25rem !important">
                 <strong>Storage</strong>
-                <div class="progress" style="min-width: 150px">
+                <div
+                  class="progress position-relative"
+                  style="min-width: 150px"
+                >
                   <div
                     class="progress-bar"
                     ng-class="{'progress-bar-striped progress-bar-animated w-100 bg-dark': !quota, 'bg-success': quota.storage.percent < 25 || quota.storage.total == 0, 'bg-danger': quota.storage.percent > 95 && quota.storage.total > 0, 'bg-warning': quota.storage.percent > 75 && quota.storage.total > 0 }"
@@ -184,19 +193,24 @@
                     aria-valuenow="{{quota.storage.used}}"
                     aria-valuemin="0"
                     aria-valuemax="{{quota.storage.total}}"
+                  ></div>
+                  <span
+                    ng-show="quota"
+                    class="
+                      justify-content-center
+                      d-flex
+                      position-absolute
+                      w-100
+                    "
+                    >{{quota.storage.used |
+                    humanFileSize}}/{{quota.storage.total| humanFileSize}}</span
                   >
-                    <span ng-show="quota"
-                      >{{quota.storage.used |
-                      humanFileSize}}/{{quota.storage.total|
-                      humanFileSize}}</span
-                    >
-                  </div>
                 </div>
               </div>
 
               <div class="mt-1 mr-1" style="margin-top: -0.25rem !important">
                 <strong>File</strong>
-                <div class="progress" style="min-width: 150px">
+                <div class="progress position-relative" style="min-width: 150px">
                   <div
                     class="progress-bar"
                     ng-class="{'progress-bar-striped progress-bar-animated w-100 bg-dark': !quota, 'bg-success': quota.file.percent < 25 || quota.file.total == 0, 'bg-danger': quota.file.percent > 95 && quota.file.total > 0, 'bg-warning': quota.file.percent > 75 && quota.file.total > 0 }"
@@ -205,12 +219,18 @@
                     aria-valuenow="{{quota.file.used}}"
                     aria-valuemin="0"
                     aria-valuemax="{{quota.file.total}}"
+                  ></div>
+                  <span
+                    class="
+                      justify-content-center
+                      d-flex
+                      position-absolute
+                      w-100
+                    "
+                    ng-show="quota"
+                    >{{quota.file.used | number}}/{{quota.file.total ||
+                    "∞"}}</span
                   >
-                    <span ng-show="quota"
-                      >{{quota.file.used | number}}/{{quota.file.total ||
-                      "∞"}}</span
-                    >
-                  </div>
                 </div>
               </div>
             </div>
