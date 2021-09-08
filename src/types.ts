@@ -115,7 +115,9 @@ export type RepositoryStatus =
   | "download"
   | "ready"
   | "expired"
+  | "expiring"
   | "removed"
+  | "removing"
   | "error";
 
 export type ConferenceStatus = "ready" | "expired" | "removed";

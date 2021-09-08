@@ -3,7 +3,6 @@ import * as express from "express";
 import * as stream from "stream";
 import config from "../../config";
 
-
 import { getRepo, handleError } from "./route-utils";
 
 const router = express.Router();
@@ -23,7 +22,7 @@ router.get(
 
       // cache the file for 6 hours
       res.header("Cache-Control", "max-age=21600000");
-      await pipeline(repo.zip(), res)
+      await pipeline(repo.zip(), res);
     } catch (error) {
       handleError(error, res);
     }
@@ -60,7 +59,6 @@ router.get(
       ) {
         redirectURL = repo.source.url;
       } else {
-        repo.check();
         await repo.updateIfNeeded();
       }
 

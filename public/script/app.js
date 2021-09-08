@@ -634,11 +634,22 @@ angular
             body: `The repository ${repo.repoId} is going to be removed.`,
           };
           $scope.toasts.push(toast);
-          $http.delete(`/api/repo/${repo.repoId}`).then(() => {
-            toast.title = `${repo.repoId} is removed.`;
-            toast.body = `The repository ${repo.repoId} is removed.`;
-            getRepositories();
-          });
+          $http.delete(`/api/repo/${repo.repoId}`).then(
+            () => {
+              setTimeout(() => {
+                toast.title = `${repo.repoId} is removed.`;
+                toast.body = `The repository ${repo.repoId} is removed.`;
+                getRepositories();
+                $scope.$apply();
+              }, 5000);
+            },
+            (error) => {
+              toast.title = `Error during the removal of ${repo.repoId}.`;
+              toast.body = error.body;
+
+              getRepositories();
+            }
+          );
         }
       };
 
@@ -646,16 +657,26 @@ angular
         const toast = {
           title: `Refreshing ${repo.repoId}...`,
           date: new Date(),
-          body: `The repository ${repo.repoId} is going to be removed.`,
+          body: `The repository ${repo.repoId} is going to be refreshed.`,
         };
         $scope.toasts.push(toast);
 
-        $http.post(`/api/repo/${repo.repoId}/refresh`).then(() => {
-          toast.title = `${repo.repoId} is refreshed.`;
-          toast.body = `The repository ${repo.repoId} is refreshed.`;
+        $http.post(`/api/repo/${repo.repoId}/refresh`).then(
+          () => {
+            setTimeout(() => {
+              toast.title = `${repo.repoId} is refreshed.`;
+              toast.body = `The repository ${repo.repoId} is refreshed.`;
+              getRepositories();
+              $scope.$apply();
+            }, 5000);
+          },
+          (error) => {
+            toast.title = `Error during the refresh of ${repo.repoId}.`;
+            toast.body = error.body;
 
-          getRepositories();
-        });
+            getRepositories();
+          }
+        );
       };
 
       $scope.repoFiler = (repo) => {

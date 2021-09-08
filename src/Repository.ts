@@ -14,6 +14,7 @@ import GitHubBase from "./source/GitHubBase";
 import Conference from "./Conference";
 import ConferenceModel from "./database/conference/conferences.model";
 import AnonymousError from "./AnonymousError";
+import { downloadQueue } from "./queue";
 
 export default class Repository {
   private _model: IAnonymizedRepositoryDocument;
@@ -103,16 +104,21 @@ export default class Repository {
         this.expire();
       }
     }
-    if (this.status == "expired") {
-      throw new AnonymousError("repository_expired", this);
-    }
-    if (this.status == "removed") {
+    if (
+      this.status == "expired" ||
+      this.status == "expiring" ||
+      this.status == "removing" ||
+      this.status == "removed"
+    ) {
       throw new AnonymousError("repository_expired", this);
     }
     const fiveMinuteAgo = new Date();
     fiveMinuteAgo.setMinutes(fiveMinuteAgo.getMinutes() - 5);
 
-    if (this.status == "download" && this._model.statusDate > fiveMinuteAgo) {
+    if (
+      this.status == "preparing" ||
+      (this.status == "download" && this._model.statusDate > fiveMinuteAgo)
+    ) {
       throw new AnonymousError("repository_not_ready", this);
     }
   }
@@ -136,17 +142,31 @@ export default class Repository {
    * @returns void
    */
   async updateIfNeeded(): Promise<void> {
+    if (
+      this.status == "expired" ||
+      this.status == "expiring" ||
+      this.status == "removing" ||
+      this.status == "removed"
+    ) {
+      throw new AnonymousError("repository_expired", this);
+    }
+
+    const fiveMinuteAgo = new Date();
+    fiveMinuteAgo.setMinutes(fiveMinuteAgo.getMinutes() - 5);
+    if (this.status != "ready") {
+      if (
+        this._model.statusDate < fiveMinuteAgo &&
+        this.status != "preparing"
+      ) {
+        await this.updateStatus("preparing");
+        await downloadQueue.add(this, { jobId: this.repoId });
+      }
+      throw new AnonymousError("repository_not_ready", this);
+    }
+
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
-
     if (this._model.options.update && this._model.lastView < yesterday) {
-      
-      const fiveMinuteAgo = new Date();
-      fiveMinuteAgo.setMinutes(fiveMinuteAgo.getMinutes() - 5);
-      if (this.status == "download" && this._model.statusDate > fiveMinuteAgo) {
-        throw new AnonymousError("repository_not_ready", this);
-      }
-
       // Only GitHubBase can be update for the moment
       if (this.source instanceof GitHubBase) {
         const branches = await this.source.githubRepository.branches({
@@ -154,30 +174,25 @@ export default class Repository {
           accessToken: await this.source.getToken(),
         });
         const branch = this.source.branch;
-        if (
-          branch.commit ==
-          branches.filter((f) => f.name == branch.name)[0]?.commit
-        ) {
+        const newCommit = branches.filter((f) => f.name == branch.name)[0]
+          ?.commit;
+        if (branch.commit == newCommit) {
           console.log(`${this._model.repoId} is up to date`);
           return;
         }
-        this._model.source.commit = branches.filter(
-          (f) => f.name == branch.name
-        )[0]?.commit;
-        branch.commit = this._model.source.commit;
+        this._model.source.commit = newCommit;
+        branch.commit = newCommit;
 
-        if (!this._model.source.commit) {
+        if (!newCommit) {
           console.error(
             `${branch.name} for ${this.source.githubRepository.fullName} is not found`
           );
           throw new AnonymousError("branch_not_found", this);
         }
         this._model.anonymizeDate = new Date();
-        console.log(
-          `${this._model.repoId} will be updated to ${this._model.source.commit}`
-        );
+        console.log(`${this._model.repoId} will be updated to ${newCommit}`);
         await this.resetSate("preparing");
-        await this.anonymize();
+        await downloadQueue.add(this, { jobId: this.repoId });
       }
     }
   }
@@ -219,14 +234,18 @@ export default class Repository {
    * Expire the repository
    */
   async expire() {
-    return this.resetSate("expired");
+    await this.updateStatus("expiring");
+    await this.resetSate();
+    await this.updateStatus("expired");
   }
 
   /**
    * Remove the repository
    */
   async remove() {
-    return this.resetSate("removed");
+    await this.updateStatus("removing");
+    await this.resetSate();
+    await this.updateStatus("removed");
   }
 
   /**
@@ -234,8 +253,10 @@ export default class Repository {
    */
   async resetSate(status?: RepositoryStatus) {
     if (status) this._model.status = status;
+    // remove attribute
     this._model.size = { storage: 0, file: 0 };
     this._model.originalFiles = null;
+    // remove cache
     return Promise.all([
       this._model.save(),
       storage.rm(this._model.repoId + "/"),

@@ -12,6 +12,7 @@ import { IAnonymizedRepositoryDocument } from "../database/anonymizedRepositorie
 import Repository from "../Repository";
 import ConferenceModel from "../database/conference/conferences.model";
 import AnonymousError from "../AnonymousError";
+import { downloadQueue, removeQueue } from "../queue";
 
 const router = express.Router();
 
@@ -65,12 +66,15 @@ router.post(
       const repo = await getRepo(req, res, { nocheck: true });
       if (!repo) return;
 
+      if (repo.status == "preparing" || repo.status == "removing") return;
+
       const user = await getUser(req);
       if (repo.owner.id != user.id) {
         return res.status(401).json({ error: "not_authorized" });
       }
-      await repo.anonymize();
-      res.end("ok");
+      await repo.updateStatus("preparing");
+      await downloadQueue.add(repo, {jobId: repo.repoId});
+      res.json({ status: repo.status });
     } catch (error) {
       handleError(error, res);
     }
@@ -83,14 +87,16 @@ router.delete(
   async (req: express.Request, res: express.Response) => {
     const repo = await getRepo(req, res, { nocheck: true });
     if (!repo) return;
+    // if (repo.status == "removing") return res.json({ status: repo.status });
     try {
+      if (repo.status == "removed") throw new AnonymousError("is_removed");
       const user = await getUser(req);
       if (repo.owner.id != user.id) {
         return res.status(401).json({ error: "not_authorized" });
       }
-      await repo.remove();
-      console.log(`${req.params.repoId} is removed`);
-      return res.json("ok");
+      await repo.updateStatus("removing");
+      await removeQueue.add(repo, {jobId: repo.repoId});
+      return res.json({ status: repo.status });
     } catch (error) {
       handleError(error, res);
     }
@@ -305,8 +311,8 @@ router.post(
       }
       repo.model.conference = repoUpdate.conference;
       await repo.updateStatus("preparing");
-      res.send("ok");
-      new Repository(repo.model).anonymize();
+      res.json({ status: repo.status });
+      await downloadQueue.add(repo, {jobId: repo.repoId});
     } catch (error) {
       return handleError(error, res);
     }
@@ -369,11 +375,14 @@ router.post("/", async (req: express.Request, res: express.Response) => {
       }
     }
 
-    res.send("ok");
-    new Repository(repo).anonymize();
+    res.send({ status: repo.status });
+    downloadQueue.add(new Repository(repo), {jobId: repo.repoId});
   } catch (error) {
     if (error.message?.indexOf(" duplicate key") > -1) {
-      return handleError(new AnonymousError("repoId_already_used", repoUpdate.repoId), res);
+      return handleError(
+        new AnonymousError("repoId_already_used", repoUpdate.repoId),
+        res
+      );
     }
     return handleError(error, res);
   }
