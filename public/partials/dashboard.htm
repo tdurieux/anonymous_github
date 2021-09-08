@@ -235,7 +235,7 @@
     <ul class="p-0 m-0 w-100">
       <li
         class="col-12 d-flex px-0 py-3 border-bottom color-border-secondary"
-        ng-class="{'expired': repo.status == 'expired','removed': repo.status == 'removed' }"
+        ng-class="{'expired': repo.status == 'expired','removed': repo.status == 'removed','error': repo.status == 'error' }"
         ng-repeat="repo in repositories| filter:repoFiler| orderBy:orderBy as filteredRepositories"
       >
         <div class="w-100">
@@ -244,8 +244,12 @@
               <a ng-href="/r/{{repo.repoId}}" ng-bind="repo.repoId"></a>
               <span
                 class="badge"
-                ng-class="{'badge-warning': repo.status == 'removed' || repo.status == 'expired', 'badge-success': repo.status == 'ready', 'badge-danger': ''}"
-                ng-bind="repo.status | title"
+                ng-class="{'badge-warning': repo.status == 'removed' || repo.status == 'expired', 'badge-success': repo.status == 'ready', 'badge-danger': repo.status == 'error'}"
+                ><span ng-bind="repo.status | title"></span>
+                <span
+                  ng-if="repo.status == 'error'"
+                  ng-bind="': ' + repo.statusMessage"
+                ></span
               ></span>
             </h3>
             <span class="color-text-secondary mb-1">
