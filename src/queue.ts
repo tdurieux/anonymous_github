@@ -39,8 +39,8 @@ downloadQueue.process(2, async (job) => {
   try {
     const repo = await getRepository(job.data.repoId);
     job.progress("get_repo");
-    await repo.remove();
-    job.progress("get_remove");
+    await repo.resetSate();
+    job.progress("resetSate");
     await repo.anonymize();
   } catch (error) {
     console.log("error", error);
