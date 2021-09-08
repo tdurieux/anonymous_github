@@ -141,32 +141,13 @@ export default class Repository {
    *
    * @returns void
    */
-  async updateIfNeeded(): Promise<void> {
-    if (
-      this.status == "expired" ||
-      this.status == "expiring" ||
-      this.status == "removing" ||
-      this.status == "removed"
-    ) {
-      throw new AnonymousError("repository_expired", this);
-    }
-
-    const fiveMinuteAgo = new Date();
-    fiveMinuteAgo.setMinutes(fiveMinuteAgo.getMinutes() - 5);
-    if (this.status != "ready") {
-      if (
-        this._model.statusDate < fiveMinuteAgo &&
-        this.status != "preparing"
-      ) {
-        await this.updateStatus("preparing");
-        await downloadQueue.add(this, { jobId: this.repoId });
-      }
-      throw new AnonymousError("repository_not_ready", this);
-    }
-
+  async updateIfNeeded(opt?: { force: boolean }): Promise<void> {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
-    if (this._model.options.update && this._model.lastView < yesterday) {
+    if (
+      opt?.force ||
+      (this._model.options.update && this._model.lastView < yesterday)
+    ) {
       // Only GitHubBase can be update for the moment
       if (this.source instanceof GitHubBase) {
         const branches = await this.source.githubRepository.branches({
@@ -187,6 +168,8 @@ export default class Repository {
           console.error(
             `${branch.name} for ${this.source.githubRepository.fullName} is not found`
           );
+          await this.updateStatus("error", "branch_not_found");
+          await this.resetSate();
           throw new AnonymousError("branch_not_found", this);
         }
         this._model.anonymizeDate = new Date();

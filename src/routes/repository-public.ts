@@ -4,6 +4,8 @@ import * as stream from "stream";
 import config from "../../config";
 
 import { getRepo, handleError } from "./route-utils";
+import AnonymousError from "../AnonymousError";
+import { downloadQueue } from "../queue";
 
 const router = express.Router();
 
@@ -59,6 +61,28 @@ router.get(
       ) {
         redirectURL = repo.source.url;
       } else {
+        if (
+          repo.status == "expired" ||
+          repo.status == "expiring" ||
+          repo.status == "removing" ||
+          repo.status == "removed"
+        ) {
+          throw new AnonymousError("repository_expired", this);
+        }
+
+        const fiveMinuteAgo = new Date();
+        fiveMinuteAgo.setMinutes(fiveMinuteAgo.getMinutes() - 5);
+        if (repo.status != "ready") {
+          if (
+            repo.model.statusDate < fiveMinuteAgo &&
+            repo.status != "preparing"
+          ) {
+            await repo.updateStatus("preparing");
+            await downloadQueue.add(this, { jobId: repo.repoId });
+          }
+          throw new AnonymousError("repository_not_ready", this);
+        }
+
         await repo.updateIfNeeded();
       }
 

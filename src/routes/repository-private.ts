@@ -72,8 +72,7 @@ router.post(
       if (repo.owner.id != user.id) {
         return res.status(401).json({ error: "not_authorized" });
       }
-      await repo.updateStatus("preparing");
-      await downloadQueue.add(repo, {jobId: repo.repoId});
+      await repo.updateIfNeeded({ force: true });
       res.json({ status: repo.status });
     } catch (error) {
       handleError(error, res);
@@ -95,7 +94,7 @@ router.delete(
         return res.status(401).json({ error: "not_authorized" });
       }
       await repo.updateStatus("removing");
-      await removeQueue.add(repo, {jobId: repo.repoId});
+      await removeQueue.add(repo, { jobId: repo.repoId });
       return res.json({ status: repo.status });
     } catch (error) {
       handleError(error, res);
@@ -312,7 +311,7 @@ router.post(
       repo.model.conference = repoUpdate.conference;
       await repo.updateStatus("preparing");
       res.json({ status: repo.status });
-      await downloadQueue.add(repo, {jobId: repo.repoId});
+      await downloadQueue.add(repo, { jobId: repo.repoId });
     } catch (error) {
       return handleError(error, res);
     }
@@ -376,7 +375,7 @@ router.post("/", async (req: express.Request, res: express.Response) => {
     }
 
     res.send({ status: repo.status });
-    downloadQueue.add(new Repository(repo), {jobId: repo.repoId});
+    downloadQueue.add(new Repository(repo), { jobId: repo.repoId });
   } catch (error) {
     if (error.message?.indexOf(" duplicate key") > -1) {
       return handleError(
