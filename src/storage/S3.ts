@@ -169,8 +169,6 @@ export default class S3Storage implements StorageBase {
 
   /** @override */
   async extractTar(p: string, data: stream.Readable): Promise<void> {
-    const pipeline = promisify(stream.pipeline);
-
     let toS3: ArchiveStreamToS3;
 
     (ArchiveStreamToS3 as any).prototype.onEntry = function (
@@ -181,10 +179,14 @@ export default class S3Storage implements StorageBase {
       header.name = header.name.substr(header.name.indexOf("/") + 1);
       originalArchiveStreamToS3Entry.call(toS3, header, stream, next);
     };
-
-    toS3 = new ArchiveStreamToS3(config.S3_BUCKET, p, this.client);
-
-    return pipeline(data, gunzip(), toS3);
+    
+    return new Promise((resolve, reject) => {
+      toS3 = new ArchiveStreamToS3(config.S3_BUCKET, p, this.client);
+      stream
+        .pipeline(data, gunzip(), toS3, () => {})
+        .on("finish", resolve)
+        .on("error", reject);
+    });
   }
 
   /** @override */

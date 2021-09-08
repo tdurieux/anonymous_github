@@ -89,7 +89,7 @@ export default class GitHubDownload extends GitHubBase implements SourceBase {
       await storage.extractTar(originalPath, downloadStream);
     } catch (error) {
       await this.repository.updateStatus("error", "unable_to_download");
-      throw new AnonymousError("unable_to_download");
+      throw new AnonymousError("unable_to_download", error);
     } finally {
       inDownload = false;
       clearTimeout(progressTimeout);
