@@ -97,19 +97,22 @@ export default class Repository {
   check() {
     if (
       this._model.options.expirationMode !== "never" &&
-      this._model.status == "ready"
+      this.status == "ready"
     ) {
       if (this._model.options.expirationDate <= new Date()) {
         this.expire();
       }
     }
-    if (this._model.status == "expired") {
+    if (this.status == "expired") {
       throw new AnonymousError("repository_expired", this);
     }
-    if (this._model.status == "removed") {
+    if (this.status == "removed") {
       throw new AnonymousError("repository_expired", this);
     }
-    if (this._model.status == "download") {
+    const fiveMinuteAgo = new Date();
+    fiveMinuteAgo.setMinutes(fiveMinuteAgo.getMinutes() - 5);
+
+    if (this.status == "download" && this._model.statusDate > fiveMinuteAgo) {
       throw new AnonymousError("repository_not_ready", this);
     }
   }
@@ -137,7 +140,10 @@ export default class Repository {
     yesterday.setDate(yesterday.getDate() - 1);
 
     if (this._model.options.update && this._model.lastView < yesterday) {
-      if (this._model.status == "download") {
+      
+      const fiveMinuteAgo = new Date();
+      fiveMinuteAgo.setMinutes(fiveMinuteAgo.getMinutes() - 5);
+      if (this.status == "download" && this._model.statusDate > fiveMinuteAgo) {
         throw new AnonymousError("repository_not_ready", this);
       }
 
@@ -182,7 +188,7 @@ export default class Repository {
    * @returns void
    */
   async anonymize() {
-    if (this._model.status == "ready") return;
+    if (this.status == "ready") return;
     await this.updateStatus("preparing");
     await this.files();
     return this.updateStatus("ready");
@@ -251,7 +257,7 @@ export default class Repository {
      */
     file: number;
   }> {
-    if (this._model.status != "ready") return { storage: 0, file: 0 };
+    if (this.status != "ready") return { storage: 0, file: 0 };
     if (this._model.size.file) return this._model.size;
     function recursiveCount(files) {
       const out = { storage: 0, file: 0 };
@@ -314,7 +320,7 @@ export default class Repository {
   }
 
   get size() {
-    if (this._model.status != "ready") return { storage: 0, file: 0 };
+    if (this.status != "ready") return { storage: 0, file: 0 };
     return this._model.size;
   }
 
