@@ -39,7 +39,12 @@ export default class GitHubDownload extends GitHubBase implements SourceBase {
   }
 
   async download() {
-    if (this.repository.status == "download")
+    const fiveMinuteAgo = new Date();
+    fiveMinuteAgo.setMinutes(fiveMinuteAgo.getMinutes() - 5);
+    if (
+      this.repository.status == "download" &&
+      this.repository.model.statusDate > fiveMinuteAgo
+    )
       throw new AnonymousError("repo_in_download", this.repository);
     let response: OctokitResponse<unknown, number>;
     try {
@@ -78,28 +83,18 @@ export default class GitHubDownload extends GitHubBase implements SourceBase {
     }
     updateProgress();
 
-    await storage.extractTar(
-      originalPath,
-      got
-        .stream(response.url)
-        .on("downloadProgress", async (p) => {
-          inDownload = true;
-          progress = p;
-        })
-        .on("error", (error) => {
-          inDownload = false;
-          clearTimeout(progressTimeout);
-        })
-        .on("end", () => {
-          inDownload = false;
-          console.log("download finished");
-          clearTimeout(progressTimeout);
-        })
-        .on("close", () => clearTimeout(progressTimeout))
-    );
+    try {
+      const downloadStream = got.stream(response.url);
+      downloadStream.addListener("downloadProgress", (p) => (progress = p));
+      await storage.extractTar(originalPath, downloadStream);
+    } catch (error) {
+      await this.repository.updateStatus("error", "unable_to_download");
+      throw new AnonymousError("unable_to_download");
+    } finally {
+      inDownload = false;
+      clearTimeout(progressTimeout);
+    }
 
-    inDownload = false;
-    clearTimeout(progressTimeout);
     await this.repository.updateStatus("ready");
   }
 
