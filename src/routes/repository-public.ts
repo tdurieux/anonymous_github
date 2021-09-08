@@ -67,7 +67,7 @@ router.get(
           repo.status == "removing" ||
           repo.status == "removed"
         ) {
-          throw new AnonymousError("repository_expired", this);
+          throw new AnonymousError("repository_expired", repo);
         }
 
         const fiveMinuteAgo = new Date();
@@ -78,7 +78,7 @@ router.get(
             repo.status != "preparing"
           ) {
             await repo.updateStatus("preparing");
-            await downloadQueue.add(this, { jobId: repo.repoId });
+            await downloadQueue.add(repo, { jobId: repo.repoId });
           }
           if (repo.status == "error") {
             throw new AnonymousError(
