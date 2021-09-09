@@ -57,7 +57,7 @@ export default class GitHubDownload extends GitHubBase implements SourceBase {
         try {
           response = await this._getZipUrl(config.GITHUB_TOKEN);
         } catch (error) {
-          await this.repository.resetSate("error");
+          await this.repository.resetSate("error", "repo_not_accessible");
           throw new AnonymousError("repo_not_accessible", {
             httpStatus: 404,
             cause: error,
@@ -65,7 +65,7 @@ export default class GitHubDownload extends GitHubBase implements SourceBase {
           });
         }
       } else {
-        await this.repository.resetSate("error");
+        await this.repository.resetSate("error", "repo_not_accessible");
         throw new AnonymousError("repo_not_accessible", {
           httpStatus: 404,
           object: this.repository,
