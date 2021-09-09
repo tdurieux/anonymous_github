@@ -59,6 +59,7 @@ export default async function start() {
   app.use("/github", rate, connection.router);
 
   // api routes
+  app.use("/api/admin", rate, router.admin);
   app.use("/api/options", rate, router.option);
   app.use("/api/conferences", rate, router.conference);
   app.use("/api/user", rate, router.user);
