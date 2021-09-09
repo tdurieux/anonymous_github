@@ -52,7 +52,7 @@ export default abstract class GitHubBase {
   }
 
   async getToken() {
-    const user = await UserModel.findOne({ id: this.repository.owner.id });
+    const user = await UserModel.findById(this.repository.owner.id);
     if (user && user.accessTokens.github) {
       return user.accessTokens.github as string;
     }
