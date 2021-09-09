@@ -2,7 +2,6 @@ import { StorageBase, Tree, TreeFile } from "../types";
 import { S3 } from "aws-sdk";
 import config from "../../config";
 import * as stream from "stream";
-import { promisify } from "util";
 import { ArchiveStreamToS3 } from "archive-stream-to-s3";
 import * as express from "express";
 import * as mime from "mime-types";
@@ -17,14 +16,16 @@ const originalArchiveStreamToS3Entry: Function = (ArchiveStreamToS3 as any)
 
 export default class S3Storage implements StorageBase {
   type = "AWS";
-  client: S3;
 
   constructor() {
     if (!config.S3_BUCKET)
       throw new AnonymousError("s3_config_not_provided", {
         httpStatus: 500,
       });
-    this.client = new S3({
+  }
+
+  get client() {
+    return new S3({
       region: config.S3_REGION,
       endpoint: config.S3_ENDPOINT,
       accessKeyId: config.S3_CLIENT_ID,
