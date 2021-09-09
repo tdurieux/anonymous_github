@@ -230,15 +230,17 @@
                   name="mode"
                   ng-model="options.mode"
                 >
-                  <option value="stream" selected>Stream</option>
-                  <option value="download">Download</option>
+                  <option value="GitHubStream" selected>Stream</option>
+                  <option value="GitHubDownload">Download</option>
                 </select>
                 <small class="form-text text-muted"
-                  >How the repository will be anonymized. Stream mode will
-                  request the content on the flight. This is the only option for
-                  repositories bigger than 10mb. Download will download the
-                  repository the repository on the anonymous.4open.science
-                  server, it is faster and offer more features.</small
+                  >How the repository will be anonymized. Stream mode
+                  will request the content on the flight. This is the
+                  only option for repositories bigger than
+                  {{site_options.MAX_REPO_SIZE * 1024| humanFileSize}}.
+                  Download will download the repository the repository
+                  on the anonymous.4open.science server, it is faster
+                  and offer more features.</small
                 >
               </div>
             </div>
