@@ -383,7 +383,7 @@ angular
 
       $scope.removeToast = function (toast) {
         const index = $scope.toasts.indexOf(toast);
-        $scope.toasts = $scope.toasts.splice(index, index);
+        $scope.toasts.splice(index, 1);
       };
 
       $scope.path = $location.url();
