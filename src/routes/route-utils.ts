@@ -1,11 +1,7 @@
 import * as express from "express";
-import AnonymizedFile from "../AnonymizedFile";
 import AnonymousError from "../AnonymousError";
 import * as db from "../database/database";
 import UserModel from "../database/users/users.model";
-import Repository from "../Repository";
-import GitHubBase from "../source/GitHubBase";
-import { GitHubRepository } from "../source/GitHubRepository";
 import User from "../User";
 import * as io from "@pm2/io";
 
@@ -34,6 +30,14 @@ export async function getRepo(
   } catch (error) {
     handleError(error, res);
     return null;
+  }
+}
+
+export function isOwnerOrAdmin(authorizedUsers: string[], user: User) {
+  if (authorizedUsers.indexOf(user.model.id) == -1 && !user.isAdmin) {
+    throw new AnonymousError("not_authorized", {
+      httpStatus: 401,
+    });
   }
 }
 

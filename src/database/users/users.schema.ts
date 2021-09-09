@@ -18,6 +18,7 @@ const UserSchema = new Schema({
       default: Boolean,
     },
   ],
+  isAdmin: { type: Boolean, default: false },
   photo: String,
   repositories: [String],
   default: {

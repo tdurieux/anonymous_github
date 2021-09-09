@@ -2,7 +2,7 @@ import * as express from "express";
 import { ensureAuthenticated } from "./connection";
 
 import * as db from "../database/database";
-import { getRepo, getUser, handleError } from "./route-utils";
+import { getRepo, getUser, handleError, isOwnerOrAdmin } from "./route-utils";
 import { getRepositoryFromGitHub } from "../source/GitHubRepository";
 import gh = require("parse-github-url");
 import GitHubBase from "../source/GitHubBase";
@@ -81,12 +81,7 @@ router.post(
       if (repo.status == "preparing" || repo.status == "removing") return;
 
       const user = await getUser(req);
-      if (repo.owner.id != user.id) {
-        throw new AnonymousError("not_authorized", {
-          object: req.params.repoId,
-          httpStatus: 401,
-        });
-      }
+      isOwnerOrAdmin([repo.owner.id], user);
       await repo.updateIfNeeded({ force: true });
       res.json({ status: repo.status });
     } catch (error) {
@@ -109,12 +104,7 @@ router.delete(
           httpStatus: 410,
         });
       const user = await getUser(req);
-      if (repo.owner.id != user.id) {
-        throw new AnonymousError("not_authorized", {
-          object: req.params.repoId,
-          httpStatus: 401,
-        });
-      }
+      isOwnerOrAdmin([repo.owner.id], user);
       await repo.updateStatus("removing");
       await removeQueue.add(repo, { jobId: repo.repoId });
       return res.json({ status: repo.status });
@@ -200,12 +190,7 @@ router.get("/:repoId/", async (req: express.Request, res: express.Response) => {
     if (!repo) return;
 
     const user = await getUser(req);
-    if (repo.owner.id != user.id) {
-      throw new AnonymousError("not_authorized", {
-        object: req.params.repoId,
-        httpStatus: 401,
-      });
-    }
+    isOwnerOrAdmin([repo.owner.id], user);
     res.json((await db.getRepository(req.params.repoId)).toJSON());
   } catch (error) {
     handleError(error, res);
@@ -295,12 +280,7 @@ router.post(
       if (!repo) return;
       const user = await getUser(req);
 
-      if (repo.owner.id != user.id) {
-        throw new AnonymousError("not_authorized", {
-          object: req.params.repoId,
-          httpStatus: 401,
-        });
-      }
+      isOwnerOrAdmin([repo.owner.id], user);
 
       const repoUpdate = req.body;
 

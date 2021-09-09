@@ -22,6 +22,10 @@ export default class User {
     return this._model.username;
   }
 
+  get isAdmin(): boolean {
+    return !!this._model.isAdmin;
+  }
+
   get accessToken(): string {
     return this._model.accessTokens.github;
   }

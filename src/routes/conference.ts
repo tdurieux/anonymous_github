@@ -3,7 +3,7 @@ import AnonymousError from "../AnonymousError";
 import Conference from "../Conference";
 import ConferenceModel from "../database/conference/conferences.model";
 import { ensureAuthenticated } from "./connection";
-import { handleError, getUser } from "./route-utils";
+import { handleError, getUser, isOwnerOrAdmin } from "./route-utils";
 
 const router = express.Router();
 
@@ -153,11 +153,7 @@ router.post(
         model = await ConferenceModel.findOne({
           conferenceID: req.params.conferenceID,
         });
-        if (model.owners.indexOf(user.model.id) == -1)
-          throw new AnonymousError("not_authorized", {
-            object: req.params.conferenceID,
-            httpStatus: 401,
-          });
+        isOwnerOrAdmin(model.owners, user);
       }
       validateConferenceForm(req.body);
       model.name = req.body.name;
@@ -229,11 +225,7 @@ router.get(
           httpStatus: 404,
         });
       const conference = new Conference(data);
-      if (conference.ownerIDs.indexOf(user.model.id) == -1)
-        throw new AnonymousError("not_authorized", {
-          object: req.params.conferenceID,
-          httpStatus: 401,
-        });
+      isOwnerOrAdmin(conference.ownerIDs, user);
       const o: any = conference.toJSON();
       o.repositories = (await conference.repositories()).map((r) => r.toJSON());
       res.json(o);
@@ -257,11 +249,7 @@ router.delete(
           httpStatus: 400,
         });
       const conference = new Conference(data);
-      if (conference.ownerIDs.indexOf(user.model.id) == -1)
-        throw new AnonymousError("not_authorized", {
-          object: req.params.conferenceID,
-          httpStatus: 401,
-        });
+      isOwnerOrAdmin(conference.ownerIDs, user);
       await conference.remove();
       res.send("ok");
     } catch (error) {

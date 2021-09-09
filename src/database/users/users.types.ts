@@ -8,6 +8,7 @@ export interface IUser {
     github: string;
   };
   username: string;
+  isAdmin: boolean;
   emails: {
     email: string;
     default: boolean;
