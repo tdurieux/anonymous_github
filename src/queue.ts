@@ -1,5 +1,6 @@
 import * as Queue from "bull";
 import config from "../config";
+import AnonymousError from "./AnonymousError";
 import { getRepository } from "./database/database";
 import Repository from "./Repository";
 
@@ -28,7 +29,15 @@ removeQueue.process(5, async (job) => {
     const repo = await getRepository(job.data.repoId);
     await repo.remove();
   } catch (error) {
-    console.log("error", error);
+    if (error instanceof AnonymousError) {
+      console.error(
+        "[ERROR]",
+        error.toString(),
+        error.stack.split("\n")[1].trim()
+      );
+    } else {
+      console.error(error);
+    }
   } finally {
     console.log(`${job.data.repoId} is removed`);
   }
@@ -43,7 +52,15 @@ downloadQueue.process(2, async (job) => {
     job.progress("resetSate");
     await repo.anonymize();
   } catch (error) {
-    console.log("error", error);
+    if (error instanceof AnonymousError) {
+      console.error(
+        "[ERROR]",
+        error.toString(),
+        error.stack.split("\n")[1].trim()
+      );
+    } else {
+      console.error(error);
+    }
   } finally {
     console.log(`${job.data.repoId} is downloaded`);
   }

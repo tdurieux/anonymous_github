@@ -1,5 +1,6 @@
 import * as express from "express";
 import AnonymizedFile from "../AnonymizedFile";
+import AnonymousError from "../AnonymousError";
 import { getRepo, handleError } from "./route-utils";
 
 export const router = express.Router();
@@ -24,7 +25,10 @@ router.get(
         anonymizedPath,
       });
       if (!(await f.isFileSupported())) {
-        return res.status(500).send({ error: "file_not_supported" });
+        throw new AnonymousError("file_not_supported", {
+          httpStatus: 403,
+          object: f,
+        });
       }
       res.attachment(
         anonymizedPath.substring(anonymizedPath.lastIndexOf("/") + 1)

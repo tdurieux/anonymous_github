@@ -25,7 +25,11 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
   }
 
   async getFileContent(file: AnonymizedFile): Promise<stream.Readable> {
-    if (!file.sha) throw new AnonymousError("file_sha_not_provided", file);
+    if (!file.sha)
+      throw new AnonymousError("file_sha_not_provided", {
+        httpStatus: 400,
+        object: file,
+      });
     const octokit = new Octokit({
       auth: await this.getToken(),
     });
@@ -37,7 +41,10 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
         file_sha: file.sha,
       });
       if (!ghRes.data.content && ghRes.data.size != 0) {
-        throw new AnonymousError("file_not_accessible", file);
+        throw new AnonymousError("file_not_accessible", {
+          httpStatus: 404,
+          object: file,
+        });
       }
       // empty file
       let content: Buffer;
@@ -54,12 +61,12 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
       await storage.write(file.originalCachePath, content);
       return stream.Readable.from(content);
     } catch (error) {
-      if (error.status == 403) {
-        throw new AnonymousError("file_too_big", file);
-      }
-      console.error(error);
+      throw new AnonymousError("file_too_big", {
+        httpStatus: error.status,
+        cause: error,
+        object: file,
+      });
     }
-    throw new AnonymousError("file_not_accessible", file);
   }
 
   async getFiles() {
@@ -85,8 +92,16 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
         recursive: "1",
       });
     } catch (error) {
-      await this.repository.resetSate("error");
-      throw new AnonymousError("repo_not_accessible", this.repository);
+      await this.repository.resetSate("error", "repo_not_accessible");
+      throw new AnonymousError("repo_not_accessible", {
+        httpStatus: error.status,
+        cause: error,
+        object: {
+          owner: this.githubRepository.owner,
+          repo: this.githubRepository.repo,
+          tree_sha: sha,
+        },
+      });
     }
 
     const tree = this.tree2Tree(ghRes.data.tree, truncatedTree, parentPath);

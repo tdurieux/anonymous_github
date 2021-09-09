@@ -38,11 +38,17 @@ export default abstract class GitHubBase {
   }
 
   async getFileContent(file: AnonymizedFile): Promise<stream.Readable> {
-    throw new AnonymousError("Method not implemented.");
+    throw new AnonymousError("method_not_implemented", {
+      httpStatus: 501,
+      object: this,
+    });
   }
-  
+
   getFiles(): Promise<Tree> {
-    throw new AnonymousError("Method not implemented.");
+    throw new AnonymousError("method_not_implemented", {
+      httpStatus: 501,
+      object: this,
+    });
   }
 
   async getToken(owner?: string) {

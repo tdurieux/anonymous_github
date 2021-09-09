@@ -24,15 +24,24 @@ router.post("/claim", async (req: express.Request, res: express.Response) => {
   const user = await getUser(req);
   try {
     if (!req.body.repoId) {
-      return res.status(500).json({ error: "repoId_not_defined" });
+      throw new AnonymousError("repoId_not_defined", {
+        object: req.body,
+        httpStatus: 400,
+      });
     }
     if (!req.body.repoUrl) {
-      return res.status(500).json({ error: "repoUrl_not_defined" });
+      throw new AnonymousError("repoUrl_not_defined", {
+        object: req.body,
+        httpStatus: 400,
+      });
     }
 
     const repoConfig = await db.getRepository(req.body.repoId);
     if (repoConfig == null) {
-      return res.status(500).json({ error: "repo_not_found" });
+      throw new AnonymousError("repo_not_found", {
+        object: req.body,
+        httpStatus: 404,
+      });
     }
 
     const r = gh(req.body.repoUrl);
@@ -42,7 +51,10 @@ router.post("/claim", async (req: express.Request, res: express.Response) => {
       accessToken: user.accessToken,
     });
     if ((repoConfig.source as GitHubBase).githubRepository.id != repo.id) {
-      return res.status(500).json({ error: "repo_not_found" });
+      throw new AnonymousError("repo_not_found", {
+        object: req.body,
+        httpStatus: 404,
+      });
     }
 
     console.log(`${user.username} claims ${r.repository}.`);
@@ -70,7 +82,10 @@ router.post(
 
       const user = await getUser(req);
       if (repo.owner.id != user.id) {
-        return res.status(401).json({ error: "not_authorized" });
+        throw new AnonymousError("not_authorized", {
+          object: req.params.repoId,
+          httpStatus: 401,
+        });
       }
       await repo.updateIfNeeded({ force: true });
       res.json({ status: repo.status });
@@ -88,10 +103,17 @@ router.delete(
     if (!repo) return;
     // if (repo.status == "removing") return res.json({ status: repo.status });
     try {
-      if (repo.status == "removed") throw new AnonymousError("is_removed");
+      if (repo.status == "removed")
+        throw new AnonymousError("is_removed", {
+          object: req.params.repoId,
+          httpStatus: 410,
+        });
       const user = await getUser(req);
       if (repo.owner.id != user.id) {
-        return res.status(401).json({ error: "not_authorized" });
+        throw new AnonymousError("not_authorized", {
+          object: req.params.repoId,
+          httpStatus: 401,
+        });
       }
       await repo.updateStatus("removing");
       await removeQueue.add(repo, { jobId: repo.repoId });
@@ -152,7 +174,12 @@ router.get(
         repo: req.params.repo,
         accessToken: user.accessToken,
       });
-      if (!repo) return res.status(404).send({ error: "repo_not_found" });
+      if (!repo) {
+        throw new AnonymousError("repo_not_found", {
+          object: req.params.repoId,
+          httpStatus: 404,
+        });
+      }
       return res.send(
         await repo.readme({
           accessToken: user.accessToken,
@@ -174,7 +201,10 @@ router.get("/:repoId/", async (req: express.Request, res: express.Response) => {
 
     const user = await getUser(req);
     if (repo.owner.id != user.id) {
-      return res.status(401).send({ error: "not_authorized" });
+      throw new AnonymousError("not_authorized", {
+        object: req.params.repoId,
+        httpStatus: 401,
+      });
     }
     res.json((await db.getRepository(req.params.repoId)).toJSON());
   } catch (error) {
@@ -188,22 +218,40 @@ function validateNewRepo(repoUpdate) {
     !repoUpdate.repoId.match(validCharacters) ||
     repoUpdate.repoId.length < 3
   ) {
-    throw new AnonymousError("invalid_repoId", repoUpdate.repoId);
+    throw new AnonymousError("invalid_repoId", {
+      object: repoUpdate,
+      httpStatus: 400,
+    });
   }
   if (!repoUpdate.source.branch) {
-    throw new AnonymousError("branch_not_specified");
+    throw new AnonymousError("branch_not_specified", {
+      object: repoUpdate,
+      httpStatus: 400,
+    });
   }
   if (!repoUpdate.source.commit) {
-    throw new AnonymousError("commit_not_specified");
+    throw new AnonymousError("commit_not_specified", {
+      object: repoUpdate,
+      httpStatus: 400,
+    });
   }
   if (!repoUpdate.options) {
-    throw new AnonymousError("options_not_provided");
+    throw new AnonymousError("options_not_provided", {
+      object: repoUpdate,
+      httpStatus: 400,
+    });
   }
   if (!Array.isArray(repoUpdate.terms)) {
-    throw new AnonymousError("invalid_terms_format", repoUpdate.terms);
+    throw new AnonymousError("invalid_terms_format", {
+      object: repoUpdate,
+      httpStatus: 400,
+    });
   }
   if (!/^[a-fA-F0-9]+$/.test(repoUpdate.source.commit)) {
-    throw new AnonymousError("invalid_commit_format", repoUpdate.source.commit);
+    throw new AnonymousError("invalid_commit_format", {
+      object: repoUpdate,
+      httpStatus: 400,
+    });
   }
 }
 
@@ -248,7 +296,10 @@ router.post(
       const user = await getUser(req);
 
       if (repo.owner.id != user.id) {
-        return res.status(401).json({ error: "not_authorized" });
+        throw new AnonymousError("not_authorized", {
+          object: req.params.repoId,
+          httpStatus: 401,
+        });
       }
 
       const repoUpdate = req.body;
@@ -289,7 +340,10 @@ router.post(
             new Date() > conf.endDate ||
             conf.status !== "ready"
           ) {
-            throw new AnonymousError("conf_not_activated");
+            throw new AnonymousError("conf_not_activated", {
+              object: conf,
+              httpStatus: 400,
+            });
           }
           const f = conf.repositories.filter((r) => r.id == repo.model.id);
           if (f.length) {
@@ -346,7 +400,10 @@ router.post("/", async (req: express.Request, res: express.Response) => {
     if (repo.source.type == "GitHubDownload") {
       // details.size is in kilobytes
       if (repository.size > config.MAX_REPO_SIZE) {
-        return res.status(500).send({ error: "invalid_mode" });
+        throw new AnonymousError("invalid_mode", {
+          object: repository,
+          httpStatus: 400,
+        });
       }
     }
     repo.conference = repoUpdate.conference;
@@ -364,7 +421,10 @@ router.post("/", async (req: express.Request, res: express.Response) => {
           conf.status !== "ready"
         ) {
           await repo.remove();
-          throw new AnonymousError("conf_not_activated");
+          throw new AnonymousError("conf_not_activated", {
+            object: conf,
+            httpStatus: 400,
+          });
         }
         conf.repositories.push({
           id: repo.id,
@@ -379,7 +439,11 @@ router.post("/", async (req: express.Request, res: express.Response) => {
   } catch (error) {
     if (error.message?.indexOf(" duplicate key") > -1) {
       return handleError(
-        new AnonymousError("repoId_already_used", repoUpdate.repoId),
+        new AnonymousError("repoId_already_used", {
+          httpStatus: 400,
+          cause: error,
+          object: repoUpdate,
+        }),
         res
       );
     }

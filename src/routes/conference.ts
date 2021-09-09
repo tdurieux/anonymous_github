@@ -67,26 +67,79 @@ router.get("/", async (req: express.Request, res: express.Response) => {
 });
 
 function validateConferenceForm(conf) {
-  if (!conf.name) throw new AnonymousError("conf_name_missing");
-  if (!conf.conferenceID) throw new AnonymousError("conf_id_missing");
-  if (!conf.startDate) throw new AnonymousError("conf_start_date_missing");
-  if (!conf.endDate) throw new AnonymousError("conf_end_date_missing");
+  if (!conf.name)
+    throw new AnonymousError("conf_name_missing", {
+      object: conf,
+      httpStatus: 400,
+    });
+  if (!conf.conferenceID)
+    throw new AnonymousError("conf_id_missing", {
+      object: conf,
+      httpStatus: 400,
+    });
+  if (!conf.startDate)
+    throw new AnonymousError("conf_start_date_missing", {
+      object: conf,
+      httpStatus: 400,
+    });
+  if (!conf.endDate)
+    throw new AnonymousError("conf_end_date_missing", {
+      object: conf,
+      httpStatus: 400,
+    });
   if (new Date(conf.startDate) > new Date(conf.endDate))
-    throw new AnonymousError("conf_start_date_invalid");
+    throw new AnonymousError("conf_start_date_invalid", {
+      object: conf,
+      httpStatus: 400,
+    });
   if (new Date() > new Date(conf.endDate))
-    throw new AnonymousError("conf_end_date_invalid");
+    throw new AnonymousError("conf_end_date_invalid", {
+      object: conf,
+      httpStatus: 400,
+    });
   if (plans.filter((p) => p.id == conf.plan.planID).length != 1)
-    throw new AnonymousError("invalid_plan");
+    throw new AnonymousError("invalid_plan", {
+      object: conf,
+      httpStatus: 400,
+    });
   const plan = plans.filter((p) => p.id == conf.plan.planID)[0];
   if (plan.pricePerRepo > 0) {
     const billing = conf.billing;
-    if (!billing) throw new AnonymousError("billing_missing");
-    if (!billing.name) throw new AnonymousError("billing_name_missing");
-    if (!billing.email) throw new AnonymousError("billing_email_missing");
-    if (!billing.address) throw new AnonymousError("billing_address_missing");
-    if (!billing.city) throw new AnonymousError("billing_city_missing");
-    if (!billing.zip) throw new AnonymousError("billing_zip_missing");
-    if (!billing.country) throw new AnonymousError("billing_country_missing");
+    if (!billing)
+      throw new AnonymousError("billing_missing", {
+        object: conf,
+        httpStatus: 400,
+      });
+    if (!billing.name)
+      throw new AnonymousError("billing_name_missing", {
+        object: conf,
+        httpStatus: 400,
+      });
+    if (!billing.email)
+      throw new AnonymousError("billing_email_missing", {
+        object: conf,
+        httpStatus: 400,
+      });
+    if (!billing.address)
+      throw new AnonymousError("billing_address_missing", {
+        object: conf,
+        httpStatus: 400,
+      });
+    if (!billing.city)
+      throw new AnonymousError("billing_city_missing", {
+        object: conf,
+        httpStatus: 400,
+      });
+    if (!billing.zip)
+      throw new AnonymousError("billing_zip_missing", {
+        object: conf,
+        httpStatus: 400,
+      });
+    if (!billing.country)
+      throw new AnonymousError("billing_country_missing", {
+        object: conf,
+        httpStatus: 400,
+      });
   }
 }
 
@@ -101,7 +154,10 @@ router.post(
           conferenceID: req.params.conferenceID,
         });
         if (model.owners.indexOf(user.model.id) == -1)
-          throw new AnonymousError("not_authorized");
+          throw new AnonymousError("not_authorized", {
+            object: req.params.conferenceID,
+            httpStatus: 401,
+          });
       }
       validateConferenceForm(req.body);
       model.name = req.body.name;
@@ -146,7 +202,13 @@ router.post(
       res.send("ok");
     } catch (error) {
       if (error.message?.indexOf(" duplicate key") > -1) {
-        return handleError(new AnonymousError("conf_id_used"), res);
+        return handleError(
+          new AnonymousError("conf_id_used", {
+            object: req.params.conferenceID,
+            httpStatus: 400,
+          }),
+          res
+        );
       }
       handleError(error, res);
     }
@@ -161,10 +223,17 @@ router.get(
       const data = await ConferenceModel.findOne({
         conferenceID: req.params.conferenceID,
       });
-      if (!data) throw new AnonymousError("conf_not_found");
+      if (!data)
+        throw new AnonymousError("conf_not_found", {
+          object: req.params.conferenceID,
+          httpStatus: 404,
+        });
       const conference = new Conference(data);
       if (conference.ownerIDs.indexOf(user.model.id) == -1)
-        throw new AnonymousError("not_authorized");
+        throw new AnonymousError("not_authorized", {
+          object: req.params.conferenceID,
+          httpStatus: 401,
+        });
       const o: any = conference.toJSON();
       o.repositories = (await conference.repositories()).map((r) => r.toJSON());
       res.json(o);
@@ -182,10 +251,17 @@ router.delete(
       const data = await ConferenceModel.findOne({
         conferenceID: req.params.conferenceID,
       });
-      if (!data) throw new AnonymousError("conf_not_found");
+      if (!data)
+        throw new AnonymousError("conf_not_found", {
+          object: req.params.conferenceID,
+          httpStatus: 400,
+        });
       const conference = new Conference(data);
       if (conference.ownerIDs.indexOf(user.model.id) == -1)
-        throw new AnonymousError("not_authorized");
+        throw new AnonymousError("not_authorized", {
+          object: req.params.conferenceID,
+          httpStatus: 401,
+        });
       await conference.remove();
       res.send("ok");
     } catch (error) {

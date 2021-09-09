@@ -12,14 +12,25 @@ const router = express.Router();
 router.get(
   "/:repoId/zip",
   async (req: express.Request, res: express.Response) => {
-    if (!config.ENABLE_DOWNLOAD)
-      return res.status(403).send({ error: "download_not_enabled" });
-    const repo = await getRepo(req, res);
-    if (!repo) return;
-
     const pipeline = promisify(stream.pipeline);
 
     try {
+      if (!config.ENABLE_DOWNLOAD) {
+        throw new AnonymousError("download_not_enabled", {
+          httpStatus: 403,
+          object: req.params.repoId,
+        });
+      }
+      const repo = await getRepo(req, res);
+      if (!repo) return;
+
+      if (repo.source.type != "GitHubDownload") {
+        throw new AnonymousError("download_not_enabled", {
+          httpStatus: 403,
+          object: req.params.repoId,
+        });
+      }
+
       res.attachment(`${repo.repoId}.zip`);
 
       // cache the file for 6 hours
@@ -67,7 +78,10 @@ router.get(
           repo.status == "removing" ||
           repo.status == "removed"
         ) {
-          throw new AnonymousError("repository_expired", repo);
+          throw new AnonymousError("repository_expired", {
+            object: repo,
+            httpStatus: 410,
+          });
         }
 
         const fiveMinuteAgo = new Date();
@@ -85,10 +99,16 @@ router.get(
               repo.model.statusMessage
                 ? repo.model.statusMessage
                 : "repository_not_available",
-              repo
+              {
+                object: repo,
+                httpStatus: 500,
+              }
             );
           }
-          throw new AnonymousError("repository_not_ready", repo);
+          throw new AnonymousError("repository_not_ready", {
+            httpStatus: 404,
+            object: repo,
+          });
         }
 
         await repo.updateIfNeeded();

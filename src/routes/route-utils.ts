@@ -38,24 +38,11 @@ export async function getRepo(
 }
 
 function printError(error: any) {
+  io.notifyError(error, error.value);
   if (error instanceof AnonymousError) {
-    io.notifyError(error, error.value);
-    let detail = error.value ? JSON.stringify(error.value) : null;
-    if (error.value instanceof Repository) {
-      detail = error.value.repoId;
-    } else if (error.value instanceof AnonymizedFile) {
-      detail = `/r/${error.value.repository.repoId}/${error.value.anonymizedPath}`;
-    } else if (error.value instanceof GitHubRepository) {
-      detail = `${error.value.fullName}`;
-    } else if (error.value instanceof User) {
-      detail = `${error.value.username}`;
-    } else if (error.value instanceof GitHubBase) {
-      detail = `${error.value.repository.repoId}`;
-    }
     console.error(
       "[ERROR]",
-      error.message,
-      detail ? `'${detail}'` : null,
+      error.toString(),
       error.stack.split("\n")[1].trim()
     );
   } else if (error instanceof Error) {
@@ -72,7 +59,9 @@ export function handleError(error: any, res: express.Response) {
     message = error.message;
   }
   let status = 500;
-  if (message && message.indexOf("not_found") > -1) {
+  if (error.httpStatus) {
+    status = error.httpStatus;
+  } else if (message && message.indexOf("not_found") > -1) {
     status = 400;
   } else if (message && message.indexOf("not_connected") > -1) {
     status = 401;
@@ -86,12 +75,16 @@ export async function getUser(req: express.Request) {
   const user = (req.user as any).user;
   if (!user) {
     req.logout();
-    throw new AnonymousError("not_connected");
+    throw new AnonymousError("not_connected", {
+      httpStatus: 401,
+    });
   }
   const model = await UserModel.findById(user._id);
   if (!model) {
     req.logout();
-    throw new AnonymousError("not_connected");
+    throw new AnonymousError("not_connected", {
+      httpStatus: 401,
+    });
   }
   return new User(model);
 }

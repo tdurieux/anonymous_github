@@ -45,7 +45,10 @@ export default class GitHubDownload extends GitHubBase implements SourceBase {
       this.repository.status == "download" &&
       this.repository.model.statusDate > fiveMinuteAgo
     )
-      throw new AnonymousError("repo_in_download", this.repository);
+      throw new AnonymousError("repo_in_download", {
+        httpStatus: 404,
+        object: this.repository,
+      });
     let response: OctokitResponse<unknown, number>;
     try {
       response = await this._getZipUrl(await this.getToken());
@@ -55,11 +58,19 @@ export default class GitHubDownload extends GitHubBase implements SourceBase {
           response = await this._getZipUrl(config.GITHUB_TOKEN);
         } catch (error) {
           await this.repository.resetSate("error");
-          throw new AnonymousError("repo_not_accessible", this.repository);
+          throw new AnonymousError("repo_not_accessible", {
+            httpStatus: 404,
+            cause: error,
+            object: this.repository,
+          });
         }
       } else {
         await this.repository.resetSate("error");
-        throw new AnonymousError("repo_not_accessible", this.repository);
+        throw new AnonymousError("repo_not_accessible", {
+          httpStatus: 404,
+          object: this.repository,
+          cause: error,
+        });
       }
     }
     await this.repository.updateStatus("download");
@@ -89,7 +100,11 @@ export default class GitHubDownload extends GitHubBase implements SourceBase {
       await storage.extractTar(originalPath, downloadStream);
     } catch (error) {
       await this.repository.updateStatus("error", "unable_to_download");
-      throw new AnonymousError("unable_to_download", error);
+      throw new AnonymousError("unable_to_download", {
+        httpStatus: 500,
+        cause: error,
+        object: this.repository,
+      });
     } finally {
       inDownload = false;
       clearTimeout(progressTimeout);

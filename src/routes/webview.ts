@@ -12,14 +12,20 @@ async function webView(req: express.Request, res: express.Response) {
   if (!repo) return;
   try {
     if (!repo.options.page || !repo.options.pageSource) {
-      throw new AnonymousError("page_not_activated");
+      throw new AnonymousError("page_not_activated", {
+        httpStatus: 400,
+        object: repo,
+      });
     }
 
     if (
       repo.options.pageSource?.branch !=
       (repo.source as GitHubDownload).branch.name
     ) {
-      throw new AnonymousError("page_not_supported_on_different_branch");
+      throw new AnonymousError("page_not_supported_on_different_branch", {
+        httpStatus: 400,
+        object: repo,
+      });
     }
 
     let requestPath = path.join(
@@ -37,7 +43,10 @@ async function webView(req: express.Request, res: express.Response) {
       anonymizedPath: requestPath,
     });
     if (!(await f.isFileSupported())) {
-      return res.status(500).send({ error: "file_not_supported" });
+      throw new AnonymousError("file_not_supported", {
+        httpStatus: 400,
+        object: f,
+      });
     }
     f.send(res);
   } catch (error) {

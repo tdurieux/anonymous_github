@@ -20,7 +20,10 @@ export default class S3Storage implements StorageBase {
   client: S3;
 
   constructor() {
-    if (!config.S3_BUCKET) throw new AnonymousError("s3_config_not_provided");
+    if (!config.S3_BUCKET)
+      throw new AnonymousError("s3_config_not_provided", {
+        httpStatus: 500,
+      });
     this.client = new S3({
       region: config.S3_REGION,
       endpoint: config.S3_ENDPOINT,
@@ -179,7 +182,7 @@ export default class S3Storage implements StorageBase {
       header.name = header.name.substr(header.name.indexOf("/") + 1);
       originalArchiveStreamToS3Entry.call(toS3, header, stream, next);
     };
-    
+
     return new Promise((resolve, reject) => {
       toS3 = new ArchiveStreamToS3(config.S3_BUCKET, p, this.client);
       stream

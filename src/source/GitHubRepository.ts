@@ -117,7 +117,11 @@ export class GitHubRepository {
         selected.readme = readme;
         await model.save();
       } catch (error) {
-        throw new AnonymousError("readme_not_available", this);
+        throw new AnonymousError("readme_not_available", {
+          httpStatus: 404,
+          cause: error,
+          object: this,
+        });
       }
     }
 
@@ -127,7 +131,10 @@ export class GitHubRepository {
   public get owner(): string {
     const repo = gh(this.fullName);
     if (!repo) {
-      throw new AnonymousError("invalid_repo", this);
+      throw new AnonymousError("invalid_repo", {
+        httpStatus: 400,
+        object: this,
+      });
     }
     return repo.owner || this.fullName;
   }
@@ -135,7 +142,10 @@ export class GitHubRepository {
   public get repo(): string {
     const repo = gh(this.fullName);
     if (!repo) {
-      throw new AnonymousError("invalid_repo", this);
+      throw new AnonymousError("invalid_repo", {
+        httpStatus: 400,
+        object: this,
+      });
     }
     return repo.name || this.fullName;
   }
@@ -159,18 +169,22 @@ export async function getRepositoryFromGitHub(opt: {
       })
     ).data;
   } catch (error) {
-    if (error.status == 404) {
-      throw new AnonymousError("repo_not_found", {
+    throw new AnonymousError("repo_not_found", {
+      httpStatus: error.status,
+      object: {
         owner: opt.owner,
         repo: opt.repo,
-      });
-    }
-    throw error;
+      },
+      cause: error,
+    });
   }
   if (!r)
     throw new AnonymousError("repo_not_found", {
-      owner: opt.owner,
-      repo: opt.repo,
+      httpStatus: 404,
+      object: {
+        owner: opt.owner,
+        repo: opt.repo,
+      },
     });
   let model = await RepositoryModel.findOne({ externalId: "gh_" + r.id });
   if (!model) {

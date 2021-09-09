@@ -34,7 +34,10 @@ export default class Repository {
         this.source = new Zip(data.source, this);
         break;
       default:
-        throw new AnonymousError("unsupported_source", data.source.type);
+        throw new AnonymousError("unsupported_source", {
+          object: data.source.type,
+          httpStatus: 400,
+        });
     }
     this.owner = new User(new UserModel({ _id: data.owner }));
   }
@@ -110,7 +113,10 @@ export default class Repository {
       this.status == "removing" ||
       this.status == "removed"
     ) {
-      throw new AnonymousError("repository_expired", this);
+      throw new AnonymousError("repository_expired", {
+        object: this,
+        httpStatus: 410,
+      });
     }
     const fiveMinuteAgo = new Date();
     fiveMinuteAgo.setMinutes(fiveMinuteAgo.getMinutes() - 5);
@@ -119,7 +125,9 @@ export default class Repository {
       this.status == "preparing" ||
       (this.status == "download" && this._model.statusDate > fiveMinuteAgo)
     ) {
-      throw new AnonymousError("repository_not_ready", this);
+      throw new AnonymousError("repository_not_ready", {
+        object: this,
+      });
     }
   }
 
@@ -170,7 +178,9 @@ export default class Repository {
           );
           await this.updateStatus("error", "branch_not_found");
           await this.resetSate();
-          throw new AnonymousError("branch_not_found", this);
+          throw new AnonymousError("branch_not_found", {
+            object: this,
+          });
         }
         this._model.anonymizeDate = new Date();
         console.log(`${this._model.repoId} will be updated to ${newCommit}`);
@@ -234,8 +244,9 @@ export default class Repository {
   /**
    * Reset/delete the state of the repository
    */
-  async resetSate(status?: RepositoryStatus) {
+  async resetSate(status?: RepositoryStatus, statusMessage?: string) {
     if (status) this._model.status = status;
+    if (statusMessage) this._model.statusMessage = statusMessage;
     // remove attribute
     this._model.size = { storage: 0, file: 0 };
     this._model.originalFiles = null;
