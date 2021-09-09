@@ -37,6 +37,7 @@ export default async function start() {
 
   app.use(compression());
   app.set("trust proxy", 1);
+  app.set("etag", "strong");
 
   // handle session and connection
   app.use(connection.appSession);
