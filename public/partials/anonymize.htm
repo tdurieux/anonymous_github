@@ -17,6 +17,7 @@
           <h6 class="card-subtitle mb-2 text-muted">
             Fill the information to anonymize! It will only take 5min.
           </h6>
+          <h2>Source</h2>
           <!-- repoUrl -->
           <div class="form-group">
             <label for="repoUrl">Type the url of your repository</label>
@@ -54,7 +55,7 @@
               class="invalid-feedback"
               ng-show="anonymize.repoUrl.$error.used"
             >
-              {{repoUrl}} is already d
+              {{repoUrl}} is already anonymized
             </div>
           </div>
           <!-- select repo -->
@@ -92,7 +93,7 @@
             <!-- Branch -->
             <div class="form-group">
               <label for="branch">Branch</label>
-              <div class="input-group mb-3">
+              <div class="input-group mb-1">
                 <select
                   class="form-control"
                   id="branch"
@@ -117,9 +118,26 @@
                   </button>
                 </div>
               </div>
-              <small class="form-text text-muted"
-                >The branch to anonymize</small
-              >
+              <small class="form-text text-muted">
+                The branch to anonymize
+              </small>
+            </div>
+            <div class="form-group">
+              <div class="form-check">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  id="update"
+                  name="update"
+                  ng-model="options.update"
+                />
+                <label class="form-check-label" for="update">Auto update</label>
+                <small id="updateHelp" class="form-text text-muted"
+                  >Automatically update the anonymized repository with the
+                  latest commit of the repository. The repository is updated
+                  once per hour maximum.</small
+                >
+              </div>
             </div>
             <!-- Commit -->
             <div class="form-group">
@@ -128,14 +146,55 @@
                 class="form-control"
                 id="commit"
                 name="commit"
+                pattern="[a-fA-Z0-9]{6,}"
                 ng-model="source.commit"
                 required
                 ng-class="{'is-invalid': anonymize.commit.$invalid}"
               />
               <small class="form-text text-muted"
-                >The commit to anonymize.</small
+                >The SHA of the commit to anonymize.</small
               >
+              <div
+                class="invalid-feedback"
+                ng-show="anonymize.commit.$error.pattern"
+              >
+                The commit SHA is not valid. It should respect this pattern
+                [a-fA-Z0-9]{6,}.
+              </div>
             </div>
+            <h2>Conference</h2>
+            <!-- Conference -->
+            <div class="form-group">
+              <label for="conference"
+                >Conference <span class="text-muted">Optional</span></label
+              >
+              <input
+                class="form-control"
+                id="conference"
+                name="conference"
+                ng-model="conference"
+                ng-class="{'is-invalid': anonymize.conference.$invalid}"
+              />
+              <small class="form-text text-muted" ng-show="conference_data"
+                ><a ng-href="{{conference_data.url}}" target="_target"
+                  >{{conference_data.name}}</a
+                >
+                will expire on {{conference_data.endDate | date}}.</small
+              >
+
+              <div
+                class="invalid-feedback"
+                ng-show="anonymize.conference.$error.activated"
+              >
+                The conference is not activated.
+              </div>
+              <small class="form-text text-muted" ng-show="!conference_data">
+                Use the conference ID that your conference provided you. This
+                will update automatically the anonymization options based on the
+                conference preferences.
+              </small>
+            </div>
+            <h2>Anonymization Options</h2>
             <!-- Repo ID -->
             <div class="form-group">
               <label for="repoId">Anonymize repository id</label>
@@ -187,34 +246,54 @@
                 Terms are in an invalid format
               </div>
             </div>
-            <!-- Conference -->
+
             <div class="form-group">
-              <label for="conference"
-                >Conference <span class="text-muted">Optional</span></label
+              <label for="expiration">Expiration strategy</label>
+              <select
+                class="form-control"
+                id="expiration"
+                name="expiration"
+                ng-model="options.expirationMode"
+              >
+                <option value="never" selected>Never expire</option>
+                <option value="redirect">
+                  Redirect to GitHub when expired
+                </option>
+                <option value="remove">Remove when expired</option>
+              </select>
+              <small class="form-text text-muted"
+                >Define the expiration strategy for the anonymized
+                repository.</small
+              >
+            </div>
+            <div
+              class="form-group"
+              id="expiration-date-form"
+              ng-hide="options.expirationMode=='never'"
+            >
+              <label for="expirationDate"
+                >Expiration date of the anonymized repository</label
               >
               <input
                 class="form-control"
-                id="conference"
-                name="conference"
-                ng-model="conference"
-                ng-class="{'is-invalid': anonymize.conference.$invalid}"
+                type="date"
+                name="expirationDate"
+                id="expirationDate"
+                ng-model="options.expirationDate"
               />
-              <small class="form-text text-muted" ng-show="!conference_data"
-                >In which conference the paper will be submitted.</small
+              <small
+                class="form-text text-muted"
+                ng-show="options.expirationMode=='remove'"
+                >After {{options.expirationDate | date}}, the repository will be
+                removed and the visitor will not be able to see the content of
+                the repository.</small
               >
-              <small class="form-text text-muted" ng-show="conference_data"
-                ><a ng-href="{{conference_data.url}}" target="_target"
-                  >{{conference_data.name}}</a
-                >
-                will expire on {{conference_data.endDate | date}}.</small
+              <small
+                class="form-text text-muted"
+                ng-show="options.expirationMode=='redirect'"
+                >After {{options.expirationDate | date}}, the visitors of the
+                anonymized repository will be redirected to {{repoUrl}}.</small
               >
-
-              <div
-                class="invalid-feedback"
-                ng-show="anonymize.conference.$error.activated"
-              >
-                The conference is not activated.
-              </div>
             </div>
 
             <div class="accordion mb-3" id="options">
@@ -229,7 +308,7 @@
                       aria-expanded="true"
                       aria-controls="collapseOne"
                     >
-                      Rendering options
+                      Advance options
                     </button>
                   </h2>
                 </div>
@@ -299,71 +378,28 @@
                           >Display Notebooks</label
                         >
                       </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div class="card">
-                <div class="card-header" id="headingTwo">
-                  <h2 class="mb-0">
-                    <button
-                      class="btn btn-block text-left collapsed"
-                      type="button"
-                      data-toggle="collapse"
-                      data-target="#collapseTwo"
-                      aria-expanded="false"
-                      aria-controls="collapseTwo"
-                    >
-                      Features
-                    </button>
-                  </h2>
-                </div>
-                <div
-                  id="collapseTwo"
-                  class="collapse"
-                  aria-labelledby="headingTwo"
-                  data-parent="#options"
-                >
-                  <div class="card-body">
-                    <div class="form-group">
-                      <div class="form-check">
-                        <input
-                          class="form-check-input"
-                          type="checkbox"
-                          id="update"
-                          name="update"
-                          ng-model="options.update"
-                        />
-                        <label class="form-check-label" for="update"
-                          >Auto update</label
+
+                      <div class="form-group">
+                        <label for="mode">Proxy mode</label>
+                        <select
+                          class="form-control"
+                          id="mode"
+                          name="mode"
+                          ng-model="source.type"
                         >
-                        <small id="termsHelp" class="form-text text-muted"
-                          >Automatically update the anonymized repository with
-                          the latest commit of the repository. The repository is
-                          updated once per hour maximum.</small
+                          <option value="GitHubStream" selected>Stream</option>
+                          <option value="GitHubDownload">Download</option>
+                        </select>
+                        <small class="form-text text-muted"
+                          >How the repository will be anonymized. Stream mode
+                          will request the content on the flight. This is the
+                          only option for repositories bigger than
+                          {{site_options.MAX_REPO_SIZE * 1024| humanFileSize}}.
+                          Download will download the repository the repository
+                          on the anonymous.4open.science server, it is faster
+                          and offer more features.</small
                         >
                       </div>
-                    </div>
-                    <div class="form-group">
-                      <label for="mode">Proxy mode</label>
-                      <select
-                        class="form-control"
-                        id="mode"
-                        name="mode"
-                        ng-model="source.type"
-                      >
-                        <option value="GitHubStream" selected>Stream</option>
-                        <option value="GitHubDownload">Download</option>
-                      </select>
-                      <small class="form-text text-muted"
-                        >How the repository will be anonymized. Stream mode will
-                        request the content on the flight. This is the only
-                        option for repositories bigger than
-                        {{site_options.MAX_REPO_SIZE * 1024| humanFileSize}}.
-                        Download will download the repository the repository on
-                        the anonymous.4open.science server, it is faster and
-                        offer more features.</small
-                      >
                     </div>
                     <div class="form-group">
                       <div class="form-check">
@@ -385,80 +421,6 @@
                           https://anonymous.4open.science/w/{{repoId}}</small
                         >
                       </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div class="card">
-                <div class="card-header" id="headingThree">
-                  <h2 class="mb-0">
-                    <button
-                      class="btn btn-block text-left collapsed"
-                      type="button"
-                      data-toggle="collapse"
-                      data-target="#collapseThree"
-                      aria-expanded="false"
-                      aria-controls="collapseThree"
-                    >
-                      Expiration
-                    </button>
-                  </h2>
-                </div>
-                <div
-                  id="collapseThree"
-                  class="collapse"
-                  aria-labelledby="headingThree"
-                  data-parent="#options"
-                >
-                  <div class="card-body">
-                    <div class="form-group">
-                      <label for="expiration">Expiration options</label>
-                      <select
-                        class="form-control"
-                        id="expiration"
-                        name="expiration"
-                        ng-model="options.expirationMode"
-                      >
-                        <option value="never" selected>Never expire</option>
-                        <option value="redirect">
-                          Redirect to GitHub when expired
-                        </option>
-                        <option value="remove">Remove when expired</option>
-                      </select>
-                      <small class="form-text text-muted"
-                        >Define the expiration strategy for the repository
-                        expiration.</small
-                      >
-                    </div>
-                    <div
-                      class="form-group"
-                      id="expiration-date-form"
-                      ng-hide="options.expirationMode=='never'"
-                    >
-                      <label for="expirationDate"
-                        >Expiration date of the anonymized repository</label
-                      >
-                      <input
-                        class="form-control .form-control-lg"
-                        type="date"
-                        name="expirationDate"
-                        id="expirationDate"
-                        ng-model="options.expirationDate"
-                      />
-                      <small
-                        class="form-text text-muted"
-                        ng-show="options.expirationMode=='remove'"
-                        >After {{options.expirationDate | date}}, the repository
-                        will be removed and the visitor will not be able to see
-                        the content of the repository.</small
-                      >
-                      <small
-                        class="form-text text-muted"
-                        ng-show="options.expirationMode=='redirect'"
-                        >After {{options.expirationDate | date}}, the visitors
-                        of the anonymized repository will be redirected to
-                        {{repoUrl}}.</small
-                      >
                     </div>
                   </div>
                 </div>
