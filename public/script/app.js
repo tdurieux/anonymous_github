@@ -6,6 +6,7 @@ angular
     "ngPDFViewer",
     "pascalprecht.translate",
     "angular-google-analytics",
+    "admin",
   ])
   .config(function (
     $routeProvider,
@@ -89,6 +90,21 @@ angular
         controller: "exploreController",
         title: "Anonymized Repository - Anonymous GitHub",
         reloadOnUrl: false,
+      })
+      .when("/admin/", {
+        templateUrl: "/partials/admin/repositories.htm",
+        controller: "repositoriesAdminController",
+        title: "Repositories Admin - Anonymous GitHub",
+      })
+      .when("/admin/users", {
+        templateUrl: "/partials/admin/users.htm",
+        controller: "usersAdminController",
+        title: "Users Admin - Anonymous GitHub",
+      })
+      .when("/admin/conferences", {
+        templateUrl: "/partials/admin/conferences.htm",
+        controller: "conferencesAdminController",
+        title: "Conferences Admin - Anonymous GitHub",
       })
       .when("/404", {
         templateUrl: "/partials/404.htm",

@@ -20,7 +20,11 @@ router.get("/logout", async (req: express.Request, res: express.Response) => {
 router.get("/", async (req: express.Request, res: express.Response) => {
   try {
     const user = await getUser(req);
-    res.json({ username: user.username, photo: user.photo });
+    res.json({
+      username: user.username,
+      photo: user.photo,
+      isAdmin: user.isAdmin,
+    });
   } catch (error) {
     handleError(error, res);
   }
