@@ -155,7 +155,10 @@
 
               <div class="mt-1 mr-1" style="margin-top: -0.25rem !important">
                 <strong>Repository</strong>
-                <div class="progress position-relative" style="min-width: 150px">
+                <div
+                  class="progress position-relative"
+                  style="min-width: 150px"
+                >
                   <div
                     class="progress-bar"
                     ng-class="{'progress-bar-striped progress-bar-animated w-100 bg-dark': !quota, 'bg-success': quota.repository.percent < 25 || quota.repository.total == 0, 'bg-danger': quota.repository.percent > 95 && quota.repository.total > 0, 'bg-warning': quota.repository.percent > 75 && quota.repository.total > 0 }"
@@ -210,7 +213,10 @@
 
               <div class="mt-1 mr-1" style="margin-top: -0.25rem !important">
                 <strong>File</strong>
-                <div class="progress position-relative" style="min-width: 150px">
+                <div
+                  class="progress position-relative"
+                  style="min-width: 150px"
+                >
                   <div
                     class="progress-bar"
                     ng-class="{'progress-bar-striped progress-bar-animated w-100 bg-dark': !quota, 'bg-success': quota.file.percent < 25 || quota.file.total == 0, 'bg-danger': quota.file.percent > 95 && quota.file.total > 0, 'bg-warning': quota.file.percent > 75 && quota.file.total > 0 }"
@@ -264,7 +270,7 @@
               <a ng-href="/r/{{repo.repoId}}" ng-bind="repo.repoId"></a>
               <span
                 class="badge"
-                ng-class="{'badge-warning': repo.status == 'removed' || repo.status == 'expired' ||  repo.status == 'removing' || repo.status == 'expiring', 'badge-info': repo.status == 'preparing', 'badge-success': repo.status == 'ready', 'badge-danger': repo.status == 'error'}"
+                ng-class="{'badge-warning': repo.status == 'removed' || repo.status == 'expired' ||  repo.status == 'removing' || repo.status == 'expiring', 'badge-info': repo.status == 'preparing' || repo.status == 'download', 'badge-success': repo.status == 'ready', 'badge-danger': repo.status == 'error'}"
                 ><span ng-bind="repo.status | title"></span>
                 <span
                   ng-if="repo.status == 'error'"
@@ -369,7 +375,7 @@
               <a
                 class="dropdown-item"
                 href="#"
-                ng-show="repo.status == 'ready'"
+                ng-show="repo.status == 'ready' || repo.status == 'error'"
                 ng-click="updateRepository(repo)"
               >
                 <i class="fas fa-sync"></i> Force update
@@ -386,7 +392,7 @@
               <a
                 class="dropdown-item"
                 href="#"
-                ng-show="repo.status != 'removed'"
+                ng-show="repo.status == 'ready'"
                 ng-click="removeRepository(repo)"
               >
                 <i class="fas fa-trash-alt"></i> Remove
@@ -398,7 +404,7 @@
                 class="dropdown-item"
                 href="/w/{{repo.repoId}}/"
                 target="_self"
-                ng-if="repo.options.page"
+                ng-if="repo.options.page && repo.status == 'ready'"
               >
                 <i class="fas fa-globe"></i> View Page
               </a>

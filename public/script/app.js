@@ -622,6 +622,27 @@ angular
       }
       getRepositories();
 
+      function waitRepoToBeReady(repoId, callback) {
+        $http.get("/api/repo/" + repoId).then((res) => {
+          for (const repo of $scope.repositories) {
+            if (repo.repoId == repoId) {
+              repo.status = res.data.status;
+              break;
+            }
+          }
+          if (
+            res.data.status == "ready" ||
+            res.data.status == "error" ||
+            res.data.status == "removed" ||
+            res.data.status == "expired"
+          ) {
+            callback(res.data);
+            return;
+          }
+          setTimeout(() => waitRepoToBeReady(repoId), 2500);
+        });
+      }
+
       $scope.removeRepository = (repo) => {
         if (
           confirm(
@@ -636,12 +657,11 @@ angular
           $scope.toasts.push(toast);
           $http.delete(`/api/repo/${repo.repoId}`).then(
             () => {
-              setTimeout(() => {
+              waitRepoToBeReady(repo.repoId, () => {
                 toast.title = `${repo.repoId} is removed.`;
                 toast.body = `The repository ${repo.repoId} is removed.`;
-                getRepositories();
                 $scope.$apply();
-              }, 5000);
+              });
             },
             (error) => {
               toast.title = `Error during the removal of ${repo.repoId}.`;
@@ -663,12 +683,11 @@ angular
 
         $http.post(`/api/repo/${repo.repoId}/refresh`).then(
           () => {
-            setTimeout(() => {
+            waitRepoToBeReady(repo.repoId, () => {
               toast.title = `${repo.repoId} is refreshed.`;
               toast.body = `The repository ${repo.repoId} is refreshed.`;
-              getRepositories();
               $scope.$apply();
-            }, 5000);
+            });
           },
           (error) => {
             toast.title = `Error during the refresh of ${repo.repoId}.`;
