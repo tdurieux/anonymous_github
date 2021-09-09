@@ -165,7 +165,7 @@ export default class Repository {
         const branch = this.source.branch;
         const newCommit = branches.filter((f) => f.name == branch.name)[0]
           ?.commit;
-        if (branch.commit == newCommit) {
+        if (branch.commit == newCommit && this.status == "ready") {
           console.log(`${this._model.repoId} is up to date`);
           return;
         }
