@@ -51,26 +51,24 @@ export default abstract class GitHubBase {
     });
   }
 
-  async getToken(owner?: string) {
-    if (owner) {
-      const user = await UserModel.findOne({ username: owner });
-      if (user && user.accessTokens.github) {
-        return user.accessTokens.github as string;
-      }
+  async getToken() {
+    const user = await UserModel.findOne({ id: this.repository.owner.id });
+    if (user && user.accessTokens.github) {
+      return user.accessTokens.github as string;
     }
     if (this.accessToken) {
       try {
-        const app = new OAuthApp({
-          clientType: "github-app",
-          clientId: config.CLIENT_ID,
-          clientSecret: config.CLIENT_SECRET,
-        });
-        await app.checkToken({
-          token: this.accessToken,
-        });
+        // const app = new OAuthApp({
+        //   clientType: "github-app",
+        //   clientId: config.CLIENT_ID,
+        //   clientSecret: config.CLIENT_SECRET,
+        // });
+        // await app.checkToken({
+        //   token: this.accessToken,
+        // });
         return this.accessToken;
       } catch (error) {
-        // console.debug("Token is invalid.", error);
+        console.debug("[ERROR] Token is invalid", this.repository.repoId);
         this.accessToken = config.GITHUB_TOKEN;
       }
     }
