@@ -597,7 +597,7 @@ angular
       $scope.repositories = [];
       $scope.search = "";
       $scope.filters = {
-        status: { ready: true, expired: true, removed: true },
+        status: { ready: true, expired: true, removed: false },
       };
       $scope.orderBy = "-anonymizeDate";
 
