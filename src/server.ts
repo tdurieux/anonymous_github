@@ -93,7 +93,7 @@ export default async function start() {
     express.static(path.join(__dirname, "..", "public"), {
       etag: true,
       lastModified: true,
-      maxAge: 3600000, // 1h
+      maxAge: 3600, // 1h
     })
   );
 

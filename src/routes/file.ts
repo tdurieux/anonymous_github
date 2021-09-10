@@ -34,7 +34,7 @@ router.get(
         anonymizedPath.substring(anonymizedPath.lastIndexOf("/") + 1)
       );
       // cache the file for 5min
-      res.header('Cache-Control', 'max-age=250000');
+      res.header('Cache-Control', 'max-age=300');
       await f.send(res);
     } catch (error) {
       return handleError(error, res);

@@ -34,7 +34,7 @@ router.get(
       res.attachment(`${repo.repoId}.zip`);
 
       // cache the file for 6 hours
-      res.header("Cache-Control", "max-age=21600000");
+      res.header("Cache-Control", "max-age=21600");
       await pipeline(repo.zip(), res);
     } catch (error) {
       handleError(error, res);
@@ -49,7 +49,7 @@ router.get(
     if (!repo) return;
     try {
       // ache the file for 6 hours
-      res.header("Cache-Control", "max-age=21600000");
+      res.header("Cache-Control", "no-cache");
 
       res.json(await repo.anonymizedFiles({ includeSha: false }));
     } catch (error) {
