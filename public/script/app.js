@@ -639,7 +639,7 @@ angular
             callback(res.data);
             return;
           }
-          setTimeout(() => waitRepoToBeReady(repoId), 2500);
+          setTimeout(() => waitRepoToBeReady(repoId, callback), 2500);
         });
       }
 
