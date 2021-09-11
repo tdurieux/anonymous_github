@@ -1548,6 +1548,8 @@ angular
           .get("/api/conferences/" + $routeParams.conferenceId)
           .then((res) => {
             $scope.options = res.data;
+            $scope.options.startDate = new Date($scope.options.startDate);
+            $scope.options.endDate = new Date($scope.options.endDate);
           });
       }
       if ($routeParams.conferenceId) {
