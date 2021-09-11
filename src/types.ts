@@ -67,7 +67,7 @@ export interface StorageBase {
    * @param dir
    * @param tar
    */
-  extractTar(dir: string, tar: stream.Readable): Promise<void>;
+  extractZip(dir: string, tar: stream.Readable): Promise<void>;
 
   /**
    * Remove the path

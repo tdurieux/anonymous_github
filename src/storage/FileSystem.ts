@@ -2,11 +2,10 @@ import { StorageBase, Tree } from "../types";
 import config from "../../config";
 
 import * as fs from "fs";
-import * as tar from "tar-fs";
+import * as unzip from "unzip-stream";
 import * as path from "path";
 import * as express from "express";
 import * as stream from "stream";
-import * as gunzip from "gunzip-maybe";
 import * as archiver from "archiver";
 import { promisify } from "util";
 
@@ -93,15 +92,17 @@ export default class FileSystem implements StorageBase {
   }
 
   /** @override */
-  async extractTar(p: string, data: stream.Readable): Promise<void> {
+  async extractZip(p: string, data: stream.Readable): Promise<void> {
     const pipeline = promisify(stream.pipeline);
     return pipeline(
       data,
-      gunzip(),
-      tar.extract(path.join(config.FOLDER, p), {
-        map: (header) => {
-          header.name = header.name.substr(header.name.indexOf("/") + 1);
-          return header;
+      unzip.Extract({
+        path: path.join(path.join(config.FOLDER, p)),
+        decodeString: (buf) => {
+          const name = buf.toString();
+          const newName = name.substr(name.indexOf("/") + 1);
+          if (newName == "") return "/dev/null";
+          return newName;
         },
       })
     );

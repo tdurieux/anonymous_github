@@ -2,17 +2,13 @@ import { StorageBase, Tree, TreeFile } from "../types";
 import { S3 } from "aws-sdk";
 import config from "../../config";
 import * as stream from "stream";
-import { ArchiveStreamToS3 } from "archive-stream-to-s3";
+import ArchiveStreamToS3 from "decompress-stream-to-s3";
 import * as express from "express";
 import * as mime from "mime-types";
 import * as flow from "xml-flow";
 import * as archiver from "archiver";
 import * as path from "path";
-import * as gunzip from "gunzip-maybe";
 import AnonymousError from "../AnonymousError";
-
-const originalArchiveStreamToS3Entry: Function = (ArchiveStreamToS3 as any)
-  .prototype.onEntry;
 
 export default class S3Storage implements StorageBase {
   type = "AWS";
@@ -172,22 +168,21 @@ export default class S3Storage implements StorageBase {
   }
 
   /** @override */
-  async extractTar(p: string, data: stream.Readable): Promise<void> {
+  async extractZip(p: string, data: stream.Readable): Promise<void> {
     let toS3: ArchiveStreamToS3;
 
-    (ArchiveStreamToS3 as any).prototype.onEntry = function (
-      header: any,
-      stream: any,
-      next: any
-    ) {
-      header.name = header.name.substr(header.name.indexOf("/") + 1);
-      originalArchiveStreamToS3Entry.call(toS3, header, stream, next);
-    };
-
     return new Promise((resolve, reject) => {
-      toS3 = new ArchiveStreamToS3(config.S3_BUCKET, p, this.client);
+      toS3 = new ArchiveStreamToS3({
+        bucket: config.S3_BUCKET,
+        prefix: p,
+        s3: this.client,
+        type: "zip",
+        onEntry: (header) => {
+          header.name = header.name.substr(header.name.indexOf("/") + 1);
+        },
+      });
       stream
-        .pipeline(data, gunzip(), toS3, () => {})
+        .pipeline(data, toS3, () => {})
         .on("finish", resolve)
         .on("error", reject);
     });
