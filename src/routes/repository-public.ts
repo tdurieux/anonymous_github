@@ -48,7 +48,6 @@ router.get(
     const repo = await getRepo(req, res);
     if (!repo) return;
     try {
-      // ache the file for 6 hours
       res.header("Cache-Control", "no-cache");
 
       res.json(await repo.anonymizedFiles({ includeSha: false }));
@@ -122,7 +121,8 @@ router.get(
           !!config.ENABLE_DOWNLOAD &&
           repo.source.type == "GitHubDownload";
       }
-
+      
+      res.header("Cache-Control", "no-cache");
       res.json({
         url: redirectURL,
         download,
