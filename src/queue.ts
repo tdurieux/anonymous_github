@@ -1,8 +1,7 @@
 import * as Queue from "bull";
 import config from "../config";
-import AnonymousError from "./AnonymousError";
-import { getRepository } from "./database/database";
 import Repository from "./Repository";
+import * as path from "path";
 
 export const removeQueue = new Queue<Repository>("repository removal", {
   redis: {
@@ -23,45 +22,6 @@ downloadQueue.on("completed", async (job) => {
   await job.remove();
 });
 
-removeQueue.process(5, async (job) => {
-  console.log(`${job.data.repoId} is going to be removed`);
-  try {
-    const repo = await getRepository(job.data.repoId);
-    await repo.remove();
-  } catch (error) {
-    if (error instanceof AnonymousError) {
-      console.error(
-        "[ERROR]",
-        error.toString(),
-        error.stack.split("\n")[1].trim()
-      );
-    } else {
-      console.error(error);
-    }
-  } finally {
-    console.log(`${job.data.repoId} is removed`);
-  }
-});
+removeQueue.process(5, path.resolve("src/processes/removeRepository.ts"));
 
-downloadQueue.process(2, async (job) => {
-  console.log(`${job.data.repoId} is going to be downloaded`);
-  try {
-    const repo = await getRepository(job.data.repoId);
-    job.progress("get_repo");
-    await repo.resetSate();
-    job.progress("resetSate");
-    await repo.anonymize();
-  } catch (error) {
-    if (error instanceof AnonymousError) {
-      console.error(
-        "[ERROR]",
-        error.toString(),
-        error.stack.split("\n")[1].trim()
-      );
-    } else {
-      console.error(error);
-    }
-  } finally {
-    console.log(`${job.data.repoId} is downloaded`);
-  }
-});
+downloadQueue.process(2, path.resolve("src/processes/downloadRepository.ts"));
