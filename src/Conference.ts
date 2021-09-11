@@ -6,7 +6,7 @@ import { ConferenceStatus } from "./types";
 export default class Conference {
   private _data: IConferenceDocument;
   private _repositories: Repository[] = null;
-  
+
   constructor(data: IConferenceDocument) {
     this._data = data;
   }
@@ -77,6 +77,30 @@ export default class Conference {
 
   get status() {
     return this._data.status;
+  }
+
+  get conferenceID() {
+    return this._data.conferenceID;
+  }
+
+  get name() {
+    return this._data.name;
+  }
+
+  get startDate() {
+    return this._data.startDate;
+  }
+
+  get endDate() {
+    return this._data.endDate;
+  }
+
+  get url() {
+    return this._data.url;
+  }
+
+  get options() {
+    return this._data.options;
   }
 
   toJSON(opt?: { billing: boolean }): any {

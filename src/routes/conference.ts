@@ -215,20 +215,31 @@ router.get(
   "/:conferenceID",
   async (req: express.Request, res: express.Response) => {
     try {
-      const user = await getUser(req);
       const data = await ConferenceModel.findOne({
         conferenceID: req.params.conferenceID,
       });
       if (!data)
-        throw new AnonymousError("conf_not_found", {
-          object: req.params.conferenceID,
-          httpStatus: 404,
-        });
+      throw new AnonymousError("conf_not_found", {
+        object: req.params.conferenceID,
+        httpStatus: 404,
+      });
+      const user = await getUser(req);
       const conference = new Conference(data);
-      isOwnerOrAdmin(conference.ownerIDs, user);
-      const o: any = conference.toJSON();
-      o.repositories = (await conference.repositories()).map((r) => r.toJSON());
-      res.json(o);
+      try {
+        isOwnerOrAdmin(conference.ownerIDs, user);
+        const o: any = conference.toJSON();
+        o.repositories = (await conference.repositories()).map((r) => r.toJSON());
+        res.json(o);
+      } catch (error) {
+        return res.json({
+          conferenceID: conference.conferenceID,
+          name: conference.name,
+          url: conference.url,
+          startDate: conference.startDate,
+          endDate: conference.endDate,
+          options: conference.options,
+        })
+      }
     } catch (error) {
       handleError(error, res);
     }
