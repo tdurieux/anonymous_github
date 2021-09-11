@@ -864,7 +864,7 @@ angular
         $scope.terms = $scope.defaultTerms;
         $scope.repoId = "";
         $scope.source = {
-          type: "GitHubDownload",
+          type: "GitHubStream",
           branch: "",
           commit: "",
         };
@@ -898,7 +898,7 @@ angular
         } else {
           $scope.anonymize.commit.$$element[0].disabled = false;
         }
-      })
+      });
       $scope.$watch("source.branch", async () => {
         const selected = $scope.branches.filter(
           (f) => f.name == $scope.source.branch
@@ -916,15 +916,6 @@ angular
           await getReadme();
           anonymize();
           $scope.$apply();
-        }
-      });
-
-      $scope.$watch("options.mode", (v) => {
-        if (v == "GitHubStream") {
-          $scope.options.page = false;
-          $scope.anonymize.page.$$element[0].disabled = true;
-        } else {
-          $scope.anonymize.page.$$element[0].disabled = false;
         }
       });
 
@@ -955,8 +946,12 @@ angular
           const res = await $http.get(`/api/repo/${o.owner}/${o.repo}/`);
           $scope.details = res.data;
           if ($scope.details.size > $scope.site_options.MAX_REPO_SIZE) {
-            $scope.options.mode = "GitHubStream";
             $scope.anonymize.mode.$$element[0].disabled = true;
+
+            $scope.$apply(() => {
+              $scope.source.type = "GitHubStream";
+              checkSourceType();
+            });
           }
           $scope.repoId = $scope.details.repo + "-" + generateRandomId(4);
           await $scope.getBranches();
@@ -1186,12 +1181,7 @@ angular
         const selected = $scope.branches.filter(
           (f) => f.name == $scope.source.branch
         )[0];
-        if ($scope.details && $scope.details.hasPage) {
-          $scope.anonymize.page.$$element[0].disabled = false;
-          if ($scope.details.pageSource.branch != $scope.source.branch) {
-            $scope.anonymize.page.$$element[0].disabled = true;
-          }
-        }
+        checkSourceType();
 
         if (selected) {
           $scope.source.commit = selected.commit;
@@ -1202,14 +1192,21 @@ angular
         }
       });
 
-      $scope.$watch("source.type", (v) => {
-        if (v == "GitHubStream") {
+      function checkSourceType() {
+        if ($scope.source.type == "GitHubStream") {
           $scope.options.page = false;
           $scope.anonymize.page.$$element[0].disabled = true;
         } else {
-          $scope.anonymize.page.$$element[0].disabled = false;
+          if ($scope.details && $scope.details.hasPage) {
+            $scope.anonymize.page.$$element[0].disabled = false;
+            if ($scope.details.pageSource.branch != $scope.source.branch) {
+              $scope.anonymize.page.$$element[0].disabled = true;
+            }
+          }
         }
-      });
+      }
+
+      $scope.$watch("source.type", checkSourceType);
 
       $scope.$watch("terms", anonymize);
       $scope.$watch("options.image", anonymize);
