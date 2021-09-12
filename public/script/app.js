@@ -193,6 +193,13 @@ angular
             $scope.repoId = document.location.pathname.split("/")[2];
 
             $scope.opens = {};
+
+            let accumulatedPath = "";
+            $routeParams.path.split("/").forEach((f) => {
+              $scope.opens[accumulatedPath + "/" + f] = true;
+              accumulatedPath = accumulatedPath + "/" + f;
+            });
+
             const toArray = function (obj) {
               const output = [];
               for (let name in obj) {
@@ -257,6 +264,9 @@ angular
                   output += `<a ng-click="openFolder('${path}', $event)">${name}</a>`;
                 } else {
                   output += `<a href='/r/${$scope.repoId}${path}'>${name}</a>`;
+                }
+                if ($scope.opens[path]) {
+                  output += generate(f.child, parentPath + "/" + f.name);
                 }
                 // output += generate(f.child, parentPath + "/" + f.name);
                 output + "</li>";
