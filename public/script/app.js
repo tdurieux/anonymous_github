@@ -194,11 +194,13 @@ angular
 
             $scope.opens = {};
 
-            let accumulatedPath = "";
-            $routeParams.path.split("/").forEach((f) => {
-              $scope.opens[accumulatedPath + "/" + f] = true;
-              accumulatedPath = accumulatedPath + "/" + f;
-            });
+            if ($routeParams.path) {
+              let accumulatedPath = "";
+              $routeParams.path.split("/").forEach((f) => {
+                $scope.opens[accumulatedPath + "/" + f] = true;
+                accumulatedPath = accumulatedPath + "/" + f;
+              });
+            }
 
             const toArray = function (obj) {
               const output = [];
