@@ -47,6 +47,29 @@
           >Anonymize</a
         >
       </li>
+      <li class="nav-item dropdown" ng-if="user">
+        <a
+          class="nav-link dropdown-toggle"
+          href="#"
+          id="navbarDropdownMenuLink"
+          role="button"
+          data-toggle="dropdown"
+          aria-haspopup="true"
+          aria-expanded="false"
+          ng-if="user.isAdmin"
+        >
+          Admin
+        </a>
+        <div
+          class="dropdown-menu"
+          aria-labelledby="navbarDropdownMenuLink"
+        >
+          <a class="dropdown-item" href="/admin/">Repositories</a>
+          <a class="dropdown-item" href="/admin/users">Users</a>
+          <a class="dropdown-item" href="/admin/conferences">Conferences</a>
+          <a class="dropdown-item" href="/admin/queues">Queues</a>
+        </div>
+      </li>
     </ul>
     <ul class="navbar-nav">
       <li class="nav-item">

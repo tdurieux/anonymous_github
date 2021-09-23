@@ -5,6 +5,7 @@ import file from "./file";
 import webview from "./webview";
 import user from "./user";
 import option from "./option";
+import admin from "./admin";
 
 export default {
   repositoryPrivate,
@@ -13,5 +14,6 @@ export default {
   webview,
   user,
   option,
-  conference
+  conference,
+  admin,
 };
