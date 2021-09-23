@@ -154,4 +154,53 @@ angular
         true
       );
     },
+  ]).controller("queuesAdminController", [
+    "$scope",
+    "$http",
+    "$location",
+    function ($scope, $http, $location) {
+      $scope.$watch("user.status", () => {
+        if ($scope.user == null) {
+          $location.url("/");
+        }
+      });
+      if ($scope.user == null) {
+        $location.url("/");
+      }
+
+      $scope.downloadJobs = [];
+      $scope.removeJobs = [];
+      $scope.total = -1;
+      $scope.totalPage = 0;
+      $scope.query = {
+        page: 1,
+        limit: 25,
+        sort: "name",
+        search: ""
+      };
+
+      function getQueues() {
+        $http.get("/api/admin/queues", { params: $scope.query }).then(
+          (res) => {
+            $scope.downloadJobs = res.data.downloadQueue;
+            $scope.removeJobs = res.data.removeQueue;
+            $scope.$apply();
+          },
+          (err) => {
+            console.error(err);
+          }
+        );
+      }
+      getQueues();
+
+      let timeClear = null;
+      $scope.$watch(
+        "query",
+        () => {
+          clearTimeout(timeClear);
+          timeClear = setTimeout(getQueues, 500);
+        },
+        true
+      );
+    },
   ]);

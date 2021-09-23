@@ -29,7 +29,7 @@ router.use(
   }
 );
 
-router.get("/jobs", async (req, res) => {
+router.get("/queues", async (req, res) => {
   const out = await Promise.all([
     downloadQueue.getJobs([
       "waiting",

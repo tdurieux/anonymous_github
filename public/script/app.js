@@ -106,6 +106,11 @@ angular
         controller: "conferencesAdminController",
         title: "Conferences Admin - Anonymous GitHub",
       })
+      .when("/admin/queues", {
+        templateUrl: "/partials/admin/queues.htm",
+        controller: "queuesAdminController",
+        title: "Queues Admin - Anonymous GitHub",
+      })
       .when("/404", {
         templateUrl: "/partials/404.htm",
         title: "Page not found - Anonymous GitHub",

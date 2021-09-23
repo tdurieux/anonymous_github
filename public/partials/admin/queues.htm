@@ -1,0 +1,86 @@
+<div class="container page">
+  <div class="row">
+    <h1>Download jobs</h1>
+    <ul class="p-0 m-0 w-100">
+      <li
+        class="col-12 d-flex px-0 py-3 border-bottom color-border-secondary"
+        ng-repeat="job in downloadJobs as filteredDownloadJobs"
+      >
+        <div class="w-100">
+          {{job}}
+        </div>
+        <div class="d-flex">
+          <div class="dropdown">
+            <button
+              class="btn black_border dropdown-toggle btn-sm"
+              type="button"
+              id="dropdownMenuButton"
+              data-toggle="dropdown"
+              aria-haspopup="true"
+              aria-expanded="false"
+            >
+              Actions
+            </button>
+            <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+              <a
+                class="dropdown-item"
+                href="#"
+                ng-show="job.status != 'removed'"
+                ng-click="removeJob(job)"
+              >
+                <i class="fas fa-trash-alt"></i> Remove
+              </a>
+            </div>
+          </div>
+        </div>
+      </li>
+      <li
+        class="col-12 d-flex px-0 py-3 border-bottom color-border-secondary"
+        ng-if="filteredDownloadJobs.length == 0"
+      >
+        There is no job to display.
+      </li>
+    </ul>
+    <h1>Remove jobs</h1>
+    <ul class="p-0 m-0 w-100">
+      <li
+        class="col-12 d-flex px-0 py-3 border-bottom color-border-secondary"
+        ng-repeat="job in removeJobs as filteredRemoveJobs"
+      >
+        <div class="w-100">
+          {{job}}
+        </div>
+        <div class="d-flex">
+          <div class="dropdown">
+            <button
+              class="btn black_border dropdown-toggle btn-sm"
+              type="button"
+              id="dropdownMenuButton"
+              data-toggle="dropdown"
+              aria-haspopup="true"
+              aria-expanded="false"
+            >
+              Actions
+            </button>
+            <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+              <a
+                class="dropdown-item"
+                href="#"
+                ng-show="job.status != 'removed'"
+                ng-click="removeJob(job)"
+              >
+                <i class="fas fa-trash-alt"></i> Remove
+              </a>
+            </div>
+          </div>
+        </div>
+      </li>
+      <li
+        class="col-12 d-flex px-0 py-3 border-bottom color-border-secondary"
+        ng-if="filteredRemoveJobs.length == 0"
+      >
+        There is no job to display.
+      </li>
+    </ul>
+  </div>
+</div>
