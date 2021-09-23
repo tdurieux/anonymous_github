@@ -6,9 +6,7 @@
         class="col-12 d-flex px-0 py-3 border-bottom color-border-secondary"
         ng-repeat="job in downloadJobs as filteredDownloadJobs"
       >
-        <div class="w-100">
-          {{job}}
-        </div>
+        <div class="w-100">{{job}}</div>
         <div class="d-flex">
           <div class="dropdown">
             <button
@@ -25,10 +23,16 @@
               <a
                 class="dropdown-item"
                 href="#"
-                ng-show="job.status != 'removed'"
-                ng-click="removeJob(job)"
+                ng-click="removeJob('download', job)"
               >
                 <i class="fas fa-trash-alt"></i> Remove
+              </a>
+              <a
+                class="dropdown-item"
+                href="#"
+                ng-click="retryJob('download', job)"
+              >
+                <i class="fas fa-sync"></i> Retry
               </a>
             </div>
           </div>
@@ -47,9 +51,7 @@
         class="col-12 d-flex px-0 py-3 border-bottom color-border-secondary"
         ng-repeat="job in removeJobs as filteredRemoveJobs"
       >
-        <div class="w-100">
-          {{job}}
-        </div>
+        <div class="w-100">{{job}}</div>
         <div class="d-flex">
           <div class="dropdown">
             <button
@@ -66,10 +68,16 @@
               <a
                 class="dropdown-item"
                 href="#"
-                ng-show="job.status != 'removed'"
-                ng-click="removeJob(job)"
+                ng-click="removeJob('remove', job)"
               >
                 <i class="fas fa-trash-alt"></i> Remove
+              </a>
+              <a
+                class="dropdown-item"
+                href="#"
+                ng-click="retryJob('remove', job)"
+              >
+                <i class="fas fa-sync"></i> Retry
               </a>
             </div>
           </div>

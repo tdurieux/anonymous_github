@@ -126,7 +126,7 @@ angular
         page: 1,
         limit: 25,
         sort: "name",
-        search: ""
+        search: "",
       };
 
       function getConferences() {
@@ -154,7 +154,8 @@ angular
         true
       );
     },
-  ]).controller("queuesAdminController", [
+  ])
+  .controller("queuesAdminController", [
     "$scope",
     "$http",
     "$location",
@@ -170,21 +171,12 @@ angular
 
       $scope.downloadJobs = [];
       $scope.removeJobs = [];
-      $scope.total = -1;
-      $scope.totalPage = 0;
-      $scope.query = {
-        page: 1,
-        limit: 25,
-        sort: "name",
-        search: ""
-      };
 
       function getQueues() {
         $http.get("/api/admin/queues", { params: $scope.query }).then(
           (res) => {
             $scope.downloadJobs = res.data.downloadQueue;
             $scope.removeJobs = res.data.removeQueue;
-            $scope.$apply();
           },
           (err) => {
             console.error(err);
@@ -193,14 +185,34 @@ angular
       }
       getQueues();
 
-      let timeClear = null;
-      $scope.$watch(
-        "query",
-        () => {
-          clearTimeout(timeClear);
-          timeClear = setTimeout(getQueues, 500);
-        },
-        true
-      );
+      $scope.removeJob = function (queue, job) {
+        $http
+          .delete(`/api/admin/queue/${queue}/${job.id}`, {
+            params: $scope.query,
+          })
+          .then(
+            (res) => {
+              getQueues();
+            },
+            (err) => {
+              console.error(err);
+            }
+          );
+      };
+
+      $scope.retryJob = function (queue, job) {
+        $http
+          .post(`/api/admin/queue/${queue}/${job.id}`, {
+            params: $scope.query,
+          })
+          .then(
+            (res) => {
+              getQueues();
+            },
+            (err) => {
+              console.error(err);
+            }
+          );
+      };
     },
   ]);

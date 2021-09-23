@@ -1,10 +1,9 @@
+import { Queue } from "bull";
 import * as express from "express";
 import AnonymizedRepositoryModel from "../database/anonymizedRepositories/anonymizedRepositories.model";
 import ConferenceModel from "../database/conference/conferences.model";
-import RepositoryModel from "../database/repositories/repositories.model";
 import UserModel from "../database/users/users.model";
 import { downloadQueue, removeQueue } from "../queue";
-import Repository from "../Repository";
 import { ensureAuthenticated } from "./connection";
 import { handleError, getUser, isOwnerOrAdmin } from "./route-utils";
 
@@ -28,6 +27,40 @@ router.use(
     }
   }
 );
+
+router.post("/queue/:name/:repo_id", async (req, res) => {
+  let queue: Queue;
+  if (req.params.name == "download") {
+    queue = downloadQueue;
+  } else if (req.params.name == "remove") {
+    queue = removeQueue;
+  } else {
+    return res.status(404).json({ error: "queue_not_found" });
+  }
+  const job = await queue.getJob(req.params.repo_id);
+  if (!job) {
+    return res.status(404).json({ error: "job_not_found" });
+  }
+  job.retry();
+  res.send("ok");
+});
+
+router.delete("/queue/:name/:repo_id", async (req, res) => {
+  let queue: Queue;
+  if (req.params.name == "download") {
+    queue = downloadQueue;
+  } else if (req.params.name == "remove") {
+    queue = removeQueue;
+  } else {
+    return res.status(404).json({ error: "queue_not_found" });
+  }
+  const job = await queue.getJob(req.params.repo_id);
+  if (!job) {
+    return res.status(404).json({ error: "job_not_found" });
+  }
+  await job.remove();
+  res.send("ok");
+});
 
 router.get("/queues", async (req, res) => {
   const out = await Promise.all([
@@ -94,7 +127,9 @@ router.get("/repos", async (req, res) => {
   res.json({
     query: { $and: query },
     page,
-    total: await AnonymizedRepositoryModel.find({ $and: query }).estimatedDocumentCount(),
+    total: await AnonymizedRepositoryModel.find({
+      $and: query,
+    }).estimatedDocumentCount(),
     sort,
     results: await AnonymizedRepositoryModel.find({ $and: query })
       .sort(sort)
