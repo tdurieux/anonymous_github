@@ -6,7 +6,33 @@
         class="col-12 d-flex px-0 py-3 border-bottom color-border-secondary"
         ng-repeat="job in downloadJobs as filteredDownloadJobs"
       >
-        <div class="w-100">{{job}}</div>
+        <div class="w-100">
+          <div class="">
+            <h3>
+              <a target="__blank" ng-href="/r/{{job.id}}" ng-bind="job.id"></a>
+              <span class="badge" ng-bind="repo.progress | title"></span>
+            </h3>
+          </div>
+          <div class="color-text-secondary mb-1">
+            <span ng-if="job.timestamp">
+              Created on:
+              <span ng-bind="job.timestamp | humanTime"></span>
+            </span>
+            <span ng-if="job.finishedOn">
+              Finished on:
+              <span ng-bind="job.finishedOn | humanTime"></span>
+            </span>
+            <span ng-if="job.processedOn">
+              Processed on:
+              <span ng-bind="job.processedOn | humanTime"></span>
+            </span>
+          </div>
+          <div>
+            <pre
+              ng-repeat="stack in job.stacktrace"
+            ><code ng-bind="stack"></code></pre>
+          </div>
+        </div>
         <div class="d-flex">
           <div class="dropdown">
             <button
@@ -51,7 +77,33 @@
         class="col-12 d-flex px-0 py-3 border-bottom color-border-secondary"
         ng-repeat="job in removeJobs as filteredRemoveJobs"
       >
-        <div class="w-100">{{job}}</div>
+        <div class="w-100">
+          <div class="">
+            <h3>
+              <a target="__blank" ng-href="/r/{{job.id}}" ng-bind="job.id"></a>
+              <span class="badge" ng-bind="repo.progress | title"></span>
+            </h3>
+          </div>
+          <div class="color-text-secondary mb-1">
+            <span ng-if="job.timestamp">
+              Created on:
+              <span ng-bind="job.timestamp | humanTime"></span>
+            </span>
+            <span ng-if="job.finishedOn">
+              Finished on:
+              <span ng-bind="job.finishedOn | humanTime"></span>
+            </span>
+            <span ng-if="job.processedOn">
+              Processed on:
+              <span ng-bind="job.processedOn | humanTime"></span>
+            </span>
+          </div>
+          <div>
+            <pre
+              ng-repeat="stack in job.stacktrace"
+            ><code ng-bind="stack"></code></pre>
+          </div>
+        </div>
         <div class="d-flex">
           <div class="dropdown">
             <button

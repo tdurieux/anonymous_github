@@ -153,7 +153,7 @@ angular
       }
       if (seconds instanceof Date)
         seconds = Math.round((Date.now() - seconds) / 1000);
-      if (typeof seconds == "string")
+      if (typeof seconds == "string" || typeof seconds == "number")
         seconds = Math.round((Date.now() - new Date(seconds)) / 1000);
       var suffix = seconds < 0 ? "from now" : "ago";
 
