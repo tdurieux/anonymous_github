@@ -87,8 +87,8 @@ router.get(
         fiveMinuteAgo.setMinutes(fiveMinuteAgo.getMinutes() - 5);
         if (repo.status != "ready") {
           if (
-            repo.model.statusDate < fiveMinuteAgo &&
-            repo.status != "preparing"
+            repo.model.statusDate < fiveMinuteAgo 
+            // && repo.status != "preparing"
           ) {
             await repo.updateStatus("preparing");
             await downloadQueue.add(repo, { jobId: repo.repoId });

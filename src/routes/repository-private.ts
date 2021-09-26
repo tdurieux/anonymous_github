@@ -13,6 +13,7 @@ import Repository from "../Repository";
 import ConferenceModel from "../database/conference/conferences.model";
 import AnonymousError from "../AnonymousError";
 import { downloadQueue, removeQueue } from "../queue";
+import RepositoryModel from "../database/repositories/repositories.model";
 
 const router = express.Router();
 
@@ -50,7 +51,18 @@ router.post("/claim", async (req: express.Request, res: express.Response) => {
       repo: r.name,
       accessToken: user.accessToken,
     });
-    if ((repoConfig.source as GitHubBase).githubRepository.id != repo.id) {
+    if (!repo) {
+      throw new AnonymousError("repo_not_found", {
+        object: req.body,
+        httpStatus: 404,
+      });
+    }
+
+    const dbRepo = await RepositoryModel.findById(
+      (repoConfig.source as GitHubBase).githubRepository.id
+    );
+
+    if (!dbRepo || dbRepo.externalId != repo.id) {
       throw new AnonymousError("repo_not_found", {
         object: req.body,
         httpStatus: 404,
@@ -78,7 +90,12 @@ router.post(
       const repo = await getRepo(req, res, { nocheck: true });
       if (!repo) return;
 
-      if (repo.status == "preparing" || repo.status == "removing") return;
+      if (
+        repo.status == "preparing" ||
+        repo.status == "removing" ||
+        repo.status == "expiring"
+      )
+        return;
 
       const user = await getUser(req);
       isOwnerOrAdmin([repo.owner.id], user);
