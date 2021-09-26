@@ -432,7 +432,10 @@ router.post("/", async (req: express.Request, res: express.Response) => {
     }
 
     res.send({ status: repo.status });
-    downloadQueue.add(new Repository(repo), { jobId: repo.repoId });
+    downloadQueue.add(new Repository(repo), {
+      jobId: repo.repoId,
+      attempts: 3,
+    });
   } catch (error) {
     if (error.message?.indexOf(" duplicate key") > -1) {
       return handleError(

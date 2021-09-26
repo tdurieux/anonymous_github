@@ -185,7 +185,7 @@ export default class Repository {
         this._model.anonymizeDate = new Date();
         console.log(`${this._model.repoId} will be updated to ${newCommit}`);
         await this.resetSate("preparing");
-        await downloadQueue.add(this, { jobId: this.repoId });
+        await downloadQueue.add(this, { jobId: this.repoId, attempts: 3 });
       }
     }
   }

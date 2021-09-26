@@ -87,11 +87,11 @@ router.get(
         fiveMinuteAgo.setMinutes(fiveMinuteAgo.getMinutes() - 5);
         if (repo.status != "ready") {
           if (
-            repo.model.statusDate < fiveMinuteAgo 
+            repo.model.statusDate < fiveMinuteAgo
             // && repo.status != "preparing"
           ) {
             await repo.updateStatus("preparing");
-            await downloadQueue.add(repo, { jobId: repo.repoId });
+            await downloadQueue.add(repo, { jobId: repo.repoId, attempts: 3 });
           }
           if (repo.status == "error") {
             throw new AnonymousError(
@@ -121,7 +121,7 @@ router.get(
           !!config.ENABLE_DOWNLOAD &&
           repo.source.type == "GitHubDownload";
       }
-      
+
       res.header("Cache-Control", "no-cache");
       res.json({
         url: redirectURL,
