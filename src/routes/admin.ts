@@ -129,7 +129,7 @@ router.get("/repos", async (req, res) => {
     page,
     total: await AnonymizedRepositoryModel.find({
       $and: query,
-    }).estimatedDocumentCount(),
+    }).countDocuments(),
     sort,
     results: await AnonymizedRepositoryModel.find({ $and: query })
       .sort(sort)
@@ -156,7 +156,7 @@ router.get("/users", async (req, res) => {
   res.json({
     query: query,
     page,
-    total: await UserModel.find(query).estimatedDocumentCount(),
+    total: await UserModel.find(query).countDocuments(),
     sort,
     results: await UserModel.find(query)
       .sort(sort)
