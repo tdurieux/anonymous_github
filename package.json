@@ -37,7 +37,7 @@
     "express": "^4.17.1",
     "express-rate-limit": "^5.2.6",
     "express-session": "^1.17.1",
-    "got": "^11.8.2",
+    "got": "^11.8.5",
     "istextorbinary": "^6.0.0",
     "mime-types": "^2.1.30",
     "mongoose": "^5.13.5",
