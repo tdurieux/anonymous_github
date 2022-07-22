@@ -1,4 +1,4 @@
-import * as mongoose from "mongoose";
+import { Document, Model } from "mongoose";
 
 export interface IUser {
   accessTokens: {
@@ -33,7 +33,7 @@ export interface IUser {
   lastUpdated?: Date;
 }
 
-export interface IUserDocument extends IUser, mongoose.Document {
+export interface IUserDocument extends IUser, Document {
   setLastUpdated: (this: IUserDocument) => Promise<void>;
 }
-export interface IUserModel extends mongoose.Model<IUserDocument> {}
+export interface IUserModel extends Model<IUserDocument> {}

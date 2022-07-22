@@ -1,5 +1,4 @@
-import * as mongoose from "mongoose";
-const { Schema } = mongoose;
+import { Schema } from "mongoose";
 
 const UserSchema = new Schema({
   accessTokens: {

@@ -1,5 +1,4 @@
-import * as mongoose from "mongoose";
-const { Schema } = mongoose;
+import { Schema } from "mongoose";
 
 const RepositorySchema = new Schema({
   name: String,
@@ -11,11 +10,11 @@ const RepositorySchema = new Schema({
   startDate: Date,
   endDate: Date,
   status: String,
-  owners: { type: [mongoose.Schema.Types.ObjectId] },
+  owners: { type: [Schema.Types.ObjectId] },
   repositories: {
     type: [
       {
-        id: { type: mongoose.Schema.Types.ObjectId },
+        id: { type: Schema.Types.ObjectId },
         addDate: { type: Date },
         removeDate: { type: Date },
       },

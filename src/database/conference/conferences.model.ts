@@ -1,5 +1,4 @@
-import * as mongoose from "mongoose";
-const { model } = mongoose;
+import { model } from "mongoose";
 
 import { IConferenceDocument, IConferenceModel } from "./conferences.types";
 import ConferenceSchema from "./conferences.schema";

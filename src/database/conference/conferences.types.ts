@@ -1,4 +1,4 @@
-import * as mongoose from "mongoose";
+import { Document, Model } from "mongoose";
 import { ConferenceStatus } from "../../types";
 
 export interface IConference {
@@ -45,5 +45,5 @@ export interface IConference {
   };
 }
 
-export interface IConferenceDocument extends IConference, mongoose.Document {}
-export interface IConferenceModel extends mongoose.Model<IConferenceDocument> {}
+export interface IConferenceDocument extends IConference, Document {}
+export interface IConferenceModel extends Model<IConferenceDocument> {}

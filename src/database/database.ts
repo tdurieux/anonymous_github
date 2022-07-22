@@ -1,4 +1,4 @@
-import * as mongoose from "mongoose";
+import mongoose, { ConnectOptions } from "mongoose";
 import Repository from "../Repository";
 import config from "../../config";
 import AnonymizedRepositoryModel from "./anonymizedRepositories/anonymizedRepositories.model";
@@ -9,15 +9,9 @@ const MONGO_URL = `mongodb://${config.DB_USERNAME}:${config.DB_PASSWORD}@${confi
 export const database = mongoose.connection;
 
 export async function connect() {
-  mongoose.set("useNewUrlParser", true);
-  mongoose.set("useFindAndModify", true);
-  mongoose.set("useUnifiedTopology", true);
-
   await mongoose.connect(MONGO_URL + "production", {
     authSource: "admin",
-    useCreateIndex: true,
-    useFindAndModify: true,
-  });
+  } as ConnectOptions);
 
   return database;
 }

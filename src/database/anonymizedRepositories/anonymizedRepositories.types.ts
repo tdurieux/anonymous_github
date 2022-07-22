@@ -1,4 +1,4 @@
-import * as mongoose from "mongoose";
+import { Document, Model } from "mongoose";
 import { RepositoryStatus, Tree } from "../../types";
 
 export interface IAnonymizedRepository {
@@ -43,8 +43,8 @@ export interface IAnonymizedRepository {
 
 export interface IAnonymizedRepositoryDocument
   extends IAnonymizedRepository,
-    mongoose.Document {
+    Document {
   setLastUpdated: (this: IAnonymizedRepositoryDocument) => Promise<void>;
 }
 export interface IAnonymizedRepositoryModel
-  extends mongoose.Model<IAnonymizedRepositoryDocument> {}
+  extends Model<IAnonymizedRepositoryDocument> {}

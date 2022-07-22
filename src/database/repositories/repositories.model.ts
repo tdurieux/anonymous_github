@@ -1,5 +1,4 @@
-import * as mongoose from "mongoose";
-const { model } = mongoose;
+import { model } from "mongoose";
 
 import { IRepositoryDocument, IRepositoryModel } from "./repositories.types";
 import RepositorySchema from "./repositories.schema";

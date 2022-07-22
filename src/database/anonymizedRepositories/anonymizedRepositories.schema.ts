@@ -1,5 +1,4 @@
-import * as mongoose from "mongoose";
-const { Schema } = mongoose;
+import { Schema } from "mongoose";
 
 const AnonymizedRepositorySchema = new Schema({
   repoId: {
@@ -16,7 +15,7 @@ const AnonymizedRepositorySchema = new Schema({
   lastView: Date,
   pageView: Number,
   accessToken: String,
-  owner: mongoose.Schema.Types.ObjectId,
+  owner: Schema.Types.ObjectId,
   conference: String,
   source: {
     type: { type: String },
@@ -26,7 +25,7 @@ const AnonymizedRepositorySchema = new Schema({
     repositoryName: String,
     accessToken: String,
   },
-  originalFiles: mongoose.Schema.Types.Mixed,
+  originalFiles: Schema.Types.Mixed,
   options: {
     terms: [String],
     expirationMode: { type: String },

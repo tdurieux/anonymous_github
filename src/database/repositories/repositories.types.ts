@@ -1,4 +1,4 @@
-import * as mongoose from "mongoose";
+import { Document, Model } from "mongoose";
 
 export interface IRepository {
   externalId: string;
@@ -19,7 +19,7 @@ export interface IRepository {
   }[];
 }
 
-export interface IRepositoryDocument extends IRepository, mongoose.Document {
+export interface IRepositoryDocument extends IRepository, Document {
   setLastUpdated: (this: IRepositoryDocument) => Promise<void>;
 }
-export interface IRepositoryModel extends mongoose.Model<IRepositoryDocument> {}
+export interface IRepositoryModel extends Model<IRepositoryDocument> {}
