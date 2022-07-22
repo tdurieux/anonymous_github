@@ -24,6 +24,7 @@
   background-color: var(--canvas-bg-color);
   color: var(--color);
 }
+
 body {
   --canvas-bg-color: #ffffff;
   --sidebar-bg-color: #ffffff;
@@ -62,6 +63,7 @@ body {
   0% {
     opacity: 0;
   }
+
   100% {
     opacity: 1;
   }
@@ -72,12 +74,14 @@ body {
   outline: none !important;
   box-shadow: none;
 }
+
 textarea,
 select,
 input,
 button {
   outline: none;
 }
+
 input:hover,
 input:active {
   box-shadow: none !important;
@@ -97,6 +101,7 @@ select:-webkit-autofill:focus {
   -webkit-box-shadow: none;
   transition: background-color 1000s ease-in-out 0s;
 }
+
 input:-internal-autofill-selected,
 .form-control,
 .custom-select {
@@ -104,6 +109,7 @@ input:-internal-autofill-selected,
   background-color: var(--input-bg) !important;
   border-color: var(--border-color);
 }
+
 .form-control:focus {
   border-color: var(--border-color);
 }
@@ -119,6 +125,7 @@ body {
 a {
   color: var(--link-color);
 }
+
 .dropdown-menu a:hover,
 .markdown-body a:hover,
 a:hover {
@@ -134,10 +141,13 @@ a:hover {
   font-weight: 300;
   transition: background-color 0.5s ease;
 }
+
 .navbar .nav-link.nav-icon {
   padding: 0 0.5rem;
 }
-.navbar .nav-link .fa, .navbar .nav-link .fab {
+
+.navbar .nav-link .fa,
+.navbar .nav-link .fab {
   font-size: 30px;
   line-height: 40px;
 }
@@ -147,9 +157,11 @@ a:hover {
     width: 280px;
   }
 }
+
 .navbar-brand {
   text-align: center;
 }
+
 #navbarSupportedContent {
   padding-right: 200px;
 }
@@ -161,21 +173,15 @@ a:hover {
 }
 
 .rgba-gradient {
-  background: -moz-linear-gradient(
-    45deg,
-    rgba(51, 51, 51, 0.82),
-    rgba(13, 17, 198, 0.69) 100%
-  );
-  background: -webkit-linear-gradient(
-    45deg,
-    rgba(51, 51, 51, 0.82),
-    rgba(13, 17, 198, 0.69) 100%
-  );
-  background: linear-gradient(
-    to 45deg,
-    rgba(51, 51, 51, 0.82),
-    rgba(13, 17, 198, 0.69) 100%
-  );
+  background: -moz-linear-gradient(45deg,
+      rgba(51, 51, 51, 0.82),
+      rgba(13, 17, 198, 0.69) 100%);
+  background: -webkit-linear-gradient(45deg,
+      rgba(51, 51, 51, 0.82),
+      rgba(13, 17, 198, 0.69) 100%);
+  background: linear-gradient(to 45deg,
+      rgba(51, 51, 51, 0.82),
+      rgba(13, 17, 198, 0.69) 100%);
   color: var(--header-color);
 }
 
@@ -186,6 +192,7 @@ a:hover {
   background-color: var(--main-bg-color) !important;
   color: var(--color) !important;
 }
+
 .file-content {
   padding: 4px 7px;
   text-align: left;
@@ -200,12 +207,14 @@ a:hover {
 .dropdown-item:hover {
   background-color: var(--hover-bg-color);
 }
+
 .card-header .btn,
 .card-header .btn:hover,
 .card-header .btn:focus {
   border: none !important;
   background: transparent !important;
 }
+
 .btn {
   color: var(--btn-color);
   border: 1px solid var(--border-color);
@@ -221,20 +230,25 @@ a:hover {
   background-color: var(--hover-bg-color);
   box-shadow: none !important;
 }
+
 .btn.btn-primary {
   color: var(--primary-color);
   background-color: var(--primary-bg);
 }
+
 .btn.btn-primary:active,
 .btn.btn-primary:hover {
   color: var(--primary-active-color);
   background-color: var(--primary-hover-bg) !important;
 }
+
 .btn::placeholder {
   /* Chrome, Firefox, Opera, Safari 10.1+ */
   color: var(--color);
-  opacity: 1; /* Firefox */
+  opacity: 1;
+  /* Firefox */
 }
+
 .white_border {
   border: 1px solid white;
   color: white;
@@ -288,18 +302,22 @@ a:hover {
   background: var(--hover-bg-color);
   color: var(--color);
 }
+
 .files ul {
   list-style: none;
   margin: 0;
   padding: 0;
 }
+
 .files li ul {
   padding-left: 10px;
 }
-.files .folder > ul {
+
+.files .folder>ul {
   display: none;
 }
-.files .folder.open > ul {
+
+.files .folder.open>ul {
   display: block;
 }
 
@@ -327,6 +345,7 @@ a:hover {
 .ace_editor {
   height: 100%;
 }
+
 .ace_scroller {
   cursor: default;
 }
@@ -351,9 +370,11 @@ a:hover {
 .paths a {
   color: var(--color);
 }
+
 .paths .breadcrumb-item {
   padding-left: 3px;
 }
+
 .paths .breadcrumb-item::before {
   padding-right: 3px;
 }
@@ -372,6 +393,7 @@ a:hover {
   text-align: center;
   padding: 4px;
 }
+
 .file-error {
   font-weight: bold;
   font-size: 50px;
@@ -382,6 +404,7 @@ pdfviewer {
   display: block;
   padding: 15px;
 }
+
 pdfpageviewer {
   display: block;
   width: 100%;
@@ -402,6 +425,7 @@ notebook {
   height: 47px !important;
   right: 3px !important;
 }
+
 .floating-chat-kofi-popup-iframe {
   left: inherit !important;
   bottom: inherit !important;
@@ -413,15 +437,19 @@ notebook {
   color: var(--color);
   display: block;
 }
+
 .faq-section .panel-heading {
   background-color: var(--sidebar-bg-color);
 }
+
 .faq-section .panel-default {
   background-color: var(--hover-bg-color);
 }
+
 .faq-section .panel-default .panel-title {
   margin-bottom: 0;
 }
+
 .faq-section .panel-default .panel-title a:after {
   font-family: "FontAwesome";
   font-style: normal;
@@ -430,9 +458,11 @@ notebook {
   float: right;
   margin-top: -12px;
 }
+
 .faq-section .panel-default .panel-title a.collapsed:after {
   content: "\f107";
 }
+
 .faq-section .panel-default .panel-body {
   font-size: 1.2rem;
 }
@@ -458,6 +488,7 @@ loc {
   width: 100%;
   height: 5px;
 }
+
 loc .lang {
   float: left;
   height: 100%;
@@ -474,7 +505,8 @@ loc .lang {
 }
 
 .featurette-divider {
-  margin: 5rem 0; /* Space out the Bootstrap <hr> more */
+  margin: 5rem 0;
+  /* Space out the Bootstrap <hr> more */
 }
 
 /* Thin out the marketing headings */
@@ -505,20 +537,24 @@ loc .lang {
 }
 
 .dark-mode .rgba-gradient {
-  background: -moz-linear-gradient(
-    45deg,
-    rgb(45 45 64 / 82%),
-    rgb(23 26 49) 100%
-  );
-  background: -webkit-linear-gradient(
-    45deg,
-    rgb(45 45 64 / 82%),
-    rgb(23 26 49) 100%
-  );
-  background: linear-gradient(
-    to 45deg,
-    rgb(45 45 64 / 82%),
-    rgb(23 26 49) 100%
-  );
+  background: -moz-linear-gradient(45deg,
+      rgb(45 45 64 / 82%),
+      rgb(23 26 49) 100%);
+  background: -webkit-linear-gradient(45deg,
+      rgb(45 45 64 / 82%),
+      rgb(23 26 49) 100%);
+  background: linear-gradient(to 45deg,
+      rgb(45 45 64 / 82%),
+      rgb(23 26 49) 100%);
 }
 
+
+.section-number {
+  padding-right: 10px;
+  font-weight: bold;
+  font-style: italic;
+}
+
+.org-subscript-child {
+  font-size: 85%;
+}

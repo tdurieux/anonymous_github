@@ -1340,6 +1340,9 @@ angular
         if (extension == "md") {
           return "md";
         }
+        if (extension == "org") {
+          return "org";
+        }
         if (extension == "ipynb") {
           return "IPython";
         }
@@ -1378,6 +1381,20 @@ angular
               if ($scope.type == "md") {
                 const md = contentAbs2Relative(res.data);
                 $scope.content = marked(md, { baseUrl: $location.url() });
+                $scope.type = "html";
+              }
+              if ($scope.type == "org") {
+                const content = contentAbs2Relative(res.data);
+
+                const orgParser = new Org.Parser();
+                const orgDocument = orgParser.parse(content);
+                var orgHTMLDocument = orgDocument.convert(Org.ConverterHTML, {
+                  headerOffset: 1,
+                  exportFromLineNumber: false,
+                  suppressSubScriptHandling: false,
+                  suppressAutoLink: false,
+                });
+                $scope.content = orgHTMLDocument.toString();
                 $scope.type = "html";
               }
               setTimeout(() => {
