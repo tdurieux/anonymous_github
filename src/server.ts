@@ -1,8 +1,8 @@
 import * as path from "path";
 import * as ofs from "fs";
-import * as redis from "redis";
-import * as rateLimit from "express-rate-limit";
-import * as RedisStore from "rate-limit-redis";
+import { createClient } from "redis";
+import rateLimit from "express-rate-limit";
+import RedisStore from "rate-limit-redis";
 import * as express from "express";
 import * as compression from "compression";
 import * as db from "./database/database";
@@ -44,15 +44,24 @@ export default async function start() {
   app.use(passport.initialize());
   app.use(passport.session());
 
+  const redisClient = createClient({
+    socket: {
+      host: config.REDIS_HOSTNAME,
+      port: config.REDIS_PORT,
+    },
+  });
+  redisClient.on('error', (err) => console.log('Redis Client Error', err));
+
+  await redisClient.connect();
+
   const rate = rateLimit({
     store: new RedisStore({
-      client: redis.createClient({
-        host: config.REDIS_HOSTNAME,
-        port: config.REDIS_PORT,
-      }),
+      sendCommand: (...args: string[]) => redisClient.sendCommand(args),
     }),
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 200, // limit each IP
+    standardHeaders: true,
+    legacyHeaders: false,
     // delayMs: 0, // disable delaying - full speed until the max limit is reached
   });
 

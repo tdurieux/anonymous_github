@@ -1,4 +1,4 @@
-import * as redis from "redis";
+import { createClient } from "redis";
 import * as passport from "passport";
 import * as session from "express-session";
 import * as connectRedis from "connect-redis";
@@ -84,13 +84,19 @@ passport.deserializeUser((user: Express.User, done) => {
   done(null, user);
 });
 
+const redisClient = createClient({
+  legacyMode: true,
+  socket: {
+    port: config.REDIS_PORT,
+    host: config.REDIS_HOSTNAME,
+  },
+});
+redisClient.on("error", (err) => console.log("Redis Client Error", err));
+redisClient.connect();
 export const appSession = session({
   secret: "keyboard cat",
   store: new RedisStore({
-    client: redis.createClient({
-      port: config.REDIS_PORT,
-      host: config.REDIS_HOSTNAME,
-    }),
+    client: redisClient,
   }),
   saveUninitialized: false,
   resave: false,
