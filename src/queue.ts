@@ -1,27 +1,80 @@
-import * as Queue from "bull";
+import { Queue, Worker } from "bullmq";
 import config from "../config";
 import Repository from "./Repository";
 import * as path from "path";
 
-export const removeQueue = new Queue<Repository>("repository removal", {
-  redis: {
-    host: config.REDIS_HOSTNAME,
-    port: config.REDIS_PORT,
-  },
-});
-removeQueue.on("completed", async (job) => {
-  await job.remove();
-});
-export const downloadQueue = new Queue<Repository>("repository download", {
-  redis: {
-    host: config.REDIS_HOSTNAME,
-    port: config.REDIS_PORT,
-  },
-});
-downloadQueue.on("completed", async (job) => {
-  await job.remove();
-});
+export let removeQueue: Queue<Repository>;
+export let downloadQueue: Queue<Repository>;
 
-removeQueue.process(5, path.resolve("src/processes/removeRepository.ts"));
+// avoid to load the queue outside the main server
+export function startWorker() {
+  removeQueue = new Queue<Repository>("repository removal", {
+    connection: {
+      host: config.REDIS_HOSTNAME,
+      port: config.REDIS_PORT,
+    },
+    defaultJobOptions: {
+      removeOnComplete: true,
+    },
+  });
+  downloadQueue = new Queue<Repository>("repository download", {
+    connection: {
+      host: config.REDIS_HOSTNAME,
+      port: config.REDIS_PORT,
+    },
+    defaultJobOptions: {
+      removeOnComplete: true,
+    },
+  });
+  const removeWorker = new Worker<Repository>(
+    removeQueue.name,
+    path.resolve("dist/src/processes/removeRepository.js"),
+    //removeRepository,
+    {
+      concurrency: 5,
+      connection: {
+        host: config.REDIS_HOSTNAME,
+        port: config.REDIS_PORT,
+      },
+      autorun: true,
 
-downloadQueue.process(2, path.resolve("src/processes/downloadRepository.ts"));
+    }
+  );
+  removeWorker.on("error", async (error) => {
+    console.log(error);
+  });
+  removeWorker.on("completed", async (job) => {
+    await job.remove();
+  });
+
+  const downloadWorker = new Worker<Repository>(
+    downloadQueue.name,
+    path.resolve("dist/src/processes/downloadRepository.js"),
+    // downloadRepository,
+    {
+      concurrency: 2,
+      connection: {
+        host: config.REDIS_HOSTNAME,
+        port: config.REDIS_PORT,
+      },
+      autorun: true
+    }
+  );
+  if (!downloadWorker.isRunning) downloadWorker.run();
+
+  downloadWorker.on("active", async (job) => {
+    console.log("active", job.data.repoId);
+  });
+  downloadWorker.on("completed", async (job) => {
+    console.log("completed", job.data.repoId);
+  });
+  downloadWorker.on("failed", async (job) => {
+    console.log("failed", job.data.repoId);
+  });
+  downloadWorker.on("closing", async (error) => {
+    console.log("closing", error);
+  });
+  downloadWorker.on("error", async (error) => {
+    console.log(error);
+  });
+}

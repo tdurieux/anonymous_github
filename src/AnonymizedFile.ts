@@ -1,6 +1,6 @@
-import * as path from "path";
-import * as express from "express";
-import * as stream from "stream";
+import { join, basename } from "path";
+import { Response } from "express";
+import { Readable, pipeline } from "stream";
 import { promisify } from "util";
 import Repository from "./Repository";
 import { Tree, TreeElement, TreeFile } from "./types";
@@ -19,11 +19,11 @@ function tree2sha(
     const sha = tree[i].sha as string;
     const size = tree[i].size as number;
     if (sha != null && size != null) {
-      output[sha] = path.join(parent, i);
+      output[sha] = join(parent, i);
     } else if (tree[i].child) {
-      tree2sha(tree[i].child as Tree, output, path.join(parent, i));
+      tree2sha(tree[i].child as Tree, output, join(parent, i));
     } else {
-      tree2sha(tree[i] as Tree, output, path.join(parent, i));
+      tree2sha(tree[i] as Tree, output, join(parent, i));
     }
   }
   return output;
@@ -98,13 +98,13 @@ export default class AnonymizedFile {
 
         // if only one option we found the original filename
         if (options.length == 1) {
-          currentOriginalPath = path.join(currentOriginalPath, options[0]);
+          currentOriginalPath = join(currentOriginalPath, options[0]);
           currentOriginal = currentOriginal[options[0]];
         } else {
           isAmbiguous = true;
         }
       } else if (!isAmbiguous) {
-        currentOriginalPath = path.join(currentOriginalPath, fileName);
+        currentOriginalPath = join(currentOriginalPath, fileName);
         currentOriginal = currentOriginal[fileName];
       }
     }
@@ -130,7 +130,7 @@ export default class AnonymizedFile {
         });
       }
 
-      this._originalPath = path.join(currentOriginalPath, shaTree[file.sha]);
+      this._originalPath = join(currentOriginalPath, shaTree[file.sha]);
     } else {
       this._originalPath = currentOriginalPath;
     }
@@ -139,7 +139,7 @@ export default class AnonymizedFile {
   }
 
   async isFileSupported() {
-    const filename = path.basename(await this.originalPath());
+    const filename = basename(await this.originalPath());
     const extensions = filename.split(".").reverse();
     const extension = extensions[0].toLowerCase();
     if (!this.repository.options.pdf && extension == "pdf") {
@@ -158,7 +158,7 @@ export default class AnonymizedFile {
     return true;
   }
 
-  async content(): Promise<stream.Readable> {
+  async content(): Promise<Readable> {
     if (this.fileSize && this.fileSize > config.MAX_FILE_SIZE) {
       throw new AnonymousError("file_too_big", {
         object: this,
@@ -184,13 +184,13 @@ export default class AnonymizedFile {
         object: this,
         httpStatus: 400,
       });
-    return path.join(this.repository.originalCachePath, this._originalPath);
+    return join(this.repository.originalCachePath, this._originalPath);
   }
 
-  async send(res: express.Response): Promise<void> {
-    const pipeline = promisify(stream.pipeline);
+  async send(res: Response): Promise<void> {
+    const pipe = promisify(pipeline);
     try {
-      await pipeline(await this.anonymizedContent(), res);
+      await pipe(await this.anonymizedContent(), res);
     } catch (error) {
       handleError(error, res);
     }

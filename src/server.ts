@@ -13,6 +13,7 @@ import * as connection from "./routes/connection";
 import router from "./routes";
 import AnonymizedRepositoryModel from "./database/anonymizedRepositories/anonymizedRepositories.model";
 import { conferenceStatusCheck, repositoryStatusCheck } from "./schedule";
+import { startWorker } from "./queue";
 
 function indexResponse(req: express.Request, res: express.Response) {
   if (
@@ -44,13 +45,15 @@ export default async function start() {
   app.use(passport.initialize());
   app.use(passport.session());
 
+  startWorker();
+  
   const redisClient = createClient({
     socket: {
       host: config.REDIS_HOSTNAME,
       port: config.REDIS_PORT,
     },
   });
-  redisClient.on('error', (err) => console.log('Redis Client Error', err));
+  redisClient.on("error", (err) => console.log("Redis Client Error", err));
 
   await redisClient.connect();
 
@@ -59,7 +62,7 @@ export default async function start() {
       sendCommand: (...args: string[]) => redisClient.sendCommand(args),
     }),
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 200, // limit each IP
+    max: 1000, // limit each IP
     standardHeaders: true,
     legacyHeaders: false,
     // delayMs: 0, // disable delaying - full speed until the max limit is reached

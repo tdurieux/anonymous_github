@@ -123,7 +123,7 @@ router.delete(
       const user = await getUser(req);
       isOwnerOrAdmin([repo.owner.id], user);
       await repo.updateStatus("removing");
-      await removeQueue.add(repo, { jobId: repo.repoId });
+      await removeQueue.add(repo.repoId, repo, { jobId: repo.repoId });
       return res.json({ status: repo.status });
     } catch (error) {
       handleError(error, res);
@@ -362,7 +362,7 @@ router.post(
       repo.model.conference = repoUpdate.conference;
       await repo.updateStatus("preparing");
       res.json({ status: repo.status });
-      await downloadQueue.add(repo, { jobId: repo.repoId });
+      await downloadQueue.add(repo.repoId, repo, { jobId: repo.repoId });
     } catch (error) {
       return handleError(error, res);
     }
@@ -432,7 +432,7 @@ router.post("/", async (req: express.Request, res: express.Response) => {
     }
 
     res.send({ status: repo.status });
-    downloadQueue.add(new Repository(repo), {
+    downloadQueue.add(repo.repoId, new Repository(repo), {
       jobId: repo.repoId,
       attempts: 3,
     });

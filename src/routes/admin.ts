@@ -1,9 +1,10 @@
-import { Queue } from "bull";
+import { Queue } from "bullmq";
 import * as express from "express";
 import AnonymizedRepositoryModel from "../database/anonymizedRepositories/anonymizedRepositories.model";
 import ConferenceModel from "../database/conference/conferences.model";
 import UserModel from "../database/users/users.model";
 import { downloadQueue, removeQueue } from "../queue";
+import Repository from "../Repository";
 import { ensureAuthenticated } from "./connection";
 import { handleError, getUser, isOwnerOrAdmin } from "./route-utils";
 
@@ -29,7 +30,7 @@ router.use(
 );
 
 router.post("/queue/:name/:repo_id", async (req, res) => {
-  let queue: Queue;
+  let queue: Queue<Repository, void>;
   if (req.params.name == "download") {
     queue = downloadQueue;
   } else if (req.params.name == "remove") {
@@ -41,7 +42,7 @@ router.post("/queue/:name/:repo_id", async (req, res) => {
   if (!job) {
     return res.status(404).json({ error: "job_not_found" });
   }
-  job.retry();
+  await job.retry();
   res.send("ok");
 });
 

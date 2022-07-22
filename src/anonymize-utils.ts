@@ -2,15 +2,14 @@ import config from "../config";
 import Repository from "./Repository";
 import GitHubBase from "./source/GitHubBase";
 import { isText } from "istextorbinary";
-import * as path from "path";
-
-import * as stream from "stream";
+import { basename } from "path";
+import { Transform } from "stream";
 
 const urlRegex =
   /<?\b((https?|ftp|file):\/\/)[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]\b\/?>?/g;
 
-export function isTextFile(filePath, content) {
-  const filename = path.basename(filePath);
+export function isTextFile(filePath: string, content: Buffer) {
+  const filename = basename(filePath);
   const extensions = filename.split(".").reverse();
   const extension = extensions[0].toLowerCase();
   if (config.additionalExtensions.includes(extension)) {
@@ -23,7 +22,7 @@ export function isTextFile(filePath, content) {
 }
 
 export function anonymizeStream(filename: string, repository: Repository) {
-  const ts = new stream.Transform();
+  const ts = new Transform();
   var chunks = [],
     len = 0,
     pos = 0;

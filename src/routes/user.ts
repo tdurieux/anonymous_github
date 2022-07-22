@@ -10,7 +10,7 @@ router.use(ensureAuthenticated);
 
 router.get("/logout", async (req: express.Request, res: express.Response) => {
   try {
-    req.logout();
+    req.logout((error) => console.error(error));
     res.redirect("/");
   } catch (error) {
     handleError(error, res);

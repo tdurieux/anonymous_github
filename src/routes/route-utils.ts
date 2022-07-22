@@ -44,6 +44,7 @@ export function isOwnerOrAdmin(authorizedUsers: string[], user: User) {
 function printError(error: any) {
   io.notifyError(error, error.value);
   if (error instanceof AnonymousError) {
+    console.log(error);
     console.error(
       "[ERROR]",
       error.toString(),
@@ -78,14 +79,14 @@ export function handleError(error: any, res: express.Response) {
 export async function getUser(req: express.Request) {
   const user = (req.user as any).user;
   if (!user) {
-    req.logout();
+    req.logout((error) => console.error(error));
     throw new AnonymousError("not_connected", {
       httpStatus: 401,
     });
   }
   const model = await UserModel.findById(user._id);
   if (!model) {
-    req.logout();
+    req.logout((error) => console.error(error));
     throw new AnonymousError("not_connected", {
       httpStatus: 401,
     });

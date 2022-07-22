@@ -1,7 +1,8 @@
-import AnonymousError from "../AnonymousError";
-import { connect, getRepository } from "../database/database";
+import { SandboxedJob } from "bullmq";
+import Repository from "../Repository";
 
-export default async function process(job) {
+export default async function (job: SandboxedJob<Repository, void>) {
+  const { connect, getRepository } = require("../database/database");
   try {
     await connect();
     console.log(`${job.data.repoId} is going to be removed`);
@@ -13,15 +14,7 @@ export default async function process(job) {
       throw error;
     }
   } catch (error) {
-    if (error instanceof AnonymousError) {
-      console.error(
-        "[ERROR]",
-        error.toString(),
-        error.stack.split("\n")[1].trim()
-      );
-    } else {
-      console.error(error);
-    }
+    console.error(error);
   } finally {
     console.log(`${job.data.repoId} is removed`);
   }

@@ -7,7 +7,7 @@ import GitHubBase from "./GitHubBase";
 import AnonymizedFile from "../AnonymizedFile";
 import { SourceBase } from "../types";
 import got from "got";
-import * as stream from "stream";
+import { Readable } from "stream";
 import { OctokitResponse } from "@octokit/types";
 import AnonymousError from "../AnonymousError";
 
@@ -113,7 +113,7 @@ export default class GitHubDownload extends GitHubBase implements SourceBase {
     await this.repository.updateStatus("ready");
   }
 
-  async getFileContent(file: AnonymizedFile): Promise<stream.Readable> {
+  async getFileContent(file: AnonymizedFile): Promise<Readable> {
     await this.download();
     // update the file list
     await this.repository.files({ force: true });

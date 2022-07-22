@@ -2,9 +2,8 @@ import AnonymizedFile from "../AnonymizedFile";
 import { Branch, Tree } from "../types";
 import { GitHubRepository } from "./GitHubRepository";
 import config from "../../config";
-import { OAuthApp } from "@octokit/oauth-app";
 import Repository from "../Repository";
-import * as stream from "stream";
+import { Readable } from "stream";
 import UserModel from "../database/users/users.model";
 import AnonymousError from "../AnonymousError";
 
@@ -37,7 +36,7 @@ export default abstract class GitHubBase {
     this.branch = { commit: data.commit, name: data.branch };
   }
 
-  async getFileContent(file: AnonymizedFile): Promise<stream.Readable> {
+  async getFileContent(file: AnonymizedFile): Promise<Readable> {
     throw new AnonymousError("method_not_implemented", {
       httpStatus: 501,
       object: this,

@@ -91,7 +91,10 @@ router.get(
             // && repo.status != "preparing"
           ) {
             await repo.updateStatus("preparing");
-            await downloadQueue.add(repo, { jobId: repo.repoId, attempts: 3 });
+            await downloadQueue.add(repo.repoId, repo, {
+              jobId: repo.repoId,
+              attempts: 3,
+            });
           }
           if (repo.status == "error") {
             throw new AnonymousError(

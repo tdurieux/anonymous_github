@@ -1,13 +1,13 @@
 import { StorageBase, Tree, TreeFile } from "../types";
 import { S3 } from "aws-sdk";
 import config from "../../config";
-import * as stream from "stream";
+import { pipeline, Readable } from "stream";
 import ArchiveStreamToS3 from "decompress-stream-to-s3";
-import * as express from "express";
-import * as mime from "mime-types";
+import { Response } from "express";
+import { lookup } from "mime-types";
 import * as flow from "xml-flow";
 import * as archiver from "archiver";
-import * as path from "path";
+import { dirname, basename } from "path";
 import AnonymousError from "../AnonymousError";
 
 export default class S3Storage implements StorageBase {
@@ -83,7 +83,7 @@ export default class S3Storage implements StorageBase {
   }
 
   /** @override */
-  send(p: string, res: express.Response) {
+  send(p: string, res: Response) {
     const s = this.client
       .getObject({
         Bucket: config.S3_BUCKET,
@@ -102,8 +102,8 @@ export default class S3Storage implements StorageBase {
           res.set("Content-Length", headers["content-length"]);
           res.set("Content-Type", headers["content-type"]);
         }
-        stream.pipeline(
-          response.httpResponse.createUnbufferedStream() as stream.Readable,
+        pipeline(
+          response.httpResponse.createUnbufferedStream() as Readable,
           res
         );
       });
@@ -112,7 +112,7 @@ export default class S3Storage implements StorageBase {
   }
 
   /** @override */
-  read(path: string): stream.Readable {
+  read(path: string): Readable {
     return this.client
       .getObject({
         Bucket: config.S3_BUCKET,
@@ -128,7 +128,7 @@ export default class S3Storage implements StorageBase {
         Bucket: config.S3_BUCKET,
         Key: path,
         Body: data,
-        ContentType: mime.lookup(path).toString(),
+        ContentType: lookup(path).toString(),
       })
       .promise();
     return;
@@ -168,7 +168,7 @@ export default class S3Storage implements StorageBase {
   }
 
   /** @override */
-  async extractZip(p: string, data: stream.Readable): Promise<void> {
+  async extractZip(p: string, data: Readable): Promise<void> {
     let toS3: ArchiveStreamToS3;
 
     return new Promise((resolve, reject) => {
@@ -181,8 +181,7 @@ export default class S3Storage implements StorageBase {
           header.name = header.name.substr(header.name.indexOf("/") + 1);
         },
       });
-      stream
-        .pipeline(data, toS3, () => {})
+      pipeline(data, toS3, () => {})
         .on("finish", resolve)
         .on("error", reject);
     });
@@ -210,14 +209,14 @@ export default class S3Storage implements StorageBase {
     xmlStream.on("tag:contents", function (file) {
       let rs = that.read(file.key);
       file.key = file.key.replace(dir, "");
-      const filename = path.basename(file.key);
+      const filename = basename(file.key);
       if (filename == "") return;
       if (opt?.fileTransformer) {
         rs = rs.pipe(opt.fileTransformer(filename));
       }
       archive.append(rs, {
         name: filename,
-        prefix: path.dirname(file.key),
+        prefix: dirname(file.key),
       });
     });
     xmlStream.on("end", () => {

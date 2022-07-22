@@ -2,10 +2,10 @@ import { StorageBase, Tree } from "../types";
 import config from "../../config";
 
 import * as fs from "fs";
-import * as unzip from "unzip-stream";
-import * as path from "path";
-import * as express from "express";
-import * as stream from "stream";
+import { Extract } from "unzip-stream";
+import { join, basename, dirname } from "path";
+import { Response } from "express";
+import { Readable, pipeline } from "stream";
 import * as archiver from "archiver";
 import { promisify } from "util";
 
@@ -16,32 +16,32 @@ export default class FileSystem implements StorageBase {
 
   /** @override */
   async exists(p: string): Promise<boolean> {
-    return fs.existsSync(path.join(config.FOLDER, p));
+    return fs.existsSync(join(config.FOLDER, p));
   }
 
   /** @override */
-  send(p: string, res: express.Response) {
-    res.sendFile(path.join(config.FOLDER, p), { dotfiles: "allow" });
+  send(p: string, res: Response) {
+    res.sendFile(join(config.FOLDER, p), { dotfiles: "allow" });
   }
 
   /** @override */
-  read(p: string): stream.Readable {
-    return fs.createReadStream(path.join(config.FOLDER, p));
+  read(p: string): Readable {
+    return fs.createReadStream(join(config.FOLDER, p));
   }
 
   /** @override */
   async write(p: string, data: Buffer): Promise<void> {
-    if (!(await this.exists(path.dirname(p)))) {
-      await fs.promises.mkdir(path.dirname(path.join(config.FOLDER, p)), {
+    if (!(await this.exists(dirname(p)))) {
+      await fs.promises.mkdir(dirname(join(config.FOLDER, p)), {
         recursive: true,
       });
     }
-    return fs.promises.writeFile(path.join(config.FOLDER, p), data);
+    return fs.promises.writeFile(join(config.FOLDER, p), data);
   }
 
   /** @override */
   async rm(dir: string): Promise<void> {
-    await fs.promises.rm(path.join(config.FOLDER, dir), {
+    await fs.promises.rm(join(config.FOLDER, dir), {
       force: true,
       recursive: true,
     });
@@ -50,7 +50,7 @@ export default class FileSystem implements StorageBase {
   /** @override */
   async mk(dir: string): Promise<void> {
     if (!(await this.exists(dir)))
-      fs.promises.mkdir(path.join(config.FOLDER, dir), { recursive: true });
+      fs.promises.mkdir(join(config.FOLDER, dir), { recursive: true });
   }
 
   /** @override */
@@ -64,12 +64,12 @@ export default class FileSystem implements StorageBase {
     if (opt.root == null) {
       opt.root = config.FOLDER;
     }
-    let files = await fs.promises.readdir(path.join(opt.root, dir));
+    let files = await fs.promises.readdir(join(opt.root, dir));
     const output: Tree = {};
     for (let file of files) {
-      let filePath = path.join(dir, file);
+      let filePath = join(dir, file);
       try {
-        const stats = await fs.promises.stat(path.join(opt.root, filePath));
+        const stats = await fs.promises.stat(join(opt.root, filePath));
         if (file[0] == "$") {
           file = "\\" + file;
         }
@@ -92,12 +92,12 @@ export default class FileSystem implements StorageBase {
   }
 
   /** @override */
-  async extractZip(p: string, data: stream.Readable): Promise<void> {
-    const pipeline = promisify(stream.pipeline);
-    return pipeline(
+  async extractZip(p: string, data: Readable): Promise<void> {
+    const pipe = promisify(pipeline);
+    return pipe(
       data,
-      unzip.Extract({
-        path: path.join(path.join(config.FOLDER, p)),
+      Extract({
+        path: join(join(config.FOLDER, p)),
         decodeString: (buf) => {
           const name = buf.toString();
           const newName = name.substr(name.indexOf("/") + 1);
@@ -127,8 +127,8 @@ export default class FileSystem implements StorageBase {
         }
         const f = file.path.replace(dir, "");
         archive.append(rs, {
-          name: path.basename(f),
-          prefix: path.dirname(f),
+          name: basename(f),
+          prefix: dirname(f),
         });
       },
     }).then(() => {

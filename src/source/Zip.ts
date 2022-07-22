@@ -1,4 +1,3 @@
-import * as path from "path";
 import AnonymizedFile from "../AnonymizedFile";
 import Repository from "../Repository";
 import storage from "../storage";

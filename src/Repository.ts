@@ -1,7 +1,7 @@
-import * as path from "path";
+import { join } from "path";
 import storage from "./storage";
 import { RepositoryStatus, Source, Tree, TreeElement, TreeFile } from "./types";
-import * as stream from "stream";
+import { Readable } from "stream";
 import User from "./User";
 import GitHubStream from "./source/GitHubStream";
 import GitHubDownload from "./source/GitHubDownload";
@@ -136,7 +136,7 @@ export default class Repository {
    *
    * @returns A stream of anonymized repository compressed
    */
-  zip(): stream.Readable {
+  zip(): Readable {
     return storage.archive(this.originalCachePath, {
       format: "zip",
       fileTransformer: (filename) =>
@@ -185,11 +185,13 @@ export default class Repository {
         this._model.anonymizeDate = new Date();
         console.log(`${this._model.repoId} will be updated to ${newCommit}`);
         await this.resetSate("preparing");
-        await downloadQueue.add(this, { jobId: this.repoId, attempts: 3 });
+        await downloadQueue.add(this.repoId, this, {
+          jobId: this.repoId,
+          attempts: 3,
+        });
       }
     }
   }
-
   /**
    * Download the require state for the repository to work
    *
@@ -327,7 +329,7 @@ export default class Repository {
   }
 
   get originalCachePath() {
-    return path.join(this._model.repoId, "original") + "/";
+    return join(this._model.repoId, "original") + "/";
   }
 
   get status() {
