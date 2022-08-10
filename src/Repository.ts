@@ -280,7 +280,7 @@ export default class Repository {
       const out = { storage: 0, file: 0 };
       for (const name in files) {
         const file = files[name];
-        if (file.size) {
+        if (file.size && parseInt(file.size) == file.size) {
           out.storage += file.size as number;
           out.file++;
         } else if (typeof file == "object") {
