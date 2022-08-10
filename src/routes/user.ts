@@ -13,7 +13,7 @@ router.get("/logout", async (req: express.Request, res: express.Response) => {
     req.logout((error) => console.error(error));
     res.redirect("/");
   } catch (error) {
-    handleError(error, res);
+    handleError(error, res, req);
   }
 });
 
@@ -26,7 +26,7 @@ router.get("/", async (req: express.Request, res: express.Response) => {
       isAdmin: user.isAdmin,
     });
   } catch (error) {
-    handleError(error, res);
+    handleError(error, res, req);
   }
 });
 
@@ -54,7 +54,7 @@ router.get("/quota", async (req: express.Request, res: express.Response) => {
       },
     });
   } catch (error) {
-    handleError(error, res);
+    handleError(error, res, req);
   }
 });
 
@@ -64,7 +64,7 @@ router.get("/default", async (req: express.Request, res: express.Response) => {
 
     res.json(user.default);
   } catch (error) {
-    handleError(error, res);
+    handleError(error, res, req);
   }
 });
 
@@ -78,7 +78,7 @@ router.post("/default", async (req: express.Request, res: express.Response) => {
     await user.model.save();
     res.send("ok");
   } catch (error) {
-    handleError(error, res);
+    handleError(error, res, req);
   }
 });
 
@@ -93,7 +93,7 @@ router.get(
         })
       );
     } catch (error) {
-      handleError(error, res);
+      handleError(error, res, req);
     }
   }
 );
@@ -115,7 +115,7 @@ router.get(
         })
       );
     } catch (error) {
-      handleError(error, res);
+      handleError(error, res, req);
     }
   }
 );

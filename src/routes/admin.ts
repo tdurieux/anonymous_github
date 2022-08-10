@@ -24,7 +24,7 @@ router.use(
       isOwnerOrAdmin([], user);
       next();
     } catch (error) {
-      handleError(error, res);
+      handleError(error, res, req);
     }
   }
 );

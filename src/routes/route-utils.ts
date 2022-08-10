@@ -28,7 +28,7 @@ export async function getRepo(
     }
     return repo;
   } catch (error) {
-    handleError(error, res);
+    handleError(error, res, req);
     return null;
   }
 }
@@ -41,15 +41,16 @@ export function isOwnerOrAdmin(authorizedUsers: string[], user: User) {
   }
 }
 
-function printError(error: any) {
+function printError(error: any, req?: express.Request) {
   io.notifyError(error, error.value);
   if (error instanceof AnonymousError) {
-    console.log(error);
-    console.error(
-      "[ERROR]",
-      error.toString(),
-      error.stack.split("\n")[1].trim()
-    );
+    let message = `[ERROR] ${error.toString()} ${error.stack
+      .split("\n")[1]
+      .trim()}`;
+    if (req) {
+      message += ` ${req.originalUrl}`;
+    }
+    console.error(message);
   } else if (error instanceof Error) {
     console.error(error);
   } else {
@@ -57,8 +58,12 @@ function printError(error: any) {
   }
 }
 
-export function handleError(error: any, res: express.Response) {
-  printError(error);
+export function handleError(
+  error: any,
+  res: express.Response,
+  req?: express.Request
+) {
+  printError(error, req);
   let message = error;
   if (error instanceof Error) {
     message = error.message;

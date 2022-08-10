@@ -50,7 +50,7 @@ async function webView(req: express.Request, res: express.Response) {
     }
     f.send(res);
   } catch (error) {
-    handleError(error, res);
+    handleError(error, res, req);
   }
 }
 

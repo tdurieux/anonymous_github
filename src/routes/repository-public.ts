@@ -37,7 +37,7 @@ router.get(
       res.header("Cache-Control", "max-age=21600");
       await pipeline(repo.zip(), res);
     } catch (error) {
-      handleError(error, res);
+      handleError(error, res, req);
     }
   }
 );
@@ -52,7 +52,7 @@ router.get(
 
       res.json(await repo.anonymizedFiles({ includeSha: false }));
     } catch (error) {
-      handleError(error, res);
+      handleError(error, res, req);
     }
   }
 );
@@ -131,7 +131,7 @@ router.get(
         download,
       });
     } catch (error) {
-      handleError(error, res);
+      handleError(error, res, req);
     }
   }
 );

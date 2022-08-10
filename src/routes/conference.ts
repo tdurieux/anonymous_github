@@ -62,7 +62,7 @@ router.get("/", async (req: express.Request, res: express.Response) => {
     );
     res.json(conferences.map((conf) => conf.toJSON()));
   } catch (error) {
-    handleError(error, res);
+    handleError(error, res, req);
   }
 });
 
@@ -206,7 +206,7 @@ router.post(
           res
         );
       }
-      handleError(error, res);
+      handleError(error, res, req);
     }
   }
 );
@@ -241,7 +241,7 @@ router.get(
         })
       }
     } catch (error) {
-      handleError(error, res);
+      handleError(error, res, req);
     }
   }
 );
@@ -264,7 +264,7 @@ router.delete(
       await conference.remove();
       res.send("ok");
     } catch (error) {
-      handleError(error, res);
+      handleError(error, res, req);
     }
   }
 );

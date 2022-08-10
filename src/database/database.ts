@@ -17,11 +17,17 @@ export async function connect() {
 }
 
 export async function getRepository(repoId: string) {
+  if (!repoId) {
+    throw new AnonymousError("repo_not_found", {
+      object: repoId,
+      httpStatus: 404,
+    });
+  }
   const data = await AnonymizedRepositoryModel.findOne({ repoId });
   if (!data)
     throw new AnonymousError("repo_not_found", {
       object: repoId,
-      httpStatus: 400,
+      httpStatus: 404,
     });
   return new Repository(data);
 }

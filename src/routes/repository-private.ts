@@ -78,7 +78,7 @@ router.post("/claim", async (req: express.Request, res: express.Response) => {
     );
     return res.send("Ok");
   } catch (error) {
-    handleError(error, res);
+    handleError(error, res, req);
   }
 });
 
@@ -102,7 +102,7 @@ router.post(
       await repo.updateIfNeeded({ force: true });
       res.json({ status: repo.status });
     } catch (error) {
-      handleError(error, res);
+      handleError(error, res, req);
     }
   }
 );
@@ -126,7 +126,7 @@ router.delete(
       await removeQueue.add(repo.repoId, repo, { jobId: repo.repoId });
       return res.json({ status: repo.status });
     } catch (error) {
-      handleError(error, res);
+      handleError(error, res, req);
     }
   }
 );
@@ -143,7 +143,7 @@ router.get(
       });
       res.json(repo.toJSON());
     } catch (error) {
-      handleError(error, res);
+      handleError(error, res, req);
     }
   }
 );
@@ -165,7 +165,7 @@ router.get(
         })
       );
     } catch (error) {
-      handleError(error, res);
+      handleError(error, res, req);
     }
   }
 );
@@ -195,7 +195,7 @@ router.get(
         })
       );
     } catch (error) {
-      handleError(error, res);
+      handleError(error, res, req);
     }
   }
 );
@@ -210,7 +210,7 @@ router.get("/:repoId/", async (req: express.Request, res: express.Response) => {
     isOwnerOrAdmin([repo.owner.id], user);
     res.json((await db.getRepository(req.params.repoId)).toJSON());
   } catch (error) {
-    handleError(error, res);
+    handleError(error, res, req);
   }
 });
 
@@ -364,7 +364,7 @@ router.post(
       res.json({ status: repo.status });
       await downloadQueue.add(repo.repoId, repo, { jobId: repo.repoId });
     } catch (error) {
-      return handleError(error, res);
+      return handleError(error, res, req);
     }
   }
 );
@@ -444,10 +444,11 @@ router.post("/", async (req: express.Request, res: express.Response) => {
           cause: error,
           object: repoUpdate,
         }),
-        res
+        res,
+        req
       );
     }
-    return handleError(error, res);
+    return handleError(error, res, req);
   }
 });
 

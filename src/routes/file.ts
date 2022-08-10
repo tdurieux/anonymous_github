@@ -37,7 +37,7 @@ router.get(
       res.header('Cache-Control', 'max-age=300');
       await f.send(res);
     } catch (error) {
-      return handleError(error, res);
+      return handleError(error, res, req);
     }
   }
 );
