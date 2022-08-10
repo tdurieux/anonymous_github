@@ -17,7 +17,7 @@ export async function connect() {
 }
 
 export async function getRepository(repoId: string) {
-  if (!repoId) {
+  if (!repoId || repoId == 'undefined') {
     throw new AnonymousError("repo_not_found", {
       object: repoId,
       httpStatus: 404,

@@ -49,6 +49,8 @@ function printError(error: any, req?: express.Request) {
       .trim()}`;
     if (req) {
       message += ` ${req.originalUrl}`;
+      // ignore common error
+      if (req.originalUrl === '/api/repo/undefined/options') return
     }
     console.error(message);
   } else if (error instanceof Error) {
