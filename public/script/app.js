@@ -1279,17 +1279,38 @@ angular
           (res) => {
             $scope.files = res.data;
             if ($scope.paths.length == 0 || $scope.paths[0] == "") {
-              for (let file in $scope.files) {
-                // redirect to readme
+              // redirect to readme
+              const readmeCandidates = {};
+              for (const file in $scope.files) {
                 if (file.toLowerCase().indexOf("readme") > -1) {
-                  let uri = $location.url();
-                  if (uri[uri.length - 1] != "/") {
-                    uri += "/";
-                  }
-
-                  // redirect to readme
-                  $location.url(uri + file);
+                  readmeCandidates[file.toLowerCase()] = file;
                 }
+              }
+
+              const readmePriority = [
+                "readme.md",
+                "readme.txt",
+                "readme.org",
+                "readme.1st",
+                "readme",
+              ];
+              let best_match = null;
+              for (const p of readmePriority) {
+                if (readmeCandidates[p]) {
+                  best_match = p;
+                  break;
+                }
+              }
+              if (!best_match && Object.keys(readmeCandidates).length > 0)
+                best_match = Object.keys(readmeCandidates)[0];
+              if (best_match) {
+                let uri = $location.url();
+                if (uri[uri.length - 1] != "/") {
+                  uri += "/";
+                }
+
+                // redirect to readme
+                $location.url(uri + readmeCandidates[best_match]);
               }
             }
             if (callback) {
