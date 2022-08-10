@@ -53,8 +53,10 @@ export interface StorageBase {
    * Write data to a file
    * @param path the path to the file
    * @param data the content of the file
+   * @param file the file
+   * @param source the source of the file
    */
-  write(path: string, data: Buffer): Promise<void>;
+  write(path: string, data: Buffer, file?: AnonymizedFile, source?: SourceBase): Promise<void>;
 
   /**
    * List the files from dir
@@ -66,8 +68,10 @@ export interface StorageBase {
    * Extract the content of tar to dir
    * @param dir
    * @param tar
+   * @param file the file
+   * @param source the source of the file
    */
-  extractZip(dir: string, tar: stream.Readable): Promise<void>;
+  extractZip(dir: string, tar: stream.Readable, file?: AnonymizedFile, source?: SourceBase): Promise<void>;
 
   /**
    * Remove the path

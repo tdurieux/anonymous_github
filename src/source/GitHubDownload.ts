@@ -97,7 +97,7 @@ export default class GitHubDownload extends GitHubBase implements SourceBase {
     try {
       const downloadStream = got.stream(response.url);
       downloadStream.addListener("downloadProgress", (p) => (progress = p));
-      await storage.extractZip(originalPath, downloadStream);
+      await storage.extractZip(originalPath, downloadStream, null, this);
     } catch (error) {
       await this.repository.updateStatus("error", "unable_to_download");
       throw new AnonymousError("unable_to_download", {

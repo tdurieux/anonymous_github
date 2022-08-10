@@ -58,7 +58,7 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
       }
       if (this.repository.status != "ready")
         await this.repository.updateStatus("ready");
-      await storage.write(file.originalCachePath, content);
+      await storage.write(file.originalCachePath, content, file, this);
       return stream.Readable.from(content);
     } catch (error) {
       throw new AnonymousError("file_too_big", {

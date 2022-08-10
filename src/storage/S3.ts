@@ -1,4 +1,4 @@
-import { StorageBase, Tree, TreeFile } from "../types";
+import { SourceBase, StorageBase, Tree, TreeFile } from "../types";
 import { S3 } from "aws-sdk";
 import config from "../../config";
 import { pipeline, Readable } from "stream";
@@ -9,6 +9,7 @@ import * as flow from "xml-flow";
 import * as archiver from "archiver";
 import { dirname, basename } from "path";
 import AnonymousError from "../AnonymousError";
+import AnonymizedFile from "../AnonymizedFile";
 
 export default class S3Storage implements StorageBase {
   type = "AWS";
@@ -122,15 +123,22 @@ export default class S3Storage implements StorageBase {
   }
 
   /** @override */
-  async write(path: string, data: Buffer): Promise<void> {
-    await this.client
-      .putObject({
-        Bucket: config.S3_BUCKET,
-        Key: path,
-        Body: data,
-        ContentType: lookup(path).toString(),
-      })
-      .promise();
+  async write(
+    path: string,
+    data: Buffer,
+    file?: AnonymizedFile,
+    source?: SourceBase
+  ): Promise<void> {
+    const params: S3.PutObjectRequest = {
+      Bucket: config.S3_BUCKET,
+      Key: path,
+      Body: data,
+      ContentType: lookup(path).toString(),
+    };
+    if (source) {
+      params.Tagging = `source=${source.type}`
+    }
+    await this.client.putObject(params).promise();
     return;
   }
 
@@ -168,7 +176,12 @@ export default class S3Storage implements StorageBase {
   }
 
   /** @override */
-  async extractZip(p: string, data: Readable): Promise<void> {
+  async extractZip(
+    p: string,
+    data: Readable,
+    file?: AnonymizedFile,
+    source?: SourceBase
+  ): Promise<void> {
     let toS3: ArchiveStreamToS3;
 
     return new Promise((resolve, reject) => {
@@ -179,6 +192,9 @@ export default class S3Storage implements StorageBase {
         type: "zip",
         onEntry: (header) => {
           header.name = header.name.substr(header.name.indexOf("/") + 1);
+          if (source) {
+            header.Tagging = `source=${source.type}`;
+          }
         },
       });
       pipeline(data, toS3, () => {})

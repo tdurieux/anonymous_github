@@ -1,4 +1,4 @@
-import { StorageBase, Tree } from "../types";
+import { SourceBase, StorageBase, Tree } from "../types";
 import config from "../../config";
 
 import * as fs from "fs";
@@ -8,6 +8,7 @@ import { Response } from "express";
 import { Readable, pipeline } from "stream";
 import * as archiver from "archiver";
 import { promisify } from "util";
+import AnonymizedFile from "../AnonymizedFile";
 
 export default class FileSystem implements StorageBase {
   type = "FileSystem";
@@ -30,7 +31,7 @@ export default class FileSystem implements StorageBase {
   }
 
   /** @override */
-  async write(p: string, data: Buffer): Promise<void> {
+  async write(p: string, data: Buffer, file?: AnonymizedFile, source?: SourceBase): Promise<void> {
     if (!(await this.exists(dirname(p)))) {
       await fs.promises.mkdir(dirname(join(config.FOLDER, p)), {
         recursive: true,
@@ -92,7 +93,7 @@ export default class FileSystem implements StorageBase {
   }
 
   /** @override */
-  async extractZip(p: string, data: Readable): Promise<void> {
+  async extractZip(p: string, data: Readable, file?: AnonymizedFile, source?: SourceBase): Promise<void> {
     const pipe = promisify(pipeline);
     return pipe(
       data,
