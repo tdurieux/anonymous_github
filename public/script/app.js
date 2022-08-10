@@ -1228,7 +1228,7 @@ angular
       function checkSourceType() {
         if ($scope.source.type == "GitHubStream") {
           $scope.options.page = false;
-          $scope.anonymize.page.$$element[0].disabled = true;
+          //$scope.anonymize.page.$$element[0].disabled = true;
         } else {
           if ($scope.details && $scope.details.hasPage) {
             $scope.anonymize.page.$$element[0].disabled = false;
