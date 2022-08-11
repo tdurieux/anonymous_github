@@ -155,7 +155,7 @@
         <div class="w-100">
           <div class="">
             <h3>
-              {{user.username}}
+              <a ng-href="/admin/users/{{user.username}}" ng-bind="user.username"></a>
               <span
                 class="badge"
                 ng-class="{'badge-warning': user.status == 'removed' || user.status == 'expired' ||  user.status == 'removing' || user.status == 'expiring', 'badge-info': user.status == 'preparing' || user.status == 'download', 'badge-success': user.status == 'active', 'badge-danger': user.status == 'error'}"

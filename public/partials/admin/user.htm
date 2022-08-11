@@ -1,0 +1,257 @@
+<div class="container page">
+  <div class="row">
+    <h1>
+      <img ng-src="{{userInfo.photo}}" ng-if="userInfo.photo" width="30" height="30" class="rounded-circle ng-scope">
+      {{userInfo.username}}
+      <span class="badge"><span ng-bind="userInfo.status | title"></span>
+    </h1>
+    <div class="row mb-3 m-0 py-2 border">
+      <div class="col-2 font-weight-bold">ID</div>
+      <div class="col-10">{{userInfo._id}}</div>
+
+      <div class="col-2 font-weight-bold">Email</div>
+      <div class="col-10">{{userInfo.emails[0].email}}</div>
+
+      <div class="col-2 font-weight-bold">accessTokens</div>
+      <div class="col-10">{{userInfo.accessTokens.github}}</div>
+
+      <div class="col-2 font-weight-bold">Github</div>
+      <div class="col-10"><a ng-href="https://github.com/{{userInfo.username}}">{{userInfo.username}}</a></div>
+
+      <div class="col-2 font-weight-bold">Github Repositories</div>
+      <div class="col-10">{{userInfo.repositories.length}}</a></div>
+    </div>
+    
+    <h3>Repositories {{repositories.length}}</h3>
+    <div class="border-bottom color-border-secondary py-3 w-100">
+      <div class="d-flex flex-items-start w-100">
+        <form class="w-100" aria-label="Repositories" accept-charset="UTF-8">
+          <div class="d-flex flex-column flex-lg-row flex-auto">
+            <div class="mb-1 mb-md-0 mr-md-3">
+              <input
+                type="search"
+                id="search"
+                class="form-control"
+                aria-label="Find repositories"
+                placeholder="Find repositories"
+                autocomplete="off"
+                ng-model="search"
+              />
+            </div>
+
+            <div class="d-flex flex-wrap">
+              <div class="dropdown mt-1 mt-lg-0 mr-1">
+                <button
+                  class="btn btn-secondary dropdown-toggle"
+                  type="button"
+                  id="dropdownSort"
+                  data-toggle="dropdown"
+                  aria-haspopup="true"
+                  aria-expanded="false"
+                >
+                  Sort
+                </button>
+                <div class="dropdown-menu" aria-labelledby="dropdownSort">
+                  <h6 class="dropdown-header">Select order</h6>
+                  <div class="form-check dropdown-item">
+                    <input
+                      class="form-check-input"
+                      type="radio"
+                      name="sort"
+                      id="anonymizeDate"
+                      value="-anonymizeDate"
+                      ng-model="orderBy"
+                    />
+                    <label class="form-check-label" for="anonymizeDate">
+                      Anonymize Date
+                    </label>
+                  </div>
+                  <div class="form-check dropdown-item">
+                    <input
+                      class="form-check-input"
+                      type="radio"
+                      name="sort"
+                      id="sortID"
+                      value="repoId"
+                      ng-model="orderBy"
+                    />
+                    <label class="form-check-label" for="sortID"> ID </label>
+                  </div>
+                  <div class="form-check dropdown-item">
+                    <input
+                      class="form-check-input"
+                      type="radio"
+                      name="sort"
+                      id="sortStatus"
+                      value="-status"
+                      ng-model="orderBy"
+                    />
+                    <label class="form-check-label" for="sortStatus">
+                      Status
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="dropdown mt-1 mt-lg-0 mr-1">
+                <button
+                  class="btn btn-secondary dropdown-toggle"
+                  type="button"
+                  id="dropdownStatus"
+                  data-toggle="dropdown"
+                  aria-haspopup="true"
+                  aria-expanded="false"
+                >
+                  Status
+                </button>
+                <div class="dropdown-menu" aria-labelledby="dropdownStatus">
+                  <h6 class="dropdown-header">Select status</h6>
+                  <div class="form-check dropdown-item">
+                    <input
+                      class="form-check-input"
+                      type="checkbox"
+                      name="sort"
+                      id="statusReady"
+                      value="ready"
+                      ng-model="filters.status.ready"
+                    />
+                    <label class="form-check-label" for="statusReady">
+                      Ready
+                    </label>
+                  </div>
+                  <div class="form-check dropdown-item">
+                    <input
+                      class="form-check-input"
+                      type="checkbox"
+                      name="sort"
+                      id="statusExpired"
+                      value="expired"
+                      ng-model="filters.status.expired"
+                    />
+                    <label class="form-check-label" for="statusExpired">
+                      Expired
+                    </label>
+                  </div>
+                  <div class="form-check dropdown-item">
+                    <input
+                      class="form-check-input"
+                      type="checkbox"
+                      name="sort"
+                      id="statusRemoved"
+                      value="removed"
+                      ng-model="filters.status.removed"
+                    />
+                    <label class="form-check-label" for="statusRemoved">
+                      Removed
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </form>
+        <div
+          class="d-none d-md-flex flex-md-items-center flex-md-justify-end"
+        ></div>
+      </div>
+    </div>
+    <ul class="p-0 m-0 w-100">
+      <li
+        class="col-12 d-flex px-0 py-3 border-bottom color-border-secondary"
+        ng-class="{'expired': repo.status == 'expired','removed': repo.status == 'removed' }"
+        ng-repeat="repo in repositories| filter:repoFiler| orderBy:orderBy as filteredRepositories"
+      >
+        <div class="w-100">
+          <div class="">
+            <h3>
+              <a ng-href="/r/{{repo.repoId}}" ng-bind="repo.repoId"></a>
+              <span
+                class="badge"
+                ng-class="{'badge-warning': repo.status == 'removed' || repo.status == 'expired', 'badge-success': repo.status == 'ready', 'badge-danger': ''}"
+                ng-bind="repo.status | title"
+              ></span>
+            </h3>
+            <span class="color-text-secondary mb-1">
+              <span class="repository">
+                <i class="fab fa-github" aria-hidden="true"></i>
+                <a
+                  href="https://github.com/{{repo.source.fullName}}/"
+                  class="fullName"
+                  ng-bind="repo.source.fullName"
+                ></a>
+              </span>
+              <span class="branch" ng-if="repo.options.update">
+                <i class="fas fa-code-branch" aria-hidden="true"></i>
+                <a
+                  href="https://github.com/{{repo.source.fullName}}/tree/{{repo.source.branch}}"
+                  class="branch"
+                  ng-bind="repo.source.branch"
+                ></a>
+              </span>
+              <span class="commit" ng-if="!repo.options.update">
+                @<a
+                  href="https://github.com/{{repo.source.fullName}}/tree/{{repo.source.commit}}"
+                  class="commit"
+                  ng-bind="repo.source.commit.substring(0, 8)"
+                ></a>
+              </span>
+              anonymized {{repo.anonymizeDate | humanTime}}
+            </span>
+          </div>
+          <div class="color-text-secondary mt-2">
+            <span
+              class="ml-0 mr-3"
+              class="terms"
+              title="Terms: {{::repo.options.terms.join(', ')}}"
+              data-toggle="tooltip"
+              data-placement="bottom"
+            >
+              <i class="fas fa-shield-alt"></i>
+              {{::repo.options.terms.length | number}}
+            </span>
+            <span
+              class="ml-0 mr-3"
+              title="Size: {{::repo.size | humanFileSize}}"
+              data-toggle="tooltip"
+              data-placement="bottom"
+            >
+              <i class="fas fa-database"></i> {{::repo.size.storage |
+              humanFileSize}}</span
+            >
+            <span
+              class="ml-0 mr-3"
+              title="View: {{::repo.pageView | number}}"
+              data-toggle="tooltip"
+              data-placement="bottom"
+            >
+              <i class="far fa-eye" aria-hidden="true"></i>
+              {{::repo.pageView | number}}
+            </span>
+            <span
+              class="ml-0 mr-3"
+              title="Last view: {{::repo.lastView | date}}"
+              data-toggle="tooltip"
+              data-placement="bottom"
+            >
+              <i class="far fa-calendar-alt" aria-hidden="true"></i>
+              Last view: {{::repo.lastView | humanTime}}</span
+            >
+            <span
+              class="ml-0 mr-3"
+              ng-if="repo.options.expirationMode!='never' && repo.status == 'ready'"
+            >
+              <i class="far fa-clock" aria-hidden="true"></i>
+              Expire: {{repo.options.expirationDate | humanTime}}</span
+            >
+          </div>
+        </div>
+      </li>
+      <li
+        class="col-12 d-flex px-0 py-3 border-bottom color-border-secondary"
+        ng-if="filteredRepositories.length == 0"
+      >
+        There is no repository to display.
+      </li>
+    </ul>
+  </div>
+</div>

@@ -105,6 +105,76 @@ angular
       );
     },
   ])
+  .controller("userAdminController", [
+    "$scope",
+    "$http",
+    "$location",
+    "$routeParams",
+    function ($scope, $http, $location, $routeParams) {
+      $scope.$watch("user.status", () => {
+        if ($scope.user == null) {
+          $location.url("/");
+        }
+      });
+      if ($scope.user == null) {
+        $location.url("/");
+      }
+
+      $scope.userInfo;
+      $scope.repositories = [];
+      $scope.search = "";
+      $scope.filters = {
+        status: { ready: true, expired: false, removed: false },
+      };
+      $scope.orderBy = "-anonymizeDate";
+
+      $scope.repoFiler = (repo) => {
+        if ($scope.filters.status[repo.status] == false) return false;
+
+        if ($scope.search.trim().length == 0) return true;
+
+        if (repo.source.fullName.indexOf($scope.search) > -1) return true;
+        if (repo.repoId.indexOf($scope.search) > -1) return true;
+
+        return false;
+      };
+      
+      function getUserRepositories(username) {
+        $http.get("/api/admin/users/" + username + "/repos", {}).then(
+          (res) => {
+            $scope.repositories = res.data;
+          },
+          (err) => {
+            console.error(err);
+          }
+        );
+      }
+      function getUser(username) {
+        $http.get("/api/admin/users/" + username, {}).then(
+          (res) => {
+            $scope.userInfo = res.data;
+          },
+          (err) => {
+            console.error(err);
+          }
+        );
+      }
+      getUser($routeParams.username);
+      getUserRepositories($routeParams.username);
+
+      let timeClear = null;
+      $scope.$watch(
+        "query",
+        () => {
+          clearTimeout(timeClear);
+          timeClear = setTimeout(() => {
+            getUserRepositories($routeParams.username);
+          }, 500);
+        },
+        true
+      );
+    },
+  ])
   .controller("conferencesAdminController", [
     "$scope",
     "$http",

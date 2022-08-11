@@ -101,6 +101,11 @@ angular
         controller: "usersAdminController",
         title: "Users Admin - Anonymous GitHub",
       })
+      .when("/admin/users/:username", {
+        templateUrl: "/partials/admin/user.htm",
+        controller: "userAdminController",
+        title: "User Admin - Anonymous GitHub",
+      })
       .when("/admin/conferences", {
         templateUrl: "/partials/admin/conferences.htm",
         controller: "conferencesAdminController",

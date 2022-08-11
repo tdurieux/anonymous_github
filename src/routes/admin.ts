@@ -1,10 +1,12 @@
 import { Queue } from "bullmq";
 import * as express from "express";
+import AnonymousError from "../AnonymousError";
 import AnonymizedRepositoryModel from "../database/anonymizedRepositories/anonymizedRepositories.model";
 import ConferenceModel from "../database/conference/conferences.model";
 import UserModel from "../database/users/users.model";
 import { downloadQueue, removeQueue } from "../queue";
 import Repository from "../Repository";
+import User from "../User";
 import { ensureAuthenticated } from "./connection";
 import { handleError, getUser, isOwnerOrAdmin } from "./route-utils";
 
@@ -165,7 +167,43 @@ router.get("/users", async (req, res) => {
       .skip(skipIndex),
   });
 });
-
+router.get(
+  "/users/:username",
+  async (req: express.Request, res: express.Response) => {
+    try {
+      const model = await UserModel.findOne({ username: req.params.username });
+      if (!model) {
+        req.logout((error) => console.error(error));
+        throw new AnonymousError("user_not_found", {
+          httpStatus: 404,
+        });
+      }
+      const user = new User(model);
+      res.json(user);
+    } catch (error) {
+      handleError(error, res, req);
+    }
+  }
+);
+router.get(
+  "/users/:username/repos",
+  async (req: express.Request, res: express.Response) => {
+    try {
+      const model = await UserModel.findOne({ username: req.params.username });
+      if (!model) {
+        req.logout((error) => console.error(error));
+        throw new AnonymousError("user_not_found", {
+          httpStatus: 404,
+        });
+      }
+      const user = new User(model);
+      const repos = await user.getRepositories();
+      res.json(repos);
+    } catch (error) {
+      handleError(error, res, req);
+    }
+  }
+);
 router.get("/conferences", async (req, res) => {
   const page = parseInt(req.query.page as string) || 1;
   const limit = parseInt(req.query.limit as string) || 10;
