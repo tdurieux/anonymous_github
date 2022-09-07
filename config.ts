@@ -29,6 +29,7 @@ interface Config {
   S3_REGION?: string;
   STORAGE: "filesystem" | "s3";
   TRUST_PROXY: number;
+  RATE_LIMIT: number;
 }
 const config: Config = {
   CLIENT_ID: "CLIENT_ID",
@@ -42,6 +43,7 @@ const config: Config = {
   ANONYMIZATION_MASK: "XXXX",
   PORT: 5000,
   TRUST_PROXY: 1,
+  RATE_LIMIT: 350,
   HOSTNAME: "anonymous.4open.science",
   DB_USERNAME: "admin",
   DB_PASSWORD: "password",

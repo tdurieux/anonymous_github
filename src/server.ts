@@ -62,7 +62,7 @@ export default async function start() {
       sendCommand: (...args: string[]) => redisClient.sendCommand(args),
     }),
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 1000, // limit each IP
+    max: config.RATE_LIMIT, // limit each IP
     standardHeaders: true,
     legacyHeaders: false,
     // delayMs: 0, // disable delaying - full speed until the max limit is reached
