@@ -54,7 +54,6 @@ async function webView(req: express.Request, res: express.Response) {
       repository: repo,
       anonymizedPath: requestPath,
     });
-    console.log(f);
     if (requestPath[requestPath.length - 1] == "/") {
       // find index file
       const paths = f.anonymizedPath.trim().split("/");
@@ -75,13 +74,12 @@ async function webView(req: express.Request, res: express.Response) {
         }
         currentAnonymized = currentAnonymized[fileName];
       }
-      console.log(currentAnonymized);
 
       let best_match = null;
       for (const p of indexPriority) {
         for (let filename in currentAnonymized) {
           if (filename.toLowerCase() == p) {
-            best_match = p;
+            best_match = filename;
             break;
           }
         }
