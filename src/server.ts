@@ -37,7 +37,7 @@ export default async function start() {
   app.use(express.json());
 
   app.use(compression());
-  app.set("trust proxy", 1);
+  app.set("trust proxy", config.TRUST_PROXY);
   app.set("etag", "strong");
 
   // handle session and connection
@@ -46,7 +46,7 @@ export default async function start() {
   app.use(passport.session());
 
   startWorker();
-  
+
   const redisClient = createClient({
     socket: {
       host: config.REDIS_HOSTNAME,

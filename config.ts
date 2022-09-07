@@ -28,6 +28,7 @@ interface Config {
   S3_ENDPOINT?: string;
   S3_REGION?: string;
   STORAGE: "filesystem" | "s3";
+  TRUST_PROXY: number;
 }
 const config: Config = {
   CLIENT_ID: "CLIENT_ID",
@@ -40,6 +41,7 @@ const config: Config = {
   AUTH_CALLBACK: "http://localhost:5000/github/auth",
   ANONYMIZATION_MASK: "XXXX",
   PORT: 5000,
+  TRUST_PROXY: 1,
   HOSTNAME: "anonymous.4open.science",
   DB_USERNAME: "admin",
   DB_PASSWORD: "password",
