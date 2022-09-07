@@ -4,8 +4,24 @@ import * as path from "path";
 import AnonymizedFile from "../AnonymizedFile";
 import GitHubDownload from "../source/GitHubDownload";
 import AnonymousError from "../AnonymousError";
+import { TreeElement } from "../types";
 
 const router = express.Router();
+
+const indexPriority = [
+  "index.html",
+  "index.htm",
+  "index.md",
+  "index.txt",
+  "index.org",
+  "index.1st",
+  "index",
+  "readme.md",
+  "readme.txt",
+  "readme.org",
+  "readme.1st",
+  "readme",
+];
 
 async function webView(req: express.Request, res: express.Response) {
   const repo = await getRepo(req, res);
@@ -34,14 +50,51 @@ async function webView(req: express.Request, res: express.Response) {
         req.path.indexOf(req.params.repoId) + req.params.repoId.length
       )
     );
-    if (requestPath[requestPath.length - 1] == "/") {
-      requestPath = path.join(requestPath, "index.html");
-    }
-    requestPath = requestPath;
-    const f = new AnonymizedFile({
+    let f = new AnonymizedFile({
       repository: repo,
       anonymizedPath: requestPath,
     });
+    console.log(f);
+    if (requestPath[requestPath.length - 1] == "/") {
+      // find index file
+      const paths = f.anonymizedPath.trim().split("/");
+
+      let currentAnonymized: TreeElement = await repo.anonymizedFiles({
+        includeSha: true,
+      });
+      for (let i = 0; i < paths.length; i++) {
+        const fileName = paths[i];
+        if (fileName == "") {
+          continue;
+        }
+        if (!currentAnonymized[fileName]) {
+          throw new AnonymousError("file_not_found", {
+            object: this,
+            httpStatus: 404,
+          });
+        }
+        currentAnonymized = currentAnonymized[fileName];
+      }
+      console.log(currentAnonymized);
+
+      let best_match = null;
+      for (const p of indexPriority) {
+        for (let filename in currentAnonymized) {
+          if (filename.toLowerCase() == p) {
+            best_match = p;
+            break;
+          }
+        }
+      }
+      if (best_match) {
+        requestPath = path.join(requestPath, best_match);
+        f = new AnonymizedFile({
+          repository: repo,
+          anonymizedPath: requestPath,
+        });
+      }
+    }
+
     if (!(await f.isFileSupported())) {
       throw new AnonymousError("file_not_supported", {
         httpStatus: 400,
