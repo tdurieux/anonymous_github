@@ -51,6 +51,7 @@ router.post("/queue/:name/:repo_id", async (req, res) => {
     try {
       await job.remove();
       queue.add(job.name, job.data, job.opts);
+      res.send("ok");
     } catch (error) {
       res.status(500).send("error_retrying_job");
     }
