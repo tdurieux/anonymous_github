@@ -139,7 +139,6 @@ router.get(
           !!config.ENABLE_DOWNLOAD &&
           repo.source.type == "GitHubDownload";
       }
-      console.log(repo.size.storage, repo.source.type)
       if (
         repo.size.storage < config.FREE_DOWNLOAD_REPO_SIZE * 1024 &&
         repo.source.type == "GitHubDownload"
@@ -151,6 +150,7 @@ router.get(
       res.json({
         url: redirectURL,
         download,
+        lastUpdateDate: repo.model.statusDate,
       });
     } catch (error) {
       handleError(error, res, req);

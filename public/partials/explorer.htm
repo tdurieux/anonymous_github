@@ -2,6 +2,11 @@
   <div class="row h-100">
     <div class="leftCol shadow p-1 overflow-auto" ng-show="files">
       <tree class="files" file="files"></tree>
+      <div class="bottom column">
+        <div class="last-update">
+          Last Update: {{options.lastUpdateDate|date}}
+        </div>
+      </div>
     </div>
     <div class="col-md h-100 overflow-auto p-0 d-flex flex-column">
       <div class="d-flex align-content-between status-bar shadow">

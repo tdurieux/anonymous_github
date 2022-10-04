@@ -255,10 +255,12 @@ a:hover {
 }
 
 .leftCol {
+  display: flex;
   position: relative;
   flex: 0 0 auto;
   width: 100%;
   z-index: 9;
+  flex-direction: column;
 }
 
 .leftCol,
@@ -326,9 +328,10 @@ a:hover {
   font-family: 'Font Awesome 5 Free';
   position: absolute;
   left: 0px;
-  width: 7px;
+  width: 18px;
+  height: 21px;
+  overflow: hidden;
   padding: 1px;
-  padding-left: 1px;
   color: var(--primary-bg);
 }
 
