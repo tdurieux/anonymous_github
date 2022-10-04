@@ -192,7 +192,8 @@ export default class AnonymizedFile {
     try {
       await pipe(await this.anonymizedContent(), res);
     } catch (error) {
-      handleError(error, res);
+      handleError(error);
+      res.end();
     }
   }
 }

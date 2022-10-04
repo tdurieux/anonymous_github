@@ -62,7 +62,7 @@ function printError(error: any, req?: express.Request) {
 
 export function handleError(
   error: any,
-  res: express.Response,
+  res?: express.Response,
   req?: express.Request
 ) {
   printError(error, req);
@@ -78,8 +78,9 @@ export function handleError(
   } else if (message && message.indexOf("not_connected") > -1) {
     status = 401;
   }
-
-  res.status(status).send({ error: message });
+  if (res) {
+    res.status(status).send({ error: message });
+  }
   return;
 }
 
