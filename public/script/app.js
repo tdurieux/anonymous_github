@@ -1346,7 +1346,6 @@ angular
           (err) => {
             $scope.type = "error";
             $scope.content = err.data.error;
-            setTimeout(init, 2500);
           }
         );
       }
