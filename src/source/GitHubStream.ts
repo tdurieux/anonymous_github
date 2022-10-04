@@ -92,7 +92,8 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
         recursive: "1",
       });
     } catch (error) {
-      if (error.status == 409 && error.message == "Git Repository is empty.") {
+      console.log(error, error.status);
+      if (error.status == 409) {
         return {};
       }
       await this.repository.resetSate("error", "repo_not_accessible");
@@ -124,33 +125,40 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
     const octokit = new Octokit({
       auth: await this.getToken(),
     });
-    const ghRes = await octokit.git.getTree({
-      owner: this.githubRepository.owner,
-      repo: this.githubRepository.repo,
-      tree_sha: sha,
-    });
-    const tree = ghRes.data.tree;
-
-    for (let elem of tree) {
-      if (!elem.path) continue;
-      if (elem.type == "tree") {
-        const elementPath = path.join(parentPath, elem.path);
-        const paths = elementPath.split("/");
-
-        let current = truncatedTree;
-        for (let i = 0; i < paths.length; i++) {
-          let p = paths[i];
-          if (!current[p]) {
-            if (elem.sha)
-              await this.getTree(elem.sha, truncatedTree, elementPath);
-            break;
+    try {
+      const ghRes = await octokit.git.getTree({
+        owner: this.githubRepository.owner,
+        repo: this.githubRepository.repo,
+        tree_sha: sha,
+      });
+      const tree = ghRes.data.tree;
+  
+      for (let elem of tree) {
+        if (!elem.path) continue;
+        if (elem.type == "tree") {
+          const elementPath = path.join(parentPath, elem.path);
+          const paths = elementPath.split("/");
+  
+          let current = truncatedTree;
+          for (let i = 0; i < paths.length; i++) {
+            let p = paths[i];
+            if (!current[p]) {
+              if (elem.sha)
+                await this.getTree(elem.sha, truncatedTree, elementPath);
+              break;
+            }
+            current = current[p] as Tree;
           }
-          current = current[p] as Tree;
         }
       }
+      this.tree2Tree(ghRes.data.tree, truncatedTree, parentPath);
+      return truncatedTree;
+    } catch (error) {
+      console.log(error, error.status);
+      if (error.status == 409) {
+      }
+      return truncatedTree;
     }
-    this.tree2Tree(ghRes.data.tree, truncatedTree, parentPath);
-    return truncatedTree;
   }
 
   private tree2Tree(
