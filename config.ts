@@ -9,6 +9,8 @@ interface Config {
   DEFAULT_QUOTA: number;
   MAX_FILE_SIZE: number;
   MAX_REPO_SIZE: number;
+  AUTO_DOWNLOAD_REPO_SIZE: number;
+  FREE_DOWNLOAD_REPO_SIZE: number;
   AUTH_CALLBACK: string;
   /**
    * Allow to download repository and files
@@ -38,6 +40,8 @@ const config: Config = {
   DEFAULT_QUOTA: 2 * 1024 * 1024 * 1024 * 8,
   MAX_FILE_SIZE: 100 * 1024 * 1024, // in b, 10MB
   MAX_REPO_SIZE: 60000, // in kb, 60MB
+  AUTO_DOWNLOAD_REPO_SIZE: 150, // in kb, 150kb
+  FREE_DOWNLOAD_REPO_SIZE: 150, // in kb, 150kb
   ENABLE_DOWNLOAD: true,
   AUTH_CALLBACK: "http://localhost:5000/github/auth",
   ANONYMIZATION_MASK: "XXXX",

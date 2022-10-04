@@ -24,7 +24,22 @@ router.get(
       const repo = await getRepo(req, res);
       if (!repo) return;
 
-      if (repo.source.type != "GitHubDownload") {
+      let download = false;
+      const conference = await repo.conference();
+      if (conference) {
+        download =
+          conference.quota.size > -1 &&
+          !!config.ENABLE_DOWNLOAD &&
+          repo.source.type == "GitHubDownload";
+      }
+      if (
+        repo.size.storage < config.FREE_DOWNLOAD_REPO_SIZE * 1024 &&
+        repo.source.type == "GitHubDownload"
+      ) {
+        download = true;
+      }
+
+      if (!download) {
         throw new AnonymousError("download_not_enabled", {
           httpStatus: 403,
           object: req.params.repoId,
@@ -123,6 +138,13 @@ router.get(
           conference.quota.size > -1 &&
           !!config.ENABLE_DOWNLOAD &&
           repo.source.type == "GitHubDownload";
+      }
+      console.log(repo.size.storage, repo.source.type)
+      if (
+        repo.size.storage < config.FREE_DOWNLOAD_REPO_SIZE * 1024 &&
+        repo.source.type == "GitHubDownload"
+      ) {
+        download = true;
       }
 
       res.header("Cache-Control", "no-cache");

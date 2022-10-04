@@ -214,7 +214,7 @@ router.get("/:repoId/", async (req: express.Request, res: express.Response) => {
   }
 });
 
-function validateNewRepo(repoUpdate) {
+function validateNewRepo(repoUpdate): void {
   const validCharacters = /^[0-9a-zA-Z\-\_]+$/;
   if (
     !repoUpdate.repoId.match(validCharacters) ||
@@ -402,6 +402,9 @@ router.post("/", async (req: express.Request, res: express.Response) => {
           httpStatus: 400,
         });
       }
+    }
+    if (repository.size < config.AUTO_DOWNLOAD_REPO_SIZE) {
+      repo.source.type = "GitHubDownload";
     }
     repo.conference = repoUpdate.conference;
 
