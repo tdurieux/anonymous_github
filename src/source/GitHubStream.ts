@@ -93,9 +93,11 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
       });
     } catch (error) {
       if (error.status == 409) {
-        console.log(error.stack);
         // empty tree
-        ghRes = { data: { tree: [], truncated: false } };
+        if (this.repository.status != "ready")
+          await this.repository.updateStatus("ready");
+        // cannot be empty otherwise it would try to download it again
+        return { __: {} };
       } else {
         await this.repository.resetSate("error", "repo_not_accessible");
         throw new AnonymousError("repo_not_accessible", {
