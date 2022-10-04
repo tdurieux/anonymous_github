@@ -778,8 +778,8 @@ angular
               } else if ($scope.repo.status == "anonymizing") {
                 $scope.progress = 75;
               }
-              if ($scope.repo.status != "ready") {
-                setTimeout($scope.getStatus, 1000);
+              if ($scope.repo.status != "ready" && $scope.repo.status != "error") {
+                setTimeout($scope.getStatus, 2000);
               }
             },
             (err) => {
