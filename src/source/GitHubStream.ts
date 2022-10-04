@@ -92,6 +92,9 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
         recursive: "1",
       });
     } catch (error) {
+      if (error.status == 409 && error.message == "Git Repository is empty.") {
+        return {};
+      }
       await this.repository.resetSate("error", "repo_not_accessible");
       throw new AnonymousError("repo_not_accessible", {
         httpStatus: error.status,
