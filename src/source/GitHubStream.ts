@@ -92,20 +92,22 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
         recursive: "1",
       });
     } catch (error) {
-      console.log(error, error.status);
       if (error.status == 409) {
-        return {};
+        console.log(error.stack);
+        // empty tree
+        ghRes = { data: { tree: [], truncated: false } };
+      } else {
+        await this.repository.resetSate("error", "repo_not_accessible");
+        throw new AnonymousError("repo_not_accessible", {
+          httpStatus: error.status,
+          cause: error,
+          object: {
+            owner: this.githubRepository.owner,
+            repo: this.githubRepository.repo,
+            tree_sha: sha,
+          },
+        });
       }
-      await this.repository.resetSate("error", "repo_not_accessible");
-      throw new AnonymousError("repo_not_accessible", {
-        httpStatus: error.status,
-        cause: error,
-        object: {
-          owner: this.githubRepository.owner,
-          repo: this.githubRepository.repo,
-          tree_sha: sha,
-        },
-      });
     }
 
     const tree = this.tree2Tree(ghRes.data.tree, truncatedTree, parentPath);
@@ -132,13 +134,13 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
         tree_sha: sha,
       });
       const tree = ghRes.data.tree;
-  
+
       for (let elem of tree) {
         if (!elem.path) continue;
         if (elem.type == "tree") {
           const elementPath = path.join(parentPath, elem.path);
           const paths = elementPath.split("/");
-  
+
           let current = truncatedTree;
           for (let i = 0; i < paths.length; i++) {
             let p = paths[i];
@@ -154,7 +156,6 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
       this.tree2Tree(ghRes.data.tree, truncatedTree, parentPath);
       return truncatedTree;
     } catch (error) {
-      console.log(error, error.status);
       if (error.status == 409) {
       }
       return truncatedTree;
