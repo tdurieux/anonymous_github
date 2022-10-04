@@ -44,8 +44,17 @@ router.post("/queue/:name/:repo_id", async (req, res) => {
   if (!job) {
     return res.status(404).json({ error: "job_not_found" });
   }
-  await job.retry();
-  res.send("ok");
+  try {
+    await job.retry();
+    res.send("ok");
+  } catch (error) {
+    try {
+      await job.remove();
+      queue.add(job.name, job.data, job.opts);
+    } catch (error) {
+      res.status(500).send("error_retrying_job");
+    }
+  }
 });
 
 router.delete("/queue/:name/:repo_id", async (req, res) => {
