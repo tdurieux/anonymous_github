@@ -72,7 +72,8 @@ export default async function start() {
   const speedLimiter = slowDown({
     windowMs: 15 * 60 * 1000, // 15 minutes
     delayAfter: 50,
-    delayMs: 5000,
+    delayMs: 150,
+    maxDelayMs: 5000,
     headers: true,
   });
 
