@@ -134,23 +134,32 @@
       <h2 id="about">Metrics</h2>
       <div class="row pb-5">
         <!--Grid column-->
-        <div class="col-md-6">
-          <div
-            class="row no-gutters border rounded overflow-hidden flex-md-row mb-4 shadow-sm h-md-250 position-relative"
-          >
-            <div class="col p-4 d-flex flex-column position-static">
-              <h3 class="mb-auto text-center">
-                {{stat.nbRepositories|number}} Anonymized Repositories
-              </h3>
-            </div>
-          </div>
-        </div>
-        <div class="col-md-6">
+        <div class="col-md-4">
           <div
             class="row no-gutters border rounded overflow-hidden flex-md-row mb-4 shadow-sm h-md-250 position-relative"
           >
             <div class="col p-4 d-flex flex-column position-static">
               <h3 class="mb-auto text-center">{{stat.nbUsers|number}} Users</h3>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div
+            class="row no-gutters border rounded overflow-hidden flex-md-row mb-4 shadow-sm h-md-250 position-relative"
+          >
+            <div class="col p-4 d-flex flex-column position-static">
+              <h3 class="mb-auto text-center">
+                {{stat.nbRepositories|number}} Repositories
+              </h3>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div
+            class="row no-gutters border rounded overflow-hidden flex-md-row mb-4 shadow-sm h-md-250 position-relative"
+          >
+            <div class="col p-4 d-flex flex-column position-static">
+              <h3 class="mb-auto text-center">{{stat.nbPageViews|number}} Page views</h3>
             </div>
           </div>
         </div>

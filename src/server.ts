@@ -41,7 +41,7 @@ export default async function start() {
   app.set("trust proxy", true);
   app.set("etag", "strong");
 
-  app.get('/ip', (request, response) => response.send(request.ip))
+  app.get("/ip", (request, response) => response.send(request.ip));
 
   // handle session and connection
   app.use(connection.appSession);
@@ -80,7 +80,7 @@ export default async function start() {
   app.use("/github", rate, speedLimiter, connection.router);
 
   // api routes
-  const apiRouter = express.Router()
+  const apiRouter = express.Router();
   app.use("/api", rate, apiRouter);
 
   apiRouter.use("/admin", router.admin);
@@ -103,7 +103,14 @@ export default async function start() {
       await AnonymizedRepositoryModel.estimatedDocumentCount();
 
     const nbUsers = (await AnonymizedRepositoryModel.distinct("owner")).length;
-    res.json({ nbRepositories, nbUsers });
+    const nbPageViews = await AnonymizedRepositoryModel.collection
+      .aggregate([
+        {
+          $group: { _id: null, total: { $sum: "$pageView" } },
+        },
+      ])
+      .toArray();
+    res.json({ nbRepositories, nbUsers, nbPageViews: nbPageViews[0].total });
   });
 
   // web view
