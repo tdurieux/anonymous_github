@@ -2,6 +2,7 @@ import * as path from "path";
 import * as ofs from "fs";
 import { createClient } from "redis";
 import rateLimit from "express-rate-limit";
+import * as slowDown from "express-slow-down";
 import RedisStore from "rate-limit-redis";
 import * as express from "express";
 import * as compression from "compression";
@@ -37,7 +38,7 @@ export default async function start() {
   app.use(express.json());
 
   app.use(compression());
-  app.set("trust proxy", config.TRUST_PROXY);
+  app.set("trust proxy", true);
   app.set("etag", "strong");
 
   app.get('/ip', (request, response) => response.send(request.ip))
@@ -67,35 +68,45 @@ export default async function start() {
     max: config.RATE_LIMIT, // limit each IP
     standardHeaders: true,
     legacyHeaders: false,
-    // delayMs: 0, // disable delaying - full speed until the max limit is reached
+  });
+  const speedLimiter = slowDown({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    delayAfter: 50,
+    delayMs: 5000,
+    headers: true,
   });
 
-  app.use("/github", rate, connection.router);
+  app.use("/github", rate, speedLimiter, connection.router);
 
   // api routes
-  app.use("/api/admin", rate, router.admin);
-  app.use("/api/options", rate, router.option);
-  app.use("/api/conferences", rate, router.conference);
-  app.use("/api/user", rate, router.user);
-  app.use("/api/repo", rate, router.repositoryPublic);
-  app.use("/api/repo", rate, router.file);
-  app.use("/api/repo", rate, router.repositoryPrivate);
-  app.use("/w/", rate, router.webview);
+  const apiRouter = express.Router()
+  app.use("/api", rate, speedLimiter, apiRouter);
 
-  app.get("/api/message", async (_, res) => {
+  apiRouter.use("/admin", router.admin);
+  apiRouter.use("/options", router.option);
+  apiRouter.use("/conferences", router.conference);
+  apiRouter.use("/user", router.user);
+  apiRouter.use("/repo", router.repositoryPublic);
+  apiRouter.use("/repo", router.file);
+  apiRouter.use("/repo", router.repositoryPrivate);
+
+  apiRouter.get("/message", async (_, res) => {
     if (ofs.existsSync("./message.txt")) {
       return res.sendFile(path.resolve(__dirname, "..", "message.txt"));
     }
     res.sendStatus(404);
   });
 
-  app.get("/api/stat", async (_, res) => {
+  apiRouter.get("/stat", async (_, res) => {
     const nbRepositories =
       await AnonymizedRepositoryModel.estimatedDocumentCount();
 
     const nbUsers = (await AnonymizedRepositoryModel.distinct("owner")).length;
     res.json({ nbRepositories, nbUsers });
   });
+
+  // web view
+  app.use("/w/", rate, speedLimiter, router.webview);
 
   app
     .get("/", indexResponse)
