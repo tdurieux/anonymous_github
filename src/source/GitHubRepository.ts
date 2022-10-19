@@ -125,6 +125,13 @@ export class GitHubRepository {
       }
     }
 
+    if (!selected) {
+      throw new AnonymousError("readme_not_available", {
+        httpStatus: 404,
+        object: this,
+      });
+    }
+
     return selected.readme;
   }
 
