@@ -78,7 +78,7 @@ export function handleError(
   } else if (message && message.indexOf("not_connected") > -1) {
     status = 401;
   }
-  if (res) {
+  if (res && !res.headersSent) {
     res.status(status).send({ error: message });
   }
   return;

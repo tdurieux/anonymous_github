@@ -40,6 +40,8 @@ export default async function start() {
   app.set("trust proxy", config.TRUST_PROXY);
   app.set("etag", "strong");
 
+  app.get('/ip', (request, response) => response.send(request.ip))
+
   // handle session and connection
   app.use(connection.appSession);
   app.use(passport.initialize());

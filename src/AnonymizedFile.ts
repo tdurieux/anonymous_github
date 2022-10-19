@@ -167,9 +167,8 @@ export default class AnonymizedFile {
     }
     if (await storage.exists(this.originalCachePath)) {
       return storage.read(this.originalCachePath);
-    } else {
-      return await this.repository.source?.getFileContent(this);
     }
+    return await this.repository.source?.getFileContent(this);
   }
 
   async anonymizedContent() {
@@ -192,8 +191,7 @@ export default class AnonymizedFile {
     try {
       await pipe(await this.anonymizedContent(), res);
     } catch (error) {
-      handleError(error);
-      res.end();
+      handleError(error, res);
     }
   }
 }

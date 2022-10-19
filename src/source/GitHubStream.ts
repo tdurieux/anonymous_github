@@ -61,6 +61,13 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
       await storage.write(file.originalCachePath, content, file, this);
       return stream.Readable.from(content);
     } catch (error) {
+      if (error.status == 404) {
+        throw new AnonymousError("file_not_found", {
+          httpStatus: error.status,
+          cause: error,
+          object: file,
+        });
+      }
       throw new AnonymousError("file_too_big", {
         httpStatus: error.status,
         cause: error,
