@@ -80,15 +80,15 @@ export default async function start() {
 
   // api routes
   const apiRouter = express.Router()
-  app.use("/api", rate, speedLimiter, apiRouter);
+  app.use("/api", rate, apiRouter);
 
   apiRouter.use("/admin", router.admin);
   apiRouter.use("/options", router.option);
   apiRouter.use("/conferences", router.conference);
   apiRouter.use("/user", router.user);
   apiRouter.use("/repo", router.repositoryPublic);
-  apiRouter.use("/repo", router.file);
-  apiRouter.use("/repo", router.repositoryPrivate);
+  apiRouter.use("/repo", speedLimiter, router.file);
+  apiRouter.use("/repo", speedLimiter, router.repositoryPrivate);
 
   apiRouter.get("/message", async (_, res) => {
     if (ofs.existsSync("./message.txt")) {
