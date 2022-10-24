@@ -1478,6 +1478,25 @@ angular
           mode: getMode(extension),
 
           onLoad: function (_editor) {
+            if (window.location.hash && window.location.hash.match(/^#L\d+/)) {
+              let from = 0;
+              let to = 0;
+              if (window.location.hash.indexOf('-') > -1) {
+                const match = window.location.hash.match(/^#L(\d+)-L(\d+)/);
+                from = parseInt(match[1]) - 1;
+                to = parseInt(match[2]) - 1;
+              } else {
+                from = parseInt(window.location.hash.substring(2)) - 1;
+                to = from;
+              }
+              
+              const Range = ace.require('ace/range').Range;
+              _editor.session.addMarker(new Range(from, 0, to, 1), "highlighted-line", "fullLine");
+              setTimeout(() => {
+                _editor.scrollToLine(from, true, true, function () {});
+              }, 100);
+            }
+
             _editor.setFontSize($scope.aceOption.fontSize);
             _editor.setReadOnly($scope.aceOption.readOnly);
             _editor.setKeyboardHandler($scope.aceOption.keyBinding);
