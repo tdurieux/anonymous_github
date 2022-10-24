@@ -25,6 +25,7 @@ export function conferenceStatusCheck() {
 export function repositoryStatusCheck() {
   // check every 6 hours the status of the repositories
   const job = schedule.scheduleJob("0 */6 * * *", async () => {
+    console.log("[schedule] Check repository status and unused repositories");
     (
       await AnonymizedRepositoryModel.find({ status: { $eq: "ready" } })
     ).forEach((data) => {
@@ -33,6 +34,16 @@ export function repositoryStatusCheck() {
         repo.check();
       } catch (error) {
         console.log(`Repository ${repo.repoId} is expired`);
+      }
+      const sixMonthAgo = new Date();
+      sixMonthAgo.setMonth(sixMonthAgo.getMonth() - 6);
+
+      if (repo.model.lastView < sixMonthAgo) {
+        repo.removeCache().then(() => {
+          console.log(
+            `Repository ${repo.repoId} not visited for 6 months remove the cached files`
+          );
+        });
       }
     });
   });

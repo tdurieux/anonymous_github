@@ -114,6 +114,9 @@ export default class GitHubDownload extends GitHubBase implements SourceBase {
   }
 
   async getFileContent(file: AnonymizedFile): Promise<Readable> {
+    if (await storage.exists(file.originalCachePath)) {
+      return storage.read(file.originalCachePath);
+    }
     await this.download();
     // update the file list
     await this.repository.files({ force: true });

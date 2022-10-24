@@ -253,10 +253,15 @@ export default class Repository {
     this._model.size = { storage: 0, file: 0 };
     this._model.originalFiles = null;
     // remove cache
-    return Promise.all([
-      this._model.save(),
-      storage.rm(this._model.repoId + "/"),
-    ]);
+    return Promise.all([this._model.save(), this.removeCache()]);
+  }
+
+  /**
+   * Remove the cached files
+   * @returns 
+   */
+  async removeCache() {
+    return storage.rm(this._model.repoId + "/");
   }
 
   /**
