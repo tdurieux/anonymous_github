@@ -1256,8 +1256,9 @@ angular
     "$http",
     "$location",
     "$routeParams",
+    "$sce",
     "PDFViewerService",
-    function ($scope, $http, $location, $routeParams, PDFViewerService) {
+    function ($scope, $http, $location, $routeParams, $sce, PDFViewerService) {
       const extensionModes = {
         yml: "yaml",
         txt: "text",
@@ -1268,7 +1269,10 @@ angular
       const textFiles = ["license", "txt"];
       const imageFiles = ["png", "jpg", "jpeg", "gif", "svg"];
 
-      $scope.$on("$routeUpdate", function (event, current, old) {
+      $scope.$on("$routeUpdate", function (event, current) {
+        if (($routeParams.path || "") == $scope.filePath) {
+          return
+        }
         $scope.filePath = $routeParams.path || "";
         $scope.paths = $scope.filePath.split("/");
 
@@ -1405,7 +1409,7 @@ angular
 
               if ($scope.type == "md") {
                 const md = contentAbs2Relative(res.data);
-                $scope.content = marked(md, { baseUrl: $location.url() });
+                $scope.content = $sce.trustAsHtml(marked(md, { baseUrl: $location.url() }));
                 $scope.type = "html";
               }
               if ($scope.type == "org") {
@@ -1416,10 +1420,10 @@ angular
                 var orgHTMLDocument = orgDocument.convert(Org.ConverterHTML, {
                   headerOffset: 1,
                   exportFromLineNumber: false,
-                  suppressSubScriptHandling: false,
+                  suppressSubScriptHandling: true,
                   suppressAutoLink: false,
                 });
-                $scope.content = orgHTMLDocument.toString();
+                $scope.content = $sce.trustAsHtml(orgHTMLDocument.toString());
                 $scope.type = "html";
               }
               setTimeout(() => {
