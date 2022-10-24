@@ -137,22 +137,35 @@ export default class AnonymizedFile {
 
     return this._originalPath;
   }
-
-  async isFileSupported() {
+  async extension() {
     const filename = basename(await this.originalPath());
     const extensions = filename.split(".").reverse();
-    const extension = extensions[0].toLowerCase();
+    return extensions[0].toLowerCase();
+  }
+  async isImage(): Promise<boolean> {
+    const extension = await this.extension();
+    return [
+      "png",
+      "jpg",
+      "jpeg",
+      "gif",
+      "svg",
+      "ico",
+      "bmp",
+      "tiff",
+      "tif",
+      "webp",
+      "avif",
+      "heif",
+      "heic",
+    ].includes(extension);
+  }
+  async isFileSupported() {
+    const extension = await this.extension();
     if (!this.repository.options.pdf && extension == "pdf") {
       return false;
     }
-    if (
-      !this.repository.options.image &&
-      (extension == "png" ||
-        extension == "ico" ||
-        extension == "jpg" ||
-        extension == "jpeg" ||
-        extension == "gif")
-    ) {
+    if (!this.repository.options.image && (await this.isImage())) {
       return false;
     }
     return true;

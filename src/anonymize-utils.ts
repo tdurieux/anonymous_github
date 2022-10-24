@@ -4,9 +4,19 @@ import GitHubBase from "./source/GitHubBase";
 import { isText } from "istextorbinary";
 import { basename } from "path";
 import { Transform } from "stream";
+import { Readable } from "stream";
 
 const urlRegex =
   /<?\b((https?|ftp|file):\/\/)[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]\b\/?>?/g;
+
+export function streamToString(stream: Readable): Promise<string> {
+  const chunks = [];
+  return new Promise((resolve, reject) => {
+    stream.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+    stream.on("error", (err) => reject(err));
+    stream.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+  });
+}
 
 export function isTextFile(filePath: string, content: Buffer) {
   const filename = basename(filePath);

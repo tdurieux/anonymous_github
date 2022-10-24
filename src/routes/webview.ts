@@ -5,6 +5,8 @@ import AnonymizedFile from "../AnonymizedFile";
 import GitHubDownload from "../source/GitHubDownload";
 import AnonymousError from "../AnonymousError";
 import { TreeElement } from "../types";
+import * as marked from "marked";
+import { anonymizeContent, streamToString } from "../anonymize-utils";
 
 const router = express.Router();
 
@@ -99,7 +101,12 @@ async function webView(req: express.Request, res: express.Response) {
         object: f,
       });
     }
-    f.send(res);
+    if ((await f.extension()) == "md") {
+      const content = await streamToString(await f.anonymizedContent());
+      res.send(marked.marked(content));
+    } else {
+      f.send(res);
+    }
   } catch (error) {
     handleError(error, res, req);
   }

@@ -1267,7 +1267,7 @@ angular
         ts: "typescript",
       };
       const textFiles = ["license", "txt"];
-      const imageFiles = ["png", "jpg", "jpeg", "gif", "svg"];
+      const imageFiles = ["png", "jpg", "jpeg", "gif", "svg", "ico", "bmp", "tiff", "tif", "webp", "avif", "heif", "heic"];
 
       $scope.$on("$routeUpdate", function (event, current) {
         if (($routeParams.path || "") == $scope.filePath) {
