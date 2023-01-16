@@ -202,6 +202,9 @@ export default class AnonymizedFile {
   async send(res: Response): Promise<void> {
     const pipe = promisify(pipeline);
     try {
+      if (await this.extension()) {
+        res.contentType(await this.extension());
+      }
       await pipe(await this.anonymizedContent(), res);
     } catch (error) {
       handleError(error, res);
