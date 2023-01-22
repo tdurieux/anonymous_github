@@ -1,0 +1,118 @@
+<div class="container-fluid h-100">
+  <div class="row h-100">
+    <div class="col-md h-100 overflow-auto p-0 d-flex flex-column">
+      <div class="d-flex align-content-between status-bar shadow">
+        <div class="last-update">
+          Last Update: {{details.anonymizeDate|date}}
+        </div>
+      </div>
+      <div class="overflow-auto mx-3">
+        <div class="d-flex w-100 justify-content-between align-items-center">
+          <h2 class="pr-title">
+            <span ng-if="details.title">{{details.title}}</span>
+            <span
+              class="badge"
+              ng-class="{'badge-success':details.merged, 'badge-warning':details.state=='open', 'badge-danger':details.state=='closed' &&!details.merged}"
+            >
+              {{details.merged?"merged":details.state | title}}
+            </span>
+          </h2>
+          <small
+            ng-if="details.updatedDate"
+            ng-bind="details.updatedDate | date"
+          ></small>
+        </div>
+        <small ng-if="details.baseRepositoryFullName"
+          >Pull Request on {{details.baseRepositoryFullName}}</small
+        >
+        <div
+          class="pr-body shadow-sm p-3 mb-4 rounded border"
+          ng-if="details.body"
+        >
+          <markdown content="details.body"></markdown>
+        </div>
+        <ul class="nav nav-tabs" id="myTab" role="tablist">
+          <li class="nav-item" role="presentation" ng-if="details.diff">
+            <button
+              class="nav-link active"
+              id="pills-diff-tab"
+              data-toggle="pill"
+              data-target="#pills-diff"
+              type="button"
+              role="tab"
+              aria-controls="pills-diff"
+              aria-selected="true"
+            >
+              Diff
+            </button>
+          </li>
+          <li class="nav-item" role="presentation" ng-if="details.comments">
+            <button
+              class="nav-link"
+              ng-class="{'active':!details.diff}"
+              id="pills-comments-tab"
+              data-toggle="pill"
+              data-target="#pills-comments"
+              type="button"
+              role="tab"
+              aria-controls="pills-comments"
+              aria-selected="false"
+            >
+              <ng-pluralize
+                count="details.comments.length"
+                when="{'0': 'No comment',
+                         'one': 'One Comment',
+                         'other': '{} Comments'}"
+              >
+              </ng-pluralize>
+            </button>
+          </li>
+        </ul>
+        <div class="tab-content" id="pills-tabContent">
+          <div
+            class="tab-pane show active"
+            id="pills-diff"
+            role="tabpanel"
+            aria-labelledby="pills-diff-tab"
+            ng-if="details.diff"
+          >
+            <div class="pr-diff shadow-sm p-3 mb-5 bg-white rounded">
+              <pre><code ng-bind-html="details.diff | diff"></code></pre>
+            </div>
+          </div>
+          <div
+            class="tab-pane"
+            ng-class="{'show active':!details.diff}"
+            id="pills-comments"
+            role="tabpanel"
+            aria-labelledby="pills-comments-tab"
+            ng-if="details.comments"
+          >
+            <ul class="pr-comments list-group">
+              <li
+                class="pr-comment list-group-item"
+                ng-repeat="comment in details.comments"
+              >
+                <div class="d-flex w-100 justify-content-between">
+                  <h5 class="mb-1" ng-if="comment.author">
+                    @{{comment.author}}
+                  </h5>
+                  <small
+                    ng-bind="comment.updatedDate | date"
+                    ng-if="comment.updatedDate"
+                  ></small>
+                </div>
+                <p class="mb-1" ng-if="comment.body">
+                  <markdown
+                    class="pr-comment-body"
+                    content="comment.body"
+                  ></markdown>
+                </p>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

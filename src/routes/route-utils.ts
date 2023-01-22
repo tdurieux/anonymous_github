@@ -5,6 +5,35 @@ import UserModel from "../database/users/users.model";
 import User from "../User";
 import * as io from "@pm2/io";
 
+export async function getPullRequest(
+  req: express.Request,
+  res: express.Response,
+  opt?: { nocheck?: boolean }
+) {
+  try {
+    const pullRequest = await db.getPullRequest(req.params.pullRequestId);
+    if (opt?.nocheck == true) {
+    } else {
+      // redirect if the repository is expired
+      if (
+        pullRequest.status == "expired" &&
+        pullRequest.options.expirationMode == "redirect"
+      ) {
+        res.redirect(
+          `http://github.com/${pullRequest.source.repositoryFullName}/pull/${pullRequest.source.pullRequestId}`
+        );
+        return null;
+      }
+
+      pullRequest.check();
+    }
+    return pullRequest;
+  } catch (error) {
+    handleError(error, res, req);
+    return null;
+  }
+}
+
 export async function getRepo(
   req: express.Request,
   res: express.Response,
@@ -50,7 +79,7 @@ function printError(error: any, req?: express.Request) {
     if (req) {
       message += ` ${req.originalUrl}`;
       // ignore common error
-      if (req.originalUrl === '/api/repo/undefined/options') return
+      if (req.originalUrl === "/api/repo/undefined/options") return;
     }
     console.error(message);
   } else if (error instanceof Error) {

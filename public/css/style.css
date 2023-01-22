@@ -563,7 +563,27 @@ loc .lang {
 }
 
 .highlighted-line {
-  position:absolute;
-  background:rgba(100,200,100,0.5);
-  z-index:20
+  position: absolute;
+  background: rgba(100, 200, 100, 0.5);
+  z-index: 20
+}
+
+pre,
+code {
+  font-family: "Fira Code", "Courier New", Courier, monospace;
+  line-height: 1.1;
+}
+
+.diff-lines,
+.diff-file,
+.diff-index {
+  background: rgba(172, 172, 172, 0.5);
+}
+
+.diff-add {
+  background: rgba(100, 200, 100, 0.5);
+}
+
+.diff-remove {
+  background: rgba(200, 100, 100, 0.5);
 }

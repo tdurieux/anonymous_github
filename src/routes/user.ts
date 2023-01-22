@@ -97,6 +97,21 @@ router.get(
     }
   }
 );
+router.get(
+  "/anonymized_pull_requests",
+  async (req: express.Request, res: express.Response) => {
+    try {
+      const user = await getUser(req);
+      res.json(
+        (await user.getPullRequests()).map((x) => {
+          return x.toJSON();
+        })
+      );
+    } catch (error) {
+      handleError(error, res, req);
+    }
+  }
+);
 
 router.get(
   "/all_repositories",

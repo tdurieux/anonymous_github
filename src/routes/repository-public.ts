@@ -60,11 +60,10 @@ router.get(
 router.get(
   "/:repoId/files",
   async (req: express.Request, res: express.Response) => {
+    res.header("Cache-Control", "no-cache");
     const repo = await getRepo(req, res);
     if (!repo) return;
     try {
-      res.header("Cache-Control", "no-cache");
-
       res.json(await repo.anonymizedFiles({ includeSha: false }));
     } catch (error) {
       handleError(error, res, req);
@@ -76,6 +75,7 @@ router.get(
   "/:repoId/options",
   async (req: express.Request, res: express.Response) => {
     try {
+      res.header("Cache-Control", "no-cache");
       const repo = await getRepo(req, res, { nocheck: true });
       if (!repo) return;
       let redirectURL = null;
@@ -146,7 +146,6 @@ router.get(
         download = true;
       }
 
-      res.header("Cache-Control", "no-cache");
       res.json({
         url: redirectURL,
         download,

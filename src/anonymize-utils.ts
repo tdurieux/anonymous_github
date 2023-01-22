@@ -72,7 +72,24 @@ export function anonymizeStream(filename: string, repository: Repository) {
   return ts;
 }
 
-export function anonymizeContent(content: string, repository: Repository) {
+interface Anonymizationptions {
+  repoId?: string;
+  source?: {};
+  options: {
+    terms: string[];
+    image: boolean;
+    link: boolean;
+    pageSource?: {
+      branch: string;
+      path: string;
+    };
+  };
+}
+
+export function anonymizeContent(
+  content: string,
+  repository: Anonymizationptions
+) {
   if (repository.options?.image === false) {
     // remove image in markdown
     content = content.replace(
