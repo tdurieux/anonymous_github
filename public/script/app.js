@@ -227,6 +227,7 @@ angular
       const lines = str.split("\n");
       const o = [];
       for (let i = 1; i < lines.length; i++) {
+        lines[i] = lines[i].replace(/</g, "&lt;").replace(/>/g, "&gt;");
         if (lines[i].startsWith("+++")) {
           o.push(`<span class="diff-file">${lines[i]}</span>`);
         } else if (lines[i].startsWith("---")) {
