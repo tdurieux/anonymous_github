@@ -94,4 +94,4 @@ Related tools
 See also
 --------
 
-* [Open-science and double-anonymous Peer-Review](http://www.monperrus.net/martin/open-science-double-anonymous)
+* [Open-science and double-anonymous Peer-Review](https://www.monperrus.net/martin/open-science-double-blind)
