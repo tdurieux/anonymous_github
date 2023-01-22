@@ -3,6 +3,8 @@ import Repository from "../Repository";
 import config from "../../config";
 import AnonymizedRepositoryModel from "./anonymizedRepositories/anonymizedRepositories.model";
 import AnonymousError from "../AnonymousError";
+import AnonymizedPullRequestModel from "./anonymizedPullRequests/anonymizedPullRequests.model";
+import PullRequest from "../PullRequest";
 
 const MONGO_URL = `mongodb://${config.DB_USERNAME}:${config.DB_PASSWORD}@${config.DB_HOSTNAME}:27017/`;
 
@@ -17,7 +19,7 @@ export async function connect() {
 }
 
 export async function getRepository(repoId: string) {
-  if (!repoId || repoId == 'undefined') {
+  if (!repoId || repoId == "undefined") {
     throw new AnonymousError("repo_not_found", {
       object: repoId,
       httpStatus: 404,
@@ -30,4 +32,21 @@ export async function getRepository(repoId: string) {
       httpStatus: 404,
     });
   return new Repository(data);
+}
+export async function getPullRequest(pullRequestId: string) {
+  if (!pullRequestId || pullRequestId == "undefined") {
+    throw new AnonymousError("pull_request_not_found", {
+      object: pullRequestId,
+      httpStatus: 404,
+    });
+  }
+  const data = await AnonymizedPullRequestModel.findOne({
+    pullRequestId,
+  });
+  if (!data)
+    throw new AnonymousError("pull_request_not_found", {
+      object: pullRequestId,
+      httpStatus: 404,
+    });
+  return new PullRequest(data);
 }

@@ -1,0 +1,506 @@
+<div class="container-fluid h-100">
+  <div class="row h-100">
+    <div
+      class="col sidePanel shadow overflow-auto h-100 d-flex align-content-end"
+    >
+      <div
+        class="p-0 py-2 m-auto"
+        ng-class="{'card': !pullRequestUrl,'container': pullRequestUrl}"
+      >
+        <form
+          class="form needs-validation"
+          ng-class="{'card-body': !pullRequestUrl}"
+          name="anonymizeForm"
+          novalidate
+        >
+          <h5 class="card-title">Anonymize a pull request</h5>
+          <h6 class="card-subtitle mb-2 text-muted">
+            Fill the information to anonymize! It will only take 5min.
+          </h6>
+          <h2>Source</h2>
+          <!-- pullRequestUrl -->
+          <div class="form-group">
+            <label for="pullRequestUrl"
+              >Type the url of your pull request</label
+            >
+            <input
+              type="text"
+              class="form-control"
+              name="pullRequestUrl"
+              id="pullRequestUrl"
+              ng-class="{'is-invalid': anonymize.pullRequestUrl.$invalid}"
+              ng-model="pullRequestUrl"
+              ng-model-options="{ debounce: {default: 1000, blur: 0, click: 0}, updateOn: 'default blur click' }"
+              ng-change="pullRequestSelected()"
+            />
+            <div
+              class="invalid-feedback"
+              ng-show="anonymize.pullRequestUrl.$error.access"
+            >
+              {{pullRequestUrl}} is not accessible. Some organizations are
+              restricting the access to the repositories.
+            </div>
+            <div
+              class="invalid-feedback"
+              ng-show="anonymize.pullRequestUrl.$error.missing"
+            >
+              {{pullRequestUrl}} does not exist or is not accessible
+            </div>
+            <div
+              class="invalid-feedback"
+              ng-show="anonymize.pullRequestUrl.$error.used"
+            >
+              {{pullRequestUrl}} is already anonymized
+            </div>
+          </div>
+          <div ng-show="pullRequestUrl">
+            <div class="form-group">
+              <div class="form-check">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  id="update"
+                  name="update"
+                  ng-model="options.update"
+                />
+                <label class="form-check-label" for="update">Auto update</label>
+                <small id="updateHelp" class="form-text text-muted"
+                  >Automatically update the anonymized pull request with the
+                  latest updates. The pull request is updated once per day
+                  maximum.</small
+                >
+              </div>
+            </div>
+            <h2>Conference ID</h2>
+            <!-- Conference -->
+            <div class="form-group">
+              <label for="conference"
+                >Conference ID<span class="text-muted">Optional</span></label
+              >
+              <input
+                class="form-control"
+                id="conference"
+                name="conference"
+                ng-model="conference"
+                ng-class="{'is-invalid': anonymize.conference.$invalid}"
+              />
+              <small class="form-text text-muted" ng-show="conference_data"
+                ><a ng-href="{{conference_data.url}}" target="_target"
+                  >{{conference_data.name}}</a
+                >
+                will expire on {{conference_data.endDate | date}}.</small
+              >
+
+              <div
+                class="invalid-feedback"
+                ng-show="anonymize.conference.$error.activated"
+              >
+                The conference is not activated.
+              </div>
+              <small class="form-text text-muted" ng-show="!conference_data">
+                Use the Conference ID that your conference provided you. This
+                will update automatically the anonymization options based on the
+                conference preferences.
+              </small>
+            </div>
+            <h2>Anonymization Options</h2>
+            <!-- Pull Request ID -->
+            <div class="form-group">
+              <label for="pullRequestId">Anonymize pull request id</label>
+              <input
+                type="text"
+                class="form-control"
+                name="pullRequestId"
+                id="pullRequestId"
+                ng-class="{'is-invalid': anonymize.pullRequestId.$invalid}"
+                ng-model="pullRequestId"
+                ng-model-options="{ debounce: {default: 1000, blur: 0, click: 0}, updateOn: 'default blur click' }"
+              />
+              <small id="idHelp" class="form-text text-muted"
+                >Id used in the url:
+                https://anonymous.4open.science/r/{{pullRequestId}}</small
+              >
+              <div
+                class="invalid-feedback"
+                ng-show="anonymize.pullRequestId.$error.format"
+              >
+                Repository id can only contain letters and numbers
+              </div>
+              <div
+                class="invalid-feedback"
+                ng-show="anonymize.pullRequestId.$error.used"
+              >
+                {{pullRequestId}} is already used
+              </div>
+            </div>
+            <!-- Terms -->
+            <div class="form-group">
+              <label for="terms">Terms to anonymize</label>
+              <textarea
+                class="form-control"
+                id="terms"
+                name="terms"
+                rows="3"
+                ng-model="terms"
+                ng-model-options="{ debounce: 250 }"
+                ng-class="{'is-invalid': anonymize.terms.$invalid}"
+              ></textarea>
+              <small id="termsHelp" class="form-text text-muted"
+                >One term per line. Each term will be replaced by XXX.</small
+              >
+              <div
+                class="invalid-feedback"
+                ng-show="anonymize.terms.$error.format"
+              >
+                Terms are in an invalid format
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="expiration">Expiration strategy</label>
+              <select
+                class="form-control"
+                id="expiration"
+                name="expiration"
+                ng-model="options.expirationMode"
+              >
+                <option value="never" selected>Never expire</option>
+                <option value="redirect">
+                  Redirect to GitHub when expired
+                </option>
+                <option value="remove">Remove when expired</option>
+              </select>
+              <small class="form-text text-muted"
+                >Define the expiration strategy for the anonymized
+                repository.</small
+              >
+            </div>
+            <div
+              class="form-group"
+              id="expiration-date-form"
+              ng-hide="options.expirationMode=='never'"
+            >
+              <label for="expirationDate"
+                >Expiration date of the anonymized repository</label
+              >
+              <input
+                class="form-control"
+                type="date"
+                name="expirationDate"
+                id="expirationDate"
+                ng-model="options.expirationDate"
+              />
+              <small
+                class="form-text text-muted"
+                ng-show="options.expirationMode=='remove'"
+                >After {{options.expirationDate | date}}, the repository will be
+                removed and the visitor will not be able to see the content of
+                the repository.</small
+              >
+              <small
+                class="form-text text-muted"
+                ng-show="options.expirationMode=='redirect'"
+                >After {{options.expirationDate | date}}, the visitors of the
+                anonymized repository will be redirected to
+                {{pullRequestUrl}}.</small
+              >
+            </div>
+
+            <div class="accordion mb-3" id="options">
+              <div class="card">
+                <div class="card-header" id="headingOne">
+                  <h2 class="mb-0">
+                    <button
+                      class="btn btn-block text-left"
+                      type="button"
+                      data-toggle="collapse"
+                      data-target="#collapseOne"
+                      aria-expanded="true"
+                      aria-controls="collapseOne"
+                    >
+                      Advance options
+                    </button>
+                  </h2>
+                </div>
+
+                <div
+                  id="collapseOne"
+                  class="collapse show"
+                  aria-labelledby="headingOne"
+                  data-parent="#options"
+                >
+                  <div class="card-body">
+                    <div class="form-group">
+                      <div class="form-check">
+                        <input
+                          class="form-check-input"
+                          type="checkbox"
+                          id="link"
+                          name="link"
+                          ng-model="options.link"
+                        />
+                        <label class="form-check-label" for="link"
+                          >Keep links</label
+                        >
+                        <small id="termsHelp" class="form-text text-muted"
+                          >Keep or remove all the links.</small
+                        >
+                      </div>
+                      <div class="form-check">
+                        <input
+                          class="form-check-input"
+                          type="checkbox"
+                          id="image"
+                          name="image"
+                          ng-model="options.image"
+                        />
+                        <label class="form-check-label" for="image"
+                          >Display images</label
+                        >
+                        <small id="termsHelp" class="form-text text-muted"
+                          >Images are not anonymized</small
+                        >
+                      </div>
+                      <div class="form-check">
+                        <input
+                          class="form-check-input"
+                          type="checkbox"
+                          id="date"
+                          name="date"
+                          ng-model="options.date"
+                        />
+                        <label class="form-check-label" for="date"
+                          >Display dates</label
+                        >
+                        <small id="termsHelp" class="form-text text-muted"
+                          >Display the date of the Pull Request and the date of
+                          the comments.</small
+                        >
+                      </div>
+                      <div class="form-check">
+                        <input
+                          class="form-check-input"
+                          type="checkbox"
+                          id="username"
+                          name="username"
+                          ng-model="options.username"
+                        />
+                        <label class="form-check-label" for="username"
+                          >Display username</label
+                        >
+                      </div>
+                      <div class="form-check">
+                        <input
+                          class="form-check-input"
+                          type="checkbox"
+                          id="comments"
+                          name="comments"
+                          ng-model="options.comments"
+                        />
+                        <label class="form-check-label" for="comments"
+                          >Display comments</label
+                        >
+                      </div>
+                      <div class="form-check">
+                        <input
+                          class="form-check-input"
+                          type="checkbox"
+                          id="diff"
+                          name="diff"
+                          ng-model="options.diff"
+                        />
+                        <label class="form-check-label" for="diff"
+                          >Display diff</label
+                        >
+                      </div>
+                      <div class="form-check">
+                        <input
+                          class="form-check-input"
+                          type="checkbox"
+                          id="origin"
+                          name="origin"
+                          ng-model="options.origin"
+                        />
+                        <label class="form-check-label" for="origin"
+                          >Display the project name</label
+                        >
+                      </div>
+                      <div class="form-check">
+                        <input
+                          class="form-check-input"
+                          type="checkbox"
+                          id="title"
+                          name="title"
+                          ng-model="options.title"
+                        />
+                        <label class="form-check-label" for="title"
+                          >Display the PR title</label
+                        >
+                      </div>
+                      <div class="form-check">
+                        <input
+                          class="form-check-input"
+                          type="checkbox"
+                          id="body"
+                          name="body"
+                          ng-model="options.body"
+                        />
+                        <label class="form-check-label" for="body"
+                          >Display the PR body and comment bodies</label
+                        >
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div
+            class="alert alert-danger"
+            role="alert"
+            ng-if="error"
+            ng-bind="error"
+          ></div>
+          <button
+            id="submit"
+            type="submit"
+            class="btn btn-primary"
+            ng-click="anonymizePullRequest($event)"
+            ng-show="pullRequestUrl"
+            ng-if="!isUpdate"
+          >
+            Anonymize
+          </button>
+          <button
+            id="submit"
+            type="submit"
+            class="btn btn-primary"
+            ng-click="updatePullRequest($event)"
+            ng-show="pullRequestUrl"
+            ng-if="isUpdate"
+          >
+            Update
+          </button>
+        </form>
+      </div>
+    </div>
+    <div class="col-9 p-2 h-100 overflow-auto" ng-if="details">
+      <div class="d-flex w-100 justify-content-between align-items-center">
+        <h2 class="pr-title">
+          <span ng-if="options.title"
+            >{{anonymize(details.pullRequest.title)}}</span
+          >
+          <span
+            class="badge"
+            ng-class="{'badge-success':details.pullRequest.merged, 'badge-warning':details.pullRequest.state=='open', 'badge-danger':details.pullRequest.state=='closed' &&!details.pullRequest.merged}"
+          >
+            {{details.pullRequest.merged?"merged":details.pullRequest.state |
+            title}}
+          </span>
+        </h2>
+        <small
+          ng-bind="details.pullRequest.updatedDate | date"
+          ng-if="options.date"
+        ></small>
+      </div>
+      <small ng-if="options.origin"
+        >Pull Request on {{details.pullRequest.baseRepositoryFullName}}</small
+      >
+      <div
+        class="pr-body shadow-sm p-3 mb-5 bg-white rounded"
+        ng-if="options.body"
+      >
+        <markdown
+          content="anonymize(details.pullRequest.body)"
+          options="options"
+          terms="terms"
+        ></markdown>
+      </div>
+      <ul class="nav nav-tabs" id="myTab" role="tablist">
+        <li class="nav-item" role="presentation" ng-if="options.diff">
+          <button
+            class="nav-link active"
+            id="pills-diff-tab"
+            data-toggle="pill"
+            data-target="#pills-diff"
+            type="button"
+            role="tab"
+            aria-controls="pills-diff"
+            aria-selected="true"
+          >
+            Diff
+          </button>
+        </li>
+        <li class="nav-item" role="presentation" ng-if="options.comments">
+          <button
+            class="nav-link"
+            ng-class="{'active':!options.diff}"
+            id="pills-comments-tab"
+            data-toggle="pill"
+            data-target="#pills-comments"
+            type="button"
+            role="tab"
+            aria-controls="pills-comments"
+            aria-selected="false"
+          >
+            <ng-pluralize
+              count="details.pullRequest.comments.length"
+              when="{'0': 'No comment',
+                     'one': 'One Comment',
+                     'other': '{} Comments'}"
+            >
+            </ng-pluralize>
+          </button>
+        </li>
+      </ul>
+      <div class="tab-content" id="pills-tabContent">
+        <div
+          class="tab-pane show active"
+          id="pills-diff"
+          role="tabpanel"
+          aria-labelledby="pills-diff-tab"
+        >
+          <div
+            class="pr-diff shadow-sm p-3 mb-5 bg-white rounded"
+            ng-if="options.diff"
+          >
+            <pre><code ng-bind-html="anonymize(details.pullRequest.diff) | diff"></code></pre>
+          </div>
+        </div>
+        <div
+          class="tab-pane"
+          ng-class="{'show active':!options.diff}"
+          id="pills-comments"
+          role="tabpanel"
+          aria-labelledby="pills-comments-tab"
+        >
+          <ul class="pr-comments list-group" ng-if="options.comments">
+            <li
+              class="pr-comment list-group-item"
+              ng-repeat="comment in details.pullRequest.comments"
+            >
+              <div class="d-flex w-100 justify-content-between">
+                <h5 class="mb-1" ng-if="options.username">
+                  @{{anonymize(comment.author)}}
+                </h5>
+                <small
+                  ng-bind="comment.updatedDate | date"
+                  ng-if="options.date"
+                ></small>
+              </div>
+              <p class="mb-1">
+                <markdown
+                  class="pr-comment-body"
+                  ng-if="options.body"
+                  content="anonymize(comment.body)"
+                  options="options"
+                  terms="terms"
+                ></markdown>
+              </p>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

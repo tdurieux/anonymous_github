@@ -8,7 +8,7 @@ function urlRel2abs(url) {
     return url; //Url is already absolute
   }
   var base_url = location.href.match(/^(.+)\/?(?:#.+)?$/)[0] + "/";
-  
+
   if (url.substring(0, 2) == "//") return location.protocol + url;
   else if (url.charAt(0) == "/")
     return location.protocol + "//" + location.host + url;
@@ -28,7 +28,7 @@ function urlRel2abs(url) {
     .replace(/'/g, "%27")
     .replace(/</g, "%3C")
     .replace(/>/g, "%3E");
-    
+
   return url;
 }
 
@@ -93,11 +93,17 @@ function generateRandomId(length) {
 }
 
 function parseGithubUrl(url) {
-  var matches = url.replace(".git", "").match(/.*?github.com\/([\w-\._]+)\/([\w-\._]+)/);
-  if (matches && matches.length == 3) {
+  if (!url) throw "Invalid url";
+  const matches = url
+    .replace(".git", "")
+    .match(
+      /.*?github.com\/(?<owner>[\w-\._]+)\/(?<repo>[\w-\._]+)(\/pull\/(?<PR>[0-9]+))?/
+    );
+  if (matches && matches.groups.owner && matches.groups.repo) {
     return {
-      owner: matches[1],
-      repo: matches[2],
+      owner: matches.groups.owner,
+      repo: matches.groups.repo,
+      pullRequestId: matches.groups.PR,
     };
   } else {
     throw "Invalid url";

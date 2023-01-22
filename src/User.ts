@@ -4,6 +4,8 @@ import RepositoryModel from "./database/repositories/repositories.model";
 import { IUserDocument } from "./database/users/users.types";
 import Repository from "./Repository";
 import { GitHubRepository } from "./source/GitHubRepository";
+import PullRequest from "./PullRequest";
+import AnonymizedPullRequestModel from "./database/anonymizedPullRequests/anonymizedPullRequests.model";
 
 /**
  * Model for a user
@@ -135,6 +137,31 @@ export default class User {
     }
     await Promise.all(promises);
     return repositories;
+  }
+  /**
+   * Get the lost of anonymized repositories
+   * @returns the list of anonymized repositories
+   */
+  async getPullRequests() {
+    const pullRequests = (
+      await AnonymizedPullRequestModel.find({
+        owner: this.id,
+      }).exec()
+    ).map((d) => new PullRequest(d));
+    const promises = [];
+    for (let repo of pullRequests) {
+      if (
+        repo.status == "ready" &&
+        repo.options.expirationMode != "never" &&
+        repo.options.expirationDate != null &&
+        repo.options.expirationDate < new Date()
+      ) {
+        // expire the repository
+        promises.push(repo.expire());
+      }
+    }
+    await Promise.all(promises);
+    return pullRequests;
   }
 
   get model() {

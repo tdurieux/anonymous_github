@@ -2,15 +2,15 @@
   <div class="row">
     <div class="border-bottom color-border-secondary py-3 w-100">
       <div class="d-flex align-items-center w-100">
-        <form class="w-100" aria-label="Repositories" accept-charset="UTF-8">
-          <div class="d-flex flex-column flex-lg-row flex-auto ">
+        <form class="w-100" aria-label="Pull Requests" accept-charset="UTF-8">
+          <div class="d-flex flex-column flex-lg-row flex-auto">
             <div class="mb-1 mb-md-0 mr-md-3">
               <input
                 type="search"
                 id="search"
                 class="form-control"
-                aria-label="Find a repository…"
-                placeholder="Find a repository…"
+                aria-label="Find a pull request…"
+                placeholder="Find a pull request…"
                 autocomplete="off"
                 ng-model="search"
               />
@@ -40,7 +40,7 @@
                       ng-model="orderBy"
                     />
                     <label class="form-check-label" for="sortFullName">
-                      Repository
+                      Pull Request
                     </label>
                   </div>
                   <div class="form-check dropdown-item">
@@ -152,93 +152,6 @@
                   </div>
                 </div>
               </div>
-
-              <div class="mt-1 mr-1" style="margin-top: -0.25rem !important">
-                <strong>Repository</strong>
-                <div
-                  class="progress position-relative"
-                  style="min-width: 150px"
-                >
-                  <div
-                    class="progress-bar"
-                    ng-class="{'progress-bar-striped progress-bar-animated w-100 bg-dark': !quota, 'bg-success': quota.repository.percent < 25 || quota.repository.total == 0, 'bg-danger': quota.repository.percent > 95 && quota.repository.total > 0, 'bg-warning': quota.repository.percent > 75 && quota.repository.total > 0 }"
-                    role="progressbar"
-                    style="width: {{quota.repository.percent}}%;"
-                    aria-valuenow="{{quota.repository.used}}"
-                    aria-valuemin="0"
-                    aria-valuemax="{{quota.repository.total}}"
-                  ></div>
-                  <span
-                    class="
-                      justify-content-center
-                      d-flex
-                      position-absolute
-                      w-100
-                    "
-                    ng-show="quota"
-                    >{{quota.repository.used |
-                    number}}/{{quota.repository.total}}</span
-                  >
-                </div>
-              </div>
-
-              <div class="mt-1 mr-1" style="margin-top: -0.25rem !important">
-                <strong>Storage</strong>
-                <div
-                  class="progress position-relative"
-                  style="min-width: 150px"
-                >
-                  <div
-                    class="progress-bar"
-                    ng-class="{'progress-bar-striped progress-bar-animated w-100 bg-dark': !quota, 'bg-success': quota.storage.percent < 25 || quota.storage.total == 0, 'bg-danger': quota.storage.percent > 95 && quota.storage.total > 0, 'bg-warning': quota.storage.percent > 75 && quota.storage.total > 0 }"
-                    role="progressbar"
-                    style="width: {{quota.storage.percent}}%;"
-                    aria-valuenow="{{quota.storage.used}}"
-                    aria-valuemin="0"
-                    aria-valuemax="{{quota.storage.total}}"
-                  ></div>
-                  <span
-                    ng-show="quota"
-                    class="
-                      justify-content-center
-                      d-flex
-                      position-absolute
-                      w-100
-                    "
-                    >{{quota.storage.used |
-                    humanFileSize}}/{{quota.storage.total| humanFileSize}}</span
-                  >
-                </div>
-              </div>
-
-              <div class="mt-1 mr-1" style="margin-top: -0.25rem !important">
-                <strong>File</strong>
-                <div
-                  class="progress position-relative"
-                  style="min-width: 150px"
-                >
-                  <div
-                    class="progress-bar"
-                    ng-class="{'progress-bar-striped progress-bar-animated w-100 bg-dark': !quota, 'bg-success': quota.file.percent < 25 || quota.file.total == 0, 'bg-danger': quota.file.percent > 95 && quota.file.total > 0, 'bg-warning': quota.file.percent > 75 && quota.file.total > 0 }"
-                    role="progressbar"
-                    style="width: {{quota.file.percent}}%;"
-                    aria-valuenow="{{quota.file.used}}"
-                    aria-valuemin="0"
-                    aria-valuemax="{{quota.file.total}}"
-                  ></div>
-                  <span
-                    class="
-                      justify-content-center
-                      d-flex
-                      position-absolute
-                      w-100
-                    "
-                    ng-show="quota"
-                    >{{quota.file.used | number}}/{{quota.file.total ||
-                    "∞"}}</span
-                  >
-                </div>
-              </div>
             </div>
           </div>
         </form>
@@ -246,7 +159,10 @@
           <a href="/anonymize" class="text-center btn btn-primary ml-3">
             <i class="fa fa-plus-circle" aria-hidden="true"></i> Anonymize Repo
           </a>
-          <a href="/pull-request-anonymize" class="text-center btn btn-primary ml-3">
+          <a
+            href="/pull-request-anonymize"
+            class="text-center btn btn-primary ml-3"
+          >
             <i class="fa fa-plus-circle" aria-hidden="true"></i> Anonymize PR
           </a>
           <a
@@ -264,98 +180,77 @@
     <ul class="p-0 m-0 w-100">
       <li
         class="col-12 d-flex px-0 py-3 border-bottom color-border-secondary"
-        ng-class="{'expired': repo.status == 'expired','removed': repo.status == 'removed','error': repo.status == 'error' }"
-        ng-repeat="repo in repositories| filter:repoFiler| orderBy:orderBy as filteredRepositories"
+        ng-class="{'expired': pr.status == 'expired','removed': pr.status == 'removed','error': pr.status == 'error' }"
+        ng-repeat="pr in pullRequests| filter:pullRequestFilter| orderBy:orderBy as filteredPullRequests"
       >
         <div class="w-100">
           <div class="">
             <h3>
-              <a ng-href="/r/{{repo.repoId}}" ng-bind="repo.repoId"></a>
+              <a
+                ng-href="/pr/{{pr.pullRequestId}}"
+                ng-bind="pr.pullRequestId"
+              ></a>
               <span
                 class="badge"
-                ng-class="{'badge-warning': repo.status == 'removed' || repo.status == 'expired' ||  repo.status == 'removing' || repo.status == 'expiring', 'badge-info': repo.status == 'preparing' || repo.status == 'download', 'badge-success': repo.status == 'ready', 'badge-danger': repo.status == 'error'}"
-                ><span ng-bind="repo.status | title"></span>
+                ng-class="{'badge-warning': pr.status == 'removed' || pr.status == 'expired' ||  pr.status == 'removing' || pr.status == 'expiring', 'badge-info': pr.status == 'preparing' || pr.status == 'download', 'badge-success': pr.status == 'ready', 'badge-danger': pr.status == 'error'}"
+                ><span ng-bind="pr.status | title"></span>
                 <span
-                  ng-if="repo.status == 'error'"
-                  ng-bind="': ' + repo.statusMessage"
+                  ng-if="pr.status == 'error'"
+                  ng-bind="': ' + pr.statusMessage"
                 ></span
               ></span>
             </h3>
-            <span class="color-text-secondary mb-1">
-              <span class="repository">
-                <i class="fab fa-github" aria-hidden="true"></i>
-                <a
-                  href="https://github.com/{{repo.source.fullName}}/"
-                  class="fullName"
-                  ng-bind="repo.source.fullName"
-                ></a>
-              </span>
-              <span class="branch" ng-if="repo.options.update">
-                <i class="fas fa-code-branch" aria-hidden="true"></i>
-                <a
-                  href="https://github.com/{{repo.source.fullName}}/tree/{{repo.source.branch}}"
-                  class="branch"
-                  ng-bind="repo.source.branch"
-                ></a>
-              </span>
-              <span class="commit" ng-if="!repo.options.update">
-                @<a
-                  href="https://github.com/{{repo.source.fullName}}/tree/{{repo.source.commit}}"
-                  class="commit"
-                  ng-bind="repo.source.commit.substring(0, 8)"
-                ></a>
-              </span>
-              anonymized {{repo.anonymizeDate | humanTime}}
+          </div>
+          <div class="color-text-secondary mt-t">
+            <span class="pull-request">
+              <i class="fab fa-github" aria-hidden="true"></i>
+              <a
+                href="https://github.com/{{pr.source.repositoryFullName}}/pull/{{pr.source.pullRequestId}}"
+                class="fullName"
+                >{{pr.source.repositoryFullName}}@{{pr.source.pullRequestId}}</a
+              >
             </span>
+            anonymized {{pr.anonymizeDate | humanTime}}
           </div>
           <div class="color-text-secondary mt-2">
-            <span class="ml-0 mr-3" ng-if="::repo.conference">
+            <span class="ml-0 mr-3" ng-if="::pr.conference">
               <i class="fas fa-chalkboard-teacher"></i>
-              {{repo.conference}}
+              {{pr.conference}}
             </span>
             <span
               class="ml-0 mr-3"
               class="terms"
-              title="Terms: {{::repo.options.terms.join(', ')}}"
+              title="Terms: {{::pr.options.terms.join(', ')}}"
               data-toggle="tooltip"
               data-placement="bottom"
             >
               <i class="fas fa-shield-alt"></i>
-              {{::repo.options.terms.length | number}}
+              {{::pr.options.terms.length | number}}
             </span>
             <span
               class="ml-0 mr-3"
-              title="Size: {{::repo.size.storage | humanFileSize}}"
-              data-toggle="tooltip"
-              data-placement="bottom"
-            >
-              <i class="fas fa-database"></i> {{::repo.size.storage |
-              humanFileSize}}</span
-            >
-            <span
-              class="ml-0 mr-3"
-              title="View: {{::repo.pageView | number}}"
+              title="View: {{::pr.pageView | number}}"
               data-toggle="tooltip"
               data-placement="bottom"
             >
               <i class="far fa-eye" aria-hidden="true"></i>
-              {{::repo.pageView | number}}
+              {{::pr.pageView | number}}
             </span>
             <span
               class="ml-0 mr-3"
-              title="Last view: {{::repo.lastView | date}}"
+              title="Last view: {{::pr.lastView | date}}"
               data-toggle="tooltip"
               data-placement="bottom"
             >
               <i class="far fa-calendar-alt" aria-hidden="true"></i>
-              Last view: {{::repo.lastView | humanTime}}</span
+              Last view: {{::pr.lastView | humanTime}}</span
             >
             <span
               class="ml-0 mr-3"
-              ng-if="repo.options.expirationMode!='never' && repo.status == 'ready'"
+              ng-if="pr.options.expirationMode!='never' && pr.status == 'ready'"
             >
               <i class="far fa-clock" aria-hidden="true"></i>
-              Expire: {{repo.options.expirationDate | humanTime}}</span
+              Expire: {{pr.options.expirationDate | humanTime}}</span
             >
           </div>
         </div>
@@ -372,22 +267,25 @@
               Actions
             </button>
             <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
-              <a class="dropdown-item" href="/anonymize/{{repo.repoId}}">
+              <a
+                class="dropdown-item"
+                href="/pull-request-anonymize/{{pr.pullRequestId}}"
+              >
                 <i class="far fa-edit" aria-hidden="true"></i> Edit
               </a>
               <a
                 class="dropdown-item"
                 href="#"
-                ng-show="repo.status == 'ready' || repo.status == 'error'"
-                ng-click="updateRepository(repo)"
+                ng-show="pr.status == 'ready' || pr.status == 'error'"
+                ng-click="updatePullRequest(pr)"
               >
                 <i class="fas fa-sync"></i> Force update
               </a>
               <a
                 class="dropdown-item"
                 href="#"
-                ng-show="repo.status == 'removed'"
-                ng-click="updateRepository(repo)"
+                ng-show="pr.status == 'removed'"
+                ng-click="updatePullRequest(pr)"
               >
                 <i class="fas fa-check-circle"></i>
                 Enable
@@ -395,21 +293,13 @@
               <a
                 class="dropdown-item"
                 href="#"
-                ng-show="repo.status == 'ready'"
-                ng-click="removeRepository(repo)"
+                ng-show="pr.status == 'ready'"
+                ng-click="removePullRequest(pr)"
               >
                 <i class="fas fa-trash-alt"></i> Remove
               </a>
-              <a class="dropdown-item" href="/r/{{repo.repoId}}/">
-                <i class="fa fa-eye" aria-hidden="true"></i> View Repo
-              </a>
-              <a
-                class="dropdown-item"
-                href="/w/{{repo.repoId}}/"
-                target="_self"
-                ng-if="repo.options.page && repo.status == 'ready'"
-              >
-                <i class="fas fa-globe"></i> View Page
+              <a class="dropdown-item" href="/pr/{{pr.pullRequestId}}/">
+                <i class="fa fa-eye" aria-hidden="true"></i> View PR
               </a>
             </div>
           </div>
@@ -417,9 +307,9 @@
       </li>
       <li
         class="col-12 d-flex px-0 py-3 border-bottom color-border-secondary"
-        ng-if="filteredRepositories.length == 0"
+        ng-if="filteredPullRequests.length == 0"
       >
-        There is no repository to display.
+        There is no pull request to display.
       </li>
     </ul>
   </div>

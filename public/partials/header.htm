@@ -34,6 +34,15 @@
       <li class="nav-item" ng-if="user">
         <a
           class="nav-link"
+          ng-class="{'active': path == '/pr-dashboard'}"
+          href="/pr-dashboard"
+        >
+          Pull Requests
+        </a>
+      </li>
+      <li class="nav-item" ng-if="user">
+        <a
+          class="nav-link"
           ng-class="{'active':path == '/conferences'}"
           href="/conferences"
           >Conferences</a
@@ -45,6 +54,14 @@
           ng-class="{'active':path == '/anonymize'}"
           href="/anonymize"
           >Anonymize</a
+        >
+      </li>
+      <li class="nav-item" ng-if="user">
+        <a
+          class="nav-link"
+          ng-class="{'active':path == '/pull-request-anonymize'}"
+          href="/pull-request-anonymize"
+          >Anonymize PR</a
         >
       </li>
       <li class="nav-item dropdown" ng-if="user">
