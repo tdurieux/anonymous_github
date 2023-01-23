@@ -15,6 +15,7 @@ import router from "./routes";
 import AnonymizedRepositoryModel from "./database/anonymizedRepositories/anonymizedRepositories.model";
 import { conferenceStatusCheck, repositoryStatusCheck } from "./schedule";
 import { startWorker } from "./queue";
+import AnonymizedPullRequestModel from "./database/anonymizedPullRequests/anonymizedPullRequests.model";
 
 function indexResponse(req: express.Request, res: express.Response) {
   if (
@@ -101,18 +102,26 @@ export default async function start() {
   });
 
   apiRouter.get("/stat", async (_, res) => {
-    const nbRepositories =
-      await AnonymizedRepositoryModel.estimatedDocumentCount();
+    const [nbRepositories, nbUsers, nbPageViews, nbPullRequests] =
+      await Promise.all([
+        AnonymizedRepositoryModel.estimatedDocumentCount(),
+        AnonymizedRepositoryModel.distinct("owner").count(),
+        AnonymizedRepositoryModel.collection
+          .aggregate([
+            {
+              $group: { _id: null, total: { $sum: "$pageView" } },
+            },
+          ])
+          .toArray(),
+        AnonymizedPullRequestModel.estimatedDocumentCount(),
+      ]);
 
-    const nbUsers = (await AnonymizedRepositoryModel.distinct("owner")).length;
-    const nbPageViews = await AnonymizedRepositoryModel.collection
-      .aggregate([
-        {
-          $group: { _id: null, total: { $sum: "$pageView" } },
-        },
-      ])
-      .toArray();
-    res.json({ nbRepositories, nbUsers, nbPageViews: nbPageViews[0].total });
+    res.json({
+      nbRepositories,
+      nbUsers,
+      nbPageViews: nbPageViews[0].total,
+      nbPullRequests,
+    });
   });
 
   // web view
