@@ -102,10 +102,10 @@ export default async function start() {
   });
 
   apiRouter.get("/stat", async (_, res) => {
-    const [nbRepositories, nbUsers, nbPageViews, nbPullRequests] =
+    const [nbRepositories, users, nbPageViews, nbPullRequests] =
       await Promise.all([
         AnonymizedRepositoryModel.estimatedDocumentCount(),
-        AnonymizedRepositoryModel.distinct("owner").count(),
+        AnonymizedRepositoryModel.distinct("owner"),
         AnonymizedRepositoryModel.collection
           .aggregate([
             {
@@ -118,7 +118,7 @@ export default async function start() {
 
     res.json({
       nbRepositories,
-      nbUsers,
+      nbUsers: users.length,
       nbPageViews: nbPageViews[0].total,
       nbPullRequests,
     });
