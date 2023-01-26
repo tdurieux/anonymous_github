@@ -25,16 +25,9 @@ router.post(
       const pullRequest = await getPullRequest(req, res, { nocheck: true });
       if (!pullRequest) return;
 
-      if (
-        pullRequest.status == "preparing" ||
-        pullRequest.status == "removing" ||
-        pullRequest.status == "expiring"
-      )
-        return;
-
       const user = await getUser(req);
       isOwnerOrAdmin([pullRequest.owner.id], user);
-      await pullRequest.anonymize()
+      await pullRequest.updateIfNeeded({ force: true });
       res.json({ status: pullRequest.status });
     } catch (error) {
       handleError(error, res, req);
@@ -224,7 +217,7 @@ router.post("/", async (req: express.Request, res: express.Response) => {
 
     pullRequest.conference = pullRequestUpdate.conference;
 
-    await pullRequest.anonymize()
+    await pullRequest.anonymize();
     res.send(pullRequest.toJSON());
   } catch (error) {
     if (error.message?.indexOf(" duplicate key") > -1) {
