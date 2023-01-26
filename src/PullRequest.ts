@@ -39,38 +39,20 @@ export default class PullRequest {
     const octokit = new Octokit({ auth });
     const [owner, repo] = this._model.source.repositoryFullName.split("/");
     const pull_number = this._model.source.pullRequestId;
-    const prInfo = await octokit.rest.pulls.get({
-      owner,
-      repo,
-      pull_number,
-    });
-
-    prInfo.data.updated_at;
-    prInfo.data.draft;
-    prInfo.data.merged;
-    prInfo.data.merged_at;
-    prInfo.data.state;
-    prInfo.data.base.repo.full_name;
-    prInfo.data.head.repo.full_name;
-    const comments = await octokit.rest.issues.listComments({
-      owner,
-      repo,
-      issue_number: pull_number,
-      per_page: 100,
-    });
-    // const commits = await octokit.rest.pulls.listCommits({
-    //   owner,
-    //   repo,
-    //   pull_number,
-    //   per_page: 100,
-    // });
-    // const files = await octokit.rest.pulls.listFiles({
-    //   owner,
-    //   repo,
-    //   pull_number,
-    //   per_page: 100,
-    // });
-    const diff = await got(prInfo.data.diff_url);
+    const [prInfo, comments, diff] = await Promise.all([
+      octokit.rest.pulls.get({
+        owner,
+        repo,
+        pull_number,
+      }),
+      octokit.rest.issues.listComments({
+        owner,
+        repo,
+        issue_number: pull_number,
+        per_page: 100,
+      }),
+      got(`https://github.com/${owner}/${repo}/pull/${pull_number}.diff`),
+    ]);
     this._model.pullRequest = {
       diff: diff.body,
       title: prInfo.data.title,
@@ -140,10 +122,10 @@ export default class PullRequest {
     yesterday.setDate(yesterday.getDate() - 1);
     if (
       opt?.force ||
-      (this._model.options.update && this._model.lastView < yesterday)
+      (this._model.options.update && this._model.anonymizeDate < yesterday)
     ) {
       await this.download();
-      this._model.lastView = new Date();
+      this._model.anonymizeDate = new Date();
       await this._model.save();
     }
   }
@@ -225,28 +207,6 @@ export default class PullRequest {
     return null;
   }
 
-  /***** Getters ********/
-
-  get pullRequestId() {
-    return this._model.pullRequestId;
-  }
-
-  get options() {
-    return this._model.options;
-  }
-
-  get source() {
-    return this._model.source;
-  }
-
-  get model() {
-    return this._model;
-  }
-
-  get status() {
-    return this._model.status;
-  }
-
   content() {
     const output: any = {
       anonymizeDate: this._model.anonymizeDate,
@@ -286,6 +246,28 @@ export default class PullRequest {
       output.creationDate = this.model.pullRequest.creationDate;
     }
     return output;
+  }
+
+  /***** Getters ********/
+
+  get pullRequestId() {
+    return this._model.pullRequestId;
+  }
+
+  get options() {
+    return this._model.options;
+  }
+
+  get source() {
+    return this._model.source;
+  }
+
+  get model() {
+    return this._model;
+  }
+
+  get status() {
+    return this._model.status;
   }
 
   toJSON() {
