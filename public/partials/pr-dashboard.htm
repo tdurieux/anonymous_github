@@ -210,6 +210,12 @@
                 >{{pr.source.repositoryFullName}}@{{pr.source.pullRequestId}}</a
               >
             </span>
+            <span
+              class="badge"
+              ng-class="{'badge-success':pr.merged, 'badge-warning':pr.state=='open', 'badge-danger':pr.state=='closed' &&!pr.merged}"
+            >
+              {{pr.merged?"merged":pr.state | title}}
+            </span>
             anonymized {{pr.anonymizeDate | humanTime}}
           </div>
           <div class="color-text-secondary mt-2">
