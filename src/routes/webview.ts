@@ -78,11 +78,12 @@ async function webView(req: express.Request, res: express.Response) {
       }
 
       let best_match = null;
+      indexSelector:
       for (const p of indexPriority) {
         for (let filename in currentAnonymized) {
           if (filename.toLowerCase() == p) {
             best_match = filename;
-            break;
+            break indexSelector;
           }
         }
       }
