@@ -91,8 +91,8 @@ export default async function start() {
   apiRouter.use("/repo", router.repositoryPublic);
   apiRouter.use("/repo", speedLimiter, router.file);
   apiRouter.use("/repo", speedLimiter, router.repositoryPrivate);
-  apiRouter.use("/pr", speedLimiter, router.pullRequestPrivate);
   apiRouter.use("/pr", speedLimiter, router.pullRequestPublic);
+  apiRouter.use("/pr", speedLimiter, router.pullRequestPrivate);
 
   apiRouter.get("/message", async (_, res) => {
     if (ofs.existsSync("./message.txt")) {
