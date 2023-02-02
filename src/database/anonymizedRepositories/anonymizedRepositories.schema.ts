@@ -25,6 +25,10 @@ const AnonymizedRepositorySchema = new Schema({
     repositoryName: String,
     accessToken: String,
   },
+  truckedFileList: {
+    type: Boolean,
+    default: false,
+  },
   originalFiles: Schema.Types.Mixed,
   options: {
     terms: [String],

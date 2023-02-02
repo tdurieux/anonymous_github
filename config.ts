@@ -7,6 +7,7 @@ interface Config {
   CLIENT_SECRET: string;
   GITHUB_TOKEN: string;
   DEFAULT_QUOTA: number;
+  MAX_FILE_FOLDER: number;
   MAX_FILE_SIZE: number;
   MAX_REPO_SIZE: number;
   AUTO_DOWNLOAD_REPO_SIZE: number;
@@ -38,6 +39,7 @@ const config: Config = {
   CLIENT_SECRET: "CLIENT_SECRET",
   GITHUB_TOKEN: "",
   DEFAULT_QUOTA: 2 * 1024 * 1024 * 1024 * 8,
+  MAX_FILE_FOLDER: 1000,
   MAX_FILE_SIZE: 100 * 1024 * 1024, // in b, 10MB
   MAX_REPO_SIZE: 60000, // in kb, 60MB
   AUTO_DOWNLOAD_REPO_SIZE: 150, // in kb, 150kb

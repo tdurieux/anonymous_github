@@ -52,7 +52,7 @@ export function startWorker() {
     path.resolve("dist/src/processes/downloadRepository.js"),
     // downloadRepository,
     {
-      concurrency: 2,
+      concurrency: 3,
       connection: {
         host: config.REDIS_HOSTNAME,
         port: config.REDIS_PORT,

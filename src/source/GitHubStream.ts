@@ -8,6 +8,7 @@ import * as path from "path";
 
 import * as stream from "stream";
 import AnonymousError from "../AnonymousError";
+import config from "../../config";
 
 export default class GitHubStream extends GitHubBase implements SourceBase {
   constructor(
@@ -83,21 +84,18 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
   private async getTree(
     sha: string,
     truncatedTree: Tree = {},
-    parentPath: string = ""
+    parentPath: string = "",
+    count = {
+      file: 0,
+      request: 0,
+    }
   ) {
-    const octokit = new Octokit({
-      auth: await this.getToken(),
-    });
+    this.repository.model.truckedFileList = false;
 
-    let ghRes;
-
+    let ghRes: Awaited<ReturnType<typeof this.getGHTree>>;
     try {
-      ghRes = await octokit.git.getTree({
-        owner: this.githubRepository.owner,
-        repo: this.githubRepository.repo,
-        tree_sha: sha,
-        recursive: "1",
-      });
+      count.request++;
+      ghRes = await this.getGHTree(sha, { recursive: true });
     } catch (error) {
       if (error.status == 409) {
         // empty tree
@@ -106,6 +104,9 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
         // cannot be empty otherwise it would try to download it again
         return { __: {} };
       } else {
+        console.log(
+          `[ERROR] getTree ${this.repository.repoId}@${sha}: ${error.message}`
+        );
         await this.repository.resetSate("error", "repo_not_accessible");
         throw new AnonymousError("repo_not_accessible", {
           httpStatus: error.status,
@@ -118,56 +119,67 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
         });
       }
     }
-
-    const tree = this.tree2Tree(ghRes.data.tree, truncatedTree, parentPath);
-    if (ghRes.data.truncated) {
-      await this.getTruncatedTree(sha, tree, parentPath);
+    const tree = this.tree2Tree(ghRes.tree, truncatedTree, parentPath);
+    count.file += ghRes.tree.length;
+    if (ghRes.truncated) {
+      await this.getTruncatedTree(sha, tree, parentPath, count);
     }
     if (this.repository.status != "ready")
       await this.repository.updateStatus("ready");
     return tree;
   }
 
-  private async getTruncatedTree(
-    sha: string,
-    truncatedTree: Tree = {},
-    parentPath: string = ""
-  ) {
+  private async getGHTree(sha: string, opt = { recursive: true }) {
     const octokit = new Octokit({
       auth: await this.getToken(),
     });
-    try {
-      const ghRes = await octokit.git.getTree({
-        owner: this.githubRepository.owner,
-        repo: this.githubRepository.repo,
-        tree_sha: sha,
-      });
-      const tree = ghRes.data.tree;
+    const ghRes = await octokit.git.getTree({
+      owner: this.githubRepository.owner,
+      repo: this.githubRepository.repo,
+      tree_sha: sha,
+      recursive: opt.recursive ? "1" : undefined,
+    });
+    return ghRes.data;
+  }
 
-      for (let elem of tree) {
-        if (!elem.path) continue;
-        if (elem.type == "tree") {
-          const elementPath = path.join(parentPath, elem.path);
-          const paths = elementPath.split("/");
+  private async getTruncatedTree(
+    sha: string,
+    truncatedTree: Tree = {},
+    parentPath: string = "",
+    count = {
+      file: 0,
+      request: 0,
+    },
+    depth = 0
+  ) {
+    count.request++;
+    const data = await this.getGHTree(sha, { recursive: false });
+    this.tree2Tree(data.tree, truncatedTree, parentPath);
 
-          let current = truncatedTree;
-          for (let i = 0; i < paths.length; i++) {
-            let p = paths[i];
-            if (!current[p]) {
-              if (elem.sha)
-                await this.getTree(elem.sha, truncatedTree, elementPath);
-              break;
-            }
-            current = current[p] as Tree;
-          }
+    count.file += data.tree.length;
+    if (data.tree.length < 100 && count.request < 200) {
+      const promises: Promise<any>[] = [];
+      for (const file of data.tree) {
+        const elementPath = path.join(parentPath, file.path);
+        if (file.type == "tree") {
+          promises.push(
+            this.getTruncatedTree(
+              file.sha,
+              truncatedTree,
+              elementPath,
+              count,
+              depth + 1
+            )
+          );
         }
       }
-      this.tree2Tree(ghRes.data.tree, truncatedTree, parentPath);
-      return truncatedTree;
-    } catch (error) {
-      if (error.status == 409) {
+      await Promise.all(promises);
+    } else {
+      const data = await this.getGHTree(sha, { recursive: true });
+      this.tree2Tree(data.tree, truncatedTree, parentPath);
+      if (data.truncated) {
+        this.repository.model.truckedFileList = true;
       }
-      return truncatedTree;
     }
   }
 
@@ -205,6 +217,10 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
 
       // if elem is a file add the file size in the file list
       if (elem.type == "blob") {
+        if (Object.keys(current).length > config.MAX_FILE_FOLDER) {
+          this.repository.model.truckedFileList = true;
+          continue;
+        }
         let p = paths[end];
         if (p[0] == "$") {
           p = "\\" + p;

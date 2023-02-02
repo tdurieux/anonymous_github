@@ -16,6 +16,7 @@ export interface IAnonymizedRepository {
     accessToken?: string;
   };
   owner: string;
+  truckedFileList: boolean;
   originalFiles: Tree;
   conference: string;
   options: {
