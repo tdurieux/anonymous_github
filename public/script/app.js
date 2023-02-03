@@ -1231,6 +1231,14 @@ angular
       }
 
       function anonymize() {
+        $scope.anonymize.terms.$setValidity("regex", true);
+        // check if string has regex characters
+        if (
+          $scope.terms &&
+          $scope.terms.match(/[-[\]{}()*+?.,\\^$|#\s]/g)
+        ) {
+          $scope.anonymize.terms.$setValidity("regex", false);
+        }
         const urlRegex =
           /<?\b((https?|ftp|file):\/\/)[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]\b\/?>?/g;
         let content = $scope.readme;
@@ -1304,7 +1312,7 @@ angular
         $scope.anonymize.repoUrl.$setValidity("access", true);
         $scope.anonymize.conference.$setValidity("activated", true);
         $scope.anonymize.terms.$setValidity("format", true);
-        $scope.anonymize.terms.$setValidity("format", true);
+        $scope.anonymize.terms.$setValidity("regex", true);
       }
 
       function displayErrorMessage(message) {

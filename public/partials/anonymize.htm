@@ -156,7 +156,7 @@
               >
               <div
                 class="invalid-feedback"
-                ng-show="anonymize.commit.$error.pattern"
+                ng-show="anonymize.commit.$error.pattern || anonymize.commit.$error.required"
               >
                 The commit SHA is not valid. It should respect this pattern
                 [a-fA-Z0-9]{6,}.
@@ -236,14 +236,22 @@
                 ng-model-options="{ debounce: 250 }"
                 ng-class="{'is-invalid': anonymize.terms.$invalid}"
               ></textarea>
-              <small id="termsHelp" class="form-text text-muted"
-                >One term per line. Each term will be replaced by XXX.</small
+              <small id="termsHelp" class="form-text text-muted">
+                One term per line. A term is a RegEx! Each term will be replaced
+                by {{site_options.ANONYMIZATION_MASK}}-[Line Number].
+              </small>
+              <div
+                class="warning-feedback"
+                ng-show="anonymize.terms.$error.regex"
               >
+                We identify that you are using some regex characters, if it was
+                not on purpose, please escape them.
+              </div>
               <div
                 class="invalid-feedback"
                 ng-show="anonymize.terms.$error.format"
               >
-                Terms are in an invalid format
+                Terms are in an invalid format.
               </div>
             </div>
 
@@ -332,7 +340,7 @@
                         <label class="form-check-label" for="link"
                           >Keep links</label
                         >
-                        <small id="termsHelp" class="form-text text-muted"
+                        <small id="linkHelp" class="form-text text-muted"
                           >Keep or remove all the links.</small
                         >
                       </div>
@@ -347,7 +355,7 @@
                         <label class="form-check-label" for="image"
                           >Display images</label
                         >
-                        <small id="termsHelp" class="form-text text-muted"
+                        <small id="imageHelp" class="form-text text-muted"
                           >Images are not anonymized</small
                         >
                       </div>
@@ -362,7 +370,7 @@
                         <label class="form-check-label" for="pdf"
                           >Display PDFs</label
                         >
-                        <small id="termsHelp" class="form-text text-muted"
+                        <small id="pdfHelp" class="form-text text-muted"
                           >PDF are not anonymized</small
                         >
                       </div>
@@ -415,7 +423,7 @@
                         <label class="form-check-label" for="page"
                           >Github page</label
                         >
-                        <small id="termsHelp" class="form-text text-muted"
+                        <small id="pageHelp" class="form-text text-muted"
                           >Enable anonymized Github pages. It currently only
                           supported for Github pages that are defined in the
                           same branch. It will be available at

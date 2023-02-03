@@ -203,6 +203,13 @@ a:hover {
   font-size: 45%;
 }
 
+.warning-feedback {
+  width: 100%;
+  margin-top: 0.25rem;
+  font-size: 80%;
+  color: #dc8e35;
+}
+
 .dropdown-item:focus,
 .dropdown-item:hover {
   background-color: var(--hover-bg-color);
