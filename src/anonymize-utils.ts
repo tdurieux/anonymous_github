@@ -131,12 +131,16 @@ export function anonymizeContent(
     );
   }
 
-  const terms = repository.options.terms || [];
+  const terms = (repository.options.terms || []).map(term => {
+    // Trim term
+    term = term.trim();
+    // Escape regex characters
+    // term = term.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&'); // TODO: Requires more testing
+    term = term.replace(/[()]/g, '\\$&'); // Replace brackets
+    return term;
+  }).filter(term => term !== "");
   for (let i = 0; i < terms.length; i++) {
     const term = terms[i];
-    if (term.trim() == "") {
-      continue;
-    }
     // remove whole url if it contains the term
     content = content.replace(urlRegex, (match) => {
       if (new RegExp(`\\b${term}\\b`, "gi").test(match))
