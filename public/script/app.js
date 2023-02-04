@@ -1233,10 +1233,7 @@ angular
       function anonymize() {
         $scope.anonymize.terms.$setValidity("regex", true);
         // check if string has regex characters
-        if (
-          $scope.terms &&
-          $scope.terms.match(/[-[\]{}()*+?.,\\^$|#\s]/g)
-        ) {
+        if ($scope.terms && $scope.terms.match(/[-[\]{}()*+?.,\\^$|#\s]/g)) {
           $scope.anonymize.terms.$setValidity("regex", false);
         }
         const urlRegex =
@@ -1279,7 +1276,13 @@ angular
         );
         const terms = $scope.terms.split("\n");
         for (let i = 0; i < terms.length; i++) {
-          const term = terms[i];
+          let term = terms[i];
+          try {
+            new RegExp(term, "gi");
+          } catch {
+            // escape regex characters
+            term = term.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
+          }
           if (term.trim() == "") {
             continue;
           }

@@ -133,9 +133,15 @@ export function anonymizeContent(
 
   const terms = repository.options.terms || [];
   for (let i = 0; i < terms.length; i++) {
-    const term = terms[i];
+    let term = terms[i];
     if (term.trim() == "") {
       continue;
+    }
+    try {
+      new RegExp(term, "gi");
+    } catch {
+      // escape regex characters
+      term = term.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
     }
     // remove whole url if it contains the term
     content = content.replace(urlRegex, (match) => {
@@ -155,9 +161,15 @@ export function anonymizeContent(
 
 export function anonymizePath(path: string, terms: string[]) {
   for (let i = 0; i < terms.length; i++) {
-    const term = terms[i];
+    let term = terms[i];
     if (term.trim() == "") {
       continue;
+    }
+    try {
+      new RegExp(term, "gi");
+    } catch {
+      // escape regex characters
+      term = term.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
     }
     path = path.replace(
       new RegExp(term, "gi"),
