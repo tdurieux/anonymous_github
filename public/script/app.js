@@ -1281,7 +1281,7 @@ angular
             new RegExp(term, "gi");
           } catch {
             // escape regex characters
-            term = term.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
+            term = term.replace(/[-[\]{}()*+?.,\\^$|#]/g, "\\$&");
           }
           if (term.trim() == "") {
             continue;
