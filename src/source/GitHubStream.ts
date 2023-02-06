@@ -152,6 +152,9 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
     },
     depth = 0
   ) {
+    console.log(
+      `sha ${sha}, countFiles: ${count.file} countRequest: ${count.request}, parentPath: "${parentPath}"`
+    );
     count.request++;
     const data = await this.getGHTree(sha, { recursive: false });
     this.tree2Tree(data.tree, truncatedTree, parentPath);

@@ -60,6 +60,9 @@
               >
                 <i class="fas fa-sync"></i> Retry
               </a>
+              <a class="dropdown-item" href="/anonymize/{{job.id}}">
+                <i class="far fa-edit" aria-hidden="true"></i> Edit
+              </a>
             </div>
           </div>
         </div>
@@ -130,6 +133,9 @@
                 ng-click="retryJob('remove', job)"
               >
                 <i class="fas fa-sync"></i> Retry
+              </a>
+              <a class="dropdown-item" href="/anonymize/{{job.id}}">
+                <i class="far fa-edit" aria-hidden="true"></i> Edit
               </a>
             </div>
           </div>

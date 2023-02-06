@@ -10,15 +10,37 @@ import AnonymizedRepositoryModel from "../database/anonymizedRepositories/anonym
 import config from "../../config";
 import { IAnonymizedRepositoryDocument } from "../database/anonymizedRepositories/anonymizedRepositories.types";
 import Repository from "../Repository";
+import UserModel from "../database/users/users.model";
 import ConferenceModel from "../database/conference/conferences.model";
 import AnonymousError from "../AnonymousError";
 import { downloadQueue, removeQueue } from "../queue";
 import RepositoryModel from "../database/repositories/repositories.model";
+import User from "../User";
 
 const router = express.Router();
 
 // user needs to be connected for all user API
 router.use(ensureAuthenticated);
+
+async function getTokenForAdmin(user: User, req: express.Request) {
+  if (user.isAdmin) {
+    try {
+      const existingRepo = await AnonymizedRepositoryModel.findOne(
+        {
+          "source.repositoryName": `${req.params.owner}/${req.params.repo}`,
+        },
+        {
+          "source.accessToken": 1,
+        }
+      ).exec();
+      if (existingRepo) {
+        return existingRepo.source.accessToken;
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  }
+}
 
 // claim a repository
 router.post("/claim", async (req: express.Request, res: express.Response) => {
@@ -135,11 +157,15 @@ router.get(
   "/:owner/:repo/",
   async (req: express.Request, res: express.Response) => {
     const user = await getUser(req);
+    let token = user.accessToken;
+    if (user.isAdmin) {
+      token = (await getTokenForAdmin(user, req)) || token;
+    }
     try {
       const repo = await getRepositoryFromGitHub({
         owner: req.params.owner,
         repo: req.params.repo,
-        accessToken: user.accessToken,
+        accessToken: token,
       });
       res.json(repo.toJSON());
     } catch (error) {
@@ -152,15 +178,19 @@ router.get(
   "/:owner/:repo/branches",
   async (req: express.Request, res: express.Response) => {
     const user = await getUser(req);
+    let token = user.accessToken;
+    if (user.isAdmin) {
+      token = (await getTokenForAdmin(user, req)) || token;
+    }
     try {
       const repository = await getRepositoryFromGitHub({
-        accessToken: user.accessToken,
+        accessToken: token,
         owner: req.params.owner,
         repo: req.params.repo,
       });
       return res.json(
         await repository.branches({
-          accessToken: user.accessToken,
+          accessToken: token,
           force: req.query.force == "1",
         })
       );
@@ -175,11 +205,15 @@ router.get(
   async (req: express.Request, res: express.Response) => {
     try {
       const user = await getUser(req);
+      let token = user.accessToken;
+      if (user.isAdmin) {
+        token = (await getTokenForAdmin(user, req)) || token;
+      }
 
       const repo = await getRepositoryFromGitHub({
         owner: req.params.owner,
         repo: req.params.repo,
-        accessToken: user.accessToken,
+        accessToken: token,
       });
       if (!repo) {
         throw new AnonymousError("repo_not_found", {
@@ -189,7 +223,7 @@ router.get(
       }
       return res.send(
         await repo.readme({
-          accessToken: user.accessToken,
+          accessToken: token,
           force: req.query.force == "1",
           branch: req.query.branch as string,
         })
