@@ -141,7 +141,7 @@ export function anonymizeContent(
       new RegExp(term, "gi");
     } catch {
       // escape regex characters
-      term = term.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
+      term = term.replace(/[-[\]{}()*+?.,\\^$|#]/g, "\\$&");
     }
     // remove whole url if it contains the term
     content = content.replace(urlRegex, (match) => {
@@ -169,7 +169,7 @@ export function anonymizePath(path: string, terms: string[]) {
       new RegExp(term, "gi");
     } catch {
       // escape regex characters
-      term = term.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
+      term = term.replace(/[-[\]{}()*+?.,\\^$|#]/g, "\\$&");
     }
     path = path.replace(
       new RegExp(term, "gi"),

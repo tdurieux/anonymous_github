@@ -1233,7 +1233,7 @@ angular
       function anonymize() {
         $scope.anonymize.terms.$setValidity("regex", true);
         // check if string has regex characters
-        if ($scope.terms && $scope.terms.match(/[-[\]{}()*+?.,\\^$|#\s]/g)) {
+        if ($scope.terms && $scope.terms.match(/[-[\]{}()*+?.,\\^$|#]/g)) {
           $scope.anonymize.terms.$setValidity("regex", false);
         }
         const urlRegex =
