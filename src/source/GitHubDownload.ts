@@ -38,7 +38,7 @@ export default class GitHubDownload extends GitHubBase implements SourceBase {
     });
   }
 
-  async download() {
+  async download(token?: string) {
     const fiveMinuteAgo = new Date();
     fiveMinuteAgo.setMinutes(fiveMinuteAgo.getMinutes() - 5);
     if (
@@ -51,7 +51,10 @@ export default class GitHubDownload extends GitHubBase implements SourceBase {
       });
     let response: OctokitResponse<unknown, number>;
     try {
-      response = await this._getZipUrl(await this.getToken());
+      if (!token) {
+        token = await this.getToken();
+      }
+      response = await this._getZipUrl(token);
     } catch (error) {
       if (error.status == 401 && config.GITHUB_TOKEN) {
         try {

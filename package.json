@@ -1,8 +1,10 @@
 {
-  "name": "anonymous_github",
+  "name": "@tdurieux/anonymous_github",
   "version": "2.1.0",
   "description": "Anonymise Github repositories for double-anonymous reviews",
-  "main": "index.ts",
+  "bin": {
+    "anonymous_github": "build/cli.js"
+  },
   "scripts": {
     "test": "mocha --reporter spec",
     "start": "node --inspect=5858 -r ts-node/register ./index.ts",
@@ -23,6 +25,10 @@
     "url": "https://github.com/sponsors/tdurieux"
   },
   "homepage": "https://github.com/tdurieux/anonymous_github#readme",
+  "files": [
+    "public",
+    "build"
+  ],
   "dependencies": {
     "@octokit/oauth-app": "^4.1.0",
     "@octokit/rest": "^19.0.5",
@@ -39,6 +45,7 @@
     "express-session": "^1.17.3",
     "express-slow-down": "^1.5.0",
     "got": "^11.8.5",
+    "inquirer": "^8.2.5",
     "istextorbinary": "^6.0.0",
     "marked": "^4.1.1",
     "mime-types": "^2.1.35",
@@ -63,6 +70,7 @@
     "@types/express-session": "^1.17.5",
     "@types/express-slow-down": "^1.3.2",
     "@types/got": "^9.6.12",
+    "@types/inquirer": "^8.0.0",
     "@types/marked": "^4.0.7",
     "@types/mime-types": "^2.1.0",
     "@types/parse-github-url": "^1.0.0",

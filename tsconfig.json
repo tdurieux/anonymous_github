@@ -5,13 +5,13 @@
   "compilerOptions": {
     "target": "es6",
     "module": "commonjs",
-    "outDir": "dist",
+    "outDir": "build",
     "removeComments": true,
     "preserveConstEnums": true,
     "forceConsistentCasingInFileNames": true,
     "sourceMap": false,
     "skipLibCheck": true
   },
-  "include": ["src/**/*.ts", "index.ts", "tests3.ts"],
+  "include": ["src/**/*.ts", "index.ts", "cli.ts"],
   "exclude": ["node_modules", ".vscode"]
 }

@@ -1,4 +1,5 @@
 .env
+build
 /repositories
 repo/
 db_backups

@@ -10,10 +10,13 @@ const MONGO_URL = `mongodb://${config.DB_USERNAME}:${config.DB_PASSWORD}@${confi
 
 export const database = mongoose.connection;
 
+export let isConnected = false;
+
 export async function connect() {
   await mongoose.connect(MONGO_URL + "production", {
     authSource: "admin",
   } as ConnectOptions);
+  isConnected = true;
 
   return database;
 }

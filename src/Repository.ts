@@ -15,6 +15,7 @@ import Conference from "./Conference";
 import ConferenceModel from "./database/conference/conferences.model";
 import AnonymousError from "./AnonymousError";
 import { downloadQueue } from "./queue";
+import { isConnected } from "./database/database";
 
 export default class Repository {
   private _model: IAnonymizedRepositoryDocument;
@@ -208,6 +209,7 @@ export default class Repository {
    * Update the last view and view count
    */
   async countView() {
+    if (!isConnected) return this.model;
     this._model.lastView = new Date();
     this._model.pageView = (this._model.pageView || 0) + 1;
     return this._model.save();
@@ -219,9 +221,11 @@ export default class Repository {
    * @param errorMessage a potential error message to display
    */
   async updateStatus(status: RepositoryStatus, statusMessage?: string) {
+    if (!status) return this.model;
     this._model.status = status;
     this._model.statusDate = new Date();
     this._model.statusMessage = statusMessage;
+    if (!isConnected) return this.model;
     return this._model.save();
   }
 
@@ -247,18 +251,17 @@ export default class Repository {
    * Reset/delete the state of the repository
    */
   async resetSate(status?: RepositoryStatus, statusMessage?: string) {
-    if (status) this._model.status = status;
-    if (statusMessage) this._model.statusMessage = statusMessage;
+    const p = this.updateStatus(status, statusMessage);
     // remove attribute
     this._model.size = { storage: 0, file: 0 };
     this._model.originalFiles = null;
     // remove cache
-    return Promise.all([this._model.save(), this.removeCache()]);
+    return Promise.all([p, this.removeCache()]);
   }
 
   /**
    * Remove the cached files
-   * @returns 
+   * @returns
    */
   async removeCache() {
     return storage.rm(this._model.repoId + "/");
@@ -281,15 +284,15 @@ export default class Repository {
   }> {
     if (this.status != "ready") return { storage: 0, file: 0 };
     if (this._model.size.file) return this._model.size;
-    function recursiveCount(files) {
+    function recursiveCount(files: Tree): { storage: number; file: number } {
       const out = { storage: 0, file: 0 };
       for (const name in files) {
         const file = files[name];
-        if (file.size && parseInt(file.size) == file.size) {
+        if (file.size && parseInt(file.size.toString()) == file.size) {
           out.storage += file.size as number;
           out.file++;
         } else if (typeof file == "object") {
-          const r = recursiveCount(file);
+          const r = recursiveCount(file as Tree);
           out.storage += r.storage;
           out.file += r.file;
         }
