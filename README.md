@@ -1,46 +1,20 @@
 # Anonymous Github
 
-Anonymous Github is a system to anonymize Github repositories before referring to them in a double-anonymous paper submission.
-To start using Anonymous Github right now: **[http://anonymous.4open.science/](http://anonymous.4open.science/)**
+Anonymous Github is a system that helps anonymize Github repositories for double-anonymous paper submissions. A public instance of Anonymous Github is hosted at https://anonymous.4open.science/.
 
-Indeed, in a double-anonymous review process, the open-science data or code that is in the online appendix must be anonymized, similarly to paper anonymization. The authors must
+Anonymous Github anonymizes the following:
 
-- anonymize URLs: the name of the institution/department/group/authors should not appear in the URLs of the open-science appendix
-- anonymize the appendix content itself
+- Github repository owner, organization, and name
+- File and directory names
+- File contents of all extensions, including markdown, text, Java, etc.
 
-Anonymizing an open-science appendix needs some work, but fortunately, this can be automated, this is what Anonymous Github is about.
+## Usage
 
-Anonymous Github anonymizes:
+### Public instance
 
-- the Github owner / organization / repository name
-- the content of the repository
-  - file contents (all extensions, md/txt/java/etc)
-  - file and directory names
+**https://anonymous.4open.science/**
 
-Question / Feedback / Bug report: please open an issue in this repository.
-
-## Using Anonymous Github
-
-## How to create a new anonymized repository
-
-To use it, open the main page (e.g., [http://anonymous.4open.science/](http://anonymous.4open.science/)), login with GitHub, and click on "Anonymize".
-Simply fill 1. the Github repo URL and 2. the id of the anonymized repository, 3. the terms to anonymize (which can be updated afterward).
-The anonymization of the content is done by replacing all occurrences of words in a list by "XXXX" (can be changed in the configuration).
-The word list is provided by the authors, and typically contains the institution name, author names, logins, etc...
-The README is anonymized as well as all files of the repository. Even filenames are anonymized.
-
-In a paper under double-anonymous review, instead of putting a link to Github, one puts a link to the Anonymous Github instance (e.g.
-<http://anonymous.4open.science/r/840c8c57-3c32-451e-bf12-0e20be300389/> which is an anonymous version of this repo).
-
-To start using Anonymous Github right now, a public instance of anonymous_github is hosted at 4open.science:
-
-**[http://anonymous.4open.science/](http://anonymous.4open.science/)**
-
-## What is the scope of anonymization?
-
-In double-anonymous peer-review, the boundary of anonymization is the paper plus its online appendix, and only this, it's not the whole world. Googling any part of the paper or the online appendix can be considered as a deliberate attempt to break anonymity ([explanation](http://www.monperrus.net/martin/open-science-double-anonymous))
-
-## CLI
+### CLI
 
 This CLI tool allows you to anonymize your GitHub repositories locally, generating an anonymized zip file based on your configuration settings.
 
@@ -51,13 +25,10 @@ npm install -g @tdurieux/anonymous_github
 # Run the Anonymous GitHub CLI tool
 anonymous_github
 ```
-## How does it work?
 
-Anonymous Github either download the complete repository and anonymize the content of the file or proxy the request to GitHub. In both case, the original and anonymized versions of the file are cached on the server.
+### Own instance
 
-## Installing Anonymous Github
-
-1. Clone the repository
+#### 1. Clone the repository
 
 ```bash
 git clone https://github.com/tdurieux/anonymous_github/
@@ -65,9 +36,9 @@ cd anonymous_github
 npm i
 ```
 
-2. Configure the Github token
+#### 2. Configure the GitHub token
 
-Create a file `.env` that contains
+Create a `.env` file with the following contents:
 
 ```env
 GITHUB_TOKEN=<GITHUB_TOKEN>
@@ -79,19 +50,27 @@ DB_PASSWORD=
 AUTH_CALLBACK=http://localhost:5000/github/auth,
 ```
 
-`GITHUB_TOKEN` can be generated here: https://github.com/settings/tokens/new with `repo` scope.
-`CLIENT_ID` and `CLIENT_SECRET` are the tokens are generated when you create a new GitHub app https://github.com/settings/applications/new.
-The callback of the GitHub app needs to be defined as `https://<host>/github/auth` (the same as defined in AUTH_CALLBACK).
+- `GITHUB_TOKEN` can be generated here: https://github.com/settings/tokens/new with `repo` scope.
+- `CLIENT_ID` and `CLIENT_SECRET` are the tokens are generated when you create a new GitHub app https://github.com/settings/applications/new.
+- The callback of the GitHub app needs to be defined as `https://<host>/github/auth` (the same as defined in AUTH_CALLBACK).
 
-3. Run Anonymous Github
+#### 3. Start Anonymous Github server
 
 ```bash
 docker-compose up -d
 ```
 
-4. Go to Anonymous Github
+#### 4. Go to Anonymous Github
 
-By default, Anonymous Github uses port 5000. It can be changed in `docker-compose.yml`.
+Go to http://localhost:5000. By default, Anonymous Github uses port 5000. It can be changed in `docker-compose.yml`. I would recommand to put Anonymous GitHub behind ngnix to handle the https certificates.
+
+## What is the scope of anonymization?
+
+In double-anonymous peer-review, the boundary of anonymization is the paper plus its online appendix, and only this, it's not the whole world. Googling any part of the paper or the online appendix can be considered as a deliberate attempt to break anonymity ([explanation](https://www.monperrus.net/martin/open-science-double-blind))
+
+## How does it work?
+
+Anonymous Github either download the complete repository and anonymize the content of the file or proxy the request to GitHub. In both case, the original and anonymized versions of the file are cached on the server.
 
 ## Related tools
 
@@ -102,3 +81,4 @@ By default, Anonymous Github uses port 5000. It can be changed in `docker-compos
 ## See also
 
 - [Open-science and double-anonymous Peer-Review](https://www.monperrus.net/martin/open-science-double-blind)
+- [ACM Policy on Double-Blind Reviewing](https://dl.acm.org/journal/tods/DoubleBlindPolicy)
