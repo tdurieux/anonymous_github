@@ -28,7 +28,7 @@ export function startWorker() {
   });
   const removeWorker = new Worker<Repository>(
     removeQueue.name,
-    path.resolve("dist/src/processes/removeRepository.js"),
+    path.resolve("build/src/processes/removeRepository.js"),
     //removeRepository,
     {
       concurrency: 5,
@@ -49,7 +49,7 @@ export function startWorker() {
 
   const downloadWorker = new Worker<Repository>(
     downloadQueue.name,
-    path.resolve("dist/src/processes/downloadRepository.js"),
+    path.resolve("build/src/processes/downloadRepository.js"),
     // downloadRepository,
     {
       concurrency: 3,
