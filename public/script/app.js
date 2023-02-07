@@ -1172,7 +1172,9 @@ angular
               checkSourceType();
             });
           }
-          $scope.repoId = $scope.details.repo + "-" + generateRandomId(4);
+          if (!$scope.repoId) {
+            $scope.repoId = $scope.details.repo + "-" + generateRandomId(4);
+          }
           await $scope.getBranches();
         } catch (error) {
           console.log("here", error);
