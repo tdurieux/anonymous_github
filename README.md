@@ -2,6 +2,9 @@
 
 Anonymous Github is a system that helps anonymize Github repositories for double-anonymous paper submissions. A public instance of Anonymous Github is hosted at https://anonymous.4open.science/.
 
+![screenshot](https://user-images.githubusercontent.com/5577568/217193282-42f608d3-2b46-4ebc-90df-772f248605be.png)
+
+
 Anonymous Github anonymizes the following:
 
 - Github repository owner, organization, and name
