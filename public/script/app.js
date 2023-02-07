@@ -1050,11 +1050,7 @@ angular
                 );
               }
 
-              $scope.details = (
-                await $http.get(`/api/repo/${res.data.source.fullName}/`)
-              ).data;
-
-              await $scope.getBranches();
+              await getDetails();
               await getReadme();
               anonymize();
               $scope.$apply();
@@ -1157,6 +1153,7 @@ angular
         if (selected.length > 0) {
           $scope.source.commit = selected[0].commit;
           $scope.readme = selected[0].readme;
+          await getReadme(force);
         }
         $scope.$apply();
       };
@@ -1178,11 +1175,25 @@ angular
           $scope.repoId = $scope.details.repo + "-" + generateRandomId(4);
           await $scope.getBranches();
         } catch (error) {
+          console.log("here", error);
           if (error.data) {
             $translate("ERRORS." + error.data.error).then((translation) => {
+              const toast = {
+                title: `Error when getting repository information`,
+                date: new Date(),
+                body: `${o.owner}/${o.repo} produice the following error: ${translation}`,
+              };
+              $scope.toasts.push(toast);
               $scope.error = translation;
             }, console.error);
             displayErrorMessage(error.data.error);
+          } else {
+            const toast = {
+              title: `Error when getting repository information`,
+              date: new Date(),
+              body: `${o.owner}/${o.repo} produice the following error: ${error.message}`,
+            };
+            $scope.toasts.push(toast);
           }
           $scope.anonymize.repoUrl.$setValidity("missing", false);
           throw error;
@@ -1190,15 +1201,29 @@ angular
       }
 
       async function getReadme(force) {
-        if ($scope.readme) return $scope.readme;
+        if ($scope.readme && !force) return $scope.readme;
         const o = parseGithubUrl($scope.repoUrl);
-        const res = await $http.get(`/api/repo/${o.owner}/${o.repo}/readme`, {
-          params: {
-            force: force === true ? "1" : "0",
-            branch: $scope.source.branch,
-          },
-        });
-        $scope.readme = res.data;
+        $http
+          .get(`/api/repo/${o.owner}/${o.repo}/readme`, {
+            params: {
+              force: force === true ? "1" : "0",
+              branch: $scope.source.branch,
+            },
+          })
+          .then(
+            (res) => {
+              $scope.readme = res.data;
+            },
+            () => {
+              $scope.readme = "";
+              const toast = {
+                title: `README not available...`,
+                date: new Date(),
+                body: `The README of ${o.owner}/${o.repo} was not found.`,
+              };
+              $scope.toasts.push(toast);
+            }
+          );
       }
 
       function getConference() {
