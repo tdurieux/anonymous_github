@@ -77,6 +77,13 @@ export default async function start() {
     maxDelayMs: 5000,
     headers: true,
   });
+  const webViewSpeedLimiter = slowDown({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    delayAfter: 200,
+    delayMs: 150,
+    maxDelayMs: 5000,
+    headers: true,
+  });
 
   app.use("/github", rate, speedLimiter, connection.router);
 
@@ -125,7 +132,7 @@ export default async function start() {
   });
 
   // web view
-  app.use("/w/", rate, speedLimiter, router.webview);
+  app.use("/w/", rate, webViewSpeedLimiter, router.webview);
 
   app
     .get("/", indexResponse)
