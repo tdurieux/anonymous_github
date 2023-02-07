@@ -3,11 +3,21 @@ import config from "../config";
 import Repository from "./Repository";
 import * as path from "path";
 
+export let cacheQueue: Queue<Repository>;
 export let removeQueue: Queue<Repository>;
 export let downloadQueue: Queue<Repository>;
 
 // avoid to load the queue outside the main server
 export function startWorker() {
+  cacheQueue = new Queue<Repository>("cache removal", {
+    connection: {
+      host: config.REDIS_HOSTNAME,
+      port: config.REDIS_PORT,
+    },
+    defaultJobOptions: {
+      removeOnComplete: true,
+    },
+  });
   removeQueue = new Queue<Repository>("repository removal", {
     connection: {
       host: config.REDIS_HOSTNAME,
@@ -26,10 +36,9 @@ export function startWorker() {
       removeOnComplete: true,
     },
   });
-  const removeWorker = new Worker<Repository>(
-    removeQueue.name,
-    path.resolve("build/src/processes/removeRepository.js"),
-    //removeRepository,
+  const cacheWorker = new Worker<Repository>(
+    cacheQueue.name,
+    path.resolve("build/src/processes/removeCache.js"),
     {
       concurrency: 5,
       connection: {
@@ -37,7 +46,24 @@ export function startWorker() {
         port: config.REDIS_PORT,
       },
       autorun: true,
-
+    }
+  );
+  cacheWorker.on("error", async (error) => {
+    console.log(error);
+  });
+  cacheWorker.on("completed", async (job) => {
+    await job.remove();
+  });
+  const removeWorker = new Worker<Repository>(
+    removeQueue.name,
+    path.resolve("build/src/processes/removeRepository.js"),
+    {
+      concurrency: 5,
+      connection: {
+        host: config.REDIS_HOSTNAME,
+        port: config.REDIS_PORT,
+      },
+      autorun: true,
     }
   );
   removeWorker.on("error", async (error) => {
@@ -50,14 +76,13 @@ export function startWorker() {
   const downloadWorker = new Worker<Repository>(
     downloadQueue.name,
     path.resolve("build/src/processes/downloadRepository.js"),
-    // downloadRepository,
     {
       concurrency: 3,
       connection: {
         host: config.REDIS_HOSTNAME,
         port: config.REDIS_PORT,
       },
-      autorun: true
+      autorun: true,
     }
   );
   if (!downloadWorker.isRunning) downloadWorker.run();

@@ -4,11 +4,11 @@ import AnonymousError from "../AnonymousError";
 import AnonymizedRepositoryModel from "../database/anonymizedRepositories/anonymizedRepositories.model";
 import ConferenceModel from "../database/conference/conferences.model";
 import UserModel from "../database/users/users.model";
-import { downloadQueue, removeQueue } from "../queue";
+import { cacheQueue, downloadQueue, removeQueue } from "../queue";
 import Repository from "../Repository";
 import User from "../User";
 import { ensureAuthenticated } from "./connection";
-import { handleError, getUser, isOwnerOrAdmin } from "./route-utils";
+import { handleError, getUser, isOwnerOrAdmin, getRepo } from "./route-utils";
 
 const router = express.Router();
 
@@ -91,10 +91,12 @@ router.get("/queues", async (req, res) => {
       "failed",
       "delayed",
     ]),
+    cacheQueue.getJobs(["waiting", "active", "completed", "failed", "delayed"]),
   ]);
   res.json({
     downloadQueue: out[0],
     removeQueue: out[1],
+    cacheQueue: out[2],
   });
 });
 
@@ -150,6 +152,21 @@ router.get("/repos", async (req, res) => {
       .skip(skipIndex),
   });
 });
+
+// delete a repository
+router.delete(
+  "/repos/:repoId/",
+  async (req: express.Request, res: express.Response) => {
+    const repo = await getRepo(req, res, { nocheck: true });
+    if (!repo) return;
+    try {
+      await cacheQueue.add(repo.repoId, repo, { jobId: repo.repoId });
+      return res.json({ status: repo.status });
+    } catch (error) {
+      handleError(error, res, req);
+    }
+  }
+);
 
 router.get("/users", async (req, res) => {
   const page = parseInt(req.query.page as string) || 1;

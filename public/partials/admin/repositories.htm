@@ -313,6 +313,9 @@
               Actions
             </button>
             <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+              <a class="dropdown-item" href="#" ng-click="removeCache(repo)">
+                <i class="fas fa-trash-alt"></i> Remove Cache
+              </a>
               <a class="dropdown-item" href="/anonymize/{{repo.repoId}}">
                 <i class="far fa-edit" aria-hidden="true"></i> Edit
               </a>

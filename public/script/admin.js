@@ -29,6 +29,16 @@ angular
         preparing: true,
       };
 
+      $scope.removeCache = (repo) => {
+        $http.delete("/api/admin/repos/" + repo.repoId).then(
+          (res) => {
+            $scope.$apply();
+          },
+          (err) => {
+            console.error(err);
+          }
+        );
+      };
       function getRepositories() {
         $http.get("/api/admin/repos", { params: $scope.query }).then(
           (res) => {
@@ -138,7 +148,7 @@ angular
 
         return false;
       };
-      
+
       function getUserRepositories(username) {
         $http.get("/api/admin/users/" + username + "/repos", {}).then(
           (res) => {
@@ -247,6 +257,7 @@ angular
           (res) => {
             $scope.downloadJobs = res.data.downloadQueue;
             $scope.removeJobs = res.data.removeQueue;
+            $scope.removeCaches = res.data.cacheQueue;
           },
           (err) => {
             console.error(err);
