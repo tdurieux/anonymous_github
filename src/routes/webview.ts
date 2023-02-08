@@ -78,8 +78,7 @@ async function webView(req: express.Request, res: express.Response) {
       }
 
       let best_match = null;
-      indexSelector:
-      for (const p of indexPriority) {
+      indexSelector: for (const p of indexPriority) {
         for (let filename in currentAnonymized) {
           if (filename.toLowerCase() == p) {
             best_match = filename;
@@ -96,13 +95,13 @@ async function webView(req: express.Request, res: express.Response) {
       }
     }
 
-    if (!(await f.isFileSupported())) {
+    if (!f.isFileSupported()) {
       throw new AnonymousError("file_not_supported", {
         httpStatus: 400,
         object: f,
       });
     }
-    if ((await f.extension()) == "md") {
+    if (f.extension() == "md") {
       const content = await streamToString(await f.anonymizedContent());
       res.contentType("html").send(marked.marked(content));
     } else {

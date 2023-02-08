@@ -5,6 +5,7 @@ import { isText } from "istextorbinary";
 import { basename } from "path";
 import { Transform } from "stream";
 import { Readable } from "stream";
+import AnonymizedFile from "./AnonymizedFile";
 
 const urlRegex =
   /<?\b((https?|ftp|file):\/\/)[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]\b\/?>?/g;
@@ -31,7 +32,7 @@ export function isTextFile(filePath: string, content: Buffer) {
   return isText(filename, content);
 }
 
-export function anonymizeStream(filename: string, repository: Repository) {
+export function anonymizeStream(file: AnonymizedFile) {
   const ts = new Transform();
   var chunks = [],
     len = 0,
@@ -43,8 +44,8 @@ export function anonymizeStream(filename: string, repository: Repository) {
 
     if (pos === 1) {
       let data: any = Buffer.concat(chunks, len);
-      if (isTextFile(filename, data)) {
-        data = anonymizeContent(data.toString(), repository);
+      if (isTextFile(file.anonymizedPath, data)) {
+        data = anonymizeContent(data.toString(), file.repository);
       }
 
       chunks = [];
@@ -60,8 +61,8 @@ export function anonymizeStream(filename: string, repository: Repository) {
   ts._flush = function _flush(cb) {
     if (chunks.length) {
       let data: any = Buffer.concat(chunks, len);
-      if (isText(filename, data)) {
-        data = anonymizeContent(data.toString(), repository);
+      if (isText(file.anonymizedPath, data)) {
+        data = anonymizeContent(data.toString(), file.repository);
       }
 
       this.push(data);

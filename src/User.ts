@@ -119,9 +119,14 @@ export default class User {
    */
   async getRepositories() {
     const repositories = (
-      await AnonymizedRepositoryModel.find({
-        owner: this.id,
-      }).exec()
+      await AnonymizedRepositoryModel.find(
+        {
+          owner: this.id,
+        },
+        {
+          originalFiles: 0,
+        }
+      ).exec()
     ).map((d) => new Repository(d));
     const promises = [];
     for (let repo of repositories) {

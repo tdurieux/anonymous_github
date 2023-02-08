@@ -19,12 +19,12 @@ router.get(
 
     try {
       await repo.countView();
-    
+
       const f = new AnonymizedFile({
         repository: repo,
         anonymizedPath,
       });
-      if (!(await f.isFileSupported())) {
+      if (!f.isFileSupported()) {
         throw new AnonymousError("file_not_supported", {
           httpStatus: 403,
           object: f,
@@ -34,7 +34,7 @@ router.get(
         anonymizedPath.substring(anonymizedPath.lastIndexOf("/") + 1)
       );
       // cache the file for 5min
-      res.header('Cache-Control', 'max-age=300');
+      res.header("Cache-Control", "max-age=300");
       await f.send(res);
     } catch (error) {
       return handleError(error, res, req);

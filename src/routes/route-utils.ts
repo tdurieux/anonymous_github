@@ -37,11 +37,16 @@ export async function getPullRequest(
 export async function getRepo(
   req: express.Request,
   res: express.Response,
-  opt?: { nocheck?: boolean }
+  opt: { nocheck?: boolean; includeFiles?: boolean } = {
+    nocheck: false,
+    includeFiles: true,
+  }
 ) {
   try {
-    const repo = await db.getRepository(req.params.repoId);
-    if (opt?.nocheck == true) {
+    const repo = await db.getRepository(req.params.repoId, {
+      includeFiles: opt.includeFiles,
+    });
+    if (opt.nocheck == true) {
     } else {
       // redirect if the repository is expired
       if (

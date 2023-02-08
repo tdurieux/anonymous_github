@@ -76,7 +76,7 @@ router.get(
   async (req: express.Request, res: express.Response) => {
     try {
       res.header("Cache-Control", "no-cache");
-      const repo = await getRepo(req, res, { nocheck: true });
+      const repo = await getRepo(req, res, { nocheck: true, includeFiles: false });
       if (!repo) return;
       let redirectURL = null;
       if (

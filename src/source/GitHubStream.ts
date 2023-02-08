@@ -39,7 +39,7 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
       const ghRes = await octokit.rest.git.getBlob({
         owner: this.githubRepository.owner,
         repo: this.githubRepository.repo,
-        file_sha: file.sha,
+        file_sha: await file.sha(),
       });
       if (!ghRes.data.content && ghRes.data.size != 0) {
         throw new AnonymousError("file_not_accessible", {

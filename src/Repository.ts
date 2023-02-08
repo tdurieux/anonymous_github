@@ -16,6 +16,7 @@ import ConferenceModel from "./database/conference/conferences.model";
 import AnonymousError from "./AnonymousError";
 import { downloadQueue } from "./queue";
 import { isConnected } from "./database/database";
+import AnonymizedFile from "./AnonymizedFile";
 
 export default class Repository {
   private _model: IAnonymizedRepositoryDocument;
@@ -48,12 +49,17 @@ export default class Repository {
    * @param opt force to get an updated list of files
    * @returns The anonymized file tree
    */
-  async anonymizedFiles(opt?: {
-    /** Force to refresh the file tree */
-    force?: boolean;
-    /** Include the file sha in the response */
-    includeSha: boolean;
-  }): Promise<Tree> {
+  async anonymizedFiles(
+    opt: {
+      /** Force to refresh the file tree */
+      force?: boolean;
+      /** Include the file sha in the response */
+      includeSha: boolean;
+    } = {
+      force: false,
+      includeSha: false,
+    }
+  ): Promise<Tree> {
     const terms = this._model.options.terms || [];
 
     function anonymizeTreeRecursive(tree: TreeElement): TreeElement {
@@ -78,11 +84,11 @@ export default class Repository {
    * @param opt force to get an updated list of files
    * @returns The file tree
    */
-  async files(opt?: { force?: boolean }) {
+  async files(opt: { force?: boolean } = { force: false }): Promise<Tree> {
     if (
       this._model.originalFiles &&
       Object.keys(this._model.originalFiles).length !== 0 &&
-      !opt?.force
+      !opt.force
     ) {
       return this._model.originalFiles;
     }
@@ -90,9 +96,6 @@ export default class Repository {
     this._model.originalFiles = files;
     this._model.size = { storage: 0, file: 0 };
     await this.computeSize();
-    await this._model.save();
-
-    this._model.originalFiles = files;
     return files;
   }
 
@@ -140,8 +143,13 @@ export default class Repository {
   zip(): Readable {
     return storage.archive(this.originalCachePath, {
       format: "zip",
-      fileTransformer: (filename) =>
-        anonymizeStream(filename, this) as Transformer,
+      fileTransformer: (filename: string) =>
+        anonymizeStream(
+          new AnonymizedFile({
+            repository: this,
+            anonymizedPath: filename,
+          })
+        ) as Transformer,
     });
   }
 

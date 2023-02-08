@@ -109,7 +109,10 @@ router.post(
   "/:repoId/refresh",
   async (req: express.Request, res: express.Response) => {
     try {
-      const repo = await getRepo(req, res, { nocheck: true });
+      const repo = await getRepo(req, res, {
+        nocheck: true,
+        includeFiles: false,
+      });
       if (!repo) return;
 
       if (
@@ -133,7 +136,10 @@ router.post(
 router.delete(
   "/:repoId/",
   async (req: express.Request, res: express.Response) => {
-    const repo = await getRepo(req, res, { nocheck: true });
+    const repo = await getRepo(req, res, {
+      nocheck: true,
+      includeFiles: false,
+    });
     if (!repo) return;
     // if (repo.status == "removing") return res.json({ status: repo.status });
     try {
@@ -237,7 +243,10 @@ router.get(
 // get repository information
 router.get("/:repoId/", async (req: express.Request, res: express.Response) => {
   try {
-    const repo = await getRepo(req, res, { nocheck: true });
+    const repo = await getRepo(req, res, {
+      nocheck: true,
+      includeFiles: false,
+    });
     if (!repo) return;
 
     const user = await getUser(req);
@@ -327,7 +336,10 @@ router.post(
   "/:repoId/",
   async (req: express.Request, res: express.Response) => {
     try {
-      const repo = await getRepo(req, res, { nocheck: true });
+      const repo = await getRepo(req, res, {
+        nocheck: true,
+        includeFiles: false,
+      });
       if (!repo) return;
       const user = await getUser(req);
 

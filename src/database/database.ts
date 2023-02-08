@@ -21,14 +21,25 @@ export async function connect() {
   return database;
 }
 
-export async function getRepository(repoId: string) {
+export async function getRepository(
+  repoId: string,
+  opts: {
+    includeFiles: boolean;
+  } = {
+    includeFiles: true,
+  }
+) {
   if (!repoId || repoId == "undefined") {
     throw new AnonymousError("repo_not_found", {
       object: repoId,
       httpStatus: 404,
     });
   }
-  const data = await AnonymizedRepositoryModel.findOne({ repoId });
+  const project: any = {};
+  if (!opts.includeFiles) {
+    project.originalFiles = 0;
+  }
+  const data = await AnonymizedRepositoryModel.findOne({ repoId }, project);
   if (!data)
     throw new AnonymousError("repo_not_found", {
       object: repoId,

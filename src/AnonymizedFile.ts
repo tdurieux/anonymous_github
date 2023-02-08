@@ -38,7 +38,7 @@ export default class AnonymizedFile {
 
   repository: Repository;
   anonymizedPath: string;
-  sha?: string;
+  _sha?: string;
 
   constructor(data: { repository: Repository; anonymizedPath: string }) {
     this.repository = data.repository;
@@ -48,6 +48,12 @@ export default class AnonymizedFile {
         httpStatus: 400,
       });
     this.anonymizedPath = data.anonymizedPath;
+  }
+
+  async sha() {
+    if (this._sha) return this._sha;
+    await this.originalPath();
+    return this._sha;
   }
 
   /**
@@ -118,7 +124,7 @@ export default class AnonymizedFile {
 
     const file: TreeFile = currentAnonymized as TreeFile;
     this.fileSize = file.size;
-    this.sha = file.sha;
+    this._sha = file.sha;
 
     if (isAmbiguous) {
       // it should never happen
@@ -134,16 +140,15 @@ export default class AnonymizedFile {
     } else {
       this._originalPath = currentOriginalPath;
     }
-
     return this._originalPath;
   }
-  async extension() {
-    const filename = basename(await this.originalPath());
+  extension() {
+    const filename = basename(this.anonymizedPath);
     const extensions = filename.split(".").reverse();
     return extensions[0].toLowerCase();
   }
-  async isImage(): Promise<boolean> {
-    const extension = await this.extension();
+  isImage() {
+    const extension = this.extension();
     return [
       "png",
       "jpg",
@@ -160,18 +165,21 @@ export default class AnonymizedFile {
       "heic",
     ].includes(extension);
   }
-  async isFileSupported() {
-    const extension = await this.extension();
+  isFileSupported() {
+    const extension = this.extension();
     if (!this.repository.options.pdf && extension == "pdf") {
       return false;
     }
-    if (!this.repository.options.image && (await this.isImage())) {
+    if (!this.repository.options.image && this.isImage()) {
       return false;
     }
     return true;
   }
 
   async content(): Promise<Readable> {
+    if (this.anonymizedPath.includes(config.ANONYMIZATION_MASK)) {
+      await this.originalPath();
+    }
     if (this.fileSize && this.fileSize > config.MAX_FILE_SIZE) {
       throw new AnonymousError("file_too_big", {
         object: this,
@@ -185,9 +193,8 @@ export default class AnonymizedFile {
   }
 
   async anonymizedContent() {
-    await this.originalPath();
     const rs = await this.content();
-    return rs.pipe(anonymizeStream(await this.originalPath(), this.repository));
+    return rs.pipe(anonymizeStream(this));
   }
 
   get originalCachePath() {
@@ -196,14 +203,25 @@ export default class AnonymizedFile {
         object: this,
         httpStatus: 400,
       });
+    if (!this._originalPath) {
+      if (this.anonymizedPath.includes(config.ANONYMIZATION_MASK)) {
+        throw new AnonymousError("path_not_defined", {
+          object: this,
+          httpStatus: 400,
+        });
+      } else {
+        return join(this.repository.originalCachePath, this.anonymizedPath);
+      }
+    }
+
     return join(this.repository.originalCachePath, this._originalPath);
   }
 
   async send(res: Response): Promise<void> {
     const pipe = promisify(pipeline);
     try {
-      if (await this.extension()) {
-        res.contentType(await this.extension());
+      if (this.extension()) {
+        res.contentType(this.extension());
       }
       await pipe(await this.anonymizedContent(), res);
     } catch (error) {

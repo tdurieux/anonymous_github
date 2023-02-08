@@ -27,6 +27,9 @@ export default class S3Storage implements StorageBase {
       endpoint: config.S3_ENDPOINT,
       accessKeyId: config.S3_CLIENT_ID,
       secretAccessKey: config.S3_CLIENT_SECRET,
+      httpOptions: {
+        timeout: 1000 * 60 * 60 * 2, // 2 hour
+      }
     });
   }
 
