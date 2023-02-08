@@ -32,9 +32,10 @@ async function getTokenForAdmin(user: User, req: express.Request) {
         },
         {
           "source.accessToken": 1,
+          owner: 1,
         }
       ).exec();
-      if (existingRepo) {
+      if (existingRepo && existingRepo.owner != user.id) {
         return existingRepo.source.accessToken;
       }
     } catch (error) {

@@ -102,7 +102,7 @@ export default class Repository {
     }
     if (
       this._model.originalFiles &&
-      this._model.size.file !== 0 &&
+      Object.getOwnPropertyNames(this._model.originalFiles).length !== 0 &&
       !opt.force
     ) {
       return this._model.originalFiles;
@@ -110,7 +110,9 @@ export default class Repository {
     const files = await this.source.getFiles();
     this._model.originalFiles = files;
     this._model.size = { storage: 0, file: 0 };
+    console.log("Size", this._model.originalFiles);
     await this.computeSize();
+    console.log("Size", this._model);
     return files;
   }
 
@@ -305,7 +307,7 @@ export default class Repository {
      */
     file: number;
   }> {
-    if (this.status != "ready") return { storage: 0, file: 0 };
+    if (this.status !== RepositoryStatus.READY) return { storage: 0, file: 0 };
     if (this._model.size.file) return this._model.size;
     function recursiveCount(files: Tree): { storage: number; file: number } {
       const out = { storage: 0, file: 0 };

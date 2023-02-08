@@ -1,14 +1,14 @@
 import { Branch } from "../types";
 import * as gh from "parse-github-url";
 import { IRepositoryDocument } from "../database/repositories/repositories.types";
-import { Octokit } from "@octokit/rest";
+import { Octokit, RestEndpointMethodTypes } from "@octokit/rest";
 import RepositoryModel from "../database/repositories/repositories.model";
 import AnonymousError from "../AnonymousError";
 
 export class GitHubRepository {
-  private _data: Partial<
-    { [P in keyof IRepositoryDocument]: IRepositoryDocument[P] }
-  >;
+  private _data: Partial<{
+    [P in keyof IRepositoryDocument]: IRepositoryDocument[P];
+  }>;
   constructor(
     data: Partial<{ [P in keyof IRepositoryDocument]: IRepositoryDocument[P] }>
   ) {
@@ -167,7 +167,7 @@ export async function getRepositoryFromGitHub(opt: {
     opt.repo = opt.repo.replace(".git", "");
   }
   const octokit = new Octokit({ auth: opt.accessToken });
-  let r;
+  let r: RestEndpointMethodTypes["repos"]["get"]["response"]["data"];
   try {
     r = (
       await octokit.repos.get({
