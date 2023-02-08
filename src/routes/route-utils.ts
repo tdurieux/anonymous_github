@@ -39,7 +39,7 @@ export async function getRepo(
   res: express.Response,
   opt: { nocheck?: boolean; includeFiles?: boolean } = {
     nocheck: false,
-    includeFiles: true,
+    includeFiles: false,
   }
 ) {
   try {
@@ -108,7 +108,7 @@ export function handleError(
   if (error.httpStatus) {
     status = error.httpStatus;
   } else if (message && message.indexOf("not_found") > -1) {
-    status = 400;
+    status = 404;
   } else if (message && message.indexOf("not_connected") > -1) {
     status = 401;
   }
@@ -121,17 +121,14 @@ export function handleError(
 export async function getUser(req: express.Request) {
   const user = (req.user as any).user;
   if (!user) {
-    req.logout((error) => console.error(error));
+    req.logout((error) => {
+      if (error) {
+        console.error(`[ERROR] Error while logging out: ${error}`);
+      }
+    });
     throw new AnonymousError("not_connected", {
       httpStatus: 401,
     });
   }
-  const model = await UserModel.findById(user._id);
-  if (!model) {
-    req.logout((error) => console.error(error));
-    throw new AnonymousError("not_connected", {
-      httpStatus: 401,
-    });
-  }
-  return new User(model);
+  return new User(new UserModel(user));
 }

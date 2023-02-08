@@ -14,12 +14,13 @@ router.get(
     }
     anonymizedPath = anonymizedPath;
 
-    const repo = await getRepo(req, res);
+    const repo = await getRepo(req, res, {
+      nocheck: false,
+      includeFiles: false,
+    });
     if (!repo) return;
 
     try {
-      await repo.countView();
-
       const f = new AnonymizedFile({
         repository: repo,
         anonymizedPath,
@@ -35,7 +36,7 @@ router.get(
       );
       // cache the file for 5min
       res.header("Cache-Control", "max-age=300");
-      await f.send(res);
+      await Promise.all([repo.countView(), f.send(res)]);
     } catch (error) {
       return handleError(error, res, req);
     }

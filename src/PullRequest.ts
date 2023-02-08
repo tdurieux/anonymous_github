@@ -135,10 +135,10 @@ export default class PullRequest {
    * @returns void
    */
   async anonymize() {
-    if (this.status == "ready") return;
-    await this.updateStatus("preparing");
+    if (this.status === RepositoryStatus.READY) return;
+    await this.updateStatus(RepositoryStatus.PREPARING);
     await this.updateIfNeeded({ force: true });
-    return this.updateStatus("ready");
+    return this.updateStatus(RepositoryStatus.READY);
   }
 
   /**
@@ -166,18 +166,18 @@ export default class PullRequest {
    * Expire the pullRequest
    */
   async expire() {
-    await this.updateStatus("expiring");
+    await this.updateStatus(RepositoryStatus.EXPIRING);
     await this.resetSate();
-    await this.updateStatus("expired");
+    await this.updateStatus(RepositoryStatus.EXPIRED);
   }
 
   /**
    * Remove the pullRequest
    */
   async remove() {
-    await this.updateStatus("removing");
+    await this.updateStatus(RepositoryStatus.REMOVING);
     await this.resetSate();
-    await this.updateStatus("removed");
+    await this.updateStatus(RepositoryStatus.REMOVED);
   }
 
   /**

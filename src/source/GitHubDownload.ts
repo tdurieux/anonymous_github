@@ -5,7 +5,7 @@ import Repository from "../Repository";
 
 import GitHubBase from "./GitHubBase";
 import AnonymizedFile from "../AnonymizedFile";
-import { SourceBase } from "../types";
+import { RepositoryStatus, SourceBase } from "../types";
 import got from "got";
 import { Readable } from "stream";
 import { OctokitResponse } from "@octokit/types";
@@ -60,7 +60,10 @@ export default class GitHubDownload extends GitHubBase implements SourceBase {
         try {
           response = await this._getZipUrl(config.GITHUB_TOKEN);
         } catch (error) {
-          await this.repository.resetSate("error", "repo_not_accessible");
+          await this.repository.resetSate(
+            RepositoryStatus.ERROR,
+            "repo_not_accessible"
+          );
           throw new AnonymousError("repo_not_accessible", {
             httpStatus: 404,
             cause: error,
@@ -68,7 +71,10 @@ export default class GitHubDownload extends GitHubBase implements SourceBase {
           });
         }
       } else {
-        await this.repository.resetSate("error", "repo_not_accessible");
+        await this.repository.resetSate(
+          RepositoryStatus.ERROR,
+          "repo_not_accessible"
+        );
         throw new AnonymousError("repo_not_accessible", {
           httpStatus: 404,
           object: this.repository,
@@ -76,7 +82,7 @@ export default class GitHubDownload extends GitHubBase implements SourceBase {
         });
       }
     }
-    await this.repository.updateStatus("download");
+    await this.repository.updateStatus(RepositoryStatus.DOWNLOAD);
     const originalPath = this.repository.originalCachePath;
     await storage.mk(originalPath);
     let progress = null;
@@ -102,7 +108,10 @@ export default class GitHubDownload extends GitHubBase implements SourceBase {
       downloadStream.addListener("downloadProgress", (p) => (progress = p));
       await storage.extractZip(originalPath, downloadStream, null, this);
     } catch (error) {
-      await this.repository.updateStatus("error", "unable_to_download");
+      await this.repository.updateStatus(
+        RepositoryStatus.ERROR,
+        "unable_to_download"
+      );
       throw new AnonymousError("unable_to_download", {
         httpStatus: 500,
         cause: error,
@@ -113,7 +122,7 @@ export default class GitHubDownload extends GitHubBase implements SourceBase {
       clearTimeout(progressTimeout);
     }
 
-    await this.repository.updateStatus("ready");
+    await this.repository.updateStatus(RepositoryStatus.READY);
   }
 
   async getFileContent(file: AnonymizedFile): Promise<Readable> {

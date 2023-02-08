@@ -29,7 +29,7 @@ export default class S3Storage implements StorageBase {
       secretAccessKey: config.S3_CLIENT_SECRET,
       httpOptions: {
         timeout: 1000 * 60 * 60 * 2, // 2 hour
-      }
+      },
     });
   }
 
@@ -106,10 +106,7 @@ export default class S3Storage implements StorageBase {
           res.set("Content-Length", headers["content-length"]);
           res.set("Content-Type", headers["content-type"]);
         }
-        pipeline(
-          response.httpResponse.createUnbufferedStream() as Readable,
-          res
-        );
+        (response.httpResponse.createUnbufferedStream() as Readable).pipe(res);
       });
 
     s.send();
@@ -139,7 +136,7 @@ export default class S3Storage implements StorageBase {
       ContentType: lookup(path).toString(),
     };
     if (source) {
-      params.Tagging = `source=${source.type}`
+      params.Tagging = `source=${source.type}`;
     }
     await this.client.putObject(params).promise();
     return;

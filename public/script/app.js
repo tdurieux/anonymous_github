@@ -508,7 +508,6 @@ angular
         $http.get("/api/user").then(
           (res) => {
             if (res) $scope.user = res.data;
-            getQuota();
           },
           () => {
             $scope.user = null;
@@ -528,22 +527,6 @@ angular
         );
       }
       getOptions();
-      function getQuota() {
-        $http.get("/api/user/quota").then((res) => {
-          $scope.quota = res.data;
-          $scope.quota.storage.percent = $scope.quota.storage.total
-            ? ($scope.quota.storage.used * 100) / $scope.quota.storage.total
-            : 100;
-          $scope.quota.file.percent = $scope.quota.file.total
-            ? ($scope.quota.file.used * 100) / $scope.quota.file.total
-            : 100;
-          $scope.quota.repository.percent = $scope.quota.repository.total
-            ? ($scope.quota.repository.used * 100) /
-              $scope.quota.repository.total
-            : 100;
-        }, console.error);
-      }
-      getQuota();
 
       function getMessage() {
         $http.get("/api/message").then(
@@ -702,6 +685,23 @@ angular
         status: { ready: true, expired: true, removed: false },
       };
       $scope.orderBy = "-anonymizeDate";
+
+      function getQuota() {
+        $http.get("/api/user/quota").then((res) => {
+          $scope.quota = res.data;
+          $scope.quota.storage.percent = $scope.quota.storage.total
+            ? ($scope.quota.storage.used * 100) / $scope.quota.storage.total
+            : 100;
+          $scope.quota.file.percent = $scope.quota.file.total
+            ? ($scope.quota.file.used * 100) / $scope.quota.file.total
+            : 100;
+          $scope.quota.repository.percent = $scope.quota.repository.total
+            ? ($scope.quota.repository.used * 100) /
+              $scope.quota.repository.total
+            : 100;
+        }, console.error);
+      }
+      getQuota();
 
       function getRepositories() {
         $http.get("/api/user/anonymized_repositories").then(

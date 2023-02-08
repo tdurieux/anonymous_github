@@ -6,6 +6,7 @@ import FileSystem from "./storage/FileSystem";
 import AnonymizedFile from "./AnonymizedFile";
 import * as stream from "stream";
 import * as archiver from "archiver";
+import { Response } from "express";
 
 export interface SourceBase {
   readonly type: string;
@@ -43,6 +44,8 @@ export interface StorageBase {
    */
   exists(path: string): Promise<boolean>;
 
+  send(p: string, res: Response): void;
+
   /**
    * Read the content of a file
    * @param path the path to the file
@@ -56,7 +59,12 @@ export interface StorageBase {
    * @param file the file
    * @param source the source of the file
    */
-  write(path: string, data: Buffer, file?: AnonymizedFile, source?: SourceBase): Promise<void>;
+  write(
+    path: string,
+    data: Buffer,
+    file?: AnonymizedFile,
+    source?: SourceBase
+  ): Promise<void>;
 
   /**
    * List the files from dir
@@ -71,7 +79,12 @@ export interface StorageBase {
    * @param file the file
    * @param source the source of the file
    */
-  extractZip(dir: string, tar: stream.Readable, file?: AnonymizedFile, source?: SourceBase): Promise<void>;
+  extractZip(
+    dir: string,
+    tar: stream.Readable,
+    file?: AnonymizedFile,
+    source?: SourceBase
+  ): Promise<void>;
 
   /**
    * Remove the path
@@ -113,16 +126,17 @@ export interface Branch {
   readme?: string;
 }
 
-export type RepositoryStatus =
-  | "queue"
-  | "preparing"
-  | "download"
-  | "ready"
-  | "expired"
-  | "expiring"
-  | "removed"
-  | "removing"
-  | "error";
+export enum RepositoryStatus {
+  QUEUE = "queue",
+  PREPARING = "preparing",
+  DOWNLOAD = "download",
+  READY = "ready",
+  EXPIRED = "expired",
+  EXPIRING = "expiring",
+  REMOVED = "removed",
+  REMOVING = "removing",
+  ERROR = "error",
+}
 
 export type ConferenceStatus = "ready" | "expired" | "removed";
 

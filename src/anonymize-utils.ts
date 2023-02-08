@@ -1,5 +1,4 @@
 import config from "../config";
-import Repository from "./Repository";
 import GitHubBase from "./source/GitHubBase";
 import { isText } from "istextorbinary";
 import { basename } from "path";
@@ -60,9 +59,9 @@ export function anonymizeStream(file: AnonymizedFile) {
 
   ts._flush = function _flush(cb) {
     if (chunks.length) {
-      let data: any = Buffer.concat(chunks, len);
+      let data = Buffer.concat(chunks, len);
       if (isText(file.anonymizedPath, data)) {
-        data = anonymizeContent(data.toString(), file.repository);
+        data = Buffer.from(anonymizeContent(data.toString(), file.repository));
       }
 
       this.push(data);

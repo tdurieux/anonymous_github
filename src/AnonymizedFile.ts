@@ -1,33 +1,13 @@
 import { join, basename } from "path";
 import { Response } from "express";
-import { Readable, pipeline } from "stream";
-import { promisify } from "util";
+import { Readable } from "stream";
 import Repository from "./Repository";
-import { Tree, TreeElement, TreeFile } from "./types";
+import { TreeElement, TreeFile } from "./types";
 import storage from "./storage";
 import config from "../config";
 import { anonymizePath, anonymizeStream } from "./anonymize-utils";
 import AnonymousError from "./AnonymousError";
 import { handleError } from "./routes/route-utils";
-
-function tree2sha(
-  tree: any,
-  output: { [key: string]: string } = {},
-  parent: string = ""
-): { [key: string]: string } {
-  for (let i in tree) {
-    const sha = tree[i].sha as string;
-    const size = tree[i].size as number;
-    if (sha != null && size != null) {
-      output[sha] = join(parent, i);
-    } else if (tree[i].child) {
-      tree2sha(tree[i].child as Tree, output, join(parent, i));
-    } else {
-      tree2sha(tree[i] as Tree, output, join(parent, i));
-    }
-  }
-  return output;
-}
 
 /**
  * Represent a file in a anonymized repository
@@ -70,27 +50,16 @@ export default class AnonymizedFile {
       });
 
     const paths = this.anonymizedPath.trim().split("/");
-
-    let currentAnonymized: TreeElement = await this.repository.anonymizedFiles({
-      includeSha: true,
-    });
-    let currentOriginal: TreeElement = await this.repository.files();
+    let currentOriginal = (await this.repository.files({
+      force: false,
+    })) as TreeElement;
     let currentOriginalPath = "";
-    let isAmbiguous = false;
     for (let i = 0; i < paths.length; i++) {
       const fileName = paths[i];
       if (fileName == "") {
         continue;
       }
-      if (!currentAnonymized[fileName]) {
-        throw new AnonymousError("file_not_found", {
-          object: this,
-          httpStatus: 404,
-        });
-      }
-      currentAnonymized = currentAnonymized[fileName];
-
-      if (!isAmbiguous && !currentOriginal[fileName]) {
+      if (!currentOriginal[fileName]) {
         // anonymize all the file in the folder and check if there is one that match the current filename
         const options = [];
         for (let originalFileName in currentOriginal) {
@@ -106,40 +75,55 @@ export default class AnonymizedFile {
         if (options.length == 1) {
           currentOriginalPath = join(currentOriginalPath, options[0]);
           currentOriginal = currentOriginal[options[0]];
+        } else if (options.length == 0) {
+          throw new AnonymousError("file_not_found", {
+            object: this,
+            httpStatus: 404,
+          });
         } else {
-          isAmbiguous = true;
+          const nextName = paths[i + 1];
+          if (!nextName) {
+            // if there is no next name we can't find the file and we return the first option
+            currentOriginalPath = join(currentOriginalPath, options[0]);
+            currentOriginal = currentOriginal[options[0]];
+          }
+          let found = false;
+          for (const option of options) {
+            const optionTree = currentOriginal[option];
+            if (optionTree.child) {
+              const optionTreeChild = optionTree.child;
+              if (optionTreeChild[nextName]) {
+                currentOriginalPath = join(currentOriginalPath, option);
+                currentOriginal = optionTreeChild;
+                found = true;
+                break;
+              }
+            }
+          }
+          if (!found) {
+            // if we didn't find the next name we return the first option
+            currentOriginalPath = join(currentOriginalPath, options[0]);
+            currentOriginal = currentOriginal[options[0]];
+          }
         }
-      } else if (!isAmbiguous) {
+      } else {
         currentOriginalPath = join(currentOriginalPath, fileName);
         currentOriginal = currentOriginal[fileName];
       }
     }
 
     if (
-      currentAnonymized.sha === undefined ||
-      currentAnonymized.size === undefined
+      currentOriginal.sha === undefined ||
+      currentOriginal.size === undefined
     ) {
       throw new AnonymousError("folder_not_supported", { object: this });
     }
 
-    const file: TreeFile = currentAnonymized as TreeFile;
+    const file = currentOriginal as TreeFile;
     this.fileSize = file.size;
     this._sha = file.sha;
 
-    if (isAmbiguous) {
-      // it should never happen
-      const shaTree = tree2sha(currentOriginal);
-      if (!currentAnonymized.sha || !shaTree[file.sha]) {
-        throw new AnonymousError("file_not_found", {
-          object: this,
-          httpStatus: 404,
-        });
-      }
-
-      this._originalPath = join(currentOriginalPath, shaTree[file.sha]);
-    } else {
-      this._originalPath = currentOriginalPath;
-    }
+    this._originalPath = currentOriginalPath;
     return this._originalPath;
   }
   extension() {
@@ -193,8 +177,7 @@ export default class AnonymizedFile {
   }
 
   async anonymizedContent() {
-    const rs = await this.content();
-    return rs.pipe(anonymizeStream(this));
+    return (await this.content()).pipe(anonymizeStream(this));
   }
 
   get originalCachePath() {
@@ -218,14 +201,24 @@ export default class AnonymizedFile {
   }
 
   async send(res: Response): Promise<void> {
-    const pipe = promisify(pipeline);
-    try {
-      if (this.extension()) {
-        res.contentType(this.extension());
-      }
-      await pipe(await this.anonymizedContent(), res);
-    } catch (error) {
-      handleError(error, res);
+    if (this.extension()) {
+      res.contentType(this.extension());
     }
+    if (this.fileSize) {
+      res.set("Content-Length", this.fileSize.toString());
+    }
+    return new Promise(async (resolve, reject) => {
+      try {
+        (await this.anonymizedContent())
+          .pipe(res)
+          .on("close", () => resolve())
+          .on("error", (error) => {
+            reject(error);
+            handleError(error, res);
+          });
+      } catch (error) {
+        handleError(error, res);
+      }
+    });
   }
 }

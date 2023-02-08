@@ -6,6 +6,7 @@ import config from "../../config";
 import { getRepo, handleError } from "./route-utils";
 import AnonymousError from "../AnonymousError";
 import { downloadQueue } from "../queue";
+import { RepositoryStatus } from "../types";
 
 const router = express.Router();
 
@@ -61,7 +62,7 @@ router.get(
   "/:repoId/files",
   async (req: express.Request, res: express.Response) => {
     res.header("Cache-Control", "no-cache");
-    const repo = await getRepo(req, res);
+    const repo = await getRepo(req, res, { includeFiles: true });
     if (!repo) return;
     try {
       res.json(await repo.anonymizedFiles({ includeSha: false }));
@@ -76,7 +77,10 @@ router.get(
   async (req: express.Request, res: express.Response) => {
     try {
       res.header("Cache-Control", "no-cache");
-      const repo = await getRepo(req, res, { nocheck: true, includeFiles: false });
+      const repo = await getRepo(req, res, {
+        nocheck: true,
+        includeFiles: false,
+      });
       if (!repo) return;
       let redirectURL = null;
       if (
@@ -105,7 +109,7 @@ router.get(
             repo.model.statusDate < fiveMinuteAgo
             // && repo.status != "preparing"
           ) {
-            await repo.updateStatus("preparing");
+            await repo.updateStatus(RepositoryStatus.PREPARING);
             await downloadQueue.add(repo.repoId, repo, {
               jobId: repo.repoId,
               attempts: 3,

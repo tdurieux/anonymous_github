@@ -3,7 +3,7 @@ import AnonymizedFile from "../AnonymizedFile";
 import Repository from "../Repository";
 import GitHubBase from "./GitHubBase";
 import storage from "../storage";
-import { SourceBase, Tree } from "../types";
+import { RepositoryStatus, SourceBase, Tree } from "../types";
 import * as path from "path";
 
 import * as stream from "stream";
@@ -26,11 +26,6 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
   }
 
   async getFileContent(file: AnonymizedFile): Promise<stream.Readable> {
-    if (!file.sha)
-      throw new AnonymousError("file_sha_not_provided", {
-        httpStatus: 400,
-        object: file,
-      });
     const octokit = new Octokit({
       auth: await this.getToken(),
     });
@@ -57,12 +52,12 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
       } else {
         content = Buffer.from("");
       }
-      if (this.repository.status != "ready")
-        await this.repository.updateStatus("ready");
+      if (this.repository.status !== RepositoryStatus.READY)
+        await this.repository.updateStatus(RepositoryStatus.READY);
       await storage.write(file.originalCachePath, content, file, this);
       return stream.Readable.from(content);
     } catch (error) {
-      if (error.status == 404) {
+      if (error.status === 404 || error.httpStatus === 404) {
         throw new AnonymousError("file_not_found", {
           httpStatus: error.status,
           cause: error,
@@ -99,15 +94,18 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
     } catch (error) {
       if (error.status == 409) {
         // empty tree
-        if (this.repository.status != "ready")
-          await this.repository.updateStatus("ready");
+        if (this.repository.status != RepositoryStatus.READY)
+          await this.repository.updateStatus(RepositoryStatus.READY);
         // cannot be empty otherwise it would try to download it again
         return { __: {} };
       } else {
         console.log(
           `[ERROR] getTree ${this.repository.repoId}@${sha}: ${error.message}`
         );
-        await this.repository.resetSate("error", "repo_not_accessible");
+        await this.repository.resetSate(
+          RepositoryStatus.ERROR,
+          "repo_not_accessible"
+        );
         throw new AnonymousError("repo_not_accessible", {
           httpStatus: error.status,
           cause: error,
@@ -124,8 +122,8 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
     if (ghRes.truncated) {
       await this.getTruncatedTree(sha, tree, parentPath, count);
     }
-    if (this.repository.status != "ready")
-      await this.repository.updateStatus("ready");
+    if (this.repository.status !== RepositoryStatus.READY)
+      await this.repository.updateStatus(RepositoryStatus.READY);
     return tree;
   }
 

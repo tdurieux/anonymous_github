@@ -1,8 +1,15 @@
 import { SandboxedJob } from "bullmq";
 import Repository from "../Repository";
+import { getRepository as getRepositoryImport } from "../database/database";
 
 export default async function (job: SandboxedJob<Repository, void>) {
-  const { connect, getRepository } = require("../database/database");
+  const {
+    connect,
+    getRepository,
+  }: {
+    connect: () => Promise<void>;
+    getRepository: typeof getRepositoryImport;
+  } = require("../database/database");
   try {
     await connect();
     console.log(

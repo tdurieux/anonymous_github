@@ -15,7 +15,10 @@ const AnonymizedRepositorySchema = new Schema({
   lastView: Date,
   pageView: Number,
   accessToken: String,
-  owner: Schema.Types.ObjectId,
+  owner: {
+    type: Schema.Types.ObjectId,
+    index: true,
+  },
   conference: String,
   source: {
     type: { type: String },

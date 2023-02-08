@@ -16,6 +16,7 @@ import AnonymousError from "../AnonymousError";
 import { downloadQueue, removeQueue } from "../queue";
 import RepositoryModel from "../database/repositories/repositories.model";
 import User from "../User";
+import { RepositoryStatus } from "../types";
 
 const router = express.Router();
 
@@ -150,7 +151,7 @@ router.delete(
         });
       const user = await getUser(req);
       isOwnerOrAdmin([repo.owner.id], user);
-      await repo.updateStatus("removing");
+      await repo.updateStatus(RepositoryStatus.REMOVING);
       await removeQueue.add(repo.repoId, repo, { jobId: repo.repoId });
       return res.json({ status: repo.status });
     } catch (error) {
@@ -406,7 +407,7 @@ router.post(
         }
       }
       repo.model.conference = repoUpdate.conference;
-      await repo.updateStatus("preparing");
+      await repo.updateStatus(RepositoryStatus.PREPARING);
       res.json({ status: repo.status });
       await downloadQueue.add(repo.repoId, repo, { jobId: repo.repoId });
     } catch (error) {

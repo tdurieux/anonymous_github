@@ -17,6 +17,29 @@ import AnonymousError from "./AnonymousError";
 import { downloadQueue } from "./queue";
 import { isConnected } from "./database/database";
 import AnonymizedFile from "./AnonymizedFile";
+import AnonymizedRepositoryModel from "./database/anonymizedRepositories/anonymizedRepositories.model";
+
+function anonymizeTreeRecursive(
+  tree: TreeElement,
+  terms: string[],
+  opt: {
+    /** Include the file sha in the response */
+    includeSha: boolean;
+  } = {
+    includeSha: false,
+  }
+): TreeElement {
+  if (typeof tree.size !== "object" && tree.sha !== undefined) {
+    if (opt?.includeSha) return tree as TreeFile;
+    return { size: tree.size } as TreeFile;
+  }
+  const output: Tree = {};
+  Object.getOwnPropertyNames(tree).forEach((file) => {
+    const anonymizedPath = anonymizePath(file, terms);
+    output[anonymizedPath] = anonymizeTreeRecursive(tree[file], terms, opt);
+  });
+  return output;
+}
 
 export default class Repository {
   private _model: IAnonymizedRepositoryDocument;
@@ -61,21 +84,7 @@ export default class Repository {
     }
   ): Promise<Tree> {
     const terms = this._model.options.terms || [];
-
-    function anonymizeTreeRecursive(tree: TreeElement): TreeElement {
-      if (Number.isInteger(tree.size) && tree.sha !== undefined) {
-        if (opt?.includeSha) return tree as TreeFile;
-        return { size: tree.size } as TreeFile;
-      }
-      const output: Tree = {};
-      for (const file in tree) {
-        const anonymizedPath = anonymizePath(file, terms);
-        output[anonymizedPath] = anonymizeTreeRecursive(tree[file]);
-      }
-      return output;
-    }
-
-    return anonymizeTreeRecursive(await this.files(opt)) as Tree;
+    return anonymizeTreeRecursive(await this.files(opt), terms, opt) as Tree;
   }
 
   /**
@@ -85,9 +94,15 @@ export default class Repository {
    * @returns The file tree
    */
   async files(opt: { force?: boolean } = { force: false }): Promise<Tree> {
+    if (!this._model.originalFiles && !opt.force) {
+      const res = await AnonymizedRepositoryModel.findById(this._model._id, {
+        originalFiles: 1,
+      });
+      this.model.originalFiles = res.originalFiles;
+    }
     if (
       this._model.originalFiles &&
-      Object.keys(this._model.originalFiles).length !== 0 &&
+      this._model.size.file !== 0 &&
       !opt.force
     ) {
       return this._model.originalFiles;
@@ -185,7 +200,7 @@ export default class Repository {
           console.error(
             `${branch.name} for ${this.source.githubRepository.fullName} is not found`
           );
-          await this.updateStatus("error", "branch_not_found");
+          await this.updateStatus(RepositoryStatus.ERROR, "branch_not_found");
           await this.resetSate();
           throw new AnonymousError("branch_not_found", {
             object: this,
@@ -193,7 +208,7 @@ export default class Repository {
         }
         this._model.anonymizeDate = new Date();
         console.log(`${this._model.repoId} will be updated to ${newCommit}`);
-        await this.resetSate("preparing");
+        await this.resetSate(RepositoryStatus.PREPARING);
         await downloadQueue.add(this.repoId, this, {
           jobId: this.repoId,
           attempts: 3,
@@ -207,19 +222,19 @@ export default class Repository {
    * @returns void
    */
   async anonymize() {
-    if (this.status == "ready") return;
-    await this.updateStatus("preparing");
+    if (this.status === RepositoryStatus.READY) return;
+    await this.updateStatus(RepositoryStatus.PREPARING);
     await this.files();
-    return this.updateStatus("ready");
+    return this.updateStatus(RepositoryStatus.READY);
   }
 
   /**
    * Update the last view and view count
    */
   async countView() {
-    if (!isConnected) return this.model;
     this._model.lastView = new Date();
     this._model.pageView = (this._model.pageView || 0) + 1;
+    if (!isConnected) return this.model;
     return this._model.save();
   }
 
@@ -241,18 +256,18 @@ export default class Repository {
    * Expire the repository
    */
   async expire() {
-    await this.updateStatus("expiring");
+    await this.updateStatus(RepositoryStatus.EXPIRING);
     await this.resetSate();
-    await this.updateStatus("expired");
+    await this.updateStatus(RepositoryStatus.EXPIRED);
   }
 
   /**
    * Remove the repository
    */
   async remove() {
-    await this.updateStatus("removing");
+    await this.updateStatus(RepositoryStatus.REMOVING);
     await this.resetSate();
-    await this.updateStatus("removed");
+    await this.updateStatus(RepositoryStatus.REMOVED);
   }
 
   /**
