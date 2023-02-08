@@ -110,9 +110,7 @@ export default class Repository {
     const files = await this.source.getFiles();
     this._model.originalFiles = files;
     this._model.size = { storage: 0, file: 0 };
-    console.log("Size", this._model.originalFiles);
     await this.computeSize();
-    console.log("Size", this._model);
     return files;
   }
 
