@@ -30,11 +30,18 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
       auth: await this.getToken(),
     });
 
+    const file_sha = await file.sha();
+    if (!file_sha) {
+      throw new AnonymousError("file_not_accessible", {
+        httpStatus: 404,
+        object: file,
+      });
+    }
     try {
       const ghRes = await octokit.rest.git.getBlob({
         owner: this.githubRepository.owner,
         repo: this.githubRepository.repo,
-        file_sha: await file.sha(),
+        file_sha,
       });
       if (!ghRes.data.content && ghRes.data.size != 0) {
         throw new AnonymousError("file_not_accessible", {
@@ -57,16 +64,16 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
       await storage.write(file.originalCachePath, content, file, this);
       return stream.Readable.from(content);
     } catch (error) {
-      if (error.status === 404 || error.httpStatus === 404) {
+      if ((error as any).status === 404 || (error as any).httpStatus === 404) {
         throw new AnonymousError("file_not_found", {
-          httpStatus: error.status,
-          cause: error,
+          httpStatus: (error as any).status || (error as any).httpStatus,
+          cause: error as Error,
           object: file,
         });
       }
       throw new AnonymousError("file_too_big", {
-        httpStatus: error.status,
-        cause: error,
+        httpStatus: (error as any).status || (error as any).httpStatus,
+        cause: error as Error,
         object: file,
       });
     }
@@ -92,7 +99,7 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
       count.request++;
       ghRes = await this.getGHTree(sha, { recursive: true });
     } catch (error) {
-      if (error.status == 409) {
+      if ((error as any).status == 409) {
         // empty tree
         if (this.repository.status != RepositoryStatus.READY)
           await this.repository.updateStatus(RepositoryStatus.READY);
@@ -100,15 +107,17 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
         return { __: {} };
       } else {
         console.log(
-          `[ERROR] getTree ${this.repository.repoId}@${sha}: ${error.message}`
+          `[ERROR] getTree ${this.repository.repoId}@${sha}: ${
+            (error as Error).message
+          }`
         );
         await this.repository.resetSate(
           RepositoryStatus.ERROR,
           "repo_not_accessible"
         );
         throw new AnonymousError("repo_not_accessible", {
-          httpStatus: error.status,
-          cause: error,
+          httpStatus: (error as any).status,
+          cause: error as Error,
           object: {
             owner: this.githubRepository.owner,
             repo: this.githubRepository.repo,
@@ -161,8 +170,8 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
     if (data.tree.length < 100 && count.request < 200) {
       const promises: Promise<any>[] = [];
       for (const file of data.tree) {
-        const elementPath = path.join(parentPath, file.path);
-        if (file.type == "tree") {
+        if (file.type == "tree" && file.path && file.sha) {
+          const elementPath = path.join(parentPath, file.path);
           promises.push(
             this.getTruncatedTree(
               file.sha,

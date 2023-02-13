@@ -31,15 +31,15 @@ export class GitHubRepository {
     return this._data;
   }
 
-  public get fullName(): string {
+  public get fullName(): string | undefined {
     return this._data.name;
   }
 
-  public get id(): string {
+  public get id(): string | undefined {
     return this._data.externalId;
   }
 
-  public get size(): number {
+  public get size(): number | undefined {
     return this._data.size;
   }
 
@@ -76,26 +76,29 @@ export class GitHubRepository {
         { $set: { branches } }
       );
     } else {
-      this._data.branches = (
-        await RepositoryModel.findOne({ externalId: this.id }).select(
-          "branches"
-        )
-      ).branches;
+      const q = await RepositoryModel.findOne({ externalId: this.id }).select(
+        "branches"
+      );
+      this._data.branches = q?.branches;
     }
 
-    return this._data.branches;
+    return this._data.branches || [];
   }
 
   async readme(opt: {
     branch?: string;
     force?: boolean;
     accessToken?: string;
-  }): Promise<string> {
+  }): Promise<string | undefined> {
     if (!opt.branch) opt.branch = this._data.defaultBranch || "master";
 
     const model = await RepositoryModel.findOne({
       externalId: this.id,
     }).select("branches");
+
+    if (!model) {
+      throw new AnonymousError("repo_not_found", { httpStatus: 404 });
+    }
 
     this._data.branches = await this.branches(opt);
     model.branches = this._data.branches;
@@ -119,7 +122,7 @@ export class GitHubRepository {
       } catch (error) {
         throw new AnonymousError("readme_not_available", {
           httpStatus: 404,
-          cause: error,
+          cause: error as Error,
           object: this,
         });
       }
@@ -136,6 +139,12 @@ export class GitHubRepository {
   }
 
   public get owner(): string {
+    if (!this.fullName) {
+      throw new AnonymousError("invalid_repo", {
+        httpStatus: 400,
+        object: this,
+      });
+    }
     const repo = gh(this.fullName);
     if (!repo) {
       throw new AnonymousError("invalid_repo", {
@@ -147,6 +156,12 @@ export class GitHubRepository {
   }
 
   public get repo(): string {
+    if (!this.fullName) {
+      throw new AnonymousError("invalid_repo", {
+        httpStatus: 400,
+        object: this,
+      });
+    }
     const repo = gh(this.fullName);
     if (!repo) {
       throw new AnonymousError("invalid_repo", {
@@ -177,12 +192,12 @@ export async function getRepositoryFromGitHub(opt: {
     ).data;
   } catch (error) {
     throw new AnonymousError("repo_not_found", {
-      httpStatus: error.status,
+      httpStatus: (error as any).status,
       object: {
         owner: opt.owner,
         repo: opt.repo,
       },
-      cause: error,
+      cause: error as Error,
     });
   }
   if (!r)

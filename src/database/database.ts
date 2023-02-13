@@ -13,6 +13,7 @@ export const database = mongoose.connection;
 export let isConnected = false;
 
 export async function connect() {
+  mongoose.set("strictQuery", false);
   await mongoose.connect(MONGO_URL + "production", {
     authSource: "admin",
     appName: "Anonymous GitHub Server",

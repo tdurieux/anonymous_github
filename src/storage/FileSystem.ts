@@ -5,7 +5,7 @@ import * as fs from "fs";
 import { Extract } from "unzip-stream";
 import { join, basename, dirname } from "path";
 import { Response } from "express";
-import { Readable, pipeline } from "stream";
+import { Readable, pipeline, Transform } from "stream";
 import * as archiver from "archiver";
 import { promisify } from "util";
 import AnonymizedFile from "../AnonymizedFile";
@@ -31,7 +31,12 @@ export default class FileSystem implements StorageBase {
   }
 
   /** @override */
-  async write(p: string, data: Buffer, file?: AnonymizedFile, source?: SourceBase): Promise<void> {
+  async write(
+    p: string,
+    data: Buffer,
+    file?: AnonymizedFile,
+    source?: SourceBase
+  ): Promise<void> {
     if (!(await this.exists(dirname(p)))) {
       await fs.promises.mkdir(dirname(join(config.FOLDER, p)), {
         recursive: true,
@@ -93,7 +98,12 @@ export default class FileSystem implements StorageBase {
   }
 
   /** @override */
-  async extractZip(p: string, data: Readable, file?: AnonymizedFile, source?: SourceBase): Promise<void> {
+  async extractZip(
+    p: string,
+    data: Readable,
+    file?: AnonymizedFile,
+    source?: SourceBase
+  ): Promise<void> {
     const pipe = promisify(pipeline);
     return pipe(
       data,
@@ -114,10 +124,10 @@ export default class FileSystem implements StorageBase {
     dir: string,
     opt?: {
       format?: "zip" | "tar";
-      fileTransformer?;
+      fileTransformer? (path: string): Transform;
     }
   ) {
-    const archive = archiver(opt?.format, {});
+    const archive = archiver(opt?.format || "zip", {});
 
     this.listFiles(dir, {
       onEntry: (file) => {

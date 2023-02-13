@@ -3,14 +3,18 @@
     "transpileOnly": true
   },
   "compilerOptions": {
+    "types": ["node"],
+    "lib": ["es6"],
     "target": "es6",
-    "module": "commonjs",
+    "module": "CommonJS",
     "outDir": "build",
     "removeComments": true,
     "preserveConstEnums": true,
     "forceConsistentCasingInFileNames": true,
     "sourceMap": false,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "strict": true,
+    "esModuleInterop": false
   },
   "include": ["src/**/*.ts", "index.ts", "cli.ts"],
   "exclude": ["node_modules", ".vscode"]

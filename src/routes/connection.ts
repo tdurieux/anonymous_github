@@ -10,8 +10,6 @@ import config from "../../config";
 import UserModel from "../database/users/users.model";
 import { IUserDocument } from "../database/users/users.types";
 
-const RedisStore = connectRedis(session);
-
 export function ensureAuthenticated(
   req: express.Request,
   res: express.Response,
@@ -29,7 +27,7 @@ const verify = async (
   profile: Profile,
   done: OAuth2Strategy.VerifyCallback
 ): Promise<void> => {
-  let user: IUserDocument;
+  let user: IUserDocument | null = null;
   try {
     user = await UserModel.findOne({ "externalIDs.github": profile.id });
     if (user) {
@@ -84,23 +82,27 @@ passport.deserializeUser((user: Express.User, done) => {
   done(null, user);
 });
 
-const redisClient = createClient({
-  legacyMode: true,
-  socket: {
-    port: config.REDIS_PORT,
-    host: config.REDIS_HOSTNAME,
-  },
-});
-redisClient.on("error", (err) => console.log("Redis Client Error", err));
-redisClient.connect();
-export const appSession = session({
-  secret: "keyboard cat",
-  store: new RedisStore({
-    client: redisClient,
-  }),
-  saveUninitialized: false,
-  resave: false,
-});
+export function initSession() {
+  const RedisStore = connectRedis(session);
+  const redisClient = createClient({
+    legacyMode: true,
+    socket: {
+      port: config.REDIS_PORT,
+      host: config.REDIS_HOSTNAME,
+    },
+  });
+  redisClient.on("error", (err) => console.log("Redis Client Error", err));
+  redisClient.connect();
+
+  return session({
+    secret: "keyboard cat",
+    store: new RedisStore({
+      client: redisClient,
+    }),
+    saveUninitialized: false,
+    resave: false,
+  });
+}
 
 export const router = express.Router();
 

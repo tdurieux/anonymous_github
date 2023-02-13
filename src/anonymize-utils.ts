@@ -10,7 +10,7 @@ const urlRegex =
   /<?\b((https?|ftp|file):\/\/)[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]\b\/?>?/g;
 
 export function streamToString(stream: Readable): Promise<string> {
-  const chunks = [];
+  const chunks: Buffer[] = [];
   return new Promise((resolve, reject) => {
     stream.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
     stream.on("error", (err) => reject(err));
@@ -33,7 +33,7 @@ export function isTextFile(filePath: string, content: Buffer) {
 
 export function anonymizeStream(file: AnonymizedFile) {
   const ts = new Transform();
-  var chunks = [],
+  var chunks: Buffer[] = [],
     len = 0,
     pos = 0;
 

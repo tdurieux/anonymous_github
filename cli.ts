@@ -10,6 +10,7 @@ import { tmpdir } from "os";
 import * as gh from "parse-github-url";
 import * as inquirer from "inquirer";
 
+import server from "./src/server";
 import config from "./config";
 import GitHubDownload from "./src/source/GitHubDownload";
 import Repository from "./src/Repository";
@@ -91,7 +92,7 @@ async function main() {
 if (require.main === module) {
   if (process.argv[2] == "server") {
     // start the server
-    require("./src/server").default();
+    server();
   } else {
     // use the cli interface
     main();

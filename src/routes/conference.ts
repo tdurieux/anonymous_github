@@ -4,6 +4,7 @@ import Conference from "../Conference";
 import ConferenceModel from "../database/conference/conferences.model";
 import { ensureAuthenticated } from "./connection";
 import { handleError, getUser, isOwnerOrAdmin } from "./route-utils";
+import { IConferenceDocument } from "../database/conference/conferences.types";
 
 const router = express.Router();
 
@@ -66,7 +67,7 @@ router.get("/", async (req: express.Request, res: express.Response) => {
   }
 });
 
-function validateConferenceForm(conf) {
+function validateConferenceForm(conf: any) {
   if (!conf.name)
     throw new AnonymousError("conf_name_missing", {
       object: conf,
@@ -148,11 +149,17 @@ router.post(
   async (req: express.Request, res: express.Response) => {
     try {
       const user = await getUser(req);
-      let model = new ConferenceModel();
+      let model: IConferenceDocument = new ConferenceModel();
       if (req.params.conferenceID) {
-        model = await ConferenceModel.findOne({
+        const queryModel = await ConferenceModel.findOne({
           conferenceID: req.params.conferenceID,
         });
+        if (!queryModel) {
+          throw new AnonymousError("conference_not_found", {
+            httpStatus: 404,
+          });
+        }
+        model = queryModel;
         isOwnerOrAdmin(model.owners, user);
       }
       validateConferenceForm(req.body);
@@ -197,7 +204,10 @@ router.post(
 
       res.send("ok");
     } catch (error) {
-      if (error.message?.indexOf(" duplicate key") > -1) {
+      if (
+        error instanceof Error &&
+        error.message?.indexOf(" duplicate key") > -1
+      ) {
         return handleError(
           new AnonymousError("conf_id_used", {
             object: req.params.conferenceID,
@@ -219,16 +229,18 @@ router.get(
         conferenceID: req.params.conferenceID,
       });
       if (!data)
-      throw new AnonymousError("conf_not_found", {
-        object: req.params.conferenceID,
-        httpStatus: 404,
-      });
+        throw new AnonymousError("conf_not_found", {
+          object: req.params.conferenceID,
+          httpStatus: 404,
+        });
       const user = await getUser(req);
       const conference = new Conference(data);
       try {
         isOwnerOrAdmin(conference.ownerIDs, user);
         const o: any = conference.toJSON();
-        o.repositories = (await conference.repositories()).map((r) => r.toJSON());
+        o.repositories = (await conference.repositories()).map((r) =>
+          r.toJSON()
+        );
         res.json(o);
       } catch (error) {
         return res.json({
@@ -238,7 +250,7 @@ router.get(
           startDate: conference.startDate,
           endDate: conference.endDate,
           options: conference.options,
-        })
+        });
       }
     } catch (error) {
       handleError(error, res, req);

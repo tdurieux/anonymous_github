@@ -9,7 +9,7 @@ export interface IAnonymizedPullRequest {
   anonymizeDate: Date;
   source: {
     pullRequestId: number;
-    repositoryFullName?: string;
+    repositoryFullName: string;
     accessToken?: string;
   };
   owner: string;

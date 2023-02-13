@@ -1,7 +1,7 @@
 import { SourceBase, StorageBase, Tree, TreeFile } from "../types";
 import { S3 } from "aws-sdk";
 import config from "../../config";
-import { pipeline, Readable } from "stream";
+import { pipeline, Readable, Transform } from "stream";
 import ArchiveStreamToS3 from "decompress-stream-to-s3";
 import { Response } from "express";
 import { lookup } from "mime-types";
@@ -35,6 +35,7 @@ export default class S3Storage implements StorageBase {
 
   /** @override */
   async exists(path: string): Promise<boolean> {
+    if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
     try {
       await this.client
         .headObject({
@@ -50,6 +51,7 @@ export default class S3Storage implements StorageBase {
 
   /** @override */
   async mk(dir: string): Promise<void> {
+    if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
     if (dir && dir[dir.length - 1] != "/") dir = dir + "/";
 
     await this.client
@@ -62,6 +64,7 @@ export default class S3Storage implements StorageBase {
 
   /** @override */
   async rm(dir: string): Promise<void> {
+    if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
     const data = await this.client
       .listObjectsV2({
         Bucket: config.S3_BUCKET,
@@ -69,10 +72,15 @@ export default class S3Storage implements StorageBase {
       })
       .promise();
 
-    const params = { Bucket: config.S3_BUCKET, Delete: { Objects: [] } };
+    const params = {
+      Bucket: config.S3_BUCKET,
+      Delete: { Objects: new Array<{ Key: string }>() },
+    };
 
-    data.Contents.forEach(function (content) {
-      params.Delete.Objects.push({ Key: content.Key });
+    data.Contents?.forEach(function (content) {
+      if (content.Key) {
+        params.Delete.Objects.push({ Key: content.Key });
+      }
     });
 
     if (params.Delete.Objects.length == 0) {
@@ -88,6 +96,7 @@ export default class S3Storage implements StorageBase {
 
   /** @override */
   send(p: string, res: Response) {
+    if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
     const s = this.client
       .getObject({
         Bucket: config.S3_BUCKET,
@@ -95,7 +104,7 @@ export default class S3Storage implements StorageBase {
       })
       .on("error", (error) => {
         try {
-          res.status(error.statusCode);
+          res.status(error.statusCode || 500);
         } catch (err) {
           console.error(err);
         }
@@ -114,6 +123,7 @@ export default class S3Storage implements StorageBase {
 
   /** @override */
   read(path: string): Readable {
+    if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
     return this.client
       .getObject({
         Bucket: config.S3_BUCKET,
@@ -129,6 +139,7 @@ export default class S3Storage implements StorageBase {
     file?: AnonymizedFile,
     source?: SourceBase
   ): Promise<void> {
+    if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
     const params: S3.PutObjectRequest = {
       Bucket: config.S3_BUCKET,
       Key: path,
@@ -144,6 +155,7 @@ export default class S3Storage implements StorageBase {
 
   /** @override */
   async listFiles(dir: string): Promise<Tree> {
+    if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
     if (dir && dir[dir.length - 1] != "/") dir = dir + "/";
     const out: Tree = {};
     const req = await this.client
@@ -168,9 +180,11 @@ export default class S3Storage implements StorageBase {
         current = current[p] as Tree;
       }
 
-      const fileInfo: TreeFile = { size: f.Size || 0, sha: f.ETag };
-      const fileName = paths[paths.length - 1];
-      if (fileName) current[fileName] = fileInfo;
+      if (f.ETag) {
+        const fileInfo: TreeFile = { size: f.Size || 0, sha: f.ETag };
+        const fileName = paths[paths.length - 1];
+        if (fileName) current[fileName] = fileInfo;
+      }
     }
     return out;
   }
@@ -185,6 +199,7 @@ export default class S3Storage implements StorageBase {
     let toS3: ArchiveStreamToS3;
 
     return new Promise((resolve, reject) => {
+      if (!config.S3_BUCKET) return reject("S3_BUCKET not set");
       toS3 = new ArchiveStreamToS3({
         bucket: config.S3_BUCKET,
         prefix: p,
@@ -208,10 +223,11 @@ export default class S3Storage implements StorageBase {
     dir: string,
     opt?: {
       format?: "zip" | "tar";
-      fileTransformer?;
+      fileTransformer?: (p: string) => Transform;
     }
   ) {
-    const archive = archiver(opt?.format, {});
+    if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
+    const archive = archiver(opt?.format || "zip", {});
     if (dir && dir[dir.length - 1] != "/") dir = dir + "/";
     const req = this.client.listObjectsV2({
       Bucket: config.S3_BUCKET,

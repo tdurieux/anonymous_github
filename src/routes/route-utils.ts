@@ -44,7 +44,7 @@ export async function getRepo(
 ) {
   try {
     const repo = await db.getRepository(req.params.repoId, {
-      includeFiles: opt.includeFiles,
+      includeFiles: opt.includeFiles === true,
     });
     if (opt.nocheck == true) {
     } else {
@@ -79,7 +79,7 @@ function printError(error: any, req?: express.Request) {
   io.notifyError(error, error.value);
   if (error instanceof AnonymousError) {
     let message = `[ERROR] ${error.toString()} ${error.stack
-      .split("\n")[1]
+      ?.split("\n")[1]
       .trim()}`;
     if (req) {
       message += ` ${req.originalUrl}`;

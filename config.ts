@@ -68,11 +68,11 @@ const config: Config = {
     "in",
   ],
   STORAGE: "filesystem",
-  S3_BUCKET: null,
-  S3_CLIENT_ID: null,
-  S3_CLIENT_SECRET: null,
-  S3_ENDPOINT: null,
-  S3_REGION: null,
+  S3_BUCKET: process.env.S3_BUCKET,
+  S3_CLIENT_ID: process.env.S3_CLIENT_ID,
+  S3_CLIENT_SECRET: process.env.S3_CLIENT_SECRET,
+  S3_ENDPOINT: process.env.S3_ENDPOINT,
+  S3_REGION: process.env.S3_REGION,
 };
 
 for (let conf in process.env) {

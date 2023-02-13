@@ -19,7 +19,11 @@ export default async function (job: SandboxedJob<Repository, void>) {
     try {
       await repo.remove();
     } catch (error) {
-      await repo.updateStatus(RepositoryStatus.ERROR, error.message);
+      if (error instanceof Error) {
+        await repo.updateStatus(RepositoryStatus.ERROR, error.message);
+      } else if (typeof error === "string") {
+        await repo.updateStatus(RepositoryStatus.ERROR, error);
+      }
       throw error;
     }
   } catch (error) {

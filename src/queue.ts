@@ -48,9 +48,6 @@ export function startWorker() {
       autorun: true,
     }
   );
-  cacheWorker.on("error", async (error) => {
-    console.log(error);
-  });
   cacheWorker.on("completed", async (job) => {
     await job.remove();
   });
@@ -66,9 +63,6 @@ export function startWorker() {
       autorun: true,
     }
   );
-  removeWorker.on("error", async (error) => {
-    console.log(error);
-  });
   removeWorker.on("completed", async (job) => {
     await job.remove();
   });
@@ -88,18 +82,12 @@ export function startWorker() {
   if (!downloadWorker.isRunning) downloadWorker.run();
 
   downloadWorker.on("active", async (job) => {
-    console.log("active", job.data.repoId);
+    console.log("[QUEUE] download repository start", job.data.repoId);
   });
   downloadWorker.on("completed", async (job) => {
-    console.log("completed", job.data.repoId);
+    console.log("[QUEUE] download repository completed", job.data.repoId);
   });
   downloadWorker.on("failed", async (job) => {
-    console.log("failed", job.data.repoId);
-  });
-  downloadWorker.on("closing", async (error) => {
-    console.log("closing", error);
-  });
-  downloadWorker.on("error", async (error) => {
-    console.log(error);
+    console.log("download repository failed", job.data.repoId);
   });
 }

@@ -32,7 +32,7 @@ export default class User {
     return this._model.accessTokens.github;
   }
 
-  get photo(): string {
+  get photo(): string | undefined {
     return this._model.photo;
   }
 

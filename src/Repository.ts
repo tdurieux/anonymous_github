@@ -1,7 +1,7 @@
 import { join } from "path";
 import storage from "./storage";
 import { RepositoryStatus, Source, Tree, TreeElement, TreeFile } from "./types";
-import { Readable } from "stream";
+import { Readable, Transform } from "stream";
 import User from "./User";
 import GitHubStream from "./source/GitHubStream";
 import GitHubDownload from "./source/GitHubDownload";
@@ -14,7 +14,7 @@ import GitHubBase from "./source/GitHubBase";
 import Conference from "./Conference";
 import ConferenceModel from "./database/conference/conferences.model";
 import AnonymousError from "./AnonymousError";
-import { downloadQueue } from "./queue";
+import { downloadQueue, removeQueue } from "./queue";
 import { isConnected } from "./database/database";
 import AnonymizedFile from "./AnonymizedFile";
 import AnonymizedRepositoryModel from "./database/anonymizedRepositories/anonymizedRepositories.model";
@@ -36,7 +36,11 @@ function anonymizeTreeRecursive(
   const output: Tree = {};
   Object.getOwnPropertyNames(tree).forEach((file) => {
     const anonymizedPath = anonymizePath(file, terms);
-    output[anonymizedPath] = anonymizeTreeRecursive(tree[file], terms, opt);
+    output[anonymizedPath] = anonymizeTreeRecursive(
+      (tree as Tree)[file],
+      terms,
+      opt
+    );
   });
   return output;
 }
@@ -98,6 +102,7 @@ export default class Repository {
       const res = await AnonymizedRepositoryModel.findById(this._model._id, {
         originalFiles: 1,
       });
+      if (!res) throw new AnonymousError("repository_not_found");
       this.model.originalFiles = res.originalFiles;
     }
     if (
@@ -120,7 +125,8 @@ export default class Repository {
   check() {
     if (
       this._model.options.expirationMode !== "never" &&
-      this.status == "ready"
+      this.status == "ready" &&
+      this._model.options.expirationDate
     ) {
       if (this._model.options.expirationDate <= new Date()) {
         this.expire();
@@ -164,7 +170,7 @@ export default class Repository {
             repository: this,
             anonymizedPath: filename,
           })
-        ) as Transformer,
+        ),
     });
   }
 
@@ -274,12 +280,14 @@ export default class Repository {
    * Reset/delete the state of the repository
    */
   async resetSate(status?: RepositoryStatus, statusMessage?: string) {
-    const p = this.updateStatus(status, statusMessage);
+    if (status) {
+      await this.updateStatus(status, statusMessage);
+    }
     // remove attribute
     this._model.size = { storage: 0, file: 0 };
-    this._model.originalFiles = null;
+    this._model.originalFiles = undefined;
     // remove cache
-    return Promise.all([p, this.removeCache()]);
+    await this.removeCache();
   }
 
   /**

@@ -4,7 +4,7 @@ import Zip from "./source/Zip";
 import S3Storage from "./storage/S3";
 import FileSystem from "./storage/FileSystem";
 import AnonymizedFile from "./AnonymizedFile";
-import * as stream from "stream";
+import { Transform, Readable } from "stream";
 import * as archiver from "archiver";
 import { Response } from "express";
 
@@ -20,7 +20,7 @@ export interface SourceBase {
    * Retrieve the fie content
    * @param file the file of the content to retrieve
    */
-  getFileContent(file: AnonymizedFile): Promise<stream.Readable>;
+  getFileContent(file: AnonymizedFile): Promise<Readable>;
 
   /**
    * Get all the files from a specific source
@@ -50,7 +50,7 @@ export interface StorageBase {
    * Read the content of a file
    * @param path the path to the file
    */
-  read(path: string): stream.Readable;
+  read(path: string): Readable;
 
   /**
    * Write data to a file
@@ -81,7 +81,7 @@ export interface StorageBase {
    */
   extractZip(
     dir: string,
-    tar: stream.Readable,
+    tar: Readable,
     file?: AnonymizedFile,
     source?: SourceBase
   ): Promise<void>;
@@ -107,7 +107,7 @@ export interface StorageBase {
       /**
        * Transformer to apply on the content of the file
        */
-      fileTransformer?: (p: any) => Transformer;
+      fileTransformer?: (p: string) => Transform;
     }
   ): archiver.Archiver;
 

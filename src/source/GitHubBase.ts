@@ -11,7 +11,7 @@ export default abstract class GitHubBase {
   type: "GitHubDownload" | "GitHubStream" | "Zip";
   githubRepository: GitHubRepository;
   branch: Branch;
-  accessToken: string;
+  accessToken: string | undefined;
   repository: Repository;
 
   constructor(
@@ -27,13 +27,17 @@ export default abstract class GitHubBase {
   ) {
     this.type = data.type;
     this.accessToken = data.accessToken;
+    const branches = [];
+    if (data.branch && data.commit) {
+      branches.push({ commit: data.commit, name: data.branch });
+    }
     this.githubRepository = new GitHubRepository({
       name: data.repositoryName,
       externalId: data.repositoryId,
-      branches: [{ commit: data.commit, name: data.branch }],
+      branches,
     });
     this.repository = repository;
-    this.branch = { commit: data.commit, name: data.branch };
+    this.branch = branches[0];
   }
 
   async getFileContent(file: AnonymizedFile): Promise<Readable> {

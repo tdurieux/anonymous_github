@@ -118,7 +118,7 @@ router.get("/repos", async (req, res) => {
   if (req.query.search) {
     query.push({ repoId: { $regex: req.query.search } });
   }
-  let status = [];
+  const status: { status: string }[] = [];
   query.push({ $or: status });
   if (ready) {
     status.push({ status: "ready" });

@@ -56,22 +56,22 @@ export default class PullRequest {
     this._model.pullRequest = {
       diff: diff.body,
       title: prInfo.data.title,
-      body: prInfo.data.body,
+      body: prInfo.data.body || "",
       creationDate: new Date(prInfo.data.created_at),
       updatedDate: new Date(prInfo.data.updated_at),
       draft: prInfo.data.draft,
       merged: prInfo.data.merged,
       mergedDate: prInfo.data.merged_at
         ? new Date(prInfo.data.merged_at)
-        : null,
+        : undefined,
       state: prInfo.data.state,
       baseRepositoryFullName: prInfo.data.base.repo.full_name,
-      headRepositoryFullName: prInfo.data.head.repo.full_name,
+      headRepositoryFullName: prInfo.data.head.repo?.full_name,
       comments: comments.data.map((comment) => ({
-        body: comment.body,
+        body: comment.body || "",
         creationDate: new Date(comment.created_at),
         updatedDate: new Date(comment.updated_at),
-        author: comment.user.login,
+        author: comment.user?.login || "",
       })),
     };
   }
@@ -82,7 +82,8 @@ export default class PullRequest {
   check() {
     if (
       this._model.options.expirationMode !== "never" &&
-      this.status == "ready"
+      this.status == "ready" &&
+      this._model.options.expirationDate
     ) {
       if (this._model.options.expirationDate <= new Date()) {
         this.expire();
@@ -187,7 +188,16 @@ export default class PullRequest {
     if (status) this._model.status = status;
     if (statusMessage) this._model.statusMessage = statusMessage;
     // remove cache
-    this._model.pullRequest = null;
+    this._model.pullRequest.comments = [];
+    this._model.pullRequest.body = "";
+    this._model.pullRequest.title = "";
+    this._model.pullRequest.diff = "";
+    this._model.pullRequest.baseRepositoryFullName = "";
+    this._model.pullRequest.headRepositoryFullName = "";
+    this._model.pullRequest.merged = false;
+    this._model.pullRequest.mergedDate = undefined;
+    this._model.pullRequest.state = "closed";
+    this._model.pullRequest.draft = false;
     return Promise.all([this._model.save()]);
   }
 
@@ -222,7 +232,7 @@ export default class PullRequest {
       output.body = anonymizeContent(this._model.pullRequest.body, this);
     }
     if (this.options.comments) {
-      output.comments = this._model.pullRequest.comments.map((comment) => {
+      output.comments = this._model.pullRequest.comments?.map((comment) => {
         const o: any = {};
         if (this.options.body) o.body = anonymizeContent(comment.body, this);
         if (this.options.username)

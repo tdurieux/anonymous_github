@@ -1,16 +1,16 @@
-import * as path from "path";
-import * as ofs from "fs";
 import { createClient } from "redis";
+import { resolve, join } from "path";
+import { existsSync } from "fs";
 import rateLimit from "express-rate-limit";
 import * as slowDown from "express-slow-down";
 import RedisStore from "rate-limit-redis";
 import * as express from "express";
 import * as compression from "compression";
-import * as db from "./database/database";
-import config from "../config";
 import * as passport from "passport";
 
-import * as connection from "./routes/connection";
+import config from "../config";
+import { connect } from "./database/database";
+import { initSession, router as connectionRouter } from "./routes/connection";
 import router from "./routes";
 import AnonymizedRepositoryModel from "./database/anonymizedRepositories/anonymizedRepositories.model";
 import { conferenceStatusCheck, repositoryStatusCheck } from "./schedule";
@@ -31,7 +31,7 @@ function indexResponse(req: express.Request, res: express.Response) {
       )}`
     );
   }
-  res.sendFile(path.resolve(__dirname, "..", "public", "index.html"));
+  res.sendFile(resolve("public", "index.html"));
 }
 
 export default async function start() {
@@ -45,7 +45,7 @@ export default async function start() {
   app.get("/ip", (request, response) => response.send(request.ip));
 
   // handle session and connection
-  app.use(connection.appSession);
+  app.use(initSession());
   app.use(passport.initialize());
   app.use(passport.session());
 
@@ -85,7 +85,7 @@ export default async function start() {
     headers: true,
   });
 
-  app.use("/github", rate, speedLimiter, connection.router);
+  app.use("/github", rate, speedLimiter, connectionRouter);
 
   // api routes
   const apiRouter = express.Router();
@@ -102,8 +102,8 @@ export default async function start() {
   apiRouter.use("/pr", speedLimiter, router.pullRequestPrivate);
 
   apiRouter.get("/message", async (_, res) => {
-    if (ofs.existsSync("./message.txt")) {
-      return res.sendFile(path.resolve(__dirname, "..", "message.txt"));
+    if (existsSync("./message.txt")) {
+      return res.sendFile(resolve("message.txt"));
     }
     res.sendStatus(404);
   });
@@ -142,7 +142,7 @@ export default async function start() {
     .get("/repository/:repoId/?*", indexResponse);
 
   app.use(
-    express.static(path.join(__dirname, "..", "public"), {
+    express.static(join("public"), {
       etag: true,
       lastModified: true,
       maxAge: 3600, // 1h
@@ -155,7 +155,7 @@ export default async function start() {
   conferenceStatusCheck();
   repositoryStatusCheck();
 
-  await db.connect();
+  await connect();
   app.listen(config.PORT);
   console.log("Database connected and Server started on port: " + config.PORT);
 }

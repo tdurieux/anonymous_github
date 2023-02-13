@@ -96,7 +96,7 @@ router.get(
   }
 );
 
-function validateNewPullRequest(pullRequestUpdate): void {
+function validateNewPullRequest(pullRequestUpdate: any): void {
   const validCharacters = /^[0-9a-zA-Z\-\_]+$/;
   if (
     !pullRequestUpdate.pullRequestId.match(validCharacters) ||
@@ -151,7 +151,7 @@ function updatePullRequestModel(
     expirationMode: pullRequestUpdate.options.expirationMode,
     expirationDate: pullRequestUpdate.options.expirationDate
       ? new Date(pullRequestUpdate.options.expirationDate)
-      : null,
+      : undefined,
     update: pullRequestUpdate.options.update,
     image: pullRequestUpdate.options.image,
     link: pullRequestUpdate.options.link,
@@ -220,7 +220,10 @@ router.post("/", async (req: express.Request, res: express.Response) => {
     await pullRequest.anonymize();
     res.send(pullRequest.toJSON());
   } catch (error) {
-    if (error.message?.indexOf(" duplicate key") > -1) {
+    if (
+      error instanceof Error &&
+      error.message.indexOf(" duplicate key") > -1
+    ) {
       return handleError(
         new AnonymousError("pullRequestId_already_used", {
           httpStatus: 400,

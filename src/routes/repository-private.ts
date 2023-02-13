@@ -70,6 +70,12 @@ router.post("/claim", async (req: express.Request, res: express.Response) => {
     }
 
     const r = gh(req.body.repoUrl);
+    if (!r?.owner || !r?.name) {
+      throw new AnonymousError("repo_not_found", {
+        object: req.body,
+        httpStatus: 404,
+      });
+    }
     const repo = await getRepositoryFromGitHub({
       owner: r.owner,
       repo: r.name,
@@ -259,7 +265,7 @@ router.get("/:repoId/", async (req: express.Request, res: express.Response) => {
   }
 });
 
-function validateNewRepo(repoUpdate): void {
+function validateNewRepo(repoUpdate: any): void {
   const validCharacters = /^[0-9a-zA-Z\-\_]+$/;
   if (
     !repoUpdate.repoId.match(validCharacters) ||
@@ -322,7 +328,7 @@ function updateRepoModel(
     expirationMode: repoUpdate.options.expirationMode,
     expirationDate: repoUpdate.options.expirationDate
       ? new Date(repoUpdate.options.expirationDate)
-      : null,
+      : undefined,
     update: repoUpdate.options.update,
     image: repoUpdate.options.image,
     pdf: repoUpdate.options.pdf,
@@ -359,7 +365,7 @@ router.post(
 
       updateRepoModel(repo.model, repoUpdate);
 
-      async function removeRepoFromConference(conferenceID) {
+      const removeRepoFromConference = async (conferenceID: string) => {
         const conf = await ConferenceModel.findOne({
           conferenceID,
         });
@@ -368,7 +374,7 @@ router.post(
           if (r.length == 1) r[0].removeDate = new Date();
           await conf.save();
         }
-      }
+      };
       if (!repoUpdate.conference) {
         // remove conference
         if (repo.model.conference) {
@@ -394,7 +400,7 @@ router.post(
           if (f.length) {
             // the repository already referenced the conference
             f[0].addDate = new Date();
-            f[0].removeDate = null;
+            f[0].removeDate = undefined;
           } else {
             conf.repositories.push({
               id: repo.model.id,
@@ -426,11 +432,24 @@ router.post("/", async (req: express.Request, res: express.Response) => {
     validateNewRepo(repoUpdate);
 
     const r = gh(repoUpdate.fullName);
+    if (!r?.owner || !r?.name) {
+      throw new AnonymousError("repo_not_found", {
+        object: req.body,
+        httpStatus: 404,
+      });
+    }
     const repository = await getRepositoryFromGitHub({
       accessToken: user.accessToken,
       owner: r.owner,
       repo: r.name,
     });
+
+    if (!repository) {
+      throw new AnonymousError("repo_not_found", {
+        object: req.body,
+        httpStatus: 404,
+      });
+    }
 
     const repo = new AnonymizedRepositoryModel();
     repo.repoId = repoUpdate.repoId;
@@ -444,14 +463,20 @@ router.post("/", async (req: express.Request, res: express.Response) => {
 
     if (repo.source.type == "GitHubDownload") {
       // details.size is in kilobytes
-      if (repository.size > config.MAX_REPO_SIZE) {
+      if (
+        repository.size === undefined ||
+        repository.size > config.MAX_REPO_SIZE
+      ) {
         throw new AnonymousError("invalid_mode", {
           object: repository,
           httpStatus: 400,
         });
       }
     }
-    if (repository.size < config.AUTO_DOWNLOAD_REPO_SIZE) {
+    if (
+      repository.size !== undefined &&
+      repository.size < config.AUTO_DOWNLOAD_REPO_SIZE
+    ) {
       repo.source.type = "GitHubDownload";
     }
     repo.conference = repoUpdate.conference;
@@ -488,7 +513,10 @@ router.post("/", async (req: express.Request, res: express.Response) => {
       attempts: 3,
     });
   } catch (error) {
-    if (error.message?.indexOf(" duplicate key") > -1) {
+    if (
+      error instanceof Error &&
+      error.message?.indexOf(" duplicate key") > -1
+    ) {
       return handleError(
         new AnonymousError("repoId_already_used", {
           httpStatus: 400,

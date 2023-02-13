@@ -2,7 +2,7 @@ import { join, basename } from "path";
 import { Response } from "express";
 import { Readable } from "stream";
 import Repository from "./Repository";
-import { TreeElement, TreeFile } from "./types";
+import { Tree, TreeElement, TreeFile } from "./types";
 import storage from "./storage";
 import config from "../config";
 import { anonymizePath, anonymizeStream } from "./anonymize-utils";
@@ -13,7 +13,7 @@ import { handleError } from "./routes/route-utils";
  * Represent a file in a anonymized repository
  */
 export default class AnonymizedFile {
-  private _originalPath: string;
+  private _originalPath: string | undefined;
   private fileSize?: number;
 
   repository: Repository;
@@ -59,7 +59,7 @@ export default class AnonymizedFile {
       if (fileName == "") {
         continue;
       }
-      if (!currentOriginal[fileName]) {
+      if (!(currentOriginal as Tree)[fileName]) {
         // anonymize all the file in the folder and check if there is one that match the current filename
         const options = [];
         for (let originalFileName in currentOriginal) {
@@ -74,7 +74,7 @@ export default class AnonymizedFile {
         // if only one option we found the original filename
         if (options.length == 1) {
           currentOriginalPath = join(currentOriginalPath, options[0]);
-          currentOriginal = currentOriginal[options[0]];
+          currentOriginal = (currentOriginal as Tree)[options[0]];
         } else if (options.length == 0) {
           throw new AnonymousError("file_not_found", {
             object: this,
@@ -85,14 +85,14 @@ export default class AnonymizedFile {
           if (!nextName) {
             // if there is no next name we can't find the file and we return the first option
             currentOriginalPath = join(currentOriginalPath, options[0]);
-            currentOriginal = currentOriginal[options[0]];
+            currentOriginal = (currentOriginal as Tree)[options[0]];
           }
           let found = false;
           for (const option of options) {
-            const optionTree = currentOriginal[option];
-            if (optionTree.child) {
-              const optionTreeChild = optionTree.child;
-              if (optionTreeChild[nextName]) {
+            const optionTree = (currentOriginal as Tree)[option];
+            if ((optionTree as Tree).child) {
+              const optionTreeChild = (optionTree as Tree).child;
+              if ((optionTreeChild as Tree)[nextName]) {
                 currentOriginalPath = join(currentOriginalPath, option);
                 currentOriginal = optionTreeChild;
                 found = true;
@@ -103,12 +103,12 @@ export default class AnonymizedFile {
           if (!found) {
             // if we didn't find the next name we return the first option
             currentOriginalPath = join(currentOriginalPath, options[0]);
-            currentOriginal = currentOriginal[options[0]];
+            currentOriginal = (currentOriginal as Tree)[options[0]];
           }
         }
       } else {
         currentOriginalPath = join(currentOriginalPath, fileName);
-        currentOriginal = currentOriginal[fileName];
+        currentOriginal = (currentOriginal as Tree)[fileName];
       }
     }
 

@@ -4,7 +4,7 @@ import * as path from "path";
 import AnonymizedFile from "../AnonymizedFile";
 import GitHubDownload from "../source/GitHubDownload";
 import AnonymousError from "../AnonymousError";
-import { TreeElement } from "../types";
+import { Tree, TreeElement } from "../types";
 import * as marked from "marked";
 import { streamToString } from "../anonymize-utils";
 
@@ -68,13 +68,13 @@ async function webView(req: express.Request, res: express.Response) {
         if (fileName == "") {
           continue;
         }
-        if (!currentAnonymized[fileName]) {
+        if (!(currentAnonymized as Tree)[fileName]) {
           throw new AnonymousError("file_not_found", {
-            object: this,
+            object: repo,
             httpStatus: 404,
           });
         }
-        currentAnonymized = currentAnonymized[fileName];
+        currentAnonymized = (currentAnonymized as Tree)[fileName];
       }
 
       let best_match = null;
