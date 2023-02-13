@@ -1,3 +1,5 @@
 /repositories
-repo/
 db_backups
+build
+node_modules
+.github
