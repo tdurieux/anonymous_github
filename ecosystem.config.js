@@ -12,7 +12,7 @@ module.exports = {
         "public",
         ".git",
         "db_backups",
-        "dist",
+        "build",
       ],
       interpreter: "node",
       interpreter_args: "--require ts-node/register",

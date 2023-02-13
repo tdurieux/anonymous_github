@@ -10,12 +10,16 @@ RUN npm install pm2 -g && pm2 install typescript && npm cache clean --force;
 COPY package.json .
 COPY package-lock.json .
 
-RUN npm install && npm run build && npm cache clean --force
-
+COPY tsconfig.json .
 COPY ecosystem.config.js .
 COPY healthcheck.js .
-COPY src .
+
+COPY src ./src
+COPY public ./public
 COPY index.ts .
-COPY public .
+COPY config.ts .
+
+RUN npm install && npm run build && npm cache clean --force
+
 
 CMD [ "pm2-runtime", "ecosystem.config.js"]
