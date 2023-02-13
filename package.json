@@ -44,7 +44,7 @@
     "express-rate-limit": "^6.6.0",
     "express-session": "^1.17.3",
     "express-slow-down": "^1.5.0",
-    "got": "^11.8.5",
+    "got": "^12.5.3",
     "inquirer": "^8.2.5",
     "istextorbinary": "^6.0.0",
     "marked": "^4.1.1",
