@@ -9,11 +9,13 @@ export let downloadQueue: Queue<Repository>;
 
 // avoid to load the queue outside the main server
 export function startWorker() {
+  const connection = {
+    host: config.REDIS_HOSTNAME,
+    port: config.REDIS_PORT,
+  };
+
   cacheQueue = new Queue<Repository>("cache removal", {
-    connection: {
-      host: config.REDIS_HOSTNAME,
-      port: config.REDIS_PORT,
-    },
+    connection,
     defaultJobOptions: {
       removeOnComplete: true,
     },
@@ -28,10 +30,7 @@ export function startWorker() {
     },
   });
   downloadQueue = new Queue<Repository>("repository download", {
-    connection: {
-      host: config.REDIS_HOSTNAME,
-      port: config.REDIS_PORT,
-    },
+    connection,
     defaultJobOptions: {
       removeOnComplete: true,
     },
@@ -41,10 +40,7 @@ export function startWorker() {
     path.resolve("build/src/processes/removeCache.js"),
     {
       concurrency: 5,
-      connection: {
-        host: config.REDIS_HOSTNAME,
-        port: config.REDIS_PORT,
-      },
+      connection,
       autorun: true,
     }
   );
@@ -56,10 +52,7 @@ export function startWorker() {
     path.resolve("build/src/processes/removeRepository.js"),
     {
       concurrency: 5,
-      connection: {
-        host: config.REDIS_HOSTNAME,
-        port: config.REDIS_PORT,
-      },
+      connection,
       autorun: true,
     }
   );
@@ -72,10 +65,7 @@ export function startWorker() {
     path.resolve("build/src/processes/downloadRepository.js"),
     {
       concurrency: 3,
-      connection: {
-        host: config.REDIS_HOSTNAME,
-        port: config.REDIS_PORT,
-      },
+      connection,
       autorun: true,
     }
   );
