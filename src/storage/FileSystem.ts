@@ -108,7 +108,7 @@ export default class FileSystem implements StorageBase {
     return pipe(
       data,
       Extract({
-        path: join(join(config.FOLDER, p)),
+        path: join(config.FOLDER, p),
         decodeString: (buf) => {
           const name = buf.toString();
           const newName = name.substr(name.indexOf("/") + 1);
@@ -124,7 +124,7 @@ export default class FileSystem implements StorageBase {
     dir: string,
     opt?: {
       format?: "zip" | "tar";
-      fileTransformer? (path: string): Transform;
+      fileTransformer?: (path: string) => Transform;
     }
   ) {
     const archive = archiver(opt?.format || "zip", {});

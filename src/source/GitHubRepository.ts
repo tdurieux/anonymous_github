@@ -4,6 +4,7 @@ import { IRepositoryDocument } from "../database/repositories/repositories.types
 import { Octokit, RestEndpointMethodTypes } from "@octokit/rest";
 import RepositoryModel from "../database/repositories/repositories.model";
 import AnonymousError from "../AnonymousError";
+import { database, isConnected } from "../database/database";
 
 export class GitHubRepository {
   private _data: Partial<{
@@ -71,11 +72,13 @@ export class GitHubRepository {
       });
       this._data.branches = branches;
 
-      await RepositoryModel.updateOne(
-        { externalId: this.id },
-        { $set: { branches } }
-      );
-    } else {
+      if (isConnected) {
+        await RepositoryModel.updateOne(
+          { externalId: this.id },
+          { $set: { branches } }
+        );
+      }
+    } else if (isConnected) {
       const q = await RepositoryModel.findOne({ externalId: this.id }).select(
         "branches"
       );
@@ -208,9 +211,12 @@ export async function getRepositoryFromGitHub(opt: {
         repo: opt.repo,
       },
     });
-  let model = await RepositoryModel.findOne({ externalId: "gh_" + r.id });
-  if (!model) {
-    model = new RepositoryModel({ externalId: "gh_" + r.id });
+  let model = new RepositoryModel({ externalId: "gh_" + r.id });
+  if (isConnected) {
+    const dbModel = await RepositoryModel.findOne({ externalId: "gh_" + r.id });
+    if (dbModel) {
+      model = dbModel;
+    }
   }
   model.name = r.full_name;
   model.url = r.html_url;
@@ -224,6 +230,8 @@ export async function getRepositoryFromGitHub(opt: {
     });
     model.pageSource = ghPageRes.data.source;
   }
-  await model.save();
+  if (isConnected) {
+    await model.save();
+  }
   return new GitHubRepository(model);
 }

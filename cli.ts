@@ -2,10 +2,10 @@
 
 import { config as dot } from "dotenv";
 dot();
+process.env.STORAGE = "filesystem";
 
 import { writeFile } from "fs/promises";
 import { join } from "path";
-import { tmpdir } from "os";
 
 import * as gh from "parse-github-url";
 import * as inquirer from "inquirer";
@@ -15,6 +15,7 @@ import config from "./config";
 import GitHubDownload from "./src/source/GitHubDownload";
 import Repository from "./src/Repository";
 import AnonymizedRepositoryModel from "./src/database/anonymizedRepositories/anonymizedRepositories.model";
+import { getRepositoryFromGitHub } from "./src/source/GitHubRepository";
 
 function generateRandomFileName(size: number) {
   const characters =
@@ -45,18 +46,47 @@ async function main() {
       name: "terms",
       message: `Terms to remove from your repository (separated with comma).`,
     },
+    {
+      type: "string",
+      name: "output",
+      message: `The output folder where to save the zipped repository.`,
+      default: process.cwd(),
+    },
   ]);
 
-  const ghURL = gh(inq.repo) || { owner: "", name: "", branch: "", commit: "" };
+  const ghURL = gh(inq.repo) || {
+    owner: undefined,
+    name: undefined,
+    branch: undefined,
+    commit: undefined,
+  };
+
+  if (!ghURL.owner || !ghURL.name) {
+    throw new Error("Invalid GitHub URL");
+  }
+
+  const ghRepo = await getRepositoryFromGitHub({
+    accessToken: inq.token,
+    owner: ghURL.owner,
+    repo: ghURL.name,
+  });
+  const branches = await ghRepo.branches({
+    accessToken: inq.token,
+    force: true,
+  });
+  const branchToFind = inq.repo.includes(ghURL.branch)
+    ? ghURL.branch
+    : ghRepo.model.defaultBranch || "master";
+  const branch = branches.find((b) => b.name === branchToFind);
 
   const repository = new Repository(
     new AnonymizedRepositoryModel({
-      repoId: "test",
+      repoId: `${ghURL.name}-${branch?.name}`,
       source: {
         type: "GitHubDownload",
         accessToken: inq.token,
-        branch: ghURL.branch || "master",
-        commit: ghURL.branch || "HEAD",
+        branch: branchToFind,
+        commit: branch?.commit || "HEAD",
         repositoryName: `${ghURL.owner}/${ghURL.name}`,
       },
       options: {
@@ -72,18 +102,11 @@ async function main() {
     })
   );
 
-  const source = new GitHubDownload(
-    {
-      type: "GitHubDownload",
-      accessToken: inq.token,
-      repositoryName: inq.repo,
-    },
-    repository
+  console.info(
+    `[INFO] Downloading repository: ${repository.model.source.repositoryName} from branch ${repository.model.source.branch} and commit ${repository.model.source.commit}...`
   );
-
-  console.info("[INFO] Downloading repository...");
-  await source.download(inq.token);
-  const outputFileName = join(tmpdir(), generateRandomFileName(8) + ".zip");
+  await (repository.source as GitHubDownload).download(inq.token);
+  const outputFileName = join(inq.output, generateRandomFileName(8) + ".zip");
   console.info("[INFO] Anonymizing repository and creation zip file...");
   await writeFile(outputFileName, repository.zip());
   console.log(`Anonymized repository saved at ${outputFileName}`);
