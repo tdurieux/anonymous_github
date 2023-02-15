@@ -17,6 +17,7 @@ import { downloadQueue, removeQueue } from "../queue";
 import RepositoryModel from "../database/repositories/repositories.model";
 import User from "../User";
 import { RepositoryStatus } from "../types";
+import { IUserDocument } from "../database/users/users.types";
 
 const router = express.Router();
 
@@ -34,8 +35,18 @@ async function getTokenForAdmin(user: User, req: express.Request) {
           "source.accessToken": 1,
           owner: 1,
         }
-      ).exec();
-      if (existingRepo && existingRepo.owner != user.id) {
+      ).populate({
+        path: "owner",
+        model: UserModel,
+      });
+      const user: IUserDocument = existingRepo?.owner as any;
+      if (user instanceof UserModel) {
+        const check = await GitHubBase.checkToken(user.accessTokens.github);
+        if (check) {
+          return user.accessTokens.github;
+        }
+      }
+      if (existingRepo) {
         return existingRepo.source.accessToken;
       }
     } catch (error) {

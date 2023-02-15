@@ -6,6 +6,7 @@ import Repository from "../Repository";
 import { Readable } from "stream";
 import UserModel from "../database/users/users.model";
 import AnonymousError from "../AnonymousError";
+import { Octokit } from "@octokit/rest";
 
 export default abstract class GitHubBase {
   type: "GitHubDownload" | "GitHubStream" | "Zip";
@@ -54,28 +55,32 @@ export default abstract class GitHubBase {
     });
   }
 
+  static async checkToken(token: string) {
+    const octokit = new Octokit({ auth: token });
+    try {
+      await octokit.users.getAuthenticated();
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
   async getToken() {
     const user = await UserModel.findById(this.repository.owner.id);
     if (user && user.accessTokens.github) {
-      return user.accessTokens.github as string;
-    }
-    if (this.accessToken) {
-      try {
-        // const app = new OAuthApp({
-        //   clientType: "github-app",
-        //   clientId: config.CLIENT_ID,
-        //   clientSecret: config.CLIENT_SECRET,
-        // });
-        // await app.checkToken({
-        //   token: this.accessToken,
-        // });
+      const check = await GitHubBase.checkToken(user.accessTokens.github);
+      if (check) {
+        this.accessToken = user.accessTokens.github;
         return this.accessToken;
-      } catch (error) {
-        console.debug("[ERROR] Token is invalid", this.repository.repoId);
-        this.accessToken = config.GITHUB_TOKEN;
       }
     }
-    return config.GITHUB_TOKEN;
+    if (this.accessToken) {
+      if (await GitHubBase.checkToken(this.accessToken)) {
+        return this.accessToken;
+      }
+    }
+    this.accessToken = config.GITHUB_TOKEN;
+    return this.accessToken;
   }
 
   get url() {
@@ -86,8 +91,8 @@ export default abstract class GitHubBase {
     return {
       type: this.type,
       fullName: this.githubRepository.fullName?.toString(),
-      branch: this.branch.name,
-      commit: this.branch.commit,
+      branch: this.branch?.name,
+      commit: this.branch?.commit,
     };
   }
 }
