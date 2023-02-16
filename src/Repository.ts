@@ -370,7 +370,7 @@ export default class Repository {
   }
 
   get originalCachePath() {
-    return join(this._model.repoId, "original") + "/";
+    return join(this._model.repoId, "original") + (process.platform === "win32" ? "\\" : "/");
   }
 
   get status() {
