@@ -119,7 +119,7 @@ export function handleError(
 }
 
 export async function getUser(req: express.Request) {
-  function notConnected() {
+  function notConnected(): never {
     req.logout((error) => {
       if (error) {
         console.error(`[ERROR] Error while logging out: ${error}`);
@@ -131,11 +131,11 @@ export async function getUser(req: express.Request) {
   }
   const user = (req.user as any).user;
   if (!user) {
-    return notConnected();
+    notConnected();
   }
   const model = await UserModel.findById(user.id);
   if (!model) {
-    return notConnected();
+    notConnected();
   }
   return new User(model);
 }
