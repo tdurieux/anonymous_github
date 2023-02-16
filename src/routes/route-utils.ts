@@ -133,7 +133,7 @@ export async function getUser(req: express.Request) {
   if (!user) {
     notConnected();
   }
-  const model = await UserModel.findById(user.id);
+  const model = await UserModel.findById(user._id);
   if (!model) {
     notConnected();
   }
