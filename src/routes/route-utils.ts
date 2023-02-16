@@ -119,8 +119,7 @@ export function handleError(
 }
 
 export async function getUser(req: express.Request) {
-  const user = (req.user as any).user;
-  if (!user) {
+  function notConnected() {
     req.logout((error) => {
       if (error) {
         console.error(`[ERROR] Error while logging out: ${error}`);
@@ -130,7 +129,13 @@ export async function getUser(req: express.Request) {
       httpStatus: 401,
     });
   }
-  const model = new UserModel(user);
-  model.isNew = false;
+  const user = (req.user as any).user;
+  if (!user) {
+    return notConnected();
+  }
+  const model = await UserModel.findById(user.id);
+  if (!model) {
+    return notConnected();
+  }
   return new User(model);
 }
