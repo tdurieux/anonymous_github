@@ -9,6 +9,7 @@ import * as express from "express";
 import config from "../../config";
 import UserModel from "../database/users/users.model";
 import { IUserDocument } from "../database/users/users.types";
+import AnonymousError from "../AnonymousError";
 
 export function ensureAuthenticated(
   req: express.Request,
@@ -52,6 +53,11 @@ const verify = async (
     await user.save();
   } catch (error) {
     console.error(error);
+    throw new AnonymousError("unable_to_connect_user", {
+      httpStatus: 500,
+      object: profile,
+      cause: error as Error,
+    });
   } finally {
     done(null, {
       username: profile.username,
