@@ -295,7 +295,9 @@ export default class Repository {
    * @returns
    */
   async removeCache() {
-    return storage.rm(this._model.repoId + "/");
+    if (await storage.exists(this._model.repoId + "/")) {
+      return storage.rm(this._model.repoId + "/");
+    }
   }
 
   /**
