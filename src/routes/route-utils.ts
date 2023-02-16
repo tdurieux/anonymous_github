@@ -130,5 +130,7 @@ export async function getUser(req: express.Request) {
       httpStatus: 401,
     });
   }
-  return new User(new UserModel(user));
+  const model = new UserModel(user);
+  model.isNew = false;
+  return new User(model);
 }
