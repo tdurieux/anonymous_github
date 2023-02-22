@@ -231,6 +231,16 @@ angular
         );
       };
 
+      $scope.getGitHubRepositories = (force) => {
+        $http
+          .get(`/api/user/${$scope.userInfo.username}/all_repositories`, {
+            params: { force: "1" },
+          })
+          .then((res) => {
+            $scope.userInfo.repositories = res.data;
+          });
+      };
+
       let timeClear = null;
       $scope.$watch(
         "query",

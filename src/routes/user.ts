@@ -1,7 +1,9 @@
 import * as express from "express";
 import config from "../../config";
 import { ensureAuthenticated } from "./connection";
-import { handleError, getUser } from "./route-utils";
+import { handleError, getUser, isOwnerOrAdmin } from "./route-utils";
+import UserModel from "../database/users/users.model";
+import User from "../User";
 
 const router = express.Router();
 
@@ -117,22 +119,40 @@ router.get(
   }
 );
 
+async function getAllRepositories(user: User, force: boolean) {
+  const repos = await user.getGitHubRepositories({
+    force,
+  });
+  return repos.map((x) => {
+    return {
+      fullName: x.fullName,
+      id: x.id,
+    };
+  });
+}
 router.get(
   "/all_repositories",
   async (req: express.Request, res: express.Response) => {
     try {
       const user = await getUser(req);
-      const repos = await user.getGitHubRepositories({
-        force: req.query.force == "1",
-      });
-      res.json(
-        repos.map((x) => {
-          return {
-            fullName: x.fullName,
-            id: x.id,
-          };
-        })
-      );
+      res.json(await getAllRepositories(user, req.query.force == "1"));
+    } catch (error) {
+      handleError(error, res, req);
+    }
+  }
+);
+router.get(
+  "/:username/all_repositories",
+  async (req: express.Request, res: express.Response) => {
+    try {
+      const loggedUser = await getUser(req);
+      isOwnerOrAdmin([req.params.username], loggedUser);
+      const model = await UserModel.findOne({ username: req.params.username });
+      if (!model) {
+        throw new Error("User not found");
+      }
+      const user = new User(model);
+      res.json(await getAllRepositories(user, req.query.force == "1"));
     } catch (error) {
       handleError(error, res, req);
     }

@@ -9,6 +9,7 @@ import Repository from "../Repository";
 import User from "../User";
 import { ensureAuthenticated } from "./connection";
 import { handleError, getUser, isOwnerOrAdmin, getRepo } from "./route-utils";
+import RepositoryModel from "../database/repositories/repositories.model";
 
 const router = express.Router();
 
@@ -206,7 +207,14 @@ router.get(
   "/users/:username",
   async (req: express.Request, res: express.Response) => {
     try {
-      const model = await UserModel.findOne({ username: req.params.username });
+      const model = await UserModel.findOne({
+        username: req.params.username,
+      }).populate({
+        path: "repositories",
+        model: "Repository",
+        foreignField: "_id",
+        localField: "repositories",
+      });
       if (!model) {
         req.logout((error) => console.error(error));
         throw new AnonymousError("user_not_found", {

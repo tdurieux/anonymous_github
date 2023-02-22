@@ -1,9 +1,15 @@
 <div class="container page">
   <div class="row">
     <h1>
-      <img ng-src="{{userInfo.photo}}" ng-if="userInfo.photo" width="30" height="30" class="rounded-circle ng-scope">
+      <img
+        ng-src="{{userInfo.photo}}"
+        ng-if="userInfo.photo"
+        width="30"
+        height="30"
+        class="rounded-circle ng-scope"
+      />
       {{userInfo.username}}
-      <span class="badge"><span ng-bind="userInfo.status | title"></span>
+      <span class="badge"><span ng-bind="userInfo.status | title"></span></span>
     </h1>
     <div class="row mb-3 m-0 py-2 border">
       <div class="col-2 font-weight-bold">ID</div>
@@ -16,12 +22,47 @@
       <div class="col-10">{{userInfo.accessTokens.github}}</div>
 
       <div class="col-2 font-weight-bold">Github</div>
-      <div class="col-10"><a ng-href="https://github.com/{{userInfo.username}}">{{userInfo.username}}</a></div>
+      <div class="col-10">
+        <a ng-href="https://github.com/{{userInfo.username}}"
+          >{{userInfo.username}}</a
+        >
+      </div>
 
       <div class="col-2 font-weight-bold">Github Repositories</div>
-      <div class="col-10">{{userInfo.repositories.length}}</a></div>
+      <div class="col-10" ng-click="showRepos =!showRepos">
+        {{userInfo.repositories.length}}
+      </div>
+      <button
+        class="btn btn-primary m-1 mx-3"
+        ng-click="getGitHubRepositories()"
+      >
+        Regresh Repositories
+      </button>
+      <ul class="m-0 col-12" ng-if="showRepos">
+        <li
+          class="col-12 d-flex px-0 py-3 border-bottom color-border-secondary"
+          ng-repeat="repo in userInfo.repositories"
+        >
+          <div class="w-100">
+            <div class="">
+              {{repo.name}}
+            </div>
+            <div class="color-text-secondary mt-2">
+              <span
+                class="ml-0 mr-3"
+                title="Size: {{::repo.size | humanFileSize}}"
+                data-toggle="tooltip"
+                data-placement="bottom"
+              >
+                <i class="fas fa-database"></i> {{::repo.size |
+                humanFileSize}}</span
+              >
+            </div>
+          </div>
+        </li>
+      </ul>
     </div>
-    
+
     <h3>Repositories {{repositories.length}}</h3>
     <div class="border-bottom color-border-secondary py-3 w-100">
       <div class="d-flex flex-items-start w-100">
