@@ -106,7 +106,7 @@ router.get("/repos", async (req, res) => {
   const ready = req.query.ready == "true";
   const error = req.query.error == "true";
   const preparing = req.query.preparing == "true";
-  const remove = req.query.remove == "true";
+  const remove = req.query.removed == "true";
   const expired = req.query.expired == "true";
 
   let sort: any = { _id: 1 };
