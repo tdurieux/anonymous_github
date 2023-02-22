@@ -280,12 +280,12 @@ export default class Repository {
    * Reset/delete the state of the repository
    */
   async resetSate(status?: RepositoryStatus, statusMessage?: string) {
-    if (status) {
-      await this.updateStatus(status, statusMessage);
-    }
     // remove attribute
     this._model.size = { storage: 0, file: 0 };
     this._model.originalFiles = undefined;
+    if (status) {
+      await this.updateStatus(status, statusMessage);
+    }
     // remove cache
     await this.removeCache();
   }
