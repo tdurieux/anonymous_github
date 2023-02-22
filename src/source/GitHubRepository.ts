@@ -55,28 +55,35 @@ export class GitHubRepository {
     ) {
       // get the list of repo from github
       const octokit = new Octokit({ auth: opt.accessToken });
-      const branches = (
-        await octokit.paginate(octokit.repos.listBranches, {
-          owner: this.owner,
-          repo: this.repo,
-          per_page: 100,
-        })
-      ).map((b) => {
-        return {
-          name: b.name,
-          commit: b.commit.sha,
-          readme: this._data.branches?.filter(
-            (f: Branch) => f.name == b.name
-          )[0]?.readme,
-        } as Branch;
-      });
-      this._data.branches = branches;
-
-      if (isConnected) {
-        await RepositoryModel.updateOne(
-          { externalId: this.id },
-          { $set: { branches } }
-        );
+      try {
+        const branches = (
+          await octokit.paginate(octokit.repos.listBranches, {
+            owner: this.owner,
+            repo: this.repo,
+            per_page: 100,
+          })
+        ).map((b) => {
+          return {
+            name: b.name,
+            commit: b.commit.sha,
+            readme: this._data.branches?.filter(
+              (f: Branch) => f.name == b.name
+            )[0]?.readme,
+          } as Branch;
+        });
+        this._data.branches = branches;
+        if (isConnected) {
+          await RepositoryModel.updateOne(
+            { externalId: this.id },
+            { $set: { branches } }
+          );
+        }
+      } catch (error) {
+        throw new AnonymousError("repo_not_found", {
+          httpStatus: (error as any).status,
+          cause: error as Error,
+          object: this,
+        });
       }
     } else if (isConnected) {
       const q = await RepositoryModel.findOne({ externalId: this.id }).select(
