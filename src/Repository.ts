@@ -1,7 +1,7 @@
 import { join } from "path";
 import storage from "./storage";
 import { RepositoryStatus, Source, Tree, TreeElement, TreeFile } from "./types";
-import { Readable, Transform } from "stream";
+import { Readable } from "stream";
 import User from "./User";
 import GitHubStream from "./source/GitHubStream";
 import GitHubDownload from "./source/GitHubDownload";

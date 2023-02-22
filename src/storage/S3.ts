@@ -45,7 +45,15 @@ export default class S3Storage implements StorageBase {
         .promise();
       return true;
     } catch (err) {
-      return false;
+      // check if it is a directory
+      const data = await this.client
+        .listObjectsV2({
+          Bucket: config.S3_BUCKET,
+          Prefix: path,
+          MaxKeys: 1,
+        })
+        .promise();
+      return (data.Contents?.length || 0) > 0;
     }
   }
 

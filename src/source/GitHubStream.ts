@@ -80,7 +80,11 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
   }
 
   async getFiles() {
-    return this.getTree(this.branch.commit);
+    let commit = this.branch?.commit;
+    if (!commit && this.repository.model.source.commit) {
+      commit = this.repository.model.source.commit;
+    }
+    return this.getTree(commit);
   }
 
   private async getTree(
