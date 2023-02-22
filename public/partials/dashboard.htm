@@ -242,7 +242,7 @@
       <div class="d-flex d-inline-flex mt-2">
         <div class="alert alert-info alert-dismissible my-0 ml-1" ng-show="!v" role="alert" ng-repeat="(f, v) in filters.status">
           <strong>{{f | title}}</strong>
-          <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+          <button type="button" class="close" data-dismiss="alert" aria-label="Close" ng-click="filters.status[f] = true;">
             <span aria-hidden="true">&times;</span>
           </button>
         </div>
