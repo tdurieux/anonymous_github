@@ -288,6 +288,7 @@ export default class Repository {
     }
     // remove cache
     await this.removeCache();
+    console.log(`[RESET] ${this._model.repoId} has been reset`);
   }
 
   /**
