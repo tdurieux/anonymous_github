@@ -196,7 +196,7 @@ export default class Repository {
         const newCommit = branches.filter((f) => f.name == branch.name)[0]
           ?.commit;
         if (branch.commit == newCommit && this.status == "ready") {
-          console.log(`${this._model.repoId} is up to date`);
+          console.log(`[UPDATE] ${this._model.repoId} is up to date`);
           return;
         }
         this._model.source.commit = newCommit;
@@ -370,7 +370,10 @@ export default class Repository {
   }
 
   get originalCachePath() {
-    return join(this._model.repoId, "original") + (process.platform === "win32" ? "\\" : "/");
+    return (
+      join(this._model.repoId, "original") +
+      (process.platform === "win32" ? "\\" : "/")
+    );
   }
 
   get status() {

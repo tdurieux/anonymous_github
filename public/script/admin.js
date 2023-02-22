@@ -39,13 +39,37 @@ angular
           }
         );
       };
+
+      $scope.updateRepository = (repo) => {
+        const toast = {
+          title: `Refreshing ${repo.repoId}...`,
+          date: new Date(),
+          body: `The repository ${repo.repoId} is going to be refreshed.`,
+        };
+        $scope.toasts.push(toast);
+        repo.s;
+
+        $http.post(`/api/repo/${repo.repoId}/refresh`).then(
+          (res) => {
+            if (res.data.status == "ready") {
+              toast.title = `${repo.repoId} is refreshed.`;
+            } else {
+              toast.title = `Refreshing of ${repo.repoId}.`;
+            }
+          },
+          (error) => {
+            toast.title = `Error during the refresh of ${repo.repoId}.`;
+            toast.body = error.body;
+          }
+        );
+      };
+
       function getRepositories() {
         $http.get("/api/admin/repos", { params: $scope.query }).then(
           (res) => {
             $scope.total = res.data.total;
             $scope.totalPage = Math.ceil(res.data.total / $scope.query.limit);
             $scope.repositories = res.data.results;
-            $scope.$apply();
           },
           (err) => {
             console.error(err);
@@ -171,6 +195,41 @@ angular
       }
       getUser($routeParams.username);
       getUserRepositories($routeParams.username);
+
+      $scope.removeCache = (repo) => {
+        $http.delete("/api/admin/repos/" + repo.repoId).then(
+          (res) => {
+            $scope.$apply();
+          },
+          (err) => {
+            console.error(err);
+          }
+        );
+      };
+
+      $scope.updateRepository = (repo) => {
+        const toast = {
+          title: `Refreshing ${repo.repoId}...`,
+          date: new Date(),
+          body: `The repository ${repo.repoId} is going to be refreshed.`,
+        };
+        $scope.toasts.push(toast);
+        repo.s;
+
+        $http.post(`/api/repo/${repo.repoId}/refresh`).then(
+          (res) => {
+            if (res.data.status == "ready") {
+              toast.title = `${repo.repoId} is refreshed.`;
+            } else {
+              toast.title = `Refreshing of ${repo.repoId}.`;
+            }
+          },
+          (error) => {
+            toast.title = `Error during the refresh of ${repo.repoId}.`;
+            toast.body = error.body;
+          }
+        );
+      };
 
       let timeClear = null;
       $scope.$watch(

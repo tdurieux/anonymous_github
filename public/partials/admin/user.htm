@@ -245,6 +245,64 @@
             >
           </div>
         </div>
+        <div class="d-flex">
+          <div class="dropdown">
+            <button
+              class="btn black_border dropdown-toggle btn-sm"
+              type="button"
+              id="dropdownMenuButton"
+              data-toggle="dropdown"
+              aria-haspopup="true"
+              aria-expanded="false"
+            >
+              Actions
+            </button>
+            <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+              <a class="dropdown-item" href="#" ng-click="removeCache(repo)">
+                <i class="fas fa-trash-alt"></i> Remove Cache
+              </a>
+              <a class="dropdown-item" href="/anonymize/{{repo.repoId}}">
+                <i class="far fa-edit" aria-hidden="true"></i> Edit
+              </a>
+              <a
+                class="dropdown-item"
+                href="#"
+                ng-show="repo.status == 'ready' || repo.status == 'error'"
+                ng-click="updateRepository(repo)"
+              >
+                <i class="fas fa-sync"></i> Force update
+              </a>
+              <a
+                class="dropdown-item"
+                href="#"
+                ng-show="repo.status == 'removed'"
+                ng-click="updateRepository(repo)"
+              >
+                <i class="fas fa-check-circle"></i>
+                Enable
+              </a>
+              <a
+                class="dropdown-item"
+                href="#"
+                ng-show="repo.status == 'ready'"
+                ng-click="removeRepository(repo)"
+              >
+                <i class="fas fa-trash-alt"></i> Remove
+              </a>
+              <a class="dropdown-item" href="/r/{{repo.repoId}}/">
+                <i class="fa fa-eye" aria-hidden="true"></i> View Repo
+              </a>
+              <a
+                class="dropdown-item"
+                href="/w/{{repo.repoId}}/"
+                target="_self"
+                ng-if="repo.options.page && repo.status == 'ready'"
+              >
+                <i class="fas fa-globe"></i> View Page
+              </a>
+            </div>
+          </div>
+        </div>
       </li>
       <li
         class="col-12 d-flex px-0 py-3 border-bottom color-border-secondary"

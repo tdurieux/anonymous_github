@@ -139,17 +139,25 @@ router.get("/repos", async (req, res) => {
     status.push({ status: "download" });
   }
   const skipIndex = (page - 1) * limit;
+  const [total, results] = await Promise.all([
+    AnonymizedRepositoryModel.find(
+      {
+        $and: query,
+      },
+      { originalFiles: 0 }
+    ).countDocuments(),
+    AnonymizedRepositoryModel.find({ $and: query }, { originalFiles: 0 })
+      .skip(skipIndex)
+      .sort(sort)
+      .limit(limit)
+      .exec(),
+  ]);
   res.json({
     query: { $and: query },
     page,
-    total: await AnonymizedRepositoryModel.find({
-      $and: query,
-    }).countDocuments(),
+    total,
     sort,
-    results: await AnonymizedRepositoryModel.find({ $and: query })
-      .sort(sort)
-      .limit(limit)
-      .skip(skipIndex),
+    results,
   });
 });
 
