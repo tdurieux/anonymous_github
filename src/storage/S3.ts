@@ -59,15 +59,7 @@ export default class S3Storage implements StorageBase {
 
   /** @override */
   async mk(dir: string): Promise<void> {
-    if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
-    if (dir && dir[dir.length - 1] != "/") dir = dir + "/";
-
-    await this.client
-      .putObject({
-        Bucket: config.S3_BUCKET,
-        Key: dir,
-      })
-      .promise();
+    // no need to create folder on S3
   }
 
   /** @override */
@@ -77,6 +69,7 @@ export default class S3Storage implements StorageBase {
       .listObjectsV2({
         Bucket: config.S3_BUCKET,
         Prefix: dir,
+        MaxKeys: 1000,
       })
       .promise();
 
@@ -114,7 +107,7 @@ export default class S3Storage implements StorageBase {
         try {
           res.status(error.statusCode || 500);
         } catch (err) {
-          console.error(err);
+          console.error(`[ERROR] S3 send ${p}`, err);
         }
       })
       .on("httpHeaders", (statusCode, headers, response) => {
@@ -170,6 +163,7 @@ export default class S3Storage implements StorageBase {
       .listObjectsV2({
         Bucket: config.S3_BUCKET,
         Prefix: dir,
+        MaxKeys: 1000,
       })
       .promise();
 
