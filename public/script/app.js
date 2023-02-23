@@ -415,18 +415,26 @@ angular
         restrict: "E",
         scope: { file: "=" },
         controller: function ($element, $scope, $http) {
+          function renderNotebookJSON(json) {
+            $element.html("");
+            const notebook = nb.parse(json);
+            try {
+              const rendered = notebook.render();
+              $element.append(rendered);
+              Prism.highlightAll();
+            } catch (error) {
+              $element.html("Unable to render the notebook.");
+            }
+          }
           function render() {
-            if (!$scope.file) return;
-            $http.get($scope.file).then((res) => {
-              var notebook = nb.parse(res.data);
-              try {
-                var rendered = notebook.render();
-                $element.append(rendered);
-                Prism.highlightAll();
-              } catch (error) {
-                $element.html("Unable to render the notebook.");
-              }
-            });
+            // $element.html("");
+            if ($scope.$parent.content) {
+              renderNotebookJSON(JSON.parse($scope.$parent.content));
+            } else if ($scope.file) {
+              $http
+                .get($scope.file.download_url)
+                .then((res) => renderNotebookJSON(res.data));
+            }
           }
           $scope.$watch("file", (v) => {
             render();
