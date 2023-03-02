@@ -416,20 +416,24 @@ angular
         scope: { file: "=" },
         controller: function ($element, $scope, $http) {
           function renderNotebookJSON(json) {
-            $element.html("");
             const notebook = nb.parse(json);
             try {
-              const rendered = notebook.render();
-              $element.append(rendered);
+              $element.html("");
+              $element.append(notebook.render());
               Prism.highlightAll();
             } catch (error) {
               $element.html("Unable to render the notebook.");
             }
           }
           function render() {
-            // $element.html("");
             if ($scope.$parent.content) {
-              renderNotebookJSON(JSON.parse($scope.$parent.content));
+              try {
+                renderNotebookJSON(JSON.parse($scope.$parent.content));
+              } catch (error) {
+                $element.html(
+                  "Unable to render the notebook invalid notebook format."
+                );
+              }
             } else if ($scope.file) {
               $http
                 .get($scope.file.download_url)

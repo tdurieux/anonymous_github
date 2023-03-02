@@ -108,26 +108,26 @@ export function anonymizeContent(
       new RegExp(
         `https://github.com/${
           repository.source.githubRepository.fullName
-        }/blob/${repository.source.branch?.name || "HEAD"}\\b`,
+        }/blob/${repository.source.branch?.name || "main"}\\b`,
         "gi"
       ),
-      `https://${config.HOSTNAME}/r/${repository.repoId}`
+      `https://${config.APP_HOSTNAME}/r/${repository.repoId}`
     );
     content = content.replace(
       new RegExp(
         `https://github.com/${
           repository.source.githubRepository.fullName
-        }/tree/${(repository.source as GitHubBase).branch?.name || "HEAD"}\\b`,
+        }/tree/${(repository.source as GitHubBase).branch?.name || "main"}\\b`,
         "gi"
       ),
-      `https://${config.HOSTNAME}/r/${repository.repoId}`
+      `https://${config.APP_HOSTNAME}/r/${repository.repoId}`
     );
     content = content.replace(
       new RegExp(
         `https://github.com/${repository.source.githubRepository.fullName}`,
         "gi"
       ),
-      `https://${config.HOSTNAME}/r/${repository.repoId}`
+      `https://${config.APP_HOSTNAME}/r/${repository.repoId}`
     );
   }
 
