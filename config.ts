@@ -19,7 +19,7 @@ interface Config {
   ENABLE_DOWNLOAD: boolean;
   ANONYMIZATION_MASK: string;
   PORT: number;
-  HOSTNAME: string;
+  APP_HOSTNAME: string;
   DB_USERNAME: string;
   DB_PASSWORD: string;
   DB_HOSTNAME: string;
@@ -50,7 +50,7 @@ const config: Config = {
   PORT: 5000,
   TRUST_PROXY: 1,
   RATE_LIMIT: 350,
-  HOSTNAME: "anonymous.4open.science",
+  APP_HOSTNAME: "anonymous.4open.science",
   DB_USERNAME: "admin",
   DB_PASSWORD: "password",
   DB_HOSTNAME: "mongodb",
