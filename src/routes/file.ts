@@ -31,9 +31,11 @@ router.get(
           object: f,
         });
       }
-      res.attachment(
-        anonymizedPath.substring(anonymizedPath.lastIndexOf("/") + 1)
-      );
+      if (req.query.download) {
+        res.attachment(
+          anonymizedPath.substring(anonymizedPath.lastIndexOf("/") + 1)
+        );
+      }
       // cache the file for 5min
       res.header("Cache-Control", "max-age=300");
       await Promise.all([repo.countView(), f.send(res)]);

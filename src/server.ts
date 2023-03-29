@@ -126,7 +126,7 @@ export default async function start() {
     res.json({
       nbRepositories,
       nbUsers: users.length,
-      nbPageViews: nbPageViews[0].total,
+      nbPageViews: nbPageViews[0]?.total || 0,
       nbPullRequests,
     });
   });
