@@ -69,6 +69,9 @@ export default async function start() {
     max: config.RATE_LIMIT, // limit each IP
     standardHeaders: true,
     legacyHeaders: false,
+    message: (request: express.Request, response: express.Response) => {
+      return `You can only make ${config.RATE_LIMIT} requests every 15min.`;
+    },
   });
   const speedLimiter = slowDown({
     windowMs: 15 * 60 * 1000, // 15 minutes
