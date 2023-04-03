@@ -16,6 +16,7 @@ import AnonymizedRepositoryModel from "./database/anonymizedRepositories/anonymi
 import { conferenceStatusCheck, repositoryStatusCheck } from "./schedule";
 import { startWorker } from "./queue";
 import AnonymizedPullRequestModel from "./database/anonymizedPullRequests/anonymizedPullRequests.model";
+import { getUser } from "./routes/route-utils";
 
 function indexResponse(req: express.Request, res: express.Response) {
   if (
@@ -66,11 +67,17 @@ export default async function start() {
       sendCommand: (...args: string[]) => redisClient.sendCommand(args),
     }),
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: config.RATE_LIMIT, // limit each IP
+    max: async (request: express.Request, response: express.Response) => {
+      const user = await getUser(request);
+      if (user && user.isAdmin) return 0;
+      if (user) return config.RATE_LIMIT;
+      // if not logged in, limit to half the rate
+      return config.RATE_LIMIT / 2;
+    },
     standardHeaders: true,
     legacyHeaders: false,
     message: (request: express.Request, response: express.Response) => {
-      return `You can only make ${config.RATE_LIMIT} requests every 15min.`;
+      return `You can only make ${config.RATE_LIMIT} requests every 15min. Please try again later.`;
     },
   });
   const speedLimiter = slowDown({
