@@ -71,6 +71,7 @@ export default class Repository {
         });
     }
     this.owner = new User(new UserModel({ _id: data.owner }));
+    this.owner.model.isNew = false;
   }
 
   /**

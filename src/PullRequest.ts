@@ -17,6 +17,7 @@ export default class PullRequest {
   constructor(data: IAnonymizedPullRequestDocument) {
     this._model = data;
     this.owner = new User(new UserModel({ _id: data.owner }));
+    this.owner.model.isNew = false;
   }
 
   getToken() {
