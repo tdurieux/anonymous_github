@@ -18,6 +18,8 @@ import { downloadQueue, removeQueue } from "./queue";
 import { isConnected } from "./database/database";
 import AnonymizedFile from "./AnonymizedFile";
 import AnonymizedRepositoryModel from "./database/anonymizedRepositories/anonymizedRepositories.model";
+import { getRepositoryFromGitHub } from "./source/GitHubRepository";
+import config from "../config";
 
 function anonymizeTreeRecursive(
   tree: TreeElement,
@@ -213,7 +215,27 @@ export default class Repository {
           });
         }
         this._model.anonymizeDate = new Date();
-        console.log(`${this._model.repoId} will be updated to ${newCommit}`);
+        console.log(
+          `[UPDATE] ${this._model.repoId} will be updated to ${newCommit}`
+        );
+
+        if (this.source.type == "GitHubDownload") {
+          const repository = await getRepositoryFromGitHub({
+            accessToken: await this.source.getToken(),
+            owner: this.source.githubRepository.owner,
+            repo: this.source.githubRepository.repo,
+          });
+          if (
+            repository.size === undefined ||
+            repository.size > config.MAX_REPO_SIZE
+          ) {
+            console.log(
+              `[UPDATE] ${this._model.repoId} will be streamed instead of downloaded`
+            );
+            this._model.source.type = "GitHubStream";
+          }
+        }
+
         await this.resetSate(RepositoryStatus.PREPARING);
         await downloadQueue.add(this.repoId, this, {
           jobId: this.repoId,
