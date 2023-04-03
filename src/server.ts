@@ -68,9 +68,13 @@ export default async function start() {
     }),
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: async (request: express.Request, response: express.Response) => {
-      const user = await getUser(request);
-      if (user && user.isAdmin) return 0;
-      if (user) return config.RATE_LIMIT;
+      try {
+        const user = await getUser(request);
+        if (user && user.isAdmin) return 0;
+        if (user) return config.RATE_LIMIT;
+      } catch (_) {
+        // ignore: user not connected
+      }
       // if not logged in, limit to half the rate
       return config.RATE_LIMIT / 2;
     },

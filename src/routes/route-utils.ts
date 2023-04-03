@@ -129,6 +129,9 @@ export async function getUser(req: express.Request) {
       httpStatus: 401,
     });
   }
+  if (!req.user) {
+    notConnected();
+  }
   const user = (req.user as any).user;
   if (!user) {
     notConnected();
