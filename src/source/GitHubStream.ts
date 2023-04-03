@@ -59,9 +59,11 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
       } else {
         content = Buffer.from("");
       }
+      await storage.write(file.originalCachePath, content, file, this);
+      this.repository.model.isReseted = false;
+      await this.repository.model.save();
       if (this.repository.status !== RepositoryStatus.READY)
         await this.repository.updateStatus(RepositoryStatus.READY);
-      await storage.write(file.originalCachePath, content, file, this);
       return stream.Readable.from(content);
     } catch (error) {
       if ((error as any).status === 404 || (error as any).httpStatus === 404) {

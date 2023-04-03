@@ -122,6 +122,7 @@ export default class GitHubDownload extends GitHubBase implements SourceBase {
       clearTimeout(progressTimeout);
     }
 
+    this.repository.model.isReseted = false;
     await this.repository.updateStatus(RepositoryStatus.READY);
   }
 

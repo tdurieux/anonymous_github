@@ -40,6 +40,7 @@ export interface IAnonymizedRepository {
     storage: number;
     file: number;
   };
+  isReseted: boolean;
 }
 
 export interface IAnonymizedRepositoryDocument

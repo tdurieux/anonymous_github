@@ -27,7 +27,10 @@ export function repositoryStatusCheck() {
   const job = schedule.scheduleJob("0 */6 * * *", async () => {
     console.log("[schedule] Check repository status and unused repositories");
     (
-      await AnonymizedRepositoryModel.find({ status: { $eq: "ready" } })
+      await AnonymizedRepositoryModel.find({
+        status: { $eq: "ready" },
+        isReseted: { $eq: false },
+      })
     ).forEach((data) => {
       const repo = new Repository(data);
       try {
@@ -35,13 +38,13 @@ export function repositoryStatusCheck() {
       } catch (error) {
         console.log(`Repository ${repo.repoId} is expired`);
       }
-      const sixMonthAgo = new Date();
-      sixMonthAgo.setMonth(sixMonthAgo.getMonth() - 6);
+      const fourMonthAgo = new Date();
+      fourMonthAgo.setMonth(fourMonthAgo.getMonth() - 4);
 
-      if (repo.model.lastView < sixMonthAgo) {
+      if (repo.model.lastView < fourMonthAgo) {
         repo.removeCache().then(() => {
           console.log(
-            `Repository ${repo.repoId} not visited for 6 months remove the cached files`
+            `Repository ${repo.repoId} not visited for 4 months remove the cached files`
           );
         });
       }

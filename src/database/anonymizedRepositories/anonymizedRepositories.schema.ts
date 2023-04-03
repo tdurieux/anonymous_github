@@ -63,6 +63,10 @@ const AnonymizedRepositorySchema = new Schema({
       default: 0,
     },
   },
+  isReseted: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 export default AnonymizedRepositorySchema;
