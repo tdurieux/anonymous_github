@@ -468,28 +468,29 @@ router.post("/", async (req: express.Request, res: express.Response) => {
     repo.owner = user.id;
 
     updateRepoModel(repo, repoUpdate);
+    repo.source.type = "GitHubStream";
     repo.source.accessToken = user.accessToken;
     repo.source.repositoryId = repository.model.id;
     repo.source.repositoryName = repoUpdate.fullName;
 
-    if (repo.source.type == "GitHubDownload") {
-      // details.size is in kilobytes
-      if (
-        repository.size === undefined ||
-        repository.size > config.MAX_REPO_SIZE
-      ) {
-        throw new AnonymousError("invalid_mode", {
-          object: repository,
-          httpStatus: 400,
-        });
-      }
-    }
-    if (
-      repository.size !== undefined &&
-      repository.size < config.AUTO_DOWNLOAD_REPO_SIZE
-    ) {
-      repo.source.type = "GitHubDownload";
-    }
+    // if (repo.source.type === "GitHubDownload") {
+    //   // details.size is in kilobytes
+    //   if (
+    //     repository.size === undefined ||
+    //     repository.size > config.MAX_REPO_SIZE
+    //   ) {
+    //     throw new AnonymousError("invalid_mode", {
+    //       object: repository,
+    //       httpStatus: 400,
+    //     });
+    //   }
+    // }
+    // if (
+    //   repository.size !== undefined &&
+    //   repository.size < config.AUTO_DOWNLOAD_REPO_SIZE
+    // ) {
+    //   repo.source.type = "GitHubDownload";
+    // }
     repo.conference = repoUpdate.conference;
 
     await repo.save();

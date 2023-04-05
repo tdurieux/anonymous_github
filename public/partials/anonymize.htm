@@ -13,14 +13,9 @@
           name="anonymize"
           novalidate
         >
-          <h5 class="card-title">Anonymize a repository</h5>
-          <h6 class="card-subtitle mb-2 text-muted">
-            Fill the information to anonymize! It will only take 5min.
-          </h6>
-          <h2>Source</h2>
+          <h3 class="card-title mb-3">Anonymize your repository</h3>
           <!-- repoUrl -->
-          <div class="form-group">
-            <label for="repoUrl">Type the url of your repository</label>
+          <div class="form-group mb-0">
             <input
               type="text"
               class="form-control"
@@ -28,6 +23,7 @@
               id="repoUrl"
               ng-class="{'is-invalid': anonymize.repoUrl.$invalid}"
               ng-model="repoUrl"
+              placeholder="URL of your GitHub repository"
               ng-model-options="{ debounce: {default: 1000, blur: 0, click: 0}, updateOn: 'default blur click' }"
               ng-change="repoSelected()"
             />
@@ -56,37 +52,6 @@
               ng-show="anonymize.repoUrl.$error.used"
             >
               {{repoUrl}} is already anonymized
-            </div>
-          </div>
-          <!-- select repo -->
-          <div class="form-group" ng-hide="repoUrl">
-            <label for="repositories">Or select one of your repository</label>
-            <div class="input-group mb-3">
-              <select
-                class="form-control"
-                id="repositories"
-                name="repositories"
-                ng-model="repoUrl"
-                ng-change="repoSelected()"
-              >
-                <option selected value="">None</option>
-                <option
-                  ng-repeat="repo in repositories|orderBy:'fullName'"
-                  value="https://github.com/{{ repo.fullName }}"
-                  ng-bind="repo.fullName"
-                ></option>
-              </select>
-              <div class="input-group-append">
-                <button
-                  class="btn btn-outline-secondary"
-                  ng-click="getRepositories(true)"
-                  title="Refresh!"
-                  data-toggle="tooltip"
-                  data-placement="bottom"
-                >
-                  <i class="fa fa-undo"></i>
-                </button>
-              </div>
             </div>
           </div>
           <div ng-show="repoUrl">
@@ -384,29 +349,6 @@
                         />
                         <label class="form-check-label" for="notebook"
                           >Display Notebooks</label
-                        >
-                      </div>
-
-                      <div class="form-group">
-                        <label for="mode">Proxy mode</label>
-                        <select
-                          class="form-control"
-                          id="mode"
-                          name="mode"
-                          ng-model="source.type"
-                        >
-                          <option value="GitHubStream" selected>Stream</option>
-                          <option value="GitHubDownload">Download</option>
-                        </select>
-                        <small class="form-text text-muted"
-                          >How the repository will be anonymized. Stream mode
-                          will request the content on the flight. This is the
-                          only option for repositories bigger than
-                          {{site_options.MAX_REPO_SIZE * 1024| humanFileSize}}.
-                          This repository is {{details.size * 8 *1024 |
-                          humanFileSize}}. Download will download the repository
-                          the repository on the anonymous.4open.science server,
-                          it is faster and offer more features.</small
                         >
                       </div>
                     </div>

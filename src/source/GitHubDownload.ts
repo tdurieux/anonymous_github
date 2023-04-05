@@ -91,7 +91,7 @@ export default class GitHubDownload extends GitHubBase implements SourceBase {
 
     const that = this;
     async function updateProgress() {
-      if (progress && that.repository.status) {
+      if (progress && that.repository.status == RepositoryStatus.DOWNLOAD) {
         await that.repository.updateStatus(
           that.repository.status,
           progress.transferred.toString()

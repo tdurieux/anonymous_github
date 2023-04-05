@@ -999,9 +999,7 @@ angular
       $scope.terms = "";
       $scope.defaultTerms = "";
       $scope.branches = [];
-      $scope.repositories = [];
       $scope.source = {
-        type: "GitHubStream",
         branch: "",
         commit: "",
       };
@@ -1078,17 +1076,6 @@ angular
           });
         }
       });
-
-      $scope.getRepositories = (force) => {
-        $http
-          .get("/api/user/all_repositories", {
-            params: { force: force === true ? "1" : "0" },
-          })
-          .then((res) => {
-            $scope.repositories = res.data;
-          });
-      };
-      $scope.getRepositories();
 
       $scope.repoSelected = async () => {
         $scope.terms = $scope.defaultTerms;
@@ -1176,14 +1163,6 @@ angular
           resetValidity();
           const res = await $http.get(`/api/repo/${o.owner}/${o.repo}/`);
           $scope.details = res.data;
-          if ($scope.details.size > $scope.site_options.MAX_REPO_SIZE) {
-            $scope.anonymize.mode.$$element[0].disabled = true;
-
-            $scope.$apply(() => {
-              $scope.source.type = "GitHubStream";
-              checkSourceType();
-            });
-          }
           if (!$scope.repoId) {
             $scope.repoId = $scope.details.repo + "-" + generateRandomId(4);
           }
@@ -1453,7 +1432,7 @@ angular
         const selected = $scope.branches.filter(
           (f) => f.name == $scope.source.branch
         )[0];
-        checkSourceType();
+        checkHasPage();
 
         if (selected) {
           $scope.source.commit = selected.commit;
@@ -1464,21 +1443,14 @@ angular
         }
       });
 
-      function checkSourceType() {
-        if ($scope.source.type == "GitHubStream") {
-          $scope.options.page = false;
-          //$scope.anonymize.page.$$element[0].disabled = true;
-        } else {
-          if ($scope.details && $scope.details.hasPage) {
-            $scope.anonymize.page.$$element[0].disabled = false;
-            if ($scope.details.pageSource.branch != $scope.source.branch) {
-              $scope.anonymize.page.$$element[0].disabled = true;
-            }
+      function checkHasPage() {
+        if ($scope.details && $scope.details.hasPage) {
+          $scope.anonymize.page.$$element[0].disabled = false;
+          if ($scope.details.pageSource.branch != $scope.source.branch) {
+            $scope.anonymize.page.$$element[0].disabled = true;
           }
         }
       }
-
-      $scope.$watch("source.type", checkSourceType);
 
       $scope.$watch("terms", anonymize);
       $scope.$watch("options.image", anonymize);
