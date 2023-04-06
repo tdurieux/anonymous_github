@@ -21,14 +21,14 @@ export default class S3Storage implements StorageBase {
       });
   }
 
-  get client() {
+  private client(timeout = 5000) {
     return new S3({
       region: config.S3_REGION,
       endpoint: config.S3_ENDPOINT,
       accessKeyId: config.S3_CLIENT_ID,
       secretAccessKey: config.S3_CLIENT_SECRET,
       httpOptions: {
-        timeout: 1000 * 60 * 60 * 2, // 2 hour
+        timeout,
       },
     });
   }
@@ -37,7 +37,7 @@ export default class S3Storage implements StorageBase {
   async exists(path: string): Promise<boolean> {
     if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
     try {
-      await this.client
+      await this.client()
         .headObject({
           Bucket: config.S3_BUCKET,
           Key: path,
@@ -46,7 +46,7 @@ export default class S3Storage implements StorageBase {
       return true;
     } catch (err) {
       // check if it is a directory
-      const data = await this.client
+      const data = await this.client()
         .listObjectsV2({
           Bucket: config.S3_BUCKET,
           Prefix: path,
@@ -65,7 +65,7 @@ export default class S3Storage implements StorageBase {
   /** @override */
   async rm(dir: string): Promise<void> {
     if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
-    const data = await this.client
+    const data = await this.client()
       .listObjectsV2({
         Bucket: config.S3_BUCKET,
         Prefix: dir,
@@ -88,7 +88,7 @@ export default class S3Storage implements StorageBase {
       // nothing to remove
       return;
     }
-    await this.client.deleteObjects(params).promise();
+    await this.client().deleteObjects(params).promise();
 
     if (data.IsTruncated) {
       await this.rm(dir);
@@ -98,7 +98,7 @@ export default class S3Storage implements StorageBase {
   /** @override */
   send(p: string, res: Response) {
     if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
-    const s = this.client
+    const s = this.client()
       .getObject({
         Bucket: config.S3_BUCKET,
         Key: p,
@@ -125,7 +125,7 @@ export default class S3Storage implements StorageBase {
   /** @override */
   read(path: string): Readable {
     if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
-    return this.client
+    return this.client(3000)
       .getObject({
         Bucket: config.S3_BUCKET,
         Key: path,
@@ -150,7 +150,8 @@ export default class S3Storage implements StorageBase {
     if (source) {
       params.Tagging = `source=${source.type}`;
     }
-    await this.client.putObject(params).promise();
+    // 30s timeout
+    await this.client(30000).putObject(params).promise();
     return;
   }
 
@@ -159,7 +160,7 @@ export default class S3Storage implements StorageBase {
     if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
     if (dir && dir[dir.length - 1] != "/") dir = dir + "/";
     const out: Tree = {};
-    const req = await this.client
+    const req = await this.client(30000)
       .listObjectsV2({
         Bucket: config.S3_BUCKET,
         Prefix: dir,
@@ -205,7 +206,7 @@ export default class S3Storage implements StorageBase {
       toS3 = new ArchiveStreamToS3({
         bucket: config.S3_BUCKET,
         prefix: p,
-        s3: this.client,
+        s3: this.client(2 * 60 * 60 * 1000), // 2h timeout
         type: "zip",
         onEntry: (header) => {
           header.name = header.name.substr(header.name.indexOf("/") + 1);
@@ -231,7 +232,7 @@ export default class S3Storage implements StorageBase {
     if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
     const archive = archiver(opt?.format || "zip", {});
     if (dir && dir[dir.length - 1] != "/") dir = dir + "/";
-    const req = this.client.listObjectsV2({
+    const req = this.client(30000).listObjectsV2({
       Bucket: config.S3_BUCKET,
       Prefix: dir,
     });
