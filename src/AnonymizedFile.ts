@@ -31,9 +31,9 @@ export default class AnonymizedFile {
   }
 
   async sha() {
-    if (this._sha) return this._sha;
+    if (this._sha) return this._sha.replace(/"/g, "");
     await this.originalPath();
-    return this._sha;
+    return this._sha?.replace(/"/g, "");
   }
 
   /**
