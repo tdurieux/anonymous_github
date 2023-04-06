@@ -10,6 +10,7 @@ import GitHubBase from "./GitHubBase";
 import AnonymizedFile from "../AnonymizedFile";
 import { RepositoryStatus, SourceBase } from "../types";
 import AnonymousError from "../AnonymousError";
+import { tryCatch } from "bullmq";
 
 export default class GitHubDownload extends GitHubBase implements SourceBase {
   constructor(
@@ -91,13 +92,13 @@ export default class GitHubDownload extends GitHubBase implements SourceBase {
 
     const that = this;
     async function updateProgress() {
-      if (progress && that.repository.status == RepositoryStatus.DOWNLOAD) {
-        await that.repository.updateStatus(
-          that.repository.status,
-          progress.transferred.toString()
-        );
-      }
       if (inDownload) {
+        if (progress && that.repository.status == RepositoryStatus.DOWNLOAD) {
+          await that.repository.updateStatus(
+            that.repository.status,
+            progress.transferred.toString()
+          );
+        }
         progressTimeout = setTimeout(updateProgress, 1500);
       }
     }
@@ -123,7 +124,11 @@ export default class GitHubDownload extends GitHubBase implements SourceBase {
     }
 
     this.repository.model.isReseted = false;
-    await this.repository.updateStatus(RepositoryStatus.READY);
+    try {
+      await this.repository.updateStatus(RepositoryStatus.READY);
+    } catch (error) {
+      console.error(error);
+    }
   }
 
   async getFileContent(file: AnonymizedFile): Promise<Readable> {
