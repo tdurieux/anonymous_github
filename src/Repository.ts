@@ -56,8 +56,8 @@ export default class Repository {
     this._model = data;
     switch (data.source.type) {
       case "GitHubDownload":
-        // this.source = new GitHubDownload(data.source, this);
-        // break;
+        this.source = new GitHubDownload(data.source, this);
+        break;
       case "GitHubStream":
         this.source = new GitHubStream(data.source, this);
         break;

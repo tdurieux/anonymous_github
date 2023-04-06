@@ -4,7 +4,7 @@ import { IRepositoryDocument } from "../database/repositories/repositories.types
 import { Octokit, RestEndpointMethodTypes } from "@octokit/rest";
 import RepositoryModel from "../database/repositories/repositories.model";
 import AnonymousError from "../AnonymousError";
-import { database, isConnected } from "../database/database";
+import { isConnected } from "../database/database";
 
 export class GitHubRepository {
   private _data: Partial<{
