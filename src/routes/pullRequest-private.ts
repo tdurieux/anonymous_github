@@ -71,6 +71,7 @@ router.get(
           },
         })
       );
+      pullRequest.owner = user;
       await pullRequest.download();
       res.json(pullRequest.toJSON());
     } catch (error) {
