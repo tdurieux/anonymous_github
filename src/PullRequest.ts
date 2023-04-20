@@ -20,40 +20,59 @@ export default class PullRequest {
     this.owner.model.isNew = false;
   }
 
-  getToken() {
-    if (this.owner && this.owner.accessToken) {
-      return this.owner.accessToken;
+  async getToken() {
+    let owner = this.owner.model;
+    if (owner && !owner.accessTokens.github) {
+      const temp = await UserModel.findById(owner._id);
+      if (temp) {
+        owner = temp;
+      }
+    }
+    if (owner && owner.accessTokens && owner.accessTokens.github) {
+      if (owner.accessTokens.github != this._model.source.accessToken) {
+        this._model.source.accessToken = owner.accessTokens.github;
+      }
+      return owner.accessTokens.github;
     }
     if (this._model.source.accessToken) {
       try {
         return this._model.source.accessToken;
       } catch (error) {
-        console.debug("[ERROR] Token is invalid", this.pullRequestId);
+        console.debug(
+          "[ERROR] Token is invalid",
+          this._model.source.pullRequestId
+        );
       }
     }
     return config.GITHUB_TOKEN;
   }
 
   async download() {
-    console.debug("[INFO] Downloading pull request", this.pullRequestId);
-    const auth = this.getToken();
-    const octokit = new Octokit({ auth });
+    console.debug(
+      "[INFO] Downloading pull request",
+      this._model.source.pullRequestId
+    );
+    const auth = await this.getToken();
+    const octokit = new Octokit({ auth: auth });
+
     const [owner, repo] = this._model.source.repositoryFullName.split("/");
     const pull_number = this._model.source.pullRequestId;
+
     const [prInfo, comments, diff] = await Promise.all([
       octokit.rest.pulls.get({
         owner,
         repo,
         pull_number,
       }),
-      octokit.rest.issues.listComments({
-        owner,
-        repo,
+      octokit.paginate(octokit.rest.issues.listComments, {
+        owner: owner,
+        repo: repo,
         issue_number: pull_number,
         per_page: 100,
       }),
       got(`https://github.com/${owner}/${repo}/pull/${pull_number}.diff`),
     ]);
+
     this._model.pullRequest = {
       diff: diff.body,
       title: prInfo.data.title,
@@ -68,7 +87,7 @@ export default class PullRequest {
       state: prInfo.data.state,
       baseRepositoryFullName: prInfo.data.base.repo.full_name,
       headRepositoryFullName: prInfo.data.head.repo?.full_name,
-      comments: comments.data.map((comment) => ({
+      comments: comments.map((comment) => ({
         body: comment.body || "",
         creationDate: new Date(comment.created_at),
         updatedDate: new Date(comment.updated_at),
