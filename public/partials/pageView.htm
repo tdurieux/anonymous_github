@@ -2,6 +2,7 @@
 <div ng-if="type == 'html'" ng-bind-html="content" class="file-content markdown-body"></div>
 <div ng-if="type == 'code' && content != null" ui-ace="aceOption" ng-model="content"></div>
 <img ng-if="type == 'image'" class="image-content" ng-src="{{url}}"></img>
+<iframe class="h-100 overflow-auto w-100 b-0" ng-if="type == 'media'" ng-src="{{url}}"></iframe>
 <div class="h-100 overflow-auto" ng-if="type == 'pdf'">
   <pdfviewer class="h-100 overflow-auto" src="{{url}}" id="viewer"></pdfviewer>
 </div>

@@ -1488,6 +1488,17 @@ angular
         "heif",
         "heic",
       ];
+      const mediaFiles = [
+        "wav",
+        "mp3",
+        "ogg",
+        "mp4",
+        "avi",
+        "webm",
+        "mov",
+        "mpg",
+        "wma",
+      ];
 
       $scope.$on("$routeUpdate", function (event, current) {
         if (($routeParams.path || "") == $scope.filePath) {
@@ -1600,6 +1611,9 @@ angular
         }
         if (imageFiles.indexOf(extension) > -1) {
           return "image";
+        }
+        if (mediaFiles.indexOf(extension) > -1) {
+          return "media";
         }
         return "code";
       }
