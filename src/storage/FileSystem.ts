@@ -9,6 +9,7 @@ import { Readable, pipeline, Transform } from "stream";
 import * as archiver from "archiver";
 import { promisify } from "util";
 import AnonymizedFile from "../AnonymizedFile";
+import { lookup } from "mime-types";
 
 export default class FileSystem implements StorageBase {
   type = "FileSystem";
@@ -28,6 +29,17 @@ export default class FileSystem implements StorageBase {
   /** @override */
   read(p: string): Readable {
     return fs.createReadStream(join(config.FOLDER, p));
+  }
+
+  async fileInfo(path: string) {
+    const info = await fs.promises.stat(join(config.FOLDER, path));
+    return {
+      size: info.size,
+      lastModified: info.mtime,
+      contentType: info.isDirectory()
+        ? "application/x-directory"
+        : lookup(join(config.FOLDER, path)) as string,
+    };
   }
 
   /** @override */

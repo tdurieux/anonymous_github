@@ -52,6 +52,12 @@ export interface StorageBase {
    */
   read(path: string): Readable;
 
+  fileInfo(path: string): Promise<{
+    size: number | undefined;
+    lastModified: Date | undefined;
+    contentType: string;
+  }>;
+
   /**
    * Write data to a file
    * @param path the path to the file

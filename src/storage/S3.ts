@@ -122,6 +122,23 @@ export default class S3Storage implements StorageBase {
     s.send();
   }
 
+  async fileInfo(path: string) {
+    if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
+    const info = await this.client(3000)
+      .headObject({
+        Bucket: config.S3_BUCKET,
+        Key: path,
+      })
+      .promise();
+    return {
+      size: info.ContentLength,
+      lastModified: info.LastModified,
+      contentType: info.ContentType
+        ? info.ContentType
+        : (lookup(path) as string),
+    };
+  }
+
   /** @override */
   read(path: string): Readable {
     if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");

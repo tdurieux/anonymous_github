@@ -9,7 +9,7 @@ import Zip from "./source/Zip";
 import { anonymizePath } from "./anonymize-utils";
 import UserModel from "./database/users/users.model";
 import { IAnonymizedRepositoryDocument } from "./database/anonymizedRepositories/anonymizedRepositories.types";
-import { anonymizeStream } from "./anonymize-utils";
+import { AnonymizeTransformer } from "./anonymize-utils";
 import GitHubBase from "./source/GitHubBase";
 import Conference from "./Conference";
 import ConferenceModel from "./database/conference/conferences.model";
@@ -168,7 +168,7 @@ export default class Repository {
     return storage.archive(this.originalCachePath, {
       format: "zip",
       fileTransformer: (filename: string) =>
-        anonymizeStream(
+        new AnonymizeTransformer(
           new AnonymizedFile({
             repository: this,
             anonymizedPath: filename,

@@ -5,9 +5,10 @@ import Repository from "./Repository";
 import { Tree, TreeElement, TreeFile } from "./types";
 import storage from "./storage";
 import config from "../config";
-import { anonymizePath, anonymizeStream } from "./anonymize-utils";
+import { anonymizePath, AnonymizeTransformer } from "./anonymize-utils";
 import AnonymousError from "./AnonymousError";
 import { handleError } from "./routes/route-utils";
+import { tryCatch } from "bullmq";
 
 /**
  * Represent a file in a anonymized repository
@@ -177,7 +178,7 @@ export default class AnonymizedFile {
   }
 
   async anonymizedContent() {
-    return (await this.content()).pipe(anonymizeStream(this));
+    return (await this.content()).pipe(new AnonymizeTransformer(this));
   }
 
   get originalCachePath() {
@@ -204,15 +205,32 @@ export default class AnonymizedFile {
     if (this.extension()) {
       res.contentType(this.extension());
     }
-    if (this.fileSize) {
-      res.set("Content-Length", this.fileSize.toString());
-    }
+    res.header("Accept-Ranges", "none");
     return new Promise(async (resolve, reject) => {
       try {
-        (await this.anonymizedContent())
+        const content = await this.content();
+        try {
+          const fileInfo = await storage.fileInfo(this.originalCachePath);
+          if (fileInfo.size) {
+            res.header("Content-Length", fileInfo.size.toString());
+          }
+        } catch (error) {
+          // unable to get file size
+          console.error(error);
+        }
+        content
+          .pipe(new AnonymizeTransformer(this))
           .pipe(res)
-          .on("close", () => resolve())
+          .on("close", () => {
+            if (!content.closed && !content.destroyed) {
+              content.destroy();
+            }
+            resolve();
+          })
           .on("error", (error) => {
+            if (!content.closed && !content.destroyed) {
+              content.destroy();
+            }
             reject(error);
             handleError(error, res);
           });

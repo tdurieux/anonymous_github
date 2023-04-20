@@ -31,45 +31,20 @@ export function isTextFile(filePath: string, content: Buffer) {
   return isText(filename, content);
 }
 
-export function anonymizeStream(file: AnonymizedFile) {
-  const ts = new Transform();
-  var chunks: Buffer[] = [],
-    len = 0,
-    pos = 0;
+export class AnonymizeTransformer extends Transform {
+  constructor(private readonly file: AnonymizedFile) {
+    super();
+  }
 
-  ts._transform = function _transform(chunk, enc, cb) {
-    chunks.push(chunk);
-    len += chunk.length;
-
-    if (pos === 1) {
-      let data: any = Buffer.concat(chunks, len);
-      if (isTextFile(file.anonymizedPath, data)) {
-        data = anonymizeContent(data.toString(), file.repository);
-      }
-
-      chunks = [];
-      len = 0;
-
-      this.push(data);
+  _transform(chunk: Buffer, encoding: string, callback: () => void) {
+    if (isTextFile(this.file.anonymizedPath, chunk)) {
+      chunk = Buffer.from(
+        anonymizeContent(chunk.toString(), this.file.repository)
+      );
     }
-
-    pos = 1 ^ pos;
-    cb(null);
-  };
-
-  ts._flush = function _flush(cb) {
-    if (chunks.length) {
-      let data = Buffer.concat(chunks, len);
-      if (isText(file.anonymizedPath, data)) {
-        data = Buffer.from(anonymizeContent(data.toString(), file.repository));
-      }
-
-      this.push(data);
-    }
-
-    cb(null);
-  };
-  return ts;
+    this.push(chunk);
+    callback();
+  }
 }
 
 interface Anonymizationptions {
