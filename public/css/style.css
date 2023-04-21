@@ -133,6 +133,12 @@ a:hover {
   color: var(--link-hover-color);
 }
 
+.markdown-body .emoji {
+  height: 1.3em;
+  margin: 0;
+  vertical-align: -0.1em;
+}
+
 .navbar {
   background: var(--header-bg-color) !important;
 }

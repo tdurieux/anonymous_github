@@ -110,6 +110,13 @@ function parseGithubUrl(url) {
   }
 }
 
+marked.use(
+  markedEmoji({
+    emojis: githubEmojis,
+    unicode: false,
+  })
+);
+
 function renderMD(md, baseUrl) {
   md = contentAbs2Relative(md);
   const renderer = new marked.Renderer();
