@@ -109,3 +109,44 @@ function parseGithubUrl(url) {
     throw "Invalid url";
   }
 }
+
+function renderMD(md, baseUrl) {
+  md = contentAbs2Relative(md);
+  const renderer = new marked.Renderer();
+  // katex
+  function mathsExpression(expr) {
+    if (expr.match(/^\$\$[\s\S]*\$\$$/)) {
+      expr = expr.substr(2, expr.length - 4);
+      return katex.renderToString(expr, { displayMode: true });
+    } else if (expr.match(/^\$[\s\S]*\$$/)) {
+      expr = expr.substr(1, expr.length - 2);
+      return katex.renderToString(expr, { isplayMode: false });
+    }
+  }
+
+  const rendererCode = renderer.code;
+  renderer.code = function (code, lang, escaped) {
+    if (!lang) {
+      const math = mathsExpression(code);
+      if (math) {
+        return math;
+      }
+    }
+    // call default renderer
+    return rendererCode.call(this, code, lang, escaped);
+
+    // return rendererCode(code, lang, escaped);
+  };
+
+  const rendererCodespan = renderer.codespan;
+  renderer.codespan = function (text) {
+    const math = mathsExpression(text);
+
+    if (math) {
+      return math;
+    }
+
+    return rendererCodespan(text);
+  };
+  return marked.parse(md, { baseUrl, renderer });
+}

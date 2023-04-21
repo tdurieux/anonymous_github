@@ -259,7 +259,7 @@ angular
         },
         link: function (scope, elem, attrs) {
           function update() {
-            elem.html(marked(scope.content, { baseUrl: $location.url() }));
+            elem.html(renderMD(scope.content, $location.url()));
           }
           scope.$watch(attrs.terms, update);
           scope.$watch("terms", update);
@@ -1320,7 +1320,7 @@ angular
         }
 
         $scope.anonymize_readme = content;
-        const html = marked($scope.anonymize_readme);
+        const html = renderMD($scope.anonymize_readme, $location.url());
         $scope.html_readme = $sce.trustAsHtml(html);
         setTimeout(Prism.highlightAll, 150);
       }
@@ -1642,9 +1642,8 @@ angular
               }
 
               if ($scope.type == "md") {
-                const md = contentAbs2Relative(res.data);
                 $scope.content = $sce.trustAsHtml(
-                  marked(md, { baseUrl: $location.url() })
+                  renderMD(res.data, $location.url())
                 );
                 $scope.type = "html";
               }
