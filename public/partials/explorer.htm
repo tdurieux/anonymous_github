@@ -3,7 +3,12 @@
     <div class="leftCol shadow p-1 overflow-auto" ng-show="files">
       <tree class="files" file="files"></tree>
       <div class="bottom column">
-        <div class="last-update">
+        <div
+          class="last-update"
+          data-toggle="tooltip"
+          data-placement="top"
+          title="{{options.lastUpdateDate}}"
+        >
           Last Update: {{options.lastUpdateDate|date}}
         </div>
       </div>

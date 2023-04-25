@@ -25,6 +25,7 @@ const AnonymizedRepositorySchema = new Schema({
     type: { type: String },
     branch: String,
     commit: String,
+    commitDate: Date,
     repositoryId: String,
     repositoryName: String,
     accessToken: String,

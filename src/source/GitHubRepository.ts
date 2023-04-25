@@ -44,6 +44,21 @@ export class GitHubRepository {
     return this._data.size;
   }
 
+  async getCommitInfo(
+    sha: string,
+    opt: {
+      accessToken?: string;
+    }
+  ) {
+    const octokit = new Octokit({ auth: opt.accessToken });
+    const commit = await octokit.repos.getCommit({
+      owner: this.owner,
+      repo: this.repo,
+      ref: sha,
+    });
+    return commit.data;
+  }
+
   async branches(opt: {
     accessToken?: string;
     force?: boolean;

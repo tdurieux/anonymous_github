@@ -11,6 +11,7 @@ export interface IAnonymizedRepository {
     type: "GitHubDownload" | "GitHubStream" | "Zip";
     branch?: string;
     commit?: string;
+    commitDate?: Date,
     repositoryId?: string;
     repositoryName?: string;
     accessToken?: string;

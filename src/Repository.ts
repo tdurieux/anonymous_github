@@ -191,9 +191,10 @@ export default class Repository {
     ) {
       // Only GitHubBase can be update for the moment
       if (this.source instanceof GitHubBase) {
+        const token = await this.source.getToken();
         const branches = await this.source.githubRepository.branches({
           force: true,
-          accessToken: await this.source.getToken(),
+          accessToken: token,
         });
         const branch = this.source.branch;
         const newCommit = branches.filter((f) => f.name == branch.name)[0]
@@ -203,6 +204,17 @@ export default class Repository {
           return;
         }
         this._model.source.commit = newCommit;
+        const commitInfo = await this.source.githubRepository.getCommitInfo(
+          newCommit,
+          {
+            accessToken: token,
+          }
+        );
+        if (commitInfo.commit.author?.date) {
+          this._model.source.commitDate = new Date(
+            commitInfo.commit.author?.date
+          );
+        }
         branch.commit = newCommit;
 
         if (!newCommit) {

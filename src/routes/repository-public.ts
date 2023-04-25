@@ -153,7 +153,9 @@ router.get(
       res.json({
         url: redirectURL,
         download,
-        lastUpdateDate: repo.model.statusDate,
+        lastUpdateDate: repo.model.source.commitDate
+          ? repo.model.source.commitDate
+          : repo.model.anonymizeDate,
       });
     } catch (error) {
       handleError(error, res, req);
