@@ -18,7 +18,7 @@ export function streamToString(stream: Readable): Promise<string> {
   });
 }
 
-export function isTextFile(filePath: string, content: Buffer) {
+export function isTextFile(filePath: string, content?: Buffer) {
   const filename = basename(filePath);
   const extensions = filename.split(".").reverse();
   const extension = extensions[0].toLowerCase();

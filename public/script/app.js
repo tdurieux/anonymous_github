@@ -1669,11 +1669,16 @@ angular
               $scope.type = "error";
               try {
                 err.data = JSON.parse(err.data);
-              } catch (ignore) {}
-              if (err.data.error) {
-                $scope.content = err.data.error;
-              } else {
-                $scope.content = err.data;
+                if (err.data.error) {
+                  $scope.content = err.data.error;
+                } else {
+                  $scope.content = err.data;
+                }
+              } catch (ignore) {
+                console.log(err);
+                if (err.status == -1) {
+                  $scope.content = "request_error";
+                }
               }
             }
           );

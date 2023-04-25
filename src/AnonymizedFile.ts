@@ -5,10 +5,14 @@ import Repository from "./Repository";
 import { Tree, TreeElement, TreeFile } from "./types";
 import storage from "./storage";
 import config from "../config";
-import { anonymizePath, AnonymizeTransformer } from "./anonymize-utils";
+import {
+  anonymizePath,
+  AnonymizeTransformer,
+  isTextFile,
+} from "./anonymize-utils";
 import AnonymousError from "./AnonymousError";
 import { handleError } from "./routes/route-utils";
-import { tryCatch } from "bullmq";
+import { lookup } from "mime-types";
 
 /**
  * Represent a file in a anonymized repository
@@ -202,8 +206,13 @@ export default class AnonymizedFile {
   }
 
   async send(res: Response): Promise<void> {
-    if (this.extension()) {
-      res.contentType(this.extension());
+    const mime = lookup(this.anonymizedPath);
+    if (mime) {
+      res.contentType(mime);
+    } else if (isTextFile(this.anonymizedPath)) {
+      res.contentType("text/plain");
+    } else {
+      res.contentType("application/octet-stream");
     }
     res.header("Accept-Ranges", "none");
     return new Promise(async (resolve, reject) => {
