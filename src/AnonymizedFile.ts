@@ -207,8 +207,10 @@ export default class AnonymizedFile {
 
   async send(res: Response): Promise<void> {
     const mime = lookup(this.anonymizedPath);
-    if (mime) {
+    if (mime && this.extension() != "ts") {
       res.contentType(mime);
+    } else if (this.extension() != "ts") {
+      res.contentType("application/x-typescript");
     } else if (isTextFile(this.anonymizedPath)) {
       res.contentType("text/plain");
     } else {
