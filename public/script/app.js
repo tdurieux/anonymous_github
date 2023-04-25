@@ -1667,6 +1667,7 @@ angular
             },
             (err) => {
               $scope.type = "error";
+              $scope.content = "unknown_error";
               try {
                 err.data = JSON.parse(err.data);
                 if (err.data.error) {
@@ -1678,6 +1679,9 @@ angular
                 console.log(err);
                 if (err.status == -1) {
                   $scope.content = "request_error";
+                } else if (err.status == 502) {
+                  // cloudflare error
+                  $scope.content = "unreachable";
                 }
               }
             }

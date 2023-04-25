@@ -1,5 +1,7 @@
 {
   "ERRORS": {
+    "unknown_error": "Unknown error, contact the admin.",
+    "unreachable": "Anonymous GitHub is unreachable, contact the admin.",
     "request_error": "Unable to download the file, check your connection or contact the admin.",
     "repo_not_found": "The repository is not found.",
     "repo_not_accessible": "Anonymous GitHub is unable to or is forbidden to access the repository.",
