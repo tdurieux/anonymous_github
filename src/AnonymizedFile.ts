@@ -206,18 +206,16 @@ export default class AnonymizedFile {
   }
 
   async send(res: Response): Promise<void> {
-    const mime = lookup(this.anonymizedPath);
-    if (mime && this.extension() != "ts") {
-      res.contentType(mime);
-    } else if (isTextFile(this.anonymizedPath)) {
-      res.contentType("text/plain");
-    } else {
-      res.contentType("application/octet-stream");
-    }
-    res.header("Accept-Ranges", "none");
     return new Promise(async (resolve, reject) => {
       try {
         const content = await this.content();
+        const mime = lookup(this.anonymizedPath);
+        if (mime && this.extension() != "ts") {
+          res.contentType(mime);
+        } else if (isTextFile(this.anonymizedPath)) {
+          res.contentType("text/plain");
+        }
+        res.header("Accept-Ranges", "none");
         try {
           const fileInfo = await storage.fileInfo(this.originalCachePath);
           if (fileInfo.size) {
