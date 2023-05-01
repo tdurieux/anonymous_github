@@ -177,35 +177,41 @@ export default class S3Storage implements StorageBase {
     if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
     if (dir && dir[dir.length - 1] != "/") dir = dir + "/";
     const out: Tree = {};
-    const req = await this.client(30000)
-      .listObjectsV2({
-        Bucket: config.S3_BUCKET,
-        Prefix: dir,
-        MaxKeys: 1000,
-      })
-      .promise();
+    let req: S3.ListObjectsV2Output;
+    let nextContinuationToken: string | undefined;
+    do {
+      req = await this.client(30000)
+        .listObjectsV2({
+          Bucket: config.S3_BUCKET,
+          Prefix: dir,
+          MaxKeys: 250,
+          ContinuationToken: nextContinuationToken,
+        })
+        .promise();
+      if (!req.Contents) return out;
+      nextContinuationToken = req.NextContinuationToken;
 
-    if (!req.Contents) return out;
-    for (const f of req.Contents) {
-      if (!f.Key) continue;
-      f.Key = f.Key.replace(dir, "");
-      const paths = f.Key.split("/");
-      let current: Tree = out;
-      for (let i = 0; i < paths.length - 1; i++) {
-        let p = paths[i];
-        if (!p) continue;
-        if (!(current[p] as Tree)) {
-          current[p] = {} as Tree;
+      for (const f of req.Contents) {
+        if (!f.Key) continue;
+        f.Key = f.Key.replace(dir, "");
+        const paths = f.Key.split("/");
+        let current: Tree = out;
+        for (let i = 0; i < paths.length - 1; i++) {
+          let p = paths[i];
+          if (!p) continue;
+          if (!(current[p] as Tree)) {
+            current[p] = {} as Tree;
+          }
+          current = current[p] as Tree;
         }
-        current = current[p] as Tree;
-      }
 
-      if (f.ETag) {
-        const fileInfo: TreeFile = { size: f.Size || 0, sha: f.ETag };
-        const fileName = paths[paths.length - 1];
-        if (fileName) current[fileName] = fileInfo;
+        if (f.ETag) {
+          const fileInfo: TreeFile = { size: f.Size || 0, sha: f.ETag };
+          const fileName = paths[paths.length - 1];
+          if (fileName) current[fileName] = fileInfo;
+        }
       }
-    }
+    } while (req && req.Contents && req.IsTruncated);
     return out;
   }
 
