@@ -108,7 +108,7 @@ async function main() {
   await (repository.source as GitHubDownload).download(inq.token);
   const outputFileName = join(inq.output, generateRandomFileName(8) + ".zip");
   console.info("[INFO] Anonymizing repository and creation zip file...");
-  await writeFile(outputFileName, repository.zip());
+  await writeFile(outputFileName, await repository.zip());
   console.log(`Anonymized repository saved at ${outputFileName}`);
 }
 

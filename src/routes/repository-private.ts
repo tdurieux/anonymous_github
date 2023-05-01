@@ -505,7 +505,7 @@ router.post("/", async (req: express.Request, res: express.Response) => {
           new Date() > conf.endDate ||
           conf.status !== "ready"
         ) {
-          await repo.remove();
+          await repo.deleteOne();
           throw new AnonymousError("conf_not_activated", {
             object: conf,
             httpStatus: 400,

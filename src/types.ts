@@ -44,13 +44,13 @@ export interface StorageBase {
    */
   exists(path: string): Promise<boolean>;
 
-  send(p: string, res: Response): void;
+  send(p: string, res: Response): Promise<void>;
 
   /**
    * Read the content of a file
    * @param path the path to the file
    */
-  read(path: string): Readable;
+  read(path: string): Promise<Readable>;
 
   fileInfo(path: string): Promise<{
     size: number | undefined;
@@ -115,7 +115,7 @@ export interface StorageBase {
        */
       fileTransformer?: (p: string) => Transform;
     }
-  ): archiver.Archiver;
+  ): Promise<archiver.Archiver>;
 
   /**
    * Create a directory

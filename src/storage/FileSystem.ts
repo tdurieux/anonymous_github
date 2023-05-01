@@ -22,12 +22,12 @@ export default class FileSystem implements StorageBase {
   }
 
   /** @override */
-  send(p: string, res: Response) {
+  async send(p: string, res: Response) {
     res.sendFile(join(config.FOLDER, p), { dotfiles: "allow" });
   }
 
   /** @override */
-  read(p: string): Readable {
+  async read(p: string): Promise<Readable> {
     return fs.createReadStream(join(config.FOLDER, p));
   }
 
@@ -38,7 +38,7 @@ export default class FileSystem implements StorageBase {
       lastModified: info.mtime,
       contentType: info.isDirectory()
         ? "application/x-directory"
-        : lookup(join(config.FOLDER, path)) as string,
+        : (lookup(join(config.FOLDER, path)) as string),
     };
   }
 
@@ -132,7 +132,7 @@ export default class FileSystem implements StorageBase {
   }
 
   /** @override */
-  archive(
+  async archive(
     dir: string,
     opt?: {
       format?: "zip" | "tar";
@@ -142,8 +142,8 @@ export default class FileSystem implements StorageBase {
     const archive = archiver(opt?.format || "zip", {});
 
     this.listFiles(dir, {
-      onEntry: (file) => {
-        let rs = this.read(file.path);
+      onEntry: async (file) => {
+        let rs = await this.read(file.path);
         if (opt?.fileTransformer) {
           // apply transformation on the stream
           rs = rs.pipe(opt.fileTransformer(file.path));

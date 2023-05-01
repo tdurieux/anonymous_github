@@ -164,7 +164,7 @@ export default class Repository {
    *
    * @returns A stream of anonymized repository compressed
    */
-  zip(): Readable {
+  zip(): Promise<Readable> {
     return storage.archive(this.originalCachePath, {
       format: "zip",
       fileTransformer: (filename: string) =>

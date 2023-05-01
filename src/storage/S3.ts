@@ -1,5 +1,11 @@
 import { SourceBase, StorageBase, Tree, TreeFile } from "../types";
-import { S3 } from "aws-sdk";
+import {
+  GetObjectCommand,
+  ListObjectsV2CommandOutput,
+  PutObjectCommandInput,
+  S3,
+} from "@aws-sdk/client-s3";
+import { NodeHttpHandler } from "@aws-sdk/node-http-handler";
 import config from "../../config";
 import { pipeline, Readable, Transform } from "stream";
 import ArchiveStreamToS3 from "decompress-stream-to-s3";
@@ -10,6 +16,7 @@ import * as archiver from "archiver";
 import { dirname, basename } from "path";
 import AnonymousError from "../AnonymousError";
 import AnonymizedFile from "../AnonymizedFile";
+import { AnonymizeTransformer } from "../anonymize-utils";
 
 export default class S3Storage implements StorageBase {
   type = "AWS";
@@ -22,14 +29,19 @@ export default class S3Storage implements StorageBase {
   }
 
   private client(timeout = 5000) {
+    if (!config.S3_CLIENT_ID) throw new Error("S3_CLIENT_ID not set");
+    if (!config.S3_CLIENT_SECRET) throw new Error("S3_CLIENT_SECRET not set");
     return new S3({
+      credentials: {
+        accessKeyId: config.S3_CLIENT_ID,
+        secretAccessKey: config.S3_CLIENT_SECRET,
+      },
       region: config.S3_REGION,
       endpoint: config.S3_ENDPOINT,
-      accessKeyId: config.S3_CLIENT_ID,
-      secretAccessKey: config.S3_CLIENT_SECRET,
-      httpOptions: {
-        timeout,
-      },
+      requestHandler: new NodeHttpHandler({
+        socketTimeout: timeout,
+        connectionTimeout: timeout,
+      }),
     });
   }
 
@@ -37,22 +49,18 @@ export default class S3Storage implements StorageBase {
   async exists(path: string): Promise<boolean> {
     if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
     try {
-      await this.client()
-        .headObject({
-          Bucket: config.S3_BUCKET,
-          Key: path,
-        })
-        .promise();
+      await this.client().headObject({
+        Bucket: config.S3_BUCKET,
+        Key: path,
+      });
       return true;
     } catch (err) {
       // check if it is a directory
-      const data = await this.client()
-        .listObjectsV2({
-          Bucket: config.S3_BUCKET,
-          Prefix: path,
-          MaxKeys: 1,
-        })
-        .promise();
+      const data = await this.client().listObjectsV2({
+        Bucket: config.S3_BUCKET,
+        Prefix: path,
+        MaxKeys: 1,
+      });
       return (data.Contents?.length || 0) > 0;
     }
   }
@@ -65,13 +73,11 @@ export default class S3Storage implements StorageBase {
   /** @override */
   async rm(dir: string): Promise<void> {
     if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
-    const data = await this.client()
-      .listObjectsV2({
-        Bucket: config.S3_BUCKET,
-        Prefix: dir,
-        MaxKeys: 1000,
-      })
-      .promise();
+    const data = await this.client().listObjectsV2({
+      Bucket: config.S3_BUCKET,
+      Prefix: dir,
+      MaxKeys: 1000,
+    });
 
     const params = {
       Bucket: config.S3_BUCKET,
@@ -88,7 +94,7 @@ export default class S3Storage implements StorageBase {
       // nothing to remove
       return;
     }
-    await this.client().deleteObjects(params).promise();
+    await this.client().deleteObjects(params);
 
     if (data.IsTruncated) {
       await this.rm(dir);
@@ -96,40 +102,38 @@ export default class S3Storage implements StorageBase {
   }
 
   /** @override */
-  send(p: string, res: Response) {
+  async send(p: string, res: Response) {
     if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
-    const s = this.client()
-      .getObject({
+    try {
+      const command = new GetObjectCommand({
         Bucket: config.S3_BUCKET,
         Key: p,
-      })
-      .on("error", (error) => {
-        try {
-          res.status(error.statusCode || 500);
-        } catch (err) {
-          console.error(`[ERROR] S3 send ${p}`, err);
-        }
-      })
-      .on("httpHeaders", (statusCode, headers, response) => {
-        res.status(statusCode);
-        if (statusCode < 300) {
-          res.set("Content-Length", headers["content-length"]);
-          res.set("Content-Type", headers["content-type"]);
-        }
-        (response.httpResponse.createUnbufferedStream() as Readable).pipe(res);
       });
-
-    s.send();
+      const s = await this.client().send(command);
+      s.ContentLength;
+      res.status(200);
+      if (s.ContentType) {
+        res.contentType(s.ContentType);
+      }
+      if (s.ContentLength) {
+        res.set("Content-Length", s.ContentLength.toString());
+      }
+      (s.Body as Readable)?.pipe(res);
+    } catch (error) {
+      try {
+        res.status(500);
+      } catch (err) {
+        console.error(`[ERROR] S3 send ${p}`, err);
+      }
+    }
   }
 
   async fileInfo(path: string) {
     if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
-    const info = await this.client(3000)
-      .headObject({
-        Bucket: config.S3_BUCKET,
-        Key: path,
-      })
-      .promise();
+    const info = await this.client(3000).headObject({
+      Bucket: config.S3_BUCKET,
+      Key: path,
+    });
     return {
       size: info.ContentLength,
       lastModified: info.LastModified,
@@ -140,14 +144,20 @@ export default class S3Storage implements StorageBase {
   }
 
   /** @override */
-  read(path: string): Readable {
+  async read(path: string): Promise<Readable> {
     if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
-    return this.client(3000)
-      .getObject({
-        Bucket: config.S3_BUCKET,
-        Key: path,
-      })
-      .createReadStream();
+    const command = new GetObjectCommand({
+      Bucket: config.S3_BUCKET,
+      Key: path,
+    });
+    const res = (await this.client(3000).send(command)).Body;
+    if (!res) {
+      throw new AnonymousError("file_not_found", {
+        httpStatus: 404,
+        object: path,
+      });
+    }
+    return res as Readable;
   }
 
   /** @override */
@@ -158,7 +168,7 @@ export default class S3Storage implements StorageBase {
     source?: SourceBase
   ): Promise<void> {
     if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
-    const params: S3.PutObjectRequest = {
+    const params: PutObjectCommandInput = {
       Bucket: config.S3_BUCKET,
       Key: path,
       Body: data,
@@ -168,7 +178,7 @@ export default class S3Storage implements StorageBase {
       params.Tagging = `source=${source.type}`;
     }
     // 30s timeout
-    await this.client(30000).putObject(params).promise();
+    await this.client(30000).putObject(params);
     return;
   }
 
@@ -177,17 +187,15 @@ export default class S3Storage implements StorageBase {
     if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
     if (dir && dir[dir.length - 1] != "/") dir = dir + "/";
     const out: Tree = {};
-    let req: S3.ListObjectsV2Output;
+    let req: ListObjectsV2CommandOutput;
     let nextContinuationToken: string | undefined;
     do {
-      req = await this.client(30000)
-        .listObjectsV2({
-          Bucket: config.S3_BUCKET,
-          Prefix: dir,
-          MaxKeys: 250,
-          ContinuationToken: nextContinuationToken,
-        })
-        .promise();
+      req = await this.client(30000).listObjectsV2({
+        Bucket: config.S3_BUCKET,
+        Prefix: dir,
+        MaxKeys: 250,
+        ContinuationToken: nextContinuationToken,
+      });
       if (!req.Contents) return out;
       nextContinuationToken = req.NextContinuationToken;
 
@@ -235,6 +243,9 @@ export default class S3Storage implements StorageBase {
           header.name = header.name.substr(header.name.indexOf("/") + 1);
           if (source) {
             header.Tagging = `source=${source.type}`;
+            header.Metadata = {
+              source: source.type,
+            };
           }
         },
       });
@@ -245,7 +256,7 @@ export default class S3Storage implements StorageBase {
   }
 
   /** @override */
-  archive(
+  async archive(
     dir: string,
     opt?: {
       format?: "zip" | "tar";
@@ -255,31 +266,36 @@ export default class S3Storage implements StorageBase {
     if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
     const archive = archiver(opt?.format || "zip", {});
     if (dir && dir[dir.length - 1] != "/") dir = dir + "/";
-    const req = this.client(30000).listObjectsV2({
-      Bucket: config.S3_BUCKET,
-      Prefix: dir,
-    });
-    const filesStream = req.createReadStream();
 
-    const xmlStream = flow(filesStream);
-
-    const that = this;
-    xmlStream.on("tag:contents", function (file) {
-      let rs = that.read(file.key);
-      file.key = file.key.replace(dir, "");
-      const filename = basename(file.key);
-      if (filename == "") return;
-      if (opt?.fileTransformer) {
-        rs = rs.pipe(opt.fileTransformer(filename));
-      }
-      archive.append(rs, {
-        name: filename,
-        prefix: dirname(file.key),
+    let req: ListObjectsV2CommandOutput;
+    let nextContinuationToken: string | undefined;
+    do {
+      req = await this.client(30000).listObjectsV2({
+        Bucket: config.S3_BUCKET,
+        Prefix: dir,
+        MaxKeys: 250,
+        ContinuationToken: nextContinuationToken,
       });
-    });
-    xmlStream.on("end", () => {
-      archive.finalize();
-    });
+
+      nextContinuationToken = req.NextContinuationToken;
+      for (const f of req.Contents || []) {
+        if (!f.Key) continue;
+        const filename = basename(f.Key);
+        const prefix = dirname(f.Key.replace(dir, ""));
+
+        let rs = await this.read(f.Key);
+        if (opt?.fileTransformer) {
+          // apply transformation on the stream
+          rs = rs.pipe(opt.fileTransformer(f.Key));
+        }
+
+        archive.append(rs, {
+          name: filename,
+          prefix,
+        });
+      }
+    } while (req && req.Contents?.length && req.IsTruncated);
+    archive.finalize();
     return archive;
   }
 }

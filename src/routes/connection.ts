@@ -1,7 +1,7 @@
 import { createClient } from "redis";
 import * as passport from "passport";
 import * as session from "express-session";
-import * as connectRedis from "connect-redis";
+import RedisStore from "connect-redis";
 import * as OAuth2Strategy from "passport-oauth2";
 import { Profile, Strategy } from "passport-github2";
 import * as express from "express";
@@ -89,9 +89,8 @@ passport.deserializeUser((user: Express.User, done) => {
 });
 
 export function initSession() {
-  const RedisStore = connectRedis(session);
   const redisClient = createClient({
-    legacyMode: true,
+    legacyMode: false,
     socket: {
       port: config.REDIS_PORT,
       host: config.REDIS_HOSTNAME,
@@ -99,12 +98,14 @@ export function initSession() {
   });
   redisClient.on("error", (err) => console.log("Redis Client Error", err));
   redisClient.connect();
+  const redisStore = new RedisStore({
+    client: redisClient,
+    prefix: "anoGH_session:",
+  });
 
   return session({
-    secret: "keyboard cat",
-    store: new RedisStore({
-      client: redisClient,
-    }),
+    secret: config.SESSION_SECRET,
+    store: redisStore,
     saveUninitialized: false,
     resave: false,
   });

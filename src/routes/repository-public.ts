@@ -51,7 +51,7 @@ router.get(
 
       // cache the file for 6 hours
       res.header("Cache-Control", "max-age=21600");
-      await pipeline(repo.zip(), res);
+      await pipeline(await repo.zip(), res);
     } catch (error) {
       handleError(error, res, req);
     }
