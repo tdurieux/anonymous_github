@@ -1,6 +1,7 @@
 import { resolve } from "path";
 
 interface Config {
+  SESSION_SECRET: string;
   REDIS_PORT: number;
   REDIS_HOSTNAME: string;
   CLIENT_ID: string;
@@ -35,6 +36,7 @@ interface Config {
   RATE_LIMIT: number;
 }
 const config: Config = {
+  SESSION_SECRET: "SESSION_SECRET",
   CLIENT_ID: "CLIENT_ID",
   CLIENT_SECRET: "CLIENT_SECRET",
   GITHUB_TOKEN: "",
