@@ -135,10 +135,12 @@ export default class GitHubDownload extends GitHubBase implements SourceBase {
     if (await storage.exists(file.originalCachePath)) {
       return storage.read(file.originalCachePath);
     }
-    throw new AnonymousError("file_not_found", {
-      httpStatus: 404,
-      object: file,
-    });
+    // will throw an error if the file is not in the repository
+    await file.originalPath();
+
+    // the cache is not ready, we need to download the repository
+    await this.download();
+    return storage.read(file.originalCachePath);
   }
 
   async getFiles() {
