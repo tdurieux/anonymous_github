@@ -8,10 +8,12 @@ export const router = express.Router();
 router.get(
   "/:repoId/file/:path*",
   async (req: express.Request, res: express.Response) => {
-    const anonymizedPath = new URL(
-      req.url,
-      `${req.protocol}://${req.hostname}`
-    ).pathname.replace(`/${req.params.repoId}/file/`, "");
+    const anonymizedPath = decodeURI(
+      new URL(req.url, `${req.protocol}://${req.hostname}`).pathname.replace(
+        `/${req.params.repoId}/file/`,
+        ""
+      )
+    );
     if (anonymizedPath.endsWith("/")) {
       return handleError(
         new AnonymousError("folder_not_supported", {
