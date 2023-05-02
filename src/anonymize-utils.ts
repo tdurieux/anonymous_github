@@ -81,6 +81,15 @@ export function anonymizeContent(
   if (repository.source instanceof GitHubBase) {
     content = content.replace(
       new RegExp(
+        `https://raw.githubusercontent.com/${
+          repository.source.githubRepository.fullName
+        }/${repository.source.branch?.name || "main"}\\b`,
+        "gi"
+      ),
+      `https://${config.APP_HOSTNAME}/r/${repository.repoId}`
+    );
+    content = content.replace(
+      new RegExp(
         `https://github.com/${
           repository.source.githubRepository.fullName
         }/blob/${repository.source.branch?.name || "main"}\\b`,
