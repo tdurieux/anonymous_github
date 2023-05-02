@@ -218,6 +218,7 @@ export default class AnonymizedFile {
         res.header("Accept-Ranges", "none");
         try {
           const fileInfo = await storage.fileInfo(this.originalCachePath);
+          // the text files may be anonymized and therefore the size may be different
           if (!isTextFile(this.anonymizedPath) && fileInfo.size) {
             res.header("Content-Length", fileInfo.size.toString());
           }

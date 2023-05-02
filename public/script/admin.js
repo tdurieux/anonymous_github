@@ -20,11 +20,11 @@ angular
       $scope.query = {
         page: 1,
         limit: 25,
-        sort: "source.repositoryName",
+        sort: "lastView",
         search: "",
-        ready: true,
-        expired: true,
-        removed: true,
+        ready: false,
+        expired: false,
+        removed: false,
         error: true,
         preparing: true,
       };
