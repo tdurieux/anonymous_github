@@ -141,19 +141,25 @@ function renderMD(md, baseUrl) {
     }
     // call default renderer
     return rendererCode.call(this, code, lang, escaped);
-
-    // return rendererCode(code, lang, escaped);
   };
 
   const rendererCodespan = renderer.codespan;
   renderer.codespan = function (text) {
     const math = mathsExpression(text);
-
     if (math) {
       return math;
     }
 
-    return rendererCodespan(text);
+    return rendererCodespan.call(this, text);
+  };
+
+  const rendererLink = renderer.link;
+  renderer.link = function (href, title, text) {
+    // wrap videos links (mp4 and mov) with media https://github.blog/2021-05-13-video-uploads-available-github/
+    if (href.match(/\.mp4$|\.mov$/)) {
+      return `<div class="media"><video controls title="${title}" src="${href}">${text}</video></div>`;
+    }
+    return rendererLink.call(this, href, title, text);
   };
   return marked.parse(md, { baseUrl, renderer });
 }
