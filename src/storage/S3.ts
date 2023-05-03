@@ -16,7 +16,6 @@ import * as archiver from "archiver";
 import { dirname, basename } from "path";
 import AnonymousError from "../AnonymousError";
 import AnonymizedFile from "../AnonymizedFile";
-import { AnonymizeTransformer } from "../anonymize-utils";
 
 export default class S3Storage implements StorageBase {
   type = "AWS";
@@ -28,7 +27,7 @@ export default class S3Storage implements StorageBase {
       });
   }
 
-  private client(timeout = 5000) {
+  private client(timeout = 10000) {
     if (!config.S3_CLIENT_ID) throw new Error("S3_CLIENT_ID not set");
     if (!config.S3_CLIENT_SECRET) throw new Error("S3_CLIENT_SECRET not set");
     return new S3({
@@ -39,7 +38,7 @@ export default class S3Storage implements StorageBase {
       region: config.S3_REGION,
       endpoint: config.S3_ENDPOINT,
       requestHandler: new NodeHttpHandler({
-        socketTimeout: timeout,
+        requestTimeout: timeout,
         connectionTimeout: timeout,
       }),
     });
