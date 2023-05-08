@@ -8,7 +8,7 @@ import storage from "../storage";
 import Repository from "../Repository";
 import GitHubBase from "./GitHubBase";
 import AnonymizedFile from "../AnonymizedFile";
-import { RepositoryStatus, SourceBase } from "../types";
+import { FILE_TYPE, RepositoryStatus, SourceBase } from "../types";
 import AnonymousError from "../AnonymousError";
 import { tryCatch } from "bullmq";
 
@@ -132,8 +132,14 @@ export default class GitHubDownload extends GitHubBase implements SourceBase {
   }
 
   async getFileContent(file: AnonymizedFile): Promise<Readable> {
-    if (await storage.exists(file.originalCachePath)) {
+    const exists = await storage.exists(file.originalCachePath);
+    if (exists === FILE_TYPE.FILE) {
       return storage.read(file.originalCachePath);
+    } else if (exists === FILE_TYPE.FOLDER) {
+      throw new AnonymousError("folder_not_supported", {
+        httpStatus: 400,
+        object: file,
+      });
     }
     // will throw an error if the file is not in the repository
     await file.originalPath();
@@ -145,7 +151,7 @@ export default class GitHubDownload extends GitHubBase implements SourceBase {
 
   async getFiles() {
     const folder = this.repository.originalCachePath;
-    if (!(await storage.exists(folder))) {
+    if ((await storage.exists(folder)) === FILE_TYPE.NOT_FOUND) {
       await this.download();
     }
     return storage.listFiles(folder);

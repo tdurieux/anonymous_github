@@ -2,7 +2,7 @@ import { join, basename } from "path";
 import { Response } from "express";
 import { Readable } from "stream";
 import Repository from "./Repository";
-import { Tree, TreeElement, TreeFile } from "./types";
+import { FILE_TYPE, Tree, TreeElement, TreeFile } from "./types";
 import storage from "./storage";
 import config from "../config";
 import {
@@ -175,8 +175,14 @@ export default class AnonymizedFile {
         httpStatus: 403,
       });
     }
-    if (await storage.exists(this.originalCachePath)) {
+    const exist = await storage.exists(this.originalCachePath);
+    if (exist == FILE_TYPE.FILE) {
       return storage.read(this.originalCachePath);
+    } else if (exist == FILE_TYPE.FOLDER) {
+      throw new AnonymousError("folder_not_supported", {
+        object: this,
+        httpStatus: 400,
+      });
     }
     return await this.repository.source?.getFileContent(this);
   }
@@ -223,7 +229,7 @@ export default class AnonymizedFile {
           // unable to get file size
           console.error(error);
         }
-        
+
         const anonymizer = new AnonymizeTransformer(this);
 
         anonymizer.once("transform", (data) => {

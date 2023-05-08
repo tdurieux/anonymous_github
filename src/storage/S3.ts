@@ -1,4 +1,4 @@
-import { SourceBase, StorageBase, Tree, TreeFile } from "../types";
+import { FILE_TYPE, SourceBase, StorageBase, Tree, TreeFile } from "../types";
 import {
   GetObjectCommand,
   ListObjectsV2CommandOutput,
@@ -44,14 +44,12 @@ export default class S3Storage implements StorageBase {
   }
 
   /** @override */
-  async exists(path: string): Promise<boolean> {
+  async exists(path: string): Promise<FILE_TYPE> {
     if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
     try {
-      await this.client().headObject({
-        Bucket: config.S3_BUCKET,
-        Key: path,
-      });
-      return true;
+      // if we can get the file info, it is a file
+      await this.fileInfo(path);
+      return FILE_TYPE.FILE;
     } catch (err) {
       // check if it is a directory
       const data = await this.client().listObjectsV2({
@@ -59,7 +57,9 @@ export default class S3Storage implements StorageBase {
         Prefix: path,
         MaxKeys: 1,
       });
-      return (data.Contents?.length || 0) > 0;
+      return (data.Contents?.length || 0) > 0
+        ? FILE_TYPE.FOLDER
+        : FILE_TYPE.NOT_FOUND;
     }
   }
 

@@ -32,6 +32,12 @@ export interface SourceBase {
 
 export type Source = GitHubDownload | GitHubStream | Zip;
 
+export enum FILE_TYPE {
+  FILE = "file",
+  FOLDER = "folder",
+  NOT_FOUND = "not_found",
+}
+
 export interface StorageBase {
   /**
    * The type of storage
@@ -42,7 +48,7 @@ export interface StorageBase {
    * check if the path exists
    * @param path the path to check
    */
-  exists(path: string): Promise<boolean>;
+  exists(path: string): Promise<FILE_TYPE>;
 
   send(p: string, res: Response): Promise<void>;
 

@@ -1,4 +1,4 @@
-import { SourceBase, StorageBase, Tree } from "../types";
+import { FILE_TYPE, SourceBase, StorageBase, Tree } from "../types";
 import config from "../../config";
 
 import * as fs from "fs";
@@ -17,8 +17,15 @@ export default class FileSystem implements StorageBase {
   constructor() {}
 
   /** @override */
-  async exists(p: string): Promise<boolean> {
-    return fs.existsSync(join(config.FOLDER, p));
+  async exists(p: string): Promise<FILE_TYPE> {
+    try {
+      const stat = await fs.promises.stat(join(config.FOLDER, p));
+      if (stat.isDirectory()) return FILE_TYPE.FOLDER;
+      if (stat.isFile()) return FILE_TYPE.FILE;
+    } catch (_) {
+      // ignore file not found or not downloaded
+    }
+    return FILE_TYPE.NOT_FOUND;
   }
 
   /** @override */
@@ -49,11 +56,7 @@ export default class FileSystem implements StorageBase {
     file?: AnonymizedFile,
     source?: SourceBase
   ): Promise<void> {
-    if (!(await this.exists(dirname(p)))) {
-      await fs.promises.mkdir(dirname(join(config.FOLDER, p)), {
-        recursive: true,
-      });
-    }
+    await this.mk(dirname(p));
     return fs.promises.writeFile(join(config.FOLDER, p), data);
   }
 
@@ -67,7 +70,7 @@ export default class FileSystem implements StorageBase {
 
   /** @override */
   async mk(dir: string): Promise<void> {
-    if (!(await this.exists(dir)))
+    if ((await this.exists(dir)) === FILE_TYPE.NOT_FOUND)
       fs.promises.mkdir(join(config.FOLDER, dir), { recursive: true });
   }
 

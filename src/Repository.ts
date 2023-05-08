@@ -1,6 +1,13 @@
 import { join } from "path";
 import storage from "./storage";
-import { RepositoryStatus, Source, Tree, TreeElement, TreeFile } from "./types";
+import {
+  FILE_TYPE,
+  RepositoryStatus,
+  Source,
+  Tree,
+  TreeElement,
+  TreeFile,
+} from "./types";
 import { Readable } from "stream";
 import User from "./User";
 import GitHubStream from "./source/GitHubStream";
@@ -333,7 +340,9 @@ export default class Repository {
   async removeCache() {
     this.model.isReseted = true;
     await this.model.save();
-    if (await storage.exists(this._model.repoId + "/")) {
+    if (
+      (await storage.exists(this._model.repoId + "/")) !== FILE_TYPE.NOT_FOUND
+    ) {
       return storage.rm(this._model.repoId + "/");
     }
   }
