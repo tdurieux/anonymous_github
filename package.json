@@ -40,7 +40,7 @@
     "bullmq": "^2.3.2",
     "compression": "^1.7.4",
     "connect-redis": "^7.0.1",
-    "decompress-stream-to-s3": "^2.0.0",
+    "decompress-stream-to-s3": "^2.0.1",
     "dotenv": "^16.0.3",
     "express": "^4.18.2",
     "express-rate-limit": "^6.6.0",
