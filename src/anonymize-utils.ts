@@ -32,16 +32,41 @@ export function isTextFile(filePath: string, content?: Buffer) {
 }
 
 export class AnonymizeTransformer extends Transform {
+  public wasAnonimized = false;
+  public isText = false;
+
   constructor(private readonly file: AnonymizedFile) {
     super();
   }
 
   _transform(chunk: Buffer, encoding: string, callback: () => void) {
-    if (isTextFile(this.file.anonymizedPath, chunk)) {
-      chunk = Buffer.from(
-        anonymizeContent(chunk.toString(), this.file.repository)
-      );
+    const isText = isTextFile(this.file.anonymizedPath, chunk);
+
+    if (isText) {
+      this.isText = true;
+      const anonimizer = new ContentAnonimizer(chunk.toString(), {
+        repoId: this.file.repository.repoId,
+        image: this.file.repository.options.image,
+        link: this.file.repository.options.link,
+        terms: this.file.repository.options.terms,
+        repoName: (this.file.repository.source as GitHubBase).githubRepository
+          ?.fullName,
+        branchName:
+          (this.file.repository.source as GitHubBase).branch?.name || "main",
+      });
+      anonimizer.anonymize();
+      if (anonimizer.wasAnonymized) {
+        this.wasAnonimized = true;
+        chunk = Buffer.from(anonimizer.content);
+      }
     }
+
+    this.emit("transform", {
+      isText,
+      wasAnonimized: this.wasAnonimized,
+      chunk,
+    });
+
     this.push(chunk);
     callback();
   }
@@ -61,86 +86,138 @@ interface Anonymizationptions {
   };
 }
 
+export class ContentAnonimizer {
+  public wasAnonymized = false;
+
+  constructor(
+    public content: string,
+    readonly opt: {
+      image?: boolean;
+      link?: boolean;
+      terms?: string[];
+      repoName?: string;
+      branchName?: string;
+      repoId?: string;
+    }
+  ) {}
+
+  private removeImage() {
+    if (this.opt.image !== false) {
+      return;
+    }
+    // remove image in markdown
+    this.content = this.content.replace(
+      /!\[[^\]]*\]\((?<filename>.*?)(?=\"|\))(?<optionalpart>\".*\")?\)/g,
+      () => {
+        this.wasAnonymized = true;
+        return config.ANONYMIZATION_MASK;
+      }
+    );
+  }
+  private removeLink() {
+    if (this.opt.link !== false) {
+      return;
+    }
+    // remove image in markdown
+    this.content = this.content.replace(urlRegex, () => {
+      this.wasAnonymized = true;
+      return config.ANONYMIZATION_MASK;
+    });
+  }
+
+  private replaceGitHubSelfLinks() {
+    if (!this.opt.repoName || !this.opt.branchName) {
+      return;
+    }
+    const repoName = this.opt.repoName;
+    const branchName = this.opt.branchName;
+
+    const replaceCallback = () => {
+      this.wasAnonymized = true;
+      return `https://${config.APP_HOSTNAME}/r/${this.opt.repoId}`;
+    };
+    this.content = this.content.replace(
+      new RegExp(
+        `https://raw.githubusercontent.com/${repoName}/${branchName}\\b`,
+        "gi"
+      ),
+      replaceCallback
+    );
+    this.content = this.content.replace(
+      new RegExp(`https://github.com/${repoName}/blob/${branchName}\\b`, "gi"),
+      replaceCallback
+    );
+    this.content = this.content.replace(
+      new RegExp(`https://github.com/${repoName}/tree/${branchName}\\b`, "gi"),
+      replaceCallback
+    );
+    this.content = this.content.replace(
+      new RegExp(`https://github.com/${repoName}`, "gi"),
+      replaceCallback
+    );
+  }
+
+  private replaceTerms() {
+    const terms = this.opt.terms || [];
+    for (let i = 0; i < terms.length; i++) {
+      let term = terms[i];
+      if (term.trim() == "") {
+        continue;
+      }
+      const mask = config.ANONYMIZATION_MASK + "-" + (i + 1);
+      try {
+        new RegExp(term, "gi");
+      } catch {
+        // escape regex characters
+        term = term.replace(/[-[\]{}()*+?.,\\^$|#]/g, "\\$&");
+      }
+      // remove whole url if it contains the term
+      this.content = this.content.replace(urlRegex, (match) => {
+        if (new RegExp(`\\b${term}\\b`, "gi").test(match)) {
+          this.wasAnonymized = true;
+          return mask;
+        }
+        return match;
+      });
+
+      // remove the term in the text
+      this.content = this.content.replace(
+        new RegExp(`\\b${term}\\b`, "gi"),
+        () => {
+          this.wasAnonymized = true;
+          return mask;
+        }
+      );
+    }
+  }
+
+  anonymize() {
+    this.removeImage();
+    this.removeLink();
+    this.replaceGitHubSelfLinks();
+    this.replaceTerms();
+    return this.content;
+  }
+}
+
 export function anonymizeContent(
   content: string,
   repository: Anonymizationptions
 ) {
-  if (repository.options?.image === false) {
-    // remove image in markdown
-    content = content.replace(
-      /!\[[^\]]*\]\((?<filename>.*?)(?=\"|\))(?<optionalpart>\".*\")?\)/g,
-      ""
-    );
-  }
-
-  if (!repository.options?.link) {
-    // remove all links
-    content = content.replace(urlRegex, config.ANONYMIZATION_MASK);
-  }
-
+  let repoName: string | undefined;
+  let branchName: string | undefined;
   if (repository.source instanceof GitHubBase) {
-    content = content.replace(
-      new RegExp(
-        `https://raw.githubusercontent.com/${
-          repository.source.githubRepository.fullName
-        }/${repository.source.branch?.name || "main"}\\b`,
-        "gi"
-      ),
-      `https://${config.APP_HOSTNAME}/r/${repository.repoId}`
-    );
-    content = content.replace(
-      new RegExp(
-        `https://github.com/${
-          repository.source.githubRepository.fullName
-        }/blob/${repository.source.branch?.name || "main"}\\b`,
-        "gi"
-      ),
-      `https://${config.APP_HOSTNAME}/r/${repository.repoId}`
-    );
-    content = content.replace(
-      new RegExp(
-        `https://github.com/${
-          repository.source.githubRepository.fullName
-        }/tree/${(repository.source as GitHubBase).branch?.name || "main"}\\b`,
-        "gi"
-      ),
-      `https://${config.APP_HOSTNAME}/r/${repository.repoId}`
-    );
-    content = content.replace(
-      new RegExp(
-        `https://github.com/${repository.source.githubRepository.fullName}`,
-        "gi"
-      ),
-      `https://${config.APP_HOSTNAME}/r/${repository.repoId}`
-    );
+    repoName = repository.source.githubRepository.fullName;
+    branchName = repository.source.branch.name;
   }
-
-  const terms = repository.options.terms || [];
-  for (let i = 0; i < terms.length; i++) {
-    let term = terms[i];
-    if (term.trim() == "") {
-      continue;
-    }
-    try {
-      new RegExp(term, "gi");
-    } catch {
-      // escape regex characters
-      term = term.replace(/[-[\]{}()*+?.,\\^$|#]/g, "\\$&");
-    }
-    // remove whole url if it contains the term
-    content = content.replace(urlRegex, (match) => {
-      if (new RegExp(`\\b${term}\\b`, "gi").test(match))
-        return config.ANONYMIZATION_MASK + "-" + (i + 1);
-      return match;
-    });
-
-    // remove the term in the text
-    content = content.replace(
-      new RegExp(`\\b${term}\\b`, "gi"),
-      config.ANONYMIZATION_MASK + "-" + (i + 1)
-    );
-  }
-  return content;
+  return new ContentAnonimizer(content, {
+    repoId: repository.repoId,
+    image: repository.options.image,
+    link: repository.options.link,
+    terms: repository.options.terms,
+    repoName,
+    branchName,
+  }).anonymize();
 }
 
 export function anonymizePath(path: string, terms: string[]) {

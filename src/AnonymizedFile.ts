@@ -216,18 +216,28 @@ export default class AnonymizedFile {
           res.contentType("text/plain");
         }
         res.header("Accept-Ranges", "none");
+        let fileInfo: Awaited<ReturnType<typeof storage.fileInfo>>;
         try {
-          const fileInfo = await storage.fileInfo(this.originalCachePath);
-          // the text files may be anonymized and therefore the size may be different
-          if (!isTextFile(this.anonymizedPath) && fileInfo.size) {
-            res.header("Content-Length", fileInfo.size.toString());
-          }
+          fileInfo = await storage.fileInfo(this.originalCachePath);
         } catch (error) {
           // unable to get file size
           console.error(error);
         }
+        
+        const anonymizer = new AnonymizeTransformer(this);
+
+        anonymizer.once("transform", (data) => {
+          if (data.isText && !mime) {
+            res.contentType("text/plain");
+          }
+          if (fileInfo?.size && !data.wasAnonimized) {
+            // the text files may be anonymized and therefore the size may be different
+            res.header("Content-Length", fileInfo.size.toString());
+          }
+        });
+
         content
-          .pipe(new AnonymizeTransformer(this))
+          .pipe(anonymizer)
           .pipe(res)
           .on("close", () => {
             if (!content.closed && !content.destroyed) {

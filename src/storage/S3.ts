@@ -11,7 +11,6 @@ import { pipeline, Readable, Transform } from "stream";
 import ArchiveStreamToS3 from "decompress-stream-to-s3";
 import { Response } from "express";
 import { lookup } from "mime-types";
-import * as flow from "xml-flow";
 import * as archiver from "archiver";
 import { dirname, basename } from "path";
 import AnonymousError from "../AnonymousError";
@@ -239,7 +238,7 @@ export default class S3Storage implements StorageBase {
         s3: this.client(2 * 60 * 60 * 1000), // 2h timeout
         type: "zip",
         onEntry: (header) => {
-          header.name = header.name.substr(header.name.indexOf("/") + 1);
+          header.name = header.name.substring(header.name.indexOf("/") + 1);
           if (source) {
             header.Tagging = `source=${source.type}`;
             header.Metadata = {
