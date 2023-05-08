@@ -108,7 +108,6 @@ export default class S3Storage implements StorageBase {
         Key: p,
       });
       const s = await this.client().send(command);
-      s.ContentLength;
       res.status(200);
       if (s.ContentType) {
         res.contentType(s.ContentType);
@@ -116,7 +115,11 @@ export default class S3Storage implements StorageBase {
       if (s.ContentLength) {
         res.set("Content-Length", s.ContentLength.toString());
       }
-      (s.Body as Readable)?.pipe(res);
+      if (s.Body) {
+        (s.Body as Readable)?.pipe(res);
+      } else {
+        res.end();
+      }
     } catch (error) {
       try {
         res.status(500);
