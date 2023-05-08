@@ -1505,7 +1505,9 @@ angular
           return;
         }
         $scope.filePath = $routeParams.path || "";
-        $scope.paths = $scope.filePath.split("/");
+        $scope.paths = $scope.filePath
+          .split("/")
+          .filter((f) => f && f.trim().length > 0);
 
         if ($scope.repoId != $routeParams.repoId) {
           return init();
@@ -1514,45 +1516,55 @@ angular
         updateContent();
       });
 
+      function selectFile() {
+        const readmePriority = [
+          "readme.md",
+          "readme.txt",
+          "readme.org",
+          "readme.1st",
+          "readme",
+        ];
+        // find current folder
+        let currentFolder = $scope.files;
+        for (const p of $scope.paths) {
+          if (currentFolder[p]) {
+            currentFolder = currentFolder[p];
+          }
+        }
+        if (currentFolder.size && Number.isInteger(currentFolder.size)) {
+          // a file is already selected
+          return;
+        }
+        const readmeCandidates = {};
+        for (const file in currentFolder) {
+          if (file.toLowerCase().indexOf("readme") > -1) {
+            readmeCandidates[file.toLowerCase()] = file;
+          }
+        }
+        let best_match = null;
+        for (const p of readmePriority) {
+          if (readmeCandidates[p]) {
+            best_match = p;
+            break;
+          }
+        }
+        if (!best_match && Object.keys(readmeCandidates).length > 0)
+          best_match = Object.keys(readmeCandidates)[0];
+        if (best_match) {
+          let uri = $location.url();
+          if (uri[uri.length - 1] != "/") {
+            uri += "/";
+          }
+
+          // redirect to readme
+          $location.url(uri + readmeCandidates[best_match]);
+        }
+      }
       function getFiles(callback) {
         $http.get(`/api/repo/${$scope.repoId}/files/`).then(
           (res) => {
             $scope.files = res.data;
-            if ($scope.paths.length == 0 || $scope.paths[0] == "") {
-              // redirect to readme
-              const readmeCandidates = {};
-              for (const file in $scope.files) {
-                if (file.toLowerCase().indexOf("readme") > -1) {
-                  readmeCandidates[file.toLowerCase()] = file;
-                }
-              }
-
-              const readmePriority = [
-                "readme.md",
-                "readme.txt",
-                "readme.org",
-                "readme.1st",
-                "readme",
-              ];
-              let best_match = null;
-              for (const p of readmePriority) {
-                if (readmeCandidates[p]) {
-                  best_match = p;
-                  break;
-                }
-              }
-              if (!best_match && Object.keys(readmeCandidates).length > 0)
-                best_match = Object.keys(readmeCandidates)[0];
-              if (best_match) {
-                let uri = $location.url();
-                if (uri[uri.length - 1] != "/") {
-                  uri += "/";
-                }
-
-                // redirect to readme
-                $location.url(uri + readmeCandidates[best_match]);
-              }
-            }
+            selectFile();
             if (callback) {
               return callback();
             }
