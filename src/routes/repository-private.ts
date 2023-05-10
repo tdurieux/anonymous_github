@@ -375,6 +375,7 @@ router.post(
       }
 
       updateRepoModel(repo.model, repoUpdate);
+      repo.source.type = "GitHubStream";
 
       const removeRepoFromConference = async (conferenceID: string) => {
         const conf = await ConferenceModel.findOne({
