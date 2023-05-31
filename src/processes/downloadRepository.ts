@@ -18,10 +18,11 @@ export default async function (job: SandboxedJob<Repository, void>) {
     await connect();
     const repo = await getRepository(job.data.repoId);
     job.updateProgress({ status: "get_repo" });
-    await repo.resetSate(RepositoryStatus.PREPARING, "");
-    job.updateProgress({ status: "resetSate" });
     try {
+      await repo.resetSate(RepositoryStatus.PREPARING, "");
+      job.updateProgress({ status: "resetSate" });
       await repo.anonymize();
+      console.log(`[QUEUE] ${job.data.repoId} is downloaded`);
     } catch (error) {
       if (error instanceof Error) {
         await repo.updateStatus(RepositoryStatus.ERROR, error.message);
@@ -32,7 +33,6 @@ export default async function (job: SandboxedJob<Repository, void>) {
     }
   } catch (error) {
     console.error(error);
-  } finally {
-    console.log(`[QUEUE] ${job.data.repoId} is downloaded`);
+    console.log(`[QUEUE] ${job.data.repoId} is finished with an error`);
   }
 }
