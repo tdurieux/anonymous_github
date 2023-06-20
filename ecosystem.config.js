@@ -2,9 +2,9 @@ module.exports = {
   apps: [
     {
       name: "AnonymousGitHub",
-      script: "./index.ts",
+      script: "build/index.js",
       exec_mode: "fork",
-      watch: true,
+      watch: false,
       ignore_watch: [
         "node_modules",
         "repositories",
@@ -15,7 +15,6 @@ module.exports = {
         "build",
       ],
       interpreter: "node",
-      interpreter_args: "--require ts-node/register",
     },
   ],
 };

@@ -72,7 +72,7 @@ export class GitHubRepository {
       const octokit = new Octokit({ auth: opt.accessToken });
       try {
         const branches = (
-          await octokit.paginate(octokit.repos.listBranches, {
+          await octokit.paginate("GET /repos/{owner}/{repo}/branches", {
             owner: this.owner,
             repo: this.repo,
             per_page: 100,

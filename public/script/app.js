@@ -5,17 +5,9 @@ angular
     "ui.ace",
     "ngPDFViewer",
     "pascalprecht.translate",
-    "angular-google-analytics",
     "admin",
   ])
-  .config(function (
-    $routeProvider,
-    $locationProvider,
-    $translateProvider,
-    AnalyticsProvider
-  ) {
-    AnalyticsProvider.setAccount("UA-5954162-28");
-
+  .config(function ($routeProvider, $locationProvider, $translateProvider) {
     $translateProvider.useStaticFilesLoader({
       prefix: "/i18n/locale-",
       suffix: ".json",
@@ -142,7 +134,6 @@ angular
       });
     $locationProvider.html5Mode(true);
   })
-  .run(["Analytics", function (Analytics) {}])
   .filter("humanFileSize", function () {
     return function humanFileSize(bytes, si = false, dp = 1) {
       const thresh = si ? 1000 : 1024;

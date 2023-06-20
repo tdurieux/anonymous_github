@@ -64,12 +64,15 @@ export default class PullRequest {
         repo,
         pull_number,
       }),
-      octokit.paginate(octokit.rest.issues.listComments, {
-        owner: owner,
-        repo: repo,
-        issue_number: pull_number,
-        per_page: 100,
-      }),
+      octokit.paginate(
+        "GET /repos/{owner}/{repo}/pulls/{pull_number}/comments",
+        {
+          owner: owner,
+          repo: repo,
+          pull_number: pull_number,
+          per_page: 100,
+        }
+      ),
       got(`https://github.com/${owner}/${repo}/pull/${pull_number}.diff`),
     ]);
 

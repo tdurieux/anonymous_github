@@ -103,7 +103,9 @@ async function webView(req: express.Request, res: express.Response) {
     }
     if (f.extension() == "md") {
       const content = await streamToString(await f.anonymizedContent());
-      res.contentType("html").send(marked.marked(content));
+      res
+        .contentType("html")
+        .send(marked.marked(content, { headerIds: false, mangle: false }));
     } else {
       f.send(res);
     }

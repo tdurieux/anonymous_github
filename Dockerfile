@@ -1,4 +1,4 @@
-FROM node:15-slim
+FROM node:18-slim
 
 ENV PORT 5000
 EXPOSE $PORT

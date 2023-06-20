@@ -63,7 +63,7 @@ export default class User {
       // get the list of repo from github
       const octokit = new Octokit({ auth: this.accessToken });
       const repositories = (
-        await octokit.paginate(octokit.repos.listForAuthenticatedUser, {
+        await octokit.paginate("GET /user/repos", {
           visibility: "all",
           sort: "pushed",
           per_page: 100,
