@@ -441,6 +441,19 @@ router.post("/", async (req: express.Request, res: express.Response) => {
   const repoUpdate = req.body;
 
   try {
+    try {
+      await db.getRepository(repoUpdate.repoId, { includeFiles: false });
+      throw new AnonymousError("repoId_already_used", {
+        httpStatus: 400,
+        object: repoUpdate,
+      });
+    } catch (error: any) {
+      if (error.message == "repo_not_found") {
+        // the repository does not exist yet
+      } else {
+        throw error;
+      }
+    }
     validateNewRepo(repoUpdate);
 
     const r = gh(repoUpdate.fullName);

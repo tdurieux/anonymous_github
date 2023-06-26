@@ -3,7 +3,7 @@ import { Schema } from "mongoose";
 const AnonymizedRepositorySchema = new Schema({
   repoId: {
     type: String,
-    index: { unique: true },
+    index: { unique: true, collation: { locale: "en", strength: 2 } },
   },
   status: {
     type: String,

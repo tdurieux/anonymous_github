@@ -42,7 +42,13 @@ export async function getRepository(
   if (!opts.includeFiles) {
     project.originalFiles = 0;
   }
-  const data = await AnonymizedRepositoryModel.findOne({ repoId }, project);
+  const data = await AnonymizedRepositoryModel.findOne(
+    { repoId },
+    project
+  ).collation({
+    locale: "en",
+    strength: 2,
+  });
   if (!data)
     throw new AnonymousError("repo_not_found", {
       object: repoId,
