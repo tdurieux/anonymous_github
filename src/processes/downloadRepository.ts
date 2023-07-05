@@ -19,11 +19,13 @@ export default async function (job: SandboxedJob<Repository, void>) {
     const repo = await getRepository(job.data.repoId);
     job.updateProgress({ status: "get_repo" });
     try {
-      await repo.resetSate(RepositoryStatus.PREPARING, "");
       job.updateProgress({ status: "resetSate" });
+      await repo.resetSate(RepositoryStatus.PREPARING, "");
+      job.updateProgress({ status: "download" });
       await repo.anonymize();
       console.log(`[QUEUE] ${job.data.repoId} is downloaded`);
     } catch (error) {
+      job.updateProgress({ status: "error" });
       if (error instanceof Error) {
         await repo.updateStatus(RepositoryStatus.ERROR, error.message);
       } else if (typeof error === "string") {
