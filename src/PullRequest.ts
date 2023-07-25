@@ -65,11 +65,11 @@ export default class PullRequest {
         pull_number,
       }),
       octokit.paginate(
-        "GET /repos/{owner}/{repo}/pulls/{pull_number}/comments",
+        "GET /repos/{owner}/{repo}/issues/{issue_number}/comments",
         {
           owner: owner,
           repo: repo,
-          pull_number: pull_number,
+          issue_number: pull_number,
           per_page: 100,
         }
       ),
