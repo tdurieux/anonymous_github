@@ -59,6 +59,21 @@ export default async function start() {
 
   await redisClient.connect();
 
+  function keyGenerator(
+    request: express.Request,
+    _response: express.Response
+  ): string {
+    if (request.headers["cf-connecting-ip"]) {
+      return request.headers["cf-connecting-ip"] as string;
+    }
+    if (!request.ip && request.socket.remoteAddress) {
+      console.error("Warning: request.ip is missing!");
+      return request.socket.remoteAddress;
+    }
+    // remove port number from IPv4 addresses
+    return request.ip.replace(/:\d+[^:]*$/, "");
+  }
+
   const rate = rateLimit({
     store: new RedisStore({
       sendCommand: (...args: string[]) => redisClient.sendCommand(args),
@@ -75,20 +90,7 @@ export default async function start() {
       // if not logged in, limit to half the rate
       return config.RATE_LIMIT / 2;
     },
-    keyGenerator(
-      request: express.Request,
-      _response: express.Response
-    ): string {
-      if (request.headers["cf-connecting-ip"]) {
-        return request.headers["cf-connecting-ip"] as string;
-      }
-      if (!request.ip && request.socket.remoteAddress) {
-        console.error("Warning: request.ip is missing!");
-        return request.socket.remoteAddress;
-      }
-      // remove port number from IPv4 addresses
-      return request.ip.replace(/:\d+[^:]*$/, "");
-    },
+    keyGenerator,
     standardHeaders: true,
     legacyHeaders: false,
     message: (request: express.Request, response: express.Response) => {
@@ -101,6 +103,7 @@ export default async function start() {
     delayMs: 150,
     maxDelayMs: 5000,
     headers: true,
+    keyGenerator,
   });
   const webViewSpeedLimiter = slowDown({
     windowMs: 15 * 60 * 1000, // 15 minutes
@@ -108,6 +111,7 @@ export default async function start() {
     delayMs: 150,
     maxDelayMs: 5000,
     headers: true,
+    keyGenerator,
   });
 
   app.use("/github", rate, speedLimiter, connectionRouter);
