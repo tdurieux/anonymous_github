@@ -71,10 +71,10 @@ export default class S3Storage implements StorageBase {
   /** @override */
   async rm(dir: string): Promise<void> {
     if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
-    const data = await this.client().listObjectsV2({
+    const data = await this.client(200000).listObjectsV2({
       Bucket: config.S3_BUCKET,
       Prefix: dir,
-      MaxKeys: 1000,
+      MaxKeys: 100,
     });
 
     const params = {
@@ -92,7 +92,7 @@ export default class S3Storage implements StorageBase {
       // nothing to remove
       return;
     }
-    await this.client().deleteObjects(params);
+    await this.client(200000).deleteObjects(params);
 
     if (data.IsTruncated) {
       await this.rm(dir);
@@ -249,11 +249,9 @@ export default class S3Storage implements StorageBase {
             };
           }
         },
+        maxParallel: 10,
       });
-      pipeline(data, toS3, (err) => {
-        if (err) reject(err);
-        else resolve();
-      })
+      pipeline(data, toS3, () => {})
         .on("finish", resolve)
         .on("error", reject);
     });

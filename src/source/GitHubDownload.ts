@@ -106,7 +106,9 @@ export default class GitHubDownload extends GitHubBase implements SourceBase {
 
     try {
       const downloadStream = got.stream(response.url);
-      downloadStream.addListener("downloadProgress", (p) => (progress = p));
+      downloadStream.addListener("downloadProgress", async (p) => {
+        progress = p;
+      });
       await storage.extractZip(originalPath, downloadStream, undefined, this);
     } catch (error) {
       await this.repository.updateStatus(
