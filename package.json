@@ -1,6 +1,6 @@
 {
   "name": "@tdurieux/anonymous_github",
-  "version": "2.1.1",
+  "version": "2.1.5",
   "description": "Anonymise Github repositories for double-anonymous reviews",
   "bin": {
     "anonymous_github": "build/cli.js"
