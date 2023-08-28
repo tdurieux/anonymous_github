@@ -250,7 +250,10 @@ export default class S3Storage implements StorageBase {
           }
         },
       });
-      pipeline(data, toS3, () => {})
+      pipeline(data, toS3, (err) => {
+        if (err) reject(err);
+        else resolve();
+      })
         .on("finish", resolve)
         .on("error", reject);
     });

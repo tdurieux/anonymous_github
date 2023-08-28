@@ -40,7 +40,7 @@ export default async function start() {
   app.use(express.json());
 
   app.use(compression());
-  app.set("trust proxy", true);
+  app.set("trust proxy", config.TRUST_PROXY);
   app.set("etag", "strong");
 
   app.get("/ip", (request, response) => response.send(request.ip));
