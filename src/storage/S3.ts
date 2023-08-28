@@ -251,7 +251,12 @@ export default class S3Storage implements StorageBase {
         },
         maxParallel: 10,
       });
-      pipeline(data, toS3, () => {})
+      pipeline(data, toS3, (err) => {
+        if (err) {
+          return reject(err);
+        }
+        resolve();
+      })
         .on("finish", resolve)
         .on("error", reject);
     });
