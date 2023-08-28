@@ -119,12 +119,7 @@
                 <div class="panel-body p-3">
                   <p>
                     Anonymous Github is able to display pure textual files, such as text or source code. It can also render images, PDFs, and notbooks.
-                    However, only textual based files are anonymized. Anonymous Github considers the following file format as textual:
-                  </p>
-                  <p>
-                    <ul>
-                      <li ng-repeat="format in supportedFileTypes" ng-bind="format"></li>
-                    </ul>
+                    However, only textual based files are anonymized. Anonymous Github analyzes the content of the file to detect if it is textual or not.
                   </p>
                 </div>
               </div>
