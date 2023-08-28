@@ -40,10 +40,7 @@ export default async function start() {
   app.use(express.json());
 
   app.use(compression());
-  app.set("trust proxy", config.TRUST_PROXY);
   app.set("etag", "strong");
-
-  app.get("/ip", (request, response) => response.send(request.ip));
 
   // handle session and connection
   app.use(initSession());
@@ -77,6 +74,20 @@ export default async function start() {
       }
       // if not logged in, limit to half the rate
       return config.RATE_LIMIT / 2;
+    },
+    keyGenerator(
+      request: express.Request,
+      _response: express.Response
+    ): string {
+      if (request.headers["cf-connecting-ip"]) {
+        return request.headers["cf-connecting-ip"] as string;
+      }
+      if (!request.ip && request.socket.remoteAddress) {
+        console.error("Warning: request.ip is missing!");
+        return request.socket.remoteAddress;
+      }
+      // remove port number from IPv4 addresses
+      return request.ip.replace(/:\d+[^:]*$/, "");
     },
     standardHeaders: true,
     legacyHeaders: false,
