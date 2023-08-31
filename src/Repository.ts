@@ -135,7 +135,7 @@ export default class Repository {
   check() {
     if (
       this._model.options.expirationMode !== "never" &&
-      this.status == "ready" &&
+      this.status == RepositoryStatus.READY &&
       this._model.options.expirationDate
     ) {
       if (this._model.options.expirationDate <= new Date()) {
@@ -143,10 +143,10 @@ export default class Repository {
       }
     }
     if (
-      this.status == "expired" ||
-      this.status == "expiring" ||
-      this.status == "removing" ||
-      this.status == "removed"
+      this.status == RepositoryStatus.EXPIRED ||
+      this.status == RepositoryStatus.EXPIRING ||
+      this.status == RepositoryStatus.REMOVING ||
+      this.status == RepositoryStatus.REMOVED
     ) {
       throw new AnonymousError("repository_expired", {
         object: this,
@@ -157,8 +157,9 @@ export default class Repository {
     fiveMinuteAgo.setMinutes(fiveMinuteAgo.getMinutes() - 5);
 
     if (
-      this.status == "preparing" ||
-      (this.status == "download" && this._model.statusDate > fiveMinuteAgo)
+      this.status == RepositoryStatus.PREPARING ||
+      (this.status == RepositoryStatus.DOWNLOAD &&
+        this._model.statusDate > fiveMinuteAgo)
     ) {
       throw new AnonymousError("repository_not_ready", {
         object: this,
@@ -206,7 +207,10 @@ export default class Repository {
         const branch = this.source.branch;
         const newCommit = branches.filter((f) => f.name == branch.name)[0]
           ?.commit;
-        if (branch.commit == newCommit && this.status == "ready") {
+        if (
+          branch.commit == newCommit &&
+          this.status == RepositoryStatus.READY
+        ) {
           console.log(`[UPDATE] ${this._model.repoId} is up to date`);
           return;
         }
@@ -428,7 +432,7 @@ export default class Repository {
   }
 
   get size() {
-    if (this.status != "ready") return { storage: 0, file: 0 };
+    if (this.status != RepositoryStatus.READY) return { storage: 0, file: 0 };
     return this._model.size;
   }
 
