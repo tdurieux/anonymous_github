@@ -48,7 +48,6 @@ export default class PullRequest {
   }
 
   async download() {
-    await this.updateStatus(RepositoryStatus.DOWNLOAD);
     console.debug(
       "[INFO] Downloading pull request",
       this._model.source.pullRequestId
@@ -98,7 +97,6 @@ export default class PullRequest {
         author: comment.user?.login || "",
       })),
     };
-    await this.updateStatus(RepositoryStatus.READY);
   }
 
   /**
@@ -150,8 +148,10 @@ export default class PullRequest {
       opt?.force ||
       (this._model.options.update && this._model.anonymizeDate < yesterday)
     ) {
+      await this.updateStatus(RepositoryStatus.DOWNLOAD);
       await this.download();
       this._model.anonymizeDate = new Date();
+      await this.updateStatus(RepositoryStatus.READY);
       await this._model.save();
     }
   }
