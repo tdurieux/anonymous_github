@@ -11,6 +11,7 @@ import AnonymousError from "../AnonymousError";
 import { IAnonymizedPullRequestDocument } from "../database/anonymizedPullRequests/anonymizedPullRequests.types";
 import PullRequest from "../PullRequest";
 import AnonymizedPullRequestModel from "../database/anonymizedPullRequests/anonymizedPullRequests.model";
+import { RepositoryStatus } from "../types";
 
 const router = express.Router();
 
@@ -183,6 +184,7 @@ router.post(
       updatePullRequestModel(pullRequest.model, pullRequestUpdate);
       // TODO handle conference
       pullRequest.model.conference = pullRequestUpdate.conference;
+      await pullRequest.updateStatus(RepositoryStatus.PREPARING);
       await pullRequest.updateIfNeeded({ force: true });
       res.json(pullRequest.toJSON());
     } catch (error) {

@@ -48,6 +48,7 @@ export default class PullRequest {
   }
 
   async download() {
+    await this.updateStatus(RepositoryStatus.DOWNLOAD);
     console.debug(
       "[INFO] Downloading pull request",
       this._model.source.pullRequestId
@@ -97,6 +98,7 @@ export default class PullRequest {
         author: comment.user?.login || "",
       })),
     };
+    await this.updateStatus(RepositoryStatus.READY);
   }
 
   /**
