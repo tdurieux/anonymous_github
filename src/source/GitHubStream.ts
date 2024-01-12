@@ -191,9 +191,14 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
       }
       await Promise.all(promises);
     } else {
-      const data = await this.getGHTree(sha, { recursive: true });
-      this.tree2Tree(data.tree, truncatedTree, parentPath);
-      if (data.truncated) {
+      try {
+        const data = await this.getGHTree(sha, { recursive: true });
+        this.tree2Tree(data.tree, truncatedTree, parentPath);
+        if (data.truncated) {
+          this.repository.model.truckedFileList = true;
+        }
+      } catch (error) {
+        console.error(error);
         this.repository.model.truckedFileList = true;
       }
     }
