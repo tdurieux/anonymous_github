@@ -14,7 +14,8 @@
     "sourceMap": false,
     "skipLibCheck": true,
     "strict": true,
-    "esModuleInterop": false
+    "esModuleInterop": false,
+    "incremental": true
   },
   "include": ["src/**/*.ts", "index.ts", "cli.ts"],
   "exclude": ["node_modules", ".vscode"]

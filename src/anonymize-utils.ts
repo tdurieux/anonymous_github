@@ -5,6 +5,7 @@ import { basename } from "path";
 import { Transform } from "stream";
 import { Readable } from "stream";
 import AnonymizedFile from "./AnonymizedFile";
+import { trace } from "@opentelemetry/api";
 
 const urlRegex =
   /<?\b((https?|ftp|file):\/\/)[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]\b\/?>?/g;
@@ -33,42 +34,51 @@ export function isTextFile(filePath: string, content?: Buffer) {
 
 export class AnonymizeTransformer extends Transform {
   public wasAnonimized = false;
-  public isText = false;
+  public isText: boolean | null = null;
 
   constructor(private readonly file: AnonymizedFile) {
     super();
+    this.isText = isTextFile(this.file.anonymizedPath);
   }
 
   _transform(chunk: Buffer, encoding: string, callback: () => void) {
-    const isText = isTextFile(this.file.anonymizedPath, chunk);
+    trace
+      .getTracer("ano-file")
+      .startActiveSpan("AnonymizeTransformer.transform", async (span) => {
+        span.setAttribute("path", this.file.anonymizedPath);
+        if (this.isText === null) {
+          this.isText = isTextFile(this.file.anonymizedPath, chunk);
+        }
 
-    if (isText) {
-      this.isText = true;
-      const anonimizer = new ContentAnonimizer(chunk.toString(), {
-        repoId: this.file.repository.repoId,
-        image: this.file.repository.options.image,
-        link: this.file.repository.options.link,
-        terms: this.file.repository.options.terms,
-        repoName: (this.file.repository.source as GitHubBase).githubRepository
-          ?.fullName,
-        branchName:
-          (this.file.repository.source as GitHubBase).branch?.name || "main",
+        if (this.isText) {
+          const anonimizer = new ContentAnonimizer(chunk.toString(), {
+            repoId: this.file.repository.repoId,
+            image: this.file.repository.options.image,
+            link: this.file.repository.options.link,
+            terms: this.file.repository.options.terms,
+            repoName: (this.file.repository.source as GitHubBase)
+              .githubRepository?.fullName,
+            branchName:
+              (this.file.repository.source as GitHubBase).branch?.name ||
+              "main",
+          });
+          anonimizer.anonymize();
+          if (anonimizer.wasAnonymized) {
+            this.wasAnonimized = true;
+            chunk = Buffer.from(anonimizer.content);
+          }
+        }
+
+        this.emit("transform", {
+          isText: this.isText,
+          wasAnonimized: this.wasAnonimized,
+          chunk,
+        });
+
+        this.push(chunk);
+        span.end();
+        callback();
       });
-      anonimizer.anonymize();
-      if (anonimizer.wasAnonymized) {
-        this.wasAnonimized = true;
-        chunk = Buffer.from(anonimizer.content);
-      }
-    }
-
-    this.emit("transform", {
-      isText,
-      wasAnonimized: this.wasAnonimized,
-      chunk,
-    });
-
-    this.push(chunk);
-    callback();
   }
 }
 
@@ -192,11 +202,22 @@ export class ContentAnonimizer {
   }
 
   anonymize() {
-    this.removeImage();
-    this.removeLink();
-    this.replaceGitHubSelfLinks();
-    this.replaceTerms();
-    return this.content;
+    const span = trace
+      .getTracer("ano-file")
+      .startSpan("ContentAnonimizer.anonymize");
+    try {
+      this.removeImage();
+      span.addEvent("removeImage");
+      this.removeLink();
+      span.addEvent("removeLink");
+      this.replaceGitHubSelfLinks();
+      span.addEvent("replaceGitHubSelfLinks");
+      this.replaceTerms();
+      span.addEvent("replaceTerms");
+      return this.content;
+    } finally {
+      span.end();
+    }
   }
 }
 
@@ -221,21 +242,28 @@ export function anonymizeContent(
 }
 
 export function anonymizePath(path: string, terms: string[]) {
-  for (let i = 0; i < terms.length; i++) {
-    let term = terms[i];
-    if (term.trim() == "") {
-      continue;
-    }
-    try {
-      new RegExp(term, "gi");
-    } catch {
-      // escape regex characters
-      term = term.replace(/[-[\]{}()*+?.,\\^$|#]/g, "\\$&");
-    }
-    path = path.replace(
-      new RegExp(term, "gi"),
-      config.ANONYMIZATION_MASK + "-" + (i + 1)
-    );
-  }
-  return path;
+  return trace
+    .getTracer("ano-file")
+    .startActiveSpan("utils.anonymizePath", (span) => {
+      span.setAttribute("path", path);
+      for (let i = 0; i < terms.length; i++) {
+        let term = terms[i];
+        if (term.trim() == "") {
+          continue;
+        }
+        try {
+          new RegExp(term, "gi");
+        } catch {
+          // escape regex characters
+          term = term.replace(/[-[\]{}()*+?.,\\^$|#]/g, "\\$&");
+        }
+        path = path.replace(
+          new RegExp(term, "gi"),
+          config.ANONYMIZATION_MASK + "-" + (i + 1)
+        );
+      }
+      span.setAttribute("return", path);
+      span.end();
+      return path;
+    });
 }

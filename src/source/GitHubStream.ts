@@ -9,6 +9,7 @@ import * as path from "path";
 import * as stream from "stream";
 import AnonymousError from "../AnonymousError";
 import config from "../../config";
+import { trace } from "@opentelemetry/api";
 
 export default class GitHubStream extends GitHubBase implements SourceBase {
   constructor(
@@ -26,67 +27,83 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
   }
 
   async getFileContent(file: AnonymizedFile): Promise<stream.Readable> {
-    const octokit = new Octokit({
-      auth: await this.getToken(),
-    });
+    return trace
+      .getTracer("ano-file")
+      .startActiveSpan("GHStream.getFileContent", async (span) => {
+        span.setAttribute("path", file.anonymizedPath);
+        const octokit = new Octokit({
+          auth: await this.getToken(),
+        });
 
-    const file_sha = await file.sha();
-    if (!file_sha) {
-      throw new AnonymousError("file_not_accessible", {
-        httpStatus: 404,
-        object: file,
+        const file_sha = await file.sha();
+        if (!file_sha) {
+          throw new AnonymousError("file_not_accessible", {
+            httpStatus: 404,
+            object: file,
+          });
+        }
+        try {
+          const ghRes = await octokit.rest.git.getBlob({
+            owner: this.githubRepository.owner,
+            repo: this.githubRepository.repo,
+            file_sha,
+          });
+          if (!ghRes.data.content && ghRes.data.size != 0) {
+            throw new AnonymousError("file_not_accessible", {
+              httpStatus: 404,
+              object: file,
+            });
+          }
+          // empty file
+          let content: Buffer;
+          if (ghRes.data.content) {
+            content = Buffer.from(
+              ghRes.data.content,
+              ghRes.data.encoding as BufferEncoding
+            );
+          } else {
+            content = Buffer.from("");
+          }
+          await storage.write(file.originalCachePath, content, file, this);
+          this.repository.model.isReseted = false;
+          await this.repository.model.save();
+          if (this.repository.status !== RepositoryStatus.READY)
+            await this.repository.updateStatus(RepositoryStatus.READY);
+          return stream.Readable.from(content);
+        } catch (error) {
+          if (
+            (error as any).status === 404 ||
+            (error as any).httpStatus === 404
+          ) {
+            throw new AnonymousError("file_not_found", {
+              httpStatus: (error as any).status || (error as any).httpStatus,
+              cause: error as Error,
+              object: file,
+            });
+          }
+          throw new AnonymousError("file_too_big", {
+            httpStatus: (error as any).status || (error as any).httpStatus,
+            cause: error as Error,
+            object: file,
+          });
+        } finally {
+          span.end();
+        }
       });
-    }
-    try {
-      const ghRes = await octokit.rest.git.getBlob({
-        owner: this.githubRepository.owner,
-        repo: this.githubRepository.repo,
-        file_sha,
-      });
-      if (!ghRes.data.content && ghRes.data.size != 0) {
-        throw new AnonymousError("file_not_accessible", {
-          httpStatus: 404,
-          object: file,
-        });
-      }
-      // empty file
-      let content: Buffer;
-      if (ghRes.data.content) {
-        content = Buffer.from(
-          ghRes.data.content,
-          ghRes.data.encoding as BufferEncoding
-        );
-      } else {
-        content = Buffer.from("");
-      }
-      await storage.write(file.originalCachePath, content, file, this);
-      this.repository.model.isReseted = false;
-      await this.repository.model.save();
-      if (this.repository.status !== RepositoryStatus.READY)
-        await this.repository.updateStatus(RepositoryStatus.READY);
-      return stream.Readable.from(content);
-    } catch (error) {
-      if ((error as any).status === 404 || (error as any).httpStatus === 404) {
-        throw new AnonymousError("file_not_found", {
-          httpStatus: (error as any).status || (error as any).httpStatus,
-          cause: error as Error,
-          object: file,
-        });
-      }
-      throw new AnonymousError("file_too_big", {
-        httpStatus: (error as any).status || (error as any).httpStatus,
-        cause: error as Error,
-        object: file,
-      });
-    }
   }
 
   async getFiles() {
-    let commit = this.branch?.commit;
-    if (!commit && this.repository.model.source.commit) {
-      commit = this.repository.model.source.commit;
+    const span = trace.getTracer("ano-file").startSpan("GHStream.getFiles");
+    span.setAttribute("repoId", this.repository.repoId);
+    try {
+      let commit = this.branch?.commit;
+      if (!commit && this.repository.model.source.commit) {
+        commit = this.repository.model.source.commit;
+      }
+      return this.getTree(commit);
+    } finally {
+      span.end();
     }
-    return this.getTree(commit);
   }
 
   private async getTree(
@@ -98,6 +115,9 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
       request: 0,
     }
   ) {
+    const span = trace.getTracer("ano-file").startSpan("GHStream.getTree");
+    span.setAttribute("repoId", this.repository.repoId);
+    span.setAttribute("sha", sha);
     this.repository.model.truckedFileList = false;
 
     let ghRes: Awaited<ReturnType<typeof this.getGHTree>>;
@@ -105,11 +125,13 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
       count.request++;
       ghRes = await this.getGHTree(sha, { recursive: true });
     } catch (error) {
+      span.recordException(error as Error);
       if ((error as any).status == 409) {
         // empty tree
         if (this.repository.status != RepositoryStatus.READY)
           await this.repository.updateStatus(RepositoryStatus.READY);
         // cannot be empty otherwise it would try to download it again
+        span.end();
         return { __: {} };
       } else {
         console.log(
@@ -121,7 +143,7 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
           RepositoryStatus.ERROR,
           "repo_not_accessible"
         );
-        throw new AnonymousError("repo_not_accessible", {
+        const err = new AnonymousError("repo_not_accessible", {
           httpStatus: (error as any).status,
           cause: error as Error,
           object: {
@@ -130,6 +152,9 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
             tree_sha: sha,
           },
         });
+        span.recordException(err);
+        span.end();
+        throw err;
       }
     }
     const tree = this.tree2Tree(ghRes.tree, truncatedTree, parentPath);
@@ -139,6 +164,7 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
     }
     if (this.repository.status !== RepositoryStatus.READY)
       await this.repository.updateStatus(RepositoryStatus.READY);
+    span.end();
     return tree;
   }
 
@@ -165,9 +191,6 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
     },
     depth = 0
   ) {
-    console.log(
-      `sha ${sha}, countFiles: ${count.file} countRequest: ${count.request}, parentPath: "${parentPath}"`
-    );
     count.request++;
     let data = null;
 

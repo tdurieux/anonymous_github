@@ -1,6 +1,7 @@
 import { join, basename } from "path";
 import { Response } from "express";
 import { Readable } from "stream";
+import { trace } from "@opentelemetry/api";
 import Repository from "./Repository";
 import { FILE_TYPE, Tree, TreeElement, TreeFile } from "./types";
 import storage from "./storage";
@@ -13,6 +14,7 @@ import {
 import AnonymousError from "./AnonymousError";
 import { handleError } from "./routes/route-utils";
 import { lookup } from "mime-types";
+import AnonymizedRepositoryModel from "./database/anonymizedRepositories/anonymizedRepositories.model";
 
 /**
  * Represent a file in a anonymized repository
@@ -36,9 +38,16 @@ export default class AnonymizedFile {
   }
 
   async sha() {
-    if (this._sha) return this._sha.replace(/"/g, "");
-    await this.originalPath();
-    return this._sha?.replace(/"/g, "");
+    return trace.getTracer("ano-file").startActiveSpan("sha", async (span) => {
+      try {
+        span.setAttribute("anonymizedPath", this.anonymizedPath);
+        if (this._sha) return this._sha.replace(/"/g, "");
+        await this.originalPath();
+        return this._sha?.replace(/"/g, "");
+      } finally {
+        span.end();
+      }
+    });
   }
 
   /**
@@ -47,89 +56,102 @@ export default class AnonymizedFile {
    * @returns the origin relative path of the file
    */
   async originalPath(): Promise<string> {
-    if (this._originalPath) return this._originalPath;
-    if (!this.anonymizedPath)
-      throw new AnonymousError("path_not_specified", {
-        object: this,
-        httpStatus: 400,
-      });
-
-    const paths = this.anonymizedPath.trim().split("/");
-    let currentOriginal = (await this.repository.files({
-      force: false,
-    })) as TreeElement;
-    let currentOriginalPath = "";
-    for (let i = 0; i < paths.length; i++) {
-      const fileName = paths[i];
-      if (fileName == "") {
-        continue;
-      }
-      if (!(currentOriginal as Tree)[fileName]) {
-        // anonymize all the file in the folder and check if there is one that match the current filename
-        const options = [];
-        for (let originalFileName in currentOriginal) {
-          if (
-            anonymizePath(originalFileName, this.repository.options.terms) ==
-            fileName
-          ) {
-            options.push(originalFileName);
+    return trace
+      .getTracer("ano-file")
+      .startActiveSpan("originalPath", async (span) => {
+        try {
+          span.setAttribute("anonymizedPath", this.anonymizedPath);
+          if (this._originalPath) return this._originalPath;
+          if (!this.anonymizedPath) {
+            throw new AnonymousError("path_not_specified", {
+              object: this,
+              httpStatus: 400,
+            });
           }
-        }
 
-        // if only one option we found the original filename
-        if (options.length == 1) {
-          currentOriginalPath = join(currentOriginalPath, options[0]);
-          currentOriginal = (currentOriginal as Tree)[options[0]];
-        } else if (options.length == 0) {
-          throw new AnonymousError("file_not_found", {
-            object: this,
-            httpStatus: 404,
-          });
-        } else {
-          const nextName = paths[i + 1];
-          if (!nextName) {
-            // if there is no next name we can't find the file and we return the first option
-            currentOriginalPath = join(currentOriginalPath, options[0]);
-            currentOriginal = (currentOriginal as Tree)[options[0]];
-          }
-          let found = false;
-          for (const option of options) {
-            const optionTree = (currentOriginal as Tree)[option];
-            if ((optionTree as Tree).child) {
-              const optionTreeChild = (optionTree as Tree).child;
-              if ((optionTreeChild as Tree)[nextName]) {
-                currentOriginalPath = join(currentOriginalPath, option);
-                currentOriginal = optionTreeChild;
-                found = true;
-                break;
+          let currentOriginal = (await this.repository.files({
+            force: false,
+          })) as TreeElement;
+
+          const paths = this.anonymizedPath.trim().split("/");
+          let currentOriginalPath = "";
+          for (let i = 0; i < paths.length; i++) {
+            const fileName = paths[i];
+            if (fileName == "") {
+              continue;
+            }
+            if (!(currentOriginal as Tree)[fileName]) {
+              // anonymize all the file in the folder and check if there is one that match the current filename
+              const options = [];
+              for (let originalFileName in currentOriginal) {
+                if (
+                  anonymizePath(
+                    originalFileName,
+                    this.repository.options.terms
+                  ) == fileName
+                ) {
+                  options.push(originalFileName);
+                }
               }
+
+              // if only one option we found the original filename
+              if (options.length == 1) {
+                currentOriginalPath = join(currentOriginalPath, options[0]);
+                currentOriginal = (currentOriginal as Tree)[options[0]];
+              } else if (options.length == 0) {
+                throw new AnonymousError("file_not_found", {
+                  object: this,
+                  httpStatus: 404,
+                });
+              } else {
+                const nextName = paths[i + 1];
+                if (!nextName) {
+                  // if there is no next name we can't find the file and we return the first option
+                  currentOriginalPath = join(currentOriginalPath, options[0]);
+                  currentOriginal = (currentOriginal as Tree)[options[0]];
+                }
+                let found = false;
+                for (const option of options) {
+                  const optionTree = (currentOriginal as Tree)[option];
+                  if ((optionTree as Tree).child) {
+                    const optionTreeChild = (optionTree as Tree).child;
+                    if ((optionTreeChild as Tree)[nextName]) {
+                      currentOriginalPath = join(currentOriginalPath, option);
+                      currentOriginal = optionTreeChild;
+                      found = true;
+                      break;
+                    }
+                  }
+                }
+                if (!found) {
+                  // if we didn't find the next name we return the first option
+                  currentOriginalPath = join(currentOriginalPath, options[0]);
+                  currentOriginal = (currentOriginal as Tree)[options[0]];
+                }
+              }
+            } else {
+              currentOriginalPath = join(currentOriginalPath, fileName);
+              currentOriginal = (currentOriginal as Tree)[fileName];
             }
           }
-          if (!found) {
-            // if we didn't find the next name we return the first option
-            currentOriginalPath = join(currentOriginalPath, options[0]);
-            currentOriginal = (currentOriginal as Tree)[options[0]];
+
+          if (
+            currentOriginal.sha === undefined ||
+            currentOriginal.size === undefined
+          ) {
+            throw new AnonymousError("folder_not_supported", { object: this });
           }
+
+          const file = currentOriginal as TreeFile;
+          this.fileSize = file.size;
+          this._sha = file.sha;
+
+          this._originalPath = currentOriginalPath;
+          return this._originalPath;
+        } finally {
+          span.end();
         }
-      } else {
-        currentOriginalPath = join(currentOriginalPath, fileName);
-        currentOriginal = (currentOriginal as Tree)[fileName];
-      }
-    }
-
-    if (
-      currentOriginal.sha === undefined ||
-      currentOriginal.size === undefined
-    ) {
-      throw new AnonymousError("folder_not_supported", { object: this });
-    }
-
-    const file = currentOriginal as TreeFile;
-    this.fileSize = file.size;
-    this._sha = file.sha;
-
-    this._originalPath = currentOriginalPath;
-    return this._originalPath;
+      });
   }
   extension() {
     const filename = basename(this.anonymizedPath);
@@ -154,6 +176,7 @@ export default class AnonymizedFile {
       "heic",
     ].includes(extension);
   }
+
   isFileSupported() {
     const extension = this.extension();
     if (!this.repository.options.pdf && extension == "pdf") {
@@ -166,29 +189,48 @@ export default class AnonymizedFile {
   }
 
   async content(): Promise<Readable> {
-    if (this.anonymizedPath.includes(config.ANONYMIZATION_MASK)) {
-      await this.originalPath();
-    }
-    if (this.fileSize && this.fileSize > config.MAX_FILE_SIZE) {
-      throw new AnonymousError("file_too_big", {
-        object: this,
-        httpStatus: 403,
+    return trace
+      .getTracer("ano-file")
+      .startActiveSpan("content", async (span) => {
+        try {
+          span.setAttribute("anonymizedPath", this.anonymizedPath);
+          if (this.anonymizedPath.includes(config.ANONYMIZATION_MASK)) {
+            await this.originalPath();
+          }
+          span.addEvent("originalPath", { originalPath: this._originalPath });
+          if (this.fileSize && this.fileSize > config.MAX_FILE_SIZE) {
+            throw new AnonymousError("file_too_big", {
+              object: this,
+              httpStatus: 403,
+            });
+          }
+          const exist = await storage.exists(this.originalCachePath);
+          span.addEvent("file_exist", { exist });
+          if (exist == FILE_TYPE.FILE) {
+            return storage.read(this.originalCachePath);
+          } else if (exist == FILE_TYPE.FOLDER) {
+            throw new AnonymousError("folder_not_supported", {
+              object: this,
+              httpStatus: 400,
+            });
+          }
+          return await this.repository.source?.getFileContent(this);
+        } finally {
+          span.end();
+        }
       });
-    }
-    const exist = await storage.exists(this.originalCachePath);
-    if (exist == FILE_TYPE.FILE) {
-      return storage.read(this.originalCachePath);
-    } else if (exist == FILE_TYPE.FOLDER) {
-      throw new AnonymousError("folder_not_supported", {
-        object: this,
-        httpStatus: 400,
-      });
-    }
-    return await this.repository.source?.getFileContent(this);
   }
 
   async anonymizedContent() {
-    return (await this.content()).pipe(new AnonymizeTransformer(this));
+    return trace
+      .getTracer("ano-file")
+      .startActiveSpan("anonymizedContent", async (span) => {
+        span.setAttribute("anonymizedPath", this.anonymizedPath);
+        const content = await this.content();
+        return content.pipe(new AnonymizeTransformer(this)).on("close", () => {
+          span.end();
+        });
+      });
   }
 
   get originalCachePath() {
@@ -212,55 +254,60 @@ export default class AnonymizedFile {
   }
 
   async send(res: Response): Promise<void> {
-    return new Promise(async (resolve, reject) => {
-      try {
-        const content = await this.content();
-        const mime = lookup(this.anonymizedPath);
-        if (mime && this.extension() != "ts") {
-          res.contentType(mime);
-        } else if (isTextFile(this.anonymizedPath)) {
-          res.contentType("text/plain");
-        }
-        res.header("Accept-Ranges", "none");
-        let fileInfo: Awaited<ReturnType<typeof storage.fileInfo>>;
+    return trace.getTracer("ano-file").startActiveSpan("send", async (span) => {
+      span.setAttribute("anonymizedPath", this.anonymizedPath);
+      return new Promise<void>(async (resolve, reject) => {
         try {
-          fileInfo = await storage.fileInfo(this.originalCachePath);
-        } catch (error) {
-          // unable to get file size
-          console.error(error);
-        }
-
-        const anonymizer = new AnonymizeTransformer(this);
-
-        anonymizer.once("transform", (data) => {
-          if (data.isText && !mime) {
+          const content = await this.content();
+          const mime = lookup(this.anonymizedPath);
+          if (mime && this.extension() != "ts") {
+            res.contentType(mime);
+          } else if (isTextFile(this.anonymizedPath)) {
             res.contentType("text/plain");
           }
-          if (fileInfo?.size && !data.wasAnonimized) {
-            // the text files may be anonymized and therefore the size may be different
-            res.header("Content-Length", fileInfo.size.toString());
+          res.header("Accept-Ranges", "none");
+          let fileInfo: Awaited<ReturnType<typeof storage.fileInfo>>;
+          try {
+            fileInfo = await storage.fileInfo(this.originalCachePath);
+          } catch (error) {
+            // unable to get file size
+            console.error(error);
           }
-        });
+          const anonymizer = new AnonymizeTransformer(this);
 
-        content
-          .pipe(anonymizer)
-          .pipe(res)
-          .on("close", () => {
-            if (!content.closed && !content.destroyed) {
-              content.destroy();
+          anonymizer.once("transform", (data) => {
+            if (data.isText && !mime) {
+              res.contentType("text/plain");
             }
-            resolve();
-          })
-          .on("error", (error) => {
-            if (!content.closed && !content.destroyed) {
-              content.destroy();
+            if (fileInfo?.size && !data.wasAnonimized) {
+              // the text files may be anonymized and therefore the size may be different
+              res.header("Content-Length", fileInfo.size.toString());
             }
-            reject(error);
-            handleError(error, res);
           });
-      } catch (error) {
-        handleError(error, res);
-      }
+
+          content
+            .pipe(anonymizer)
+            .pipe(res)
+            .on("close", () => {
+              if (!content.closed && !content.destroyed) {
+                content.destroy();
+              }
+              span.end();
+              resolve();
+            })
+            .on("error", (error) => {
+              if (!content.closed && !content.destroyed) {
+                content.destroy();
+              }
+              span.recordException(error);
+              span.end();
+              reject(error);
+              handleError(error, res);
+            });
+        } catch (error) {
+          handleError(error, res);
+        }
+      });
     });
   }
 }

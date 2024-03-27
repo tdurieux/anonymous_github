@@ -7,7 +7,9 @@ services:
     image: tdurieux/anonymous_github:v2
     env_file:
       - ./.env
-    environment: 
+    volumes:
+      - ./repositories:/app/build/repositories/
+    environment:
       - REDIS_HOSTNAME=redis
       - DB_HOSTNAME=mongodb
     ports:
@@ -23,6 +25,7 @@ services:
     links:
       - mongodb
       - redis
+      - opentelemetry
 
   redis:
     image: "redis:alpine"
@@ -35,7 +38,7 @@ services:
       interval: 10s
       timeout: 10s
       retries: 5
-  
+
   mongodb:
     image: mongo:latest
     restart: on-failure
@@ -44,6 +47,8 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: $DB_PASSWORD
     volumes:
       - mongodb_data_container:/data/db
+    ports:
+      - 127.0.0.1:27017:27017
     command: --quiet
     healthcheck:
       test:
@@ -54,6 +59,30 @@ services:
       interval: 10s
       timeout: 10s
       retries: 5
+
+  opentelemetry:
+    image: otel/opentelemetry-collector
+    restart: always
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./opentelemetry-collector.yml:/etc/otel-collector-config.yaml
+    depends_on:
+      - jaeger
+      - prometheus
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    restart: always
+    ports:
+      - 127.0.0.1:9411:9411
+
+  prometheus:
+    image: prom/prometheus:latest
+    restart: always
+    volumes:
+      - ./prometheus.yaml:/etc/prometheus/prometheus.yml
+    ports:
+      - 127.0.0.1:9090:9090
 
   mongodb-backup:
     image: tiredofit/db-backup

@@ -10,6 +10,7 @@ import * as archiver from "archiver";
 import { promisify } from "util";
 import AnonymizedFile from "../AnonymizedFile";
 import { lookup } from "mime-types";
+import { trace } from "@opentelemetry/api";
 
 export default class FileSystem implements StorageBase {
   type = "FileSystem";
@@ -18,19 +19,36 @@ export default class FileSystem implements StorageBase {
 
   /** @override */
   async exists(p: string): Promise<FILE_TYPE> {
-    try {
-      const stat = await fs.promises.stat(join(config.FOLDER, p));
-      if (stat.isDirectory()) return FILE_TYPE.FOLDER;
-      if (stat.isFile()) return FILE_TYPE.FILE;
-    } catch (_) {
-      // ignore file not found or not downloaded
-    }
-    return FILE_TYPE.NOT_FOUND;
+    return trace
+      .getTracer("ano-file")
+      .startActiveSpan("fs.exists", async (span) => {
+        span.setAttribute("path", p);
+        span.setAttribute("full-path", join(config.FOLDER, p));
+        try {
+          const stat = await fs.promises.stat(join(config.FOLDER, p));
+          if (stat.isDirectory()) return FILE_TYPE.FOLDER;
+          if (stat.isFile()) return FILE_TYPE.FILE;
+        } catch (_) {
+          // ignore file not found or not downloaded
+        }
+        span.end();
+        return FILE_TYPE.NOT_FOUND;
+      });
   }
 
   /** @override */
   async send(p: string, res: Response) {
-    res.sendFile(join(config.FOLDER, p), { dotfiles: "allow" });
+    return trace
+      .getTracer("ano-file")
+      .startActiveSpan("fs.send", async (span) => {
+        span.setAttribute("path", p);
+        res.sendFile(join(config.FOLDER, p), { dotfiles: "allow" }, (err) => {
+          if (err) {
+            span.recordException(err);
+          }
+          span.end();
+        });
+      });
   }
 
   /** @override */
@@ -56,22 +74,46 @@ export default class FileSystem implements StorageBase {
     file?: AnonymizedFile,
     source?: SourceBase
   ): Promise<void> {
-    await this.mk(dirname(p));
-    return fs.promises.writeFile(join(config.FOLDER, p), data);
+    return trace
+      .getTracer("ano-file")
+      .startActiveSpan("fs.write", async (span) => {
+        span.setAttribute("path", p);
+        try {
+          await this.mk(dirname(p));
+          return await fs.promises.writeFile(
+            join(config.FOLDER, p),
+            data,
+            "utf-8"
+          );
+        } finally {
+          span.end();
+        }
+      });
   }
 
   /** @override */
   async rm(dir: string): Promise<void> {
+    const span = trace.getTracer("ano-file").startSpan("fs.rm");
+    span.setAttribute("path", dir);
     await fs.promises.rm(join(config.FOLDER, dir), {
       force: true,
       recursive: true,
     });
+    span.end();
   }
 
   /** @override */
   async mk(dir: string): Promise<void> {
-    if ((await this.exists(dir)) === FILE_TYPE.NOT_FOUND)
-      fs.promises.mkdir(join(config.FOLDER, dir), { recursive: true });
+    return trace
+      .getTracer("ano-file")
+      .startActiveSpan("fs.mk", async (span) => {
+        span.setAttribute("path", dir);
+        if ((await this.exists(dir)) === FILE_TYPE.NOT_FOUND)
+          await fs.promises.mkdir(join(config.FOLDER, dir), {
+            recursive: true,
+          });
+        span.end();
+      });
   }
 
   /** @override */
@@ -82,34 +124,40 @@ export default class FileSystem implements StorageBase {
       onEntry?: (file: { path: string; size: number }) => void;
     } = {}
   ): Promise<Tree> {
-    if (opt.root == null) {
-      opt.root = config.FOLDER;
-    }
-    let files = await fs.promises.readdir(join(opt.root, dir));
-    const output: Tree = {};
-    for (let file of files) {
-      let filePath = join(dir, file);
-      try {
-        const stats = await fs.promises.stat(join(opt.root, filePath));
-        if (file[0] == "$") {
-          file = "\\" + file;
+    return trace
+      .getTracer("ano-file")
+      .startActiveSpan("fs.listFiles", async (span) => {
+        span.setAttribute("path", dir);
+        if (opt.root == null) {
+          opt.root = config.FOLDER;
         }
-        if (stats.isDirectory()) {
-          output[file] = await this.listFiles(filePath, opt);
-        } else if (stats.isFile()) {
-          if (opt.onEntry) {
-            opt.onEntry({
-              path: filePath,
-              size: stats.size,
-            });
+        let files = await fs.promises.readdir(join(opt.root, dir));
+        const output: Tree = {};
+        for (let file of files) {
+          let filePath = join(dir, file);
+          try {
+            const stats = await fs.promises.stat(join(opt.root, filePath));
+            if (file[0] == "$") {
+              file = "\\" + file;
+            }
+            if (stats.isDirectory()) {
+              output[file] = await this.listFiles(filePath, opt);
+            } else if (stats.isFile()) {
+              if (opt.onEntry) {
+                opt.onEntry({
+                  path: filePath,
+                  size: stats.size,
+                });
+              }
+              output[file] = { size: stats.size, sha: stats.ino.toString() };
+            }
+          } catch (error) {
+            span.recordException(error as Error);
           }
-          output[file] = { size: stats.size, sha: stats.ino.toString() };
         }
-      } catch (error) {
-        console.error(error);
-      }
-    }
-    return output;
+        span.end();
+        return output;
+      });
   }
 
   /** @override */
@@ -144,7 +192,7 @@ export default class FileSystem implements StorageBase {
   ) {
     const archive = archiver(opt?.format || "zip", {});
 
-    this.listFiles(dir, {
+    await this.listFiles(dir, {
       onEntry: async (file) => {
         let rs = await this.read(file.path);
         if (opt?.fileTransformer) {

@@ -1,0 +1,6 @@
+scrape_configs:
+  - job_name: 'otel-collector'
+    scrape_interval: 10s
+    static_configs:
+      - targets: ['opentelemetry:8889']
+      - targets: ['opentelemetry:8888']

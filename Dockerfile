@@ -11,7 +11,6 @@ COPY package.json .
 COPY package-lock.json .
 
 COPY tsconfig.json .
-COPY ecosystem.config.js .
 COPY healthcheck.js .
 
 COPY src ./src
@@ -20,6 +19,6 @@ COPY index.ts .
 COPY config.ts .
 
 RUN npm install && npm run build && npm cache clean --force
+COPY opentelemetry.js .
 
-
-CMD [ "pm2-runtime", "ecosystem.config.js"]
+CMD [ "node", "--require", "./opentelemetry.js", "./build/index.js"]

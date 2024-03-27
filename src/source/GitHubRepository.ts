@@ -5,6 +5,7 @@ import { Octokit, RestEndpointMethodTypes } from "@octokit/rest";
 import RepositoryModel from "../database/repositories/repositories.model";
 import AnonymousError from "../AnonymousError";
 import { isConnected } from "../database/database";
+import { trace } from "@opentelemetry/api";
 
 export class GitHubRepository {
   private _data: Partial<{
@@ -50,64 +51,81 @@ export class GitHubRepository {
       accessToken?: string;
     }
   ) {
-    const octokit = new Octokit({ auth: opt.accessToken });
-    const commit = await octokit.repos.getCommit({
-      owner: this.owner,
-      repo: this.repo,
-      ref: sha,
-    });
-    return commit.data;
+    const span = trace
+      .getTracer("ano-file")
+      .startSpan("GHRepository.getCommitInfo");
+    span.setAttribute("owner", this.owner);
+    span.setAttribute("repo", this.repo);
+    try {
+      const octokit = new Octokit({ auth: opt.accessToken });
+      const commit = await octokit.repos.getCommit({
+        owner: this.owner,
+        repo: this.repo,
+        ref: sha,
+      });
+      return commit.data;
+    } finally {
+      span.end();
+    }
   }
 
   async branches(opt: {
     accessToken?: string;
     force?: boolean;
   }): Promise<Branch[]> {
-    if (
-      !this._data.branches ||
-      this._data.branches.length == 0 ||
-      opt?.force === true
-    ) {
-      // get the list of repo from github
-      const octokit = new Octokit({ auth: opt.accessToken });
-      try {
-        const branches = (
-          await octokit.paginate("GET /repos/{owner}/{repo}/branches", {
-            owner: this.owner,
-            repo: this.repo,
-            per_page: 100,
-          })
-        ).map((b) => {
-          return {
-            name: b.name,
-            commit: b.commit.sha,
-            readme: this._data.branches?.filter(
-              (f: Branch) => f.name == b.name
-            )[0]?.readme,
-          } as Branch;
-        });
-        this._data.branches = branches;
-        if (isConnected) {
-          await RepositoryModel.updateOne(
-            { externalId: this.id },
-            { $set: { branches } }
-          );
+    const span = trace.getTracer("ano-file").startSpan("GHRepository.branches");
+    span.setAttribute("owner", this.owner);
+    span.setAttribute("repo", this.repo);
+    try {
+      if (
+        !this._data.branches ||
+        this._data.branches.length == 0 ||
+        opt?.force === true
+      ) {
+        // get the list of repo from github
+        const octokit = new Octokit({ auth: opt.accessToken });
+        try {
+          const branches = (
+            await octokit.paginate("GET /repos/{owner}/{repo}/branches", {
+              owner: this.owner,
+              repo: this.repo,
+              per_page: 100,
+            })
+          ).map((b) => {
+            return {
+              name: b.name,
+              commit: b.commit.sha,
+              readme: this._data.branches?.filter(
+                (f: Branch) => f.name == b.name
+              )[0]?.readme,
+            } as Branch;
+          });
+          this._data.branches = branches;
+          if (isConnected) {
+            await RepositoryModel.updateOne(
+              { externalId: this.id },
+              { $set: { branches } }
+            );
+          }
+        } catch (error) {
+          span.recordException(error as Error);
+          throw new AnonymousError("repo_not_found", {
+            httpStatus: (error as any).status,
+            cause: error as Error,
+            object: this,
+          });
         }
-      } catch (error) {
-        throw new AnonymousError("repo_not_found", {
-          httpStatus: (error as any).status,
-          cause: error as Error,
-          object: this,
-        });
+      } else if (isConnected) {
+        const q = await RepositoryModel.findOne({ externalId: this.id }).select(
+          "branches"
+        );
+        this._data.branches = q?.branches;
       }
-    } else if (isConnected) {
-      const q = await RepositoryModel.findOne({ externalId: this.id }).select(
-        "branches"
-      );
-      this._data.branches = q?.branches;
-    }
 
-    return this._data.branches || [];
+      return this._data.branches || [];
+    } finally {
+      span.end();
+    }
   }
 
   async readme(opt: {
@@ -115,52 +133,60 @@ export class GitHubRepository {
     force?: boolean;
     accessToken?: string;
   }): Promise<string | undefined> {
-    if (!opt.branch) opt.branch = this._data.defaultBranch || "master";
+    const span = trace.getTracer("ano-file").startSpan("GHRepository.readme");
+    span.setAttribute("owner", this.owner);
+    span.setAttribute("repo", this.repo);
+    try {
+      if (!opt.branch) opt.branch = this._data.defaultBranch || "master";
 
-    const model = await RepositoryModel.findOne({
-      externalId: this.id,
-    }).select("branches");
+      const model = await RepositoryModel.findOne({
+        externalId: this.id,
+      }).select("branches");
 
-    if (!model) {
-      throw new AnonymousError("repo_not_found", { httpStatus: 404 });
-    }
+      if (!model) {
+        throw new AnonymousError("repo_not_found", { httpStatus: 404 });
+      }
 
-    this._data.branches = await this.branches(opt);
-    model.branches = this._data.branches;
+      this._data.branches = await this.branches(opt);
+      model.branches = this._data.branches;
 
-    const selected = model.branches.filter((f) => f.name == opt.branch)[0];
-    if (selected && (!selected.readme || opt?.force === true)) {
-      // get the list of repo from github
-      const octokit = new Octokit({ auth: opt.accessToken });
-      try {
-        const ghRes = await octokit.repos.getReadme({
-          owner: this.owner,
-          repo: this.repo,
-          ref: selected?.commit,
-        });
-        const readme = Buffer.from(
-          ghRes.data.content,
-          ghRes.data.encoding as BufferEncoding
-        ).toString("utf-8");
-        selected.readme = readme;
-        await model.save();
-      } catch (error) {
+      const selected = model.branches.filter((f) => f.name == opt.branch)[0];
+      if (selected && (!selected.readme || opt?.force === true)) {
+        // get the list of repo from github
+        const octokit = new Octokit({ auth: opt.accessToken });
+        try {
+          const ghRes = await octokit.repos.getReadme({
+            owner: this.owner,
+            repo: this.repo,
+            ref: selected?.commit,
+          });
+          const readme = Buffer.from(
+            ghRes.data.content,
+            ghRes.data.encoding as BufferEncoding
+          ).toString("utf-8");
+          selected.readme = readme;
+          await model.save();
+        } catch (error) {
+          span.recordException(error as Error);
+          throw new AnonymousError("readme_not_available", {
+            httpStatus: 404,
+            cause: error as Error,
+            object: this,
+          });
+        }
+      }
+
+      if (!selected) {
         throw new AnonymousError("readme_not_available", {
           httpStatus: 404,
-          cause: error as Error,
           object: this,
         });
       }
-    }
 
-    if (!selected) {
-      throw new AnonymousError("readme_not_available", {
-        httpStatus: 404,
-        object: this,
-      });
+      return selected.readme;
+    } finally {
+      span.end();
     }
-
-    return selected.readme;
   }
 
   public get owner(): string {
@@ -203,57 +229,69 @@ export async function getRepositoryFromGitHub(opt: {
   repo: string;
   accessToken: string;
 }) {
-  if (opt.repo.indexOf(".git") > -1) {
-    opt.repo = opt.repo.replace(".git", "");
-  }
-  const octokit = new Octokit({ auth: opt.accessToken });
-  let r: RestEndpointMethodTypes["repos"]["get"]["response"]["data"];
+  const span = trace
+    .getTracer("ano-file")
+    .startSpan("GHRepository.getRepositoryFromGitHub");
+  span.setAttribute("owner", opt.owner);
+  span.setAttribute("repo", opt.repo);
   try {
-    r = (
-      await octokit.repos.get({
-        owner: opt.owner,
-        repo: opt.repo,
-      })
-    ).data;
-  } catch (error) {
-    throw new AnonymousError("repo_not_found", {
-      httpStatus: (error as any).status,
-      object: {
-        owner: opt.owner,
-        repo: opt.repo,
-      },
-      cause: error as Error,
-    });
-  }
-  if (!r)
-    throw new AnonymousError("repo_not_found", {
-      httpStatus: 404,
-      object: {
-        owner: opt.owner,
-        repo: opt.repo,
-      },
-    });
-  let model = new RepositoryModel({ externalId: "gh_" + r.id });
-  if (isConnected) {
-    const dbModel = await RepositoryModel.findOne({ externalId: "gh_" + r.id });
-    if (dbModel) {
-      model = dbModel;
+    if (opt.repo.indexOf(".git") > -1) {
+      opt.repo = opt.repo.replace(".git", "");
     }
+    const octokit = new Octokit({ auth: opt.accessToken });
+    let r: RestEndpointMethodTypes["repos"]["get"]["response"]["data"];
+    try {
+      r = (
+        await octokit.repos.get({
+          owner: opt.owner,
+          repo: opt.repo,
+        })
+      ).data;
+    } catch (error) {
+      span.recordException(error as Error);
+      throw new AnonymousError("repo_not_found", {
+        httpStatus: (error as any).status,
+        object: {
+          owner: opt.owner,
+          repo: opt.repo,
+        },
+        cause: error as Error,
+      });
+    }
+    if (!r)
+      throw new AnonymousError("repo_not_found", {
+        httpStatus: 404,
+        object: {
+          owner: opt.owner,
+          repo: opt.repo,
+        },
+      });
+    let model = new RepositoryModel({ externalId: "gh_" + r.id });
+    if (isConnected) {
+      const dbModel = await RepositoryModel.findOne({
+        externalId: "gh_" + r.id,
+      });
+      if (dbModel) {
+        model = dbModel;
+      }
+    }
+    model.name = r.full_name;
+    model.url = r.html_url;
+    model.size = r.size;
+    model.defaultBranch = r.default_branch;
+    model.hasPage = r.has_pages;
+    if (model.hasPage) {
+      const ghPageRes = await octokit.repos.getPages({
+        owner: opt.owner,
+        repo: opt.repo,
+      });
+      model.pageSource = ghPageRes.data.source;
+    }
+    if (isConnected) {
+      await model.save();
+    }
+    return new GitHubRepository(model);
+  } finally {
+    span.end();
   }
-  model.name = r.full_name;
-  model.url = r.html_url;
-  model.size = r.size;
-  model.defaultBranch = r.default_branch;
-  model.hasPage = r.has_pages;
-  if (model.hasPage) {
-    const ghPageRes = await octokit.repos.getPages({
-      owner: opt.owner,
-      repo: opt.repo,
-    });
-    model.pageSource = ghPageRes.data.source;
-  }
-  if (isConnected) {
-    await model.save();
-  }
-  return new GitHubRepository(model);
 }

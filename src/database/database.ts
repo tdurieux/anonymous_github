@@ -17,7 +17,6 @@ export async function connect() {
   await mongoose.connect(MONGO_URL + "production", {
     authSource: "admin",
     appName: "Anonymous GitHub Server",
-    compressors: "zlib",
   } as ConnectOptions);
   isConnected = true;
 
