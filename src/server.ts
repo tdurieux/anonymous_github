@@ -2,7 +2,7 @@ import { createClient } from "redis";
 import { resolve, join } from "path";
 import { existsSync } from "fs";
 import rateLimit from "express-rate-limit";
-import * as slowDown from "express-slow-down";
+import { slowDown } from "express-slow-down";
 import RedisStore from "rate-limit-redis";
 import * as express from "express";
 import * as compression from "compression";
@@ -71,7 +71,7 @@ export default async function start() {
       return request.socket.remoteAddress;
     }
     // remove port number from IPv4 addresses
-    return request.ip.replace(/:\d+[^:]*$/, "");
+    return (request.ip || "").replace(/:\d+[^:]*$/, "");
   }
 
   const rate = rateLimit({
@@ -79,10 +79,18 @@ export default async function start() {
       sendCommand: (...args: string[]) => redisClient.sendCommand(args),
     }),
     windowMs: 15 * 60 * 1000, // 15 minutes
+    skip: async (request: express.Request, response: express.Response) => {
+      try {
+        const user = await getUser(request);
+        if (user && user.isAdmin) return true;
+      } catch (_) {
+        // ignore: user not connected
+      }
+      return false;
+    },
     max: async (request: express.Request, response: express.Response) => {
       try {
         const user = await getUser(request);
-        if (user && user.isAdmin) return 0;
         if (user) return config.RATE_LIMIT;
       } catch (_) {
         // ignore: user not connected
@@ -100,17 +108,15 @@ export default async function start() {
   const speedLimiter = slowDown({
     windowMs: 15 * 60 * 1000, // 15 minutes
     delayAfter: 50,
-    delayMs: 150,
+    delayMs: () => 150,
     maxDelayMs: 5000,
-    headers: true,
     keyGenerator,
   });
   const webViewSpeedLimiter = slowDown({
     windowMs: 15 * 60 * 1000, // 15 minutes
     delayAfter: 200,
-    delayMs: 150,
+    delayMs: () => 150,
     maxDelayMs: 5000,
-    headers: true,
     keyGenerator,
   });
 

@@ -5,7 +5,7 @@ import {
   PutObjectCommandInput,
   S3,
 } from "@aws-sdk/client-s3";
-import { NodeHttpHandler } from "@aws-sdk/node-http-handler";
+import { NodeHttpHandler } from "@smithy/node-http-handler";
 import config from "../../config";
 import { pipeline, Readable, Transform } from "stream";
 import ArchiveStreamToS3 from "decompress-stream-to-s3";
@@ -40,6 +40,7 @@ export default class S3Storage implements StorageBase {
       requestHandler: new NodeHttpHandler({
         requestTimeout: timeout,
         connectionTimeout: timeout,
+
       }),
     });
   }

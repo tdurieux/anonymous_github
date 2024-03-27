@@ -3,7 +3,6 @@ import AnonymousError from "../AnonymousError";
 import * as db from "../database/database";
 import UserModel from "../database/users/users.model";
 import User from "../User";
-import * as io from "@pm2/io";
 
 export async function getPullRequest(
   req: express.Request,
@@ -76,7 +75,6 @@ export function isOwnerOrAdmin(authorizedUsers: string[], user: User) {
 }
 
 function printError(error: any, req?: express.Request) {
-  io.notifyError(error, error.value);
   if (error instanceof AnonymousError) {
     let message = `[ERROR] ${error.toString()} ${error.stack
       ?.split("\n")[1]
