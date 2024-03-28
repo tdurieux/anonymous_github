@@ -74,7 +74,7 @@ services:
     image: jaegertracing/all-in-one:latest
     restart: always
     ports:
-      - 127.0.0.1:9411:9411
+      - 127.0.0.1:16686:16686
 
   prometheus:
     image: prom/prometheus:latest
