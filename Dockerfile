@@ -5,8 +5,6 @@ EXPOSE $PORT
 
 WORKDIR /app
 
-RUN npm install pm2 -g && pm2 install typescript && npm cache clean --force;
-
 COPY package.json .
 COPY package-lock.json .
 
