@@ -99,7 +99,6 @@ export default class Repository {
     }
   ): Promise<Tree> {
     const terms = this._model.options.terms || [];
-    if (terms.length === 0) return this.files(opt);
     return anonymizeTreeRecursive(await this.files(opt), terms, opt) as Tree;
   }
 
