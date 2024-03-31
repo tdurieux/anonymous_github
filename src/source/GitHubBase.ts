@@ -1,13 +1,14 @@
+import { Octokit } from "@octokit/rest";
+import { trace } from "@opentelemetry/api";
+import { Readable } from "stream";
+
 import AnonymizedFile from "../AnonymizedFile";
 import { Branch, Tree } from "../types";
 import { GitHubRepository } from "./GitHubRepository";
 import config from "../../config";
 import Repository from "../Repository";
-import { Readable } from "stream";
 import UserModel from "../database/users/users.model";
 import AnonymousError from "../AnonymousError";
-import { Octokit } from "@octokit/rest";
-import { trace } from "@opentelemetry/api";
 
 export default abstract class GitHubBase {
   type: "GitHubDownload" | "GitHubStream" | "Zip";
@@ -57,8 +58,17 @@ export default abstract class GitHubBase {
     });
   }
 
+  static octokit(token: string) {
+    return new Octokit({
+      auth: token,
+      request: {
+        fetch: fetch,
+      },
+    });
+  }
+
   static async checkToken(token: string) {
-    const octokit = new Octokit({ auth: token });
+    const octokit = GitHubBase.octokit(token);
     try {
       await octokit.users.getAuthenticated();
       return true;

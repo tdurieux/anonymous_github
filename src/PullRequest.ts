@@ -7,8 +7,8 @@ import ConferenceModel from "./database/conference/conferences.model";
 import AnonymousError from "./AnonymousError";
 import { IAnonymizedPullRequestDocument } from "./database/anonymizedPullRequests/anonymizedPullRequests.types";
 import config from "../config";
-import { Octokit } from "@octokit/rest";
 import got from "got";
+import GitHubBase from "./source/GitHubBase";
 
 export default class PullRequest {
   private _model: IAnonymizedPullRequestDocument;
@@ -52,8 +52,7 @@ export default class PullRequest {
       "[INFO] Downloading pull request",
       this._model.source.pullRequestId
     );
-    const auth = await this.getToken();
-    const octokit = new Octokit({ auth: auth });
+    const octokit = GitHubBase.octokit(await this.getToken());
 
     const [owner, repo] = this._model.source.repositoryFullName.split("/");
     const pull_number = this._model.source.pullRequestId;

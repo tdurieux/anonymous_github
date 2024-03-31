@@ -1,4 +1,3 @@
-import { Octokit } from "@octokit/rest";
 import got from "got";
 import { Readable } from "stream";
 import { OctokitResponse } from "@octokit/types";
@@ -30,7 +29,7 @@ export default class GitHubDownload extends GitHubBase implements SourceBase {
   private async _getZipUrl(
     auth?: string
   ): Promise<OctokitResponse<unknown, 302>> {
-    const octokit = new Octokit({ auth });
+    const octokit = GitHubBase.octokit(auth as string);
     return octokit.rest.repos.downloadZipballArchive({
       owner: this.githubRepository.owner,
       repo: this.githubRepository.repo,
@@ -142,7 +141,9 @@ export default class GitHubDownload extends GitHubBase implements SourceBase {
   }
 
   async getFileContent(file: AnonymizedFile): Promise<Readable> {
-    const span = trace.getTracer("ano-file").startSpan("GHDownload.getFileContent");
+    const span = trace
+      .getTracer("ano-file")
+      .startSpan("GHDownload.getFileContent");
     span.setAttribute("repoId", this.repository.repoId);
     try {
       const exists = await storage.exists(file.originalCachePath);

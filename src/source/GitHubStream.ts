@@ -1,4 +1,3 @@
-import { Octokit } from "@octokit/rest";
 import AnonymizedFile from "../AnonymizedFile";
 import Repository from "../Repository";
 import GitHubBase from "./GitHubBase";
@@ -31,9 +30,7 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
       .getTracer("ano-file")
       .startActiveSpan("GHStream.getFileContent", async (span) => {
         span.setAttribute("path", file.anonymizedPath);
-        const octokit = new Octokit({
-          auth: await this.getToken(),
-        });
+        const octokit = GitHubBase.octokit(await this.getToken());
 
         const file_sha = await file.sha();
         if (!file_sha) {
@@ -173,9 +170,7 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
     span.setAttribute("repoId", this.repository.repoId);
     span.setAttribute("sha", sha);
     try {
-      const octokit = new Octokit({
-        auth: await this.getToken(),
-      });
+      const octokit = GitHubBase.octokit(await this.getToken());
       const ghRes = await octokit.git.getTree({
         owner: this.githubRepository.owner,
         repo: this.githubRepository.repo,

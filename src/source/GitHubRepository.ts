@@ -1,11 +1,12 @@
 import { Branch } from "../types";
 import * as gh from "parse-github-url";
 import { IRepositoryDocument } from "../database/repositories/repositories.types";
-import { Octokit, RestEndpointMethodTypes } from "@octokit/rest";
+import { RestEndpointMethodTypes } from "@octokit/rest";
 import RepositoryModel from "../database/repositories/repositories.model";
 import AnonymousError from "../AnonymousError";
 import { isConnected } from "../database/database";
 import { trace } from "@opentelemetry/api";
+import GitHubBase from "./GitHubBase";
 
 export class GitHubRepository {
   private _data: Partial<{
@@ -57,7 +58,7 @@ export class GitHubRepository {
     span.setAttribute("owner", this.owner);
     span.setAttribute("repo", this.repo);
     try {
-      const octokit = new Octokit({ auth: opt.accessToken });
+      const octokit = GitHubBase.octokit(opt.accessToken as string);
       const commit = await octokit.repos.getCommit({
         owner: this.owner,
         repo: this.repo,
@@ -83,7 +84,7 @@ export class GitHubRepository {
         opt?.force === true
       ) {
         // get the list of repo from github
-        const octokit = new Octokit({ auth: opt.accessToken });
+        const octokit = GitHubBase.octokit(opt.accessToken as string);
         try {
           const branches = (
             await octokit.paginate("GET /repos/{owner}/{repo}/branches", {
@@ -153,7 +154,7 @@ export class GitHubRepository {
       const selected = model.branches.filter((f) => f.name == opt.branch)[0];
       if (selected && (!selected.readme || opt?.force === true)) {
         // get the list of repo from github
-        const octokit = new Octokit({ auth: opt.accessToken });
+        const octokit = GitHubBase.octokit(opt.accessToken as string);
         try {
           const ghRes = await octokit.repos.getReadme({
             owner: this.owner,
@@ -238,7 +239,7 @@ export async function getRepositoryFromGitHub(opt: {
     if (opt.repo.indexOf(".git") > -1) {
       opt.repo = opt.repo.replace(".git", "");
     }
-    const octokit = new Octokit({ auth: opt.accessToken });
+    const octokit = GitHubBase.octokit(opt.accessToken as string);
     let r: RestEndpointMethodTypes["repos"]["get"]["response"]["data"];
     try {
       r = (
