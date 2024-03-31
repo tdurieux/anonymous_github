@@ -169,16 +169,23 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
   }
 
   private async getGHTree(sha: string, opt = { recursive: true }) {
-    const octokit = new Octokit({
-      auth: await this.getToken(),
-    });
-    const ghRes = await octokit.git.getTree({
-      owner: this.githubRepository.owner,
-      repo: this.githubRepository.repo,
-      tree_sha: sha,
-      recursive: opt.recursive ? "1" : undefined,
-    });
-    return ghRes.data;
+    const span = trace.getTracer("ano-file").startSpan("GHStream.getGHTree");
+    span.setAttribute("repoId", this.repository.repoId);
+    span.setAttribute("sha", sha);
+    try {
+      const octokit = new Octokit({
+        auth: await this.getToken(),
+      });
+      const ghRes = await octokit.git.getTree({
+        owner: this.githubRepository.owner,
+        repo: this.githubRepository.repo,
+        tree_sha: sha,
+        recursive: opt.recursive ? "1" : undefined,
+      });
+      return ghRes.data;
+    } finally {
+      span.end();
+    }
   }
 
   private async getTruncatedTree(
@@ -191,47 +198,57 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
     },
     depth = 0
   ) {
-    count.request++;
-    let data = null;
-
+    const span = trace
+      .getTracer("ano-file")
+      .startSpan("GHStream.getTruncatedTree");
+    span.setAttribute("repoId", this.repository.repoId);
+    span.setAttribute("sha", sha);
+    span.setAttribute("parentPath", parentPath);
     try {
-      data = await this.getGHTree(sha, { recursive: false });
-      this.tree2Tree(data.tree, truncatedTree, parentPath);
-    } catch (error) {
-      console.error(error);
-      this.repository.model.truckedFileList = true;
-      return;
-    }
+      count.request++;
+      let data = null;
 
-    count.file += data.tree.length;
-    if (data.tree.length < 100 && count.request < 200) {
-      const promises: Promise<any>[] = [];
-      for (const file of data.tree) {
-        if (file.type == "tree" && file.path && file.sha) {
-          const elementPath = path.join(parentPath, file.path);
-          promises.push(
-            this.getTruncatedTree(
-              file.sha,
-              truncatedTree,
-              elementPath,
-              count,
-              depth + 1
-            )
-          );
-        }
-      }
-      await Promise.all(promises);
-    } else {
       try {
-        const data = await this.getGHTree(sha, { recursive: true });
+        data = await this.getGHTree(sha, { recursive: false });
         this.tree2Tree(data.tree, truncatedTree, parentPath);
-        if (data.truncated) {
-          this.repository.model.truckedFileList = true;
-        }
       } catch (error) {
         console.error(error);
         this.repository.model.truckedFileList = true;
+        return;
       }
+
+      count.file += data.tree.length;
+      if (data.tree.length < 100 && count.request < 200) {
+        const promises: Promise<any>[] = [];
+        for (const file of data.tree) {
+          if (file.type == "tree" && file.path && file.sha) {
+            const elementPath = path.join(parentPath, file.path);
+            promises.push(
+              this.getTruncatedTree(
+                file.sha,
+                truncatedTree,
+                elementPath,
+                count,
+                depth + 1
+              )
+            );
+          }
+        }
+        await Promise.all(promises);
+      } else {
+        try {
+          const data = await this.getGHTree(sha, { recursive: true });
+          this.tree2Tree(data.tree, truncatedTree, parentPath);
+          if (data.truncated) {
+            this.repository.model.truckedFileList = true;
+          }
+        } catch (error) {
+          console.error(error);
+          this.repository.model.truckedFileList = true;
+        }
+      }
+    } finally {
+      span.end();
     }
   }
 
@@ -247,42 +264,49 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
     partialTree: Tree = {},
     parentPath: string = ""
   ) {
-    for (let elem of tree) {
-      let current = partialTree;
+    const span = trace.getTracer("ano-file").startSpan("GHStream.tree2Tree");
+    span.setAttribute("repoId", this.repository.repoId);
+    span.setAttribute("parentPath", parentPath);
+    try {
+      for (let elem of tree) {
+        let current = partialTree;
 
-      if (!elem.path) continue;
+        if (!elem.path) continue;
 
-      const paths = path.join(parentPath, elem.path).split("/");
+        const paths = path.join(parentPath, elem.path).split("/");
 
-      // if elem is a folder iterate on all folders if it is a file stop before the filename
-      const end = elem.type == "tree" ? paths.length : paths.length - 1;
-      for (let i = 0; i < end; i++) {
-        let p = paths[i];
-        if (p[0] == "$") {
-          p = "\\" + p;
+        // if elem is a folder iterate on all folders if it is a file stop before the filename
+        const end = elem.type == "tree" ? paths.length : paths.length - 1;
+        for (let i = 0; i < end; i++) {
+          let p = paths[i];
+          if (p[0] == "$") {
+            p = "\\" + p;
+          }
+          if (!current[p]) {
+            current[p] = {};
+          }
+          current = current[p] as Tree;
         }
-        if (!current[p]) {
-          current[p] = {};
+
+        // if elem is a file add the file size in the file list
+        if (elem.type == "blob") {
+          if (Object.keys(current).length > config.MAX_FILE_FOLDER) {
+            this.repository.model.truckedFileList = true;
+            continue;
+          }
+          let p = paths[end];
+          if (p[0] == "$") {
+            p = "\\" + p;
+          }
+          current[p] = {
+            size: elem.size || 0, // size in bit
+            sha: elem.sha || "",
+          };
         }
-        current = current[p] as Tree;
       }
-
-      // if elem is a file add the file size in the file list
-      if (elem.type == "blob") {
-        if (Object.keys(current).length > config.MAX_FILE_FOLDER) {
-          this.repository.model.truckedFileList = true;
-          continue;
-        }
-        let p = paths[end];
-        if (p[0] == "$") {
-          p = "\\" + p;
-        }
-        current[p] = {
-          size: elem.size || 0, // size in bit
-          sha: elem.sha || "",
-        };
-      }
+      return partialTree;
+    } finally {
+      span.end();
     }
-    return partialTree;
   }
 }

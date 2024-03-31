@@ -7,6 +7,7 @@ import { Readable } from "stream";
 import UserModel from "../database/users/users.model";
 import AnonymousError from "../AnonymousError";
 import { Octokit } from "@octokit/rest";
+import { trace } from "@opentelemetry/api";
 
 export default abstract class GitHubBase {
   type: "GitHubDownload" | "GitHubStream" | "Zip";
@@ -14,6 +15,7 @@ export default abstract class GitHubBase {
   branch: Branch;
   accessToken: string | undefined;
   repository: Repository;
+  validToken: boolean = false;
 
   constructor(
     data: {
@@ -66,21 +68,34 @@ export default abstract class GitHubBase {
   }
 
   async getToken() {
-    const user = await UserModel.findById(this.repository.owner.id);
-    if (user && user.accessTokens.github) {
-      const check = await GitHubBase.checkToken(user.accessTokens.github);
-      if (check) {
-        this.accessToken = user.accessTokens.github;
-        return this.accessToken;
+    const span = trace.getTracer("ano-file").startSpan("GHBase.getToken");
+    span.setAttribute("repoId", this.repository.repoId);
+    try {
+      if (this.validToken) {
+        return this.accessToken as string;
       }
-    }
-    if (this.accessToken) {
-      if (await GitHubBase.checkToken(this.accessToken)) {
-        return this.accessToken;
+      const user = await UserModel.findById(this.repository.owner.id, {
+        accessTokens: 1,
+      });
+      if (user?.accessTokens.github) {
+        const check = await GitHubBase.checkToken(user.accessTokens.github);
+        if (check) {
+          this.accessToken = user.accessTokens.github;
+          this.validToken = true;
+          return this.accessToken;
+        }
       }
+      if (this.accessToken) {
+        if (await GitHubBase.checkToken(this.accessToken)) {
+          this.validToken = true;
+          return this.accessToken;
+        }
+      }
+      this.accessToken = config.GITHUB_TOKEN;
+      return this.accessToken;
+    } finally {
+      span.end();
     }
-    this.accessToken = config.GITHUB_TOKEN;
-    return this.accessToken;
   }
 
   get url() {

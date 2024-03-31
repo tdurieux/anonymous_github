@@ -74,46 +74,46 @@ export default class FileSystem implements StorageBase {
     file?: AnonymizedFile,
     source?: SourceBase
   ): Promise<void> {
-    return trace
-      .getTracer("ano-file")
-      .startActiveSpan("fs.write", async (span) => {
-        span.setAttribute("path", p);
-        try {
-          await this.mk(dirname(p));
-          return await fs.promises.writeFile(
-            join(config.FOLDER, p),
-            data,
-            "utf-8"
-          );
-        } finally {
-          span.end();
-        }
-      });
+    const span = trace.getTracer("ano-file").startSpan("fs.write");
+    span.setAttribute("path", p);
+    try {
+      await this.mk(dirname(p));
+      return await fs.promises.writeFile(join(config.FOLDER, p), data, "utf-8");
+    } finally {
+      span.end();
+    }
   }
 
   /** @override */
   async rm(dir: string): Promise<void> {
     const span = trace.getTracer("ano-file").startSpan("fs.rm");
     span.setAttribute("path", dir);
-    await fs.promises.rm(join(config.FOLDER, dir), {
-      force: true,
-      recursive: true,
-    });
-    span.end();
+    try {
+      await fs.promises.rm(join(config.FOLDER, dir), {
+        force: true,
+        recursive: true,
+      });
+    } finally {
+      span.end();
+    }
   }
 
   /** @override */
   async mk(dir: string): Promise<void> {
-    return trace
-      .getTracer("ano-file")
-      .startActiveSpan("fs.mk", async (span) => {
-        span.setAttribute("path", dir);
-        if ((await this.exists(dir)) === FILE_TYPE.NOT_FOUND)
-          await fs.promises.mkdir(join(config.FOLDER, dir), {
-            recursive: true,
-          });
-        span.end();
+    const span = trace.getTracer("ano-file").startSpan("fs.mk");
+    span.setAttribute("path", dir);
+    try {
+      await fs.promises.mkdir(join(config.FOLDER, dir), {
+        recursive: true,
       });
+    } catch (err: any) {
+      if (err.code !== "EEXIST") {
+        span.recordException(err);
+        throw err;
+      }
+    } finally {
+      span.end();
+    }
   }
 
   /** @override */
