@@ -1,10 +1,14 @@
-version: "3"
+version: "3.8"
 
 services:
   anonymous_github:
     build: .
     restart: always
     image: tdurieux/anonymous_github:v2
+    deploy:
+      mode: replicated
+      replicas: 4
+      endpoint_mode: vip
     env_file:
       - ./.env
     volumes:
@@ -12,8 +16,6 @@ services:
     environment:
       - REDIS_HOSTNAME=redis
       - DB_HOSTNAME=mongodb
-    ports:
-      - $PORT:$PORT
     healthcheck:
       test:
         - CMD
@@ -26,6 +28,17 @@ services:
       - mongodb
       - redis
       - opentelemetry
+
+  nginx:
+    image: nginx:stable-alpine
+    env_file:
+      - ./.env
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - anonymous_github
+    ports:
+      - "$EXPOSED_PORT:4000"
 
   redis:
     image: "redis:alpine"
