@@ -205,7 +205,7 @@ export default class AnonymizedFile {
           }
           const out = await this.repository.source?.getFileContent(this);
           this.repository.model.isReseted = false;
-          this.repository.updateStatus(RepositoryStatus.READY);
+          await this.repository.updateStatus(RepositoryStatus.READY);
           return out;
         } finally {
           span.end();

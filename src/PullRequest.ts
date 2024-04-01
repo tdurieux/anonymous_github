@@ -163,7 +163,8 @@ export default class PullRequest {
     if (this.status === RepositoryStatus.READY) return;
     await this.updateStatus(RepositoryStatus.PREPARING);
     await this.updateIfNeeded({ force: true });
-    return this.updateStatus(RepositoryStatus.READY);
+    await this.updateStatus(RepositoryStatus.READY);
+    return;
   }
 
   /**
