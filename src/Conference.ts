@@ -18,7 +18,8 @@ export default class Conference {
    */
   async updateStatus(status: ConferenceStatus, errorMessage?: string) {
     this._data.status = status;
-    return this._data.save();
+    await this._data.save();
+    return;
   }
 
   /**

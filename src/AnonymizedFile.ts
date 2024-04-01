@@ -204,8 +204,13 @@ export default class AnonymizedFile {
             });
           }
           const out = await this.repository.source?.getFileContent(this);
-          this.repository.model.isReseted = false;
-          await this.repository.updateStatus(RepositoryStatus.READY);
+          if (
+            !this.repository.model.isReseted ||
+            this.repository.status != RepositoryStatus.READY
+          ) {
+            this.repository.model.isReseted = false;
+            await this.repository.updateStatus(RepositoryStatus.READY);
+          }
           return out;
         } finally {
           span.end();

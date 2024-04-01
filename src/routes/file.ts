@@ -48,7 +48,8 @@ router.get(
       }
       // cache the file for 5min
       res.header("Cache-Control", "max-age=300");
-      await Promise.all([repo.countView(), f.send(res)]);
+      await repo.countView();
+      f.send(res);
     } catch (error) {
       return handleError(error, res, req);
     }

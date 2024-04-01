@@ -173,7 +173,7 @@ export default class PullRequest {
   async countView() {
     this._model.lastView = new Date();
     this._model.pageView = (this._model.pageView || 0) + 1;
-    return this._model.save();
+    await this._model.save();
   }
 
   /**
@@ -185,7 +185,7 @@ export default class PullRequest {
     this._model.status = status;
     this._model.statusDate = new Date();
     this._model.statusMessage = statusMessage;
-    return this._model.save();
+    await this._model.save();
   }
 
   /**
@@ -223,7 +223,7 @@ export default class PullRequest {
     this._model.pullRequest.mergedDate = undefined;
     this._model.pullRequest.state = "closed";
     this._model.pullRequest.draft = false;
-    return Promise.all([this._model.save()]);
+    await this._model.save();
   }
 
   /**

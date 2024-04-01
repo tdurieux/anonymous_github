@@ -304,7 +304,7 @@ export default class Repository {
       this._model.lastView = new Date();
       this._model.pageView = (this._model.pageView || 0) + 1;
       if (!isConnected) return this.model;
-      return this._model.save();
+      await this._model.save();
     } finally {
       span.end();
     }
@@ -328,7 +328,7 @@ export default class Repository {
       this._model.statusDate = new Date();
       this._model.statusMessage = statusMessage;
       if (!isConnected) return this.model;
-      return this._model.save();
+      await this._model.save();
     } finally {
       span.end();
     }
