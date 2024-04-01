@@ -20,6 +20,14 @@ import { getUser } from "./routes/route-utils";
 
 function indexResponse(req: express.Request, res: express.Response) {
   if (
+    req.path.startsWith("/script") ||
+    req.path.startsWith("/style") ||
+    req.path.startsWith("/favicon") ||
+    req.path.startsWith("/api")
+  ) {
+    return res.status(404).send("Not found");
+  }
+  if (
     req.params.repoId &&
     req.headers["accept"] &&
     req.headers["accept"].indexOf("text/html") == -1

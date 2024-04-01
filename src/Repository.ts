@@ -1,13 +1,5 @@
-import { join } from "path";
 import storage from "./storage";
-import {
-  FILE_TYPE,
-  RepositoryStatus,
-  Source,
-  Tree,
-  TreeElement,
-  TreeFile,
-} from "./types";
+import { RepositoryStatus, Source, Tree, TreeElement, TreeFile } from "./types";
 import { Readable } from "stream";
 import User from "./User";
 import GitHubStream from "./source/GitHubStream";
@@ -21,7 +13,7 @@ import GitHubBase from "./source/GitHubBase";
 import Conference from "./Conference";
 import ConferenceModel from "./database/conference/conferences.model";
 import AnonymousError from "./AnonymousError";
-import { downloadQueue, removeQueue } from "./queue";
+import { downloadQueue } from "./queue";
 import { isConnected } from "./database/database";
 import AnonymizedFile from "./AnonymizedFile";
 import AnonymizedRepositoryModel from "./database/anonymizedRepositories/anonymizedRepositories.model";
@@ -64,13 +56,13 @@ export default class Repository {
     this._model = data;
     switch (data.source.type) {
       case "GitHubDownload":
-        this.source = new GitHubDownload(data.source, this);
+        this.source = new GitHubDownload(data.source, this.repoId);
         break;
       case "GitHubStream":
-        this.source = new GitHubStream(data.source, this);
+        this.source = new GitHubStream(data.source);
         break;
       case "Zip":
-        this.source = new Zip(data.source, this);
+        this.source = new Zip(data.source, this.repoId);
         break;
       default:
         throw new AnonymousError("unsupported_source", {
@@ -180,7 +172,7 @@ export default class Repository {
    * @returns A stream of anonymized repository compressed
    */
   zip(): Promise<Readable> {
-    return storage.archive(this.originalCachePath, {
+    return storage.archive(this.repoId, "", {
       format: "zip",
       fileTransformer: (filename: string) =>
         new AnonymizeTransformer(
@@ -394,14 +386,10 @@ export default class Repository {
       .startSpan("Repository.removeCache");
     span.setAttribute("repoId", this.repoId);
     try {
+      return storage.rm(this.repoId);
+    } finally {
       this.model.isReseted = true;
       await this.model.save();
-      if (
-        (await storage.exists(this._model.repoId + "/")) !== FILE_TYPE.NOT_FOUND
-      ) {
-        return storage.rm(this._model.repoId + "/");
-      }
-    } finally {
       span.end();
     }
   }
@@ -488,13 +476,6 @@ export default class Repository {
 
   get model() {
     return this._model;
-  }
-
-  get originalCachePath() {
-    return (
-      join(this._model.repoId, "original") +
-      (process.platform === "win32" ? "\\" : "/")
-    );
   }
 
   get status() {

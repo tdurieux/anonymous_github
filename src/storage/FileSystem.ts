@@ -1,6 +1,6 @@
-import { FILE_TYPE, SourceBase, StorageBase, Tree } from "../types";
+import { SourceBase, Tree } from "../types";
 import config from "../../config";
-
+import { Stream } from "node:stream";
 import * as fs from "fs";
 import { Extract } from "unzip-stream";
 import { join, basename, dirname } from "path";
@@ -11,21 +11,25 @@ import { promisify } from "util";
 import AnonymizedFile from "../AnonymizedFile";
 import { lookup } from "mime-types";
 import { trace } from "@opentelemetry/api";
+import StorageBase, { FILE_TYPE } from "./Storage";
 
-export default class FileSystem implements StorageBase {
+export default class FileSystem extends StorageBase {
   type = "FileSystem";
 
-  constructor() {}
+  constructor() {
+    super();
+  }
 
   /** @override */
-  async exists(p: string): Promise<FILE_TYPE> {
+  async exists(repoId: string, p: string = ""): Promise<FILE_TYPE> {
+    const fullPath = join(config.FOLDER, this.repoPath(repoId), p);
     return trace
       .getTracer("ano-file")
       .startActiveSpan("fs.exists", async (span) => {
         span.setAttribute("path", p);
-        span.setAttribute("full-path", join(config.FOLDER, p));
+        span.setAttribute("full-path", fullPath);
         try {
-          const stat = await fs.promises.stat(join(config.FOLDER, p));
+          const stat = await fs.promises.stat(fullPath);
           if (stat.isDirectory()) return FILE_TYPE.FOLDER;
           if (stat.isFile()) return FILE_TYPE.FILE;
         } catch (_) {
@@ -37,12 +41,13 @@ export default class FileSystem implements StorageBase {
   }
 
   /** @override */
-  async send(p: string, res: Response) {
+  async send(repoId: string, p: string, res: Response) {
+    const fullPath = join(config.FOLDER, this.repoPath(repoId), p);
     return trace
       .getTracer("ano-file")
       .startActiveSpan("fs.send", async (span) => {
-        span.setAttribute("path", p);
-        res.sendFile(join(config.FOLDER, p), { dotfiles: "allow" }, (err) => {
+        span.setAttribute("path", fullPath);
+        res.sendFile(fullPath, { dotfiles: "allow" }, (err) => {
           if (err) {
             span.recordException(err);
           }
@@ -52,44 +57,49 @@ export default class FileSystem implements StorageBase {
   }
 
   /** @override */
-  async read(p: string): Promise<Readable> {
-    return fs.createReadStream(join(config.FOLDER, p));
+  async read(repoId: string, p: string): Promise<Readable> {
+    const fullPath = join(config.FOLDER, this.repoPath(repoId), p);
+    return fs.createReadStream(fullPath);
   }
 
-  async fileInfo(path: string) {
-    const info = await fs.promises.stat(join(config.FOLDER, path));
+  async fileInfo(repoId: string, path: string) {
+    const fullPath = join(config.FOLDER, this.repoPath(repoId), path);
+    const info = await fs.promises.stat(fullPath);
     return {
       size: info.size,
       lastModified: info.mtime,
       contentType: info.isDirectory()
         ? "application/x-directory"
-        : (lookup(join(config.FOLDER, path)) as string),
+        : (lookup(fullPath) as string),
     };
   }
 
   /** @override */
   async write(
+    repoId: string,
     p: string,
-    data: Buffer,
+    data: string | Readable,
     file?: AnonymizedFile,
     source?: SourceBase
   ): Promise<void> {
     const span = trace.getTracer("ano-file").startSpan("fs.write");
-    span.setAttribute("path", p);
+    const fullPath = join(config.FOLDER, this.repoPath(repoId), p);
+    span.setAttribute("path", fullPath);
     try {
-      await this.mk(dirname(p));
-      return await fs.promises.writeFile(join(config.FOLDER, p), data, "utf-8");
+      await this.mk(repoId, dirname(p));
+      return await fs.promises.writeFile(fullPath, data, "utf-8");
     } finally {
       span.end();
     }
   }
 
   /** @override */
-  async rm(dir: string): Promise<void> {
+  async rm(repoId: string, dir: string = ""): Promise<void> {
     const span = trace.getTracer("ano-file").startSpan("fs.rm");
-    span.setAttribute("path", dir);
+    const fullPath = join(config.FOLDER, this.repoPath(repoId), dir);
+    span.setAttribute("path", fullPath);
     try {
-      await fs.promises.rm(join(config.FOLDER, dir), {
+      await fs.promises.rm(fullPath, {
         force: true,
         recursive: true,
       });
@@ -99,11 +109,12 @@ export default class FileSystem implements StorageBase {
   }
 
   /** @override */
-  async mk(dir: string): Promise<void> {
+  async mk(repoId: string, dir: string = ""): Promise<void> {
     const span = trace.getTracer("ano-file").startSpan("fs.mk");
     span.setAttribute("path", dir);
+    const fullPath = join(config.FOLDER, this.repoPath(repoId), dir);
     try {
-      await fs.promises.mkdir(join(config.FOLDER, dir), {
+      await fs.promises.mkdir(fullPath, {
         recursive: true,
       });
     } catch (err: any) {
@@ -118,9 +129,9 @@ export default class FileSystem implements StorageBase {
 
   /** @override */
   async listFiles(
-    dir: string,
+    repoId: string,
+    dir: string = "",
     opt: {
-      root?: string;
       onEntry?: (file: { path: string; size: number }) => void;
     } = {}
   ): Promise<Tree> {
@@ -128,20 +139,18 @@ export default class FileSystem implements StorageBase {
       .getTracer("ano-file")
       .startActiveSpan("fs.listFiles", async (span) => {
         span.setAttribute("path", dir);
-        if (opt.root == null) {
-          opt.root = config.FOLDER;
-        }
-        let files = await fs.promises.readdir(join(opt.root, dir));
+        const fullPath = join(config.FOLDER, this.repoPath(repoId), dir);
+        let files = await fs.promises.readdir(fullPath);
         const output: Tree = {};
         for (let file of files) {
           let filePath = join(dir, file);
           try {
-            const stats = await fs.promises.stat(join(opt.root, filePath));
+            const stats = await fs.promises.stat(join(fullPath, filePath));
             if (file[0] == "$") {
               file = "\\" + file;
             }
             if (stats.isDirectory()) {
-              output[file] = await this.listFiles(filePath, opt);
+              output[file] = await this.listFiles(repoId, filePath, opt);
             } else if (stats.isFile()) {
               if (opt.onEntry) {
                 opt.onEntry({
@@ -162,16 +171,18 @@ export default class FileSystem implements StorageBase {
 
   /** @override */
   async extractZip(
+    repoId: string,
     p: string,
     data: Readable,
     file?: AnonymizedFile,
     source?: SourceBase
   ): Promise<void> {
     const pipe = promisify(pipeline);
+    const fullPath = join(config.FOLDER, this.repoPath(repoId), p);
     return pipe(
       data,
       Extract({
-        path: join(config.FOLDER, p),
+        path: fullPath,
         decodeString: (buf) => {
           const name = buf.toString();
           const newName = name.substr(name.indexOf("/") + 1);
@@ -184,6 +195,7 @@ export default class FileSystem implements StorageBase {
 
   /** @override */
   async archive(
+    repoId: string,
     dir: string,
     opt?: {
       format?: "zip" | "tar";
@@ -191,15 +203,16 @@ export default class FileSystem implements StorageBase {
     }
   ) {
     const archive = archiver(opt?.format || "zip", {});
+    const fullPath = join(config.FOLDER, this.repoPath(repoId), dir);
 
-    await this.listFiles(dir, {
+    await this.listFiles(repoId, dir, {
       onEntry: async (file) => {
-        let rs = await this.read(file.path);
+        let rs = await this.read(repoId, file.path);
         if (opt?.fileTransformer) {
           // apply transformation on the stream
           rs = rs.pipe(opt.fileTransformer(file.path));
         }
-        const f = file.path.replace(dir, "");
+        const f = file.path.replace(fullPath, "");
         archive.append(rs, {
           name: basename(f),
           prefix: dirname(f),

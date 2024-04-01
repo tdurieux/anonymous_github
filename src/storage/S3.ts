@@ -1,26 +1,29 @@
-import { FILE_TYPE, SourceBase, StorageBase, Tree, TreeFile } from "../types";
 import {
   GetObjectCommand,
   ListObjectsV2CommandOutput,
   PutObjectCommandInput,
   S3,
 } from "@aws-sdk/client-s3";
+import { Upload } from "@aws-sdk/lib-storage";
 import { NodeHttpHandler } from "@smithy/node-http-handler";
 import config from "../../config";
 import { pipeline, Readable, Transform } from "stream";
 import ArchiveStreamToS3 from "decompress-stream-to-s3";
 import { Response } from "express";
-import { lookup } from "mime-types";
+import { contentType } from "mime-types";
 import * as archiver from "archiver";
-import { dirname, basename } from "path";
+import { trace } from "@opentelemetry/api";
+import { dirname, basename, join } from "path";
+import { SourceBase, Tree, TreeFile } from "../types";
 import AnonymousError from "../AnonymousError";
 import AnonymizedFile from "../AnonymizedFile";
-import { trace } from "@opentelemetry/api";
+import StorageBase, { FILE_TYPE } from "./Storage";
 
-export default class S3Storage implements StorageBase {
+export default class S3Storage extends StorageBase {
   type = "AWS";
 
   constructor() {
+    super();
     if (!config.S3_BUCKET)
       throw new AnonymousError("s3_config_not_provided", {
         httpStatus: 500,
@@ -40,26 +43,25 @@ export default class S3Storage implements StorageBase {
       requestHandler: new NodeHttpHandler({
         requestTimeout: timeout,
         connectionTimeout: timeout,
-
       }),
     });
   }
 
   /** @override */
-  async exists(path: string): Promise<FILE_TYPE> {
+  async exists(repoId: string, path: string = ""): Promise<FILE_TYPE> {
     const span = trace.getTracer("ano-file").startSpan("s3.exists");
     span.setAttribute("path", path);
     try {
       if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
       try {
         // if we can get the file info, it is a file
-        await this.fileInfo(path);
+        await this.fileInfo(repoId, path);
         return FILE_TYPE.FILE;
       } catch (err) {
         // check if it is a directory
         const data = await this.client().listObjectsV2({
           Bucket: config.S3_BUCKET,
-          Prefix: path,
+          Prefix: join(this.repoPath(repoId), path),
           MaxKeys: 1,
         });
         return (data.Contents?.length || 0) > 0
@@ -72,19 +74,20 @@ export default class S3Storage implements StorageBase {
   }
 
   /** @override */
-  async mk(dir: string): Promise<void> {
+  async mk(repoId: string, dir: string = ""): Promise<void> {
     // no need to create folder on S3
   }
 
   /** @override */
-  async rm(dir: string): Promise<void> {
+  async rm(repoId: string, dir: string = ""): Promise<void> {
     const span = trace.getTracer("ano-file").startSpan("s3.rm");
+    span.setAttribute("repoId", repoId);
     span.setAttribute("path", dir);
     try {
       if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
       const data = await this.client(200000).listObjectsV2({
         Bucket: config.S3_BUCKET,
-        Prefix: dir,
+        Prefix: join(this.repoPath(repoId), dir),
         MaxKeys: 100,
       });
 
@@ -106,7 +109,7 @@ export default class S3Storage implements StorageBase {
       await this.client(200000).deleteObjects(params);
 
       if (data.IsTruncated) {
-        await this.rm(dir);
+        await this.rm(repoId, dir);
       }
     } finally {
       span.end();
@@ -114,15 +117,16 @@ export default class S3Storage implements StorageBase {
   }
 
   /** @override */
-  async send(p: string, res: Response) {
+  async send(repoId: string, path: string, res: Response) {
     const span = trace.getTracer("ano-file").startSpan("s3.send");
-    span.setAttribute("path", p);
+    span.setAttribute("repoId", repoId);
+    span.setAttribute("path", path);
     try {
       if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
       try {
         const command = new GetObjectCommand({
           Bucket: config.S3_BUCKET,
-          Key: p,
+          Key: join(this.repoPath(repoId), path),
         });
         const s = await this.client().send(command);
         res.status(200);
@@ -142,7 +146,7 @@ export default class S3Storage implements StorageBase {
         try {
           res.status(500);
         } catch (err) {
-          console.error(`[ERROR] S3 send ${p}`, err);
+          console.error(`[ERROR] S3 send ${path}`, err);
         }
       }
     } finally {
@@ -150,21 +154,22 @@ export default class S3Storage implements StorageBase {
     }
   }
 
-  async fileInfo(path: string) {
+  async fileInfo(repoId: string, path: string) {
     const span = trace.getTracer("ano-file").startSpan("s3.fileInfo");
+    span.setAttribute("repoId", repoId);
     span.setAttribute("path", path);
     try {
       if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
       const info = await this.client(3000).headObject({
         Bucket: config.S3_BUCKET,
-        Key: path,
+        Key: join(this.repoPath(repoId), path),
       });
       return {
         size: info.ContentLength,
         lastModified: info.LastModified,
         contentType: info.ContentType
           ? info.ContentType
-          : (lookup(path) as string),
+          : (contentType(path) as string),
       };
     } finally {
       span.end();
@@ -172,20 +177,21 @@ export default class S3Storage implements StorageBase {
   }
 
   /** @override */
-  async read(path: string): Promise<Readable> {
+  async read(repoId: string, path: string): Promise<Readable> {
     const span = trace.getTracer("ano-file").startSpan("s3.rreadm");
+    span.setAttribute("repoId", repoId);
     span.setAttribute("path", path);
     try {
       if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
       const command = new GetObjectCommand({
         Bucket: config.S3_BUCKET,
-        Key: path,
+        Key: join(this.repoPath(repoId), path),
       });
       const res = (await this.client(3000).send(command)).Body;
       if (!res) {
         throw new AnonymousError("file_not_found", {
           httpStatus: 404,
-          object: path,
+          object: join(this.repoPath(repoId), path),
         });
       }
       return res as Readable;
@@ -196,26 +202,35 @@ export default class S3Storage implements StorageBase {
 
   /** @override */
   async write(
+    repoId: string,
     path: string,
-    data: Buffer,
+    data: string | Readable,
     file?: AnonymizedFile,
     source?: SourceBase
   ): Promise<void> {
     const span = trace.getTracer("ano-file").startSpan("s3.rm");
+    span.setAttribute("repoId", repoId);
     span.setAttribute("path", path);
     try {
       if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
+
       const params: PutObjectCommandInput = {
         Bucket: config.S3_BUCKET,
-        Key: path,
+        Key: join(this.repoPath(repoId), path),
         Body: data,
-        ContentType: lookup(path).toString(),
+        ContentType: contentType(path).toString(),
       };
       if (source) {
         params.Tagging = `source=${source.type}`;
       }
-      // 30s timeout
-      await this.client(30000).putObject(params);
+
+      const parallelUploads3 = new Upload({
+        // 30s timeout
+        client: this.client(30000),
+        params,
+      });
+
+      await parallelUploads3.done();
       return;
     } finally {
       span.end();
@@ -223,7 +238,7 @@ export default class S3Storage implements StorageBase {
   }
 
   /** @override */
-  async listFiles(dir: string): Promise<Tree> {
+  async listFiles(repoId: string, dir: string = ""): Promise<Tree> {
     const span = trace.getTracer("ano-file").startSpan("s3.listFiles");
     span.setAttribute("path", dir);
     try {
@@ -235,7 +250,7 @@ export default class S3Storage implements StorageBase {
       do {
         req = await this.client(30000).listObjectsV2({
           Bucket: config.S3_BUCKET,
-          Prefix: dir,
+          Prefix: join(this.repoPath(repoId), dir),
           MaxKeys: 250,
           ContinuationToken: nextContinuationToken,
         });
@@ -244,7 +259,7 @@ export default class S3Storage implements StorageBase {
 
         for (const f of req.Contents) {
           if (!f.Key) continue;
-          f.Key = f.Key.replace(dir, "");
+          f.Key = f.Key.replace(join(this.repoPath(repoId), dir), "");
           const paths = f.Key.split("/");
           let current: Tree = out;
           for (let i = 0; i < paths.length - 1; i++) {
@@ -271,19 +286,20 @@ export default class S3Storage implements StorageBase {
 
   /** @override */
   async extractZip(
-    p: string,
+    repoId: string,
+    path: string,
     data: Readable,
     file?: AnonymizedFile,
     source?: SourceBase
   ): Promise<void> {
     let toS3: ArchiveStreamToS3;
     const span = trace.getTracer("ano-file").startSpan("s3.extractZip");
-    span.setAttribute("path", p);
+    span.setAttribute("path", path);
     return new Promise((resolve, reject) => {
       if (!config.S3_BUCKET) return reject("S3_BUCKET not set");
       toS3 = new ArchiveStreamToS3({
         bucket: config.S3_BUCKET,
-        prefix: p,
+        prefix: join(this.repoPath(repoId), path),
         s3: this.client(2 * 60 * 60 * 1000), // 2h timeout
         type: "zip",
         onEntry: (header) => {
@@ -315,13 +331,15 @@ export default class S3Storage implements StorageBase {
 
   /** @override */
   async archive(
-    dir: string,
+    repoId: string,
+    dir: string = "",
     opt?: {
       format?: "zip" | "tar";
       fileTransformer?: (p: string) => Transform;
     }
   ) {
     const span = trace.getTracer("ano-file").startSpan("s3.archive");
+    span.setAttribute("repoId", repoId);
     span.setAttribute("path", dir);
     try {
       if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
@@ -333,7 +351,7 @@ export default class S3Storage implements StorageBase {
       do {
         req = await this.client(30000).listObjectsV2({
           Bucket: config.S3_BUCKET,
-          Prefix: dir,
+          Prefix: join(this.repoPath(repoId), dir),
           MaxKeys: 250,
           ContinuationToken: nextContinuationToken,
         });
@@ -342,9 +360,11 @@ export default class S3Storage implements StorageBase {
         for (const f of req.Contents || []) {
           if (!f.Key) continue;
           const filename = basename(f.Key);
-          const prefix = dirname(f.Key.replace(dir, ""));
+          const prefix = dirname(
+            f.Key.replace(join(this.repoPath(repoId), dir), "")
+          );
 
-          let rs = await this.read(f.Key);
+          let rs = await this.read(repoId, f.Key);
           if (opt?.fileTransformer) {
             // apply transformation on the stream
             rs = rs.pipe(opt.fileTransformer(f.Key));

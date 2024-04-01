@@ -3,7 +3,7 @@ import { Response } from "express";
 import { Readable } from "stream";
 import { trace } from "@opentelemetry/api";
 import Repository from "./Repository";
-import { FILE_TYPE, Tree, TreeElement, TreeFile } from "./types";
+import { RepositoryStatus, Tree, TreeElement, TreeFile } from "./types";
 import storage from "./storage";
 import config from "../config";
 import {
@@ -14,7 +14,7 @@ import {
 import AnonymousError from "./AnonymousError";
 import { handleError } from "./routes/route-utils";
 import { lookup } from "mime-types";
-import AnonymizedRepositoryModel from "./database/anonymizedRepositories/anonymizedRepositories.model";
+import { FILE_TYPE } from "./storage/Storage";
 
 /**
  * Represent a file in a anonymized repository
@@ -193,28 +193,20 @@ export default class AnonymizedFile {
       .getTracer("ano-file")
       .startActiveSpan("content", async (span) => {
         try {
-          span.setAttribute("anonymizedPath", this.anonymizedPath);
           if (this.anonymizedPath.includes(config.ANONYMIZATION_MASK)) {
             await this.originalPath();
           }
-          span.addEvent("originalPath", { originalPath: this._originalPath });
+          span.addEvent("filePath", { originalPath: this.filePath });
           if (this.fileSize && this.fileSize > config.MAX_FILE_SIZE) {
             throw new AnonymousError("file_too_big", {
               object: this,
               httpStatus: 403,
             });
           }
-          const exist = await storage.exists(this.originalCachePath);
-          span.addEvent("file_exist", { exist });
-          if (exist == FILE_TYPE.FILE) {
-            return storage.read(this.originalCachePath);
-          } else if (exist == FILE_TYPE.FOLDER) {
-            throw new AnonymousError("folder_not_supported", {
-              object: this,
-              httpStatus: 400,
-            });
-          }
-          return await this.repository.source?.getFileContent(this);
+          const out = await this.repository.source?.getFileContent(this);
+          this.repository.model.isReseted = false;
+          this.repository.updateStatus(RepositoryStatus.READY);
+          return out;
         } finally {
           span.end();
         }
@@ -233,81 +225,70 @@ export default class AnonymizedFile {
       });
   }
 
-  get originalCachePath() {
-    if (!this.originalPath)
-      throw new AnonymousError("path_not_defined", {
-        object: this,
-        httpStatus: 400,
-      });
+  get filePath() {
     if (!this._originalPath) {
       if (this.anonymizedPath.includes(config.ANONYMIZATION_MASK)) {
         throw new AnonymousError("path_not_defined", {
           object: this,
           httpStatus: 400,
         });
-      } else {
-        return join(this.repository.originalCachePath, this.anonymizedPath);
       }
+      return this.anonymizedPath;
     }
 
-    return join(this.repository.originalCachePath, this._originalPath);
+    return this._originalPath;
   }
 
   async send(res: Response): Promise<void> {
-    return trace.getTracer("ano-file").startActiveSpan("send", async (span) => {
-      span.setAttribute("anonymizedPath", this.anonymizedPath);
-      return new Promise<void>(async (resolve, reject) => {
-        try {
-          const content = await this.content();
-          const mime = lookup(this.anonymizedPath);
-          if (mime && this.extension() != "ts") {
-            res.contentType(mime);
-          } else if (isTextFile(this.anonymizedPath)) {
-            res.contentType("text/plain");
-          }
-          res.header("Accept-Ranges", "none");
-          let fileInfo: Awaited<ReturnType<typeof storage.fileInfo>>;
+    return trace
+      .getTracer("ano-file")
+      .startActiveSpan("AnonymizedFile.send", async (span) => {
+        span.setAttribute("repoId", this.repository.repoId);
+        span.setAttribute("anonymizedPath", this.anonymizedPath);
+        return new Promise<void>(async (resolve, reject) => {
           try {
-            fileInfo = await storage.fileInfo(this.originalCachePath);
-          } catch (error) {
-            // unable to get file size
-            console.error(error);
-          }
-          const anonymizer = new AnonymizeTransformer(this);
-
-          anonymizer.once("transform", (data) => {
-            if (data.isText && !mime) {
+            const mime = lookup(this.anonymizedPath);
+            if (mime && this.extension() != "ts") {
+              res.contentType(mime);
+            } else if (isTextFile(this.anonymizedPath)) {
               res.contentType("text/plain");
             }
-            if (fileInfo?.size && !data.wasAnonimized) {
-              // the text files may be anonymized and therefore the size may be different
-              res.header("Content-Length", fileInfo.size.toString());
-            }
-          });
-
-          content
-            .pipe(anonymizer)
-            .pipe(res)
-            .on("close", () => {
-              if (!content.closed && !content.destroyed) {
-                content.destroy();
+            res.header("Accept-Ranges", "none");
+            const anonymizer = new AnonymizeTransformer(this);
+            anonymizer.once("transform", (data) => {
+              if (!mime && data.isText) {
+                res.contentType("text/plain");
               }
-              span.end();
-              resolve();
-            })
-            .on("error", (error) => {
-              if (!content.closed && !content.destroyed) {
-                content.destroy();
+              if (!data.wasAnonimized && this.fileSize) {
+                // the text files may be anonymized and therefore the size may be different
+                res.header("Content-Length", this.fileSize.toString());
               }
-              span.recordException(error);
-              span.end();
-              reject(error);
-              handleError(error, res);
             });
-        } catch (error) {
-          handleError(error, res);
-        }
+
+            const content = await this.content();
+            content
+              .pipe(anonymizer)
+              .pipe(res)
+              .on("close", () => {
+                if (!content.closed && !content.destroyed) {
+                  content.destroy();
+                }
+                span.end();
+                resolve();
+              })
+              .on("error", (error) => {
+                if (!content.closed && !content.destroyed) {
+                  content.destroy();
+                }
+                span.recordException(error);
+                span.end();
+                reject(error);
+                handleError(error, res);
+              });
+          } catch (error) {
+            handleError(error, res);
+          }
+        });
       });
-    });
   }
 }

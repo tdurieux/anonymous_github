@@ -6,30 +6,22 @@ import AnonymizedFile from "../AnonymizedFile";
 import { Branch, Tree } from "../types";
 import { GitHubRepository } from "./GitHubRepository";
 import config from "../../config";
-import Repository from "../Repository";
 import UserModel from "../database/users/users.model";
-import AnonymousError from "../AnonymousError";
 
 export default abstract class GitHubBase {
-  type: "GitHubDownload" | "GitHubStream" | "Zip";
+  abstract type: "GitHubDownload" | "GitHubStream" | "Zip";
   githubRepository: GitHubRepository;
   branch: Branch;
   accessToken: string | undefined;
-  repository: Repository;
   validToken: boolean = false;
 
-  constructor(
-    data: {
-      type: "GitHubDownload" | "GitHubStream" | "Zip";
-      branch?: string;
-      commit?: string;
-      repositoryId?: string;
-      repositoryName?: string;
-      accessToken?: string;
-    },
-    repository: Repository
-  ) {
-    this.type = data.type;
+  constructor(data: {
+    accessToken?: string;
+    commit?: string;
+    branch?: string;
+    repositoryId?: string;
+    repositoryName?: string;
+  }) {
     this.accessToken = data.accessToken;
     const branches = [];
     if (data.branch && data.commit) {
@@ -40,23 +32,15 @@ export default abstract class GitHubBase {
       externalId: data.repositoryId,
       branches,
     });
-    this.repository = repository;
     this.branch = branches[0];
   }
 
-  async getFileContent(file: AnonymizedFile): Promise<Readable> {
-    throw new AnonymousError("method_not_implemented", {
-      httpStatus: 501,
-      object: this,
-    });
-  }
+  abstract getFileContent(
+    file: AnonymizedFile,
+    progress?: (status: string) => void
+  ): Promise<Readable>;
 
-  getFiles(): Promise<Tree> {
-    throw new AnonymousError("method_not_implemented", {
-      httpStatus: 501,
-      object: this,
-    });
-  }
+  abstract getFiles(progress?: (status: string) => void): Promise<Tree>;
 
   static octokit(token: string) {
     return new Octokit({
@@ -77,22 +61,24 @@ export default abstract class GitHubBase {
     }
   }
 
-  async getToken() {
+  async getToken(ownerID?: any) {
     const span = trace.getTracer("ano-file").startSpan("GHBase.getToken");
-    span.setAttribute("repoId", this.repository.repoId);
+    span.setAttribute("repoId", this.githubRepository.fullName || "");
     try {
       if (this.validToken) {
         return this.accessToken as string;
       }
-      const user = await UserModel.findById(this.repository.owner.id, {
-        accessTokens: 1,
-      });
-      if (user?.accessTokens.github) {
-        const check = await GitHubBase.checkToken(user.accessTokens.github);
-        if (check) {
-          this.accessToken = user.accessTokens.github;
-          this.validToken = true;
-          return this.accessToken;
+      if (ownerID) {
+        const user = await UserModel.findById(ownerID, {
+          accessTokens: 1,
+        });
+        if (user?.accessTokens.github) {
+          const check = await GitHubBase.checkToken(user.accessTokens.github);
+          if (check) {
+            this.accessToken = user.accessTokens.github;
+            this.validToken = true;
+            return this.accessToken;
+          }
         }
       }
       if (this.accessToken) {

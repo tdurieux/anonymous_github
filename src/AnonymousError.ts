@@ -39,7 +39,7 @@ export default class AnonymousError extends CustomError {
     } else if (this.value instanceof User) {
       detail = `${this.value.username}`;
     } else if (this.value instanceof GitHubBase) {
-      detail = `${this.value.repository.repoId}`;
+      detail = `${this.value.githubRepository.fullName}`;
     }
     out += this.message;
     if (detail) {

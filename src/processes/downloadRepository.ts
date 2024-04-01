@@ -39,6 +39,7 @@ export default async function (job: SandboxedJob<Repository, void>) {
       throw error;
     }
   } catch (error) {
+    console.error(error)
     span.recordException(error as Exception);
     console.log(`[QUEUE] ${job.data.repoId} is finished with an error`);
   } finally {
