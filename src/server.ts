@@ -143,7 +143,17 @@ export default async function start() {
     res.sendStatus(404);
   });
 
+  let stat: any = {};
+
+  setInterval(() => {
+    stat = {};
+  }, 1000 * 60 * 60);
+
   apiRouter.get("/stat", async (_, res) => {
+    if (stat.nbRepositories) {
+      res.json(stat);
+      return;
+    }
     const [nbRepositories, users, nbPageViews, nbPullRequests] =
       await Promise.all([
         AnonymizedRepositoryModel.estimatedDocumentCount(),
@@ -158,12 +168,14 @@ export default async function start() {
         AnonymizedPullRequestModel.estimatedDocumentCount(),
       ]);
 
-    res.json({
+    stat = {
       nbRepositories,
       nbUsers: users.length,
       nbPageViews: nbPageViews[0]?.total || 0,
       nbPullRequests,
-    });
+    };
+
+    res.json(stat);
   });
 
   // web view
