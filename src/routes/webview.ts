@@ -2,7 +2,6 @@ import * as express from "express";
 import { getRepo, handleError } from "./route-utils";
 import * as path from "path";
 import AnonymizedFile from "../AnonymizedFile";
-import GitHubDownload from "../source/GitHubDownload";
 import AnonymousError from "../AnonymousError";
 import { Tree, TreeElement } from "../types";
 import * as marked from "marked";
@@ -36,10 +35,7 @@ async function webView(req: express.Request, res: express.Response) {
       });
     }
 
-    if (
-      repo.options.pageSource?.branch !=
-      (repo.source as GitHubDownload).branch.name
-    ) {
+    if (repo.options.pageSource?.branch != repo.model.source.branch) {
       throw new AnonymousError("page_not_supported_on_different_branch", {
         httpStatus: 400,
         object: repo,

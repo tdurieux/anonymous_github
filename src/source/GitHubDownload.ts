@@ -3,56 +3,45 @@ import { Readable } from "stream";
 import { OctokitResponse } from "@octokit/types";
 
 import storage from "../storage";
-import GitHubBase from "./GitHubBase";
+import GitHubBase, { GitHubBaseData } from "./GitHubBase";
 import AnonymizedFile from "../AnonymizedFile";
-import { SourceBase } from "../types";
 import AnonymousError from "../AnonymousError";
 import { trace } from "@opentelemetry/api";
 import { FILE_TYPE } from "../storage/Storage";
+import { octokit } from "../GitHubUtils";
 
-export default class GitHubDownload extends GitHubBase implements SourceBase {
+export default class GitHubDownload extends GitHubBase {
   type: "GitHubDownload" | "GitHubStream" | "Zip" = "GitHubDownload";
-  constructor(
-    data: {
-      branch?: string;
-      commit?: string;
-      repositoryId?: string;
-      repositoryName?: string;
-      accessToken?: string;
-    },
-    readonly repoId: string
-  ) {
+  constructor(data: GitHubBaseData) {
     super(data);
   }
 
-  private async _getZipUrl(
-    auth: string
-  ): Promise<OctokitResponse<unknown, 302>> {
-    const octokit = GitHubBase.octokit(auth as string);
-    return octokit.rest.repos.downloadZipballArchive({
-      owner: this.githubRepository.owner,
-      repo: this.githubRepository.repo,
-      ref: this.branch?.commit || "HEAD",
+  private async _getZipUrl(): Promise<OctokitResponse<unknown, 302>> {
+    const oct = octokit(await this.data.getToken());
+    return oct.rest.repos.downloadZipballArchive({
+      owner: this.data.organization,
+      repo: this.data.repoName,
+      ref: this.data.commit || "HEAD",
       method: "HEAD",
     });
   }
 
-  async download(token: string, progress?: (status: string) => void) {
+  async download(progress?: (status: string) => void) {
     const span = trace.getTracer("ano-file").startSpan("GHDownload.download");
-    span.setAttribute("repoId", this.githubRepository.fullName || "");
+    span.setAttribute("repoId", this.data.repoId);
     try {
       let response: OctokitResponse<unknown, number>;
       try {
-        response = await this._getZipUrl(token);
+        response = await this._getZipUrl();
       } catch (error) {
         span.recordException(error as Error);
         throw new AnonymousError("repo_not_accessible", {
           httpStatus: 404,
-          object: this.githubRepository,
+          object: this.data,
           cause: error as Error,
         });
       }
-      await storage.mk(this.repoId);
+      await storage.mk(this.data.repoId);
       let downloadProgress: { transferred: number } | undefined = undefined;
       let progressTimeout;
       let inDownload = true;
@@ -73,18 +62,17 @@ export default class GitHubDownload extends GitHubBase implements SourceBase {
           downloadProgress = p;
         });
         await storage.extractZip(
-          this.repoId,
+          this.data.repoId,
           "",
           downloadStream,
-          undefined,
-          this
+          this.type
         );
       } catch (error) {
         span.recordException(error as Error);
         throw new AnonymousError("unable_to_download", {
           httpStatus: 500,
           cause: error as Error,
-          object: this.githubRepository,
+          object: this.data,
         });
       } finally {
         inDownload = false;
@@ -102,11 +90,11 @@ export default class GitHubDownload extends GitHubBase implements SourceBase {
     const span = trace
       .getTracer("ano-file")
       .startSpan("GHDownload.getFileContent");
-    span.setAttribute("repoId", this.githubRepository.fullName || "");
+    span.setAttribute("repoId", file.repository.repoId);
     try {
       const exists = await storage.exists(file.filePath);
       if (exists === FILE_TYPE.FILE) {
-        return storage.read(this.repoId, file.filePath);
+        return storage.read(this.data.repoId, file.filePath);
       } else if (exists === FILE_TYPE.FOLDER) {
         throw new AnonymousError("folder_not_supported", {
           httpStatus: 400,
@@ -117,20 +105,17 @@ export default class GitHubDownload extends GitHubBase implements SourceBase {
       await file.originalPath();
 
       // the cache is not ready, we need to download the repository
-      await this.download(
-        await this.getToken(file.repository.owner.id),
-        progress
-      );
-      return storage.read(this.repoId, file.filePath);
+      await this.download(progress);
+      return storage.read(this.data.repoId, file.filePath);
     } finally {
       span.end();
     }
   }
 
-  async getFiles() {
-    if ((await storage.exists(this.repoId)) === FILE_TYPE.NOT_FOUND) {
-      await this.download(await this.getToken());
+  async getFiles(progress?: (status: string) => void) {
+    if ((await storage.exists(this.data.repoId)) === FILE_TYPE.NOT_FOUND) {
+      await this.download(progress);
     }
-    return storage.listFiles(this.repoId);
+    return storage.listFiles(this.data.repoId);
   }
 }

@@ -5,9 +5,7 @@ import * as db from "../database/database";
 import { getRepo, getUser, handleError, isOwnerOrAdmin } from "./route-utils";
 import { getRepositoryFromGitHub } from "../source/GitHubRepository";
 import gh = require("parse-github-url");
-import GitHubBase from "../source/GitHubBase";
 import AnonymizedRepositoryModel from "../database/anonymizedRepositories/anonymizedRepositories.model";
-import config from "../../config";
 import { IAnonymizedRepositoryDocument } from "../database/anonymizedRepositories/anonymizedRepositories.types";
 import Repository from "../Repository";
 import UserModel from "../database/users/users.model";
@@ -18,6 +16,7 @@ import RepositoryModel from "../database/repositories/repositories.model";
 import User from "../User";
 import { RepositoryStatus } from "../types";
 import { IUserDocument } from "../database/users/users.types";
+import { checkToken } from "../GitHubUtils";
 
 const router = express.Router();
 
@@ -41,7 +40,7 @@ async function getTokenForAdmin(user: User, req: express.Request) {
       });
       const user: IUserDocument = existingRepo?.owner as any;
       if (user instanceof UserModel) {
-        const check = await GitHubBase.checkToken(user.accessTokens.github);
+        const check = await checkToken(user.accessTokens.github);
         if (check) {
           return user.accessTokens.github;
         }
@@ -100,7 +99,7 @@ router.post("/claim", async (req: express.Request, res: express.Response) => {
     }
 
     const dbRepo = await RepositoryModel.findById(
-      (repoConfig.source as GitHubBase).githubRepository.id
+      repoConfig.model.source.repositoryId
     );
 
     if (!dbRepo || dbRepo.externalId != repo.id) {

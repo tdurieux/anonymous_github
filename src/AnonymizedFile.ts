@@ -4,18 +4,11 @@ import { Readable } from "stream";
 import { trace } from "@opentelemetry/api";
 import Repository from "./Repository";
 import { RepositoryStatus, Tree, TreeElement, TreeFile } from "./types";
-import storage from "./storage";
 import config from "../config";
-import {
-  anonymizePath,
-  AnonymizeTransformer,
-  isTextFile,
-} from "./anonymize-utils";
+import { anonymizePath, isTextFile } from "./anonymize-utils";
 import AnonymousError from "./AnonymousError";
 import { handleError } from "./routes/route-utils";
 import { lookup } from "mime-types";
-import { FILE_TYPE } from "./storage/Storage";
-import GitHubBase from "./source/GitHubBase";
 
 /**
  * Represent a file in a anonymized repository

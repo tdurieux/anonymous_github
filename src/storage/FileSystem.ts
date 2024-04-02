@@ -1,6 +1,5 @@
-import { SourceBase, Tree } from "../types";
+import { Tree } from "../types";
 import config from "../../config";
-import { Stream } from "node:stream";
 import * as fs from "fs";
 import { Extract } from "unzip-stream";
 import { join, basename, dirname } from "path";
@@ -8,7 +7,6 @@ import { Response } from "express";
 import { Readable, pipeline, Transform } from "stream";
 import * as archiver from "archiver";
 import { promisify } from "util";
-import AnonymizedFile from "../AnonymizedFile";
 import { lookup } from "mime-types";
 import { trace } from "@opentelemetry/api";
 import StorageBase, { FILE_TYPE } from "./Storage";
@@ -78,9 +76,7 @@ export default class FileSystem extends StorageBase {
   async write(
     repoId: string,
     p: string,
-    data: string | Readable,
-    file?: AnonymizedFile,
-    source?: SourceBase
+    data: string | Readable
   ): Promise<void> {
     const span = trace.getTracer("ano-file").startSpan("fs.write");
     const fullPath = join(config.FOLDER, this.repoPath(repoId), p);
@@ -170,13 +166,7 @@ export default class FileSystem extends StorageBase {
   }
 
   /** @override */
-  async extractZip(
-    repoId: string,
-    p: string,
-    data: Readable,
-    file?: AnonymizedFile,
-    source?: SourceBase
-  ): Promise<void> {
+  async extractZip(repoId: string, p: string, data: Readable): Promise<void> {
     const pipe = promisify(pipeline);
     const fullPath = join(config.FOLDER, this.repoPath(repoId), p);
     return pipe(

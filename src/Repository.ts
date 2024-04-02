@@ -1,5 +1,5 @@
 import storage from "./storage";
-import { RepositoryStatus, Source, Tree, TreeElement, TreeFile } from "./types";
+import { RepositoryStatus, Tree, TreeElement, TreeFile } from "./types";
 import { Readable } from "stream";
 import User from "./User";
 import GitHubStream from "./source/GitHubStream";
@@ -16,9 +16,9 @@ import AnonymousError from "./AnonymousError";
 import { downloadQueue } from "./queue";
 import { isConnected } from "./database/database";
 import AnonymizedRepositoryModel from "./database/anonymizedRepositories/anonymizedRepositories.model";
-import { getRepositoryFromGitHub } from "./source/GitHubRepository";
-import config from "../config";
+import { GitHubRepository } from "./source/GitHubRepository";
 import { trace } from "@opentelemetry/api";
+import { getToken } from "./GitHubUtils";
 
 function anonymizeTreeRecursive(
   tree: TreeElement,
@@ -48,38 +48,55 @@ function anonymizeTreeRecursive(
 
 export default class Repository {
   private _model: IAnonymizedRepositoryDocument;
-  source: Source;
   owner: User;
 
   constructor(data: IAnonymizedRepositoryDocument) {
     this._model = data;
-    switch (data.source.type) {
+    this.owner = new User(new UserModel({ _id: data.owner }));
+    this.owner = new User(new UserModel({ _id: data.owner }));
+    this.owner.model.isNew = false;
+  }
+
+  private checkedToken: boolean = false;
+
+  private async getToken() {
+    if (this.checkedToken) return this._model.source.accessToken as string;
+    const originalToken = this._model.source.accessToken;
+    const token = await getToken(this);
+    if (originalToken != token) {
+      this._model.source.accessToken = token;
+      await this._model.save();
+    }
+    this.checkedToken = true;
+    return token;
+  }
+
+  get source() {
+    switch (this.model.source.type) {
       case "GitHubDownload":
-        this.source = new GitHubDownload(data.source, this.repoId);
-        break;
+        return new GitHubDownload({
+          repoId: this.repoId,
+          commit: this.model.source.commit || "HEAD",
+          organization: "",
+          repoName: this.model.source.repositoryName || "",
+          getToken: () => this.getToken(),
+        });
       case "GitHubStream":
-        this.source = new GitHubStream(data.source);
-        break;
+        return new GitHubStream({
+          repoId: this.repoId,
+          commit: this.model.source.commit || "HEAD",
+          organization: "",
+          repoName: this.model.source.repositoryName || "",
+          getToken: () => this.getToken(),
+        });
       case "Zip":
-        this.source = new Zip(data.source, this.repoId);
-        break;
+        return new Zip(this.model.source, this.repoId);
       default:
         throw new AnonymousError("unsupported_source", {
-          object: data.source.type,
+          object: this,
           httpStatus: 400,
         });
     }
-    this.owner = new User(new UserModel({ _id: data.owner }));
-    if (this.source instanceof GitHubBase) {
-      const originalToken = this._model.source.accessToken;
-      this.source.getToken(this.owner.id).then((token) => {
-        if (originalToken != token) {
-          this._model.source.accessToken = token;
-          this._model.save();
-        }
-      });
-    }
-    this.owner.model.isNew = false;
   }
 
   /**
@@ -194,8 +211,8 @@ export default class Repository {
       image: this.options.image,
       link: this.options.link,
       repoId: this.repoId,
-      repoName: (this.source as GitHubBase).githubRepository?.fullName,
-      branchName: (this.source as GitHubBase).branch?.name || "main",
+      repoName: this.model.source.repositoryName,
+      branchName: this.model.source.branch || "main",
     });
   }
 
@@ -217,16 +234,17 @@ export default class Repository {
     ) {
       // Only GitHubBase can be update for the moment
       if (this.source instanceof GitHubBase) {
-        const token = await this.source.getToken(this.owner.id);
-        const branches = await this.source.githubRepository.branches({
+        const token = await this.getToken();
+        const ghRepo = new GitHubRepository({});
+        const branches = await ghRepo.branches({
           force: true,
           accessToken: token,
         });
-        const branch = this.source.branch;
-        const newCommit = branches.filter((f) => f.name == branch.name)[0]
+        const branchName = this.model.source.branch || "main";
+        const newCommit = branches.filter((f) => f.name == branchName)[0]
           ?.commit;
         if (
-          branch.commit == newCommit &&
+          this.model.source.commit == newCommit &&
           this.status == RepositoryStatus.READY
         ) {
           console.log(`[UPDATE] ${this._model.repoId} is up to date`);
@@ -235,12 +253,9 @@ export default class Repository {
           return;
         }
         this._model.source.commit = newCommit;
-        const commitInfo = await this.source.githubRepository.getCommitInfo(
-          newCommit,
-          {
-            accessToken: token,
-          }
-        );
+        const commitInfo = await ghRepo.getCommitInfo(newCommit, {
+          accessToken: token,
+        });
         if (
           commitInfo.commit?.author?.date ||
           commitInfo.commit?.committer?.date
@@ -249,11 +264,11 @@ export default class Repository {
             commitInfo.commit.committer?.date) as string;
           this._model.source.commitDate = new Date(d);
         }
-        branch.commit = newCommit;
+        this.model.source.commit = newCommit;
 
         if (!newCommit) {
           console.error(
-            `${branch.name} for ${this.source.githubRepository.fullName} is not found`
+            `${branchName} for ${this.model.source.repositoryName} is not found`
           );
           await this.updateStatus(RepositoryStatus.ERROR, "branch_not_found");
           await this.resetSate();
@@ -267,23 +282,6 @@ export default class Repository {
         console.log(
           `[UPDATE] ${this._model.repoId} will be updated to ${newCommit}`
         );
-
-        if (this.source.type == "GitHubDownload") {
-          const repository = await getRepositoryFromGitHub({
-            accessToken: await this.source.getToken(this.owner.id),
-            owner: this.source.githubRepository.owner,
-            repo: this.source.githubRepository.repo,
-          });
-          if (
-            repository.size === undefined ||
-            repository.size > config.MAX_REPO_SIZE
-          ) {
-            console.log(
-              `[UPDATE] ${this._model.repoId} will be streamed instead of downloaded`
-            );
-            this._model.source.type = "GitHubStream";
-          }
-        }
 
         await this.resetSate(RepositoryStatus.PREPARING);
         await downloadQueue.add(this.repoId, this, {
@@ -513,10 +511,15 @@ export default class Repository {
       anonymizeDate: this._model.anonymizeDate,
       status: this.status,
       statusMessage: this._model.statusMessage,
-      source: this.source.toJSON(),
       lastView: this._model.lastView,
       pageView: this._model.pageView,
       size: this.size,
+      source: {
+        fullName: this.model.source.repositoryName,
+        commit: this.model.source.commit,
+        branch: this.model.source.branch,
+        type: this.model.source.type,
+      },
     };
   }
 }

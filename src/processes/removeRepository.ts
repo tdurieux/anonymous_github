@@ -3,7 +3,6 @@ import Repository from "../Repository";
 import { getRepository as getRepositoryImport } from "../database/database";
 import { RepositoryStatus } from "../types";
 import { trace } from "@opentelemetry/api";
-import { Span } from "@opentelemetry/sdk-trace-node";
 
 export default async function (job: SandboxedJob<Repository, void>) {
   const {

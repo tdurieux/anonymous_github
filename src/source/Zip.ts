@@ -1,7 +1,7 @@
 import AnonymizedFile from "../AnonymizedFile";
 import storage from "../storage";
-import { SourceBase } from "../types";
 import * as stream from "stream";
+import { SourceBase } from "./GitHubBase";
 
 export default class Zip implements SourceBase {
   type = "Zip";

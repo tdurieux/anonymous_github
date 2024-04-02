@@ -86,9 +86,9 @@ router.get(
       if (
         repo.status == "expired" &&
         repo.options.expirationMode == "redirect" &&
-        repo.source.url
+        repo.model.source.repositoryName
       ) {
-        redirectURL = repo.source.url;
+        redirectURL = `https://github.com/${repo.model.source.repositoryName}`;
       } else {
         if (
           repo.status == "expired" ||

@@ -51,9 +51,9 @@ export async function getRepo(
       if (
         repo.status == "expired" &&
         repo.options.expirationMode == "redirect" &&
-        repo.source.url
+        repo.model.source.repositoryId
       ) {
-        res.redirect(repo.source.url);
+        res.redirect(`https://github.com/${repo.model.source.repositoryName}`);
         return null;
       }
 

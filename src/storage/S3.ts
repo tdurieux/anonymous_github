@@ -14,9 +14,8 @@ import { contentType } from "mime-types";
 import * as archiver from "archiver";
 import { trace } from "@opentelemetry/api";
 import { dirname, basename, join } from "path";
-import { SourceBase, Tree, TreeFile } from "../types";
+import { Tree, TreeFile } from "../types";
 import AnonymousError from "../AnonymousError";
-import AnonymizedFile from "../AnonymizedFile";
 import StorageBase, { FILE_TYPE } from "./Storage";
 
 export default class S3Storage extends StorageBase {
@@ -205,8 +204,7 @@ export default class S3Storage extends StorageBase {
     repoId: string,
     path: string,
     data: string | Readable,
-    file?: AnonymizedFile,
-    source?: SourceBase
+    source?: string
   ): Promise<void> {
     const span = trace.getTracer("ano-file").startSpan("s3.rm");
     span.setAttribute("repoId", repoId);
@@ -221,7 +219,7 @@ export default class S3Storage extends StorageBase {
         ContentType: contentType(path).toString(),
       };
       if (source) {
-        params.Tagging = `source=${source.type}`;
+        params.Tagging = `source=${source}`;
       }
 
       const parallelUploads3 = new Upload({
@@ -289,8 +287,7 @@ export default class S3Storage extends StorageBase {
     repoId: string,
     path: string,
     data: Readable,
-    file?: AnonymizedFile,
-    source?: SourceBase
+    source?: string
   ): Promise<void> {
     let toS3: ArchiveStreamToS3;
     const span = trace.getTracer("ano-file").startSpan("s3.extractZip");
@@ -305,9 +302,9 @@ export default class S3Storage extends StorageBase {
         onEntry: (header) => {
           header.name = header.name.substring(header.name.indexOf("/") + 1);
           if (source) {
-            header.Tagging = `source=${source.type}`;
+            header.Tagging = `source=${source}`;
             header.Metadata = {
-              source: source.type,
+              source: source,
             };
           }
         },

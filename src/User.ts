@@ -6,7 +6,7 @@ import { GitHubRepository } from "./source/GitHubRepository";
 import PullRequest from "./PullRequest";
 import AnonymizedPullRequestModel from "./database/anonymizedPullRequests/anonymizedPullRequests.model";
 import { trace } from "@opentelemetry/api";
-import GitHubBase from "./source/GitHubBase";
+import { octokit } from "./GitHubUtils";
 
 /**
  * Model for a user
@@ -66,9 +66,9 @@ export default class User {
       opt?.force === true
     ) {
       // get the list of repo from github
-      const octokit = GitHubBase.octokit(this.accessToken);
+      const oct = octokit(this.accessToken);
       const repositories = (
-        await octokit.paginate("GET /user/repos", {
+        await oct.paginate("GET /user/repos", {
           visibility: "all",
           sort: "pushed",
           per_page: 100,

@@ -6,7 +6,7 @@ import RepositoryModel from "../database/repositories/repositories.model";
 import AnonymousError from "../AnonymousError";
 import { isConnected } from "../database/database";
 import { trace } from "@opentelemetry/api";
-import GitHubBase from "./GitHubBase";
+import { octokit } from "../GitHubUtils";
 
 export class GitHubRepository {
   private _data: Partial<{
@@ -49,7 +49,7 @@ export class GitHubRepository {
   async getCommitInfo(
     sha: string,
     opt: {
-      accessToken?: string;
+      accessToken: string;
     }
   ) {
     const span = trace
@@ -58,8 +58,8 @@ export class GitHubRepository {
     span.setAttribute("owner", this.owner);
     span.setAttribute("repo", this.repo);
     try {
-      const octokit = GitHubBase.octokit(opt.accessToken as string);
-      const commit = await octokit.repos.getCommit({
+      const oct = octokit(opt.accessToken);
+      const commit = await oct.repos.getCommit({
         owner: this.owner,
         repo: this.repo,
         ref: sha,
@@ -71,7 +71,7 @@ export class GitHubRepository {
   }
 
   async branches(opt: {
-    accessToken?: string;
+    accessToken: string;
     force?: boolean;
   }): Promise<Branch[]> {
     const span = trace.getTracer("ano-file").startSpan("GHRepository.branches");
@@ -84,10 +84,10 @@ export class GitHubRepository {
         opt?.force === true
       ) {
         // get the list of repo from github
-        const octokit = GitHubBase.octokit(opt.accessToken as string);
+        const oct = octokit(opt.accessToken);
         try {
           const branches = (
-            await octokit.paginate("GET /repos/{owner}/{repo}/branches", {
+            await oct.paginate("GET /repos/{owner}/{repo}/branches", {
               owner: this.owner,
               repo: this.repo,
               per_page: 100,
@@ -132,7 +132,7 @@ export class GitHubRepository {
   async readme(opt: {
     branch?: string;
     force?: boolean;
-    accessToken?: string;
+    accessToken: string;
   }): Promise<string | undefined> {
     const span = trace.getTracer("ano-file").startSpan("GHRepository.readme");
     span.setAttribute("owner", this.owner);
@@ -154,9 +154,9 @@ export class GitHubRepository {
       const selected = model.branches.filter((f) => f.name == opt.branch)[0];
       if (selected && (!selected.readme || opt?.force === true)) {
         // get the list of repo from github
-        const octokit = GitHubBase.octokit(opt.accessToken as string);
+        const oct = octokit(opt.accessToken);
         try {
-          const ghRes = await octokit.repos.getReadme({
+          const ghRes = await oct.repos.getReadme({
             owner: this.owner,
             repo: this.repo,
             ref: selected?.commit,
@@ -239,11 +239,11 @@ export async function getRepositoryFromGitHub(opt: {
     if (opt.repo.indexOf(".git") > -1) {
       opt.repo = opt.repo.replace(".git", "");
     }
-    const octokit = GitHubBase.octokit(opt.accessToken as string);
+    const oct = octokit(opt.accessToken);
     let r: RestEndpointMethodTypes["repos"]["get"]["response"]["data"];
     try {
       r = (
-        await octokit.repos.get({
+        await oct.repos.get({
           owner: opt.owner,
           repo: opt.repo,
         })
@@ -282,7 +282,7 @@ export async function getRepositoryFromGitHub(opt: {
     model.defaultBranch = r.default_branch;
     model.hasPage = r.has_pages;
     if (model.hasPage) {
-      const ghPageRes = await octokit.repos.getPages({
+      const ghPageRes = await oct.repos.getPages({
         owner: opt.owner,
         repo: opt.repo,
       });

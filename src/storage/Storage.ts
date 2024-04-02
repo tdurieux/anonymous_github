@@ -3,8 +3,7 @@ import { Transform, Readable } from "stream";
 import * as archiver from "archiver";
 import { Response } from "express";
 
-import AnonymizedFile from "../AnonymizedFile";
-import { SourceBase, Tree } from "../types";
+import { Tree } from "../types";
 
 export enum FILE_TYPE {
   FILE = "file",
@@ -52,8 +51,7 @@ export default abstract class StorageBase {
     repoId: string,
     path: string,
     data: string | Readable,
-    file?: AnonymizedFile,
-    source?: SourceBase
+    source?: string
   ): Promise<void>;
 
   /**
@@ -73,8 +71,7 @@ export default abstract class StorageBase {
     repoId: string,
     dir: string,
     tar: Readable,
-    file?: AnonymizedFile,
-    source?: SourceBase
+    source?: string
   ): Promise<void>;
 
   /**

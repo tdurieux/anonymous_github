@@ -3,30 +3,6 @@ import GitHubStream from "./source/GitHubStream";
 import Zip from "./source/Zip";
 import S3Storage from "./storage/S3";
 import FileSystem from "./storage/FileSystem";
-import AnonymizedFile from "./AnonymizedFile";
-import { Readable } from "stream";
-
-export interface SourceBase {
-  readonly type: string;
-
-  /**
-   * The url of the source
-   */
-  url?: string;
-
-  /**
-   * Retrieve the fie content
-   * @param file the file of the content to retrieve
-   */
-  getFileContent(file: AnonymizedFile): Promise<Readable>;
-
-  /**
-   * Get all the files from a specific source
-   */
-  getFiles(): Promise<Tree>;
-
-  toJSON(): any;
-}
 
 export type Source = GitHubDownload | GitHubStream | Zip;
 

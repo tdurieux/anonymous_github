@@ -9,7 +9,6 @@ import Repository from "../Repository";
 import User from "../User";
 import { ensureAuthenticated } from "./connection";
 import { handleError, getUser, isOwnerOrAdmin, getRepo } from "./route-utils";
-import RepositoryModel from "../database/repositories/repositories.model";
 
 const router = express.Router();
 

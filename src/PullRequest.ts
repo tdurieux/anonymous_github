@@ -1,6 +1,5 @@
-import { RepositoryStatus, Source, Tree, TreeElement, TreeFile } from "./types";
+import { RepositoryStatus } from "./types";
 import User from "./User";
-import { anonymizeContent, anonymizePath } from "./anonymize-utils";
 import UserModel from "./database/users/users.model";
 import Conference from "./Conference";
 import ConferenceModel from "./database/conference/conferences.model";
@@ -8,7 +7,8 @@ import AnonymousError from "./AnonymousError";
 import { IAnonymizedPullRequestDocument } from "./database/anonymizedPullRequests/anonymizedPullRequests.types";
 import config from "../config";
 import got from "got";
-import GitHubBase from "./source/GitHubBase";
+import { octokit } from "./GitHubUtils";
+import { ContentAnonimizer } from "./anonymize-utils";
 
 export default class PullRequest {
   private _model: IAnonymizedPullRequestDocument;
@@ -52,26 +52,23 @@ export default class PullRequest {
       "[INFO] Downloading pull request",
       this._model.source.pullRequestId
     );
-    const octokit = GitHubBase.octokit(await this.getToken());
+    const oct = octokit(await this.getToken());
 
     const [owner, repo] = this._model.source.repositoryFullName.split("/");
     const pull_number = this._model.source.pullRequestId;
 
     const [prInfo, comments, diff] = await Promise.all([
-      octokit.rest.pulls.get({
+      oct.rest.pulls.get({
         owner,
         repo,
         pull_number,
       }),
-      octokit.paginate(
-        "GET /repos/{owner}/{repo}/issues/{issue_number}/comments",
-        {
-          owner: owner,
-          repo: repo,
-          issue_number: pull_number,
-          per_page: 100,
-        }
-      ),
+      oct.paginate("GET /repos/{owner}/{repo}/issues/{issue_number}/comments", {
+        owner: owner,
+        repo: repo,
+        issue_number: pull_number,
+        per_page: 100,
+      }),
       got(`https://github.com/${owner}/${repo}/pull/${pull_number}.diff`),
     ]);
 
@@ -250,18 +247,22 @@ export default class PullRequest {
       state: this._model.pullRequest.state,
       draft: this._model.pullRequest.draft,
     };
+    const anonymizer = new ContentAnonimizer({
+      ...this.options,
+      repoId: this.pullRequestId,
+    });
     if (this.options.title) {
-      output.title = anonymizeContent(this._model.pullRequest.title, this);
+      output.title = anonymizer.anonymize(this._model.pullRequest.title);
     }
     if (this.options.body) {
-      output.body = anonymizeContent(this._model.pullRequest.body, this);
+      output.body = anonymizer.anonymize(this._model.pullRequest.body);
     }
     if (this.options.comments) {
       output.comments = this._model.pullRequest.comments?.map((comment) => {
         const o: any = {};
-        if (this.options.body) o.body = anonymizeContent(comment.body, this);
+        if (this.options.body) o.body = anonymizer.anonymize(comment.body);
         if (this.options.username)
-          o.author = anonymizeContent(comment.author, this);
+          o.author = anonymizer.anonymize(comment.author);
         if (this.options.date) {
           o.updatedDate = comment.updatedDate;
           o.creationDate = comment.creationDate;
@@ -270,7 +271,7 @@ export default class PullRequest {
       });
     }
     if (this.options.diff) {
-      output.diff = anonymizeContent(this._model.pullRequest.diff, this);
+      output.diff = anonymizer.anonymize(this._model.pullRequest.diff);
     }
     if (this.options.origin) {
       output.baseRepositoryFullName =
