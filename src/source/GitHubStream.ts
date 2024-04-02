@@ -129,13 +129,14 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
     span.setAttribute("repoName", this.githubRepository.fullName || "");
     try {
       let commit = this.branch?.commit;
-      return this.getTree(commit);
+      return this.getTree(await this.getToken(), commit);
     } finally {
       span.end();
     }
   }
 
   private async getTree(
+    token: string,
     sha: string,
     truncatedTree: Tree = {},
     parentPath: string = "",
@@ -151,7 +152,7 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
     let ghRes: Awaited<ReturnType<typeof this.getGHTree>>;
     try {
       count.request++;
-      ghRes = await this.getGHTree(sha, { recursive: true });
+      ghRes = await this.getGHTree(token, sha, { recursive: true });
     } catch (error) {
       console.error(error);
       span.recordException(error as Error);
@@ -177,17 +178,21 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
     const tree = this.tree2Tree(ghRes.tree, truncatedTree, parentPath);
     count.file += ghRes.tree.length;
     if (ghRes.truncated) {
-      await this.getTruncatedTree(sha, tree, parentPath, count);
+      await this.getTruncatedTree(token, sha, tree, parentPath, count);
     }
     span.end();
     return tree;
   }
 
-  private async getGHTree(sha: string, opt = { recursive: true }) {
+  private async getGHTree(
+    token: string,
+    sha: string,
+    opt = { recursive: true }
+  ) {
     const span = trace.getTracer("ano-file").startSpan("GHStream.getGHTree");
     span.setAttribute("sha", sha);
     try {
-      const octokit = GitHubBase.octokit(await this.getToken());
+      const octokit = GitHubBase.octokit(token);
       const ghRes = await octokit.git.getTree({
         owner: this.githubRepository.owner,
         repo: this.githubRepository.repo,
@@ -201,6 +206,7 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
   }
 
   private async getTruncatedTree(
+    token: string,
     sha: string,
     truncatedTree: Tree = {},
     parentPath: string = "",
@@ -220,7 +226,7 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
       let data = null;
 
       try {
-        data = await this.getGHTree(sha, { recursive: false });
+        data = await this.getGHTree(token, sha, { recursive: false });
         this.tree2Tree(data.tree, truncatedTree, parentPath);
       } catch (error) {
         span.recordException(error as Error);
@@ -235,6 +241,7 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
             const elementPath = path.join(parentPath, file.path);
             promises.push(
               this.getTruncatedTree(
+                token,
                 file.sha,
                 truncatedTree,
                 elementPath,
@@ -247,7 +254,7 @@ export default class GitHubStream extends GitHubBase implements SourceBase {
         await Promise.all(promises);
       } else {
         try {
-          const data = await this.getGHTree(sha, { recursive: true });
+          const data = await this.getGHTree(token, sha, { recursive: true });
           this.tree2Tree(data.tree, truncatedTree, parentPath);
           if (data.truncated) {
             // TODO: TRUNCATED

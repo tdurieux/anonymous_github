@@ -36,32 +36,26 @@ export class AnonymizeTransformer extends Transform {
   public wasAnonimized = false;
   public isText: boolean | null = null;
 
-  constructor(private readonly file: AnonymizedFile) {
+  constructor(
+    private readonly opt: {
+      filePath: string;
+    } & ConstructorParameters<typeof ContentAnonimizer>[1]
+  ) {
     super();
-    this.isText = isTextFile(this.file.anonymizedPath);
+    this.isText = isTextFile(this.opt.filePath);
   }
 
   _transform(chunk: Buffer, encoding: string, callback: () => void) {
     trace
       .getTracer("ano-file")
       .startActiveSpan("AnonymizeTransformer.transform", async (span) => {
-        span.setAttribute("path", this.file.anonymizedPath);
+        span.setAttribute("path", this.opt.filePath);
         if (this.isText === null) {
-          this.isText = isTextFile(this.file.anonymizedPath, chunk);
+          this.isText = isTextFile(this.opt.filePath, chunk);
         }
 
         if (this.isText) {
-          const anonimizer = new ContentAnonimizer(chunk.toString(), {
-            repoId: this.file.repository.repoId,
-            image: this.file.repository.options.image,
-            link: this.file.repository.options.link,
-            terms: this.file.repository.options.terms,
-            repoName: (this.file.repository.source as GitHubBase)
-              .githubRepository?.fullName,
-            branchName:
-              (this.file.repository.source as GitHubBase).branch?.name ||
-              "main",
-          });
+          const anonimizer = new ContentAnonimizer(chunk.toString(), this.opt);
           anonimizer.anonymize();
           if (anonimizer.wasAnonymized) {
             this.wasAnonimized = true;

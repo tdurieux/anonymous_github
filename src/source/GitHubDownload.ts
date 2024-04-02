@@ -37,13 +37,13 @@ export default class GitHubDownload extends GitHubBase implements SourceBase {
     });
   }
 
-  async download(progress?: (status: string) => void) {
+  async download(token: string, progress?: (status: string) => void) {
     const span = trace.getTracer("ano-file").startSpan("GHDownload.download");
     span.setAttribute("repoId", this.githubRepository.fullName || "");
     try {
       let response: OctokitResponse<unknown, number>;
       try {
-        response = await this._getZipUrl(await this.getToken());
+        response = await this._getZipUrl(token);
       } catch (error) {
         span.recordException(error as Error);
         throw new AnonymousError("repo_not_accessible", {
@@ -117,7 +117,10 @@ export default class GitHubDownload extends GitHubBase implements SourceBase {
       await file.originalPath();
 
       // the cache is not ready, we need to download the repository
-      await this.download(progress);
+      await this.download(
+        await this.getToken(file.repository.owner.id),
+        progress
+      );
       return storage.read(this.repoId, file.filePath);
     } finally {
       span.end();
@@ -126,7 +129,7 @@ export default class GitHubDownload extends GitHubBase implements SourceBase {
 
   async getFiles() {
     if ((await storage.exists(this.repoId)) === FILE_TYPE.NOT_FOUND) {
-      await this.download();
+      await this.download(await this.getToken());
     }
     return storage.listFiles(this.repoId);
   }

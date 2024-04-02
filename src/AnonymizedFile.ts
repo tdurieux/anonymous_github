@@ -15,6 +15,7 @@ import AnonymousError from "./AnonymousError";
 import { handleError } from "./routes/route-utils";
 import { lookup } from "mime-types";
 import { FILE_TYPE } from "./storage/Storage";
+import GitHubBase from "./source/GitHubBase";
 
 /**
  * Represent a file in a anonymized repository
@@ -224,9 +225,13 @@ export default class AnonymizedFile {
       .startActiveSpan("anonymizedContent", async (span) => {
         span.setAttribute("anonymizedPath", this.anonymizedPath);
         const content = await this.content();
-        return content.pipe(new AnonymizeTransformer(this)).on("close", () => {
-          span.end();
-        });
+        return content
+          .pipe(
+            this.repository.generateAnonymizeTransformer(this.anonymizedPath)
+          )
+          .on("close", () => {
+            span.end();
+          });
       });
   }
 
@@ -259,7 +264,9 @@ export default class AnonymizedFile {
               res.contentType("text/plain");
             }
             res.header("Accept-Ranges", "none");
-            const anonymizer = new AnonymizeTransformer(this);
+            const anonymizer = this.repository.generateAnonymizeTransformer(
+              this.anonymizedPath
+            );
             anonymizer.once("transform", (data) => {
               if (!mime && data.isText) {
                 res.contentType("text/plain");

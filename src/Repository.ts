@@ -15,7 +15,6 @@ import ConferenceModel from "./database/conference/conferences.model";
 import AnonymousError from "./AnonymousError";
 import { downloadQueue } from "./queue";
 import { isConnected } from "./database/database";
-import AnonymizedFile from "./AnonymizedFile";
 import AnonymizedRepositoryModel from "./database/anonymizedRepositories/anonymizedRepositories.model";
 import { getRepositoryFromGitHub } from "./source/GitHubRepository";
 import config from "../config";
@@ -71,6 +70,15 @@ export default class Repository {
         });
     }
     this.owner = new User(new UserModel({ _id: data.owner }));
+    if (this.source instanceof GitHubBase) {
+      const originalToken = this._model.source.accessToken;
+      this.source.getToken(this.owner.id).then((token) => {
+        if (originalToken != token) {
+          this._model.source.accessToken = token;
+          this._model.save();
+        }
+      });
+    }
     this.owner.model.isNew = false;
   }
 
@@ -175,12 +183,19 @@ export default class Repository {
     return storage.archive(this.repoId, "", {
       format: "zip",
       fileTransformer: (filename: string) =>
-        new AnonymizeTransformer(
-          new AnonymizedFile({
-            repository: this,
-            anonymizedPath: filename,
-          })
-        ),
+        this.generateAnonymizeTransformer(filename),
+    });
+  }
+
+  generateAnonymizeTransformer(filePath: string) {
+    return new AnonymizeTransformer({
+      filePath: filePath,
+      terms: this.options.terms,
+      image: this.options.image,
+      link: this.options.link,
+      repoId: this.repoId,
+      repoName: (this.source as GitHubBase).githubRepository?.fullName,
+      branchName: (this.source as GitHubBase).branch?.name || "main",
     });
   }
 
@@ -202,7 +217,7 @@ export default class Repository {
     ) {
       // Only GitHubBase can be update for the moment
       if (this.source instanceof GitHubBase) {
-        const token = await this.source.getToken();
+        const token = await this.source.getToken(this.owner.id);
         const branches = await this.source.githubRepository.branches({
           force: true,
           accessToken: token,
@@ -226,10 +241,13 @@ export default class Repository {
             accessToken: token,
           }
         );
-        if (commitInfo.commit.author?.date) {
-          this._model.source.commitDate = new Date(
-            commitInfo.commit.author?.date
-          );
+        if (
+          commitInfo.commit?.author?.date ||
+          commitInfo.commit?.committer?.date
+        ) {
+          const d = (commitInfo.commit?.author?.date ||
+            commitInfo.commit.committer?.date) as string;
+          this._model.source.commitDate = new Date(d);
         }
         branch.commit = newCommit;
 
@@ -252,7 +270,7 @@ export default class Repository {
 
         if (this.source.type == "GitHubDownload") {
           const repository = await getRepositoryFromGitHub({
-            accessToken: await this.source.getToken(),
+            accessToken: await this.source.getToken(this.owner.id),
             owner: this.source.githubRepository.owner,
             repo: this.source.githubRepository.repo,
           });
