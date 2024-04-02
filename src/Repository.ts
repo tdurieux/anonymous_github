@@ -72,21 +72,24 @@ export default class Repository {
   }
 
   get source() {
+    const ghRepo = new GitHubRepository({
+      name: this.model.source.repositoryName,
+    });
     switch (this.model.source.type) {
       case "GitHubDownload":
         return new GitHubDownload({
           repoId: this.repoId,
           commit: this.model.source.commit || "HEAD",
-          organization: "",
-          repoName: this.model.source.repositoryName || "",
+          organization: ghRepo.owner,
+          repoName: ghRepo.repo,
           getToken: () => this.getToken(),
         });
       case "GitHubStream":
         return new GitHubStream({
           repoId: this.repoId,
           commit: this.model.source.commit || "HEAD",
-          organization: "",
-          repoName: this.model.source.repositoryName || "",
+          organization: ghRepo.owner,
+          repoName: ghRepo.repo,
           getToken: () => this.getToken(),
         });
       case "Zip":
@@ -235,7 +238,9 @@ export default class Repository {
       // Only GitHubBase can be update for the moment
       if (this.source instanceof GitHubBase) {
         const token = await this.getToken();
-        const ghRepo = new GitHubRepository({});
+        const ghRepo = new GitHubRepository({
+          name: this.model.source.repositoryName,
+        });
         const branches = await ghRepo.branches({
           force: true,
           accessToken: token,
