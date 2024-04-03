@@ -5,17 +5,17 @@ services:
     build: .
     restart: always
     image: tdurieux/anonymous_github:v2
-    deploy:
-      mode: replicated
-      replicas: 4
-      endpoint_mode: vip
+    ports:
+      - $EXPOSED_PORT:5000
     env_file:
       - ./.env
     volumes:
       - ./repositories:/app/build/repositories/
     environment:
+      - PORT=5000
       - REDIS_HOSTNAME=redis
       - DB_HOSTNAME=mongodb
+      - STREAMER_ENTRYPOINT=http://streamer:5000/
     healthcheck:
       test:
         - CMD
@@ -27,22 +27,37 @@ services:
     links:
       - mongodb
       - redis
-      - opentelemetry
+      - streamer
 
-  nginx:
-    image: nginx:stable-alpine
+  streamer:
+    build: .
+    restart: always
+    image: tdurieux/anonymous_github:v2
+    deploy:
+      mode: replicated
+      replicas: 4
+      endpoint_mode: vip
+    entrypoint: ["node", "./build/streamer/index.js"]
     env_file:
       - ./.env
     volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
-    depends_on:
-      - anonymous_github
-    ports:
-      - "$EXPOSED_PORT:4000"
+      - ./repositories:/app/build/repositories/
+    environment:
+      - PORT=5000
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - healthcheck.js
+      interval: 10s
+      timeout: 10s
+      retries: 5
 
   redis:
     image: "redis:alpine"
     restart: always
+    ports:
+      - 127.0.0.1:6379:6379
     healthcheck:
       test:
         - CMD
@@ -101,13 +116,15 @@ services:
     image: tiredofit/db-backup
     links:
       - mongodb
+    env_file:
+      - ./.env
     volumes:
       - ./db_backups:/backup
     environment:
       - DB_TYPE=mongo
       - DB_HOST=mongodb
-      - DB_DUMP_FREQ=60
-      - DB_CLEANUP_TIME=240
+      - DB_DUMP_FREQ=120
+      - DB_CLEANUP_TIME=500
       - COMPRESSION=XZ
       - DB_USER=$DB_USERNAME
       - DB_PASS=$DB_PASSWORD

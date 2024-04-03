@@ -3,13 +3,12 @@
   "version": "2.2.0",
   "description": "Anonymise Github repositories for double-anonymous reviews",
   "bin": {
-    "anonymous_github": "build/cli.js"
+    "anonymous_github": "build/cli/index.js"
   },
   "scripts": {
     "test": "mocha --reporter spec",
-    "start": "node --inspect=5858 -r ts-node/register ./index.ts",
-    "dev": "nodemon --transpile-only index.ts",
-    "migrateDB": "ts-node --transpile-only migrateDB.ts",
+    "start": "node --inspect=5858 -r ts-node/register ./src/server/index.ts",
+    "dev": "nodemon --transpile-only ./src/server/index.ts",
     "build": "rm -rf build && tsc",
     "knip": "knip"
   },

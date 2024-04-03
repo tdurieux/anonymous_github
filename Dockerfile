@@ -13,10 +13,8 @@ COPY healthcheck.js .
 
 COPY src ./src
 COPY public ./public
-COPY index.ts .
-COPY config.ts .
 
 RUN npm install && npm run build && npm cache clean --force
 COPY opentelemetry.js .
 
-CMD [ "node", "--require", "./opentelemetry.js", "./build/index.js"]
+CMD [ "node", "--require", "./opentelemetry.js", "./build/server/index.js"]

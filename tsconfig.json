@@ -17,6 +17,6 @@
     "esModuleInterop": false,
     "incremental": true
   },
-  "include": ["src/**/*.ts", "index.ts", "cli.ts"],
+  "include": ["src/**/*.ts", "index.ts", "src/cli/index.ts"],
   "exclude": ["node_modules", ".vscode"]
 }
