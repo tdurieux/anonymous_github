@@ -90,9 +90,9 @@ export default class GitHubDownload extends GitHubBase {
     const span = trace
       .getTracer("ano-file")
       .startSpan("GHDownload.getFileContent");
-    span.setAttribute("repoId", file.repository.repoId);
+    span.setAttribute("repoId", this.data.repoId);
     try {
-      const exists = await storage.exists(file.filePath);
+      const exists = await storage.exists(this.data.repoId, file.filePath);
       if (exists === FILE_TYPE.FILE) {
         return storage.read(this.data.repoId, file.filePath);
       } else if (exists === FILE_TYPE.FOLDER) {

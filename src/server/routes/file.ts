@@ -31,6 +31,12 @@ router.get(
     if (!repo) return;
 
     try {
+      if (!(await repo.isReady())) {
+        throw new AnonymousError("repository_not_ready", {
+          object: this,
+          httpStatus: 503,
+        });
+      }
       const f = new AnonymizedFile({
         repository: repo,
         anonymizedPath,

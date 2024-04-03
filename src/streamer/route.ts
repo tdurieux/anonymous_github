@@ -3,6 +3,8 @@ import GitHubStream from "../core/source/GitHubStream";
 import { AnonymizeTransformer, isTextFile } from "../core/anonymize-utils";
 import { handleError } from "../server/routes/route-utils";
 import { contentType } from "mime-types";
+import storage from "../core/storage";
+import AnonymizedFile from "../core/AnonymizedFile";
 
 export const router = express.Router();
 
@@ -25,7 +27,11 @@ router.post("/", async (req: express.Request, res: express.Response) => {
     commit: commit,
     getToken: () => token,
   });
-  const content = source.downloadFile(token, fileSha);
+  const content = await source.getFileContentCache(
+    filePath,
+    repoId,
+    () => fileSha
+  );
   try {
     const mime = contentType(filePath);
     if (mime && !filePath.endsWith(".ts")) {

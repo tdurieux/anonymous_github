@@ -19,6 +19,7 @@ import AnonymizedRepositoryModel from "./model/anonymizedRepositories/anonymized
 import { GitHubRepository } from "./source/GitHubRepository";
 import { trace } from "@opentelemetry/api";
 import { getToken } from "./GitHubUtils";
+import { FILE_TYPE } from "./storage/Storage";
 
 function anonymizeTreeRecursive(
   tree: TreeElement,
@@ -217,6 +218,23 @@ export default class Repository {
       repoName: this.model.source.repositoryName,
       branchName: this.model.source.branch || "main",
     });
+  }
+
+  async isReady() {
+    if (this.status !== RepositoryStatus.READY) return false;
+    if (
+      this.source.type == "GitHubDownload" &&
+      (await storage.exists(this.repoId)) == FILE_TYPE.NOT_FOUND
+    ) {
+      await this.resetSate(RepositoryStatus.PREPARING);
+
+      await downloadQueue.add(this.repoId, this, {
+        jobId: this.repoId,
+        attempts: 3,
+      });
+      return false;
+    }
+    return true;
   }
 
   /**

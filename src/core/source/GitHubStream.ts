@@ -19,7 +19,7 @@ export default class GitHubStream extends GitHubBase {
     super(data);
   }
 
-  downloadFile(token: string, sha: string) {
+  downloadFile(token: string, sha: string) {  
     const span = trace.getTracer("ano-file").startSpan("GHStream.downloadFile");
     span.setAttribute("sha", sha);
     const oct = octokit(token);
@@ -49,6 +49,53 @@ export default class GitHubStream extends GitHubBase {
     }
   }
 
+  async getFileContentCache(
+    filePath: string,
+    repoId: string,
+    fileSha: () => Promise<string> | string
+  ) {
+    const span = trace
+      .getTracer("ano-file")
+      .startSpan("GHStream.getFileContent");
+    span.setAttribute("repoId", repoId);
+    span.setAttribute("file", filePath);
+
+    const fileInfo = await storage.exists(repoId, filePath);
+    if (fileInfo == FILE_TYPE.FILE) {
+      return storage.read(repoId, filePath);
+    } else if (fileInfo == FILE_TYPE.FOLDER) {
+      throw new AnonymousError("folder_not_supported", {
+        httpStatus: 400,
+        object: filePath,
+      });
+    }
+    const content = this.downloadFile(
+      await this.data.getToken(),
+      await fileSha()
+    );
+
+    content.on("close", () => {
+      span.end();
+    });
+
+    // duplicate the stream to write it to the storage
+    const stream1 = content.pipe(new stream.PassThrough());
+    const stream2 = content.pipe(new stream.PassThrough());
+
+    content.on("error", (error) => {
+      error = new AnonymousError("file_not_found", {
+        httpStatus: (error as any).status || (error as any).httpStatus,
+        cause: error as Error,
+        object: filePath,
+      });
+      stream1.emit("error", error);
+      stream2.emit("error", error);
+    });
+
+    storage.write(repoId, filePath, stream1, this.type);
+    return stream2;
+  }
+
   async getFileContent(file: AnonymizedFile): Promise<stream.Readable> {
     const span = trace
       .getTracer("ano-file")
@@ -62,44 +109,20 @@ export default class GitHubStream extends GitHubBase {
         // compute the original path if ambiguous
         await file.originalPath();
       }
-      const fileInfo = await storage.exists(
+      return this.getFileContentCache(
+        file.filePath,
         file.repository.repoId,
-        file.filePath
+        async () => {
+          const fileSha = await file.sha();
+          if (!fileSha) {
+            throw new AnonymousError("file_not_accessible", {
+              httpStatus: 404,
+              object: file,
+            });
+          }
+          return fileSha;
+        }
       );
-      if (fileInfo == FILE_TYPE.FILE) {
-        return storage.read(file.repository.repoId, file.filePath);
-      } else if (fileInfo == FILE_TYPE.FOLDER) {
-        throw new AnonymousError("folder_not_supported", {
-          httpStatus: 400,
-          object: file,
-        });
-      }
-      span.setAttribute("path", file.filePath);
-      const file_sha = await file.sha();
-      if (!file_sha) {
-        throw new AnonymousError("file_not_accessible", {
-          httpStatus: 404,
-          object: file,
-        });
-      }
-      const content = this.downloadFile(await this.data.getToken(), file_sha);
-
-      // duplicate the stream to write it to the storage
-      const stream1 = content.pipe(new stream.PassThrough());
-      const stream2 = content.pipe(new stream.PassThrough());
-
-      content.on("error", (error) => {
-        error = new AnonymousError("file_not_found", {
-          httpStatus: (error as any).status || (error as any).httpStatus,
-          cause: error as Error,
-          object: file,
-        });
-        stream1.emit("error", error);
-        stream2.emit("error", error);
-      });
-
-      storage.write(file.repository.repoId, file.filePath, stream1, this.type);
-      return stream2;
     } finally {
       span.end();
     }

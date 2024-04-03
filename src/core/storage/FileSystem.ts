@@ -1,7 +1,7 @@
 import { Tree } from "../types";
 import config from "../../config";
 import * as fs from "fs";
-import { Extract } from "unzip-stream";
+import { Extractq } from "unzip-stream";
 import { join, basename, dirname } from "path";
 import { Response } from "express";
 import { Readable, pipeline, Transform } from "stream";
@@ -147,18 +147,18 @@ export default class FileSystem extends StorageBase {
         let files = await fs.promises.readdir(fullPath);
         const output: Tree = {};
         for (let file of files) {
-          let filePath = join(dir, file);
+          let filePath = join(fullPath, file);
           try {
-            const stats = await fs.promises.stat(join(fullPath, filePath));
+            const stats = await fs.promises.stat(filePath);
             if (file[0] == "$") {
               file = "\\" + file;
             }
             if (stats.isDirectory()) {
-              output[file] = await this.listFiles(repoId, filePath, opt);
+              output[file] = await this.listFiles(repoId, join(dir, file), opt);
             } else if (stats.isFile()) {
               if (opt.onEntry) {
                 opt.onEntry({
-                  path: filePath,
+                  path: join(dir, file),
                   size: stats.size,
                 });
               }
@@ -177,18 +177,19 @@ export default class FileSystem extends StorageBase {
   async extractZip(repoId: string, p: string, data: Readable): Promise<void> {
     const pipe = promisify(pipeline);
     const fullPath = join(config.FOLDER, this.repoPath(repoId), p);
-    return pipe(
-      data,
-      Extract({
-        path: fullPath,
-        decodeString: (buf) => {
-          const name = buf.toString();
-          const newName = name.substr(name.indexOf("/") + 1);
-          if (newName == "") return "/dev/null";
-          return newName;
-        },
-      })
-    );
+    const extractor = Extract({
+      path: fullPath,
+      decodeString: (buf) => {
+        const name = buf.toString();
+        const newName = name.substr(name.indexOf("/") + 1);
+        if (newName == "") {
+          return "___IGNORE___";
+        }
+        return newName;
+      },
+    });
+    await pipe(data, extractor);
+    await this.rm(repoId, join(p, "___IGNORE___"));
   }
 
   /** @override */
