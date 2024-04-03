@@ -1050,9 +1050,7 @@ angular
                   $scope.options.expirationDate.getDate() + 90
                 );
               }
-
-              await getDetails();
-              await getReadme();
+              await Promise.all([getDetails(), getReadme()]);
               anonymize();
               $scope.$apply();
             },
@@ -1091,8 +1089,7 @@ angular
           return;
         }
         try {
-          await getDetails();
-          await getReadme();
+          await Promise.all([getDetails(), getReadme()]);
           anonymize();
         } catch (error) {}
         $scope.$apply();
@@ -1187,27 +1184,23 @@ angular
       async function getReadme(force) {
         if ($scope.readme && !force) return $scope.readme;
         const o = parseGithubUrl($scope.repoUrl);
-        $http
-          .get(`/api/repo/${o.owner}/${o.repo}/readme`, {
+        try {
+          const res = await $http.get(`/api/repo/${o.owner}/${o.repo}/readme`, {
             params: {
               force: force === true ? "1" : "0",
               branch: $scope.source.branch,
             },
-          })
-          .then(
-            (res) => {
-              $scope.readme = res.data;
-            },
-            () => {
-              $scope.readme = "";
-              const toast = {
-                title: `README not available...`,
-                date: new Date(),
-                body: `The README of ${o.owner}/${o.repo} was not found.`,
-              };
-              $scope.toasts.push(toast);
-            }
-          );
+          });
+          $scope.readme = res.data;
+        } catch (error) {
+          $scope.readme = "";
+          const toast = {
+            title: `README not available...`,
+            date: new Date(),
+            body: `The README of ${o.owner}/${o.repo} was not found.`,
+          };
+          $scope.toasts.push(toast);
+        }
       }
 
       function getConference() {
