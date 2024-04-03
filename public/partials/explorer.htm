@@ -22,6 +22,12 @@
         </ol>
         <div class="">
           <a
+            ng-if="options.isAdmin || options.isOwner"
+            ng-href="/anonymize/{{repoId}}"
+            class="btn btn-outline-primary btn-sm"
+            >Edit</a
+          >
+          <a
             ng-href="{{url}}"
             target="__self"
             class="btn btn-outline-primary btn-sm"

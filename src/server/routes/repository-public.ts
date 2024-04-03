@@ -3,10 +3,11 @@ import * as express from "express";
 import * as stream from "stream";
 import config from "../../config";
 
-import { getRepo, handleError } from "./route-utils";
+import { getRepo, getUser, handleError } from "./route-utils";
 import AnonymousError from "../../core/AnonymousError";
 import { downloadQueue } from "../../queue";
 import { RepositoryStatus } from "../../core/types";
+import User from "../../core/User";
 
 const router = express.Router();
 
@@ -150,12 +151,18 @@ router.get(
         download = true;
       }
 
+      let user: User | undefined = undefined;
+      try {
+        user = await getUser(req);
+      } catch (_) {}
       res.json({
         url: redirectURL,
         download,
         lastUpdateDate: repo.model.source.commitDate
           ? repo.model.source.commitDate
           : repo.model.anonymizeDate,
+        isAdmin: user?.isAdmin === true,
+        isOwner: user?.id == repo.model.owner,
       });
     } catch (error) {
       handleError(error, res, req);
