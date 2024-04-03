@@ -1,7 +1,7 @@
 import { Tree } from "../types";
 import config from "../../config";
 import * as fs from "fs";
-import { Extractq } from "unzip-stream";
+import { Extract } from "unzip-stream";
 import { join, basename, dirname } from "path";
 import { Response } from "express";
 import { Readable, pipeline, Transform } from "stream";
