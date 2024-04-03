@@ -19,7 +19,7 @@ export default class GitHubStream extends GitHubBase {
     super(data);
   }
 
-  downloadFile(token: string, sha: string) {  
+  downloadFile(token: string, sha: string) {
     const span = trace.getTracer("ano-file").startSpan("GHStream.downloadFile");
     span.setAttribute("sha", sha);
     const oct = octokit(token);
@@ -128,11 +128,11 @@ export default class GitHubStream extends GitHubBase {
     }
   }
 
-  async getFiles() {
+  async getFiles(progress?: (status: string) => void) {
     const span = trace.getTracer("ano-file").startSpan("GHStream.getFiles");
     span.setAttribute("repoId", this.data.repoId);
     try {
-      return this.getTree(this.data.commit);
+      return this.getTree(this.data.commit, progress);
     } finally {
       span.end();
     }
@@ -140,6 +140,7 @@ export default class GitHubStream extends GitHubBase {
 
   private async getTree(
     sha: string,
+    progress?: (status: string) => void,
     truncatedTree: Tree = {},
     parentPath: string = "",
     count = {
@@ -155,7 +156,6 @@ export default class GitHubStream extends GitHubBase {
       count.request++;
       ghRes = await this.getGHTree(sha, { recursive: true });
     } catch (error) {
-      console.error(error);
       span.recordException(error as Error);
       if ((error as any).status == 409) {
         // cannot be empty otherwise it would try to download it again
@@ -176,8 +176,11 @@ export default class GitHubStream extends GitHubBase {
     }
     const tree = this.tree2Tree(ghRes.tree, truncatedTree, parentPath);
     count.file += ghRes.tree.length;
+    if (progress) {
+      progress("List file: " + count.file);
+    }
     if (ghRes.truncated) {
-      await this.getTruncatedTree(sha, tree, parentPath, count);
+      await this.getTruncatedTree(sha, progress, tree, parentPath, count);
     }
     span.end();
     return tree;
@@ -202,6 +205,7 @@ export default class GitHubStream extends GitHubBase {
 
   private async getTruncatedTree(
     sha: string,
+    progress?: (status: string) => void,
     truncatedTree: Tree = {},
     parentPath: string = "",
     count = {
@@ -230,6 +234,9 @@ export default class GitHubStream extends GitHubBase {
       }
 
       count.file += data.tree.length;
+      if (progress) {
+        progress("List file: " + count.file);
+      }
       if (data.tree.length < 100 && count.request < 200) {
         const promises: Promise<any>[] = [];
         for (const file of data.tree) {
@@ -238,6 +245,7 @@ export default class GitHubStream extends GitHubBase {
             promises.push(
               this.getTruncatedTree(
                 file.sha,
+                progress,
                 truncatedTree,
                 elementPath,
                 count,

@@ -11,7 +11,6 @@ import { anonymizePath, isTextFile } from "./anonymize-utils";
 import AnonymousError from "./AnonymousError";
 import { handleError } from "../server/routes/route-utils";
 import got from "got";
-import storage from "./storage";
 
 /**
  * Represent a file in a anonymized repository

@@ -42,25 +42,16 @@ export default class GitHubDownload extends GitHubBase {
         });
       }
       await storage.mk(this.data.repoId);
-      let downloadProgress: { transferred: number } | undefined = undefined;
-      let progressTimeout;
-      let inDownload = true;
-
-      async function updateProgress() {
-        if (inDownload) {
-          if (progress) {
-            progress(downloadProgress?.transferred?.toString() || "");
-          }
-          progressTimeout = setTimeout(updateProgress, 1500);
-        }
-      }
-      updateProgress();
-
       try {
         const downloadStream = got.stream(response.url);
-        downloadStream.addListener("downloadProgress", async (p) => {
-          downloadProgress = p;
-        });
+        downloadStream.addListener(
+          "downloadProgress",
+          (p: { transferred?: number }) => {
+            if (progress && p.transferred) {
+              progress("Repository download: " + humanFileSize(p.transferred));
+            }
+          }
+        );
         await storage.extractZip(
           this.data.repoId,
           "",
@@ -74,9 +65,6 @@ export default class GitHubDownload extends GitHubBase {
           cause: error as Error,
           object: this.data,
         });
-      } finally {
-        inDownload = false;
-        clearTimeout(progressTimeout);
       }
     } finally {
       span.end();
@@ -116,6 +104,40 @@ export default class GitHubDownload extends GitHubBase {
     if ((await storage.exists(this.data.repoId)) === FILE_TYPE.NOT_FOUND) {
       await this.download(progress);
     }
-    return storage.listFiles(this.data.repoId);
+    let nbFiles = 0;
+    return storage.listFiles(this.data.repoId, "", {
+      onEntry: () => {
+        if (progress) {
+          nbFiles++;
+          progress("List file: " + nbFiles);
+        }
+      },
+    });
   }
+}
+
+function humanFileSize(bytes: number, si = false, dp = 1) {
+  const thresh = si ? 1000 : 1024;
+
+  bytes = bytes / 8;
+
+  if (Math.abs(bytes) < thresh) {
+    return bytes + "B";
+  }
+
+  const units = si
+    ? ["kB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"]
+    : ["KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB"];
+  let u = -1;
+  const r = 10 ** dp;
+
+  do {
+    bytes /= thresh;
+    ++u;
+  } while (
+    Math.round(Math.abs(bytes) * r) / r >= thresh &&
+    u < units.length - 1
+  );
+
+  return bytes.toFixed(dp) + "" + units[u];
 }

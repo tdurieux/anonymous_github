@@ -21,10 +21,9 @@
       >
         <span>
           {{repo.status | title}}
-          <span
-            ng-if="repo.status == 'download' && repo.statusMessage"
-            ng-bind="repo.statusMessage | humanFileSize"
-          ></span>
+          <span ng-if="repo.statusMessage"
+            >: {{repo.statusMessage | title}}</span
+          >
         </span>
       </div>
     </div>

@@ -16,10 +16,14 @@ import AnonymousError from "./AnonymousError";
 import { downloadQueue } from "../queue";
 import { isConnected } from "../server/database";
 import AnonymizedRepositoryModel from "./model/anonymizedRepositories/anonymizedRepositories.model";
-import { GitHubRepository } from "./source/GitHubRepository";
+import {
+  getRepositoryFromGitHub,
+  GitHubRepository,
+} from "./source/GitHubRepository";
 import { trace } from "@opentelemetry/api";
 import { getToken } from "./GitHubUtils";
 import { FILE_TYPE } from "./storage/Storage";
+import config from "../config";
 
 function anonymizeTreeRecursive(
   tree: TreeElement,
@@ -129,7 +133,11 @@ export default class Repository {
    * @param opt force to get an updated list of files
    * @returns The file tree
    */
-  async files(opt: { force?: boolean } = { force: false }): Promise<Tree> {
+  async files(
+    opt: { force?: boolean; progress?: (status: string) => void } = {
+      force: false,
+    }
+  ): Promise<Tree> {
     const span = trace.getTracer("ano-file").startSpan("Repository.files");
     span.setAttribute("repoId", this.repoId);
     try {
@@ -147,7 +155,7 @@ export default class Repository {
       ) {
         return this._model.originalFiles;
       }
-      const files = await this.source.getFiles();
+      const files = await this.source.getFiles(opt.progress);
       this._model.originalFiles = files;
       this._model.size = { storage: 0, file: 0 };
       await this.computeSize();
@@ -306,6 +314,25 @@ export default class Repository {
           `[UPDATE] ${this._model.repoId} will be updated to ${newCommit}`
         );
 
+        const repository = await getRepositoryFromGitHub({
+          accessToken: await this.getToken(),
+          owner: this.source.data.organization,
+          repo: this.source.data.repoName,
+        });
+        if (repository.size) {
+          if (
+            repository.size > config.AUTO_DOWNLOAD_REPO_SIZE &&
+            this.model.source.type == "GitHubDownload"
+          ) {
+            this.model.source.type = "GitHubStream";
+          } else if (
+            repository.size < config.AUTO_DOWNLOAD_REPO_SIZE &&
+            this.model.source.type == "GitHubStream"
+          ) {
+            this.model.source.type = "GitHubDownload";
+          }
+        }
+
         await this.resetSate(RepositoryStatus.PREPARING);
         await downloadQueue.add(this.repoId, this, {
           jobId: this.repoId,
@@ -320,16 +347,20 @@ export default class Repository {
    *
    * @returns void
    */
-  async anonymize() {
+  async anonymize(progress?: (status: string) => void) {
     const span = trace.getTracer("ano-file").startSpan("Repository.anonymize");
     span.setAttribute("repoId", this.repoId);
     if (this.status === RepositoryStatus.READY) {
       span.end();
       return;
     }
-    await this.updateStatus(RepositoryStatus.PREPARING);
-    await this.files();
+    await this.updateStatus(RepositoryStatus.DOWNLOAD);
+    await this.files({
+      force: false,
+      progress,
+    });
     await this.updateStatus(RepositoryStatus.READY);
+    await this.computeSize();
     span.end();
   }
 

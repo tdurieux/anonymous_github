@@ -10,7 +10,7 @@ import config from "../../config";
 import { pipeline, Readable, Transform } from "stream";
 import ArchiveStreamToS3 from "decompress-stream-to-s3";
 import { Response } from "express";
-import { contentType } from "mime-types";
+import { lookup } from "mime-types";
 import * as archiver from "archiver";
 import { trace } from "@opentelemetry/api";
 import { dirname, basename, join } from "path";
@@ -170,7 +170,7 @@ export default class S3Storage extends StorageBase {
         lastModified: info.LastModified,
         contentType: info.ContentType
           ? info.ContentType
-          : (contentType(path) as string),
+          : (lookup(path) as string),
       };
     } finally {
       span.end();
@@ -226,7 +226,7 @@ export default class S3Storage extends StorageBase {
         Bucket: config.S3_BUCKET,
         Key: join(this.repoPath(repoId), path),
         Body: data,
-        ContentType: contentType(path).toString(),
+        ContentType: lookup(path).toString(),
       };
       if (source) {
         params.Tagging = `source=${source}`;

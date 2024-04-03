@@ -12,8 +12,16 @@ export default class Zip implements SourceBase {
     this.url = data.url;
   }
 
-  async getFiles() {
-    return storage.listFiles(this.repoId);
+  async getFiles(progress?: (status: string) => void) {
+    let nbFiles = 0;
+    return storage.listFiles(this.repoId, "", {
+      onEntry: () => {
+        if (progress) {
+          nbFiles++;
+          progress("List file: " + nbFiles);
+        }
+      },
+    });
   }
 
   async getFileContent(file: AnonymizedFile): Promise<stream.Readable> {

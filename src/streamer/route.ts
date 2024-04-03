@@ -2,9 +2,7 @@ import * as express from "express";
 import GitHubStream from "../core/source/GitHubStream";
 import { AnonymizeTransformer, isTextFile } from "../core/anonymize-utils";
 import { handleError } from "../server/routes/route-utils";
-import { contentType } from "mime-types";
-import storage from "../core/storage";
-import AnonymizedFile from "../core/AnonymizedFile";
+import { lookup } from "mime-types";
 
 export const router = express.Router();
 
@@ -33,7 +31,7 @@ router.post("/", async (req: express.Request, res: express.Response) => {
     () => fileSha
   );
   try {
-    const mime = contentType(filePath);
+    const mime = lookup(filePath);
     if (mime && !filePath.endsWith(".ts")) {
       res.contentType(mime);
     } else if (isTextFile(filePath)) {

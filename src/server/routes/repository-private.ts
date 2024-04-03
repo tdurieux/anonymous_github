@@ -17,6 +17,7 @@ import User from "../../core/User";
 import { RepositoryStatus } from "../../core/types";
 import { IUserDocument } from "../../core/model/users/users.types";
 import { checkToken } from "../../core/GitHubUtils";
+import config from "../../config";
 
 const router = express.Router();
 
@@ -374,7 +375,42 @@ router.post(
       }
 
       updateRepoModel(repo.model, repoUpdate);
-      repo.source.type = "GitHubStream";
+
+      const r = gh(repoUpdate.fullName);
+      if (!r?.owner || !r?.name) {
+        await repo.resetSate(RepositoryStatus.ERROR, "repo_not_found");
+        throw new AnonymousError("repo_not_found", {
+          object: req.body,
+          httpStatus: 404,
+        });
+      }
+      const repository = await getRepositoryFromGitHub({
+        accessToken: user.accessToken,
+        owner: r.owner,
+        repo: r.name,
+      });
+
+      if (!repository) {
+        await repo.resetSate(RepositoryStatus.ERROR, "repo_not_found");
+        throw new AnonymousError("repo_not_found", {
+          object: req.body,
+          httpStatus: 404,
+        });
+      }
+      console.log(repository);
+      if (repository.size) {
+        if (
+          repository.size > config.AUTO_DOWNLOAD_REPO_SIZE &&
+          repo.model.source.type == "GitHubDownload"
+        ) {
+          repo.model.source.type = "GitHubStream";
+        } else if (
+          repository.size < config.AUTO_DOWNLOAD_REPO_SIZE &&
+          repo.model.source.type == "GitHubStream"
+        ) {
+          repo.model.source.type = "GitHubDownload";
+        }
+      }
 
       const removeRepoFromConference = async (conferenceID: string) => {
         const conf = await ConferenceModel.findOne({
@@ -485,25 +521,27 @@ router.post("/", async (req: express.Request, res: express.Response) => {
     repo.source.accessToken = user.accessToken;
     repo.source.repositoryId = repository.model.id;
     repo.source.repositoryName = repoUpdate.fullName;
+    console.log(repository.size);
+    if (
+      repository.size !== undefined &&
+      repository.size < config.AUTO_DOWNLOAD_REPO_SIZE
+    ) {
+      repo.source.type = "GitHubDownload";
+    }
+    if (repository.size) {
+      if (
+        repository.size > config.AUTO_DOWNLOAD_REPO_SIZE &&
+        repo.source.type == "GitHubDownload"
+      ) {
+        repo.source.type = "GitHubStream";
+      } else if (
+        repository.size < config.AUTO_DOWNLOAD_REPO_SIZE &&
+        repo.source.type == "GitHubStream"
+      ) {
+        repo.source.type = "GitHubDownload";
+      }
+    }
 
-    // if (repo.source.type === "GitHubDownload") {
-    //   // details.size is in kilobytes
-    //   if (
-    //     repository.size === undefined ||
-    //     repository.size > config.MAX_REPO_SIZE
-    //   ) {
-    //     throw new AnonymousError("invalid_mode", {
-    //       object: repository,
-    //       httpStatus: 400,
-    //     });
-    //   }
-    // }
-    // if (
-    //   repository.size !== undefined &&
-    //   repository.size < config.AUTO_DOWNLOAD_REPO_SIZE
-    // ) {
-    //   repo.source.type = "GitHubDownload";
-    // }
     repo.conference = repoUpdate.conference;
 
     await repo.save();
