@@ -397,7 +397,6 @@ router.post(
           httpStatus: 404,
         });
       }
-      console.log(repository);
       if (repository.size) {
         if (
           repository.size > config.AUTO_DOWNLOAD_REPO_SIZE &&
@@ -521,7 +520,6 @@ router.post("/", async (req: express.Request, res: express.Response) => {
     repo.source.accessToken = user.accessToken;
     repo.source.repositoryId = repository.model.id;
     repo.source.repositoryName = repoUpdate.fullName;
-    console.log(repository.size);
     if (
       repository.size !== undefined &&
       repository.size < config.AUTO_DOWNLOAD_REPO_SIZE
