@@ -10,7 +10,7 @@ export default async function (job: SandboxedJob<Repository, void>) {
   }: {
     connect: () => Promise<void>;
     getRepository: typeof getRepositoryImport;
-  } = require("../database/database");
+  } = require("../../server/database");
   const span = trace.getTracer("ano-file").startSpan("proc.removeCache");
   span.setAttribute("repoId", job.data.repoId);
   try {
