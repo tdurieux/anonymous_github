@@ -270,17 +270,21 @@ export default class AnonymizedFile {
           try {
             if (config.STREAMER_ENTRYPOINT) {
               // use the streamer service
+              const [sha, token] = await Promise.all([
+                this.sha(),
+                this.repository.getToken(),
+              ]);
               got
                 .stream(join(config.STREAMER_ENTRYPOINT, "api"), {
                   method: "POST",
                   json: {
-                    token: await this.repository.getToken(),
+                    sha,
+                    token,
                     repoFullName: this.repository.model.source.repositoryName,
                     commit: this.repository.model.source.commit,
                     branch: this.repository.model.source.branch,
                     repoId: this.repository.repoId,
                     filePath: this.filePath,
-                    sha: await this.sha(),
                     anonymizerOptions: anonymizer.opt,
                   },
                 })
