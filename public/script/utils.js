@@ -117,25 +117,36 @@ marked.use(
   })
 );
 
-function renderMD(md, baseUrl) {
+function renderMD(md, baseUrlValue) {
   md = contentAbs2Relative(md);
   const renderer = new marked.Renderer();
-  // katex
-  function mathsExpression(expr) {
-    if (expr.match(/^\$\$[\s\S]*\$\$$/)) {
-      expr = expr.substr(2, expr.length - 4);
-      return katex.renderToString(expr, { displayMode: true });
-    } else if (expr.match(/^\$[\s\S]*\$$/)) {
-      expr = expr.substr(1, expr.length - 2);
-      return katex.renderToString(expr, { isplayMode: false });
-    }
-  }
+
+  const replacer = ((blockRegex, inlineRegex) => (text) => {
+    text = text.replace(blockRegex, (match, expression) => {
+      return katex.renderToString(expression, { displayMode: true });
+    });
+
+    text = text.replace(inlineRegex, (match, expression) => {
+      return katex.renderToString(expression, { displayMode: false });
+    });
+
+    return text;
+  })(/\$\$([\s\S]+?)\$\$/g, /\$([^\n\s]+?)\$/g);
+
+  const replaceTypes = ["listitems", "paragraph", "tablecell", "text"];
+  replaceTypes.forEach((type) => {
+    const original = renderer[type];
+    renderer[type] = (...args) => {
+      args[0] = replacer(args[0]);
+      return original(...args);
+    };
+  });
 
   const rendererCode = renderer.code;
   renderer.code = function (code, lang, escaped) {
     if (!lang) {
-      const math = mathsExpression(code);
-      if (math) {
+      const math = replacer(code);
+      if (math != text) {
         return math;
       }
     }
@@ -145,8 +156,8 @@ function renderMD(md, baseUrl) {
 
   const rendererCodespan = renderer.codespan;
   renderer.codespan = function (text) {
-    const math = mathsExpression(text);
-    if (math) {
+    const math = replacer(text);
+    if (math != text) {
       return math;
     }
 
@@ -161,5 +172,19 @@ function renderMD(md, baseUrl) {
     }
     return rendererLink.call(this, href, title, text);
   };
-  return marked.parse(md, { baseUrl, renderer });
+
+  marked.setOptions({
+    renderer: renderer,
+    pedantic: false,
+    gfm: true,
+    breaks: false,
+    sanitize: false,
+    smartLists: true,
+    smartypants: false,
+    xhtml: false,
+    headerIds: false,
+    katex: katex,
+  });
+  marked.use(baseUrl(baseUrlValue));
+  return marked.parse(md, { renderer });
 }
