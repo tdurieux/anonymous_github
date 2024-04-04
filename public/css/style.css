@@ -434,6 +434,11 @@ notebook {
   padding-left: 100px;
 }
 
+.nb-output th,
+.nb-output td {
+  border: 1px solid var(--border-color) !important;
+}
+
 .floatingchat-container-wrap {
   left: inherit !important;
   bottom: inherit !important;
@@ -585,6 +590,7 @@ pre,
 code {
   font-family: "Fira Code", "Courier New", Courier, monospace;
   line-height: 1.1;
+  color: var(--color)
 }
 
 .diff-lines,

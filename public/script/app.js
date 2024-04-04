@@ -481,10 +481,22 @@ angular
       $scope.darkMode = function (on) {
         localStorage.setItem("darkMode", on);
         $scope.isDarkMode = on;
+        const darkPrismLink = "/css/prism-okaidia.css";
+        const lightPrismLink = "/css/prism.css";
         if (on) {
           $("body").addClass("dark-mode");
+          let link = document.createElement("link");
+          link.href = darkPrismLink;
+          link.rel = "stylesheet";
+          document.head.append(link);
+          $(`link[href='${lightPrismLink}']`).remove();
         } else {
           $("body").removeClass("dark-mode");
+          let link = document.createElement("link");
+          link.href = lightPrismLink;
+          link.rel = "stylesheet";
+          document.head.append(link);
+          $(`link[href='${darkPrismLink}']`).remove();
         }
         $scope.$broadcast("dark-mode", on);
       };
