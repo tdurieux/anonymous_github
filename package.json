@@ -48,6 +48,7 @@
     "bullmq": "^2.4.0",
     "compression": "^1.7.4",
     "connect-redis": "^7.0.1",
+    "crypto-js": "^4.2.0",
     "decompress-stream-to-s3": "^2.1.1",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
@@ -72,6 +73,7 @@
   "devDependencies": {
     "@types/archiver": "^5.3.4",
     "@types/compression": "^1.7.5",
+    "@types/crypto-js": "^4.2.2",
     "@types/express": "^4.17.21",
     "@types/express-session": "^1.18.0",
     "@types/got": "^9.6.12",

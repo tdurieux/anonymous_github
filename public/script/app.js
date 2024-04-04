@@ -135,28 +135,7 @@ angular
     $locationProvider.html5Mode(true);
   })
   .filter("humanFileSize", function () {
-    return function humanFileSize(bytes, si = false, dp = 1) {
-      const thresh = si ? 1000 : 1024;
-
-      bytes = bytes / 8;
-
-      if (Math.abs(bytes) < thresh) {
-        return bytes + "B";
-      }
-
-      const units = si
-        ? ["kB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"]
-        : ["KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB"];
-      let u = -1;
-      const r = 10 ** dp;
-
-      do {
-        bytes /= thresh;
-        ++u;
-      } while (Math.round(Math.abs(bytes) * r) / r >= thresh && u < units.length - 1);
-
-      return bytes.toFixed(dp) + "" + units[u];
-    };
+    return humanFileSize;
   })
   .filter("humanTime", function () {
     return function humanTime(seconds) {
@@ -325,7 +304,7 @@ angular
               for (let f of afiles) {
                 let dir = isDir(f.child);
                 let name = f.name;
-                let size = f.size;
+                let size = f.size || 0;
                 if (dir) {
                   let test = name;
                   current = toArray(f.child);
@@ -339,10 +318,15 @@ angular
                     dir = false;
                   }
                 }
+                if (size) {
+                  size = `Size: ${humanFileSize(size || 0)}`;
+                } else {
+                  size = "";
+                }
                 const path = `${parentPath}/${name}`;
                 output += `<li class="file ${
                   dir ? "folder" : ""
-                }" ng-class="{active: isActive('${path}'), open: opens['${path}']}" title="Size: ${size}">`;
+                }" ng-class="{active: isActive('${path}'), open: opens['${path}']}" title="${size}">`;
                 if (dir) {
                   output += `<a ng-click="openFolder('${path}', $event)">${name}</a>`;
                 } else {
@@ -1561,6 +1545,18 @@ angular
         );
       }
 
+      function getSelectedFile() {
+        let currentFolder = $scope.files;
+        for (const p of $scope.paths) {
+          if (currentFolder[p]) {
+            currentFolder = currentFolder[p];
+          } else {
+            return null;
+          }
+        }
+        return currentFolder;
+      }
+
       async function getOptions(callback) {
         $http.get(`/api/repo/${$scope.repoId}/options`).then(
           (res) => {
@@ -1614,7 +1610,7 @@ angular
         return "code";
       }
 
-      function getContent(path) {
+      function getContent(path, fileInfo) {
         if (!path) {
           $scope.type = "error";
           $scope.content = "no_file_selected";
@@ -1624,7 +1620,7 @@ angular
         $scope.type = "loading";
         $scope.content = "loading";
         $http
-          .get(`/api/repo/${$scope.repoId}/file/${path}`, {
+          .get(`/api/repo/${$scope.repoId}/file/${path}?v=` + fileInfo.sha, {
             transformResponse: (data) => {
               return data;
             },
@@ -1686,7 +1682,10 @@ angular
 
       function updateContent() {
         $scope.content = "";
-        $scope.url = `/api/repo/${$scope.repoId}/file/${$scope.filePath}`;
+        $scope.file = getSelectedFile();
+        $scope.url =
+          `/api/repo/${$scope.repoId}/file/${$scope.filePath}?v=` +
+          $scope.file.sha;
 
         let extension = $scope.filePath.toLowerCase();
         const extensionIndex = extension.lastIndexOf(".");
@@ -1784,7 +1783,7 @@ angular
         }
         $scope.type = getType(extension);
 
-        getContent($scope.filePath);
+        getContent($scope.filePath, $scope.file);
       }
 
       function init() {
@@ -2431,3 +2430,28 @@ angular
       getConference();
     },
   ]);
+function humanFileSize(bytes, si = false, dp = 1) {
+  const thresh = si ? 1000 : 1024;
+
+  bytes = bytes / 8;
+
+  if (Math.abs(bytes) < thresh) {
+    return bytes + "B";
+  }
+
+  const units = si
+    ? ["kB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"]
+    : ["KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB"];
+  let u = -1;
+  const r = 10 ** dp;
+
+  do {
+    bytes /= thresh;
+    ++u;
+  } while (
+    Math.round(Math.abs(bytes) * r) / r >= thresh &&
+    u < units.length - 1
+  );
+
+  return bytes.toFixed(dp) + "" + units[u];
+}

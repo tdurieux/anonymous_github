@@ -1,6 +1,7 @@
 import storage from "./storage";
 import { RepositoryStatus, Tree, TreeElement, TreeFile } from "./types";
 import { Readable } from "stream";
+import * as sha1 from "crypto-js/sha1";
 import User from "./User";
 import GitHubStream from "./source/GitHubStream";
 import GitHubDownload from "./source/GitHubDownload";
@@ -37,7 +38,10 @@ function anonymizeTreeRecursive(
 ): TreeElement {
   if (typeof tree.size !== "object" && tree.sha !== undefined) {
     if (opt?.includeSha) return tree as TreeFile;
-    return { size: tree.size } as TreeFile;
+    return {
+      size: tree.size,
+      sha: sha1(tree.sha as string).toString(),
+    } as TreeFile;
   }
   const output: Tree = {};
   Object.getOwnPropertyNames(tree).forEach((file) => {
