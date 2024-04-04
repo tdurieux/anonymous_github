@@ -456,7 +456,7 @@ export default class Repository {
       .startSpan("Repository.removeCache");
     span.setAttribute("repoId", this.repoId);
     try {
-      return storage.rm(this.repoId);
+      await storage.rm(this.repoId);
     } finally {
       this.model.isReseted = true;
       await this.model.save();
