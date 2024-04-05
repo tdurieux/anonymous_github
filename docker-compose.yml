@@ -10,7 +10,7 @@ services:
     env_file:
       - ./.env
     volumes:
-      - ./repositories:/app/build/repositories/
+      - ./repositories:/app/repositories/
     environment:
       - PORT=5000
       - REDIS_HOSTNAME=redis
@@ -41,7 +41,7 @@ services:
     env_file:
       - ./.env
     volumes:
-      - ./repositories:/app/build/repositories/
+      - ./repositories:/app/repositories/
     environment:
       - PORT=5000
     healthcheck:
