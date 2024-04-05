@@ -34,7 +34,7 @@ services:
     restart: always
     image: tdurieux/anonymous_github:v2
     deploy:
-      qmode: replicated
+      mode: replicated
       replicas: 4
       endpoint_mode: dnsrr
     entrypoint: ["node", "./build/streamer/index.js"]
