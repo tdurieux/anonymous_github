@@ -171,7 +171,7 @@ function renderMD(md, baseUrlValue) {
   renderer.code = function (code, lang, escaped) {
     if (!lang) {
       const math = replacer(code);
-      if (math != text) {
+      if (math != code) {
         return math;
       }
     }
