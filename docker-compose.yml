@@ -81,7 +81,7 @@ services:
     healthcheck:
       test:
         - CMD
-        - mongo
+        - mongosh
         - --eval
         - "db.adminCommand('ping')"
       interval: 10s

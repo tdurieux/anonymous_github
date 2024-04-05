@@ -16,6 +16,10 @@ app.use(compression());
 
 app.use("/api", router);
 
+app.get("/healthcheck", async (_, res) => {
+  res.json({ status: "ok" });
+});
+
 app.all("*", (req, res) => {
   handleError(
     new AnonymousError("file_not_found", {

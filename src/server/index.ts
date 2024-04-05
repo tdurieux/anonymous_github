@@ -159,6 +159,9 @@ export default async function start() {
     stat = {};
   }, 1000 * 60 * 60);
 
+  apiRouter.get("/healthcheck", async (_, res) => {
+    res.json({ status: "ok" });
+  });
   apiRouter.get("/stat", async (_, res) => {
     if (stat.nbRepositories) {
       res.json(stat);
