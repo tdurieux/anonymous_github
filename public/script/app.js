@@ -7,133 +7,138 @@ angular
     "pascalprecht.translate",
     "admin",
   ])
-  .config(function ($routeProvider, $locationProvider, $translateProvider) {
-    $translateProvider.useStaticFilesLoader({
-      prefix: "/i18n/locale-",
-      suffix: ".json",
-    });
-
-    $translateProvider.preferredLanguage("en");
-
-    $routeProvider
-      .when("/", {
-        templateUrl: "/partials/home.htm",
-        controller: "homeController",
-        title: "Anonymous GitHub",
-      })
-      .when("/dashboard", {
-        templateUrl: "/partials/dashboard.htm",
-        controller: "dashboardController",
-        title: "Dashboard - Anonymous GitHub",
-      })
-      .when("/pr-dashboard", {
-        templateUrl: "/partials/pr-dashboard.htm",
-        controller: "prDashboardController",
-        title: "Pull Request Dashboard - Anonymous GitHub",
-      })
-      .when("/anonymize/:repoId?", {
-        templateUrl: "/partials/anonymize.htm",
-        controller: "anonymizeController",
-        title: "Anonymize - Anonymous GitHub",
-      })
-      .when("/pull-request-anonymize/:pullRequestId?", {
-        templateUrl: "/partials/anonymizePullRequest.htm",
-        controller: "anonymizePullRequestController",
-        title: "Anonymize - Anonymous GitHub",
-      })
-      .when("/status/:repoId", {
-        templateUrl: "/partials/status.htm",
-        controller: "statusController",
-        title: "Repository status - Anonymous GitHub",
-      })
-      .when("/conferences", {
-        templateUrl: "/partials/conferences.htm",
-        controller: "conferencesController",
-        title: "Conferences - Anonymous GitHub",
-      })
-      .when("/conference/new", {
-        templateUrl: "/partials/newConference.htm",
-        controller: "newConferenceController",
-        title: "Add a conference - Anonymous GitHub",
-      })
-      .when("/conference/:conferenceId/edit", {
-        templateUrl: "/partials/newConference.htm",
-        controller: "newConferenceController",
-        title: "Edit conference - Anonymous GitHub",
-      })
-      .when("/conference/:conferenceId", {
-        templateUrl: "/partials/conference.htm",
-        controller: "conferenceController",
-        title: "Conference - Anonymous GitHub",
-      })
-      .when("/faq", {
-        templateUrl: "/partials/faq.htm",
-        controller: "faqController",
-        title: "FAQ - Anonymous GitHub",
-      })
-      .when("/profile", {
-        templateUrl: "/partials/profile.htm",
-        controller: "profileController",
-        title: "Profile - Anonymous GitHub",
-      })
-      .when("/claim", {
-        templateUrl: "/partials/claim.htm",
-        controller: "claimController",
-        title: "Claim repository - Anonymous GitHub",
-      })
-      .when("/pr/:pullRequestId", {
-        templateUrl: "/partials/pullRequest.htm",
-        controller: "pullRequestController",
-        title: "Anonymized Pull Request - Anonymous GitHub",
-        reloadOnUrl: false,
-      })
-      .when("/r/:repoId/:path*?", {
-        templateUrl: "/partials/explorer.htm",
-        controller: "exploreController",
-        title: "Anonymized Repository - Anonymous GitHub",
-        reloadOnUrl: false,
-      })
-      .when("/repository/:repoId/:path*?", {
-        templateUrl: "/partials/explorer.htm",
-        controller: "exploreController",
-        title: "Anonymized Repository - Anonymous GitHub",
-        reloadOnUrl: false,
-      })
-      .when("/admin/", {
-        templateUrl: "/partials/admin/repositories.htm",
-        controller: "repositoriesAdminController",
-        title: "Repositories Admin - Anonymous GitHub",
-      })
-      .when("/admin/users", {
-        templateUrl: "/partials/admin/users.htm",
-        controller: "usersAdminController",
-        title: "Users Admin - Anonymous GitHub",
-      })
-      .when("/admin/users/:username", {
-        templateUrl: "/partials/admin/user.htm",
-        controller: "userAdminController",
-        title: "User Admin - Anonymous GitHub",
-      })
-      .when("/admin/conferences", {
-        templateUrl: "/partials/admin/conferences.htm",
-        controller: "conferencesAdminController",
-        title: "Conferences Admin - Anonymous GitHub",
-      })
-      .when("/admin/queues", {
-        templateUrl: "/partials/admin/queues.htm",
-        controller: "queuesAdminController",
-        title: "Queues Admin - Anonymous GitHub",
-      })
-      .when("/404", {
-        templateUrl: "/partials/404.htm",
-        title: "Page not found - Anonymous GitHub",
-      })
-      .otherwise({
-        templateUrl: "/partials/404.htm",
-        title: "Page not found - Anonymous GitHub",
+  .config([
+    "$routeProvider",
+    "$locationProvider",
+    "$translateProvider",
+    function ($routeProvider, $locationProvider, $translateProvider) {
+      $translateProvider.useStaticFilesLoader({
+        prefix: "/i18n/locale-",
+        suffix: ".json",
       });
-    $locationProvider.html5Mode(true);
-  })
+
+      $translateProvider.preferredLanguage("en");
+
+      $routeProvider
+        .when("/", {
+          templateUrl: "/partials/home.htm",
+          controller: "homeController",
+          title: "Anonymous GitHub",
+        })
+        .when("/dashboard", {
+          templateUrl: "/partials/dashboard.htm",
+          controller: "dashboardController",
+          title: "Dashboard - Anonymous GitHub",
+        })
+        .when("/pr-dashboard", {
+          templateUrl: "/partials/pr-dashboard.htm",
+          controller: "prDashboardController",
+          title: "Pull Request Dashboard - Anonymous GitHub",
+        })
+        .when("/anonymize/:repoId?", {
+          templateUrl: "/partials/anonymize.htm",
+          controller: "anonymizeController",
+          title: "Anonymize - Anonymous GitHub",
+        })
+        .when("/pull-request-anonymize/:pullRequestId?", {
+          templateUrl: "/partials/anonymizePullRequest.htm",
+          controller: "anonymizePullRequestController",
+          title: "Anonymize - Anonymous GitHub",
+        })
+        .when("/status/:repoId", {
+          templateUrl: "/partials/status.htm",
+          controller: "statusController",
+          title: "Repository status - Anonymous GitHub",
+        })
+        .when("/conferences", {
+          templateUrl: "/partials/conferences.htm",
+          controller: "conferencesController",
+          title: "Conferences - Anonymous GitHub",
+        })
+        .when("/conference/new", {
+          templateUrl: "/partials/newConference.htm",
+          controller: "newConferenceController",
+          title: "Add a conference - Anonymous GitHub",
+        })
+        .when("/conference/:conferenceId/edit", {
+          templateUrl: "/partials/newConference.htm",
+          controller: "newConferenceController",
+          title: "Edit conference - Anonymous GitHub",
+        })
+        .when("/conference/:conferenceId", {
+          templateUrl: "/partials/conference.htm",
+          controller: "conferenceController",
+          title: "Conference - Anonymous GitHub",
+        })
+        .when("/faq", {
+          templateUrl: "/partials/faq.htm",
+          controller: "faqController",
+          title: "FAQ - Anonymous GitHub",
+        })
+        .when("/profile", {
+          templateUrl: "/partials/profile.htm",
+          controller: "profileController",
+          title: "Profile - Anonymous GitHub",
+        })
+        .when("/claim", {
+          templateUrl: "/partials/claim.htm",
+          controller: "claimController",
+          title: "Claim repository - Anonymous GitHub",
+        })
+        .when("/pr/:pullRequestId", {
+          templateUrl: "/partials/pullRequest.htm",
+          controller: "pullRequestController",
+          title: "Anonymized Pull Request - Anonymous GitHub",
+          reloadOnUrl: false,
+        })
+        .when("/r/:repoId/:path*?", {
+          templateUrl: "/partials/explorer.htm",
+          controller: "exploreController",
+          title: "Anonymized Repository - Anonymous GitHub",
+          reloadOnUrl: false,
+        })
+        .when("/repository/:repoId/:path*?", {
+          templateUrl: "/partials/explorer.htm",
+          controller: "exploreController",
+          title: "Anonymized Repository - Anonymous GitHub",
+          reloadOnUrl: false,
+        })
+        .when("/admin/", {
+          templateUrl: "/partials/admin/repositories.htm",
+          controller: "repositoriesAdminController",
+          title: "Repositories Admin - Anonymous GitHub",
+        })
+        .when("/admin/users", {
+          templateUrl: "/partials/admin/users.htm",
+          controller: "usersAdminController",
+          title: "Users Admin - Anonymous GitHub",
+        })
+        .when("/admin/users/:username", {
+          templateUrl: "/partials/admin/user.htm",
+          controller: "userAdminController",
+          title: "User Admin - Anonymous GitHub",
+        })
+        .when("/admin/conferences", {
+          templateUrl: "/partials/admin/conferences.htm",
+          controller: "conferencesAdminController",
+          title: "Conferences Admin - Anonymous GitHub",
+        })
+        .when("/admin/queues", {
+          templateUrl: "/partials/admin/queues.htm",
+          controller: "queuesAdminController",
+          title: "Queues Admin - Anonymous GitHub",
+        })
+        .when("/404", {
+          templateUrl: "/partials/404.htm",
+          title: "Page not found - Anonymous GitHub",
+        })
+        .otherwise({
+          templateUrl: "/partials/404.htm",
+          title: "Page not found - Anonymous GitHub",
+        });
+      $locationProvider.html5Mode(true);
+    },
+  ])
   .filter("humanFileSize", function () {
     return humanFileSize;
   })
@@ -2442,28 +2447,3 @@ angular
       getConference();
     },
   ]);
-function humanFileSize(bytes, si = false, dp = 1) {
-  const thresh = si ? 1000 : 1024;
-
-  bytes = bytes / 8;
-
-  if (Math.abs(bytes) < thresh) {
-    return bytes + "B";
-  }
-
-  const units = si
-    ? ["kB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"]
-    : ["KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB"];
-  let u = -1;
-  const r = 10 ** dp;
-
-  do {
-    bytes /= thresh;
-    ++u;
-  } while (
-    Math.round(Math.abs(bytes) * r) / r >= thresh &&
-    u < units.length - 1
-  );
-
-  return bytes.toFixed(dp) + "" + units[u];
-}

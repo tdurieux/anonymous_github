@@ -9,7 +9,7 @@
     "test": "mocha --reporter spec",
     "start": "node --inspect=5858 -r ts-node/register ./src/server/index.ts",
     "dev": "nodemon --transpile-only ./src/server/index.ts",
-    "build": "rm -rf build && tsc",
+    "build": "rm -rf build && tsc && gulp",
     "knip": "knip"
   },
   "repository": {
@@ -85,6 +85,11 @@
     "@types/passport": "^1.0.16",
     "@types/passport-github2": "^1.2.9",
     "@types/unzip-stream": "^0.3.4",
+    "gulp": "^5.0.0",
+    "gulp-clean-css": "^4.3.0",
+    "gulp-concat": "^2.6.1",
+    "gulp-order": "^1.2.0",
+    "gulp-uglify": "^3.0.2",
     "knip": "^5.1.0",
     "mocha": "^10.4.0",
     "nodemon": "^3.1.0",

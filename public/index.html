@@ -33,54 +33,7 @@
     <meta name="msapplication-config" content="/favicon/browserconfig.xml" />
     <meta name="theme-color" content="#ffffff" />
 
-    <!-- CSS -->
-    <link rel="stylesheet" href="/css/bootstrap.min.css" />
-    <link rel="stylesheet" href="/css/font-awesome.min.css" />
-
-    <link rel="stylesheet" href="/css/color-schema.css" />
-    <link rel="stylesheet" href="/css/style.css" />
-    <link rel="stylesheet" href="/css/notebook.css" />
-    <link rel="stylesheet" href="/css/katex.min.css" />
-    <link rel="stylesheet" href="/css/github-markdown.min.css" />
-
-    <!-- JS -->
-    <script src="/script/external/angular.min.js"></script>
-    <script src="/script/external/angular-translate.min.js"></script>
-    <script src="/script/external/angular-translate-loader-static-files.min.js"></script>
-    <script src="/script/external/angular-sanitize.min.js"></script>
-    <script src="/script/external/angular-route.min.js"></script>
-
-    <script src="/script/external/jquery-3.4.1.min.js"></script>
-    <script src="/script/external/popper.min.js"></script>
-    <script src="/script/external/bootstrap.min.js"></script>
-
-    <!-- PDF -->
-    <script src="/script/external/pdf.compat.js"></script>
-    <script src="/script/external/pdf.js"></script>
-
-    <!-- Code -->
-    <script src="/script/external/ace/ace.js"></script>
-    <script src="/script/external/ui-ace.min.js"></script>
-    <script src="/script/langColors.js"></script>
-
-    <!-- Notebook -->
-    <script src="/script/external/github-emojis.js"></script>
-    <script src="/script/external/marked-emoji.js"></script>
-    <script src="/script/external/marked.min.js"></script>
-    <script src="/script/external/purify.min.js"></script>
-    <script src="/script/external/ansi_up.min.js"></script>
-    <script src="/script/external/prism.min.js"></script>
-    <script src="/script/external/katex.min.js"></script>
-    <script src="/script/external/katex-auto-render.min.js"></script>
-    <script src="/script/external/notebook.min.js"></script>
-
-    <script src="/script/external/org.js"></script>
-
-    <!-- Anonymous GitHub scripts -->
-    <script src="/script/utils.js"></script>
-    <script src="/script/ng-pdfviewer.min.js"></script>
-    <script src="/script/admin.js"></script>
-    <script src="/script/app.js"></script>
+    <link rel="stylesheet" href="/css/all.min.css" />
   </head>
   <body keypress-events class="d-flex flex-column">
     <ng-include src="'partials/header.htm'"></ng-include>
@@ -115,6 +68,11 @@
       </div>
     </div>
 
+    <script src="/script/bundle.min.js"></script>
+    <script>
+      ace.config.set("basePath", "/script/external/ace/");
+      PDFJS.workerSrc = "/script/external/pdf.worker.js";
+    </script>
     <script src="https://storage.ko-fi.com/cdn/scripts/overlay-widget.js"></script>
     <script>
       kofiWidgetOverlay.draw("tdurieux", {
