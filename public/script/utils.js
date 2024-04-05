@@ -24,7 +24,10 @@ function humanFileSize(bytes, si = false, dp = 1) {
   return bytes.toFixed(dp) + "" + units[u];
 }
 
-function urlRel2abs(url) {
+function urlRel2abs(
+  url,
+  baseUrl = location.href.match(/^(.+)\/?(?:#.+)?$/)[0] + "/"
+) {
   /* Only accept commonly trusted protocols:
    * Only data-image URLs are accepted, Exotic flavours (escaped slash,
    * html-entitied characters) are not supported to keep the function fast */
@@ -33,17 +36,14 @@ function urlRel2abs(url) {
   ) {
     return url; //Url is already absolute
   }
-  var base_url = location.href.match(/^(.+)\/?(?:#.+)?$/)[0] + "/";
 
   if (url.substring(0, 2) == "//") return location.protocol + url;
-  else if (url.charAt(0) == "/")
-    return location.protocol + "//" + location.host + url;
+  else if (url.charAt(0) == "/") return baseUrl + url;
   else if (url.substring(0, 2) == "./") url = "." + url;
   else if (/^\s*$/.test(url)) return "";
   //Empty = Return nothing
-  else url = "../" + url;
 
-  url = base_url + url;
+  url = baseUrl + url;
 
   while (/\/\.\.\//.test((url = url.replace(/[^\/]+\/+\.\.\//g, ""))));
   /* Escape certain characters to prevent XSS */
@@ -61,13 +61,15 @@ function urlRel2abs(url) {
 const charactersAttributes = "[^-a-z0-9:._]";
 const allTagCharacters = "(?:[^>\"']*(?:\"[^\"]*\"|'[^']*'))*?[^>]*";
 
-function by(match, group1, group2, group3) {
-  /* Note that this function can also be used to remove links:
-   * return group1 + "javascript://" + group3; */
-  return group1 + urlRel2abs(group2) + group3;
+function by(baseUrl) {
+  return (match, group1, group2, group3) => {
+    /* Note that this function can also be used to remove links:
+     * return group1 + "javascript://" + group3; */
+    return group1 + urlRel2abs(group2, baseUrl) + group3;
+  };
 }
 
-function cr(html, selector, attribute) {
+function cr(html, selector, attribute, baseUrl) {
   if (typeof selector == "string") selector = new RegExp(selector, "gi");
   attribute = charactersAttributes + attribute;
   const marker = "\\s*=\\s*";
@@ -79,12 +81,15 @@ function cr(html, selector, attribute) {
     "gi"
   );
   html = html.replace(selector, function (match) {
-    return match.replace(re1, by).replace(re2, by).replace(re3, by);
+    return match
+      .replace(re1, by(baseUrl))
+      .replace(re2, by(baseUrl))
+      .replace(re3, by(baseUrl));
   });
   return html;
 }
 
-function contentAbs2Relative(content) {
+function contentAbs2Relative(content, baseUrl) {
   if (!content) return content;
   content = cr(
     content,
@@ -94,7 +99,8 @@ function contentAbs2Relative(content) {
       "href\\s*=" +
       allTagCharacters +
       ">",
-    "href"
+    "href",
+    baseUrl
   );
   content = cr(
     content,
@@ -104,7 +110,8 @@ function contentAbs2Relative(content) {
       "src\\s*=" +
       allTagCharacters +
       ">",
-    "src"
+    "src",
+    baseUrl
   );
   return content;
 }
@@ -143,7 +150,7 @@ function renderMD(md, baseUrlValue) {
       unicode: false,
     })
   );
-  md = contentAbs2Relative(md);
+  md = contentAbs2Relative(md, baseUrlValue);
   const renderer = new marked.Renderer();
 
   const replacer = ((blockRegex, inlineRegex) => (text) => {
@@ -210,6 +217,8 @@ function renderMD(md, baseUrlValue) {
     headerIds: false,
     katex: katex,
   });
-  marked.use(baseUrl(baseUrlValue));
+  if (baseUrlValue) {
+    marked.use(baseUrl(baseUrlValue));
+  }
   return marked.parse(md, { renderer });
 }

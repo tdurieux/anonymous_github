@@ -237,7 +237,7 @@ angular
         },
         link: function (scope, elem, attrs) {
           function update() {
-            elem.html(renderMD(scope.content, $location.url()));
+            elem.html(renderMD(scope.content, $location.url() + "/../"));
           }
           scope.$watch(attrs.terms, update);
           scope.$watch("terms", update);
@@ -1073,7 +1073,6 @@ angular
           $scope.$watch("anonymize", () => {
             $scope.anonymize.repoId.$$element[0].disabled = true;
             $scope.anonymize.repoUrl.$$element[0].disabled = true;
-            $scope.anonymize.repositories.$$element[0].disabled = true;
           });
         }
       });
@@ -1301,7 +1300,6 @@ angular
             continue;
           }
           // remove whole url if it contains the term
-
           content = content.replace(urlRegex, (match) => {
             if (new RegExp(`\\b${term}\\b`, "gi").test(match))
               return $scope.site_options.ANONYMIZATION_MASK + "-" + (i + 1);
@@ -1316,7 +1314,11 @@ angular
         }
 
         $scope.anonymize_readme = content;
-        const html = renderMD($scope.anonymize_readme, $location.url());
+        const o = parseGithubUrl($scope.repoUrl);
+        const html = renderMD(
+          $scope.anonymize_readme,
+          `https://github.com/${o.owner}/${o.repo}/raw/${$scope.source.branch}/`
+        );
         $scope.html_readme = $sce.trustAsHtml(html);
         setTimeout(Prism.highlightAll, 150);
       }
@@ -1663,7 +1665,7 @@ angular
 
               if ($scope.type == "md") {
                 $scope.content = $sce.trustAsHtml(
-                  renderMD(res.data, $location.url())
+                  renderMD(res.data, $location.url() + "/../")
                 );
                 $scope.type = "html";
               }
