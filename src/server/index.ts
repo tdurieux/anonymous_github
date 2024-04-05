@@ -23,7 +23,7 @@ import config from "../config";
 function indexResponse(req: express.Request, res: express.Response) {
   if (
     req.path.startsWith("/script") ||
-    req.path.startsWith("/style") ||
+    req.path.startsWith("/css") ||
     req.path.startsWith("/favicon") ||
     req.path.startsWith("/api")
   ) {

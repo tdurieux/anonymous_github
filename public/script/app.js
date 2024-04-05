@@ -1713,9 +1713,11 @@ angular
       function updateContent() {
         $scope.content = "";
         $scope.file = getSelectedFile();
-        $scope.url =
-          `/api/repo/${$scope.repoId}/file/${$scope.filePath}?v=` +
-          $scope.file.sha;
+        let fileVersion = "0";
+        if ($scope.file && $scope.file.sha) {
+          fileVersion = $scope.file.sha;
+        }
+        $scope.url = `/api/repo/${$scope.repoId}/file/${$scope.filePath}?v=${fileVersion}`;
 
         let extension = $scope.filePath.toLowerCase();
         const extensionIndex = extension.lastIndexOf(".");
