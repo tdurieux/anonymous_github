@@ -163,6 +163,7 @@ router.get(
           : repo.model.anonymizeDate,
         isAdmin: user?.isAdmin === true,
         isOwner: user?.id == repo.model.owner,
+        hasWebsite: !!repo.options.page && !!repo.options.pageSource,
       });
     } catch (error) {
       handleError(error, res, req);
