@@ -3,6 +3,7 @@ import { Response } from "express";
 import { Readable } from "stream";
 import { trace } from "@opentelemetry/api";
 import { lookup } from "mime-types";
+import CacheableLookup from "cacheable-lookup";
 
 import Repository from "./Repository";
 import { RepositoryStatus, Tree, TreeElement, TreeFile } from "./types";
@@ -227,9 +228,16 @@ export default class AnonymizedFile {
         span.end();
       });
     }
+
+    const cacheableLookup = new CacheableLookup();
+    const ipHost = await cacheableLookup.lookupAsync("streamer");
+
     // use the streamer service
     return got.stream(join(config.STREAMER_ENTRYPOINT, "api"), {
       method: "POST",
+      lookup: cacheableLookup.lookup,
+      host: ipHost.address,
+      dnsCache: cacheableLookup,
       json: {
         token: await this.repository.getToken(),
         repoFullName: this.repository.model.source.repositoryName,
@@ -274,9 +282,14 @@ export default class AnonymizedFile {
                 this.sha(),
                 this.repository.getToken(),
               ]);
+              const cacheableLookup = new CacheableLookup();
+              const ipHost = await cacheableLookup.lookupAsync("streamer");
               got
                 .stream(join(config.STREAMER_ENTRYPOINT, "api"), {
                   method: "POST",
+                  lookup: cacheableLookup.lookup,
+                  host: ipHost.address,
+                  dnsCache: cacheableLookup,
                   json: {
                     sha,
                     token,

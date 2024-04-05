@@ -24,7 +24,7 @@ services:
       interval: 10s
       timeout: 10s
       retries: 5
-    links:
+    depends_on:
       - mongodb
       - redis
       - streamer
@@ -34,9 +34,9 @@ services:
     restart: always
     image: tdurieux/anonymous_github:v2
     deploy:
-      mode: replicated
+      qmode: replicated
       replicas: 4
-      endpoint_mode: vip
+      endpoint_mode: dnsrr
     entrypoint: ["node", "./build/streamer/index.js"]
     env_file:
       - ./.env
