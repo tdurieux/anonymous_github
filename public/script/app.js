@@ -196,32 +196,35 @@ angular
       return capitalized.join(" ");
     };
   })
-  .filter("diff", function ($sce) {
-    return function (str) {
-      if (!str) return str;
-      const lines = str.split("\n");
-      const o = [];
-      for (let i = 1; i < lines.length; i++) {
-        lines[i] = lines[i].replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        if (lines[i].startsWith("+++")) {
-          o.push(`<span class="diff-file">${lines[i]}</span>`);
-        } else if (lines[i].startsWith("---")) {
-          o.push(`<span class="diff-file">${lines[i]}</span>`);
-        } else if (lines[i].startsWith("@@")) {
-          o.push(`<span class="diff-lines">${lines[i]}</span>`);
-        } else if (lines[i].startsWith("index")) {
-          o.push(`<span class="diff-index">${lines[i]}</span>`);
-        } else if (lines[i].startsWith("+")) {
-          o.push(`<span class="diff-add">${lines[i]}</span>`);
-        } else if (lines[i].startsWith("-")) {
-          o.push(`<span class="diff-remove">${lines[i]}</span>`);
-        } else {
-          o.push(`<span class="diff-line">${lines[i]}</span>`);
+  .filter("diff", [
+    "$sce",
+    function ($sce) {
+      return function (str) {
+        if (!str) return str;
+        const lines = str.split("\n");
+        const o = [];
+        for (let i = 1; i < lines.length; i++) {
+          lines[i] = lines[i].replace(/</g, "&lt;").replace(/>/g, "&gt;");
+          if (lines[i].startsWith("+++")) {
+            o.push(`<span class="diff-file">${lines[i]}</span>`);
+          } else if (lines[i].startsWith("---")) {
+            o.push(`<span class="diff-file">${lines[i]}</span>`);
+          } else if (lines[i].startsWith("@@")) {
+            o.push(`<span class="diff-lines">${lines[i]}</span>`);
+          } else if (lines[i].startsWith("index")) {
+            o.push(`<span class="diff-index">${lines[i]}</span>`);
+          } else if (lines[i].startsWith("+")) {
+            o.push(`<span class="diff-add">${lines[i]}</span>`);
+          } else if (lines[i].startsWith("-")) {
+            o.push(`<span class="diff-remove">${lines[i]}</span>`);
+          } else {
+            o.push(`<span class="diff-line">${lines[i]}</span>`);
+          }
         }
-      }
-      return $sce.trustAsHtml(o.join("\n"));
-    };
-  })
+        return $sce.trustAsHtml(o.join("\n"));
+      };
+    },
+  ])
   .directive("markdown", [
     "$location",
     function ($location) {
@@ -394,37 +397,42 @@ angular
       return {
         restrict: "E",
         scope: { file: "=" },
-        controller: function ($element, $scope, $http) {
-          function renderNotebookJSON(json) {
-            const notebook = nb.parse(json);
-            try {
-              $element.html("");
-              $element.append(notebook.render());
-              Prism.highlightAll();
-            } catch (error) {
-              $element.html("Unable to render the notebook.");
-            }
-          }
-          function render() {
-            if ($scope.$parent.content) {
+        controller: [
+          "$element",
+          "$scope",
+          "$http",
+          function ($element, $scope, $http) {
+            function renderNotebookJSON(json) {
+              const notebook = nb.parse(json);
               try {
-                renderNotebookJSON(JSON.parse($scope.$parent.content));
+                $element.html("");
+                $element.append(notebook.render());
+                Prism.highlightAll();
               } catch (error) {
-                $element.html(
-                  "Unable to render the notebook invalid notebook format."
-                );
+                $element.html("Unable to render the notebook.");
               }
-            } else if ($scope.file) {
-              $http
-                .get($scope.file.download_url)
-                .then((res) => renderNotebookJSON(res.data));
             }
-          }
-          $scope.$watch("file", (v) => {
+            function render() {
+              if ($scope.$parent.content) {
+                try {
+                  renderNotebookJSON(JSON.parse($scope.$parent.content));
+                } catch (error) {
+                  $element.html(
+                    "Unable to render the notebook invalid notebook format."
+                  );
+                }
+              } else if ($scope.file) {
+                $http
+                  .get($scope.file.download_url)
+                  .then((res) => renderNotebookJSON(res.data));
+              }
+            }
+            $scope.$watch("file", (v) => {
+              render();
+            });
             render();
-          });
-          render();
-        },
+          },
+        ],
       };
     },
   ])
@@ -435,32 +443,35 @@ angular
         scope: { stats: "=" },
         template:
           "<div class='lang' ng-repeat='lang in elements' title='{{lang.lang|title}}: {{lang.loc | number}} lines' data-toggle='tooltip' data-placement='bottom'  style='width:{{lang.loc*100/total}}%;background:{{lang.color}};'></div>",
-        controller: function ($scope) {
-          function render() {
-            $scope.elements = [];
-            $scope.total = 0;
-            for (let lang in $scope.stats) {
-              const loc = $scope.stats[lang].code;
-              if (!loc) {
-                continue;
+        controller: [
+          "$scope",
+          function ($scope) {
+            function render() {
+              $scope.elements = [];
+              $scope.total = 0;
+              for (let lang in $scope.stats) {
+                const loc = $scope.stats[lang].code;
+                if (!loc) {
+                  continue;
+                }
+                $scope.total += loc;
+                $scope.elements.push({
+                  lang,
+                  loc,
+                  color: langColors[lang],
+                });
               }
-              $scope.total += loc;
-              $scope.elements.push({
-                lang,
-                loc,
-                color: langColors[lang],
-              });
+              setTimeout(() => {
+                $('[data-toggle="tooltip"]').tooltip();
+              }, 100);
             }
-            setTimeout(() => {
-              $('[data-toggle="tooltip"]').tooltip();
-            }, 100);
-          }
 
-          $scope.$watch("stats", (v) => {
+            $scope.$watch("stats", (v) => {
+              render();
+            });
             render();
-          });
-          render();
-        },
+          },
+        ],
       };
     },
   ])
