@@ -30,7 +30,11 @@ export default async function (job: SandboxedJob<Repository, void>) {
         ) {
           return clearInterval(statusInterval);
         }
-        if (repo.status && repo.model.statusMessage !== progress?.status) {
+        if (
+          progress &&
+          repo.status &&
+          repo.model.statusMessage !== progress?.status
+        ) {
           console.log(
             `[QUEUE] Progress: ${job.data.repoId} ${progress.status}`
           );
@@ -45,12 +49,9 @@ export default async function (job: SandboxedJob<Repository, void>) {
       progress = o;
       job.updateProgress(o);
     }
-    updateProgress({ status: "get_repo" });
     try {
-      updateProgress({ status: "resetSate" });
       await repo.resetSate(RepositoryStatus.PREPARING, "");
       await repo.anonymize(updateProgress);
-      updateProgress({ status: RepositoryStatus.READY });
       console.log(`[QUEUE] ${job.data.repoId} is downloaded`);
     } catch (error) {
       updateProgress({ status: "error" });
@@ -65,7 +66,7 @@ export default async function (job: SandboxedJob<Repository, void>) {
     }
   } catch (error: any) {
     console.error(error);
-    job.updateProgress({ status: "error", error: error });
+    clearInterval(statusInterval);
     await repo.updateStatus(RepositoryStatus.ERROR, error.message);
     span.recordException(error as Exception);
     console.log(`[QUEUE] ${job.data.repoId} is finished with an error`);

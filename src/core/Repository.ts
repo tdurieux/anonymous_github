@@ -74,7 +74,9 @@ export default class Repository {
     const token = await getToken(this);
     if (originalToken != token) {
       this._model.source.accessToken = token;
-      await this._model.save();
+      if (isConnected) {
+        await this._model.save();
+      }
     }
     this.checkedToken = true;
     return token;
@@ -461,9 +463,11 @@ export default class Repository {
     span.setAttribute("repoId", this.repoId);
     try {
       await storage.rm(this.repoId);
-    } finally {
       this.model.isReseted = true;
-      await this.model.save();
+      if (isConnected) {
+        await this.model.save();
+      }
+    } finally {
       span.end();
     }
   }
@@ -509,7 +513,9 @@ export default class Repository {
 
       const files = await this.files();
       this._model.size = recursiveCount(files);
-      await this._model.save();
+      if (isConnected) {
+        await this._model.save();
+      }
       return this._model.size;
     } finally {
       span.end();
