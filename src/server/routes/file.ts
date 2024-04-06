@@ -52,8 +52,13 @@ router.get(
           anonymizedPath.substring(anonymizedPath.lastIndexOf("/") + 1)
         );
       }
-      // cache the file for 5min
-      res.header("Cache-Control", "max-age=300");
+      if (req.query.v) {
+        // cache the file for a month
+        res.header("Cache-Control", "max-age=18144000");
+      } else {
+        // cache the file for 5min
+        res.header("Cache-Control", "max-age=300");
+      }
       await repo.countView();
       await f.send(res);
     } catch (error) {
