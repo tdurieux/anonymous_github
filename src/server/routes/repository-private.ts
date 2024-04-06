@@ -191,6 +191,7 @@ router.get(
         owner: req.params.owner,
         repo: req.params.repo,
         accessToken: token,
+        force: req.query.force == "1",
       });
       res.json(repo.toJSON());
     } catch (error) {
@@ -212,6 +213,7 @@ router.get(
         accessToken: token,
         owner: req.params.owner,
         repo: req.params.repo,
+        force: req.query.force == "1",
       });
       return res.json(
         await repository.branches({
@@ -239,6 +241,7 @@ router.get(
         owner: req.params.owner,
         repo: req.params.repo,
         accessToken: token,
+        force: req.query.force == "1",
       });
       if (!repo) {
         throw new AnonymousError("repo_not_found", {

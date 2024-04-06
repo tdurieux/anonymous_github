@@ -230,6 +230,7 @@ export async function getRepositoryFromGitHub(opt: {
   owner: string;
   repo: string;
   accessToken: string;
+  force?: boolean;
 }) {
   const span = trace
     .getTracer("ano-file")
@@ -239,6 +240,14 @@ export async function getRepositoryFromGitHub(opt: {
   try {
     if (opt.repo.indexOf(".git") > -1) {
       opt.repo = opt.repo.replace(".git", "");
+    }
+    const dbModel = isConnected
+      ? await RepositoryModel.findOne({
+          name: opt.owner + "/" + opt.repo,
+        })
+      : null;
+    if (dbModel && !opt.force) {
+      return new GitHubRepository(dbModel);
     }
     const oct = octokit(opt.accessToken);
     let r: RestEndpointMethodTypes["repos"]["get"]["response"]["data"];
@@ -268,15 +277,7 @@ export async function getRepositoryFromGitHub(opt: {
           repo: opt.repo,
         },
       });
-    let model = new RepositoryModel({ externalId: "gh_" + r.id });
-    if (isConnected) {
-      const dbModel = await RepositoryModel.findOne({
-        externalId: "gh_" + r.id,
-      });
-      if (dbModel) {
-        model = dbModel;
-      }
-    }
+    const model = dbModel || new RepositoryModel({ externalId: "gh_" + r.id });
     model.name = r.full_name;
     model.url = r.html_url;
     model.size = r.size;

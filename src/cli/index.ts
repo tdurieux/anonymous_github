@@ -69,6 +69,7 @@ async function main() {
     accessToken: inq.token,
     owner: ghURL.owner,
     repo: ghURL.name,
+    force: true,
   });
   const branches = await ghRepo.branches({
     accessToken: inq.token,

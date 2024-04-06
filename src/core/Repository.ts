@@ -324,6 +324,7 @@ export default class Repository {
           accessToken: await this.getToken(),
           owner: this.source.data.organization,
           repo: this.source.data.repoName,
+          force: true,
         });
         if (repository.size) {
           if (
