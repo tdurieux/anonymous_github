@@ -21,6 +21,8 @@ export class GitHubRepository {
 
   toJSON() {
     return {
+      id: this.model._id,
+      externalId: this._data.externalId,
       repo: this.repo,
       owner: this.owner,
       hasPage: this._data.hasPage,
@@ -229,6 +231,7 @@ export class GitHubRepository {
 export async function getRepositoryFromGitHub(opt: {
   owner: string;
   repo: string;
+  repositoryID?: string;
   accessToken: string;
   force?: boolean;
 }) {
@@ -241,11 +244,20 @@ export async function getRepositoryFromGitHub(opt: {
     if (opt.repo.indexOf(".git") > -1) {
       opt.repo = opt.repo.replace(".git", "");
     }
-    const dbModel = isConnected
-      ? await RepositoryModel.findOne({
-          name: opt.owner + "/" + opt.repo,
-        })
-      : null;
+    let dbModel = null;
+    if (opt.repositoryID) {
+      dbModel = isConnected
+        ? await RepositoryModel.findById(opt.repositoryID)
+        : null;
+      opt.owner = dbModel?.name?.split("/")[0] || opt.owner;
+      opt.repo = dbModel?.name?.split("/")[1] || opt.repo;
+    } else {
+      dbModel = isConnected
+        ? await RepositoryModel.findOne({
+            name: opt.owner + "/" + opt.repo,
+          })
+        : null;
+    }
     if (dbModel && !opt.force) {
       return new GitHubRepository(dbModel);
     }

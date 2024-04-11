@@ -286,14 +286,22 @@ export default class Repository {
       // Only GitHubBase can be update for the moment
       if (this.source instanceof GitHubBase) {
         const token = await this.getToken();
-        const ghRepo = new GitHubRepository({
-          name: this.model.source.repositoryName,
+
+        const ghRepo = await getRepositoryFromGitHub({
+          accessToken: token,
+          owner: this.source.data.organization,
+          repo: this.source.data.repoName,
+          repositoryID: this.model.source.repositoryId,
+          force: true,
         });
+        // update the repository name if it has changed
+        this.model.source.repositoryName = ghRepo.fullName;
         const branches = await ghRepo.branches({
           force: true,
           accessToken: token,
         });
-        const branchName = this.model.source.branch || "main";
+        const branchName =
+          this.model.source.branch || ghRepo.model.defaultBranch;
         const newCommit = branches.filter((f) => f.name == branchName)[0]
           ?.commit;
         if (
@@ -336,20 +344,14 @@ export default class Repository {
           `[UPDATE] ${this._model.repoId} will be updated to ${newCommit}`
         );
 
-        const repository = await getRepositoryFromGitHub({
-          accessToken: await this.getToken(),
-          owner: this.source.data.organization,
-          repo: this.source.data.repoName,
-          force: true,
-        });
-        if (repository.size) {
+        if (ghRepo.size) {
           if (
-            repository.size > config.AUTO_DOWNLOAD_REPO_SIZE &&
+            ghRepo.size > config.AUTO_DOWNLOAD_REPO_SIZE &&
             this.model.source.type == "GitHubDownload"
           ) {
             this.model.source.type = "GitHubStream";
           } else if (
-            repository.size < config.AUTO_DOWNLOAD_REPO_SIZE &&
+            ghRepo.size < config.AUTO_DOWNLOAD_REPO_SIZE &&
             this.model.source.type == "GitHubStream"
           ) {
             this.model.source.type = "GitHubDownload";
@@ -596,6 +598,7 @@ export default class Repository {
       pageView: this._model.pageView,
       size: this.size,
       source: {
+        repositoryID: this.model.source.repositoryId,
         fullName: this.model.source.repositoryName,
         commit: this.model.source.commit,
         branch: this.model.source.branch,

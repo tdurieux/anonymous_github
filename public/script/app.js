@@ -1052,6 +1052,7 @@ angular
               $scope.source = res.data.source;
               $scope.options = res.data.options;
               $scope.conference = res.data.conference;
+              $scope.repositoryID = res.data.source.repositoryID;
               if (res.data.options.expirationDate) {
                 $scope.options.expirationDate = new Date(
                   res.data.options.expirationDate
@@ -1139,7 +1140,12 @@ angular
         const o = parseGithubUrl($scope.repoUrl);
         const branches = await $http.get(
           `/api/repo/${o.owner}/${o.repo}/branches`,
-          { params: { force: force === true ? "1" : "0" } }
+          {
+            params: {
+              force: force === true ? "1" : "0",
+              repositoryID: $scope.repositoryID,
+            },
+          }
         );
         $scope.branches = branches.data;
         if (!$scope.source.branch) {
@@ -1160,7 +1166,11 @@ angular
         const o = parseGithubUrl($scope.repoUrl);
         try {
           resetValidity();
-          const res = await $http.get(`/api/repo/${o.owner}/${o.repo}/`);
+          const res = await $http.get(`/api/repo/${o.owner}/${o.repo}/`, {
+            params: {
+              repositoryID: $scope.repositoryID,
+            },
+          });
           $scope.details = res.data;
           if (!$scope.repoId) {
             $scope.repoId = $scope.details.repo + "-" + generateRandomId(4);
@@ -1200,6 +1210,7 @@ angular
             params: {
               force: force === true ? "1" : "0",
               branch: $scope.source.branch,
+              repositoryID: $scope.repositoryID,
             },
           });
           $scope.readme = res.data;

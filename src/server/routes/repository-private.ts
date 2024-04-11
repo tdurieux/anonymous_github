@@ -90,6 +90,7 @@ router.post("/claim", async (req: express.Request, res: express.Response) => {
     const repo = await getRepositoryFromGitHub({
       owner: r.owner,
       repo: r.name,
+      repositoryID: req.query.repositoryID as string,
       accessToken: user.accessToken,
     });
     if (!repo) {
@@ -191,6 +192,7 @@ router.get(
         owner: req.params.owner,
         repo: req.params.repo,
         accessToken: token,
+        repositoryID: req.query.repositoryID as string,
         force: req.query.force == "1",
       });
       res.json(repo.toJSON());
@@ -213,6 +215,7 @@ router.get(
         accessToken: token,
         owner: req.params.owner,
         repo: req.params.repo,
+        repositoryID: req.query.repositoryID as string,
         force: req.query.force == "1",
       });
       return res.json(
@@ -241,6 +244,7 @@ router.get(
         owner: req.params.owner,
         repo: req.params.repo,
         accessToken: token,
+        repositoryID: req.query.repositoryID as string,
         force: req.query.force == "1",
       });
       if (!repo) {
@@ -379,7 +383,7 @@ router.post(
 
       updateRepoModel(repo.model, repoUpdate);
 
-      const r = gh(repoUpdate.fullName);
+      const r = gh(repo.model.source.repositoryName || repoUpdate.fullName);
       if (!r?.owner || !r?.name) {
         await repo.resetSate(RepositoryStatus.ERROR, "repo_not_found");
         throw new AnonymousError("repo_not_found", {
@@ -391,6 +395,7 @@ router.post(
         accessToken: user.accessToken,
         owner: r.owner,
         repo: r.name,
+        repositoryID: repo.model.source.repositoryId,
       });
 
       if (!repository) {
