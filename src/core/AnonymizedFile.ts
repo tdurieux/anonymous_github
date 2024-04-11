@@ -230,7 +230,8 @@ export default class AnonymizedFile {
     }
 
     const cacheableLookup = new CacheableLookup();
-    const ipHost = await cacheableLookup.lookupAsync("streamer");
+    const hostName = new URL(config.STREAMER_ENTRYPOINT).hostname;
+    const ipHost = await cacheableLookup.lookupAsync(hostName);
 
     // use the streamer service
     return got.stream(join(config.STREAMER_ENTRYPOINT, "api"), {
@@ -283,7 +284,8 @@ export default class AnonymizedFile {
                 this.repository.getToken(),
               ]);
               const cacheableLookup = new CacheableLookup();
-              const ipHost = await cacheableLookup.lookupAsync("streamer");
+              const hostName = new URL(config.STREAMER_ENTRYPOINT).hostname;
+              const ipHost = await cacheableLookup.lookupAsync(hostName);
               got
                 .stream(join(config.STREAMER_ENTRYPOINT, "api"), {
                   method: "POST",
