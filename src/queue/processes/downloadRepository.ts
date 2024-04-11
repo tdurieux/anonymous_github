@@ -43,7 +43,7 @@ export default async function (job: SandboxedJob<Repository, void>) {
       } catch (_) {
         // ignore error
       }
-    }, 500);
+    }, 1000);
     function updateProgress(obj: { status: string } | string) {
       const o = typeof obj === "string" ? { status: obj } : obj;
       progress = o;
@@ -65,11 +65,16 @@ export default async function (job: SandboxedJob<Repository, void>) {
       throw error;
     }
   } catch (error: any) {
-    console.error(error);
     clearInterval(statusInterval);
-    await repo.updateStatus(RepositoryStatus.ERROR, error.message);
     span.recordException(error as Exception);
-    console.log(`[QUEUE] ${job.data.repoId} is finished with an error`);
+    console.log(`[QUEUE] ${job.data.repoId} is finished with an error`, error);
+    setTimeout(async () => {
+      // delay to avoid double saving
+      try {
+        await repo.updateStatus(RepositoryStatus.ERROR, error.message);
+      } catch (ignore) {
+      }
+    }, 400);
   } finally {
     clearInterval(statusInterval);
     span.end();
