@@ -77,10 +77,10 @@ router.delete("/queue/:name/:repo_id", async (req, res) => {
   }
   try {
     await job.remove();
+    res.send("ok");
   } catch (error) {
     handleError(error, res, req);
   }
-  res.send("ok");
 });
 
 router.get("/queues", async (req, res) => {
