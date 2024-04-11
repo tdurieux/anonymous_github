@@ -21,6 +21,7 @@ function defaultTask(cb) {
     "public/script/external/prism.min.js",
     "public/script/external/katex.min.js",
     "public/script/external/katex-auto-render.min.js",
+    "public/script/external/marked-katex-extension.umd.min.js",
     "public/script/external/notebook.min.js",
     "public/script/external/org.js",
     "public/script/external/jquery-3.4.1.min.js",

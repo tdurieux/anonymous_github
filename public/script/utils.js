@@ -153,49 +153,6 @@ function renderMD(md, baseUrlValue) {
   md = contentAbs2Relative(md, baseUrlValue);
   const renderer = new marked.Renderer();
 
-  const replacer = ((blockRegex, inlineRegex) => (text) => {
-    text = text.replace(blockRegex, (match, expression) => {
-      return katex.renderToString(expression, { displayMode: true });
-    });
-
-    text = text.replace(inlineRegex, (match, expression) => {
-      return katex.renderToString(expression, { displayMode: false });
-    });
-
-    return text;
-  })(/\$\$([\s\S]+?)\$\$/g, /\$([^\n\s]+?)\$/g);
-
-  const replaceTypes = ["listitems", "paragraph", "tablecell", "text"];
-  replaceTypes.forEach((type) => {
-    const original = renderer[type];
-    renderer[type] = (...args) => {
-      args[0] = replacer(args[0]);
-      return original(...args);
-    };
-  });
-
-  const rendererCode = renderer.code;
-  renderer.code = function (code, lang, escaped) {
-    if (!lang) {
-      const math = replacer(code);
-      if (math != code) {
-        return math;
-      }
-    }
-    // call default renderer
-    return rendererCode.call(this, code, lang, escaped);
-  };
-
-  const rendererCodespan = renderer.codespan;
-  renderer.codespan = function (text) {
-    const math = replacer(text);
-    if (math != text) {
-      return math;
-    }
-
-    return rendererCodespan.call(this, text);
-  };
-
   const rendererLink = renderer.link;
   renderer.link = function (href, title, text) {
     // wrap videos links (mp4 and mov) with media https://github.blog/2021-05-13-video-uploads-available-github/
@@ -220,5 +177,10 @@ function renderMD(md, baseUrlValue) {
   if (baseUrlValue) {
     marked.use(baseUrl(baseUrlValue));
   }
+  marked.use(
+    markedKatex({
+      throwOnError: false,
+    })
+  );
   return marked.parse(md, { renderer });
 }
