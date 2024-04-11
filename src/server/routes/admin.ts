@@ -35,6 +35,8 @@ router.post("/queue/:name/:repo_id", async (req, res) => {
   let queue: Queue<Repository, void>;
   if (req.params.name == "download") {
     queue = downloadQueue;
+  } else if (req.params.name == "cache") {
+    queue = cacheQueue;
   } else if (req.params.name == "remove") {
     queue = removeQueue;
   } else {
@@ -62,6 +64,8 @@ router.delete("/queue/:name/:repo_id", async (req, res) => {
   let queue: Queue;
   if (req.params.name == "download") {
     queue = downloadQueue;
+  } else if (req.params.name == "cache") {
+    queue = cacheQueue;
   } else if (req.params.name == "remove") {
     queue = removeQueue;
   } else {
@@ -71,7 +75,11 @@ router.delete("/queue/:name/:repo_id", async (req, res) => {
   if (!job) {
     return res.status(404).json({ error: "job_not_found" });
   }
-  await job.remove();
+  try {
+    await job.remove();
+  } catch (error) {
+    handleError(error, res, req);
+  }
   res.send("ok");
 });
 
