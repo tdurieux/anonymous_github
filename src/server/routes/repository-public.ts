@@ -85,17 +85,17 @@ router.get(
       if (!repo) return;
       let redirectURL = null;
       if (
-        repo.status == "expired" &&
+        repo.status == RepositoryStatus.EXPIRED &&
         repo.options.expirationMode == "redirect" &&
         repo.model.source.repositoryName
       ) {
         redirectURL = `https://github.com/${repo.model.source.repositoryName}`;
       } else {
         if (
-          repo.status == "expired" ||
-          repo.status == "expiring" ||
-          repo.status == "removing" ||
-          repo.status == "removed"
+          repo.status == RepositoryStatus.EXPIRED ||
+          repo.status == RepositoryStatus.EXPIRING ||
+          repo.status == RepositoryStatus.REMOVING ||
+          repo.status == RepositoryStatus.REMOVED
         ) {
           throw new AnonymousError("repository_expired", {
             object: repo,

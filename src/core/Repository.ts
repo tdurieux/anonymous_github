@@ -181,6 +181,7 @@ export default class Repository {
       this._model.options.expirationDate
     ) {
       if (this._model.options.expirationDate <= new Date()) {
+        this._model.status = RepositoryStatus.EXPIRED;
         this.expire();
       }
     }
@@ -261,6 +262,21 @@ export default class Repository {
       .getTracer("ano-file")
       .startSpan("Repository.updateIfNeeded");
     span.setAttribute("repoId", this.repoId);
+
+    if (
+      this._model.options.expirationMode !== "never" &&
+      this.status != RepositoryStatus.EXPIRED &&
+      this._model.options.expirationDate
+    ) {
+      if (this._model.options.expirationDate <= new Date()) {
+        this._model.status = RepositoryStatus.EXPIRED;
+        await this.expire();
+        throw new AnonymousError("repository_expired", {
+          object: this,
+          httpStatus: 410,
+        });
+      }
+    }
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     if (

@@ -4,6 +4,7 @@ import * as db from "../database";
 import UserModel from "../../core/model/users/users.model";
 import User from "../../core/User";
 import { HTTPError } from "got";
+import { RepositoryStatus } from "../../core/types";
 
 export async function getPullRequest(
   req: express.Request,
@@ -50,7 +51,7 @@ export async function getRepo(
     } else {
       // redirect if the repository is expired
       if (
-        repo.status == "expired" &&
+        repo.status == RepositoryStatus.EXPIRED &&
         repo.options.expirationMode == "redirect" &&
         repo.model.source.repositoryId
       ) {
