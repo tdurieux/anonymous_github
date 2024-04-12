@@ -42,17 +42,21 @@ router.post("/queue/:name/:repo_id", async (req, res) => {
   } else {
     return res.status(404).json({ error: "queue_not_found" });
   }
-  const job = await queue.getJob(req.params.repo_id);
-  if (!job) {
-    return res.status(404).json({ error: "job_not_found" });
-  }
+  let job;
   try {
+    job = await queue.getJob(req.params.repo_id);
+    if (!job) {
+      return res.status(404).json({ error: "job_not_found" });
+    }
+
     await job.retry();
     res.send("ok");
   } catch (error) {
     try {
-      await job.remove();
-      queue.add(job.name, job.data, job.opts);
+      if (job) {
+        await job.remove();
+        queue.add(job.name, job.data, job.opts);
+      }
       res.send("ok");
     } catch (error) {
       res.status(500).send("error_retrying_job");
@@ -71,11 +75,11 @@ router.delete("/queue/:name/:repo_id", async (req, res) => {
   } else {
     return res.status(404).json({ error: "queue_not_found" });
   }
-  const job = await queue.getJob(req.params.repo_id);
-  if (!job) {
-    return res.status(404).json({ error: "job_not_found" });
-  }
   try {
+    const job = await queue.getJob(req.params.repo_id);
+    if (!job) {
+      return res.status(404).json({ error: "job_not_found" });
+    }
     await job.remove();
     res.send("ok");
   } catch (error) {

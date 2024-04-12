@@ -52,6 +52,8 @@ export default async function (job: SandboxedJob<Repository, void>) {
     try {
       await repo.resetSate(RepositoryStatus.PREPARING, "");
       await repo.anonymize(updateProgress);
+      clearInterval(statusInterval);
+      await repo.updateStatus(RepositoryStatus.READY, "");
       console.log(`[QUEUE] ${job.data.repoId} is downloaded`);
     } catch (error) {
       updateProgress({ status: "error" });
@@ -72,8 +74,7 @@ export default async function (job: SandboxedJob<Repository, void>) {
       // delay to avoid double saving
       try {
         await repo.updateStatus(RepositoryStatus.ERROR, error.message);
-      } catch (ignore) {
-      }
+      } catch (ignore) {}
     }, 400);
   } finally {
     clearInterval(statusInterval);
