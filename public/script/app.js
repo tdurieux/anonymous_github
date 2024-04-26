@@ -331,11 +331,11 @@ angular
                     current = current[0].child;
                   }
                   name = test;
-                  if (size > 0) {
+                  if (size >= 0) {
                     dir = false;
                   }
                 }
-                if (size) {
+                if (size != null) {
                   size = `Size: ${humanFileSize(size || 0)}`;
                 } else {
                   size = "";

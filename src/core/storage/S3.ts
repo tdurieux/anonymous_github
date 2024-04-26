@@ -272,7 +272,7 @@ export default class S3Storage extends StorageBase {
             new FileModel({
               name: basename(f.Key),
               path: dirname(f.Key),
-              repoID: repoId,
+              repoId,
               size: f.Size,
               sha: f.ETag,
             })

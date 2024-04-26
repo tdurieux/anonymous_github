@@ -152,9 +152,7 @@ export default class FileSystem extends StorageBase {
           try {
             const stats = await fs.promises.stat(filePath);
             if (stats.isDirectory()) {
-              output2.push(
-                new FileModel({ name: file, path: dir, repoID: repoId })
-              );
+              output2.push(new FileModel({ name: file, path: dir, repoId }));
               output2.push(
                 ...(await this.listFiles(repoId, join(dir, file), opt))
               );
@@ -169,7 +167,7 @@ export default class FileSystem extends StorageBase {
                 new FileModel({
                   name: file,
                   path: dir,
-                  repoID: repoId,
+                  repoId: repoId,
                   size: stats.size,
                   sha: stats.ino.toString(),
                 })

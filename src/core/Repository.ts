@@ -485,7 +485,7 @@ export default class Repository {
     }
     // remove cache
     await Promise.all([
-      FileModel.deleteMany({ repoID: this.repoId }).exec(),
+      FileModel.deleteMany({ repoId: this.repoId }).exec(),
       this.removeCache(),
     ]);
     console.log(`[RESET] ${this._model.repoId} has been reset`);
