@@ -171,39 +171,6 @@ export default class Repository {
           anonymizedPath: opt.path,
         });
         opt.path = await f.originalPath();
-        console.log(opt.path, f);
-        // const anoPath = opt.path.split(config.ANONYMIZATION_MASK);
-        // let beforePath = anoPath[0];
-        // if (beforePath.endsWith("/")) {
-        //   beforePath = beforePath.substring(0, beforePath.length - 1);
-        // }
-        // let afterPath =
-        //   anoPath[1].indexOf("/") > -1
-        //     ? anoPath[1].substring(anoPath[1].indexOf("/") + 1)
-        //     : "";
-        // const anoTerm = opt.path.substring(
-        //   opt.path.indexOf(config.ANONYMIZATION_MASK),
-        //   afterPath ? opt.path.indexOf(afterPath) - 1 : undefined
-        // );
-
-        // const candidates = await FileModel.find({
-        //   repoId: this.repoId,
-        //   path: new RegExp(`^${beforePath}$`),
-        // }).exec();
-        // let found = false;
-        // for (const candidate of candidates) {
-        //   const p = anonymizePath(
-        //     candidate.name,
-        //     this._model.options.terms || []
-        //   );
-        //   if (p == anoTerm) {
-        //     opt.path = join(beforePath, candidate.name, afterPath);
-        //     found = true;
-        //   }
-        // }
-        // if (found === false) {
-        //   throw new AnonymousError("path_not_found");
-        // }
       }
 
       let pathQuery: string | RegExp | undefined = opt.path
