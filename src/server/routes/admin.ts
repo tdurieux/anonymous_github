@@ -277,7 +277,6 @@ router.get("/conferences", async (req, res) => {
       ],
     };
   }
-
   res.json({
     query: query,
     page,

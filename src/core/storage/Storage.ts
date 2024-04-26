@@ -3,9 +3,9 @@ import { Transform, Readable } from "stream";
 import * as archiver from "archiver";
 import { Response } from "express";
 
-import { Tree } from "../types";
 import S3Storage from "./S3";
 import FileSystem from "./FileSystem";
+import { IFile } from "../model/files/files.types";
 
 export type Storage = S3Storage | FileSystem;
 
@@ -62,7 +62,7 @@ export default abstract class StorageBase {
    * List the files from dir
    * @param dir
    */
-  abstract listFiles(repoId: string, dir: string): Promise<Tree>;
+  abstract listFiles(repoId: string, dir: string): Promise<IFile[]>;
 
   /**
    * Extract the content of tar to dir

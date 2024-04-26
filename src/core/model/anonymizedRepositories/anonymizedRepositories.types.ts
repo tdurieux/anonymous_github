@@ -1,5 +1,5 @@
 import { Document, Model } from "mongoose";
-import { RepositoryStatus, Tree } from "../../types";
+import { RepositoryStatus } from "../../types";
 
 export interface IAnonymizedRepository {
   repoId: string;
@@ -11,14 +11,13 @@ export interface IAnonymizedRepository {
     type: "GitHubDownload" | "GitHubStream" | "Zip";
     branch?: string;
     commit?: string;
-    commitDate?: Date,
+    commitDate?: Date;
     repositoryId?: string;
     repositoryName?: string;
     accessToken?: string;
   };
   owner: string;
   truckedFileList: boolean;
-  originalFiles?: Tree;
   conference: string;
   options: {
     terms: string[];

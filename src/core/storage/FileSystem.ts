@@ -1,4 +1,3 @@
-import { Tree } from "../types";
 import config from "../../config";
 import * as fs from "fs";
 import { Extract } from "unzip-stream";
@@ -10,6 +9,8 @@ import { promisify } from "util";
 import { lookup } from "mime-types";
 import { trace } from "@opentelemetry/api";
 import StorageBase, { FILE_TYPE } from "./Storage";
+import FileModel from "../model/files/files.model";
+import { IFile } from "../model/files/files.types";
 
 export default class FileSystem extends StorageBase {
   type = "FileSystem";
@@ -138,23 +139,25 @@ export default class FileSystem extends StorageBase {
     opt: {
       onEntry?: (file: { path: string; size: number }) => void;
     } = {}
-  ): Promise<Tree> {
+  ): Promise<IFile[]> {
     return trace
       .getTracer("ano-file")
       .startActiveSpan("fs.listFiles", async (span) => {
         span.setAttribute("path", dir);
         const fullPath = join(config.FOLDER, this.repoPath(repoId), dir);
         let files = await fs.promises.readdir(fullPath);
-        const output: Tree = {};
+        const output2: IFile[] = [];
         for (let file of files) {
           let filePath = join(fullPath, file);
           try {
             const stats = await fs.promises.stat(filePath);
-            if (file[0] == "$") {
-              file = "\\" + file;
-            }
             if (stats.isDirectory()) {
-              output[file] = await this.listFiles(repoId, join(dir, file), opt);
+              output2.push(
+                new FileModel({ name: file, path: dir, repoID: repoId })
+              );
+              output2.push(
+                ...(await this.listFiles(repoId, join(dir, file), opt))
+              );
             } else if (stats.isFile()) {
               if (opt.onEntry) {
                 opt.onEntry({
@@ -162,14 +165,22 @@ export default class FileSystem extends StorageBase {
                   size: stats.size,
                 });
               }
-              output[file] = { size: stats.size, sha: stats.ino.toString() };
+              output2.push(
+                new FileModel({
+                  name: file,
+                  path: dir,
+                  repoID: repoId,
+                  size: stats.size,
+                  sha: stats.ino.toString(),
+                })
+              );
             }
           } catch (error) {
             span.recordException(error as Error);
           }
         }
         span.end();
-        return output;
+        return output2;
       });
   }
 

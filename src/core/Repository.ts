@@ -1,5 +1,5 @@
 import storage from "./storage";
-import { RepositoryStatus, Tree, TreeElement, TreeFile } from "./types";
+import { RepositoryStatus } from "./types";
 import { Readable } from "stream";
 import * as sha1 from "crypto-js/sha1";
 import User from "./User";
@@ -16,7 +16,6 @@ import ConferenceModel from "./model/conference/conferences.model";
 import AnonymousError from "./AnonymousError";
 import { downloadQueue } from "../queue";
 import { isConnected } from "../server/database";
-import AnonymizedRepositoryModel from "./model/anonymizedRepositories/anonymizedRepositories.model";
 import {
   getRepositoryFromGitHub,
   GitHubRepository,
@@ -25,9 +24,12 @@ import { trace } from "@opentelemetry/api";
 import { getToken } from "./GitHubUtils";
 import { FILE_TYPE } from "./storage/Storage";
 import config from "../config";
-
+import FileModel from "./model/files/files.model";
+import { IFile } from "./model/files/files.types";
+import { join } from "path";
+import AnonymizedFile from "./AnonymizedFile";
 function anonymizeTreeRecursive(
-  tree: TreeElement,
+  tree: IFile[],
   terms: string[],
   opt: {
     /** Include the file sha in the response */
@@ -35,24 +37,21 @@ function anonymizeTreeRecursive(
   } = {
     includeSha: false,
   }
-): TreeElement {
-  if (typeof tree.size !== "object" && tree.sha !== undefined) {
-    if (opt?.includeSha) return tree as TreeFile;
+): Partial<IFile>[] {
+  return tree.map((file) => {
     return {
-      size: tree.size,
-      sha: sha1(tree.sha as string).toString(),
-    } as TreeFile;
-  }
-  const output: Tree = {};
-  Object.getOwnPropertyNames(tree).forEach((file) => {
-    const anonymizedPath = anonymizePath(file, terms);
-    output[anonymizedPath] = anonymizeTreeRecursive(
-      (tree as Tree)[file],
-      terms,
-      opt
-    );
+      name: anonymizePath(file.name, terms),
+      path: anonymizePath(file.path, terms),
+      size: file.size,
+      sha: opt.includeSha
+        ? file.sha
+        : file.size
+        ? sha1(file.sha || "")
+            .toString()
+            .substring(0, 8)
+        : undefined,
+    };
   });
-  return output;
 }
 
 export default class Repository {
@@ -124,13 +123,16 @@ export default class Repository {
       force?: boolean;
       /** Include the file sha in the response */
       includeSha: boolean;
+      recursive?: boolean;
+      path?: string;
     } = {
       force: false,
       includeSha: false,
+      recursive: true,
     }
-  ): Promise<Tree> {
+  ): Promise<Partial<IFile>[]> {
     const terms = this._model.options.terms || [];
-    return anonymizeTreeRecursive(await this.files(opt), terms, opt) as Tree;
+    return anonymizeTreeRecursive(await this.files(opt), terms, opt);
   }
 
   /**
@@ -140,32 +142,81 @@ export default class Repository {
    * @returns The file tree
    */
   async files(
-    opt: { force?: boolean; progress?: (status: string) => void } = {
+    opt: {
+      recursive?: boolean;
+      path?: string;
+      force?: boolean;
+      progress?: (status: string) => void;
+    } = {
+      recursive: true,
       force: false,
     }
-  ): Promise<Tree> {
+  ): Promise<IFile[]> {
     const span = trace.getTracer("ano-file").startSpan("Repository.files");
     span.setAttribute("repoId", this.repoId);
     try {
-      if (!this._model.originalFiles && !opt.force) {
-        const res = await AnonymizedRepositoryModel.findById(this._model._id, {
-          originalFiles: 1,
+      const hasFile = await FileModel.exists({ repoId: this.repoId }).exec();
+      if (!hasFile || opt.force) {
+        await FileModel.deleteMany({ repoId: this.repoId }).exec();
+        const files = await this.source.getFiles(opt.progress);
+        files.forEach((f) => (f.repoId = this.repoId));
+        await FileModel.insertMany(files);
+
+        this._model.size = { storage: 0, file: 0 };
+        await this.computeSize();
+      }
+      if (opt.path?.includes(config.ANONYMIZATION_MASK)) {
+        const f = new AnonymizedFile({
+          repository: this,
+          anonymizedPath: opt.path,
         });
-        if (!res) throw new AnonymousError("repository_not_found");
-        this.model.originalFiles = res.originalFiles;
+        opt.path = await f.originalPath();
+        console.log(opt.path, f);
+        // const anoPath = opt.path.split(config.ANONYMIZATION_MASK);
+        // let beforePath = anoPath[0];
+        // if (beforePath.endsWith("/")) {
+        //   beforePath = beforePath.substring(0, beforePath.length - 1);
+        // }
+        // let afterPath =
+        //   anoPath[1].indexOf("/") > -1
+        //     ? anoPath[1].substring(anoPath[1].indexOf("/") + 1)
+        //     : "";
+        // const anoTerm = opt.path.substring(
+        //   opt.path.indexOf(config.ANONYMIZATION_MASK),
+        //   afterPath ? opt.path.indexOf(afterPath) - 1 : undefined
+        // );
+
+        // const candidates = await FileModel.find({
+        //   repoId: this.repoId,
+        //   path: new RegExp(`^${beforePath}$`),
+        // }).exec();
+        // let found = false;
+        // for (const candidate of candidates) {
+        //   const p = anonymizePath(
+        //     candidate.name,
+        //     this._model.options.terms || []
+        //   );
+        //   if (p == anoTerm) {
+        //     opt.path = join(beforePath, candidate.name, afterPath);
+        //     found = true;
+        //   }
+        // }
+        // if (found === false) {
+        //   throw new AnonymousError("path_not_found");
+        // }
       }
-      if (
-        this._model.originalFiles &&
-        Object.getOwnPropertyNames(this._model.originalFiles).length !== 0 &&
-        !opt.force
-      ) {
-        return this._model.originalFiles;
+
+      let pathQuery: string | RegExp | undefined = opt.path
+        ? new RegExp(`^${opt.path}`)
+        : undefined;
+      if (opt.recursive === false) {
+        pathQuery = opt.path ? new RegExp(`^${opt.path}$`) : "";
       }
-      const files = await this.source.getFiles(opt.progress);
-      this._model.originalFiles = files;
-      this._model.size = { storage: 0, file: 0 };
-      await this.computeSize();
-      return files;
+
+      return await FileModel.find({
+        repoId: this.repoId,
+        path: pathQuery,
+      }).exec();
     } finally {
       span.end();
     }
@@ -379,6 +430,7 @@ export default class Repository {
       span.end();
       return;
     }
+    this.model.increment();
     await this.updateStatus(RepositoryStatus.DOWNLOAD);
     await this.files({
       force: false,
@@ -461,12 +513,14 @@ export default class Repository {
     span.setAttribute("repoId", this.repoId);
     // remove attribute
     this._model.size = { storage: 0, file: 0 };
-    this._model.originalFiles = undefined;
     if (status) {
       await this.updateStatus(status, statusMessage);
     }
     // remove cache
-    await this.removeCache();
+    await Promise.all([
+      FileModel.deleteMany({ repoID: this.repoId }).exec(),
+      this.removeCache(),
+    ]);
     console.log(`[RESET] ${this._model.repoId} has been reset`);
     span.end();
   }
@@ -514,24 +568,24 @@ export default class Repository {
       if (this.status !== RepositoryStatus.READY)
         return { storage: 0, file: 0 };
       if (this._model.size.file) return this._model.size;
-      function recursiveCount(files: Tree): { storage: number; file: number } {
-        const out = { storage: 0, file: 0 };
-        for (const name in files) {
-          const file = files[name];
-          if (file.size && parseInt(file.size.toString()) == file.size) {
-            out.storage += file.size as number;
-            out.file++;
-          } else if (typeof file == "object") {
-            const r = recursiveCount(file as Tree);
-            out.storage += r.storage;
-            out.file += r.file;
-          }
-        }
-        return out;
-      }
-
-      const files = await this.files();
-      this._model.size = recursiveCount(files);
+      const res = await FileModel.aggregate([
+        {
+          $match: {
+            repoId: this.repoId,
+          },
+        },
+        {
+          $group: {
+            _id: "$repoId",
+            storage: { $sum: "$size" },
+            file: { $sum: 1 },
+          },
+        },
+      ]);
+      this._model.size = {
+        storage: res[0]?.storage || 0,
+        file: res[0]?.file || 0,
+      };
       if (isConnected) {
         await this._model.save();
       }

@@ -131,7 +131,6 @@ router.post(
     try {
       const repo = await getRepo(req, res, {
         nocheck: true,
-        includeFiles: false,
       });
       if (!repo) return;
 
@@ -158,7 +157,6 @@ router.delete(
   async (req: express.Request, res: express.Response) => {
     const repo = await getRepo(req, res, {
       nocheck: true,
-      includeFiles: false,
     });
     if (!repo) return;
     // if (repo.status == "removing") return res.json({ status: repo.status });
@@ -271,7 +269,6 @@ router.get("/:repoId/", async (req: express.Request, res: express.Response) => {
   try {
     const repo = await getRepo(req, res, {
       nocheck: true,
-      includeFiles: false,
     });
     if (!repo) return;
 
@@ -364,7 +361,6 @@ router.post(
     try {
       const repo = await getRepo(req, res, {
         nocheck: true,
-        includeFiles: false,
       });
       if (!repo) return;
       const user = await getUser(req);

@@ -26,7 +26,6 @@ router.get(
 
     const repo = await getRepo(req, res, {
       nocheck: false,
-      includeFiles: false,
     });
     if (!repo) return;
 

@@ -1,10 +1,10 @@
 import { Readable } from "stream";
 
 import AnonymizedFile from "../AnonymizedFile";
-import { Tree } from "../types";
 import GitHubDownload from "./GitHubDownload";
 import GitHubStream from "./GitHubStream";
 import Zip from "./Zip";
+import { IFile } from "../model/files/files.types";
 
 export type Source = GitHubDownload | GitHubStream | Zip;
 
@@ -20,5 +20,5 @@ export interface SourceBase {
   /**
    * Get all the files from a specific source
    */
-  getFiles(progress?: (status: string) => void): Promise<Tree>;
+  getFiles(progress?: (status: string) => void): Promise<IFile[]>;
 }

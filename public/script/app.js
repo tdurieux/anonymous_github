@@ -270,30 +270,37 @@ angular
               });
             }
 
-            const toArray = function (obj) {
+            const toArray = function (arr) {
               const output = [];
-              for (let name in obj) {
-                if (obj[name].size != null) {
+              const keys = { "": { child: output } };
+              for (let file of arr) {
+                let current = keys[file.path].child;
+                let fPath = `${file.path}/${file.name}`;
+                if (fPath.startsWith("/")) {
+                  fPath = fPath.substring(1);
+                }
+                if (file.size != null) {
                   // it is a file
-                  output.push({
-                    name,
-                    size: obj[name].size,
-                    sha: obj[name].sha,
+                  current.push({
+                    name: file.name,
+                    size: file.size,
+                    sha: file.sha,
                   });
                 } else {
-                  output.push({
-                    name,
-                    sha: obj[name].sha,
-                    child: obj[name],
-                  });
+                  const dir = {
+                    name: file.name,
+                    child: [],
+                  };
+                  keys[fPath] = dir;
+                  current.push(dir);
                 }
               }
               return output;
             };
 
             const sortFiles = (f1, f2) => {
-              const f1d = isDir(f1.child);
-              const f2d = isDir(f2.child);
+              const f1d = !!f1.child;
+              const f2d = !!f2.child;
               if (f1d && f2d) {
                 return f1.name - f2.name;
               }
@@ -307,22 +314,24 @@ angular
             };
 
             function generate(current, parentPath) {
-              const afiles = toArray(current).sort(sortFiles);
+              if (!current) return "";
+              current = current.sort(sortFiles);
+              const afiles = current;
               let output = "<ul>";
               for (let f of afiles) {
-                let dir = isDir(f.child);
+                let dir = !!f.child;
                 let name = f.name;
                 let size = f.size || 0;
                 if (dir) {
                   let test = name;
-                  current = toArray(f.child);
-                  while (current.length == 1) {
+                  current = f.child;
+                  while (current && current.length == 1) {
                     test += "/" + current[0].name;
                     size = current[0].size;
-                    current = toArray(current[0].child);
+                    current = current[0].child;
                   }
                   name = test;
-                  if (current.length == 0) {
+                  if (size > 0) {
                     dir = false;
                   }
                 }
@@ -332,15 +341,27 @@ angular
                   size = "";
                 }
                 const path = `${parentPath}/${name}`;
-                output += `<li class="file ${
-                  dir ? "folder" : ""
-                }" ng-class="{active: isActive('${path}'), open: opens['${path}']}" title="${size}">`;
+
+                const cssClasses = ["file"];
+                if (dir) {
+                  cssClasses.push("folder");
+                }
+                if ($scope.opens[path]) {
+                  cssClasses.push("open");
+                }
+                if ($scope.isActive(path)) {
+                  cssClasses.push("active");
+                }
+
+                output += `<li class="${cssClasses.join(
+                  " "
+                )}" ng-class="{active: isActive('${path}'), open: opens['${path}']}" title="${size}">`;
                 if (dir) {
                   output += `<a ng-click="openFolder('${path}', $event)">${name}</a>`;
                 } else {
                   output += `<a href='/r/${$scope.repoId}${path}'>${name}</a>`;
                 }
-                if ($scope.opens[path]) {
+                if ($scope.opens[path] && f.child && f.child.length > 1) {
                   output += generate(f.child, parentPath + "/" + f.name);
                 }
                 // output += generate(f.child, parentPath + "/" + f.name);
@@ -349,43 +370,35 @@ angular
               return output + "</ul>";
             }
             function display() {
-              const output = generate($scope.file, "");
+              $element.html("");
+              const output = generate(toArray($scope.file).sort(sortFiles), "");
               $compile(output)($scope, (clone) => {
                 $element.append(clone);
               });
             }
 
-            $scope.$watch("file", (newValue) => {
-              if (newValue == null) return;
-              if (Array.isArray(newValue)) return;
-              if (Object.keys(newValue).length == 0) {
-                return $element.html("Empty repository");
-              }
-              display();
-            });
+            $scope.$watch(
+              "file",
+              (newValue) => {
+                if (newValue == null) return;
+                if (newValue.length == 0) {
+                  return $element.html("Empty repository");
+                }
+                display();
+              },
+              true
+            );
 
             $scope.isActive = function (name) {
               return $routeParams.path == name.substring(1);
             };
 
-            $scope.openFolder = function (folder, event) {
+            $scope.openFolder = async function (folder, event) {
               $scope.opens[folder] = !$scope.opens[folder];
               if (event.srcElement.nextSibling == null) {
-                const folders = folder.substring(1).split("/");
-                let current = $scope.file;
-                for (let folder of folders) {
-                  current = current[folder];
-                }
-                $compile(generate(current, folder))($scope, (clone) => {
-                  angular.element(event.srcElement.parentNode).append(clone);
-                });
+                await $scope.$parent.getFiles(folder.substring(1));
+                display();
               }
-            };
-            const isFile = function (child) {
-              return child == null || child.size != null;
-            };
-            const isDir = function (child) {
-              return !isFile(child);
             };
           },
         ],
@@ -1177,7 +1190,7 @@ angular
           }
           await $scope.getBranches();
         } catch (error) {
-          console.log("here", error);
+          console.log(error);
           if (error.data) {
             $translate("ERRORS." + error.data.error).then((translation) => {
               const toast = {
@@ -1474,6 +1487,7 @@ angular
     "$sce",
     "PDFViewerService",
     function ($scope, $http, $location, $routeParams, $sce, PDFViewerService) {
+      $scope.files = [];
       const extensionModes = {
         yml: "yaml",
         txt: "text",
@@ -1526,6 +1540,9 @@ angular
       });
 
       function selectFile() {
+        if ($scope.paths[0] != "") {
+          return;
+        }
         const readmePriority = [
           "readme.md",
           "readme.txt",
@@ -1533,21 +1550,10 @@ angular
           "readme.1st",
           "readme",
         ];
-        // find current folder
-        let currentFolder = $scope.files;
-        for (const p of $scope.paths) {
-          if (currentFolder[p]) {
-            currentFolder = currentFolder[p];
-          }
-        }
-        if (currentFolder.size && Number.isInteger(currentFolder.size)) {
-          // a file is already selected
-          return;
-        }
         const readmeCandidates = {};
-        for (const file in currentFolder) {
-          if (file.toLowerCase().indexOf("readme") > -1) {
-            readmeCandidates[file.toLowerCase()] = file;
+        for (const file of $scope.files) {
+          if (file.name.toLowerCase().indexOf("readme") > -1) {
+            readmeCandidates[file.name.toLowerCase()] = file.name;
           }
         }
         let best_match = null;
@@ -1569,36 +1575,29 @@ angular
           $location.url(uri + readmeCandidates[best_match]);
         }
       }
-      function getFiles(callback) {
-        $http.get(`/api/repo/${$scope.repoId}/files/`).then(
-          (res) => {
-            $scope.files = res.data;
-            selectFile();
-            if (callback) {
-              return callback();
-            }
-          },
-          (err) => {
-            $scope.type = "error";
-            $scope.content = err.data.error;
-            $scope.files = null;
-          }
-        );
-      }
+      $scope.getFiles = async function (path) {
+        try {
+          const res = await $http.get(
+            `/api/repo/${$scope.repoId}/files/?path=${path}`
+          );
+          $scope.files.push(...res.data);
+          return res.data;
+        } catch (err) {
+          $scope.type = "error";
+          $scope.content = err.data.error;
+          $scope.files = [];
+        }
+      };
 
       function getSelectedFile() {
-        let currentFolder = $scope.files;
-        for (const p of $scope.paths) {
-          if (currentFolder[p]) {
-            currentFolder = currentFolder[p];
-          } else {
-            return null;
-          }
-        }
-        return currentFolder;
+        return $scope.files.filter(
+          (f) =>
+            f.name == $scope.paths[$scope.paths.length - 1] &&
+            f.path == $scope.paths.slice(0, $scope.paths.length - 1).join("/")
+        )[0];
       }
 
-      async function getOptions(callback) {
+      function getOptions(callback) {
         $http.get(`/api/repo/${$scope.repoId}/options`).then(
           (res) => {
             $scope.options = res.data;
@@ -1835,8 +1834,13 @@ angular
         $scope.filePath = $routeParams.path || "";
         $scope.paths = $scope.filePath.split("/");
 
-        getOptions((options) => {
-          getFiles(() => {
+        getOptions(async (options) => {
+          for (let i = 0; i < $scope.paths.length; i++) {
+            const path = i > 0 ? $scope.paths.slice(0, i).join("/") : "";
+            await $scope.getFiles(path);
+          }
+          $scope.$apply(() => {
+            selectFile();
             updateContent();
           });
         });

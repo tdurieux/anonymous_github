@@ -1,16 +1,17 @@
 import AnonymizedFile from "../AnonymizedFile";
 import GitHubBase, { GitHubBaseData } from "./GitHubBase";
 import storage from "../storage";
-import { Tree } from "../types";
 import * as path from "path";
 import got from "got";
+import { basename, dirname } from "path";
 
 import * as stream from "stream";
 import AnonymousError from "../AnonymousError";
-import config from "../../config";
 import { trace } from "@opentelemetry/api";
 import { FILE_TYPE } from "../storage/Storage";
 import { octokit } from "../GitHubUtils";
+import FileModel from "../model/files/files.model";
+import { IFile } from "../model/files/files.types";
 
 export default class GitHubStream extends GitHubBase {
   type: "GitHubDownload" | "GitHubStream" | "Zip" = "GitHubStream";
@@ -29,6 +30,7 @@ export default class GitHubStream extends GitHubBase {
         repo: this.data.repoName,
         file_sha: sha,
       });
+      console.log("[GHStream] Downloading file", url);
       return got.stream(url, {
         headers: {
           "X-GitHub-Api-Version": "2022-11-28",
@@ -132,61 +134,17 @@ export default class GitHubStream extends GitHubBase {
     const span = trace.getTracer("ano-file").startSpan("GHStream.getFiles");
     span.setAttribute("repoId", this.data.repoId);
     try {
-      return this.getTree(this.data.commit, progress);
+      return this.getTruncatedTree(this.data.commit, progress);
     } finally {
       span.end();
     }
   }
 
-  private async getTree(
+  private async getGHTree(
     sha: string,
-    progress?: (status: string) => void,
-    truncatedTree: Tree = {},
-    parentPath: string = "",
-    count = {
-      file: 0,
-      request: 0,
-    }
+    count = { request: 0, file: 0 },
+    opt = { recursive: true, callback: () => {} }
   ) {
-    const span = trace.getTracer("ano-file").startSpan("GHStream.getTree");
-    span.setAttribute("sha", sha);
-
-    let ghRes: Awaited<ReturnType<typeof this.getGHTree>>;
-    try {
-      count.request++;
-      ghRes = await this.getGHTree(sha, { recursive: true });
-    } catch (error) {
-      span.recordException(error as Error);
-      if ((error as any).status == 409) {
-        // cannot be empty otherwise it would try to download it again
-        span.end();
-        return { __: {} };
-      } else {
-        const err = new AnonymousError("repo_not_accessible", {
-          httpStatus: (error as any).status,
-          cause: error as Error,
-          object: {
-            tree_sha: sha,
-          },
-        });
-        span.recordException(err);
-        span.end();
-        throw err;
-      }
-    }
-    const tree = this.tree2Tree(ghRes.tree, truncatedTree, parentPath);
-    count.file += ghRes.tree.length;
-    if (progress) {
-      progress("List file: " + count.file);
-    }
-    if (ghRes.truncated) {
-      await this.getTruncatedTree(sha, progress, tree, parentPath, count);
-    }
-    span.end();
-    return tree;
-  }
-
-  private async getGHTree(sha: string, opt = { recursive: true }) {
     const span = trace.getTracer("ano-file").startSpan("GHStream.getGHTree");
     span.setAttribute("sha", sha);
     try {
@@ -195,8 +153,13 @@ export default class GitHubStream extends GitHubBase {
         owner: this.data.organization,
         repo: this.data.repoName,
         tree_sha: sha,
-        recursive: opt.recursive ? "1" : undefined,
+        recursive: opt.recursive === true ? "1" : undefined,
       });
+      count.request++;
+      count.file += ghRes.data.tree.length;
+      if (opt.callback) {
+        opt.callback();
+      }
       return ghRes.data;
     } finally {
       span.end();
@@ -206,68 +169,59 @@ export default class GitHubStream extends GitHubBase {
   private async getTruncatedTree(
     sha: string,
     progress?: (status: string) => void,
-    truncatedTree: Tree = {},
-    parentPath: string = "",
-    count = {
-      file: 0,
-      request: 0,
-    },
-    depth = 0
+    parentPath: string = ""
   ) {
+    const count = {
+      request: 0,
+      file: 0,
+    };
     const span = trace
       .getTracer("ano-file")
       .startSpan("GHStream.getTruncatedTree");
     span.setAttribute("sha", sha);
     span.setAttribute("parentPath", parentPath);
+    const output: IFile[] = [];
     try {
-      count.request++;
       let data = null;
-
       try {
-        data = await this.getGHTree(sha, {
+        data = await this.getGHTree(sha, count, {
           recursive: false,
+          callback: () => {
+            if (progress) {
+              progress("List file: " + count.file);
+            }
+          },
         });
-        this.tree2Tree(data.tree, truncatedTree, parentPath);
+        output.push(...this.tree2Tree(data.tree, parentPath));
       } catch (error) {
-        span.recordException(error as Error);
-        return;
+        throw new AnonymousError("files_not_found", {
+          httpStatus: 404,
+          object: this.data,
+          cause: error as Error,
+        });
       }
-
-      count.file += data.tree.length;
-      if (progress) {
-        progress("List file: " + count.file);
-      }
-      if (data.tree.length < 100 && count.request < 200) {
-        const promises: Promise<any>[] = [];
-        for (const file of data.tree) {
-          if (file.type == "tree" && file.path && file.sha) {
-            const elementPath = path.join(parentPath, file.path);
-            promises.push(
-              this.getTruncatedTree(
-                file.sha,
-                progress,
-                truncatedTree,
-                elementPath,
-                count,
-                depth + 1
-              )
-            );
-          }
-        }
-        await Promise.all(promises);
-      } else {
-        try {
-          const data = await this.getGHTree(sha, {
-            recursive: true,
-          });
-          this.tree2Tree(data.tree, truncatedTree, parentPath);
-          if (data.truncated) {
-            // TODO: TRUNCATED
-          }
-        } catch (error) {
-          span.recordException(error as Error);
+      const promises: Promise<any>[] = [];
+      const parentPaths: string[] = [];
+      for (const file of data.tree) {
+        if (file.type == "tree" && file.path && file.sha) {
+          const elementPath = path.join(parentPath, file.path);
+          parentPaths.push(elementPath);
+          promises.push(
+            this.getGHTree(file.sha, count, {
+              recursive: true,
+              callback: () => {
+                if (progress) {
+                  progress("List file: " + count.file);
+                }
+              },
+            })
+          );
         }
       }
+      (await Promise.all(promises)).forEach((data, i) => {
+        output.push(...this.tree2Tree(data.tree, parentPaths[i]));
+      });
+      return output;
     } finally {
       span.end();
     }
@@ -282,49 +236,25 @@ export default class GitHubStream extends GitHubBase {
       size?: number;
       url?: string;
     }[],
-    partialTree: Tree = {},
     parentPath: string = ""
   ) {
     const span = trace.getTracer("ano-file").startSpan("GHStream.tree2Tree");
     span.setAttribute("parentPath", parentPath);
     try {
-      for (let elem of tree) {
-        let current = partialTree;
-
-        if (!elem.path) continue;
-
-        const paths = path.join(parentPath, elem.path).split("/");
-
-        // if elem is a folder iterate on all folders if it is a file stop before the filename
-        const end = elem.type == "tree" ? paths.length : paths.length - 1;
-        for (let i = 0; i < end; i++) {
-          let p = paths[i];
-          if (p[0] == "$") {
-            p = "\\" + p;
-          }
-          if (!current[p]) {
-            current[p] = {};
-          }
-          current = current[p] as Tree;
+      return tree.map((elem) => {
+        const fullPath = path.join(parentPath, elem.path || "");
+        let pathFile = dirname(fullPath);
+        if (pathFile === ".") {
+          pathFile = "";
         }
-
-        // if elem is a file add the file size in the file list
-        if (elem.type == "blob") {
-          if (Object.keys(current).length > config.MAX_FILE_FOLDER) {
-            // TODO: TRUNCATED
-            continue;
-          }
-          let p = paths[end];
-          if (p[0] == "$") {
-            p = "\\" + p;
-          }
-          current[p] = {
-            size: elem.size || 0, // size in bit
-            sha: elem.sha || "",
-          };
-        }
-      }
-      return partialTree;
+        return new FileModel({
+          name: basename(fullPath),
+          path: pathFile,
+          repoId: this.data.repoId,
+          size: elem.size,
+          sha: elem.sha,
+        });
+      });
     } finally {
       span.end();
     }

@@ -1,8 +1,8 @@
 import { Readable } from "stream";
 
 import AnonymizedFile from "../AnonymizedFile";
-import { Tree } from "../types";
 import { SourceBase } from "./Source";
+import { IFile } from "../model/files/files.types";
 
 export interface GitHubBaseData {
   getToken: () => string | Promise<string>;
@@ -23,5 +23,5 @@ export default abstract class GitHubBase implements SourceBase {
     progress?: (status: string) => void
   ): Promise<Readable>;
 
-  abstract getFiles(progress?: (status: string) => void): Promise<Tree>;
+  abstract getFiles(progress?: (status: string) => void): Promise<IFile[]>;
 }

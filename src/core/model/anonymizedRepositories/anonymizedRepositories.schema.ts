@@ -34,7 +34,6 @@ const AnonymizedRepositorySchema = new Schema({
     type: Boolean,
     default: false,
   },
-  originalFiles: Schema.Types.Mixed,
   options: {
     terms: [String],
     expirationMode: { type: String },

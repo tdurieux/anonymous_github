@@ -14,9 +14,10 @@ import { lookup } from "mime-types";
 import * as archiver from "archiver";
 import { trace } from "@opentelemetry/api";
 import { dirname, basename, join } from "path";
-import { Tree, TreeFile } from "../types";
 import AnonymousError from "../AnonymousError";
 import StorageBase, { FILE_TYPE } from "./Storage";
+import { IFile } from "../model/files/files.types";
+import FileModel from "../model/files/files.model";
 
 export default class S3Storage extends StorageBase {
   type = "AWS";
@@ -245,13 +246,13 @@ export default class S3Storage extends StorageBase {
   }
 
   /** @override */
-  async listFiles(repoId: string, dir: string = ""): Promise<Tree> {
+  async listFiles(repoId: string, dir: string = ""): Promise<IFile[]> {
     const span = trace.getTracer("ano-file").startSpan("s3.listFiles");
     span.setAttribute("path", dir);
     try {
       if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
       if (dir && dir[dir.length - 1] != "/") dir = dir + "/";
-      const out: Tree = {};
+      const out: IFile[] = [];
       let req: ListObjectsV2CommandOutput;
       let nextContinuationToken: string | undefined;
       do {
@@ -267,22 +268,15 @@ export default class S3Storage extends StorageBase {
         for (const f of req.Contents) {
           if (!f.Key) continue;
           f.Key = f.Key.replace(join(this.repoPath(repoId), dir), "");
-          const paths = f.Key.split("/");
-          let current: Tree = out;
-          for (let i = 0; i < paths.length - 1; i++) {
-            let p = paths[i];
-            if (!p) continue;
-            if (!(current[p] as Tree)) {
-              current[p] = {} as Tree;
-            }
-            current = current[p] as Tree;
-          }
-
-          if (f.ETag) {
-            const fileInfo: TreeFile = { size: f.Size || 0, sha: f.ETag };
-            const fileName = paths[paths.length - 1];
-            if (fileName) current[fileName] = fileInfo;
-          }
+          out.push(
+            new FileModel({
+              name: basename(f.Key),
+              path: dirname(f.Key),
+              repoID: repoId,
+              size: f.Size,
+              sha: f.ETag,
+            })
+          );
         }
       } while (req && req.Contents && req.IsTruncated);
       return out;

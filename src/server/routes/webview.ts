@@ -3,7 +3,6 @@ import { getRepo, handleError } from "./route-utils";
 import * as path from "path";
 import AnonymizedFile from "../../core/AnonymizedFile";
 import AnonymousError from "../../core/AnonymousError";
-import { Tree, TreeElement } from "../../core/types";
 import * as marked from "marked";
 import { streamToString } from "../../core/anonymize-utils";
 
@@ -35,55 +34,45 @@ async function webView(req: express.Request, res: express.Response) {
       });
     }
 
-    if (repo.options.pageSource?.branch != repo.model.source.branch) {
+    if (repo.options.pageSource.branch != repo.model.source.branch) {
       throw new AnonymousError("page_not_supported_on_different_branch", {
         httpStatus: 400,
         object: repo,
       });
     }
 
-    let requestPath = path.join(
-      repo.options.pageSource?.path,
-      req.path.substring(
-        req.path.indexOf(req.params.repoId) + req.params.repoId.length
-      )
-    );
+    let wRoot = repo.options.pageSource.path;
+    if (wRoot.at(0) == "/") {
+      wRoot = wRoot.substring(1);
+    }
+    const filePath = req.path.split(req.params.repoId)[1];
+    let requestPath = path.join(wRoot, filePath);
+
     let f = new AnonymizedFile({
       repository: repo,
       anonymizedPath: requestPath,
     });
-    if (requestPath[requestPath.length - 1] == "/") {
-      // find index file
-      const paths = f.anonymizedPath.trim().split("/");
-
-      let currentAnonymized: TreeElement = await repo.anonymizedFiles({
-        includeSha: true,
+    if (
+      requestPath.at(-1) == "/" &&
+      req.headers.accept?.includes("text/html")
+    ) {
+      // look for index file
+      const candidates = await repo.files({
+        recursive: false,
+        path: await f.originalPath(),
       });
-      for (let i = 0; i < paths.length; i++) {
-        const fileName = paths[i];
-        if (fileName == "") {
-          continue;
-        }
-        if (!(currentAnonymized as Tree)[fileName]) {
-          throw new AnonymousError("file_not_found", {
-            object: repo,
-            httpStatus: 404,
-          });
-        }
-        currentAnonymized = (currentAnonymized as Tree)[fileName];
-      }
 
-      let best_match = null;
+      let bestMatch = null;
       indexSelector: for (const p of indexPriority) {
-        for (let filename in currentAnonymized) {
-          if (filename.toLowerCase() == p) {
-            best_match = filename;
+        for (const file of candidates) {
+          if (file.name.toLowerCase() == p) {
+            bestMatch = file;
             break indexSelector;
           }
         }
       }
-      if (best_match) {
-        requestPath = path.join(requestPath, best_match);
+      if (bestMatch) {
+        requestPath = path.join(bestMatch.path, bestMatch.name);
         f = new AnonymizedFile({
           repository: repo,
           anonymizedPath: requestPath,
