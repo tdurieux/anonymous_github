@@ -267,6 +267,9 @@ export default class Repository {
       });
       return false;
     }
+    if (!(await FileModel.exists({ repoId: this.repoId }).exec())) {
+      return false;
+    }
     return true;
   }
 
