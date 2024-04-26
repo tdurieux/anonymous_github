@@ -57,14 +57,16 @@ export default class AnonymizedFile {
       if (this._file) return this._file;
       let fileDir = dirname(this.anonymizedPath);
       if (fileDir == ".") fileDir = "";
+      if (fileDir.endsWith("/")) fileDir = fileDir.slice(0, -1);
       const filename = basename(this.anonymizedPath);
 
       if (!this.anonymizedPath.includes(config.ANONYMIZATION_MASK)) {
-        const res = await FileModel.findOne({
+        const query: Partial<IFile> = {
           repoId: this.repository.repoId,
           path: fileDir,
-          name: filename,
-        });
+        };
+        if (filename != "") query.name = filename;
+        const res = await FileModel.findOne(query);
         if (res) {
           this._file = res;
           return res;
@@ -143,7 +145,7 @@ export default class AnonymizedFile {
     }
   }
   extension() {
-    const filename = basename(this.anonymizedPath);
+    const filename = basename(this._file?.name || this.anonymizedPath);
     const extensions = filename.split(".").reverse();
     return extensions[0].toLowerCase();
   }
