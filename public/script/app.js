@@ -321,7 +321,7 @@ angular
               for (let f of afiles) {
                 let dir = !!f.child;
                 let name = f.name;
-                let size = f.size || 0;
+                let size = f.size;
                 if (dir) {
                   let test = name;
                   current = f.child;
@@ -331,7 +331,7 @@ angular
                     current = current[0].child;
                   }
                   name = test;
-                  if (size >= 0) {
+                  if (size != null && size >= 0) {
                     dir = false;
                   }
                 }
