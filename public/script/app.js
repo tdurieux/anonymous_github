@@ -1839,10 +1839,17 @@ angular
             const path = i > 0 ? $scope.paths.slice(0, i).join("/") : "";
             await $scope.getFiles(path);
           }
-          $scope.$apply(() => {
-            selectFile();
-            updateContent();
-          });
+          if ($scope.files.length == 1 && $scope.files[0].name == "") {
+            $scope.files = [];
+            $scope.type = "empty";
+            $scope.$apply();
+          } else {
+
+            $scope.$apply(() => {
+              selectFile();
+              updateContent();
+            });
+          }
         });
       }
 

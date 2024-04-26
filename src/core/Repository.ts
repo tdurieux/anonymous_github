@@ -402,10 +402,19 @@ export default class Repository {
     }
     this.model.increment();
     await this.updateStatus(RepositoryStatus.DOWNLOAD);
-    await this.files({
+    const files = await this.files({
       force: false,
       progress,
     });
+    if (files.length === 0) {
+      // create a dummy file when the repo is empty to avoid errors
+      await new FileModel({
+        repoId: this.repoId,
+        path: "",
+        name: "",
+        size: 0,
+      }).save();
+    }
     await this.updateStatus(RepositoryStatus.READY);
     await this.computeSize();
     span.end();

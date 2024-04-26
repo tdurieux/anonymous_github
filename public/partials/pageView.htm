@@ -9,4 +9,5 @@
 <div ng-if="type == 'IPython'"><notebook file="url"></notebook></div>
 <div ng-if="type == 'error'" class="file-error container d-flex h-100"><h1 class="display-1 m-auto" translate="ERRORS.{{content}}">Error</h1></div></div>
 <div ng-if="type == 'loading' && !error" class="file-error container d-flex h-100"><h1 class="display-1 m-auto">Loading...</h1></div></div>
-<div ng-if="content == null" class="file-error container d-flex h-100"><h1 class="display-1 m-auto">Empty file!</h1></div>
+<div ng-if="type == 'empty'" class="file-error container d-flex h-100"><h1 class="display-1 m-auto">Empty repository!</h1></div>
+<div ng-if="content == null && type != 'empty'" class="file-error container d-flex h-100"><h1 class="display-1 m-auto">Empty file!</h1></div>

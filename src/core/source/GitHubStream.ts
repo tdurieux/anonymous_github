@@ -194,11 +194,16 @@ export default class GitHubStream extends GitHubBase {
         });
         output.push(...this.tree2Tree(data.tree, parentPath));
       } catch (error) {
-        throw new AnonymousError("files_not_found", {
-          httpStatus: 404,
-          object: this.data,
-          cause: error as Error,
-        });
+        if ((error as any).status == 404) {
+          // empty repo
+          data = { tree: [] };
+        } else {
+          throw new AnonymousError("repo_not_found", {
+            httpStatus: (error as any).status || 404,
+            object: this.data,
+            cause: error as Error,
+          });
+        }
       }
       const promises: Promise<any>[] = [];
       const parentPaths: string[] = [];
