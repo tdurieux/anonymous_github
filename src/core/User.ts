@@ -130,14 +130,9 @@ export default class User {
     const span = trace.getTracer("ano-file").startSpan("User.getRepositories");
     span.setAttribute("username", this.username);
     const repositories = (
-      await AnonymizedRepositoryModel.find(
-        {
-          owner: this.id,
-        },
-        {
-          originalFiles: 0,
-        }
-      ).exec()
+      await AnonymizedRepositoryModel.find({
+        owner: this.id,
+      }).exec()
     ).map((d) => new Repository(d));
     const promises = [];
     for (let repo of repositories) {

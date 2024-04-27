@@ -480,7 +480,7 @@ router.post("/", async (req: express.Request, res: express.Response) => {
 
   try {
     try {
-      await db.getRepository(repoUpdate.repoId, { includeFiles: false });
+      await db.getRepository(repoUpdate.repoId);
       throw new AnonymousError("repoId_already_used", {
         httpStatus: 400,
         object: repoUpdate,

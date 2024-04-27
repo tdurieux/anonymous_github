@@ -152,13 +152,10 @@ router.get("/repos", async (req, res) => {
   }
   const skipIndex = (page - 1) * limit;
   const [total, results] = await Promise.all([
-    AnonymizedRepositoryModel.find(
-      {
-        $and: query,
-      },
-      { originalFiles: 0 }
-    ).countDocuments(),
-    AnonymizedRepositoryModel.find({ $and: query }, { originalFiles: 0 })
+    AnonymizedRepositoryModel.find({
+      $and: query,
+    }).countDocuments(),
+    AnonymizedRepositoryModel.find({ $and: query })
       .skip(skipIndex)
       .sort(sort)
       .limit(limit)

@@ -24,28 +24,14 @@ export async function connect() {
   return database;
 }
 
-export async function getRepository(
-  repoId: string,
-  opts: {
-    includeFiles: boolean;
-  } = {
-    includeFiles: true,
-  }
-) {
+export async function getRepository(repoId: string, opts: {} = {}) {
   if (!repoId || repoId == "undefined") {
     throw new AnonymousError("repo_not_found", {
       object: repoId,
       httpStatus: 404,
     });
   }
-  const project: any = {};
-  if (!opts.includeFiles) {
-    project.originalFiles = 0;
-  }
-  const data = await AnonymizedRepositoryModel.findOne(
-    { repoId },
-    project
-  ).collation({
+  const data = await AnonymizedRepositoryModel.findOne({ repoId }).collation({
     locale: "en",
     strength: 2,
   });
