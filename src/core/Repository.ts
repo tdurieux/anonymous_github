@@ -26,8 +26,8 @@ import { FILE_TYPE } from "./storage/Storage";
 import config from "../config";
 import FileModel from "./model/files/files.model";
 import { IFile } from "./model/files/files.types";
-import { join } from "path";
 import AnonymizedFile from "./AnonymizedFile";
+import { FilterQuery } from "mongoose";
 function anonymizeTreeRecursive(
   tree: IFile[],
   terms: string[],
@@ -179,11 +179,14 @@ export default class Repository {
       if (opt.recursive === false) {
         pathQuery = opt.path ? new RegExp(`^${opt.path}$`) : "";
       }
-
-      return await FileModel.find({
+      
+      const query: FilterQuery<IFile> = {
         repoId: this.repoId,
-        path: pathQuery,
-      }).exec();
+      };
+      if (pathQuery !== undefined) {
+        query.path = pathQuery;
+      }
+      return await FileModel.find(query).exec();
     } finally {
       span.end();
     }
@@ -256,18 +259,12 @@ export default class Repository {
   async isReady() {
     if (this.status !== RepositoryStatus.READY) return false;
     if (
-      this.source.type == "GitHubDownload" &&
-      (await storage.exists(this.repoId)) == FILE_TYPE.NOT_FOUND
+      (this.source.type == "GitHubDownload" &&
+        (await storage.exists(this.repoId)) == FILE_TYPE.NOT_FOUND) ||
+      !(await FileModel.exists({ repoId: this.repoId }).exec())
     ) {
-      await this.resetSate(RepositoryStatus.PREPARING);
-
-      await downloadQueue.add(this.repoId, this, {
-        jobId: this.repoId,
-        attempts: 3,
-      });
-      return false;
-    }
-    if (!(await FileModel.exists({ repoId: this.repoId }).exec())) {
+      this.model.status = RepositoryStatus.PREPARING;
+      await this.updateIfNeeded({ force: true });
       return false;
     }
     return true;
@@ -315,6 +312,23 @@ export default class Repository {
           repositoryID: this.model.source.repositoryId,
           force: true,
         });
+
+        if (ghRepo.size) {
+          if (
+            ghRepo.size > config.AUTO_DOWNLOAD_REPO_SIZE &&
+            this.model.source.type == "GitHubDownload"
+          ) {
+            this.model.source.type = "GitHubStream";
+            await this.model.save();
+          } else if (
+            ghRepo.size < config.AUTO_DOWNLOAD_REPO_SIZE &&
+            this.model.source.type == "GitHubStream"
+          ) {
+            this.model.source.type = "GitHubDownload";
+            await this.model.save();
+          }
+        }
+
         // update the repository name if it has changed
         this.model.source.repositoryName = ghRepo.fullName;
         const branches = await ghRepo.branches({
@@ -365,20 +379,6 @@ export default class Repository {
           `[UPDATE] ${this._model.repoId} will be updated to ${newCommit}`
         );
 
-        if (ghRepo.size) {
-          if (
-            ghRepo.size > config.AUTO_DOWNLOAD_REPO_SIZE &&
-            this.model.source.type == "GitHubDownload"
-          ) {
-            this.model.source.type = "GitHubStream";
-          } else if (
-            ghRepo.size < config.AUTO_DOWNLOAD_REPO_SIZE &&
-            this.model.source.type == "GitHubStream"
-          ) {
-            this.model.source.type = "GitHubDownload";
-          }
-        }
-
         await this.resetSate(RepositoryStatus.PREPARING);
         await downloadQueue.add(this.repoId, this, {
           jobId: this.repoId,
@@ -405,6 +405,7 @@ export default class Repository {
     const files = await this.files({
       force: false,
       progress,
+      recursive: false,
     });
     if (files.length === 0) {
       // create a dummy file when the repo is empty to avoid errors

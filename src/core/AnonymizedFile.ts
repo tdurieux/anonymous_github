@@ -13,6 +13,7 @@ import AnonymousError from "./AnonymousError";
 import { handleError } from "../server/routes/route-utils";
 import FileModel from "./model/files/files.model";
 import { IFile } from "./model/files/files.types";
+import { FilterQuery } from "mongoose";
 
 /**
  * Represent a file in a anonymized repository
@@ -61,7 +62,7 @@ export default class AnonymizedFile {
       const filename = basename(this.anonymizedPath);
 
       if (!this.anonymizedPath.includes(config.ANONYMIZATION_MASK)) {
-        const query: Partial<IFile> = {
+        const query: FilterQuery<IFile> = {
           repoId: this.repository.repoId,
           path: fileDir,
         };

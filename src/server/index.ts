@@ -142,7 +142,12 @@ export default async function start() {
     const start = Date.now();
     res.on("finish", function () {
       const time = Date.now() - start;
-      console.log(`${req.method} ${join(req.baseUrl, req.url)} ${time}ms`);
+      console.log(
+        `${req.method} ${res.statusCode} ${join(
+          req.baseUrl,
+          req.url
+        )} ${time}ms`
+      );
     });
     next();
   });
