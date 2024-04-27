@@ -12,6 +12,8 @@ const FileSchema = new Schema({
   },
 });
 
+FileSchema.index({ path: 1, repoId: 1 });
+
 FileSchema.methods.toString = function () {
   return `${this.path}/${this.name}`;
 };

@@ -179,7 +179,7 @@ export default class Repository {
       if (opt.recursive === false) {
         pathQuery = opt.path ? new RegExp(`^${opt.path}$`) : "";
       }
-      
+
       const query: FilterQuery<IFile> = {
         repoId: this.repoId,
       };
