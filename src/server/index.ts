@@ -130,6 +130,23 @@ export default async function start() {
     keyGenerator,
   });
 
+  app.use(
+    express.static(join("public"), {
+      etag: true,
+      lastModified: true,
+      maxAge: 3600, // 1h
+    })
+  );
+
+  app.use(function (req, res, next) {
+    const start = Date.now();
+    res.on("finish", function () {
+      const time = Date.now() - start;
+      console.log(`${req.method} ${join(req.baseUrl, req.url)} ${time}ms`);
+    });
+    next();
+  });
+
   app.use("/github", rate, speedLimiter, connectionRouter);
 
   // api routes
@@ -200,14 +217,6 @@ export default async function start() {
     .get("/anonymize", indexResponse)
     .get("/r/:repoId/?*", indexResponse)
     .get("/repository/:repoId/?*", indexResponse);
-
-  app.use(
-    express.static(join("public"), {
-      etag: true,
-      lastModified: true,
-      maxAge: 3600, // 1h
-    })
-  );
 
   app.get("*", indexResponse);
 

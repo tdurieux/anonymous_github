@@ -58,8 +58,8 @@ router.get(
         // cache the file for 5min
         res.header("Cache-Control", "max-age=300");
       }
-      await repo.countView();
       await f.send(res);
+      await repo.countView();
     } catch (error) {
       return handleError(error, res, req);
     }

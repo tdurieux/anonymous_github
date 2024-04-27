@@ -28,6 +28,13 @@ export async function getToken(repository: Repository) {
   const span = trace.getTracer("ano-file").startSpan("GHUtils.getToken");
   span.setAttribute("repoId", repository.repoId);
   try {
+    // only check the token if the repo has been visited more than one day ago
+    if (
+      repository.model.source.accessToken &&
+      repository.model.lastView > new Date(Date.now() - 1000 * 60 * 60 * 24)
+    ) {
+      return repository.model.source.accessToken;
+    }
     if (repository.model.source.accessToken) {
       if (await checkToken(repository.model.source.accessToken)) {
         return repository.model.source.accessToken;
@@ -48,6 +55,8 @@ export async function getToken(repository: Repository) {
         repository.owner.model.accessTokens?.github
       );
       if (check) {
+        repository.model.source.accessToken =
+          repository.owner.model.accessTokens?.github;
         return repository.owner.model.accessTokens?.github;
       }
     }

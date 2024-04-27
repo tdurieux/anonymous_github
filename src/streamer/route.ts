@@ -25,7 +25,6 @@ router.post("/", async (req: express.Request, res: express.Response) => {
     commit: commit,
     getToken: () => token,
   });
-  console.log(`[FILE] ${repoId}/${filePath}`);
   const content = await source.getFileContentCache(
     filePath,
     repoId,
