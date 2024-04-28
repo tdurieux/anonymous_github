@@ -41,25 +41,23 @@ async function webView(req: express.Request, res: express.Response) {
       });
     }
 
-    let wRoot = repo.options.pageSource.path;
-    if (wRoot.at(0) == "/") {
-      wRoot = wRoot.substring(1);
-    }
+    const wRoot = repo.options.pageSource.path;
+
     const filePath = req.path.split(req.params.repoId)[1];
     let requestPath = path.join(wRoot, filePath);
+    if (requestPath.at(0) == "/") {
+      requestPath = requestPath.substring(1);
+    }
 
     let f = new AnonymizedFile({
       repository: repo,
       anonymizedPath: requestPath,
     });
-    if (
-      requestPath.at(-1) == "/" &&
-      req.headers.accept?.includes("text/html")
-    ) {
+    if (requestPath == "" && req.headers.accept?.includes("text/html")) {
       // look for index file
       const candidates = await repo.files({
         recursive: false,
-        path: await f.originalPath(),
+        path: "",
       });
 
       let bestMatch = null;

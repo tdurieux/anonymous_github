@@ -205,7 +205,7 @@ export default class GitHubStream extends GitHubBase {
           });
         }
       }
-      const promises: Promise<any>[] = [];
+      const promises: ReturnType<GitHubStream["getGHTree"]>[] = [];
       const parentPaths: string[] = [];
       for (const file of data.tree) {
         if (file.type == "tree" && file.path && file.sha) {
@@ -224,6 +224,9 @@ export default class GitHubStream extends GitHubBase {
         }
       }
       (await Promise.all(promises)).forEach((data, i) => {
+        if (data.truncated) {
+          // TODO: the tree is truncated
+        }
         output.push(...this.tree2Tree(data.tree, parentPaths[i]));
       });
       return output;

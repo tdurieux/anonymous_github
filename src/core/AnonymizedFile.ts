@@ -131,7 +131,7 @@ export default class AnonymizedFile {
     span.setAttribute("file", this.anonymizedPath);
     try {
       span.setAttribute("anonymizedPath", this.anonymizedPath);
-      if (!this.anonymizedPath) {
+      if (this.anonymizedPath == null) {
         throw new AnonymousError("path_not_specified", {
           object: this,
           httpStatus: 400,
