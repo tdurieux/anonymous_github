@@ -43,7 +43,10 @@ async function webView(req: express.Request, res: express.Response) {
 
     const wRoot = repo.options.pageSource.path;
 
-    const filePath = req.path.split(req.params.repoId)[1];
+    const indexRepoId = req.path.indexOf(req.params.repoId);
+    const filePath = req.path.substring(
+      indexRepoId + req.params.repoId.length + 1
+    );
     let requestPath = path.join(wRoot, filePath);
     if (requestPath.at(0) == "/") {
       requestPath = requestPath.substring(1);
