@@ -1511,16 +1511,24 @@ angular
         "heif",
         "heic",
       ];
+      const audioFiles = ["wav", "mp3", "ogg", "wma", "flac", "aac", "m4a"];
       const mediaFiles = [
-        "wav",
-        "mp3",
-        "ogg",
         "mp4",
         "avi",
         "webm",
         "mov",
         "mpg",
-        "wma",
+        "mpeg",
+        "mkv",
+        "flv",
+        "wmv",
+        "3gp",
+        "3g2",
+        "m4v",
+        "f4v",
+        "f4p",
+        "f4a",
+        "f4b",
       ];
 
       $scope.$on("$routeUpdate", function (event, current) {
@@ -1647,6 +1655,9 @@ angular
         if (mediaFiles.indexOf(extension) > -1) {
           return "media";
         }
+        if (audioFiles.indexOf(extension) > -1) {
+          return "audio";
+        }
         return "code";
       }
 
@@ -1692,6 +1703,13 @@ angular
                 });
                 $scope.content = $sce.trustAsHtml(orgHTMLDocument.toString());
                 $scope.type = "html";
+              }
+              if (
+                $scope.type == "code" &&
+                res.headers("content-type") == "application/octet-stream"
+              ) {
+                $scope.type = "binary";
+                $scope.content = "binary";
               }
               setTimeout(() => {
                 Prism.highlightAll();
@@ -1844,7 +1862,6 @@ angular
             $scope.type = "empty";
             $scope.$apply();
           } else {
-
             $scope.$apply(() => {
               selectFile();
               updateContent();

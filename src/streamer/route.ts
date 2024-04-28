@@ -41,6 +41,8 @@ router.post("/", async (req: express.Request, res: express.Response) => {
     anonymizer.once("transform", (data) => {
       if (!mime && data.isText) {
         res.contentType("text/plain");
+      } else if (!mime && !data.isText) {
+        res.contentType("application/octet-stream");
       }
     });
     function handleStreamError(error: Error) {

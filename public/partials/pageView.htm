@@ -6,8 +6,10 @@
 <div class="h-100 overflow-auto" ng-if="type == 'pdf'">
   <pdfviewer class="h-100 overflow-auto" src="{{url}}" id="viewer"></pdfviewer>
 </div>
+<div ng-if="type == 'audio'"><audio controls="controls"><source src="{{url}}" /></audio></div>
 <div ng-if="type == 'IPython'"><notebook file="url"></notebook></div>
 <div ng-if="type == 'error'" class="file-error container d-flex h-100"><h1 class="display-1 m-auto" translate="ERRORS.{{content}}">Error</h1></div></div>
 <div ng-if="type == 'loading' && !error" class="file-error container d-flex h-100"><h1 class="display-1 m-auto">Loading...</h1></div></div>
 <div ng-if="type == 'empty'" class="file-error container d-flex h-100"><h1 class="display-1 m-auto">Empty repository!</h1></div>
 <div ng-if="content == null && type != 'empty'" class="file-error container d-flex h-100"><h1 class="display-1 m-auto">Empty file!</h1></div>
+<div ng-if="type == 'binary'" class="file-error container d-flex h-100"><h1 class="display-1 m-auto">Unsupported binary file. You can download the file: <a target="_blank" ng-href="{{url}}&download=true">here</a>.</h1></div>
