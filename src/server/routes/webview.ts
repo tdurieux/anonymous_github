@@ -56,11 +56,12 @@ async function webView(req: express.Request, res: express.Response) {
       repository: repo,
       anonymizedPath: requestPath,
     });
-    if (requestPath == "" && req.headers.accept?.includes("text/html")) {
+    if (filePath == "" && req.headers.accept?.includes("text/html")) {
       // look for index file
       const candidates = await repo.files({
         recursive: false,
-        path: "",
+        // look for file at the root of the page source
+        path: wRoot.substring(1),
       });
 
       let bestMatch = null;
