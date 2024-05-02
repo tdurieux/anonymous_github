@@ -62,6 +62,13 @@ export default class AnonymizedFile {
       const filename = basename(this.anonymizedPath);
 
       if (!this.anonymizedPath.includes(config.ANONYMIZATION_MASK)) {
+        if (this.anonymizedPath == "") {
+          return {
+            name: "",
+            path: "",
+            repoId: this.repository.repoId,
+          };
+        }
         const query: FilterQuery<IFile> = {
           repoId: this.repository.repoId,
           path: fileDir,
@@ -284,7 +291,6 @@ export default class AnonymizedFile {
               ]);
               // const hostName = new URL(config.STREAMER_ENTRYPOINT).hostname;
               // const ipHost = await this.cacheableLookup.lookupAsync(hostName);
-              // console.timeLog("streamer"+ this.anonymizedPath, "got ip");
               got
                 .stream(join(config.STREAMER_ENTRYPOINT, "api"), {
                   method: "POST",

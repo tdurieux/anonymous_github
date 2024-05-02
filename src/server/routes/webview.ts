@@ -5,6 +5,7 @@ import AnonymizedFile from "../../core/AnonymizedFile";
 import AnonymousError from "../../core/AnonymousError";
 import * as marked from "marked";
 import { streamToString } from "../../core/anonymize-utils";
+import { IFile } from "../../core/model/files/files.types";
 
 const router = express.Router();
 
@@ -48,7 +49,7 @@ async function webView(req: express.Request, res: express.Response) {
       indexRepoId + req.params.repoId.length + 1
     );
     let requestPath = path.join(wRoot, filePath);
-    if (requestPath.at(0) == "/") {
+    if (requestPath.at(0) == "/" || requestPath.at(0) == ".") {
       requestPath = requestPath.substring(1);
     }
 
@@ -56,12 +57,22 @@ async function webView(req: express.Request, res: express.Response) {
       repository: repo,
       anonymizedPath: requestPath,
     });
-    if (filePath == "" && req.headers.accept?.includes("text/html")) {
+    let info: IFile | null = null;
+    try {
+      info = await f.getFileInfo();
+    } catch (error) {}
+    if (
+      req.headers.accept?.includes("text/html") &&
+      (filePath == "" || (info && info.size == null))
+    ) {
+      const folderPath = info
+        ? path.join(info.path, info.name)
+        : wRoot.substring(1);
       // look for index file
       const candidates = await repo.files({
         recursive: false,
         // look for file at the root of the page source
-        path: wRoot.substring(1),
+        path: folderPath == "." ? "" : folderPath,
       });
 
       let bestMatch = null;
@@ -79,6 +90,18 @@ async function webView(req: express.Request, res: express.Response) {
           repository: repo,
           anonymizedPath: requestPath,
         });
+      } else {
+        // print list of files in the root repository
+        const body = `<div class="container p-3"><h2>Content of ${filePath}</h2><div class="list-group">${candidates
+          .map(
+            (c) =>
+              `<a class="list-group-item list-group-item-action" href="${
+                c.name + (c.size == null ? "/" : "")
+              }">${c.name + (c.size == null ? "/" : "")}</a>`
+          )
+          .join("")}</div></div>`;
+        const html = `<!DOCTYPE html><html><head><title>Content</title></head><link rel="stylesheet" href="/css/all.min.css" /><body>${body}</body></html>`;
+        return res.contentType("text/html").send(html);
       }
     }
 
@@ -90,9 +113,9 @@ async function webView(req: express.Request, res: express.Response) {
     }
     if (f.extension() == "md") {
       const content = await streamToString(await f.anonymizedContent());
-      res
-        .contentType("text/html")
-        .send(marked.marked(content, { headerIds: false, mangle: false }));
+      const body = marked.marked(content, { headerIds: false, mangle: false });
+      const html = `<!DOCTYPE html><html><head><title>Content</title></head><link rel="stylesheet" href="/css/all.min.css" /><body><div class="container p-3 file-content markdown-body">${body}<div></body></html>`;
+      res.contentType("text/html").send(html);
     } else {
       f.send(res);
     }
