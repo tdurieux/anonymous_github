@@ -144,8 +144,8 @@ export default async function start() {
       const time = Date.now() - start;
       console.log(
         `${req.method} ${res.statusCode} ${join(
-          req.baseUrl,
-          req.url
+          req.baseUrl || "",
+          req.url || ""
         )} ${time}ms`
       );
     });
