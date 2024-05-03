@@ -25,12 +25,12 @@ router.post("/", async (req: express.Request, res: express.Response) => {
     commit: commit,
     getToken: () => token,
   });
-  const content = await source.getFileContentCache(
-    filePath,
-    repoId,
-    () => fileSha
-  );
   try {
+    const content = await source.getFileContentCache(
+      filePath,
+      repoId,
+      () => fileSha
+    );
     const mime = lookup(filePath);
     if (mime && !filePath.endsWith(".ts")) {
       res.contentType(mime);

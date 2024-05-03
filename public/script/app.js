@@ -580,18 +580,7 @@ angular
       $scope.$on("$routeUpdate", changedUrl);
     },
   ])
-  .controller("faqController", [
-    "$scope",
-    "$http",
-    function ($scope, $http) {
-      function getSupportedFileTypes() {
-        $http.get("/api/supportedTypes").then((res) => {
-          $scope.supportedFileTypes = res.data;
-        });
-      }
-      getSupportedFileTypes();
-    },
-  ])
+  .controller("faqController", ["$scope", "$http", function ($scope, $http) {}])
   .controller("profileController", [
     "$scope",
     "$http",
