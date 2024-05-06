@@ -194,7 +194,8 @@ export default class GitHubStream extends GitHubBase {
         });
         output.push(...this.tree2Tree(data.tree, parentPath));
       } catch (error) {
-        if ((error as any).status == 404) {
+        console.log(error);
+        if ((error as any).status == 409 || (error as any).status == 404) {
           // empty repo
           data = { tree: [] };
         } else {

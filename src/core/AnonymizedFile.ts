@@ -289,14 +289,9 @@ export default class AnonymizedFile {
                 this.sha(),
                 this.repository.getToken(),
               ]);
-              // const hostName = new URL(config.STREAMER_ENTRYPOINT).hostname;
-              // const ipHost = await this.cacheableLookup.lookupAsync(hostName);
-              got
+              const resStream = got
                 .stream(join(config.STREAMER_ENTRYPOINT, "api"), {
                   method: "POST",
-                  // lookup: this.cacheableLookup.lookup,
-                  // host: ipHost.address,
-                  // dnsCache: this.cacheableLookup,
                   json: {
                     sha,
                     token,
@@ -308,7 +303,8 @@ export default class AnonymizedFile {
                     anonymizerOptions: anonymizer.opt,
                   },
                 })
-                .on("error", () => {
+                .on("error", (err) => {
+                  span.recordException(err);
                   handleError(
                     new AnonymousError("file_not_found", {
                       object: this,
@@ -316,12 +312,17 @@ export default class AnonymizedFile {
                     }),
                     res
                   );
-                })
-                .pipe(res)
-                .on("close", () => {
-                  span.end();
-                  resolve();
                 });
+              resStream.pipe(res);
+              res.on("close", () => {
+                span.end();
+                resolve();
+              });
+              res.on("error", (err) => {
+                reject(err);
+                span.recordException(err);
+                span.end();
+              });
               return;
             }
 

@@ -2,6 +2,8 @@ import { promisify } from "util";
 import * as express from "express";
 import * as stream from "stream";
 import config from "../../config";
+import got from "got";
+import { join } from "path";
 
 import { getRepo, getUser, handleError } from "./route-utils";
 import AnonymousError from "../../core/AnonymousError";
@@ -26,17 +28,15 @@ router.get(
       const repo = await getRepo(req, res);
       if (!repo) return;
 
+      let user: User | undefined = undefined;
+      try {
+        user = await getUser(req);
+      } catch (_) {}
+
       let download = false;
-      const conference = await repo.conference();
-      if (conference) {
-        download =
-          conference.quota.size > -1 &&
-          !!config.ENABLE_DOWNLOAD &&
-          repo.source.type == "GitHubDownload";
-      }
       if (
-        repo.size.storage < config.FREE_DOWNLOAD_REPO_SIZE * 1024 &&
-        repo.source.type == "GitHubDownload"
+        (!!config.ENABLE_DOWNLOAD && !!config.STREAMER_ENTRYPOINT) ||
+        user?.isAdmin === true
       ) {
         download = true;
       }
@@ -46,6 +46,44 @@ router.get(
           httpStatus: 403,
           object: req.params.repoId,
         });
+      }
+
+      await repo.countView();
+
+      if (config.STREAMER_ENTRYPOINT) {
+        // use the streamer service
+        const token = await repo.getToken();
+        const anonymizer = repo.generateAnonymizeTransformer("");
+        res.attachment(`${repo.repoId}.zip`);
+        const reqStream = got
+          .stream(join(config.STREAMER_ENTRYPOINT, "api/download"), {
+            method: "POST",
+            json: {
+              token,
+              repoFullName: repo.model.source.repositoryName,
+              commit: repo.model.source.commit,
+              branch: repo.model.source.branch,
+              repoId: repo.repoId,
+              anonymizerOptions: anonymizer.opt,
+            },
+          })
+          .on("error", () => {
+            handleError(
+              new AnonymousError("file_not_found", {
+                object: this,
+                httpStatus: 404,
+              }),
+              res
+            );
+          });
+        reqStream.pipe(res);
+        res.on("close", () => {
+          reqStream.destroy();
+        });
+        res.on("error", () => {
+          reqStream.destroy();
+        });
+        return;
       }
 
       res.attachment(`${repo.repoId}.zip`);
@@ -125,7 +163,7 @@ router.get(
             throw new AnonymousError(
               repo.model.statusMessage
                 ? repo.model.statusMessage
-                : "repository_not_available",
+                : "repository_not_accessible",
               {
                 object: repo,
                 httpStatus: 500,
@@ -142,17 +180,7 @@ router.get(
       }
 
       let download = false;
-      const conference = await repo.conference();
-      if (conference) {
-        download =
-          conference.quota.size > -1 &&
-          !!config.ENABLE_DOWNLOAD &&
-          repo.source.type == "GitHubDownload";
-      }
-      if (
-        repo.size.storage < config.FREE_DOWNLOAD_REPO_SIZE * 1024 &&
-        repo.source.type == "GitHubDownload"
-      ) {
+      if (!!config.ENABLE_DOWNLOAD && !!config.STREAMER_ENTRYPOINT) {
         download = true;
       }
 
@@ -162,7 +190,7 @@ router.get(
       } catch (_) {}
       res.json({
         url: redirectURL,
-        download,
+        download: download || user?.isAdmin === true,
         lastUpdateDate: repo.model.source.commitDate
           ? repo.model.source.commitDate
           : repo.model.anonymizeDate,

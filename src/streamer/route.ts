@@ -1,11 +1,86 @@
+import { promisify } from "util";
+import * as stream from "stream";
 import * as express from "express";
 import GitHubStream from "../core/source/GitHubStream";
-import { AnonymizeTransformer, isTextFile } from "../core/anonymize-utils";
+import {
+  anonymizePath,
+  AnonymizeTransformer,
+  isTextFile,
+} from "../core/anonymize-utils";
 import { handleError } from "../server/routes/route-utils";
 import { lookup } from "mime-types";
+import GitHubDownload from "../core/source/GitHubDownload";
+import got from "got";
+import { Parse } from "unzip-stream";
+import archiver = require("archiver");
 
 export const router = express.Router();
 
+router.post(
+  "/download",
+  async (req: express.Request, res: express.Response) => {
+    const token: string = req.body.token;
+    const repoFullName = req.body.repoFullName.split("/");
+    const repoId = req.body.repoId;
+    const branch = req.body.branch;
+    const commit = req.body.commit;
+    const anonymizerOptions = req.body.anonymizerOptions;
+
+    try {
+      const source = new GitHubDownload({
+        repoId,
+        organization: repoFullName[0],
+        repoName: repoFullName[1],
+        commit: commit,
+        getToken: () => token,
+      });
+      const response = await source.getZipUrl();
+      const downloadStream = got.stream(response.url);
+
+      res.on("error", (error) => {
+        console.error(error);
+        downloadStream.destroy();
+      });
+
+      res.on("close", () => {
+        downloadStream.destroy();
+      });
+
+      const archive = archiver("zip", {});
+      downloadStream
+        .pipe(Parse())
+        .on("entry", (entry) => {
+          if (entry.type === "File") {
+            try {
+              const fileName = anonymizePath(
+                entry.path.substring(entry.path.indexOf("/") + 1),
+                anonymizerOptions.terms || []
+              );
+              const anonymizer = new AnonymizeTransformer(anonymizerOptions);
+              anonymizer.opt.filePath = fileName;
+              const st = entry.pipe(anonymizer);
+              archive.append(st, { name: fileName });
+            } catch (error) {
+              entry.autodrain();
+              console.error(error);
+            }
+          } else {
+            entry.autodrain();
+          }
+        })
+        .on("error", (error) => {
+          console.error(error);
+          archive.finalize();
+        })
+        .on("finish", () => {
+          archive.finalize();
+        });
+      archive.pipe(res);
+    } catch (error) {
+      handleError(error, res);
+    }
+  }
+);
 router.post("/", async (req: express.Request, res: express.Response) => {
   req.body = req.body || {};
   const token: string = req.body.token;

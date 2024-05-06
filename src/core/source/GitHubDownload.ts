@@ -16,7 +16,7 @@ export default class GitHubDownload extends GitHubBase {
     super(data);
   }
 
-  private async _getZipUrl(): Promise<OctokitResponse<unknown, 302>> {
+  public async getZipUrl(): Promise<OctokitResponse<unknown, 302>> {
     const oct = octokit(await this.data.getToken());
     return oct.rest.repos.downloadZipballArchive({
       owner: this.data.organization,
@@ -32,11 +32,11 @@ export default class GitHubDownload extends GitHubBase {
     try {
       let response: OctokitResponse<unknown, number>;
       try {
-        response = await this._getZipUrl();
+        response = await this.getZipUrl();
       } catch (error) {
         span.recordException(error as Error);
-        throw new AnonymousError("repo_not_accessible", {
-          httpStatus: 404,
+        throw new AnonymousError("repo_not_found", {
+          httpStatus: (error as any).status || 404,
           object: this.data,
           cause: error as Error,
         });
