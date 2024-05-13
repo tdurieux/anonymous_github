@@ -397,7 +397,7 @@ angular
               $scope.opens[folder] = !$scope.opens[folder];
               if (event.srcElement.nextSibling == null) {
                 await $scope.$parent.getFiles(folder.substring(1));
-                display();
+                $scope.$apply();
               }
             };
           },
