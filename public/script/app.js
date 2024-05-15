@@ -361,8 +361,16 @@ angular
                 } else {
                   output += `<a href='/r/${$scope.repoId}${path}'>${name}</a>`;
                 }
-                if ($scope.opens[path] && f.child && f.child.length > 1) {
-                  output += generate(f.child, parentPath + "/" + f.name);
+                if ($scope.opens[path] && f.child) {
+                  if (f.child.length > 1) {
+                    output += generate(f.child, path);
+                  } else if (dir) {
+                    current = f.child;
+                    while (current && current.length == 1) {
+                      current = current[0].child;
+                    }
+                    output += generate(current, path);
+                  }
                 }
                 // output += generate(f.child, parentPath + "/" + f.name);
                 output + "</li>";
