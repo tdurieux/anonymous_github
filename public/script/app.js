@@ -1193,7 +1193,7 @@ angular
               const toast = {
                 title: `Error when getting repository information`,
                 date: new Date(),
-                body: `${o.owner}/${o.repo} produice the following error: ${translation}`,
+                body: `${o.owner}/${o.repo} produced the following error: ${translation}`,
               };
               $scope.toasts.push(toast);
               $scope.error = translation;
@@ -1203,7 +1203,7 @@ angular
             const toast = {
               title: `Error when getting repository information`,
               date: new Date(),
-              body: `${o.owner}/${o.repo} produice the following error: ${error.message}`,
+              body: `${o.owner}/${o.repo} produced the following error: ${error.message}`,
             };
             $scope.toasts.push(toast);
           }
