@@ -4,6 +4,9 @@ export interface IUser {
   accessTokens: {
     github: string;
   };
+  accessTokenDates?: {
+    github: Date;
+  };
   externalIDs: {
     github: string;
   };

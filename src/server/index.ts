@@ -130,14 +130,6 @@ export default async function start() {
     keyGenerator,
   });
 
-  app.use(
-    express.static(join("public"), {
-      etag: true,
-      lastModified: true,
-      maxAge: 3600, // 1h
-    })
-  );
-
   app.use(function (req, res, next) {
     const start = Date.now();
     res.on("finish", function () {
@@ -215,6 +207,14 @@ export default async function start() {
 
   // web view
   app.use("/w/", rate, webViewSpeedLimiter, router.webview);
+
+  app.use(
+    express.static(join("public"), {
+      etag: true,
+      lastModified: true,
+      maxAge: 3600, // 1h
+    })
+  );
 
   app
     .get("/", indexResponse)

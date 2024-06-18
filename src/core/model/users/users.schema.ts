@@ -4,6 +4,9 @@ const UserSchema = new Schema({
   accessTokens: {
     github: { type: String },
   },
+  accessTokenDates: {
+    github: { type: Date },
+  },
   externalIDs: {
     github: { type: String, index: true },
   },

@@ -48,6 +48,13 @@ router.post(
 
       const archive = archiver("zip", {});
       downloadStream
+        .on("error", (error) => {
+          console.error(error);
+          archive.finalize();
+        })
+        .on("close", () => {
+          archive.finalize();
+        })
         .pipe(Parse())
         .on("entry", (entry) => {
           if (entry.type === "File") {

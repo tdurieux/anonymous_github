@@ -14,7 +14,7 @@ const { diag, DiagConsoleLogger, DiagLogLevel } = require("@opentelemetry/api");
 // diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.INFO);
 
 const sdk = new opentelemetry.NodeSDK({
-  serviceName: "Anonymous-GitHub",
+  serviceName: process.env.SERVICE_NAME || "Anonymous-GitHub",
   logRecordProcessor: getNodeAutoInstrumentations().logRecordProcessor,
   traceExporter: new OTLPTraceExporter({
     url: "http://opentelemetry:4317/v1/traces",

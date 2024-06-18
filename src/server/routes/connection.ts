@@ -50,6 +50,13 @@ const verify = async (
       });
       if (user.emails?.length) user.emails[0].default = true;
     }
+    if (!user.accessTokenDates) {
+      user.accessTokenDates = {
+        github: new Date(),
+      };
+    } else {
+      user.accessTokenDates.github = new Date();
+    }
     await user.save();
   } catch (error) {
     console.error(error);

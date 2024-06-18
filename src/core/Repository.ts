@@ -518,7 +518,11 @@ export default class Repository {
       await storage.rm(this.repoId);
       this.model.isReseted = true;
       if (isConnected) {
-        await this.model.save();
+        try {
+          await this.model.save();
+        } catch (error) {
+          console.error("[ERROR] removeCache save", error);
+        }
       }
     } finally {
       span.end();
@@ -542,7 +546,7 @@ export default class Repository {
   }> {
     const span = trace
       .getTracer("ano-file")
-      .startSpan("Repository.removeCache");
+      .startSpan("Repository.computeSize");
     span.setAttribute("repoId", this.repoId);
     try {
       if (this.status !== RepositoryStatus.READY)

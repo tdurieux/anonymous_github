@@ -37,13 +37,14 @@ services:
       mode: replicated
       replicas: 4
       endpoint_mode: dnsrr
-    entrypoint: ["node", "./build/streamer/index.js"]
+    entrypoint: ["node", "--require", "./opentelemetry.js", "./build/streamer/index.js"]
     env_file:
       - ./.env
     volumes:
       - ./repositories:/app/repositories/
     environment:
       - PORT=5000
+      - SERVICE_NAME=Streamer
     healthcheck:
       test:
         - CMD
