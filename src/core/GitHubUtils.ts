@@ -4,6 +4,7 @@ import { Octokit } from "@octokit/rest";
 import Repository from "./Repository";
 import UserModel from "./model/users/users.model";
 import config from "../config";
+import { RepositoryStatus } from "./types";
 
 export function octokit(token: string) {
   return new Octokit({
@@ -28,15 +29,14 @@ export async function getToken(repository: Repository) {
   const span = trace.getTracer("ano-file").startSpan("GHUtils.getToken");
   span.setAttribute("repoId", repository.repoId);
   try {
-    // only check the token if the repo has been visited more than one day ago
-    // if (
-    //   repository.model.source.accessToken &&
-    //   repository.model.lastView > new Date(Date.now() - 1000 * 60 * 60 * 24)
-    // ) {
-    //   return repository.model.source.accessToken;
-    // }
     if (repository.model.source.accessToken) {
-      if (await checkToken(repository.model.source.accessToken)) {
+      // only check the token if the repo has been visited less than 10 minutes ago
+      if (
+        repository.status == RepositoryStatus.READY &&
+        repository.model.lastView > new Date(Date.now() - 1000 * 60 * 10)
+      ) {
+        return repository.model.source.accessToken;
+      } else if (await checkToken(repository.model.source.accessToken)) {
         return repository.model.source.accessToken;
       }
     }
@@ -53,7 +53,11 @@ export async function getToken(repository: Repository) {
     const ownerAccessToken = repository.owner.model.accessTokens?.github;
     if (ownerAccessToken) {
       const tokenAge = repository.owner.model.accessTokenDates?.github;
-      if (!tokenAge || tokenAge < new Date(Date.now() - 1000 * 60 * 60 * 24)) {
+      // if the token is older than 7 days, refresh it
+      if (
+        !tokenAge ||
+        tokenAge < new Date(Date.now() - 1000 * 60 * 60 * 24 * 7)
+      ) {
         const url = `https://api.github.com/applications/${config.CLIENT_ID}/token`;
         const headers = {
           Accept: "application/vnd.github+json",
