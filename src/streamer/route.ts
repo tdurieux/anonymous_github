@@ -50,10 +50,14 @@ router.post(
       downloadStream
         .on("error", (error) => {
           console.error(error);
-          archive.finalize();
+          try {
+            archive.finalize();
+          } catch (error) {}
         })
         .on("close", () => {
-          archive.finalize();
+          try {
+            archive.finalize();
+          } catch (error) {}
         })
         .pipe(Parse())
         .on("entry", (entry) => {
@@ -77,10 +81,14 @@ router.post(
         })
         .on("error", (error) => {
           console.error(error);
-          archive.finalize();
+          try {
+            archive.finalize();
+          } catch (error) {}
         })
         .on("finish", () => {
-          archive.finalize();
+          try {
+            archive.finalize();
+          } catch (error) {}
         });
       archive.pipe(res).on("error", (error) => {
         console.error(error);
