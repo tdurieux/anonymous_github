@@ -82,7 +82,10 @@ router.post(
         .on("finish", () => {
           archive.finalize();
         });
-      archive.pipe(res);
+      archive.pipe(res).on("error", (error) => {
+        console.error(error);
+        res.end();
+      });
     } catch (error) {
       handleError(error, res);
     }

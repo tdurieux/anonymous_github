@@ -1583,7 +1583,7 @@ angular
       $scope.getFiles = async function (path) {
         try {
           const res = await $http.get(
-            `/api/repo/${$scope.repoId}/files/?path=${path}`
+            `/api/repo/${$scope.repoId}/files/?path=${path}&v=${$scope.options.lastUpdateDate}`
           );
           $scope.files.push(...res.data);
           return res.data;
