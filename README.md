@@ -73,7 +73,7 @@ In double-anonymous peer-review, the boundary of anonymization is the paper plus
 
 ## How does it work?
 
-Anonymous Github either download the complete repository and anonymize the content of the file or proxy the request to GitHub. In both case, the original and anonymized versions of the file are cached on the server.
+Anonymous Github either downloads the complete repository and anonymizes the content of the file or proxies the request to GitHub. In both cases, the original and anonymized versions of the file are cached on the server.
 
 ## Related tools
 
