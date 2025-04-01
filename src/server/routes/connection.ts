@@ -10,6 +10,7 @@ import config from "../../config";
 import UserModel from "../../core/model/users/users.model";
 import { IUserDocument } from "../../core/model/users/users.types";
 import AnonymousError from "../../core/AnonymousError";
+import AnonymizedPullRequestModel from "../../core/model/anonymizedPullRequests/anonymizedPullRequests.model";
 
 export function ensureAuthenticated(
   req: express.Request,
@@ -33,6 +34,10 @@ const verify = async (
     user = await UserModel.findOne({ "externalIDs.github": profile.id });
     if (user) {
       user.accessTokens.github = accessToken;
+      await AnonymizedPullRequestModel.updateMany(
+        { owner: user._id },
+        { "source.accessToken": accessToken }
+      );
     } else {
       const photo = profile.photos ? profile.photos[0]?.value : null;
       user = new UserModel({

@@ -272,6 +272,21 @@ export async function getRepositoryFromGitHub(opt: {
       ).data;
     } catch (error) {
       span.recordException(error as Error);
+      if (
+        error instanceof Error &&
+        error.message.includes(
+          "organization has enabled OAuth App access restrictions"
+        )
+      ) {
+        throw new AnonymousError("repo_access_limited", {
+          httpStatus: 403,
+          object: {
+            owner: opt.owner,
+            repo: opt.repo,
+          },
+          cause: error as Error,
+        });
+      }
       throw new AnonymousError("repo_not_found", {
         httpStatus: (error as any).status,
         object: {
