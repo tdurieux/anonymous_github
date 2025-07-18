@@ -182,5 +182,6 @@ function renderMD(md, baseUrlValue) {
       throwOnError: false,
     })
   );
+  marked.use(markedMermaid());
   return DOMPurify.sanitize(marked.parse(md, { renderer }));
 }

@@ -22,6 +22,8 @@ function defaultTask(cb) {
     "public/script/external/katex.min.js",
     "public/script/external/katex-auto-render.min.js",
     "public/script/external/marked-katex-extension.umd.min.js",
+    "public/script/external/mermaid.min.js",
+    "public/script/external/marked-mermaid.js",
     "public/script/external/notebook.min.js",
     "public/script/external/org.js",
     "public/script/external/jquery-3.4.1.min.js",
@@ -39,6 +41,7 @@ function defaultTask(cb) {
     "public/css/font-awesome.min.css",
     "public/css/notebook.css",
     "public/css/katex.min.css",
+    "public/css/mermaid.css",
     "public/css/github-markdown.min.css",
     "public/css/style.css",
   ];
