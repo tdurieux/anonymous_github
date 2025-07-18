@@ -182,5 +182,6 @@ function renderMD(md, baseUrlValue) {
       throwOnError: false,
     })
   );
+  marked.use(markedMermaid());
   return marked.parse(md, { renderer });
 }

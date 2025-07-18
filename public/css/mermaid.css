@@ -1,0 +1,84 @@
+/* Mermaid diagram styles */
+.mermaid {
+  text-align: center;
+  margin: 1em 0;
+  overflow: auto;
+}
+
+/* Ensure diagrams are responsive */
+.mermaid svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Dark mode support for Mermaid diagrams */
+.dark-mode .mermaid {
+  filter: invert(1) hue-rotate(180deg);
+}
+
+.dark-mode .mermaid svg {
+  background: transparent;
+}
+
+/* Ensure text remains readable in dark mode */
+.dark-mode .mermaid .nodeLabel,
+.dark-mode .mermaid .edgeLabel {
+  filter: invert(1) hue-rotate(180deg);
+}
+
+/* Custom styling for different diagram types */
+.mermaid .node rect,
+.mermaid .node circle,
+.mermaid .node ellipse,
+.mermaid .node polygon {
+  stroke-width: 2px;
+}
+
+/* Flowchart specific styles */
+.mermaid .flowchart-link {
+  stroke-width: 2px;
+}
+
+/* Sequence diagram specific styles */
+.mermaid .actor {
+  fill: #f9f9f9;
+  stroke: #333;
+  stroke-width: 2px;
+}
+
+.mermaid .messageLine0,
+.mermaid .messageLine1 {
+  stroke: #333;
+  stroke-width: 1.5px;
+}
+
+/* Gantt chart specific styles */
+.mermaid .section0,
+.mermaid .section1,
+.mermaid .section2,
+.mermaid .section3 {
+  opacity: 0.8;
+}
+
+/* Pie chart specific styles */
+.mermaid .pieChart .slice {
+  opacity: 0.9;
+}
+
+/* Make sure diagrams are visible in the markdown content area */
+.markdown-body .mermaid {
+  background: transparent;
+  border: none;
+  padding: 10px;
+}
+
+/* Error handling for failed diagrams */
+.mermaid .error {
+  color: #d32f2f;
+  font-family: monospace;
+  font-size: 12px;
+  padding: 10px;
+  border: 1px solid #d32f2f;
+  border-radius: 4px;
+  background-color: #ffebee;
+} 
