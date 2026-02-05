@@ -1111,7 +1111,8 @@ angular
           return;
         }
         try {
-          await Promise.all([getDetails(), getReadme()]);
+          // Force refresh to get latest GitHub Pages status
+          await Promise.all([getDetails(true), getReadme()]);
           anonymize();
         } catch (error) {}
         $scope.$apply();
@@ -1172,13 +1173,14 @@ angular
         $scope.$apply();
       };
 
-      async function getDetails() {
+      async function getDetails(force) {
         const o = parseGithubUrl($scope.repoUrl);
         try {
           resetValidity();
           const res = await $http.get(`/api/repo/${o.owner}/${o.repo}/`, {
             params: {
               repositoryID: $scope.repositoryID,
+              force: force === true ? "1" : "0",
             },
           });
           $scope.details = res.data;
