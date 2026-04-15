@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mermaid Test - Anonymous GitHub</title>
+    <!-- Include CSS from the built bundle -->
+    <link rel="stylesheet" href="public/css/bootstrap.min.css">
+    <link rel="stylesheet" href="public/css/github-markdown.min.css">
+    <link rel="stylesheet" href="public/css/mermaid.css">
+    <link rel="stylesheet" href="public/css/style.css">
+    <style>
+        body { padding: 20px; }
+        .test-section { 
+            margin: 30px 0; 
+            padding: 20px; 
+            border: 1px solid #ddd; 
+            border-radius: 5px; 
+        }
+        .markdown-body { max-width: 100%; }
+        .status { 
+            padding: 10px; 
+            margin: 10px 0; 
+            border-radius: 4px; 
+        }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Mermaid Support Test</h1>
+        
+        <div class="status" id="status">
+            <strong>Status:</strong> <span id="statusText">Loading...</span>
+        </div>
+
+        <!-- Test markdown content -->
+        <div class="test-section">
+            <h2>Test Input (Markdown)</h2>
+            <pre id="markdownInput"># Test Document
+
+## Simple Flowchart
+```mermaid
+graph TD
+    A[Start] --> B{Test Working?}
+    B -->|Yes| C[✅ Success!]
+    B -->|No| D[❌ Failed]
+    D --> E[Check Console]
+    C --> F[Mermaid Renders!]
+```
+
+## Sequence Diagram
+```mermaid
+sequenceDiagram
+    participant User
+    participant App
+    participant Mermaid
+    
+    User->>App: Load page
+    App->>Mermaid: Render diagram
+    Mermaid-->>App: SVG output
+    App-->>User: Display diagram
+```</pre>
+        </div>
+
+        <div class="test-section">
+            <h2>Rendered Output</h2>
+            <div class="markdown-body" id="renderedOutput">
+                <!-- Rendered content will appear here -->
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>Console Output</h2>
+            <pre id="consoleOutput" style="background: #f8f9fa; padding: 10px; max-height: 200px; overflow-y: auto;"></pre>
+        </div>
+    </div>
+
+    <!-- Include JavaScript libraries in correct order -->
+    <script src="public/script/external/jquery-3.4.1.min.js"></script>
+    <script src="public/script/external/github-emojis.js"></script>
+    <script src="public/script/external/marked-emoji.js"></script>
+    <script src="public/script/external/marked.min.js"></script>
+    <script src="public/script/external/katex.min.js"></script>
+    <script src="public/script/external/marked-katex-extension.umd.min.js"></script>
+    <script src="public/script/external/mermaid.min.js"></script>
+    <script src="public/script/external/marked-mermaid.js"></script>
+    <script src="public/script/utils.js"></script>
+
+    <script>
+        // Capture console logs
+        const originalLog = console.log;
+        const originalError = console.error;
+        const consoleOutput = document.getElementById('consoleOutput');
+        
+        function addToConsole(type, message) {
+            consoleOutput.textContent += `[${type.toUpperCase()}] ${message}\n`;
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        }
+        
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            addToConsole('log', args.join(' '));
+        };
+        
+        console.error = function(...args) {
+            originalError.apply(console, args);
+            addToConsole('error', args.join(' '));
+        };
+
+        // Test the Mermaid integration
+        document.addEventListener('DOMContentLoaded', function() {
+            const statusText = document.getElementById('statusText');
+            const status = document.getElementById('status');
+            const markdownInput = document.getElementById('markdownInput').textContent;
+            const renderedOutput = document.getElementById('renderedOutput');
+            
+            try {
+                console.log('Starting Mermaid test...');
+                
+                // Check if required functions are available
+                if (typeof marked === 'undefined') {
+                    throw new Error('marked.js not loaded');
+                }
+                if (typeof mermaid === 'undefined') {
+                    throw new Error('mermaid.js not loaded');
+                }
+                if (typeof markedMermaid === 'undefined') {
+                    throw new Error('marked-mermaid.js not loaded');
+                }
+                if (typeof renderMD === 'undefined') {
+                    throw new Error('renderMD function not loaded');
+                }
+                
+                console.log('All required libraries loaded');
+                
+                // Test the rendering
+                const rendered = renderMD(markdownInput);
+                renderedOutput.innerHTML = rendered;
+                
+                console.log('Markdown processed, checking for Mermaid elements...');
+                
+                // Check if mermaid elements were created
+                const mermaidElements = renderedOutput.querySelectorAll('.mermaid');
+                console.log(`Found ${mermaidElements.length} mermaid elements`);
+                
+                if (mermaidElements.length > 0) {
+                    statusText.textContent = `SUCCESS! Found ${mermaidElements.length} Mermaid diagram(s)`;
+                    status.className = 'status success';
+                    
+                    // Wait a bit for diagrams to render
+                    setTimeout(() => {
+                        mermaidElements.forEach((el, index) => {
+                            const svg = el.querySelector('svg');
+                            if (svg) {
+                                console.log(`Diagram ${index + 1}: Successfully rendered as SVG`);
+                            } else {
+                                console.log(`Diagram ${index + 1}: Still rendering or failed`);
+                            }
+                        });
+                    }, 2000);
+                } else {
+                    statusText.textContent = '❌ FAILED: No Mermaid elements found in rendered output';
+                    status.className = 'status error';
+                }
+                
+            } catch (error) {
+                console.error('Test failed:', error.message);
+                statusText.textContent = `❌ ERROR: ${error.message}`;
+                status.className = 'status error';
+            }
+        });
+    </script>
+</body>
+</html> 
