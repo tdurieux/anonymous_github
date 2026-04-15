@@ -5,7 +5,7 @@ import { ConferenceStatus } from "./types";
 
 export default class Conference {
   private _data: IConferenceDocument;
-  private _repositories: Repository[] = [];
+  private _repositories: Repository[] | null = null;
 
   constructor(data: IConferenceDocument) {
     this._data = data;

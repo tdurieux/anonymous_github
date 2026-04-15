@@ -8,6 +8,15 @@ import * as sanitizeHtml from "sanitize-html";
 import { streamToString } from "../../core/anonymize-utils";
 import { IFile } from "../../core/model/files/files.types";
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 const sanitizeOptions: sanitizeHtml.IOptions = {
   allowedTags: sanitizeHtml.defaults.allowedTags.concat([
     "img",
@@ -120,12 +129,12 @@ async function webView(req: express.Request, res: express.Response) {
         });
       } else {
         // print list of files in the root repository
-        const body = `<div class="container p-3"><h2>Content of ${filePath}</h2><div class="list-group">${candidates
+        const body = `<div class="container p-3"><h2>Content of ${escapeHtml(filePath)}</h2><div class="list-group">${candidates
           .map(
             (c) =>
               `<a class="list-group-item list-group-item-action" href="${
-                c.name + (c.size == null ? "/" : "")
-              }">${c.name + (c.size == null ? "/" : "")}</a>`
+                encodeURI(c.name) + (c.size == null ? "/" : "")
+              }">${escapeHtml(c.name) + (c.size == null ? "/" : "")}</a>`
           )
           .join("")}</div></div>`;
         const html = `<!DOCTYPE html><html><head><title>Content</title></head><link rel="stylesheet" href="/css/all.min.css" /><body>${body}</body></html>`;
@@ -142,7 +151,7 @@ async function webView(req: express.Request, res: express.Response) {
     if (f.extension() == "md") {
       const content = await streamToString(await f.anonymizedContent());
       const body = sanitizeHtml(marked.marked(content, { headerIds: false, mangle: false }), sanitizeOptions);
-      const html = `<!DOCTYPE html><html><head><title>Content</title></head><link rel="stylesheet" href="/css/all.min.css" /><body><div class="container p-3 file-content markdown-body">${body}<div></body></html>`;
+      const html = `<!DOCTYPE html><html><head><title>Content</title></head><link rel="stylesheet" href="/css/all.min.css" /><body><div class="container p-3 file-content markdown-body">${body}</div></body></html>`;
       res.contentType("text/html").send(html);
     } else {
       f.send(res);

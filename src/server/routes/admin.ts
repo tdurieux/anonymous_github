@@ -129,10 +129,10 @@ router.get("/repos", async (req, res) => {
   }
   const query = [];
   if (req.query.search) {
-    query.push({ repoId: { $regex: req.query.search } });
+    const escaped = (req.query.search as string).replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
+    query.push({ repoId: { $regex: escaped } });
   }
   const status: { status: string }[] = [];
-  query.push({ $or: status });
   if (ready) {
     status.push({ status: "ready" });
   }
@@ -150,6 +150,9 @@ router.get("/repos", async (req, res) => {
   if (preparing) {
     status.push({ status: "preparing" });
     status.push({ status: "download" });
+  }
+  if (status.length > 0) {
+    query.push({ $or: status });
   }
   const skipIndex = (page - 1) * limit;
   const [total, results] = await Promise.all([
@@ -199,7 +202,8 @@ router.get("/users", async (req, res) => {
   }
   let query = {};
   if (req.query.search) {
-    query = { username: { $regex: req.query.search } };
+    const escaped = (req.query.search as string).replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
+    query = { username: { $regex: escaped } };
   }
 
   res.json({
@@ -270,10 +274,11 @@ router.get("/conferences", async (req, res) => {
   }
   let query = {};
   if (req.query.search) {
+    const escaped = (req.query.search as string).replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
     query = {
       $or: [
-        { name: { $regex: req.query.search } },
-        { conferenceID: { $regex: req.query.search } },
+        { name: { $regex: escaped } },
+        { conferenceID: { $regex: escaped } },
       ],
     };
   }

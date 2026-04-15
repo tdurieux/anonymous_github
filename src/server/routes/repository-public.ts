@@ -70,7 +70,7 @@ router.get(
           .on("error", () => {
             handleError(
               new AnonymousError("file_not_found", {
-                object: this,
+                object: req.params.repoId,
                 httpStatus: 404,
               }),
               res
