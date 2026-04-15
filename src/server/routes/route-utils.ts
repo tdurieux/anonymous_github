@@ -20,12 +20,12 @@ export async function getPullRequest(
         pullRequest.options.expirationMode == "redirect"
       ) {
         res.redirect(
-          `http://github.com/${pullRequest.source.repositoryFullName}/pull/${pullRequest.source.pullRequestId}`
+          `https://github.com/${pullRequest.source.repositoryFullName}/pull/${pullRequest.source.pullRequestId}`
         );
         return null;
       }
 
-      pullRequest.check();
+      await pullRequest.check();
     }
     return pullRequest;
   } catch (error) {
@@ -105,6 +105,8 @@ export function handleError(
   let errorCode = error;
   if (error instanceof Error) {
     errorCode = error.message;
+  } else if (typeof error !== "string") {
+    errorCode = String(error);
   }
   let status = 500;
   if (error.httpStatus) {

@@ -70,8 +70,9 @@ export default class FileSystem extends StorageBase {
         });
       }
       return await fs.promises.writeFile(fullPath, data, "utf-8");
-    } catch {
-      // write error ignored
+    } catch (err) {
+      console.error("[ERROR] FileSystem.write failed:", err);
+      throw err;
     }
   }
 

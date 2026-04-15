@@ -32,7 +32,7 @@ router.get(
     try {
       if (!(await repo.isReady())) {
         throw new AnonymousError("repository_not_ready", {
-          object: this,
+          object: repo,
           httpStatus: 503,
         });
       }

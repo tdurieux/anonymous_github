@@ -98,14 +98,14 @@ export default class PullRequest {
   /**
    * Check the status of the pullRequest
    */
-  check() {
+  async check() {
     if (
       this._model.options.expirationMode !== "never" &&
       this.status == "ready" &&
       this._model.options.expirationDate
     ) {
       if (this._model.options.expirationDate <= new Date()) {
-        this.expire();
+        await this.expire();
       }
     }
     if (

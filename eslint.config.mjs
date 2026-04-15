@@ -30,7 +30,12 @@ export default tseslint.config(
         after: "readonly",
         beforeEach: "readonly",
         afterEach: "readonly",
+        __dirname: "readonly",
+        console: "readonly",
       },
+    },
+    rules: {
+      "@typescript-eslint/no-unused-expressions": "off",
     },
   }
 );

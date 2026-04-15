@@ -60,7 +60,6 @@ export default class Repository {
   constructor(data: IAnonymizedRepositoryDocument) {
     this._model = data;
     this.owner = new User(new UserModel({ _id: data.owner }));
-    this.owner = new User(new UserModel({ _id: data.owner }));
     this.owner.model.isNew = false;
   }
 
@@ -169,11 +168,14 @@ export default class Repository {
       opt.path = await f.originalPath();
     }
 
-    let pathQuery: string | RegExp | undefined = opt.path
-      ? new RegExp(`^${opt.path}`)
+    const escapedPath = opt.path
+      ? opt.path.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&")
+      : undefined;
+    let pathQuery: string | RegExp | undefined = escapedPath
+      ? new RegExp(`^${escapedPath}`)
       : undefined;
     if (opt.recursive === false) {
-      pathQuery = opt.path ? new RegExp(`^${opt.path}$`) : "";
+      pathQuery = escapedPath ? new RegExp(`^${escapedPath}$`) : "";
     }
 
     const query: FilterQuery<IFile> = {
@@ -328,6 +330,18 @@ export default class Repository {
           this.model.source.branch || ghRepo.model.defaultBranch;
         const newCommit = branches.filter((f) => f.name == branchName)[0]
           ?.commit;
+
+        if (!newCommit) {
+          console.error(
+            `${branchName} for ${this.model.source.repositoryName} is not found`
+          );
+          await this.updateStatus(RepositoryStatus.ERROR, "branch_not_found");
+          await this.resetSate();
+          throw new AnonymousError("branch_not_found", {
+            object: this,
+            httpStatus: 404,
+          });
+        }
         if (
           this.model.source.commit == newCommit &&
           this.status == RepositoryStatus.READY
@@ -348,18 +362,6 @@ export default class Repository {
           this._model.source.commitDate = new Date(d);
         }
         this.model.source.commit = newCommit;
-
-        if (!newCommit) {
-          console.error(
-            `${branchName} for ${this.model.source.repositoryName} is not found`
-          );
-          await this.updateStatus(RepositoryStatus.ERROR, "branch_not_found");
-          await this.resetSate();
-          throw new AnonymousError("branch_not_found", {
-            object: this,
-            httpStatus: 404,
-          });
-        }
         this._model.anonymizeDate = new Date();
         console.log(
           `[UPDATE] ${this._model.repoId} will be updated to ${newCommit}`

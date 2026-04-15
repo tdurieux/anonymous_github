@@ -43,7 +43,7 @@ const config: Config = {
   GITHUB_TOKEN: "",
   DEFAULT_QUOTA: 2 * 1024 * 1024 * 1024 * 8,
   MAX_FILE_FOLDER: 1000,
-  MAX_FILE_SIZE: 100 * 1024 * 1024, // in b, 10MB
+  MAX_FILE_SIZE: 100 * 1024 * 1024, // in b, 100MB
   MAX_REPO_SIZE: 60000, // in kb, 60MB
   AUTO_DOWNLOAD_REPO_SIZE: 150, // in kb, 150kb
   FREE_DOWNLOAD_REPO_SIZE: 150, // in kb, 150kb
@@ -80,8 +80,20 @@ const config: Config = {
 };
 
 for (const conf in process.env) {
-  if ((config as unknown as Record<string, unknown>)[conf] !== undefined) {
-    (config as unknown as Record<string, string | undefined>)[conf] = process.env[conf];
+  const configRecord = config as unknown as Record<string, unknown>;
+  if (configRecord[conf] !== undefined) {
+    const currentValue = configRecord[conf];
+    const envValue = process.env[conf] as string;
+    if (typeof currentValue === "number") {
+      const parsed = Number(envValue);
+      if (!isNaN(parsed)) {
+        configRecord[conf] = parsed;
+      }
+    } else if (typeof currentValue === "boolean") {
+      configRecord[conf] = envValue === "true" || envValue === "1";
+    } else {
+      configRecord[conf] = envValue;
+    }
   }
 }
 
