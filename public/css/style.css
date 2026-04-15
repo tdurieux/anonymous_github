@@ -193,16 +193,95 @@ a:hover {
 }
 
 .rgba-gradient {
-  background: -moz-linear-gradient(45deg,
-      rgba(51, 51, 51, 0.82),
-      rgba(13, 17, 198, 0.69) 100%);
-  background: -webkit-linear-gradient(45deg,
-      rgba(51, 51, 51, 0.82),
-      rgba(13, 17, 198, 0.69) 100%);
-  background: linear-gradient(to 45deg,
-      rgba(51, 51, 51, 0.82),
-      rgba(13, 17, 198, 0.69) 100%);
+  background: linear-gradient(135deg, var(--primary-bg), #2a2d4a);
   color: var(--header-color);
+}
+
+/* Hero section */
+.hero-title {
+  font-size: 2.8rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 0;
+}
+
+.hero-subtitle {
+  font-size: 1.15rem;
+  opacity: 0.85;
+  max-width: 500px;
+  margin-left: auto;
+  margin-right: auto;
+  line-height: 1.5;
+}
+
+.btn-hero {
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  color: #fff;
+  padding: 10px 28px;
+  font-size: 1rem;
+  font-weight: 500;
+  border-radius: 6px;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.btn-hero:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: #fff;
+  color: #fff;
+}
+
+/* Home content */
+.home-content {
+  max-width: 900px;
+}
+
+.usage-steps {
+  font-size: 1.05rem;
+  line-height: 1.8;
+  padding-left: 1.2em;
+}
+
+.usage-example {
+  font-size: 0.9rem;
+  opacity: 0.7;
+  margin-top: 8px;
+}
+
+.featurette-lead {
+  font-size: 1.05rem;
+  line-height: 1.7;
+  opacity: 0.85;
+}
+
+/* Metrics grid */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 48px;
+}
+
+.metric-card {
+  text-align: center;
+  padding: 24px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--admin-stat-bg);
+}
+
+.metric-value {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.metric-label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  opacity: 0.6;
+  margin-top: 4px;
 }
 
 .dropdown-menu,
@@ -220,7 +299,11 @@ a:hover {
 }
 
 .badge {
-  font-size: 45%;
+  font-size: 75%;
+  font-weight: 500;
+  padding: 3px 8px;
+  border-radius: 10px;
+  vertical-align: middle;
 }
 
 .warning-feedback {
@@ -549,11 +632,13 @@ loc .lang {
   /* Space out the Bootstrap <hr> more */
 }
 
-/* Thin out the marketing headings */
+/* Featurette headings */
 .featurette-heading {
-  font-weight: 300;
-  line-height: 1;
-  letter-spacing: -0.05rem;
+  font-weight: 600;
+  font-size: 1.5rem;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+  margin-bottom: 12px;
 }
 
 .dark-mode .shadow {
@@ -577,15 +662,7 @@ loc .lang {
 }
 
 .dark-mode .rgba-gradient {
-  background: -moz-linear-gradient(45deg,
-      rgb(45 45 64 / 82%),
-      rgb(23 26 49) 100%);
-  background: -webkit-linear-gradient(45deg,
-      rgb(45 45 64 / 82%),
-      rgb(23 26 49) 100%);
-  background: linear-gradient(to 45deg,
-      rgb(45 45 64 / 82%),
-      rgb(23 26 49) 100%);
+  background: linear-gradient(135deg, #2a2d4a, #151728);
 }
 
 
@@ -624,6 +701,236 @@ code {
 
 .diff-remove {
   background: rgba(200, 100, 100, 0.5);
+}
+
+/* ===== Dashboard & List Styles ===== */
+
+.dashboard-page {
+  max-width: 960px;
+}
+
+.dashboard-title {
+  font-size: 1.4rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* Quota bars */
+.quota-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  background: var(--admin-stat-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+}
+
+.quota-item {
+  flex: 1;
+  min-width: 0;
+}
+
+.quota-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 4px;
+}
+
+.quota-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  opacity: 0.7;
+}
+
+.quota-value {
+  font-size: 0.8rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.quota-progress {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--hover-bg-color);
+}
+
+.quota-progress .progress-bar {
+  border-radius: 3px;
+}
+
+/* Filter chips */
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  background: var(--primary-bg);
+  color: var(--primary-color);
+  border-radius: 12px;
+  line-height: 1.4;
+}
+
+.filter-chip-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: inherit;
+  opacity: 0.7;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 2px;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.filter-chip-close:hover {
+  opacity: 1;
+}
+
+/* Repository/PR list */
+.repo-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.repo-list-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border-color);
+  gap: 12px;
+}
+
+.repo-list-item:first-child {
+  border-top: 1px solid var(--border-color);
+}
+
+.repo-list-item.repo-inactive {
+  opacity: 0.6;
+}
+
+.repo-list-item-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.repo-list-item-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.repo-name {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--link-color);
+  word-break: break-word;
+}
+
+.repo-name:hover {
+  color: var(--link-hover-color);
+}
+
+.repo-source {
+  font-size: 0.85rem;
+  opacity: 0.8;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.repo-date {
+  opacity: 0.7;
+}
+
+.repo-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+
+.repo-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.repo-list-item-actions {
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+
+.repo-list-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 48px 20px;
+  opacity: 0.5;
+  font-size: 0.95rem;
+  list-style: none;
+  border-bottom: 1px solid var(--border-color);
+  border-top: 1px solid var(--border-color);
+}
+
+.repo-list-empty i {
+  font-size: 1.8rem;
+}
+
+/* Type badges (Repo / PR) */
+.type-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.type-badge.type-repo {
+  background: rgba(74, 80, 123, 0.12);
+  color: var(--primary-bg);
+}
+
+.type-badge.type-pr {
+  background: rgba(40, 167, 69, 0.12);
+  color: #28a745;
+}
+
+.dark-mode .type-badge.type-repo {
+  background: rgba(84, 155, 245, 0.15);
+  color: #549bf5;
+}
+
+.dark-mode .type-badge.type-pr {
+  background: rgba(40, 167, 69, 0.15);
+  color: #5cb85c;
+}
+
+/* Type filter button group */
+.btn-group .btn:not(.btn-primary) {
+  background: var(--hover-bg-color);
 }
 
 /* ===== Anonymize Page Layout ===== */
@@ -730,12 +1037,19 @@ code {
   h3 { font-size: 1.15rem; }
 
   /* Dashboard list items */
-  .col-12.d-flex.px-0.py-3 {
+  .repo-list-item {
     flex-direction: column;
   }
 
-  .col-12.d-flex.px-0.py-3 > .d-flex:last-child {
-    margin-top: 8px;
+  .repo-list-item-actions {
+    align-self: flex-start;
+  }
+
+  /* Quota row stacks on mobile */
+  .quota-row {
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px 12px;
   }
 
   /* Dropdown menus right-aligned on mobile */
@@ -788,8 +1102,7 @@ code {
 
   /* Badge readability */
   .badge {
-    font-size: 55%;
-    padding: 3px 6px;
+    font-size: 70%;
   }
 
   /* Search & filter toolbar */
@@ -810,9 +1123,22 @@ code {
     display: none !important;
   }
 
-  /* Metrics cards on home */
-  .col-md-4 h3 {
-    font-size: 1.1rem;
+  /* Metrics cards on mobile */
+  .metrics-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .metric-value {
+    font-size: 1.5rem;
+  }
+
+  .hero-title {
+    font-size: 1.8rem;
+  }
+
+  .hero-subtitle {
+    font-size: 0.95rem;
   }
 
   /* ---- Anonymize page mobile ---- */

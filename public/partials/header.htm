@@ -28,18 +28,18 @@
           ng-class="{'active': path == '/dashboard'}"
           href="/dashboard"
         >
-          <i class="fas fa-code-branch d-lg-none mr-1"></i>
-          Repositories
+          <i class="fas fa-th-large d-lg-none mr-1"></i>
+          Dashboard
         </a>
       </li>
       <li class="nav-item" ng-if="user">
         <a
           class="nav-link"
-          ng-class="{'active': path == '/pr-dashboard'}"
-          href="/pr-dashboard"
+          ng-class="{'active':path == '/anonymize' || path == '/pull-request-anonymize'}"
+          href="/anonymize"
         >
-          <i class="fas fa-code-branch d-lg-none mr-1"></i>
-          Pull Requests
+          <i class="fas fa-user-secret d-lg-none mr-1"></i>
+          Anonymize
         </a>
       </li>
       <li class="nav-item" ng-if="user">
@@ -50,26 +50,6 @@
         >
           <i class="fas fa-chalkboard-teacher d-lg-none mr-1"></i>
           Conferences
-        </a>
-      </li>
-      <li class="nav-item" ng-if="user">
-        <a
-          class="nav-link"
-          ng-class="{'active':path == '/anonymize'}"
-          href="/anonymize"
-        >
-          <i class="fas fa-user-secret d-lg-none mr-1"></i>
-          Anonymize
-        </a>
-      </li>
-      <li class="nav-item" ng-if="user">
-        <a
-          class="nav-link"
-          ng-class="{'active':path == '/pull-request-anonymize'}"
-          href="/pull-request-anonymize"
-        >
-          <i class="fas fa-user-secret d-lg-none mr-1"></i>
-          Anonymize PR
         </a>
       </li>
       <li class="nav-item" ng-if="user && user.isAdmin">

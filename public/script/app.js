@@ -27,13 +27,11 @@ angular
         })
         .when("/dashboard", {
           templateUrl: "/partials/dashboard.htm",
-          controller: "dashboardController",
+          controller: "unifiedDashboardController",
           title: "Dashboard - Anonymous GitHub",
         })
         .when("/pr-dashboard", {
-          templateUrl: "/partials/pr-dashboard.htm",
-          controller: "prDashboardController",
-          title: "Pull Request Dashboard - Anonymous GitHub",
+          redirectTo: "/dashboard",
         })
         .when("/anonymize/:repoId?", {
           templateUrl: "/partials/anonymize.htm",
@@ -41,8 +39,8 @@ angular
           title: "Anonymize - Anonymous GitHub",
         })
         .when("/pull-request-anonymize/:pullRequestId?", {
-          templateUrl: "/partials/anonymizePullRequest.htm",
-          controller: "anonymizePullRequestController",
+          templateUrl: "/partials/anonymize.htm",
+          controller: "anonymizeController",
           title: "Anonymize - Anonymous GitHub",
         })
         .when("/status/:repoId", {
@@ -682,13 +680,12 @@ angular
       getStat();
     },
   ])
-  .controller("dashboardController", [
+  .controller("unifiedDashboardController", [
     "$scope",
     "$http",
     "$location",
     function ($scope, $http, $location) {
       $scope.$on("$routeChangeStart", function () {
-        // remove tooltip
         $('[data-toggle="tooltip"]').tooltip("dispose");
       });
       $scope.$watch("user.status", () => {
@@ -704,8 +701,9 @@ angular
         $('[data-toggle="tooltip"]').tooltip();
       }, 250);
 
-      $scope.repositories = [];
+      $scope.items = [];
       $scope.search = "";
+      $scope.typeFilter = "all";
       $scope.filters = {
         status: { ready: true, expired: true, removed: false },
       };
@@ -728,32 +726,51 @@ angular
       }
       getQuota();
 
-      function getRepositories() {
+      function loadAll() {
         $http.get("/api/user/anonymized_repositories").then(
           (res) => {
-            $scope.repositories = res.data;
-            for (let repo of $scope.repositories) {
-              if (!repo.pageView) {
-                repo.pageView = 0;
-              }
-              if (!repo.lastView) {
-                repo.lastView = "";
-              }
+            const repos = res.data.map((repo) => {
+              if (!repo.pageView) repo.pageView = 0;
+              if (!repo.lastView) repo.lastView = "";
               repo.options.terms = repo.options.terms.filter((f) => f);
-            }
+              repo._type = "repo";
+              repo._id = repo.repoId;
+              repo._name = repo.repoId;
+              repo._source = repo.source.fullName;
+              repo._editUrl = "/anonymize/" + repo.repoId;
+              repo._viewUrl = "/r/" + repo.repoId + "/";
+              return repo;
+            });
+            $http.get("/api/user/anonymized_pull_requests").then(
+              (res2) => {
+                const prs = res2.data.map((pr) => {
+                  if (!pr.pageView) pr.pageView = 0;
+                  if (!pr.lastView) pr.lastView = "";
+                  pr.options.terms = pr.options.terms.filter((f) => f);
+                  pr._type = "pr";
+                  pr._id = pr.pullRequestId;
+                  pr._name = pr.pullRequestId;
+                  pr._source = pr.source.repositoryFullName + "#" + pr.source.pullRequestId;
+                  pr._editUrl = "/pull-request-anonymize/" + pr.pullRequestId;
+                  pr._viewUrl = "/pr/" + pr.pullRequestId + "/";
+                  pr.anonymizeDate = pr.anonymizeDate;
+                  return pr;
+                });
+                $scope.items = repos.concat(prs);
+              },
+              (err) => { console.error(err); }
+            );
           },
-          (err) => {
-            console.error(err);
-          }
+          (err) => { console.error(err); }
         );
       }
-      getRepositories();
+      loadAll();
 
       function waitRepoToBeReady(repoId, callback) {
         $http.get("/api/repo/" + repoId).then((res) => {
-          for (const repo of $scope.repositories) {
-            if (repo.repoId == repoId) {
-              repo.status = res.data.status;
+          for (const item of $scope.items) {
+            if (item._type === "repo" && item.repoId == repoId) {
+              item.status = res.data.status;
               break;
             }
           }
@@ -770,188 +787,94 @@ angular
         });
       }
 
-      $scope.removeRepository = (repo) => {
-        if (
-          confirm(
-            `Are you sure that you want to remove the repository ${repo.repoId}?`
-          )
-        ) {
+      $scope.removeItem = (item) => {
+        const label = item._type === "repo" ? "repository" : "pull request";
+        if (confirm(`Are you sure that you want to remove the ${label} ${item._id}?`)) {
           const toast = {
-            title: `Removing ${repo.repoId}...`,
+            title: `Removing ${item._id}...`,
             date: new Date(),
-            body: `The repository ${repo.repoId} is going to be removed.`,
+            body: `The ${label} ${item._id} is going to be removed.`,
           };
           $scope.toasts.push(toast);
-          $http.delete(`/api/repo/${repo.repoId}`).then(
+          const endpoint = item._type === "repo" ? `/api/repo/${item._id}` : `/api/pr/${item._id}`;
+          $http.delete(endpoint).then(
             () => {
-              waitRepoToBeReady(repo.repoId, () => {
-                toast.title = `${repo.repoId} is removed.`;
-                toast.body = `The repository ${repo.repoId} is removed.`;
-                $scope.$apply();
-              });
+              if (item._type === "repo") {
+                waitRepoToBeReady(item._id, () => {
+                  toast.title = `${item._id} is removed.`;
+                  toast.body = `The ${label} ${item._id} is removed.`;
+                  $scope.$apply();
+                });
+              } else {
+                toast.title = `${item._id} is removed.`;
+                toast.body = `The ${label} ${item._id} is removed.`;
+                loadAll();
+              }
             },
             (error) => {
-              toast.title = `Error during the removal of ${repo.repoId}.`;
+              toast.title = `Error during the removal of ${item._id}.`;
               toast.body = error.body;
-
-              getRepositories();
+              loadAll();
             }
           );
         }
       };
 
-      $scope.updateRepository = (repo) => {
+      $scope.refreshItem = (item) => {
+        const label = item._type === "repo" ? "repository" : "pull request";
         const toast = {
-          title: `Refreshing ${repo.repoId}...`,
+          title: `Refreshing ${item._id}...`,
           date: new Date(),
-          body: `The repository ${repo.repoId} is going to be refreshed.`,
+          body: `The ${label} ${item._id} is going to be refreshed.`,
         };
         $scope.toasts.push(toast);
-
-        $http.post(`/api/repo/${repo.repoId}/refresh`).then(
+        const endpoint = item._type === "repo"
+          ? `/api/repo/${item._id}/refresh`
+          : `/api/pr/${item._id}/refresh`;
+        $http.post(endpoint).then(
           () => {
-            waitRepoToBeReady(repo.repoId, () => {
-              toast.title = `${repo.repoId} is refreshed.`;
-              toast.body = `The repository ${repo.repoId} is refreshed.`;
-              $scope.$apply();
-            });
+            if (item._type === "repo") {
+              waitRepoToBeReady(item._id, () => {
+                toast.title = `${item._id} is refreshed.`;
+                toast.body = `The ${label} ${item._id} is refreshed.`;
+                $scope.$apply();
+              });
+            } else {
+              toast.title = `${item._id} is refreshed.`;
+              toast.body = `The ${label} ${item._id} is refreshed.`;
+              loadAll();
+            }
           },
           (error) => {
-            toast.title = `Error during the refresh of ${repo.repoId}.`;
+            toast.title = `Error during the refresh of ${item._id}.`;
             toast.body = error.body;
-
-            getRepositories();
+            loadAll();
           }
         );
       };
 
-      $scope.repoFiler = (repo) => {
-        if ($scope.filters.status[repo.status] == false) return false;
-
+      $scope.itemFilter = (item) => {
+        if ($scope.typeFilter !== "all" && item._type !== $scope.typeFilter) return false;
+        if ($scope.filters.status[item.status] == false) return false;
         if ($scope.search.trim().length == 0) return true;
-
-        if (repo.source.fullName.indexOf($scope.search) > -1) return true;
-        if (repo.repoId.indexOf($scope.search) > -1) return true;
-
+        if (item._source && item._source.indexOf($scope.search) > -1) return true;
+        if (item._id.indexOf($scope.search) > -1) return true;
         return false;
       };
     },
   ])
+  .controller("dashboardController", [
+    "$scope",
+    "$location",
+    function ($scope, $location) {
+      $location.url("/dashboard");
+    },
+  ])
   .controller("prDashboardController", [
     "$scope",
-    "$http",
     "$location",
-    function ($scope, $http, $location) {
-      $scope.$on("$routeChangeStart", function () {
-        // remove tooltip
-        $('[data-toggle="tooltip"]').tooltip("dispose");
-      });
-      $scope.$watch("user.status", () => {
-        if ($scope.user == null) {
-          $location.url("/");
-        }
-      });
-      if ($scope.user == null) {
-        $location.url("/");
-      }
-
-      setTimeout(() => {
-        $('[data-toggle="tooltip"]').tooltip();
-      }, 250);
-
-      $scope.pullRequests = [];
-      $scope.search = "";
-      $scope.filters = {
-        status: { ready: true, expired: true, removed: false },
-      };
-      $scope.orderBy = "-anonymizeDate";
-
-      function getPullRequests() {
-        $http.get("/api/user/anonymized_pull_requests").then(
-          (res) => {
-            $scope.pullRequests = res.data;
-            for (const pr of $scope.pullRequests) {
-              if (!pr.pageView) {
-                pr.pageView = 0;
-              }
-              if (!pr.lastView) {
-                pr.lastView = "";
-              }
-              pr.options.terms = pr.options.terms.filter((f) => f);
-            }
-          },
-          (err) => {
-            console.error(err);
-          }
-        );
-      }
-      getPullRequests();
-
-      $scope.removePullRequest = (pr) => {
-        if (
-          confirm(
-            `Are you sure that you want to remove the pull request ${pr.pullRequestId}?`
-          )
-        ) {
-          const toast = {
-            title: `Removing ${pr.pullRequestId}...`,
-            date: new Date(),
-            body: `The pull request ${pr.pullRequestId} is going to be removed.`,
-          };
-          $scope.toasts.push(toast);
-          $http.delete(`/api/pr/${pr.pullRequestId}`).then(
-            () => {
-              toast.title = `${pr.pullRequestId} is removed.`;
-              toast.body = `The pull request ${pr.pullRequestId} is removed.`;
-
-              getPullRequests();
-            },
-            (error) => {
-              toast.title = `Error during the removal of ${pr.pullRequestId}.`;
-              toast.body = error.body;
-
-              getPullRequests();
-            }
-          );
-        }
-      };
-
-      $scope.updatePullRequest = (pr) => {
-        const toast = {
-          title: `Refreshing ${pr.pullRequestId}...`,
-          date: new Date(),
-          body: `The pull request ${pr.pullRequestId} is going to be refreshed.`,
-        };
-        $scope.toasts.push(toast);
-
-        $http.post(`/api/pr/${pr.pullRequestId}/refresh`).then(
-          () => {
-            toast.title = `${pr.pullRequestId} is refreshed.`;
-            toast.body = `The pull request ${pr.pullRequestId} is refreshed.`;
-            getPullRequests();
-          },
-          (error) => {
-            toast.title = `Error during the refresh of ${pr.pullRequestId}.`;
-            toast.body = error.body;
-
-            getPullRequests();
-          }
-        );
-      };
-
-      $scope.pullRequestFilter = (pr) => {
-        if ($scope.filters.status[pr.status] == false) return false;
-
-        if ($scope.search.trim().length == 0) return true;
-
-        if ((pr.source.pullRequestId + "").indexOf($scope.search) > -1)
-          return true;
-        if (pr.source.repositoryFullName.indexOf($scope.search) > -1)
-          return true;
-        if (pr.pullRequestId.indexOf($scope.search) > -1) return true;
-
-        return false;
-      };
+    function ($scope, $location) {
+      $location.url("/dashboard");
     },
   ])
   .controller("statusController", [
@@ -1007,15 +930,15 @@ angular
     "$location",
     "$translate",
     function ($scope, $http, $sce, $routeParams, $location, $translate) {
-      $scope.repoUrl = "";
+      // Unified state
+      $scope.sourceUrl = "";
+      $scope.detectedType = null; // 'repo' or 'pr'
       $scope.repoId = "";
+      $scope.pullRequestId = "";
       $scope.terms = "";
       $scope.defaultTerms = "";
       $scope.branches = [];
-      $scope.source = {
-        branch: "",
-        commit: "",
-      };
+      $scope.source = { branch: "", commit: "" };
       $scope.options = {
         expirationMode: "remove",
         expirationDate: new Date(),
@@ -1024,6 +947,13 @@ angular
         pdf: true,
         notebook: true,
         link: true,
+        body: true,
+        title: true,
+        origin: false,
+        diff: true,
+        comments: true,
+        username: true,
+        date: true,
       };
       $scope.options.expirationDate.setDate(
         $scope.options.expirationDate.getDate() + 90
@@ -1050,120 +980,135 @@ angular
         });
       }
 
+      // Helper to safely set validity on form fields
+      function setValidity(field, key, value) {
+        if ($scope.anonymize && $scope.anonymize[field]) {
+          $scope.anonymize[field].$setValidity(key, value);
+        }
+      }
+
       getDefault(() => {
+        // Edit mode: repo
         if ($routeParams.repoId && $routeParams.repoId != "") {
           $scope.isUpdate = true;
+          $scope.detectedType = "repo";
           $scope.repoId = $routeParams.repoId;
           $http.get("/api/repo/" + $scope.repoId).then(
             async (res) => {
-              $scope.repoUrl = "https://github.com/" + res.data.source.fullName;
-
+              $scope.sourceUrl = "https://github.com/" + res.data.source.fullName;
               $scope.terms = res.data.options.terms.filter((f) => f).join("\n");
               $scope.source = res.data.source;
-              $scope.options = res.data.options;
+              $scope.options = Object.assign({}, $scope.options, res.data.options);
               $scope.conference = res.data.conference;
               $scope.repositoryID = res.data.source.repositoryID;
               if (res.data.options.expirationDate) {
-                $scope.options.expirationDate = new Date(
-                  res.data.options.expirationDate
-                );
-              } else {
-                $scope.options.expirationDate = new Date();
-                $scope.options.expirationDate.setDate(
-                  $scope.options.expirationDate.getDate() + 90
-                );
+                $scope.options.expirationDate = new Date(res.data.options.expirationDate);
               }
-              await Promise.all([getDetails(), getReadme()]);
-              anonymize();
+              await Promise.all([getRepoDetails(), getReadme()]);
+              anonymizeReadme();
               $scope.$apply();
             },
-            (err) => {
-              $location.url("/404");
-            }
+            () => { $location.url("/404"); }
           );
           $scope.$watch("anonymize", () => {
-            $scope.anonymize.repoId.$$element[0].disabled = true;
-            $scope.anonymize.repoUrl.$$element[0].disabled = true;
+            if ($scope.anonymize.repoId) $scope.anonymize.repoId.$$element[0].disabled = true;
+            if ($scope.anonymize.sourceUrl) $scope.anonymize.sourceUrl.$$element[0].disabled = true;
+          });
+        }
+        // Edit mode: PR
+        if ($routeParams.pullRequestId && $routeParams.pullRequestId != "") {
+          $scope.isUpdate = true;
+          $scope.detectedType = "pr";
+          $scope.pullRequestId = $routeParams.pullRequestId;
+          $http.get("/api/pr/" + $scope.pullRequestId).then(
+            async (res) => {
+              $scope.sourceUrl = "https://github.com/" + res.data.source.repositoryFullName + "/pull/" + res.data.source.pullRequestId;
+              $scope.terms = res.data.options.terms.filter((f) => f).join("\n");
+              $scope.source = res.data.source;
+              $scope.options = Object.assign({}, $scope.options, res.data.options);
+              $scope.conference = res.data.conference;
+              if (res.data.options.expirationDate) {
+                $scope.options.expirationDate = new Date(res.data.options.expirationDate);
+              }
+              $scope.details = (await $http.get(`/api/pr/${res.data.source.repositoryFullName}/${res.data.source.pullRequestId}`)).data;
+              $scope.$apply();
+            },
+            () => { $location.url("/404"); }
+          );
+          $scope.$watch("anonymize", () => {
+            if ($scope.anonymize.pullRequestId) $scope.anonymize.pullRequestId.$$element[0].disabled = true;
+            if ($scope.anonymize.sourceUrl) $scope.anonymize.sourceUrl.$$element[0].disabled = true;
           });
         }
       });
 
-      $scope.repoSelected = async () => {
+      // URL change handler - auto-detect type
+      $scope.urlSelected = async () => {
         $scope.terms = $scope.defaultTerms;
         $scope.repoId = "";
-        $scope.source = {
-          type: "GitHubStream",
-          branch: "",
-          commit: "",
-        };
-
+        $scope.pullRequestId = "";
+        $scope.details = null;
+        $scope.branches = [];
+        $scope.source = { type: "GitHubStream", branch: "", commit: "" };
         $scope.anonymize_readme = "";
         $scope.readme = "";
         $scope.html_readme = "";
-        $scope.details = null;
-        $scope.branches = [];
+        $scope.detectedType = null;
 
         try {
-          parseGithubUrl($scope.repoUrl);
-          $scope.anonymize.repoUrl.$setValidity("github", true);
+          const o = parseGithubUrl($scope.sourceUrl);
+          setValidity("sourceUrl", "github", true);
+          if (o.pullRequestId) {
+            $scope.detectedType = "pr";
+            $scope.source = { repositoryFullName: o.owner + "/" + o.repo, pullRequestId: o.pullRequestId };
+            await getPrDetails();
+          } else {
+            $scope.detectedType = "repo";
+            await Promise.all([getRepoDetails(), getReadme()]);
+            anonymizeReadme();
+          }
         } catch (error) {
-          $scope.anonymize.repoUrl.$setValidity("github", false);
+          setValidity("sourceUrl", "github", false);
           return;
         }
-        try {
-          await Promise.all([getDetails(), getReadme()]);
-          anonymize();
-        } catch (error) {}
         $scope.$apply();
         $('[data-toggle="tooltip"]').tooltip();
       };
       $('[data-toggle="tooltip"]').tooltip();
 
+      // ========== REPO LOGIC ==========
       $scope.$watch("options.update", (v) => {
-        if (v) {
-          $scope.anonymize.commit.$$element[0].disabled = true;
-        } else {
-          $scope.anonymize.commit.$$element[0].disabled = false;
+        if ($scope.detectedType !== "repo") return;
+        if ($scope.anonymize && $scope.anonymize.commit) {
+          $scope.anonymize.commit.$$element[0].disabled = !!v;
         }
       });
-      $scope.$watch("source.branch", async () => {
-        const selected = $scope.branches.filter(
-          (f) => f.name == $scope.source.branch
-        )[0];
-        if ($scope.details && $scope.details.hasPage) {
-          $scope.anonymize.page.$$element[0].disabled = false;
-          if ($scope.details.pageSource.branch != $scope.source.branch) {
-            $scope.anonymize.page.$$element[0].disabled = true;
-          }
-        }
 
+      $scope.$watch("source.branch", async () => {
+        if ($scope.detectedType !== "repo") return;
+        const selected = $scope.branches.filter((f) => f.name == $scope.source.branch)[0];
+        if ($scope.details && $scope.details.hasPage && $scope.anonymize && $scope.anonymize.page) {
+          $scope.anonymize.page.$$element[0].disabled = $scope.details.pageSource.branch != $scope.source.branch;
+        }
         if (selected) {
           $scope.source.commit = selected.commit;
           $scope.readme = selected.readme;
           await getReadme();
-          anonymize();
+          anonymizeReadme();
           $scope.$apply();
         }
       });
 
       $scope.getBranches = async (force) => {
-        const o = parseGithubUrl($scope.repoUrl);
-        const branches = await $http.get(
-          `/api/repo/${o.owner}/${o.repo}/branches`,
-          {
-            params: {
-              force: force === true ? "1" : "0",
-              repositoryID: $scope.repositoryID,
-            },
-          }
-        );
+        const o = parseGithubUrl($scope.sourceUrl);
+        const branches = await $http.get(`/api/repo/${o.owner}/${o.repo}/branches`, {
+          params: { force: force === true ? "1" : "0", repositoryID: $scope.repositoryID },
+        });
         $scope.branches = branches.data;
         if (!$scope.source.branch) {
           $scope.source.branch = $scope.details.defaultBranch;
         }
-        const selected = $scope.branches.filter(
-          (b) => b.name == $scope.source.branch
-        );
+        const selected = $scope.branches.filter((b) => b.name == $scope.source.branch);
         if (selected.length > 0) {
           $scope.source.commit = selected[0].commit;
           $scope.readme = selected[0].readme;
@@ -1172,14 +1117,12 @@ angular
         $scope.$apply();
       };
 
-      async function getDetails() {
-        const o = parseGithubUrl($scope.repoUrl);
+      async function getRepoDetails() {
+        const o = parseGithubUrl($scope.sourceUrl);
         try {
           resetValidity();
           const res = await $http.get(`/api/repo/${o.owner}/${o.repo}/`, {
-            params: {
-              repositoryID: $scope.repositoryID,
-            },
+            params: { repositoryID: $scope.repositoryID },
           });
           $scope.details = res.data;
           if (!$scope.repoId) {
@@ -1187,293 +1130,216 @@ angular
           }
           await $scope.getBranches();
         } catch (error) {
-          console.log(error);
           if (error.data) {
             $translate("ERRORS." + error.data.error).then((translation) => {
-              const toast = {
-                title: `Error when getting repository information`,
-                date: new Date(),
-                body: `${o.owner}/${o.repo} produced the following error: ${translation}`,
-              };
-              $scope.toasts.push(toast);
+              $scope.toasts.push({ title: "Error", date: new Date(), body: translation });
               $scope.error = translation;
             }, console.error);
             displayErrorMessage(error.data.error);
-          } else {
-            const toast = {
-              title: `Error when getting repository information`,
-              date: new Date(),
-              body: `${o.owner}/${o.repo} produced the following error: ${error.message}`,
-            };
-            $scope.toasts.push(toast);
           }
-          $scope.anonymize.repoUrl.$setValidity("missing", false);
+          setValidity("sourceUrl", "missing", false);
           throw error;
         }
       }
 
       async function getReadme(force) {
         if ($scope.readme && !force) return $scope.readme;
-        const o = parseGithubUrl($scope.repoUrl);
+        const o = parseGithubUrl($scope.sourceUrl);
         try {
           const res = await $http.get(`/api/repo/${o.owner}/${o.repo}/readme`, {
-            params: {
-              force: force === true ? "1" : "0",
-              branch: $scope.source.branch,
-              repositoryID: $scope.repositoryID,
-            },
+            params: { force: force === true ? "1" : "0", branch: $scope.source.branch, repositoryID: $scope.repositoryID },
           });
           $scope.readme = res.data;
         } catch (error) {
           $scope.readme = "";
-          const toast = {
-            title: `README not available...`,
-            date: new Date(),
-            body: `The README of ${o.owner}/${o.repo} was not found.`,
-          };
-          $scope.toasts.push(toast);
         }
       }
 
+      function anonymizeReadme() {
+        if (!$scope.anonymize || !$scope.anonymize.terms) return;
+        setValidity("terms", "regex", true);
+        if ($scope.terms && $scope.terms.match(/[-[\]{}()*+?.,\\^$|#]/g)) {
+          setValidity("terms", "regex", false);
+        }
+        const urlRegex = /<?\b((https?|ftp|file):\/\/)[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]\b\/?>?/g;
+        let content = $scope.readme;
+        if (!$scope.options.image) {
+          content = content.replace(/!\[[^\]]*\]\((?<filename>.*?)(?=\"|\))(?<optionalpart>\".*\")?\)/g, "");
+        }
+        if (!$scope.options.link) {
+          content = content.replace(urlRegex, $scope.site_options.ANONYMIZATION_MASK);
+        }
+        const host = document.location.protocol + "//" + document.location.host;
+        content = content.replace(new RegExp(`\\b${$scope.sourceUrl}/blob/${$scope.source.branch}\\b`, "gi"), `${host}/r/${$scope.repoId}`);
+        content = content.replace(new RegExp(`\\b${$scope.sourceUrl}/tree/${$scope.source.branch}\\b`, "gi"), `${host}/r/${$scope.repoId}`);
+        content = content.replace(new RegExp(`\\b${$scope.sourceUrl}`, "gi"), `${host}/r/${$scope.repoId}`);
+        const terms = $scope.terms.split("\n");
+        for (let i = 0; i < terms.length; i++) {
+          let term = terms[i];
+          try { new RegExp(term, "gi"); } catch { term = term.replace(/[-[\]{}()*+?.,\\^$|#]/g, "\\$&"); }
+          if (term.trim() == "") continue;
+          content = content.replace(urlRegex, (match) => {
+            if (new RegExp(`\\b${term}\\b`, "gi").test(match)) return $scope.site_options.ANONYMIZATION_MASK + "-" + (i + 1);
+            return match;
+          });
+          content = content.replace(new RegExp(`\\b${term}\\b`, "gi"), $scope.site_options.ANONYMIZATION_MASK + "-" + (i + 1));
+        }
+        $scope.anonymize_readme = content;
+        const o = parseGithubUrl($scope.sourceUrl);
+        const html = renderMD($scope.anonymize_readme, `https://github.com/${o.owner}/${o.repo}/raw/${$scope.source.branch}/`);
+        $scope.html_readme = $sce.trustAsHtml(html);
+        setTimeout(Prism.highlightAll, 150);
+      }
+
+      // ========== PR LOGIC ==========
+      async function getPrDetails() {
+        const o = parseGithubUrl($scope.sourceUrl);
+        try {
+          resetValidity();
+          const res = await $http.get(`/api/pr/${o.owner}/${o.repo}/${o.pullRequestId}`);
+          $scope.details = res.data;
+          if (!$scope.pullRequestId) {
+            $scope.pullRequestId = o.repo + "-PR" + o.pullRequestId + "-" + generateRandomId(4);
+          }
+        } catch (error) {
+          if (error.data) {
+            $translate("ERRORS." + error.data.error).then((translation) => {
+              $scope.toasts.push({ title: "Error", date: new Date(), body: translation });
+              $scope.error = translation;
+            }, console.error);
+            displayErrorMessage(error.data.error);
+          }
+          setValidity("sourceUrl", "missing", false);
+          throw error;
+        }
+      }
+
+      $scope.anonymizePrContent = function (content) {
+        if (!content) return content;
+        const urlRegex = /<?\b((https?|ftp|file):\/\/)[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]\b\/?>?/g;
+        if (!$scope.options.image) {
+          content = content.replace(/!\[[^\]]*\]\((?<filename>.*?)(?=\"|\))(?<optionalpart>\".*\")?\)/g, "");
+        }
+        if (!$scope.options.link) {
+          content = content.replace(urlRegex, $scope.site_options.ANONYMIZATION_MASK);
+        }
+        const terms = $scope.terms.split("\n");
+        for (let i = 0; i < terms.length; i++) {
+          let term = terms[i];
+          try { new RegExp(term, "gi"); } catch { term = term.replace(/[-[\]{}()*+?.,\\^$|#]/g, "\\$&"); }
+          if (term.trim() == "") continue;
+          content = content.replace(urlRegex, (match) => {
+            if (new RegExp(`\\b${term}\\b`, "gi").test(match)) return $scope.site_options.ANONYMIZATION_MASK + "-" + (i + 1);
+            return match;
+          });
+          content = content.replace(new RegExp(`\\b${term}\\b`, "gi"), $scope.site_options.ANONYMIZATION_MASK + "-" + (i + 1));
+        }
+        return content;
+      };
+
+      // ========== SHARED LOGIC ==========
       function getConference() {
         if (!$scope.conference) return;
         $http.get("/api/conferences/" + $scope.conference).then(
           (res) => {
             $scope.conference_data = res.data;
-            $scope.conference_data.startDate = new Date(
-              $scope.conference_data.startDate
-            );
-            $scope.conference_data.endDate = new Date(
-              $scope.conference_data.endDate
-            );
-
-            $scope.options.expirationDate = new Date(
-              $scope.conference_data.endDate
-            );
+            $scope.conference_data.startDate = new Date($scope.conference_data.startDate);
+            $scope.conference_data.endDate = new Date($scope.conference_data.endDate);
+            $scope.options.expirationDate = new Date($scope.conference_data.endDate);
             $scope.options.expirationMode = "remove";
-
             $scope.options.update = $scope.conference_data.options.update;
             $scope.options.image = $scope.conference_data.options.image;
             $scope.options.pdf = $scope.conference_data.options.pdf;
             $scope.options.notebook = $scope.conference_data.options.notebook;
             $scope.options.link = $scope.conference_data.options.link;
           },
-          (err) => {
-            $scope.conference_data = null;
-          }
+          () => { $scope.conference_data = null; }
         );
-      }
-
-      function anonymize() {
-        $scope.anonymize.terms.$setValidity("regex", true);
-        // check if string has regex characters
-        if ($scope.terms && $scope.terms.match(/[-[\]{}()*+?.,\\^$|#]/g)) {
-          $scope.anonymize.terms.$setValidity("regex", false);
-        }
-        const urlRegex =
-          /<?\b((https?|ftp|file):\/\/)[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]\b\/?>?/g;
-        let content = $scope.readme;
-
-        if (!$scope.options.image) {
-          // remove images
-          content = content.replace(
-            /!\[[^\]]*\]\((?<filename>.*?)(?=\"|\))(?<optionalpart>\".*\")?\)/g,
-            ""
-          );
-        }
-        if (!$scope.options.link) {
-          content = content.replace(
-            urlRegex,
-            $scope.site_options.ANONYMIZATION_MASK
-          );
-        }
-
-        const host = document.location.protocol + "//" + document.location.host;
-
-        content = content.replace(
-          new RegExp(
-            `\\b${$scope.repoUrl}/blob/${$scope.source.branch}\\b`,
-            "gi"
-          ),
-          `${host}/r/${$scope.repoId}`
-        );
-        content = content.replace(
-          new RegExp(
-            `\\b${$scope.repoUrl}/tree/${$scope.source.branch}\\b`,
-            "gi"
-          ),
-          `${host}/r/${$scope.repoId}`
-        );
-        content = content.replace(
-          new RegExp(`\\b${$scope.repoUrl}`, "gi"),
-          `${host}/r/${$scope.repoId}`
-        );
-        const terms = $scope.terms.split("\n");
-        for (let i = 0; i < terms.length; i++) {
-          let term = terms[i];
-          try {
-            new RegExp(term, "gi");
-          } catch {
-            // escape regex characters
-            term = term.replace(/[-[\]{}()*+?.,\\^$|#]/g, "\\$&");
-          }
-          if (term.trim() == "") {
-            continue;
-          }
-          // remove whole url if it contains the term
-          content = content.replace(urlRegex, (match) => {
-            if (new RegExp(`\\b${term}\\b`, "gi").test(match))
-              return $scope.site_options.ANONYMIZATION_MASK + "-" + (i + 1);
-            return match;
-          });
-
-          // remove the term in the text
-          content = content.replace(
-            new RegExp(`\\b${term}\\b`, "gi"),
-            $scope.site_options.ANONYMIZATION_MASK + "-" + (i + 1)
-          );
-        }
-
-        $scope.anonymize_readme = content;
-        const o = parseGithubUrl($scope.repoUrl);
-        const html = renderMD(
-          $scope.anonymize_readme,
-          `https://github.com/${o.owner}/${o.repo}/raw/${$scope.source.branch}/`
-        );
-        $scope.html_readme = $sce.trustAsHtml(html);
-        setTimeout(Prism.highlightAll, 150);
       }
 
       function resetValidity() {
-        $scope.anonymize.repoId.$setValidity("used", true);
-        $scope.anonymize.repoId.$setValidity("format", true);
-        $scope.anonymize.repoUrl.$setValidity("used", true);
-        $scope.anonymize.repoUrl.$setValidity("missing", true);
-        $scope.anonymize.repoUrl.$setValidity("access", true);
-        $scope.anonymize.conference.$setValidity("activated", true);
-        $scope.anonymize.terms.$setValidity("format", true);
-        $scope.anonymize.terms.$setValidity("regex", true);
+        setValidity("repoId", "used", true);
+        setValidity("repoId", "format", true);
+        setValidity("pullRequestId", "used", true);
+        setValidity("pullRequestId", "format", true);
+        setValidity("sourceUrl", "used", true);
+        setValidity("sourceUrl", "missing", true);
+        setValidity("sourceUrl", "access", true);
+        setValidity("sourceUrl", "github", true);
+        setValidity("conference", "activated", true);
+        setValidity("terms", "format", true);
+        setValidity("terms", "regex", true);
       }
 
       function displayErrorMessage(message) {
+        const idField = $scope.detectedType === "pr" ? "pullRequestId" : "repoId";
         switch (message) {
-          case "repoId_already_used":
-            $scope.anonymize.repoId.$setValidity("used", false);
-            break;
-          case "invalid_repoId":
-            $scope.anonymize.repoId.$setValidity("format", false);
-            break;
-          case "options_not_provided":
-            $scope.anonymize.repoId.$setValidity("format", false);
-            break;
-          case "repo_already_anonymized":
-            $scope.anonymize.repoUrl.$setValidity("used", false);
-            break;
-          case "invalid_terms_format":
-            $scope.anonymize.terms.$setValidity("format", false);
-            break;
-          case "invalid_terms_format":
-            $scope.anonymize.terms.$setValidity("format", false);
-            break;
-          case "repo_not_found":
-            $scope.anonymize.repoUrl.$setValidity("missing", false);
-            break;
-          case "repo_not_accessible":
-            $scope.anonymize.repoUrl.$setValidity("access", false);
-            break;
-          case "conf_not_activated":
-            $scope.anonymize.conference.$setValidity("activated", false);
-            break;
-          default:
-            $scope.anonymize.$setValidity("error", false);
-            break;
+          case "repoId_already_used": setValidity(idField, "used", false); break;
+          case "invalid_repoId": setValidity(idField, "format", false); break;
+          case "options_not_provided": setValidity(idField, "format", false); break;
+          case "repo_already_anonymized": setValidity("sourceUrl", "used", false); break;
+          case "invalid_terms_format": setValidity("terms", "format", false); break;
+          case "repo_not_found": setValidity("sourceUrl", "missing", false); break;
+          case "repo_not_accessible": setValidity("sourceUrl", "access", false); break;
+          case "conf_not_activated": setValidity("conference", "activated", false); break;
         }
       }
 
-      function getRepo() {
-        const o = parseGithubUrl($scope.repoUrl);
-        $scope.options.pageSource = $scope.details.pageSource;
-        return {
+      // Submit: repo
+      $scope.anonymizeRepo = (event) => {
+        event.target.disabled = true;
+        const o = parseGithubUrl($scope.sourceUrl);
+        const payload = {
           repoId: $scope.repoId,
-          terms: $scope.terms
-            .trim()
-            .split("\n")
-            .filter((f) => f),
+          terms: $scope.terms.trim().split("\n").filter((f) => f),
           fullName: `${o.owner}/${o.repo}`,
-          repository: $scope.repoUrl,
+          repository: $scope.sourceUrl,
           options: $scope.options,
           source: $scope.source,
           conference: $scope.conference,
         };
-      }
-
-      async function sendRepo(url) {
+        if ($scope.details) payload.options.pageSource = $scope.details.pageSource;
         resetValidity();
-        const newRepo = getRepo();
-        try {
-          await $http.post(url, newRepo, {
-            headers: { "Content-Type": "application/json" },
-          });
-          window.location.href = "/status/" + $scope.repoId;
-        } catch (error) {
-          if (error.data) {
-            $translate("ERRORS." + error.data.error).then((translation) => {
-              $scope.error = translation;
-            }, console.error);
-            displayErrorMessage(error.data.error);
-          } else {
-            console.error(error);
+        const url = $scope.isUpdate ? "/api/repo/" + $scope.repoId : "/api/repo/";
+        $http.post(url, payload, { headers: { "Content-Type": "application/json" } }).then(
+          () => { window.location.href = "/status/" + $scope.repoId; },
+          (error) => {
+            if (error.data) {
+              $translate("ERRORS." + error.data.error).then((t) => { $scope.error = t; }, console.error);
+              displayErrorMessage(error.data.error);
+            }
           }
-        }
-      }
-
-      $scope.anonymizeRepo = (event) => {
-        event.target.disabled = true;
-        sendRepo("/api/repo/").finally(() => {
-          event.target.disabled = false;
-          $scope.$apply();
-        });
+        ).finally(() => { event.target.disabled = false; $scope.$apply(); });
       };
 
-      $scope.updateRepo = async (event) => {
+      // Submit: PR
+      $scope.anonymizePullRequest = (event) => {
         event.target.disabled = true;
-        sendRepo("/api/repo/" + $scope.repoId).finally(() => {
-          event.target.disabled = false;
-          $scope.$apply();
-        });
+        const o = parseGithubUrl($scope.sourceUrl);
+        const payload = {
+          pullRequestId: $scope.pullRequestId,
+          terms: $scope.terms.trim().split("\n").filter((f) => f),
+          source: { repositoryFullName: `${o.owner}/${o.repo}`, pullRequestId: o.pullRequestId },
+          options: $scope.options,
+          conference: $scope.conference,
+        };
+        resetValidity();
+        const url = $scope.isUpdate ? "/api/pr/" + $scope.pullRequestId : "/api/pr/";
+        $http.post(url, payload, { headers: { "Content-Type": "application/json" } }).then(
+          () => { window.location.href = "/pr/" + $scope.pullRequestId; },
+          (error) => {
+            if (error.data) {
+              $translate("ERRORS." + error.data.error).then((t) => { $scope.error = t; }, console.error);
+              displayErrorMessage(error.data.error);
+            }
+          }
+        ).finally(() => { event.target.disabled = false; $scope.$apply(); });
       };
 
-      $scope.$watch("conference", async (v) => {
-        getConference();
-      });
-
-      $scope.$watch("source.branch", async (v) => {
-        const selected = $scope.branches.filter(
-          (f) => f.name == $scope.source.branch
-        )[0];
-        checkHasPage();
-
-        if (selected) {
-          $scope.source.commit = selected.commit;
-          $scope.readme = selected.readme;
-          await getReadme();
-          anonymize();
-          $scope.$apply();
-        }
-      });
-
-      function checkHasPage() {
-        if ($scope.details && $scope.details.hasPage) {
-          $scope.anonymize.page.$$element[0].disabled = false;
-          if ($scope.details.pageSource.branch != $scope.source.branch) {
-            $scope.anonymize.page.$$element[0].disabled = true;
-          }
-        }
-      }
-
-      $scope.$watch("terms", anonymize);
-      $scope.$watch("options.image", anonymize);
-      $scope.$watch("options.link", anonymize);
+      $scope.$watch("conference", () => { getConference(); });
+      $scope.$watch("terms", () => { if ($scope.detectedType === "repo") anonymizeReadme(); });
+      $scope.$watch("options.image", () => { if ($scope.detectedType === "repo") anonymizeReadme(); });
+      $scope.$watch("options.link", () => { if ($scope.detectedType === "repo") anonymizeReadme(); });
     },
   ])
   .controller("exploreController", [
@@ -1870,322 +1736,7 @@ angular
       init();
     },
   ])
-  .controller("anonymizePullRequestController", [
-    "$scope",
-    "$http",
-    "$sce",
-    "$routeParams",
-    "$location",
-    "$translate",
-    function ($scope, $http, $sce, $routeParams, $location, $translate) {
-      $scope.pullRequestUrl = "";
-      $scope.pullRequestId = "";
-      $scope.terms = "";
-      $scope.defaultTerms = "";
-      $scope.options = {
-        expirationMode: "remove",
-        expirationDate: new Date(),
-        update: false,
-        image: true,
-        link: true,
-        body: true,
-        title: true,
-        origin: false,
-        diff: true,
-        comments: true,
-        username: true,
-        date: true,
-      };
-      $scope.options.expirationDate.setMonth(
-        $scope.options.expirationDate.getMonth() + 4
-      );
-      $scope.isUpdate = false;
-
-      function getDefault(cb) {
-        $http.get("/api/user/default").then((res) => {
-          const data = res.data;
-          if (data.terms) {
-            $scope.defaultTerms = data.terms.join("\n");
-          }
-          $scope.options = Object.assign({}, $scope.options, data.options);
-          $scope.options.expirationDate = new Date(
-            $scope.options.expirationDate
-          );
-          $scope.options.expirationDate.setDate(
-            $scope.options.expirationDate.getDate() + 90
-          );
-          if (cb) cb();
-        });
-      }
-
-      getDefault(() => {
-        if ($routeParams.pullRequestId && $routeParams.pullRequestId != "") {
-          $scope.isUpdate = true;
-          $scope.pullRequestId = $routeParams.pullRequestId;
-          $http.get("/api/pr/" + $scope.pullRequestId).then(
-            async (res) => {
-              $scope.pullRequestUrl =
-                "https://github.com/" +
-                res.data.source.repositoryFullName +
-                "/pull/" +
-                res.data.source.pullRequestId;
-
-              $scope.terms = res.data.options.terms.filter((f) => f).join("\n");
-              $scope.source = res.data.source;
-              $scope.options = res.data.options;
-              $scope.conference = res.data.conference;
-              if (res.data.options.expirationDate) {
-                $scope.options.expirationDate = new Date(
-                  res.data.options.expirationDate
-                );
-              } else {
-                $scope.options.expirationDate = new Date();
-                $scope.options.expirationDate.setDate(
-                  $scope.options.expirationDate.getDate() + 90
-                );
-              }
-
-              $scope.details = (
-                await $http.get(
-                  `/api/pr/${res.data.source.repositoryFullName}/${res.data.source.pullRequestId}`
-                )
-              ).data;
-              $scope.$apply();
-            },
-            (err) => {
-              $location.url("/404");
-            }
-          );
-          $scope.$watch("anonymize", () => {
-            $scope.anonymizeForm.pullRequestId.$$element[0].disabled = true;
-            $scope.anonymizeForm.pullRequestUrl.$$element[0].disabled = true;
-          });
-        }
-      });
-
-      $scope.pullRequestSelected = async () => {
-        $scope.terms = $scope.defaultTerms;
-        $scope.pullRequestId = "";
-        $scope.source = {};
-
-        try {
-          const o = parseGithubUrl($scope.pullRequestUrl);
-          if (!o.pullRequestId) {
-            $scope.anonymizeForm.pullRequestUrl.$setValidity("github", false);
-            return;
-          }
-          $scope.anonymizeForm.pullRequestUrl.$setValidity("github", true);
-        } catch (error) {
-          $scope.anonymizeForm.pullRequestUrl.$setValidity("github", false);
-          return;
-        }
-        try {
-          await getDetails();
-        } catch (error) {}
-        $scope.$apply();
-        $('[data-toggle="tooltip"]').tooltip();
-      };
-      $('[data-toggle="tooltip"]').tooltip();
-
-      $scope.$watch("options.update", (v) => {});
-
-      async function getDetails() {
-        const o = parseGithubUrl($scope.pullRequestUrl);
-        try {
-          resetValidity();
-          const res = await $http.get(
-            `/api/pr/${o.owner}/${o.repo}/${o.pullRequestId}`
-          );
-          $scope.details = res.data;
-          if ($scope.options.origin) {
-            $scope.pullRequestId = o.repo + "-" + generateRandomId(4);
-          } else {
-            $scope.pullRequestId = generateRandomId(4);
-          }
-        } catch (error) {
-          if (error.data) {
-            $translate("ERRORS." + error.data.error).then((translation) => {
-              $scope.error = translation;
-            }, console.error);
-            displayErrorMessage(error.data.error);
-          }
-          $scope.anonymizeForm.pullRequestUrl.$setValidity("missing", false);
-          throw error;
-        }
-      }
-
-      function getConference() {
-        if (!$scope.conference) return;
-        $http.get("/api/conferences/" + $scope.conference).then(
-          (res) => {
-            $scope.conference_data = res.data;
-            $scope.conference_data.startDate = new Date(
-              $scope.conference_data.startDate
-            );
-            $scope.conference_data.endDate = new Date(
-              $scope.conference_data.endDate
-            );
-
-            $scope.options.expirationDate = new Date(
-              $scope.conference_data.endDate
-            );
-            $scope.options.expirationMode = "remove";
-
-            $scope.options.update = $scope.conference_data.options.update;
-            $scope.options.image = $scope.conference_data.options.image;
-            $scope.options.pdf = $scope.conference_data.options.pdf;
-            $scope.options.notebook = $scope.conference_data.options.notebook;
-            $scope.options.link = $scope.conference_data.options.link;
-          },
-          (err) => {
-            $scope.conference_data = null;
-          }
-        );
-      }
-
-      $scope.anonymize = function (content) {
-        const urlRegex =
-          /<?\b((https?|ftp|file):\/\/)[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]\b\/?>?/g;
-
-        if (!$scope.options.image) {
-          // remove images
-          content = content.replace(
-            /!\[[^\]]*\]\((?<filename>.*?)(?=\"|\))(?<optionalpart>\".*\")?\)/g,
-            ""
-          );
-        }
-        if (!$scope.options.link) {
-          content = content.replace(
-            urlRegex,
-            $scope.site_options.ANONYMIZATION_MASK
-          );
-        }
-        const terms = $scope.terms.split("\n");
-        for (let i = 0; i < terms.length; i++) {
-          const term = terms[i];
-          if (term.trim() == "") {
-            continue;
-          }
-          // remove whole url if it contains the term
-          content = content.replace(urlRegex, (match) => {
-            if (new RegExp(`\\b${term}\\b`, "gi").test(match))
-              return $scope.site_options.ANONYMIZATION_MASK + "-" + (i + 1);
-            return match;
-          });
-
-          // remove the term in the text
-          content = content.replace(
-            new RegExp(`\\b${term}\\b`, "gi"),
-            $scope.site_options.ANONYMIZATION_MASK + "-" + (i + 1)
-          );
-        }
-        return content;
-      };
-
-      function resetValidity() {
-        $scope.anonymizeForm.pullRequestId.$setValidity("used", true);
-        $scope.anonymizeForm.pullRequestId.$setValidity("format", true);
-        $scope.anonymizeForm.pullRequestUrl.$setValidity("used", true);
-        $scope.anonymizeForm.pullRequestUrl.$setValidity("missing", true);
-        $scope.anonymizeForm.pullRequestUrl.$setValidity("access", true);
-        $scope.anonymizeForm.conference.$setValidity("activated", true);
-        $scope.anonymizeForm.terms.$setValidity("format", true);
-        $scope.anonymizeForm.terms.$setValidity("format", true);
-      }
-
-      function displayErrorMessage(message) {
-        switch (message) {
-          case "repoId_already_used":
-            $scope.anonymizeForm.repoId.$setValidity("used", false);
-            break;
-          case "invalid_repoId":
-            $scope.anonymizeForm.repoId.$setValidity("format", false);
-            break;
-          case "options_not_provided":
-            $scope.anonymizeForm.repoId.$setValidity("format", false);
-            break;
-          case "repo_already_anonymized":
-            $scope.anonymizeForm.repoUrl.$setValidity("used", false);
-            break;
-          case "invalid_terms_format":
-            $scope.anonymizeForm.terms.$setValidity("format", false);
-            break;
-          case "invalid_terms_format":
-            $scope.anonymizeForm.terms.$setValidity("format", false);
-            break;
-          case "repo_not_found":
-            $scope.anonymizeForm.repoUrl.$setValidity("missing", false);
-            break;
-          case "repo_not_accessible":
-            $scope.anonymizeForm.repoUrl.$setValidity("access", false);
-            break;
-          case "conf_not_activated":
-            $scope.anonymizeForm.conference.$setValidity("activated", false);
-            break;
-          default:
-            $scope.anonymizeForm.$setValidity("error", false);
-            break;
-        }
-      }
-
-      function getPullRequest() {
-        const o = parseGithubUrl($scope.pullRequestUrl);
-        return {
-          pullRequestId: $scope.pullRequestId,
-          terms: $scope.terms
-            .trim()
-            .split("\n")
-            .filter((f) => f),
-          source: {
-            repositoryFullName: `${o.owner}/${o.repo}`,
-            pullRequestId: o.pullRequestId,
-          },
-          options: $scope.options,
-          conference: $scope.conference,
-        };
-      }
-
-      async function sendPullRequest(url) {
-        resetValidity();
-        try {
-          const newPR = getPullRequest();
-          await $http.post(url, newPR, {
-            headers: { "Content-Type": "application/json" },
-          });
-          window.location.href = "/pr/" + $scope.pullRequestId;
-        } catch (error) {
-          if (error.data) {
-            $translate("ERRORS." + error.data.error).then((translation) => {
-              $scope.error = translation;
-            }, console.error);
-            displayErrorMessage(error.data.error);
-          } else {
-            console.error(error);
-          }
-        }
-      }
-
-      $scope.anonymizePullRequest = (event) => {
-        event.target.disabled = true;
-        sendPullRequest("/api/pr/").finally(() => {
-          event.target.disabled = false;
-          $scope.$apply();
-        });
-      };
-
-      $scope.updatePullRequest = async (event) => {
-        event.target.disabled = true;
-        sendPullRequest("/api/pr/" + $scope.pullRequestId).finally(() => {
-          event.target.disabled = false;
-          $scope.$apply();
-        });
-      };
-
-      $scope.$watch("conference", async (v) => {
-        getConference();
-      });
-    },
-  ])
+  // anonymizePullRequestController removed - unified into anonymizeController
   .controller("pullRequestController", [
     "$scope",
     "$http",
