@@ -6,98 +6,132 @@
         aria-label="FAQs"
       >
         <div class="container">
-          <h2 class="text-center p-5">Frequently asked questions (FAQs)</h2>
+          <h2 class="text-center pt-4 pb-2">Frequently Asked Questions</h2>
+          <p class="text-center text-muted mb-4" style="font-size: 1.1rem;">
+            Everything you need to know about using Anonymous GitHub for double-anonymous peer review.
+          </p>
+
+          <!-- General -->
+          <h4 class="mt-4 mb-3" style="color: var(--link-color); font-weight: 600; border-bottom: 2px solid var(--border-color); padding-bottom: 0.5rem;">
+            <i class="fas fa-info-circle mr-2"></i>General
+          </h4>
           <div
             class="panel-group"
-            id="faq"
+            id="faq-general"
             role="tablist"
             aria-multiselectable="true"
           >
-            <div class="panel panel-default mb-4">
-              <div class="panel-heading p-3" role="tab" id="heading6">
+            <div class="panel panel-default mb-3">
+              <div class="panel-heading p-3" role="tab" id="headingWhatIs">
                 <h3 class="panel-title">
                   <a
                     class="collapsed"
                     role="button"
-                    title=""
                     data-toggle="collapse"
-                    data-parent="#faq"
-                    href="#limitation"
-                    aria-expanded="true"
-                    aria-controls="download"
+                    data-parent="#faq-general"
+                    href="#whatIs"
+                    aria-expanded="false"
+                    aria-controls="whatIs"
                   >
-                    What are the limitations of Anonymous GitHub?
+                    What is Anonymous GitHub?
                   </a>
                 </h3>
               </div>
               <div
-                id="limitation"
+                id="whatIs"
                 class="panel-collapse collapse"
                 role="tabpanel"
-                aria-labelledby="heading6"
+                aria-labelledby="headingWhatIs"
               >
                 <div class="panel-body p-3">
                   <p>
-                    <ul>
-                      <li>
-                        Anonymous GitHub only anonymizes textual files.
-                        It does not support the use of a static site generator, such as Jekyll, with GitHub Pages (although Markdown files are converted to HTML without any special formatting).
-                      </li>
-                      <li>
-                        Anonymous GitHub does not support files that are larger than 8Mo.
-                      </li>
-                      <li>
-                        The anonymization can change the behavior of the program.
-                      </li>
-                    </ul>
+                    Anonymous GitHub is a free, open-source tool that anonymizes GitHub repositories and pull requests
+                    for double-anonymous (double-blind) peer review. It replaces identifying information &mdash; such as
+                    the repository owner, organization name, and custom terms &mdash; so that reviewers cannot determine
+                    the identity of the authors through the code repository.
                   </p>
                 </div>
               </div>
             </div>
 
-            <div class="panel panel-default mb-4">
-              <div class="panel-heading p-3" role="tab" id="heading1">
+            <div class="panel panel-default mb-3">
+              <div class="panel-heading p-3" role="tab" id="headingHowWork">
                 <h3 class="panel-title">
                   <a
                     class="collapsed"
                     role="button"
-                    title=""
                     data-toggle="collapse"
-                    data-parent="#faq"
-                    href="#formats"
-                    aria-expanded="true"
-                    aria-controls="formats"
+                    data-parent="#faq-general"
+                    href="#howWork"
+                    aria-expanded="false"
+                    aria-controls="howWork"
                   >
-                    Which file formats are supported?
+                    How does Anonymous GitHub work?
                   </a>
                 </h3>
               </div>
               <div
-                id="formats"
+                id="howWork"
                 class="panel-collapse collapse"
                 role="tabpanel"
-                aria-labelledby="heading1"
+                aria-labelledby="headingHowWork"
               >
                 <div class="panel-body p-3">
                   <p>
-                    Anonymous Github is able to display pure textual files, such as text or source code. It can also render images, PDFs, and notbooks.
-                    However, only textual based files are anonymized. Anonymous Github analyzes the content of the file to detect if it is textual or not.
+                    Anonymous GitHub either downloads the complete repository and anonymizes the content, or proxies
+                    requests to GitHub on the fly. In both cases, the original and anonymized versions of files are
+                    cached on the server. The system automatically detects and replaces the repository owner,
+                    organization name, and repository name. You can also specify additional custom terms to anonymize
+                    using one-per-line regex patterns.
                   </p>
                 </div>
               </div>
             </div>
 
-            <div class="panel panel-default mb-4">
-              <div class="panel-heading p-3" role="tab" id="heading2">
+            <div class="panel panel-default mb-3">
+              <div class="panel-heading p-3" role="tab" id="headingScope">
                 <h3 class="panel-title">
                   <a
                     class="collapsed"
                     role="button"
-                    title=""
                     data-toggle="collapse"
-                    data-parent="#faq"
+                    data-parent="#faq-general"
+                    href="#scope"
+                    aria-expanded="false"
+                    aria-controls="scope"
+                  >
+                    What is the scope of anonymization?
+                  </a>
+                </h3>
+              </div>
+              <div
+                id="scope"
+                class="panel-collapse collapse"
+                role="tabpanel"
+                aria-labelledby="headingScope"
+              >
+                <div class="panel-body p-3">
+                  <p>
+                    In double-anonymous peer review, the boundary of anonymization is the paper plus its online
+                    appendix &mdash; not the entire internet. Searching for any part of the paper or the online appendix
+                    can be considered a deliberate attempt to break anonymity. Anonymous GitHub anonymizes the
+                    repository owner, organization, repository name, file and directory names, and file contents
+                    across all text-based file types.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel panel-default mb-3">
+              <div class="panel-heading p-3" role="tab" id="headingCost">
+                <h3 class="panel-title">
+                  <a
+                    class="collapsed"
+                    role="button"
+                    data-toggle="collapse"
+                    data-parent="#faq-general"
                     href="#cost"
-                    aria-expanded="true"
+                    aria-expanded="false"
                     aria-controls="cost"
                   >
                     How much does it cost?
@@ -108,31 +142,317 @@
                 id="cost"
                 class="panel-collapse collapse"
                 role="tabpanel"
-                aria-labelledby="heading2"
+                aria-labelledby="headingCost"
               >
                 <div class="panel-body p-3">
                   <p>
-                    Anonymous Github is free to use, however the server costs me hundreds of dollars per year, a small donation to cover the cost of the server would be largely appreciated.
-                    You can support me financially by <a href="https://github.com/sponsors/tdurieux/" target="__self">Sponsoring my GitHub account</a>, send me money thought <a href="https://ko-fi.com/tdurieux" target="__self">Ko-fi</a> or by clicking on the "Support me" button.
+                    Anonymous GitHub is completely free to use. However, the server costs hundreds of dollars per year
+                    to maintain. If you find the service useful, a small donation would be greatly appreciated. You can
+                    support the project by
+                    <a href="https://github.com/sponsors/tdurieux/" target="_blank">sponsoring on GitHub</a>,
+                    donating through <a href="https://ko-fi.com/tdurieux" target="_blank">Ko-fi</a>, or by clicking
+                    the "Support me" button on the site.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Features -->
+          <h4 class="mt-5 mb-3" style="color: var(--link-color); font-weight: 600; border-bottom: 2px solid var(--border-color); padding-bottom: 0.5rem;">
+            <i class="fas fa-cogs mr-2"></i>Features
+          </h4>
+          <div
+            class="panel-group"
+            id="faq-features"
+            role="tablist"
+            aria-multiselectable="true"
+          >
+            <div class="panel panel-default mb-3">
+              <div class="panel-heading p-3" role="tab" id="headingFormats">
+                <h3 class="panel-title">
+                  <a
+                    class="collapsed"
+                    role="button"
+                    data-toggle="collapse"
+                    data-parent="#faq-features"
+                    href="#formats"
+                    aria-expanded="false"
+                    aria-controls="formats"
+                  >
+                    Which file formats are supported?
+                  </a>
+                </h3>
+              </div>
+              <div
+                id="formats"
+                class="panel-collapse collapse"
+                role="tabpanel"
+                aria-labelledby="headingFormats"
+              >
+                <div class="panel-body p-3">
+                  <p>
+                    Anonymous GitHub can display and render a wide variety of file types:
+                  </p>
+                  <ul>
+                    <li><strong>Text and source code</strong> &mdash; displayed with syntax highlighting</li>
+                    <li><strong>Markdown</strong> &mdash; rendered as formatted HTML</li>
+                    <li><strong>Images</strong> (PNG, JPG, SVG, etc.) &mdash; displayed inline</li>
+                    <li><strong>PDFs</strong> &mdash; rendered directly in the browser</li>
+                    <li><strong>Jupyter Notebooks</strong> &mdash; rendered with code cells and outputs</li>
+                  </ul>
+                  <p>
+                    Only text-based files are anonymized. Anonymous GitHub analyzes the content of each file to
+                    determine whether it is textual or binary.
                   </p>
                 </div>
               </div>
             </div>
 
-            <div class="panel panel-default mb-4">
-              <div class="panel-heading p-3" role="tab" id="heading3">
+            <div class="panel panel-default mb-3">
+              <div class="panel-heading p-3" role="tab" id="headingPR">
                 <h3 class="panel-title">
                   <a
                     class="collapsed"
                     role="button"
-                    title=""
                     data-toggle="collapse"
-                    data-parent="#faq"
+                    data-parent="#faq-features"
+                    href="#pullRequests"
+                    aria-expanded="false"
+                    aria-controls="pullRequests"
+                  >
+                    Can I anonymize pull requests?
+                  </a>
+                </h3>
+              </div>
+              <div
+                id="pullRequests"
+                class="panel-collapse collapse"
+                role="tabpanel"
+                aria-labelledby="headingPR"
+              >
+                <div class="panel-body p-3">
+                  <p>
+                    Yes. In addition to full repositories, Anonymous GitHub supports anonymizing individual pull
+                    requests. Simply paste the URL of a GitHub pull request when creating a new anonymized repository,
+                    and the system will automatically detect that it is a pull request and anonymize it accordingly.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel panel-default mb-3">
+              <div class="panel-heading p-3" role="tab" id="headingConference">
+                <h3 class="panel-title">
+                  <a
+                    class="collapsed"
+                    role="button"
+                    data-toggle="collapse"
+                    data-parent="#faq-features"
+                    href="#conference"
+                    aria-expanded="false"
+                    aria-controls="conference"
+                  >
+                    What is the Conference ID feature?
+                  </a>
+                </h3>
+              </div>
+              <div
+                id="conference"
+                class="panel-collapse collapse"
+                role="tabpanel"
+                aria-labelledby="headingConference"
+              >
+                <div class="panel-body p-3">
+                  <p>
+                    When creating an anonymized repository, you can associate it with a Conference ID. This allows
+                    conferences to define default anonymization settings (such as expiration dates) that are
+                    automatically applied to repositories submitted under that conference. If your conference
+                    provides a Conference ID, enter it during the anonymization setup.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel panel-default mb-3">
+              <div class="panel-heading p-3" role="tab" id="headingExpiration">
+                <h3 class="panel-title">
+                  <a
+                    class="collapsed"
+                    role="button"
+                    data-toggle="collapse"
+                    data-parent="#faq-features"
+                    href="#expiration"
+                    aria-expanded="false"
+                    aria-controls="expiration"
+                  >
+                    What happens when an anonymized repository expires?
+                  </a>
+                </h3>
+              </div>
+              <div
+                id="expiration"
+                class="panel-collapse collapse"
+                role="tabpanel"
+                aria-labelledby="headingExpiration"
+              >
+                <div class="panel-body p-3">
+                  <p>
+                    You can configure one of three expiration strategies when creating your anonymized repository:
+                  </p>
+                  <ul>
+                    <li><strong>Never expire</strong> &mdash; the anonymized repository remains accessible indefinitely.</li>
+                    <li><strong>Redirect to GitHub</strong> &mdash; after expiration, visitors are redirected to the original GitHub repository.</li>
+                    <li><strong>Remove content</strong> &mdash; after expiration, the anonymized content is deleted from the server.</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel panel-default mb-3">
+              <div class="panel-heading p-3" role="tab" id="headingDownload">
+                <h3 class="panel-title">
+                  <a
+                    class="collapsed"
+                    role="button"
+                    data-toggle="collapse"
+                    data-parent="#faq-features"
+                    href="#download"
+                    aria-expanded="false"
+                    aria-controls="download"
+                  >
+                    Can I download an anonymized repository?
+                  </a>
+                </h3>
+              </div>
+              <div
+                id="download"
+                class="panel-collapse collapse"
+                role="tabpanel"
+                aria-labelledby="headingDownload"
+              >
+                <div class="panel-body p-3">
+                  <p>
+                    Yes. Anonymized repositories can be downloaded as a ZIP file. This is useful if reviewers
+                    want to build or test the code locally. The downloaded archive contains the fully anonymized
+                    version of the repository.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel panel-default mb-3">
+              <div class="panel-heading p-3" role="tab" id="headingCLI">
+                <h3 class="panel-title">
+                  <a
+                    class="collapsed"
+                    role="button"
+                    data-toggle="collapse"
+                    data-parent="#faq-features"
+                    href="#cli"
+                    aria-expanded="false"
+                    aria-controls="cli"
+                  >
+                    Is there a command-line tool?
+                  </a>
+                </h3>
+              </div>
+              <div
+                id="cli"
+                class="panel-collapse collapse"
+                role="tabpanel"
+                aria-labelledby="headingCLI"
+              >
+                <div class="panel-body p-3">
+                  <p>
+                    Yes. Anonymous GitHub provides a CLI tool that lets you anonymize repositories locally,
+                    generating an anonymized ZIP file on your machine. Install it via npm:
+                  </p>
+                  <pre style="background-color: var(--hover-bg-color); padding: 12px; border-radius: 4px; margin-top: 8px; color: var(--color);"><code>npm install -g @tdurieux/anonymous_github
+anonymous_github</code></pre>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Limitations -->
+          <h4 class="mt-5 mb-3" style="color: var(--link-color); font-weight: 600; border-bottom: 2px solid var(--border-color); padding-bottom: 0.5rem;">
+            <i class="fas fa-exclamation-triangle mr-2"></i>Limitations
+          </h4>
+          <div
+            class="panel-group"
+            id="faq-limitations"
+            role="tablist"
+            aria-multiselectable="true"
+          >
+            <div class="panel panel-default mb-3">
+              <div class="panel-heading p-3" role="tab" id="headingLimitation">
+                <h3 class="panel-title">
+                  <a
+                    class="collapsed"
+                    role="button"
+                    data-toggle="collapse"
+                    data-parent="#faq-limitations"
+                    href="#limitation"
+                    aria-expanded="false"
+                    aria-controls="limitation"
+                  >
+                    What are the limitations of Anonymous GitHub?
+                  </a>
+                </h3>
+              </div>
+              <div
+                id="limitation"
+                class="panel-collapse collapse"
+                role="tabpanel"
+                aria-labelledby="headingLimitation"
+              >
+                <div class="panel-body p-3">
+                  <ul>
+                    <li>
+                      Anonymous GitHub only anonymizes text-based files. Binary files (compiled executables,
+                      archives, etc.) are served as-is without anonymization.
+                    </li>
+                    <li>
+                      Files larger than 8 MB are not supported.
+                    </li>
+                    <li>
+                      Static site generators (such as Jekyll) used with GitHub Pages are not fully supported,
+                      although Markdown files are converted to HTML.
+                    </li>
+                    <li>
+                      The anonymization of terms within source code may change the behavior of the program
+                      (e.g., if a replaced term appears in a string literal or identifier).
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Privacy & Security -->
+          <h4 class="mt-5 mb-3" style="color: var(--link-color); font-weight: 600; border-bottom: 2px solid var(--border-color); padding-bottom: 0.5rem;">
+            <i class="fas fa-shield-alt mr-2"></i>Privacy &amp; Security
+          </h4>
+          <div
+            class="panel-group"
+            id="faq-privacy"
+            role="tablist"
+            aria-multiselectable="true"
+          >
+            <div class="panel panel-default mb-3">
+              <div class="panel-heading p-3" role="tab" id="headingData">
+                <h3 class="panel-title">
+                  <a
+                    class="collapsed"
+                    role="button"
+                    data-toggle="collapse"
+                    data-parent="#faq-privacy"
                     href="#data"
-                    aria-expanded="true"
+                    aria-expanded="false"
                     aria-controls="data"
                   >
-                    Data privacy
+                    How is my data handled?
                   </a>
                 </h3>
               </div>
@@ -140,63 +460,75 @@
                 id="data"
                 class="panel-collapse collapse"
                 role="tabpanel"
-                aria-labelledby="heading3"
+                aria-labelledby="headingData"
               >
                 <div class="panel-body p-3">
                   <p>
-                    The data stored on Anonymous Github are never used or shared in any cases. 
-                    When a repository is removed or expired only the configuration of the repository is conserved to be able to restore easily the repository and to ensure that no future repository will use the same repository id. 
+                    Data stored on Anonymous GitHub is never shared or used for any purpose beyond providing the
+                    anonymization service. When a repository is removed or expires, only its configuration is
+                    retained &mdash; this makes it easy to restore the repository if needed and ensures that no
+                    future repository reuses the same ID.
                   </p>
                 </div>
               </div>
             </div>
 
-            <div class="panel panel-default mb-4">
-              <div class="panel-heading p-3" role="tab" id="heading4">
+            <div class="panel panel-default mb-3">
+              <div class="panel-heading p-3" role="tab" id="headingViewer">
                 <h3 class="panel-title">
                   <a
                     class="collapsed"
                     role="button"
-                    title=""
                     data-toggle="collapse"
-                    data-parent="#faq"
-                    href="#privacy"
-                    aria-expanded="true"
-                    aria-controls="privacy"
+                    data-parent="#faq-privacy"
+                    href="#viewer"
+                    aria-expanded="false"
+                    aria-controls="viewer"
                   >
-                    Privacy of the viewer
+                    Can repository owners see who viewed their anonymized repository?
                   </a>
                 </h3>
               </div>
               <div
-                id="privacy"
+                id="viewer"
                 class="panel-collapse collapse"
                 role="tabpanel"
-                aria-labelledby="heading4"
+                aria-labelledby="headingViewer"
               >
                 <div class="panel-body p-3">
                   <p>
-                    The viewers of the repository are not tracked, only the number of view of the repository is collected (a incremental digit).
-                    It is not possible for the repository owner neither for Anonymous GitHub to track down the identity of the viewer. 
+                    No. Only the total number of views is tracked as an incremental counter. It is not possible
+                    for the repository owner or for Anonymous GitHub to identify individual viewers.
+                    Reviewer anonymity is fully preserved.
                   </p>
                 </div>
               </div>
             </div>
+          </div>
 
-            <div class="panel panel-default mb-4">
-              <div class="panel-heading p-3" role="tab" id="heading5">
+          <!-- Self-Hosting -->
+          <h4 class="mt-5 mb-3" style="color: var(--link-color); font-weight: 600; border-bottom: 2px solid var(--border-color); padding-bottom: 0.5rem;">
+            <i class="fas fa-server mr-2"></i>Self-Hosting
+          </h4>
+          <div
+            class="panel-group"
+            id="faq-hosting"
+            role="tablist"
+            aria-multiselectable="true"
+          >
+            <div class="panel panel-default mb-3">
+              <div class="panel-heading p-3" role="tab" id="headingDeploy">
                 <h3 class="panel-title">
                   <a
                     class="collapsed"
                     role="button"
-                    title=""
                     data-toggle="collapse"
-                    data-parent="#faq"
+                    data-parent="#faq-hosting"
                     href="#deploy"
-                    aria-expanded="true"
+                    aria-expanded="false"
                     aria-controls="deploy"
                   >
-                    Deploying your own instance?
+                    Can I deploy my own instance?
                   </a>
                 </h3>
               </div>
@@ -204,16 +536,39 @@
                 id="deploy"
                 class="panel-collapse collapse"
                 role="tabpanel"
-                aria-labelledby="heading5"
+                aria-labelledby="headingDeploy"
               >
                 <div class="panel-body p-3">
                   <p>
-                    Anonymous GitHub is fully open source and the deployment of a new instance is relatively easy. More information can be found on the <a href="https://github.com/tdurieux/anonymous_github/" target="_blank">GitHub repository</a> of the project.
+                    Yes. Anonymous GitHub is fully open source (GPL-3.0) and supports Docker-based deployment.
+                    You will need to configure a GitHub OAuth app and provide a GitHub token. Detailed setup
+                    instructions are available on the
+                    <a href="https://github.com/tdurieux/anonymous_github/" target="_blank">GitHub repository</a>.
                   </p>
+                  <p>
+                    The basic steps are:
+                  </p>
+                  <ol>
+                    <li>Clone the repository and install dependencies</li>
+                    <li>Create a <code>.env</code> file with your GitHub token, OAuth client ID, and client secret</li>
+                    <li>Run <code>docker-compose up -d</code></li>
+                  </ol>
                 </div>
               </div>
             </div>
           </div>
+
+          <div class="text-center mt-5 mb-5 p-4" style="background-color: var(--hover-bg-color); border-radius: 8px;">
+            <p class="mb-2" style="font-size: 1.1rem;">
+              Still have questions?
+            </p>
+            <p class="text-muted mb-0">
+              Open an issue on the
+              <a href="https://github.com/tdurieux/anonymous_github/issues" target="_blank">GitHub repository</a>
+              and we'll be happy to help.
+            </p>
+          </div>
+
         </div>
       </section>
     </div>
