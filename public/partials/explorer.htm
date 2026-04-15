@@ -1,6 +1,18 @@
 <div class="container-fluid h-100">
   <div class="row h-100">
-    <div class="leftCol shadow p-1 overflow-auto" ng-show="files.length">
+    <button
+      class="sidebar-toggle"
+      ng-show="files.length"
+      ng-click="sidebarCollapsed = !sidebarCollapsed"
+    >
+      <i class="fas" ng-class="sidebarCollapsed ? 'fa-folder-open' : 'fa-times'"></i>
+      {{sidebarCollapsed ? 'Show Files' : 'Hide Files'}}
+    </button>
+    <div
+      class="leftCol shadow p-1 overflow-auto"
+      ng-show="files.length"
+      ng-class="{'collapsed': sidebarCollapsed}"
+    >
       <tree class="files" file="files"></tree>
       <div class="bottom column">
         <div
@@ -20,7 +32,7 @@
             Loading...
           </li>
         </ol>
-        <div class="">
+        <div class="d-flex flex-wrap" style="gap: 4px">
           <a
             ng-if="options.isAdmin || options.isOwner"
             ng-href="/anonymize/{{repoId}}"
@@ -32,21 +44,21 @@
             ng-href="{{url}}"
             target="__self"
             class="btn btn-outline-primary btn-sm"
-            >View raw</a
+            >Raw</a
           >
           <a
             ng-show="content != null"
             ng-href="{{url}}&download=true"
             target="__self"
             class="btn btn-outline-primary btn-sm"
-            >Download file</a
+            ><i class="fas fa-download"></i><span class="d-none d-md-inline"> Download</span></a
           >
           <a
             ng-if="options.download"
             ng-href="/api/repo/{{repoId}}/zip"
             target="__self"
             class="btn btn-outline-primary btn-sm"
-            >Download Repository</a
+            ><i class="fas fa-file-archive"></i><span class="d-none d-md-inline"> ZIP</span></a
           >
           <a
             ng-if="options.hasWebsite"

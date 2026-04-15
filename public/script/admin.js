@@ -5,6 +5,7 @@ angular
     "$http",
     "$location",
     function ($scope, $http, $location) {
+      $scope.Math = Math;
       $scope.$watch("user.status", () => {
         if ($scope.user == null) {
           $location.url("/");
@@ -94,6 +95,7 @@ angular
     "$http",
     "$location",
     function ($scope, $http, $location) {
+      $scope.Math = Math;
       $scope.$watch("user.status", () => {
         if ($scope.user == null) {
           $location.url("/");
@@ -259,6 +261,7 @@ angular
     "$http",
     "$location",
     function ($scope, $http, $location) {
+      $scope.Math = Math;
       $scope.$watch("user.status", () => {
         if ($scope.user == null) {
           $location.url("/");
