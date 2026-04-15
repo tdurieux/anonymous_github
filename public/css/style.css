@@ -626,6 +626,75 @@ code {
   background: rgba(200, 100, 100, 0.5);
 }
 
+/* ===== Anonymize Page Layout ===== */
+
+.anonymize-page .sidePanel {
+  min-width: 0;
+}
+
+.anonymize-section-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 16px 0 10px 0;
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--primary-bg);
+}
+
+.anonymize-section-title i {
+  color: var(--primary-bg);
+  margin-right: 4px;
+}
+
+.anonymize-submit-bar {
+  padding: 12px 0 4px 0;
+}
+
+.anonymize-submit-bar .btn {
+  font-size: 1rem;
+  padding: 10px 20px;
+  font-weight: 600;
+}
+
+.anonymize-page .form-check {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+.anonymize-page .form-check-label {
+  font-weight: 500;
+}
+
+.anonymize-page .accordion .card-header {
+  padding: 0;
+}
+
+.anonymize-page .accordion .btn {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+/* Preview column on desktop */
+.anonymize-preview-col {
+  min-height: 0;
+}
+
+/* PR diff overflow */
+.pr-diff pre {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+@media (min-width: 768px) {
+  .anonymize-form-col {
+    height: 100%;
+    max-width: 50%;
+  }
+
+  .anonymize-preview-col {
+    height: 100%;
+  }
+}
+
 /* ===== Mobile Responsive Improvements ===== */
 
 /* Mobile-friendly touch targets */
@@ -744,6 +813,99 @@ code {
   /* Metrics cards on home */
   .col-md-4 h3 {
     font-size: 1.1rem;
+  }
+
+  /* ---- Anonymize page mobile ---- */
+
+  .anonymize-page > .row {
+    height: auto !important;
+    min-height: 100%;
+  }
+
+  .anonymize-page .sidePanel {
+    height: auto !important;
+    overflow: visible !important;
+    border-bottom: 2px solid var(--border-color);
+    padding-bottom: 12px;
+  }
+
+  .anonymize-page .sidePanel .card,
+  .anonymize-page .sidePanel .container {
+    max-width: 100%;
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  .anonymize-form-col {
+    max-width: 100% !important;
+    flex: 0 0 100%;
+    width: 100%;
+  }
+
+  .anonymize-preview-col {
+    height: auto !important;
+    max-height: none;
+    border-top: 1px solid var(--border-color);
+    padding-top: 12px !important;
+  }
+
+  .anonymize-section-title {
+    font-size: 0.95rem;
+    margin: 12px 0 8px 0;
+  }
+
+  .anonymize-submit-bar {
+    position: sticky;
+    bottom: 0;
+    background: var(--sidebar-bg-color);
+    padding: 10px 0;
+    margin: 0 -8px;
+    padding-left: 8px;
+    padding-right: 8px;
+    border-top: 1px solid var(--border-color);
+    z-index: 10;
+  }
+
+  .anonymize-submit-bar .btn {
+    font-size: 1rem;
+    padding: 12px 20px;
+  }
+
+  .anonymize-page .card-title {
+    font-size: 1.2rem;
+  }
+
+  /* Compact checkboxes on mobile */
+  .anonymize-page .form-check {
+    padding-top: 6px;
+    padding-bottom: 6px;
+    min-height: 36px;
+  }
+
+  .anonymize-page .form-check-label {
+    font-size: 0.95rem;
+  }
+
+  .anonymize-page .card-body {
+    padding: 12px;
+  }
+
+  /* PR preview on mobile */
+  .pr-title {
+    font-size: 1.15rem;
+  }
+
+  .pr-diff pre {
+    font-size: 0.75rem;
+  }
+
+  .pr-comment .mb-1 h5 {
+    font-size: 1rem;
+  }
+
+  .nav-tabs .nav-link {
+    padding: 8px 12px;
+    font-size: 0.9rem;
   }
 }
 

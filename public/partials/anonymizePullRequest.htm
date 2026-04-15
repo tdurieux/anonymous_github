@@ -1,7 +1,7 @@
-<div class="container-fluid h-100">
-  <div class="row h-100">
+<div class="container-fluid h-100 anonymize-page">
+  <div class="row h-100 flex-column flex-md-row">
     <div
-      class="col sidePanel shadow overflow-auto h-100 d-flex align-content-end"
+      class="col-md sidePanel shadow overflow-auto anonymize-form-col"
     >
       <div
         class="p-0 py-2 m-auto"
@@ -13,15 +13,18 @@
           name="anonymizeForm"
           novalidate
         >
-          <h5 class="card-title">Anonymize a pull request</h5>
-          <h6 class="card-subtitle mb-2 text-muted">
+          <h5 class="card-title mb-2">Anonymize a pull request</h5>
+          <p class="text-muted mb-3" style="font-size: 0.9rem">
             Fill the information to anonymize! It will only take 5min.
-          </h6>
-          <h2>Source</h2>
+          </p>
+
+          <h5 class="anonymize-section-title">
+            <i class="fab fa-github"></i> Source
+          </h5>
           <!-- pullRequestUrl -->
           <div class="form-group">
             <label for="pullRequestUrl"
-              >Type the url of your pull request</label
+              >URL of your pull request</label
             >
             <input
               type="text"
@@ -30,6 +33,7 @@
               id="pullRequestUrl"
               ng-class="{'is-invalid': anonymize.pullRequestUrl.$invalid}"
               ng-model="pullRequestUrl"
+              placeholder="https://github.com/owner/repo/pull/123"
               ng-model-options="{ debounce: {default: 1000, blur: 0, click: 0}, updateOn: 'default blur click' }"
               ng-change="pullRequestSelected()"
             />
@@ -71,11 +75,14 @@
                 >
               </div>
             </div>
-            <h2>Conference ID</h2>
+
+            <h5 class="anonymize-section-title">
+              <i class="fas fa-chalkboard-teacher"></i> Conference ID
+            </h5>
             <!-- Conference -->
             <div class="form-group">
               <label for="conference"
-                >Conference ID<span class="text-muted">Optional</span></label
+                >Conference ID <span class="text-muted">(Optional)</span></label
               >
               <input
                 class="form-control"
@@ -103,10 +110,13 @@
                 conference preferences.
               </small>
             </div>
-            <h2>Anonymization Options</h2>
+
+            <h5 class="anonymize-section-title">
+              <i class="fas fa-shield-alt"></i> Anonymization Options
+            </h5>
             <!-- Pull Request ID -->
             <div class="form-group">
-              <label for="pullRequestId">Anonymize pull request id</label>
+              <label for="pullRequestId">Anonymized pull request id</label>
               <input
                 type="text"
                 class="form-control"
@@ -218,7 +228,7 @@
                       aria-expanded="true"
                       aria-controls="collapseOne"
                     >
-                      Advance options
+                      <i class="fas fa-cog mr-1"></i> Advanced options
                     </button>
                   </h2>
                 </div>
@@ -230,7 +240,7 @@
                   data-parent="#options"
                 >
                   <div class="card-body">
-                    <div class="form-group">
+                    <div class="form-group mb-0">
                       <div class="form-check">
                         <input
                           class="form-check-input"
@@ -242,7 +252,7 @@
                         <label class="form-check-label" for="link"
                           >Keep links</label
                         >
-                        <small id="termsHelp" class="form-text text-muted"
+                        <small class="form-text text-muted"
                           >Keep or remove all the links.</small
                         >
                       </div>
@@ -257,7 +267,7 @@
                         <label class="form-check-label" for="image"
                           >Display images</label
                         >
-                        <small id="termsHelp" class="form-text text-muted"
+                        <small class="form-text text-muted"
                           >Images are not anonymized</small
                         >
                       </div>
@@ -272,7 +282,7 @@
                         <label class="form-check-label" for="date"
                           >Display dates</label
                         >
-                        <small id="termsHelp" class="form-text text-muted"
+                        <small class="form-text text-muted"
                           >Display the date of the Pull Request and the date of
                           the comments.</small
                         >
@@ -361,32 +371,32 @@
             ng-if="error"
             ng-bind="error"
           ></div>
-          <button
-            id="submit"
-            type="submit"
-            class="btn btn-primary"
-            ng-click="anonymizePullRequest($event)"
-            ng-show="pullRequestUrl"
-            ng-if="!isUpdate"
-          >
-            Anonymize
-          </button>
-          <button
-            id="submit"
-            type="submit"
-            class="btn btn-primary"
-            ng-click="updatePullRequest($event)"
-            ng-show="pullRequestUrl"
-            ng-if="isUpdate"
-          >
-            Update
-          </button>
+          <div class="anonymize-submit-bar" ng-show="pullRequestUrl">
+            <button
+              id="submit"
+              type="submit"
+              class="btn btn-primary btn-block"
+              ng-click="anonymizePullRequest($event)"
+              ng-if="!isUpdate"
+            >
+              <i class="fas fa-user-secret mr-1"></i> Anonymize
+            </button>
+            <button
+              id="submit"
+              type="submit"
+              class="btn btn-primary btn-block"
+              ng-click="updatePullRequest($event)"
+              ng-if="isUpdate"
+            >
+              <i class="fas fa-save mr-1"></i> Update
+            </button>
+          </div>
         </form>
       </div>
     </div>
-    <div class="col-9 p-2 h-100 overflow-auto" ng-if="details">
-      <div class="d-flex w-100 justify-content-between align-items-center">
-        <h2 class="pr-title">
+    <div class="col-md-8 p-2 overflow-auto anonymize-preview-col" ng-if="details">
+      <div class="d-flex w-100 justify-content-between align-items-center flex-wrap">
+        <h2 class="pr-title mb-1">
           <span ng-if="options.title"
             >{{anonymize(details.pullRequest.title)}}</span
           >
@@ -407,7 +417,8 @@
         >Pull Request on {{details.pullRequest.baseRepositoryFullName}}</small
       >
       <div
-        class="pr-body shadow-sm p-3 mb-5 bg-white rounded"
+        class="pr-body shadow-sm p-3 mb-4 rounded"
+        style="background: var(--sidebar-bg-color)"
         ng-if="options.body"
       >
         <markdown
@@ -461,10 +472,11 @@
           aria-labelledby="pills-diff-tab"
         >
           <div
-            class="pr-diff shadow-sm p-3 mb-5 bg-white rounded"
+            class="pr-diff shadow-sm p-3 mb-4 rounded"
+            style="background: var(--sidebar-bg-color)"
             ng-if="options.diff"
           >
-            <pre><code ng-bind-html="anonymize(details.pullRequest.diff) | diff"></code></pre>
+            <pre style="overflow-x: auto"><code ng-bind-html="anonymize(details.pullRequest.diff) | diff"></code></pre>
           </div>
         </div>
         <div
@@ -479,7 +491,7 @@
               class="pr-comment list-group-item"
               ng-repeat="comment in details.pullRequest.comments"
             >
-              <div class="d-flex w-100 justify-content-between">
+              <div class="d-flex w-100 justify-content-between flex-wrap">
                 <h5 class="mb-1" ng-if="options.username">
                   @{{anonymize(comment.author)}}
                 </h5>
