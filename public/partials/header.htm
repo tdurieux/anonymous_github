@@ -28,6 +28,7 @@
           ng-class="{'active': path == '/dashboard'}"
           href="/dashboard"
         >
+          <i class="fas fa-code-branch d-lg-none mr-1"></i>
           Repositories
         </a>
       </li>
@@ -37,6 +38,7 @@
           ng-class="{'active': path == '/pr-dashboard'}"
           href="/pr-dashboard"
         >
+          <i class="fas fa-code-branch d-lg-none mr-1"></i>
           Pull Requests
         </a>
       </li>
@@ -45,47 +47,40 @@
           class="nav-link"
           ng-class="{'active':path == '/conferences'}"
           href="/conferences"
-          >Conferences</a
         >
+          <i class="fas fa-chalkboard-teacher d-lg-none mr-1"></i>
+          Conferences
+        </a>
       </li>
       <li class="nav-item" ng-if="user">
         <a
           class="nav-link"
           ng-class="{'active':path == '/anonymize'}"
           href="/anonymize"
-          >Anonymize</a
         >
+          <i class="fas fa-user-secret d-lg-none mr-1"></i>
+          Anonymize
+        </a>
       </li>
       <li class="nav-item" ng-if="user">
         <a
           class="nav-link"
           ng-class="{'active':path == '/pull-request-anonymize'}"
           href="/pull-request-anonymize"
-          >Anonymize PR</a
         >
+          <i class="fas fa-user-secret d-lg-none mr-1"></i>
+          Anonymize PR
+        </a>
       </li>
-      <li class="nav-item dropdown" ng-if="user">
+      <li class="nav-item" ng-if="user && user.isAdmin">
         <a
-          class="nav-link dropdown-toggle"
-          href="#"
-          id="navbarDropdownMenuLink"
-          role="button"
-          data-toggle="dropdown"
-          aria-haspopup="true"
-          aria-expanded="false"
-          ng-if="user.isAdmin"
+          class="nav-link"
+          ng-class="{'active':path.indexOf('/admin') === 0}"
+          href="/admin/"
         >
+          <i class="fas fa-cog d-lg-none mr-1"></i>
           Admin
         </a>
-        <div
-          class="dropdown-menu"
-          aria-labelledby="navbarDropdownMenuLink"
-        >
-          <a class="dropdown-item" href="/admin/">Repositories</a>
-          <a class="dropdown-item" href="/admin/users">Users</a>
-          <a class="dropdown-item" href="/admin/conferences">Conferences</a>
-          <a class="dropdown-item" href="/admin/queues">Queues</a>
-        </div>
       </li>
     </ul>
     <ul class="navbar-nav">
@@ -103,7 +98,7 @@
           >FAQ</a
         >
       </li>
-      <li class="nav-item">
+      <li class="nav-item d-none d-lg-block">
         <a
           class="nav-link"
           target="_blank"
@@ -114,16 +109,23 @@
       </li>
 
       <li class="nav-item" ng-if="!isDarkMode">
-        <a class="nav-link" href="#" ng-click="darkMode(true);">Dark Mode</a>
+        <a class="nav-link" href="#" ng-click="darkMode(true);">
+          <i class="fas fa-moon d-lg-none mr-1"></i>
+          Dark Mode
+        </a>
       </li>
 
       <li class="nav-item" ng-if="isDarkMode">
-        <a class="nav-link" href="#" ng-click="darkMode(false);">Light Mode</a>
+        <a class="nav-link" href="#" ng-click="darkMode(false);">
+          <i class="fas fa-sun d-lg-none mr-1"></i>
+          Light Mode
+        </a>
       </li>
 
       <li class="nav-item" ng-if="!user">
         <a class="nav-link" target="_self" href="/github/login" data-offset="30"
-          >Login
+          ><i class="fab fa-github d-lg-none mr-1"></i>
+          Login
         </a>
       </li>
       <li class="nav-item dropdown" ng-if="user">
@@ -144,9 +146,8 @@
             class="rounded-circle"
           />
           {{user.username}}
-          <!-- <span ng-bind="user.username"></span> -->
         </a>
-        <div class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
+        <div class="dropdown-menu dropdown-menu-right" aria-labelledby="navbarDropdownMenuLink">
           <a class="dropdown-item" href="/profile">Default settings</a>
           <div class="dropdown-divider"></div>
           <a class="dropdown-item" href="/api/user/logout" target="__self"

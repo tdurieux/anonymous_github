@@ -1,7 +1,7 @@
-<div class="container-fluid h-100">
-  <div class="row h-100">
+<div class="container-fluid h-100 anonymize-page">
+  <div class="row h-100 flex-column flex-md-row">
     <div
-      class="col sidePanel shadow overflow-auto h-100 d-flex align-content-end"
+      class="col-md sidePanel shadow overflow-auto anonymize-form-col"
     >
       <div
         class="p-0 py-2 m-auto"
@@ -127,11 +127,14 @@
                 [a-fA-Z0-9]{6,}.
               </div>
             </div>
-            <h2>Conference ID</h2>
+
+            <h5 class="anonymize-section-title">
+              <i class="fas fa-chalkboard-teacher"></i> Conference ID
+            </h5>
             <!-- Conference -->
             <div class="form-group">
               <label for="conference"
-                >Conference ID<span class="text-muted">Optional</span></label
+                >Conference ID <span class="text-muted">(Optional)</span></label
               >
               <input
                 class="form-control"
@@ -159,10 +162,13 @@
                 conference preferences.
               </small>
             </div>
-            <h2>Anonymization Options</h2>
+
+            <h5 class="anonymize-section-title">
+              <i class="fas fa-shield-alt"></i> Anonymization Options
+            </h5>
             <!-- Repo ID -->
             <div class="form-group">
-              <label for="repoId">Anonymize repository id</label>
+              <label for="repoId">Anonymized repository id</label>
               <input
                 type="text"
                 class="form-control"
@@ -281,7 +287,7 @@
                       aria-expanded="true"
                       aria-controls="collapseOne"
                     >
-                      Advance options
+                      <i class="fas fa-cog mr-1"></i> Advanced options
                     </button>
                   </h2>
                 </div>
@@ -384,31 +390,31 @@
             ng-if="error"
             ng-bind="error"
           ></div>
-          <button
-            id="submit"
-            type="submit"
-            class="btn btn-primary"
-            ng-click="anonymizeRepo($event)"
-            ng-show="repoUrl"
-            ng-if="!isUpdate"
-          >
-            Anonymize
-          </button>
-          <button
-            id="submit"
-            type="submit"
-            class="btn btn-primary"
-            ng-click="updateRepo($event)"
-            ng-show="repoUrl"
-            ng-if="isUpdate"
-          >
-            Update
-          </button>
+          <div class="anonymize-submit-bar" ng-show="repoUrl">
+            <button
+              id="submit"
+              type="submit"
+              class="btn btn-primary btn-block"
+              ng-click="anonymizeRepo($event)"
+              ng-if="!isUpdate"
+            >
+              <i class="fas fa-user-secret mr-1"></i> Anonymize
+            </button>
+            <button
+              id="submit"
+              type="submit"
+              class="btn btn-primary btn-block"
+              ng-click="updateRepo($event)"
+              ng-if="isUpdate"
+            >
+              <i class="fas fa-save mr-1"></i> Update
+            </button>
+          </div>
         </form>
       </div>
     </div>
     <div
-      class="col-9 p-2 h-100 overflow-auto markdown-body body"
+      class="col-md-8 p-2 overflow-auto markdown-body body anonymize-preview-col"
       ng-bind-html="html_readme"
       ng-if="html_readme"
     ></div>
