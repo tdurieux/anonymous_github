@@ -114,7 +114,7 @@ export default class PullRequest {
       this.status == "removing" ||
       this.status == "removed"
     ) {
-      throw new AnonymousError("pullRequest_expired", {
+      throw new AnonymousError("pull_request_expired", {
         object: this,
         httpStatus: 410,
       });
@@ -126,8 +126,9 @@ export default class PullRequest {
       this.status == "preparing" ||
       (this.status == "download" && this._model.statusDate > fiveMinuteAgo)
     ) {
-      throw new AnonymousError("pullRequest_not_ready", {
+      throw new AnonymousError("pull_request_not_ready", {
         object: this,
+        httpStatus: 503,
       });
     }
   }
