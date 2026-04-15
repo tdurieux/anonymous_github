@@ -84,7 +84,7 @@ export default class GitHubStream extends GitHubBase {
 
   async getFileContent(file: AnonymizedFile): Promise<stream.Readable> {
     try {
-      file.filePath;
+      void file.filePath;
     } catch (_) {
       // compute the original path if ambiguous
       await file.originalPath();

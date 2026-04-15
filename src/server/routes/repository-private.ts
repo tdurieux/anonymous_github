@@ -281,7 +281,7 @@ router.get("/:repoId/", async (req: express.Request, res: express.Response) => {
 });
 
 function validateNewRepo(repoUpdate: any): void {
-  const validCharacters = /^[0-9a-zA-Z\-\_]+$/;
+  const validCharacters = /^[0-9a-zA-Z\-_]+$/;
   if (
     !repoUpdate.repoId.match(validCharacters) ||
     repoUpdate.repoId.length < 3

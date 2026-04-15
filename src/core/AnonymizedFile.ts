@@ -189,16 +189,9 @@ export default class AnonymizedFile {
       return content.pipe(anonymizer);
     }
 
-    // const cacheableLookup = new CacheableLookup();
-    // const hostName = new URL(config.STREAMER_ENTRYPOINT).hostname;
-    // const ipHost = await cacheableLookup.lookupAsync(hostName);
-
     // use the streamer service
     return got.stream(join(config.STREAMER_ENTRYPOINT, "api"), {
       method: "POST",
-      // lookup: cacheableLookup.lookup,
-      // host: ipHost.address,
-      // dnsCache: cacheableLookup,
       json: {
         token: await this.repository.getToken(),
         repoFullName: this.repository.model.source.repositoryName,
@@ -226,14 +219,11 @@ export default class AnonymizedFile {
     return join(this._file.path, this._file.name);
   }
 
-  // cacheableLookup = new CacheableLookup({
-  //   maxTtl: 60,
-  // });
-
   async send(res: Response): Promise<void> {
     const anonymizer = this.repository.generateAnonymizeTransformer(
       this.anonymizedPath
     );
+    // eslint-disable-next-line no-async-promise-executor
     return new Promise<void>(async (resolve, reject) => {
       try {
         if (config.STREAMER_ENTRYPOINT) {
@@ -297,7 +287,6 @@ export default class AnonymizedFile {
             content.destroy();
           }
           reject(error);
-          // handleError(error, res);
         }
         content
           .on("error", handleStreamError)

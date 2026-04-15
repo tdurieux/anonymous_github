@@ -99,7 +99,7 @@ router.get(
 );
 
 function validateNewPullRequest(pullRequestUpdate: any): void {
-  const validCharacters = /^[0-9a-zA-Z\-\_]+$/;
+  const validCharacters = /^[0-9a-zA-Z\-_]+$/;
   if (
     !pullRequestUpdate.pullRequestId.match(validCharacters) ||
     pullRequestUpdate.pullRequestId.length < 3
