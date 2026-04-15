@@ -17,7 +17,7 @@ export default async function (job: SandboxedJob<Repository, void>) {
     );
     const repo = await getRepository(job.data.repoId);
     await repo.removeCache();
-  } catch (error) {
+  } catch {
     // error already handled
   } finally {
     console.log(`[QUEUE] Cache of ${job.data.repoId} is removed.`);

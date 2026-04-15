@@ -88,7 +88,7 @@ async function webView(req: express.Request, res: express.Response) {
     let info: IFile | null = null;
     try {
       info = await f.getFileInfo();
-    } catch (error) {}
+    } catch { /* ignored */ }
     if (
       req.headers.accept?.includes("text/html") &&
       (filePath == "" || (info && info.size == null))

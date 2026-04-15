@@ -98,6 +98,7 @@ router.get(
   }
 );
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function validateNewPullRequest(pullRequestUpdate: any): void {
   const validCharacters = /^[0-9a-zA-Z\-_]+$/;
   if (
@@ -146,6 +147,7 @@ function validateNewPullRequest(pullRequestUpdate: any): void {
 
 function updatePullRequestModel(
   model: IAnonymizedPullRequestDocument,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   pullRequestUpdate: any
 ) {
   model.options = {

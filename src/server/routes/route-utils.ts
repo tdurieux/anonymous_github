@@ -13,8 +13,7 @@ export async function getPullRequest(
 ) {
   try {
     const pullRequest = await db.getPullRequest(req.params.pullRequestId);
-    if (opt?.nocheck == true) {
-    } else {
+    if (opt?.nocheck !== true) {
       // redirect if the repository is expired
       if (
         pullRequest.status == "expired" &&
@@ -44,8 +43,7 @@ export async function getRepo(
 ) {
   try {
     const repo = await db.getRepository(req.params.repoId);
-    if (opt.nocheck == true) {
-    } else {
+    if (opt.nocheck !== true) {
       // redirect if the repository is expired
       if (
         repo.status == RepositoryStatus.EXPIRED &&
@@ -73,6 +71,7 @@ export function isOwnerOrAdmin(authorizedUsers: string[], user: User) {
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function printError(error: any, req?: express.Request) {
   if (error instanceof AnonymousError) {
     let message = `[ERROR] ${error.toString()} ${error.stack
@@ -97,6 +96,7 @@ function printError(error: any, req?: express.Request) {
 }
 
 export function handleError(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   error: any,
   res?: express.Response,
   req?: express.Request
@@ -139,6 +139,7 @@ export async function getUser(req: express.Request) {
   if (!req.user) {
     notConnected();
   }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const user = (req.user as any).user;
   if (!user) {
     notConnected();

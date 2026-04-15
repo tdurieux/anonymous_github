@@ -25,7 +25,7 @@ export default class FileSystem extends StorageBase {
       const stat = await fs.promises.stat(fullPath);
       if (stat.isDirectory()) return FILE_TYPE.FOLDER;
       if (stat.isFile()) return FILE_TYPE.FILE;
-    } catch (_) {
+    } catch {
       // ignore file not found or not downloaded
     }
     return FILE_TYPE.NOT_FOUND;
@@ -65,13 +65,13 @@ export default class FileSystem extends StorageBase {
     try {
       await this.mk(repoId, dirname(p));
       if (data instanceof Readable) {
-        data.on("error", (err) => {
+        data.on("error", (_err) => {
           this.rm(repoId, p);
         });
       }
       return await fs.promises.writeFile(fullPath, data, "utf-8");
-    } catch (err: any) {
-      // throw err;
+    } catch {
+      // write error ignored
     }
   }
 
@@ -91,8 +91,8 @@ export default class FileSystem extends StorageBase {
       await fs.promises.mkdir(fullPath, {
         recursive: true,
       });
-    } catch (err: any) {
-      if (err.code !== "EEXIST") {
+    } catch (err: unknown) {
+      if (err instanceof Error && (err as NodeJS.ErrnoException).code !== "EEXIST") {
         throw err;
       }
     }
@@ -135,7 +135,7 @@ export default class FileSystem extends StorageBase {
             })
           );
         }
-      } catch (error) {
+      } catch {
         // ignore stat errors for individual files
       }
     }

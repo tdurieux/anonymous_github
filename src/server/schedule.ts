@@ -6,7 +6,7 @@ import Repository from "../core/Repository";
 
 export function conferenceStatusCheck() {
   // check every 6 hours the status of the conferences
-  const job = schedule.scheduleJob("0 */6 * * *", async () => {
+  schedule.scheduleJob("0 */6 * * *", async () => {
     (await ConferenceModel.find({ status: { $eq: "ready" } })).forEach(
       async (data) => {
         const conference = new Conference(data);
@@ -24,7 +24,7 @@ export function conferenceStatusCheck() {
 
 export function repositoryStatusCheck() {
   // check every 6 hours the status of the repositories
-  const job = schedule.scheduleJob("0 */6 * * *", async () => {
+  schedule.scheduleJob("0 */6 * * *", async () => {
     console.log("[schedule] Check repository status and unused repositories");
     (
       await AnonymizedRepositoryModel.find({
@@ -35,7 +35,7 @@ export function repositoryStatusCheck() {
       const repo = new Repository(data);
       try {
         repo.check();
-      } catch (error) {
+      } catch {
         console.log(`Repository ${repo.repoId} is expired`);
       }
       const fourMonthAgo = new Date();

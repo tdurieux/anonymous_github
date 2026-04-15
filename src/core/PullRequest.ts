@@ -37,7 +37,7 @@ export default class PullRequest {
     if (this._model.source.accessToken) {
       try {
         return this._model.source.accessToken;
-      } catch (error) {
+      } catch {
         console.debug(
           "[ERROR] Token is invalid",
           this._model.source.pullRequestId
@@ -240,7 +240,7 @@ export default class PullRequest {
   }
 
   content() {
-    const output: any = {
+    const output: Record<string, unknown> = {
       anonymizeDate: this._model.anonymizeDate,
       merged: this._model.pullRequest.merged,
       mergedDate: this._model.pullRequest.mergedDate,
@@ -259,7 +259,7 @@ export default class PullRequest {
     }
     if (this.options.comments) {
       output.comments = this._model.pullRequest.comments?.map((comment) => {
-        const o: any = {};
+        const o: Record<string, unknown> = {};
         if (this.options.body) o.body = anonymizer.anonymize(comment.body);
         if (this.options.username)
           o.author = anonymizer.anonymize(comment.author);

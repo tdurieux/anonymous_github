@@ -29,7 +29,7 @@ const verify = async (
   profile: Profile,
   done: OAuth2Strategy.VerifyCallback
 ): Promise<void> => {
-  let user: IUserDocument | null = null;
+  let user: IUserDocument | null;
   try {
     user = await UserModel.findOne({ "externalIDs.github": profile.id });
     if (user) {

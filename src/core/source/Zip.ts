@@ -8,6 +8,7 @@ export default class Zip implements SourceBase {
   type = "Zip";
   url?: string;
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   constructor(data: any, readonly repoId: string) {
     this.url = data.url;
   }
@@ -28,7 +29,7 @@ export default class Zip implements SourceBase {
     return storage.read(file.repository.repoId, file.filePath);
   }
 
-  toJSON(): any {
+  toJSON(): { type: string } {
     return {
       type: this.type,
     };

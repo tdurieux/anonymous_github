@@ -99,7 +99,7 @@ export class GitHubRepository {
         }
       } catch (error) {
         throw new AnonymousError("repo_not_found", {
-          httpStatus: (error as any).status,
+          httpStatus: (error as { status?: number }).status,
           cause: error as Error,
           object: this,
         });
@@ -212,7 +212,7 @@ export async function getRepositoryFromGitHub(opt: {
   if (opt.repo.indexOf(".git") > -1) {
     opt.repo = opt.repo.replace(".git", "");
   }
-  let dbModel = null;
+  let dbModel;
   if (opt.repositoryID) {
     dbModel = isConnected
       ? await RepositoryModel.findById(opt.repositoryID)
@@ -255,7 +255,7 @@ export async function getRepositoryFromGitHub(opt: {
       });
     }
     throw new AnonymousError("repo_not_found", {
-      httpStatus: (error as any).status,
+      httpStatus: (error as { status?: number }).status,
       object: {
         owner: opt.owner,
         repo: opt.repo,

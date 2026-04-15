@@ -39,6 +39,7 @@ async function getTokenForAdmin(user: User, req: express.Request) {
         path: "owner",
         model: UserModel,
       });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const user: IUserDocument = existingRepo?.owner as any;
       if (user instanceof UserModel) {
         const check = await checkToken(user.accessTokens.github);
@@ -280,6 +281,7 @@ router.get("/:repoId/", async (req: express.Request, res: express.Response) => {
   }
 });
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function validateNewRepo(repoUpdate: any): void {
   const validCharacters = /^[0-9a-zA-Z\-_]+$/;
   if (
@@ -325,6 +327,7 @@ function validateNewRepo(repoUpdate: any): void {
 
 function updateRepoModel(
   model: IAnonymizedRepositoryDocument,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   repoUpdate: any
 ) {
   if (repoUpdate.source.type) {
@@ -485,6 +488,7 @@ router.post("/", async (req: express.Request, res: express.Response) => {
         httpStatus: 400,
         object: repoUpdate,
       });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       if (error.message == "repo_not_found") {
         // the repository does not exist yet

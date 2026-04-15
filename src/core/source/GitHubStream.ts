@@ -70,7 +70,7 @@ export default class GitHubStream extends GitHubBase {
 
     content.on("error", (error) => {
       error = new AnonymousError("file_not_found", {
-        httpStatus: (error as any).status || (error as any).httpStatus,
+        httpStatus: (error as { status?: number; httpStatus?: number }).status || (error as { httpStatus?: number }).httpStatus,
         cause: error as Error,
         object: filePath,
       });
@@ -85,7 +85,7 @@ export default class GitHubStream extends GitHubBase {
   async getFileContent(file: AnonymizedFile): Promise<stream.Readable> {
     try {
       void file.filePath;
-    } catch (_) {
+    } catch {
       // compute the original path if ambiguous
       await file.originalPath();
     }
@@ -139,7 +139,7 @@ export default class GitHubStream extends GitHubBase {
       file: 0,
     };
     const output: IFile[] = [];
-    let data = null;
+    let data;
     try {
       data = await this.getGHTree(sha, count, {
         recursive: false,
@@ -152,12 +152,12 @@ export default class GitHubStream extends GitHubBase {
       output.push(...this.tree2Tree(data.tree, parentPath));
     } catch (error) {
       console.log(error);
-      if ((error as any).status == 409 || (error as any).status == 404) {
+      if ((error as { status?: number }).status == 409 || (error as { status?: number }).status == 404) {
         // empty repo
         data = { tree: [] };
       } else {
         throw new AnonymousError("repo_not_found", {
-          httpStatus: (error as any).status || 404,
+          httpStatus: (error as { status?: number }).status || 404,
           object: this.data,
           cause: error as Error,
         });

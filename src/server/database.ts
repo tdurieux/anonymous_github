@@ -24,7 +24,7 @@ export async function connect() {
   return database;
 }
 
-export async function getRepository(repoId: string, opts: {} = {}) {
+export async function getRepository(repoId: string, _opts: {} = {}) {
   if (!repoId || repoId == "undefined") {
     throw new AnonymousError("repo_not_found", {
       object: repoId,
