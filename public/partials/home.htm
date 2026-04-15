@@ -3,77 +3,68 @@
     id="home"
     class="row view rgba-gradient d-flex align-self-stretch justify-content-center align-items-center"
   >
-    <!-- Content -->
     <div class="container px-md-3 px-sm-0">
-      <!--Grid row-->
-      <form action="" method="post">
-        <div class="row fadeIn main-options">
-          <!--Grid column-->
-          <div class="col-md-12 mb-4 white-text text-center fadeIn">
-            <h3 class="display-4 font-weight-bold white-text mb-0 pt-5">
-              Anonymous GitHub
-            </h3>
-            <hr class="hr-light my-4 w-75" />
-            <h4 class="subtext-header mt-2 mb-4">
-              Anonymize your repository in 5 min as {{stat.nbUsers | number}}
-              users already did.
-            </h4>
-            <span ng-if="!user">
-              <a
-                href="/github/login"
-                target="_self"
-                class="btn p-2 white_border"
-                >Login with GitHub to anonymize</a
-              >
-            </span>
-          </div>
-          <!--Grid column-->
+      <div class="row fadeIn main-options">
+        <div class="col-md-12 mb-4 white-text text-center fadeIn">
+          <h1 class="hero-title pt-5">
+            Anonymous GitHub
+          </h1>
+          <p class="hero-subtitle mt-3 mb-4">
+            Anonymize your repository in 5 minutes &mdash; join {{stat.nbUsers | number}} users.
+          </p>
+          <span ng-if="!user">
+            <a
+              href="/github/login"
+              target="_self"
+              class="btn btn-hero"
+              ><i class="fab fa-github mr-2"></i>Login with GitHub</a
+            >
+          </span>
+          <span ng-if="user">
+            <a
+              href="/anonymize"
+              class="btn btn-hero"
+              ><i class="fa fa-plus-circle mr-2"></i>Anonymize a Repository</a
+            >
+          </span>
         </div>
-      </form>
-      <!--Grid row-->
+      </div>
     </div>
-    <!-- Content -->
   </div>
   <main>
-    <div class="container">
-      <!--Grid row-->
+    <div class="container home-content">
       <div class="row pt-5">
         <div class="col-md-12">
-          <h2 id="usage">Usage</h2>
-          <div class="card-text mb-auto">
-            <ol>
-              <li>
-                <a href="/github/login" target="_self">Login</a> with Github
-                access your dashboard and anonymize your repositories.
-              </li>
-              <li>Complete the list of terms that will be anonymized.</li>
-              <li>Anonymize and share your link in your double-anonymized paper.</li>
-            </ol>
-            Example of an anonymized repository:
+          <h2 id="usage">How it works</h2>
+          <ol class="usage-steps">
+            <li>
+              <a href="/github/login" target="_self">Login</a> with GitHub to access your dashboard and anonymize your repositories.
+            </li>
+            <li>Configure which terms, links, and images to anonymize.</li>
+            <li>Share the anonymous link in your double-blind paper submission.</li>
+          </ol>
+          <p class="usage-example">
+            Example:
             <a
               target="_self"
               href="https://anonymous.4open.science/r/840c8c57-3c32-451e-bf12-0e20be300389/"
               >https://anonymous.4open.science/r/840c8c57-3c32-451e-bf12-0e20be300389/</a
-            >.
-          </div>
+            >
+          </p>
         </div>
       </div>
 
       <hr class="featurette-divider" />
 
-      <div class="row featurette">
+      <div class="row featurette align-items-center">
         <div class="col-md-7 order-md-2">
           <h2 class="featurette-heading">
             Double-anonymous
-            <span class="text-muted">Anonymize your repositories.</span>
           </h2>
-          <p class="lead">
-            Anonymous Github allows you to simply anonymize your Github
-            repository. Several anonymization options are available to ensure
-            that you do not break the double-anonymize such as removing links,
-            images or specific terms. You still keep control of your repository,
-            define an expiration date to make your repository unavailable after
-            the review.
+          <p class="featurette-lead">
+            Anonymize your GitHub repository with options to remove links,
+            images, or specific terms. Keep full control &mdash; set an
+            expiration date to make your repository unavailable after review.
           </p>
         </div>
         <div class="col-md-5 order-md-1">
@@ -87,17 +78,16 @@
 
       <hr class="featurette-divider" />
 
-      <div class="row featurette">
+      <div class="row featurette align-items-center">
         <div class="col-md-7">
           <h2 class="featurette-heading">
-            Explorer <span class="text-muted">Navigate the content.</span>
+            Explorer
           </h2>
-          <p class="lead">
-            The reviewers can explore your repository with ease, the source code
-            is highlighted, PDFs, images, Notebook are rendered. The goal is to
-            make is as easy as possible for the reviewer to explore and review
-            the repository. <a href="https://pages.github.com">GitHub Pages</a>
-            is also supported, but not static site generators, such as Jekyll.
+          <p class="featurette-lead">
+            Reviewers can browse your repository with highlighted source code,
+            rendered PDFs, images, and notebooks.
+            <a href="https://pages.github.com">GitHub Pages</a>
+            is also supported.
           </p>
         </div>
         <div class="col-md-5">
@@ -108,19 +98,17 @@
           />
         </div>
       </div>
+
       <hr class="featurette-divider" />
 
-      <div class="row featurette">
+      <div class="row featurette align-items-center">
         <div class="col-md-7 order-md-2">
           <h2 class="featurette-heading">
             Manage
-            <span class="text-muted">Keep an eyes on your repositories.</span>
           </h2>
-          <p class="lead">
-            Keep a view in your anonymized repositories. Edit your anonymization
-            configuration, remove your repository and update the content of your
-            repository. You can also monitor the access and the number of views
-            of your repository.
+          <p class="featurette-lead">
+            Monitor views, edit configuration, remove or update your repository &mdash;
+            all from a clean dashboard.
           </p>
         </div>
         <div class="col-md-5 order-md-1">
@@ -131,42 +119,24 @@
           />
         </div>
       </div>
+
       <hr class="featurette-divider" />
-      <h2 id="about">Metrics</h2>
-      <div class="row pb-5">
-        <!--Grid column-->
-        <div class="col-md-4">
-          <div
-            class="row no-gutters border rounded overflow-hidden flex-md-row mb-4 shadow-sm h-md-250 position-relative"
-          >
-            <div class="col p-4 d-flex flex-column position-static">
-              <h3 class="mb-auto text-center">{{stat.nbUsers|number}} Users</h3>
-            </div>
-          </div>
+
+      <h2 id="about" class="mb-4">Metrics</h2>
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <div class="metric-value">{{stat.nbUsers | number}}</div>
+          <div class="metric-label">Users</div>
         </div>
-        <div class="col-md-4">
-          <div
-            class="row no-gutters border rounded overflow-hidden flex-md-row mb-4 shadow-sm h-md-250 position-relative"
-          >
-            <div class="col p-4 d-flex flex-column position-static">
-              <h3 class="mb-auto text-center">
-                {{stat.nbRepositories|number}} Repositories
-              </h3>
-            </div>
-          </div>
+        <div class="metric-card">
+          <div class="metric-value">{{stat.nbRepositories | number}}</div>
+          <div class="metric-label">Repositories</div>
         </div>
-        <div class="col-md-4">
-          <div
-            class="row no-gutters border rounded overflow-hidden flex-md-row mb-4 shadow-sm h-md-250 position-relative"
-          >
-            <div class="col p-4 d-flex flex-column position-static">
-              <h3 class="mb-auto text-center">{{stat.nbPageViews|number}} Page views</h3>
-            </div>
-          </div>
+        <div class="metric-card">
+          <div class="metric-value">{{stat.nbPageViews | number}}</div>
+          <div class="metric-label">Page Views</div>
         </div>
-        <!--Grid column-->
       </div>
-      <!--Grid row-->
     </div>
   </main>
 </div>

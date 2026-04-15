@@ -1,382 +1,217 @@
 <div class="container-fluid h-100 anonymize-page">
   <div class="row h-100 flex-column flex-md-row">
-    <div
-      class="col-md sidePanel shadow overflow-auto anonymize-form-col"
-    >
-      <div
-        class="p-0 py-2 m-auto"
-        ng-class="{'card': !repoUrl,'container': repoUrl}"
-      >
-        <form
-          class="form needs-validation"
-          ng-class="{'card-body': !repoUrl}"
-          name="anonymize"
-          novalidate
-        >
-          <h3 class="card-title mb-3">Anonymize your repository</h3>
-          <!-- repoUrl -->
-          <div class="form-group mb-0">
+    <div class="col-md sidePanel shadow overflow-auto anonymize-form-col">
+      <div class="p-0 py-2 m-auto" ng-class="{'card': !sourceUrl, 'container': sourceUrl}">
+        <form class="form needs-validation" ng-class="{'card-body': !sourceUrl}" name="anonymize" novalidate>
+          <h3 class="card-title mb-3">Anonymize</h3>
+
+          <!-- Source URL (auto-detects repo vs PR) -->
+          <div class="form-group mb-2">
             <input
               type="text"
               class="form-control"
-              name="repoUrl"
-              id="repoUrl"
-              ng-class="{'is-invalid': anonymize.repoUrl.$invalid}"
-              ng-model="repoUrl"
-              placeholder="URL of your GitHub repository"
+              name="sourceUrl"
+              id="sourceUrl"
+              ng-class="{'is-invalid': anonymize.sourceUrl.$invalid}"
+              ng-model="sourceUrl"
+              placeholder="Paste a GitHub repo or pull request URL"
               ng-model-options="{ debounce: {default: 1000, blur: 0, click: 0}, updateOn: 'default blur click' }"
-              ng-change="repoSelected()"
+              ng-change="urlSelected()"
             />
-            <div
-              class="invalid-feedback"
-              ng-show="anonymize.repoUrl.$error.github"
-            >
-              Please provide a valid Github url, e.g.,
-              https://github.com/owner/repo.
+            <div class="invalid-feedback" ng-show="anonymize.sourceUrl.$error.github">
+              Please provide a valid GitHub URL, e.g., https://github.com/owner/repo or https://github.com/owner/repo/pull/123
             </div>
-            <div
-              class="invalid-feedback"
-              ng-show="anonymize.repoUrl.$error.access"
-            >
-              {{repoUrl}} is not accessible. Some organizations are restricting
-              the access to the repositories.
+            <div class="invalid-feedback" ng-show="anonymize.sourceUrl.$error.access">
+              Not accessible. The organization may restrict access.
             </div>
-            <div
-              class="invalid-feedback"
-              ng-show="anonymize.repoUrl.$error.missing"
-            >
-              {{repoUrl}} does not exist or is not accessible
+            <div class="invalid-feedback" ng-show="anonymize.sourceUrl.$error.missing">
+              Does not exist or is not accessible.
             </div>
-            <div
-              class="invalid-feedback"
-              ng-show="anonymize.repoUrl.$error.used"
-            >
-              {{repoUrl}} is already anonymized
+            <div class="invalid-feedback" ng-show="anonymize.sourceUrl.$error.used">
+              Already anonymized.
             </div>
+            <small class="form-text text-muted" ng-hide="sourceUrl">
+              Paste a repository URL to anonymize a repo, or a pull request URL to anonymize a PR.
+            </small>
           </div>
-          <div ng-show="repoUrl">
-            <!-- Branch -->
-            <div class="form-group">
-              <label for="branch">Branch</label>
-              <div class="input-group mb-1">
-                <select
-                  class="form-control"
-                  id="branch"
-                  name="branch"
-                  ng-model="source.branch"
-                >
-                  <option
-                    ng-repeat="b in branches"
-                    ng-bind="b.name"
-                    value="{{b.name}}"
-                  ></option>
-                </select>
-                <div class="input-group-append">
-                  <button
-                    class="btn btn-outline-secondary"
-                    ng-click="getBranches(true)"
-                    title="Refresh!"
-                    data-toggle="tooltip"
-                    data-placement="bottom"
-                  >
-                    <i class="fa fa-undo"></i>
-                  </button>
+
+          <!-- Type indicator -->
+          <div class="mb-3" ng-show="detectedType && sourceUrl">
+            <span class="type-badge" ng-class="{'type-repo': detectedType === 'repo', 'type-pr': detectedType === 'pr'}">
+              <i ng-class="{'fas fa-code-branch': detectedType === 'repo', 'fas fa-code-merge': detectedType === 'pr'}"></i>
+              {{detectedType === 'repo' ? 'Repository' : 'Pull Request'}}
+            </span>
+          </div>
+
+          <div ng-show="sourceUrl">
+            <!-- ==== REPO-SPECIFIC FIELDS ==== -->
+            <div ng-show="detectedType === 'repo'">
+              <div class="form-group">
+                <label for="branch">Branch</label>
+                <div class="input-group mb-1">
+                  <select class="form-control" id="branch" name="branch" ng-model="source.branch">
+                    <option ng-repeat="b in branches" ng-bind="b.name" value="{{b.name}}"></option>
+                  </select>
+                  <div class="input-group-append">
+                    <button class="btn btn-outline-secondary" ng-click="getBranches(true)" title="Refresh" data-toggle="tooltip" data-placement="bottom">
+                      <i class="fa fa-undo"></i>
+                    </button>
+                  </div>
                 </div>
+                <small class="form-text text-muted">The branch to anonymize</small>
               </div>
-              <small class="form-text text-muted">
-                The branch to anonymize
-              </small>
             </div>
+
+            <!-- Auto update (both types) -->
             <div class="form-group">
               <div class="form-check">
-                <input
-                  class="form-check-input"
-                  type="checkbox"
-                  id="update"
-                  name="update"
-                  ng-model="options.update"
-                />
+                <input class="form-check-input" type="checkbox" id="update" name="update" ng-model="options.update" />
                 <label class="form-check-label" for="update">Auto update</label>
-                <small id="updateHelp" class="form-text text-muted"
-                  >Automatically update the anonymized repository with the
-                  latest commit of the repository. The repository is updated
-                  once per hour maximum.</small
-                >
+                <small class="form-text text-muted">Automatically update with the latest changes.</small>
               </div>
             </div>
-            <!-- Commit -->
-            <div class="form-group">
+
+            <!-- Commit (repo only) -->
+            <div class="form-group" ng-show="detectedType === 'repo'">
               <label for="commit">Commit</label>
-              <input
-                class="form-control"
-                id="commit"
-                name="commit"
-                pattern="[a-fA-Z0-9]{6,}"
-                ng-model="source.commit"
-                required
-                ng-class="{'is-invalid': anonymize.commit.$invalid}"
-              />
-              <small class="form-text text-muted"
-                >The SHA of the commit to anonymize.</small
-              >
-              <div
-                class="invalid-feedback"
-                ng-show="anonymize.commit.$error.pattern || anonymize.commit.$error.required"
-              >
-                The commit SHA is not valid. It should respect this pattern
-                [a-fA-Z0-9]{6,}.
+              <input class="form-control" id="commit" name="commit" pattern="[a-fA-Z0-9]{6,}" ng-model="source.commit" required ng-class="{'is-invalid': anonymize.commit.$invalid}" />
+              <small class="form-text text-muted">The SHA of the commit to anonymize.</small>
+              <div class="invalid-feedback" ng-show="anonymize.commit.$error.pattern || anonymize.commit.$error.required">
+                The commit SHA is not valid.
               </div>
             </div>
 
             <h5 class="anonymize-section-title">
               <i class="fas fa-chalkboard-teacher"></i> Conference ID
             </h5>
-            <!-- Conference -->
             <div class="form-group">
-              <label for="conference"
-                >Conference ID <span class="text-muted">(Optional)</span></label
-              >
-              <input
-                class="form-control"
-                id="conference"
-                name="conference"
-                ng-model="conference"
-                ng-class="{'is-invalid': anonymize.conference.$invalid}"
-              />
-              <small class="form-text text-muted" ng-show="conference_data"
-                ><a ng-href="{{conference_data.url}}" target="_target"
-                  >{{conference_data.name}}</a
-                >
-                will expire on {{conference_data.endDate | date}}.</small
-              >
-
-              <div
-                class="invalid-feedback"
-                ng-show="anonymize.conference.$error.activated"
-              >
-                The conference is not activated.
-              </div>
-              <small class="form-text text-muted" ng-show="!conference_data">
-                Use the Conference ID that your conference provided you. This
-                will update automatically the anonymization options based on the
-                conference preferences.
+              <label for="conference">Conference ID <span class="text-muted">(Optional)</span></label>
+              <input class="form-control" id="conference" name="conference" ng-model="conference" ng-class="{'is-invalid': anonymize.conference.$invalid}" />
+              <small class="form-text text-muted" ng-show="conference_data">
+                <a ng-href="{{conference_data.url}}" target="_blank">{{conference_data.name}}</a> will expire on {{conference_data.endDate | date}}.
               </small>
+              <div class="invalid-feedback" ng-show="anonymize.conference.$error.activated">The conference is not activated.</div>
+              <small class="form-text text-muted" ng-show="!conference_data">Conference ID updates anonymization options automatically.</small>
             </div>
 
             <h5 class="anonymize-section-title">
               <i class="fas fa-shield-alt"></i> Anonymization Options
             </h5>
-            <!-- Repo ID -->
-            <div class="form-group">
-              <label for="repoId">Anonymized repository id</label>
-              <input
-                type="text"
-                class="form-control"
-                name="repoId"
-                id="repoId"
-                ng-class="{'is-invalid': anonymize.repoId.$invalid}"
-                ng-model="repoId"
-                ng-model-options="{ debounce: {default: 1000, blur: 0, click: 0}, updateOn: 'default blur click' }"
-              />
-              <small id="idHelp" class="form-text text-muted"
-                >Id used in the url:
-                https://anonymous.4open.science/r/{{repoId}}</small
-              >
-              <div
-                class="invalid-feedback"
-                ng-show="anonymize.repoId.$error.format"
-              >
-                Repository id can only contain letters and numbers
-              </div>
-              <div
-                class="invalid-feedback"
-                ng-show="anonymize.repoId.$error.used"
-              >
-                {{repoId}} is already used
-              </div>
+
+            <!-- Anonymized ID: repo -->
+            <div class="form-group" ng-show="detectedType === 'repo'">
+              <label for="repoId">Anonymized repository ID</label>
+              <input type="text" class="form-control" name="repoId" id="repoId" ng-class="{'is-invalid': anonymize.repoId.$invalid}" ng-model="repoId" ng-model-options="{ debounce: {default: 1000, blur: 0, click: 0}, updateOn: 'default blur click' }" />
+              <small class="form-text text-muted">URL: https://anonymous.4open.science/r/{{repoId}}</small>
+              <div class="invalid-feedback" ng-show="anonymize.repoId.$error.format">ID can only contain letters and numbers.</div>
+              <div class="invalid-feedback" ng-show="anonymize.repoId.$error.used">{{repoId}} is already used.</div>
             </div>
+
+            <!-- Anonymized ID: PR -->
+            <div class="form-group" ng-show="detectedType === 'pr'">
+              <label for="pullRequestId">Anonymized pull request ID</label>
+              <input type="text" class="form-control" name="pullRequestId" id="pullRequestId" ng-class="{'is-invalid': anonymize.pullRequestId.$invalid}" ng-model="pullRequestId" ng-model-options="{ debounce: {default: 1000, blur: 0, click: 0}, updateOn: 'default blur click' }" />
+              <small class="form-text text-muted">URL: https://anonymous.4open.science/pr/{{pullRequestId}}</small>
+              <div class="invalid-feedback" ng-show="anonymize.pullRequestId.$error.format">ID can only contain letters and numbers.</div>
+              <div class="invalid-feedback" ng-show="anonymize.pullRequestId.$error.used">{{pullRequestId}} is already used.</div>
+            </div>
+
             <!-- Terms -->
             <div class="form-group">
               <label for="terms">Terms to anonymize</label>
-              <textarea
-                class="form-control"
-                id="terms"
-                name="terms"
-                rows="3"
-                ng-model="terms"
-                ng-model-options="{ debounce: 250 }"
-                ng-class="{'is-invalid': anonymize.terms.$invalid}"
-              ></textarea>
-              <small id="termsHelp" class="form-text text-muted">
-                One term per line. A term is a RegEx! Each term will be replaced
-                by {{site_options.ANONYMIZATION_MASK}}-[Line Number].
-              </small>
-              <div
-                class="warning-feedback"
-                ng-show="anonymize.terms.$error.regex"
-              >
-                We identify that you are using some regex characters, if it was
-                not on purpose, please escape them.
-              </div>
-              <div
-                class="invalid-feedback"
-                ng-show="anonymize.terms.$error.format"
-              >
-                Terms are in an invalid format.
-              </div>
+              <textarea class="form-control" id="terms" name="terms" rows="3" ng-model="terms" ng-model-options="{ debounce: 250 }" ng-class="{'is-invalid': anonymize.terms.$invalid}"></textarea>
+              <small class="form-text text-muted">One term per line (regex). Each term will be replaced by {{site_options.ANONYMIZATION_MASK}}-[N].</small>
+              <div class="warning-feedback" ng-show="anonymize.terms.$error.regex">Regex characters detected. Escape them if unintentional.</div>
+              <div class="invalid-feedback" ng-show="anonymize.terms.$error.format">Terms are in an invalid format.</div>
             </div>
 
             <div class="form-group">
               <label for="expiration">Expiration strategy</label>
-              <select
-                class="form-control"
-                id="expiration"
-                name="expiration"
-                ng-model="options.expirationMode"
-              >
+              <select class="form-control" id="expiration" name="expiration" ng-model="options.expirationMode">
                 <option value="never" selected>Never expire</option>
-                <option value="redirect">
-                  Redirect to GitHub when expired
-                </option>
+                <option value="redirect">Redirect to GitHub when expired</option>
                 <option value="remove">Remove when expired</option>
               </select>
-              <small class="form-text text-muted"
-                >Define the expiration strategy for the anonymized
-                repository.</small
-              >
             </div>
-            <div
-              class="form-group"
-              id="expiration-date-form"
-              ng-hide="options.expirationMode=='never'"
-            >
-              <label for="expirationDate"
-                >Expiration date of the anonymized repository</label
-              >
-              <input
-                class="form-control"
-                type="date"
-                name="expirationDate"
-                id="expirationDate"
-                ng-model="options.expirationDate"
-              />
-              <small
-                class="form-text text-muted"
-                ng-show="options.expirationMode=='remove'"
-                >After {{options.expirationDate | date}}, the repository will be
-                removed and the visitor will not be able to see the content of
-                the repository.</small
-              >
-              <small
-                class="form-text text-muted"
-                ng-show="options.expirationMode=='redirect'"
-                >After {{options.expirationDate | date}}, the visitors of the
-                anonymized repository will be redirected to {{repoUrl}}.</small
-              >
+            <div class="form-group" ng-hide="options.expirationMode=='never'">
+              <label for="expirationDate">Expiration date</label>
+              <input class="form-control" type="date" name="expirationDate" id="expirationDate" ng-model="options.expirationDate" />
+              <small class="form-text text-muted" ng-show="options.expirationMode=='remove'">After {{options.expirationDate | date}}, the content will be removed.</small>
+              <small class="form-text text-muted" ng-show="options.expirationMode=='redirect'">After {{options.expirationDate | date}}, visitors will be redirected to GitHub.</small>
             </div>
 
-            <div class="accordion mb-3" id="options">
+            <!-- Advanced options -->
+            <div class="accordion mb-3" id="advancedOptions">
               <div class="card">
-                <div class="card-header" id="headingOne">
+                <div class="card-header" id="headingAdvanced">
                   <h2 class="mb-0">
-                    <button
-                      class="btn btn-block text-left"
-                      type="button"
-                      data-toggle="collapse"
-                      data-target="#collapseOne"
-                      aria-expanded="true"
-                      aria-controls="collapseOne"
-                    >
+                    <button class="btn btn-block text-left" type="button" data-toggle="collapse" data-target="#collapseAdvanced" aria-expanded="true" aria-controls="collapseAdvanced">
                       <i class="fas fa-cog mr-1"></i> Advanced options
                     </button>
                   </h2>
                 </div>
-
-                <div
-                  id="collapseOne"
-                  class="collapse show"
-                  aria-labelledby="headingOne"
-                  data-parent="#options"
-                >
+                <div id="collapseAdvanced" class="collapse show" aria-labelledby="headingAdvanced" data-parent="#advancedOptions">
                   <div class="card-body">
-                    <div class="form-group">
+                    <!-- Shared options -->
+                    <div class="form-group mb-0">
                       <div class="form-check">
-                        <input
-                          class="form-check-input"
-                          type="checkbox"
-                          id="link"
-                          name="link"
-                          ng-model="options.link"
-                        />
-                        <label class="form-check-label" for="link"
-                          >Keep links</label
-                        >
-                        <small id="linkHelp" class="form-text text-muted"
-                          >Keep or remove all the links.</small
-                        >
+                        <input class="form-check-input" type="checkbox" id="link" name="link" ng-model="options.link" />
+                        <label class="form-check-label" for="link">Keep links</label>
+                        <small class="form-text text-muted">Keep or remove all the links.</small>
                       </div>
                       <div class="form-check">
-                        <input
-                          class="form-check-input"
-                          type="checkbox"
-                          id="image"
-                          name="image"
-                          ng-model="options.image"
-                        />
-                        <label class="form-check-label" for="image"
-                          >Display images</label
-                        >
-                        <small id="imageHelp" class="form-text text-muted"
-                          >Images are not anonymized</small
-                        >
+                        <input class="form-check-input" type="checkbox" id="image" name="image" ng-model="options.image" />
+                        <label class="form-check-label" for="image">Display images</label>
+                        <small class="form-text text-muted">Images are not anonymized.</small>
                       </div>
-                      <div class="form-check">
-                        <input
-                          class="form-check-input"
-                          type="checkbox"
-                          id="pdf"
-                          name="pdf"
-                          ng-model="options.pdf"
-                        />
-                        <label class="form-check-label" for="pdf"
-                          >Display PDFs</label
-                        >
-                        <small id="pdfHelp" class="form-text text-muted"
-                          >PDF are not anonymized</small
-                        >
+
+                      <!-- Repo-specific options -->
+                      <div ng-show="detectedType === 'repo'">
+                        <div class="form-check">
+                          <input class="form-check-input" type="checkbox" id="pdf" name="pdf" ng-model="options.pdf" />
+                          <label class="form-check-label" for="pdf">Display PDFs</label>
+                        </div>
+                        <div class="form-check">
+                          <input class="form-check-input" type="checkbox" id="notebook" name="notebook" ng-model="options.notebook" />
+                          <label class="form-check-label" for="notebook">Display Notebooks</label>
+                        </div>
+                        <div class="form-check">
+                          <input class="form-check-input" type="checkbox" id="page" name="page" ng-model="options.page" ng-disabled="!details.hasPage" />
+                          <label class="form-check-label" for="page">GitHub Pages</label>
+                          <small class="form-text text-muted">Enable anonymized GitHub Pages at https://anonymous.4open.science/w/{{repoId}}</small>
+                        </div>
                       </div>
-                      <div class="form-check">
-                        <input
-                          class="form-check-input"
-                          type="checkbox"
-                          id="notebook"
-                          name="notebook"
-                          ng-model="options.notebook"
-                        />
-                        <label class="form-check-label" for="notebook"
-                          >Display Notebooks</label
-                        >
-                      </div>
-                    </div>
-                    <div class="form-group">
-                      <div class="form-check">
-                        <input
-                          class="form-check-input"
-                          type="checkbox"
-                          id="page"
-                          name="page"
-                          ng-model="options.page"
-                          ng-disabled="!details.hasPage"
-                        />
-                        <label class="form-check-label" for="page"
-                          >Github page</label
-                        >
-                        <small id="pageHelp" class="form-text text-muted"
-                          >Enable anonymized Github pages. It currently only
-                          supported for Github pages that are defined in the
-                          same branch. It will be available at
-                          https://anonymous.4open.science/w/{{repoId}}</small
-                        >
+
+                      <!-- PR-specific options -->
+                      <div ng-show="detectedType === 'pr'">
+                        <div class="form-check">
+                          <input class="form-check-input" type="checkbox" id="date" name="date" ng-model="options.date" />
+                          <label class="form-check-label" for="date">Display dates</label>
+                        </div>
+                        <div class="form-check">
+                          <input class="form-check-input" type="checkbox" id="username" name="username" ng-model="options.username" />
+                          <label class="form-check-label" for="username">Display username</label>
+                        </div>
+                        <div class="form-check">
+                          <input class="form-check-input" type="checkbox" id="comments" name="comments" ng-model="options.comments" />
+                          <label class="form-check-label" for="comments">Display comments</label>
+                        </div>
+                        <div class="form-check">
+                          <input class="form-check-input" type="checkbox" id="diff" name="diff" ng-model="options.diff" />
+                          <label class="form-check-label" for="diff">Display diff</label>
+                        </div>
+                        <div class="form-check">
+                          <input class="form-check-input" type="checkbox" id="origin" name="origin" ng-model="options.origin" />
+                          <label class="form-check-label" for="origin">Display project name</label>
+                        </div>
+                        <div class="form-check">
+                          <input class="form-check-input" type="checkbox" id="title" name="title" ng-model="options.title" />
+                          <label class="form-check-label" for="title">Display PR title</label>
+                        </div>
+                        <div class="form-check">
+                          <input class="form-check-input" type="checkbox" id="body" name="body" ng-model="options.body" />
+                          <label class="form-check-label" for="body">Display PR body</label>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -384,39 +219,77 @@
               </div>
             </div>
           </div>
-          <div
-            class="alert alert-danger"
-            role="alert"
-            ng-if="error"
-            ng-bind="error"
-          ></div>
-          <div class="anonymize-submit-bar" ng-show="repoUrl">
-            <button
-              id="submit"
-              type="submit"
-              class="btn btn-primary btn-block"
-              ng-click="anonymizeRepo($event)"
-              ng-if="!isUpdate"
-            >
-              <i class="fas fa-user-secret mr-1"></i> Anonymize
+
+          <div class="alert alert-danger" role="alert" ng-if="error" ng-bind="error"></div>
+
+          <div class="anonymize-submit-bar" ng-show="sourceUrl && detectedType">
+            <!-- Repo submit -->
+            <button type="submit" class="btn btn-primary btn-block" ng-click="anonymizeRepo($event)" ng-if="detectedType === 'repo' && !isUpdate">
+              <i class="fas fa-user-secret mr-1"></i> Anonymize Repository
             </button>
-            <button
-              id="submit"
-              type="submit"
-              class="btn btn-primary btn-block"
-              ng-click="updateRepo($event)"
-              ng-if="isUpdate"
-            >
-              <i class="fas fa-save mr-1"></i> Update
+            <button type="submit" class="btn btn-primary btn-block" ng-click="anonymizeRepo($event)" ng-if="detectedType === 'repo' && isUpdate">
+              <i class="fas fa-save mr-1"></i> Update Repository
+            </button>
+            <!-- PR submit -->
+            <button type="submit" class="btn btn-primary btn-block" ng-click="anonymizePullRequest($event)" ng-if="detectedType === 'pr' && !isUpdate">
+              <i class="fas fa-user-secret mr-1"></i> Anonymize Pull Request
+            </button>
+            <button type="submit" class="btn btn-primary btn-block" ng-click="anonymizePullRequest($event)" ng-if="detectedType === 'pr' && isUpdate">
+              <i class="fas fa-save mr-1"></i> Update Pull Request
             </button>
           </div>
         </form>
       </div>
     </div>
-    <div
-      class="col-md-8 p-2 overflow-auto markdown-body body anonymize-preview-col"
-      ng-bind-html="html_readme"
-      ng-if="html_readme"
-    ></div>
+
+    <!-- Preview: repo README -->
+    <div class="col-md-8 p-2 overflow-auto markdown-body body anonymize-preview-col" ng-bind-html="html_readme" ng-if="detectedType === 'repo' && html_readme"></div>
+
+    <!-- Preview: PR content -->
+    <div class="col-md-8 p-2 overflow-auto anonymize-preview-col" ng-if="detectedType === 'pr' && details">
+      <div class="d-flex w-100 justify-content-between align-items-center flex-wrap">
+        <h2 class="pr-title mb-1">
+          <span ng-if="options.title">{{anonymizePrContent(details.pullRequest.title)}}</span>
+          <span class="badge" ng-class="{'badge-success':details.pullRequest.merged, 'badge-warning':details.pullRequest.state=='open', 'badge-danger':details.pullRequest.state=='closed' && !details.pullRequest.merged}">
+            {{details.pullRequest.merged ? "merged" : details.pullRequest.state | title}}
+          </span>
+        </h2>
+        <small ng-bind="details.pullRequest.updatedDate | date" ng-if="options.date"></small>
+      </div>
+      <small ng-if="options.origin">Pull Request on {{details.pullRequest.baseRepositoryFullName}}</small>
+      <div class="pr-body shadow-sm p-3 mb-4 rounded" style="background: var(--sidebar-bg-color)" ng-if="options.body">
+        <markdown content="anonymizePrContent(details.pullRequest.body)" options="options" terms="terms"></markdown>
+      </div>
+      <ul class="nav nav-tabs" id="prTabs" role="tablist">
+        <li class="nav-item" role="presentation" ng-if="options.diff">
+          <button class="nav-link active" id="pills-diff-tab" data-toggle="pill" data-target="#pills-diff" type="button" role="tab">Diff</button>
+        </li>
+        <li class="nav-item" role="presentation" ng-if="options.comments">
+          <button class="nav-link" ng-class="{'active':!options.diff}" id="pills-comments-tab" data-toggle="pill" data-target="#pills-comments" type="button" role="tab">
+            <ng-pluralize count="details.pullRequest.comments.length" when="{'0': 'No comment', 'one': 'One Comment', 'other': '{} Comments'}"></ng-pluralize>
+          </button>
+        </li>
+      </ul>
+      <div class="tab-content" id="pills-tabContent">
+        <div class="tab-pane show active" id="pills-diff" role="tabpanel" ng-if="options.diff">
+          <div class="pr-diff shadow-sm p-3 mb-4 rounded" style="background: var(--sidebar-bg-color)">
+            <pre style="overflow-x: auto"><code ng-bind-html="anonymizePrContent(details.pullRequest.diff) | diff"></code></pre>
+          </div>
+        </div>
+        <div class="tab-pane" ng-class="{'show active':!options.diff}" id="pills-comments" role="tabpanel" ng-if="options.comments">
+          <ul class="pr-comments list-group">
+            <li class="pr-comment list-group-item" ng-repeat="comment in details.pullRequest.comments">
+              <div class="d-flex w-100 justify-content-between flex-wrap">
+                <h5 class="mb-1" ng-if="options.username">@{{anonymizePrContent(comment.author)}}</h5>
+                <small ng-bind="comment.updatedDate | date" ng-if="options.date"></small>
+              </div>
+              <p class="mb-1">
+                <markdown class="pr-comment-body" ng-if="options.body" content="anonymizePrContent(comment.body)" options="options" terms="terms"></markdown>
+              </p>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
   </div>
 </div>

@@ -1,413 +1,280 @@
-<div class="container page">
+<div class="container page dashboard-page">
   <div class="row">
-    <span class="border-bottom color-border-secondary py-3 w-100">
-      <div class="d-flex align-items-center w-100">
-        <form class="w-100" aria-label="Repositories" accept-charset="UTF-8">
-          <div class="">
-            <div class="w-100 mb-2">
-              <input
-                type="search"
-                id="search"
-                class="form-control"
-                aria-label="Find a repository…"
-                placeholder="Find a repository…"
-                autocomplete="off"
-                ng-model="search"
-              />
+    <div class="w-100 py-3">
+      <!-- Header row: title + action button -->
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <h2 class="dashboard-title mb-0">Dashboard</h2>
+        <a href="/anonymize" class="btn btn-primary btn-sm">
+          <i class="fa fa-plus-circle" aria-hidden="true"></i> Anonymize
+        </a>
+      </div>
+
+      <!-- Quota bars -->
+      <div class="quota-row" ng-show="quota">
+        <div class="quota-item">
+          <div class="quota-header">
+            <span class="quota-label">Repositories</span>
+            <span class="quota-value" ng-show="quota">{{quota.repository.used | number}}/{{quota.repository.total}}</span>
+          </div>
+          <div class="progress quota-progress">
+            <div
+              class="progress-bar"
+              ng-class="{'bg-success': quota.repository.percent < 25 || quota.repository.total == 0, 'bg-danger': quota.repository.percent > 95 && quota.repository.total > 0, 'bg-warning': quota.repository.percent > 75 && quota.repository.total > 0 }"
+              role="progressbar"
+              style="width: {{quota.repository.percent}}%;"
+              aria-valuenow="{{quota.repository.used}}"
+              aria-valuemin="0"
+              aria-valuemax="{{quota.repository.total}}"
+            ></div>
+          </div>
+        </div>
+        <div class="quota-item">
+          <div class="quota-header">
+            <span class="quota-label">Storage</span>
+            <span class="quota-value" ng-show="quota">{{quota.storage.used | humanFileSize}}/{{quota.storage.total | humanFileSize}}</span>
+          </div>
+          <div class="progress quota-progress">
+            <div
+              class="progress-bar"
+              ng-class="{'bg-success': quota.storage.percent < 25 || quota.storage.total == 0, 'bg-danger': quota.storage.percent > 95 && quota.storage.total > 0, 'bg-warning': quota.storage.percent > 75 && quota.storage.total > 0 }"
+              role="progressbar"
+              style="width: {{quota.storage.percent}}%;"
+              aria-valuenow="{{quota.storage.used}}"
+              aria-valuemin="0"
+              aria-valuemax="{{quota.storage.total}}"
+            ></div>
+          </div>
+        </div>
+        <div class="quota-item">
+          <div class="quota-header">
+            <span class="quota-label">Files</span>
+            <span class="quota-value" ng-show="quota">{{quota.file.used | number}}/{{quota.file.total || "&#8734;"}}</span>
+          </div>
+          <div class="progress quota-progress">
+            <div
+              class="progress-bar"
+              ng-class="{'bg-success': quota.file.percent < 25 || quota.file.total == 0, 'bg-danger': quota.file.percent > 95 && quota.file.total > 0, 'bg-warning': quota.file.percent > 75 && quota.file.total > 0 }"
+              role="progressbar"
+              style="width: {{quota.file.percent}}%;"
+              aria-valuenow="{{quota.file.used}}"
+              aria-valuemin="0"
+              aria-valuemax="{{quota.file.total}}"
+            ></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Search + filters row -->
+      <form class="w-100" aria-label="Dashboard" accept-charset="UTF-8">
+        <div class="d-flex flex-column flex-md-row align-items-md-center" style="gap: 8px">
+          <div class="flex-grow-1">
+            <input
+              type="search"
+              id="search"
+              class="form-control"
+              aria-label="Search..."
+              placeholder="Search..."
+              autocomplete="off"
+              ng-model="search"
+            />
+          </div>
+          <div class="d-flex flex-wrap" style="gap: 6px">
+            <!-- Type filter -->
+            <div class="btn-group btn-group-sm" role="group">
+              <button type="button" class="btn" ng-class="{'btn-primary': typeFilter === 'all'}" ng-click="typeFilter = 'all'">All</button>
+              <button type="button" class="btn" ng-class="{'btn-primary': typeFilter === 'repo'}" ng-click="typeFilter = 'repo'">Repos</button>
+              <button type="button" class="btn" ng-class="{'btn-primary': typeFilter === 'pr'}" ng-click="typeFilter = 'pr'">PRs</button>
             </div>
 
-            <div class="d-flex flex-wrap">
-              <div class="dropdown mt-1 mt-lg-0 mr-1">
-                <button
-                  class="btn btn-secondary dropdown-toggle"
-                  type="button"
-                  id="dropdownSort"
-                  data-toggle="dropdown"
-                  aria-haspopup="true"
-                  aria-expanded="false"
-                >
-                  Sort
-                </button>
-                <div class="dropdown-menu" aria-labelledby="dropdownSort">
-                  <h6 class="dropdown-header">Select order</h6>
-                  <div class="form-check dropdown-item">
-                    <input
-                      class="form-check-input"
-                      type="radio"
-                      name="sort"
-                      id="sortFullName"
-                      value="fullName"
-                      ng-model="orderBy"
-                    />
-                    <label class="form-check-label" for="sortFullName">
-                      Repository
-                    </label>
-                  </div>
-                  <div class="form-check dropdown-item">
-                    <input
-                      class="form-check-input"
-                      type="radio"
-                      name="sort"
-                      id="sortAnonymizeDate"
-                      value="-anonymizeDate"
-                      ng-model="orderBy"
-                    />
-                    <label class="form-check-label" for="sortAnonymizeDate">
-                      Anonymize Date
-                    </label>
-                  </div>
-                  <div class="form-check dropdown-item">
-                    <input
-                      class="form-check-input"
-                      type="radio"
-                      name="sort"
-                      id="sortStatus"
-                      value="-status"
-                      ng-model="orderBy"
-                    />
-                    <label class="form-check-label" for="sortStatus">
-                      Status
-                    </label>
-                  </div>
-                  <div class="form-check dropdown-item">
-                    <input
-                      class="form-check-input"
-                      type="radio"
-                      name="sort"
-                      id="sortLastView"
-                      value="-lastView"
-                      ng-model="orderBy"
-                    />
-                    <label class="form-check-label" for="sortLastView">
-                      Last View
-                    </label>
-                  </div>
-                  <div class="form-check dropdown-item">
-                    <input
-                      class="form-check-input"
-                      type="radio"
-                      name="sort"
-                      id="sortPageView"
-                      value="-pageView"
-                      ng-model="orderBy"
-                    />
-                    <label class="form-check-label" for="sortPageView">
-                      Page View
-                    </label>
-                  </div>
+            <div class="dropdown">
+              <button
+                class="btn btn-sm dropdown-toggle"
+                type="button"
+                id="dropdownSort"
+                data-toggle="dropdown"
+                aria-haspopup="true"
+                aria-expanded="false"
+              >
+                Sort
+              </button>
+              <div class="dropdown-menu" aria-labelledby="dropdownSort">
+                <h6 class="dropdown-header">Select order</h6>
+                <div class="form-check dropdown-item">
+                  <input class="form-check-input" type="radio" name="sort" id="sortFullName" value="_name" ng-model="orderBy" />
+                  <label class="form-check-label" for="sortFullName">Name</label>
+                </div>
+                <div class="form-check dropdown-item">
+                  <input class="form-check-input" type="radio" name="sort" id="sortAnonymizeDate" value="-anonymizeDate" ng-model="orderBy" />
+                  <label class="form-check-label" for="sortAnonymizeDate">Anonymize Date</label>
+                </div>
+                <div class="form-check dropdown-item">
+                  <input class="form-check-input" type="radio" name="sort" id="sortStatus" value="-status" ng-model="orderBy" />
+                  <label class="form-check-label" for="sortStatus">Status</label>
+                </div>
+                <div class="form-check dropdown-item">
+                  <input class="form-check-input" type="radio" name="sort" id="sortLastView" value="-lastView" ng-model="orderBy" />
+                  <label class="form-check-label" for="sortLastView">Last View</label>
+                </div>
+                <div class="form-check dropdown-item">
+                  <input class="form-check-input" type="radio" name="sort" id="sortPageView" value="-pageView" ng-model="orderBy" />
+                  <label class="form-check-label" for="sortPageView">Page View</label>
                 </div>
               </div>
+            </div>
 
-              <div class="dropdown mt-1 mt-lg-0 mr-1">
-                <button
-                  class="btn btn-secondary dropdown-toggle"
-                  type="button"
-                  id="dropdownStatus"
-                  data-toggle="dropdown"
-                  aria-haspopup="true"
-                  aria-expanded="false"
-                >
-                  Status
-                </button>
-                <div class="dropdown-menu" aria-labelledby="dropdownStatus">
-                  <h6 class="dropdown-header">Select status</h6>
-                  <div class="form-check dropdown-item">
-                    <input
-                      class="form-check-input"
-                      type="checkbox"
-                      name="sort"
-                      id="statusReady"
-                      value="ready"
-                      ng-model="filters.status.ready"
-                    />
-                    <label class="form-check-label" for="statusReady">
-                      Ready
-                    </label>
-                  </div>
-                  <div class="form-check dropdown-item">
-                    <input
-                      class="form-check-input"
-                      type="checkbox"
-                      name="sort"
-                      id="statusExpired"
-                      value="expired"
-                      ng-model="filters.status.expired"
-                    />
-                    <label class="form-check-label" for="statusExpired">
-                      Expired
-                    </label>
-                  </div>
-                  <div class="form-check dropdown-item">
-                    <input
-                      class="form-check-input"
-                      type="checkbox"
-                      name="sort"
-                      id="statusRemoved"
-                      value="removed"
-                      ng-model="filters.status.removed"
-                    />
-                    <label class="form-check-label" for="statusRemoved">
-                      Removed
-                    </label>
-                  </div>
+            <div class="dropdown">
+              <button
+                class="btn btn-sm dropdown-toggle"
+                type="button"
+                id="dropdownStatus"
+                data-toggle="dropdown"
+                aria-haspopup="true"
+                aria-expanded="false"
+              >
+                Status
+              </button>
+              <div class="dropdown-menu" aria-labelledby="dropdownStatus">
+                <h6 class="dropdown-header">Select status</h6>
+                <div class="form-check dropdown-item">
+                  <input class="form-check-input" type="checkbox" id="statusReady" value="ready" ng-model="filters.status.ready" />
+                  <label class="form-check-label" for="statusReady">Ready</label>
                 </div>
-              </div>
-
-              <div class="mt-1 mr-1" style="margin-top: -0.25rem !important">
-                <strong>Repository</strong>
-                <div
-                  class="progress position-relative"
-                  style="min-width: 150px"
-                >
-                  <div
-                    class="progress-bar"
-                    ng-class="{'progress-bar-striped progress-bar-animated w-100 bg-dark': !quota, 'bg-success': quota.repository.percent < 25 || quota.repository.total == 0, 'bg-danger': quota.repository.percent > 95 && quota.repository.total > 0, 'bg-warning': quota.repository.percent > 75 && quota.repository.total > 0 }"
-                    role="progressbar"
-                    style="width: {{quota.repository.percent}}%;"
-                    aria-valuenow="{{quota.repository.used}}"
-                    aria-valuemin="0"
-                    aria-valuemax="{{quota.repository.total}}"
-                  ></div>
-                  <span
-                    class="justify-content-center d-flex position-absolute w-100"
-                    ng-show="quota"
-                    >{{quota.repository.used |
-                    number}}/{{quota.repository.total}}</span
-                  >
+                <div class="form-check dropdown-item">
+                  <input class="form-check-input" type="checkbox" id="statusExpired" value="expired" ng-model="filters.status.expired" />
+                  <label class="form-check-label" for="statusExpired">Expired</label>
                 </div>
-              </div>
-
-              <div class="mt-1 mr-1" style="margin-top: -0.25rem !important">
-                <strong>Storage</strong>
-                <div
-                  class="progress position-relative"
-                  style="min-width: 150px"
-                >
-                  <div
-                    class="progress-bar"
-                    ng-class="{'progress-bar-striped progress-bar-animated w-100 bg-dark': !quota, 'bg-success': quota.storage.percent < 25 || quota.storage.total == 0, 'bg-danger': quota.storage.percent > 95 && quota.storage.total > 0, 'bg-warning': quota.storage.percent > 75 && quota.storage.total > 0 }"
-                    role="progressbar"
-                    style="width: {{quota.storage.percent}}%;"
-                    aria-valuenow="{{quota.storage.used}}"
-                    aria-valuemin="0"
-                    aria-valuemax="{{quota.storage.total}}"
-                  ></div>
-                  <span
-                    ng-show="quota"
-                    class="justify-content-center d-flex position-absolute w-100"
-                    >{{quota.storage.used |
-                    humanFileSize}}/{{quota.storage.total| humanFileSize}}</span
-                  >
-                </div>
-              </div>
-
-              <div class="mt-1 mr-1" style="margin-top: -0.25rem !important">
-                <strong>File</strong>
-                <div
-                  class="progress position-relative"
-                  style="min-width: 150px"
-                >
-                  <div
-                    class="progress-bar"
-                    ng-class="{'progress-bar-striped progress-bar-animated w-100 bg-dark': !quota, 'bg-success': quota.file.percent < 25 || quota.file.total == 0, 'bg-danger': quota.file.percent > 95 && quota.file.total > 0, 'bg-warning': quota.file.percent > 75 && quota.file.total > 0 }"
-                    role="progressbar"
-                    style="width: {{quota.file.percent}}%;"
-                    aria-valuenow="{{quota.file.used}}"
-                    aria-valuemin="0"
-                    aria-valuemax="{{quota.file.total}}"
-                  ></div>
-                  <span
-                    class="justify-content-center d-flex position-absolute w-100"
-                    ng-show="quota"
-                    >{{quota.file.used | number}}/{{quota.file.total ||
-                    "∞"}}</span
-                  >
+                <div class="form-check dropdown-item">
+                  <input class="form-check-input" type="checkbox" id="statusRemoved" value="removed" ng-model="filters.status.removed" />
+                  <label class="form-check-label" for="statusRemoved">Removed</label>
                 </div>
               </div>
             </div>
           </div>
-        </form>
-        <div class="d-flex flex-wrap mt-2 mt-md-0" style="gap: 6px">
-          <a href="/anonymize" class="text-center btn btn-primary btn-sm">
-            <i class="fa fa-plus-circle" aria-hidden="true"></i> Anonymize Repo
-          </a>
-          <a
-            href="/pull-request-anonymize"
-            class="text-center btn btn-primary btn-sm"
-          >
-            <i class="fa fa-plus-circle" aria-hidden="true"></i> Anonymize PR
-          </a>
         </div>
-      </div>
-      <div class="d-flex d-inline-flex mt-2">
-        <div class="alert alert-info alert-dismissible my-0 ml-1" ng-show="!v" role="alert" ng-repeat="(f, v) in filters.status">
-          <strong>{{f | title}}</strong>
-          <button type="button" class="close" data-dismiss="alert" aria-label="Close" ng-click="filters.status[f] = true;">
-            <span aria-hidden="true">&times;</span>
-          </button>
-        </div>
-      </div>
+      </form>
 
+      <!-- Active filter chips -->
+      <div class="d-flex flex-wrap mt-2" style="gap: 6px" ng-show="filters.status.ready === false || filters.status.expired === false || filters.status.removed === false">
+        <span class="filter-chip" ng-show="!v" ng-repeat="(f, v) in filters.status">
+          {{f | title}}
+          <button type="button" class="filter-chip-close" aria-label="Remove filter" ng-click="filters.status[f] = true;">
+            &times;
+          </button>
+        </span>
+      </div>
     </div>
-    <ul class="p-0 m-0 w-100">
+
+    <!-- Unified item list -->
+    <ul class="repo-list w-100">
       <li
-        class="col-12 d-flex px-0 py-3 border-bottom color-border-secondary"
-        ng-class="{'expired': repo.status == 'expired','removed': repo.status == 'removed','error': repo.status == 'error' }"
-        ng-repeat="repo in repositories| filter:repoFiler| orderBy:orderBy as filteredRepositories"
+        class="repo-list-item"
+        ng-class="{'repo-inactive': item.status == 'expired' || item.status == 'removed' || item.status == 'error'}"
+        ng-repeat="item in items | filter:itemFilter | orderBy:orderBy as filteredItems"
       >
-        <div class="w-100">
-          <div class="">
-            <h3>
-              <a ng-href="/r/{{repo.repoId}}" ng-bind="repo.repoId"></a>
+        <div class="repo-list-item-content">
+          <div class="repo-list-item-main">
+            <div class="repo-list-item-header">
+              <span class="type-badge" ng-class="{'type-repo': item._type === 'repo', 'type-pr': item._type === 'pr'}">
+                <i ng-class="{'fas fa-code-branch': item._type === 'repo', 'fas fa-code-merge': item._type === 'pr'}"></i>
+                {{item._type === 'repo' ? 'Repo' : 'PR'}}
+              </span>
+              <a ng-href="{{item._viewUrl}}" class="repo-name" ng-bind="item._name"></a>
               <span
-                class="badge"
-                ng-class="{'badge-warning': repo.status == 'removed' || repo.status == 'expired' ||  repo.status == 'removing' || repo.status == 'expiring', 'badge-info': repo.status == 'preparing' || repo.status == 'download', 'badge-success': repo.status == 'ready', 'badge-danger': repo.status == 'error'}"
-                ><span ng-bind="repo.status | title"></span>
-                <span
-                  ng-if="repo.status == 'error'"
-                  ng-bind="': ' + repo.statusMessage"
-                ></span
-              ></span>
-            </h3>
-            <span class="color-text-secondary mb-1">
-              <span class="repository">
+                class="status-badge"
+                ng-class="{'status-removed': item.status == 'removed' || item.status == 'expired' || item.status == 'removing' || item.status == 'expiring', 'status-preparing': item.status == 'preparing' || item.status == 'download', 'status-ready': item.status == 'ready', 'status-error': item.status == 'error'}"
+              ><span ng-bind="item.status | title"></span><span
+                  ng-if="item.status == 'error' && item.statusMessage"
+                  ng-bind="': ' + item.statusMessage"
+                ></span></span>
+            </div>
+            <div class="repo-source">
+              <span>
                 <i class="fab fa-github" aria-hidden="true"></i>
                 <a
-                  href="https://github.com/{{repo.source.fullName}}/"
-                  class="fullName"
-                  ng-bind="repo.source.fullName"
+                  ng-if="item._type === 'repo'"
+                  href="https://github.com/{{item.source.fullName}}/"
+                  ng-bind="item.source.fullName"
+                ></a>
+                <a
+                  ng-if="item._type === 'pr'"
+                  href="https://github.com/{{item.source.repositoryFullName}}/pull/{{item.source.pullRequestId}}"
+                  ng-bind="item._source"
                 ></a>
               </span>
-              <span class="branch" ng-if="repo.options.update">
+              <span ng-if="item._type === 'repo' && item.options.update">
                 <i class="fas fa-code-branch" aria-hidden="true"></i>
                 <a
-                  href="https://github.com/{{repo.source.fullName}}/tree/{{repo.source.branch}}"
-                  class="branch"
-                  ng-bind="repo.source.branch"
+                  href="https://github.com/{{item.source.fullName}}/tree/{{item.source.branch}}"
+                  ng-bind="item.source.branch"
                 ></a>
               </span>
-              <span class="commit" ng-if="!repo.options.update">
+              <span ng-if="item._type === 'repo' && !item.options.update">
                 @<a
-                  href="https://github.com/{{repo.source.fullName}}/tree/{{repo.source.commit}}"
-                  class="commit"
-                  ng-bind="repo.source.commit.substring(0, 8)"
+                  href="https://github.com/{{item.source.fullName}}/tree/{{item.source.commit}}"
+                  ng-bind="item.source.commit.substring(0, 8)"
                 ></a>
               </span>
-              anonymized {{repo.anonymizeDate | humanTime}}
-            </span>
+              <span class="repo-date">anonymized {{item.anonymizeDate | humanTime}}</span>
+            </div>
           </div>
-          <div class="color-text-secondary mt-2">
-            <span class="ml-0 mr-3" ng-if="::repo.conference">
-              <i class="fas fa-chalkboard-teacher"></i>
-              {{repo.conference}}
+          <div class="repo-meta">
+            <span ng-if="item.conference" title="Conference">
+              <i class="fas fa-chalkboard-teacher"></i> {{item.conference}}
             </span>
-            <span
-              class="ml-0 mr-3"
-              class="terms"
-              title="Terms: {{::repo.options.terms.join(', ')}}"
-              data-toggle="tooltip"
-              data-placement="bottom"
-            >
-              <i class="fas fa-shield-alt"></i>
-              {{::repo.options.terms.length | number}}
+            <span title="Terms" data-toggle="tooltip" data-placement="bottom">
+              <i class="fas fa-shield-alt"></i> {{item.options.terms.length | number}}
             </span>
-            <span
-              class="ml-0 mr-3"
-              title="Size: {{::repo.size.storage | humanFileSize}}"
-              data-toggle="tooltip"
-              data-placement="bottom"
-            >
-              <i class="fas fa-database"></i> {{::repo.size.storage |
-              humanFileSize}}</span
-            >
-            <span
-              class="ml-0 mr-3"
-              title="View: {{::repo.pageView | number}}"
-              data-toggle="tooltip"
-              data-placement="bottom"
-            >
-              <i class="far fa-eye" aria-hidden="true"></i>
-              {{::repo.pageView | number}}
+            <span ng-if="item._type === 'repo' && item.size" title="Size" data-toggle="tooltip" data-placement="bottom">
+              <i class="fas fa-database"></i> {{item.size.storage | humanFileSize}}
             </span>
-            <span
-              class="ml-0 mr-3"
-              title="Last view: {{::repo.lastView | date}}"
-              data-toggle="tooltip"
-              data-placement="bottom"
-            >
-              <i class="far fa-calendar-alt" aria-hidden="true"></i>
-              Last view: {{::repo.lastView | humanTime}}</span
-            >
-            <span
-              class="ml-0 mr-3"
-              ng-if="repo.options.expirationMode!='never' && repo.status == 'ready'"
-            >
-              <i class="far fa-clock" aria-hidden="true"></i>
-              Expire: {{repo.options.expirationDate | humanTime}}</span
-            >
+            <span title="Views" data-toggle="tooltip" data-placement="bottom">
+              <i class="far fa-eye"></i> {{item.pageView | number}}
+            </span>
+            <span title="Last view" data-toggle="tooltip" data-placement="bottom">
+              <i class="far fa-calendar-alt"></i> {{item.lastView | humanTime}}
+            </span>
+            <span ng-if="item.options.expirationMode !== 'never' && item.status == 'ready'">
+              <i class="far fa-clock"></i> Expire: {{item.options.expirationDate | humanTime}}
+            </span>
           </div>
         </div>
-        <div class="d-flex">
+        <div class="repo-list-item-actions">
           <div class="dropdown">
             <button
-              class="btn black_border dropdown-toggle btn-sm"
+              class="btn btn-sm dropdown-toggle"
               type="button"
-              id="dropdownMenuButton"
               data-toggle="dropdown"
               aria-haspopup="true"
               aria-expanded="false"
             >
               Actions
             </button>
-            <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
-              <a class="dropdown-item" href="/anonymize/{{repo.repoId}}">
+            <div class="dropdown-menu dropdown-menu-right">
+              <a class="dropdown-item" ng-href="{{item._editUrl}}">
                 <i class="far fa-edit" aria-hidden="true"></i> Edit
               </a>
-              <a
-                class="dropdown-item"
-                href="#"
-                ng-show="repo.status == 'ready' || repo.status == 'error'"
-                ng-click="updateRepository(repo)"
-              >
+              <a class="dropdown-item" href="#" ng-show="item.status == 'ready' || item.status == 'error'" ng-click="refreshItem(item)">
                 <i class="fas fa-sync"></i> Force update
               </a>
-              <a
-                class="dropdown-item"
-                href="#"
-                ng-show="repo.status == 'removed'"
-                ng-click="updateRepository(repo)"
-              >
-                <i class="fas fa-check-circle"></i>
-                Enable
+              <a class="dropdown-item" href="#" ng-show="item.status == 'removed'" ng-click="refreshItem(item)">
+                <i class="fas fa-check-circle"></i> Enable
               </a>
-              <a
-                class="dropdown-item"
-                href="#"
-                ng-show="repo.status == 'ready'"
-                ng-click="removeRepository(repo)"
-              >
+              <a class="dropdown-item" href="#" ng-show="item.status == 'ready'" ng-click="removeItem(item)">
                 <i class="fas fa-trash-alt"></i> Remove
               </a>
-              <a class="dropdown-item" href="/r/{{repo.repoId}}/">
-                <i class="fa fa-eye" aria-hidden="true"></i> View Repo
+              <a class="dropdown-item" ng-href="{{item._viewUrl}}">
+                <i class="fa fa-eye" aria-hidden="true"></i> View
               </a>
-              <a
-                class="dropdown-item"
-                href="/w/{{repo.repoId}}/"
-                target="_self"
-                ng-if="repo.options.page && repo.status == 'ready'"
-              >
+              <a class="dropdown-item" href="/w/{{item.repoId}}/" target="_self" ng-if="item._type === 'repo' && item.options.page && item.status == 'ready'">
                 <i class="fas fa-globe"></i> View Page
               </a>
             </div>
           </div>
         </div>
       </li>
-      <li
-        class="col-12 d-flex px-0 py-3 border-bottom color-border-secondary"
-        ng-if="filteredRepositories.length == 0"
-      >
-        There is no repository to display.
+      <li class="repo-list-empty" ng-if="filteredItems.length == 0">
+        <i class="fas fa-inbox"></i>
+        <span>Nothing to display.</span>
       </li>
     </ul>
   </div>

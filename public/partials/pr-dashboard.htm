@@ -1,168 +1,14 @@
-<div class="container page">
+<div class="container page dashboard-page">
   <div class="row">
-    <div class="border-bottom color-border-secondary py-3 w-100">
-      <div class="d-flex align-items-center w-100">
-        <form class="w-100" aria-label="Pull Requests" accept-charset="UTF-8">
-          <div class="d-flex flex-column flex-lg-row flex-auto">
-            <div class="mb-1 mb-md-0 mr-md-3">
-              <input
-                type="search"
-                id="search"
-                class="form-control"
-                aria-label="Find a pull request…"
-                placeholder="Find a pull request…"
-                autocomplete="off"
-                ng-model="search"
-              />
-            </div>
-
-            <div class="d-flex flex-wrap">
-              <div class="dropdown mt-1 mt-lg-0 mr-1">
-                <button
-                  class="btn btn-secondary dropdown-toggle"
-                  type="button"
-                  id="dropdownSort"
-                  data-toggle="dropdown"
-                  aria-haspopup="true"
-                  aria-expanded="false"
-                >
-                  Sort
-                </button>
-                <div class="dropdown-menu" aria-labelledby="dropdownSort">
-                  <h6 class="dropdown-header">Select order</h6>
-                  <div class="form-check dropdown-item">
-                    <input
-                      class="form-check-input"
-                      type="radio"
-                      name="sort"
-                      id="sortFullName"
-                      value="fullName"
-                      ng-model="orderBy"
-                    />
-                    <label class="form-check-label" for="sortFullName">
-                      Pull Request
-                    </label>
-                  </div>
-                  <div class="form-check dropdown-item">
-                    <input
-                      class="form-check-input"
-                      type="radio"
-                      name="sort"
-                      id="sortAnonymizeDate"
-                      value="-anonymizeDate"
-                      ng-model="orderBy"
-                    />
-                    <label class="form-check-label" for="sortAnonymizeDate">
-                      Anonymize Date
-                    </label>
-                  </div>
-                  <div class="form-check dropdown-item">
-                    <input
-                      class="form-check-input"
-                      type="radio"
-                      name="sort"
-                      id="sortStatus"
-                      value="-status"
-                      ng-model="orderBy"
-                    />
-                    <label class="form-check-label" for="sortStatus">
-                      Status
-                    </label>
-                  </div>
-                  <div class="form-check dropdown-item">
-                    <input
-                      class="form-check-input"
-                      type="radio"
-                      name="sort"
-                      id="sortLastView"
-                      value="-lastView"
-                      ng-model="orderBy"
-                    />
-                    <label class="form-check-label" for="sortLastView">
-                      Last View
-                    </label>
-                  </div>
-                  <div class="form-check dropdown-item">
-                    <input
-                      class="form-check-input"
-                      type="radio"
-                      name="sort"
-                      id="sortPageView"
-                      value="-pageView"
-                      ng-model="orderBy"
-                    />
-                    <label class="form-check-label" for="sortPageView">
-                      Page View
-                    </label>
-                  </div>
-                </div>
-              </div>
-
-              <div class="dropdown mt-1 mt-lg-0 mr-1">
-                <button
-                  class="btn btn-secondary dropdown-toggle"
-                  type="button"
-                  id="dropdownStatus"
-                  data-toggle="dropdown"
-                  aria-haspopup="true"
-                  aria-expanded="false"
-                >
-                  Status
-                </button>
-                <div class="dropdown-menu" aria-labelledby="dropdownStatus">
-                  <h6 class="dropdown-header">Select status</h6>
-                  <div class="form-check dropdown-item">
-                    <input
-                      class="form-check-input"
-                      type="checkbox"
-                      name="sort"
-                      id="statusReady"
-                      value="ready"
-                      ng-model="filters.status.ready"
-                    />
-                    <label class="form-check-label" for="statusReady">
-                      Ready
-                    </label>
-                  </div>
-                  <div class="form-check dropdown-item">
-                    <input
-                      class="form-check-input"
-                      type="checkbox"
-                      name="sort"
-                      id="statusExpired"
-                      value="expired"
-                      ng-model="filters.status.expired"
-                    />
-                    <label class="form-check-label" for="statusExpired">
-                      Expired
-                    </label>
-                  </div>
-                  <div class="form-check dropdown-item">
-                    <input
-                      class="form-check-input"
-                      type="checkbox"
-                      name="sort"
-                      id="statusRemoved"
-                      value="removed"
-                      ng-model="filters.status.removed"
-                    />
-                    <label class="form-check-label" for="statusRemoved">
-                      Removed
-                    </label>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </form>
-        <div class="d-flex flex-wrap mt-2 mt-md-0" style="gap: 6px">
-          <a href="/anonymize" class="text-center btn btn-primary btn-sm">
+    <div class="w-100 py-3">
+      <!-- Header row: title + action buttons -->
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <h2 class="dashboard-title mb-0">Pull Requests</h2>
+        <div class="d-flex flex-wrap" style="gap: 6px">
+          <a href="/anonymize" class="btn btn-primary btn-sm">
             <i class="fa fa-plus-circle" aria-hidden="true"></i> Anonymize Repo
           </a>
-          <a
-            href="/pull-request-anonymize"
-            class="text-center btn btn-primary btn-sm"
-          >
+          <a href="/pull-request-anonymize" class="btn btn-primary btn-sm">
             <i class="fa fa-plus-circle" aria-hidden="true"></i> Anonymize PR
           </a>
           <a
@@ -170,138 +16,180 @@
             data-toggle="tooltip"
             data-placement="bottom"
             href="/claim"
-            class="text-center btn btn-secondary btn-sm"
+            class="btn btn-sm"
           >
             Claim
           </a>
         </div>
       </div>
-    </div>
-    <ul class="p-0 m-0 w-100">
-      <li
-        class="col-12 d-flex px-0 py-3 border-bottom color-border-secondary"
-        ng-class="{'expired': pr.status == 'expired','removed': pr.status == 'removed','error': pr.status == 'error' }"
-        ng-repeat="pr in pullRequests| filter:pullRequestFilter| orderBy:orderBy as filteredPullRequests"
-      >
-        <div class="w-100">
-          <div class="">
-            <h3>
-              <a
-                ng-href="/pr/{{pr.pullRequestId}}"
-                ng-bind="pr.pullRequestId"
-              ></a>
-              <span
-                class="badge"
-                ng-class="{'badge-warning': pr.status == 'removed' || pr.status == 'expired' ||  pr.status == 'removing' || pr.status == 'expiring', 'badge-info': pr.status == 'preparing' || pr.status == 'download', 'badge-success': pr.status == 'ready', 'badge-danger': pr.status == 'error'}"
-                ><span ng-bind="pr.status | title"></span>
-                <span
-                  ng-if="pr.status == 'error'"
-                  ng-bind="': ' + pr.statusMessage"
-                ></span
-              ></span>
-            </h3>
+
+      <!-- Search + filters row -->
+      <form class="w-100" aria-label="Pull Requests" accept-charset="UTF-8">
+        <div class="d-flex flex-column flex-md-row align-items-md-center" style="gap: 8px">
+          <div class="flex-grow-1">
+            <input
+              type="search"
+              id="search"
+              class="form-control"
+              aria-label="Find a pull request..."
+              placeholder="Find a pull request..."
+              autocomplete="off"
+              ng-model="search"
+            />
           </div>
-          <div class="color-text-secondary mt-t">
-            <span class="pull-request">
-              <i class="fab fa-github" aria-hidden="true"></i>
-              <a
-                href="https://github.com/{{pr.source.repositoryFullName}}/pull/{{pr.source.pullRequestId}}"
-                class="fullName"
-                >{{pr.source.repositoryFullName}}@{{pr.source.pullRequestId}}</a
+          <div class="d-flex flex-wrap" style="gap: 6px">
+            <div class="dropdown">
+              <button
+                class="btn btn-sm dropdown-toggle"
+                type="button"
+                id="dropdownSort"
+                data-toggle="dropdown"
+                aria-haspopup="true"
+                aria-expanded="false"
               >
-            </span>
-            <span
-              class="badge"
-              ng-class="{'badge-success':pr.merged, 'badge-warning':pr.state=='open', 'badge-danger':pr.state=='closed' &&!pr.merged}"
-            >
-              {{pr.merged?"merged":pr.state | title}}
-            </span>
-            anonymized {{pr.anonymizeDate | humanTime}}
-          </div>
-          <div class="color-text-secondary mt-2">
-            <span class="ml-0 mr-3" ng-if="::pr.conference">
-              <i class="fas fa-chalkboard-teacher"></i>
-              {{pr.conference}}
-            </span>
-            <span
-              class="ml-0 mr-3"
-              class="terms"
-              title="Terms: {{::pr.options.terms.join(', ')}}"
-              data-toggle="tooltip"
-              data-placement="bottom"
-            >
-              <i class="fas fa-shield-alt"></i>
-              {{::pr.options.terms.length | number}}
-            </span>
-            <span
-              class="ml-0 mr-3"
-              title="View: {{::pr.pageView | number}}"
-              data-toggle="tooltip"
-              data-placement="bottom"
-            >
-              <i class="far fa-eye" aria-hidden="true"></i>
-              {{::pr.pageView | number}}
-            </span>
-            <span
-              class="ml-0 mr-3"
-              title="Last view: {{::pr.lastView | date}}"
-              data-toggle="tooltip"
-              data-placement="bottom"
-            >
-              <i class="far fa-calendar-alt" aria-hidden="true"></i>
-              Last view: {{::pr.lastView | humanTime}}</span
-            >
-            <span
-              class="ml-0 mr-3"
-              ng-if="pr.options.expirationMode!='never' && pr.status == 'ready'"
-            >
-              <i class="far fa-clock" aria-hidden="true"></i>
-              Expire: {{pr.options.expirationDate | humanTime}}</span
-            >
+                Sort
+              </button>
+              <div class="dropdown-menu" aria-labelledby="dropdownSort">
+                <h6 class="dropdown-header">Select order</h6>
+                <div class="form-check dropdown-item">
+                  <input class="form-check-input" type="radio" name="sort" id="sortFullName" value="fullName" ng-model="orderBy" />
+                  <label class="form-check-label" for="sortFullName">Pull Request</label>
+                </div>
+                <div class="form-check dropdown-item">
+                  <input class="form-check-input" type="radio" name="sort" id="sortAnonymizeDate" value="-anonymizeDate" ng-model="orderBy" />
+                  <label class="form-check-label" for="sortAnonymizeDate">Anonymize Date</label>
+                </div>
+                <div class="form-check dropdown-item">
+                  <input class="form-check-input" type="radio" name="sort" id="sortStatus" value="-status" ng-model="orderBy" />
+                  <label class="form-check-label" for="sortStatus">Status</label>
+                </div>
+                <div class="form-check dropdown-item">
+                  <input class="form-check-input" type="radio" name="sort" id="sortLastView" value="-lastView" ng-model="orderBy" />
+                  <label class="form-check-label" for="sortLastView">Last View</label>
+                </div>
+                <div class="form-check dropdown-item">
+                  <input class="form-check-input" type="radio" name="sort" id="sortPageView" value="-pageView" ng-model="orderBy" />
+                  <label class="form-check-label" for="sortPageView">Page View</label>
+                </div>
+              </div>
+            </div>
+
+            <div class="dropdown">
+              <button
+                class="btn btn-sm dropdown-toggle"
+                type="button"
+                id="dropdownStatus"
+                data-toggle="dropdown"
+                aria-haspopup="true"
+                aria-expanded="false"
+              >
+                Status
+              </button>
+              <div class="dropdown-menu" aria-labelledby="dropdownStatus">
+                <h6 class="dropdown-header">Select status</h6>
+                <div class="form-check dropdown-item">
+                  <input class="form-check-input" type="checkbox" name="sort" id="statusReady" value="ready" ng-model="filters.status.ready" />
+                  <label class="form-check-label" for="statusReady">Ready</label>
+                </div>
+                <div class="form-check dropdown-item">
+                  <input class="form-check-input" type="checkbox" name="sort" id="statusExpired" value="expired" ng-model="filters.status.expired" />
+                  <label class="form-check-label" for="statusExpired">Expired</label>
+                </div>
+                <div class="form-check dropdown-item">
+                  <input class="form-check-input" type="checkbox" name="sort" id="statusRemoved" value="removed" ng-model="filters.status.removed" />
+                  <label class="form-check-label" for="statusRemoved">Removed</label>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-        <div class="d-flex">
+      </form>
+
+      <!-- Active filter chips -->
+      <div class="d-flex flex-wrap mt-2" style="gap: 6px" ng-show="filters.status.ready === false || filters.status.expired === false || filters.status.removed === false">
+        <span class="filter-chip" ng-show="!v" ng-repeat="(f, v) in filters.status">
+          {{f | title}}
+          <button type="button" class="filter-chip-close" aria-label="Remove filter" ng-click="filters.status[f] = true;">
+            &times;
+          </button>
+        </span>
+      </div>
+    </div>
+
+    <!-- Pull request list -->
+    <ul class="repo-list w-100">
+      <li
+        class="repo-list-item"
+        ng-class="{'repo-inactive': pr.status == 'expired' || pr.status == 'removed' || pr.status == 'error'}"
+        ng-repeat="pr in pullRequests| filter:pullRequestFilter| orderBy:orderBy as filteredPullRequests"
+      >
+        <div class="repo-list-item-content">
+          <div class="repo-list-item-main">
+            <div class="repo-list-item-header">
+              <a ng-href="/pr/{{pr.pullRequestId}}" class="repo-name" ng-bind="pr.pullRequestId"></a>
+              <span
+                class="status-badge"
+                ng-class="{'status-removed': pr.status == 'removed' || pr.status == 'expired' || pr.status == 'removing' || pr.status == 'expiring', 'status-preparing': pr.status == 'preparing' || pr.status == 'download', 'status-ready': pr.status == 'ready', 'status-error': pr.status == 'error'}"
+              ><span ng-bind="pr.status | title"></span><span
+                  ng-if="pr.status == 'error'"
+                  ng-bind="': ' + pr.statusMessage"
+                ></span></span>
+            </div>
+            <div class="repo-source">
+              <span>
+                <i class="fab fa-github" aria-hidden="true"></i>
+                <a href="https://github.com/{{pr.source.repositoryFullName}}/pull/{{pr.source.pullRequestId}}">{{pr.source.repositoryFullName}}#{{pr.source.pullRequestId}}</a>
+              </span>
+              <span
+                class="status-badge"
+                ng-class="{'status-ready': pr.merged, 'status-removed': pr.state=='open', 'status-error': pr.state=='closed' && !pr.merged}"
+                style="font-size: 10px;"
+              >
+                {{pr.merged ? "merged" : pr.state | title}}
+              </span>
+              <span class="repo-date">anonymized {{pr.anonymizeDate | humanTime}}</span>
+            </div>
+          </div>
+          <div class="repo-meta">
+            <span ng-if="::pr.conference" title="Conference">
+              <i class="fas fa-chalkboard-teacher"></i> {{pr.conference}}
+            </span>
+            <span title="Terms: {{::pr.options.terms.join(', ')}}" data-toggle="tooltip" data-placement="bottom">
+              <i class="fas fa-shield-alt"></i> {{::pr.options.terms.length | number}}
+            </span>
+            <span title="Views: {{::pr.pageView | number}}" data-toggle="tooltip" data-placement="bottom">
+              <i class="far fa-eye"></i> {{::pr.pageView | number}}
+            </span>
+            <span title="Last view: {{::pr.lastView | date}}" data-toggle="tooltip" data-placement="bottom">
+              <i class="far fa-calendar-alt"></i> {{::pr.lastView | humanTime}}
+            </span>
+            <span ng-if="pr.options.expirationMode!='never' && pr.status == 'ready'">
+              <i class="far fa-clock"></i> Expire: {{pr.options.expirationDate | humanTime}}
+            </span>
+          </div>
+        </div>
+        <div class="repo-list-item-actions">
           <div class="dropdown">
             <button
-              class="btn black_border dropdown-toggle btn-sm"
+              class="btn btn-sm dropdown-toggle"
               type="button"
-              id="dropdownMenuButton"
               data-toggle="dropdown"
               aria-haspopup="true"
               aria-expanded="false"
             >
               Actions
             </button>
-            <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
-              <a
-                class="dropdown-item"
-                href="/pull-request-anonymize/{{pr.pullRequestId}}"
-              >
+            <div class="dropdown-menu dropdown-menu-right">
+              <a class="dropdown-item" href="/pull-request-anonymize/{{pr.pullRequestId}}">
                 <i class="far fa-edit" aria-hidden="true"></i> Edit
               </a>
-              <a
-                class="dropdown-item"
-                href="#"
-                ng-show="pr.status == 'ready' || pr.status == 'error'"
-                ng-click="updatePullRequest(pr)"
-              >
+              <a class="dropdown-item" href="#" ng-show="pr.status == 'ready' || pr.status == 'error'" ng-click="updatePullRequest(pr)">
                 <i class="fas fa-sync"></i> Force update
               </a>
-              <a
-                class="dropdown-item"
-                href="#"
-                ng-show="pr.status == 'removed'"
-                ng-click="updatePullRequest(pr)"
-              >
-                <i class="fas fa-check-circle"></i>
-                Enable
+              <a class="dropdown-item" href="#" ng-show="pr.status == 'removed'" ng-click="updatePullRequest(pr)">
+                <i class="fas fa-check-circle"></i> Enable
               </a>
-              <a
-                class="dropdown-item"
-                href="#"
-                ng-show="pr.status == 'ready'"
-                ng-click="removePullRequest(pr)"
-              >
+              <a class="dropdown-item" href="#" ng-show="pr.status == 'ready'" ng-click="removePullRequest(pr)">
                 <i class="fas fa-trash-alt"></i> Remove
               </a>
               <a class="dropdown-item" href="/pr/{{pr.pullRequestId}}/">
@@ -311,11 +199,9 @@
           </div>
         </div>
       </li>
-      <li
-        class="col-12 d-flex px-0 py-3 border-bottom color-border-secondary"
-        ng-if="filteredPullRequests.length == 0"
-      >
-        There is no pull request to display.
+      <li class="repo-list-empty" ng-if="filteredPullRequests.length == 0">
+        <i class="fas fa-inbox"></i>
+        <span>No pull requests to display.</span>
       </li>
     </ul>
   </div>
