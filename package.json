@@ -87,6 +87,7 @@
     "@types/passport": "^1.0.16",
     "@types/passport-github2": "^1.2.9",
     "@types/unzip-stream": "^0.3.4",
+    "chai": "^4.5.0",
     "gulp": "^5.0.0",
     "gulp-clean-css": "^4.3.0",
     "gulp-concat": "^2.6.1",
