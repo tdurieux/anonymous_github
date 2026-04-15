@@ -4,9 +4,36 @@ import * as path from "path";
 import AnonymizedFile from "../../core/AnonymizedFile";
 import AnonymousError from "../../core/AnonymousError";
 import * as marked from "marked";
-import DOMPurify from "isomorphic-dompurify";
+import * as sanitizeHtml from "sanitize-html";
 import { streamToString } from "../../core/anonymize-utils";
 import { IFile } from "../../core/model/files/files.types";
+
+const sanitizeOptions: sanitizeHtml.IOptions = {
+  allowedTags: sanitizeHtml.defaults.allowedTags.concat([
+    "img",
+    "video",
+    "input",
+    "details",
+    "summary",
+    "del",
+    "ins",
+    "sup",
+    "sub",
+  ]),
+  allowedAttributes: {
+    ...sanitizeHtml.defaults.allowedAttributes,
+    img: ["src", "srcset", "alt", "title", "width", "height", "loading"],
+    video: ["src", "controls", "title"],
+    input: ["type", "checked", "disabled"],
+    code: ["class"],
+    span: ["class"],
+    div: ["class"],
+    pre: ["class"],
+    td: ["align"],
+    th: ["align"],
+  },
+  allowedSchemes: ["http", "https", "mailto"],
+};
 
 const router = express.Router();
 
@@ -114,7 +141,7 @@ async function webView(req: express.Request, res: express.Response) {
     }
     if (f.extension() == "md") {
       const content = await streamToString(await f.anonymizedContent());
-      const body = DOMPurify.sanitize(marked.marked(content, { headerIds: false, mangle: false }));
+      const body = sanitizeHtml(marked.marked(content, { headerIds: false, mangle: false }), sanitizeOptions);
       const html = `<!DOCTYPE html><html><head><title>Content</title></head><link rel="stylesheet" href="/css/all.min.css" /><body><div class="container p-3 file-content markdown-body">${body}<div></body></html>`;
       res.contentType("text/html").send(html);
     } else {
