@@ -1,7 +1,6 @@
 import { basename } from "path";
 import { Transform, Readable } from "stream";
 import { isText } from "istextorbinary";
-import { trace } from "@opentelemetry/api";
 
 import config from "../config";
 
@@ -49,30 +48,24 @@ export class AnonymizeTransformer extends Transform {
   }
 
   _transform(chunk: Buffer, encoding: string, callback: () => void) {
-    trace
-      .getTracer("ano-file")
-      .startActiveSpan("AnonymizeTransformer.transform", async (span) => {
-        span.setAttribute("path", this.opt.filePath);
-        if (this.isText === null) {
-          this.isText = isTextFile(this.opt.filePath, chunk);
-        }
-        if (this.isText) {
-          const content = this.anonimizer.anonymize(chunk.toString());
-          if (this.anonimizer.wasAnonymized) {
-            chunk = Buffer.from(content);
-          }
-        }
+    if (this.isText === null) {
+      this.isText = isTextFile(this.opt.filePath, chunk);
+    }
+    if (this.isText) {
+      const content = this.anonimizer.anonymize(chunk.toString());
+      if (this.anonimizer.wasAnonymized) {
+        chunk = Buffer.from(content);
+      }
+    }
 
-        this.emit("transform", {
-          isText: this.isText,
-          wasAnonimized: this.wasAnonimized,
-          chunk,
-        });
+    this.emit("transform", {
+      isText: this.isText,
+      wasAnonimized: this.wasAnonimized,
+      chunk,
+    });
 
-        this.push(chunk);
-        span.end();
-        callback();
-      });
+    this.push(chunk);
+    callback();
   }
 }
 
@@ -179,48 +172,30 @@ export class ContentAnonimizer {
   }
 
   anonymize(content: string) {
-    const span = trace
-      .getTracer("ano-file")
-      .startSpan("ContentAnonimizer.anonymize");
-    try {
-      content = this.removeImage(content);
-      span.addEvent("removeImage");
-      content = this.removeLink(content);
-      span.addEvent("removeLink");
-      content = this.replaceGitHubSelfLinks(content);
-      span.addEvent("replaceGitHubSelfLinks");
-      content = this.replaceTerms(content);
-      span.addEvent("replaceTerms");
-      return content;
-    } finally {
-      span.end();
-    }
+    content = this.removeImage(content);
+    content = this.removeLink(content);
+    content = this.replaceGitHubSelfLinks(content);
+    content = this.replaceTerms(content);
+    return content;
   }
 }
 
 export function anonymizePath(path: string, terms: string[]) {
-  return trace
-    .getTracer("ano-file")
-    .startActiveSpan("utils.anonymizePath", (span) => {
-      span.setAttribute("path", path);
-      for (let i = 0; i < terms.length; i++) {
-        let term = terms[i];
-        if (term.trim() == "") {
-          continue;
-        }
-        try {
-          new RegExp(term, "gi");
-        } catch {
-          // escape regex characters
-          term = term.replace(/[-[\]{}()*+?.,\\^$|#]/g, "\\$&");
-        }
-        path = path.replace(
-          new RegExp(term, "gi"),
-          config.ANONYMIZATION_MASK + "-" + (i + 1)
-        );
-      }
-      span.setAttribute("return", path);
-      span.end();
-      return path;
-    });
+  for (let i = 0; i < terms.length; i++) {
+    let term = terms[i];
+    if (term.trim() == "") {
+      continue;
+    }
+    try {
+      new RegExp(term, "gi");
+    } catch {
+      // escape regex characters
+      term = term.replace(/[-[\]{}()*+?.,\\^$|#]/g, "\\$&");
+    }
+    path = path.replace(
+      new RegExp(term, "gi"),
+      config.ANONYMIZATION_MASK + "-" + (i + 1)
+    );
+  }
+  return path;
 }

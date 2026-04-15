@@ -37,7 +37,7 @@ services:
       mode: replicated
       replicas: 4
       endpoint_mode: dnsrr
-    entrypoint: ["node", "--require", "./opentelemetry.js", "./build/streamer/index.js"]
+    entrypoint: ["node", "./build/streamer/index.js"]
     env_file:
       - ./.env
     volumes:
@@ -88,30 +88,6 @@ services:
       interval: 10s
       timeout: 10s
       retries: 5
-
-  opentelemetry:
-    image: otel/opentelemetry-collector
-    restart: always
-    command: ["--config=/etc/otel-collector-config.yaml"]
-    volumes:
-      - ./opentelemetry-collector.yml:/etc/otel-collector-config.yaml
-    depends_on:
-      - jaeger
-      - prometheus
-
-  jaeger:
-    image: jaegertracing/all-in-one:latest
-    restart: always
-    ports:
-      - 127.0.0.1:16686:16686
-
-  prometheus:
-    image: prom/prometheus:latest
-    restart: always
-    volumes:
-      - ./prometheus.yaml:/etc/prometheus/prometheus.yml
-    ports:
-      - 127.0.0.1:9090:9090
 
   mongodb-backup:
     image: tiredofit/db-backup

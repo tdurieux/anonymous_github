@@ -1,5 +1,3 @@
-import { trace } from "@opentelemetry/api";
-
 import AnonymizedRepositoryModel from "./model/anonymizedRepositories/anonymizedRepositories.model";
 import RepositoryModel from "./model/repositories/repositories.model";
 import { IUserDocument } from "./model/users/users.types";
@@ -57,10 +55,6 @@ export default class User {
      */
     force: boolean;
   }): Promise<GitHubRepository[]> {
-    const span = trace
-      .getTracer("ano-file")
-      .startSpan("User.getGitHubRepositories");
-    span.setAttribute("username", this.username);
     if (
       !this._model.repositories ||
       this._model.repositories.length == 0 ||
@@ -111,13 +105,11 @@ export default class User {
 
       // have the model
       await this._model.save();
-      span.end();
       return repositories.map((r) => new GitHubRepository(r));
     } else {
       const out = (
         await RepositoryModel.find({ _id: { $in: this._model.repositories } })
       ).map((i) => new GitHubRepository(i));
-      span.end();
       return out;
     }
   }
@@ -127,8 +119,6 @@ export default class User {
    * @returns the list of anonymized repositories
    */
   async getRepositories() {
-    const span = trace.getTracer("ano-file").startSpan("User.getRepositories");
-    span.setAttribute("username", this.username);
     const repositories = (
       await AnonymizedRepositoryModel.find({
         owner: this.id,
@@ -147,7 +137,6 @@ export default class User {
       }
     }
     await Promise.all(promises);
-    span.end();
     return repositories;
   }
   /**
@@ -155,8 +144,6 @@ export default class User {
    * @returns the list of anonymized repositories
    */
   async getPullRequests() {
-    const span = trace.getTracer("ano-file").startSpan("User.getPullRequests");
-    span.setAttribute("username", this.username);
     const pullRequests = (
       await AnonymizedPullRequestModel.find({
         owner: this.id,
@@ -175,7 +162,6 @@ export default class User {
       }
     }
     await Promise.all(promises);
-    span.end();
     return pullRequests;
   }
 

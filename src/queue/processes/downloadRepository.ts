@@ -1,4 +1,3 @@
-import { Exception, trace } from "@opentelemetry/api";
 import { SandboxedJob } from "bullmq";
 import { config } from "dotenv";
 config();
@@ -14,8 +13,6 @@ export default async function (job: SandboxedJob<Repository, void>) {
     connect: () => Promise<void>;
     getRepository: typeof getRepositoryImport;
   } = require("../../server/database");
-  const span = trace.getTracer("ano-file").startSpan("proc.downloadRepository");
-  span.setAttribute("repoId", job.data.repoId);
   console.log(`[QUEUE] ${job.data.repoId} is going to be downloaded`);
   let statusInterval: any = null;
   await connect();
@@ -58,17 +55,14 @@ export default async function (job: SandboxedJob<Repository, void>) {
     } catch (error) {
       updateProgress({ status: "error" });
       if (error instanceof Error) {
-        span.recordException(error as Exception);
         await repo.updateStatus(RepositoryStatus.ERROR, error.message);
       } else if (typeof error === "string") {
         await repo.updateStatus(RepositoryStatus.ERROR, error);
-        span.recordException(error);
       }
       throw error;
     }
   } catch (error: any) {
     clearInterval(statusInterval);
-    span.recordException(error as Exception);
     console.log(`[QUEUE] ${job.data.repoId} is finished with an error`, error);
     setTimeout(async () => {
       // delay to avoid double saving
@@ -78,6 +72,5 @@ export default async function (job: SandboxedJob<Repository, void>) {
     }, 400);
   } finally {
     clearInterval(statusInterval);
-    span.end();
   }
 }

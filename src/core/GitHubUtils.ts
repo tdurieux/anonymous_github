@@ -1,4 +1,3 @@
-import { trace } from "@opentelemetry/api";
 import { Octokit } from "@octokit/rest";
 
 import Repository from "./Repository";
@@ -26,11 +25,8 @@ export async function checkToken(token: string) {
 }
 
 export async function getToken(repository: Repository) {
-  const span = trace.getTracer("ano-file").startSpan("GHUtils.getToken");
-  span.setAttribute("repoId", repository.repoId);
   console.log("getToken", repository.repoId);
-  try {
-    // if (repository.model.source.accessToken) {
+  // if (repository.model.source.accessToken) {
     //   // only check the token if the repo has been visited less than 10 minutes ago
     //   if (
     //     repository.status == RepositoryStatus.READY &&
@@ -99,7 +95,4 @@ export async function getToken(repository: Repository) {
       }
     }
     return config.GITHUB_TOKEN;
-  } finally {
-    span.end();
-  }
 }
