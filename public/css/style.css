@@ -126,6 +126,14 @@ html,
 body {
   position: relative;
   height: 100%;
+  overflow-x: hidden;
+}
+
+/* Prevent ng-view from scrolling horizontally */
+[ng-view] {
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  max-width: 100%;
 }
 
 .dropdown-menu a,
@@ -1028,8 +1036,9 @@ code {
   }
 
   .container.page {
-    padding-left: 10px;
-    padding-right: 10px;
+    padding-left: 15px;
+    padding-right: 15px;
+    max-width: 100%;
   }
 
   h1 { font-size: 1.6rem; }
