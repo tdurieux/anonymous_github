@@ -89,20 +89,20 @@ export default async function start() {
       sendCommand: (...args: string[]) => redisClient.sendCommand(args),
     }),
     windowMs: 15 * 60 * 1000, // 15 minutes
-    skip: async (request: express.Request, response: express.Response) => {
+    skip: async (request: express.Request, _response: express.Response) => {
       try {
         const user = await getUser(request);
         if (user && user.isAdmin) return true;
-      } catch (_) {
+      } catch {
         // ignore: user not connected
       }
       return false;
     },
-    max: async (request: express.Request, response: express.Response) => {
+    max: async (request: express.Request, _response: express.Response) => {
       try {
         const user = await getUser(request);
         if (user) return config.RATE_LIMIT;
-      } catch (_) {
+      } catch {
         // ignore: user not connected
       }
       // if not logged in, limit to half the rate
@@ -111,7 +111,7 @@ export default async function start() {
     keyGenerator,
     standardHeaders: true,
     legacyHeaders: false,
-    message: (request: express.Request, response: express.Response) => {
+    message: (_request: express.Request, _response: express.Response) => {
       return `You can only make ${config.RATE_LIMIT} requests every 15min. Please try again later.`;
     },
   });
@@ -167,7 +167,7 @@ export default async function start() {
     res.sendStatus(404);
   });
 
-  let stat: any = {};
+  let stat: Record<string, unknown> = {};
 
   setInterval(() => {
     stat = {};

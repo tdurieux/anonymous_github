@@ -246,7 +246,7 @@ export default class AnonymizedFile {
                 anonymizerOptions: anonymizer.opt,
               },
             })
-            .on("error", (err) => {
+            .on("error", (_err) => {
               handleError(
                 new AnonymousError("file_not_found", {
                   object: this,

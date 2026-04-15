@@ -1,5 +1,3 @@
-import { promisify } from "util";
-import * as stream from "stream";
 import * as express from "express";
 import GitHubStream from "../core/source/GitHubStream";
 import {
@@ -22,7 +20,6 @@ router.post(
     const token: string = req.body.token;
     const repoFullName = req.body.repoFullName.split("/");
     const repoId = req.body.repoId;
-    const branch = req.body.branch;
     const commit = req.body.commit;
     const anonymizerOptions = req.body.anonymizerOptions;
 
@@ -52,12 +49,12 @@ router.post(
           console.error(error);
           try {
             archive.finalize();
-          } catch (error) {}
+          } catch { /* ignored */ }
         })
         .on("close", () => {
           try {
             archive.finalize();
-          } catch (error) {}
+          } catch { /* ignored */ }
         })
         .pipe(Parse())
         .on("entry", (entry) => {
@@ -83,12 +80,12 @@ router.post(
           console.error(error);
           try {
             archive.finalize();
-          } catch (error) {}
+          } catch { /* ignored */ }
         })
         .on("finish", () => {
           try {
             archive.finalize();
-          } catch (error) {}
+          } catch { /* ignored */ }
         });
       archive.pipe(res).on("error", (error) => {
         console.error(error);
@@ -104,7 +101,6 @@ router.post("/", async (req: express.Request, res: express.Response) => {
   const token: string = req.body.token;
   const repoFullName = req.body.repoFullName.split("/");
   const repoId = req.body.repoId;
-  const branch = req.body.branch;
   const fileSha = req.body.sha;
   const commit = req.body.commit;
   const filePath = req.body.filePath;

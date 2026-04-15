@@ -51,14 +51,14 @@ router.post("/queue/:name/:repo_id", async (req, res) => {
 
     await job.retry();
     res.send("ok");
-  } catch (error) {
+  } catch {
     try {
       if (job) {
         await job.remove();
         queue.add(job.name, job.data, job.opts);
       }
       res.send("ok");
-    } catch (error) {
+    } catch {
       res.status(500).send("error_retrying_job");
     }
   }
@@ -121,6 +121,7 @@ router.get("/repos", async (req, res) => {
   const remove = req.query.removed == "true";
   const expired = req.query.expired == "true";
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let sort: any = { _id: 1 };
   if (req.query.sort) {
     sort = {};
@@ -190,6 +191,7 @@ router.get("/users", async (req, res) => {
   const limit = parseInt(req.query.limit as string) || 10;
   const skipIndex = (page - 1) * limit;
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let sort: any = { _id: 1 };
   if (req.query.sort) {
     sort = {};
@@ -260,6 +262,7 @@ router.get("/conferences", async (req, res) => {
   const limit = parseInt(req.query.limit as string) || 10;
   const skipIndex = (page - 1) * limit;
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let sort: any = { _id: 1 };
   if (req.query.sort) {
     sort = {};

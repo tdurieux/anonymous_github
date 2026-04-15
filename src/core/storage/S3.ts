@@ -55,7 +55,7 @@ export default class S3Storage extends StorageBase {
       // if we can get the file info, it is a file
       await this.fileInfo(repoId, path);
       return FILE_TYPE.FILE;
-    } catch (err) {
+    } catch {
       // check if it is a directory
       const data = await this.client().listObjectsV2({
         Bucket: config.S3_BUCKET,
@@ -69,7 +69,7 @@ export default class S3Storage extends StorageBase {
   }
 
   /** @override */
-  async mk(repoId: string, dir: string = ""): Promise<void> {
+  async mk(repoId: string, _dir: string = ""): Promise<void> {
     // no need to create folder on S3
   }
 
@@ -125,7 +125,7 @@ export default class S3Storage extends StorageBase {
       } else {
         res.end();
       }
-    } catch (error) {
+    } catch {
       try {
         res.status(500);
       } catch (err) {

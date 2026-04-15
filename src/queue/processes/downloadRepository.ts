@@ -14,11 +14,12 @@ export default async function (job: SandboxedJob<Repository, void>) {
     getRepository: typeof getRepositoryImport;
   } = require("../../server/database");
   console.log(`[QUEUE] ${job.data.repoId} is going to be downloaded`);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let statusInterval: any = null;
   await connect();
   const repo = await getRepository(job.data.repoId);
   try {
-    let progress: any = null;
+    let progress: { status: string } | null = null;
     statusInterval = setInterval(async () => {
       try {
         if (
@@ -37,7 +38,7 @@ export default async function (job: SandboxedJob<Repository, void>) {
           );
           await repo.updateStatus(repo.status, progress?.status || "");
         }
-      } catch (_) {
+      } catch {
         // ignore error
       }
     }, 1000);
@@ -61,14 +62,14 @@ export default async function (job: SandboxedJob<Repository, void>) {
       }
       throw error;
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     clearInterval(statusInterval);
     console.log(`[QUEUE] ${job.data.repoId} is finished with an error`, error);
     setTimeout(async () => {
       // delay to avoid double saving
       try {
-        await repo.updateStatus(RepositoryStatus.ERROR, error.message);
-      } catch (ignore) {}
+        await repo.updateStatus(RepositoryStatus.ERROR, (error as Error).message);
+      } catch { /* ignored */ }
     }, 400);
   } finally {
     clearInterval(statusInterval);

@@ -16,7 +16,7 @@ export default class Conference {
    * @param status the new status
    * @param errorMessage a potential error message to display
    */
-  async updateStatus(status: ConferenceStatus, errorMessage?: string) {
+  async updateStatus(status: ConferenceStatus, _errorMessage?: string) {
     this._data.status = status;
     await this._data.save();
     return;
@@ -104,7 +104,7 @@ export default class Conference {
     return this._data.options;
   }
 
-  toJSON(opt?: { billing: boolean }): any {
+  toJSON(_opt?: { billing: boolean }): Record<string, unknown> {
     const pricePerHourPerRepo = this._data.plan.pricePerRepository / 30;
     let price = 0;
     const today =

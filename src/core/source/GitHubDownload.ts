@@ -31,7 +31,7 @@ export default class GitHubDownload extends GitHubBase {
       response = await this.getZipUrl();
     } catch (error) {
       throw new AnonymousError("repo_not_found", {
-        httpStatus: (error as any).status || 404,
+        httpStatus: (error as { status?: number }).status || 404,
         object: this.data,
         cause: error as Error,
       });

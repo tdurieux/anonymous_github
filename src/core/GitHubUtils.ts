@@ -3,7 +3,6 @@ import { Octokit } from "@octokit/rest";
 import Repository from "./Repository";
 import UserModel from "./model/users/users.model";
 import config from "../config";
-import { RepositoryStatus } from "./types";
 
 export function octokit(token: string) {
   return new Octokit({
@@ -19,7 +18,7 @@ export async function checkToken(token: string) {
   try {
     await oct.users.getAuthenticated();
     return true;
-  } catch (error) {
+  } catch {
     return false;
   }
 }

@@ -26,7 +26,7 @@ export default async function (job: SandboxedJob<Repository, void>) {
       }
       throw error;
     }
-  } catch (error) {
+  } catch {
     // error already handled
   } finally {
     console.log(`[QUEUE] ${job.data.repoId} is removed`);

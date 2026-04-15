@@ -9,7 +9,7 @@ import User from "./User";
  * Custom error message
  */
 export default class AnonymousError extends CustomError {
-  value?: any;
+  value?: unknown;
   httpStatus?: number;
   cause?: Error;
 
@@ -18,7 +18,7 @@ export default class AnonymousError extends CustomError {
     opt?: {
       httpStatus?: number;
       cause?: Error;
-      object?: any;
+      object?: unknown;
     }
   ) {
     super(message);

@@ -31,7 +31,7 @@ router.get(
       let user: User | undefined = undefined;
       try {
         user = await getUser(req);
-      } catch (_) {}
+      } catch { /* not logged in */ }
 
       let download = false;
       if (
@@ -187,7 +187,7 @@ router.get(
       let user: User | undefined = undefined;
       try {
         user = await getUser(req);
-      } catch (_) {}
+      } catch { /* not logged in */ }
       res.json({
         url: redirectURL,
         download: download || user?.isAdmin === true,

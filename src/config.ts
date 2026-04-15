@@ -80,8 +80,8 @@ const config: Config = {
 };
 
 for (const conf in process.env) {
-  if ((config as any)[conf] !== undefined) {
-    (config as any)[conf] = process.env[conf];
+  if ((config as unknown as Record<string, unknown>)[conf] !== undefined) {
+    (config as unknown as Record<string, string | undefined>)[conf] = process.env[conf];
   }
 }
 

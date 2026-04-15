@@ -67,6 +67,7 @@ router.get("/", async (req: express.Request, res: express.Response) => {
   }
 });
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function validateConferenceForm(conf: any) {
   if (!conf.name)
     throw new AnonymousError("conf_name_missing", {
@@ -237,12 +238,13 @@ router.get(
       const conference = new Conference(data);
       try {
         isOwnerOrAdmin(conference.ownerIDs, user);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const o: any = conference.toJSON();
         o.repositories = (await conference.repositories()).map((r) =>
           r.toJSON()
         );
         res.json(o);
-      } catch (error) {
+      } catch {
         return res.json({
           conferenceID: conference.conferenceID,
           name: conference.name,
