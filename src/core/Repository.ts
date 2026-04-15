@@ -220,6 +220,7 @@ export default class Repository {
     ) {
       throw new AnonymousError("repository_not_ready", {
         object: this,
+        httpStatus: 503,
       });
     }
   }
@@ -356,6 +357,7 @@ export default class Repository {
           await this.resetSate();
           throw new AnonymousError("branch_not_found", {
             object: this,
+            httpStatus: 404,
           });
         }
         this._model.anonymizeDate = new Date();

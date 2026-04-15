@@ -102,9 +102,9 @@ export function handleError(
   req?: express.Request
 ) {
   printError(error, req);
-  let message = error;
+  let errorCode = error;
   if (error instanceof Error) {
-    message = error.message;
+    errorCode = error.message;
   }
   let status = 500;
   if (error.httpStatus) {
@@ -112,15 +112,16 @@ export function handleError(
   } else if (error.$metadata?.httpStatusCode) {
     status = error.$metadata.httpStatusCode;
   } else if (
-    message &&
-    (message.indexOf("not_found") > -1 || message.indexOf("(Not Found)") > -1)
+    errorCode &&
+    (errorCode.indexOf("not_found") > -1 ||
+      errorCode.indexOf("(Not Found)") > -1)
   ) {
     status = 404;
-  } else if (message && message.indexOf("not_connected") > -1) {
+  } else if (errorCode && errorCode.indexOf("not_connected") > -1) {
     status = 401;
   }
   if (res && !res.headersSent) {
-    res.status(status).send({ error: message });
+    res.status(status).json({ error: errorCode });
   }
   return;
 }

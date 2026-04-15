@@ -127,7 +127,7 @@ export default class S3Storage extends StorageBase {
       }
     } catch {
       try {
-        res.status(500);
+        res.status(500).json({ error: "file_not_found" });
       } catch (err) {
         console.error(`[ERROR] S3 send ${path}`, err);
       }

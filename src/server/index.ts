@@ -27,7 +27,7 @@ function indexResponse(req: express.Request, res: express.Response) {
     req.path.startsWith("/favicon") ||
     req.path.startsWith("/api")
   ) {
-    return res.status(404).send("Not found");
+    return res.status(404).json({ error: "not_found" });
   }
   if (
     req.params.repoId &&

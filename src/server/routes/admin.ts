@@ -59,7 +59,7 @@ router.post("/queue/:name/:repo_id", async (req, res) => {
       }
       res.send("ok");
     } catch {
-      res.status(500).send("error_retrying_job");
+      res.status(500).json({ error: "error_retrying_job" });
     }
   }
 });
