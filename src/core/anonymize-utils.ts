@@ -96,7 +96,7 @@ export class ContentAnonimizer {
     }
     // remove image in markdown
     return content.replace(
-      /!\[[^\]]*\]\((?<filename>.*?)(?=\"|\))(?<optionalpart>\".*\")?\)/g,
+      /!\[[^\]]*\]\((?<filename>.*?)(?="|\))(?<optionalpart>".*")?\)/g,
       () => {
         this.wasAnonymized = true;
         return config.ANONYMIZATION_MASK;

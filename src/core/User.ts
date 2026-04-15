@@ -135,7 +135,7 @@ export default class User {
       }).exec()
     ).map((d) => new Repository(d));
     const promises = [];
-    for (let repo of repositories) {
+    for (const repo of repositories) {
       if (
         repo.status == "ready" &&
         repo.options.expirationMode != "never" &&
@@ -163,7 +163,7 @@ export default class User {
       }).exec()
     ).map((d) => new PullRequest(d));
     const promises = [];
-    for (let repo of pullRequests) {
+    for (const repo of pullRequests) {
       if (
         repo.status == "ready" &&
         repo.options.expirationMode != "never" &&

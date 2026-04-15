@@ -126,7 +126,7 @@ router.get("/repos", async (req, res) => {
     sort = {};
     sort[req.query.sort as string] = -1;
   }
-  let query = [];
+  const query = [];
   if (req.query.search) {
     query.push({ repoId: { $regex: req.query.search } });
   }
