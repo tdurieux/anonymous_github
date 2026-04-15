@@ -126,6 +126,14 @@ html,
 body {
   position: relative;
   height: 100%;
+  overflow-x: hidden;
+}
+
+/* Prevent ng-view from scrolling horizontally */
+[ng-view] {
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  max-width: 100%;
 }
 
 .dropdown-menu a,
@@ -149,11 +157,15 @@ a:hover {
 
 .navbar {
   background: var(--header-bg-color) !important;
-}
-
-.navbar {
   font-weight: 300;
   transition: background-color 0.5s ease;
+  padding: 4px 1rem;
+}
+
+.navbar .nav-link {
+  font-size: 0.9rem;
+  padding-top: 6px;
+  padding-bottom: 6px;
 }
 
 .navbar .nav-link.nav-icon {
@@ -162,18 +174,14 @@ a:hover {
 
 .navbar .nav-link .fa,
 .navbar .nav-link .fab {
-  font-size: 30px;
-  line-height: 40px;
-}
-
-@media (min-width: 768px) {
-  .navbar-brand {
-    width: 280px;
-  }
+  font-size: 20px;
+  line-height: 28px;
 }
 
 .navbar-brand {
   text-align: center;
+  font-size: 1rem;
+  padding: 4px 0;
 }
 
 #navbarSupportedContent {
@@ -542,17 +550,17 @@ notebook {
 }
 
 .floatingchat-container-wrap {
-  left: inherit !important;
-  bottom: inherit !important;
-  top: 3px !important;
+  left: auto !important;
+  top: auto !important;
+  bottom: 3px !important;
   height: 47px !important;
   right: 3px !important;
 }
 
 .floating-chat-kofi-popup-iframe {
-  left: inherit !important;
-  bottom: inherit !important;
-  top: 55px !important;
+  left: auto !important;
+  top: auto !important;
+  bottom: 55px !important;
   right: 10px !important;
 }
 
@@ -705,10 +713,6 @@ code {
 
 /* ===== Dashboard & List Styles ===== */
 
-.dashboard-page {
-  max-width: 960px;
-}
-
 .dashboard-title {
   font-size: 1.4rem;
   font-weight: 600;
@@ -720,10 +724,7 @@ code {
   display: flex;
   gap: 16px;
   margin-bottom: 16px;
-  padding: 12px 16px;
-  background: var(--admin-stat-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
+  padding: 0;
 }
 
 .quota-item {
@@ -935,20 +936,45 @@ code {
 
 /* ===== Anonymize Page Layout ===== */
 
-.anonymize-page .sidePanel {
+/* Landing state: centered URL input */
+.anonymize-landing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 20px;
+}
+
+.anonymize-landing-inner {
+  width: 100%;
+  max-width: 600px;
+}
+
+.anonymize-landing-inner h2 {
+  font-weight: 700;
+}
+
+/* Form column (right side when URL is provided) */
+.anonymize-form-col {
+  flex: 0 0 auto;
+  width: 100%;
   min-width: 0;
+  background: var(--sidebar-bg-color);
+  border-left: 1px solid var(--border-color);
 }
 
 .anonymize-section-title {
-  font-size: 1rem;
+  font-size: 0.85rem;
   font-weight: 600;
-  margin: 16px 0 10px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin: 18px 0 8px 0;
   padding-bottom: 6px;
-  border-bottom: 2px solid var(--primary-bg);
+  border-bottom: 1px solid var(--border-color);
+  opacity: 0.7;
 }
 
 .anonymize-section-title i {
-  color: var(--primary-bg);
   margin-right: 4px;
 }
 
@@ -971,18 +997,10 @@ code {
   font-weight: 500;
 }
 
-.anonymize-page .accordion .card-header {
-  padding: 0;
-}
-
-.anonymize-page .accordion .btn {
-  font-weight: 600;
-  font-size: 0.95rem;
-}
-
 /* Preview column on desktop */
 .anonymize-preview-col {
   min-height: 0;
+  min-width: 0;
 }
 
 /* PR diff overflow */
@@ -994,11 +1012,13 @@ code {
 @media (min-width: 768px) {
   .anonymize-form-col {
     height: 100%;
-    max-width: 50%;
+    width: 380px;
+    flex: 0 0 380px;
   }
 
   .anonymize-preview-col {
     height: 100%;
+    flex: 1;
   }
 }
 
@@ -1028,8 +1048,9 @@ code {
   }
 
   .container.page {
-    padding-left: 10px;
-    padding-right: 10px;
+    padding-left: 15px;
+    padding-right: 15px;
+    max-width: 100%;
   }
 
   h1 { font-size: 1.6rem; }
@@ -1143,40 +1164,30 @@ code {
 
   /* ---- Anonymize page mobile ---- */
 
-  .anonymize-page > .row {
+  .anonymize-landing {
+    align-items: flex-start;
+    padding-top: 60px;
+  }
+
+  .anonymize-page .container-fluid > .row {
     height: auto !important;
     min-height: 100%;
   }
 
-  .anonymize-page .sidePanel {
-    height: auto !important;
-    overflow: visible !important;
-    border-bottom: 2px solid var(--border-color);
-    padding-bottom: 12px;
-  }
-
-  .anonymize-page .sidePanel .card,
-  .anonymize-page .sidePanel .container {
-    max-width: 100%;
-    padding-left: 8px;
-    padding-right: 8px;
-  }
-
   .anonymize-form-col {
-    max-width: 100% !important;
-    flex: 0 0 100%;
-    width: 100%;
+    width: 100% !important;
+    flex: 0 0 100% !important;
+    border-left: none;
+    border-top: 1px solid var(--border-color);
   }
 
   .anonymize-preview-col {
     height: auto !important;
     max-height: none;
-    border-top: 1px solid var(--border-color);
-    padding-top: 12px !important;
   }
 
   .anonymize-section-title {
-    font-size: 0.95rem;
+    font-size: 0.8rem;
     margin: 12px 0 8px 0;
   }
 
@@ -1185,9 +1196,9 @@ code {
     bottom: 0;
     background: var(--sidebar-bg-color);
     padding: 10px 0;
-    margin: 0 -8px;
-    padding-left: 8px;
-    padding-right: 8px;
+    margin: 0 -12px;
+    padding-left: 12px;
+    padding-right: 12px;
     border-top: 1px solid var(--border-color);
     z-index: 10;
   }
@@ -1195,10 +1206,6 @@ code {
   .anonymize-submit-bar .btn {
     font-size: 1rem;
     padding: 12px 20px;
-  }
-
-  .anonymize-page .card-title {
-    font-size: 1.2rem;
   }
 
   /* Compact checkboxes on mobile */
