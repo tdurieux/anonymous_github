@@ -182,5 +182,5 @@ function renderMD(md, baseUrlValue) {
       throwOnError: false,
     })
   );
-  return marked.parse(md, { renderer });
+  return DOMPurify.sanitize(marked.parse(md, { renderer }));
 }

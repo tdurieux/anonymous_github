@@ -58,6 +58,7 @@
     "express-slow-down": "^2.0.1",
     "got": "^11.8.6",
     "inquirer": "^8.2.6",
+    "isomorphic-dompurify": "^3.8.0",
     "istextorbinary": "^9.5.0",
     "marked": "^5.1.2",
     "mime-types": "^2.1.35",

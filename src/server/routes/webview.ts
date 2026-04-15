@@ -4,6 +4,7 @@ import * as path from "path";
 import AnonymizedFile from "../../core/AnonymizedFile";
 import AnonymousError from "../../core/AnonymousError";
 import * as marked from "marked";
+import DOMPurify from "isomorphic-dompurify";
 import { streamToString } from "../../core/anonymize-utils";
 import { IFile } from "../../core/model/files/files.types";
 
@@ -113,7 +114,7 @@ async function webView(req: express.Request, res: express.Response) {
     }
     if (f.extension() == "md") {
       const content = await streamToString(await f.anonymizedContent());
-      const body = marked.marked(content, { headerIds: false, mangle: false });
+      const body = DOMPurify.sanitize(marked.marked(content, { headerIds: false, mangle: false }));
       const html = `<!DOCTYPE html><html><head><title>Content</title></head><link rel="stylesheet" href="/css/all.min.css" /><body><div class="container p-3 file-content markdown-body">${body}<div></body></html>`;
       res.contentType("text/html").send(html);
     } else {
