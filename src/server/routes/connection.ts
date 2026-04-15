@@ -39,21 +39,31 @@ const verify = async (
         { "source.accessToken": accessToken }
       );
     } else {
-      const photo = profile.photos ? profile.photos[0]?.value : null;
-      user = new UserModel({
-        username: profile.username,
-        accessTokens: {
-          github: accessToken,
-        },
-        externalIDs: {
-          github: profile.id,
-        },
-        emails: profile.emails?.map((email) => {
-          return { email: email.value, default: false };
-        }),
-        photo,
-      });
-      if (user.emails?.length) user.emails[0].default = true;
+      // Check if a user with this username already exists (e.g. created
+      // manually without externalIDs.github). Link the GitHub ID to the
+      // existing account instead of creating a duplicate that would lose
+      // the isAdmin flag.
+      user = await UserModel.findOne({ username: profile.username });
+      if (user) {
+        user.externalIDs.github = profile.id;
+        user.accessTokens.github = accessToken;
+      } else {
+        const photo = profile.photos ? profile.photos[0]?.value : null;
+        user = new UserModel({
+          username: profile.username,
+          accessTokens: {
+            github: accessToken,
+          },
+          externalIDs: {
+            github: profile.id,
+          },
+          emails: profile.emails?.map((email) => {
+            return { email: email.value, default: false };
+          }),
+          photo,
+        });
+        if (user.emails?.length) user.emails[0].default = true;
+      }
     }
     if (!user.accessTokenDates) {
       user.accessTokenDates = {
@@ -63,14 +73,6 @@ const verify = async (
       user.accessTokenDates.github = new Date();
     }
     await user.save();
-  } catch (error) {
-    console.error(error);
-    throw new AnonymousError("unable_to_connect_user", {
-      httpStatus: 500,
-      object: profile,
-      cause: error as Error,
-    });
-  } finally {
     done(null, {
       username: profile.username,
       accessToken,
@@ -78,6 +80,15 @@ const verify = async (
       profile,
       user,
     });
+  } catch (error) {
+    console.error(error);
+    done(
+      new AnonymousError("unable_to_connect_user", {
+        httpStatus: 500,
+        object: profile,
+        cause: error as Error,
+      })
+    );
   }
 };
 
