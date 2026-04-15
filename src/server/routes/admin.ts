@@ -9,7 +9,6 @@ import Repository from "../../core/Repository";
 import User from "../../core/User";
 import { ensureAuthenticated } from "./connection";
 import { handleError, getUser, isOwnerOrAdmin, getRepo } from "./route-utils";
-import { getErrorMessage } from "../../core/errors";
 
 const router = express.Router();
 
@@ -41,13 +40,13 @@ router.post("/queue/:name/:repo_id", async (req, res) => {
   } else if (req.params.name == "remove") {
     queue = removeQueue;
   } else {
-    return res.status(404).json({ error: "queue_not_found", message: getErrorMessage("queue_not_found") });
+    return res.status(404).json({ error: "queue_not_found" });
   }
   let job;
   try {
     job = await queue.getJob(req.params.repo_id);
     if (!job) {
-      return res.status(404).json({ error: "job_not_found", message: getErrorMessage("job_not_found") });
+      return res.status(404).json({ error: "job_not_found" });
     }
 
     await job.retry();
@@ -60,8 +59,7 @@ router.post("/queue/:name/:repo_id", async (req, res) => {
       }
       res.send("ok");
     } catch {
-      res.status(500).json({ error: "error_retrying_job", message: getErrorMessage("error_retrying_job") });
-
+      res.status(500).json({ error: "error_retrying_job" });
     }
   }
 });
@@ -75,12 +73,12 @@ router.delete("/queue/:name/:repo_id", async (req, res) => {
   } else if (req.params.name == "remove") {
     queue = removeQueue;
   } else {
-    return res.status(404).json({ error: "queue_not_found", message: getErrorMessage("queue_not_found") });
+    return res.status(404).json({ error: "queue_not_found" });
   }
   try {
     const job = await queue.getJob(req.params.repo_id);
     if (!job) {
-      return res.status(404).json({ error: "job_not_found", message: getErrorMessage("job_not_found") });
+      return res.status(404).json({ error: "job_not_found" });
     }
     await job.remove();
     res.send("ok");

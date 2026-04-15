@@ -5,7 +5,6 @@ import UserModel from "../../core/model/users/users.model";
 import User from "../../core/User";
 import { HTTPError } from "got";
 import { RepositoryStatus } from "../../core/types";
-import { getErrorMessage } from "../../core/errors";
 
 export async function getPullRequest(
   req: express.Request,
@@ -122,9 +121,7 @@ export function handleError(
     status = 401;
   }
   if (res && !res.headersSent) {
-    res
-      .status(status)
-      .json({ error: errorCode, message: getErrorMessage(errorCode) });
+    res.status(status).json({ error: errorCode });
   }
   return;
 }

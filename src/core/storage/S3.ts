@@ -14,7 +14,6 @@ import { lookup } from "mime-types";
 import * as archiver from "archiver";
 import { dirname, basename, join } from "path";
 import AnonymousError from "../AnonymousError";
-import { getErrorMessage } from "../errors";
 import StorageBase, { FILE_TYPE } from "./Storage";
 import { IFile } from "../model/files/files.types";
 import FileModel from "../model/files/files.model";
@@ -128,8 +127,7 @@ export default class S3Storage extends StorageBase {
       }
     } catch {
       try {
-        const code = "file_not_found";
-        res.status(500).json({ error: code, message: getErrorMessage(code) });
+        res.status(500).json({ error: "file_not_found" });
       } catch (err) {
         console.error(`[ERROR] S3 send ${path}`, err);
       }

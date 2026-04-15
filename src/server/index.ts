@@ -19,7 +19,6 @@ import { startWorker } from "../queue";
 import AnonymizedPullRequestModel from "../core/model/anonymizedPullRequests/anonymizedPullRequests.model";
 import { getUser } from "./routes/route-utils";
 import config from "../config";
-import { getErrorMessage } from "../core/errors";
 
 function indexResponse(req: express.Request, res: express.Response) {
   if (
@@ -28,7 +27,7 @@ function indexResponse(req: express.Request, res: express.Response) {
     req.path.startsWith("/favicon") ||
     req.path.startsWith("/api")
   ) {
-    return res.status(404).json({ error: "not_found", message: getErrorMessage("not_found") });
+    return res.status(404).json({ error: "not_found" });
   }
   if (
     req.params.repoId &&

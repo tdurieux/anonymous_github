@@ -11,7 +11,6 @@ import UserModel from "../../core/model/users/users.model";
 import { IUserDocument } from "../../core/model/users/users.types";
 import AnonymousError from "../../core/AnonymousError";
 import AnonymizedPullRequestModel from "../../core/model/anonymizedPullRequests/anonymizedPullRequests.model";
-import { getErrorMessage } from "../../core/errors";
 
 export function ensureAuthenticated(
   req: express.Request,
@@ -21,7 +20,7 @@ export function ensureAuthenticated(
   if (req.isAuthenticated()) {
     return next();
   }
-  res.status(401).json({ error: "not_connected", message: getErrorMessage("not_connected") });
+  res.status(401).json({ error: "not_connected" });
 }
 
 const verify = async (
