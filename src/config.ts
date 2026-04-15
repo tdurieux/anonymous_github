@@ -79,7 +79,7 @@ const config: Config = {
   S3_REGION: null,
 };
 
-for (let conf in process.env) {
+for (const conf in process.env) {
   if ((config as any)[conf] !== undefined) {
     (config as any)[conf] = process.env[conf];
   }

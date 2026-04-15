@@ -145,10 +145,10 @@ export default class FileSystem extends StorageBase {
       .startActiveSpan("fs.listFiles", async (span) => {
         span.setAttribute("path", dir);
         const fullPath = join(config.FOLDER, this.repoPath(repoId), dir);
-        let files = await fs.promises.readdir(fullPath);
+        const files = await fs.promises.readdir(fullPath);
         const output2: IFile[] = [];
-        for (let file of files) {
-          let filePath = join(fullPath, file);
+        for (const file of files) {
+          const filePath = join(fullPath, file);
           try {
             const stats = await fs.promises.stat(filePath);
             if (stats.isDirectory()) {

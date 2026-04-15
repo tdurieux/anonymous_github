@@ -85,7 +85,7 @@ function printError(error: any, req?: express.Request) {
     }
     console.error(message);
   } else if (error instanceof HTTPError) {
-    let message = `[ERROR] HTTP.${
+    const message = `[ERROR] HTTP.${
       error.code
     } ${error.message.toString()}  ${error.stack?.split("\n")[1].trim()}`;
     console.error(message);

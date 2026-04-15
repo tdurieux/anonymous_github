@@ -281,6 +281,7 @@ export default class AnonymizedFile {
       .startActiveSpan("AnonymizedFile.send", async (span) => {
         span.setAttribute("repoId", this.repository.repoId);
         span.setAttribute("anonymizedPath", this.anonymizedPath);
+        // eslint-disable-next-line no-async-promise-executor
         return new Promise<void>(async (resolve, reject) => {
           try {
             if (config.STREAMER_ENTRYPOINT) {
