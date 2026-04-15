@@ -4,7 +4,6 @@ import { OctokitResponse } from "@octokit/types";
 
 import storage from "../storage";
 import GitHubBase, { GitHubBaseData } from "./GitHubBase";
-import { trace } from "@opentelemetry/api";
 import { FILE_TYPE } from "../storage/Storage";
 import { octokit } from "../GitHubUtils";
 import AnonymousError from "../AnonymousError";
@@ -27,47 +26,39 @@ export default class GitHubDownload extends GitHubBase {
   }
 
   async download(progress?: (status: string) => void) {
-    const span = trace.getTracer("ano-file").startSpan("GHDownload.download");
-    span.setAttribute("repoId", this.data.repoId);
+    let response: OctokitResponse<unknown, number>;
     try {
-      let response: OctokitResponse<unknown, number>;
-      try {
-        response = await this.getZipUrl();
-      } catch (error) {
-        span.recordException(error as Error);
-        throw new AnonymousError("repo_not_found", {
-          httpStatus: (error as any).status || 404,
-          object: this.data,
-          cause: error as Error,
-        });
-      }
-      await storage.mk(this.data.repoId);
-      try {
-        const downloadStream = got.stream(response.url);
-        downloadStream.addListener(
-          "downloadProgress",
-          (p: { transferred?: number }) => {
-            if (progress && p.transferred) {
-              progress("Repository download: " + humanFileSize(p.transferred));
-            }
+      response = await this.getZipUrl();
+    } catch (error) {
+      throw new AnonymousError("repo_not_found", {
+        httpStatus: (error as any).status || 404,
+        object: this.data,
+        cause: error as Error,
+      });
+    }
+    await storage.mk(this.data.repoId);
+    try {
+      const downloadStream = got.stream(response.url);
+      downloadStream.addListener(
+        "downloadProgress",
+        (p: { transferred?: number }) => {
+          if (progress && p.transferred) {
+            progress("Repository download: " + humanFileSize(p.transferred));
           }
-        );
-        await storage.extractZip(
-          this.data.repoId,
-          "",
-          downloadStream,
-          this.type
-        );
-      } catch (error) {
-        span.recordException(error as Error);
-        throw new AnonymousError("unable_to_download", {
-          httpStatus: 500,
-          cause: error as Error,
-          object: this.data,
-        });
-      }
-    } finally {
-      span.end();
+        }
+      );
+      await storage.extractZip(
+        this.data.repoId,
+        "",
+        downloadStream,
+        this.type
+      );
+    } catch (error) {
+      throw new AnonymousError("unable_to_download", {
+        httpStatus: 500,
+        cause: error as Error,
+        object: this.data,
+      });
     }
   }
 
@@ -75,29 +66,21 @@ export default class GitHubDownload extends GitHubBase {
     file: AnonymizedFile,
     progress?: (status: string) => void
   ): Promise<Readable> {
-    const span = trace
-      .getTracer("ano-file")
-      .startSpan("GHDownload.getFileContent");
-    span.setAttribute("repoId", this.data.repoId);
-    try {
-      const exists = await storage.exists(this.data.repoId, file.filePath);
-      if (exists === FILE_TYPE.FILE) {
-        return storage.read(this.data.repoId, file.filePath);
-      } else if (exists === FILE_TYPE.FOLDER) {
-        throw new AnonymousError("folder_not_supported", {
-          httpStatus: 400,
-          object: file,
-        });
-      }
-      // will throw an error if the file is not in the repository
-      await file.originalPath();
-
-      // the cache is not ready, we need to download the repository
-      await this.download(progress);
+    const exists = await storage.exists(this.data.repoId, file.filePath);
+    if (exists === FILE_TYPE.FILE) {
       return storage.read(this.data.repoId, file.filePath);
-    } finally {
-      span.end();
+    } else if (exists === FILE_TYPE.FOLDER) {
+      throw new AnonymousError("folder_not_supported", {
+        httpStatus: 400,
+        object: file,
+      });
     }
+    // will throw an error if the file is not in the repository
+    await file.originalPath();
+
+    // the cache is not ready, we need to download the repository
+    await this.download(progress);
+    return storage.read(this.data.repoId, file.filePath);
   }
 
   async getFiles(progress?: (status: string) => void) {

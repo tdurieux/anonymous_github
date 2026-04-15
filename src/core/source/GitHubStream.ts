@@ -7,7 +7,6 @@ import { basename, dirname } from "path";
 
 import * as stream from "stream";
 import AnonymousError from "../AnonymousError";
-import { trace } from "@opentelemetry/api";
 import { FILE_TYPE } from "../storage/Storage";
 import { octokit } from "../GitHubUtils";
 import FileModel from "../model/files/files.model";
@@ -21,8 +20,6 @@ export default class GitHubStream extends GitHubBase {
   }
 
   downloadFile(token: string, sha: string) {
-    const span = trace.getTracer("ano-file").startSpan("GHStream.downloadFile");
-    span.setAttribute("sha", sha);
     const oct = octokit(token);
     try {
       const { url } = oct.rest.git.getBlob.endpoint({
@@ -40,14 +37,11 @@ export default class GitHubStream extends GitHubBase {
       });
     } catch (error) {
       console.error(error);
-      // span.recordException(error as Error);
       throw new AnonymousError("repo_not_accessible", {
         httpStatus: 404,
         object: this.data,
         cause: error as Error,
       });
-    } finally {
-      span.end();
     }
   }
 
@@ -56,12 +50,6 @@ export default class GitHubStream extends GitHubBase {
     repoId: string,
     fileSha: () => Promise<string> | string
   ) {
-    const span = trace
-      .getTracer("ano-file")
-      .startSpan("GHStream.getFileContent");
-    span.setAttribute("repoId", repoId);
-    span.setAttribute("file", filePath);
-
     const fileInfo = await storage.exists(repoId, filePath);
     if (fileInfo == FILE_TYPE.FILE) {
       return storage.read(repoId, filePath);
@@ -75,10 +63,6 @@ export default class GitHubStream extends GitHubBase {
       await this.data.getToken(),
       await fileSha()
     );
-
-    content.on("close", () => {
-      span.end();
-    });
 
     // duplicate the stream to write it to the storage
     const stream1 = content.pipe(new stream.PassThrough());
@@ -99,45 +83,30 @@ export default class GitHubStream extends GitHubBase {
   }
 
   async getFileContent(file: AnonymizedFile): Promise<stream.Readable> {
-    const span = trace
-      .getTracer("ano-file")
-      .startSpan("GHStream.getFileContent");
-    span.setAttribute("repoId", file.repository.repoId);
-    span.setAttribute("file", file.anonymizedPath);
     try {
-      try {
-        void file.filePath;
-      } catch (_) {
-        // compute the original path if ambiguous
-        await file.originalPath();
-      }
-      return this.getFileContentCache(
-        file.filePath,
-        file.repository.repoId,
-        async () => {
-          const fileSha = await file.sha();
-          if (!fileSha) {
-            throw new AnonymousError("file_not_accessible", {
-              httpStatus: 404,
-              object: file,
-            });
-          }
-          return fileSha;
-        }
-      );
-    } finally {
-      span.end();
+      void file.filePath;
+    } catch (_) {
+      // compute the original path if ambiguous
+      await file.originalPath();
     }
+    return this.getFileContentCache(
+      file.filePath,
+      file.repository.repoId,
+      async () => {
+        const fileSha = await file.sha();
+        if (!fileSha) {
+          throw new AnonymousError("file_not_accessible", {
+            httpStatus: 404,
+            object: file,
+          });
+        }
+        return fileSha;
+      }
+    );
   }
 
   async getFiles(progress?: (status: string) => void) {
-    const span = trace.getTracer("ano-file").startSpan("GHStream.getFiles");
-    span.setAttribute("repoId", this.data.repoId);
-    try {
-      return this.getTruncatedTree(this.data.commit, progress);
-    } finally {
-      span.end();
-    }
+    return this.getTruncatedTree(this.data.commit, progress);
   }
 
   private async getGHTree(
@@ -145,25 +114,19 @@ export default class GitHubStream extends GitHubBase {
     count = { request: 0, file: 0 },
     opt = { recursive: true, callback: () => {} }
   ) {
-    const span = trace.getTracer("ano-file").startSpan("GHStream.getGHTree");
-    span.setAttribute("sha", sha);
-    try {
-      const oct = octokit(await this.data.getToken());
-      const ghRes = await oct.git.getTree({
-        owner: this.data.organization,
-        repo: this.data.repoName,
-        tree_sha: sha,
-        recursive: opt.recursive === true ? "1" : undefined,
-      });
-      count.request++;
-      count.file += ghRes.data.tree.length;
-      if (opt.callback) {
-        opt.callback();
-      }
-      return ghRes.data;
-    } finally {
-      span.end();
+    const oct = octokit(await this.data.getToken());
+    const ghRes = await oct.git.getTree({
+      owner: this.data.organization,
+      repo: this.data.repoName,
+      tree_sha: sha,
+      recursive: opt.recursive === true ? "1" : undefined,
+    });
+    count.request++;
+    count.file += ghRes.data.tree.length;
+    if (opt.callback) {
+      opt.callback();
     }
+    return ghRes.data;
   }
 
   private async getTruncatedTree(
@@ -175,65 +138,56 @@ export default class GitHubStream extends GitHubBase {
       request: 0,
       file: 0,
     };
-    const span = trace
-      .getTracer("ano-file")
-      .startSpan("GHStream.getTruncatedTree");
-    span.setAttribute("sha", sha);
-    span.setAttribute("parentPath", parentPath);
     const output: IFile[] = [];
+    let data = null;
     try {
-      let data = null;
-      try {
-        data = await this.getGHTree(sha, count, {
-          recursive: false,
-          callback: () => {
-            if (progress) {
-              progress("List file: " + count.file);
-            }
-          },
-        });
-        output.push(...this.tree2Tree(data.tree, parentPath));
-      } catch (error) {
-        console.log(error);
-        if ((error as any).status == 409 || (error as any).status == 404) {
-          // empty repo
-          data = { tree: [] };
-        } else {
-          throw new AnonymousError("repo_not_found", {
-            httpStatus: (error as any).status || 404,
-            object: this.data,
-            cause: error as Error,
-          });
-        }
-      }
-      const promises: ReturnType<GitHubStream["getGHTree"]>[] = [];
-      const parentPaths: string[] = [];
-      for (const file of data.tree) {
-        if (file.type == "tree" && file.path && file.sha) {
-          const elementPath = path.join(parentPath, file.path);
-          parentPaths.push(elementPath);
-          promises.push(
-            this.getGHTree(file.sha, count, {
-              recursive: true,
-              callback: () => {
-                if (progress) {
-                  progress("List file: " + count.file);
-                }
-              },
-            })
-          );
-        }
-      }
-      (await Promise.all(promises)).forEach((data, i) => {
-        if (data.truncated) {
-          // TODO: the tree is truncated
-        }
-        output.push(...this.tree2Tree(data.tree, parentPaths[i]));
+      data = await this.getGHTree(sha, count, {
+        recursive: false,
+        callback: () => {
+          if (progress) {
+            progress("List file: " + count.file);
+          }
+        },
       });
-      return output;
-    } finally {
-      span.end();
+      output.push(...this.tree2Tree(data.tree, parentPath));
+    } catch (error) {
+      console.log(error);
+      if ((error as any).status == 409 || (error as any).status == 404) {
+        // empty repo
+        data = { tree: [] };
+      } else {
+        throw new AnonymousError("repo_not_found", {
+          httpStatus: (error as any).status || 404,
+          object: this.data,
+          cause: error as Error,
+        });
+      }
     }
+    const promises: ReturnType<GitHubStream["getGHTree"]>[] = [];
+    const parentPaths: string[] = [];
+    for (const file of data.tree) {
+      if (file.type == "tree" && file.path && file.sha) {
+        const elementPath = path.join(parentPath, file.path);
+        parentPaths.push(elementPath);
+        promises.push(
+          this.getGHTree(file.sha, count, {
+            recursive: true,
+            callback: () => {
+              if (progress) {
+                progress("List file: " + count.file);
+              }
+            },
+          })
+        );
+      }
+    }
+    (await Promise.all(promises)).forEach((data, i) => {
+      if (data.truncated) {
+        // TODO: the tree is truncated
+      }
+      output.push(...this.tree2Tree(data.tree, parentPaths[i]));
+    });
+    return output;
   }
 
   private tree2Tree(
@@ -247,25 +201,19 @@ export default class GitHubStream extends GitHubBase {
     }[],
     parentPath: string = ""
   ) {
-    const span = trace.getTracer("ano-file").startSpan("GHStream.tree2Tree");
-    span.setAttribute("parentPath", parentPath);
-    try {
-      return tree.map((elem) => {
-        const fullPath = path.join(parentPath, elem.path || "");
-        let pathFile = dirname(fullPath);
-        if (pathFile === ".") {
-          pathFile = "";
-        }
-        return new FileModel({
-          name: basename(fullPath),
-          path: pathFile,
-          repoId: this.data.repoId,
-          size: elem.size,
-          sha: elem.sha,
-        });
+    return tree.map((elem) => {
+      const fullPath = path.join(parentPath, elem.path || "");
+      let pathFile = dirname(fullPath);
+      if (pathFile === ".") {
+        pathFile = "";
+      }
+      return new FileModel({
+        name: basename(fullPath),
+        path: pathFile,
+        repoId: this.data.repoId,
+        size: elem.size,
+        sha: elem.sha,
       });
-    } finally {
-      span.end();
-    }
+    });
   }
 }
