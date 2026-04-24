@@ -1,4 +1,10 @@
-<div class="container d-flex h-100">
-  <h1 class="display-1 m-auto" ng-if="!error">Loading...</h1>
-  <h1 class="display-1 m-auto" ng-if="error" translate="{{error}}"></h1>
+<div class="paper-empty">
+  <div class="paper-empty-inner">
+    <div class="paper-eyebrow" ng-if="!error">Working</div>
+    <div class="paper-eyebrow" ng-if="error">Error</div>
+    <h1 class="paper-empty-title" ng-if="!error">
+      Loading<span class="dot-anim">&hellip;</span>
+    </h1>
+    <h1 class="paper-empty-title" ng-if="error" translate="{{error}}"></h1>
+  </div>
 </div>

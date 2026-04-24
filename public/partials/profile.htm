@@ -1,313 +1,173 @@
-<div class="container py-4">
-  <h2>Quota</h2>
-  <h3>Quota</h3>
-  <h5>Repository</h5>
-  <div class="progress">
-    <div
-      class="progress-bar"
-      ng-class="{'progress-bar-striped progress-bar-animated w-100 bg-dark': !quota, 'bg-success': quota.repository.percent < 25 || quota.repository.total == 0, 'bg-danger': quota.repository.percent > 95 && quota.repository.total > 0, 'bg-warning': quota.repository.percent > 75 && quota.repository.total > 0 }"
-      role="progressbar"
-      style="width: {{quota.repository.percent}}%;"
-      aria-valuenow="{{quota.repository.used}}"
-      aria-valuemin="0"
-      aria-valuemax="{{quota.repository.total}}"
-    >
-      <span ng-show="quota"
-        >{{quota.repository.used | number}}/{{quota.repository.total}}</span
-      >
-    </div>
-  </div>
-  <h5>Storage</h5>
-  <div class="progress">
-    <div
-      class="progress-bar"
-      ng-class="{'progress-bar-striped progress-bar-animated w-100 bg-dark': !quota, 'bg-success': quota.storage.percent < 25 || quota.storage.total == 0, 'bg-danger': quota.storage.percent > 95 && quota.storage.total > 0, 'bg-warning': quota.storage.percent > 75 && quota.storage.total > 0 }"
-      role="progressbar"
-      style="width: {{quota.storage.percent}}%;"
-      aria-valuenow="{{quota.storage.used}}"
-      aria-valuemin="0"
-      aria-valuemax="{{quota.storage.total}}"
-    >
-      <span ng-show="quota"
-        >{{quota.storage.used | humanFileSize}}/{{quota.storage.total|
-        humanFileSize}}</span
-      >
-    </div>
-  </div>
-  <h5>File</h5>
-  <div class="progress">
-    <div
-      class="progress-bar"
-      ng-class="{'progress-bar-striped progress-bar-animated w-100 bg-dark': !quota, 'bg-success': quota.file.percent < 25 || quota.file.total == 0, 'bg-danger': quota.file.percent > 95 && quota.file.total > 0, 'bg-warning': quota.file.percent > 75 && quota.file.total > 0 }"
-      role="progressbar"
-      style="width: {{quota.file.percent}}%;"
-      aria-valuenow="{{quota.file.used}}"
-      aria-valuemin="0"
-      aria-valuemax="{{quota.file.total}}"
-    >
-      <span ng-show="quota"
-        >{{quota.file.used | number}}/{{quota.file.total || "∞"}}</span
-      >
-    </div>
-  </div>
+<div class="container paper-page paper-settings">
+  <div class="paper-crumbs">Reference &nbsp;/&nbsp; <span class="here">Settings</span></div>
+  <h1 class="paper-page-title">Your <em>settings</em></h1>
+  <p class="paper-page-lede">Review quotas and set defaults applied to every new anonymization.</p>
 
-  <h2>Default anonymization options</h2>
-  <form class="form needs-validation" name="default" novalidate>
-    <!-- Terms -->
-    <div class="form-group">
-      <label for="terms">Terms to anonymize</label>
-      <textarea
-        class="form-control"
-        id="terms"
-        name="terms"
-        rows="3"
-        ng-model="terms"
-        ng-model-options="{ debounce: 250 }"
-      ></textarea>
-      <small id="termsHelp" class="form-text text-muted"
-        >One term per line. Each term will be replaced by XXX</small
-      >
-      <div class="invalid-feedback" ng-show="anonymize.terms.$error.format">
-        Terms are in an invalid format
-      </div>
-    </div>
-    <div class="accordion mb-3" id="options">
-      <div class="card">
-        <div class="card-header" id="headingOne">
-          <h2 class="mb-0">
-            <button
-              class="btn btn-block text-left"
-              type="button"
-              data-toggle="collapse"
-              data-target="#collapseOne"
-              aria-expanded="true"
-              aria-controls="collapseOne"
-            >
-              Rendering options
-            </button>
-          </h2>
-        </div>
+  <div class="paper-settings-body">
+    <aside class="paper-settings-toc">
+      <div class="paper-settings-toc-head">Contents</div>
+      <nav>
+        <a href="#settings-quota">Quota</a>
+        <a href="#settings-terms">Terms</a>
+        <a href="#settings-rendering">Rendering</a>
+        <a href="#settings-features">Features</a>
+        <a href="#settings-expiration">Expiration</a>
+      </nav>
+    </aside>
 
-        <div
-          id="collapseOne"
-          class="collapse show"
-          aria-labelledby="headingOne"
-          data-parent="#options"
-        >
-          <div class="card-body">
-            <div class="form-group">
-              <div class="form-check">
-                <input
-                  class="form-check-input"
-                  type="checkbox"
-                  id="link"
-                  name="link"
-                  ng-model="options.link"
-                />
-                <label class="form-check-label" for="link">Keep links</label>
-                <small id="termsHelp" class="form-text text-muted"
-                  >Keep or remove all the links.</small
-                >
-              </div>
-              <div class="form-check">
-                <input
-                  class="form-check-input"
-                  type="checkbox"
-                  id="image"
-                  name="image"
-                  ng-model="options.image"
-                />
-                <label class="form-check-label" for="image"
-                  >Display images</label
-                >
-                <small id="termsHelp" class="form-text text-muted"
-                  >Images are not anonymized</small
-                >
-              </div>
-              <div class="form-check">
-                <input
-                  class="form-check-input"
-                  type="checkbox"
-                  id="pdf"
-                  name="pdf"
-                  ng-model="options.pdf"
-                />
-                <label class="form-check-label" for="pdf">Display PDFs</label>
-                <small id="termsHelp" class="form-text text-muted"
-                  >PDF are not anonymized</small
-                >
-              </div>
-              <div class="form-check">
-                <input
-                  class="form-check-input"
-                  type="checkbox"
-                  id="notebook"
-                  name="notebook"
-                  ng-model="options.notebook"
-                />
-                <label class="form-check-label" for="notebook"
-                  >Display Notebooks</label
-                >
-              </div>
+    <div class="paper-settings-main">
+      <section id="settings-quota" class="paper-settings-section">
+        <div class="paper-section-eyebrow">Quota</div>
+        <div class="quota-row">
+          <div class="quota-item">
+            <div class="quota-header">
+              <span class="quota-label">Repositories</span>
+              <span class="quota-value" ng-show="quota">{{quota.repository.used | number}}/{{quota.repository.total}}</span>
+            </div>
+            <div class="progress quota-progress">
+              <div
+                class="progress-bar"
+                ng-class="{'progress-bar-striped progress-bar-animated w-100 bg-dark': !quota, 'bg-success': quota.repository.percent < 25 || quota.repository.total == 0, 'bg-danger': quota.repository.percent > 95 && quota.repository.total > 0, 'bg-warning': quota.repository.percent > 75 && quota.repository.total > 0 }"
+                role="progressbar"
+                style="width: {{quota.repository.percent}}%;"
+                aria-valuenow="{{quota.repository.used}}"
+                aria-valuemin="0"
+                aria-valuemax="{{quota.repository.total}}"
+              ></div>
+            </div>
+          </div>
+          <div class="quota-item">
+            <div class="quota-header">
+              <span class="quota-label">Storage</span>
+              <span class="quota-value" ng-show="quota">{{quota.storage.used | humanFileSize}}/{{quota.storage.total | humanFileSize}}</span>
+            </div>
+            <div class="progress quota-progress">
+              <div
+                class="progress-bar"
+                ng-class="{'progress-bar-striped progress-bar-animated w-100 bg-dark': !quota, 'bg-success': quota.storage.percent < 25 || quota.storage.total == 0, 'bg-danger': quota.storage.percent > 95 && quota.storage.total > 0, 'bg-warning': quota.storage.percent > 75 && quota.storage.total > 0 }"
+                role="progressbar"
+                style="width: {{quota.storage.percent}}%;"
+                aria-valuenow="{{quota.storage.used}}"
+                aria-valuemin="0"
+                aria-valuemax="{{quota.storage.total}}"
+              ></div>
+            </div>
+          </div>
+          <div class="quota-item">
+            <div class="quota-header">
+              <span class="quota-label">Files</span>
+              <span class="quota-value" ng-show="quota">{{quota.file.used | number}}/{{quota.file.total || "&#8734;"}}</span>
+            </div>
+            <div class="progress quota-progress">
+              <div
+                class="progress-bar"
+                ng-class="{'progress-bar-striped progress-bar-animated w-100 bg-dark': !quota, 'bg-success': quota.file.percent < 25 || quota.file.total == 0, 'bg-danger': quota.file.percent > 95 && quota.file.total > 0, 'bg-warning': quota.file.percent > 75 && quota.file.total > 0 }"
+                role="progressbar"
+                style="width: {{quota.file.percent}}%;"
+                aria-valuenow="{{quota.file.used}}"
+                aria-valuemin="0"
+                aria-valuemax="{{quota.file.total}}"
+              ></div>
             </div>
           </div>
         </div>
-      </div>
-      <div class="card">
-        <div class="card-header" id="headingTwo">
-          <h2 class="mb-0">
-            <button
-              class="btn btn-block text-left collapsed"
-              type="button"
-              data-toggle="collapse"
-              data-target="#collapseTwo"
-              aria-expanded="false"
-              aria-controls="collapseTwo"
-            >
-              Features
-            </button>
-          </h2>
-        </div>
-        <div
-          id="collapseTwo"
-          class="collapse"
-          aria-labelledby="headingTwo"
-          data-parent="#options"
-        >
-          <div class="card-body">
-            <div class="form-group">
-              <div class="form-check">
-                <input
-                  class="form-check-input"
-                  type="checkbox"
-                  id="page"
-                  name="page"
-                  ng-model="options.page"
-                />
-                <label class="form-check-label" for="page">Github page</label>
-                <small id="termsHelp" class="form-text text-muted"
-                  >Enable anonymized Github pages. It currently only supported
-                  for Github pages that are defined in the same branch.</small
-                >
-              </div>
-              <div class="form-check">
-                <input
-                  class="form-check-input"
-                  type="checkbox"
-                  id="loc"
-                  name="loc"
-                  ng-model="options.loc"
-                />
-                <label class="form-check-label" for="page">Line of code</label>
-                <small id="termsHelp" class="form-text text-muted"
-                  >Display the number of line of code in the repository</small
-                >
-              </div>
-              <div class="form-group">
-                <div class="form-check">
-                  <input
-                    class="form-check-input"
-                    type="checkbox"
-                    id="update"
-                    name="update"
-                    ng-model="options.update"
-                  />
-                  <label class="form-check-label" for="update"
-                    >Auto update</label
-                  >
-                  <small id="termsHelp" class="form-text text-muted"
-                    >Automatically update the anonymized repository with the
-                    latest commit of the repository. The repository is updated
-                    once per hour maximum.</small
-                  >
-                </div>
-              </div>
-              <div class="form-group">
-                <label for="mode">Proxy mode</label>
-                <select
-                  class="form-control"
-                  id="mode"
-                  name="mode"
-                  ng-model="options.mode"
-                >
-                  <option value="GitHubStream" selected>Stream</option>
-                  <option value="GitHubDownload">Download</option>
-                </select>
-                <small class="form-text text-muted"
-                  >How the repository will be anonymized. Stream mode
-                  will request the content on the flight. This is the
-                  only option for repositories bigger than
-                  {{site_options.MAX_REPO_SIZE * 1024| humanFileSize}}.
-                  Download will download the repository the repository
-                  on the anonymous.4open.science server, it is faster
-                  and offer more features.</small
-                >
-              </div>
+      </section>
+
+      <form class="form needs-validation" name="default" novalidate>
+        <section id="settings-terms" class="paper-settings-section">
+          <div class="paper-section-eyebrow">Default anonymization options</div>
+          <div class="form-group">
+            <label class="paper-field-label" for="terms">Terms to anonymize</label>
+            <textarea
+              class="form-control"
+              id="terms"
+              name="terms"
+              rows="4"
+              ng-model="terms"
+              ng-model-options="{ debounce: 250 }"
+            ></textarea>
+            <small id="termsHelp" class="form-text text-muted">One term per line. Each term will be replaced by XXX.</small>
+            <div class="invalid-feedback" ng-show="anonymize.terms.$error.format">
+              Terms are in an invalid format
             </div>
           </div>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-header" id="headingThree">
-          <h2 class="mb-0">
-            <button
-              class="btn btn-block text-left collapsed"
-              type="button"
-              data-toggle="collapse"
-              data-target="#collapseThree"
-              aria-expanded="false"
-              aria-controls="collapseThree"
-            >
-              Expiration
-            </button>
-          </h2>
-        </div>
-        <div
-          id="collapseThree"
-          class="collapse"
-          aria-labelledby="headingThree"
-          data-parent="#options"
-        >
-          <div class="card-body">
-            <div class="form-group">
-              <label for="expiration">Expiration options</label>
-              <select
-                class="form-control"
-                id="expiration"
-                name="expiration"
-                ng-model="options.expirationMode"
-              >
-                <option value="never" selected>Never expire</option>
-                <option value="redirect">Redirect to GitHub</option>
-                <option value="remove">Remove anonymized repository</option>
-              </select>
-              <small class="form-text text-muted"
-                >Define the expiration strategy for the repository.</small
-              >
+        </section>
+
+        <section id="settings-rendering" class="paper-settings-section">
+          <div class="paper-section-eyebrow">Rendering</div>
+          <div class="form-group">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="link" name="link" ng-model="options.link" />
+              <label class="form-check-label" for="link">Keep links</label>
+              <small class="form-text text-muted">Keep or remove all the links.</small>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="image" name="image" ng-model="options.image" />
+              <label class="form-check-label" for="image">Display images</label>
+              <small class="form-text text-muted">Images are not anonymized.</small>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="pdf" name="pdf" ng-model="options.pdf" />
+              <label class="form-check-label" for="pdf">Display PDFs</label>
+              <small class="form-text text-muted">PDFs are not anonymized.</small>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="notebook" name="notebook" ng-model="options.notebook" />
+              <label class="form-check-label" for="notebook">Display Notebooks</label>
             </div>
           </div>
+        </section>
+
+        <section id="settings-features" class="paper-settings-section">
+          <div class="paper-section-eyebrow">Features</div>
+          <div class="form-group">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="page" name="page" ng-model="options.page" />
+              <label class="form-check-label" for="page">Github page</label>
+              <small class="form-text text-muted">Enable anonymized GitHub pages. Currently only supported for pages defined in the same branch.</small>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="loc" name="loc" ng-model="options.loc" />
+              <label class="form-check-label" for="loc">Line of code</label>
+              <small class="form-text text-muted">Display the number of lines of code in the repository.</small>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="update" name="update" ng-model="options.update" />
+              <label class="form-check-label" for="update">Auto update</label>
+              <small class="form-text text-muted">Automatically update the anonymized repository with the latest commit (once per hour maximum).</small>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="paper-field-label" for="mode">Proxy mode</label>
+            <select class="form-control" id="mode" name="mode" ng-model="options.mode">
+              <option value="GitHubStream" selected>Stream</option>
+              <option value="GitHubDownload">Download</option>
+            </select>
+            <small class="form-text text-muted">Stream mode requests content on the fly. This is the only option for repositories bigger than {{site_options.MAX_REPO_SIZE * 1024| humanFileSize}}. Download fetches to the server — faster and with more features.</small>
+          </div>
+        </section>
+
+        <section id="settings-expiration" class="paper-settings-section">
+          <div class="paper-section-eyebrow">Expiration</div>
+          <div class="form-group">
+            <label class="paper-field-label" for="expiration">Expiration strategy</label>
+            <select class="form-control" id="expiration" name="expiration" ng-model="options.expirationMode">
+              <option value="never" selected>Never expire</option>
+              <option value="redirect">Redirect to GitHub</option>
+              <option value="remove">Remove anonymized repository</option>
+            </select>
+            <small class="form-text text-muted">Define the expiration strategy for new repositories.</small>
+          </div>
+        </section>
+
+        <div class="paper-settings-footer">
+          <div class="alert alert-danger" role="alert" ng-if="error" ng-bind="error"></div>
+          <div class="alert alert-success" role="alert" ng-if="message" ng-bind="message"></div>
+          <button id="save" type="submit" class="btn btn-ink" ng-click="saveDefault($event)">
+            Save defaults
+          </button>
         </div>
-      </div>
+      </form>
     </div>
-    <div
-      class="alert alert-danger"
-      role="alert"
-      ng-if="error"
-      ng-bind="error"
-    ></div>
-    <div
-      class="alert alert-success"
-      role="alert"
-      ng-if="message"
-      ng-bind="message"
-    ></div>
-    <button
-      id="save"
-      type="submit"
-      class="btn btn-primary"
-      ng-click="saveDefault($event)"
-    >
-      Save
-    </button>
-  </form>
+  </div>
 </div>

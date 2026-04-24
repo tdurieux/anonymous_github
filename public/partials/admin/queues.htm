@@ -1,195 +1,126 @@
-<div class="container page">
-  <!-- Admin Navigation -->
+<div class="container paper-page">
+  <div class="paper-crumbs">Admin &nbsp;/&nbsp; <span class="here">Queues</span></div>
+  <h1 class="paper-page-title">Background <em>queues</em></h1>
+  <p class="paper-page-lede">Watch anonymization jobs as they move through the workers.</p>
+
   <nav class="admin-nav">
-    <a href="/admin/">
-      <i class="fas fa-code-branch"></i> Repositories
-    </a>
-    <a href="/admin/users">
-      <i class="fas fa-users"></i> Users
-    </a>
-    <a href="/admin/conferences">
-      <i class="fas fa-chalkboard-teacher"></i> Conferences
-    </a>
-    <a href="/admin/queues" class="active">
-      <i class="fas fa-tasks"></i> Queues
-    </a>
+    <a href="/admin/"><i class="fas fa-code-branch"></i> Repositories</a>
+    <a href="/admin/users"><i class="fas fa-users"></i> Users</a>
+    <a href="/admin/conferences"><i class="fas fa-chalkboard-teacher"></i> Conferences</a>
+    <a href="/admin/queues" class="active"><i class="fas fa-tasks"></i> Queues</a>
   </nav>
 
-  <!-- Summary Stats -->
   <div class="admin-stats">
     <div class="admin-stat-card">
       <div class="stat-value">{{downloadJobs.length || 0}}</div>
-      <div class="stat-label">Download Jobs</div>
+      <div class="stat-label">Download jobs</div>
     </div>
     <div class="admin-stat-card">
       <div class="stat-value">{{removeJobs.length || 0}}</div>
-      <div class="stat-label">Remove Jobs</div>
+      <div class="stat-label">Remove jobs</div>
     </div>
     <div class="admin-stat-card">
       <div class="stat-value">{{removeCaches.length || 0}}</div>
-      <div class="stat-label">Cache Jobs</div>
+      <div class="stat-label">Cache jobs</div>
     </div>
   </div>
 
-  <!-- Download Jobs -->
   <div class="admin-section-header">
-    <h2><i class="fas fa-download mr-1"></i> Download Jobs</h2>
+    <h2><i class="fas fa-download"></i> Download jobs</h2>
     <span class="section-count">{{downloadJobs.length || 0}}</span>
   </div>
 
-  <div
-    class="queue-job-card"
-    ng-repeat="job in downloadJobs as filteredDownloadJobs"
-  >
+  <div class="queue-job-card" ng-repeat="job in downloadJobs as filteredDownloadJobs">
     <div class="job-header">
       <div class="job-id">
+        <span class="status-dot" ng-class="{'status-ready': job.progress.status == 'ready', 'status-error': job.progress.status == 'error', 'status-preparing': job.progress.status == 'preparing', 'status-removed': job.progress.status == 'removed'}"></span>
         <a target="_blank" ng-href="/r/{{job.id}}" ng-bind="job.id"></a>
-        <span
-          class="status-badge"
-          ng-class="'status-' + job.progress.status"
-        >{{job.progress.status | title}}</span>
+        <span ng-bind="job.progress.status | title" style="font-family: var(--font-sans); color: var(--ink-muted); font-size: 12px;"></span>
       </div>
     </div>
     <div class="job-timestamps">
-      <span ng-if="job.timestamp">
-        <i class="fas fa-clock"></i> Created: {{job.timestamp | humanTime}}
-      </span>
-      <span ng-if="job.processedOn">
-        <i class="fas fa-cog"></i> Processed: {{job.processedOn | humanTime}}
-      </span>
-      <span ng-if="job.finishedOn">
-        <i class="fas fa-check"></i> Finished: {{job.finishedOn | humanTime}}
-      </span>
+      <span ng-if="job.timestamp"><i class="fas fa-clock"></i> Created: {{job.timestamp | humanTime}}</span>
+      <span ng-if="job.processedOn"><i class="fas fa-cog"></i> Processed: {{job.processedOn | humanTime}}</span>
+      <span ng-if="job.finishedOn"><i class="fas fa-check"></i> Finished: {{job.finishedOn | humanTime}}</span>
     </div>
     <div ng-if="job.stacktrace.length">
-      <pre
-        ng-repeat="stack in job.stacktrace track by $index"
-        style="font-size: 0.8rem; max-height: 100px; overflow: auto; margin: 6px 0 0 0"
-      ><code ng-bind="stack"></code></pre>
+      <pre ng-repeat="stack in job.stacktrace track by $index" style="font-size: 0.8rem; max-height: 100px; overflow: auto; margin: 6px 0 0 0"><code ng-bind="stack"></code></pre>
     </div>
     <div class="job-actions">
-      <button class="btn btn-sm" ng-click="retryJob('download', job)">
-        <i class="fas fa-sync"></i> Retry
-      </button>
-      <button class="btn btn-sm" ng-click="removeJob('download', job)">
-        <i class="fas fa-trash-alt"></i> Remove
-      </button>
-      <a class="btn btn-sm" href="/anonymize/{{job.id}}">
-        <i class="far fa-edit"></i> Edit
-      </a>
+      <button class="btn btn-sm" ng-click="retryJob('download', job)"><i class="fas fa-sync"></i> Retry</button>
+      <button class="btn btn-sm" ng-click="removeJob('download', job)"><i class="fas fa-trash-alt"></i> Remove</button>
+      <a class="btn btn-sm" href="/anonymize/{{job.id}}"><i class="far fa-edit"></i> Edit</a>
     </div>
   </div>
 
-  <div class="empty-state" ng-if="filteredDownloadJobs.length == 0" style="padding: 20px">
+  <div class="paper-table-empty" ng-if="filteredDownloadJobs.length == 0" style="border:1px solid var(--border-color);border-radius:10px;background:var(--paper-card);">
     <i class="fas fa-check-circle"></i>
-    No download jobs in the queue.
+    <span>No download jobs in the queue.</span>
   </div>
 
-  <!-- Remove Jobs -->
   <div class="admin-section-header">
-    <h2><i class="fas fa-trash mr-1"></i> Remove Jobs</h2>
+    <h2><i class="fas fa-trash"></i> Remove jobs</h2>
     <span class="section-count">{{removeJobs.length || 0}}</span>
   </div>
 
-  <div
-    class="queue-job-card"
-    ng-repeat="job in removeJobs as filteredRemoveJobs"
-  >
+  <div class="queue-job-card" ng-repeat="job in removeJobs as filteredRemoveJobs">
     <div class="job-header">
       <div class="job-id">
+        <span class="status-dot" ng-class="{'status-ready': job.progress.status == 'ready', 'status-error': job.progress.status == 'error', 'status-preparing': job.progress.status == 'preparing', 'status-removed': job.progress.status == 'removed'}"></span>
         <a target="_blank" ng-href="/r/{{job.id}}" ng-bind="job.id"></a>
-        <span
-          class="status-badge"
-          ng-class="'status-' + job.progress.status"
-        >{{job.progress.status | title}}</span>
+        <span ng-bind="job.progress.status | title" style="font-family: var(--font-sans); color: var(--ink-muted); font-size: 12px;"></span>
       </div>
     </div>
     <div class="job-timestamps">
-      <span ng-if="job.timestamp">
-        <i class="fas fa-clock"></i> Created: {{job.timestamp | humanTime}}
-      </span>
-      <span ng-if="job.processedOn">
-        <i class="fas fa-cog"></i> Processed: {{job.processedOn | humanTime}}
-      </span>
-      <span ng-if="job.finishedOn">
-        <i class="fas fa-check"></i> Finished: {{job.finishedOn | humanTime}}
-      </span>
+      <span ng-if="job.timestamp"><i class="fas fa-clock"></i> Created: {{job.timestamp | humanTime}}</span>
+      <span ng-if="job.processedOn"><i class="fas fa-cog"></i> Processed: {{job.processedOn | humanTime}}</span>
+      <span ng-if="job.finishedOn"><i class="fas fa-check"></i> Finished: {{job.finishedOn | humanTime}}</span>
     </div>
     <div ng-if="job.stacktrace.length">
-      <pre
-        ng-repeat="stack in job.stacktrace track by $index"
-        style="font-size: 0.8rem; max-height: 100px; overflow: auto; margin: 6px 0 0 0"
-      ><code ng-bind="stack"></code></pre>
+      <pre ng-repeat="stack in job.stacktrace track by $index" style="font-size: 0.8rem; max-height: 100px; overflow: auto; margin: 6px 0 0 0"><code ng-bind="stack"></code></pre>
     </div>
     <div class="job-actions">
-      <button class="btn btn-sm" ng-click="retryJob('remove', job)">
-        <i class="fas fa-sync"></i> Retry
-      </button>
-      <button class="btn btn-sm" ng-click="removeJob('remove', job)">
-        <i class="fas fa-trash-alt"></i> Remove
-      </button>
-      <a class="btn btn-sm" href="/anonymize/{{job.id}}">
-        <i class="far fa-edit"></i> Edit
-      </a>
+      <button class="btn btn-sm" ng-click="retryJob('remove', job)"><i class="fas fa-sync"></i> Retry</button>
+      <button class="btn btn-sm" ng-click="removeJob('remove', job)"><i class="fas fa-trash-alt"></i> Remove</button>
+      <a class="btn btn-sm" href="/anonymize/{{job.id}}"><i class="far fa-edit"></i> Edit</a>
     </div>
   </div>
 
-  <div class="empty-state" ng-if="filteredRemoveJobs.length == 0" style="padding: 20px">
+  <div class="paper-table-empty" ng-if="filteredRemoveJobs.length == 0" style="border:1px solid var(--border-color);border-radius:10px;background:var(--paper-card);">
     <i class="fas fa-check-circle"></i>
-    No remove jobs in the queue.
+    <span>No remove jobs in the queue.</span>
   </div>
 
-  <!-- Cache Jobs -->
   <div class="admin-section-header">
-    <h2><i class="fas fa-broom mr-1"></i> Cache Cleanup Jobs</h2>
+    <h2><i class="fas fa-broom"></i> Cache cleanup jobs</h2>
     <span class="section-count">{{removeCaches.length || 0}}</span>
   </div>
 
-  <div
-    class="queue-job-card"
-    ng-repeat="job in removeCaches as filteredRemoveCache"
-  >
+  <div class="queue-job-card" ng-repeat="job in removeCaches as filteredRemoveCache">
     <div class="job-header">
       <div class="job-id">
+        <span class="status-dot" ng-class="{'status-ready': job.progress.status == 'ready', 'status-error': job.progress.status == 'error', 'status-preparing': job.progress.status == 'preparing', 'status-removed': job.progress.status == 'removed'}"></span>
         <a target="_blank" ng-href="/r/{{job.id}}" ng-bind="job.id"></a>
-        <span
-          class="status-badge"
-          ng-class="'status-' + job.progress.status"
-        >{{job.progress.status | title}}</span>
+        <span ng-bind="job.progress.status | title" style="font-family: var(--font-sans); color: var(--ink-muted); font-size: 12px;"></span>
       </div>
     </div>
     <div class="job-timestamps">
-      <span ng-if="job.timestamp">
-        <i class="fas fa-clock"></i> Created: {{job.timestamp | humanTime}}
-      </span>
-      <span ng-if="job.processedOn">
-        <i class="fas fa-cog"></i> Processed: {{job.processedOn | humanTime}}
-      </span>
-      <span ng-if="job.finishedOn">
-        <i class="fas fa-check"></i> Finished: {{job.finishedOn | humanTime}}
-      </span>
+      <span ng-if="job.timestamp"><i class="fas fa-clock"></i> Created: {{job.timestamp | humanTime}}</span>
+      <span ng-if="job.processedOn"><i class="fas fa-cog"></i> Processed: {{job.processedOn | humanTime}}</span>
+      <span ng-if="job.finishedOn"><i class="fas fa-check"></i> Finished: {{job.finishedOn | humanTime}}</span>
     </div>
     <div ng-if="job.stacktrace.length">
-      <pre
-        ng-repeat="stack in job.stacktrace track by $index"
-        style="font-size: 0.8rem; max-height: 100px; overflow: auto; margin: 6px 0 0 0"
-      ><code ng-bind="stack"></code></pre>
+      <pre ng-repeat="stack in job.stacktrace track by $index" style="font-size: 0.8rem; max-height: 100px; overflow: auto; margin: 6px 0 0 0"><code ng-bind="stack"></code></pre>
     </div>
     <div class="job-actions">
-      <button class="btn btn-sm" ng-click="retryJob('cache', job)">
-        <i class="fas fa-sync"></i> Retry
-      </button>
-      <button class="btn btn-sm" ng-click="removeJob('cache', job)">
-        <i class="fas fa-trash-alt"></i> Remove
-      </button>
-      <a class="btn btn-sm" href="/anonymize/{{job.id}}">
-        <i class="far fa-edit"></i> Edit
-      </a>
+      <button class="btn btn-sm" ng-click="retryJob('cache', job)"><i class="fas fa-sync"></i> Retry</button>
+      <button class="btn btn-sm" ng-click="removeJob('cache', job)"><i class="fas fa-trash-alt"></i> Remove</button>
+      <a class="btn btn-sm" href="/anonymize/{{job.id}}"><i class="far fa-edit"></i> Edit</a>
     </div>
   </div>
 
-  <div class="empty-state" ng-if="filteredRemoveCache.length == 0" style="padding: 20px">
+  <div class="paper-table-empty" ng-if="filteredRemoveCache.length == 0" style="border:1px solid var(--border-color);border-radius:10px;background:var(--paper-card);">
     <i class="fas fa-check-circle"></i>
-    No cache cleanup jobs in the queue.
+    <span>No cache cleanup jobs in the queue.</span>
   </div>
 </div>

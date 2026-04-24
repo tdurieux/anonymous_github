@@ -1,11 +1,14 @@
-<div class="container page dashboard-page">
+<div class="container page dashboard-page paper-page">
   <div class="row">
-    <div class="w-100 py-3">
-      <!-- Header row: title + action button -->
-      <div class="d-flex align-items-center justify-content-between mb-3">
-        <h2 class="dashboard-title mb-0">Dashboard</h2>
-        <a href="/anonymize" class="btn btn-primary btn-sm">
-          <i class="fa fa-plus-circle" aria-hidden="true"></i> Anonymize
+    <div class="w-100">
+      <div class="paper-crumbs">My work &nbsp;/&nbsp; <span class="here">Dashboard</span></div>
+      <div class="d-flex align-items-end justify-content-between flex-wrap" style="gap: 12px;">
+        <div>
+          <h1 class="paper-page-title">Your <em>anonymizations</em></h1>
+          <p class="paper-page-lede">Every repository and pull request you&rsquo;ve mirrored, with live status and stats.</p>
+        </div>
+        <a href="/anonymize" class="btn btn-ink">
+          <i class="fa fa-plus-circle mr-1" aria-hidden="true"></i> New anonymization
         </a>
       </div>
 
@@ -65,20 +68,19 @@
       </div>
 
       <!-- Search + filters row -->
-      <form class="w-100" aria-label="Dashboard" accept-charset="UTF-8">
-        <div class="d-flex flex-column flex-md-row align-items-md-center" style="gap: 8px">
-          <div class="flex-grow-1">
-            <input
-              type="search"
-              id="search"
-              class="form-control"
-              aria-label="Search..."
-              placeholder="Search..."
-              autocomplete="off"
-              ng-model="search"
-            />
-          </div>
-          <div class="d-flex flex-wrap" style="gap: 6px">
+      <form class="w-100 dashboard-filter-row" aria-label="Dashboard" accept-charset="UTF-8">
+        <div class="search-wrap">
+          <input
+            type="search"
+            id="search"
+            class="form-control"
+            aria-label="Search..."
+            placeholder="Search anonymizations…"
+            autocomplete="off"
+            ng-model="search"
+          />
+        </div>
+        <div class="d-flex flex-wrap" style="gap: 8px">
             <!-- Type filter -->
             <div class="btn-group btn-group-sm" role="group">
               <button type="button" class="btn" ng-class="{'btn-primary': typeFilter === 'all'}" ng-click="typeFilter = 'all'">All</button>
@@ -150,7 +152,6 @@
               </div>
             </div>
           </div>
-        </div>
       </form>
 
       <!-- Active filter chips -->
@@ -164,90 +165,59 @@
       </div>
     </div>
 
-    <!-- Unified item list -->
-    <ul class="repo-list w-100">
-      <li
-        class="repo-list-item"
+    <!-- Table -->
+    <div class="paper-table w-100" role="table" aria-label="Anonymizations">
+      <div class="paper-table-head" role="row">
+        <div role="columnheader">Anonymization</div>
+        <div role="columnheader">Conference</div>
+        <div role="columnheader">Status</div>
+        <div role="columnheader" class="num">Views</div>
+        <div role="columnheader">Expires</div>
+        <div role="columnheader" aria-label="Actions"></div>
+      </div>
+      <div
+        class="paper-table-row"
+        role="row"
         ng-class="{'repo-inactive': item.status == 'expired' || item.status == 'removed' || item.status == 'error'}"
         ng-repeat="item in items | filter:itemFilter | orderBy:orderBy as filteredItems"
       >
-        <div class="repo-list-item-content">
-          <div class="repo-list-item-main">
-            <div class="repo-list-item-header">
-              <span class="type-badge" ng-class="{'type-repo': item._type === 'repo', 'type-pr': item._type === 'pr'}">
-                <i ng-class="{'fas fa-code-branch': item._type === 'repo', 'fas fa-code-merge': item._type === 'pr'}"></i>
-                {{item._type === 'repo' ? 'Repo' : 'PR'}}
-              </span>
-              <a ng-href="{{item._viewUrl}}" class="repo-name" ng-bind="item._name"></a>
-              <span
-                class="status-badge"
-                ng-class="{'status-removed': item.status == 'removed' || item.status == 'expired' || item.status == 'removing' || item.status == 'expiring', 'status-preparing': item.status == 'preparing' || item.status == 'download', 'status-ready': item.status == 'ready', 'status-error': item.status == 'error'}"
-              ><span ng-bind="item.status | title"></span><span
-                  ng-if="item.status == 'error' && item.statusMessage"
-                  ng-bind="': ' + item.statusMessage"
-                ></span></span>
+        <div class="cell-anon" role="cell">
+          <span class="type-badge" ng-class="{'type-repo': item._type === 'repo', 'type-pr': item._type === 'pr'}">{{item._type === 'repo' ? 'Repo' : 'PR'}}</span>
+          <div class="anon-text">
+            <a ng-href="{{item._viewUrl}}" class="repo-name" ng-bind="item._name"></a>
+            <div class="anon-sub">
+              <a ng-if="item._type === 'repo'" href="https://github.com/{{item.source.fullName}}/" ng-bind="item.source.fullName"></a><span ng-if="item._type === 'repo' && item.options.update">&nbsp;&middot;&nbsp;<a href="https://github.com/{{item.source.fullName}}/tree/{{item.source.branch}}" ng-bind="item.source.branch"></a></span><span ng-if="item._type === 'repo' && !item.options.update">&nbsp;&middot;&nbsp;@<a href="https://github.com/{{item.source.fullName}}/tree/{{item.source.commit}}" ng-bind="item.source.commit.substring(0, 8)"></a></span>
+              <a ng-if="item._type === 'pr'" href="https://github.com/{{item.source.repositoryFullName}}/pull/{{item.source.pullRequestId}}" ng-bind="item._source"></a>
             </div>
-            <div class="repo-source">
-              <span>
-                <i class="fab fa-github" aria-hidden="true"></i>
-                <a
-                  ng-if="item._type === 'repo'"
-                  href="https://github.com/{{item.source.fullName}}/"
-                  ng-bind="item.source.fullName"
-                ></a>
-                <a
-                  ng-if="item._type === 'pr'"
-                  href="https://github.com/{{item.source.repositoryFullName}}/pull/{{item.source.pullRequestId}}"
-                  ng-bind="item._source"
-                ></a>
-              </span>
-              <span ng-if="item._type === 'repo' && item.options.update">
-                <i class="fas fa-code-branch" aria-hidden="true"></i>
-                <a
-                  href="https://github.com/{{item.source.fullName}}/tree/{{item.source.branch}}"
-                  ng-bind="item.source.branch"
-                ></a>
-              </span>
-              <span ng-if="item._type === 'repo' && !item.options.update">
-                @<a
-                  href="https://github.com/{{item.source.fullName}}/tree/{{item.source.commit}}"
-                  ng-bind="item.source.commit.substring(0, 8)"
-                ></a>
-              </span>
-              <span class="repo-date">anonymized {{item.anonymizeDate | humanTime}}</span>
-            </div>
-          </div>
-          <div class="repo-meta">
-            <span ng-if="item.conference" title="Conference">
-              <i class="fas fa-chalkboard-teacher"></i> {{item.conference}}
-            </span>
-            <span title="Terms" data-toggle="tooltip" data-placement="bottom">
-              <i class="fas fa-shield-alt"></i> {{item.options.terms.length | number}}
-            </span>
-            <span ng-if="item._type === 'repo' && item.size" title="Size" data-toggle="tooltip" data-placement="bottom">
-              <i class="fas fa-database"></i> {{item.size.storage | humanFileSize}}
-            </span>
-            <span title="Views" data-toggle="tooltip" data-placement="bottom">
-              <i class="far fa-eye"></i> {{item.pageView | number}}
-            </span>
-            <span title="Last view" data-toggle="tooltip" data-placement="bottom">
-              <i class="far fa-calendar-alt"></i> {{item.lastView | humanTime}}
-            </span>
-            <span ng-if="item.options.expirationMode !== 'never' && item.status == 'ready'">
-              <i class="far fa-clock"></i> Expire: {{item.options.expirationDate | humanTime}}
-            </span>
           </div>
         </div>
-        <div class="repo-list-item-actions">
+        <div class="cell-conf" role="cell">
+          <span ng-if="item.conference" ng-bind="item.conference"></span>
+          <span class="empty-dash" ng-if="!item.conference">&mdash;</span>
+        </div>
+        <div class="cell-status" role="cell">
+          <span
+            class="status-dot"
+            ng-class="{'status-removed': item.status == 'removed' || item.status == 'expired' || item.status == 'removing' || item.status == 'expiring', 'status-preparing': item.status == 'preparing' || item.status == 'download', 'status-ready': item.status == 'ready', 'status-error': item.status == 'error'}"
+          ></span>
+          <span ng-bind="item.status | title"></span>
+        </div>
+        <div class="cell-views num" role="cell" ng-bind="item.pageView | number"></div>
+        <div class="cell-expires" role="cell">
+          <span ng-if="item.options.expirationMode !== 'never' && item.status == 'ready'" ng-bind="item.options.expirationDate | humanTime"></span>
+          <span class="empty-dash" ng-if="!(item.options.expirationMode !== 'never' && item.status == 'ready')">&mdash;</span>
+        </div>
+        <div class="cell-actions" role="cell">
           <div class="dropdown">
             <button
-              class="btn btn-sm dropdown-toggle"
+              class="btn btn-icon-dots"
               type="button"
               data-toggle="dropdown"
               aria-haspopup="true"
               aria-expanded="false"
+              aria-label="Actions"
             >
-              Actions
+              <i class="fas fa-ellipsis-h" aria-hidden="true"></i>
             </button>
             <div class="dropdown-menu dropdown-menu-right">
               <a class="dropdown-item" ng-href="{{item._editUrl}}">
@@ -271,11 +241,11 @@
             </div>
           </div>
         </div>
-      </li>
-      <li class="repo-list-empty" ng-if="filteredItems.length == 0">
+      </div>
+      <div class="paper-table-empty" ng-if="filteredItems.length == 0">
         <i class="fas fa-inbox"></i>
         <span>Nothing to display.</span>
-      </li>
-    </ul>
+      </div>
+    </div>
   </div>
 </div>

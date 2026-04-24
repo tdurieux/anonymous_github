@@ -1,8 +1,8 @@
 <nav
-  class="navbar navbar-expand-lg navbar-dark bg-dark"
-  ng-class="{'shadow': !generalMessage}"
+  class="navbar navbar-expand-lg"
+  ng-class="{'navbar-dark': isDarkMode}"
 >
-  <a class="navbar-brand" href="/"> Anonymous GitHub </a>
+  <a class="navbar-brand" href="/">Anonymous <em>GitHub</em></a>
   <button
     class="navbar-toggler"
     type="button"
@@ -29,7 +29,7 @@
           href="/dashboard"
         >
           <i class="fas fa-th-large d-lg-none mr-1"></i>
-          Dashboard
+          My work
         </a>
       </li>
       <li class="nav-item" ng-if="user">
@@ -52,6 +52,11 @@
           Conferences
         </a>
       </li>
+      <li class="nav-item">
+        <a class="nav-link" ng-class="{'active':path == '/faq'}" href="/faq"
+          >FAQ</a
+        >
+      </li>
       <li class="nav-item" ng-if="user && user.isAdmin">
         <a
           class="nav-link"
@@ -69,14 +74,10 @@
           class="nav-link nav-icon"
           target="_blank"
           href="https://github.com/tdurieux/anonymous_github/"
+          title="GitHub repository"
           data-offset="30"
           ><i class="fab fa-github" aria-hidden="true"></i
         ></a>
-      </li>
-      <li class="nav-item">
-        <a class="nav-link" ng-class="{'active':path == '/faq'}" href="/faq"
-          >FAQ</a
-        >
       </li>
       <li class="nav-item d-none d-lg-block">
         <a
@@ -89,28 +90,26 @@
       </li>
 
       <li class="nav-item" ng-if="!isDarkMode">
-        <a class="nav-link" href="#" ng-click="darkMode(true);">
-          <i class="fas fa-moon d-lg-none mr-1"></i>
-          Dark Mode
+        <a class="nav-link nav-icon" href="#" ng-click="darkMode(true);" title="Dark mode">
+          <i class="fas fa-moon"></i>
         </a>
       </li>
 
       <li class="nav-item" ng-if="isDarkMode">
-        <a class="nav-link" href="#" ng-click="darkMode(false);">
-          <i class="fas fa-sun d-lg-none mr-1"></i>
-          Light Mode
+        <a class="nav-link nav-icon" href="#" ng-click="darkMode(false);" title="Light mode">
+          <i class="fas fa-sun"></i>
         </a>
       </li>
 
       <li class="nav-item" ng-if="!user">
-        <a class="nav-link" target="_self" href="/github/login" data-offset="30"
-          ><i class="fab fa-github d-lg-none mr-1"></i>
-          Login
+        <a class="nav-link btn-signin" target="_self" href="/github/login" data-offset="30"
+          ><i class="fab fa-github mr-1"></i>
+          Sign in
         </a>
       </li>
-      <li class="nav-item dropdown" ng-if="user">
+      <li class="nav-item dropdown user-chip-wrap" ng-if="user">
         <a
-          class="nav-link dropdown-toggle"
+          class="nav-link user-chip dropdown-toggle"
           href="#"
           id="navbarDropdownMenuLink"
           role="button"
@@ -121,11 +120,11 @@
           <img
             ng-src="{{user.photo}}"
             ng-if="user.photo"
-            width="30"
-            height="30"
+            width="22"
+            height="22"
             class="rounded-circle"
           />
-          {{user.username}}
+          <span class="user-chip-name">{{user.username}}</span>
         </a>
         <div class="dropdown-menu dropdown-menu-right" aria-labelledby="navbarDropdownMenuLink">
           <a class="dropdown-item" href="/profile">Default settings</a>

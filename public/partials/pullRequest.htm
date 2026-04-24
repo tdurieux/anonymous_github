@@ -6,25 +6,20 @@
           Anonymization Date: {{details.anonymizeDate|date}}
         </div>
       </div>
-      <div class="overflow-auto mx-3">
-        <div class="d-flex w-100 justify-content-between align-items-center">
-          <h2 class="pr-title">
+      <div class="overflow-auto paper-page" style="padding-top: 18px;">
+        <div class="paper-crumbs">Reviewer &nbsp;/&nbsp; <span class="here">Pull request</span></div>
+        <div class="d-flex w-100 justify-content-between align-items-end flex-wrap" style="gap: 12px;">
+          <h1 class="paper-page-title pr-title" style="margin: 6px 0;">
             <span ng-if="details.title">{{details.title}}</span>
-            <span
-              class="badge"
-              ng-class="{'badge-success':details.merged, 'badge-warning':details.state=='open', 'badge-danger':details.state=='closed' &&!details.merged}"
-            >
+            <span class="paper-pill" ng-class="{'good':details.merged, 'warn':details.state=='open', 'bad':details.state=='closed' && !details.merged}">
               {{details.merged?"merged":details.state | title}}
             </span>
-          </h2>
-          <small
-            ng-if="details.updatedDate"
-            ng-bind="details.updatedDate | date"
-          ></small>
+          </h1>
+          <small class="paper-pill" ng-if="details.updatedDate" ng-bind="details.updatedDate | date"></small>
         </div>
-        <small ng-if="details.baseRepositoryFullName"
-          >Pull Request on {{details.baseRepositoryFullName}}</small
-        >
+        <div class="paper-meta-rule" ng-if="details.baseRepositoryFullName">
+          <span>on <b>{{details.baseRepositoryFullName}}</b></span>
+        </div>
         <div
           class="pr-body shadow-sm p-3 mb-4 rounded border"
           ng-if="details.body"

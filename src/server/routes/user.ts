@@ -4,6 +4,8 @@ import { ensureAuthenticated } from "./connection";
 import { handleError, getUser, isOwnerOrAdmin } from "./route-utils";
 import UserModel from "../../core/model/users/users.model";
 import User from "../../core/User";
+import FileModel from "../../core/model/files/files.model";
+import { isConnected } from "../database";
 
 const router = express.Router();
 
@@ -40,22 +42,63 @@ router.get("/quota", async (req: express.Request, res: express.Response) => {
   try {
     const user = await getUser(req);
     const repositories = await user.getRepositories();
-    const sizes = await Promise.all(
-      repositories
-        .filter((r) => r.status == "ready")
-        .map((r) => r.computeSize())
-    );
+    const ready = repositories.filter((r) => r.status == "ready");
+
+    let totalStorage = 0;
+    let totalFiles = 0;
+    const uncachedIds: string[] = [];
+    for (const r of ready) {
+      const cached = r.model.size;
+      if (cached && cached.file) {
+        totalStorage += cached.storage;
+        totalFiles += cached.file;
+      } else {
+        uncachedIds.push(r.repoId);
+      }
+    }
+
+    if (uncachedIds.length) {
+      const agg = await FileModel.aggregate([
+        { $match: { repoId: { $in: uncachedIds } } },
+        {
+          $group: {
+            _id: "$repoId",
+            storage: { $sum: "$size" },
+            file: { $sum: 1 },
+          },
+        },
+      ]);
+      const byId = new Map<string, { storage: number; file: number }>();
+      for (const row of agg) {
+        byId.set(row._id, { storage: row.storage || 0, file: row.file || 0 });
+      }
+      for (const r of ready) {
+        if (!uncachedIds.includes(r.repoId)) continue;
+        const size = byId.get(r.repoId) || { storage: 0, file: 0 };
+        totalStorage += size.storage;
+        totalFiles += size.file;
+        r.model.size = size;
+      }
+      if (isConnected) {
+        await Promise.all(
+          ready
+            .filter((r) => uncachedIds.includes(r.repoId))
+            .map((r) => r.model.save())
+        );
+      }
+    }
+
     res.json({
       storage: {
-        used: sizes.reduce((sum, i) => sum + i.storage, 0),
+        used: totalStorage,
         total: config.DEFAULT_QUOTA,
       },
       file: {
-        used: sizes.reduce((sum, i) => sum + i.file, 0),
+        used: totalFiles,
         total: 0,
       },
       repository: {
-        used: repositories.filter((f) => f.status == "ready").length,
+        used: ready.length,
         total: 20,
       },
     });

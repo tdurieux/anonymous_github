@@ -13,14 +13,15 @@
           name="anonymizeForm"
           novalidate
         >
-          <h5 class="card-title mb-2">Anonymize a pull request</h5>
-          <p class="text-muted mb-3" style="font-size: 0.9rem">
-            Fill the information to anonymize! It will only take 5min.
+          <div class="paper-crumbs">Anonymize &nbsp;/&nbsp; <span class="here">Pull request</span></div>
+          <h1 class="paper-page-title">Anonymize a <em>pull request</em></h1>
+          <p class="paper-page-lede">
+            Fill in the details &mdash; it only takes a minute.
           </p>
 
-          <h5 class="anonymize-section-title">
+          <div class="paper-section-eyebrow anonymize-section-title">
             <i class="fab fa-github"></i> Source
-          </h5>
+          </div>
           <!-- pullRequestUrl -->
           <div class="form-group">
             <label for="pullRequestUrl"
@@ -76,9 +77,9 @@
               </div>
             </div>
 
-            <h5 class="anonymize-section-title">
+            <div class="paper-section-eyebrow anonymize-section-title">
               <i class="fas fa-chalkboard-teacher"></i> Conference ID
-            </h5>
+            </div>
             <!-- Conference -->
             <div class="form-group">
               <label for="conference"
@@ -111,9 +112,9 @@
               </small>
             </div>
 
-            <h5 class="anonymize-section-title">
+            <div class="paper-section-eyebrow anonymize-section-title">
               <i class="fas fa-shield-alt"></i> Anonymization Options
-            </h5>
+            </div>
             <!-- Pull Request ID -->
             <div class="form-group">
               <label for="pullRequestId">Anonymized pull request id</label>
@@ -375,7 +376,7 @@
             <button
               id="submit"
               type="submit"
-              class="btn btn-primary btn-block"
+              class="btn btn-ink btn-block"
               ng-click="anonymizePullRequest($event)"
               ng-if="!isUpdate"
             >
@@ -384,7 +385,7 @@
             <button
               id="submit"
               type="submit"
-              class="btn btn-primary btn-block"
+              class="btn btn-ink btn-block"
               ng-click="updatePullRequest($event)"
               ng-if="isUpdate"
             >

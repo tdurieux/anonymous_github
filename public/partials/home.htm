@@ -1,142 +1,258 @@
-<div class="container-fluid">
-  <div
-    id="home"
-    class="row view rgba-gradient d-flex align-self-stretch justify-content-center align-items-center"
-  >
-    <div class="container px-md-3 px-sm-0">
-      <div class="row fadeIn main-options">
-        <div class="col-md-12 mb-4 white-text text-center fadeIn">
-          <h1 class="hero-title pt-5">
-            Anonymous GitHub
-          </h1>
-          <p class="hero-subtitle mt-3 mb-4">
-            Anonymize your repository in 5 minutes &mdash; join {{stat.nbUsers | number}} users.
-          </p>
-          <span ng-if="!user">
-            <a
-              href="/github/login"
-              target="_self"
-              class="btn btn-hero"
-              ><i class="fab fa-github mr-2"></i>Login with GitHub</a
-            >
-          </span>
-          <span ng-if="user">
-            <a
-              href="/anonymize"
-              class="btn btn-hero"
-              ><i class="fa fa-plus-circle mr-2"></i>Anonymize a Repository</a
-            >
-          </span>
+<div class="paper-landing">
+  <!-- Hero -->
+  <section class="paper-hero">
+    <div class="paper-eyebrow">For double-blind peer review</div>
+    <h1 class="hero-title">
+      Share the code,<br />
+      <span class="accent">not the author.</span>
+    </h1>
+    <p class="hero-subtitle">
+      Anonymous GitHub makes a read-only mirror of your repository or pull
+      request with every trace of identity removed &mdash; so you can attach a
+      link to your submission without breaking anonymity.
+    </p>
+
+    <div class="paper-cta-row">
+      <span ng-if="!user">
+        <a href="/github/login" target="_self" class="btn-hero">
+          <i class="fab fa-github mr-2"></i>Sign in with GitHub
+        </a>
+      </span>
+      <span ng-if="user">
+        <a href="/anonymize" class="btn-hero">
+          Anonymize a repository &rarr;
+        </a>
+      </span>
+      <a href="/anonymize" ng-if="user" class="btn-hero-ghost">
+        Anonymize a pull request
+      </a>
+      <span class="meta">Free &middot; Open source &middot; Self-hostable</span>
+    </div>
+
+    <!-- Before / after -->
+    <div class="paper-preview" aria-label="Before and after example">
+      <div class="pane">
+        <div class="pane-header">
+          <span class="pane-label">Before &middot; your repo</span>
+          <span class="pane-url">github.com/jane-smith/DeepLearnUtils</span>
+        </div>
+        <div class="pane-body">
+          <div><span class="tok">#</span> <strong>DeepLearnUtils</strong></div>
+          <div>Developed by Jane Smith at MIT CSAIL.</div>
+          <div>See Smith et&nbsp;al., &ldquo;Attention That Works,&rdquo; 2026.</div>
+          <div>Contact: jane.smith@mit.edu</div>
+        </div>
+      </div>
+      <div class="pane">
+        <div class="pane-header">
+          <span class="pane-label">After &middot; anonymous mirror</span>
+          <span class="pane-url">anonymous.4open.science/r/paper-7f2a</span>
+        </div>
+        <div class="pane-body">
+          <div><span class="tok">#</span> <strong>DeepLearnUtils</strong></div>
+          <div>Developed by <span class="redact">Jane Smith</span> at <span class="redact">MIT CSAIL</span>.</div>
+          <div>See <span class="redact">Smith et al.</span>, &ldquo;Attention That Works,&rdquo; 2026.</div>
+          <div>Contact: <span class="redact">jane.smith@mit.edu</span></div>
         </div>
       </div>
     </div>
-  </div>
-  <main>
-    <div class="container home-content">
-      <div class="row pt-5">
-        <div class="col-md-12">
-          <h2 id="usage">How it works</h2>
-          <ol class="usage-steps">
-            <li>
-              <a href="/github/login" target="_self">Login</a> with GitHub to access your dashboard and anonymize your repositories.
-            </li>
-            <li>Configure which terms, links, and images to anonymize.</li>
-            <li>Share the anonymous link in your double-blind paper submission.</li>
-          </ol>
-          <p class="usage-example">
+  </section>
+
+  <!-- Stats strip -->
+  <section class="paper-stats" id="metrics">
+    <div class="paper-stats-inner">
+      <div>
+        <div class="paper-stat-value">{{stat.nbRepositories | number}}</div>
+        <div class="paper-stat-label">repositories anonymized</div>
+      </div>
+      <div>
+        <div class="paper-stat-value">{{stat.nbUsers | number}}</div>
+        <div class="paper-stat-label">researchers</div>
+      </div>
+      <div>
+        <div class="paper-stat-value">{{stat.nbPageViews | number}}</div>
+        <div class="paper-stat-label">page views</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- How it works -->
+  <section class="paper-how" id="usage">
+    <div>
+      <div class="paper-eyebrow">How it works</div>
+      <h2 class="paper-how-heading">
+        Three steps,<br />about a minute.
+      </h2>
+    </div>
+    <div>
+      <div class="paper-step">
+        <div class="step-num">01</div>
+        <div>
+          <div class="step-title">Authenticate</div>
+          <div class="step-desc">
+            <a href="/github/login" target="_self">Sign in with GitHub</a> to
+            access your dashboard. We ask for read-only access to the
+            repositories you pick &mdash; nothing else.
+          </div>
+        </div>
+      </div>
+      <div class="paper-step">
+        <div class="step-num">02</div>
+        <div>
+          <div class="step-title">Configure</div>
+          <div class="step-desc">
+            Point us at a repo, branch, commit, or pull request. List the
+            terms to redact (names, affiliation, emails). Set an expiry.
+          </div>
+        </div>
+      </div>
+      <div class="paper-step">
+        <div class="step-num">03</div>
+        <div>
+          <div class="step-title">Share</div>
+          <div class="step-desc">
+            You get a stable link with a randomised slug. Reviewers browse,
+            diff, and download &mdash; never seeing who you are.
+          </div>
+        </div>
+      </div>
+      <div class="paper-step" style="border-top: none;">
+        <div class="step-num">&nbsp;</div>
+        <div>
+          <div class="step-desc">
             Example:
             <a
               target="_self"
               href="https://anonymous.4open.science/r/840c8c57-3c32-451e-bf12-0e20be300389/"
-              >https://anonymous.4open.science/r/840c8c57-3c32-451e-bf12-0e20be300389/</a
-            >
-          </p>
-        </div>
-      </div>
-
-      <hr class="featurette-divider" />
-
-      <div class="row featurette align-items-center">
-        <div class="col-md-7 order-md-2">
-          <h2 class="featurette-heading">
-            Double-anonymous
-          </h2>
-          <p class="featurette-lead">
-            Anonymize your GitHub repository with options to remove links,
-            images, or specific terms. Keep full control &mdash; set an
-            expiration date to make your repository unavailable after review.
-          </p>
-        </div>
-        <div class="col-md-5 order-md-1">
-          <img
-            width="500"
-            src="/imgs/anonymize.png"
-            class="featurette-image img-fluid mx-auto"
-          />
-        </div>
-      </div>
-
-      <hr class="featurette-divider" />
-
-      <div class="row featurette align-items-center">
-        <div class="col-md-7">
-          <h2 class="featurette-heading">
-            Explorer
-          </h2>
-          <p class="featurette-lead">
-            Reviewers can browse your repository with highlighted source code,
-            rendered PDFs, images, and notebooks.
-            <a href="https://pages.github.com">GitHub Pages</a>
-            is also supported.
-          </p>
-        </div>
-        <div class="col-md-5">
-          <img
-            width="500"
-            src="/imgs/explorer.png"
-            class="featurette-image img-fluid mx-auto"
-          />
-        </div>
-      </div>
-
-      <hr class="featurette-divider" />
-
-      <div class="row featurette align-items-center">
-        <div class="col-md-7 order-md-2">
-          <h2 class="featurette-heading">
-            Manage
-          </h2>
-          <p class="featurette-lead">
-            Monitor views, edit configuration, remove or update your repository &mdash;
-            all from a clean dashboard.
-          </p>
-        </div>
-        <div class="col-md-5 order-md-1">
-          <img
-            width="500"
-            src="/imgs/dashboard.png"
-            class="featurette-image img-fluid mx-auto"
-          />
-        </div>
-      </div>
-
-      <hr class="featurette-divider" />
-
-      <h2 id="about" class="mb-4">Metrics</h2>
-      <div class="metrics-grid">
-        <div class="metric-card">
-          <div class="metric-value">{{stat.nbUsers | number}}</div>
-          <div class="metric-label">Users</div>
-        </div>
-        <div class="metric-card">
-          <div class="metric-value">{{stat.nbRepositories | number}}</div>
-          <div class="metric-label">Repositories</div>
-        </div>
-        <div class="metric-card">
-          <div class="metric-value">{{stat.nbPageViews | number}}</div>
-          <div class="metric-label">Page Views</div>
+              >anonymous.4open.science/r/840c8c57-3c32-451e-bf12-0e20be300389</a>
+          </div>
         </div>
       </div>
     </div>
+  </section>
+
+  <!-- Trust row -->
+  <section class="paper-trust">
+    <div class="paper-trust-inner">
+      <div>
+        <div class="paper-eyebrow">Trusted by the community</div>
+        <div class="paper-trust-lede">
+          Used by authors submitting to major software-engineering and systems
+          venues.
+        </div>
+      </div>
+      <div class="paper-trust-item">
+        <div class="short">ICSE</div>
+        <div class="long">International Conference on Software Engineering</div>
+      </div>
+      <div class="paper-trust-item">
+        <div class="short">FSE</div>
+        <div class="long">Foundations of Software Engineering</div>
+      </div>
+      <div class="paper-trust-item">
+        <div class="short">OOPSLA</div>
+        <div class="long">
+          Object-Oriented Programming, Systems, Languages, and Applications
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Featurettes — existing content, kept but restyled -->
+  <main class="container home-content" id="about">
+    <div class="row featurette align-items-center">
+      <div class="col-md-7 order-md-2">
+        <h2 class="featurette-heading">Double-anonymous</h2>
+        <p class="featurette-lead">
+          Anonymize your GitHub repository with options to remove links,
+          images, or specific terms. Keep full control &mdash; set an
+          expiration date to make your repository unavailable after review.
+        </p>
+      </div>
+      <div class="col-md-5 order-md-1">
+        <img
+          width="500"
+          src="/imgs/anonymize.png"
+          class="featurette-image img-fluid mx-auto"
+          alt="Anonymize form"
+        />
+      </div>
+    </div>
+
+    <hr class="featurette-divider" />
+
+    <div class="row featurette align-items-center">
+      <div class="col-md-7">
+        <h2 class="featurette-heading">Explorer</h2>
+        <p class="featurette-lead">
+          Reviewers can browse your repository with highlighted source code,
+          rendered PDFs, images, and notebooks.
+          <a href="https://pages.github.com">GitHub Pages</a> is also supported.
+        </p>
+      </div>
+      <div class="col-md-5">
+        <img
+          width="500"
+          src="/imgs/explorer.png"
+          class="featurette-image img-fluid mx-auto"
+          alt="Repository explorer"
+        />
+      </div>
+    </div>
+
+    <hr class="featurette-divider" />
+
+    <div class="row featurette align-items-center">
+      <div class="col-md-7 order-md-2">
+        <h2 class="featurette-heading">Manage</h2>
+        <p class="featurette-lead">
+          Monitor views, edit configuration, remove or update your repository
+          &mdash; all from a clean dashboard.
+        </p>
+      </div>
+      <div class="col-md-5 order-md-1">
+        <img
+          width="500"
+          src="/imgs/dashboard.png"
+          class="featurette-image img-fluid mx-auto"
+          alt="Dashboard"
+        />
+      </div>
+    </div>
   </main>
+
+  <footer class="paper-footer">
+    <div class="paper-footer-inner">
+      <div class="paper-footer-brand">
+        <div class="paper-footer-mark">Anonymous <em>GitHub</em></div>
+        <p class="paper-footer-tag">
+          A read-only, identity-stripped mirror of your repository &mdash;
+          built for double-blind peer review.
+        </p>
+      </div>
+      <div class="paper-footer-col">
+        <div class="paper-footer-head">Product</div>
+        <a href="/anonymize">Anonymize</a>
+        <a href="/dashboard" ng-if="user">My work</a>
+        <a href="/conferences" ng-if="user">Conferences</a>
+        <a href="/faq">FAQ</a>
+      </div>
+      <div class="paper-footer-col">
+        <div class="paper-footer-head">Project</div>
+        <a href="https://github.com/tdurieux/anonymous_github/" target="_blank">Source code</a>
+        <a href="https://github.com/tdurieux/anonymous_github/issues/new" target="_blank">Report an issue</a>
+        <a href="https://github.com/sponsors/tdurieux/" target="_blank">Sponsor</a>
+      </div>
+      <div class="paper-footer-col">
+        <div class="paper-footer-head">Contact</div>
+        <a href="mailto:tdurieux@anonymous.4open.science">Email maintainer</a>
+        <a href="https://github.com/tdurieux" target="_blank">@tdurieux</a>
+      </div>
+    </div>
+    <div class="paper-footer-rule"></div>
+    <div class="paper-footer-foot">
+      <span>&copy; {{year || 2026}} Anonymous GitHub &middot; MIT licensed</span>
+      <span class="paper-footer-meta">Built for reviewers, by researchers.</span>
+    </div>
+  </footer>
 </div>

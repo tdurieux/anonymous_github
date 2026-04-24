@@ -726,10 +726,19 @@ angular
       }
       getQuota();
 
+      let loadedRepos = null;
+      let loadedPRs = null;
+
+      function mergeItems() {
+        $scope.items = (loadedRepos || []).concat(loadedPRs || []);
+      }
+
       function loadAll() {
+        loadedRepos = null;
+        loadedPRs = null;
         $http.get("/api/user/anonymized_repositories").then(
           (res) => {
-            const repos = res.data.map((repo) => {
+            loadedRepos = res.data.map((repo) => {
               if (!repo.pageView) repo.pageView = 0;
               if (!repo.lastView) repo.lastView = "";
               repo.options.terms = repo.options.terms.filter((f) => f);
@@ -741,25 +750,25 @@ angular
               repo._viewUrl = "/r/" + repo.repoId + "/";
               return repo;
             });
-            $http.get("/api/user/anonymized_pull_requests").then(
-              (res2) => {
-                const prs = res2.data.map((pr) => {
-                  if (!pr.pageView) pr.pageView = 0;
-                  if (!pr.lastView) pr.lastView = "";
-                  pr.options.terms = pr.options.terms.filter((f) => f);
-                  pr._type = "pr";
-                  pr._id = pr.pullRequestId;
-                  pr._name = pr.pullRequestId;
-                  pr._source = pr.source.repositoryFullName + "#" + pr.source.pullRequestId;
-                  pr._editUrl = "/pull-request-anonymize/" + pr.pullRequestId;
-                  pr._viewUrl = "/pr/" + pr.pullRequestId + "/";
-                  pr.anonymizeDate = pr.anonymizeDate;
-                  return pr;
-                });
-                $scope.items = repos.concat(prs);
-              },
-              (err) => { console.error(err); }
-            );
+            mergeItems();
+          },
+          (err) => { console.error(err); }
+        );
+        $http.get("/api/user/anonymized_pull_requests").then(
+          (res2) => {
+            loadedPRs = res2.data.map((pr) => {
+              if (!pr.pageView) pr.pageView = 0;
+              if (!pr.lastView) pr.lastView = "";
+              pr.options.terms = pr.options.terms.filter((f) => f);
+              pr._type = "pr";
+              pr._id = pr.pullRequestId;
+              pr._name = pr.pullRequestId;
+              pr._source = pr.source.repositoryFullName + "#" + pr.source.pullRequestId;
+              pr._editUrl = "/pull-request-anonymize/" + pr.pullRequestId;
+              pr._viewUrl = "/pr/" + pr.pullRequestId + "/";
+              return pr;
+            });
+            mergeItems();
           },
           (err) => { console.error(err); }
         );

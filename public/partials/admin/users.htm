@@ -1,160 +1,110 @@
-<div class="container page">
-  <!-- Admin Navigation -->
+<div class="container paper-page">
+  <div class="paper-crumbs">Admin &nbsp;/&nbsp; <span class="here">Users</span></div>
+  <h1 class="paper-page-title">Registered <em>users</em></h1>
+  <p class="paper-page-lede">Browse, search, and manage every account.</p>
+
   <nav class="admin-nav">
-    <a href="/admin/">
-      <i class="fas fa-code-branch"></i> Repositories
-    </a>
-    <a href="/admin/users" class="active">
-      <i class="fas fa-users"></i> Users
-    </a>
-    <a href="/admin/conferences">
-      <i class="fas fa-chalkboard-teacher"></i> Conferences
-    </a>
-    <a href="/admin/queues">
-      <i class="fas fa-tasks"></i> Queues
-    </a>
+    <a href="/admin/"><i class="fas fa-code-branch"></i> Repositories</a>
+    <a href="/admin/users" class="active"><i class="fas fa-users"></i> Users</a>
+    <a href="/admin/conferences"><i class="fas fa-chalkboard-teacher"></i> Conferences</a>
+    <a href="/admin/queues"><i class="fas fa-tasks"></i> Queues</a>
   </nav>
 
-  <!-- Summary Stats -->
   <div class="admin-stats">
     <div class="admin-stat-card">
       <div class="stat-value" ng-bind="total >= 0 ? (total | number) : '...'"></div>
-      <div class="stat-label">Total Users</div>
+      <div class="stat-label">Total users</div>
     </div>
     <div class="admin-stat-card">
       <div class="stat-value">{{query.page}}/{{totalPage || '...'}}</div>
-      <div class="stat-label">Current Page</div>
+      <div class="stat-label">Current page</div>
     </div>
   </div>
 
-  <!-- Toolbar -->
-  <div class="admin-toolbar">
-    <input
-      type="search"
-      class="form-control"
-      aria-label="Search users..."
-      placeholder="Search users..."
-      autocomplete="off"
-      ng-model="query.search"
-    />
-
-    <div class="pagination-compact">
-      <button class="btn btn-sm" ng-click="query.page = Math.max(1, query.page - 1)" ng-disabled="query.page <= 1">
-        <i class="fas fa-chevron-left"></i>
-      </button>
+  <form class="w-100 dashboard-filter-row" aria-label="Users" accept-charset="UTF-8">
+    <div class="search-wrap">
       <input
-        type="number"
-        class="form-control form-control-sm"
-        ng-model="query.page"
-        min="1"
-        max="{{totalPage}}"
+        type="search"
+        class="form-control"
+        aria-label="Search users"
+        placeholder="Search users…"
+        autocomplete="off"
+        ng-model="query.search"
       />
-      <span>/{{totalPage}}</span>
-      <button class="btn btn-sm" ng-click="query.page = Math.min(totalPage, query.page + 1)" ng-disabled="query.page >= totalPage">
-        <i class="fas fa-chevron-right"></i>
-      </button>
     </div>
-
-    <div class="dropdown">
-      <button
-        class="btn btn-sm dropdown-toggle"
-        type="button"
-        id="dropdownSort"
-        data-toggle="dropdown"
-        aria-haspopup="true"
-        aria-expanded="false"
-      >
-        <i class="fas fa-sort"></i> Sort
-      </button>
-      <div class="dropdown-menu" aria-labelledby="dropdownSort">
-        <h6 class="dropdown-header">Sort by</h6>
-        <a class="dropdown-item" href="#" ng-click="query.sort = 'username'">
-          <i class="fas fa-check" ng-show="query.sort == 'username'"></i> Username
-        </a>
-      </div>
-    </div>
-  </div>
-
-  <!-- User List -->
-  <div
-    class="admin-list-item"
-    ng-repeat="u in users | filter:userFiler | orderBy:orderBy as filteredUsers"
-  >
-    <div class="item-main">
-      <div class="item-title">
-        <a ng-href="/admin/users/{{u.username}}">
-          <img
-            ng-src="{{u.photo}}"
-            ng-if="u.photo"
-            width="20"
-            height="20"
-            class="rounded-circle mr-1"
-            style="vertical-align: text-bottom"
-          />
-          {{u.username}}
-        </a>
-        <span
-          class="status-badge"
-          ng-class="'status-' + u.status"
-        >{{u.status | title}}</span>
-        <span
-          class="status-badge status-active"
-          ng-if="u.isAdmin"
-        >Admin</span>
-      </div>
-      <div class="item-meta">
-        <span ng-if="u.emails[0].email">
-          <i class="fas fa-envelope"></i> {{u.emails[0].email}}
-        </span>
-        <span>
-          <i class="fab fa-github"></i>
-          <a ng-href="https://github.com/{{u.username}}" target="_blank">{{u.username}}</a>
-        </span>
-      </div>
-    </div>
-    <div class="item-actions">
-      <div class="dropdown">
-        <button
-          class="btn dropdown-toggle btn-sm"
-          type="button"
-          data-toggle="dropdown"
-          aria-haspopup="true"
-          aria-expanded="false"
-        >
-          Actions
+    <div class="d-flex flex-wrap" style="gap: 8px; align-items: center;">
+      <div class="pagination-compact">
+        <button class="btn btn-sm" type="button" ng-click="query.page = Math.max(1, query.page - 1)" ng-disabled="query.page <= 1">
+          <i class="fas fa-chevron-left"></i>
         </button>
-        <div class="dropdown-menu dropdown-menu-right">
-          <a class="dropdown-item" href="/admin/users/{{u.username}}">
-            <i class="far fa-eye"></i> View Details
-          </a>
-          <div class="dropdown-divider"></div>
-          <a
-            class="dropdown-item"
-            href="#"
-            ng-show="u.status == 'active'"
-            ng-click="banUser(u)"
-          >
-            <i class="fas fa-ban"></i> Ban
-          </a>
-          <a
-            class="dropdown-item"
-            href="#"
-            ng-show="u.status == 'removed' || u.status == 'banned'"
-            ng-click="activateUser(u)"
-          >
-            <i class="fas fa-check-circle"></i> Activate
+        <input type="number" class="form-control form-control-sm" ng-model="query.page" min="1" max="{{totalPage}}" />
+        <span>/{{totalPage}}</span>
+        <button class="btn btn-sm" type="button" ng-click="query.page = Math.min(totalPage, query.page + 1)" ng-disabled="query.page >= totalPage">
+          <i class="fas fa-chevron-right"></i>
+        </button>
+      </div>
+
+      <div class="dropdown">
+        <button class="btn dropdown-toggle" type="button" id="dropdownSort" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Sort</button>
+        <div class="dropdown-menu" aria-labelledby="dropdownSort">
+          <h6 class="dropdown-header">Sort by</h6>
+          <a class="dropdown-item" href="#" ng-click="query.sort = 'username'">
+            <i class="fas fa-check" ng-show="query.sort == 'username'"></i> Username
           </a>
         </div>
       </div>
     </div>
+  </form>
+
+  <div class="paper-table w-100" role="table" aria-label="Users" style="--cols: minmax(280px, 2.4fr) 140px 140px 52px;">
+    <div class="paper-table-head admin-users-row" role="row">
+      <div role="columnheader">User</div>
+      <div role="columnheader">Status</div>
+      <div role="columnheader">Role</div>
+      <div role="columnheader" aria-label="Actions"></div>
+    </div>
+    <div
+      class="paper-table-row admin-users-row"
+      role="row"
+      ng-repeat="u in users | filter:userFiler | orderBy:orderBy as filteredUsers"
+    >
+      <div class="cell-anon" role="cell">
+        <img ng-src="{{u.photo}}" ng-if="u.photo" width="28" height="28" class="rounded-circle" style="flex-shrink:0;" />
+        <div class="anon-text">
+          <a class="repo-name" ng-href="/admin/users/{{u.username}}" ng-bind="u.username"></a>
+          <div class="anon-sub">
+            <span ng-if="u.emails[0].email">{{u.emails[0].email}}</span><span ng-if="u.emails[0].email">&nbsp;&middot;&nbsp;</span><a href="https://github.com/{{u.username}}" target="_blank"><i class="fab fa-github"></i> {{u.username}}</a>
+          </div>
+        </div>
+      </div>
+      <div class="cell-status" role="cell">
+        <span class="status-dot" ng-class="{'status-ready': u.status == 'active', 'status-removed': u.status == 'removed' || u.status == 'banned'}"></span>
+        <span ng-bind="u.status | title"></span>
+      </div>
+      <div class="cell-status" role="cell">
+        <span ng-if="u.isAdmin" class="type-badge type-repo">Admin</span>
+        <span ng-if="!u.isAdmin" class="empty-dash">&mdash;</span>
+      </div>
+      <div class="cell-actions" role="cell">
+        <div class="dropdown">
+          <button class="btn btn-icon-dots" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" aria-label="Actions">
+            <i class="fas fa-ellipsis-h" aria-hidden="true"></i>
+          </button>
+          <div class="dropdown-menu dropdown-menu-right">
+            <a class="dropdown-item" href="/admin/users/{{u.username}}"><i class="far fa-eye"></i> View details</a>
+            <div class="dropdown-divider"></div>
+            <a class="dropdown-item text-danger" href="#" ng-show="u.status == 'active'" ng-click="banUser(u)"><i class="fas fa-ban"></i> Ban</a>
+            <a class="dropdown-item" href="#" ng-show="u.status == 'removed' || u.status == 'banned'" ng-click="activateUser(u)"><i class="fas fa-check-circle"></i> Activate</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="paper-table-empty" ng-if="filteredUsers.length == 0">
+      <i class="fas fa-inbox"></i>
+      <span>No users match the current filters.</span>
+    </div>
   </div>
 
-  <div class="empty-state" ng-if="filteredUsers.length == 0">
-    <i class="fas fa-users"></i>
-    No users match the current filters.
-  </div>
-
-  <!-- Bottom pagination -->
   <div class="admin-toolbar" ng-if="totalPage > 1" style="justify-content: center; border-bottom: none;">
     <div class="pagination-compact">
       <button class="btn btn-sm" ng-click="query.page = Math.max(1, query.page - 1)" ng-disabled="query.page <= 1">

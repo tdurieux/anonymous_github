@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "start": "node --inspect=5858 -r ts-node/register ./src/server/index.ts",
     "dev": "nodemon --transpile-only ./src/server/index.ts",
+    "dev:ui": "node scripts/dev-proxy.js",
     "build": "rm -rf build && tsc && gulp",
     "knip": "knip"
   },
@@ -88,6 +89,7 @@
     "gulp-concat": "^2.6.1",
     "gulp-order": "^1.2.0",
     "gulp-uglify": "^3.0.2",
+    "http-proxy-middleware": "^3.0.5",
     "knip": "^5.1.0",
     "mocha": "^10.8.2",
     "nodemon": "^3.1.0",

@@ -1,59 +1,51 @@
-<div class="container-fluid h-100">
-  <div class="row h-100">
-    <div class="col shadow overflow-auto h-100 d-flex ">
-      <div class="card w-50 m-auto">
-        <form
-          class="form needs-validation card-body"
-          name="claimForm"
-          novalidate
-        >
-          <h5 class="card-title">Claim an anonymized repository</h5>
-          <h6 class="card-subtitle mb-2 text-muted">
-            Claim the ownership of an existing anonymized repository.
-          </h6>
-          <div class="form-row">
-            <div class="col form-group">
-              <label for="repoUrl">Type the url of your repository</label>
-              <input
-                type="text"
-                class="form-control"
-                name="repoUrl"
-                id="repoUrl"
-                required
-                ng-class="{'is-invalid': claimForm.repoUrl.$invalid}"
-                ng-model="repoUrl"
-              />
-              <div class="invalid-feedback" 
-              ng-show="claimForm.repoUrl.$error.not_found">The repository is not found.</div>
-            </div>
-          </div>
-          <div class="form-group">
-            <label for="repoId">Anonymize repository id</label>
-            <input
-              type="text"
-              class="form-control"
-              name="repoId"
-              id="repoId"
-              required
-              ng-model="repoId"
-              ng-class="{'is-invalid': claimForm.repoId.$invalid}"
-            />
-            <small id="idHelp" class="form-text text-muted"
-              >The id is in the repository
-              https://anonymous.4open.science/r/{id}</small
-            >
-          </div>
-
-          <button
-            id="submit"
-            type="submit"
-            class="btn black_border"
-            ng-click="claim()"
-          >
-            Claim
-          </button>
-        </form>
+<div class="container paper-page">
+  <div class="paper-crumbs">Reference &nbsp;/&nbsp; <span class="here">Claim</span></div>
+  <h1 class="paper-page-title">Claim an <em>anonymization</em></h1>
+  <p class="paper-page-lede">
+    Take ownership of an existing anonymized repository so it appears on your
+    dashboard.
+  </p>
+  <div class="paper-meta-rule"></div>
+  <form class="form needs-validation" name="claimForm" novalidate>
+    <div class="form-group">
+      <label class="paper-field-label" for="repoUrl">Repository URL</label>
+      <input
+        type="text"
+        class="form-control"
+        name="repoUrl"
+        id="repoUrl"
+        required
+        ng-class="{'is-invalid': claimForm.repoUrl.$invalid}"
+        ng-model="repoUrl"
+      />
+      <div class="invalid-feedback" ng-show="claimForm.repoUrl.$error.not_found">
+        The repository is not found.
       </div>
     </div>
-  </div>
+    <div class="form-group">
+      <label class="paper-field-label" for="repoId">Anonymized repository ID</label>
+      <input
+        type="text"
+        class="form-control"
+        name="repoId"
+        id="repoId"
+        required
+        ng-model="repoId"
+        ng-class="{'is-invalid': claimForm.repoId.$invalid}"
+      />
+      <small id="idHelp" class="form-text text-muted"
+        >The id is in the repository
+        https://anonymous.4open.science/r/{id}</small
+      >
+    </div>
+
+    <button
+      id="submit"
+      type="submit"
+      class="btn btn-ink"
+      ng-click="claim()"
+    >
+      Claim
+    </button>
+  </form>
 </div>

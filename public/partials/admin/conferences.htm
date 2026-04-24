@@ -1,187 +1,142 @@
-<div class="container page">
-  <!-- Admin Navigation -->
+<div class="container paper-page">
+  <div class="paper-crumbs">Admin &nbsp;/&nbsp; <span class="here">Conferences</span></div>
+  <h1 class="paper-page-title">All <em>conferences</em></h1>
+  <p class="paper-page-lede">Every venue configured on the platform.</p>
+
   <nav class="admin-nav">
-    <a href="/admin/">
-      <i class="fas fa-code-branch"></i> Repositories
-    </a>
-    <a href="/admin/users">
-      <i class="fas fa-users"></i> Users
-    </a>
-    <a href="/admin/conferences" class="active">
-      <i class="fas fa-chalkboard-teacher"></i> Conferences
-    </a>
-    <a href="/admin/queues">
-      <i class="fas fa-tasks"></i> Queues
-    </a>
+    <a href="/admin/"><i class="fas fa-code-branch"></i> Repositories</a>
+    <a href="/admin/users"><i class="fas fa-users"></i> Users</a>
+    <a href="/admin/conferences" class="active"><i class="fas fa-chalkboard-teacher"></i> Conferences</a>
+    <a href="/admin/queues"><i class="fas fa-tasks"></i> Queues</a>
   </nav>
 
-  <!-- Summary Stats -->
   <div class="admin-stats">
     <div class="admin-stat-card">
       <div class="stat-value" ng-bind="total >= 0 ? (total | number) : '...'"></div>
-      <div class="stat-label">Total Conferences</div>
+      <div class="stat-label">Total conferences</div>
     </div>
     <div class="admin-stat-card">
       <div class="stat-value">{{query.page}}/{{totalPage || '...'}}</div>
-      <div class="stat-label">Current Page</div>
+      <div class="stat-label">Current page</div>
     </div>
   </div>
 
-  <!-- Toolbar -->
-  <div class="admin-toolbar">
-    <input
-      type="search"
-      class="form-control"
-      aria-label="Search conferences..."
-      placeholder="Search conferences..."
-      autocomplete="off"
-      ng-model="query.search"
-    />
-
-    <div class="pagination-compact">
-      <button class="btn btn-sm" ng-click="query.page = Math.max(1, query.page - 1)" ng-disabled="query.page <= 1">
-        <i class="fas fa-chevron-left"></i>
-      </button>
+  <form class="w-100 dashboard-filter-row" aria-label="Conferences" accept-charset="UTF-8">
+    <div class="search-wrap">
       <input
-        type="number"
-        class="form-control form-control-sm"
-        ng-model="query.page"
-        min="1"
-        max="{{totalPage}}"
+        type="search"
+        class="form-control"
+        aria-label="Search conferences"
+        placeholder="Search conferences…"
+        autocomplete="off"
+        ng-model="query.search"
       />
-      <span>/{{totalPage}}</span>
-      <button class="btn btn-sm" ng-click="query.page = Math.min(totalPage, query.page + 1)" ng-disabled="query.page >= totalPage">
-        <i class="fas fa-chevron-right"></i>
-      </button>
     </div>
-
-    <div class="dropdown">
-      <button
-        class="btn btn-sm dropdown-toggle"
-        type="button"
-        id="dropdownSort"
-        data-toggle="dropdown"
-      >
-        <i class="fas fa-sort"></i> Sort
-      </button>
-      <div class="dropdown-menu" aria-labelledby="dropdownSort">
-        <h6 class="dropdown-header">Sort by</h6>
-        <a class="dropdown-item" href="#" ng-click="query.sort = 'source.conferenceName'">
-          <i class="fas fa-check" ng-show="query.sort == 'source.conferenceName'"></i> Conference
-        </a>
-        <a class="dropdown-item" href="#" ng-click="query.sort = 'anonymizeDate'">
-          <i class="fas fa-check" ng-show="query.sort == 'anonymizeDate'"></i> Anonymize Date
-        </a>
-        <a class="dropdown-item" href="#" ng-click="query.sort = 'status'">
-          <i class="fas fa-check" ng-show="query.sort == 'status'"></i> Status
-        </a>
-        <a class="dropdown-item" href="#" ng-click="query.sort = 'lastView'">
-          <i class="fas fa-check" ng-show="query.sort == 'lastView'"></i> Last View
-        </a>
-        <a class="dropdown-item" href="#" ng-click="query.sort = 'pageView'">
-          <i class="fas fa-check" ng-show="query.sort == 'pageView'"></i> Page Views
-        </a>
-      </div>
-    </div>
-
-    <div class="dropdown">
-      <button
-        class="btn btn-sm dropdown-toggle"
-        type="button"
-        id="dropdownStatus"
-        data-toggle="dropdown"
-      >
-        <i class="fas fa-filter"></i> Status
-      </button>
-      <div class="dropdown-menu" aria-labelledby="dropdownStatus">
-        <h6 class="dropdown-header">Filter by status</h6>
-        <label class="dropdown-item mb-0">
-          <input type="checkbox" ng-model="query.ready" /> Ready
-        </label>
-        <label class="dropdown-item mb-0">
-          <input type="checkbox" ng-model="query.preparing" /> Preparing
-        </label>
-        <label class="dropdown-item mb-0">
-          <input type="checkbox" ng-model="query.expired" /> Expired
-        </label>
-        <label class="dropdown-item mb-0">
-          <input type="checkbox" ng-model="query.removed" /> Removed
-        </label>
-        <label class="dropdown-item mb-0">
-          <input type="checkbox" ng-model="query.error" /> Error
-        </label>
-      </div>
-    </div>
-  </div>
-
-  <!-- Conference List -->
-  <div
-    class="admin-list-item"
-    ng-repeat="conference in conferences | filter:conferenceFiler | orderBy:orderBy as filteredConferences"
-  >
-    <div class="item-main">
-      <div class="item-title">
-        <a
-          ng-href="/conference/{{conference.conferenceID}}"
-          ng-bind="conference.name"
-        ></a>
-        <span
-          class="status-badge"
-          ng-class="'status-' + conference.status"
-        >{{conference.status | title}}</span>
-      </div>
-      <div class="item-meta">
-        <span>
-          <i class="fas fa-fingerprint"></i> ID: {{conference.conferenceID}}
-        </span>
-        <span>
-          <i class="fas fa-table"></i> {{::conference.repositories.length || 0 | number}} repos
-        </span>
-        <span>
-          <i class="fas fa-euro-sign"></i> {{conference.price || 0 | number}} &euro;
-        </span>
-        <span>
-          <i class="fas fa-calendar-alt"></i>
-          {{conference.startDate | date}} &ndash; {{conference.endDate | date}}
-        </span>
-      </div>
-    </div>
-    <div class="item-actions">
-      <div class="dropdown">
-        <button
-          class="btn dropdown-toggle btn-sm"
-          type="button"
-          data-toggle="dropdown"
-        >
-          Actions
+    <div class="d-flex flex-wrap" style="gap: 8px; align-items: center;">
+      <div class="pagination-compact">
+        <button class="btn btn-sm" type="button" ng-click="query.page = Math.max(1, query.page - 1)" ng-disabled="query.page <= 1">
+          <i class="fas fa-chevron-left"></i>
         </button>
-        <div class="dropdown-menu dropdown-menu-right">
-          <a class="dropdown-item" href="/conference/{{conference.conferenceID}}/edit">
-            <i class="far fa-edit"></i> Edit
+        <input type="number" class="form-control form-control-sm" ng-model="query.page" min="1" max="{{totalPage}}" />
+        <span>/{{totalPage}}</span>
+        <button class="btn btn-sm" type="button" ng-click="query.page = Math.min(totalPage, query.page + 1)" ng-disabled="query.page >= totalPage">
+          <i class="fas fa-chevron-right"></i>
+        </button>
+      </div>
+
+      <div class="dropdown">
+        <button class="btn dropdown-toggle" type="button" id="dropdownSort" data-toggle="dropdown">Sort</button>
+        <div class="dropdown-menu" aria-labelledby="dropdownSort">
+          <h6 class="dropdown-header">Sort by</h6>
+          <a class="dropdown-item" href="#" ng-click="query.sort = 'source.conferenceName'">
+            <i class="fas fa-check" ng-show="query.sort == 'source.conferenceName'"></i> Conference
           </a>
-          <a class="dropdown-item" href="/conference/{{conference.conferenceID}}/">
-            <i class="fa fa-eye"></i> View
+          <a class="dropdown-item" href="#" ng-click="query.sort = 'anonymizeDate'">
+            <i class="fas fa-check" ng-show="query.sort == 'anonymizeDate'"></i> Anonymize date
           </a>
-          <div class="dropdown-divider"></div>
-          <a
-            class="dropdown-item text-danger"
-            href="#"
-            ng-show="conference.status != 'removed'"
-            ng-click="removeConference(conference)"
-          >
-            <i class="fas fa-trash-alt"></i> Remove
+          <a class="dropdown-item" href="#" ng-click="query.sort = 'status'">
+            <i class="fas fa-check" ng-show="query.sort == 'status'"></i> Status
           </a>
         </div>
       </div>
+
+      <div class="dropdown">
+        <button class="btn dropdown-toggle" type="button" id="dropdownStatus" data-toggle="dropdown">Status</button>
+        <div class="dropdown-menu" aria-labelledby="dropdownStatus">
+          <h6 class="dropdown-header">Filter by status</h6>
+          <div class="form-check dropdown-item">
+            <input class="form-check-input" type="checkbox" id="adminConfStatusReady" ng-model="query.ready" />
+            <label class="form-check-label" for="adminConfStatusReady">Ready</label>
+          </div>
+          <div class="form-check dropdown-item">
+            <input class="form-check-input" type="checkbox" id="adminConfStatusPreparing" ng-model="query.preparing" />
+            <label class="form-check-label" for="adminConfStatusPreparing">Preparing</label>
+          </div>
+          <div class="form-check dropdown-item">
+            <input class="form-check-input" type="checkbox" id="adminConfStatusExpired" ng-model="query.expired" />
+            <label class="form-check-label" for="adminConfStatusExpired">Expired</label>
+          </div>
+          <div class="form-check dropdown-item">
+            <input class="form-check-input" type="checkbox" id="adminConfStatusRemoved" ng-model="query.removed" />
+            <label class="form-check-label" for="adminConfStatusRemoved">Removed</label>
+          </div>
+          <div class="form-check dropdown-item">
+            <input class="form-check-input" type="checkbox" id="adminConfStatusError" ng-model="query.error" />
+            <label class="form-check-label" for="adminConfStatusError">Error</label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </form>
+
+  <div class="paper-table paper-table-conferences w-100" role="table" aria-label="Conferences">
+    <div class="paper-table-head" role="row">
+      <div role="columnheader">Conference</div>
+      <div role="columnheader">Status</div>
+      <div role="columnheader" class="num">Repos</div>
+      <div role="columnheader">Window</div>
+      <div role="columnheader" aria-label="Actions"></div>
+    </div>
+    <div
+      class="paper-table-row"
+      role="row"
+      ng-repeat="conference in conferences | filter:conferenceFiler | orderBy:orderBy as filteredConferences"
+    >
+      <div class="cell-anon" role="cell">
+        <span class="type-badge type-repo">Conf</span>
+        <div class="anon-text">
+          <a class="repo-name" ng-href="/conference/{{conference.conferenceID}}" ng-bind="conference.name"></a>
+          <div class="anon-sub">
+            <span>{{conference.conferenceID}}</span>&nbsp;&middot;&nbsp;<span>{{conference.price || 0 | number}} &euro;</span>
+          </div>
+        </div>
+      </div>
+      <div class="cell-status" role="cell">
+        <span class="status-dot" ng-class="{'status-removed': conference.status == 'removed' || conference.status == 'expired', 'status-ready': conference.status == 'ready'}"></span>
+        <span ng-bind="conference.status | title"></span>
+      </div>
+      <div class="cell-views num" role="cell" ng-bind="::conference.repositories.length || 0 | number"></div>
+      <div class="cell-expires" role="cell">{{conference.startDate | date}} &ndash; {{conference.endDate | date}}</div>
+      <div class="cell-actions" role="cell">
+        <div class="dropdown">
+          <button class="btn btn-icon-dots" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" aria-label="Actions">
+            <i class="fas fa-ellipsis-h" aria-hidden="true"></i>
+          </button>
+          <div class="dropdown-menu dropdown-menu-right">
+            <a class="dropdown-item" href="/conference/{{conference.conferenceID}}/edit"><i class="far fa-edit"></i> Edit</a>
+            <a class="dropdown-item" href="/conference/{{conference.conferenceID}}/"><i class="fa fa-eye"></i> View</a>
+            <div class="dropdown-divider"></div>
+            <a class="dropdown-item text-danger" href="#" ng-show="conference.status != 'removed'" ng-click="removeConference(conference)"><i class="fas fa-trash-alt"></i> Remove</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="paper-table-empty" ng-if="filteredConferences.length == 0">
+      <i class="fas fa-inbox"></i>
+      <span>No conferences match the current filters.</span>
     </div>
   </div>
 
-  <div class="empty-state" ng-if="filteredConferences.length == 0">
-    <i class="fas fa-chalkboard-teacher"></i>
-    No conferences match the current filters.
-  </div>
-
-  <!-- Bottom pagination -->
   <div class="admin-toolbar" ng-if="totalPage > 1" style="justify-content: center; border-bottom: none;">
     <div class="pagination-compact">
       <button class="btn btn-sm" ng-click="query.page = Math.max(1, query.page - 1)" ng-disabled="query.page <= 1">

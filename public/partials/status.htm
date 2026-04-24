@@ -1,8 +1,11 @@
-<div class="container py-4">
-  <h2>Status of <strong ng-bind="repoId"></strong></h2>
+<div class="container paper-page">
+  <div class="paper-crumbs">Anonymization &nbsp;/&nbsp; <span class="here">Status</span></div>
+  <h1 class="paper-page-title">Status of <em>{{repoId}}</em></h1>
+  <p class="paper-page-lede">Track progress as your anonymization is prepared.</p>
+  <div class="paper-meta-rule"></div>
 
   <section class="py-4">
-    <h2>Progress</h2>
+    <div class="paper-section-eyebrow">Progress</div>
 
     <p>
       The current status of your repository. The repository will take few
@@ -39,7 +42,7 @@
 
     <p class="text-center">
       <a
-        class="btn btn-primary"
+        class="btn btn-ink"
         href="/r/{{repoId}}/"
         target="__self"
         ng-if="repo.status == 'ready'"
@@ -56,7 +59,7 @@
   </section>
 
   <section class="py-4">
-    <h2 class="md-1">Support Anonymous GitHub</h2>
+    <div class="paper-section-eyebrow">Support Anonymous GitHub</div>
 
     <iframe
       id="kofiframe"

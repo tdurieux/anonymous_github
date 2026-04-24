@@ -1,40 +1,26 @@
-<div class="container page">
-  <!-- Admin Navigation -->
+<div class="container paper-page">
+  <div class="paper-crumbs"><a href="/admin/users">Users</a> &nbsp;/&nbsp; <span class="here">{{userInfo.username || 'Profile'}}</span></div>
+  <h1 class="paper-page-title">User <em>profile</em></h1>
+  <p class="paper-page-lede">Inspect activity, quota, and repositories for a single account.</p>
+
   <nav class="admin-nav">
-    <a href="/admin/">
-      <i class="fas fa-code-branch"></i> Repositories
-    </a>
-    <a href="/admin/users" class="active">
-      <i class="fas fa-users"></i> Users
-    </a>
-    <a href="/admin/conferences">
-      <i class="fas fa-chalkboard-teacher"></i> Conferences
-    </a>
-    <a href="/admin/queues">
-      <i class="fas fa-tasks"></i> Queues
-    </a>
+    <a href="/admin/"><i class="fas fa-code-branch"></i> Repositories</a>
+    <a href="/admin/users" class="active"><i class="fas fa-users"></i> Users</a>
+    <a href="/admin/conferences"><i class="fas fa-chalkboard-teacher"></i> Conferences</a>
+    <a href="/admin/queues"><i class="fas fa-tasks"></i> Queues</a>
   </nav>
 
-  <!-- User Detail Card -->
   <div class="user-detail-card" ng-if="userInfo">
     <div class="user-header">
-      <img
-        ng-src="{{userInfo.photo}}"
-        ng-if="userInfo.photo"
-        width="48"
-        height="48"
-      />
+      <img ng-src="{{userInfo.photo}}" ng-if="userInfo.photo" width="56" height="56" />
       <div>
         <h1>
           {{userInfo.username}}
-          <span
-            class="status-badge"
-            ng-class="'status-' + userInfo.status"
-          >{{userInfo.status | title}}</span>
-          <span
-            class="status-badge status-active"
-            ng-if="userInfo.isAdmin"
-          >Admin</span>
+          <span class="status-dot-wrap">
+            <span class="status-dot" ng-class="{'status-ready': userInfo.status == 'active', 'status-removed': userInfo.status != 'active'}"></span>
+            <span ng-bind="userInfo.status | title"></span>
+          </span>
+          <span class="type-badge type-repo" ng-if="userInfo.isAdmin">Admin</span>
         </h1>
       </div>
     </div>
@@ -46,8 +32,8 @@
       <div class="detail-label">Email</div>
       <div class="detail-value">{{userInfo.emails[0].email}}</div>
 
-      <div class="detail-label">Access Token</div>
-      <div class="detail-value" style="font-family: monospace; font-size: 0.85rem;">{{userInfo.accessTokens.github}}</div>
+      <div class="detail-label">Access token</div>
+      <div class="detail-value" style="font-family: var(--font-mono); font-size: 0.85rem;">{{userInfo.accessTokens.github}}</div>
 
       <div class="detail-label">GitHub</div>
       <div class="detail-value">
@@ -56,219 +42,141 @@
         </a>
       </div>
 
-      <div class="detail-label">GitHub Repos</div>
+      <div class="detail-label">GitHub repos</div>
       <div class="detail-value">
         {{userInfo.repositories.length}} repositories
-        <button
-          class="btn btn-sm ml-2"
-          ng-click="showRepos = !showRepos"
-        >
+        <button class="btn btn-sm ml-2" ng-click="showRepos = !showRepos">
           {{showRepos ? 'Hide' : 'Show'}}
         </button>
-        <button
-          class="btn btn-primary btn-sm ml-1"
-          ng-click="getGitHubRepositories()"
-        >
+        <button class="btn btn-sm ml-1" ng-click="getGitHubRepositories()">
           <i class="fas fa-sync"></i> Refresh
         </button>
       </div>
     </div>
 
-    <!-- GitHub repos expandable list -->
-    <div ng-if="showRepos" style="margin-top: 16px">
-      <div
-        class="admin-list-item"
-        ng-repeat="repo in userInfo.repositories"
-      >
-        <div class="item-main">
-          <div class="item-title" style="font-size: 0.9rem">{{repo.name}}</div>
-          <div class="item-meta">
-            <span title="Size">
-              <i class="fas fa-database"></i> {{::repo.size | humanFileSize}}
-            </span>
+    <div ng-if="showRepos" style="margin-top: 20px">
+      <div class="paper-section-eyebrow">GitHub repositories</div>
+      <div class="paper-table w-100" style="margin-top: 10px;">
+        <div class="paper-table-row" ng-repeat="repo in userInfo.repositories" style="grid-template-columns: 1fr 160px;">
+          <div class="cell-anon" role="cell">
+            <span class="type-badge type-repo">Repo</span>
+            <div class="anon-text">
+              <span class="repo-name" ng-bind="repo.name"></span>
+            </div>
+          </div>
+          <div class="cell-expires" role="cell">
+            <i class="fas fa-database"></i> {{::repo.size | humanFileSize}}
           </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Repositories Section -->
   <div class="admin-section-header">
-    <h2><i class="fas fa-code-branch mr-1"></i> Anonymized Repositories</h2>
+    <h2><i class="fas fa-code-branch"></i> Anonymized repositories</h2>
     <span class="section-count">{{repositories.length}}</span>
   </div>
 
-  <!-- Toolbar -->
-  <div class="admin-toolbar">
-    <input
-      type="search"
-      class="form-control"
-      aria-label="Search repositories..."
-      placeholder="Search repositories..."
-      autocomplete="off"
-      ng-model="search"
-    />
-
-    <div class="dropdown">
-      <button
-        class="btn btn-sm dropdown-toggle"
-        type="button"
-        id="dropdownSort"
-        data-toggle="dropdown"
-      >
-        <i class="fas fa-sort"></i> Sort
-      </button>
-      <div class="dropdown-menu" aria-labelledby="dropdownSort">
-        <h6 class="dropdown-header">Sort by</h6>
-        <a class="dropdown-item" href="#" ng-click="orderBy = '-anonymizeDate'">
-          <i class="fas fa-check" ng-show="orderBy == '-anonymizeDate'"></i> Anonymize Date
-        </a>
-        <a class="dropdown-item" href="#" ng-click="orderBy = 'repoId'">
-          <i class="fas fa-check" ng-show="orderBy == 'repoId'"></i> ID
-        </a>
-        <a class="dropdown-item" href="#" ng-click="orderBy = '-status'">
-          <i class="fas fa-check" ng-show="orderBy == '-status'"></i> Status
-        </a>
-      </div>
+  <form class="w-100 dashboard-filter-row" aria-label="Repositories" accept-charset="UTF-8">
+    <div class="search-wrap">
+      <input
+        type="search"
+        class="form-control"
+        aria-label="Search repositories"
+        placeholder="Search repositories…"
+        autocomplete="off"
+        ng-model="search"
+      />
     </div>
-
-    <div class="dropdown">
-      <button
-        class="btn btn-sm dropdown-toggle"
-        type="button"
-        id="dropdownStatus"
-        data-toggle="dropdown"
-      >
-        <i class="fas fa-filter"></i> Status
-      </button>
-      <div class="dropdown-menu" aria-labelledby="dropdownStatus">
-        <label class="dropdown-item mb-0">
-          <input type="checkbox" ng-model="filters.status.ready" /> Ready
-        </label>
-        <label class="dropdown-item mb-0">
-          <input type="checkbox" ng-model="filters.status.expired" /> Expired
-        </label>
-        <label class="dropdown-item mb-0">
-          <input type="checkbox" ng-model="filters.status.removed" /> Removed
-        </label>
-      </div>
-    </div>
-  </div>
-
-  <!-- Repository List -->
-  <div
-    class="admin-list-item"
-    ng-repeat="repo in repositories | filter:repoFiler | orderBy:orderBy as filteredRepositories"
-  >
-    <div class="item-main">
-      <div class="item-title">
-        <a ng-href="/r/{{repo.repoId}}" ng-bind="repo.repoId"></a>
-        <span
-          class="status-badge"
-          ng-class="'status-' + repo.status"
-        >{{repo.status | title}}</span>
-      </div>
-      <div class="item-meta">
-        <span>
-          <i class="fab fa-github"></i>
-          <a
-            href="https://github.com/{{repo.source.fullName}}/"
-            ng-bind="repo.source.fullName"
-          ></a>
-        </span>
-        <span ng-if="repo.options.update">
-          <i class="fas fa-code-branch"></i>
-          <a
-            href="https://github.com/{{repo.source.fullName}}/tree/{{repo.source.branch}}"
-            ng-bind="repo.source.branch"
-          ></a>
-        </span>
-        <span ng-if="!repo.options.update">
-          @<a
-            href="https://github.com/{{repo.source.fullName}}/tree/{{repo.source.commit}}"
-            ng-bind="repo.source.commit.substring(0, 8)"
-          ></a>
-        </span>
-        <span>anonymized {{repo.anonymizeDate | humanTime}}</span>
-      </div>
-      <div class="item-meta" style="margin-top: 4px">
-        <span title="Terms: {{::repo.options.terms.join(', ')}}">
-          <i class="fas fa-shield-alt"></i> {{::repo.options.terms.length | number}}
-        </span>
-        <span title="Size">
-          <i class="fas fa-database"></i> {{::repo.size.storage | humanFileSize}}
-        </span>
-        <span>
-          <i class="far fa-eye"></i> {{::repo.pageView | number}}
-        </span>
-        <span>
-          <i class="far fa-calendar-alt"></i> Last: {{::repo.lastView | humanTime}}
-        </span>
-        <span ng-if="repo.options.expirationMode != 'never' && repo.status == 'ready'">
-          <i class="far fa-clock"></i> Expire: {{repo.options.expirationDate | humanTime}}
-        </span>
-      </div>
-    </div>
-    <div class="item-actions">
+    <div class="d-flex flex-wrap" style="gap: 8px;">
       <div class="dropdown">
-        <button
-          class="btn dropdown-toggle btn-sm"
-          type="button"
-          data-toggle="dropdown"
-        >
-          Actions
-        </button>
-        <div class="dropdown-menu dropdown-menu-right">
-          <a class="dropdown-item" href="/anonymize/{{repo.repoId}}">
-            <i class="far fa-edit"></i> Edit
+        <button class="btn dropdown-toggle" type="button" id="dropdownSort" data-toggle="dropdown">Sort</button>
+        <div class="dropdown-menu" aria-labelledby="dropdownSort">
+          <h6 class="dropdown-header">Sort by</h6>
+          <a class="dropdown-item" href="#" ng-click="orderBy = '-anonymizeDate'">
+            <i class="fas fa-check" ng-show="orderBy == '-anonymizeDate'"></i> Anonymize date
           </a>
-          <a class="dropdown-item" href="/r/{{repo.repoId}}/">
-            <i class="fa fa-eye"></i> View Repo
+          <a class="dropdown-item" href="#" ng-click="orderBy = 'repoId'">
+            <i class="fas fa-check" ng-show="orderBy == 'repoId'"></i> ID
           </a>
-          <a
-            class="dropdown-item"
-            href="/w/{{repo.repoId}}/"
-            target="_self"
-            ng-if="repo.options.page && repo.status == 'ready'"
-          >
-            <i class="fas fa-globe"></i> View Page
-          </a>
-          <div class="dropdown-divider"></div>
-          <a
-            class="dropdown-item"
-            href="#"
-            ng-show="repo.status == 'ready' || repo.status == 'error'"
-            ng-click="updateRepository(repo)"
-          >
-            <i class="fas fa-sync"></i> Force Update
-          </a>
-          <a
-            class="dropdown-item"
-            href="#"
-            ng-show="repo.status == 'removed'"
-            ng-click="updateRepository(repo)"
-          >
-            <i class="fas fa-check-circle"></i> Enable
-          </a>
-          <div class="dropdown-divider"></div>
-          <a class="dropdown-item" href="#" ng-click="removeCache(repo)">
-            <i class="fas fa-broom"></i> Remove Cache
-          </a>
-          <a
-            class="dropdown-item text-danger"
-            href="#"
-            ng-show="repo.status == 'ready'"
-            ng-click="removeRepository(repo)"
-          >
-            <i class="fas fa-trash-alt"></i> Remove
+          <a class="dropdown-item" href="#" ng-click="orderBy = '-status'">
+            <i class="fas fa-check" ng-show="orderBy == '-status'"></i> Status
           </a>
         </div>
       </div>
-    </div>
-  </div>
 
-  <div class="empty-state" ng-if="filteredRepositories.length == 0">
-    <i class="fas fa-code-branch"></i>
-    No repositories to display.
+      <div class="dropdown">
+        <button class="btn dropdown-toggle" type="button" id="dropdownStatus" data-toggle="dropdown">Status</button>
+        <div class="dropdown-menu" aria-labelledby="dropdownStatus">
+          <h6 class="dropdown-header">Filter by status</h6>
+          <div class="form-check dropdown-item">
+            <input class="form-check-input" type="checkbox" id="adminUserStatusReady" ng-model="filters.status.ready" />
+            <label class="form-check-label" for="adminUserStatusReady">Ready</label>
+          </div>
+          <div class="form-check dropdown-item">
+            <input class="form-check-input" type="checkbox" id="adminUserStatusExpired" ng-model="filters.status.expired" />
+            <label class="form-check-label" for="adminUserStatusExpired">Expired</label>
+          </div>
+          <div class="form-check dropdown-item">
+            <input class="form-check-input" type="checkbox" id="adminUserStatusRemoved" ng-model="filters.status.removed" />
+            <label class="form-check-label" for="adminUserStatusRemoved">Removed</label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </form>
+
+  <div class="paper-table paper-table-repos w-100" role="table" aria-label="Repositories">
+    <div class="paper-table-head" role="row">
+      <div role="columnheader">Repository</div>
+      <div role="columnheader">Status</div>
+      <div role="columnheader" class="num">Views</div>
+      <div role="columnheader">Anonymized</div>
+      <div role="columnheader" aria-label="Actions"></div>
+    </div>
+    <div
+      class="paper-table-row"
+      role="row"
+      ng-class="{'repo-inactive': repo.status == 'expired' || repo.status == 'removed'}"
+      ng-repeat="repo in repositories | filter:repoFiler | orderBy:orderBy as filteredRepositories"
+    >
+      <div class="cell-anon" role="cell">
+        <span class="type-badge type-repo">Repo</span>
+        <div class="anon-text">
+          <a class="repo-name" ng-href="/r/{{repo.repoId}}" ng-bind="repo.repoId"></a>
+          <div class="anon-sub">
+            <a href="https://github.com/{{repo.source.fullName}}/" ng-bind="repo.source.fullName"></a><span ng-if="repo.options.update">&nbsp;&middot;&nbsp;<a href="https://github.com/{{repo.source.fullName}}/tree/{{repo.source.branch}}" ng-bind="repo.source.branch"></a></span><span ng-if="!repo.options.update">&nbsp;&middot;&nbsp;@<a href="https://github.com/{{repo.source.fullName}}/tree/{{repo.source.commit}}" ng-bind="repo.source.commit.substring(0, 8)"></a></span><span>&nbsp;&middot;&nbsp;{{::repo.size.storage | humanFileSize}}</span><span>&nbsp;&middot;&nbsp;{{::repo.options.terms.length | number}} terms</span>
+          </div>
+        </div>
+      </div>
+      <div class="cell-status" role="cell">
+        <span class="status-dot" ng-class="{'status-removed': repo.status == 'removed' || repo.status == 'expired', 'status-ready': repo.status == 'ready', 'status-error': repo.status == 'error'}"></span>
+        <span ng-bind="repo.status | title"></span>
+      </div>
+      <div class="cell-views num" role="cell" ng-bind="::repo.pageView | number"></div>
+      <div class="cell-expires" role="cell" ng-bind="repo.anonymizeDate | humanTime"></div>
+      <div class="cell-actions" role="cell">
+        <div class="dropdown">
+          <button class="btn btn-icon-dots" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" aria-label="Actions">
+            <i class="fas fa-ellipsis-h" aria-hidden="true"></i>
+          </button>
+          <div class="dropdown-menu dropdown-menu-right">
+            <a class="dropdown-item" href="/anonymize/{{repo.repoId}}"><i class="far fa-edit"></i> Edit</a>
+            <a class="dropdown-item" href="/r/{{repo.repoId}}/"><i class="fa fa-eye"></i> View repo</a>
+            <a class="dropdown-item" href="/w/{{repo.repoId}}/" target="_self" ng-if="repo.options.page && repo.status == 'ready'"><i class="fas fa-globe"></i> View page</a>
+            <div class="dropdown-divider"></div>
+            <a class="dropdown-item" href="#" ng-show="repo.status == 'ready' || repo.status == 'error'" ng-click="updateRepository(repo)"><i class="fas fa-sync"></i> Force update</a>
+            <a class="dropdown-item" href="#" ng-show="repo.status == 'removed'" ng-click="updateRepository(repo)"><i class="fas fa-check-circle"></i> Enable</a>
+            <div class="dropdown-divider"></div>
+            <a class="dropdown-item" href="#" ng-click="removeCache(repo)"><i class="fas fa-broom"></i> Remove cache</a>
+            <a class="dropdown-item text-danger" href="#" ng-show="repo.status == 'ready'" ng-click="removeRepository(repo)"><i class="fas fa-trash-alt"></i> Remove</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="paper-table-empty" ng-if="filteredRepositories.length == 0">
+      <i class="fas fa-inbox"></i>
+      <span>No repositories to display.</span>
+    </div>
   </div>
 </div>
