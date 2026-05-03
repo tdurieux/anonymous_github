@@ -186,7 +186,7 @@
           <div class="anon-text">
             <a ng-href="{{item._viewUrl}}" class="repo-name" ng-bind="item._name"></a>
             <div class="anon-sub">
-              <a ng-if="item._type === 'repo'" href="https://github.com/{{item.source.fullName}}/" ng-bind="item.source.fullName"></a><span ng-if="item._type === 'repo' && item.options.update">&nbsp;&middot;&nbsp;<a href="https://github.com/{{item.source.fullName}}/tree/{{item.source.branch}}" ng-bind="item.source.branch"></a></span><span ng-if="item._type === 'repo' && !item.options.update">&nbsp;&middot;&nbsp;@<a href="https://github.com/{{item.source.fullName}}/tree/{{item.source.commit}}" ng-bind="item.source.commit.substring(0, 8)"></a></span>
+              <a ng-if="item._type === 'repo'" href="https://github.com/{{item.source.fullName}}/" ng-bind="item.source.fullName"></a><span ng-if="item._type === 'repo' && item.options.update">&nbsp;&middot;&nbsp;<a href="https://github.com/{{item.source.fullName}}/tree/{{item.source.branch}}" ng-bind="item.source.branch"></a><span ng-if="item.source.commit">&nbsp;&middot;&nbsp;@<a href="https://github.com/{{item.source.fullName}}/tree/{{item.source.commit}}" ng-bind="item.source.commit.substring(0, 8)"></a></span></span><span ng-if="item._type === 'repo' && !item.options.update">&nbsp;&middot;&nbsp;@<a href="https://github.com/{{item.source.fullName}}/tree/{{item.source.commit}}" ng-bind="item.source.commit.substring(0, 8)"></a></span>
               <a ng-if="item._type === 'pr'" href="https://github.com/{{item.source.repositoryFullName}}/pull/{{item.source.pullRequestId}}" ng-bind="item._source"></a>
             </div>
           </div>
@@ -196,11 +196,14 @@
           <span class="empty-dash" ng-if="!item.conference">&mdash;</span>
         </div>
         <div class="cell-status" role="cell">
-          <span
-            class="status-dot"
-            ng-class="{'status-removed': item.status == 'removed' || item.status == 'expired' || item.status == 'removing' || item.status == 'expiring', 'status-preparing': item.status == 'preparing' || item.status == 'download', 'status-ready': item.status == 'ready', 'status-error': item.status == 'error'}"
-          ></span>
-          <span ng-bind="item.status | title"></span>
+          <div class="status-line">
+            <span
+              class="status-dot"
+              ng-class="{'status-removed': item.status == 'removed' || item.status == 'expired' || item.status == 'removing' || item.status == 'expiring', 'status-preparing': item.status == 'preparing' || item.status == 'download', 'status-ready': item.status == 'ready', 'status-error': item.status == 'error'}"
+            ></span>
+            <span ng-bind="item.status | title"></span>
+          </div>
+          <div class="status-sub" ng-if="item.anonymizeDate" title="Last anonymized {{item.anonymizeDate | humanTime}}" ng-bind="item.anonymizeDate | humanTime"></div>
         </div>
         <div class="cell-views num" role="cell" ng-bind="item.pageView | number"></div>
         <div class="cell-expires" role="cell">

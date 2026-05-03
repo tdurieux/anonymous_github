@@ -72,6 +72,47 @@
     </div>
   </div>
 
+  <div class="admin-section-header" ng-if="userInfo && userInfo.isAdmin && user && user.username == userInfo.username">
+    <h2><i class="fas fa-key"></i> API tokens</h2>
+    <span class="section-count">{{tokens.length}}</span>
+  </div>
+
+  <div ng-if="userInfo && userInfo.isAdmin && user && user.username == userInfo.username" class="user-detail-card">
+    <p class="paper-page-lede">Personal API tokens for this admin account. Send as <code>Authorization: Bearer &lt;token&gt;</code> to authenticate without GitHub OAuth (useful for development).</p>
+
+    <form ng-submit="createToken()" class="d-flex" style="gap: 8px; margin-bottom: 12px;">
+      <input type="text" class="form-control" ng-model="newTokenName" placeholder="Token name (e.g. dev-laptop)" required />
+      <button type="submit" class="btn btn-primary"><i class="fas fa-plus"></i> Generate</button>
+    </form>
+
+    <div ng-if="newTokenPlaintext" class="alert alert-warning" role="alert">
+      <strong>Copy this token now — it will not be shown again:</strong>
+      <pre style="white-space: pre-wrap; word-break: break-all; margin: 8px 0 0; font-family: var(--font-mono); font-size: 0.85rem;">{{newTokenPlaintext}}</pre>
+      <button class="btn btn-sm" ng-click="newTokenPlaintext = null">Dismiss</button>
+    </div>
+
+    <div class="paper-table w-100" ng-if="tokens.length">
+      <div class="paper-table-head" role="row" style="grid-template-columns: 1fr 200px 200px 80px;">
+        <div role="columnheader">Name</div>
+        <div role="columnheader">Created</div>
+        <div role="columnheader">Last used</div>
+        <div role="columnheader" aria-label="Actions"></div>
+      </div>
+      <div class="paper-table-row" role="row" ng-repeat="t in tokens" style="grid-template-columns: 1fr 200px 200px 80px;">
+        <div role="cell" ng-bind="t.name"></div>
+        <div role="cell" ng-bind="t.createdAt | humanTime"></div>
+        <div role="cell"><span ng-if="t.lastUsedAt">{{t.lastUsedAt | humanTime}}</span><span ng-if="!t.lastUsedAt" class="text-muted">never</span></div>
+        <div role="cell">
+          <button class="btn btn-sm text-danger" ng-click="revokeToken(t)" title="Revoke"><i class="fas fa-trash-alt"></i></button>
+        </div>
+      </div>
+    </div>
+    <div class="paper-table-empty" ng-if="!tokens.length">
+      <i class="fas fa-inbox"></i>
+      <span>No tokens yet.</span>
+    </div>
+  </div>
+
   <div class="admin-section-header">
     <h2><i class="fas fa-code-branch"></i> Anonymized repositories</h2>
     <span class="section-count">{{repositories.length}}</span>

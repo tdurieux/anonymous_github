@@ -1,137 +1,107 @@
 <div class="container paper-page">
   <div class="paper-crumbs">Anonymization &nbsp;/&nbsp; <span class="here">Status</span></div>
-  <h1 class="paper-page-title">Status of <em>{{repoId}}</em></h1>
-  <p class="paper-page-lede">Track progress as your anonymization is prepared.</p>
-  <div class="paper-meta-rule"></div>
+  <div class="d-flex align-items-end justify-content-between flex-wrap" style="gap: 12px;">
+    <div>
+      <h1 class="paper-page-title">Status of <em>{{repoId}}</em></h1>
+      <p class="paper-page-lede">Track progress as your anonymization is prepared.</p>
+    </div>
+    <span class="status-pill" ng-class="{'status-pill-ready': repo.status == 'ready', 'status-pill-error': repo.status == 'error', 'status-pill-removed': repo.status == 'removed' || repo.status == 'expired'}">
+      <span class="status-dot" ng-class="{'status-ready': repo.status == 'ready', 'status-error': repo.status == 'error', 'status-removed': repo.status == 'removed' || repo.status == 'expired'}"></span>
+      <span ng-bind="repo.status | title"></span>
+    </span>
+  </div>
 
-  <section class="py-4">
+  <section class="paper-settings-section">
     <div class="paper-section-eyebrow">Progress</div>
 
-    <p>
-      The current status of your repository. The repository will take few
-      minutes to get ready depending on the size of the repository. Visit the
-      <a href="/faq">FAQ</a> for more information.
+    <p class="paper-section-copy">
+      The repository will take a few minutes to get ready, depending on its
+      size. Visit the <a href="/faq">FAQ</a> for more information.
     </p>
 
-    <div class="progress" style="height: 25px">
-      <div
-        class="progress-bar"
-        role="progressbar"
-        style="width: {{progress}}%;"
-        aria-valuenow="{{progress}}"
-        aria-valuemin="0"
-        aria-valuemax="100"
-      >
-        <span>
-          {{repo.status | title}}
-          <span ng-if="repo.statusMessage"
-            >: {{repo.statusMessage | title}}</span
-          >
-        </span>
+    <div class="paper-progress" ng-if="repo.status != 'error'" role="progressbar" aria-valuenow="{{progress}}" aria-valuemin="0" aria-valuemax="100" ng-class="{'paper-progress-ready': repo.status == 'ready'}">
+      <div class="paper-progress-bar" style="width: {{progress}}%;"></div>
+      <div class="paper-progress-label">
+        <span ng-bind="repo.status | title"></span><span ng-if="repo.statusMessage">&nbsp;&middot;&nbsp;<span ng-bind="repo.statusMessage"></span></span>
+        <span class="paper-progress-pct">{{progress || 0}}%</span>
       </div>
     </div>
 
-    <p>
-      Your repository will be available at
-      <a href="/r/{{repoId}}/" target="__self">/r/{{repoId}}/</a>.
-    </p>
-    <p ng-if="repo.options.page">
-      Your GitHub Page will be available at
-      <a href="/w/{{repoId}}/" target="__self">/w/{{repoId}}/</a>.
-    </p>
+    <div class="paper-error-card" ng-if="repo.status == 'error'" role="alert">
+      <div class="paper-error-head">
+        <i class="fas fa-exclamation-triangle"></i>
+        <div>
+          <div class="paper-error-eyebrow">Anonymization failed</div>
+          <div class="paper-error-title">Something went wrong while preparing this repository.</div>
+        </div>
+      </div>
+      <p class="paper-error-msg" ng-if="repo.statusMessage">{{ 'ERRORS.' + repo.statusMessage | translate }}</p>
+      <p class="paper-error-msg" ng-if="!repo.statusMessage">No additional details were reported. The most common causes are private repositories, missing branches, and rate limits.</p>
+      <ul class="paper-error-hints">
+        <li>Make sure the source URL points to a repository or pull request you can access.</li>
+        <li>Check that the chosen branch and commit still exist on GitHub.</li>
+        <li>If you just signed in, the access token may need a moment to propagate &mdash; try again.</li>
+      </ul>
+      <div class="paper-error-actions">
+        <a class="btn btn-ink" ng-href="/anonymize/{{repoId}}"><i class="far fa-edit mr-1"></i> Edit anonymization</a>
+        <a class="btn" href="/faq"><i class="far fa-question-circle mr-1"></i> Read the FAQ</a>
+        <a class="btn" href="https://github.com/tdurieux/anonymous_github/issues/new" target="_blank" rel="noopener"><i class="fab fa-github mr-1"></i> Report an issue</a>
+      </div>
+    </div>
 
-    <p class="text-center">
-      <a
-        class="btn btn-ink"
-        href="/r/{{repoId}}/"
-        target="__self"
-        ng-if="repo.status == 'ready'"
-        >Go to the anonymized repository</a
-      >
-      <a
-        class="btn"
-        href="/w/{{repoId}}/"
-        target="__self"
-        ng-if="repo.options.page && repo.status == 'ready'"
-        >Go to the anonymized Github page</a
-      >
-    </p>
+    <div class="paper-detail-grid">
+      <div class="detail-label">Repository</div>
+      <div class="detail-value">
+        <a href="/r/{{repoId}}/" target="__self">/r/{{repoId}}/</a>
+      </div>
+      <div class="detail-label" ng-if="repo.options.page">GitHub Page</div>
+      <div class="detail-value" ng-if="repo.options.page">
+        <a href="/w/{{repoId}}/" target="__self">/w/{{repoId}}/</a>
+      </div>
+    </div>
+
+    <div class="anonymize-submit-bar" ng-if="repo.status == 'ready'">
+      <a class="btn btn-ink" href="/r/{{repoId}}/" target="__self">
+        <i class="far fa-eye mr-1"></i> Go to anonymized repository
+      </a>
+      <a class="btn" href="/w/{{repoId}}/" target="__self" ng-if="repo.options.page">
+        <i class="fas fa-globe mr-1"></i> Go to anonymized GitHub page
+      </a>
+    </div>
   </section>
 
-  <section class="py-4">
+  <section class="paper-settings-section">
     <div class="paper-section-eyebrow">Support Anonymous GitHub</div>
+    <p class="paper-section-copy">
+      A small team keeps this running. If it helps you, please consider
+      contributing back &mdash; in code, ideas, or coffee.
+    </p>
 
-    <iframe
-      id="kofiframe"
-      src="https://ko-fi.com/tdurieux/?hidefeed=true&widget=true&embed=true&preview=true"
-      style="border: none; width: 100%"
-      height="650"
-      title="tdurieux"
-    ></iframe>
+    <div class="paper-support-grid">
+      <a class="paper-support-card" href="https://github.com/tdurieux/anonymous_github/" target="_blank" rel="noopener">
+        <div class="paper-support-eyebrow"><i class="fas fa-code-branch"></i> Contribute</div>
+        <p>Collaborate by implementing new features and fixing bugs. Help with new file formats or deployment is welcome.</p>
+        <span class="paper-support-cta">Open on GitHub <i class="fas fa-arrow-right"></i></span>
+      </a>
+      <a class="paper-support-card" href="https://github.com/tdurieux/anonymous_github/issues/new" target="_blank" rel="noopener">
+        <div class="paper-support-eyebrow"><i class="far fa-comment-dots"></i> Feedback</div>
+        <p>Tell us about bugs and missing features. Your feedback shapes the project's priorities.</p>
+        <span class="paper-support-cta">File an issue <i class="fas fa-arrow-right"></i></span>
+      </a>
+      <a class="paper-support-card" href="https://github.com/sponsors/tdurieux/" target="_blank" rel="noopener">
+        <div class="paper-support-eyebrow"><i class="fas fa-heart"></i> Sponsor</div>
+        <p>Server costs hover around $25 a month. Any contribution helps keep the lights on.</p>
+        <span class="paper-support-cta">GitHub Sponsors <i class="fas fa-arrow-right"></i></span>
+      </a>
+    </div>
 
-    <div class="row text-center">
-      <div class="col-lg-4">
-        <i class="rounded-circle fa fa-edit"></i>
-
-        <h2>Contribute</h2>
-        <p>
-          Collaborate to the Anonymous GitHub by implementing new features and
-          fixing bugs. Contribution likes supporting new file format or
-          improving the deployment are more than welcome.
-        </p>
-        <p>
-          <a
-            class="btn btn-secondary"
-            href="https://github.com/tdurieux/anonymous_github/"
-            target="__self"
-            >Go to GitHub &raquo;</a
-          >
-        </p>
-      </div>
-      <!-- /.col-lg-4 -->
-      <div class="col-lg-4">
-        <i class="rounded-circle fa fa-comments"></i>
-
-        <h2>Feedback</h2>
-        <p>
-          Feedback is also really valuable for the project. It helps to project
-          to identify bugs, missing feature and define priorities for the
-          project.
-        </p>
-        <p>
-          <a
-            class="btn btn-secondary"
-            href="https://github.com/tdurieux/anonymous_github/issues/new"
-            target="__self"
-            >Create an issue &raquo;</a
-          >
-        </p>
-      </div>
-      <!-- /.col-lg-4 -->
-      <div class="col-lg-4">
-        <i class="rounded-circle fa fa-dollar-sign"></i>
-
-        <h2>Finance</h2>
-        <p>
-          You can also help the project by supporting financially the project.
-          The server costs around 25$ per month. Any help to support the cost
-          would be gladly appreciated.
-        </p>
-        <p>
-          <a
-            class="btn btn-secondary"
-            href="https://github.com/sponsors/tdurieux/"
-            target="__self"
-            >GitHub Sponsor &raquo;</a
-          >
-          <a
-            class="btn btn-secondary"
-            href="https://ko-fi.com/tdurieux"
-            target="__self"
-            >Ko-fi &raquo;</a
-          >
-        </p>
-      </div>
+    <div class="paper-kofi-wrap">
+      <iframe
+        id="kofiframe"
+        src="https://ko-fi.com/tdurieux/?hidefeed=true&widget=true&embed=true&preview=true"
+        title="tdurieux"
+        loading="lazy"
+      ></iframe>
     </div>
   </section>
 </div>

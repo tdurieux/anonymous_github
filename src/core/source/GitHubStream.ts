@@ -15,8 +15,14 @@ import { IFile } from "../model/files/files.types";
 export default class GitHubStream extends GitHubBase {
   type: "GitHubDownload" | "GitHubStream" | "Zip" = "GitHubStream";
 
+  private _truncatedFolders: string[] = [];
+
   constructor(data: GitHubBaseData) {
     super(data);
+  }
+
+  get truncatedFolderList(): string[] {
+    return this._truncatedFolders;
   }
 
   downloadFile(token: string, sha: string) {
@@ -106,6 +112,7 @@ export default class GitHubStream extends GitHubBase {
   }
 
   async getFiles(progress?: (status: string) => void) {
+    this._truncatedFolders = [];
     return this.getTruncatedTree(this.data.commit, progress);
   }
 
@@ -149,19 +156,32 @@ export default class GitHubStream extends GitHubBase {
           }
         },
       });
+      if (data.truncated) {
+        this._truncatedFolders.push(parentPath);
+      }
       output.push(...this.tree2Tree(data.tree, parentPath));
     } catch (error) {
       console.log(error);
-      if ((error as { status?: number }).status == 409 || (error as { status?: number }).status == 404) {
-        // empty repo
-        data = { tree: [] };
-      } else {
-        throw new AnonymousError("repo_not_found", {
-          httpStatus: (error as { status?: number }).status || 404,
+      const status = (error as { status?: number }).status;
+      if (status === 409) {
+        throw new AnonymousError("repo_empty", {
+          httpStatus: 409,
           object: this.data,
           cause: error as Error,
         });
       }
+      if (status === 404) {
+        throw new AnonymousError("repo_not_found", {
+          httpStatus: 404,
+          object: this.data,
+          cause: error as Error,
+        });
+      }
+      throw new AnonymousError("repo_not_found", {
+        httpStatus: status || 500,
+        object: this.data,
+        cause: error as Error,
+      });
     }
     const promises: ReturnType<GitHubStream["getGHTree"]>[] = [];
     const parentPaths: string[] = [];
@@ -183,7 +203,7 @@ export default class GitHubStream extends GitHubBase {
     }
     (await Promise.all(promises)).forEach((data, i) => {
       if (data.truncated) {
-        // TODO: the tree is truncated
+        this._truncatedFolders.push(parentPaths[i]);
       }
       output.push(...this.tree2Tree(data.tree, parentPaths[i]));
     });

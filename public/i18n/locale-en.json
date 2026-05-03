@@ -10,6 +10,7 @@
     "user_not_found": "The requested user could not be found.",
     "repo_access_limited": "Access to repository limited by org.",
     "repo_not_found": "The repository is not found.",
+    "repo_empty": "The source repository is empty on GitHub.",
     "repo_not_accessible": "Anonymous GitHub is unable to or is forbidden to access the repository.",
     "repository_expired": "The repository is expired.",
     "repository_not_ready": "Anonymous GitHub is still processing the repository, it can take several minutes.",
@@ -56,8 +57,8 @@
     "stats_unsupported": "Statistics are only supported in download mode.",
     "branches_not_found": "The requested branch is not found.",
     "readme_not_available": "No README for the repository is found.",
-    "page_not_supported_on_different_branch": "Anonymized GitHub pages are only supported on the same branch.",
-    "page_not_activated": "Anonymized GitHub page is not enabled.",
+    "page_not_supported_on_different_branch": "GitHub Pages is served from a different branch than the one selected. Pick the branch that GitHub Pages is configured to use.",
+    "page_not_activated": "GitHub Pages is not enabled on this repository. Enable it in the repository settings on GitHub before anonymizing.",
     "is_removed": "This resource has been removed and is no longer available.",
     "conf_name_missing": "A conference name is required.",
     "conf_id_missing": "A conference ID is required.",
@@ -80,5 +81,11 @@
     "queue_not_found": "The specified queue could not be found.",
     "job_not_found": "The specified job could not be found in the queue.",
     "error_retrying_job": "An error occurred while retrying the job."
+  },
+  "WARNINGS": {
+    "page_not_enabled_on_repo": "GitHub Pages is not enabled on this repository. Enable it in the repository's Settings → Pages on GitHub, then refresh.",
+    "page_branch_mismatch": "GitHub Pages on this repository is served from the '{{pageBranch}}' branch, but you selected '{{selectedBranch}}'. Switch the branch above to '{{pageBranch}}' to anonymize the Pages site.",
+    "folder_truncated": "This folder has more than 10,000 entries; only a partial listing is shown.",
+    "repo_truncated": "Some folders in this repository have too many files to be fully listed. Affected folders are marked with a warning icon."
   }
 }

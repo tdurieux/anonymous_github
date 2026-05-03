@@ -1,5 +1,6 @@
 import { basename } from "path";
 import { Transform, Readable } from "stream";
+import { StringDecoder } from "string_decoder";
 import { isText } from "istextorbinary";
 
 import config from "../config";
@@ -30,8 +31,14 @@ export function isTextFile(filePath: string, content?: Buffer) {
 }
 
 export class AnonymizeTransformer extends Transform {
-  public isText: boolean | null = null;
+  public isText: boolean;
   anonimizer: ContentAnonimizer;
+  private decoder = new StringDecoder("utf8");
+  // Trailing decoded text held back between chunks so that terms, URLs, or
+  // markdown image patterns straddling a stream chunk boundary still match.
+  // Must exceed the longest pattern we replace (terms + URLs + images).
+  private pending = "";
+  private static readonly OVERLAP = 4096;
 
   constructor(
     readonly opt: {
@@ -39,7 +46,11 @@ export class AnonymizeTransformer extends Transform {
     } & ConstructorParameters<typeof ContentAnonimizer>[0]
   ) {
     super();
-    this.isText = isTextFile(this.opt.filePath);
+    // isTextFile may return null for unknown extensions; treat unknown as
+    // binary. Sniffing from chunk content is unsafe — split archives,
+    // compressed blobs, etc. can have an ASCII-looking first 64 KB and get
+    // misclassified as text, which then UTF-8-round-trips and corrupts them.
+    this.isText = isTextFile(this.opt.filePath) === true;
     this.anonimizer = new ContentAnonimizer(this.opt);
   }
 
@@ -48,23 +59,58 @@ export class AnonymizeTransformer extends Transform {
   }
 
   _transform(chunk: Buffer, encoding: string, callback: () => void) {
-    if (this.isText === null) {
-      this.isText = isTextFile(this.opt.filePath, chunk);
+    if (!this.isText) {
+      this.emit("transform", {
+        isText: this.isText,
+        wasAnonimized: this.wasAnonimized,
+        chunk,
+      });
+      this.push(chunk);
+      return callback();
     }
+
+    // StringDecoder buffers trailing partial UTF-8 sequences across chunk
+    // boundaries so we never decode half a codepoint into U+FFFD.
+    this.pending += this.decoder.write(chunk);
+
+    if (this.pending.length > AnonymizeTransformer.OVERLAP) {
+      let split = this.pending.length - AnonymizeTransformer.OVERLAP;
+      // Avoid splitting a UTF-16 surrogate pair.
+      const code = this.pending.charCodeAt(split);
+      if (code >= 0xdc00 && code <= 0xdfff) {
+        split -= 1;
+      }
+      const toProcess = this.pending.slice(0, split);
+      this.pending = this.pending.slice(split);
+
+      const out = this.anonimizer.anonymize(toProcess);
+      const outChunk = Buffer.from(out, "utf8");
+
+      this.emit("transform", {
+        isText: this.isText,
+        wasAnonimized: this.wasAnonimized,
+        chunk: outChunk,
+      });
+      this.push(outChunk);
+    }
+    callback();
+  }
+
+  _flush(callback: () => void) {
     if (this.isText) {
-      const content = this.anonimizer.anonymize(chunk.toString());
-      if (this.anonimizer.wasAnonymized) {
-        chunk = Buffer.from(content);
+      this.pending += this.decoder.end();
+      if (this.pending) {
+        const out = this.anonimizer.anonymize(this.pending);
+        this.pending = "";
+        const outChunk = Buffer.from(out, "utf8");
+        this.emit("transform", {
+          isText: this.isText,
+          wasAnonimized: this.wasAnonimized,
+          chunk: outChunk,
+        });
+        this.push(outChunk);
       }
     }
-
-    this.emit("transform", {
-      isText: this.isText,
-      wasAnonimized: this.wasAnonimized,
-      chunk,
-    });
-
-    this.push(chunk);
     callback();
   }
 }

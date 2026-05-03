@@ -197,29 +197,136 @@ angular
   .filter("diff", [
     "$sce",
     function ($sce) {
+      const esc = (s) =>
+        s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+      function flushFile(out, file) {
+        if (!file) return;
+        const headerName =
+          file.newPath && file.newPath !== "/dev/null"
+            ? file.newPath
+            : file.oldPath || "";
+        const status =
+          file.oldPath === "/dev/null"
+            ? "added"
+            : file.newPath === "/dev/null"
+            ? "deleted"
+            : file.oldPath && file.newPath && file.oldPath !== file.newPath
+            ? "renamed"
+            : "modified";
+        out.push('<div class="diff-file-block">');
+        out.push(
+          '<div class="diff-file-header"><span class="diff-file-icon"><i class="far fa-file-code"></i></span>' +
+            '<span class="diff-file-name">' +
+            esc(headerName) +
+            "</span>" +
+            '<span class="diff-file-status diff-file-status-' +
+            status +
+            '">' +
+            status +
+            "</span></div>"
+        );
+        if (file.lines.length) {
+          out.push('<table class="diff-file-table"><tbody>');
+          for (const line of file.lines) {
+            out.push(
+              '<tr class="diff-row diff-row-' +
+                line.kind +
+                '">' +
+                '<td class="diff-gutter diff-gutter-old">' +
+                (line.oldNo || "") +
+                "</td>" +
+                '<td class="diff-gutter diff-gutter-new">' +
+                (line.newNo || "") +
+                "</td>" +
+                '<td class="diff-sign">' +
+                (line.kind === "add"
+                  ? "+"
+                  : line.kind === "remove"
+                  ? "-"
+                  : line.kind === "hunk"
+                  ? "@"
+                  : "") +
+                "</td>" +
+                '<td class="diff-code">' +
+                esc(line.text) +
+                "</td>" +
+                "</tr>"
+            );
+          }
+          out.push("</tbody></table>");
+        }
+        out.push("</div>");
+      }
+
       return function (str) {
         if (!str) return str;
+        const out = [];
+        let file = null;
+        let oldNo = 0;
+        let newNo = 0;
+        const ensureFile = () => {
+          if (!file) file = { oldPath: "", newPath: "", lines: [] };
+          return file;
+        };
+        const startNewFileIfNeeded = () => {
+          if (file && (file.lines.length || file.oldPath || file.newPath)) {
+            flushFile(out, file);
+            file = null;
+          }
+        };
         const lines = str.split("\n");
-        const o = [];
-        for (let i = 1; i < lines.length; i++) {
-          lines[i] = lines[i].replace(/</g, "&lt;").replace(/>/g, "&gt;");
-          if (lines[i].startsWith("+++")) {
-            o.push(`<span class="diff-file">${lines[i]}</span>`);
-          } else if (lines[i].startsWith("---")) {
-            o.push(`<span class="diff-file">${lines[i]}</span>`);
-          } else if (lines[i].startsWith("@@")) {
-            o.push(`<span class="diff-lines">${lines[i]}</span>`);
-          } else if (lines[i].startsWith("index")) {
-            o.push(`<span class="diff-index">${lines[i]}</span>`);
-          } else if (lines[i].startsWith("+")) {
-            o.push(`<span class="diff-add">${lines[i]}</span>`);
-          } else if (lines[i].startsWith("-")) {
-            o.push(`<span class="diff-remove">${lines[i]}</span>`);
+        for (let i = 0; i < lines.length; i++) {
+          const ln = lines[i];
+          if (ln.startsWith("diff --git")) {
+            startNewFileIfNeeded();
+            ensureFile();
+            continue;
+          }
+          if (ln.startsWith("--- ")) {
+            // New file boundary if the previous file already had lines.
+            if (file && file.lines.length) startNewFileIfNeeded();
+            ensureFile().oldPath = ln.replace(/^--- (a\/)?/, "").trim();
+            continue;
+          }
+          if (ln.startsWith("+++ ")) {
+            ensureFile().newPath = ln.replace(/^\+\+\+ (b\/)?/, "").trim();
+            continue;
+          }
+          if (
+            ln.startsWith("index ") ||
+            ln.startsWith("similarity index") ||
+            ln.startsWith("rename ") ||
+            ln.startsWith("new file mode") ||
+            ln.startsWith("deleted file mode") ||
+            ln.startsWith("Binary files")
+          ) {
+            continue;
+          }
+          if (ln.startsWith("@@")) {
+            const m = ln.match(/@@\s+-(\d+)(?:,\d+)?\s+\+(\d+)(?:,\d+)?\s+@@/);
+            if (m) {
+              oldNo = parseInt(m[1], 10);
+              newNo = parseInt(m[2], 10);
+            }
+            ensureFile().lines.push({ kind: "hunk", oldNo: "", newNo: "", text: ln });
+            continue;
+          }
+          if (!file) continue;
+          if (ln.startsWith("+")) {
+            file.lines.push({ kind: "add", oldNo: "", newNo: newNo, text: ln.slice(1) });
+            newNo++;
+          } else if (ln.startsWith("-")) {
+            file.lines.push({ kind: "remove", oldNo: oldNo, newNo: "", text: ln.slice(1) });
+            oldNo++;
           } else {
-            o.push(`<span class="diff-line">${lines[i]}</span>`);
+            file.lines.push({ kind: "ctx", oldNo: oldNo, newNo: newNo, text: ln.startsWith(" ") ? ln.slice(1) : ln });
+            oldNo++;
+            newNo++;
           }
         }
-        return $sce.trustAsHtml(o.join("\n"));
+        flushFile(out, file);
+        return $sce.trustAsHtml(out.join(""));
       };
     },
   ])
@@ -311,6 +418,18 @@ angular
               return f1.name - f2.name;
             };
 
+            function isTruncated(folderPath) {
+              const truncated =
+                ($scope.$parent.options &&
+                  $scope.$parent.options.truncatedFolders) ||
+                [];
+              if (!truncated.length) return false;
+              const normalized = folderPath.startsWith("/")
+                ? folderPath.substring(1)
+                : folderPath;
+              return truncated.indexOf(normalized) !== -1;
+            }
+
             function generate(current, parentPath) {
               if (!current) return "";
               current = current.sort(sortFiles);
@@ -350,6 +469,10 @@ angular
                 if ($scope.isActive(path)) {
                   cssClasses.push("active");
                 }
+                const truncated = dir && isTruncated(path);
+                if (truncated) {
+                  cssClasses.push("truncated");
+                }
 
                 output += `<li class="${cssClasses.join(
                   " "
@@ -358,6 +481,9 @@ angular
                   output += `<a ng-click="openFolder('${path}', $event)">${name}</a>`;
                 } else {
                   output += `<a href='/r/${$scope.repoId}${path}'>${name}</a>`;
+                }
+                if (truncated) {
+                  output += `<span class="truncated-warning" title="{{ 'WARNINGS.folder_truncated' | translate }}"><i class="fas fa-exclamation-triangle"></i></span>`;
                 }
                 if ($scope.opens[path] && f.child) {
                   if (f.child.length > 1) {
@@ -1064,9 +1190,15 @@ angular
         $scope.html_readme = "";
         $scope.detectedType = null;
 
+        let o;
         try {
-          const o = parseGithubUrl($scope.sourceUrl);
-          setValidity("sourceUrl", "github", true);
+          o = parseGithubUrl($scope.sourceUrl);
+        } catch (error) {
+          setValidity("sourceUrl", "github", false);
+          return;
+        }
+        setValidity("sourceUrl", "github", true);
+        try {
           if (o.pullRequestId) {
             $scope.detectedType = "pr";
             $scope.source = { repositoryFullName: o.owner + "/" + o.repo, pullRequestId: o.pullRequestId };
@@ -1077,7 +1209,6 @@ angular
             anonymizeReadme();
           }
         } catch (error) {
-          setValidity("sourceUrl", "github", false);
           return;
         }
         $scope.$apply();
@@ -1096,9 +1227,6 @@ angular
       $scope.$watch("source.branch", async () => {
         if ($scope.detectedType !== "repo") return;
         const selected = $scope.branches.filter((f) => f.name == $scope.source.branch)[0];
-        if ($scope.details && $scope.details.hasPage && $scope.anonymize && $scope.anonymize.page) {
-          $scope.anonymize.page.$$element[0].disabled = $scope.details.pageSource.branch != $scope.source.branch;
-        }
         if (selected) {
           $scope.source.commit = selected.commit;
           $scope.readme = selected.readme;
@@ -1110,18 +1238,33 @@ angular
 
       $scope.getBranches = async (force) => {
         const o = parseGithubUrl($scope.sourceUrl);
-        const branches = await $http.get(`/api/repo/${o.owner}/${o.repo}/branches`, {
-          params: { force: force === true ? "1" : "0", repositoryID: $scope.repositoryID },
-        });
-        $scope.branches = branches.data;
-        if (!$scope.source.branch) {
-          $scope.source.branch = $scope.details.defaultBranch;
-        }
-        const selected = $scope.branches.filter((b) => b.name == $scope.source.branch);
-        if (selected.length > 0) {
-          $scope.source.commit = selected[0].commit;
-          $scope.readme = selected[0].readme;
-          await getReadme(force);
+        try {
+          const branches = await $http.get(`/api/repo/${o.owner}/${o.repo}/branches`, {
+            params: { force: force === true ? "1" : "0", repositoryID: $scope.repositoryID },
+          });
+          $scope.branches = branches.data;
+          $scope.sourceUnreachable = false;
+          if (!$scope.source.branch) {
+            $scope.source.branch = $scope.details.defaultBranch;
+          }
+          const selected = $scope.branches.filter((b) => b.name == $scope.source.branch);
+          if (selected.length > 0) {
+            $scope.source.commit = selected[0].commit;
+            $scope.readme = selected[0].readme;
+            await getReadme(force);
+          }
+        } catch (error) {
+          $scope.branches = [];
+          $scope.sourceUnreachable = error && (error.status === 404 || (error.data && error.data.error === "repo_not_found"));
+          const code = (error && error.data && error.data.error) || (error && error.status === 404 ? "repo_not_found" : "unknown_error");
+          $translate("ERRORS." + code).then((translation) => {
+            $scope.toasts = $scope.toasts || [];
+            $scope.toasts.push({ title: "Error", date: new Date(), body: translation });
+            $scope.error = translation;
+          }, console.error);
+          if (typeof setValidity === "function") {
+            setValidity("sourceUrl", "missing", false);
+          }
         }
         $scope.$apply();
       };
@@ -1458,7 +1601,7 @@ angular
       $scope.getFiles = async function (path) {
         try {
           const res = await $http.get(
-            `/api/repo/${$scope.repoId}/files/?path=${path}&v=${$scope.options.lastUpdateDate}`
+            `/api/repo/${$scope.repoId}/files/?path=${encodeURIComponent(path)}&v=${$scope.options.lastUpdateDate}`
           );
           $scope.files.push(...res.data);
           return res.data;

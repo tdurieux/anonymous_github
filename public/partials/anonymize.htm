@@ -175,8 +175,14 @@
                 <label class="form-check-label" for="notebook">Display Notebooks</label>
               </div>
               <div class="form-check">
-                <input class="form-check-input" type="checkbox" id="page" name="page" ng-model="options.page" ng-disabled="!details.hasPage" />
+                <input class="form-check-input" type="checkbox" id="page" name="page" ng-model="options.page" ng-disabled="!details.hasPage || (details.pageSource && details.pageSource.branch !== source.branch)" />
                 <label class="form-check-label" for="page">GitHub Pages</label>
+                <small class="form-text text-muted d-block" ng-show="!details.hasPage">
+                  {{ 'WARNINGS.page_not_enabled_on_repo' | translate }}
+                </small>
+                <small class="form-text text-muted d-block" ng-show="details.hasPage && details.pageSource && details.pageSource.branch !== source.branch">
+                  {{ 'WARNINGS.page_branch_mismatch' | translate:{ pageBranch: details.pageSource.branch, selectedBranch: source.branch } }}
+                </small>
               </div>
             </div>
 
@@ -264,7 +270,8 @@
         <div class="anonymize-preview-body markdown-body body" ng-bind-html="html_readme"></div>
       </div>
 
-      <div class="anonymize-preview-col" ng-if="detectedType === 'pr' && details">
+      <div class="anonymize-preview-col" ng-if="detectedType === 'pr' && details"
+           ng-init="prTabState = { active: options.diff ? 'diff' : 'comments' }">
         <div class="anonymize-preview-head">
           <span class="paper-eyebrow">Live preview</span>
           <span class="anonymize-preview-sub">Pull request with redactions applied</span>
@@ -283,32 +290,45 @@
           <div class="pr-body shadow-sm p-3 mb-4 rounded" style="background: var(--paper-bg-alt)" ng-if="options.body">
             <markdown content="anonymizePrContent(details.pullRequest.body)" options="options" terms="terms"></markdown>
           </div>
-          <ul class="nav nav-tabs" id="prTabs" role="tablist">
-            <li class="nav-item" role="presentation" ng-if="options.diff">
-              <button class="nav-link active" id="pills-diff-tab" data-toggle="pill" data-target="#pills-diff" type="button" role="tab">Diff</button>
-            </li>
-            <li class="nav-item" role="presentation" ng-if="options.comments">
-              <button class="nav-link" ng-class="{'active':!options.diff}" id="pills-comments-tab" data-toggle="pill" data-target="#pills-comments" type="button" role="tab">
-                <ng-pluralize count="details.pullRequest.comments.length" when="{'0': 'No comment', 'one': 'One Comment', 'other': '{} Comments'}"></ng-pluralize>
-              </button>
-            </li>
-          </ul>
-          <div class="tab-content" id="pills-tabContent">
-            <div class="tab-pane show active" id="pills-diff" role="tabpanel" ng-if="options.diff">
-              <div class="pr-diff shadow-sm p-3 mb-4 rounded" style="background: var(--paper-bg-alt)">
-                <pre style="overflow-x: auto"><code ng-bind-html="anonymizePrContent(details.pullRequest.diff) | diff"></code></pre>
-              </div>
+          <nav class="paper-tabs" ng-if="options.diff || options.comments" role="tablist">
+            <button
+              class="paper-tab"
+              ng-if="options.diff"
+              ng-class="{'active': prTabState.active == 'diff'}"
+              ng-click="prTabState.active = 'diff'"
+              type="button"
+              role="tab"
+            >
+              <i class="fas fa-code"></i> Diff
+            </button>
+            <button
+              class="paper-tab"
+              ng-if="options.comments"
+              ng-class="{'active': prTabState.active == 'comments'}"
+              ng-click="prTabState.active = 'comments'"
+              type="button"
+              role="tab"
+            >
+              <i class="far fa-comment-dots"></i>
+              <ng-pluralize count="details.pullRequest.comments.length" when="{'0': 'No comments', 'one': '1 comment', 'other': '{} comments'}"></ng-pluralize>
+            </button>
+          </nav>
+          <div class="paper-tab-content">
+            <div ng-if="options.diff && prTabState.active == 'diff'">
+              <div class="pr-diff" ng-bind-html="anonymizePrContent(details.pullRequest.diff) | diff"></div>
             </div>
-            <div class="tab-pane" ng-class="{'show active':!options.diff}" id="pills-comments" role="tabpanel" ng-if="options.comments">
-              <ul class="pr-comments list-group">
-                <li class="pr-comment list-group-item" ng-repeat="comment in details.pullRequest.comments">
-                  <div class="d-flex w-100 justify-content-between flex-wrap">
-                    <h5 class="mb-1" ng-if="options.username">@{{anonymizePrContent(comment.author)}}</h5>
-                    <small ng-bind="comment.updatedDate | date" ng-if="options.date"></small>
+            <div ng-if="options.comments && prTabState.active == 'comments'">
+              <ul class="pr-comments">
+                <li class="pr-comment" ng-repeat="comment in details.pullRequest.comments">
+                  <div class="pr-comment-head">
+                    <span class="pr-comment-author" ng-if="options.username">
+                      <i class="far fa-user"></i> @<span ng-bind="anonymizePrContent(comment.author)"></span>
+                    </span>
+                    <span class="pr-comment-date" ng-if="options.date" ng-bind="comment.updatedDate | date"></span>
                   </div>
-                  <p class="mb-1">
-                    <markdown class="pr-comment-body" ng-if="options.body" content="anonymizePrContent(comment.body)" options="options" terms="terms"></markdown>
-                  </p>
+                  <div class="pr-comment-body" ng-if="options.body">
+                    <markdown content="anonymizePrContent(comment.body)" options="options" terms="terms"></markdown>
+                  </div>
                 </li>
               </ul>
             </div>

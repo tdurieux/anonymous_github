@@ -17,7 +17,6 @@ import User from "../../core/User";
 import { RepositoryStatus } from "../../core/types";
 import { IUserDocument } from "../../core/model/users/users.types";
 import { checkToken } from "../../core/GitHubUtils";
-import config from "../../config";
 
 const router = express.Router();
 
@@ -404,20 +403,6 @@ router.post(
           httpStatus: 404,
         });
       }
-      if (repository.size) {
-        if (
-          repository.size > config.AUTO_DOWNLOAD_REPO_SIZE &&
-          repo.model.source.type == "GitHubDownload"
-        ) {
-          repo.model.source.type = "GitHubStream";
-        } else if (
-          repository.size < config.AUTO_DOWNLOAD_REPO_SIZE &&
-          repo.model.source.type == "GitHubStream"
-        ) {
-          repo.model.source.type = "GitHubDownload";
-        }
-      }
-
       const removeRepoFromConference = async (conferenceID: string) => {
         const conf = await ConferenceModel.findOne({
           conferenceID,
@@ -528,25 +513,6 @@ router.post("/", async (req: express.Request, res: express.Response) => {
     repo.source.accessToken = user.accessToken;
     repo.source.repositoryId = repository.model.id;
     repo.source.repositoryName = repoUpdate.fullName;
-    if (
-      repository.size !== undefined &&
-      repository.size < config.AUTO_DOWNLOAD_REPO_SIZE
-    ) {
-      repo.source.type = "GitHubDownload";
-    }
-    if (repository.size) {
-      if (
-        repository.size > config.AUTO_DOWNLOAD_REPO_SIZE &&
-        repo.source.type == "GitHubDownload"
-      ) {
-        repo.source.type = "GitHubStream";
-      } else if (
-        repository.size < config.AUTO_DOWNLOAD_REPO_SIZE &&
-        repo.source.type == "GitHubStream"
-      ) {
-        repo.source.type = "GitHubDownload";
-      }
-    }
 
     repo.conference = repoUpdate.conference;
 

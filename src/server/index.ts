@@ -12,6 +12,7 @@ import * as compression from "compression";
 import * as passport from "passport";
 import { connect } from "./database";
 import { initSession, router as connectionRouter } from "./routes/connection";
+import { bearerTokenAuth } from "./routes/token-auth";
 import router from "./routes";
 import AnonymizedRepositoryModel from "../core/model/anonymizedRepositories/anonymizedRepositories.model";
 import { conferenceStatusCheck, repositoryStatusCheck } from "./schedule";
@@ -56,6 +57,7 @@ export default async function start() {
   app.use(initSession());
   app.use(passport.initialize());
   app.use(passport.session());
+  app.use(bearerTokenAuth);
 
   startWorker();
 

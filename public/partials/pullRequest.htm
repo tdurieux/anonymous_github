@@ -1,112 +1,87 @@
-<div class="container-fluid h-100">
-  <div class="row h-100">
-    <div class="col-md h-100 overflow-auto p-0 d-flex flex-column">
-      <div class="d-flex align-content-between status-bar shadow">
-        <div class="last-update">
-          Anonymization Date: {{details.anonymizeDate|date}}
-        </div>
+<div class="pr-page" ng-init="tabState = { active: (details && details.diff) ? 'diff' : 'comments' }">
+  <div class="container paper-page pr-page-inner">
+    <div class="paper-crumbs">
+      <a href="/dashboard">Reviewer</a> &nbsp;/&nbsp;
+      <span class="here">Pull request</span>
+    </div>
+
+    <header class="pr-header">
+      <h1 class="paper-page-title pr-title">
+        <span ng-if="details.title" ng-bind="details.title"></span>
+        <span ng-if="!details.title" class="text-muted">Untitled pull request</span>
+      </h1>
+      <div class="pr-header-meta">
+        <span class="paper-pill" ng-class="{'good': details.merged, 'warn': details.state == 'open', 'bad': details.state == 'closed' && !details.merged}">
+          <span class="status-dot" ng-class="{'status-ready': details.merged, 'status-error': details.state == 'closed' && !details.merged}"></span>
+          {{ details.merged ? 'Merged' : (details.state | title) }}
+        </span>
+        <span class="pr-meta-item" ng-if="details.baseRepositoryFullName">
+          <i class="fab fa-github"></i> <span ng-bind="details.baseRepositoryFullName"></span>
+        </span>
+        <span class="pr-meta-item" ng-if="details.updatedDate">
+          <i class="far fa-clock"></i> <span ng-bind="details.updatedDate | date"></span>
+        </span>
+        <span class="pr-meta-item" ng-if="details.anonymizeDate">
+          <i class="fas fa-user-secret"></i> Anonymized <span ng-bind="details.anonymizeDate | date"></span>
+        </span>
       </div>
-      <div class="overflow-auto paper-page" style="padding-top: 18px;">
-        <div class="paper-crumbs">Reviewer &nbsp;/&nbsp; <span class="here">Pull request</span></div>
-        <div class="d-flex w-100 justify-content-between align-items-end flex-wrap" style="gap: 12px;">
-          <h1 class="paper-page-title pr-title" style="margin: 6px 0;">
-            <span ng-if="details.title">{{details.title}}</span>
-            <span class="paper-pill" ng-class="{'good':details.merged, 'warn':details.state=='open', 'bad':details.state=='closed' && !details.merged}">
-              {{details.merged?"merged":details.state | title}}
-            </span>
-          </h1>
-          <small class="paper-pill" ng-if="details.updatedDate" ng-bind="details.updatedDate | date"></small>
-        </div>
-        <div class="paper-meta-rule" ng-if="details.baseRepositoryFullName">
-          <span>on <b>{{details.baseRepositoryFullName}}</b></span>
-        </div>
-        <div
-          class="pr-body shadow-sm p-3 mb-4 rounded border"
-          ng-if="details.body"
-        >
-          <markdown content="details.body"></markdown>
-        </div>
-        <ul class="nav nav-tabs" id="myTab" role="tablist">
-          <li class="nav-item" role="presentation" ng-if="details.diff">
-            <button
-              class="nav-link active"
-              id="pills-diff-tab"
-              data-toggle="pill"
-              data-target="#pills-diff"
-              type="button"
-              role="tab"
-              aria-controls="pills-diff"
-              aria-selected="true"
-            >
-              Diff
-            </button>
+    </header>
+
+    <section class="pr-body-card" ng-if="details.body">
+      <div class="paper-section-eyebrow">Description</div>
+      <markdown content="details.body"></markdown>
+    </section>
+
+    <nav class="paper-tabs" ng-if="details.diff || details.comments" role="tablist">
+      <button
+        class="paper-tab"
+        ng-if="details.diff"
+        ng-class="{'active': tabState.active == 'diff'}"
+        ng-click="tabState.active = 'diff'"
+        type="button"
+        role="tab"
+      >
+        <i class="fas fa-code"></i> Diff
+      </button>
+      <button
+        class="paper-tab"
+        ng-if="details.comments"
+        ng-class="{'active': tabState.active == 'comments'}"
+        ng-click="tabState.active = 'comments'"
+        type="button"
+        role="tab"
+      >
+        <i class="far fa-comment-dots"></i>
+        <ng-pluralize
+          count="details.comments.length"
+          when="{'0': 'No comments', 'one': '1 comment', 'other': '{} comments'}"
+        ></ng-pluralize>
+      </button>
+    </nav>
+
+    <div class="paper-tab-content">
+      <div ng-if="details.diff && tabState.active =='diff'">
+        <div class="pr-diff" ng-bind-html="details.diff | diff"></div>
+      </div>
+
+      <div ng-if="details.comments && tabState.active =='comments'">
+        <ul class="pr-comments">
+          <li class="pr-comment" ng-repeat="comment in details.comments">
+            <div class="pr-comment-head">
+              <span class="pr-comment-author" ng-if="comment.author">
+                <i class="far fa-user"></i> @<span ng-bind="comment.author"></span>
+              </span>
+              <span class="pr-comment-date" ng-if="comment.updatedDate" ng-bind="comment.updatedDate | date"></span>
+            </div>
+            <div class="pr-comment-body" ng-if="comment.body">
+              <markdown content="comment.body"></markdown>
+            </div>
           </li>
-          <li class="nav-item" role="presentation" ng-if="details.comments">
-            <button
-              class="nav-link"
-              ng-class="{'active':!details.diff}"
-              id="pills-comments-tab"
-              data-toggle="pill"
-              data-target="#pills-comments"
-              type="button"
-              role="tab"
-              aria-controls="pills-comments"
-              aria-selected="false"
-            >
-              <ng-pluralize
-                count="details.comments.length"
-                when="{'0': 'No comment',
-                         'one': 'One Comment',
-                         'other': '{} Comments'}"
-              >
-              </ng-pluralize>
-            </button>
+          <li class="paper-table-empty" ng-if="!details.comments.length">
+            <i class="far fa-comment-dots"></i>
+            <span>No comments on this pull request.</span>
           </li>
         </ul>
-        <div class="tab-content" id="pills-tabContent">
-          <div
-            class="tab-pane show active"
-            id="pills-diff"
-            role="tabpanel"
-            aria-labelledby="pills-diff-tab"
-            ng-if="details.diff"
-          >
-            <div class="pr-diff shadow-sm p-3 mb-5 bg-white rounded">
-              <pre><code ng-bind-html="details.diff | diff"></code></pre>
-            </div>
-          </div>
-          <div
-            class="tab-pane"
-            ng-class="{'show active':!details.diff}"
-            id="pills-comments"
-            role="tabpanel"
-            aria-labelledby="pills-comments-tab"
-            ng-if="details.comments"
-          >
-            <ul class="pr-comments list-group">
-              <li
-                class="pr-comment list-group-item"
-                ng-repeat="comment in details.comments"
-              >
-                <div class="d-flex w-100 justify-content-between">
-                  <h5 class="mb-1" ng-if="comment.author">
-                    @{{comment.author}}
-                  </h5>
-                  <small
-                    ng-bind="comment.updatedDate | date"
-                    ng-if="comment.updatedDate"
-                  ></small>
-                </div>
-                <p class="mb-1" ng-if="comment.body">
-                  <markdown
-                    class="pr-comment-body"
-                    content="comment.body"
-                  ></markdown>
-                </p>
-              </li>
-            </ul>
-          </div>
-        </div>
       </div>
     </div>
   </div>

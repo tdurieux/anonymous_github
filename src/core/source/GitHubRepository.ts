@@ -209,8 +209,8 @@ export async function getRepositoryFromGitHub(opt: {
   accessToken: string;
   force?: boolean;
 }) {
-  if (opt.repo.indexOf(".git") > -1) {
-    opt.repo = opt.repo.replace(".git", "");
+  if (opt.repo.endsWith(".git")) {
+    opt.repo = opt.repo.slice(0, -4);
   }
   let dbModel;
   if (opt.repositoryID) {

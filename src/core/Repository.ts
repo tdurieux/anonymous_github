@@ -157,8 +157,18 @@ export default class Repository {
       files.forEach((f) => (f.repoId = this.repoId));
       await FileModel.insertMany(files);
 
+      const sourceWithTruncation = this.source as unknown as {
+        truncatedFolderList?: string[];
+      };
+      if (Array.isArray(sourceWithTruncation.truncatedFolderList)) {
+        this._model.truncatedFolders = sourceWithTruncation.truncatedFolderList;
+      }
+
       this._model.size = { storage: 0, file: 0 };
       await this.computeSize();
+      if (isConnected) {
+        await this._model.save();
+      }
     }
     if (opt.path?.includes(config.ANONYMIZATION_MASK)) {
       const f = new AnonymizedFile({
@@ -303,22 +313,6 @@ export default class Repository {
           repositoryID: this.model.source.repositoryId,
           force: true,
         });
-
-        if (ghRepo.size) {
-          if (
-            ghRepo.size > config.AUTO_DOWNLOAD_REPO_SIZE &&
-            this.model.source.type == "GitHubDownload"
-          ) {
-            this.model.source.type = "GitHubStream";
-            await this.model.save();
-          } else if (
-            ghRepo.size < config.AUTO_DOWNLOAD_REPO_SIZE &&
-            this.model.source.type == "GitHubStream"
-          ) {
-            this.model.source.type = "GitHubDownload";
-            await this.model.save();
-          }
-        }
 
         // update the repository name if it has changed
         this.model.source.repositoryName = ghRepo.fullName;

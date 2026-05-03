@@ -1,16 +1,12 @@
 import * as express from "express";
 import GitHubStream from "../core/source/GitHubStream";
 import {
-  anonymizePath,
   AnonymizeTransformer,
   isTextFile,
 } from "../core/anonymize-utils";
 import { handleError } from "../server/routes/route-utils";
 import { lookup } from "mime-types";
-import GitHubDownload from "../core/source/GitHubDownload";
-import got from "got";
-import { Parse } from "unzip-stream";
-import archiver = require("archiver");
+import { streamAnonymizedZip } from "../core/zipStream";
 
 export const router = express.Router();
 
@@ -24,73 +20,17 @@ router.post(
     const anonymizerOptions = req.body.anonymizerOptions;
 
     try {
-      const source = new GitHubDownload({
-        repoId,
-        organization: repoFullName[0],
-        repoName: repoFullName[1],
-        commit: commit,
-        getToken: () => token,
-      });
-      const response = await source.getZipUrl();
-      const downloadStream = got.stream(response.url);
-
-      res.on("error", (error) => {
-        console.error(error);
-        downloadStream.destroy();
-      });
-
-      res.on("close", () => {
-        downloadStream.destroy();
-      });
-
-      const archive = archiver("zip", {});
-      downloadStream
-        .on("error", (error) => {
-          console.error(error);
-          try {
-            archive.finalize();
-          } catch { /* ignored */ }
-        })
-        .on("close", () => {
-          try {
-            archive.finalize();
-          } catch { /* ignored */ }
-        })
-        .pipe(Parse())
-        .on("entry", (entry) => {
-          if (entry.type === "File") {
-            try {
-              const fileName = anonymizePath(
-                entry.path.substring(entry.path.indexOf("/") + 1),
-                anonymizerOptions.terms || []
-              );
-              const anonymizer = new AnonymizeTransformer(anonymizerOptions);
-              anonymizer.opt.filePath = fileName;
-              const st = entry.pipe(anonymizer);
-              archive.append(st, { name: fileName });
-            } catch (error) {
-              entry.autodrain();
-              console.error(error);
-            }
-          } else {
-            entry.autodrain();
-          }
-        })
-        .on("error", (error) => {
-          console.error(error);
-          try {
-            archive.finalize();
-          } catch { /* ignored */ }
-        })
-        .on("finish", () => {
-          try {
-            archive.finalize();
-          } catch { /* ignored */ }
-        });
-      archive.pipe(res).on("error", (error) => {
-        console.error(error);
-        res.end();
-      });
+      await streamAnonymizedZip(
+        {
+          repoId,
+          organization: repoFullName[0],
+          repoName: repoFullName[1],
+          commit,
+          getToken: () => token,
+          anonymizerOptions,
+        },
+        res
+      );
     } catch (error) {
       handleError(error, res);
     }

@@ -9,6 +9,7 @@ import Repository from "../../core/Repository";
 import User from "../../core/User";
 import { ensureAuthenticated } from "./connection";
 import { handleError, getUser, isOwnerOrAdmin, getRepo } from "./route-utils";
+import adminTokensRouter from "./admin-tokens";
 
 const router = express.Router();
 
@@ -30,6 +31,8 @@ router.use(
     }
   }
 );
+
+router.use("/tokens", adminTokensRouter);
 
 router.post("/queue/:name/:repo_id", async (req, res) => {
   let queue: Queue<Repository, void>;

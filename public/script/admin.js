@@ -198,6 +198,44 @@ angular
       getUser($routeParams.username);
       getUserRepositories($routeParams.username);
 
+      $scope.tokens = [];
+      $scope.newTokenName = "";
+      $scope.newTokenPlaintext = null;
+
+      function loadTokens() {
+        $http.get("/api/admin/tokens").then(
+          (res) => {
+            $scope.tokens = res.data || [];
+          },
+          (err) => {
+            if (err.status !== 401 && err.status !== 403) console.error(err);
+          }
+        );
+      }
+      loadTokens();
+
+      $scope.createToken = () => {
+        if (!$scope.newTokenName) return;
+        $http
+          .post("/api/admin/tokens", { name: $scope.newTokenName })
+          .then(
+            (res) => {
+              $scope.newTokenPlaintext = res.data.token;
+              $scope.newTokenName = "";
+              loadTokens();
+            },
+            (err) => console.error(err)
+          );
+      };
+
+      $scope.revokeToken = (t) => {
+        if (!confirm(`Revoke token "${t.name}"?`)) return;
+        $http.delete("/api/admin/tokens/" + t.id).then(
+          () => loadTokens(),
+          (err) => console.error(err)
+        );
+      };
+
       $scope.removeCache = (repo) => {
         $http.delete("/api/admin/repos/" + repo.repoId).then(
           (res) => {

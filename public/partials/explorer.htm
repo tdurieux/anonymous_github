@@ -13,6 +13,14 @@
       ng-show="files.length"
       ng-class="{'collapsed': sidebarCollapsed}"
     >
+      <div
+        ng-if="options.truncatedFolders.length > 0"
+        class="alert alert-warning small p-2 mb-2"
+        role="alert"
+      >
+        <i class="fas fa-exclamation-triangle"></i>
+        {{ 'WARNINGS.repo_truncated' | translate }}
+      </div>
       <tree class="files" file="files"></tree>
       <div class="bottom column">
         <div

@@ -128,7 +128,7 @@ function generateRandomId(length) {
 function parseGithubUrl(url) {
   if (!url) throw "Invalid url";
   const matches = url
-    .replace(".git", "")
+    .replace(/\.git(\/|$)/, "$1")
     .match(
       /.*?github.com\/(?<owner>[\w-\._]+)\/(?<repo>[\w-\._]+)(\/pull\/(?<PR>[0-9]+))?/
     );

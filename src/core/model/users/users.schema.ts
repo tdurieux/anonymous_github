@@ -21,6 +21,14 @@ const UserSchema = new Schema({
     },
   ],
   isAdmin: { type: Boolean, default: false },
+  apiTokens: [
+    {
+      tokenHash: { type: String, index: true },
+      name: { type: String },
+      createdAt: { type: Date, default: Date.now },
+      lastUsedAt: { type: Date },
+    },
+  ],
   photo: String,
   repositories: [
     {

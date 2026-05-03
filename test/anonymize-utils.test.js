@@ -1,4 +1,6 @@
 const { expect } = require("chai");
+const { Transform } = require("stream");
+const { StringDecoder } = require("string_decoder");
 
 /**
  * Tests for the core anonymization utilities.
@@ -390,6 +392,120 @@ describe("ContentAnonimizer", function () {
       anon.anonymize("plain text without any matching content");
       expect(anon.wasAnonymized).to.be.false;
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AnonymizeTransformer (streaming) — replica of src/core/anonymize-utils.ts
+// ---------------------------------------------------------------------------
+
+class AnonymizeTransformer extends Transform {
+  constructor(opt) {
+    super();
+    this.opt = opt || {};
+    this.isText = true; // tests always feed text
+    this.anonimizer = new ContentAnonimizer(this.opt);
+    this.decoder = new StringDecoder("utf8");
+    this.pending = "";
+  }
+  static OVERLAP = 4096;
+
+  _transform(chunk, encoding, callback) {
+    if (!this.isText) {
+      this.push(chunk);
+      return callback();
+    }
+    this.pending += this.decoder.write(chunk);
+    if (this.pending.length > AnonymizeTransformer.OVERLAP) {
+      let split = this.pending.length - AnonymizeTransformer.OVERLAP;
+      const code = this.pending.charCodeAt(split);
+      if (code >= 0xdc00 && code <= 0xdfff) split -= 1;
+      const toProcess = this.pending.slice(0, split);
+      this.pending = this.pending.slice(split);
+      const out = this.anonimizer.anonymize(toProcess);
+      this.push(Buffer.from(out, "utf8"));
+    }
+    callback();
+  }
+
+  _flush(callback) {
+    if (this.isText) {
+      this.pending += this.decoder.end();
+      if (this.pending) {
+        const out = this.anonimizer.anonymize(this.pending);
+        this.pending = "";
+        this.push(Buffer.from(out, "utf8"));
+      }
+    }
+    callback();
+  }
+}
+
+function runStream(input, chunkSize, opt) {
+  return new Promise((resolve, reject) => {
+    const t = new AnonymizeTransformer(opt);
+    const out = [];
+    t.on("data", (b) => out.push(Buffer.from(b)));
+    t.on("end", () => resolve(Buffer.concat(out).toString("utf8")));
+    t.on("error", reject);
+    const buf = Buffer.from(input, "utf8");
+    for (let i = 0; i < buf.length; i += chunkSize) {
+      t.write(buf.slice(i, Math.min(i + chunkSize, buf.length)));
+    }
+    t.end();
+  });
+}
+
+describe("AnonymizeTransformer (streaming)", function () {
+  it("replaces all occurrences of a term across many small chunks", async function () {
+    // Reproduces the bug: 'Created by Alice at YYYY/MM/DD' lines split across
+    // chunk boundaries previously failed to match after the first ~14
+    // occurrences when the stream's default 16 KiB chunking aligned mid-term.
+    const line = "Created by Alice at 2025/01/01\n" + "x".repeat(1000) + "\n";
+    const input = line.repeat(50);
+    const expectedCount = 50;
+
+    const result = await runStream(input, 1024, { terms: ["Alice"] });
+    const matches = result.match(/XXXX-1/g) || [];
+    expect(matches.length).to.equal(expectedCount);
+    expect(result).to.not.include("Alice");
+  });
+
+  it("matches a term that lands exactly on a chunk boundary", async function () {
+    // Force the term 'Alice' to be split between two writes.
+    const prefix = "header ";
+    const term = "Alice";
+    const suffix = " trailer";
+    const input = prefix + term + suffix;
+
+    // First chunk ends after 'Ali', second starts at 'ce'
+    const splitAt = prefix.length + 3;
+    const t = new AnonymizeTransformer({ terms: ["Alice"] });
+    const out = [];
+    const done = new Promise((resolve, reject) => {
+      t.on("data", (b) => out.push(Buffer.from(b)));
+      t.on("end", () => resolve(Buffer.concat(out).toString("utf8")));
+      t.on("error", reject);
+    });
+    t.write(Buffer.from(input.slice(0, splitAt), "utf8"));
+    t.write(Buffer.from(input.slice(splitAt), "utf8"));
+    t.end();
+
+    const result = await done;
+    expect(result).to.equal("header XXXX-1 trailer");
+  });
+
+  it("preserves byte content for non-anonymized streams", async function () {
+    const input = "no terms match here\n".repeat(100);
+    const result = await runStream(input, 64, { terms: ["zzzz"] });
+    expect(result).to.equal(input);
+  });
+
+  it("flushes remaining buffered content on end", async function () {
+    // Total input smaller than OVERLAP — must still be processed in _flush.
+    const input = "Created by Alice at 2025/01/01";
+    const result = await runStream(input, 8, { terms: ["Alice"] });
+    expect(result).to.equal("Created by XXXX-1 at 2025/01/01");
   });
 });
 

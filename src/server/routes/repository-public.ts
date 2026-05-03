@@ -1,6 +1,4 @@
-import { promisify } from "util";
 import * as express from "express";
-import * as stream from "stream";
 import config from "../../config";
 import got from "got";
 import { join } from "path";
@@ -10,14 +8,14 @@ import AnonymousError from "../../core/AnonymousError";
 import { downloadQueue } from "../../queue";
 import { RepositoryStatus } from "../../core/types";
 import User from "../../core/User";
+import { streamAnonymizedZip } from "../../core/zipStream";
+import gh = require("parse-github-url");
 
 const router = express.Router();
 
 router.get(
   "/:repoId/zip",
   async (req: express.Request, res: express.Response) => {
-    const pipeline = promisify(stream.pipeline);
-
     try {
       if (!config.ENABLE_DOWNLOAD) {
         throw new AnonymousError("download_not_enabled", {
@@ -87,10 +85,28 @@ router.get(
       }
 
       res.attachment(`${repo.repoId}.zip`);
-
       // cache the file for 6 hours
       res.header("Cache-Control", "max-age=21600");
-      await pipeline(await repo.zip(), res);
+
+      const parsed = gh(repo.model.source.repositoryName || "");
+      if (!parsed?.owner || !parsed?.name) {
+        throw new AnonymousError("repo_not_found", {
+          httpStatus: 404,
+          object: repo.model.source.repositoryName,
+        });
+      }
+      const anonymizer = repo.generateAnonymizeTransformer("");
+      await streamAnonymizedZip(
+        {
+          repoId: repo.repoId,
+          organization: parsed.owner,
+          repoName: parsed.name,
+          commit: repo.model.source.commit || "HEAD",
+          getToken: () => repo.getToken(),
+          anonymizerOptions: anonymizer.opt,
+        },
+        res
+      );
     } catch (error) {
       handleError(error, res, req);
     }
@@ -197,6 +213,7 @@ router.get(
         isAdmin: user?.isAdmin === true,
         isOwner: user?.id == repo.model.owner,
         hasWebsite: !!repo.options.page && !!repo.options.pageSource,
+        truncatedFolders: repo.model.truncatedFolders || [],
       });
     } catch (error) {
       handleError(error, res, req);

@@ -31,13 +31,23 @@ const verify = async (
 ): Promise<void> => {
   let user: IUserDocument | null;
   try {
+    const now = new Date();
     user = await UserModel.findOne({ "externalIDs.github": profile.id });
     if (user) {
-      user.accessTokens.github = accessToken;
+      await UserModel.updateOne(
+        { _id: user._id },
+        {
+          $set: {
+            "accessTokens.github": accessToken,
+            "accessTokenDates.github": now,
+          },
+        }
+      );
       await AnonymizedPullRequestModel.updateMany(
         { owner: user._id },
         { "source.accessToken": accessToken }
       );
+      user = await UserModel.findById(user._id);
     } else {
       // Check if a user with this username already exists (e.g. created
       // manually without externalIDs.github). Link the GitHub ID to the
@@ -45,14 +55,26 @@ const verify = async (
       // the isAdmin flag.
       user = await UserModel.findOne({ username: profile.username });
       if (user) {
-        user.externalIDs.github = profile.id;
-        user.accessTokens.github = accessToken;
+        await UserModel.updateOne(
+          { _id: user._id },
+          {
+            $set: {
+              "externalIDs.github": profile.id,
+              "accessTokens.github": accessToken,
+              "accessTokenDates.github": now,
+            },
+          }
+        );
+        user = await UserModel.findById(user._id);
       } else {
         const photo = profile.photos ? profile.photos[0]?.value : null;
         user = new UserModel({
           username: profile.username,
           accessTokens: {
             github: accessToken,
+          },
+          accessTokenDates: {
+            github: now,
           },
           externalIDs: {
             github: profile.id,
@@ -63,16 +85,9 @@ const verify = async (
           photo,
         });
         if (user.emails?.length) user.emails[0].default = true;
+        await user.save();
       }
     }
-    if (!user.accessTokenDates) {
-      user.accessTokenDates = {
-        github: new Date(),
-      };
-    } else {
-      user.accessTokenDates.github = new Date();
-    }
-    await user.save();
     done(null, {
       username: profile.username,
       accessToken,

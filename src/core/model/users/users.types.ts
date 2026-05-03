@@ -12,6 +12,13 @@ export interface IUser {
   };
   username: string;
   isAdmin: boolean;
+  apiTokens?: {
+    _id?: string;
+    tokenHash: string;
+    name?: string;
+    createdAt?: Date;
+    lastUsedAt?: Date;
+  }[];
   emails: {
     email: string;
     default: boolean;
