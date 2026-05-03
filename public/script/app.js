@@ -624,7 +624,8 @@ angular
     "$scope",
     "$http",
     "$location",
-    function ($scope, $http, $location) {
+    "$timeout",
+    function ($scope, $http, $location, $timeout) {
       $scope.title = "Main";
       $scope.user = { status: "connection" };
       $scope.site_options;
@@ -633,7 +634,21 @@ angular
 
       $scope.removeToast = function (toast) {
         const index = $scope.toasts.indexOf(toast);
+        if (index === -1) return;
         $scope.toasts.splice(index, 1);
+      };
+
+      // Auto-dismiss toasts after a fixed delay so they don't pile up across
+      // navigations (e.g. the "README not found" toast re-fired every time the
+      // edit screen was reopened — see #246). Long-running operations that
+      // mutate the toast (remove/refresh) will simply disappear once the
+      // delay elapses; users can re-check status from the dashboard.
+      $scope.addToast = function (toast) {
+        $scope.toasts.push(toast);
+        $timeout(function () {
+          $scope.removeToast(toast);
+        }, 8000);
+        return toast;
       };
 
       $scope.path = $location.url();
@@ -930,7 +945,7 @@ angular
             date: new Date(),
             body: `The ${label} ${item._id} is going to be removed.`,
           };
-          $scope.toasts.push(toast);
+          $scope.addToast(toast);
           const endpoint = item._type === "repo" ? `/api/repo/${item._id}` : `/api/pr/${item._id}`;
           $http.delete(endpoint).then(
             () => {
@@ -962,7 +977,7 @@ angular
           date: new Date(),
           body: `The ${label} ${item._id} is going to be refreshed.`,
         };
-        $scope.toasts.push(toast);
+        $scope.addToast(toast);
         const endpoint = item._type === "repo"
           ? `/api/repo/${item._id}/refresh`
           : `/api/pr/${item._id}/refresh`;
@@ -1259,7 +1274,7 @@ angular
           const code = (error && error.data && error.data.error) || (error && error.status === 404 ? "repo_not_found" : "unknown_error");
           $translate("ERRORS." + code).then((translation) => {
             $scope.toasts = $scope.toasts || [];
-            $scope.toasts.push({ title: "Error", date: new Date(), body: translation });
+            $scope.addToast({ title: "Error", date: new Date(), body: translation });
             $scope.error = translation;
           }, console.error);
           if (typeof setValidity === "function") {
@@ -1284,7 +1299,7 @@ angular
         } catch (error) {
           if (error.data) {
             $translate("ERRORS." + error.data.error).then((translation) => {
-              $scope.toasts.push({ title: "Error", date: new Date(), body: translation });
+              $scope.addToast({ title: "Error", date: new Date(), body: translation });
               $scope.error = translation;
             }, console.error);
             displayErrorMessage(error.data.error);
@@ -1356,7 +1371,7 @@ angular
         } catch (error) {
           if (error.data) {
             $translate("ERRORS." + error.data.error).then((translation) => {
-              $scope.toasts.push({ title: "Error", date: new Date(), body: translation });
+              $scope.addToast({ title: "Error", date: new Date(), body: translation });
               $scope.error = translation;
             }, console.error);
             displayErrorMessage(error.data.error);
@@ -1974,7 +1989,7 @@ angular
             date: new Date(),
             body: `The conference ${conf.name} is going to be removed.`,
           };
-          $scope.toasts.push(toast);
+          $scope.addToast(toast);
           $http.delete(`/api/conferences/${conf.conferenceID}`).then(() => {
             toast.title = `${conf.name} is removed.`;
             toast.body = `The conference ${conf.name} is removed.`;
@@ -2131,7 +2146,7 @@ angular
           toast.title = `Updating ${$scope.options.name}...`;
           toast.body = `The conference '${$scope.options.conferenceID}' is updating.`;
         }
-        $scope.toasts.push(toast);
+        $scope.addToast(toast);
         resetValidity();
         $http
           .post(
