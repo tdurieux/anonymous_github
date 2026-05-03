@@ -232,7 +232,7 @@
               <a class="dropdown-item" href="#" ng-show="item.status == 'removed'" ng-click="refreshItem(item)">
                 <i class="fas fa-check-circle"></i> Enable
               </a>
-              <a class="dropdown-item" href="#" ng-show="item.status == 'ready'" ng-click="removeItem(item)">
+              <a class="dropdown-item" href="#" ng-show="item.status == 'ready' || item.status == 'expired' || item.status == 'error'" ng-click="removeItem(item)">
                 <i class="fas fa-trash-alt"></i> Remove
               </a>
               <a class="dropdown-item" ng-href="{{item._viewUrl}}">
