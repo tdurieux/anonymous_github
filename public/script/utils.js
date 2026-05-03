@@ -39,7 +39,10 @@ function urlRel2abs(
 
   if (url.substring(0, 2) == "//") return location.protocol + url;
   else if (url.charAt(0) == "/") return baseUrl + url;
-  else if (url.substring(0, 2) == "./") url = "." + url;
+  // Strip the leading "./" so it concatenates cleanly with baseUrl. The old
+  // code prepended an extra "." here, which turned "./X" into "../X" and
+  // silently dropped one path segment — see #346.
+  else if (url.substring(0, 2) == "./") url = url.substring(2);
   else if (/^\s*$/.test(url)) return "";
   //Empty = Return nothing
 
