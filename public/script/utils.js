@@ -143,6 +143,19 @@ function parseGithubUrl(url) {
   }
 }
 
+// GitHub-style heading slug: lowercase, drop punctuation other than `-_`,
+// collapse runs of whitespace into a single dash. Used so anchor links like
+// `[Releases](#releases-and-contributing)` actually jump to the heading
+// (marked v12 dropped `headerIds`, so headings now have no id by default).
+function slugifyHeading(text) {
+  return String(text)
+    .toLowerCase()
+    .replace(/<[^>]+>/g, "")
+    .replace(/[^\p{L}\p{N}\s_-]/gu, "")
+    .trim()
+    .replace(/\s+/g, "-");
+}
+
 function renderMD(md, baseUrlValue) {
   marked.use(
     markedEmoji({
@@ -160,6 +173,15 @@ function renderMD(md, baseUrlValue) {
       return `<div class="media"><video controls title="${title}" src="${href}">${text}</video></div>`;
     }
     return rendererLink.call(this, href, title, text);
+  };
+
+  const slugCounts = {};
+  renderer.heading = function (text, level, raw) {
+    const base = slugifyHeading(raw || text);
+    const n = slugCounts[base] || 0;
+    slugCounts[base] = n + 1;
+    const id = n === 0 ? base : `${base}-${n}`;
+    return `<h${level} id="${id}">${text}</h${level}>\n`;
   };
 
   marked.setOptions({
