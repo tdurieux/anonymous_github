@@ -2,6 +2,7 @@ import * as express from "express";
 import AnonymizedFile from "../../core/AnonymizedFile";
 import AnonymousError from "../../core/AnonymousError";
 import { getRepo, handleError } from "./route-utils";
+import { fileETag } from "./file-etag";
 
 export const router = express.Router();
 
@@ -51,12 +52,18 @@ router.get(
           anonymizedPath.substring(anonymizedPath.lastIndexOf("/") + 1)
         );
       }
-      if (req.query.v) {
-        // cache the file for a month
-        res.header("Cache-Control", "max-age=18144000");
-      } else {
-        // cache the file for 5min
-        res.header("Cache-Control", "max-age=300");
+      const etag = fileETag(
+        req.query.v as string | undefined,
+        repo.model.options
+      );
+      res.header("ETag", etag);
+      // Force the browser to revalidate every time. The previous 210-day
+      // max-age was keyed only on the upstream sha, so editing the
+      // anonymization term list left old anonymizations cached under the
+      // same URL.
+      res.header("Cache-Control", "private, no-cache, must-revalidate");
+      if (req.headers["if-none-match"] === etag) {
+        return res.status(304).end();
       }
       await f.send(res);
       await repo.countView();
