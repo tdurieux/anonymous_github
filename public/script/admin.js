@@ -18,7 +18,8 @@ angular
       $scope.repositories = [];
       $scope.total = -1;
       $scope.totalPage = 0;
-      $scope.query = {
+      const reposAdminPrefsKey = "admin.repos.filterPrefs";
+      const reposAdminDefaults = {
         page: 1,
         limit: 25,
         sort: "lastView",
@@ -29,6 +30,11 @@ angular
         error: true,
         preparing: true,
       };
+      const savedReposAdminPrefs = loadFilterPrefs(reposAdminPrefsKey) || {};
+      $scope.query = Object.assign({}, reposAdminDefaults, savedReposAdminPrefs, {
+        page: 1,
+        search: "",
+      });
 
       $scope.removeCache = (repo) => {
         $http.delete("/api/admin/repos/" + repo.repoId).then(
@@ -85,6 +91,8 @@ angular
         () => {
           clearTimeout(timeClear);
           timeClear = setTimeout(getRepositories, 500);
+          const { page, search, ...persisted } = $scope.query;
+          saveFilterPrefs(reposAdminPrefsKey, persisted);
         },
         true
       );
@@ -108,12 +116,18 @@ angular
       $scope.users = [];
       $scope.total = -1;
       $scope.totalPage = 0;
-      $scope.query = {
+      const usersAdminPrefsKey = "admin.users.filterPrefs";
+      const usersAdminDefaults = {
         page: 1,
         limit: 25,
         sort: "username",
         search: "",
       };
+      const savedUsersAdminPrefs = loadFilterPrefs(usersAdminPrefsKey) || {};
+      $scope.query = Object.assign({}, usersAdminDefaults, savedUsersAdminPrefs, {
+        page: 1,
+        search: "",
+      });
 
       function getUsers() {
         $http.get("/api/admin/users", { params: $scope.query }).then(
@@ -136,6 +150,8 @@ angular
         () => {
           clearTimeout(timeClear);
           timeClear = setTimeout(getUsers, 500);
+          const { page, search, ...persisted } = $scope.query;
+          saveFilterPrefs(usersAdminPrefsKey, persisted);
         },
         true
       );
@@ -159,10 +175,38 @@ angular
       $scope.userInfo;
       $scope.repositories = [];
       $scope.search = "";
-      $scope.filters = {
-        status: { ready: true, expired: false, removed: false },
+
+      const adminUserPrefsKey = "admin.user.filterPrefs";
+      const adminUserDefaults = {
+        filters: { status: { ready: true, expired: false, removed: false } },
+        orderBy: "-anonymizeDate",
       };
-      $scope.orderBy = "-anonymizeDate";
+      const savedAdminUserPrefs = loadFilterPrefs(adminUserPrefsKey) || {};
+      $scope.filters = {
+        status: Object.assign(
+          {},
+          adminUserDefaults.filters.status,
+          (savedAdminUserPrefs.filters && savedAdminUserPrefs.filters.status) || {}
+        ),
+      };
+      $scope.orderBy = savedAdminUserPrefs.orderBy || adminUserDefaults.orderBy;
+
+      $scope.$watch("orderBy", () => {
+        saveFilterPrefs(adminUserPrefsKey, {
+          filters: $scope.filters,
+          orderBy: $scope.orderBy,
+        });
+      });
+      $scope.$watch(
+        "filters",
+        () => {
+          saveFilterPrefs(adminUserPrefsKey, {
+            filters: $scope.filters,
+            orderBy: $scope.orderBy,
+          });
+        },
+        true
+      );
 
       $scope.repoFiler = (repo) => {
         if ($scope.filters.status[repo.status] == false) return false;
@@ -311,12 +355,18 @@ angular
       $scope.conferences = [];
       $scope.total = -1;
       $scope.totalPage = 0;
-      $scope.query = {
+      const confAdminPrefsKey = "admin.conferences.filterPrefs";
+      const confAdminDefaults = {
         page: 1,
         limit: 25,
         sort: "name",
         search: "",
       };
+      const savedConfAdminPrefs = loadFilterPrefs(confAdminPrefsKey) || {};
+      $scope.query = Object.assign({}, confAdminDefaults, savedConfAdminPrefs, {
+        page: 1,
+        search: "",
+      });
 
       function getConferences() {
         $http.get("/api/admin/conferences", { params: $scope.query }).then(
@@ -339,6 +389,8 @@ angular
         () => {
           clearTimeout(timeClear);
           timeClear = setTimeout(getConferences, 500);
+          const { page, search, ...persisted } = $scope.query;
+          saveFilterPrefs(confAdminPrefsKey, persisted);
         },
         true
       );

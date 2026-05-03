@@ -861,11 +861,45 @@ angular
 
       $scope.items = [];
       $scope.search = "";
-      $scope.typeFilter = "all";
-      $scope.filters = {
-        status: { ready: true, expired: true, removed: false },
+
+      const dashboardPrefsKey = "dashboard.filterPrefs";
+      const dashboardPrefDefaults = {
+        typeFilter: "all",
+        filters: { status: { ready: true, expired: true, removed: false } },
+        orderBy: "-anonymizeDate",
       };
-      $scope.orderBy = "-anonymizeDate";
+      const savedDashboardPrefs = loadFilterPrefs(dashboardPrefsKey) || {};
+      $scope.typeFilter = savedDashboardPrefs.typeFilter || dashboardPrefDefaults.typeFilter;
+      $scope.filters = {
+        status: Object.assign(
+          {},
+          dashboardPrefDefaults.filters.status,
+          (savedDashboardPrefs.filters && savedDashboardPrefs.filters.status) || {}
+        ),
+      };
+      $scope.orderBy = savedDashboardPrefs.orderBy || dashboardPrefDefaults.orderBy;
+
+      $scope.$watchGroup(
+        ["typeFilter", "orderBy"],
+        () => {
+          saveFilterPrefs(dashboardPrefsKey, {
+            typeFilter: $scope.typeFilter,
+            filters: $scope.filters,
+            orderBy: $scope.orderBy,
+          });
+        }
+      );
+      $scope.$watch(
+        "filters",
+        () => {
+          saveFilterPrefs(dashboardPrefsKey, {
+            typeFilter: $scope.typeFilter,
+            filters: $scope.filters,
+            orderBy: $scope.orderBy,
+          });
+        },
+        true
+      );
 
       function getQuota() {
         $http.get("/api/user/quota").then((res) => {
@@ -2030,10 +2064,38 @@ angular
 
       $scope.conferences = [];
       $scope.search = "";
-      $scope.filters = {
-        status: { ready: true, expired: false, removed: false },
+
+      const conferencesPrefsKey = "conferences.filterPrefs";
+      const conferencesPrefDefaults = {
+        filters: { status: { ready: true, expired: false, removed: false } },
+        orderBy: "name",
       };
-      $scope.orderBy = "name";
+      const savedConferencesPrefs = loadFilterPrefs(conferencesPrefsKey) || {};
+      $scope.filters = {
+        status: Object.assign(
+          {},
+          conferencesPrefDefaults.filters.status,
+          (savedConferencesPrefs.filters && savedConferencesPrefs.filters.status) || {}
+        ),
+      };
+      $scope.orderBy = savedConferencesPrefs.orderBy || conferencesPrefDefaults.orderBy;
+
+      $scope.$watch("orderBy", () => {
+        saveFilterPrefs(conferencesPrefsKey, {
+          filters: $scope.filters,
+          orderBy: $scope.orderBy,
+        });
+      });
+      $scope.$watch(
+        "filters",
+        () => {
+          saveFilterPrefs(conferencesPrefsKey, {
+            filters: $scope.filters,
+            orderBy: $scope.orderBy,
+          });
+        },
+        true
+      );
 
       $scope.removeConference = function (conf) {
         if (

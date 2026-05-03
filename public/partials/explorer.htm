@@ -1,85 +1,99 @@
-<div class="container-fluid h-100">
-  <div class="row h-100">
-    <button
-      class="sidebar-toggle"
-      ng-show="files.length"
-      ng-click="sidebarCollapsed = !sidebarCollapsed"
-    >
-      <i class="fas" ng-class="sidebarCollapsed ? 'fa-folder-open' : 'fa-times'"></i>
-      {{sidebarCollapsed ? 'Show Files' : 'Hide Files'}}
-    </button>
-    <div
-      class="leftCol shadow p-1 overflow-auto"
-      ng-show="files.length"
-      ng-class="{'collapsed': sidebarCollapsed}"
-    >
+<div class="explorer-page" ng-init="sidebarCollapsed = window.matchMedia && window.matchMedia('(max-width: 767px)').matches">
+  <button
+    class="sidebar-toggle"
+    ng-show="files.length"
+    ng-click="sidebarCollapsed = !sidebarCollapsed"
+    aria-label="{{sidebarCollapsed ? 'Show files' : 'Hide files'}}"
+  >
+    <i class="fas" ng-class="sidebarCollapsed ? 'fa-folder-open' : 'fa-times'"></i>
+    <span ng-bind="sidebarCollapsed ? 'Files' : 'Close'"></span>
+  </button>
+
+  <div class="leftCol" ng-show="files.length" ng-class="{'collapsed': sidebarCollapsed}">
+    <div class="leftCol-head">
+      <span class="leftCol-eyebrow">Files</span>
+      <button class="leftCol-close" ng-click="sidebarCollapsed = true" aria-label="Close files">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <div class="leftCol-body">
       <div
         ng-if="options.truncatedFolders.length > 0"
-        class="alert alert-warning small p-2 mb-2"
+        class="paper-inline-warning"
         role="alert"
       >
         <i class="fas fa-exclamation-triangle"></i>
         {{ 'WARNINGS.repo_truncated' | translate }}
       </div>
       <tree class="files" file="files"></tree>
-      <div class="bottom column">
-        <div
-          class="last-update"
-          data-toggle="tooltip"
-          data-placement="top"
-          title="{{options.lastUpdateDate}}"
+    </div>
+    <div class="leftCol-foot">
+      <span
+        class="last-update"
+        data-toggle="tooltip"
+        data-placement="top"
+        title="{{options.lastUpdateDate}}"
+      >
+        Updated {{options.lastUpdateDate|date}}
+      </span>
+    </div>
+  </div>
+
+  <div
+    class="leftCol-backdrop"
+    ng-show="files.length && !sidebarCollapsed"
+    ng-click="sidebarCollapsed = true"
+  ></div>
+
+  <div class="explorer-main">
+    <div class="status-bar">
+      <ol class="breadcrumb paths" aria-label="Path">
+        <li class="breadcrumb-item" ng-repeat="p in paths" ng-bind="p"></li>
+      </ol>
+      <div class="status-bar-actions">
+        <a
+          ng-if="options.isAdmin || options.isOwner"
+          ng-href="/anonymize/{{repoId}}"
+          class="btn btn-sm"
+          aria-label="Edit"
+          ><i class="far fa-edit"></i><span class="d-none d-md-inline"> Edit</span></a
         >
-          Last Update: {{options.lastUpdateDate|date}}
-        </div>
+        <a
+          ng-show="content != null"
+          ng-href="{{url}}"
+          target="__self"
+          class="btn btn-sm"
+          aria-label="Raw"
+          ><i class="fas fa-file-alt"></i><span class="d-none d-md-inline"> Raw</span></a
+        >
+        <a
+          ng-show="content != null"
+          ng-href="{{url}}&download=true"
+          target="__self"
+          class="btn btn-sm"
+          aria-label="Download"
+          ><i class="fas fa-download"></i><span class="d-none d-md-inline"> Download</span></a
+        >
+        <a
+          ng-if="options.download"
+          ng-href="/api/repo/{{repoId}}/zip"
+          target="__self"
+          class="btn btn-sm"
+          aria-label="Download ZIP"
+          ><i class="fas fa-file-archive"></i><span class="d-none d-md-inline"> ZIP</span></a
+        >
+        <a
+          ng-if="options.hasWebsite"
+          ng-href="/w/{{repoId}}/"
+          target="__self"
+          class="btn btn-sm"
+          aria-label="Website"
+          ><i class="fas fa-globe"></i><span class="d-none d-md-inline"> Website</span></a
+        >
       </div>
     </div>
-    <div class="col-md h-100 overflow-auto p-0 d-flex flex-column">
-      <div class="d-flex align-content-between status-bar shadow">
-        <ol class="flex-grow-1 breadcrumb paths">
-          <li class="breadcrumb-item" ng-repeat="p in paths" ng-bind="p">
-            Loading...
-          </li>
-        </ol>
-        <div class="d-flex flex-wrap" style="gap: 4px">
-          <a
-            ng-if="options.isAdmin || options.isOwner"
-            ng-href="/anonymize/{{repoId}}"
-            class="btn btn-sm"
-            >Edit</a
-          >
-          <a
-            ng-show="content != null"
-            ng-href="{{url}}"
-            target="__self"
-            class="btn btn-sm"
-            >Raw</a
-          >
-          <a
-            ng-show="content != null"
-            ng-href="{{url}}&download=true"
-            target="__self"
-            class="btn btn-sm"
-            ><i class="fas fa-download"></i><span class="d-none d-md-inline"> Download</span></a
-          >
-          <a
-            ng-if="options.download"
-            ng-href="/api/repo/{{repoId}}/zip"
-            target="__self"
-            class="btn btn-sm"
-            ><i class="fas fa-file-archive"></i><span class="d-none d-md-inline"> ZIP</span></a
-          >
-          <a
-            ng-if="options.hasWebsite"
-            ng-href="/w/{{repoId}}/"
-            target="__self"
-            class="btn btn-sm"
-            >Website</a
-          >
-        </div>
-      </div>
-      <div class="align-items-stretch h-100 w-100 overflow-auto">
-        <ng-include src="'./partials/pageView.htm'"></ng-include>
-      </div>
+    <div class="explorer-content">
+      <ng-include src="'./partials/pageView.htm'"></ng-include>
     </div>
   </div>
 </div>
