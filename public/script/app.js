@@ -1807,28 +1807,68 @@ angular
           mode: getMode(extension),
 
           onLoad: function (_editor) {
-            if (window.location.hash && window.location.hash.match(/^#L\d+/)) {
-              let from = 0;
-              let to = 0;
-              if (window.location.hash.indexOf("-") > -1) {
-                const match = window.location.hash.match(/^#L(\d+)-L(\d+)/);
-                from = parseInt(match[1]) - 1;
-                to = parseInt(match[2]) - 1;
-              } else {
-                from = parseInt(window.location.hash.substring(2)) - 1;
-                to = from;
-              }
+            const Range = ace.require("ace/range").Range;
+            let activeLineMarker = null;
 
-              const Range = ace.require("ace/range").Range;
-              _editor.session.addMarker(
+            function highlightLines(from, to) {
+              if (activeLineMarker !== null) {
+                _editor.session.removeMarker(activeLineMarker);
+                activeLineMarker = null;
+              }
+              if (from === null || from === undefined) return;
+              activeLineMarker = _editor.session.addMarker(
                 new Range(from, 0, to, 1),
                 "highlighted-line",
                 "fullLine"
               );
-              setTimeout(() => {
-                _editor.scrollToLine(from, true, true, function () {});
-              }, 100);
             }
+
+            function applyHashFromUrl(scroll) {
+              const m = window.location.hash.match(/^#L(\d+)(?:-L(\d+))?/);
+              if (!m) {
+                highlightLines(null);
+                return;
+              }
+              const from = parseInt(m[1]) - 1;
+              const to = m[2] ? parseInt(m[2]) - 1 : from;
+              highlightLines(from, to);
+              if (scroll) {
+                setTimeout(() => {
+                  _editor.scrollToLine(from, true, true, function () {});
+                }, 100);
+              }
+            }
+
+            applyHashFromUrl(true);
+
+            // #392 — clicking a gutter line updates the URL to #L<n> and
+            // shift-clicking extends to #L<from>-L<to> so the user can copy
+            // a stable link to a specific line. Use replaceState to avoid
+            // polluting history with every click.
+            let anchorRow = null;
+            _editor.on("guttermousedown", function (e) {
+              const row = e.getDocumentPosition().row;
+              const shift = e.domEvent && e.domEvent.shiftKey;
+              let from = row;
+              let to = row;
+              if (shift && anchorRow !== null) {
+                from = Math.min(anchorRow, row);
+                to = Math.max(anchorRow, row);
+              } else {
+                anchorRow = row;
+              }
+              const hash =
+                from === to
+                  ? `#L${from + 1}`
+                  : `#L${from + 1}-L${to + 1}`;
+              const url =
+                window.location.pathname + window.location.search + hash;
+              window.history.replaceState(null, "", url);
+              highlightLines(from, to);
+              e.stop();
+            });
+
+            window.addEventListener("hashchange", () => applyHashFromUrl(false));
 
             _editor.setFontSize($scope.aceOption.fontSize);
             _editor.setReadOnly($scope.aceOption.readOnly);
