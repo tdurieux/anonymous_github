@@ -1,13 +1,18 @@
 const { expect } = require("chai");
 const { Transform } = require("stream");
 const { StringDecoder } = require("string_decoder");
+require("ts-node/register/transpile-only");
+const {
+  withWordBoundaries,
+  termVariants,
+} = require("../src/core/term-matching");
 
 /**
  * Tests for the core anonymization utilities.
  *
  * Because anonymize-utils.ts is TypeScript that imports config (which reads
- * process.env at module load time), we replicate the pure logic here so the
- * tests run without compiling the full project or connecting to a database.
+ * process.env at module load time), we replicate the higher-level pieces
+ * here. Pure helpers live in src/core/term-matching and are imported above.
  */
 
 // ---------------------------------------------------------------------------
@@ -20,15 +25,6 @@ const ANONYMIZATION_MASK = "XXXX";
 const urlRegex =
   /<?\b((https?|ftp|file):\/\/)[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]\b\/?>?/g;
 
-function withWordBoundaries(termPattern) {
-  const sniff = termPattern.replace(/^\(\?[:=!]?|^\(|\)$/g, "");
-  const first = sniff.charAt(0);
-  const last = sniff.charAt(sniff.length - 1);
-  const isWord = (c) => /[A-Za-z0-9_]/.test(c);
-  const lead = first && isWord(first) ? "\\b" : "";
-  const trail = last && isWord(last) ? "\\b" : "";
-  return `${lead}${termPattern}${trail}`;
-}
 
 class ContentAnonimizer {
   constructor(opt) {
@@ -111,18 +107,24 @@ class ContentAnonimizer {
       } catch {
         term = term.replace(/[-[\]{}()*+?.,\\^$|#]/g, "\\$&");
       }
-      const bounded = withWordBoundaries(term);
-      content = content.replace(urlRegex, (match) => {
-        if (new RegExp(bounded, "gi").test(match)) {
+      for (const variant of termVariants(term)) {
+        const bounded = withWordBoundaries(variant.pattern, {
+          sniffSource: variant.sniff,
+          unicode: variant.unicode,
+        });
+        const flags = variant.unicode ? "giu" : "gi";
+        content = content.replace(urlRegex, (match) => {
+          if (new RegExp(bounded, flags).test(match)) {
+            this.wasAnonymized = true;
+            return mask;
+          }
+          return match;
+        });
+        content = content.replace(new RegExp(bounded, flags), () => {
           this.wasAnonymized = true;
           return mask;
-        }
-        return match;
-      });
-      content = content.replace(new RegExp(bounded, "gi"), () => {
-        this.wasAnonymized = true;
-        return mask;
-      });
+        });
+      }
     }
     return content;
   }
@@ -232,6 +234,22 @@ describe("ContentAnonimizer", function () {
       const result = anon.anonymize("connect to 192.168.1.1 on port 80");
       expect(result).to.not.include("192.168.1.1");
       expect(result).to.include("XXXX-1");
+    });
+
+    // #280 — accented terms should match both the accented and unaccented
+    // variants so "Davó" scrubs "Davo" (and vice versa).
+    it("matches accented and unaccented variants of the same term", function () {
+      const a = new ContentAnonimizer({ terms: ["Davó"] });
+      const r1 = a.anonymize("Authors: Alice Davó and Bob Davo");
+      expect(r1).to.not.include("Davó");
+      expect(r1).to.not.include("Davo");
+      expect(r1.match(/XXXX-1/g).length).to.equal(2);
+
+      const b = new ContentAnonimizer({ terms: ["Davo"] });
+      const r2 = b.anonymize("Authors: Alice Davó and Bob Davo");
+      expect(r2).to.not.include("Davó");
+      expect(r2).to.not.include("Davo");
+      expect(r2.match(/XXXX-1/g).length).to.equal(2);
     });
 
     it("does not over-match across word boundaries when the term is word-only", function () {

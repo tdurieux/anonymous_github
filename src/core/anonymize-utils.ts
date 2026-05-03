@@ -4,27 +4,10 @@ import { StringDecoder } from "string_decoder";
 import { isText } from "istextorbinary";
 
 import config from "../config";
+import { termVariants, withWordBoundaries } from "./term-matching";
 
 const urlRegex =
   /<?\b((https?|ftp|file):\/\/)[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]\b\/?>?/g;
-
-// JS regex \b only fires at a word/non-word transition, where word chars are
-// [A-Za-z0-9_]. So `\bterm\b` silently fails to match when the term begins or
-// ends with a non-word char (e.g. "@tdurieux", "Davó", "@author .*"). Only
-// emit \b on sides where the term has a word-char edge; otherwise the boundary
-// would never match.
-function withWordBoundaries(termPattern: string): string {
-  // Strip a leading group like (?:...) or (...) when sniffing the first/last
-  // significant char so users wrapping their regex in a group still get
-  // boundaries applied. Best-effort — not a full parser.
-  const sniff = termPattern.replace(/^\(\?[:=!]?|^\(|\)$/g, "");
-  const first = sniff.charAt(0);
-  const last = sniff.charAt(sniff.length - 1);
-  const isWord = (c: string) => /[A-Za-z0-9_]/.test(c);
-  const lead = first && isWord(first) ? "\\b" : "";
-  const trail = last && isWord(last) ? "\\b" : "";
-  return `${lead}${termPattern}${trail}`;
-}
 
 export function streamToString(stream: Readable): Promise<string> {
   const chunks: Buffer[] = [];
@@ -217,21 +200,30 @@ export class ContentAnonimizer {
         // escape regex characters
         term = term.replace(/[-[\]{}()*+?.,\\^$|#]/g, "\\$&");
       }
-      const bounded = withWordBoundaries(term);
-      // remove whole url if it contains the term
-      content = content.replace(urlRegex, (match) => {
-        if (new RegExp(bounded, "gi").test(match)) {
+
+      // Try the term verbatim first, then a diacritic-insensitive expansion
+      // so "Davo" anonymizes "Davó" (and vice versa). See term-matching.ts.
+      for (const variant of termVariants(term)) {
+        const bounded = withWordBoundaries(variant.pattern, {
+          sniffSource: variant.sniff,
+          unicode: variant.unicode,
+        });
+        const flags = variant.unicode ? "giu" : "gi";
+        // remove whole url if it contains the term
+        content = content.replace(urlRegex, (match) => {
+          if (new RegExp(bounded, flags).test(match)) {
+            this.wasAnonymized = true;
+            return mask;
+          }
+          return match;
+        });
+
+        // remove the term in the text
+        content = content.replace(new RegExp(bounded, flags), () => {
           this.wasAnonymized = true;
           return mask;
-        }
-        return match;
-      });
-
-      // remove the term in the text
-      content = content.replace(new RegExp(bounded, "gi"), () => {
-        this.wasAnonymized = true;
-        return mask;
-      });
+        });
+      }
     }
     return content;
   }
