@@ -199,8 +199,7 @@ angular
       getUserRepositories($routeParams.username);
 
       $scope.tokens = [];
-      $scope.newTokenName = "";
-      $scope.newTokenPlaintext = null;
+      $scope.tokenForm = { name: "", plaintext: null };
 
       function loadTokens() {
         $http.get("/api/admin/tokens").then(
@@ -215,13 +214,13 @@ angular
       loadTokens();
 
       $scope.createToken = () => {
-        if (!$scope.newTokenName) return;
+        if (!$scope.tokenForm.name) return;
         $http
-          .post("/api/admin/tokens", { name: $scope.newTokenName })
+          .post("/api/admin/tokens", { name: $scope.tokenForm.name })
           .then(
             (res) => {
-              $scope.newTokenPlaintext = res.data.token;
-              $scope.newTokenName = "";
+              $scope.tokenForm.plaintext = res.data.token;
+              $scope.tokenForm.name = "";
               loadTokens();
             },
             (err) => console.error(err)

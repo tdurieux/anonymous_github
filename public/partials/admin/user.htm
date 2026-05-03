@@ -81,14 +81,14 @@
     <p class="paper-page-lede">Personal API tokens for this admin account. Send as <code>Authorization: Bearer &lt;token&gt;</code> to authenticate without GitHub OAuth (useful for development).</p>
 
     <form ng-submit="createToken()" class="d-flex" style="gap: 8px; margin-bottom: 12px;">
-      <input type="text" class="form-control" ng-model="newTokenName" placeholder="Token name (e.g. dev-laptop)" required />
+      <input type="text" class="form-control" ng-model="tokenForm.name" placeholder="Token name (e.g. dev-laptop)" required />
       <button type="submit" class="btn btn-primary"><i class="fas fa-plus"></i> Generate</button>
     </form>
 
-    <div ng-if="newTokenPlaintext" class="alert alert-warning" role="alert">
+    <div ng-if="tokenForm.plaintext" class="alert alert-warning" role="alert">
       <strong>Copy this token now — it will not be shown again:</strong>
-      <pre style="white-space: pre-wrap; word-break: break-all; margin: 8px 0 0; font-family: var(--font-mono); font-size: 0.85rem;">{{newTokenPlaintext}}</pre>
-      <button class="btn btn-sm" ng-click="newTokenPlaintext = null">Dismiss</button>
+      <pre style="white-space: pre-wrap; word-break: break-all; margin: 8px 0 0; font-family: var(--font-mono); font-size: 0.85rem;">{{tokenForm.plaintext}}</pre>
+      <button class="btn btn-sm" ng-click="tokenForm.plaintext = null">Dismiss</button>
     </div>
 
     <div class="paper-table w-100" ng-if="tokens.length">
