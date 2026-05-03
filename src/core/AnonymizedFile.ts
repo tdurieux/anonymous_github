@@ -271,7 +271,16 @@ export default class AnonymizedFile {
         } else if (isTextFile(this.anonymizedPath)) {
           res.contentType("text/plain");
         }
-        res.header("Accept-Ranges", "none");
+        // For text files we anonymize on the fly and the output length can
+        // differ from the upstream, so byte ranges aren't meaningful — keep
+        // Accept-Ranges: none. For binary files (images, video, archives)
+        // the transformer is a passthrough, so omitting the explicit "none"
+        // lets <video>/<audio> elements use the standard fallback to a full
+        // download instead of refusing to play (#538).
+        const isTextEntry = isTextFile(this.anonymizedPath) === true;
+        if (isTextEntry) {
+          res.header("Accept-Ranges", "none");
+        }
         anonymizer.once("transform", (data) => {
           if (!mime && data.isText) {
             res.contentType("text/plain");

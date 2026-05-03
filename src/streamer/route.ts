@@ -66,7 +66,13 @@ router.post("/", async (req: express.Request, res: express.Response) => {
     } else if (isTextFile(filePath)) {
       res.contentType("text/plain");
     }
-    res.header("Accept-Ranges", "none");
+    // Only declare Accept-Ranges: none for text files — they get rewritten on
+    // the fly so byte ranges aren't meaningful. For binary entries the
+    // transformer is a passthrough; let <video>/<audio> fall back to a full
+    // download instead of refusing to play (#538).
+    if (isTextFile(filePath)) {
+      res.header("Accept-Ranges", "none");
+    }
     anonymizer.once("transform", (data) => {
       if (!mime && data.isText) {
         res.contentType("text/plain");
