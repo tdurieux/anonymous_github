@@ -352,6 +352,57 @@
             </div>
 
             <div class="panel panel-default mb-3">
+              <div class="panel-heading p-3" role="tab" id="headingUpdates">
+                <h3 class="panel-title">
+                  <a
+                    class="collapsed"
+                    role="button"
+                    data-toggle="collapse"
+                    data-parent="#faq-features"
+                    href="#updates"
+                    aria-expanded="false"
+                    aria-controls="updates"
+                  >
+                    Are updates to the original repository reflected in the anonymized version?
+                  </a>
+                </h3>
+              </div>
+              <div
+                id="updates"
+                class="panel-collapse collapse"
+                role="tabpanel"
+                aria-labelledby="headingUpdates"
+              >
+                <div class="panel-body p-3">
+                  <p>
+                    Yes. The anonymized repository tracks the source on GitHub: when you push new commits to the
+                    original repository, the anonymized view picks up those changes (cached files are refreshed
+                    against GitHub). This means you can keep iterating on the code while reviewers have the link,
+                    and you do not need to recreate the anonymized repository every time you update the source.
+                  </p>
+                  <p>
+                    A few practical implications worth keeping in mind:
+                  </p>
+                  <ul>
+                    <li>
+                      You can safely create the anonymized repository early in the writing process &mdash; later
+                      commits will be visible to reviewers without any additional action.
+                    </li>
+                    <li>
+                      If you rename files, add new identifiers, or introduce new contributor names after creation,
+                      revisit the anonymization options (custom terms, file filters) to make sure the new content
+                      is still properly anonymized.
+                    </li>
+                    <li>
+                      If the original repository is made private or deleted, the anonymized repository will no
+                      longer be able to fetch updated content.
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel panel-default mb-3">
               <div class="panel-heading p-3" role="tab" id="headingCLI">
                 <h3 class="panel-title">
                   <a
