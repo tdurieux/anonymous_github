@@ -54,6 +54,7 @@ router.get(
       }
       const etag = fileETag(
         req.query.v as string | undefined,
+        anonymizedPath,
         repo.model.options
       );
       res.header("ETag", etag);
