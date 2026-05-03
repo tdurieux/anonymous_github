@@ -8,6 +8,24 @@ import config from "../config";
 const urlRegex =
   /<?\b((https?|ftp|file):\/\/)[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]\b\/?>?/g;
 
+// JS regex \b only fires at a word/non-word transition, where word chars are
+// [A-Za-z0-9_]. So `\bterm\b` silently fails to match when the term begins or
+// ends with a non-word char (e.g. "@tdurieux", "Davó", "@author .*"). Only
+// emit \b on sides where the term has a word-char edge; otherwise the boundary
+// would never match.
+function withWordBoundaries(termPattern: string): string {
+  // Strip a leading group like (?:...) or (...) when sniffing the first/last
+  // significant char so users wrapping their regex in a group still get
+  // boundaries applied. Best-effort — not a full parser.
+  const sniff = termPattern.replace(/^\(\?[:=!]?|^\(|\)$/g, "");
+  const first = sniff.charAt(0);
+  const last = sniff.charAt(sniff.length - 1);
+  const isWord = (c: string) => /[A-Za-z0-9_]/.test(c);
+  const lead = first && isWord(first) ? "\\b" : "";
+  const trail = last && isWord(last) ? "\\b" : "";
+  return `${lead}${termPattern}${trail}`;
+}
+
 export function streamToString(stream: Readable): Promise<string> {
   const chunks: Buffer[] = [];
   return new Promise((resolve, reject) => {
@@ -199,9 +217,10 @@ export class ContentAnonimizer {
         // escape regex characters
         term = term.replace(/[-[\]{}()*+?.,\\^$|#]/g, "\\$&");
       }
+      const bounded = withWordBoundaries(term);
       // remove whole url if it contains the term
       content = content.replace(urlRegex, (match) => {
-        if (new RegExp(`\\b${term}\\b`, "gi").test(match)) {
+        if (new RegExp(bounded, "gi").test(match)) {
           this.wasAnonymized = true;
           return mask;
         }
@@ -209,7 +228,7 @@ export class ContentAnonimizer {
       });
 
       // remove the term in the text
-      content = content.replace(new RegExp(`\\b${term}\\b`, "gi"), () => {
+      content = content.replace(new RegExp(bounded, "gi"), () => {
         this.wasAnonymized = true;
         return mask;
       });

@@ -20,6 +20,16 @@ const ANONYMIZATION_MASK = "XXXX";
 const urlRegex =
   /<?\b((https?|ftp|file):\/\/)[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]\b\/?>?/g;
 
+function withWordBoundaries(termPattern) {
+  const sniff = termPattern.replace(/^\(\?[:=!]?|^\(|\)$/g, "");
+  const first = sniff.charAt(0);
+  const last = sniff.charAt(sniff.length - 1);
+  const isWord = (c) => /[A-Za-z0-9_]/.test(c);
+  const lead = first && isWord(first) ? "\\b" : "";
+  const trail = last && isWord(last) ? "\\b" : "";
+  return `${lead}${termPattern}${trail}`;
+}
+
 class ContentAnonimizer {
   constructor(opt) {
     this.opt = opt || {};
@@ -101,14 +111,15 @@ class ContentAnonimizer {
       } catch {
         term = term.replace(/[-[\]{}()*+?.,\\^$|#]/g, "\\$&");
       }
+      const bounded = withWordBoundaries(term);
       content = content.replace(urlRegex, (match) => {
-        if (new RegExp(`\\b${term}\\b`, "gi").test(match)) {
+        if (new RegExp(bounded, "gi").test(match)) {
           this.wasAnonymized = true;
           return mask;
         }
         return match;
       });
-      content = content.replace(new RegExp(`\\b${term}\\b`, "gi"), () => {
+      content = content.replace(new RegExp(bounded, "gi"), () => {
         this.wasAnonymized = true;
         return mask;
       });
@@ -193,6 +204,43 @@ describe("ContentAnonimizer", function () {
       // Since \b won't match around '(' properly, the replacement may not fire
       // on the raw term, but crucially it must not throw
       expect(() => anon.anonymize("some foo(bar here")).to.not.throw();
+    });
+
+    // #175 — terms starting with a non-word char (e.g. "@username") were
+    // silently skipped because \b can't match between two non-word chars.
+    it("replaces terms starting with a non-word character (e.g. @user)", function () {
+      const anon = new ContentAnonimizer({ terms: ["@tdurieux"] });
+      const result = anon.anonymize('"name": "@tdurieux/anonymous"');
+      expect(result).to.not.include("@tdurieux");
+      expect(result).to.include("XXXX-1");
+    });
+
+    // #249 — regex terms ending in non-word chars (e.g. "@author .*") were
+    // also skipped due to the trailing \b.
+    it("matches a user regex that ends with a non-word pattern", function () {
+      const anon = new ContentAnonimizer({ terms: ["@author .*"] });
+      const result = anon.anonymize("/** @author julius */");
+      expect(result).to.include("XXXX-1");
+      expect(result).to.not.include("@author julius");
+    });
+
+    // #430 — IPv4-style terms have non-word boundaries on each dot but still
+    // start/end with digits, so \b on both sides is fine — guard against
+    // regression now that we tweak boundary logic.
+    it("anonymizes an IP address term", function () {
+      const anon = new ContentAnonimizer({ terms: ["192\\.168\\.1\\.1"] });
+      const result = anon.anonymize("connect to 192.168.1.1 on port 80");
+      expect(result).to.not.include("192.168.1.1");
+      expect(result).to.include("XXXX-1");
+    });
+
+    it("does not over-match across word boundaries when the term is word-only", function () {
+      // Regression: ensure withWordBoundaries still emits \b on both sides
+      // for ordinary alphanumeric terms.
+      const anon = new ContentAnonimizer({ terms: ["cat"] });
+      const result = anon.anonymize("the cat sat on a category");
+      expect(result).to.include("category");
+      expect(result).to.match(/the XXXX-1 sat/);
     });
 
     it("replaces terms inside URLs", function () {
