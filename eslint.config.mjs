@@ -32,10 +32,27 @@ export default tseslint.config(
         afterEach: "readonly",
         __dirname: "readonly",
         console: "readonly",
+        Buffer: "readonly",
       },
     },
     rules: {
       "@typescript-eslint/no-unused-expressions": "off",
+    },
+  },
+  {
+    files: ["scripts/**/*.js"],
+    languageOptions: {
+      sourceType: "commonjs",
+      globals: {
+        require: "readonly",
+        module: "readonly",
+        process: "readonly",
+        __dirname: "readonly",
+        __filename: "readonly",
+        console: "readonly",
+        Buffer: "readonly",
+        URL: "readonly",
+      },
     },
   }
 );
