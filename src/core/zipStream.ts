@@ -71,8 +71,14 @@ export async function streamAnonymizedZip(
             entry.path.substring(entry.path.indexOf("/") + 1),
             opt.anonymizerOptions.terms || []
           );
-          const anonymizer = new AnonymizeTransformer(opt.anonymizerOptions);
-          anonymizer.opt.filePath = fileName;
+          // Pass filePath via the constructor — AnonymizeTransformer reads it
+          // there to decide whether the entry is text (and therefore should be
+          // anonymized) vs binary (passthrough). Assigning afterwards leaves
+          // isText=false for every file, so the zip ships unanonymized.
+          const anonymizer = new AnonymizeTransformer({
+            ...opt.anonymizerOptions,
+            filePath: fileName,
+          });
           const st = entry.pipe(anonymizer);
           archive.append(st, { name: fileName });
         } catch (error) {

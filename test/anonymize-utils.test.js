@@ -447,11 +447,26 @@ describe("ContentAnonimizer", function () {
 // AnonymizeTransformer (streaming) — replica of src/core/anonymize-utils.ts
 // ---------------------------------------------------------------------------
 
+// Mirror of isTextFile that relies on the file extension only — the real
+// impl additionally calls istextorbinary, but for these tests checking the
+// suffix is enough to demonstrate the constructor-vs-post-assignment bug.
+function _isTextFileFromPath(filePath) {
+  if (!filePath) return false;
+  const ext = String(filePath).split(".").pop().toLowerCase();
+  return new Set([
+    "txt", "md", "js", "ts", "tsx", "jsx", "py", "rb", "go", "java",
+    "c", "h", "cpp", "json", "yml", "yaml", "html", "htm", "css",
+  ]).has(ext);
+}
+
 class AnonymizeTransformer extends Transform {
   constructor(opt) {
     super();
     this.opt = opt || {};
-    this.isText = true; // tests always feed text
+    // Mirror src/core/anonymize-utils.ts: isText is derived from
+    // opt.filePath at construction time. Mutating opt.filePath after the
+    // constructor runs has no effect (this was the cause of #342/#349).
+    this.isText = _isTextFileFromPath(this.opt.filePath);
     this.anonimizer = new ContentAnonimizer(this.opt);
     this.decoder = new StringDecoder("utf8");
     this.pending = "";
@@ -490,8 +505,11 @@ class AnonymizeTransformer extends Transform {
 }
 
 function runStream(input, chunkSize, opt) {
+  // Default to a text filePath so existing tests keep exercising the
+  // anonymization path; tests verifying binary passthrough pass their own.
+  const merged = { filePath: "fixture.txt", ...opt };
   return new Promise((resolve, reject) => {
-    const t = new AnonymizeTransformer(opt);
+    const t = new AnonymizeTransformer(merged);
     const out = [];
     t.on("data", (b) => out.push(Buffer.from(b)));
     t.on("end", () => resolve(Buffer.concat(out).toString("utf8")));
@@ -528,7 +546,7 @@ describe("AnonymizeTransformer (streaming)", function () {
 
     // First chunk ends after 'Ali', second starts at 'ce'
     const splitAt = prefix.length + 3;
-    const t = new AnonymizeTransformer({ terms: ["Alice"] });
+    const t = new AnonymizeTransformer({ filePath: "fixture.txt", terms: ["Alice"] });
     const out = [];
     const done = new Promise((resolve, reject) => {
       t.on("data", (b) => out.push(Buffer.from(b)));
@@ -554,6 +572,31 @@ describe("AnonymizeTransformer (streaming)", function () {
     const input = "Created by Alice at 2025/01/01";
     const result = await runStream(input, 8, { terms: ["Alice"] });
     expect(result).to.equal("Created by XXXX-1 at 2025/01/01");
+  });
+
+  // Regression for #342/#349: zip download was constructing the transformer
+  // and then assigning opt.filePath after the fact, but isText is decided in
+  // the constructor — so every entry was treated as binary and passed through
+  // unanonymized. Ensure the filePath must be set at construction time.
+  it("decides isText from the filePath passed at construction", function () {
+    const beforeFix = new AnonymizeTransformer({ terms: ["Alice"] });
+    beforeFix.opt.filePath = "fixture.txt"; // post-construction — too late
+    expect(beforeFix.isText).to.equal(false);
+
+    const afterFix = new AnonymizeTransformer({
+      filePath: "fixture.txt",
+      terms: ["Alice"],
+    });
+    expect(afterFix.isText).to.equal(true);
+  });
+
+  it("anonymizes a text file when filePath is supplied at construction", async function () {
+    const input = "Hello Alice, how are you?";
+    const result = await runStream(input, 8, {
+      filePath: "fixture.txt",
+      terms: ["Alice"],
+    });
+    expect(result).to.equal("Hello XXXX-1, how are you?");
   });
 });
 
