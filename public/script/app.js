@@ -509,6 +509,22 @@ angular
               });
             }
 
+            // #496 — expand every folder on first load so reviewers see the
+            // whole tree without clicking through. Folders the user has
+            // already toggled (state recorded in $scope.opens) are left
+            // alone, so collapsing a folder still works.
+            function expandAllFolders(nodes, parentPath) {
+              if (!nodes) return;
+              for (const f of nodes) {
+                if (!f.child) continue;
+                const path = `${parentPath}/${f.name}`;
+                if (!(path in $scope.opens)) {
+                  $scope.opens[path] = true;
+                }
+                expandAllFolders(f.child, path);
+              }
+            }
+
             $scope.$watch(
               "file",
               (newValue) => {
@@ -516,6 +532,7 @@ angular
                 if (newValue.length == 0) {
                   return $element.html("Empty repository");
                 }
+                expandAllFolders(toArray(newValue), "");
                 display();
               },
               true
