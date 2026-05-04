@@ -8,6 +8,7 @@ import webview from "./webview";
 import user from "./user";
 import option from "./option";
 import admin from "./admin";
+import anonymizePreview from "./anonymize-preview";
 
 export default {
   pullRequestPrivate,
@@ -20,4 +21,5 @@ export default {
   option,
   conference,
   admin,
+  anonymizePreview,
 };

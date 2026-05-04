@@ -1130,7 +1130,8 @@ angular
     "$routeParams",
     "$location",
     "$translate",
-    function ($scope, $http, $sce, $routeParams, $location, $translate) {
+    "$timeout",
+    function ($scope, $http, $sce, $routeParams, $location, $translate, $timeout) {
       // Unified state
       $scope.sourceUrl = "";
       $scope.detectedType = null; // 'repo' or 'pr'
@@ -1373,41 +1374,79 @@ angular
         }
       }
 
+      // Both anonymizeReadme() and anonymizePrContent() used to reimplement
+      // ContentAnonimizer client-side, which drifted from the backend (term
+      // boundary fixes, accent matching, custom replacements all only landed
+      // in the server). Send the snippets to /api/anonymize-preview instead so
+      // the preview matches what reviewers see byte-for-byte. Calls are
+      // debounced and the in-flight request is dropped on the next change so
+      // typing in the form stays responsive.
+
+      function previewOptions() {
+        const opts = {
+          terms: $scope.terms ? $scope.terms.split("\n") : [],
+          image: !!$scope.options.image,
+          link: !!$scope.options.link,
+          repoId: $scope.repoId,
+        };
+        if ($scope.source && $scope.source.branch) {
+          opts.branchName = $scope.source.branch;
+        }
+        try {
+          const o = parseGithubUrl($scope.sourceUrl);
+          opts.repoName = `${o.owner}/${o.repo}`;
+        } catch (_) { /* sourceUrl not yet parseable */ }
+        return opts;
+      }
+
+      // Single-flight + debounced wrapper. Returns a promise that resolves
+      // with the latest server result; intermediate calls are coalesced.
+      function makePreviewBatcher(buildBody, applyResult) {
+        let pendingTimer = null;
+        let inflightToken = 0;
+        return function schedule() {
+          if (pendingTimer) $timeout.cancel(pendingTimer);
+          pendingTimer = $timeout(() => {
+            pendingTimer = null;
+            const myToken = ++inflightToken;
+            const body = buildBody();
+            if (!body) return;
+            $http.post("/api/anonymize-preview", body).then(
+              (res) => {
+                if (myToken !== inflightToken) return; // stale
+                applyResult(res.data);
+              },
+              () => { /* ignore preview errors; no UI feedback needed */ }
+            );
+          }, 200);
+        };
+      }
+
+      const scheduleReadmePreview = makePreviewBatcher(
+        () => {
+          if (!$scope.readme) return null;
+          return { content: $scope.readme, options: previewOptions() };
+        },
+        (data) => {
+          $scope.anonymize_readme = data.content || "";
+          let baseUrl = "";
+          try {
+            const o = parseGithubUrl($scope.sourceUrl);
+            baseUrl = `https://github.com/${o.owner}/${o.repo}/raw/${$scope.source.branch}/`;
+          } catch (_) { /* fall through with empty base */ }
+          const html = renderMD($scope.anonymize_readme, baseUrl);
+          $scope.html_readme = $sce.trustAsHtml(html);
+          $timeout(Prism.highlightAll, 150);
+        }
+      );
+
       function anonymizeReadme() {
         if (!$scope.anonymize || !$scope.anonymize.terms) return;
         // The "regex characters detected" hint is informational, not a blocker
         // — IP addresses, escaped chars, etc. are all legitimate terms (#430).
-        // Track it as a plain $scope flag so it doesn't mark the form invalid.
         $scope.termsRegexWarning =
           !!$scope.terms && !!$scope.terms.match(/[-[\]{}()*+?.,\\^$|#]/g);
-        const urlRegex = /<?\b((https?|ftp|file):\/\/)[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]\b\/?>?/g;
-        let content = $scope.readme;
-        if (!$scope.options.image) {
-          content = content.replace(/!\[[^\]]*\]\((?<filename>.*?)(?=\"|\))(?<optionalpart>\".*\")?\)/g, "");
-        }
-        if (!$scope.options.link) {
-          content = content.replace(urlRegex, $scope.site_options.ANONYMIZATION_MASK);
-        }
-        const host = document.location.protocol + "//" + document.location.host;
-        content = content.replace(new RegExp(`\\b${$scope.sourceUrl}/blob/${$scope.source.branch}\\b`, "gi"), `${host}/r/${$scope.repoId}`);
-        content = content.replace(new RegExp(`\\b${$scope.sourceUrl}/tree/${$scope.source.branch}\\b`, "gi"), `${host}/r/${$scope.repoId}`);
-        content = content.replace(new RegExp(`\\b${$scope.sourceUrl}`, "gi"), `${host}/r/${$scope.repoId}`);
-        const terms = $scope.terms.split("\n");
-        for (let i = 0; i < terms.length; i++) {
-          let term = terms[i];
-          try { new RegExp(term, "gi"); } catch { term = term.replace(/[-[\]{}()*+?.,\\^$|#]/g, "\\$&"); }
-          if (term.trim() == "") continue;
-          content = content.replace(urlRegex, (match) => {
-            if (new RegExp(`\\b${term}\\b`, "gi").test(match)) return $scope.site_options.ANONYMIZATION_MASK + "-" + (i + 1);
-            return match;
-          });
-          content = content.replace(new RegExp(`\\b${term}\\b`, "gi"), $scope.site_options.ANONYMIZATION_MASK + "-" + (i + 1));
-        }
-        $scope.anonymize_readme = content;
-        const o = parseGithubUrl($scope.sourceUrl);
-        const html = renderMD($scope.anonymize_readme, `https://github.com/${o.owner}/${o.repo}/raw/${$scope.source.branch}/`);
-        $scope.html_readme = $sce.trustAsHtml(html);
-        setTimeout(Prism.highlightAll, 150);
+        scheduleReadmePreview();
       }
 
       // ========== PR LOGIC ==========
@@ -1433,25 +1472,57 @@ angular
         }
       }
 
+      // Angular templates evaluate this synchronously, so we keep a
+      // {original -> anonymized} cache populated by a debounced batch call to
+      // /api/anonymize-preview whenever the PR details, terms, or options
+      // change. anonymizePrContent() returns the cached value if known and
+      // falls back to the original until the next cycle resolves.
+      let _prAnonCache = new Map();
+      let _prSeenContents = new Set();
+
+      function collectPrContents() {
+        const out = new Set();
+        const d = $scope.details && $scope.details.pullRequest;
+        if (!d) return out;
+        if (typeof d.title === "string") out.add(d.title);
+        if (typeof d.body === "string") out.add(d.body);
+        if (typeof d.diff === "string") out.add(d.diff);
+        const comments =
+          ($scope.details && $scope.details.comments) || [];
+        for (const c of comments) {
+          if (typeof c.author === "string") out.add(c.author);
+          if (typeof c.body === "string") out.add(c.body);
+        }
+        return out;
+      }
+
+      const refreshPrPreview = makePreviewBatcher(
+        () => {
+          const seen = collectPrContents();
+          _prSeenContents = seen;
+          const list = Array.from(seen);
+          if (list.length === 0) return null;
+          return { contents: list, options: previewOptions() };
+        },
+        (data) => {
+          if (!data || !Array.isArray(data.contents)) return;
+          const seen = Array.from(_prSeenContents);
+          const next = new Map();
+          for (let i = 0; i < seen.length && i < data.contents.length; i++) {
+            next.set(seen[i], data.contents[i]);
+          }
+          _prAnonCache = next;
+        }
+      );
+
       $scope.anonymizePrContent = function (content) {
         if (!content) return content;
-        const urlRegex = /<?\b((https?|ftp|file):\/\/)[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]\b\/?>?/g;
-        if (!$scope.options.image) {
-          content = content.replace(/!\[[^\]]*\]\((?<filename>.*?)(?=\"|\))(?<optionalpart>\".*\")?\)/g, "");
-        }
-        if (!$scope.options.link) {
-          content = content.replace(urlRegex, $scope.site_options.ANONYMIZATION_MASK);
-        }
-        const terms = $scope.terms.split("\n");
-        for (let i = 0; i < terms.length; i++) {
-          let term = terms[i];
-          try { new RegExp(term, "gi"); } catch { term = term.replace(/[-[\]{}()*+?.,\\^$|#]/g, "\\$&"); }
-          if (term.trim() == "") continue;
-          content = content.replace(urlRegex, (match) => {
-            if (new RegExp(`\\b${term}\\b`, "gi").test(match)) return $scope.site_options.ANONYMIZATION_MASK + "-" + (i + 1);
-            return match;
-          });
-          content = content.replace(new RegExp(`\\b${term}\\b`, "gi"), $scope.site_options.ANONYMIZATION_MASK + "-" + (i + 1));
+        if (_prAnonCache.has(content)) return _prAnonCache.get(content);
+        // First time we've seen this content — kick off a refresh and return
+        // the original for now. The watcher below also schedules refreshes on
+        // term/option changes; this branch handles late-arriving comment data.
+        if (!_prSeenContents.has(content)) {
+          refreshPrPreview();
         }
         return content;
       };
@@ -1556,9 +1627,21 @@ angular
       };
 
       $scope.$watch("conference", () => { getConference(); });
-      $scope.$watch("terms", () => { if ($scope.detectedType === "repo") anonymizeReadme(); });
-      $scope.$watch("options.image", () => { if ($scope.detectedType === "repo") anonymizeReadme(); });
-      $scope.$watch("options.link", () => { if ($scope.detectedType === "repo") anonymizeReadme(); });
+      $scope.$watch("terms", () => {
+        if ($scope.detectedType === "repo") anonymizeReadme();
+        if ($scope.detectedType === "pr") refreshPrPreview();
+      });
+      $scope.$watch("options.image", () => {
+        if ($scope.detectedType === "repo") anonymizeReadme();
+        if ($scope.detectedType === "pr") refreshPrPreview();
+      });
+      $scope.$watch("options.link", () => {
+        if ($scope.detectedType === "repo") anonymizeReadme();
+        if ($scope.detectedType === "pr") refreshPrPreview();
+      });
+      $scope.$watch("details", () => {
+        if ($scope.detectedType === "pr") refreshPrPreview();
+      }, true);
     },
   ])
   .controller("exploreController", [
