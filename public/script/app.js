@@ -23,12 +23,12 @@ angular
         .when("/", {
           templateUrl: "/partials/home.htm",
           controller: "homeController",
-          title: "Anonymous GitHub",
+          title: "Anonymous GitHub – Share the code, not the author",
         })
         .when("/dashboard", {
           templateUrl: "/partials/dashboard.htm",
           controller: "unifiedDashboardController",
-          title: "Dashboard - Anonymous GitHub",
+          title: "Your anonymizations – Anonymous GitHub",
         })
         .when("/pr-dashboard", {
           redirectTo: "/dashboard",
@@ -36,103 +36,103 @@ angular
         .when("/anonymize/:repoId?", {
           templateUrl: "/partials/anonymize.htm",
           controller: "anonymizeController",
-          title: "Anonymize - Anonymous GitHub",
+          title: "New anonymization – Anonymous GitHub",
         })
         .when("/pull-request-anonymize/:pullRequestId?", {
           templateUrl: "/partials/anonymize.htm",
           controller: "anonymizeController",
-          title: "Anonymize - Anonymous GitHub",
+          title: "Anonymize a pull request – Anonymous GitHub",
         })
         .when("/status/:repoId", {
           templateUrl: "/partials/status.htm",
           controller: "statusController",
-          title: "Repository status - Anonymous GitHub",
+          title: "Repository status – Anonymous GitHub",
         })
         .when("/conferences", {
           templateUrl: "/partials/conferences.htm",
           controller: "conferencesController",
-          title: "Conferences - Anonymous GitHub",
+          title: "Your conferences – Anonymous GitHub",
         })
         .when("/conference/new", {
           templateUrl: "/partials/newConference.htm",
           controller: "newConferenceController",
-          title: "Add a conference - Anonymous GitHub",
+          title: "New conference – Anonymous GitHub",
         })
         .when("/conference/:conferenceId/edit", {
           templateUrl: "/partials/newConference.htm",
           controller: "newConferenceController",
-          title: "Edit conference - Anonymous GitHub",
+          title: "Edit conference – Anonymous GitHub",
         })
         .when("/conference/:conferenceId", {
           templateUrl: "/partials/conference.htm",
           controller: "conferenceController",
-          title: "Conference - Anonymous GitHub",
+          title: "Conference – Anonymous GitHub",
         })
         .when("/faq", {
           templateUrl: "/partials/faq.htm",
           controller: "faqController",
-          title: "FAQ - Anonymous GitHub",
+          title: "FAQ – Anonymous GitHub",
         })
         .when("/profile", {
           templateUrl: "/partials/profile.htm",
           controller: "profileController",
-          title: "Profile - Anonymous GitHub",
+          title: "Your settings – Anonymous GitHub",
         })
         .when("/claim", {
           templateUrl: "/partials/claim.htm",
           controller: "claimController",
-          title: "Claim repository - Anonymous GitHub",
+          title: "Claim an anonymization – Anonymous GitHub",
         })
         .when("/pr/:pullRequestId", {
           templateUrl: "/partials/pullRequest.htm",
           controller: "pullRequestController",
-          title: "Anonymized Pull Request - Anonymous GitHub",
+          title: "Anonymous pull request – Anonymous GitHub",
           reloadOnUrl: false,
         })
         .when("/r/:repoId/:path*?", {
           templateUrl: "/partials/explorer.htm",
           controller: "exploreController",
-          title: "Anonymized Repository - Anonymous GitHub",
+          title: "Anonymous repository – Anonymous GitHub",
           reloadOnUrl: false,
         })
         .when("/repository/:repoId/:path*?", {
           templateUrl: "/partials/explorer.htm",
           controller: "exploreController",
-          title: "Anonymized Repository - Anonymous GitHub",
+          title: "Anonymous repository – Anonymous GitHub",
           reloadOnUrl: false,
         })
         .when("/admin/", {
           templateUrl: "/partials/admin/repositories.htm",
           controller: "repositoriesAdminController",
-          title: "Repositories Admin - Anonymous GitHub",
+          title: "Admin · Repositories – Anonymous GitHub",
         })
         .when("/admin/users", {
           templateUrl: "/partials/admin/users.htm",
           controller: "usersAdminController",
-          title: "Users Admin - Anonymous GitHub",
+          title: "Admin · Users – Anonymous GitHub",
         })
         .when("/admin/users/:username", {
           templateUrl: "/partials/admin/user.htm",
           controller: "userAdminController",
-          title: "User Admin - Anonymous GitHub",
+          title: "Admin · User details – Anonymous GitHub",
         })
         .when("/admin/conferences", {
           templateUrl: "/partials/admin/conferences.htm",
           controller: "conferencesAdminController",
-          title: "Conferences Admin - Anonymous GitHub",
+          title: "Admin · Conferences – Anonymous GitHub",
         })
         .when("/admin/queues", {
           templateUrl: "/partials/admin/queues.htm",
           controller: "queuesAdminController",
-          title: "Queues Admin - Anonymous GitHub",
+          title: "Admin · Queues – Anonymous GitHub",
         })
         .when("/404", {
           templateUrl: "/partials/404.htm",
-          title: "Page not found - Anonymous GitHub",
+          title: "Page not found – Anonymous GitHub",
         })
         .otherwise({
           templateUrl: "/partials/404.htm",
-          title: "Page not found - Anonymous GitHub",
+          title: "Page not found – Anonymous GitHub",
         });
       $locationProvider.html5Mode(true);
     },

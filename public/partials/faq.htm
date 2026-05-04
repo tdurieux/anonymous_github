@@ -535,6 +535,55 @@ anonymous_github</code></pre>
             </div>
 
             <div class="panel panel-default mb-3">
+              <div class="panel-heading p-3" role="tab" id="headingPermissions">
+                <h3 class="panel-title">
+                  <a
+                    class="collapsed"
+                    role="button"
+                    data-toggle="collapse"
+                    data-parent="#faq-privacy"
+                    href="#permissions"
+                    aria-expanded="false"
+                    aria-controls="permissions"
+                  >
+                    Why does GitHub say Anonymous GitHub asks for write access?
+                  </a>
+                </h3>
+              </div>
+              <div
+                id="permissions"
+                class="panel-collapse collapse"
+                role="tabpanel"
+                aria-labelledby="headingPermissions"
+              >
+                <div class="panel-body p-3">
+                  <p>
+                    Anonymous GitHub only reads your repositories &mdash; it
+                    never pushes commits, opens issues, modifies settings, or
+                    deletes anything. From your perspective as a user, the
+                    service is read-only.
+                  </p>
+                  <p>
+                    However, GitHub's OAuth scopes do not offer a read-only
+                    option for private repositories: the only scope that grants
+                    access to private repos is <code>repo</code>, which is
+                    documented as full read/write access. To support users who
+                    want to anonymize a private repository, Anonymous GitHub
+                    must request that scope, and GitHub then displays the
+                    broader permission text at sign-in. The application itself
+                    only ever performs read operations against the GitHub API.
+                  </p>
+                  <p>
+                    If you only anonymize public repositories, the source code
+                    is open and can be audited on the
+                    <a href="https://github.com/tdurieux/anonymous_github/" target="_blank">GitHub repository</a>,
+                    or you can self-host your own instance.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel panel-default mb-3">
               <div class="panel-heading p-3" role="tab" id="headingViewer">
                 <h3 class="panel-title">
                   <a
