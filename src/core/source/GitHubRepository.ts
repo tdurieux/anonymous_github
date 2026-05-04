@@ -298,6 +298,12 @@ export async function getRepositoryFromGitHub(opt: {
         repo: opt.repo,
       },
     });
+  // If the lookup-by-name missed but we already have a record for this
+  // GitHub repo id (e.g. the repo was renamed on GitHub), reuse it instead
+  // of creating a duplicate that would violate the externalId unique index.
+  if (!dbModel && isConnected) {
+    dbModel = await RepositoryModel.findOne({ externalId: "gh_" + r.id });
+  }
   const model = dbModel || new RepositoryModel({ externalId: "gh_" + r.id });
   model.name = r.full_name;
   model.url = r.html_url;
