@@ -148,7 +148,7 @@
             <div class="form-group">
               <label class="paper-field-label" for="terms">Terms to redact</label>
               <textarea class="form-control" id="terms" name="terms" rows="4" ng-model="terms" ng-model-options="{ debounce: 250 }" ng-class="{'is-invalid': anonymize.terms.$invalid}"></textarea>
-              <small class="form-text text-muted">One term per line (regex allowed). Replaced by <code>{{site_options.ANONYMIZATION_MASK}}-[N]</code>.</small>
+              <small class="form-text text-muted">One term per line (regex allowed). Replaced by <code>{{site_options.ANONYMIZATION_MASK}}-[N]</code>, or use <code>term=&gt;replacement</code> to pick your own (e.g. <code>Anonymous=&gt;ABC</code>).</small>
               <div class="warning-feedback" ng-show="anonymize.terms.$error.regex">Regex characters detected. Escape them if unintentional.</div>
               <div class="invalid-feedback" ng-show="anonymize.terms.$error.format">Terms are in an invalid format.</div>
             </div>

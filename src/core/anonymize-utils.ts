@@ -4,7 +4,11 @@ import { StringDecoder } from "string_decoder";
 import { isText } from "istextorbinary";
 
 import config from "../config";
-import { termVariants, withWordBoundaries } from "./term-matching";
+import {
+  parseTermSpec,
+  termVariants,
+  withWordBoundaries,
+} from "./term-matching";
 
 const urlRegex =
   /<?\b((https?|ftp|file):\/\/)[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]\b\/?>?/g;
@@ -189,11 +193,19 @@ export class ContentAnonimizer {
   private replaceTerms(content: string): string {
     const terms = this.opt.terms || [];
     for (let i = 0; i < terms.length; i++) {
-      let term = terms[i];
-      if (term.trim() == "") {
+      const spec = terms[i];
+      if (spec.trim() == "") {
         continue;
       }
-      const mask = config.ANONYMIZATION_MASK + "-" + (i + 1);
+      // #285 — entries of the form "term=>replacement" override the default
+      // XXXX-N mask so users can scrub with their preferred token (e.g.
+      // "ABC", "XYZ"), keeping anonymized identifiers valid in source code.
+      const parsed = parseTermSpec(spec);
+      let term = parsed.term;
+      const mask =
+        parsed.replacement !== null
+          ? parsed.replacement
+          : config.ANONYMIZATION_MASK + "-" + (i + 1);
       try {
         new RegExp(term, "gi");
       } catch {
@@ -239,20 +251,23 @@ export class ContentAnonimizer {
 
 export function anonymizePath(path: string, terms: string[]) {
   for (let i = 0; i < terms.length; i++) {
-    let term = terms[i];
-    if (term.trim() == "") {
+    const spec = terms[i];
+    if (spec.trim() == "") {
       continue;
     }
+    const parsed = parseTermSpec(spec);
+    let term = parsed.term;
+    const mask =
+      parsed.replacement !== null
+        ? parsed.replacement
+        : config.ANONYMIZATION_MASK + "-" + (i + 1);
     try {
       new RegExp(term, "gi");
     } catch {
       // escape regex characters
       term = term.replace(/[-[\]{}()*+?.,\\^$|#]/g, "\\$&");
     }
-    path = path.replace(
-      new RegExp(term, "gi"),
-      config.ANONYMIZATION_MASK + "-" + (i + 1)
-    );
+    path = path.replace(new RegExp(term, "gi"), mask);
   }
   return path;
 }

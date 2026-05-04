@@ -102,3 +102,27 @@ export function termVariants(escapedTerm: string): {
     { pattern: diacriticInsensitive(stripped), sniff: stripped, unicode: true },
   ];
 }
+
+// A term can override the default `XXXX-N` mask via the syntax
+//     <term>=><replacement>
+// e.g. "Anonymous=>ABC" replaces "Anonymous" with "ABC". Whitespace around
+// `=>` is allowed. The replacement is inserted verbatim, so users can pick
+// strings without the hyphen that breaks identifiers.
+//
+// If the entry is just `=>` with no LHS, or has no separator, the original
+// term is returned and the caller falls back to the default mask.
+export function parseTermSpec(spec: string): {
+  term: string;
+  replacement: string | null;
+} {
+  const idx = spec.indexOf("=>");
+  if (idx < 0) {
+    return { term: spec, replacement: null };
+  }
+  const term = spec.slice(0, idx).replace(/\s+$/, "");
+  const replacement = spec.slice(idx + 2).replace(/^\s+/, "");
+  if (!term) {
+    return { term: spec, replacement: null };
+  }
+  return { term, replacement };
+}

@@ -5,6 +5,7 @@ require("ts-node/register/transpile-only");
 const {
   withWordBoundaries,
   termVariants,
+  parseTermSpec,
 } = require("../src/core/term-matching");
 
 /**
@@ -97,11 +98,16 @@ class ContentAnonimizer {
   replaceTerms(content) {
     const terms = this.opt.terms || [];
     for (let i = 0; i < terms.length; i++) {
-      let term = terms[i];
-      if (term.trim() == "") {
+      const spec = terms[i];
+      if (spec.trim() == "") {
         continue;
       }
-      const mask = ANONYMIZATION_MASK + "-" + (i + 1);
+      const parsed = parseTermSpec(spec);
+      let term = parsed.term;
+      const mask =
+        parsed.replacement !== null
+          ? parsed.replacement
+          : ANONYMIZATION_MASK + "-" + (i + 1);
       try {
         new RegExp(term, "gi");
       } catch {
@@ -140,19 +146,22 @@ class ContentAnonimizer {
 
 function anonymizePath(path, terms) {
   for (let i = 0; i < terms.length; i++) {
-    let term = terms[i];
-    if (term.trim() == "") {
+    const spec = terms[i];
+    if (spec.trim() == "") {
       continue;
     }
+    const parsed = parseTermSpec(spec);
+    let term = parsed.term;
+    const mask =
+      parsed.replacement !== null
+        ? parsed.replacement
+        : ANONYMIZATION_MASK + "-" + (i + 1);
     try {
       new RegExp(term, "gi");
     } catch {
       term = term.replace(/[-[\]{}()*+?.,\\^$|#]/g, "\\$&");
     }
-    path = path.replace(
-      new RegExp(term, "gi"),
-      ANONYMIZATION_MASK + "-" + (i + 1)
-    );
+    path = path.replace(new RegExp(term, "gi"), mask);
   }
   return path;
 }
@@ -234,6 +243,30 @@ describe("ContentAnonimizer", function () {
       const result = anon.anonymize("connect to 192.168.1.1 on port 80");
       expect(result).to.not.include("192.168.1.1");
       expect(result).to.include("XXXX-1");
+    });
+
+    // #285 — `term=>replacement` uses the user-supplied replacement
+    // instead of XXXX-N, so anonymized identifiers can stay valid in code.
+    it("uses a custom replacement when the term is 'term=>replacement'", function () {
+      const a = new ContentAnonimizer({ terms: ["Anonymous=>ABC"] });
+      const result = a.anonymize("class Anonymous extends Base {}");
+      expect(result).to.equal("class ABC extends Base {}");
+    });
+
+    it("supports custom and default-mask terms together with stable indices", function () {
+      const a = new ContentAnonimizer({
+        terms: ["Alpha=>AAA", "Beta"],
+      });
+      const result = a.anonymize("Alpha and Beta");
+      // Beta uses XXXX-2 (its 1-based index in the list), even though
+      // Alpha had a custom replacement.
+      expect(result).to.equal("AAA and XXXX-2");
+    });
+
+    it("falls back to the default mask when the entry has no replacement", function () {
+      const a = new ContentAnonimizer({ terms: ["Foo=>"] });
+      const result = a.anonymize("Foo bar");
+      expect(result).to.equal(" bar");
     });
 
     // #280 — accented terms should match both the accented and unaccented
