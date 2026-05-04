@@ -106,7 +106,14 @@ async function main() {
   console.info(
     `[INFO] Downloading repository: ${repository.model.source.repositoryName} from branch ${repository.model.source.branch} and commit ${repository.model.source.commit}...`
   );
-  await (repository.source as GitHubDownload).download(inq.token);
+  const cliDownload = new GitHubDownload({
+    repoId: repository.repoId,
+    organization: ghURL.owner,
+    repoName: ghURL.name,
+    commit: branch?.commit || "HEAD",
+    getToken: () => inq.token,
+  });
+  await cliDownload.download(inq.token);
   const outputFileName = join(inq.output, generateRandomFileName(8) + ".zip");
   console.info("[INFO] Anonymizing repository and creation zip file...");
   await writeFile(outputFileName, await repository.zip());

@@ -4,7 +4,6 @@ import { Readable } from "stream";
 import * as sha1 from "crypto-js/sha1";
 import User from "./User";
 import GitHubStream from "./source/GitHubStream";
-import GitHubDownload from "./source/GitHubDownload";
 import Zip from "./source/Zip";
 import { anonymizePath } from "./anonymize-utils";
 import UserModel from "./model/users/users.model";
@@ -21,7 +20,6 @@ import {
   GitHubRepository,
 } from "./source/GitHubRepository";
 import { getToken } from "./GitHubUtils";
-import { FILE_TYPE } from "./storage/Storage";
 import config from "../config";
 import FileModel from "./model/files/files.model";
 import { IFile } from "./model/files/files.types";
@@ -83,31 +81,16 @@ export default class Repository {
     const ghRepo = new GitHubRepository({
       name: this.model.source.repositoryName,
     });
-    switch (this.model.source.type) {
-      case "GitHubDownload":
-        return new GitHubDownload({
-          repoId: this.repoId,
-          commit: this.model.source.commit || "HEAD",
-          organization: ghRepo.owner,
-          repoName: ghRepo.repo,
-          getToken: () => this.getToken(),
-        });
-      case "GitHubStream":
-        return new GitHubStream({
-          repoId: this.repoId,
-          commit: this.model.source.commit || "HEAD",
-          organization: ghRepo.owner,
-          repoName: ghRepo.repo,
-          getToken: () => this.getToken(),
-        });
-      case "Zip":
-        return new Zip(this.model.source, this.repoId);
-      default:
-        throw new AnonymousError("unsupported_source", {
-          object: this,
-          httpStatus: 400,
-        });
+    if (this.model.source.type === "Zip") {
+      return new Zip(this.model.source, this.repoId);
     }
+    return new GitHubStream({
+      repoId: this.repoId,
+      commit: this.model.source.commit || "HEAD",
+      organization: ghRepo.owner,
+      repoName: ghRepo.repo,
+      getToken: () => this.getToken(),
+    });
   }
 
   /**
@@ -264,11 +247,7 @@ export default class Repository {
 
   async isReady() {
     if (this.status !== RepositoryStatus.READY) return false;
-    if (
-      (this.source.type == "GitHubDownload" &&
-        (await storage.exists(this.repoId)) == FILE_TYPE.NOT_FOUND) ||
-      !(await FileModel.exists({ repoId: this.repoId }).exec())
-    ) {
+    if (!(await FileModel.exists({ repoId: this.repoId }).exec())) {
       this.model.status = RepositoryStatus.PREPARING;
       await this.updateIfNeeded({ force: true });
       return false;

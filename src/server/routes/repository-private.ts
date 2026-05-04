@@ -329,15 +329,7 @@ function updateRepoModel(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   repoUpdate: any
 ) {
-  if (repoUpdate.source.type) {
-    model.source.type = repoUpdate.source.type;
-    if (
-      model.source.type != "GitHubStream" &&
-      model.source.type != "GitHubDownload"
-    ) {
-      model.source.type = "GitHubStream";
-    }
-  }
+  model.source.type = "GitHubStream";
   model.source.commit = repoUpdate.source.commit;
   model.source.branch = repoUpdate.source.branch;
   model.options = {
