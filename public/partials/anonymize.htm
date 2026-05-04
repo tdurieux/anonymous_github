@@ -372,15 +372,17 @@
           </div>
           <small ng-if="options.origin">Gist ID: {{details.source.gistId}}</small>
           <small ng-if="options.username && details.gist.ownerLogin">By @{{anonymizeGistContent(details.gist.ownerLogin)}}</small>
-          <ul class="pr-comments mt-3">
-            <li class="pr-comment" ng-repeat="file in details.gist.files" ng-if="options.content">
-              <div class="pr-comment-head">
-                <strong ng-bind="anonymizeGistContent(file.filename)"></strong>
-                <span class="pr-comment-date" ng-if="file.language">{{file.language}}</span>
-              </div>
-              <pre class="pr-diff"><code ng-bind="anonymizeGistContent(file.content)"></code></pre>
-            </li>
-          </ul>
+          <div ng-if="options.content && previewGistFiles.length">
+            <ul class="pr-comments mt-3">
+              <li class="pr-comment" ng-repeat="file in previewGistFiles">
+                <div class="pr-comment-head">
+                  <strong ng-bind="file.filename"></strong>
+                  <span class="pr-comment-date" ng-if="file.language">{{file.language}}</span>
+                </div>
+                <gist-file file="file" terms="terms" options="options"></gist-file>
+              </li>
+            </ul>
+          </div>
           <div ng-if="options.comments && details.gist.comments && details.gist.comments.length">
             <h3 class="paper-section-eyebrow mt-3">Comments</h3>
             <ul class="pr-comments">

@@ -26,7 +26,7 @@
       </div>
     </header>
 
-    <nav class="paper-tabs" ng-if="details.files || details.comments" role="tablist">
+    <nav class="paper-tabs" ng-if="(details.files && details.files.length) || (details.comments && details.comments.length)" role="tablist">
       <button
         class="paper-tab"
         ng-if="details.files"
@@ -65,7 +65,7 @@
               <strong ng-bind="file.filename"></strong>
               <span class="pr-comment-date" ng-if="file.language">{{file.language}}</span>
             </div>
-            <pre class="pr-diff"><code ng-bind="file.content"></code></pre>
+            <gist-file file="file"></gist-file>
           </li>
           <li class="paper-table-empty" ng-if="!details.files.length">
             <i class="fas fa-file"></i>

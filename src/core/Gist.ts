@@ -9,8 +9,30 @@ import config from "../config";
 import { octokit } from "./GitHubUtils";
 import { ContentAnonimizer } from "./anonymize-utils";
 
+type GistPayload = {
+  description: string;
+  isPublic?: boolean;
+  creationDate: Date;
+  updatedDate: Date;
+  ownerLogin?: string;
+  files: {
+    filename: string;
+    content: string;
+    language?: string;
+    size: number;
+    type?: string;
+  }[];
+  comments: {
+    body: string;
+    creationDate: Date;
+    updatedDate: Date;
+    author: string;
+  }[];
+};
+
 export default class Gist {
   private _model: IAnonymizedGistDocument;
+  private _gistPayload?: GistPayload;
   owner: User;
 
   constructor(data: IAnonymizedGistDocument) {
@@ -67,7 +89,18 @@ export default class Gist {
         type: f.type || undefined,
       }));
 
-    this._model.gist = {
+    const commentsMapped = comments.map((comment) => ({
+      body: comment.body || "",
+      creationDate: new Date(comment.created_at),
+      updatedDate: new Date(comment.updated_at),
+      author: comment.user?.login || "",
+    }));
+
+    // Mongoose treats `gist` as a nested path; assigning a plain object that
+    // contains nested arrays (files/comments) on an unsaved doc silently drops
+    // those arrays. Cache the populated payload off-model so toJSON can read
+    // it directly, and also set it on the model for the persisted path.
+    const payload = {
       description: gistInfo.data.description || "",
       isPublic: gistInfo.data.public,
       creationDate: gistInfo.data.created_at
@@ -78,13 +111,11 @@ export default class Gist {
         : new Date(),
       ownerLogin: gistInfo.data.owner?.login,
       files,
-      comments: comments.map((comment) => ({
-        body: comment.body || "",
-        creationDate: new Date(comment.created_at),
-        updatedDate: new Date(comment.updated_at),
-        author: comment.user?.login || "",
-      })),
+      comments: commentsMapped,
     };
+    this._gistPayload = payload;
+    this._model.set("gist", payload);
+    this._model.markModified("gist");
   }
 
   /**
@@ -194,24 +225,23 @@ export default class Gist {
   }
 
   content() {
+    const g = this._gistPayload || this._model.gist;
     const output: Record<string, unknown> = {
       anonymizeDate: this._model.anonymizeDate,
-      isPublic: this._model.gist.isPublic,
+      isPublic: g?.isPublic,
     };
     const anonymizer = new ContentAnonimizer({
       ...this.options,
       repoId: this.gistId,
     });
     if (this.options.title) {
-      output.description = anonymizer.anonymize(this._model.gist.description);
+      output.description = anonymizer.anonymize(g?.description || "");
     }
     if (this.options.username) {
-      output.ownerLogin = anonymizer.anonymize(
-        this._model.gist.ownerLogin || ""
-      );
+      output.ownerLogin = anonymizer.anonymize(g?.ownerLogin || "");
     }
     if (this.options.content) {
-      output.files = (this._model.gist.files || []).map((f) => ({
+      output.files = (g?.files || []).map((f) => ({
         filename: anonymizer.anonymize(f.filename),
         content: anonymizer.anonymize(f.content),
         language: f.language,
@@ -220,7 +250,7 @@ export default class Gist {
       }));
     }
     if (this.options.comments) {
-      output.comments = this._model.gist.comments?.map((comment) => {
+      output.comments = g?.comments?.map((comment) => {
         const o: Record<string, unknown> = {};
         if (this.options.body) o.body = anonymizer.anonymize(comment.body);
         if (this.options.username)
@@ -236,8 +266,8 @@ export default class Gist {
       output.sourceGistId = this._model.source.gistId;
     }
     if (this.options.date) {
-      output.updatedDate = this._model.gist.updatedDate;
-      output.creationDate = this._model.gist.creationDate;
+      output.updatedDate = g?.updatedDate;
+      output.creationDate = g?.creationDate;
     }
     return output;
   }
@@ -265,20 +295,45 @@ export default class Gist {
   }
 
   toJSON() {
+    const m = this._model;
+    const g = this._gistPayload || m.gist;
+    // Build the gist payload by hand instead of returning the Mongoose
+    // sub-doc directly. The /api/gist/source endpoint returns this for an
+    // unsaved model right after download(), and the sub-doc's nested array
+    // (files) doesn't always survive res.json on a freshly assigned doc.
     return {
-      gistId: this._model.gistId,
-      options: this._model.options,
-      conference: this._model.conference,
-      anonymizeDate: this._model.anonymizeDate,
-      status: this._model.status,
-      isPublic: this._model.gist.isPublic,
-      statusMessage: this._model.statusMessage,
-      source: {
-        gistId: this._model.source.gistId,
-      },
-      gist: this._model.gist,
-      lastView: this._model.lastView,
-      pageView: this._model.pageView,
+      gistId: m.gistId,
+      options: m.options,
+      conference: m.conference,
+      anonymizeDate: m.anonymizeDate,
+      status: m.status,
+      isPublic: g?.isPublic,
+      statusMessage: m.statusMessage,
+      source: { gistId: m.source.gistId },
+      gist: g
+        ? {
+            description: g.description,
+            isPublic: g.isPublic,
+            creationDate: g.creationDate,
+            updatedDate: g.updatedDate,
+            ownerLogin: g.ownerLogin,
+            files: (g.files || []).map((f) => ({
+              filename: f.filename,
+              content: f.content,
+              language: f.language,
+              size: f.size,
+              type: f.type,
+            })),
+            comments: (g.comments || []).map((c) => ({
+              body: c.body,
+              creationDate: c.creationDate,
+              updatedDate: c.updatedDate,
+              author: c.author,
+            })),
+          }
+        : undefined,
+      lastView: m.lastView,
+      pageView: m.pageView,
     };
   }
 }

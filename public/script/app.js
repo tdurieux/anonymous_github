@@ -341,6 +341,92 @@ angular
       };
     },
   ])
+  .directive("gistFile", [
+    "$location",
+    "$timeout",
+    "$sce",
+    function ($location, $timeout, $sce) {
+      // Map GitHub `language` and file extensions to Prism aliases. Prism
+      // only ships a handful of grammars (js/py/r/julia/markup); unknown
+      // classes still render as readable <pre><code>.
+      const langAliases = {
+        javascript: "javascript",
+        js: "javascript",
+        typescript: "javascript",
+        ts: "javascript",
+        jsx: "javascript",
+        tsx: "javascript",
+        python: "python",
+        py: "python",
+        ipynb: "json",
+        r: "r",
+        julia: "julia",
+        html: "markup",
+        xml: "markup",
+        svg: "markup",
+        json: "json",
+        yaml: "yaml",
+        yml: "yaml",
+        bash: "bash",
+        sh: "bash",
+        shell: "bash",
+        css: "css",
+        scss: "css",
+        c: "c",
+        "c++": "cpp",
+        cpp: "cpp",
+        java: "java",
+        go: "go",
+        rust: "rust",
+        ruby: "ruby",
+        php: "php",
+        sql: "sql",
+        diff: "diff",
+      };
+      function ext(filename) {
+        const i = (filename || "").lastIndexOf(".");
+        return i < 0 ? "" : filename.slice(i + 1).toLowerCase();
+      }
+      function langFor(file) {
+        const fromLang =
+          file && file.language && langAliases[file.language.toLowerCase()];
+        if (fromLang) return fromLang;
+        const fromExt = langAliases[ext(file && file.filename)];
+        return fromExt || "none";
+      }
+      function kind(file) {
+        const e = ext(file && file.filename);
+        if (e === "md" || e === "markdown" || (file && file.language === "Markdown"))
+          return "md";
+        return "code";
+      }
+      return {
+        restrict: "E",
+        scope: { file: "=", terms: "=", options: "=" },
+        template:
+          '<div ng-if="kind === \'md\'"><markdown content="file.content" terms="terms" options="options"></markdown></div>' +
+          '<pre ng-if="kind === \'code\'" class="line-numbers"><code class="{{prismClass}}" ng-bind="file.content"></code></pre>',
+        link: function (scope, elem) {
+          function update() {
+            if (!scope.file) return;
+            scope.kind = kind(scope.file);
+            scope.prismClass = "language-" + langFor(scope.file);
+            // Re-run Prism after the new <code> lands in the DOM.
+            $timeout(() => {
+              const codes = elem[0].querySelectorAll("pre code");
+              codes.forEach((c) => {
+                if (window.Prism) Prism.highlightElement(c);
+              });
+            }, 50);
+          }
+          scope.$watch("file", update);
+          scope.$watch("file.content", update);
+          scope.$watch("terms", update);
+          scope.$watch("options", update, true);
+        },
+      };
+    },
+  ])
   .directive("markdown", [
     "$location",
     function ($location) {
@@ -1656,6 +1742,7 @@ angular
 
       let _gistAnonCache = new Map();
       let _gistSeenContents = new Set();
+      let _gistCacheVersion = 0;
 
       function collectGistContents() {
         const out = new Set();
@@ -1692,6 +1779,8 @@ angular
             next.set(seen[i], data.contents[i]);
           }
           _gistAnonCache = next;
+          _gistCacheVersion++;
+          rebuildPreviewGistFiles();
         }
       );
 
@@ -1703,6 +1792,25 @@ angular
         }
         return content;
       };
+
+      // Precomputed file objects for the preview pane so <gist-file>'s
+      // two-way binding has a stable reference. Recomputes when the source
+      // files change OR when the anonymization cache turns over.
+      $scope.previewGistFiles = [];
+      function rebuildPreviewGistFiles() {
+        const files =
+          ($scope.details && $scope.details.gist && $scope.details.gist.files) || [];
+        $scope.previewGistFiles = files.map((f) => ({
+          filename: $scope.anonymizeGistContent(f.filename),
+          content: $scope.anonymizeGistContent(f.content),
+          language: f.language,
+        }));
+      }
+      // _prAnonCache turns over inside refreshGistPreview's applyResult; the
+      // simplest signal we have is the digest cycle, so re-derive each digest.
+      // Cheap when _gistAnonCache hits.
+      $scope.$watch("details.gist.files", rebuildPreviewGistFiles, true);
+      $scope.$watch("terms", rebuildPreviewGistFiles);
 
       // ========== SHARED LOGIC ==========
       function getConference() {

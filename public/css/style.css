@@ -784,6 +784,20 @@ a:hover {
   color: var(--color) !important;
 }
 
+.markdown-body table tr {
+  background-color: var(--main-bg-color);
+  border-top: 1px solid var(--border-color);
+}
+
+.markdown-body table tr:nth-child(2n) {
+  background-color: var(--paper-bg-alt);
+}
+
+.markdown-body table td,
+.markdown-body table th {
+  border: 1px solid var(--border-color);
+}
+
 .file-content {
   padding: 4px 7px;
   text-align: left;
@@ -2274,7 +2288,7 @@ code {
   gap: 8px;
   position: fixed;
   bottom: 18px;
-  left: 18px;
+  right: 18px;
   z-index: 1100;
   padding: 10px 14px;
   background: var(--color);
@@ -2294,6 +2308,16 @@ code {
 
 @media (max-width: 991px) {
   .sidebar-toggle { display: inline-flex; }
+
+  /* Move Ko-fi widget to the left to avoid clashing with the Files button */
+  .floatingchat-container-wrap {
+    left: 3px !important;
+    right: auto !important;
+  }
+  .floating-chat-kofi-popup-iframe {
+    left: 10px !important;
+    right: auto !important;
+  }
 
   /* Sidebar becomes a slide-in drawer */
   .leftCol {
