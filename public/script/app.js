@@ -1460,7 +1460,16 @@ angular
           let baseUrl = "";
           try {
             const o = parseGithubUrl($scope.sourceUrl);
-            baseUrl = `https://github.com/${o.owner}/${o.repo}/raw/${$scope.source.branch}/`;
+            // Fall back to the repo's default branch when source.branch
+            // hasn't loaded yet — without this, relative <img src="./X">
+            // resolved against a baseUrl like ".../raw//" (no branch
+            // segment), so the browser fetched ".../raw/X" and 404'd
+            // (#407).
+            const branch =
+              $scope.source.branch ||
+              ($scope.details && $scope.details.defaultBranch) ||
+              "main";
+            baseUrl = `https://github.com/${o.owner}/${o.repo}/raw/${branch}/`;
           } catch (_) { /* fall through with empty base */ }
           const html = renderMD($scope.anonymize_readme, baseUrl);
           $scope.html_readme = $sce.trustAsHtml(html);
