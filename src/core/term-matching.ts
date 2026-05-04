@@ -71,14 +71,28 @@ export const DIACRITIC_CLASSES: Record<string, string> = {
 // diacritic-insensitive way. ASCII letters are replaced with a character
 // class that includes their accented siblings; other chars are left alone so
 // regex metacharacters and escape sequences keep working.
+//
+// Output is consumed with the `u` flag, where identity escapes of arbitrary
+// characters (e.g. `\-`) are syntax errors. Strip the backslash from any
+// escape that isn't valid under `u` so user input like "170cm\-56kg" still
+// compiles.
+const UNICODE_ESCAPE_CHARS = new Set(
+  "^$\\.*+?()[]{}|/dDsSwWbBnrtvf0cxupP".split("")
+);
 export function diacriticInsensitive(escapedTerm: string): string {
   let out = "";
   let i = 0;
   while (i < escapedTerm.length) {
     const c = escapedTerm[i];
-    // Pass through backslash escapes verbatim (e.g. "\." or "\d").
     if (c === "\\" && i + 1 < escapedTerm.length) {
-      out += c + escapedTerm[i + 1];
+      const next = escapedTerm[i + 1];
+      // Drop the backslash for invalid unicode-mode identity escapes; the
+      // character itself is preserved literally.
+      if (UNICODE_ESCAPE_CHARS.has(next)) {
+        out += c + next;
+      } else {
+        out += next;
+      }
       i += 2;
       continue;
     }
