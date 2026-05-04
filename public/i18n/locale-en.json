@@ -81,7 +81,21 @@
     "billing_country_missing": "A billing country is required.",
     "queue_not_found": "The specified queue could not be found.",
     "job_not_found": "The specified job could not be found in the queue.",
-    "error_retrying_job": "An error occurred while retrying the job."
+    "error_retrying_job": "An error occurred while retrying the job.",
+    "gist_expired": "The gist is expired.",
+    "gist_not_ready": "Anonymous GitHub is still processing the gist, it can take several minutes.",
+    "gist_not_found": "The requested gist could not be found.",
+    "gist_not_available": "This gist is currently not available.",
+    "invalid_gistId": "The format of the gist ID is invalid.",
+    "gistId_not_specified": "A gist ID must be provided.",
+    "gistId_already_used": "The gist ID is already used.",
+    "missing_token": "An authentication token is required.",
+    "invalid_token": "The provided authentication token is invalid.",
+    "login_failed": "Login failed. Please try again.",
+    "server_error": "An unexpected server error occurred. Please try again later.",
+    "username_not_defined": "A username must be provided.",
+    "github_user_not_found": "The specified GitHub user could not be found.",
+    "cannot_coauthor_self": "You cannot add yourself as a co-author."
   },
   "WARNINGS": {
     "page_not_enabled_on_repo": "GitHub Pages is not enabled on this repository. Enable it in the repository's Settings → Pages on GitHub, then refresh.",
