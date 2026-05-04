@@ -509,14 +509,17 @@ angular
               });
             }
 
-            // #496 — expand every folder on first load so reviewers see the
-            // whole tree without clicking through. Folders the user has
-            // already toggled (state recorded in $scope.opens) are left
-            // alone, so collapsing a folder still works.
+            // #496 — expand folders whose children are already loaded so
+            // reviewers see the whole tree without clicking through. Skip
+            // folders with empty children to avoid emitting an empty <ul>
+            // that breaks the click-time lazy-load (#496-followup): the
+            // openFolder handler used to detect "needs to load" by looking
+            // at the absence of a sibling node, but a pre-expanded empty
+            // <ul> is a non-null sibling and silently suppressed the fetch.
             function expandAllFolders(nodes, parentPath) {
               if (!nodes) return;
               for (const f of nodes) {
-                if (!f.child) continue;
+                if (!f.child || f.child.length === 0) continue;
                 const path = `${parentPath}/${f.name}`;
                 if (!(path in $scope.opens)) {
                   $scope.opens[path] = true;
@@ -544,7 +547,14 @@ angular
 
             $scope.openFolder = async function (folder, event) {
               $scope.opens[folder] = !$scope.opens[folder];
-              if (event.srcElement.nextSibling == null) {
+              const sib = event.srcElement.nextSibling;
+              // Lazy-load when there's no sibling (folder never expanded) or
+              // when the sibling is an empty <ul> from a pre-expanded folder
+              // whose children weren't fetched yet (#496-followup).
+              const needsLoad =
+                sib == null ||
+                (sib.tagName === "UL" && sib.children.length === 0);
+              if (needsLoad) {
                 await $scope.$parent.getFiles(folder.substring(1));
                 $scope.$apply();
               }
@@ -1696,7 +1706,7 @@ angular
         "f4b",
       ];
 
-      $scope.$on("$routeUpdate", async function (event, current) {
+      $scope.$on("$routeUpdate", function (event, current) {
         if (($routeParams.path || "") == $scope.filePath) {
           return;
         }
@@ -1709,21 +1719,20 @@ angular
           return init();
         }
 
-        // #510 — when the user clicks a markdown link into a subdirectory,
-        // the file listing for that directory may not be loaded yet, so
-        // getSelectedFile() returns undefined and updateContent() fires a
-        // request without the right sha. Walk the new path and load any
-        // listings we don't have before rendering.
-        for (let i = 0; i < $scope.paths.length; i++) {
+        updateContent();
+
+        // #510 — if we navigated into a subdirectory whose file listing
+        // hasn't been fetched, lazy-load the parent directories in the
+        // background so getSelectedFile() can populate $scope.file with the
+        // right sha for the next interaction. Done after updateContent so
+        // the request fires immediately (getContent falls back to sha "0").
+        for (let i = 0; i < $scope.paths.length - 1; i++) {
           const dirPath = i > 0 ? $scope.paths.slice(0, i).join("/") : "";
-          const alreadyLoaded = $scope.files.some(
-            (f) => f.path === dirPath
-          );
+          const alreadyLoaded = $scope.files.some((f) => f.path === dirPath);
           if (!alreadyLoaded) {
-            await $scope.getFiles(dirPath);
+            $scope.getFiles(dirPath);
           }
         }
-        $scope.$apply(updateContent);
       });
 
       function selectFile() {
