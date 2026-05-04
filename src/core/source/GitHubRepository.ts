@@ -231,6 +231,14 @@ export async function getRepositoryFromGitHub(opt: {
   }
   const oct = octokit(opt.accessToken);
   let r: RestEndpointMethodTypes["repos"]["get"]["response"]["data"];
+  // Recover the numeric GitHub repository id from `externalId` (stored as
+  // "gh_<id>") so we can re-fetch by id if the owner/repo we cached has
+  // since been renamed on GitHub — see #409.
+  const ghIdFromExternal =
+    typeof dbModel?.externalId === "string" &&
+    dbModel.externalId.startsWith("gh_")
+      ? dbModel.externalId.slice(3)
+      : null;
   try {
     r = (
       await oct.repos.get({
@@ -254,14 +262,33 @@ export async function getRepositoryFromGitHub(opt: {
         cause: error as Error,
       });
     }
-    throw new AnonymousError("repo_not_found", {
-      httpStatus: (error as { status?: number }).status,
-      object: {
-        owner: opt.owner,
-        repo: opt.repo,
-      },
-      cause: error as Error,
-    });
+    // If the name 404s but we know the GitHub repo id, the repo was
+    // probably renamed. Look it up by id and continue with the new name.
+    const status = (error as { status?: number }).status;
+    if (status === 404 && ghIdFromExternal) {
+      try {
+        r = (
+          await oct.request("GET /repositories/{id}", {
+            id: ghIdFromExternal,
+          })
+        ).data as RestEndpointMethodTypes["repos"]["get"]["response"]["data"];
+      } catch (idError) {
+        throw new AnonymousError("repo_not_found", {
+          httpStatus: (idError as { status?: number }).status || 404,
+          object: { owner: opt.owner, repo: opt.repo },
+          cause: idError as Error,
+        });
+      }
+    } else {
+      throw new AnonymousError("repo_not_found", {
+        httpStatus: status,
+        object: {
+          owner: opt.owner,
+          repo: opt.repo,
+        },
+        cause: error as Error,
+      });
+    }
   }
   if (!r)
     throw new AnonymousError("repo_not_found", {
