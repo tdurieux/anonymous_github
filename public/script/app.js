@@ -1696,7 +1696,7 @@ angular
         "f4b",
       ];
 
-      $scope.$on("$routeUpdate", function (event, current) {
+      $scope.$on("$routeUpdate", async function (event, current) {
         if (($routeParams.path || "") == $scope.filePath) {
           return;
         }
@@ -1709,7 +1709,21 @@ angular
           return init();
         }
 
-        updateContent();
+        // #510 — when the user clicks a markdown link into a subdirectory,
+        // the file listing for that directory may not be loaded yet, so
+        // getSelectedFile() returns undefined and updateContent() fires a
+        // request without the right sha. Walk the new path and load any
+        // listings we don't have before rendering.
+        for (let i = 0; i < $scope.paths.length; i++) {
+          const dirPath = i > 0 ? $scope.paths.slice(0, i).join("/") : "";
+          const alreadyLoaded = $scope.files.some(
+            (f) => f.path === dirPath
+          );
+          if (!alreadyLoaded) {
+            await $scope.getFiles(dirPath);
+          }
+        }
+        $scope.$apply(updateContent);
       });
 
       function selectFile() {
@@ -1835,8 +1849,13 @@ angular
         const originalType = $scope.type;
         $scope.type = "loading";
         $scope.content = "loading";
+        // fileInfo can be undefined when the user navigates (e.g. clicks a
+        // markdown link into a subdir whose file list hasn't loaded yet) —
+        // see #510. Fall back to "0" so the request still goes through; the
+        // server returns a fresh ETag on first hit either way.
+        const sha = (fileInfo && fileInfo.sha) || "0";
         $http
-          .get(`/api/repo/${$scope.repoId}/file/${path}?v=` + fileInfo.sha, {
+          .get(`/api/repo/${$scope.repoId}/file/${path}?v=` + sha, {
             transformResponse: (data) => {
               return data;
             },
