@@ -1375,10 +1375,11 @@ angular
 
       function anonymizeReadme() {
         if (!$scope.anonymize || !$scope.anonymize.terms) return;
-        setValidity("terms", "regex", true);
-        if ($scope.terms && $scope.terms.match(/[-[\]{}()*+?.,\\^$|#]/g)) {
-          setValidity("terms", "regex", false);
-        }
+        // The "regex characters detected" hint is informational, not a blocker
+        // — IP addresses, escaped chars, etc. are all legitimate terms (#430).
+        // Track it as a plain $scope flag so it doesn't mark the form invalid.
+        $scope.termsRegexWarning =
+          !!$scope.terms && !!$scope.terms.match(/[-[\]{}()*+?.,\\^$|#]/g);
         const urlRegex = /<?\b((https?|ftp|file):\/\/)[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]\b\/?>?/g;
         let content = $scope.readme;
         if (!$scope.options.image) {
@@ -1486,7 +1487,7 @@ angular
         setValidity("sourceUrl", "github", true);
         setValidity("conference", "activated", true);
         setValidity("terms", "format", true);
-        setValidity("terms", "regex", true);
+        $scope.termsRegexWarning = false;
       }
 
       function displayErrorMessage(message) {
