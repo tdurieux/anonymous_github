@@ -86,6 +86,7 @@
               <button type="button" class="btn" ng-class="{'btn-primary': typeFilter === 'all'}" ng-click="typeFilter = 'all'">All</button>
               <button type="button" class="btn" ng-class="{'btn-primary': typeFilter === 'repo'}" ng-click="typeFilter = 'repo'">Repos</button>
               <button type="button" class="btn" ng-class="{'btn-primary': typeFilter === 'pr'}" ng-click="typeFilter = 'pr'">PRs</button>
+              <button type="button" class="btn" ng-class="{'btn-primary': typeFilter === 'gist'}" ng-click="typeFilter = 'gist'">Gists</button>
             </div>
 
             <div class="dropdown">
@@ -182,12 +183,14 @@
         ng-repeat="item in items | filter:itemFilter | orderBy:orderBy as filteredItems"
       >
         <div class="cell-anon" role="cell">
-          <span class="type-badge" ng-class="{'type-repo': item._type === 'repo', 'type-pr': item._type === 'pr'}">{{item._type === 'repo' ? 'Repo' : 'PR'}}</span>
+          <span class="type-badge" ng-class="{'type-repo': item._type === 'repo', 'type-pr': item._type === 'pr', 'type-gist': item._type === 'gist'}">{{item._type === 'repo' ? 'Repo' : item._type === 'pr' ? 'PR' : 'Gist'}}</span>
+          <span class="type-badge type-coauthor" ng-if="item.role === 'coauthor'" title="You are a co-author on this anonymization">Co-author</span>
           <div class="anon-text">
             <a ng-href="{{item._viewUrl}}" class="repo-name" ng-bind="item._name"></a>
             <div class="anon-sub">
               <a ng-if="item._type === 'repo'" href="https://github.com/{{item.source.fullName}}/" ng-bind="item.source.fullName"></a><span ng-if="item._type === 'repo' && item.options.update">&nbsp;&middot;&nbsp;<a href="https://github.com/{{item.source.fullName}}/tree/{{item.source.branch}}" ng-bind="item.source.branch"></a><span ng-if="item.source.commit">&nbsp;&middot;&nbsp;@<a href="https://github.com/{{item.source.fullName}}/tree/{{item.source.commit}}" ng-bind="item.source.commit.substring(0, 8)"></a></span></span><span ng-if="item._type === 'repo' && !item.options.update">&nbsp;&middot;&nbsp;@<a href="https://github.com/{{item.source.fullName}}/tree/{{item.source.commit}}" ng-bind="item.source.commit.substring(0, 8)"></a></span>
               <a ng-if="item._type === 'pr'" href="https://github.com/{{item.source.repositoryFullName}}/pull/{{item.source.pullRequestId}}" ng-bind="item._source"></a>
+              <a ng-if="item._type === 'gist'" href="https://gist.github.com/{{item.source.gistId}}" ng-bind="item._source"></a>
             </div>
           </div>
         </div>
@@ -232,7 +235,7 @@
               <a class="dropdown-item" href="#" ng-show="item.status == 'removed'" ng-click="refreshItem(item)">
                 <i class="fas fa-check-circle"></i> Enable
               </a>
-              <a class="dropdown-item" href="#" ng-show="item.status == 'ready' || item.status == 'expired' || item.status == 'error'" ng-click="removeItem(item)">
+              <a class="dropdown-item" href="#" ng-show="(item.status == 'ready' || item.status == 'expired' || item.status == 'error') && item.role !== 'coauthor'" ng-click="removeItem(item)">
                 <i class="fas fa-trash-alt"></i> Remove
               </a>
               <a class="dropdown-item" ng-href="{{item._viewUrl}}">

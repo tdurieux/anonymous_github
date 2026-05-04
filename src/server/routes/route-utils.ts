@@ -3,8 +3,34 @@ import AnonymousError from "../../core/AnonymousError";
 import * as db from "../database";
 import UserModel from "../../core/model/users/users.model";
 import User from "../../core/User";
+import Repository from "../../core/Repository";
 import { HTTPError } from "got";
 import { RepositoryStatus } from "../../core/types";
+
+export async function getGist(
+  req: express.Request,
+  res: express.Response,
+  opt?: { nocheck?: boolean }
+) {
+  try {
+    const gist = await db.getGist(req.params.gistId);
+    if (opt?.nocheck !== true) {
+      if (
+        gist.status == "expired" &&
+        gist.options.expirationMode == "redirect"
+      ) {
+        res.redirect(`https://gist.github.com/${gist.source.gistId}`);
+        return null;
+      }
+
+      await gist.check();
+    }
+    return gist;
+  } catch (error) {
+    handleError(error, res, req);
+    return null;
+  }
+}
 
 export async function getPullRequest(
   req: express.Request,
@@ -69,6 +95,20 @@ export function isOwnerOrAdmin(authorizedUsers: string[], user: User) {
       httpStatus: 401,
     });
   }
+}
+
+export function isCoauthor(repo: Repository, user: User): boolean {
+  if (!user.username) return false;
+  return (repo.model.coauthors || []).some((c) => c.username === user.username);
+}
+
+export function isOwnerCoauthorOrAdmin(repo: Repository, user: User) {
+  if (user.isAdmin) return;
+  if (repo.owner.id === user.model.id) return;
+  if (isCoauthor(repo, user)) return;
+  throw new AnonymousError("not_authorized", {
+    httpStatus: 401,
+  });
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

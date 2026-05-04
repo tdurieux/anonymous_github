@@ -1,0 +1,98 @@
+<div class="pr-page" ng-init="tabState = { active: (details && details.files) ? 'files' : 'comments' }">
+  <div class="container paper-page pr-page-inner">
+    <div class="paper-crumbs">
+      <a href="/dashboard">Reviewer</a> &nbsp;/&nbsp;
+      <span class="here">Gist</span>
+    </div>
+
+    <header class="pr-header">
+      <h1 class="paper-page-title pr-title">
+        <span ng-if="details.description" ng-bind="details.description"></span>
+        <span ng-if="!details.description" class="text-muted">Untitled gist</span>
+      </h1>
+      <div class="pr-header-meta">
+        <span class="paper-pill" ng-class="{'good': details.isPublic, 'warn': !details.isPublic}">
+          {{ details.isPublic ? 'Public' : 'Secret' }}
+        </span>
+        <span class="pr-meta-item" ng-if="details.ownerLogin">
+          <i class="far fa-user"></i> @<span ng-bind="details.ownerLogin"></span>
+        </span>
+        <span class="pr-meta-item" ng-if="details.updatedDate">
+          <i class="far fa-clock"></i> <span ng-bind="details.updatedDate | date"></span>
+        </span>
+        <span class="pr-meta-item" ng-if="details.anonymizeDate">
+          <i class="fas fa-user-secret"></i> Anonymized <span ng-bind="details.anonymizeDate | date"></span>
+        </span>
+      </div>
+    </header>
+
+    <nav class="paper-tabs" ng-if="details.files || details.comments" role="tablist">
+      <button
+        class="paper-tab"
+        ng-if="details.files"
+        ng-class="{'active': tabState.active == 'files'}"
+        ng-click="tabState.active = 'files'"
+        type="button"
+        role="tab"
+      >
+        <i class="fas fa-file-code"></i>
+        <ng-pluralize
+          count="details.files.length"
+          when="{'0': 'No files', 'one': '1 file', 'other': '{} files'}"
+        ></ng-pluralize>
+      </button>
+      <button
+        class="paper-tab"
+        ng-if="details.comments"
+        ng-class="{'active': tabState.active == 'comments'}"
+        ng-click="tabState.active = 'comments'"
+        type="button"
+        role="tab"
+      >
+        <i class="far fa-comment-dots"></i>
+        <ng-pluralize
+          count="details.comments.length"
+          when="{'0': 'No comments', 'one': '1 comment', 'other': '{} comments'}"
+        ></ng-pluralize>
+      </button>
+    </nav>
+
+    <div class="paper-tab-content">
+      <div ng-if="details.files && tabState.active =='files'">
+        <ul class="pr-comments">
+          <li class="pr-comment" ng-repeat="file in details.files">
+            <div class="pr-comment-head">
+              <strong ng-bind="file.filename"></strong>
+              <span class="pr-comment-date" ng-if="file.language">{{file.language}}</span>
+            </div>
+            <pre class="pr-diff"><code ng-bind="file.content"></code></pre>
+          </li>
+          <li class="paper-table-empty" ng-if="!details.files.length">
+            <i class="fas fa-file"></i>
+            <span>No files in this gist.</span>
+          </li>
+        </ul>
+      </div>
+
+      <div ng-if="details.comments && tabState.active =='comments'">
+        <ul class="pr-comments">
+          <li class="pr-comment" ng-repeat="comment in details.comments">
+            <div class="pr-comment-head">
+              <span class="pr-comment-author" ng-if="comment.author">
+                <i class="far fa-user"></i> @<span ng-bind="comment.author"></span>
+              </span>
+              <span class="pr-comment-date" ng-if="comment.updatedDate" ng-bind="comment.updatedDate | date"></span>
+            </div>
+            <div class="pr-comment-body" ng-if="comment.body">
+              <markdown content="comment.body"></markdown>
+            </div>
+          </li>
+          <li class="paper-table-empty" ng-if="!details.comments.length">
+            <i class="far fa-comment-dots"></i>
+            <span>No comments on this gist.</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>

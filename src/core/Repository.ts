@@ -520,6 +520,10 @@ export default class Repository {
     return this._model.options;
   }
 
+  get coauthors() {
+    return this._model.coauthors || [];
+  }
+
   get model() {
     return this._model;
   }
@@ -537,6 +541,11 @@ export default class Repository {
     return {
       repoId: this._model.repoId,
       options: this._model.options,
+      coauthors: (this._model.coauthors || []).map((c) => ({
+        username: c.username,
+        githubId: c.githubId,
+        photo: c.photo,
+      })),
       conference: this._model.conference,
       anonymizeDate: this._model.anonymizeDate,
       status: this.status,

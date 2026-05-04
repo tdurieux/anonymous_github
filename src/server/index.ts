@@ -161,6 +161,8 @@ export default async function start() {
   apiRouter.use("/repo", speedLimiter, router.repositoryPrivate);
   apiRouter.use("/pr", speedLimiter, router.pullRequestPublic);
   apiRouter.use("/pr", speedLimiter, router.pullRequestPrivate);
+  apiRouter.use("/gist", speedLimiter, router.gistPublic);
+  apiRouter.use("/gist", speedLimiter, router.gistPrivate);
   apiRouter.use("/anonymize-preview", speedLimiter, router.anonymizePreview);
 
   apiRouter.get("/message", async (_, res) => {

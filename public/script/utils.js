@@ -147,6 +147,17 @@ function generateRandomId(length) {
 
 function parseGithubUrl(url) {
   if (!url) throw "Invalid url";
+  // Gist URLs: https://gist.github.com/<owner>/<gistId> or
+  // https://gist.github.com/<gistId>
+  const gistMatch = url.match(
+    /gist\.github\.com\/(?:(?<owner>[\w-\._]+)\/)?(?<gist>[a-fA-F0-9]+)/
+  );
+  if (gistMatch && gistMatch.groups.gist) {
+    return {
+      owner: gistMatch.groups.owner,
+      gistId: gistMatch.groups.gist,
+    };
+  }
   const matches = url
     .replace(/\.git(\/|$)/, "$1")
     .match(

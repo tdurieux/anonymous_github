@@ -1,5 +1,7 @@
 import pullRequestPrivate from "./pullRequest-private";
 import pullRequestPublic from "./pullRequest-public";
+import gistPrivate from "./gist-private";
+import gistPublic from "./gist-public";
 import repositoryPrivate from "./repository-private";
 import repositoryPublic from "./repository-public";
 import conference from "./conference";
@@ -13,6 +15,8 @@ import anonymizePreview from "./anonymize-preview";
 export default {
   pullRequestPrivate,
   pullRequestPublic,
+  gistPrivate,
+  gistPublic,
   repositoryPrivate,
   repositoryPublic,
   file,

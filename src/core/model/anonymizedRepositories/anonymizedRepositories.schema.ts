@@ -20,6 +20,14 @@ const AnonymizedRepositorySchema = new Schema({
     ref: "user",
     index: true,
   },
+  coauthors: [
+    {
+      username: { type: String, index: true },
+      githubId: { type: String },
+      photo: { type: String },
+      addedAt: { type: Date, default: Date.now },
+    },
+  ],
   conference: String,
   source: {
     type: { type: String },

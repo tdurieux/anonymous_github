@@ -5,8 +5,8 @@
       <div class="paper-crumbs">My work &nbsp;/&nbsp; <span class="here">New anonymization</span></div>
       <h1 class="paper-page-title">New <em>anonymization</em></h1>
       <p class="paper-page-lede">
-        Paste a GitHub repository or pull-request URL. We&rsquo;ll fetch it,
-        strip every trace of identity, and hand you back a stable link.
+        Paste a GitHub repository, pull-request, or gist URL. We&rsquo;ll fetch
+        it, strip every trace of identity, and hand you back a stable link.
       </p>
       <div class="form-group mt-4 mb-2">
         <label class="paper-field-label" for="sourceUrl-landing">Source URL</label>
@@ -15,13 +15,13 @@
           type="text"
           class="form-control form-control-lg"
           ng-model="sourceUrl"
-          placeholder="https://github.com/owner/repo  or  https://github.com/owner/repo/pull/42"
+          placeholder="https://github.com/owner/repo, https://github.com/owner/repo/pull/42, or https://gist.github.com/owner/abcdef…"
           ng-model-options="{ debounce: {default: 1000, blur: 0, click: 0}, updateOn: 'default blur click' }"
           ng-change="urlSelected()"
         />
       </div>
       <small class="form-text" style="color: var(--ink-muted);">
-        Paste a repository URL to anonymize a repo, or a pull-request URL to anonymize a PR.
+        Paste a repository URL to anonymize a repo, a pull-request URL for a PR, or a gist URL for a gist.
       </small>
     </div>
   </div>
@@ -39,8 +39,8 @@
             <span ng-if="!isUpdate">New <em>anonymization</em></span>
             <span ng-if="isUpdate">Edit <em>anonymization</em></span>
           </h1>
-          <span class="type-badge" ng-show="detectedType" ng-class="{'type-repo': detectedType === 'repo', 'type-pr': detectedType === 'pr'}">
-            {{detectedType === 'repo' ? 'Repo' : 'PR'}}
+          <span class="type-badge" ng-show="detectedType" ng-class="{'type-repo': detectedType === 'repo', 'type-pr': detectedType === 'pr', 'type-gist': detectedType === 'gist'}">
+            {{detectedType === 'repo' ? 'Repo' : detectedType === 'pr' ? 'PR' : 'Gist'}}
           </span>
         </div>
       </div>
@@ -131,6 +131,14 @@
               <div class="invalid-feedback" ng-show="anonymize.pullRequestId.$error.used">{{pullRequestId}} is already used.</div>
             </div>
 
+            <div class="form-group" ng-show="detectedType === 'gist'">
+              <label class="paper-field-label" for="gistId">Anonymized gist ID</label>
+              <input type="text" class="form-control" name="gistId" id="gistId" ng-class="{'is-invalid': anonymize.gistId.$invalid}" ng-model="gistId" ng-model-options="{ debounce: {default: 1000, blur: 0, click: 0}, updateOn: 'default blur click' }" />
+              <small class="form-text text-muted">Your share link will be <code>anonymous.4open.science/gist/{{gistId}}</code>.</small>
+              <div class="invalid-feedback" ng-show="anonymize.gistId.$error.format">ID can only contain letters and numbers.</div>
+              <div class="invalid-feedback" ng-show="anonymize.gistId.$error.used">{{gistId}} is already used.</div>
+            </div>
+
             <div class="form-group">
               <label class="paper-field-label" for="conference">Conference <span class="paper-optional">(optional)</span></label>
               <input class="form-control" id="conference" name="conference" ng-model="conference" ng-class="{'is-invalid': anonymize.conference.$invalid}" />
@@ -183,6 +191,33 @@
                 <small class="form-text text-muted d-block" ng-show="details.hasPage && details.pageSource && details.pageSource.branch !== source.branch">
                   {{ 'WARNINGS.page_branch_mismatch' | translate:{ pageBranch: details.pageSource.branch, selectedBranch: source.branch } }}
                 </small>
+              </div>
+            </div>
+
+            <div ng-show="detectedType === 'gist'">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="title-gist" name="title-gist" ng-model="options.title" />
+                <label class="form-check-label" for="title-gist">Gist description</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="content-gist" name="content-gist" ng-model="options.content" />
+                <label class="form-check-label" for="content-gist">File contents</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="comments-gist" name="comments-gist" ng-model="options.comments" />
+                <label class="form-check-label" for="comments-gist">Comments</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="username-gist" name="username-gist" ng-model="options.username" />
+                <label class="form-check-label" for="username-gist">Usernames</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="date-gist" name="date-gist" ng-model="options.date" />
+                <label class="form-check-label" for="date-gist">Dates</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="origin-gist" name="origin-gist" ng-model="options.origin" />
+                <label class="form-check-label" for="origin-gist">Source gist ID</label>
               </div>
             </div>
 
@@ -239,6 +274,50 @@
             <small class="form-text text-muted" ng-show="options.expirationMode=='redirect'">After {{options.expirationDate | date}}, visitors will be redirected to GitHub.</small>
           </section>
 
+          <section class="paper-settings-section" ng-show="isUpdate && detectedType === 'repo'">
+            <div class="paper-section-eyebrow">Co-authors</div>
+            <p class="form-text text-muted" style="margin-bottom: 8px;">
+              Co-authors can view and edit these settings. They cannot delete the anonymization or manage co-authors.
+            </p>
+
+            <div class="form-group" ng-show="role === 'owner' || role === 'admin'">
+              <label class="paper-field-label" for="coauthorSearch">Add a GitHub user</label>
+              <div style="position: relative;">
+                <input
+                  type="text"
+                  id="coauthorSearch"
+                  class="form-control"
+                  placeholder="Search GitHub username…"
+                  ng-model="coauthorSearch"
+                  ng-change="searchCoauthors()"
+                  ng-model-options="{ debounce: 300 }"
+                  autocomplete="off"
+                />
+                <div class="dropdown-menu show" style="display: block; max-height: 220px; overflow-y: auto; width: 100%;" ng-show="coauthorResults.length > 0">
+                  <a href="#" class="dropdown-item d-flex align-items-center" ng-repeat="u in coauthorResults" ng-click="addCoauthor(u, $event)">
+                    <img ng-src="{{u.photo}}" alt="" style="width: 22px; height: 22px; border-radius: 50%; margin-right: 8px;" />
+                    <span ng-bind="u.username"></span>
+                  </a>
+                </div>
+              </div>
+              <small class="form-text text-muted" ng-show="coauthorError" ng-bind="coauthorError"></small>
+            </div>
+
+            <div class="coauthor-list">
+              <div class="coauthor-row d-flex align-items-center" ng-repeat="c in coauthors" style="padding: 6px 0; gap: 8px;">
+                <img ng-src="{{c.photo}}" alt="" style="width: 24px; height: 24px; border-radius: 50%;" ng-if="c.photo" />
+                <a ng-href="https://github.com/{{c.username}}" target="_blank" ng-bind="c.username"></a>
+                <span class="type-badge type-coauthor">Co-author</span>
+                <button type="button" class="btn btn-sm" ng-click="removeCoauthor(c)" ng-show="role === 'owner' || role === 'admin'" style="margin-left: auto;" title="Remove co-author">
+                  <i class="fas fa-times"></i>
+                </button>
+              </div>
+              <div class="form-text text-muted" ng-show="!coauthors || coauthors.length === 0">
+                No co-authors yet.
+              </div>
+            </div>
+          </section>
+
           <div class="alert alert-danger" role="alert" ng-if="error" ng-bind="error"></div>
 
           <div class="anonymize-submit-bar" ng-show="detectedType">
@@ -254,6 +333,12 @@
             <button type="submit" class="btn btn-ink" ng-click="anonymizePullRequest($event)" ng-if="detectedType === 'pr' && isUpdate">
               <i class="fas fa-save mr-1"></i> Update Pull Request
             </button>
+            <button type="submit" class="btn btn-ink" ng-click="anonymizeGist($event)" ng-if="detectedType === 'gist' && !isUpdate">
+              <i class="fas fa-user-secret mr-1"></i> Anonymize Gist
+            </button>
+            <button type="submit" class="btn btn-ink" ng-click="anonymizeGist($event)" ng-if="detectedType === 'gist' && isUpdate">
+              <i class="fas fa-save mr-1"></i> Update Gist
+            </button>
           </div>
         </form>
       </div>
@@ -268,6 +353,51 @@
           <span class="anonymize-preview-sub">README with redactions applied</span>
         </div>
         <div class="anonymize-preview-body markdown-body body" ng-bind-html="html_readme"></div>
+      </div>
+
+      <div class="anonymize-preview-col" ng-if="detectedType === 'gist' && details">
+        <div class="anonymize-preview-head">
+          <span class="paper-eyebrow">Live preview</span>
+          <span class="anonymize-preview-sub">Gist with redactions applied</span>
+        </div>
+        <div class="anonymize-preview-body">
+          <div class="d-flex w-100 justify-content-between align-items-center flex-wrap">
+            <h2 class="pr-title mb-1">
+              <span ng-if="options.title">{{anonymizeGistContent(details.gist.description) || 'Untitled gist'}}</span>
+              <span class="badge" ng-class="{'badge-success': details.gist.isPublic, 'badge-secondary': !details.gist.isPublic}">
+                {{details.gist.isPublic ? 'public' : 'secret'}}
+              </span>
+            </h2>
+            <small ng-bind="details.gist.updatedDate | date" ng-if="options.date"></small>
+          </div>
+          <small ng-if="options.origin">Gist ID: {{details.source.gistId}}</small>
+          <small ng-if="options.username && details.gist.ownerLogin">By @{{anonymizeGistContent(details.gist.ownerLogin)}}</small>
+          <ul class="pr-comments mt-3">
+            <li class="pr-comment" ng-repeat="file in details.gist.files" ng-if="options.content">
+              <div class="pr-comment-head">
+                <strong ng-bind="anonymizeGistContent(file.filename)"></strong>
+                <span class="pr-comment-date" ng-if="file.language">{{file.language}}</span>
+              </div>
+              <pre class="pr-diff"><code ng-bind="anonymizeGistContent(file.content)"></code></pre>
+            </li>
+          </ul>
+          <div ng-if="options.comments && details.gist.comments && details.gist.comments.length">
+            <h3 class="paper-section-eyebrow mt-3">Comments</h3>
+            <ul class="pr-comments">
+              <li class="pr-comment" ng-repeat="comment in details.gist.comments">
+                <div class="pr-comment-head">
+                  <span class="pr-comment-author" ng-if="options.username">
+                    <i class="far fa-user"></i> @<span ng-bind="anonymizeGistContent(comment.author)"></span>
+                  </span>
+                  <span class="pr-comment-date" ng-if="options.date" ng-bind="comment.updatedDate | date"></span>
+                </div>
+                <div class="pr-comment-body" ng-if="options.body">
+                  <markdown content="anonymizeGistContent(comment.body)" options="options" terms="terms"></markdown>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </div>
       </div>
 
       <div class="anonymize-preview-col" ng-if="detectedType === 'pr' && details"

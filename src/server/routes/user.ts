@@ -6,6 +6,7 @@ import UserModel from "../../core/model/users/users.model";
 import User from "../../core/User";
 import FileModel from "../../core/model/files/files.model";
 import { isConnected } from "../database";
+import { octokit } from "../../core/GitHubUtils";
 
 const router = express.Router();
 
@@ -41,7 +42,9 @@ router.get("/", async (req: express.Request, res: express.Response) => {
 router.get("/quota", async (req: express.Request, res: express.Response) => {
   try {
     const user = await getUser(req);
-    const repositories = await user.getRepositories();
+    const repositories = (await user.getRepositories()).filter(
+      (r) => r.owner.id === user.model.id
+    );
     const ready = repositories.filter((r) => r.status == "ready");
 
     let totalStorage = 0;
@@ -138,6 +141,23 @@ router.get(
       const user = await getUser(req);
       res.json(
         (await user.getRepositories()).map((x) => {
+          const json = x.toJSON() as Record<string, unknown>;
+          json.role = x.owner.id === user.model.id ? "owner" : "coauthor";
+          return json;
+        })
+      );
+    } catch (error) {
+      handleError(error, res, req);
+    }
+  }
+);
+router.get(
+  "/anonymized_gists",
+  async (req: express.Request, res: express.Response) => {
+    try {
+      const user = await getUser(req);
+      res.json(
+        (await user.getGists()).map((x) => {
           return x.toJSON();
         })
       );
@@ -155,6 +175,31 @@ router.get(
         (await user.getPullRequests()).map((x) => {
           return x.toJSON();
         })
+      );
+    } catch (error) {
+      handleError(error, res, req);
+    }
+  }
+);
+
+// search GitHub users (used by the coauthor picker)
+router.get(
+  "/search/github-users",
+  async (req: express.Request, res: express.Response) => {
+    try {
+      const user = await getUser(req);
+      const q = (req.query.q as string) || "";
+      if (!q || q.length < 2) {
+        return res.json([]);
+      }
+      const oct = octokit(user.accessToken);
+      const r = await oct.search.users({ q, per_page: 10 });
+      res.json(
+        r.data.items.map((u) => ({
+          username: u.login,
+          githubId: String(u.id),
+          photo: u.avatar_url,
+        }))
       );
     } catch (error) {
       handleError(error, res, req);

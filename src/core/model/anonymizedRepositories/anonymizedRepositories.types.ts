@@ -17,6 +17,12 @@ export interface IAnonymizedRepository {
     accessToken?: string;
   };
   owner: string;
+  coauthors?: {
+    username: string;
+    githubId?: string;
+    photo?: string;
+    addedAt?: Date;
+  }[];
   truncatedFolders: string[];
   conference: string;
   options: {

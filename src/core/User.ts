@@ -5,6 +5,8 @@ import Repository from "./Repository";
 import { GitHubRepository } from "./source/GitHubRepository";
 import PullRequest from "./PullRequest";
 import AnonymizedPullRequestModel from "./model/anonymizedPullRequests/anonymizedPullRequests.model";
+import Gist from "./Gist";
+import AnonymizedGistModel from "./model/anonymizedGists/anonymizedGists.model";
 import { octokit } from "./GitHubUtils";
 
 /**
@@ -119,10 +121,11 @@ export default class User {
    * @returns the list of anonymized repositories
    */
   async getRepositories() {
+    const query: Record<string, unknown> = this.username
+      ? { $or: [{ owner: this.id }, { "coauthors.username": this.username }] }
+      : { owner: this.id };
     const repositories = (
-      await AnonymizedRepositoryModel.find({
-        owner: this.id,
-      }).exec()
+      await AnonymizedRepositoryModel.find(query).exec()
     ).map((d) => new Repository(d));
     const promises = [];
     for (const repo of repositories) {
@@ -163,6 +166,28 @@ export default class User {
     }
     await Promise.all(promises);
     return pullRequests;
+  }
+
+  /**
+   * Get the list of anonymized gists
+   */
+  async getGists() {
+    const gists = (
+      await AnonymizedGistModel.find({ owner: this.id }).exec()
+    ).map((d) => new Gist(d));
+    const promises = [];
+    for (const g of gists) {
+      if (
+        g.status == "ready" &&
+        g.options.expirationMode != "never" &&
+        g.options.expirationDate != null &&
+        g.options.expirationDate < new Date()
+      ) {
+        promises.push(g.expire());
+      }
+    }
+    await Promise.all(promises);
+    return gists;
   }
 
   get model() {

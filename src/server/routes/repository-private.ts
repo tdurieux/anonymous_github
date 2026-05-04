@@ -2,7 +2,13 @@ import * as express from "express";
 import { ensureAuthenticated } from "./connection";
 
 import * as db from "../database";
-import { getRepo, getUser, handleError, isOwnerOrAdmin } from "./route-utils";
+import {
+  getRepo,
+  getUser,
+  handleError,
+  isOwnerOrAdmin,
+  isOwnerCoauthorOrAdmin,
+} from "./route-utils";
 import { getRepositoryFromGitHub } from "../../core/source/GitHubRepository";
 import gh = require("parse-github-url");
 import AnonymizedRepositoryModel from "../../core/model/anonymizedRepositories/anonymizedRepositories.model";
@@ -16,7 +22,7 @@ import RepositoryModel from "../../core/model/repositories/repositories.model";
 import User from "../../core/User";
 import { RepositoryStatus } from "../../core/types";
 import { IUserDocument } from "../../core/model/users/users.types";
-import { checkToken } from "../../core/GitHubUtils";
+import { checkToken, octokit } from "../../core/GitHubUtils";
 
 const router = express.Router();
 
@@ -142,7 +148,7 @@ router.post(
         return;
 
       const user = await getUser(req);
-      isOwnerOrAdmin([repo.owner.id], user);
+      isOwnerCoauthorOrAdmin(repo, user);
       await repo.updateIfNeeded({ force: true });
       res.json({ status: repo.status });
     } catch (error) {
@@ -273,8 +279,17 @@ router.get("/:repoId/", async (req: express.Request, res: express.Response) => {
     if (!repo) return;
 
     const user = await getUser(req);
-    isOwnerOrAdmin([repo.owner.id], user);
-    res.json((await db.getRepository(req.params.repoId)).toJSON());
+    isOwnerCoauthorOrAdmin(repo, user);
+    const fullRepo = await db.getRepository(req.params.repoId);
+    const json = fullRepo.toJSON() as Record<string, unknown>;
+    json.ownerId = fullRepo.owner.id;
+    json.role =
+      user.isAdmin && fullRepo.owner.id !== user.model.id
+        ? "admin"
+        : fullRepo.owner.id === user.model.id
+        ? "owner"
+        : "coauthor";
+    res.json(json);
   } catch (error) {
     handleError(error, res, req);
   }
@@ -359,7 +374,7 @@ router.post(
       if (!repo) return;
       const user = await getUser(req);
 
-      isOwnerOrAdmin([repo.owner.id], user);
+      isOwnerCoauthorOrAdmin(repo, user);
 
       const repoUpdate = req.body;
 
@@ -566,5 +581,109 @@ router.post("/", async (req: express.Request, res: express.Response) => {
     return handleError(error, res, req);
   }
 });
+
+// list coauthors
+router.get(
+  "/:repoId/coauthors",
+  async (req: express.Request, res: express.Response) => {
+    try {
+      const repo = await getRepo(req, res, { nocheck: true });
+      if (!repo) return;
+      const user = await getUser(req);
+      isOwnerCoauthorOrAdmin(repo, user);
+      res.json(repo.coauthors);
+    } catch (error) {
+      handleError(error, res, req);
+    }
+  }
+);
+
+// add a coauthor (owner/admin only)
+router.post(
+  "/:repoId/coauthors",
+  async (req: express.Request, res: express.Response) => {
+    try {
+      const repo = await getRepo(req, res, { nocheck: true });
+      if (!repo) return;
+      const user = await getUser(req);
+      isOwnerOrAdmin([repo.owner.id], user);
+
+      const username = (req.body.username || "").trim();
+      if (!username) {
+        throw new AnonymousError("username_not_defined", {
+          object: req.body,
+          httpStatus: 400,
+        });
+      }
+
+      // verify the GitHub user exists and capture identity fields
+      const oct = octokit(user.accessToken);
+      let ghUser;
+      try {
+        const r = await oct.users.getByUsername({ username });
+        ghUser = r.data;
+      } catch (e) {
+        throw new AnonymousError("github_user_not_found", {
+          object: { username },
+          httpStatus: 404,
+        });
+      }
+
+      if (ghUser.login.toLowerCase() === user.username.toLowerCase()) {
+        throw new AnonymousError("cannot_coauthor_self", {
+          httpStatus: 400,
+        });
+      }
+
+      const list = repo.model.coauthors || [];
+      if (
+        list.some(
+          (c) => c.username.toLowerCase() === ghUser.login.toLowerCase()
+        )
+      ) {
+        return res.json(list);
+      }
+      list.push({
+        username: ghUser.login,
+        githubId: String(ghUser.id),
+        photo: ghUser.avatar_url,
+        addedAt: new Date(),
+      });
+      repo.model.coauthors = list;
+      await repo.model.save();
+      res.json(repo.model.coauthors);
+    } catch (error) {
+      handleError(error, res, req);
+    }
+  }
+);
+
+// remove a coauthor (owner/admin only, or the coauthor themselves)
+router.delete(
+  "/:repoId/coauthors/:username",
+  async (req: express.Request, res: express.Response) => {
+    try {
+      const repo = await getRepo(req, res, { nocheck: true });
+      if (!repo) return;
+      const user = await getUser(req);
+      const target = req.params.username;
+      const isOwner = repo.owner.id === user.model.id;
+      const isSelf =
+        !!user.username &&
+        user.username.toLowerCase() === target.toLowerCase();
+      if (!isOwner && !isSelf && !user.isAdmin) {
+        throw new AnonymousError("not_authorized", { httpStatus: 401 });
+      }
+
+      repo.model.coauthors = (repo.model.coauthors || []).filter(
+        (c) => c.username.toLowerCase() !== target.toLowerCase()
+      );
+      await repo.model.save();
+      res.json(repo.model.coauthors);
+    } catch (error) {
+      handleError(error, res, req);
+    }
+  }
+);
 
 export default router;

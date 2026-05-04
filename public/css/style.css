@@ -1661,6 +1661,18 @@ code {
   border-color: var(--border-color);
 }
 
+.type-badge.type-coauthor {
+  background: rgba(99, 102, 241, 0.12);
+  color: #4f46e5;
+  border-color: rgba(99, 102, 241, 0.35);
+  margin-left: 6px;
+}
+.dark-mode .type-badge.type-coauthor {
+  background: rgba(129, 140, 248, 0.18);
+  color: #a5b4fc;
+  border-color: rgba(165, 180, 252, 0.45);
+}
+
 /* Type filter button group */
 .btn-group .btn:not(.btn-primary) {
   background: var(--hover-bg-color);

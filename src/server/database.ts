@@ -5,6 +5,8 @@ import AnonymizedRepositoryModel from "../core/model/anonymizedRepositories/anon
 import AnonymousError from "../core/AnonymousError";
 import AnonymizedPullRequestModel from "../core/model/anonymizedPullRequests/anonymizedPullRequests.model";
 import PullRequest from "../core/PullRequest";
+import AnonymizedGistModel from "../core/model/anonymizedGists/anonymizedGists.model";
+import Gist from "../core/Gist";
 
 const MONGO_URL = `mongodb://${config.DB_USERNAME}:${config.DB_PASSWORD}@${config.DB_HOSTNAME}:27017/`;
 
@@ -58,4 +60,21 @@ export async function getPullRequest(pullRequestId: string) {
       httpStatus: 404,
     });
   return new PullRequest(data);
+}
+export async function getGist(gistId: string) {
+  if (!gistId || gistId == "undefined") {
+    throw new AnonymousError("gist_not_found", {
+      object: gistId,
+      httpStatus: 404,
+    });
+  }
+  const data = await AnonymizedGistModel.findOne({
+    gistId,
+  });
+  if (!data)
+    throw new AnonymousError("gist_not_found", {
+      object: gistId,
+      httpStatus: 404,
+    });
+  return new Gist(data);
 }

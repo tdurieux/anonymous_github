@@ -43,6 +43,11 @@ angular
           controller: "anonymizeController",
           title: "Anonymize a pull request – Anonymous GitHub",
         })
+        .when("/gist-anonymize/:gistId?", {
+          templateUrl: "/partials/anonymize.htm",
+          controller: "anonymizeController",
+          title: "Anonymize a gist – Anonymous GitHub",
+        })
         .when("/status/:repoId", {
           templateUrl: "/partials/status.htm",
           controller: "statusController",
@@ -87,6 +92,12 @@ angular
           templateUrl: "/partials/pullRequest.htm",
           controller: "pullRequestController",
           title: "Anonymous pull request – Anonymous GitHub",
+          reloadOnUrl: false,
+        })
+        .when("/gist/:gistId", {
+          templateUrl: "/partials/gist.htm",
+          controller: "gistController",
+          title: "Anonymous gist – Anonymous GitHub",
           reloadOnUrl: false,
         })
         .when("/r/:repoId/:path*?", {
@@ -930,14 +941,18 @@ angular
 
       let loadedRepos = null;
       let loadedPRs = null;
+      let loadedGists = null;
 
       function mergeItems() {
-        $scope.items = (loadedRepos || []).concat(loadedPRs || []);
+        $scope.items = (loadedRepos || [])
+          .concat(loadedPRs || [])
+          .concat(loadedGists || []);
       }
 
       function loadAll() {
         loadedRepos = null;
         loadedPRs = null;
+        loadedGists = null;
         $http.get("/api/user/anonymized_repositories").then(
           (res) => {
             loadedRepos = res.data.map((repo) => {
@@ -974,6 +989,24 @@ angular
           },
           (err) => { console.error(err); }
         );
+        $http.get("/api/user/anonymized_gists").then(
+          (res3) => {
+            loadedGists = res3.data.map((g) => {
+              if (!g.pageView) g.pageView = 0;
+              if (!g.lastView) g.lastView = "";
+              g.options.terms = (g.options.terms || []).filter((f) => f);
+              g._type = "gist";
+              g._id = g.gistId;
+              g._name = g.gistId;
+              g._source = g.source.gistId;
+              g._editUrl = "/gist-anonymize/" + g.gistId;
+              g._viewUrl = "/gist/" + g.gistId + "/";
+              return g;
+            });
+            mergeItems();
+          },
+          (err) => { console.error(err); }
+        );
       }
       loadAll();
 
@@ -998,8 +1031,13 @@ angular
         });
       }
 
+      const labelOf = (t) =>
+        t === "repo" ? "repository" : t === "gist" ? "gist" : "pull request";
+      const apiBaseOf = (t) =>
+        t === "repo" ? "/api/repo" : t === "gist" ? "/api/gist" : "/api/pr";
+
       $scope.removeItem = (item) => {
-        const label = item._type === "repo" ? "repository" : "pull request";
+        const label = labelOf(item._type);
         if (confirm(`Are you sure that you want to remove the ${label} ${item._id}?`)) {
           const toast = {
             title: `Removing ${item._id}...`,
@@ -1007,7 +1045,7 @@ angular
             body: `The ${label} ${item._id} is going to be removed.`,
           };
           $scope.addToast(toast);
-          const endpoint = item._type === "repo" ? `/api/repo/${item._id}` : `/api/pr/${item._id}`;
+          const endpoint = `${apiBaseOf(item._type)}/${item._id}`;
           $http.delete(endpoint).then(
             () => {
               if (item._type === "repo") {
@@ -1032,16 +1070,14 @@ angular
       };
 
       $scope.refreshItem = (item) => {
-        const label = item._type === "repo" ? "repository" : "pull request";
+        const label = labelOf(item._type);
         const toast = {
           title: `Refreshing ${item._id}...`,
           date: new Date(),
           body: `The ${label} ${item._id} is going to be refreshed.`,
         };
         $scope.addToast(toast);
-        const endpoint = item._type === "repo"
-          ? `/api/repo/${item._id}/refresh`
-          : `/api/pr/${item._id}/refresh`;
+        const endpoint = `${apiBaseOf(item._type)}/${item._id}/refresh`;
         $http.post(endpoint).then(
           () => {
             if (item._type === "repo") {
@@ -1144,9 +1180,10 @@ angular
     function ($scope, $http, $sce, $routeParams, $location, $translate, $timeout) {
       // Unified state
       $scope.sourceUrl = "";
-      $scope.detectedType = null; // 'repo' or 'pr'
+      $scope.detectedType = null; // 'repo' | 'pr' | 'gist'
       $scope.repoId = "";
       $scope.pullRequestId = "";
+      $scope.gistId = "";
       $scope.terms = "";
       $scope.defaultTerms = "";
       $scope.branches = [];
@@ -1163,6 +1200,7 @@ angular
         title: true,
         origin: false,
         diff: true,
+        content: true,
         comments: true,
         username: true,
         date: true,
@@ -1210,6 +1248,8 @@ angular
               $scope.sourceUrl = "https://github.com/" + res.data.source.fullName;
               $scope.terms = res.data.options.terms.filter((f) => f).join("\n");
               $scope.source = res.data.source;
+              $scope.role = res.data.role || "owner";
+              $scope.coauthors = res.data.coauthors || [];
               // Remember the saved branch so the source.branch watcher knows
               // not to bump source.commit to GitHub HEAD on edit-page load
               // (#360). Without this, just opening the Edit form silently
@@ -1258,6 +1298,31 @@ angular
             if ($scope.anonymize.sourceUrl) $scope.anonymize.sourceUrl.$$element[0].disabled = true;
           });
         }
+        // Edit mode: Gist
+        if ($routeParams.gistId && $routeParams.gistId != "") {
+          $scope.isUpdate = true;
+          $scope.detectedType = "gist";
+          $scope.gistId = $routeParams.gistId;
+          $http.get("/api/gist/" + $scope.gistId).then(
+            async (res) => {
+              $scope.sourceUrl = "https://gist.github.com/" + res.data.source.gistId;
+              $scope.terms = res.data.options.terms.filter((f) => f).join("\n");
+              $scope.source = res.data.source;
+              $scope.options = Object.assign({}, $scope.options, res.data.options);
+              $scope.conference = res.data.conference;
+              if (res.data.options.expirationDate) {
+                $scope.options.expirationDate = new Date(res.data.options.expirationDate);
+              }
+              $scope.details = (await $http.get(`/api/gist/source/${res.data.source.gistId}`)).data;
+              $scope.$apply();
+            },
+            () => { $location.url("/404"); }
+          );
+          $scope.$watch("anonymize", () => {
+            if ($scope.anonymize.gistId) $scope.anonymize.gistId.$$element[0].disabled = true;
+            if ($scope.anonymize.sourceUrl) $scope.anonymize.sourceUrl.$$element[0].disabled = true;
+          });
+        }
       });
 
       // URL change handler - auto-detect type
@@ -1265,6 +1330,7 @@ angular
         $scope.terms = $scope.defaultTerms;
         $scope.repoId = "";
         $scope.pullRequestId = "";
+        $scope.gistId = "";
         $scope.details = null;
         $scope.branches = [];
         $scope.source = { type: "GitHubStream", branch: "", commit: "" };
@@ -1282,7 +1348,11 @@ angular
         }
         setValidity("sourceUrl", "github", true);
         try {
-          if (o.pullRequestId) {
+          if (o.gistId && !o.repo) {
+            $scope.detectedType = "gist";
+            $scope.source = { gistId: o.gistId };
+            await getGistDetails();
+          } else if (o.pullRequestId) {
             $scope.detectedType = "pr";
             $scope.source = { repositoryFullName: o.owner + "/" + o.repo, pullRequestId: o.pullRequestId };
             await getPrDetails();
@@ -1555,11 +1625,81 @@ angular
       $scope.anonymizePrContent = function (content) {
         if (!content) return content;
         if (_prAnonCache.has(content)) return _prAnonCache.get(content);
-        // First time we've seen this content — kick off a refresh and return
-        // the original for now. The watcher below also schedules refreshes on
-        // term/option changes; this branch handles late-arriving comment data.
         if (!_prSeenContents.has(content)) {
           refreshPrPreview();
+        }
+        return content;
+      };
+
+      // ========== GIST LOGIC ==========
+      async function getGistDetails() {
+        const o = parseGithubUrl($scope.sourceUrl);
+        try {
+          resetValidity();
+          const res = await $http.get(`/api/gist/source/${o.gistId}`);
+          $scope.details = res.data;
+          if (!$scope.gistId) {
+            $scope.gistId = "gist-" + o.gistId.substring(0, 6) + "-" + generateRandomId(4);
+          }
+        } catch (error) {
+          if (error.data) {
+            $translate("ERRORS." + error.data.error).then((translation) => {
+              $scope.addToast({ title: "Error", date: new Date(), body: translation });
+              $scope.error = translation;
+            }, console.error);
+            displayErrorMessage(error.data.error);
+          }
+          setValidity("sourceUrl", "missing", false);
+          throw error;
+        }
+      }
+
+      let _gistAnonCache = new Map();
+      let _gistSeenContents = new Set();
+
+      function collectGistContents() {
+        const out = new Set();
+        const d = $scope.details && $scope.details.gist;
+        if (!d) return out;
+        if (typeof d.description === "string") out.add(d.description);
+        if (typeof d.ownerLogin === "string") out.add(d.ownerLogin);
+        const files = (d.files) || [];
+        for (const f of files) {
+          if (typeof f.filename === "string") out.add(f.filename);
+          if (typeof f.content === "string") out.add(f.content);
+        }
+        const comments = d.comments || [];
+        for (const c of comments) {
+          if (typeof c.author === "string") out.add(c.author);
+          if (typeof c.body === "string") out.add(c.body);
+        }
+        return out;
+      }
+
+      const refreshGistPreview = makePreviewBatcher(
+        () => {
+          const seen = collectGistContents();
+          _gistSeenContents = seen;
+          const list = Array.from(seen);
+          if (list.length === 0) return null;
+          return { contents: list, options: previewOptions() };
+        },
+        (data) => {
+          if (!data || !Array.isArray(data.contents)) return;
+          const seen = Array.from(_gistSeenContents);
+          const next = new Map();
+          for (let i = 0; i < seen.length && i < data.contents.length; i++) {
+            next.set(seen[i], data.contents[i]);
+          }
+          _gistAnonCache = next;
+        }
+      );
+
+      $scope.anonymizeGistContent = function (content) {
+        if (!content) return content;
+        if (_gistAnonCache.has(content)) return _gistAnonCache.get(content);
+        if (!_gistSeenContents.has(content)) {
+          refreshGistPreview();
         }
         return content;
       };
@@ -1589,6 +1729,8 @@ angular
         setValidity("repoId", "format", true);
         setValidity("pullRequestId", "used", true);
         setValidity("pullRequestId", "format", true);
+        setValidity("gistId", "used", true);
+        setValidity("gistId", "format", true);
         setValidity("sourceUrl", "used", true);
         setValidity("sourceUrl", "missing", true);
         setValidity("sourceUrl", "access", true);
@@ -1599,7 +1741,12 @@ angular
       }
 
       function displayErrorMessage(message) {
-        const idField = $scope.detectedType === "pr" ? "pullRequestId" : "repoId";
+        const idField =
+          $scope.detectedType === "pr"
+            ? "pullRequestId"
+            : $scope.detectedType === "gist"
+            ? "gistId"
+            : "repoId";
         switch (message) {
           case "repoId_already_used": setValidity(idField, "used", false); break;
           case "invalid_repoId": setValidity(idField, "format", false); break;
@@ -1611,6 +1758,71 @@ angular
           case "conf_not_activated": setValidity("conference", "activated", false); break;
         }
       }
+
+      // ========== CO-AUTHORS ==========
+      $scope.coauthors = $scope.coauthors || [];
+      $scope.coauthorResults = [];
+      $scope.coauthorError = "";
+
+      $scope.searchCoauthors = () => {
+        const q = ($scope.coauthorSearch || "").trim();
+        $scope.coauthorError = "";
+        if (q.length < 2) {
+          $scope.coauthorResults = [];
+          return;
+        }
+        $http.get("/api/user/search/github-users", { params: { q } }).then(
+          (res) => {
+            const existing = new Set(
+              ($scope.coauthors || []).map((c) => (c.username || "").toLowerCase())
+            );
+            $scope.coauthorResults = (res.data || []).filter(
+              (u) => !existing.has((u.username || "").toLowerCase())
+            );
+          },
+          () => { $scope.coauthorResults = []; }
+        );
+      };
+
+      $scope.addCoauthor = (u, event) => {
+        if (event) event.preventDefault();
+        if (!u || !u.username) return;
+        $http
+          .post("/api/repo/" + $scope.repoId + "/coauthors", {
+            username: u.username,
+          })
+          .then(
+            (res) => {
+              $scope.coauthors = res.data || [];
+              $scope.coauthorResults = [];
+              $scope.coauthorSearch = "";
+              $scope.coauthorError = "";
+            },
+            (err) => {
+              const code = (err && err.data && err.data.error) || "unknown_error";
+              $scope.coauthorError = code;
+            }
+          );
+      };
+
+      $scope.removeCoauthor = (c) => {
+        if (!c || !c.username) return;
+        if (!confirm("Remove co-author " + c.username + "?")) return;
+        $http
+          .delete(
+            "/api/repo/" +
+              $scope.repoId +
+              "/coauthors/" +
+              encodeURIComponent(c.username)
+          )
+          .then(
+            (res) => { $scope.coauthors = res.data || []; },
+            (err) => {
+              const code = (err && err.data && err.data.error) || "unknown_error";
+              $scope.coauthorError = code;
+            }
+          );
+      };
 
       // Submit: repo
       $scope.anonymizeRepo = (event) => {
@@ -1630,6 +1842,30 @@ angular
         const url = $scope.isUpdate ? "/api/repo/" + $scope.repoId : "/api/repo/";
         $http.post(url, payload, { headers: { "Content-Type": "application/json" } }).then(
           () => { window.location.href = "/status/" + $scope.repoId; },
+          (error) => {
+            if (error.data) {
+              $translate("ERRORS." + error.data.error).then((t) => { $scope.error = t; }, console.error);
+              displayErrorMessage(error.data.error);
+            }
+          }
+        ).finally(() => { event.target.disabled = false; $scope.$apply(); });
+      };
+
+      // Submit: Gist
+      $scope.anonymizeGist = (event) => {
+        event.target.disabled = true;
+        const o = parseGithubUrl($scope.sourceUrl);
+        const payload = {
+          gistId: $scope.gistId,
+          terms: $scope.terms.trim().split("\n").filter((f) => f),
+          source: { gistId: o.gistId },
+          options: $scope.options,
+          conference: $scope.conference,
+        };
+        resetValidity();
+        const url = $scope.isUpdate ? "/api/gist/" + $scope.gistId : "/api/gist/";
+        $http.post(url, payload, { headers: { "Content-Type": "application/json" } }).then(
+          () => { window.location.href = "/gist/" + $scope.gistId; },
           (error) => {
             if (error.data) {
               $translate("ERRORS." + error.data.error).then((t) => { $scope.error = t; }, console.error);
@@ -1667,17 +1903,21 @@ angular
       $scope.$watch("terms", () => {
         if ($scope.detectedType === "repo") anonymizeReadme();
         if ($scope.detectedType === "pr") refreshPrPreview();
+        if ($scope.detectedType === "gist") refreshGistPreview();
       });
       $scope.$watch("options.image", () => {
         if ($scope.detectedType === "repo") anonymizeReadme();
         if ($scope.detectedType === "pr") refreshPrPreview();
+        if ($scope.detectedType === "gist") refreshGistPreview();
       });
       $scope.$watch("options.link", () => {
         if ($scope.detectedType === "repo") anonymizeReadme();
         if ($scope.detectedType === "pr") refreshPrPreview();
+        if ($scope.detectedType === "gist") refreshGistPreview();
       });
       $scope.$watch("details", () => {
         if ($scope.detectedType === "pr") refreshPrPreview();
+        if ($scope.detectedType === "gist") refreshGistPreview();
       }, true);
     },
   ])
@@ -2182,6 +2422,51 @@ angular
         getOption((_) => {
           getPullRequest();
         });
+      }
+
+      init();
+    },
+  ])
+  .controller("gistController", [
+    "$scope",
+    "$http",
+    "$location",
+    "$routeParams",
+    "$sce",
+    function ($scope, $http, $location, $routeParams, $sce) {
+      async function getOption(callback) {
+        $http.get(`/api/gist/${$scope.gistId}/options`).then(
+          (res) => {
+            $scope.options = res.data;
+            if ($scope.options.url) {
+              window.location = $scope.options.url;
+              return;
+            }
+            if (callback) callback(res.data);
+          },
+          (err) => {
+            $scope.type = "error";
+            $scope.content = err.data.error;
+          }
+        );
+      }
+      async function getGist(callback) {
+        $http.get(`/api/gist/${$scope.gistId}/content`).then(
+          (res) => {
+            $scope.details = res.data;
+            if (callback) callback(res.data);
+          },
+          (err) => {
+            $scope.type = "error";
+            $scope.content = err.data.error;
+          }
+        );
+      }
+
+      function init() {
+        $scope.gistId = $routeParams.gistId;
+        $scope.type = "loading";
+        getOption(() => { getGist(); });
       }
 
       init();
