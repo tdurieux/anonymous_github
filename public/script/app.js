@@ -1365,8 +1365,11 @@ angular
         const o = parseGithubUrl($scope.sourceUrl);
         try {
           resetValidity();
+          // force=1 so newly enabled features (e.g. GitHub Pages — see
+          // #364) are reflected without waiting for the cached metadata to
+          // expire. The endpoint hits the GitHub API once.
           const res = await $http.get(`/api/repo/${o.owner}/${o.repo}/`, {
-            params: { repositoryID: $scope.repositoryID },
+            params: { repositoryID: $scope.repositoryID, force: "1" },
           });
           $scope.details = res.data;
           if (!$scope.repoId) {
