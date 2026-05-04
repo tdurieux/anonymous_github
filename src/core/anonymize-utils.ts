@@ -22,11 +22,37 @@ export function streamToString(stream: Readable): Promise<string> {
   });
 }
 
+// Common conventional plaintext filenames that have no extension. The
+// istextorbinary package returns null (unknown) for these, which our
+// `=== true` check then treats as binary — so terms in LICENSE, COPYING,
+// etc. silently went through unchanged (#493).
+const KNOWN_TEXT_FILENAMES = new Set(
+  [
+    "license",
+    "licence",
+    "copying",
+    "copyright",
+    "authors",
+    "contributors",
+    "readme",
+    "changelog",
+    "changes",
+    "notice",
+    "install",
+    "todo",
+    "version",
+    "manifest",
+  ]
+);
+
 export function isTextFile(filePath: string, content?: Buffer) {
   const filename = basename(filePath);
   const extensions = filename.split(".").reverse();
   const extension = extensions[0].toLowerCase();
   if (config.additionalExtensions.includes(extension)) {
+    return true;
+  }
+  if (KNOWN_TEXT_FILENAMES.has(filename.toLowerCase())) {
     return true;
   }
   if (isText(filename)) {
