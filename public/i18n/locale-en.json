@@ -38,6 +38,7 @@
     "options_not_provided": "Anonymization options are mandatory.",
     "terms_not_specified": "Anonymization terms must be specified.",
     "invalid_terms_format": "Terms are in an invalid format.",
+    "missing_content": "No content was provided to the anonymization preview.",
     "unable_to_anonymize": "An error happened during the anonymization process. Please try later or report the issue.",
     "non_supported_mode": "The selected anonymization mode is invalid, only download and stream are supported.",
     "invalid_path": "The provided path is invalid or missing.",

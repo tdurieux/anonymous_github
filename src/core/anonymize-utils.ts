@@ -69,6 +69,13 @@ export class AnonymizeTransformer extends Transform {
   // markdown image patterns straddling a stream chunk boundary still match.
   // Must exceed the longest pattern we replace (terms + URLs + images).
   private pending = "";
+  // Raw bytes corresponding to `pending` (plus any partial UTF-8 sequence
+  // currently buffered by the decoder). Kept so we can emit the original
+  // buffer verbatim when anonymization didn't change anything — that way
+  // a binary file misclassified as text, or text with a stray non-UTF-8
+  // byte, isn't silently corrupted by a UTF-8 round-trip through the
+  // StringDecoder. See discussion in #493.
+  private pendingBytes: Buffer = Buffer.alloc(0);
   private static readonly OVERLAP = 4096;
 
   constructor(
@@ -89,6 +96,14 @@ export class AnonymizeTransformer extends Transform {
     return this.anonimizer.wasAnonymized;
   }
 
+  // Whether the candidate original bytes round-trip to the same byte
+  // sequence as `text` re-encoded. Used by the streaming path to confirm
+  // it can safely use byte-length slicing.
+  private decodeIsLossless(text: string, candidate: Buffer): boolean {
+    const reencoded = Buffer.from(text, "utf8");
+    return reencoded.length === candidate.length && reencoded.equals(candidate);
+  }
+
   _transform(chunk: Buffer, encoding: string, callback: () => void) {
     if (!this.isText) {
       this.emit("transform", {
@@ -103,6 +118,7 @@ export class AnonymizeTransformer extends Transform {
     // StringDecoder buffers trailing partial UTF-8 sequences across chunk
     // boundaries so we never decode half a codepoint into U+FFFD.
     this.pending += this.decoder.write(chunk);
+    this.pendingBytes = Buffer.concat([this.pendingBytes, chunk]);
 
     if (this.pending.length > AnonymizeTransformer.OVERLAP) {
       let split = this.pending.length - AnonymizeTransformer.OVERLAP;
@@ -114,8 +130,30 @@ export class AnonymizeTransformer extends Transform {
       const toProcess = this.pending.slice(0, split);
       this.pending = this.pending.slice(split);
 
+      // Try to keep the original byte slice alongside the decoded text. If
+      // the re-encoded text matches those bytes, the decode was lossless and
+      // we can safely emit the original buffer when nothing changed —
+      // preserving lone CRs, BOMs, etc. If it doesn't match (invalid UTF-8
+      // somewhere in the chunk), fall back to encoded output and resync
+      // pendingBytes to the canonical re-encoding of what's left.
+      const toProcessBytes = Buffer.from(toProcess, "utf8");
+      const candidateOriginal = this.pendingBytes.slice(
+        0,
+        toProcessBytes.length
+      );
       const out = this.anonimizer.anonymize(toProcess);
-      const outChunk = Buffer.from(out, "utf8");
+      const lossless = this.decodeIsLossless(toProcess, candidateOriginal);
+      let outChunk: Buffer;
+      if (out === toProcess && lossless) {
+        outChunk = candidateOriginal;
+      } else {
+        outChunk = Buffer.from(out, "utf8");
+      }
+      if (lossless) {
+        this.pendingBytes = this.pendingBytes.slice(toProcessBytes.length);
+      } else {
+        this.pendingBytes = Buffer.from(this.pending, "utf8");
+      }
 
       this.emit("transform", {
         isText: this.isText,
@@ -132,8 +170,16 @@ export class AnonymizeTransformer extends Transform {
       this.pending += this.decoder.end();
       if (this.pending) {
         const out = this.anonimizer.anonymize(this.pending);
+        // At end-of-stream we have every original byte buffered. If nothing
+        // changed, emit them verbatim regardless of whether the decode was
+        // lossy — preserves invalid-UTF-8 / binary content that happened
+        // to be classified as text and didn't match any term.
+        const outChunk =
+          out === this.pending
+            ? this.pendingBytes
+            : Buffer.from(out, "utf8");
         this.pending = "";
-        const outChunk = Buffer.from(out, "utf8");
+        this.pendingBytes = Buffer.alloc(0);
         this.emit("transform", {
           isText: this.isText,
           wasAnonimized: this.wasAnonimized,
