@@ -3657,9 +3657,32 @@ code {
   background: var(--input-bg);
   color: var(--input-color);
 }
-.paper-page .form-control:focus {
+.paper-page .form-control:focus,
+.paper-page .custom-select:focus {
+  color: var(--input-color);
+  background: var(--input-bg);
   border-color: var(--accent);
   box-shadow: 0 0 0 2px var(--accent-soft);
+}
+.form-control:focus,
+.custom-select:focus,
+input:focus,
+textarea:focus,
+select:focus {
+  color: var(--input-color) !important;
+  background-color: var(--input-bg) !important;
+}
+.form-control::selection,
+input::selection,
+textarea::selection {
+  background: var(--accent-soft);
+  color: var(--input-color);
+}
+.dark-mode .form-control::selection,
+.dark-mode input::selection,
+.dark-mode textarea::selection {
+  background: rgba(167, 178, 255, 0.30);
+  color: var(--input-color);
 }
 
 /* Primary/accent button variants */

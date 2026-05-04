@@ -11,6 +11,7 @@ import UserModel from "../../core/model/users/users.model";
 import { IUserDocument } from "../../core/model/users/users.types";
 import AnonymousError from "../../core/AnonymousError";
 import AnonymizedPullRequestModel from "../../core/model/anonymizedPullRequests/anonymizedPullRequests.model";
+import { hashToken } from "./token-auth";
 
 export function ensureAuthenticated(
   req: express.Request,
@@ -164,5 +165,54 @@ router.get(
   passport.authenticate("github", { failureRedirect: "/" }),
   function (req: express.Request, res: express.Response) {
     res.redirect("/");
+  }
+);
+
+// Dev-friendly login: accept an admin API token and establish a session
+// cookie so the web UI is reachable without going through GitHub OAuth.
+// Token may come from `Authorization: Bearer …`, `?token=…`, or JSON body.
+router.all(
+  "/login-token",
+  async function (req: express.Request, res: express.Response) {
+    const fromHeader = (() => {
+      const h = req.headers["authorization"];
+      if (typeof h !== "string") return null;
+      const m = h.match(/^Bearer\s+(.+)$/i);
+      return m ? m[1].trim() : null;
+    })();
+    const token =
+      fromHeader ||
+      (typeof req.query.token === "string" ? req.query.token : null) ||
+      (req.body && typeof req.body.token === "string" ? req.body.token : null);
+    if (!token) {
+      return res.status(400).json({ error: "missing_token" });
+    }
+    try {
+      const model = await UserModel.findOne({
+        "apiTokens.tokenHash": hashToken(token),
+      });
+      if (!model) return res.status(401).json({ error: "invalid_token" });
+      const synthUser = {
+        username: model.username,
+        accessToken: model.accessTokens?.github,
+        profile: undefined,
+        user: model,
+      };
+      req.login(synthUser, (err) => {
+        if (err) {
+          console.error("[login-token] req.login failed", err);
+          return res.status(500).json({ error: "login_failed" });
+        }
+        UserModel.updateOne(
+          { _id: model._id, "apiTokens.tokenHash": hashToken(token) },
+          { $set: { "apiTokens.$.lastUsedAt": new Date() } }
+        ).catch(() => undefined);
+        if (req.method === "GET") return res.redirect("/");
+        return res.json({ ok: true, username: model.username });
+      });
+    } catch (err) {
+      console.error("[login-token] error", err);
+      res.status(500).json({ error: "server_error" });
+    }
   }
 );

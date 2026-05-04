@@ -365,7 +365,16 @@ router.post(
 
       validateNewRepo(repoUpdate);
 
-      if (repoUpdate.source.commit != repo.model.source.commit) {
+      // Only the commit/branch backs the cached FileModel — anonymization
+      // options (terms, image/link toggles, etc.) are applied on the fly per
+      // request. Re-running the download queue is therefore only needed when
+      // the underlying snapshot moves. Other edits (e.g. turning off
+      // auto-update — see #360) just persist and return.
+      const sourceChanged =
+        repoUpdate.source.commit != repo.model.source.commit ||
+        repoUpdate.source.branch != repo.model.source.branch;
+
+      if (sourceChanged) {
         repo.model.anonymizeDate = new Date();
         repo.model.source.commit = repoUpdate.source.commit;
         await repo.remove();

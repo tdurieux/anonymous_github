@@ -1210,6 +1210,12 @@ angular
               $scope.sourceUrl = "https://github.com/" + res.data.source.fullName;
               $scope.terms = res.data.options.terms.filter((f) => f).join("\n");
               $scope.source = res.data.source;
+              // Remember the saved branch so the source.branch watcher knows
+              // not to bump source.commit to GitHub HEAD on edit-page load
+              // (#360). Without this, just opening the Edit form silently
+              // pulled in any new commits and saving — even to toggle a
+              // checkbox — picked them up.
+              $scope._originalBranch = res.data.source.branch;
               $scope.options = Object.assign({}, $scope.options, res.data.options);
               $scope.conference = res.data.conference;
               $scope.repositoryID = res.data.source.repositoryID;
@@ -1304,13 +1310,22 @@ angular
       $scope.$watch("source.branch", async () => {
         if ($scope.detectedType !== "repo") return;
         const selected = $scope.branches.filter((f) => f.name == $scope.source.branch)[0];
-        if (selected) {
+        if (!selected) return;
+        // In update mode, preserve the saved commit while the branch is
+        // unchanged — see #360. Saving the form (e.g. to turn off
+        // auto-update) used to bump the commit to GitHub HEAD because this
+        // watcher overwrote it on edit-page load.
+        const keepSavedCommit =
+          $scope.isUpdate &&
+          $scope._originalBranch === $scope.source.branch &&
+          !!$scope.source.commit;
+        if (!keepSavedCommit) {
           $scope.source.commit = selected.commit;
-          $scope.readme = selected.readme;
-          await getReadme();
-          anonymizeReadme();
-          $scope.$apply();
         }
+        $scope.readme = selected.readme;
+        await getReadme();
+        anonymizeReadme();
+        $scope.$apply();
       });
 
       $scope.getBranches = async (force) => {
