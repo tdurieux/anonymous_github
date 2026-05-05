@@ -1,7 +1,6 @@
-<div class="container paper-page">
+<div class="container paper-page admin-page">
   <div class="paper-crumbs">Admin &nbsp;/&nbsp; <span class="here">Conferences</span></div>
-  <h1 class="paper-page-title">All <em>conferences</em></h1>
-  <p class="paper-page-lede">Every venue configured on the platform.</p>
+  <h1 class="paper-page-title">Conferences</h1>
 
   <nav class="admin-nav">
     <a href="/admin/"><i class="fas fa-code-branch"></i> Repositories</a>
@@ -10,91 +9,51 @@
     <a href="/admin/queues"><i class="fas fa-tasks"></i> Queues</a>
   </nav>
 
-  <div class="admin-stats">
-    <div class="admin-stat-card">
-      <div class="stat-value" ng-bind="total >= 0 ? (total | number) : '...'"></div>
-      <div class="stat-label">Total conferences</div>
-    </div>
-    <div class="admin-stat-card">
-      <div class="stat-value">{{query.page}}/{{totalPage || '...'}}</div>
-      <div class="stat-label">Current page</div>
-    </div>
+  <div class="admin-summary">
+    <span class="summary-total">{{total >= 0 ? (total | number) : '…'}}</span>
+    <span class="summary-pill ok" ng-class="{active: query.status == 'ready'}" ng-click="query.status = query.status == 'ready' ? '' : 'ready'; query.page = 1">Ready <span class="count">{{statusCountFor('ready') | number}}</span></span>
+    <span class="summary-pill warn" ng-class="{active: query.status == 'preparing'}" ng-click="query.status = query.status == 'preparing' ? '' : 'preparing'; query.page = 1">Preparing <span class="count">{{statusCountFor('preparing') | number}}</span></span>
+    <span class="summary-pill error" ng-class="{active: query.status == 'error'}" ng-click="query.status = query.status == 'error' ? '' : 'error'; query.page = 1">Errored <span class="count">{{statusCountFor('error') | number}}</span></span>
+    <span class="summary-pill" ng-class="{active: query.status == 'expired'}" ng-click="query.status = query.status == 'expired' ? '' : 'expired'; query.page = 1">Expired <span class="count">{{statusCountFor('expired') | number}}</span></span>
+    <span class="summary-pill" ng-class="{active: query.status == 'removed'}" ng-click="query.status = query.status == 'removed' ? '' : 'removed'; query.page = 1">Removed <span class="count">{{statusCountFor('removed') | number}}</span></span>
   </div>
 
-  <form class="w-100 dashboard-filter-row" aria-label="Conferences" accept-charset="UTF-8">
-    <div class="search-wrap">
-      <input
-        type="search"
-        class="form-control"
-        aria-label="Search conferences"
-        placeholder="Search conferences…"
-        autocomplete="off"
-        ng-model="query.search"
-      />
+  <div class="alert alert-danger" ng-if="fetchError" style="margin: 8px 0;">
+    <i class="fas fa-exclamation-triangle"></i> {{fetchError}}
+  </div>
+
+  <form class="w-100 admin-filter-toolbar" aria-label="Conferences" accept-charset="UTF-8">
+    <div class="admin-filter-row">
+      <div class="search-wrap">
+        <input type="search" class="form-control" placeholder="Search conferences…" autocomplete="off" ng-model="query.search" />
+        <span class="admin-search-hint" ng-if="!query.search">/</span>
+      </div>
+      <span class="admin-filter-spacer"></span>
+      <button class="btn btn-sm" type="button" ng-click="exportCsv()"><i class="fas fa-file-csv"></i> Export</button>
+      <span class="admin-filter-inline" aria-label="Pagination">
+        <button class="btn btn-sm" type="button" ng-click="query.page = Math.max(1, query.page - 1)" ng-disabled="query.page <= 1"><i class="fas fa-chevron-left"></i></button>
+        <span style="font-family: var(--font-mono); font-size: 12px; color: var(--ink-muted);">{{query.page}}/{{totalPage || 1}}</span>
+        <button class="btn btn-sm" type="button" ng-click="query.page = Math.min(totalPage, query.page + 1)" ng-disabled="query.page >= totalPage"><i class="fas fa-chevron-right"></i></button>
+      </span>
     </div>
-    <div class="d-flex flex-wrap" style="gap: 8px; align-items: center;">
-      <div class="pagination-compact">
-        <button class="btn btn-sm" type="button" ng-click="query.page = Math.max(1, query.page - 1)" ng-disabled="query.page <= 1">
-          <i class="fas fa-chevron-left"></i>
-        </button>
-        <input type="number" class="form-control form-control-sm" ng-model="query.page" min="1" max="{{totalPage}}" />
-        <span>/{{totalPage}}</span>
-        <button class="btn btn-sm" type="button" ng-click="query.page = Math.min(totalPage, query.page + 1)" ng-disabled="query.page >= totalPage">
-          <i class="fas fa-chevron-right"></i>
-        </button>
-      </div>
 
-      <div class="dropdown">
-        <button class="btn dropdown-toggle" type="button" id="dropdownSort" data-toggle="dropdown">Sort</button>
-        <div class="dropdown-menu" aria-labelledby="dropdownSort">
-          <h6 class="dropdown-header">Sort by</h6>
-          <a class="dropdown-item" href="#" ng-click="query.sort = 'source.conferenceName'">
-            <i class="fas fa-check" ng-show="query.sort == 'source.conferenceName'"></i> Conference
-          </a>
-          <a class="dropdown-item" href="#" ng-click="query.sort = 'anonymizeDate'">
-            <i class="fas fa-check" ng-show="query.sort == 'anonymizeDate'"></i> Anonymize date
-          </a>
-          <a class="dropdown-item" href="#" ng-click="query.sort = 'status'">
-            <i class="fas fa-check" ng-show="query.sort == 'status'"></i> Status
-          </a>
-        </div>
-      </div>
-
-      <div class="dropdown">
-        <button class="btn dropdown-toggle" type="button" id="dropdownStatus" data-toggle="dropdown">Status</button>
-        <div class="dropdown-menu" aria-labelledby="dropdownStatus">
-          <h6 class="dropdown-header">Filter by status</h6>
-          <div class="form-check dropdown-item">
-            <input class="form-check-input" type="checkbox" id="adminConfStatusReady" ng-model="query.ready" />
-            <label class="form-check-label" for="adminConfStatusReady">Ready</label>
-          </div>
-          <div class="form-check dropdown-item">
-            <input class="form-check-input" type="checkbox" id="adminConfStatusPreparing" ng-model="query.preparing" />
-            <label class="form-check-label" for="adminConfStatusPreparing">Preparing</label>
-          </div>
-          <div class="form-check dropdown-item">
-            <input class="form-check-input" type="checkbox" id="adminConfStatusExpired" ng-model="query.expired" />
-            <label class="form-check-label" for="adminConfStatusExpired">Expired</label>
-          </div>
-          <div class="form-check dropdown-item">
-            <input class="form-check-input" type="checkbox" id="adminConfStatusRemoved" ng-model="query.removed" />
-            <label class="form-check-label" for="adminConfStatusRemoved">Removed</label>
-          </div>
-          <div class="form-check dropdown-item">
-            <input class="form-check-input" type="checkbox" id="adminConfStatusError" ng-model="query.error" />
-            <label class="form-check-label" for="adminConfStatusError">Error</label>
-          </div>
-        </div>
+    <div class="admin-filter-row" ng-if="chips.length">
+      <div class="admin-active-chips">
+        <span class="admin-active-chip" ng-repeat="chip in chips track by chip.key">
+          <span class="key">{{chip.label}}</span>
+          <span>{{chip.value}}</span>
+          <button type="button" ng-click="clearFilter(chip.key)"><i class="fas fa-times"></i></button>
+        </span>
       </div>
     </div>
   </form>
 
   <div class="paper-table paper-table-conferences w-100" role="table" aria-label="Conferences">
     <div class="paper-table-head" role="row">
-      <div role="columnheader">Conference</div>
-      <div role="columnheader">Status</div>
+      <div role="columnheader"><span class="sortable" ng-class="{active: query.sort == 'name'}" ng-click="sortBy('name')">Conference <i class="fas" ng-class="sortIcon('name')"></i></span></div>
+      <div role="columnheader"><span class="sortable" ng-class="{active: query.sort == 'status'}" ng-click="sortBy('status')">Status <i class="fas" ng-class="sortIcon('status')"></i></span></div>
       <div role="columnheader" class="num">Repos</div>
-      <div role="columnheader">Window</div>
+      <div role="columnheader"><span class="sortable" ng-class="{active: query.sort == 'startDate'}" ng-click="sortBy('startDate')">Window <i class="fas" ng-class="sortIcon('startDate')"></i></span></div>
       <div role="columnheader" aria-label="Actions"></div>
     </div>
     <div
@@ -112,10 +71,12 @@
         </div>
       </div>
       <div class="cell-status" role="cell">
-        <span class="status-dot" ng-class="{'status-removed': conference.status == 'removed' || conference.status == 'expired', 'status-ready': conference.status == 'ready'}"></span>
+        <span class="status-dot" ng-class="{'status-removed': conference.status == 'removed' || conference.status == 'expired', 'status-ready': conference.status == 'ready', 'status-error': conference.status == 'error', 'status-preparing': conference.status == 'preparing'}"></span>
         <span ng-bind="conference.status | title"></span>
       </div>
-      <div class="cell-views num" role="cell" ng-bind="::conference.repositories.length || 0 | number"></div>
+      <div class="cell-views num" role="cell">
+        <a ng-href="/admin/?conference={{conference.conferenceID}}" ng-bind="::conference.repositories.length || 0 | number" title="Show repositories in this conference"></a>
+      </div>
       <div class="cell-expires" role="cell">{{conference.startDate | date}} &ndash; {{conference.endDate | date}}</div>
       <div class="cell-actions" role="cell">
         <div class="dropdown">
@@ -125,6 +86,7 @@
           <div class="dropdown-menu dropdown-menu-right">
             <a class="dropdown-item" href="/conference/{{conference.conferenceID}}/edit"><i class="far fa-edit"></i> Edit</a>
             <a class="dropdown-item" href="/conference/{{conference.conferenceID}}/"><i class="fa fa-eye"></i> View</a>
+            <a class="dropdown-item" href="/admin/?conference={{conference.conferenceID}}"><i class="fas fa-code-branch"></i> View repositories</a>
             <div class="dropdown-divider"></div>
             <a class="dropdown-item text-danger" href="#" ng-show="conference.status != 'removed'" ng-click="removeConference(conference)"><i class="fas fa-trash-alt"></i> Remove</a>
           </div>
@@ -137,15 +99,17 @@
     </div>
   </div>
 
-  <div class="admin-toolbar" ng-if="totalPage > 1" style="justify-content: center; border-bottom: none;">
-    <div class="pagination-compact">
-      <button class="btn btn-sm" ng-click="query.page = Math.max(1, query.page - 1)" ng-disabled="query.page <= 1">
-        <i class="fas fa-chevron-left"></i> Previous
-      </button>
-      <span>Page {{query.page}} of {{totalPage}}</span>
-      <button class="btn btn-sm" ng-click="query.page = Math.min(totalPage, query.page + 1)" ng-disabled="query.page >= totalPage">
-        Next <i class="fas fa-chevron-right"></i>
-      </button>
+  <div class="admin-toolbar" style="justify-content: space-between; border-bottom: none;">
+    <span style="font-size: 12px; color: var(--ink-muted);">{{total | number}} results</span>
+    <div class="pagination-compact" ng-if="totalPage > 1">
+      <button class="btn btn-sm" ng-click="query.page = Math.max(1, query.page - 1)" ng-disabled="query.page <= 1"><i class="fas fa-chevron-left"></i> Previous</button>
+      <input type="number" class="form-control form-control-sm" ng-model="query.page" min="1" max="{{totalPage}}" style="width: 56px;" />
+      <span>of {{totalPage}}</span>
+      <button class="btn btn-sm" ng-click="query.page = Math.min(totalPage, query.page + 1)" ng-disabled="query.page >= totalPage">Next <i class="fas fa-chevron-right"></i></button>
     </div>
+    <span class="admin-filter-inline">
+      <label>Per page</label>
+      <select class="form-control form-control-sm" ng-model="query.limit"><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select>
+    </span>
   </div>
 </div>

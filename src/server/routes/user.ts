@@ -61,6 +61,7 @@ router.get("/quota", async (req: express.Request, res: express.Response) => {
     }
 
     if (uncachedIds.length) {
+      const uncachedSet = new Set(uncachedIds);
       const agg = await FileModel.aggregate([
         { $match: { repoId: { $in: uncachedIds } } },
         {
@@ -76,7 +77,7 @@ router.get("/quota", async (req: express.Request, res: express.Response) => {
         byId.set(row._id, { storage: row.storage || 0, file: row.file || 0 });
       }
       for (const r of ready) {
-        if (!uncachedIds.includes(r.repoId)) continue;
+        if (!uncachedSet.has(r.repoId)) continue;
         const size = byId.get(r.repoId) || { storage: 0, file: 0 };
         totalStorage += size.storage;
         totalFiles += size.file;
@@ -85,7 +86,7 @@ router.get("/quota", async (req: express.Request, res: express.Response) => {
       if (isConnected) {
         await Promise.all(
           ready
-            .filter((r) => uncachedIds.includes(r.repoId))
+            .filter((r) => uncachedSet.has(r.repoId))
             .map((r) => r.model.save())
         );
       }

@@ -1,7 +1,6 @@
-<div class="container paper-page">
+<div class="container paper-page admin-page">
   <div class="paper-crumbs"><a href="/admin/users">Users</a> &nbsp;/&nbsp; <span class="here">{{userInfo.username || 'Profile'}}</span></div>
-  <h1 class="paper-page-title">User <em>profile</em></h1>
-  <p class="paper-page-lede">Inspect activity, quota, and repositories for a single account.</p>
+  <h1 class="paper-page-title">{{userInfo.username || 'User'}}</h1>
 
   <nav class="admin-nav">
     <a href="/admin/"><i class="fas fa-code-branch"></i> Repositories</a>

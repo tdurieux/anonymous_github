@@ -2438,24 +2438,24 @@ code {
   }
 }
 
-/* Admin stat cards */
+/* Admin stat cards — compact, denser packing for many KPIs */
 .admin-stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 12px;
-  margin-bottom: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+  margin-bottom: 16px;
 }
 
 .admin-stat-card {
   background: var(--paper-card);
   border: 1px solid var(--border-color);
-  border-radius: 10px;
-  padding: 16px 18px;
+  border-radius: 8px;
+  padding: 10px 12px;
 }
 
 .admin-stat-card .stat-value {
   font-family: var(--font-serif);
-  font-size: 1.9rem;
+  font-size: 1.4rem;
   font-weight: 400;
   line-height: 1.1;
   color: var(--color);
@@ -2463,11 +2463,11 @@ code {
 
 .admin-stat-card .stat-label {
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: 9.5px;
   color: var(--ink-muted);
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  margin-top: 6px;
+  margin-top: 4px;
 }
 
 /* Admin toolbar — kept as alias to dashboard filter row */
@@ -2679,8 +2679,9 @@ code {
 /* Admin section headers */
 .admin-section-header {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
   margin: 24px 0 12px;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--border-color);
@@ -3966,10 +3967,16 @@ textarea::selection {
 }
 .paper-table.paper-table-repos .paper-table-head,
 .paper-table.paper-table-repos .paper-table-row {
-  grid-template-columns: minmax(280px, 2.4fr) 140px 90px 140px 52px;
+  grid-template-columns: minmax(280px, 2.4fr) minmax(140px, 1fr) 90px 140px 52px;
+}
+.paper-table.paper-table-repos.has-bulk .paper-table-head,
+.paper-table.paper-table-repos.has-bulk .paper-table-row {
+  grid-template-columns: 28px minmax(280px, 2.4fr) minmax(140px, 1fr) 90px 140px 52px;
+  gap: 12px;
 }
 .paper-table .admin-users-row {
-  grid-template-columns: minmax(280px, 2.4fr) 140px 140px 52px !important;
+  grid-template-columns: 28px minmax(280px, 2.4fr) 90px 120px 100px 52px !important;
+  gap: 12px !important;
 }
 .paper-table .paper-table-head {
   background: transparent;
@@ -3982,6 +3989,16 @@ textarea::selection {
   padding-top: 8px;
   padding-bottom: 8px;
 }
+.paper-table .paper-table-head .sortable {
+  cursor: pointer;
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.paper-table .paper-table-head .sortable:hover { color: var(--color); }
+.paper-table .paper-table-head .sortable.active { color: var(--color); }
+.paper-table .paper-table-head .sortable i { font-size: 10px; }
 .paper-table .paper-table-head .num,
 .paper-table .paper-table-row .num { text-align: left; }
 .paper-table .paper-table-row {
@@ -4045,6 +4062,206 @@ textarea::selection {
 .status-dot.status-error { background: #B42318; }
 .status-dot.status-preparing { background: #C48A2E; }
 .status-dot.status-removed { background: #9A8F7B; }
+
+.bulk-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--paper-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin: 8px 0;
+}
+
+/* Tighter admin page header — admin is power-user UI, no need for huge title + lede */
+.paper-page.admin-page .paper-page-title { font-size: 1.6rem; margin: 4px 0; }
+.paper-page.admin-page .paper-page-lede { display: none; }
+.paper-page.admin-page .paper-crumbs { margin-bottom: 4px; }
+.paper-page.admin-page .admin-nav { margin: 6px 0 12px; }
+
+/* Admin filter toolbar — single compact line, inline labels (no boxed groups) */
+.admin-filter-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0 12px;
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  background: var(--paper-bg, #faf8f3);
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-soft, var(--border-color));
+  box-shadow: 0 1px 0 var(--paper-bg, #faf8f3); /* paint over content peeking under bottom border on Safari */
+}
+@media (max-width: 900px) {
+  .admin-filter-toolbar { position: static; box-shadow: none; }
+}
+.admin-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.admin-filter-row .search-wrap { flex: 1; min-width: 220px; }
+.admin-filter-row .search-wrap .form-control { height: 34px; }
+
+.admin-filter-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+.admin-filter-inline > label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-muted);
+  margin: 0;
+  white-space: nowrap;
+}
+.admin-filter-inline .form-control-sm {
+  height: 28px;
+  padding: 2px 8px;
+  font-size: 12px;
+}
+.admin-filter-inline input[type="text"].form-control-sm,
+.admin-filter-inline input[type="search"].form-control-sm { width: 130px; }
+.admin-filter-inline input[type="date"].form-control-sm { width: 130px; }
+.admin-filter-inline select.form-control-sm { width: auto; min-width: 88px; }
+.admin-filter-inline .arrow { color: var(--ink-muted); font-size: 11px; }
+
+.admin-filter-spacer { flex: 1; }
+
+/* Active-filter chips — visually surface what's currently constraining the view */
+.admin-active-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+.admin-active-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px 2px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: var(--hover-bg-color);
+  font-size: 12px;
+  color: var(--color);
+}
+.admin-active-chip .key { color: var(--ink-muted); font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; }
+.admin-active-chip button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0 4px;
+  color: var(--ink-muted);
+  font-size: 12px;
+  border-radius: 50%;
+}
+.admin-active-chip button:hover { color: #B42318; }
+
+.admin-search-hint {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-muted);
+  pointer-events: none;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 1px 5px;
+  background: var(--paper-card);
+}
+.admin-filter-row .search-wrap { position: relative; }
+.admin-filter-row .search-wrap .form-control { padding-right: 40px; }
+.paper-table-row.row-selected {
+  background: rgba(47, 122, 68, 0.06);
+}
+
+.queue-state-pills { display: inline-flex; gap: 6px; margin-left: 8px; flex-wrap: wrap; }
+.queue-state-pills .pill {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background: var(--paper-card);
+  color: var(--ink-muted);
+}
+.queue-state-pills .pill-active { color: #C48A2E; border-color: rgba(196,138,46,0.4); }
+.queue-state-pills .pill-failed { color: #B42318; border-color: rgba(180,35,24,0.4); }
+.queue-state-pills .pill-completed { color: #2F7A44; border-color: rgba(47,122,68,0.3); }
+.queue-state-pills .pill-waiting { color: var(--ink-soft); }
+.queue-state-pills .pill-delayed { color: var(--ink-muted); }
+
+/* Compact summary bar — replaces stat cards. Each pill is also a filter shortcut. */
+.admin-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 12px;
+  font-size: 13px;
+}
+.admin-summary .summary-total {
+  font-family: var(--font-serif);
+  font-size: 1.05rem;
+  color: var(--color);
+  margin-right: 8px;
+}
+.admin-summary .summary-meta {
+  color: var(--ink-muted);
+  font-size: 12px;
+  margin-right: 8px;
+}
+.admin-summary .summary-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background: var(--paper-card);
+  color: var(--ink-muted);
+  cursor: pointer;
+  font-size: 12px;
+  user-select: none;
+  transition: background-color 0.1s, border-color 0.1s;
+}
+.admin-summary .summary-pill:hover { background: var(--hover-bg-color); }
+.admin-summary .summary-pill .count {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--color);
+}
+.admin-summary .summary-pill.active {
+  background: var(--color);
+  color: var(--paper-bg, #fff);
+  border-color: var(--color);
+}
+.admin-summary .summary-pill.active .count { color: inherit; }
+.admin-summary .summary-pill.error .count { color: #B42318; }
+.admin-summary .summary-pill.warn .count { color: #C48A2E; }
+.admin-summary .summary-pill.ok .count { color: #2F7A44; }
+
+.job-progress {
+  flex: 1;
+  height: 6px;
+  background: var(--border-soft, var(--border-color));
+  border-radius: 999px;
+  overflow: hidden;
+  margin-left: 12px;
+  max-width: 200px;
+}
+.job-progress-bar { height: 100%; background: #2F7A44; transition: width 0.3s; }
 
 .paper-table-empty {
   padding: 48px 4px;

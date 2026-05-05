@@ -1,11 +1,11 @@
 import { SandboxedJob } from "bullmq";
 import { config } from "dotenv";
 config();
-import Repository from "../../core/Repository";
 import { getRepository as getRepositoryImport } from "../../server/database";
 import { RepositoryStatus } from "../../core/types";
+import { RepoJobData } from "../index";
 
-export default async function (job: SandboxedJob<Repository, void>) {
+export default async function (job: SandboxedJob<RepoJobData, void>) {
   const {
     connect,
     getRepository,
@@ -18,29 +18,36 @@ export default async function (job: SandboxedJob<Repository, void>) {
   let statusInterval: any = null;
   await connect();
   const repo = await getRepository(job.data.repoId);
+  let tickPromise: Promise<void> | null = null;
   try {
     let progress: { status: string } | null = null;
-    statusInterval = setInterval(async () => {
-      try {
-        if (
-          repo.status == RepositoryStatus.READY ||
-          repo.status == RepositoryStatus.ERROR
-        ) {
-          return clearInterval(statusInterval);
+    statusInterval = setInterval(() => {
+      if (tickPromise) return;
+      tickPromise = (async () => {
+        try {
+          if (
+            repo.status == RepositoryStatus.READY ||
+            repo.status == RepositoryStatus.ERROR
+          ) {
+            clearInterval(statusInterval);
+            return;
+          }
+          if (
+            progress &&
+            repo.status &&
+            repo.model.statusMessage !== progress?.status
+          ) {
+            console.log(
+              `[QUEUE] Progress: ${job.data.repoId} ${progress.status}`
+            );
+            await repo.updateStatus(repo.status, progress?.status || "");
+          }
+        } catch {
+          // ignore error
+        } finally {
+          tickPromise = null;
         }
-        if (
-          progress &&
-          repo.status &&
-          repo.model.statusMessage !== progress?.status
-        ) {
-          console.log(
-            `[QUEUE] Progress: ${job.data.repoId} ${progress.status}`
-          );
-          await repo.updateStatus(repo.status, progress?.status || "");
-        }
-      } catch {
-        // ignore error
-      }
+      })();
     }, 1000);
     function updateProgress(obj: { status: string } | string) {
       const o = typeof obj === "string" ? { status: obj } : obj;
@@ -51,9 +58,12 @@ export default async function (job: SandboxedJob<Repository, void>) {
       await repo.resetSate(RepositoryStatus.PREPARING, "");
       await repo.anonymize(updateProgress);
       clearInterval(statusInterval);
+      if (tickPromise) await tickPromise;
       await repo.updateStatus(RepositoryStatus.READY, "");
       console.log(`[QUEUE] ${job.data.repoId} is downloaded`);
     } catch (error) {
+      clearInterval(statusInterval);
+      if (tickPromise) await tickPromise;
       updateProgress({ status: "error" });
       if (error instanceof Error) {
         await repo.updateStatus(RepositoryStatus.ERROR, error.message);
@@ -64,13 +74,24 @@ export default async function (job: SandboxedJob<Repository, void>) {
     }
   } catch (error: unknown) {
     clearInterval(statusInterval);
-    console.log(`[QUEUE] ${job.data.repoId} is finished with an error`, error);
-    setTimeout(async () => {
-      // delay to avoid double saving
+    if (tickPromise) {
       try {
-        await repo.updateStatus(RepositoryStatus.ERROR, (error as Error).message);
+        await tickPromise;
       } catch { /* ignored */ }
-    }, 400);
+    }
+    console.log(`[QUEUE] ${job.data.repoId} is finished with an error`, error);
+    try {
+      await repo.updateStatus(
+        RepositoryStatus.ERROR,
+        error instanceof Error ? error.message : String(error)
+      );
+    } catch (persistError) {
+      console.log(
+        `[QUEUE] failed to persist ERROR status for ${job.data.repoId}`,
+        persistError
+      );
+    }
+    throw error;
   } finally {
     clearInterval(statusInterval);
   }

@@ -18,12 +18,114 @@ angular
       $scope.repositories = [];
       $scope.total = -1;
       $scope.totalPage = 0;
+      $scope.statusCounts = [];
+      $scope.totalSize = 0;
+      $scope.selected = {};
+      $scope.allSelected = false;
+
+      // Slash-to-focus the search input
+      const searchKeyHandler = (e) => {
+        if (e.key === "/" && !["INPUT","TEXTAREA","SELECT"].includes(document.activeElement?.tagName)) {
+          e.preventDefault();
+          const el = document.querySelector('.admin-filter-toolbar input[type="search"]');
+          el && el.focus();
+        }
+      };
+      document.addEventListener("keydown", searchKeyHandler);
+      $scope.$on("$destroy", () => document.removeEventListener("keydown", searchKeyHandler));
+
+      $scope.clearFilter = (key) => {
+        if (key === "dateRange") { $scope.query.dateFrom = ""; $scope.query.dateTo = ""; }
+        else $scope.query[key] = "";
+        $scope.query.page = 1;
+      };
+      $scope.chips = [];
+      const recomputeChips = () => {
+        const out = [];
+        if ($scope.query.owner) out.push({ key: "owner", label: "Owner", value: $scope.query.owner });
+        if ($scope.query.conference) out.push({ key: "conference", label: "Conference", value: $scope.query.conference });
+        $scope.chips = out;
+      };
+
+      $scope.showStatusMessage = (repo) => {
+        const msg = repo.statusMessage || "(no message)";
+        window.prompt(`Status message for ${repo.repoId} (${repo.status}):`, msg);
+      };
+
+      $scope.fetchGithubInfo = (repo) => {
+        const w = window.open("", "_blank");
+        if (w) w.document.write("<pre>Loading GitHub info for " + repo.repoId + "...</pre>");
+        $http.get("/api/admin/repos/" + repo.repoId + "/github").then(
+          (res) => {
+            if (w) {
+              w.document.open();
+              w.document.write(
+                "<pre style=\"font:13px monospace;padding:16px;white-space:pre-wrap\">" +
+                  JSON.stringify(res.data, null, 2).replace(/[<>]/g, (c) => c === "<" ? "&lt;" : "&gt;") +
+                  "</pre>"
+              );
+              w.document.close();
+            }
+          },
+          (err) => {
+            const msg = err && err.data ? JSON.stringify(err.data, null, 2) : String(err);
+            if (w) w.document.body.innerHTML = "<pre style=\"color:#B42318;padding:16px\">" + msg + "</pre>";
+          }
+        );
+      };
+
+      $scope.statusCountFor = (s) => {
+        const row = ($scope.statusCounts || []).find((c) => c._id === s);
+        return row ? row.count : 0;
+      };
+
+      $scope.statusStorageFor = (s) => {
+        const row = ($scope.statusCounts || []).find((c) => c._id === s);
+        return row ? row.storage : 0;
+      };
+
+      $scope.isErrorsOnly = () =>
+        $scope.query &&
+        $scope.query.error && !$scope.query.ready && !$scope.query.preparing &&
+        !$scope.query.expired && !$scope.query.removed;
+
+      $scope.toggleErrorsOnly = () => {
+        if ($scope.isErrorsOnly()) {
+          Object.assign($scope.query, { ready: false, preparing: true, expired: false, removed: false, error: true });
+        } else {
+          Object.assign($scope.query, { ready: false, preparing: false, expired: false, removed: false, error: true });
+        }
+        $scope.query.page = 1;
+      };
+
+      $scope.toggleSortDirection = () => {
+        $scope.query.direction = $scope.query.direction === "asc" ? "desc" : "asc";
+      };
+      $scope.sortBy = (field) => {
+        if ($scope.query.sort === field) {
+          $scope.query.direction = $scope.query.direction === "asc" ? "desc" : "asc";
+        } else {
+          $scope.query.sort = field;
+          $scope.query.direction = "desc";
+        }
+        $scope.query.page = 1;
+      };
+      $scope.sortIcon = (field) =>
+        $scope.query.sort === field
+          ? ($scope.query.direction === "asc" ? "fa-arrow-up" : "fa-arrow-down")
+          : "";
+
       const reposAdminPrefsKey = "admin.repos.filterPrefs";
       const reposAdminDefaults = {
         page: 1,
         limit: 25,
         sort: "lastView",
+        direction: "desc",
         search: "",
+        owner: "",
+        conference: "",
+        dateFrom: "",
+        dateTo: "",
         ready: false,
         expired: false,
         removed: false,
@@ -35,6 +137,70 @@ angular
         page: 1,
         search: "",
       });
+
+      // pre-fill owner / conference from URL ?owner= / ?conference=
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("owner")) $scope.query.owner = params.get("owner");
+      if (params.get("conference")) $scope.query.conference = params.get("conference");
+
+      // -------- presets --------
+      const presetsKey = "admin.repos.presets";
+      $scope.presets = JSON.parse(localStorage.getItem(presetsKey) || "[]");
+      $scope.savePreset = () => {
+        const name = window.prompt("Preset name:");
+        if (!name) return;
+        const snapshot = Object.assign({}, $scope.query);
+        delete snapshot.page;
+        $scope.presets = ($scope.presets || []).filter((p) => p.name !== name);
+        $scope.presets.push({ name, query: snapshot });
+        localStorage.setItem(presetsKey, JSON.stringify($scope.presets));
+      };
+      $scope.applyPreset = (p) => {
+        Object.assign($scope.query, p.query, { page: 1 });
+      };
+      $scope.deletePreset = (p) => {
+        $scope.presets = ($scope.presets || []).filter((x) => x.name !== p.name);
+        localStorage.setItem(presetsKey, JSON.stringify($scope.presets));
+      };
+
+      // -------- selection / bulk --------
+      $scope.selectAllOnPage = () => {
+        $scope.allSelected = !$scope.allSelected;
+        $scope.repositories.forEach((r) => {
+          $scope.selected[r.repoId] = $scope.allSelected;
+        });
+      };
+      $scope.selectedCount = () =>
+        Object.values($scope.selected || {}).filter(Boolean).length;
+      $scope.selectedRepos = () =>
+        $scope.repositories.filter((r) => $scope.selected[r.repoId]);
+
+      $scope.bulkRefresh = () => {
+        const repos = $scope.selectedRepos();
+        if (!repos.length) return;
+        if (!confirm(`Force refresh ${repos.length} repositories?`)) return;
+        repos.forEach((r) => $scope.updateRepository(r));
+      };
+      $scope.bulkRemoveCache = () => {
+        const repos = $scope.selectedRepos();
+        if (!repos.length) return;
+        if (!confirm(`Purge cache for ${repos.length} repositories?`)) return;
+        repos.forEach((r) => $scope.removeCache(r));
+      };
+      $scope.clearSelection = () => {
+        $scope.selected = {};
+        $scope.allSelected = false;
+      };
+
+      // -------- export --------
+      $scope.exportCsv = () => {
+        const params = new URLSearchParams(
+          Object.entries($scope.query).filter(([, v]) => v !== "" && v !== false && v != null)
+        );
+        params.set("format", "csv");
+        params.set("limit", "10000");
+        window.open("/api/admin/repos?" + params.toString(), "_blank");
+      };
 
       $scope.removeCache = (repo) => {
         $http.delete("/api/admin/repos/" + repo.repoId).then(
@@ -54,7 +220,6 @@ angular
           body: `The repository ${repo.repoId} is going to be refreshed.`,
         };
         $scope.toasts.push(toast);
-        repo.s;
 
         $http.post(`/api/repo/${repo.repoId}/refresh`).then(
           (res) => {
@@ -71,14 +236,20 @@ angular
         );
       };
 
+      $scope.fetchError = null;
       function getRepositories() {
+        $scope.fetchError = null;
         $http.get("/api/admin/repos", { params: $scope.query }).then(
           (res) => {
             $scope.total = res.data.total;
             $scope.totalPage = Math.ceil(res.data.total / $scope.query.limit);
             $scope.repositories = res.data.results;
+            $scope.statusCounts = res.data.statusCounts || [];
+            $scope.totalSize = res.data.totalSize || 0;
+            $scope.allSelected = false;
           },
           (err) => {
+            $scope.fetchError = (err && err.data && err.data.error) || "Failed to load repositories";
             console.error(err);
           }
         );
@@ -93,9 +264,11 @@ angular
           timeClear = setTimeout(getRepositories, 500);
           const { page, search, ...persisted } = $scope.query;
           saveFilterPrefs(reposAdminPrefsKey, persisted);
+          recomputeChips();
         },
         true
       );
+      recomputeChips();
     },
   ])
   .controller("usersAdminController", [
@@ -116,12 +289,65 @@ angular
       $scope.users = [];
       $scope.total = -1;
       $scope.totalPage = 0;
+      $scope.statusCounts = [];
+      $scope.selected = {};
+      $scope.allSelected = false;
+
+      const searchKeyHandler = (e) => {
+        if (e.key === "/" && !["INPUT","TEXTAREA","SELECT"].includes(document.activeElement?.tagName)) {
+          e.preventDefault();
+          const el = document.querySelector('.admin-filter-toolbar input[type="search"]');
+          el && el.focus();
+        }
+      };
+      document.addEventListener("keydown", searchKeyHandler);
+      $scope.$on("$destroy", () => document.removeEventListener("keydown", searchKeyHandler));
+
+      $scope.clearFilter = (key) => {
+        if (key === "dateRange") { $scope.query.dateFrom = ""; $scope.query.dateTo = ""; }
+        else $scope.query[key] = "";
+        $scope.query.page = 1;
+      };
+      $scope.chips = [];
+      const recomputeChipsUsers = () => {
+        const out = [];
+        if ($scope.query.role) out.push({ key: "role", label: "Role", value: $scope.query.role });
+        $scope.chips = out;
+      };
+
+      $scope.statusCountFor = (s) => {
+        const row = ($scope.statusCounts || []).find((c) => c._id === s);
+        return row ? row.count : 0;
+      };
+
+      $scope.toggleSortDirection = () => {
+        $scope.query.direction = $scope.query.direction === "asc" ? "desc" : "asc";
+      };
+      $scope.sortBy = (field) => {
+        if ($scope.query.sort === field) {
+          $scope.query.direction = $scope.query.direction === "asc" ? "desc" : "asc";
+        } else {
+          $scope.query.sort = field;
+          $scope.query.direction = "desc";
+        }
+        $scope.query.page = 1;
+      };
+      $scope.sortIcon = (field) =>
+        $scope.query.sort === field
+          ? ($scope.query.direction === "asc" ? "fa-arrow-up" : "fa-arrow-down")
+          : "";
+
       const usersAdminPrefsKey = "admin.users.filterPrefs";
       const usersAdminDefaults = {
         page: 1,
         limit: 25,
         sort: "username",
+        direction: "asc",
         search: "",
+        status: "",
+        role: "",
+        dateFrom: "",
+        dateTo: "",
       };
       const savedUsersAdminPrefs = loadFilterPrefs(usersAdminPrefsKey) || {};
       $scope.query = Object.assign({}, usersAdminDefaults, savedUsersAdminPrefs, {
@@ -129,15 +355,58 @@ angular
         search: "",
       });
 
+      $scope.selectAllOnPage = () => {
+        $scope.allSelected = !$scope.allSelected;
+        $scope.users.forEach((u) => {
+          $scope.selected[u.username] = $scope.allSelected;
+        });
+      };
+      $scope.selectedCount = () =>
+        Object.values($scope.selected || {}).filter(Boolean).length;
+      $scope.selectedUsers = () =>
+        $scope.users.filter((u) => $scope.selected[u.username]);
+
+      $scope.banUser = (u) => {
+        if (!confirm(`Ban user ${u.username}?`)) return;
+        $http
+          .post(`/api/admin/users/${u.username}/ban`)
+          .then(getUsers, (err) => console.error(err));
+      };
+      $scope.activateUser = (u) => {
+        $http
+          .post(`/api/admin/users/${u.username}/activate`)
+          .then(getUsers, (err) => console.error(err));
+      };
+      $scope.bulkBan = () => {
+        const users = $scope.selectedUsers();
+        if (!users.length) return;
+        if (!confirm(`Ban ${users.length} users?`)) return;
+        users.forEach((u) => $scope.banUser(u));
+      };
+
+      $scope.exportCsv = () => {
+        const params = new URLSearchParams(
+          Object.entries($scope.query).filter(([, v]) => v !== "" && v !== false && v != null)
+        );
+        params.set("format", "csv");
+        params.set("limit", "10000");
+        window.open("/api/admin/users?" + params.toString(), "_blank");
+      };
+
+      $scope.fetchError = null;
       function getUsers() {
+        $scope.fetchError = null;
         $http.get("/api/admin/users", { params: $scope.query }).then(
           (res) => {
             $scope.total = res.data.total;
             $scope.totalPage = Math.ceil(res.data.total / $scope.query.limit);
             $scope.users = res.data.results;
+            $scope.statusCounts = res.data.statusCounts || [];
+            $scope.allSelected = false;
             $scope.$apply();
           },
           (err) => {
+            $scope.fetchError = (err && err.data && err.data.error) || "Failed to load users";
             console.error(err);
           }
         );
@@ -152,9 +421,11 @@ angular
           timeClear = setTimeout(getUsers, 500);
           const { page, search, ...persisted } = $scope.query;
           saveFilterPrefs(usersAdminPrefsKey, persisted);
+          recomputeChipsUsers();
         },
         true
       );
+      recomputeChipsUsers();
     },
   ])
   .controller("userAdminController", [
@@ -178,7 +449,7 @@ angular
 
       const adminUserPrefsKey = "admin.user.filterPrefs";
       const adminUserDefaults = {
-        filters: { status: { ready: true, expired: false, removed: false } },
+        filters: { status: { ready: true, expired: true, removed: true, error: true, preparing: true } },
         orderBy: "-anonymizeDate",
       };
       const savedAdminUserPrefs = loadFilterPrefs(adminUserPrefsKey) || {};
@@ -297,7 +568,6 @@ angular
           body: `The repository ${repo.repoId} is going to be refreshed.`,
         };
         $scope.toasts.push(toast);
-        repo.s;
 
         $http.post(`/api/repo/${repo.repoId}/refresh`).then(
           (res) => {
@@ -355,12 +625,60 @@ angular
       $scope.conferences = [];
       $scope.total = -1;
       $scope.totalPage = 0;
+      $scope.statusCounts = [];
+
+      const searchKeyHandler = (e) => {
+        if (e.key === "/" && !["INPUT","TEXTAREA","SELECT"].includes(document.activeElement?.tagName)) {
+          e.preventDefault();
+          const el = document.querySelector('.admin-filter-toolbar input[type="search"]');
+          el && el.focus();
+        }
+      };
+      document.addEventListener("keydown", searchKeyHandler);
+      $scope.$on("$destroy", () => document.removeEventListener("keydown", searchKeyHandler));
+
+      $scope.clearFilter = (key) => {
+        if (key === "dateRange") { $scope.query.dateFrom = ""; $scope.query.dateTo = ""; }
+        else $scope.query[key] = "";
+        $scope.query.page = 1;
+      };
+      $scope.chips = [];
+      const recomputeChipsConf = () => {
+        $scope.chips = [];
+      };
+
+      $scope.statusCountFor = (s) => {
+        const row = ($scope.statusCounts || []).find((c) => c._id === s);
+        return row ? row.count : 0;
+      };
+
+      $scope.toggleSortDirection = () => {
+        $scope.query.direction = $scope.query.direction === "asc" ? "desc" : "asc";
+      };
+      $scope.sortBy = (field) => {
+        if ($scope.query.sort === field) {
+          $scope.query.direction = $scope.query.direction === "asc" ? "desc" : "asc";
+        } else {
+          $scope.query.sort = field;
+          $scope.query.direction = "desc";
+        }
+        $scope.query.page = 1;
+      };
+      $scope.sortIcon = (field) =>
+        $scope.query.sort === field
+          ? ($scope.query.direction === "asc" ? "fa-arrow-up" : "fa-arrow-down")
+          : "";
+
       const confAdminPrefsKey = "admin.conferences.filterPrefs";
       const confAdminDefaults = {
         page: 1,
         limit: 25,
         sort: "name",
+        direction: "asc",
         search: "",
+        status: "",
+        dateFrom: "",
+        dateTo: "",
       };
       const savedConfAdminPrefs = loadFilterPrefs(confAdminPrefsKey) || {};
       $scope.query = Object.assign({}, confAdminDefaults, savedConfAdminPrefs, {
@@ -368,15 +686,28 @@ angular
         search: "",
       });
 
+      $scope.exportCsv = () => {
+        const params = new URLSearchParams(
+          Object.entries($scope.query).filter(([, v]) => v !== "" && v !== false && v != null)
+        );
+        params.set("format", "csv");
+        params.set("limit", "10000");
+        window.open("/api/admin/conferences?" + params.toString(), "_blank");
+      };
+
+      $scope.fetchError = null;
       function getConferences() {
+        $scope.fetchError = null;
         $http.get("/api/admin/conferences", { params: $scope.query }).then(
           (res) => {
             $scope.total = res.data.total;
             $scope.totalPage = Math.ceil(res.data.total / $scope.query.limit);
             $scope.conferences = res.data.results;
+            $scope.statusCounts = res.data.statusCounts || [];
             $scope.$apply();
           },
           (err) => {
+            $scope.fetchError = (err && err.data && err.data.error) || "Failed to load conferences";
             console.error(err);
           }
         );
@@ -391,16 +722,19 @@ angular
           timeClear = setTimeout(getConferences, 500);
           const { page, search, ...persisted } = $scope.query;
           saveFilterPrefs(confAdminPrefsKey, persisted);
+          recomputeChipsConf();
         },
         true
       );
+      recomputeChipsConf();
     },
   ])
   .controller("queuesAdminController", [
     "$scope",
     "$http",
     "$location",
-    function ($scope, $http, $location) {
+    "$interval",
+    function ($scope, $http, $location, $interval) {
       $scope.$watch("user.status", () => {
         if ($scope.user == null) {
           $location.url("/");
@@ -412,6 +746,45 @@ angular
 
       $scope.downloadJobs = [];
       $scope.removeJobs = [];
+      $scope.removeCaches = [];
+      $scope.counts = { download: {}, remove: {}, cache: {} };
+      $scope.query = {
+        search: "",
+        state: "",
+        autoRefresh: true,
+      };
+
+      $scope.jobMatchesState = (job) => {
+        if (!$scope.query.state) return true;
+        const finished = !!job.finishedOn;
+        const failed = (job.stacktrace || []).length > 0 || job.failedReason;
+        const map = {
+          completed: finished && !failed,
+          failed: failed,
+          active: job.processedOn && !finished,
+          waiting: !job.processedOn,
+        };
+        return !!map[$scope.query.state];
+      };
+
+      $scope.jobProgressPct = (job) => {
+        if (job && job.progress && typeof job.progress === "object" && typeof job.progress.percent === "number") {
+          return Math.max(0, Math.min(100, Math.round(job.progress.percent)));
+        }
+        if (typeof job.progress === "number") {
+          return Math.max(0, Math.min(100, Math.round(job.progress)));
+        }
+        return null;
+      };
+
+      $scope.bulkRetryFailed = (queue) => {
+        if (!confirm(`Retry all failed jobs in the ${queue} queue?`)) return;
+        $http.post(`/api/admin/queue/${queue}/retry-failed`).then(getQueues, (err) => console.error(err));
+      };
+      $scope.bulkDrain = (queue) => {
+        if (!confirm(`Drain (clear waiting+delayed) the ${queue} queue?`)) return;
+        $http.post(`/api/admin/queue/${queue}/drain`).then(getQueues, (err) => console.error(err));
+      };
 
       function getQueues() {
         $http.get("/api/admin/queues", { params: $scope.query }).then(
@@ -419,6 +792,7 @@ angular
             $scope.downloadJobs = res.data.downloadQueue;
             $scope.removeJobs = res.data.removeQueue;
             $scope.removeCaches = res.data.cacheQueue;
+            $scope.counts = res.data.counts || $scope.counts;
           },
           (err) => {
             console.error(err);
@@ -426,6 +800,14 @@ angular
         );
       }
       getQueues();
+
+      // auto-refresh every 5 seconds while autoRefresh is on
+      const stop = $interval(() => {
+        if ($scope.query.autoRefresh) getQueues();
+      }, 5000);
+      $scope.$on("$destroy", () => $interval.cancel(stop));
+
+      $scope.refreshNow = getQueues;
 
       $scope.removeJob = function (queue, job) {
         $http
@@ -456,5 +838,15 @@ angular
             }
           );
       };
+
+      let searchClear = null;
+      $scope.$watch(
+        "query.search",
+        () => {
+          clearTimeout(searchClear);
+          searchClear = setTimeout(getQueues, 350);
+        }
+      );
+      $scope.$watch("query.state", getQueues);
     },
   ]);

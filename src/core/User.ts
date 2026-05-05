@@ -80,37 +80,44 @@ export default class User {
         });
       });
 
-      // find the repositories that are already in the database
-      const finds = (
-        await RepositoryModel.find({
-          externalId: {
-            $in: repositories.map((repo) => repo.externalId),
-          },
-        }).select("externalId")
-      ).map((m) => m.externalId);
-
-      // save all the new repositories
-      await Promise.all(
-        repositories
-          .filter((r) => finds.indexOf(r.externalId) == -1)
-          .map((r) => r.save())
+      // find the repositories that are already in the database — fetch both
+      // externalId and id so we can both detect duplicates and reuse the
+      // ids of existing rows without re-querying.
+      const externalIds = repositories.map((repo) => repo.externalId);
+      const existing = await RepositoryModel.find({
+        externalId: { $in: externalIds },
+      }).select("id externalId");
+      const existingByExternalId = new Map(
+        existing.map((m) => [m.externalId, m.id])
       );
 
-      // save only the if of the repositories in the user model
-      this._model.repositories = (
-        await RepositoryModel.find({
-          externalId: {
-            $in: repositories.map((repo) => repo.externalId),
-          },
-        }).select("id")
-      ).map((m) => m.id);
+      // save all the new repositories
+      const newRepos = repositories.filter(
+        (r) => !existingByExternalId.has(r.externalId)
+      );
+      const saved = await Promise.all(newRepos.map((r) => r.save()));
+      for (const m of saved) {
+        existingByExternalId.set(m.externalId, m.id);
+      }
+
+      // collect ids in the order of the upstream repositories list
+      this._model.repositories = externalIds
+        .map((eid) => existingByExternalId.get(eid))
+        .filter((id) => !!id) as unknown as typeof this._model.repositories;
 
       // have the model
       await this._model.save();
       return repositories.map((r) => new GitHubRepository(r));
     } else {
+      // Only the fields read by GitHubRepository.toJSON() (and the immediate
+      // callers in user routes). Branches/readme are loaded on demand by
+      // GitHubRepository methods, which issue their own queries.
       const out = (
-        await RepositoryModel.find({ _id: { $in: this._model.repositories } })
+        await RepositoryModel.find({
+          _id: { $in: this._model.repositories },
+        }).select(
+          "externalId name url size hasPage pageSource defaultBranch"
+        )
       ).map((i) => new GitHubRepository(i));
       return out;
     }

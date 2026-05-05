@@ -1,8 +1,8 @@
 import { SandboxedJob } from "bullmq";
-import Repository from "../../core/Repository";
 import { getRepository as getRepositoryImport } from "../../server/database";
+import { RepoJobData } from "../index";
 
-export default async function (job: SandboxedJob<Repository, void>) {
+export default async function (job: SandboxedJob<RepoJobData, void>) {
   const {
     connect,
     getRepository,

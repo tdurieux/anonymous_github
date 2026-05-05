@@ -16,7 +16,7 @@ import { bearerTokenAuth } from "./routes/token-auth";
 import router from "./routes";
 import AnonymizedRepositoryModel from "../core/model/anonymizedRepositories/anonymizedRepositories.model";
 import { conferenceStatusCheck, repositoryStatusCheck } from "./schedule";
-import { startWorker } from "../queue";
+import { startWorker, recoverStuckPreparing } from "../queue";
 import AnonymizedPullRequestModel from "../core/model/anonymizedPullRequests/anonymizedPullRequests.model";
 import { getUser } from "./routes/route-utils";
 import config from "../config";
@@ -165,9 +165,17 @@ export default async function start() {
   apiRouter.use("/gist", speedLimiter, router.gistPrivate);
   apiRouter.use("/anonymize-preview", speedLimiter, router.anonymizePreview);
 
+  // Cache message.txt presence so /api/message doesn't hit the filesystem
+  // synchronously on every request. Re-checked on a 60s interval — the file
+  // is admin-managed and doesn't need real-time freshness.
+  const messagePath = resolve("message.txt");
+  let messageExists = existsSync(messagePath);
+  setInterval(() => {
+    messageExists = existsSync(messagePath);
+  }, 60 * 1000).unref();
   apiRouter.get("/message", async (_, res) => {
-    if (existsSync("./message.txt")) {
-      return res.sendFile(resolve("message.txt"));
+    if (messageExists) {
+      return res.sendFile(messagePath);
     }
     res.sendStatus(404);
   });
@@ -186,10 +194,17 @@ export default async function start() {
       res.json(stat);
       return;
     }
-    const [nbRepositories, users, nbPageViews, nbPullRequests] =
+    const [nbRepositories, nbUsersAgg, nbPageViews, nbPullRequests] =
       await Promise.all([
         AnonymizedRepositoryModel.estimatedDocumentCount(),
-        AnonymizedRepositoryModel.distinct("owner"),
+        // Count distinct owners server-side instead of materializing the full
+        // list of ObjectIds with `.distinct("owner")` only to take its length.
+        AnonymizedRepositoryModel.collection
+          .aggregate([
+            { $group: { _id: "$owner" } },
+            { $count: "n" },
+          ])
+          .toArray(),
         AnonymizedRepositoryModel.collection
           .aggregate([
             {
@@ -202,7 +217,7 @@ export default async function start() {
 
     stat = {
       nbRepositories,
-      nbUsers: users.length,
+      nbUsers: (nbUsersAgg[0] as { n?: number } | undefined)?.n || 0,
       nbPageViews: nbPageViews[0]?.total || 0,
       nbPullRequests,
     };
@@ -235,6 +250,7 @@ export default async function start() {
   repositoryStatusCheck();
 
   await connect();
+  await recoverStuckPreparing();
   app.listen(config.PORT);
   console.log("Database connected and Server started on port: " + config.PORT);
 }

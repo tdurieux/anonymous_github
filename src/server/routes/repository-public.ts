@@ -178,7 +178,7 @@ router.get(
             // && repo.status != "preparing"
           ) {
             await repo.updateStatus(RepositoryStatus.PREPARING);
-            await downloadQueue.add(repo.repoId, repo, {
+            await downloadQueue.add(repo.repoId, { repoId: repo.repoId }, {
               jobId: repo.repoId,
               attempts: 3,
             });

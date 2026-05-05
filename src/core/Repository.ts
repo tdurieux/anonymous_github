@@ -22,6 +22,7 @@ import {
 import { getToken } from "./GitHubUtils";
 import config from "../config";
 import FileModel from "./model/files/files.model";
+import AnonymizedRepositoryModel from "./model/anonymizedRepositories/anonymizedRepositories.model";
 import { IFile } from "./model/files/files.types";
 import AnonymizedFile from "./AnonymizedFile";
 import { FilterQuery } from "mongoose";
@@ -351,7 +352,7 @@ export default class Repository {
         );
 
         await this.resetSate(RepositoryStatus.PREPARING);
-        await downloadQueue.add(this.repoId, this, {
+        await downloadQueue.add(this.repoId, { repoId: this.repoId }, {
           jobId: this.repoId,
           attempts: 3,
         });
@@ -405,7 +406,16 @@ export default class Repository {
     this._model.statusDate = new Date();
     this._model.statusMessage = statusMessage;
     if (!isConnected) return this.model;
-    await this._model.save();
+    await AnonymizedRepositoryModel.updateOne(
+      { _id: this._model._id },
+      {
+        $set: {
+          status,
+          statusDate: this._model.statusDate,
+          statusMessage,
+        },
+      }
+    ).exec();
   }
 
   /**

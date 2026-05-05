@@ -192,8 +192,62 @@ export class AnonymizeTransformer extends Transform {
   }
 }
 
+// Markdown image pattern hoisted out of removeImage() so we don't recompile
+// it on every chunk of every file streamed through the anonymizer.
+const markdownImageRegex =
+  /!\[[^\]]*\]\((?<filename>.*?)(?="|\))(?<optionalpart>".*")?\)/g;
+
+interface CompiledTermVariant {
+  // Global regex used to replace matches in content (and paths).
+  replaceRegex: RegExp;
+  // Non-global twin used inside the URL callback to test() without
+  // mutating shared lastIndex state.
+  testRegex: RegExp;
+  mask: string;
+}
+
+function compileTerms(terms: string[] | undefined): CompiledTermVariant[] {
+  if (!terms || terms.length === 0) return [];
+  const compiled: CompiledTermVariant[] = [];
+  for (let i = 0; i < terms.length; i++) {
+    const spec = terms[i];
+    if (spec.trim() === "") continue;
+    // #285 — entries of the form "term=>replacement" override the default
+    // XXXX-N mask so users can scrub with their preferred token.
+    const parsed = parseTermSpec(spec);
+    let term = parsed.term;
+    const mask =
+      parsed.replacement !== null
+        ? parsed.replacement
+        : config.ANONYMIZATION_MASK + "-" + (i + 1);
+    try {
+      new RegExp(term, "gi");
+    } catch {
+      term = term.replace(/[-[\]{}()*+?.,\\^$|#]/g, "\\$&");
+    }
+    for (const variant of termVariants(term)) {
+      const bounded = withWordBoundaries(variant.pattern, {
+        sniffSource: variant.sniff,
+        unicode: variant.unicode,
+      });
+      const baseFlags = variant.unicode ? "iu" : "i";
+      compiled.push({
+        replaceRegex: new RegExp(bounded, "g" + baseFlags),
+        testRegex: new RegExp(bounded, baseFlags),
+        mask,
+      });
+    }
+  }
+  return compiled;
+}
+
 export class ContentAnonimizer {
   public wasAnonymized = false;
+  // Compiled once per instance and reused for every anonymize() call.
+  // Streamed files invoke anonymize() many times per file (one per chunk),
+  // so caching here avoids rebuilding regexes on every chunk.
+  private compiledTerms: CompiledTermVariant[];
+  private selfLinkRegexes: RegExp[] | null = null;
 
   constructor(
     readonly opt: {
@@ -204,26 +258,33 @@ export class ContentAnonimizer {
       branchName?: string;
       repoId?: string;
     }
-  ) {}
+  ) {
+    this.compiledTerms = compileTerms(opt.terms);
+    if (opt.repoName && opt.branchName) {
+      const r = opt.repoName;
+      const b = opt.branchName;
+      this.selfLinkRegexes = [
+        new RegExp(`https://raw.githubusercontent.com/${r}/${b}\\b`, "gi"),
+        new RegExp(`https://github.com/${r}/blob/${b}\\b`, "gi"),
+        new RegExp(`https://github.com/${r}/tree/${b}\\b`, "gi"),
+        new RegExp(`https://github.com/${r}`, "gi"),
+      ];
+    }
+  }
 
   private removeImage(content: string): string {
     if (this.opt.image !== false) {
       return content;
     }
-    // remove image in markdown
-    return content.replace(
-      /!\[[^\]]*\]\((?<filename>.*?)(?="|\))(?<optionalpart>".*")?\)/g,
-      () => {
-        this.wasAnonymized = true;
-        return config.ANONYMIZATION_MASK;
-      }
-    );
+    return content.replace(markdownImageRegex, () => {
+      this.wasAnonymized = true;
+      return config.ANONYMIZATION_MASK;
+    });
   }
   private removeLink(content: string): string {
     if (this.opt.link !== false) {
       return content;
     }
-    // remove image in markdown
     return content.replace(urlRegex, () => {
       this.wasAnonymized = true;
       return config.ANONYMIZATION_MASK;
@@ -231,83 +292,33 @@ export class ContentAnonimizer {
   }
 
   private replaceGitHubSelfLinks(content: string): string {
-    if (!this.opt.repoName || !this.opt.branchName) {
-      return content;
-    }
-    const repoName = this.opt.repoName;
-    const branchName = this.opt.branchName;
-
-    const replaceCallback = () => {
+    if (!this.selfLinkRegexes) return content;
+    const replacement = `https://${config.APP_HOSTNAME}/r/${this.opt.repoId}`;
+    const cb = () => {
       this.wasAnonymized = true;
-      return `https://${config.APP_HOSTNAME}/r/${this.opt.repoId}`;
+      return replacement;
     };
-    content = content.replace(
-      new RegExp(
-        `https://raw.githubusercontent.com/${repoName}/${branchName}\\b`,
-        "gi"
-      ),
-      replaceCallback
-    );
-    content = content.replace(
-      new RegExp(`https://github.com/${repoName}/blob/${branchName}\\b`, "gi"),
-      replaceCallback
-    );
-    content = content.replace(
-      new RegExp(`https://github.com/${repoName}/tree/${branchName}\\b`, "gi"),
-      replaceCallback
-    );
-    return content.replace(
-      new RegExp(`https://github.com/${repoName}`, "gi"),
-      replaceCallback
-    );
+    for (const re of this.selfLinkRegexes) {
+      content = content.replace(re, cb);
+    }
+    return content;
   }
 
   private replaceTerms(content: string): string {
-    const terms = this.opt.terms || [];
-    for (let i = 0; i < terms.length; i++) {
-      const spec = terms[i];
-      if (spec.trim() == "") {
-        continue;
-      }
-      // #285 — entries of the form "term=>replacement" override the default
-      // XXXX-N mask so users can scrub with their preferred token (e.g.
-      // "ABC", "XYZ"), keeping anonymized identifiers valid in source code.
-      const parsed = parseTermSpec(spec);
-      let term = parsed.term;
-      const mask =
-        parsed.replacement !== null
-          ? parsed.replacement
-          : config.ANONYMIZATION_MASK + "-" + (i + 1);
-      try {
-        new RegExp(term, "gi");
-      } catch {
-        // escape regex characters
-        term = term.replace(/[-[\]{}()*+?.,\\^$|#]/g, "\\$&");
-      }
-
-      // Try the term verbatim first, then a diacritic-insensitive expansion
-      // so "Davo" anonymizes "Davó" (and vice versa). See term-matching.ts.
-      for (const variant of termVariants(term)) {
-        const bounded = withWordBoundaries(variant.pattern, {
-          sniffSource: variant.sniff,
-          unicode: variant.unicode,
-        });
-        const flags = variant.unicode ? "giu" : "gi";
-        // remove whole url if it contains the term
-        content = content.replace(urlRegex, (match) => {
-          if (new RegExp(bounded, flags).test(match)) {
-            this.wasAnonymized = true;
-            return mask;
-          }
-          return match;
-        });
-
-        // remove the term in the text
-        content = content.replace(new RegExp(bounded, flags), () => {
+    for (const c of this.compiledTerms) {
+      // remove whole url if it contains the term
+      content = content.replace(urlRegex, (match) => {
+        if (c.testRegex.test(match)) {
           this.wasAnonymized = true;
-          return mask;
-        });
-      }
+          return c.mask;
+        }
+        return match;
+      });
+      // remove the term in the text
+      content = content.replace(c.replaceRegex, () => {
+        this.wasAnonymized = true;
+        return c.mask;
+      });
     }
     return content;
   }
@@ -322,24 +333,20 @@ export class ContentAnonimizer {
 }
 
 export function anonymizePath(path: string, terms: string[]) {
-  for (let i = 0; i < terms.length; i++) {
-    const spec = terms[i];
-    if (spec.trim() == "") {
-      continue;
-    }
-    const parsed = parseTermSpec(spec);
-    let term = parsed.term;
-    const mask =
-      parsed.replacement !== null
-        ? parsed.replacement
-        : config.ANONYMIZATION_MASK + "-" + (i + 1);
-    try {
-      new RegExp(term, "gi");
-    } catch {
-      // escape regex characters
-      term = term.replace(/[-[\]{}()*+?.,\\^$|#]/g, "\\$&");
-    }
-    path = path.replace(new RegExp(term, "gi"), mask);
+  return anonymizePathCompiled(path, compileTerms(terms));
+}
+
+// Variant that accepts pre-compiled term regexes — call sites that anonymize
+// many paths in a row (tree traversal) should compile once and reuse.
+export function anonymizePathCompiled(
+  path: string,
+  compiled: CompiledTermVariant[]
+) {
+  for (const c of compiled) {
+    path = path.replace(c.replaceRegex, c.mask);
   }
   return path;
 }
+
+export { compileTerms };
+export type { CompiledTermVariant };
