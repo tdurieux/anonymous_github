@@ -4089,10 +4089,10 @@ textarea::selection {
   position: sticky;
   top: 0;
   z-index: 4;
-  background: var(--paper-bg, #faf8f3);
+  background: var(--canvas-bg-color);
   padding: 6px 0;
   border-bottom: 1px solid var(--border-soft, var(--border-color));
-  box-shadow: 0 1px 0 var(--paper-bg, #faf8f3); /* paint over content peeking under bottom border on Safari */
+  box-shadow: 0 1px 0 var(--canvas-bg-color);
 }
 @media (max-width: 900px) {
   .admin-filter-toolbar { position: static; box-shadow: none; }
@@ -4243,14 +4243,20 @@ textarea::selection {
   color: var(--color);
 }
 .admin-summary .summary-pill.active {
-  background: var(--color);
-  color: var(--paper-bg, #fff);
-  border-color: var(--color);
+  background: var(--primary-bg);
+  color: var(--primary-color);
+  border-color: var(--primary-bg);
 }
 .admin-summary .summary-pill.active .count { color: inherit; }
 .admin-summary .summary-pill.error .count { color: #B42318; }
 .admin-summary .summary-pill.warn .count { color: #C48A2E; }
 .admin-summary .summary-pill.ok .count { color: #2F7A44; }
+.dark-mode .admin-summary .summary-pill.error .count { color: #F08A82; }
+.dark-mode .admin-summary .summary-pill.warn .count { color: #E8B970; }
+.dark-mode .admin-summary .summary-pill.ok .count { color: #7DC894; }
+.dark-mode .queue-state-pills .pill-active { color: #E8B970; border-color: rgba(232,185,112,0.4); }
+.dark-mode .queue-state-pills .pill-failed { color: #F08A82; border-color: rgba(240,138,130,0.4); }
+.dark-mode .queue-state-pills .pill-completed { color: #7DC894; border-color: rgba(125,200,148,0.3); }
 
 .job-progress {
   flex: 1;
