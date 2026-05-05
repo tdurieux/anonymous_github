@@ -2079,7 +2079,7 @@ code {
   }
 
   /* Progress bars on dashboard */
-  .progress {
+  .progress:not(.quota-progress) {
     min-width: 120px !important;
   }
 
@@ -3830,6 +3830,8 @@ textarea::selection {
   border: 1px solid var(--border-color);
   border-radius: 999px;
   margin-bottom: 0;
+  width: 100%;
+  min-width: 0;
 }
 .paper-page .quota-progress .progress-bar {
   background: var(--color);
@@ -4010,6 +4012,21 @@ textarea::selection {
   background: var(--hover-bg-color);
 }
 .paper-table .paper-table-row.repo-inactive { opacity: 0.55; }
+.paper-table .paper-table-row.repo-error {
+  background: rgba(180, 35, 24, 0.04);
+  border-left: 2px solid #B42318;
+  padding-left: 6px;
+}
+.paper-table .paper-table-row.repo-error:hover { background: rgba(180, 35, 24, 0.08); }
+.dark-mode .paper-table .paper-table-row.repo-error { background: rgba(240, 138, 130, 0.05); border-left-color: #F08A82; }
+.dark-mode .paper-table .paper-table-row.repo-error:hover { background: rgba(240, 138, 130, 0.1); }
+.paper-table .cell-status .status-sub-error,
+.cell-status .status-sub.status-sub-error {
+  color: #B42318;
+  font-family: var(--font-mono);
+}
+.dark-mode .paper-table .cell-status .status-sub-error,
+.dark-mode .cell-status .status-sub.status-sub-error { color: #F08A82; }
 .paper-table .cell-anon {
   display: flex;
   align-items: center;
@@ -4450,8 +4467,41 @@ textarea::selection {
 }
 
 @media (max-width: 768px) {
-  .paper-page .quota-row { grid-template-columns: 1fr; gap: 14px; padding: 16px; }
+  .paper-page .paper-page-title { font-size: clamp(1.4rem, 6vw, 1.9rem); margin: 4px 0 2px; }
+  .paper-page .paper-page-lede { font-size: 13px; line-height: 1.4; margin-bottom: 0; }
+  .paper-page .btn-ink { padding: 6px 12px; font-size: 13px; }
+
+  .paper-page .quota-row {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px 12px;
+    padding: 0;
+    margin: 12px 0 0;
+  }
+  .paper-page .dashboard-filter-row {
+    padding: 8px 0;
+    margin-top: 10px;
+  }
+  .paper-page .quota-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+  .paper-page .quota-label { font-size: 10px; letter-spacing: 0.1em; }
+  .paper-page .quota-value { font-size: 11px; }
+
   .paper-page .dashboard-filter-row { gap: 8px; }
+}
+
+@media (max-width: 480px) {
+  .paper-page .paper-page-lede {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .paper-page .quota-row { gap: 8px; }
+  .paper-page .quota-label { font-size: 9px; letter-spacing: 0.06em; }
+  .paper-page .quota-value { font-size: 10px; white-space: nowrap; }
 }
 
 /* Empty state */

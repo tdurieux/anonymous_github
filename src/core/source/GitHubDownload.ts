@@ -3,7 +3,10 @@ import { Readable } from "stream";
 import { OctokitResponse } from "@octokit/types";
 
 import storage from "../storage";
-import GitHubBase, { GitHubBaseData } from "./GitHubBase";
+import GitHubBase, {
+  GitHubBaseData,
+  classifyGitHubMissError,
+} from "./GitHubBase";
 import { FILE_TYPE } from "../storage/Storage";
 import { octokit } from "../GitHubUtils";
 import AnonymousError from "../AnonymousError";
@@ -30,7 +33,8 @@ export default class GitHubDownload extends GitHubBase {
     try {
       response = await this.getZipUrl();
     } catch (error) {
-      throw new AnonymousError("repo_not_found", {
+      const code = await classifyGitHubMissError(error, this.data);
+      throw new AnonymousError(code, {
         httpStatus: (error as { status?: number }).status || 404,
         object: this.data,
         cause: error as Error,

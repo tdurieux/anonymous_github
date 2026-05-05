@@ -179,7 +179,7 @@
       <div
         class="paper-table-row"
         role="row"
-        ng-class="{'repo-inactive': item.status == 'expired' || item.status == 'removed' || item.status == 'error'}"
+        ng-class="{'repo-inactive': item.status == 'expired' || item.status == 'removed', 'repo-error': item.status == 'error'}"
         ng-repeat="item in items | filter:itemFilter | orderBy:orderBy as filteredItems"
       >
         <div class="cell-anon" role="cell">
@@ -206,7 +206,8 @@
             ></span>
             <span ng-bind="item.status | title"></span>
           </div>
-          <div class="status-sub" ng-if="item.anonymizeDate" title="Last anonymized {{item.anonymizeDate | humanTime}}" ng-bind="item.anonymizeDate | humanTime"></div>
+          <div class="status-sub status-sub-error" ng-if="item.status == 'error' && item.statusMessage" title="{{item.statusMessage}}" ng-bind="item.statusMessage"></div>
+          <div class="status-sub" ng-if="item.status != 'error' && item.anonymizeDate" title="Last anonymized {{item.anonymizeDate | humanTime}}" ng-bind="item.anonymizeDate | humanTime"></div>
         </div>
         <div class="cell-views num" role="cell" ng-bind="item.pageView | number"></div>
         <div class="cell-expires" role="cell">

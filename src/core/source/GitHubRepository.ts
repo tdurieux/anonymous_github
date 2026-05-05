@@ -55,12 +55,35 @@ export class GitHubRepository {
     }
   ) {
     const oct = octokit(opt.accessToken);
-    const commit = await oct.repos.getCommit({
-      owner: this.owner,
-      repo: this.repo,
-      ref: sha,
-    });
-    return commit.data;
+    try {
+      const commit = await oct.repos.getCommit({
+        owner: this.owner,
+        repo: this.repo,
+        ref: sha,
+      });
+      return commit.data;
+    } catch (error) {
+      const status = (error as { status?: number }).status;
+      if (status === 404) {
+        // Distinguish: does the repo itself still exist?
+        let repoExists = false;
+        try {
+          await oct.repos.get({ owner: this.owner, repo: this.repo });
+          repoExists = true;
+        } catch {
+          repoExists = false;
+        }
+        throw new AnonymousError(
+          repoExists ? "commit_not_found" : "repo_not_found",
+          {
+            httpStatus: 404,
+            cause: error as Error,
+            object: this,
+          }
+        );
+      }
+      throw error;
+    }
   }
 
   async branches(opt: {
