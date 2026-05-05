@@ -44,6 +44,7 @@
     "invalid_path": "The provided path is invalid or missing.",
     "path_not_specified": "A file path must be specified.",
     "path_not_defined": "The file path has not been resolved yet.",
+    "invalid_file_path": "The requested file path is not valid.",
     "no_file_selected": "Please select a file.",
     "file_not_found": "The requested file is not found.",
     "file_not_accessible": "The requested file is not accessible.",

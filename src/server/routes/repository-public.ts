@@ -63,6 +63,10 @@ router.get(
               branch: repo.model.source.branch,
               repoId: repo.repoId,
               anonymizerOptions: anonymizer.opt,
+              contentOptions: {
+                image: repo.options.image,
+                pdf: repo.options.pdf,
+              },
             },
           })
           .on("error", () => {
@@ -104,6 +108,10 @@ router.get(
           commit: repo.model.source.commit || "HEAD",
           getToken: () => repo.getToken(),
           anonymizerOptions: anonymizer.opt,
+          contentOptions: {
+            image: repo.options.image,
+            pdf: repo.options.pdf,
+          },
         },
         res
       );

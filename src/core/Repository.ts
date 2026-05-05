@@ -5,7 +5,7 @@ import * as sha1 from "crypto-js/sha1";
 import User from "./User";
 import GitHubStream from "./source/GitHubStream";
 import Zip from "./source/Zip";
-import { anonymizePath } from "./anonymize-utils";
+import { anonymizePathCompiled, compileTerms } from "./anonymize-utils";
 import UserModel from "./model/users/users.model";
 import { IAnonymizedRepositoryDocument } from "./model/anonymizedRepositories/anonymizedRepositories.types";
 import { AnonymizeTransformer } from "./anonymize-utils";
@@ -35,10 +35,11 @@ function anonymizeTreeRecursive(
     includeSha: false,
   }
 ): Partial<IFile>[] {
+  const compiled = compileTerms(terms);
   return tree.map((file) => {
     return {
-      name: anonymizePath(file.name, terms),
-      path: anonymizePath(file.path, terms),
+      name: anonymizePathCompiled(file.name, compiled),
+      path: anonymizePathCompiled(file.path, compiled),
       size: file.size,
       sha: opt.includeSha
         ? file.sha
@@ -293,8 +294,17 @@ export default class Repository {
           force: true,
         });
 
-        // update the repository name if it has changed
-        this.model.source.repositoryName = ghRepo.fullName;
+        // update the repository name if it has changed. Persist it
+        // immediately — otherwise, when the commit is unchanged and the
+        // function returns early below, the renamed value lives in this
+        // in-memory model only and the next request reloads the stale
+        // name from MongoDB and re-runs the rename detection forever.
+        if (this.model.source.repositoryName !== ghRepo.fullName) {
+          this.model.source.repositoryName = ghRepo.fullName;
+          if (isConnected) {
+            await this._model.save();
+          }
+        }
         const branches = await ghRepo.branches({
           force: true,
           accessToken: token,
@@ -359,20 +369,17 @@ export default class Repository {
     }
     this.model.increment();
     await this.updateStatus(RepositoryStatus.DOWNLOAD);
-    const files = await this.files({
+    await this.files({
       force: false,
       progress,
       recursive: false,
     });
-    if (files.length === 0) {
-      // create a dummy file when the repo is empty to avoid errors
-      await new FileModel({
-        repoId: this.repoId,
-        path: "",
-        name: "",
-        size: 0,
-      }).save();
-    }
+    // Previously inserted a dummy {path:"", name:"", size:0} FileModel
+    // here for empty repos "to avoid errors" — but that record collides
+    // with the special-case in AnonymizedFile.getFileInfo for the empty
+    // path, surfaces in unfiltered file listings, and breaks anything
+    // that assumes FileModel rows correspond to real files. Empty repos
+    // are handled by the route layer; nothing to materialise here.
     await this.updateStatus(RepositoryStatus.READY);
     await this.computeSize();
   }

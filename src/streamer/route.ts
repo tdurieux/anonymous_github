@@ -18,6 +18,7 @@ router.post(
     const repoId = req.body.repoId;
     const commit = req.body.commit;
     const anonymizerOptions = req.body.anonymizerOptions;
+    const contentOptions = req.body.contentOptions;
 
     try {
       await streamAnonymizedZip(
@@ -28,6 +29,7 @@ router.post(
           commit,
           getToken: () => token,
           anonymizerOptions,
+          contentOptions,
         },
         res
       );
@@ -45,9 +47,24 @@ router.post("/", async (req: express.Request, res: express.Response) => {
   const fileSize: number | undefined =
     typeof req.body.size === "number" ? req.body.size : undefined;
   const commit = req.body.commit;
-  const filePath = req.body.filePath;
+  const filePath: string = req.body.filePath;
   const anonymizerOptions = req.body.anonymizerOptions;
   const anonymizer = new AnonymizeTransformer(anonymizerOptions);
+
+  // Defence in depth: the parent server validates filePath against
+  // FileModel before calling us, but the streamer joins this directly
+  // into the storage path on disk. Reject any segment that could escape
+  // the repo root, in case the streamer is ever exposed beyond the
+  // internal network or a buggy caller forwards an unvalidated path.
+  if (
+    typeof filePath !== "string" ||
+    filePath.length === 0 ||
+    filePath
+      .split(/[\\/]/)
+      .some((segment) => segment === ".." || segment === "")
+  ) {
+    return res.status(400).json({ error: "invalid_file_path" });
+  }
 
   const source = new GitHubStream({
     repoId,

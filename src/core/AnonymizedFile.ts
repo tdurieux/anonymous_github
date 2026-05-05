@@ -264,7 +264,29 @@ export default class AnonymizedFile {
                 res
               );
             });
+          // Forward Content-Type from the streamer's upstream response.
+          // got.stream(...).pipe(res) forwards body bytes only — without
+          // this, the parent response has no Content-Type and the browser
+          // guesses (text renders as download, images as octet-stream).
+          resStream.on("response", (upstream: { headers: Record<string, string | string[] | undefined> }) => {
+            if (res.headersSent) return;
+            const ct = upstream.headers["content-type"];
+            if (typeof ct === "string") {
+              res.contentType(ct);
+            } else {
+              const fallback = lookup(this.anonymizedPath);
+              if (fallback) res.contentType(fallback);
+              else if (isTextFile(this.anonymizedPath)) res.contentType("text/plain");
+            }
+          });
           resStream.pipe(res);
+          // Resolve as soon as the response is fully written rather than
+          // waiting for the socket to close — keep-alive sockets stay open
+          // long after the body is delivered, and we don't want to delay
+          // post-send work like countView() that long.
+          res.on("finish", () => {
+            resolve();
+          });
           res.on("close", () => {
             resolve();
           });
@@ -311,6 +333,15 @@ export default class AnonymizedFile {
           .pipe(anonymizer)
           .pipe(res)
           .on("error", handleStreamError)
+          .on("finish", () => {
+            // resolve on body fully written rather than waiting for the
+            // socket to close — keep-alive can hold the socket open long
+            // after the response is delivered, delaying post-send work.
+            if (!content.closed && !content.destroyed) {
+              content.destroy();
+            }
+            resolve();
+          })
           .on("close", () => {
             if (!content.closed && !content.destroyed) {
               content.destroy();

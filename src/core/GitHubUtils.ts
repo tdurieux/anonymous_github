@@ -75,17 +75,36 @@ export async function getToken(repository: Repository) {
             ).toString("base64"),
         },
       });
-      const resBody = (await res.json()) as { token: string };
-      repository.owner.model.accessTokens.github = resBody.token;
-      if (!repository.owner.model.accessTokenDates) {
-        repository.owner.model.accessTokenDates = {
-          github: new Date(),
-        };
-      } else {
-        repository.owner.model.accessTokenDates.github = new Date();
+      // Only persist a refreshed token if GitHub actually returned a
+      // valid one. Without this guard, a 4xx/5xx error body (revoked
+      // OAuth, rate limit, transient outage) silently overwrites the
+      // user's stored token with `undefined`, which then propagates as
+      // `Authorization: token undefined` to every subsequent API call —
+      // 401 even on public repos, and the config.GITHUB_TOKEN fallback
+      // below is unreachable because the token field is no longer falsy.
+      if (res.ok) {
+        const resBody = (await res.json().catch(() => null)) as
+          | { token?: unknown }
+          | null;
+        const refreshed =
+          resBody && typeof resBody.token === "string" && resBody.token.length > 0
+            ? resBody.token
+            : null;
+        if (refreshed) {
+          repository.owner.model.accessTokens.github = refreshed;
+          if (!repository.owner.model.accessTokenDates) {
+            repository.owner.model.accessTokenDates = { github: new Date() };
+          } else {
+            repository.owner.model.accessTokenDates.github = new Date();
+          }
+          await repository.owner.model.save();
+          return refreshed;
+        }
       }
-      await repository.owner.model.save();
-      return resBody.token;
+      console.warn(
+        `[getToken] refresh failed for ${repository.owner.model.username} (status ${res.status}); falling back`
+      );
+      // fall through to the checkToken path / config.GITHUB_TOKEN
     }
     const check = await checkToken(ownerAccessToken);
     if (check) {
