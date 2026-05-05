@@ -42,6 +42,8 @@ router.post("/", async (req: express.Request, res: express.Response) => {
   const repoFullName = req.body.repoFullName.split("/");
   const repoId = req.body.repoId;
   const fileSha = req.body.sha;
+  const fileSize: number | undefined =
+    typeof req.body.size === "number" ? req.body.size : undefined;
   const commit = req.body.commit;
   const filePath = req.body.filePath;
   const anonymizerOptions = req.body.anonymizerOptions;
@@ -58,7 +60,7 @@ router.post("/", async (req: express.Request, res: express.Response) => {
     const content = await source.getFileContentCache(
       filePath,
       repoId,
-      () => fileSha
+      () => ({ sha: fileSha, size: fileSize })
     );
     const mime = lookup(filePath);
     if (mime && !filePath.endsWith(".ts")) {

@@ -125,11 +125,38 @@ export default class GitHubStream extends GitHubBase {
   async getFileContentCache(
     filePath: string,
     repoId: string,
-    fileSha: () => Promise<string> | string
+    fileMeta: () =>
+      | Promise<{ sha: string; size?: number }>
+      | { sha: string; size?: number }
+      | Promise<string>
+      | string
   ) {
+    const meta = await fileMeta();
+    const expected: { sha: string; size?: number } =
+      typeof meta === "string" ? { sha: meta } : meta;
     const fileInfo = await storage.exists(repoId, filePath);
     if (fileInfo == FILE_TYPE.FILE) {
-      return storage.read(repoId, filePath);
+      // If we know the upstream size, validate the cached entry. A cached
+      // file smaller than the upstream size means a previous fetch was
+      // truncated — likely a network error during the GitHub fetch left a
+      // 0-byte or partial blob behind. Treat it as a miss and re-fetch.
+      // Cached size >= expected is accepted: equal for normal files, and
+      // larger for Git LFS files where FileModel.size is the pointer's
+      // size but the cached bytes are the resolved LFS content.
+      if (expected.size != null && expected.size > 0) {
+        try {
+          const stat = await storage.fileInfo(repoId, filePath);
+          if (stat.size != null && stat.size < expected.size) {
+            await storage.rm(repoId, filePath);
+          } else {
+            return storage.read(repoId, filePath);
+          }
+        } catch {
+          // fall through and re-fetch
+        }
+      } else {
+        return storage.read(repoId, filePath);
+      }
     } else if (fileInfo == FILE_TYPE.FOLDER) {
       throw new AnonymousError("folder_not_supported", {
         httpStatus: 400,
@@ -137,7 +164,7 @@ export default class GitHubStream extends GitHubBase {
       });
     }
     const token = await this.data.getToken();
-    const blobStream = this.downloadFile(token, await fileSha());
+    const blobStream = this.downloadFile(token, expected.sha);
     // If the blob is a Git LFS pointer, swap to a raw-URL fetch so the
     // file content (not the pointer text) makes it into the pipeline. See
     // #95 — Support for Git LFS.
@@ -179,7 +206,7 @@ export default class GitHubStream extends GitHubBase {
             object: file,
           });
         }
-        return fileSha;
+        return { sha: fileSha, size: await file.size() };
       }
     );
   }

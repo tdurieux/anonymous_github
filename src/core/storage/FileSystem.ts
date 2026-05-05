@@ -62,16 +62,43 @@ export default class FileSystem extends StorageBase {
     data: string | Readable
   ): Promise<void> {
     const fullPath = join(config.FOLDER, this.repoPath(repoId), p);
+    // Atomic write: stream into a sibling .tmp and only rename into place
+    // when the source stream finishes successfully. If the source errors
+    // mid-flight (transient GitHub 5xx, socket reset, etc.), we drop the
+    // tmp and leave any pre-existing cached file untouched. Without this,
+    // a partial fetch would commit a 0-byte or truncated cache entry that
+    // future reads would happily serve as the file's content.
+    await this.mk(repoId, dirname(p));
+    const tmpPath = `${fullPath}.tmp.${process.pid}.${Date.now()}.${Math.random()
+      .toString(36)
+      .slice(2, 8)}`;
     try {
-      await this.mk(repoId, dirname(p));
-      if (data instanceof Readable) {
-        data.on("error", (_err) => {
-          this.rm(repoId, p);
+      if (typeof data === "string") {
+        await fs.promises.writeFile(tmpPath, data);
+      } else {
+        await new Promise<void>((resolve, reject) => {
+          const ws = fs.createWriteStream(tmpPath);
+          let settled = false;
+          const finish = (err?: Error) => {
+            if (settled) return;
+            settled = true;
+            if (err) {
+              ws.destroy();
+              reject(err);
+            } else {
+              resolve();
+            }
+          };
+          data.on("error", finish);
+          ws.on("error", finish);
+          ws.on("finish", () => finish());
+          data.pipe(ws);
         });
       }
-      return await fs.promises.writeFile(fullPath, data, "utf-8");
+      await fs.promises.rename(tmpPath, fullPath);
     } catch (err) {
       console.error("[ERROR] FileSystem.write failed:", err);
+      await fs.promises.rm(tmpPath, { force: true }).catch(() => undefined);
       throw err;
     }
   }

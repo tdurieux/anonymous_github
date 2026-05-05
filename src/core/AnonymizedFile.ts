@@ -39,6 +39,12 @@ export default class AnonymizedFile {
     return this._file.sha?.replace(/"/g, "");
   }
 
+  async size(): Promise<number | undefined> {
+    if (this._file) return this._file.size;
+    this._file = await this.getFileInfo();
+    return this._file.size;
+  }
+
   async getFileInfo(): Promise<IFile> {
     if (this._file) return this._file;
     let fileDir = dirname(this.anonymizedPath);
@@ -200,6 +206,7 @@ export default class AnonymizedFile {
         repoId: this.repository.repoId,
         filePath: this.filePath,
         sha: await this.sha(),
+        size: await this.size(),
         anonymizerOptions: anonymizer.opt,
       },
     });
@@ -228,8 +235,9 @@ export default class AnonymizedFile {
       try {
         if (config.STREAMER_ENTRYPOINT) {
           // use the streamer service
-          const [sha, token] = await Promise.all([
+          const [sha, size, token] = await Promise.all([
             this.sha(),
+            this.size(),
             this.repository.getToken(),
           ]);
           const resStream = got
@@ -237,6 +245,7 @@ export default class AnonymizedFile {
               method: "POST",
               json: {
                 sha,
+                size,
                 token,
                 repoFullName: this.repository.model.source.repositoryName,
                 commit: this.repository.model.source.commit,
