@@ -175,12 +175,13 @@ export default class S3Storage extends StorageBase {
   ): Promise<void> {
     if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
 
-    if (data instanceof Readable) {
-      data.on("error", (err) => {
-        console.error(`[ERROR] S3 write ${path}`, err);
-        this.rm(repoId, path);
-      });
-    }
+    // No fire-and-forget rm on stream error: Upload uses multipart and
+    // does not commit a partially-uploaded object, so there's nothing to
+    // clean up. The previous handler raced with retries and could delete
+    // a previously-good object on a transient source-stream hiccup. The
+    // size-validated read path in GitHubStream.getFileContentCache
+    // recovers from any object that does end up undersized for any
+    // reason.
 
     const params: PutObjectCommandInput = {
       Bucket: config.S3_BUCKET,

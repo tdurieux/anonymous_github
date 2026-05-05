@@ -114,7 +114,10 @@ export default class GitHubStream extends GitHubBase {
     });
     blobStream.on("end", () => decide());
     blobStream.on("error", (err) => {
-      if (decided) return;
+      // Always propagate — pre-decision this is the only listener; once a
+      // non-LFS decision is made, the inner branch attaches its own
+      // listener that will also fire, but we shouldn't rely on that being
+      // there if the code is later refactored.
       decided = true;
       out.destroy(err);
     });

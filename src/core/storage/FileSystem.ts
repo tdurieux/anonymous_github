@@ -153,13 +153,17 @@ export default class FileSystem extends StorageBase {
               size: stats.size,
             });
           }
+          // Don't synthesise a sha here. The previous value (stats.ino)
+          // wasn't a content hash — just an inode number — and any code
+          // that compared it to an upstream Git blob sha would silently
+          // disagree. Leave it undefined so callers either look up the
+          // real sha from FileModel/GitHub or skip sha-keyed paths.
           output2.push(
             new FileModel({
               name: file,
               path: dir,
               repoId: repoId,
               size: stats.size,
-              sha: stats.ino.toString(),
             })
           );
         }
