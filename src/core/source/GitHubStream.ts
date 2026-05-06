@@ -183,14 +183,35 @@ export default class GitHubStream extends GitHubBase {
     const stream1 = content.pipe(new stream.PassThrough());
     const stream2 = content.pipe(new stream.PassThrough());
 
+    // Safety net: guarantee an `error` listener exists on both branches
+    // before any error can be emitted. storage.write attaches its listener
+    // only after an `await mk(...)`, and the route handler attaches its
+    // listener after awaiting this function — both leave a window where
+    // an upstream error would have no listener and escalate to
+    // uncaughtException, crashing the streamer.
+    const noop = () => {};
+    stream1.on("error", noop);
+    stream2.on("error", noop);
+
     content.on("error", (error) => {
-      error = new AnonymousError("file_not_found", {
-        httpStatus: (error as { status?: number; httpStatus?: number }).status || (error as { httpStatus?: number }).httpStatus,
+      const httpStatus =
+        (error as { response?: { statusCode?: number } })?.response
+          ?.statusCode ??
+        (error as { status?: number })?.status ??
+        (error as { httpStatus?: number })?.httpStatus;
+      const code =
+        httpStatus === 422
+          ? "file_too_big"
+          : httpStatus === 403
+          ? "file_not_accessible"
+          : "file_not_found";
+      const wrapped = new AnonymousError(code, {
+        httpStatus,
         cause: error as Error,
         object: filePath,
       });
-      stream1.emit("error", error);
-      stream2.emit("error", error);
+      stream1.destroy(wrapped);
+      stream2.destroy(wrapped);
     });
 
     storage.write(repoId, filePath, stream1, this.type);

@@ -59,13 +59,12 @@ function getRedis(): RedisClientType | null {
       },
     }) as RedisClientType;
     redisClient.on("error", () => {
-      if (!redisDisabled) {
-        redisDisabled = true;
-        try {
-          redisClient?.disconnect();
-        } catch {
-          /* ignore */
-        }
+      if (redisDisabled) return;
+      redisDisabled = true;
+      const c = redisClient;
+      redisClient = null;
+      if (c?.isOpen) {
+        c.disconnect().catch(() => {});
       }
     });
     redisClient.connect().catch(() => {
