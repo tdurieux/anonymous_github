@@ -84,8 +84,9 @@ export default async function (job: SandboxedJob<RepoJobData, void>) {
       } catch { /* ignored */ }
     }
     logger.error("finished with error", {
+      ...serializeError(error),
       repoId: job.data.repoId,
-      err: serializeError(error),
+      url: `/api/repo/${job.data.repoId}`,
     });
     try {
       await repo.updateStatus(
@@ -94,8 +95,9 @@ export default async function (job: SandboxedJob<RepoJobData, void>) {
       );
     } catch (persistError) {
       logger.error("failed to persist ERROR status", {
+        ...serializeError(persistError),
         repoId: job.data.repoId,
-        err: serializeError(persistError),
+        url: `/api/repo/${job.data.repoId}`,
       });
     }
     throw error;
