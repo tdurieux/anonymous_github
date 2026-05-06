@@ -51,7 +51,7 @@
     "express-slow-down": "^2.0.1",
     "got": "^11.8.6",
     "inquirer": "^8.2.6",
-    "istextorbinary": "^9.5.0",
+    "isbinaryfile": "^6.0.0",
     "marked": "^5.1.2",
     "mime-types": "^2.1.35",
     "mongoose": "^7.6.10",

@@ -499,8 +499,9 @@ describe("ContentAnonimizer", function () {
 // ---------------------------------------------------------------------------
 
 // Mirror of isTextFile that relies on the file extension only — the real
-// impl additionally calls istextorbinary, but for these tests checking the
-// suffix is enough to demonstrate the constructor-vs-post-assignment bug.
+// impl additionally consults mime-types and isbinaryfile, but for these
+// tests checking the suffix is enough to demonstrate the
+// constructor-vs-post-assignment bug.
 function _isTextFileFromPath(filePath) {
   if (!filePath) return false;
   const ext = String(filePath).split(".").pop().toLowerCase();

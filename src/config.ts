@@ -69,6 +69,8 @@ const config: Config = {
     "out",
     "sol",
     "in",
+    "jsonl",
+    "ndjson",
   ],
   STORAGE: "filesystem",
   STREAMER_ENTRYPOINT: null,
