@@ -255,9 +255,11 @@ export default async function start() {
   repositoryStatusCheck();
 
   await connect();
-  await recoverStuckPreparing();
   app.listen(config.PORT);
   logger.info("server started", { port: config.PORT });
+  recoverStuckPreparing().catch((err) =>
+    logger.error("recoverStuckPreparing failed", { err })
+  );
 }
 
 start();

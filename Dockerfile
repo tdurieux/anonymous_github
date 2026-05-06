@@ -1,28 +1,40 @@
-# syntax=docker/dockerfile:1
-FROM node:21-slim AS builder
+# syntax=docker/dockerfile:1.7
 
+# Stage 1: install all deps (with cache mount so npm cache survives across builds)
+FROM node:21-slim AS deps
 WORKDIR /app
-
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --prefer-offline --no-audit --fund=false
 
-COPY tsconfig.json gulpfile.js ./
+# Stage 2: build TypeScript + gulp assets. Source changes only invalidate from here.
+FROM node:21-slim AS build
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY package.json package-lock.json tsconfig.json gulpfile.js ./
 COPY public ./public
 COPY src ./src
-RUN npm run build && npm prune --omit=dev && npm cache clean --force
+RUN npm run build
 
+# Stage 3: prod-only deps. Independent of source so it caches well.
+FROM node:21-slim AS prod-deps
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --omit=dev --prefer-offline --no-audit --fund=false && \
+    npm cache clean --force
+
+# Stage 4: minimal runtime
 FROM node:21-alpine AS runtime
-
 ENV NODE_ENV=production
 ENV PORT=5000
 EXPOSE 5000
-
 WORKDIR /app
 
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/build ./build
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/package.json ./package.json
+COPY --from=prod-deps /app/node_modules ./node_modules
+COPY --from=build /app/build ./build
+COPY --from=build /app/public ./public
+COPY package.json ./package.json
 COPY healthcheck.js ./healthcheck.js
 
 CMD ["node", "./build/server/index.js"]

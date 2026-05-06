@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   anonymous_github:
     build: .
@@ -21,13 +19,17 @@ services:
         - CMD
         - node
         - healthcheck.js
-      interval: 10s
-      timeout: 10s
-      retries: 5
+      interval: 5s
+      timeout: 5s
+      retries: 3
+      start_period: 2s
     depends_on:
-      - mongodb
-      - redis
-      - streamer
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      streamer:
+        condition: service_healthy
 
   streamer:
     build: .
@@ -50,9 +52,10 @@ services:
         - CMD
         - node
         - healthcheck.js
-      interval: 10s
-      timeout: 10s
-      retries: 5
+      interval: 5s
+      timeout: 5s
+      retries: 3
+      start_period: 2s
 
   redis:
     image: "redis:alpine"
