@@ -207,7 +207,7 @@ router.get(
             );
           }
           throw new AnonymousError("repository_not_ready", {
-            httpStatus: 404,
+            httpStatus: 425,
             object: repo,
           });
         }

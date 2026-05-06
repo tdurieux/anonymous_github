@@ -59,7 +59,7 @@ router.get(
             );
           }
           throw new AnonymousError("gist_not_ready", {
-            httpStatus: 404,
+            httpStatus: 425,
             object: gist,
           });
         }

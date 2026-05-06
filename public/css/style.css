@@ -5053,7 +5053,11 @@ body {
   color: var(--color);
   max-height: 26em;
   overflow: auto;
-  white-space: pre;
+  /* pre-wrap honors leading-space indentation (so aligned columns survive)
+     while still wrapping long string values; overflow-wrap forces the break
+     mid-word for unbroken URLs / encoded JSON detail strings. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   margin: 0;
   box-shadow: var(--card-shadow);
 }

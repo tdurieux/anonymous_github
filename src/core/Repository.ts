@@ -220,7 +220,7 @@ export default class Repository {
     ) {
       throw new AnonymousError("repository_not_ready", {
         object: this,
-        httpStatus: 503,
+        httpStatus: 425,
       });
     }
   }

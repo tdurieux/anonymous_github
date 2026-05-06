@@ -168,7 +168,7 @@ export default class PullRequest {
     ) {
       throw new AnonymousError("pull_request_not_ready", {
         object: this,
-        httpStatus: 503,
+        httpStatus: 425,
       });
     }
   }

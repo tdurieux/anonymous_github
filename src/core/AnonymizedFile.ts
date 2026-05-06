@@ -171,7 +171,7 @@ export default class AnonymizedFile {
     if (this._file?.size && this._file?.size > config.MAX_FILE_SIZE) {
       throw new AnonymousError("file_too_big", {
         object: this,
-        httpStatus: 403,
+        httpStatus: 413,
       });
     }
     const content = await this.repository.source?.getFileContent(this);

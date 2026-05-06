@@ -110,7 +110,7 @@ export function isOwnerCoauthorOrAdmin(repo: Repository, user: User) {
   if (repo.owner.id === user.model.id) return;
   if (isCoauthor(repo, user)) return;
   throw new AnonymousError("not_authorized", {
-    httpStatus: 401,
+    httpStatus: 403,
   });
 }
 

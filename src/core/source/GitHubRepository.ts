@@ -122,7 +122,7 @@ export class GitHubRepository {
         }
       } catch (error) {
         throw new AnonymousError("repo_not_found", {
-          httpStatus: (error as { status?: number }).status,
+          httpStatus: (error as { status?: number }).status || 404,
           cause: error as Error,
           object: this,
         });

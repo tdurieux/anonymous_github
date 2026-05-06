@@ -916,7 +916,10 @@ angular
       // Decorate each entry once with derived display fields. Pre-computing
       // avoids returning new arrays from template functions each digest
       // cycle (which trips Angular's $rootScope:infdig).
-      const errorKeyRe = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)+$/;
+      // snake_case-ish identifier looking like an error key. Accepts both
+      // pure lowercase ("repo_not_found") and the mixed-case style this
+      // codebase uses ("repoId_already_used", "invalid_repoId").
+      const errorKeyRe = /^[a-zA-Z][a-zA-Z0-9]*(?:_[a-zA-Z0-9]+)+$/;
       function bucketFor(detail, level) {
         const s =
           (detail && (detail.httpStatus || detail.status)) || null;
@@ -971,12 +974,26 @@ angular
         };
         push("name", detail && detail.name);
         push("code", entry.displayMessage || (detail && detail.message));
-        // "kind" is a friendly grouping; only emit if we know the bucket.
         if (entry._bucket) push("kind", entry._bucket);
         push("httpStatus", detail && detail.httpStatus);
         if (detail && detail.status && !(detail.httpStatus)) push("status", detail.status);
         push("module", entry.module);
-        push("detail", detail && detail.detail);
+        // AnonymousError.detail() can return a JSON-encoded string for
+        // structured payloads (e.g. {"repoId":"...","terms":[],"fullName":...}).
+        // Try to parse it so the renderer can pretty-print it multi-line
+        // instead of dumping an unreadable escape-soup blob.
+        let detailValue = detail && detail.detail;
+        if (typeof detailValue === "string") {
+          const trimmed = detailValue.trim();
+          if (trimmed[0] === "{" || trimmed[0] === "[") {
+            try {
+              detailValue = JSON.parse(detailValue);
+            } catch {
+              /* leave as string */
+            }
+          }
+        }
+        push("detail", detailValue);
         push("url", entry._url);
         push("ts", entry.ts);
         if (!fields.length) return JSON.stringify(entry, null, 2);
@@ -984,11 +1001,23 @@ angular
         const lines = ["{"];
         fields.forEach(([k, v], i) => {
           const key = `"${k}":`.padEnd(keyW + 3, " ");
-          const val = typeof v === "number" || typeof v === "boolean"
-            ? String(v)
-            : JSON.stringify(v);
+          const prefix = `  ${key} `;
           const comma = i < fields.length - 1 ? "," : "";
-          lines.push(`  ${key} ${val}${comma}`);
+          let val;
+          if (v && typeof v === "object") {
+            // Indent continuation lines under the value column so the nested
+            // object reads like a column instead of breaking flow.
+            const pad = " ".repeat(prefix.length);
+            val = JSON.stringify(v, null, 2)
+              .split("\n")
+              .map((ln, idx) => (idx === 0 ? ln : pad + ln))
+              .join("\n");
+          } else if (typeof v === "number" || typeof v === "boolean") {
+            val = String(v);
+          } else {
+            val = JSON.stringify(v);
+          }
+          lines.push(`${prefix}${val}${comma}`);
         });
         lines.push("}");
         return lines.join("\n");

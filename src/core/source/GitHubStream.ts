@@ -332,7 +332,7 @@ export default class GitHubStream extends GitHubBase {
       }
       logger.warn("getTree failed", serializeError(error));
       throw new AnonymousError("repo_not_found", {
-        httpStatus: status || 500,
+        httpStatus: status || 404,
         object: this.data,
         cause: error as Error,
       });

@@ -154,7 +154,7 @@ export default class Gist {
     ) {
       throw new AnonymousError("gist_not_ready", {
         object: this,
-        httpStatus: 503,
+        httpStatus: 425,
       });
     }
   }

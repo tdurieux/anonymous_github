@@ -59,6 +59,30 @@ export default class AnonymousError extends CustomError {
         return `GHDownload ${this.value.data.repoId}`;
       }
       if (typeof this.value === "string") return this.value;
+      // For plain objects (typically request bodies passed in by route
+      // handlers), pull out the diagnostic fingerprint instead of dumping
+      // the entire body. Routes throw with `object: req.body`, which used
+      // to bloat the log with the full JSON of options/source/etc — none
+      // of which helps an operator triage the failure.
+      if (typeof this.value === "object") {
+        const v = this.value as Record<string, unknown>;
+        const fingerprint: string[] = [];
+        if (typeof v.repoId === "string") fingerprint.push(`repoId=${v.repoId}`);
+        if (typeof v.fullName === "string") fingerprint.push(`fullName=${v.fullName}`);
+        if (typeof v.repositoryFullName === "string")
+          fingerprint.push(`pr=${v.repositoryFullName}`);
+        if (typeof v.pullRequestId === "string" || typeof v.pullRequestId === "number")
+          fingerprint.push(`prId=${v.pullRequestId}`);
+        if (typeof v.gistId === "string") fingerprint.push(`gistId=${v.gistId}`);
+        if (typeof v.username === "string") fingerprint.push(`user=${v.username}`);
+        if (typeof v.conferenceID === "string")
+          fingerprint.push(`conference=${v.conferenceID}`);
+        if (fingerprint.length) return fingerprint.join(" ");
+        // Fall back to a bounded, readable preview rather than a giant
+        // escaped JSON blob. Keep it small so the rendered card stays tidy.
+        const json = JSON.stringify(this.value);
+        return json.length > 120 ? json.slice(0, 117) + "…" : json;
+      }
       return JSON.stringify(this.value);
     } catch {
       return String(this.value);
