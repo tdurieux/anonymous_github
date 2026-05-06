@@ -99,10 +99,6 @@ export default class Gist {
       author: comment.user?.login || "",
     }));
 
-    // Mongoose treats `gist` as a nested path; assigning a plain object that
-    // contains nested arrays (files/comments) on an unsaved doc silently drops
-    // those arrays. Cache the populated payload off-model so toJSON can read
-    // it directly, and also set it on the model for the persisted path.
     const payload = {
       description: gistInfo.data.description || "",
       isPublic: gistInfo.data.public,
@@ -117,7 +113,16 @@ export default class Gist {
       comments: commentsMapped,
     };
     this._gistPayload = payload;
-    this._model.set("gist", payload);
+    // `gist` is a nested path (not a sub-schema), so assigning the whole
+    // object via set("gist", payload) mis-casts the inner subdoc arrays.
+    // Set each sub-path individually so Mongoose casts arrays correctly.
+    this._model.set("gist.description", payload.description);
+    this._model.set("gist.isPublic", payload.isPublic);
+    this._model.set("gist.creationDate", payload.creationDate);
+    this._model.set("gist.updatedDate", payload.updatedDate);
+    this._model.set("gist.ownerLogin", payload.ownerLogin);
+    this._model.set("gist.files", files);
+    this._model.set("gist.comments", commentsMapped);
     this._model.markModified("gist");
   }
 
