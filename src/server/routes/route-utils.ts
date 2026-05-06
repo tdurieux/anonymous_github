@@ -118,10 +118,8 @@ export function isOwnerCoauthorOrAdmin(repo: Repository, user: User) {
 function printError(error: any, req?: express.Request) {
   if (error instanceof AnonymousError) {
     if (req?.originalUrl === "/api/repo/undefined/options") return;
-    const payload = {
-      ...serializeError(error),
-      url: req?.originalUrl,
-    };
+    const payload: Record<string, unknown> = serializeError(error);
+    if (req?.originalUrl) payload.url = req.originalUrl;
     // Use the error's snake_case message as the logger summary so the admin
     // Errors page surfaces something meaningful (e.g. "repoId_already_used")
     // instead of a generic "anonymous error" wrapper.
@@ -136,10 +134,9 @@ function printError(error: any, req?: express.Request) {
       logger.error(summary, payload);
     }
   } else if (error instanceof HTTPError) {
-    logger.error(error.code || error.name || "HTTPError", {
-      ...serializeError(error),
-      url: req?.originalUrl,
-    });
+    const payload: Record<string, unknown> = serializeError(error);
+    if (req?.originalUrl) payload.url = req.originalUrl;
+    logger.error(error.code || error.name || "HTTPError", payload);
   } else {
     // Unhandled errors: use the error class name (SyntaxError, TypeError,
     // RangeError, ...) as the summary so the admin page shows
