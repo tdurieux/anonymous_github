@@ -214,7 +214,11 @@ export default class GitHubStream extends GitHubBase {
       stream2.destroy(wrapped);
     });
 
-    storage.write(repoId, filePath, stream1, this.type);
+    // Fire-and-forget: storage.write logs its own failures inside FileSystem
+    // (`[fs] write failed`). Swallow the rejection here so an upstream error
+    // (e.g. GitHub 422 on a too-big blob) doesn't surface as an unhandled
+    // promise rejection and crash the streamer process.
+    storage.write(repoId, filePath, stream1, this.type).catch(() => {});
     return stream2;
   }
 
