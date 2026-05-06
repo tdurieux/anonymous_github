@@ -816,6 +816,12 @@ angular
           document.head.append(link);
           $(`link[href='${darkPrismLink}']`).remove();
         }
+        // Update Ko-fi floating button to match theme
+        var kofiBtn = document.querySelector(".floatingchat-container-wrap-mo498 .floating-chat-kofi-text-container-wrap");
+        if (kofiBtn) {
+          kofiBtn.style.backgroundColor = on ? "#FAF9F6" : "#1A1815";
+          kofiBtn.style.color = on ? "#1A1815" : "#FAF9F6";
+        }
         $scope.$broadcast("dark-mode", on);
       };
 

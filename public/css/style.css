@@ -3275,6 +3275,9 @@ code {
   height: 650px;
   display: block;
 }
+.dark-mode .paper-kofi-wrap iframe {
+  filter: invert(0.88) hue-rotate(180deg) sepia(0.15) saturate(1.2) brightness(1.1) contrast(0.85);
+}
 @media (max-width: 700px) {
   .paper-kofi-wrap iframe { height: 720px; }
 }
