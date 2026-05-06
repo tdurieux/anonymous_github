@@ -2167,6 +2167,8 @@ angular
           const res = await $http.get(
             `/api/repo/${$scope.repoId}/files/?path=${encodeURIComponent(path)}&v=${$scope.options.lastUpdateDate}`
           );
+          const normalized = path || "";
+          $scope.files = $scope.files.filter((f) => f.path !== normalized);
           $scope.files.push(...res.data);
           return res.data;
         } catch (err) {
