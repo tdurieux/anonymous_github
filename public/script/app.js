@@ -1598,7 +1598,18 @@ angular
           }
           const selected = $scope.branches.filter((b) => b.name == $scope.source.branch);
           if (selected.length > 0) {
-            $scope.source.commit = selected[0].commit;
+            // Preserve the saved commit when editing with auto-update off:
+            // refreshing branches must not silently bump the pinned SHA to
+            // GitHub HEAD. Same intent as the source.branch watcher (#360),
+            // extended to cover the branches refresh path.
+            const keepSavedCommit =
+              $scope.isUpdate &&
+              !$scope.options.update &&
+              $scope._originalBranch === $scope.source.branch &&
+              !!$scope.source.commit;
+            if (!keepSavedCommit) {
+              $scope.source.commit = selected[0].commit;
+            }
             $scope.readme = selected[0].readme;
             await getReadme(force);
           }
@@ -2258,7 +2269,7 @@ angular
           return res.data;
         } catch (err) {
           $scope.type = "error";
-          $scope.content = err.data.error;
+          $scope.content = (err && err.data && err.data.error) || "unknown_error";
           $scope.files = [];
         }
       };
@@ -2567,6 +2578,10 @@ angular
           for (let i = 0; i < $scope.paths.length; i++) {
             const path = i > 0 ? $scope.paths.slice(0, i).join("/") : "";
             await $scope.getFiles(path);
+            if ($scope.type === "error") {
+              $scope.$apply();
+              return;
+            }
           }
           if ($scope.files.length == 1 && $scope.files[0].name == "") {
             $scope.files = [];

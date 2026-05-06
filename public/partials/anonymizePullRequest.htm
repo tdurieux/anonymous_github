@@ -90,6 +90,7 @@
                 id="conference"
                 name="conference"
                 ng-model="conference"
+                ng-model-options="{ debounce: { default: 800, blur: 0 }, updateOn: 'default blur' }"
                 ng-class="{'is-invalid': anonymize.conference.$invalid}"
               />
               <small class="form-text text-muted" ng-show="conference_data"

@@ -141,7 +141,7 @@
 
             <div class="form-group">
               <label class="paper-field-label" for="conference">Conference <span class="paper-optional">(optional)</span></label>
-              <input class="form-control" id="conference" name="conference" ng-model="conference" ng-class="{'is-invalid': anonymize.conference.$invalid}" />
+              <input class="form-control" id="conference" name="conference" ng-model="conference" ng-model-options="{ debounce: { default: 800, blur: 0 }, updateOn: 'default blur' }" ng-class="{'is-invalid': anonymize.conference.$invalid}" />
               <small class="form-text text-muted" ng-show="conference_data">
                 <a ng-href="{{conference_data.url}}" target="_blank">{{conference_data.name}}</a> expires {{conference_data.endDate | date}}.
               </small>
