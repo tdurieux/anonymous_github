@@ -321,27 +321,63 @@ export async function getRepositoryFromGitHub(opt: {
         repo: opt.repo,
       },
     });
-  // If the lookup-by-name missed but we already have a record for this
-  // GitHub repo id (e.g. the repo was renamed on GitHub), reuse it instead
-  // of creating a duplicate that would violate the externalId unique index.
-  if (!dbModel && isConnected) {
-    dbModel = await RepositoryModel.findOne({ externalId: "gh_" + r.id });
-  }
-  const model = dbModel || new RepositoryModel({ externalId: "gh_" + r.id });
-  model.name = r.full_name;
-  model.url = r.html_url;
-  model.size = r.size;
-  model.defaultBranch = r.default_branch;
-  model.hasPage = r.has_pages;
-  if (model.hasPage) {
+  let pageSource:
+    | RestEndpointMethodTypes["repos"]["getPages"]["response"]["data"]["source"]
+    | undefined;
+  if (r.has_pages) {
     const ghPageRes = await oct.repos.getPages({
       owner: opt.owner,
       repo: opt.repo,
     });
-    model.pageSource = ghPageRes.data.source;
+    pageSource = ghPageRes.data.source;
   }
-  if (isConnected) {
-    await model.save();
+
+  if (!isConnected) {
+    const model = dbModel || new RepositoryModel({ externalId: "gh_" + r.id });
+    model.name = r.full_name;
+    model.url = r.html_url;
+    model.size = r.size;
+    model.defaultBranch = r.default_branch;
+    model.hasPage = r.has_pages;
+    if (pageSource) model.pageSource = pageSource;
+    return new GitHubRepository(model);
+  }
+
+  // Atomic upsert keyed on externalId so concurrent requests for the same
+  // GitHub repo can't both insert and trip the unique-index race (E11000).
+  const update: Record<string, unknown> = {
+    $set: {
+      name: r.full_name,
+      url: r.html_url,
+      size: r.size,
+      defaultBranch: r.default_branch,
+      hasPage: r.has_pages,
+      ...(pageSource ? { pageSource } : {}),
+    },
+    $setOnInsert: { externalId: "gh_" + r.id },
+  };
+
+  let model: IRepositoryDocument | null;
+  try {
+    model = await RepositoryModel.findOneAndUpdate(
+      { externalId: "gh_" + r.id },
+      update,
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+  } catch (error) {
+    // Mongo can still raise E11000 on a concurrent upsert insert; retry
+    // once with a plain find — the winning insert is now visible.
+    if ((error as { code?: number }).code === 11000) {
+      model = await RepositoryModel.findOne({ externalId: "gh_" + r.id });
+    } else {
+      throw error;
+    }
+  }
+  if (!model) {
+    throw new AnonymousError("repo_not_found", {
+      httpStatus: 404,
+      object: { owner: opt.owner, repo: opt.repo },
+    });
   }
   return new GitHubRepository(model);
 }
