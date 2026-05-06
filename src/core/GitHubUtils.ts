@@ -1,5 +1,7 @@
 import { Octokit } from "@octokit/rest";
+import { throttling } from "@octokit/plugin-throttling";
 
+import AnonymousError from "./AnonymousError";
 import Repository from "./Repository";
 import UserModel from "./model/users/users.model";
 import config from "../config";
@@ -7,13 +9,90 @@ import { createLogger } from "./logger";
 
 const logger = createLogger("github");
 
+// Octokit RequestError shape (subset we care about for rate-limit detection).
+interface OctokitRequestErrorLike {
+  status?: number;
+  message?: string;
+  response?: {
+    headers?: Record<string, string | undefined>;
+  };
+}
+
+/**
+ * Detect GitHub rate-limit / abuse responses (primary 5k/h or undocumented
+ * "secondary" limits) and rewrap them as a translatable AnonymousError so
+ * the UI can show a friendly message instead of a raw HttpError stack. The
+ * GitHub `x-github-request-id` header is preserved in `detail` so users can
+ * cite it if they reach out to GitHub Support.
+ */
+export function isGitHubRateLimitError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const e = err as OctokitRequestErrorLike;
+  const msg = (e.message ?? "").toLowerCase();
+  // Primary limits return 403 with "x-ratelimit-remaining: 0"; secondary
+  // limits return 403 (sometimes 429) with "secondary rate limit" in the
+  // body. Match on either signal so we catch both.
+  const status = e.status ?? 0;
+  if (status !== 403 && status !== 429) return false;
+  if (msg.includes("rate limit") || msg.includes("abuse")) return true;
+  const remaining = e.response?.headers?.["x-ratelimit-remaining"];
+  return remaining === "0";
+}
+
+function rateLimitDetail(err: OctokitRequestErrorLike): string {
+  const headers = err.response?.headers ?? {};
+  const requestId = headers["x-github-request-id"];
+  const retryAfter = headers["retry-after"];
+  const reset = headers["x-ratelimit-reset"];
+  const parts: string[] = [];
+  if (requestId) parts.push(`requestId=${requestId}`);
+  if (retryAfter) parts.push(`retryAfter=${retryAfter}s`);
+  if (reset) parts.push(`reset=${reset}`);
+  return parts.join(" ");
+}
+
+const ThrottledOctokit = Octokit.plugin(throttling);
+
 export function octokit(token: string) {
-  return new Octokit({
+  const oct = new ThrottledOctokit({
     auth: token,
     request: {
       fetch: fetch,
     },
+    throttle: {
+      onRateLimit: (retryAfter, options, _o, retryCount) => {
+        logger.warn("github primary rate limit hit", {
+          method: options.method,
+          url: options.url,
+          retryAfter,
+          retryCount,
+        });
+        // Retry once; if GitHub is still throttling after that, surface the
+        // error to the caller so the UI shows github_rate_limit_exceeded.
+        return retryCount < 1;
+      },
+      onSecondaryRateLimit: (retryAfter, options, _o, retryCount) => {
+        logger.warn("github secondary rate limit hit", {
+          method: options.method,
+          url: options.url,
+          retryAfter,
+          retryCount,
+        });
+        return retryCount < 1;
+      },
+    },
   });
+  oct.hook.error("request", (err) => {
+    if (isGitHubRateLimitError(err)) {
+      throw new AnonymousError("github_rate_limit_exceeded", {
+        httpStatus: 429,
+        cause: err as Error,
+        object: rateLimitDetail(err as OctokitRequestErrorLike),
+      });
+    }
+    throw err;
+  });
+  return oct;
 }
 
 export async function checkToken(token: string) {
