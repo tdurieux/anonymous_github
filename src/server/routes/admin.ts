@@ -1,4 +1,4 @@
-import { Queue } from "bullmq";
+import { Queue, JobType } from "bullmq";
 import * as express from "express";
 import AnonymousError from "../../core/AnonymousError";
 import AnonymizedRepositoryModel from "../../core/model/anonymizedRepositories/anonymizedRepositories.model";
@@ -171,9 +171,9 @@ router.post("/queue/:name/drain", async (req, res) => {
 router.get("/queues", async (req, res) => {
   const search = req.query.search ? String(req.query.search).toLowerCase() : "";
   const stateFilter = req.query.state ? String(req.query.state) : null;
-  const states = stateFilter && (QUEUE_STATES as readonly string[]).includes(stateFilter)
-    ? [stateFilter]
-    : (QUEUE_STATES as readonly string[]);
+  const states: JobType[] = stateFilter && (QUEUE_STATES as readonly string[]).includes(stateFilter)
+    ? [stateFilter as JobType]
+    : ([...QUEUE_STATES] as JobType[]);
 
   const [download, remove, cache, dCounts, rCounts, cCounts] = await Promise.all([
     downloadQueue.getJobs(states),

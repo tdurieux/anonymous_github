@@ -137,7 +137,7 @@ export function startWorker() {
       autorun: true,
     }
   );
-  if (!downloadWorker.isRunning) downloadWorker.run();
+  if (!downloadWorker.isRunning()) downloadWorker.run();
 
   downloadWorker.on("active", async (job) => {
     console.log("[QUEUE] download repository start", job.data.repoId);
