@@ -40,7 +40,7 @@ const QUEUE_STATES = [
   "completed",
   "failed",
   "delayed",
-] as const;
+] as JobType[];
 
 function pickQueue(name: string): Queue | null {
   if (name === "download") return downloadQueue;
@@ -169,11 +169,10 @@ router.post("/queue/:name/drain", async (req, res) => {
 
 router.get("/queues", async (req, res) => {
   const search = req.query.search ? String(req.query.search).toLowerCase() : "";
-  const stateFilter = req.query.state ? String(req.query.state) : null;
-  const states: JobType[] =
-    stateFilter && (QUEUE_STATES as readonly string[]).includes(stateFilter)
-      ? [stateFilter as JobType]
-      : ([...QUEUE_STATES] as JobType[]);
+  const stateFilter: JobType | null = req.query.state ? String(req.query.state) as JobType : null;
+  const states: JobType[] = stateFilter && QUEUE_STATES.includes(stateFilter)
+    ? [stateFilter]
+    : QUEUE_STATES;
 
   const [download, remove, cache, dCounts, rCounts, cCounts] = await Promise.all([
     downloadQueue.getJobs(states),
