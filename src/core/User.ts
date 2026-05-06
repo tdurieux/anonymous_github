@@ -1,5 +1,6 @@
 import AnonymizedRepositoryModel from "./model/anonymizedRepositories/anonymizedRepositories.model";
 import RepositoryModel from "./model/repositories/repositories.model";
+import UserModel from "./model/users/users.model";
 import { IUserDocument } from "./model/users/users.types";
 import Repository from "./Repository";
 import { GitHubRepository } from "./source/GitHubRepository";
@@ -106,7 +107,10 @@ export default class User {
         .filter((id) => !!id) as unknown as typeof this._model.repositories;
 
       // have the model
-      await this._model.save();
+      await UserModel.updateOne(
+        { _id: this._model._id },
+        { $set: { repositories: this._model.repositories } }
+      ).exec();
       return repositories.map((r) => new GitHubRepository(r));
     } else {
       // Only the fields read by GitHubRepository.toJSON() (and the immediate

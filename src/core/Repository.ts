@@ -75,7 +75,10 @@ export default class Repository {
     if (originalToken != token) {
       this._model.source.accessToken = token;
       if (isConnected) {
-        await this._model.save();
+        await AnonymizedRepositoryModel.updateOne(
+          { _id: this._model._id },
+          { $set: { "source.accessToken": token } }
+        ).exec();
       }
     }
     this.checkedToken = true;
@@ -155,7 +158,15 @@ export default class Repository {
       this._model.size = { storage: 0, file: 0 };
       await this.computeSize();
       if (isConnected) {
-        await this._model.save();
+        await AnonymizedRepositoryModel.updateOne(
+          { _id: this._model._id },
+          {
+            $set: {
+              truncatedFolders: this._model.truncatedFolders,
+              size: this._model.size,
+            },
+          }
+        ).exec();
       }
     }
     if (opt.path?.includes(config.ANONYMIZATION_MASK)) {
@@ -306,7 +317,10 @@ export default class Repository {
         if (this.model.source.repositoryName !== ghRepo.fullName) {
           this.model.source.repositoryName = ghRepo.fullName;
           if (isConnected) {
-            await this._model.save();
+            await AnonymizedRepositoryModel.updateOne(
+              { _id: this._model._id },
+              { $set: { "source.repositoryName": ghRepo.fullName } }
+            ).exec();
           }
         }
         const branches = await ghRepo.branches({
@@ -521,7 +535,10 @@ export default class Repository {
       file: res[0]?.file || 0,
     };
     if (isConnected) {
-      await this._model.save();
+      await AnonymizedRepositoryModel.updateOne(
+        { _id: this._model._id },
+        { $set: { size: this._model.size } }
+      ).exec();
     }
     return this._model.size;
   }

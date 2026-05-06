@@ -11,6 +11,7 @@ import StorageBase, { FILE_TYPE } from "./Storage";
 import FileModel from "../model/files/files.model";
 import { IFile } from "../model/files/files.types";
 import { createLogger, serializeError } from "../logger";
+import AnonymousError from "../AnonymousError";
 
 const logger = createLogger("fs");
 
@@ -62,7 +63,9 @@ export default class FileSystem extends StorageBase {
   async write(
     repoId: string,
     p: string,
-    data: string | Readable
+    data: string | Readable,
+    _source?: string,
+    expectedSize?: number
   ): Promise<void> {
     const fullPath = join(config.FOLDER, this.repoPath(repoId), p);
     // Atomic write: stream into a sibling .tmp and only rename into place
@@ -97,6 +100,21 @@ export default class FileSystem extends StorageBase {
           ws.on("finish", () => finish());
           data.pipe(ws);
         });
+      }
+      // Size guard: stat the tmp before renaming. A short read produces a
+      // truncated tmp file that we MUST NOT promote — accepting it would
+      // shadow the real content on every subsequent request. Allow >=
+      // expectedSize because Git LFS files resolve to content larger than
+      // the pointer's recorded size.
+      if (typeof expectedSize === "number" && expectedSize > 0) {
+        const stat = await fs.promises.stat(tmpPath);
+        if (stat.size < expectedSize) {
+          await fs.promises.rm(tmpPath, { force: true }).catch(() => undefined);
+          throw new AnonymousError("storage_write_size_mismatch", {
+            httpStatus: 502,
+            object: { path: p, expected: expectedSize, actual: stat.size },
+          });
+        }
       }
       await fs.promises.rename(tmpPath, fullPath);
     } catch (err) {

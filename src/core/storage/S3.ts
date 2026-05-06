@@ -7,7 +7,7 @@ import {
 import { Upload } from "@aws-sdk/lib-storage";
 import { NodeHttpHandler } from "@smithy/node-http-handler";
 import config from "../../config";
-import { pipeline, Readable, Transform } from "stream";
+import { pipeline, Readable, Transform, PassThrough } from "stream";
 import ArchiveStreamToS3 from "decompress-stream-to-s3";
 import { Response } from "express";
 import { lookup } from "mime-types";
@@ -174,7 +174,8 @@ export default class S3Storage extends StorageBase {
     repoId: string,
     path: string,
     data: string | Readable,
-    source?: string
+    source?: string,
+    expectedSize?: number
   ): Promise<void> {
     if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
 
@@ -186,10 +187,28 @@ export default class S3Storage extends StorageBase {
     // recovers from any object that does end up undersized for any
     // reason.
 
+    // When we know the upstream byte count, count bytes through a
+    // PassThrough so we can refuse to commit a short read. The Upload
+    // client itself doesn't expose bytesWritten, and S3 will happily
+    // PutObject a truncated body if the source stream ends cleanly with
+    // fewer bytes than expected.
+    let body: string | Readable = data;
+    let bytesWritten = -1;
+    if (typeof expectedSize === "number" && expectedSize > 0 && typeof data !== "string") {
+      bytesWritten = 0;
+      const counter = new PassThrough();
+      counter.on("data", (chunk: Buffer) => {
+        bytesWritten += chunk.length;
+      });
+      data.on("error", (err: Error) => counter.destroy(err));
+      data.pipe(counter);
+      body = counter;
+    }
+
     const params: PutObjectCommandInput = {
       Bucket: config.S3_BUCKET,
       Key: join(this.repoPath(repoId), path),
-      Body: data,
+      Body: body,
       ContentType: lookup(path).toString(),
     };
     if (source) {
@@ -203,6 +222,22 @@ export default class S3Storage extends StorageBase {
     });
 
     await parallelUploads3.done();
+
+    if (
+      typeof expectedSize === "number" &&
+      expectedSize > 0 &&
+      bytesWritten >= 0 &&
+      bytesWritten < expectedSize
+    ) {
+      // The body completed cleanly but produced fewer bytes than the
+      // tree said — delete the truncated object so the next request
+      // re-fetches from GitHub instead of serving the short blob.
+      await this.rm(repoId, path).catch(() => undefined);
+      throw new AnonymousError("storage_write_size_mismatch", {
+        httpStatus: 502,
+        object: { path, expected: expectedSize, actual: bytesWritten },
+      });
+    }
   }
 
   /** @override */

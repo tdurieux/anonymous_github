@@ -179,7 +179,16 @@ export async function getToken(repository: Repository) {
           } else {
             repository.owner.model.accessTokenDates.github = new Date();
           }
-          await repository.owner.model.save();
+          await UserModel.updateOne(
+            { _id: repository.owner.model._id },
+            {
+              $set: {
+                "accessTokens.github": refreshed,
+                "accessTokenDates.github":
+                  repository.owner.model.accessTokenDates.github,
+              },
+            }
+          ).exec();
           return refreshed;
         }
       }

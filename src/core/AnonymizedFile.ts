@@ -13,6 +13,78 @@ import { handleError } from "../server/routes/route-utils";
 import FileModel from "./model/files/files.model";
 import { IFile } from "./model/files/files.types";
 import { FilterQuery } from "mongoose";
+import { createLogger, serializeError } from "./logger";
+
+const logger = createLogger("anonymized-file");
+
+// Map a streamer error response to an AnonymousError that preserves the
+// upstream status and error code instead of collapsing every failure into a
+// generic 404. Without this, a corrupt cache, a 5xx from the streamer, an
+// LFS pointer issue, and a missing file all surface to the user as the
+// same `file_not_found` — which makes incidents impossible to triage.
+function streamerErrorToAnonymous(
+  err: Error & { response?: { statusCode?: number; body?: unknown } },
+  context: { repoId: string; filePath: string }
+): { error: AnonymousError; upstreamStatus?: number; upstreamBody?: string } {
+  const upstreamStatus = err?.response?.statusCode;
+  let errCode = "file_not_found";
+  let httpStatus = 404;
+  let upstreamBody: string | undefined;
+
+  if (err?.response?.body != null) {
+    try {
+      upstreamBody =
+        typeof err.response.body === "string"
+          ? err.response.body
+          : Buffer.isBuffer(err.response.body)
+          ? err.response.body.toString("utf8")
+          : JSON.stringify(err.response.body);
+    } catch {
+      // ignore body decode failures
+    }
+    if (upstreamBody) {
+      try {
+        const parsed = JSON.parse(upstreamBody);
+        if (parsed && typeof parsed.error === "string") {
+          errCode = parsed.error;
+        }
+      } catch {
+        // body wasn't JSON — keep the default code
+      }
+    }
+  }
+  if (typeof upstreamStatus === "number") {
+    // Pass through 4xx (client-meaningful: 404 file_not_found, 413
+    // file_too_big, 403 file_not_accessible). Collapse 5xx into 502 so
+    // browsers don't cache an upstream-fault as a missing-file 404.
+    httpStatus = upstreamStatus >= 500 ? 502 : upstreamStatus;
+    if (upstreamStatus >= 500 && errCode === "file_not_found") {
+      errCode = "streamer_upstream_error";
+    }
+  } else if (errCode === "file_not_found") {
+    // No HTTP response at all (connection refused, timeout, DNS) — that's
+    // a streamer fault, not a missing file.
+    errCode = "streamer_unreachable";
+    httpStatus = 502;
+  }
+
+  logger.warn("streamer fetch failed", {
+    repoId: context.repoId,
+    filePath: context.filePath,
+    upstreamStatus,
+    upstreamBody: upstreamBody?.slice(0, 500),
+    err: serializeError(err),
+  });
+
+  return {
+    error: new AnonymousError(errCode, {
+      httpStatus,
+      cause: err,
+    }),
+    upstreamStatus,
+    upstreamBody,
+  };
+}
 
 /**
  * Represent a file in a anonymized repository
@@ -255,14 +327,18 @@ export default class AnonymizedFile {
                 anonymizerOptions: anonymizer.opt,
               },
             })
-            .on("error", (_err) => {
-              handleError(
-                new AnonymousError("file_not_found", {
-                  object: this,
-                  httpStatus: 404,
-                }),
-                res
+            .on("error", (err: Error) => {
+              const { error } = streamerErrorToAnonymous(
+                err as Error & {
+                  response?: { statusCode?: number; body?: unknown };
+                },
+                {
+                  repoId: this.repository.repoId,
+                  filePath: this.anonymizedPath,
+                }
               );
+              error.value = this;
+              handleError(error, res);
             });
           // Forward Content-Type from the streamer's upstream response.
           // got.stream(...).pipe(res) forwards body bytes only — without

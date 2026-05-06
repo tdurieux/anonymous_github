@@ -5,6 +5,7 @@ import Conference from "./Conference";
 import ConferenceModel from "./model/conference/conferences.model";
 import AnonymousError from "./AnonymousError";
 import { IAnonymizedGistDocument } from "./model/anonymizedGists/anonymizedGists.types";
+import AnonymizedGistModel from "./model/anonymizedGists/anonymizedGists.model";
 import config from "../config";
 import { octokit } from "./GitHubUtils";
 import { ContentAnonimizer } from "./anonymize-utils";
@@ -175,7 +176,10 @@ export default class Gist {
       await this.download();
       this._model.anonymizeDate = new Date();
       await this.updateStatus(RepositoryStatus.READY);
-      await this._model.save();
+      await AnonymizedGistModel.updateOne(
+        { _id: this._model._id },
+        { $set: { anonymizeDate: this._model.anonymizeDate } }
+      ).exec();
     }
   }
 
@@ -189,14 +193,29 @@ export default class Gist {
   async countView() {
     this._model.lastView = new Date();
     this._model.pageView = (this._model.pageView || 0) + 1;
-    await this._model.save();
+    await AnonymizedGistModel.updateOne(
+      { _id: this._model._id },
+      {
+        $set: { lastView: this._model.lastView },
+        $inc: { pageView: 1 },
+      }
+    ).exec();
   }
 
   async updateStatus(status: RepositoryStatus, statusMessage?: string) {
     this._model.status = status;
     this._model.statusDate = new Date();
     this._model.statusMessage = statusMessage;
-    await this._model.save();
+    await AnonymizedGistModel.updateOne(
+      { _id: this._model._id },
+      {
+        $set: {
+          status,
+          statusDate: this._model.statusDate,
+          statusMessage,
+        },
+      }
+    ).exec();
   }
 
   async expire() {
@@ -218,7 +237,18 @@ export default class Gist {
     this._model.gist.description = "";
     this._model.gist.files = [];
     this._model.gist.ownerLogin = "";
-    await this._model.save();
+    const set: Record<string, unknown> = {
+      "gist.comments": [],
+      "gist.description": "",
+      "gist.files": [],
+      "gist.ownerLogin": "",
+    };
+    if (status) set.status = status;
+    if (statusMessage) set.statusMessage = statusMessage;
+    await AnonymizedGistModel.updateOne(
+      { _id: this._model._id },
+      { $set: set }
+    ).exec();
   }
 
   async conference(): Promise<Conference | null> {

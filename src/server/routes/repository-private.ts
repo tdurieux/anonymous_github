@@ -662,7 +662,10 @@ router.post(
         addedAt: new Date(),
       });
       repo.model.coauthors = list;
-      await repo.model.save();
+      await AnonymizedRepositoryModel.updateOne(
+        { _id: repo.model._id },
+        { $set: { coauthors: list } }
+      ).exec();
       res.json(repo.model.coauthors);
     } catch (error) {
       handleError(error, res, req);
@@ -690,7 +693,10 @@ router.delete(
       repo.model.coauthors = (repo.model.coauthors || []).filter(
         (c) => c.username.toLowerCase() !== target.toLowerCase()
       );
-      await repo.model.save();
+      await AnonymizedRepositoryModel.updateOne(
+        { _id: repo.model._id },
+        { $set: { coauthors: repo.model.coauthors } }
+      ).exec();
       res.json(repo.model.coauthors);
     } catch (error) {
       handleError(error, res, req);

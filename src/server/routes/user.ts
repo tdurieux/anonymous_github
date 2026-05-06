@@ -3,6 +3,7 @@ import config from "../../config";
 import { ensureAuthenticated } from "./connection";
 import { handleError, getUser, isOwnerOrAdmin } from "./route-utils";
 import UserModel from "../../core/model/users/users.model";
+import AnonymizedRepositoryModel from "../../core/model/anonymizedRepositories/anonymizedRepositories.model";
 import User from "../../core/User";
 import FileModel from "../../core/model/files/files.model";
 import { isConnected } from "../database";
@@ -90,7 +91,12 @@ router.get("/quota", async (req: express.Request, res: express.Response) => {
         await Promise.all(
           ready
             .filter((r) => uncachedSet.has(r.repoId))
-            .map((r) => r.model.save())
+            .map((r) =>
+              AnonymizedRepositoryModel.updateOne(
+                { _id: r.model._id },
+                { $set: { size: r.model.size } }
+              ).exec()
+            )
         );
       }
     }
@@ -131,7 +137,10 @@ router.post("/default", async (req: express.Request, res: express.Response) => {
     const d = req.body;
     user.model.default = d;
 
-    await user.model.save();
+    await UserModel.updateOne(
+      { _id: user.model._id },
+      { $set: { default: d } }
+    ).exec();
     res.send("ok");
   } catch (error) {
     handleError(error, res, req);

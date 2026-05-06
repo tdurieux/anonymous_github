@@ -55,7 +55,16 @@ export default abstract class StorageBase {
     repoId: string,
     path: string,
     data: string | Readable,
-    source?: string
+    source?: string,
+    /**
+     * Expected number of bytes for the source. When provided and the
+     * stream produces fewer bytes (a truncated upstream response, a socket
+     * reset that didn't surface as an error, etc.), the write is rejected
+     * and any partial blob is removed instead of being committed. This is
+     * the load-bearing guard that keeps zero-byte cache entries from
+     * silently shadowing real files on subsequent reads.
+     */
+    expectedSize?: number
   ): Promise<void>;
 
   /**

@@ -170,7 +170,10 @@ export class GitHubRepository {
           ghRes.data.encoding as BufferEncoding
         ).toString("utf-8");
         selected.readme = readme;
-        await model.save();
+        await RepositoryModel.updateOne(
+          { externalId: this.id, "branches.name": opt.branch },
+          { $set: { "branches.$.readme": readme } }
+        ).exec();
       } catch (error) {
         throw new AnonymousError("readme_not_available", {
           httpStatus: 404,

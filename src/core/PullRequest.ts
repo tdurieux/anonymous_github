@@ -5,6 +5,7 @@ import Conference from "./Conference";
 import ConferenceModel from "./model/conference/conferences.model";
 import AnonymousError from "./AnonymousError";
 import { IAnonymizedPullRequestDocument } from "./model/anonymizedPullRequests/anonymizedPullRequests.types";
+import AnonymizedPullRequestModel from "./model/anonymizedPullRequests/anonymizedPullRequests.model";
 import config from "../config";
 import got, { HTTPError } from "got";
 import { octokit } from "./GitHubUtils";
@@ -189,7 +190,10 @@ export default class PullRequest {
       await this.download();
       this._model.anonymizeDate = new Date();
       await this.updateStatus(RepositoryStatus.READY);
-      await this._model.save();
+      await AnonymizedPullRequestModel.updateOne(
+        { _id: this._model._id },
+        { $set: { anonymizeDate: this._model.anonymizeDate } }
+      ).exec();
     }
   }
   /**
@@ -211,7 +215,13 @@ export default class PullRequest {
   async countView() {
     this._model.lastView = new Date();
     this._model.pageView = (this._model.pageView || 0) + 1;
-    await this._model.save();
+    await AnonymizedPullRequestModel.updateOne(
+      { _id: this._model._id },
+      {
+        $set: { lastView: this._model.lastView },
+        $inc: { pageView: 1 },
+      }
+    ).exec();
   }
 
   /**
@@ -223,7 +233,16 @@ export default class PullRequest {
     this._model.status = status;
     this._model.statusDate = new Date();
     this._model.statusMessage = statusMessage;
-    await this._model.save();
+    await AnonymizedPullRequestModel.updateOne(
+      { _id: this._model._id },
+      {
+        $set: {
+          status,
+          statusDate: this._model.statusDate,
+          statusMessage,
+        },
+      }
+    ).exec();
   }
 
   /**
@@ -261,7 +280,24 @@ export default class PullRequest {
     this._model.pullRequest.mergedDate = undefined;
     this._model.pullRequest.state = "closed";
     this._model.pullRequest.draft = false;
-    await this._model.save();
+    const set: Record<string, unknown> = {
+      "pullRequest.comments": [],
+      "pullRequest.body": "",
+      "pullRequest.title": "",
+      "pullRequest.diff": "",
+      "pullRequest.baseRepositoryFullName": "",
+      "pullRequest.headRepositoryFullName": "",
+      "pullRequest.merged": false,
+      "pullRequest.state": "closed",
+      "pullRequest.draft": false,
+    };
+    const unset: Record<string, ""> = { "pullRequest.mergedDate": "" };
+    if (status) set.status = status;
+    if (statusMessage) set.statusMessage = statusMessage;
+    await AnonymizedPullRequestModel.updateOne(
+      { _id: this._model._id },
+      { $set: set, $unset: unset }
+    ).exec();
   }
 
   /**

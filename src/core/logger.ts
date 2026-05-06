@@ -2,7 +2,7 @@ import { createClient, RedisClientType } from "redis";
 import config from "../config";
 
 export const ERROR_LOG_KEY = "admin:errors";
-export const ERROR_LOG_MAX = 1000;
+export const ERROR_LOG_MAX = 5000;
 export const ERROR_LOG_HOURLY_PREFIX = "admin:errors:hourly:";
 export const ERROR_LOG_DROPPED_KEY = "admin:errors:dropped";
 // 48h retention on the hourly counters: stats endpoint reads "last 24h" and
@@ -176,7 +176,6 @@ function persistError(entry: {
     droppedInProcess++;
     return;
   }
-  const payload = clampPayload(entry);
   // Pre-compute the structured fields the stats endpoint needs so the read
   // path doesn't have to parse the JSON list at all.
   const detail = entry.raw.find(
@@ -191,12 +190,28 @@ function persistError(entry: {
       ? (detail.code as string)
       : "") ||
     "_";
+  // Routine client misuse (401/403/404 and the allowlisted "expected" 4xx
+  // codes below) drowns out real errors in the recent-entries ring. Keep the
+  // hourly counters so spikes still show on the admin page, but don't push
+  // these entries into the bounded list.
+  const noisyCodes = new Set([
+    "repository_expired",
+    "repository_not_ready",
+    "repoId_already_used",
+    "invalid_repoId",
+    "page_not_supported_on_different_branch",
+  ]);
+  const skipRing = bucket === "info" || noisyCodes.has(code);
   const hKey = hourKey(entry.ts);
-  client
-    .multi()
-    .lPush(ERROR_LOG_KEY, payload)
-    .lTrim(ERROR_LOG_KEY, 0, ERROR_LOG_MAX - 1)
-    .hIncrBy(hKey, "total", 1)
+  const tx = client.multi();
+  if (!skipRing) {
+    tx.lPush(ERROR_LOG_KEY, clampPayload(entry)).lTrim(
+      ERROR_LOG_KEY,
+      0,
+      ERROR_LOG_MAX - 1
+    );
+  }
+  tx.hIncrBy(hKey, "total", 1)
     .hIncrBy(hKey, `bucket:${bucket}`, 1)
     .hIncrBy(hKey, `level:${entry.level}`, 1)
     .hIncrBy(hKey, `module:${entry.module}`, 1)

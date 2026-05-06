@@ -235,7 +235,9 @@ export default class GitHubStream extends GitHubBase {
     // (`[fs] write failed`). Swallow the rejection here so an upstream error
     // (e.g. GitHub 422 on a too-big blob) doesn't surface as an unhandled
     // promise rejection and crash the streamer process.
-    storage.write(repoId, filePath, stream1, this.type).catch(() => {});
+    storage
+      .write(repoId, filePath, stream1, this.type, expected.size)
+      .catch(() => {});
     return stream2;
   }
 

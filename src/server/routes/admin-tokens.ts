@@ -39,17 +39,20 @@ router.post("/", async (req, res) => {
     const plaintext = generateToken();
     const tokenHash = hashToken(plaintext);
 
-    const model = await UserModel.findById(user.model.id);
-    if (!model) return res.status(404).json({ error: "user_not_found" });
-    if (!model.apiTokens) model.apiTokens = [];
-    model.apiTokens.push({
+    const entry = {
       tokenHash,
       name,
       createdAt: new Date(),
-    });
-    await model.save();
+    };
+    const updated = await UserModel.findByIdAndUpdate(
+      user.model.id,
+      { $push: { apiTokens: entry } },
+      { new: true }
+    );
+    if (!updated) return res.status(404).json({ error: "user_not_found" });
 
-    const created = model.apiTokens[model.apiTokens.length - 1];
+    const tokens = updated.apiTokens || [];
+    const created = tokens[tokens.length - 1];
     res.json({
       id: created._id,
       name: created.name,

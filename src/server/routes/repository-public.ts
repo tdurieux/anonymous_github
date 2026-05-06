@@ -9,7 +9,10 @@ import { downloadQueue } from "../../queue";
 import { RepositoryStatus } from "../../core/types";
 import User from "../../core/User";
 import { streamAnonymizedZip } from "../../core/zipStream";
+import { createLogger, serializeError } from "../../core/logger";
 import gh = require("parse-github-url");
+
+const logger = createLogger("repository-public");
 
 const router = express.Router();
 
@@ -69,11 +72,47 @@ router.get(
               },
             },
           })
-          .on("error", () => {
+          .on("error", (err: Error & { response?: { statusCode?: number; body?: unknown } }) => {
+            const upstreamStatus = err?.response?.statusCode;
+            let upstreamBody: string | undefined;
+            let errCode = "zip_not_available";
+            let httpStatus = 502;
+            if (err?.response?.body != null) {
+              try {
+                upstreamBody =
+                  typeof err.response.body === "string"
+                    ? err.response.body
+                    : Buffer.isBuffer(err.response.body)
+                    ? err.response.body.toString("utf8")
+                    : JSON.stringify(err.response.body);
+              } catch {
+                /* ignore */
+              }
+              if (upstreamBody) {
+                try {
+                  const parsed = JSON.parse(upstreamBody);
+                  if (parsed && typeof parsed.error === "string") {
+                    errCode = parsed.error;
+                  }
+                } catch {
+                  /* not JSON */
+                }
+              }
+            }
+            if (typeof upstreamStatus === "number") {
+              httpStatus = upstreamStatus >= 500 ? 502 : upstreamStatus;
+            }
+            logger.warn("streamer zip fetch failed", {
+              repoId: repo.repoId,
+              upstreamStatus,
+              upstreamBody: upstreamBody?.slice(0, 500),
+              err: serializeError(err),
+            });
             handleError(
-              new AnonymousError("file_not_found", {
+              new AnonymousError(errCode, {
                 url: req.originalUrl,
-                httpStatus: 404,
+                httpStatus,
+                cause: err,
               }),
               res
             );
