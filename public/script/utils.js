@@ -15,6 +15,13 @@ function saveFilterPrefs(key, value) {
   }
 }
 
+function encodePathForUrl(path) {
+  return String(path || "")
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+}
+
 function humanFileSize(bytes, si = false, dp = 1) {
   const thresh = si ? 1000 : 1024;
 

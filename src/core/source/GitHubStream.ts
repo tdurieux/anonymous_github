@@ -20,6 +20,21 @@ import config from "../../config";
 
 const logger = createLogger("gh-stream");
 
+export function githubRawFileUrl(
+  owner: string,
+  repo: string,
+  commit: string,
+  filePath: string
+): string {
+  const encodedPath = filePath
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+  return `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(
+    repo
+  )}/raw/${encodeURIComponent(commit)}/${encodedPath}`;
+}
+
 export default class GitHubStream extends GitHubBase {
   type: "GitHubDownload" | "GitHubStream" | "Zip" = "GitHubStream";
 
@@ -64,11 +79,68 @@ export default class GitHubStream extends GitHubBase {
   // blob endpoint above returns the raw pointer text instead, so we use this
   // as the fallback for LFS files (#95).
   private downloadFileViaRaw(token: string, filePath: string) {
-    const url = `https://github.com/${this.data.organization}/${this.data.repoName}/raw/${this.data.commit}/${filePath}`;
+    const url = githubRawFileUrl(
+      this.data.organization,
+      this.data.repoName,
+      this.data.commit,
+      filePath
+    );
     logger.debug("downloading via raw URL (LFS)", { url });
     return got.stream(url, {
       headers: { authorization: `token ${token}` },
       followRedirect: true,
+    });
+  }
+
+  // Try the blob API, then fall back to the raw URL on statuses where the
+  // path-based endpoint can still succeed. 422 is the blob endpoint's size
+  // cap; 404 can happen with stale/invalid blob SHAs while the path still
+  // exists at the requested commit.
+  private downloadWithFallback(
+    token: string,
+    sha: string,
+    filePath: string
+  ): Promise<stream.Readable> {
+    return new Promise<stream.Readable>((resolve) => {
+      const blobStream = this.downloadFile(token, sha);
+      let settled = false;
+
+      const fallbackStatuses = new Set([404, 422]);
+      const fallbackToRaw = (statusCode?: number) => {
+        settled = true;
+        logger.info("blob API failed, falling back to raw URL", {
+          filePath,
+          statusCode,
+        });
+        resolve(this.downloadFileViaRaw(token, filePath));
+      };
+
+      blobStream.on("error", (err) => {
+        if (settled) return;
+        const statusCode = (
+          err as { response?: { statusCode?: number } }
+        )?.response?.statusCode;
+        if (statusCode && fallbackStatuses.has(statusCode)) {
+          fallbackToRaw(statusCode);
+          return;
+        }
+        // Other errors: let the normal pipeline handle them.
+        settled = true;
+        const passthrough = new stream.PassThrough();
+        passthrough.destroy(err);
+        resolve(passthrough);
+      });
+
+      blobStream.on("response", (response) => {
+        if (settled) return;
+        if (fallbackStatuses.has(response.statusCode || 0)) {
+          blobStream.destroy();
+          fallbackToRaw(response.statusCode);
+          return;
+        }
+        settled = true;
+        resolve(this.resolveLfsPointer(blobStream, token, filePath));
+      });
     });
   }
 
@@ -190,11 +262,14 @@ export default class GitHubStream extends GitHubBase {
       });
     }
     const token = await this.data.getToken();
-    const blobStream = this.downloadFile(token, expected.sha);
-    // If the blob is a Git LFS pointer, swap to a raw-URL fetch so the
-    // file content (not the pointer text) makes it into the pipeline. See
-    // #95 — Support for Git LFS.
-    const content = this.resolveLfsPointer(blobStream, token, filePath);
+
+    // Try the blob API first, but fall back to the raw URL on recoverable
+    // blob misses/caps while still preserving LFS pointer handling.
+    const content = await this.downloadWithFallback(
+      token,
+      expected.sha,
+      filePath
+    );
 
     // duplicate the stream to write it to the storage
     const stream1 = content.pipe(new stream.PassThrough());

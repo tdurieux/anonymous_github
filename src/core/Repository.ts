@@ -141,7 +141,21 @@ export default class Repository {
       force: false,
     }
   ): Promise<IFile[]> {
-    const hasFile = await FileModel.exists({ repoId: this.repoId }).exec();
+    let hasFile = await FileModel.exists({ repoId: this.repoId }).exec();
+    // Files created by GitHubDownload don't carry a valid 40-char GitHub
+    // blob SHA.  When the source type later switches to GitHubStream the
+    // stale entries cause blob-API 404s.  Detect this by sampling a file
+    // with a sha and checking its length; force a re-fetch if it doesn't
+    // look like a GitHub SHA.
+    if (hasFile && this.source instanceof GitHubStream) {
+      const sample = await FileModel.findOne(
+        { repoId: this.repoId, sha: { $exists: true, $ne: null } },
+        { sha: 1 }
+      ).exec();
+      if (sample?.sha && sample.sha.length !== 40) {
+        hasFile = null;
+      }
+    }
     if (!hasFile || opt.force) {
       await FileModel.deleteMany({ repoId: this.repoId }).exec();
       const files = await this.source.getFiles(opt.progress);

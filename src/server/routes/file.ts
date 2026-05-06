@@ -6,14 +6,40 @@ import { fileETag } from "./file-etag";
 
 export const router = express.Router();
 
+function decodePathSegment(segment: string): string {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    try {
+      return decodeURI(segment);
+    } catch {
+      return segment;
+    }
+  }
+}
+
+export function filePathFromRequestUrl(
+  reqUrl: string,
+  protocol: string,
+  hostname: string,
+  repoId: string
+): string {
+  const pathname = new URL(reqUrl, `${protocol}://${hostname}`).pathname;
+  const prefix = `/${encodeURIComponent(repoId)}/file/`;
+  const rawPath = pathname.startsWith(prefix)
+    ? pathname.substring(prefix.length)
+    : pathname.replace(`/${repoId}/file/`, "");
+  return rawPath.split("/").map(decodePathSegment).join("/");
+}
+
 router.get(
   "/:repoId/file/:path*",
   async (req: express.Request, res: express.Response) => {
-    const anonymizedPath = decodeURI(
-      new URL(req.url, `${req.protocol}://${req.hostname}`).pathname.replace(
-        `/${req.params.repoId}/file/`,
-        ""
-      )
+    const anonymizedPath = filePathFromRequestUrl(
+      req.url,
+      req.protocol,
+      req.hostname,
+      req.params.repoId
     );
     if (anonymizedPath.endsWith("/")) {
       return handleError(

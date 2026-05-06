@@ -593,7 +593,9 @@ angular
                 if (dir) {
                   output += `<a ng-click="openFolder('${path}', $event)">${name}</a>`;
                 } else {
-                  output += `<a href='/r/${$scope.repoId}${path}'>${name}</a>`;
+                  output += `<a href='/r/${$scope.repoId}${encodePathForUrl(
+                    path
+                  )}'>${name}</a>`;
                 }
                 if (truncated) {
                   output += `<span class="truncated-warning" title="{{ 'WARNINGS.folder_truncated' | translate }}"><i class="fas fa-exclamation-triangle"></i></span>`;
@@ -2255,7 +2257,9 @@ angular
           }
 
           // redirect to readme
-          $location.url(uri + readmeCandidates[best_match]);
+          $location.url(
+            uri + encodePathForUrl(readmeCandidates[best_match])
+          );
         }
       }
       $scope.getFiles = async function (path) {
@@ -2353,11 +2357,15 @@ angular
         // server returns a fresh ETag on first hit either way.
         const sha = (fileInfo && fileInfo.sha) || "0";
         $http
-          .get(`/api/repo/${$scope.repoId}/file/${path}?v=` + sha, {
-            transformResponse: (data) => {
-              return data;
-            },
-          })
+          .get(
+            `/api/repo/${$scope.repoId}/file/${encodePathForUrl(path)}?v=` +
+              sha,
+            {
+              transformResponse: (data) => {
+                return data;
+              },
+            }
+          )
           .then(
             (res) => {
               $scope.type = originalType;
@@ -2427,7 +2435,9 @@ angular
         if ($scope.file && $scope.file.sha) {
           fileVersion = $scope.file.sha;
         }
-        $scope.url = `/api/repo/${$scope.repoId}/file/${$scope.filePath}?v=${fileVersion}`;
+        $scope.url = `/api/repo/${$scope.repoId}/file/${encodePathForUrl(
+          $scope.filePath
+        )}?v=${fileVersion}`;
 
         let extension = $scope.filePath.toLowerCase();
         const extensionIndex = extension.lastIndexOf(".");
