@@ -27,21 +27,37 @@ export default class AnonymousError extends CustomError {
     this.cause = opt?.cause;
   }
 
-  toString(): string {
-    let out = "";
-    let detail = this.value ? JSON.stringify(this.value) : null;
-    if (this.value instanceof Repository) {
-      detail = this.value.repoId;
-    } else if (this.value instanceof AnonymizedFile) {
-      detail = `/r/${this.value.repository.repoId}/${this.value.anonymizedPath}`;
-    } else if (this.value instanceof GitHubRepository) {
-      detail = `${this.value.fullName}`;
-    } else if (this.value instanceof User) {
-      detail = `${this.value.username}`;
-    } else if (this.value instanceof GitHubBase) {
-      detail = `GHDownload ${this.value.data.repoId}`;
+  detail(): string | undefined {
+    if (this.value == null) return undefined;
+    try {
+      if (this.value instanceof Repository) return this.value.repoId;
+      if (this.value instanceof AnonymizedFile) {
+        const repoId = this.value.repository?.repoId;
+        // anonymizedPath getter can throw if the file isn't initialized;
+        // fall back to whatever path is known.
+        let p: string | undefined;
+        try {
+          p = this.value.anonymizedPath;
+        } catch {
+          p = this.value.filePath;
+        }
+        return repoId ? `/r/${repoId}/${p ?? ""}` : p;
+      }
+      if (this.value instanceof GitHubRepository) return this.value.fullName;
+      if (this.value instanceof User) return this.value.username;
+      if (this.value instanceof GitHubBase) {
+        return `GHDownload ${this.value.data.repoId}`;
+      }
+      if (typeof this.value === "string") return this.value;
+      return JSON.stringify(this.value);
+    } catch {
+      return String(this.value);
     }
-    out += this.message;
+  }
+
+  toString(): string {
+    let out = this.message;
+    const detail = this.detail();
     if (detail) {
       out += `: ${detail}`;
     }

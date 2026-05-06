@@ -140,6 +140,7 @@ type ErrorLike = {
   cause?: unknown;
   request?: { url?: string; method?: string };
   response?: { url?: string; status?: number };
+  detail?: () => string | undefined;
 };
 
 export function serializeError(err: unknown): Record<string, unknown> {
@@ -161,6 +162,14 @@ export function serializeError(err: unknown): Record<string, unknown> {
   // AnonymousError carries an httpStatus and an inner cause.
   if (typeof e.httpStatus === "number") out.httpStatus = e.httpStatus;
   if (e.code !== undefined && e.code !== e.message) out.code = e.code;
+  if (typeof e.detail === "function") {
+    try {
+      const d = e.detail();
+      if (d) out.detail = d;
+    } catch {
+      /* ignore */
+    }
+  }
   if (e.cause) out.cause = serializeError(e.cause);
 
   // Only include the stack when there's nothing else useful — avoids dumping
