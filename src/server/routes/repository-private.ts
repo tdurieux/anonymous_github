@@ -431,6 +431,11 @@ router.post(
           httpStatus: 404,
         });
       }
+
+      await repository.getCommitInfo(repoUpdate.source.commit, {
+        accessToken: user.accessToken,
+      });
+
       const removeRepoFromConference = async (conferenceID: string) => {
         const conf = await ConferenceModel.findOne({
           conferenceID,
@@ -541,6 +546,10 @@ router.post("/", async (req: express.Request, res: express.Response) => {
         httpStatus: 404,
       });
     }
+
+    await repository.getCommitInfo(repoUpdate.source.commit, {
+      accessToken: user.accessToken,
+    });
 
     const repo = new AnonymizedRepositoryModel();
     repo.repoId = repoUpdate.repoId;

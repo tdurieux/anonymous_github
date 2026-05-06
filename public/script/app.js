@@ -1600,11 +1600,11 @@ angular
           }
           const selected = $scope.branches.filter((b) => b.name == $scope.source.branch);
           if (selected.length > 0) {
-            // Preserve the saved commit when editing with auto-update off:
-            // refreshing branches must not silently bump the pinned SHA to
-            // GitHub HEAD. Same intent as the source.branch watcher (#360),
-            // extended to cover the branches refresh path.
+            // When the user explicitly clicks refresh (force=true), always
+            // update the commit to the latest on the branch. Only preserve
+            // the saved commit on the initial edit-page load (#360).
             const keepSavedCommit =
+              !force &&
               $scope.isUpdate &&
               !$scope.options.update &&
               $scope._originalBranch === $scope.source.branch &&
@@ -1957,6 +1957,7 @@ angular
         setValidity("sourceUrl", "missing", true);
         setValidity("sourceUrl", "access", true);
         setValidity("sourceUrl", "github", true);
+        setValidity("commit", "exists", true);
         setValidity("conference", "activated", true);
         setValidity("terms", "format", true);
         $scope.termsRegexWarning = false;
@@ -1977,6 +1978,7 @@ angular
           case "invalid_terms_format": setValidity("terms", "format", false); break;
           case "repo_not_found": setValidity("sourceUrl", "missing", false); break;
           case "repo_not_accessible": setValidity("sourceUrl", "access", false); break;
+          case "commit_not_found": setValidity("commit", "exists", false); break;
           case "conf_not_activated": setValidity("conference", "activated", false); break;
         }
       }

@@ -102,6 +102,9 @@
                 <div class="invalid-feedback" ng-show="anonymize.commit.$error.pattern || anonymize.commit.$error.required">
                   The commit SHA is not valid.
                 </div>
+                <div class="invalid-feedback" ng-show="anonymize.commit.$error.exists">
+                  This commit no longer exists in the repository. Click refresh to get the latest.
+                </div>
               </div>
             </div>
 
