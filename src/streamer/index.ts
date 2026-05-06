@@ -8,6 +8,9 @@ import config from "../config";
 import router from "./route";
 import { handleError } from "../server/routes/route-utils";
 import AnonymousError from "../core/AnonymousError";
+import { createLogger } from "../core/logger";
+
+const logger = createLogger("streamer");
 
 const app = express();
 app.use(express.json());
@@ -31,5 +34,5 @@ app.all("*", (req, res) => {
   );
 });
 app.listen(config.PORT, () => {
-  console.log(`Server started on http://streamer:${config.PORT}`);
+  logger.info("streamer started", { port: config.PORT });
 });

@@ -23,6 +23,9 @@ import { getToken } from "./GitHubUtils";
 import config from "../config";
 import FileModel from "./model/files/files.model";
 import AnonymizedRepositoryModel from "./model/anonymizedRepositories/anonymizedRepositories.model";
+import { createLogger, serializeError } from "./logger";
+
+const logger = createLogger("repository");
 import { IFile } from "./model/files/files.types";
 import AnonymizedFile from "./AnonymizedFile";
 import { FilterQuery } from "mongoose";
@@ -316,9 +319,10 @@ export default class Repository {
           ?.commit;
 
         if (!newCommit) {
-          console.error(
-            `${branchName} for ${this.model.source.repositoryName} is not found`
-          );
+          logger.error("branch not found", {
+            branch: branchName,
+            repo: this.model.source.repositoryName,
+          });
           await this.updateStatus(RepositoryStatus.ERROR, "branch_not_found");
           await this.resetSate();
           throw new AnonymousError("branch_not_found", {
@@ -330,7 +334,7 @@ export default class Repository {
           this.model.source.commit == newCommit &&
           this.status == RepositoryStatus.READY
         ) {
-          console.log(`[UPDATE] ${this._model.repoId} is up to date`);
+          logger.info("up to date", { repoId: this._model.repoId });
           return;
         }
         this._model.source.commit = newCommit;
@@ -347,9 +351,10 @@ export default class Repository {
         }
         this.model.source.commit = newCommit;
         this._model.anonymizeDate = new Date();
-        console.log(
-          `[UPDATE] ${this._model.repoId} will be updated to ${newCommit}`
-        );
+        logger.info("update queued", {
+          repoId: this._model.repoId,
+          commit: newCommit,
+        });
 
         await this.resetSate(RepositoryStatus.PREPARING);
         await downloadQueue.add(this.repoId, { repoId: this.repoId }, {
@@ -450,7 +455,7 @@ export default class Repository {
       FileModel.deleteMany({ repoId: this.repoId }).exec(),
       this.removeCache(),
     ]);
-    console.log(`[RESET] ${this._model.repoId} has been reset`);
+    logger.info("reset", { repoId: this._model.repoId });
   }
 
   /**
@@ -464,7 +469,7 @@ export default class Repository {
       try {
         await this.model.save();
       } catch (error) {
-        console.error("[ERROR] removeCache save", error);
+        logger.error("removeCache save failed", serializeError(error));
       }
     }
   }

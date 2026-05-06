@@ -8,6 +8,9 @@ import {
   anonymizePathCompiled,
   compileTerms,
 } from "./anonymize-utils";
+import { createLogger, serializeError } from "./logger";
+
+const logger = createLogger("zip-stream");
 
 export interface StreamAnonymizedZipOptions {
   repoId: string;
@@ -82,7 +85,7 @@ export async function streamAnonymizedZip(
   const downloadStream = got.stream(response.url);
 
   res.on("error", (error) => {
-    console.error(error);
+    logger.error("response stream error", serializeError(error));
     downloadStream.destroy();
   });
   res.on("close", () => {
@@ -101,7 +104,7 @@ export async function streamAnonymizedZip(
   // bug as #694.
   let upstreamSucceeded = false;
   const fail = (error: Error) => {
-    console.error(error);
+    logger.error("upstream zipball failed", serializeError(error));
     archive.abort();
     const destroyable = res as unknown as {
       destroy?: (err?: Error) => void;
@@ -140,7 +143,7 @@ export async function streamAnonymizedZip(
           archive.append(st, { name: fileName });
         } catch (error) {
           entry.autodrain();
-          console.error(error);
+          logger.error("entry transform failed", serializeError(error));
         }
       } else {
         entry.autodrain();
@@ -157,7 +160,7 @@ export async function streamAnonymizedZip(
     });
 
   archive.pipe(res).on("error", (error) => {
-    console.error(error);
+    logger.error("archive pipe error", serializeError(error));
     if (!upstreamSucceeded) {
       // archive errored while we were still depending on upstream bytes:
       // treat as failure rather than truncating.

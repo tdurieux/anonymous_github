@@ -10,6 +10,9 @@ import { lookup } from "mime-types";
 import StorageBase, { FILE_TYPE } from "./Storage";
 import FileModel from "../model/files/files.model";
 import { IFile } from "../model/files/files.types";
+import { createLogger, serializeError } from "../logger";
+
+const logger = createLogger("fs");
 
 export default class FileSystem extends StorageBase {
   type = "FileSystem";
@@ -97,7 +100,7 @@ export default class FileSystem extends StorageBase {
       }
       await fs.promises.rename(tmpPath, fullPath);
     } catch (err) {
-      console.error("[ERROR] FileSystem.write failed:", err);
+      logger.error("write failed", serializeError(err));
       await fs.promises.rm(tmpPath, { force: true }).catch(() => undefined);
       throw err;
     }

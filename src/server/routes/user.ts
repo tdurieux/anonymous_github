@@ -7,6 +7,9 @@ import User from "../../core/User";
 import FileModel from "../../core/model/files/files.model";
 import { isConnected } from "../database";
 import { octokit } from "../../core/GitHubUtils";
+import { createLogger, serializeError } from "../../core/logger";
+
+const logger = createLogger("user");
 
 const router = express.Router();
 
@@ -17,7 +20,7 @@ router.get("/logout", async (req: express.Request, res: express.Response) => {
   try {
     req.logout((error) => {
       if (error) {
-        console.error(`[ERROR] Logout error: ${error}`);
+        logger.error("logout failed", serializeError(error));
       }
     });
     res.redirect("/");

@@ -22,6 +22,9 @@ import User from "../../core/User";
 import { RepositoryStatus } from "../../core/types";
 import { IUserDocument } from "../../core/model/users/users.types";
 import { checkToken, octokit } from "../../core/GitHubUtils";
+import { createLogger, serializeError } from "../../core/logger";
+
+const logger = createLogger("route:repo");
 
 const router = express.Router();
 
@@ -55,7 +58,7 @@ async function getTokenForAdmin(user: User, req: express.Request) {
         return existingRepo.source.accessToken;
       }
     } catch (error) {
-      console.log(error);
+      logger.warn("getToken lookup failed", serializeError(error));
     }
   }
 }
@@ -116,7 +119,10 @@ router.post("/claim", async (req: express.Request, res: express.Response) => {
       });
     }
 
-    console.log(`${user.username} claims ${r.repository}.`);
+    logger.info("repo claimed", {
+      user: user.username,
+      repo: r.repository,
+    });
     repoConfig.owner = user;
 
     await AnonymizedRepositoryModel.updateOne(

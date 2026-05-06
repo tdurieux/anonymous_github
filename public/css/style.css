@@ -4703,3 +4703,22 @@ textarea::selection {
 .file.folder.truncated > a {
   color: #d39e00;
 }
+/* Errors admin */
+.errors-table .error-when time { font-variant-numeric: tabular-nums; color: #555; cursor: help; }
+.errors-table .error-msg-line { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; }
+.errors-table .error-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 0.78rem; padding: 1px 6px; border-radius: 999px;
+  background: #eef0f3; color: #333; border: 1px solid #dde0e4;
+  max-width: 36em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.errors-table .error-chip .chip-label { color: #777; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.03em; }
+.errors-table .error-chip.chip-err  { background: #fdecec; border-color: #f5c2c2; color: #8a1f1f; }
+.errors-table .error-chip.chip-warn { background: #fff5e1; border-color: #f3d9a4; color: #7a4d00; }
+.errors-table .error-chip.chip-ok   { background: #e9f6ec; border-color: #b8dfc1; color: #1f6b32; }
+.errors-table .error-chip.chip-mono .chip-value { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.78rem; }
+.errors-table .pill-module { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.78rem; background: #eef0f3; color: #333; padding: 1px 6px; border-radius: 4px; }
+.errors-table .error-details { margin-top: 6px; }
+.errors-table .error-details summary { cursor: pointer; color: #666; font-size: 0.82rem; }
+.errors-table .error-details pre { background: #fafafa; border: 1px solid #ececec; border-radius: 4px; padding: 8px; font-size: 0.78rem; max-height: 18em; overflow: auto; }
+.errors-table .error-context { color: #888; font-size: 0.78rem; font-style: italic; margin-left: 4px; }

@@ -3,6 +3,9 @@ import Conference from "../core/Conference";
 import AnonymizedRepositoryModel from "../core/model/anonymizedRepositories/anonymizedRepositories.model";
 import ConferenceModel from "../core/model/conference/conferences.model";
 import Repository from "../core/Repository";
+import { createLogger, serializeError } from "../core/logger";
+
+const logger = createLogger("schedule");
 
 export function conferenceStatusCheck() {
   // check every 6 hours the status of the conferences
@@ -14,7 +17,7 @@ export function conferenceStatusCheck() {
           try {
             await conference.expire();
           } catch (error) {
-            console.error(error);
+            logger.error("conference expire failed", serializeError(error));
           }
         }
       }
@@ -25,7 +28,7 @@ export function conferenceStatusCheck() {
 export function repositoryStatusCheck() {
   // check every 6 hours the status of the repositories
   schedule.scheduleJob("0 */6 * * *", async () => {
-    console.log("[schedule] Check repository status and unused repositories");
+    logger.info("checking repository status and unused repositories");
     (
       await AnonymizedRepositoryModel.find({
         status: { $eq: "ready" },
@@ -36,16 +39,16 @@ export function repositoryStatusCheck() {
       try {
         repo.check();
       } catch {
-        console.log(`Repository ${repo.repoId} is expired`);
+        logger.info("repository expired", { repoId: repo.repoId });
       }
       const fourMonthAgo = new Date();
       fourMonthAgo.setMonth(fourMonthAgo.getMonth() - 4);
 
       if (repo.model.lastView < fourMonthAgo) {
         repo.removeCache().then(() => {
-          console.log(
-            `Repository ${repo.repoId} not visited for 4 months remove the cached files`
-          );
+          logger.info("removed cache for unused repository", {
+            repoId: repo.repoId,
+          });
         });
       }
     });

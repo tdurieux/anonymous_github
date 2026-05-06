@@ -3,6 +3,9 @@ import { Octokit } from "@octokit/rest";
 import Repository from "./Repository";
 import UserModel from "./model/users/users.model";
 import config from "../config";
+import { createLogger } from "./logger";
+
+const logger = createLogger("github");
 
 export function octokit(token: string) {
   return new Octokit({
@@ -24,7 +27,7 @@ export async function checkToken(token: string) {
 }
 
 export async function getToken(repository: Repository) {
-  console.log("getToken", repository.repoId);
+  logger.debug("getToken", { repoId: repository.repoId });
   // if (repository.model.source.accessToken) {
   //   // only check the token if the repo has been visited less than 10 minutes ago
   //   if (
@@ -101,9 +104,10 @@ export async function getToken(repository: Repository) {
           return refreshed;
         }
       }
-      console.warn(
-        `[getToken] refresh failed for ${repository.owner.model.username} (status ${res.status}); falling back`
-      );
+      logger.warn("token refresh failed; falling back", {
+        username: repository.owner.model.username,
+        status: res.status,
+      });
       // fall through to the checkToken path / config.GITHUB_TOKEN
     }
     const check = await checkToken(ownerAccessToken);

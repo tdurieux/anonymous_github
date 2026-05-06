@@ -3,6 +3,9 @@ import config from "../config";
 import AnonymizedRepositoryModel from "../core/model/anonymizedRepositories/anonymizedRepositories.model";
 import { RepositoryStatus } from "../core/types";
 import * as path from "path";
+import { createLogger, serializeError } from "../core/logger";
+
+const logger = createLogger("queue");
 
 // Minimal payload for queue jobs. Workers re-fetch the Repository from the
 // database via getRepository(repoId), so passing the full Mongoose-backed
@@ -31,7 +34,10 @@ async function markErrorIfInFlight(repoId: string, message: string) {
       }
     ).exec();
   } catch (e) {
-    console.log("[QUEUE] markErrorIfInFlight error", repoId, e);
+    logger.error("markErrorIfInFlight failed", {
+      repoId,
+      err: serializeError(e),
+    });
   }
 }
 
@@ -58,13 +64,16 @@ export async function recoverStuckPreparing() {
           }
         }
         await markErrorIfInFlight(doc.repoId, "preparation_interrupted");
-        console.log("[QUEUE] recovered stuck repo", doc.repoId);
+        logger.info("recovered stuck repo", { repoId: doc.repoId });
       } catch (e) {
-        console.log("[QUEUE] recover error for", doc.repoId, e);
+        logger.warn("recover failed", {
+          repoId: doc.repoId,
+          err: serializeError(e),
+        });
       }
     }
   } catch (e) {
-    console.log("[QUEUE] recoverStuckPreparing failed", e);
+    logger.error("recoverStuckPreparing failed", serializeError(e));
   }
 }
 
@@ -140,18 +149,17 @@ export function startWorker() {
   if (!downloadWorker.isRunning()) downloadWorker.run();
 
   downloadWorker.on("active", async (job) => {
-    console.log("[QUEUE] download repository start", job.data.repoId);
+    logger.info("download start", { repoId: job.data.repoId });
   });
   downloadWorker.on("completed", async (job) => {
-    console.log("[QUEUE] download repository completed", job.data.repoId);
+    logger.info("download completed", { repoId: job.data.repoId });
   });
   downloadWorker.on("failed", async (job, err) => {
     const repoId = job?.data?.repoId;
-    console.log(
-      "[QUEUE] download repository failed",
+    logger.error("download failed", {
       repoId,
-      err?.message || err
-    );
+      err: serializeError(err),
+    });
     if (!repoId) return;
     if (job && typeof job.attemptsMade === "number" && job.opts?.attempts) {
       if (job.attemptsMade < job.opts.attempts) return;

@@ -9,6 +9,9 @@ import config from "../config";
 import got, { HTTPError } from "got";
 import { octokit } from "./GitHubUtils";
 import { ContentAnonimizer } from "./anonymize-utils";
+import { createLogger } from "./logger";
+
+const logger = createLogger("pull-request");
 
 export default class PullRequest {
   private _model: IAnonymizedPullRequestDocument;
@@ -38,20 +41,18 @@ export default class PullRequest {
       try {
         return this._model.source.accessToken;
       } catch {
-        console.debug(
-          "[ERROR] Token is invalid",
-          this._model.source.pullRequestId
-        );
+        logger.warn("invalid token", {
+          pullRequestId: this._model.source.pullRequestId,
+        });
       }
     }
     return config.GITHUB_TOKEN;
   }
 
   async download() {
-    console.debug(
-      "[INFO] Downloading pull request",
-      this._model.source.pullRequestId
-    );
+    logger.info("downloading pull request", {
+      pullRequestId: this._model.source.pullRequestId,
+    });
     const oct = octokit(await this.getToken());
 
     const [owner, repo] = this._model.source.repositoryFullName.split("/");
@@ -89,10 +90,9 @@ export default class PullRequest {
         user?: { login?: string } | null;
       }> => {
         if ((err as { status?: number }).status === 404) {
-          console.warn(
-            "[WARN] Failed to fetch PR comments (404), continuing without them",
-            `${owner}/${repo}#${pull_number}`
-          );
+          logger.warn("PR comments 404, continuing without them", {
+            pr: `${owner}/${repo}#${pull_number}`,
+          });
           return [];
         }
         throw err;
@@ -102,10 +102,9 @@ export default class PullRequest {
       `https://github.com/${owner}/${repo}/pull/${pull_number}.diff`
     ).catch((err) => {
       if (err instanceof HTTPError && err.response.statusCode === 404) {
-        console.warn(
-          "[WARN] Failed to fetch PR diff (404), continuing without it",
-          `${owner}/${repo}#${pull_number}`
-        );
+        logger.warn("PR diff 404, continuing without it", {
+          pr: `${owner}/${repo}#${pull_number}`,
+        });
         return { body: "" };
       }
       throw err;

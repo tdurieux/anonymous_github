@@ -6,6 +6,9 @@ import User from "../../core/User";
 import Repository from "../../core/Repository";
 import { HTTPError } from "got";
 import { RepositoryStatus } from "../../core/types";
+import { createLogger, serializeError } from "../../core/logger";
+
+const logger = createLogger("route");
 
 export async function getGist(
   req: express.Request,
@@ -114,24 +117,18 @@ export function isOwnerCoauthorOrAdmin(repo: Repository, user: User) {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function printError(error: any, req?: express.Request) {
   if (error instanceof AnonymousError) {
-    let message = `[ERROR] ${error.toString()} ${error.stack
-      ?.split("\n")[1]
-      .trim()}`;
-    if (req) {
-      message += ` ${req.originalUrl}`;
-      // ignore common error
-      if (req.originalUrl === "/api/repo/undefined/options") return;
-    }
-    console.error(message);
+    if (req?.originalUrl === "/api/repo/undefined/options") return;
+    logger.error("anonymous error", {
+      ...serializeError(error),
+      url: req?.originalUrl,
+    });
   } else if (error instanceof HTTPError) {
-    const message = `[ERROR] HTTP.${
-      error.code
-    } ${error.message.toString()}  ${error.stack?.split("\n")[1].trim()}`;
-    console.error(message);
-  } else if (error instanceof Error) {
-    console.error(error);
+    logger.error("http error", {
+      code: error.code,
+      message: error.message,
+    });
   } else {
-    console.error(error);
+    logger.error("unhandled error", serializeError(error));
   }
 }
 
@@ -172,7 +169,7 @@ export async function getUser(req: express.Request) {
   function notConnected(): never {
     req.logout((error) => {
       if (error) {
-        console.error(`[ERROR] Error while logging out: ${error}`);
+        logger.error("logout failed", serializeError(error));
       }
     });
     throw new AnonymousError("not_connected", {

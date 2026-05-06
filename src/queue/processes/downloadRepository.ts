@@ -4,6 +4,9 @@ config();
 import { getRepository as getRepositoryImport } from "../../server/database";
 import { RepositoryStatus } from "../../core/types";
 import { RepoJobData } from "../index";
+import { createLogger, serializeError } from "../../core/logger";
+
+const logger = createLogger("queue:download");
 
 export default async function (job: SandboxedJob<RepoJobData, void>) {
   const {
@@ -13,7 +16,7 @@ export default async function (job: SandboxedJob<RepoJobData, void>) {
     connect: () => Promise<void>;
     getRepository: typeof getRepositoryImport;
   } = require("../../server/database");
-  console.log(`[QUEUE] ${job.data.repoId} is going to be downloaded`);
+  logger.info("queued for download", { repoId: job.data.repoId });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let statusInterval: any = null;
   await connect();
@@ -37,9 +40,10 @@ export default async function (job: SandboxedJob<RepoJobData, void>) {
             repo.status &&
             repo.model.statusMessage !== progress?.status
           ) {
-            console.log(
-              `[QUEUE] Progress: ${job.data.repoId} ${progress.status}`
-            );
+            logger.debug("progress", {
+              repoId: job.data.repoId,
+              status: progress.status,
+            });
             await repo.updateStatus(repo.status, progress?.status || "");
           }
         } catch {
@@ -60,7 +64,7 @@ export default async function (job: SandboxedJob<RepoJobData, void>) {
       clearInterval(statusInterval);
       if (tickPromise) await tickPromise;
       await repo.updateStatus(RepositoryStatus.READY, "");
-      console.log(`[QUEUE] ${job.data.repoId} is downloaded`);
+      logger.info("downloaded", { repoId: job.data.repoId });
     } catch (error) {
       clearInterval(statusInterval);
       if (tickPromise) await tickPromise;
@@ -79,17 +83,20 @@ export default async function (job: SandboxedJob<RepoJobData, void>) {
         await tickPromise;
       } catch { /* ignored */ }
     }
-    console.log(`[QUEUE] ${job.data.repoId} is finished with an error`, error);
+    logger.error("finished with error", {
+      repoId: job.data.repoId,
+      err: serializeError(error),
+    });
     try {
       await repo.updateStatus(
         RepositoryStatus.ERROR,
         error instanceof Error ? error.message : String(error)
       );
     } catch (persistError) {
-      console.log(
-        `[QUEUE] failed to persist ERROR status for ${job.data.repoId}`,
-        persistError
-      );
+      logger.error("failed to persist ERROR status", {
+        repoId: job.data.repoId,
+        err: serializeError(persistError),
+      });
     }
     throw error;
   } finally {

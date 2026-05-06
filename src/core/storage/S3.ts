@@ -17,6 +17,9 @@ import AnonymousError from "../AnonymousError";
 import StorageBase, { FILE_TYPE } from "./Storage";
 import { IFile } from "../model/files/files.types";
 import FileModel from "../model/files/files.model";
+import { createLogger, serializeError } from "../logger";
+
+const logger = createLogger("s3");
 
 export default class S3Storage extends StorageBase {
   type = "AWS";
@@ -129,7 +132,7 @@ export default class S3Storage extends StorageBase {
       try {
         res.status(500).json({ error: "file_not_found" });
       } catch (err) {
-        console.error(`[ERROR] S3 send ${path}`, err);
+        logger.error("send failed", { path, err: serializeError(err) });
       }
     }
   }

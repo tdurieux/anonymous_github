@@ -1,7 +1,8 @@
 import * as express from "express";
 
-import { getPullRequest, handleError } from "./route-utils";
+import { getPullRequest, getUser, handleError } from "./route-utils";
 import AnonymousError from "../../core/AnonymousError";
+import User from "../../core/User";
 
 const router = express.Router();
 
@@ -12,10 +13,18 @@ router.get(
       res.header("Cache-Control", "no-cache");
       const pr = await getPullRequest(req, res, { nocheck: true });
       if (!pr) return;
+
+      let user: User | undefined = undefined;
+      try {
+        user = await getUser(req);
+      } catch { /* not logged in */ }
+      const canEdit =
+        !!user && (user.isAdmin || user.id == pr.model.owner);
+
       let redirectURL = null;
-      if (pr.status == "expired" && pr.options.expirationMode == "redirect") {
+      if (!canEdit && pr.status == "expired" && pr.options.expirationMode == "redirect") {
         redirectURL = `https://github.com/${pr.source.repositoryFullName}/pull/${pr.source.pullRequestId}`;
-      } else {
+      } else if (!canEdit) {
         if (
           pr.status == "expired" ||
           pr.status == "expiring" ||
@@ -60,6 +69,8 @@ router.get(
       res.json({
         url: redirectURL,
         lastUpdateDate: pr.model.statusDate,
+        isAdmin: user?.isAdmin === true,
+        isOwner: user?.id == pr.model.owner,
       });
     } catch (error) {
       handleError(error, res, req);

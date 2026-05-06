@@ -3,7 +3,7 @@ import config from "../../config";
 import got from "got";
 import { join } from "path";
 
-import { getRepo, getUser, handleError } from "./route-utils";
+import { getRepo, getUser, handleError, isCoauthor } from "./route-utils";
 import AnonymousError from "../../core/AnonymousError";
 import { downloadQueue } from "../../queue";
 import { RepositoryStatus } from "../../core/types";
@@ -150,14 +150,26 @@ router.get(
         nocheck: true,
       });
       if (!repo) return;
+
+      let user: User | undefined = undefined;
+      try {
+        user = await getUser(req);
+      } catch { /* not logged in */ }
+      const canEdit =
+        !!user &&
+        (user.isAdmin ||
+          user.id == repo.model.owner ||
+          isCoauthor(repo, user));
+
       let redirectURL = null;
       if (
+        !canEdit &&
         repo.status == RepositoryStatus.EXPIRED &&
         repo.options.expirationMode == "redirect" &&
         repo.model.source.repositoryName
       ) {
         redirectURL = `https://github.com/${repo.model.source.repositoryName}`;
-      } else {
+      } else if (!canEdit) {
         if (
           repo.status == RepositoryStatus.EXPIRED ||
           repo.status == RepositoryStatus.EXPIRING ||
@@ -207,11 +219,6 @@ router.get(
       if (!!config.ENABLE_DOWNLOAD && !!config.STREAMER_ENTRYPOINT) {
         download = true;
       }
-
-      let user: User | undefined = undefined;
-      try {
-        user = await getUser(req);
-      } catch { /* not logged in */ }
       res.json({
         url: redirectURL,
         download: download || user?.isAdmin === true,

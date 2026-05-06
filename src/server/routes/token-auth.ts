@@ -1,6 +1,9 @@
 import * as express from "express";
 import * as crypto from "crypto";
 import UserModel from "../../core/model/users/users.model";
+import { createLogger, serializeError } from "../../core/logger";
+
+const logger = createLogger("token-auth");
 
 export function hashToken(token: string): string {
   return crypto.createHash("sha256").update(token).digest("hex");
@@ -38,9 +41,11 @@ export async function bearerTokenAuth(
     UserModel.updateOne(
       { _id: model._id, "apiTokens.tokenHash": tokenHash },
       { $set: { "apiTokens.$.lastUsedAt": new Date() } }
-    ).catch((err) => console.error("[token-auth] lastUsedAt update failed", err));
+    ).catch((err) =>
+      logger.error("lastUsedAt update failed", serializeError(err))
+    );
   } catch (err) {
-    console.error("[token-auth] lookup failed", err);
+    logger.error("lookup failed", serializeError(err));
   }
   return next();
 }

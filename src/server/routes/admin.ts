@@ -10,6 +10,30 @@ import { ensureAuthenticated } from "./connection";
 import { handleError, getUser, isOwnerOrAdmin, getRepo } from "./route-utils";
 import adminTokensRouter from "./admin-tokens";
 import { octokit, getToken } from "../../core/GitHubUtils";
+import { createLogger, serializeError, ERROR_LOG_KEY, ERROR_LOG_MAX } from "../../core/logger";
+import { createClient, RedisClientType } from "redis";
+import config from "../../config";
+
+const logger = createLogger("admin");
+
+let errorLogClient: RedisClientType | null = null;
+async function getErrorLogClient(): Promise<RedisClientType | null> {
+  if (errorLogClient && errorLogClient.isOpen) return errorLogClient;
+  try {
+    errorLogClient = createClient({
+      socket: {
+        host: config.REDIS_HOSTNAME,
+        port: config.REDIS_PORT,
+      },
+    }) as RedisClientType;
+    errorLogClient.on("error", () => undefined);
+    await errorLogClient.connect();
+    return errorLogClient;
+  } catch (err) {
+    logger.error("error log redis connect failed", serializeError(err));
+    return null;
+  }
+}
 
 const router = express.Router();
 
@@ -201,6 +225,39 @@ router.get("/queues", async (req, res) => {
       cache: cCounts,
     },
   });
+});
+
+// Errors captured by the logger sink (last ERROR_LOG_MAX entries).
+router.get("/errors", async (req, res) => {
+  try {
+    const client = await getErrorLogClient();
+    if (!client) {
+      return res.json({ entries: [], max: ERROR_LOG_MAX, available: false });
+    }
+    const raw = await client.lRange(ERROR_LOG_KEY, 0, ERROR_LOG_MAX - 1);
+    const entries = raw.map((s) => {
+      try {
+        return JSON.parse(s);
+      } catch {
+        return { ts: null, module: null, message: s, raw: [] };
+      }
+    });
+    res.json({ entries, max: ERROR_LOG_MAX, available: true });
+  } catch (error) {
+    handleError(error, res, req);
+  }
+});
+
+router.delete("/errors", async (req, res) => {
+  try {
+    const client = await getErrorLogClient();
+    if (!client) return res.json({ ok: true, cleared: 0 });
+    const len = await client.lLen(ERROR_LOG_KEY);
+    await client.del(ERROR_LOG_KEY);
+    res.json({ ok: true, cleared: len });
+  } catch (error) {
+    handleError(error, res, req);
+  }
 });
 
 // Global stats endpoint: counts by status, total disk, recent failures
@@ -538,7 +595,9 @@ router.get(
         localField: "repositories",
       });
       if (!model) {
-        req.logout((error) => console.error(error));
+        req.logout((error) =>
+          logger.error("logout failed", serializeError(error))
+        );
         throw new AnonymousError("user_not_found", {
           httpStatus: 404,
         });
@@ -556,7 +615,9 @@ router.get(
     try {
       const model = await UserModel.findOne({ username: req.params.username });
       if (!model) {
-        req.logout((error) => console.error(error));
+        req.logout((error) =>
+          logger.error("logout failed", serializeError(error))
+        );
         throw new AnonymousError("user_not_found", {
           httpStatus: 404,
         });

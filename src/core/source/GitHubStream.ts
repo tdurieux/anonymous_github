@@ -14,6 +14,9 @@ import { FILE_TYPE } from "../storage/Storage";
 import { octokit } from "../GitHubUtils";
 import FileModel from "../model/files/files.model";
 import { IFile } from "../model/files/files.types";
+import { createLogger, serializeError } from "../logger";
+
+const logger = createLogger("gh-stream");
 
 export default class GitHubStream extends GitHubBase {
   type: "GitHubDownload" | "GitHubStream" | "Zip" = "GitHubStream";
@@ -36,7 +39,7 @@ export default class GitHubStream extends GitHubBase {
         repo: this.data.repoName,
         file_sha: sha,
       });
-      console.log("[GHStream] Downloading file", url);
+      logger.debug("downloading file", { url });
       return got.stream(url, {
         headers: {
           "X-GitHub-Api-Version": "2022-11-28",
@@ -45,7 +48,7 @@ export default class GitHubStream extends GitHubBase {
         },
       });
     } catch (error) {
-      console.error(error);
+      logger.error("downloadFile failed", serializeError(error));
       throw new AnonymousError("repo_not_accessible", {
         httpStatus: 404,
         object: this.data,
@@ -60,7 +63,7 @@ export default class GitHubStream extends GitHubBase {
   // as the fallback for LFS files (#95).
   private downloadFileViaRaw(token: string, filePath: string) {
     const url = `https://github.com/${this.data.organization}/${this.data.repoName}/raw/${this.data.commit}/${filePath}`;
-    console.log("[GHStream] Downloading via raw URL (LFS)", url);
+    logger.debug("downloading via raw URL (LFS)", { url });
     return got.stream(url, {
       headers: { authorization: `token ${token}` },
       followRedirect: true,
@@ -267,9 +270,9 @@ export default class GitHubStream extends GitHubBase {
       }
       output.push(...this.tree2Tree(data.tree, parentPath));
     } catch (error) {
-      console.log(error);
       const status = (error as { status?: number }).status;
       if (status === 409) {
+        logger.debug("getTree empty repo", serializeError(error));
         throw new AnonymousError("repo_empty", {
           httpStatus: 409,
           object: this.data,
@@ -277,6 +280,7 @@ export default class GitHubStream extends GitHubBase {
         });
       }
       if (status === 404) {
+        logger.debug("getTree miss", serializeError(error));
         const code = await classifyGitHubMissError(error, this.data);
         throw new AnonymousError(code, {
           httpStatus: 404,
@@ -284,6 +288,7 @@ export default class GitHubStream extends GitHubBase {
           cause: error as Error,
         });
       }
+      logger.warn("getTree failed", serializeError(error));
       throw new AnonymousError("repo_not_found", {
         httpStatus: status || 500,
         object: this.data,

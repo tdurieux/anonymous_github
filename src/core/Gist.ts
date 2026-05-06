@@ -8,6 +8,9 @@ import { IAnonymizedGistDocument } from "./model/anonymizedGists/anonymizedGists
 import config from "../config";
 import { octokit } from "./GitHubUtils";
 import { ContentAnonimizer } from "./anonymize-utils";
+import { createLogger } from "./logger";
+
+const logger = createLogger("gist");
 
 type GistPayload = {
   description: string;
@@ -59,14 +62,14 @@ export default class Gist {
       try {
         return this._model.source.accessToken;
       } catch {
-        console.debug("[ERROR] Token is invalid", this._model.source.gistId);
+        logger.warn("invalid token", { gistId: this._model.source.gistId });
       }
     }
     return config.GITHUB_TOKEN;
   }
 
   async download() {
-    console.debug("[INFO] Downloading gist", this._model.source.gistId);
+    logger.info("downloading gist", { gistId: this._model.source.gistId });
     const oct = octokit(await this.getToken());
 
     const gist_id = this._model.source.gistId;

@@ -1,7 +1,8 @@
 import * as express from "express";
 
-import { getGist, handleError } from "./route-utils";
+import { getGist, getUser, handleError } from "./route-utils";
 import AnonymousError from "../../core/AnonymousError";
+import User from "../../core/User";
 
 const router = express.Router();
 
@@ -12,13 +13,22 @@ router.get(
       res.header("Cache-Control", "no-cache");
       const gist = await getGist(req, res, { nocheck: true });
       if (!gist) return;
+
+      let user: User | undefined = undefined;
+      try {
+        user = await getUser(req);
+      } catch { /* not logged in */ }
+      const canEdit =
+        !!user && (user.isAdmin || user.id == gist.model.owner);
+
       let redirectURL = null;
       if (
+        !canEdit &&
         gist.status == "expired" &&
         gist.options.expirationMode == "redirect"
       ) {
         redirectURL = `https://gist.github.com/${gist.source.gistId}`;
-      } else {
+      } else if (!canEdit) {
         if (
           gist.status == "expired" ||
           gist.status == "expiring" ||
@@ -60,6 +70,8 @@ router.get(
       res.json({
         url: redirectURL,
         lastUpdateDate: gist.model.statusDate,
+        isAdmin: user?.isAdmin === true,
+        isOwner: user?.id == gist.model.owner,
       });
     } catch (error) {
       handleError(error, res, req);

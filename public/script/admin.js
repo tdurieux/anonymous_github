@@ -849,4 +849,150 @@ angular
       );
       $scope.$watch("query.state", getQueues);
     },
+  ])
+  .controller("errorsAdminController", [
+    "$scope",
+    "$http",
+    "$location",
+    "$interval",
+    function ($scope, $http, $location, $interval) {
+      $scope.$watch("user.status", () => {
+        if ($scope.user == null) {
+          $location.url("/");
+        }
+      });
+      if ($scope.user == null) {
+        $location.url("/");
+      }
+
+      $scope.entries = [];
+      $scope.filtered = [];
+      $scope.modules = [];
+      $scope.available = true;
+      $scope.query = {
+        search: "",
+        module: "",
+        autoRefresh: true,
+      };
+
+      $scope.relTime = (iso) => {
+        if (!iso) return "";
+        const t = new Date(iso).getTime();
+        if (isNaN(t)) return iso;
+        const diff = Math.max(0, Date.now() - t);
+        const s = Math.floor(diff / 1000);
+        if (s < 5) return "just now";
+        if (s < 60) return `${s}s ago`;
+        const m = Math.floor(s / 60);
+        if (m < 60) return `${m}m ago`;
+        const h = Math.floor(m / 60);
+        if (h < 24) return `${h}h ago`;
+        const d = Math.floor(h / 24);
+        if (d < 7) return `${d}d ago`;
+        return new Date(iso).toLocaleDateString();
+      };
+      $scope.absTime = (iso) => {
+        if (!iso) return "";
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return iso;
+        return d.toLocaleString();
+      };
+
+      // Decorate each entry once with derived display fields (chips + json).
+      // Returning a fresh array from a template-bound function each digest
+      // cycle triggers Angular's $rootScope:infdig — so we precompute on load.
+      function statusKind(s) {
+        const n = parseInt(s, 10);
+        if (!n) return "";
+        if (n >= 500) return "err";
+        if (n >= 400) return "warn";
+        return "ok";
+      }
+      // snake_case identifier looking like an error key (e.g. "repo_not_found").
+      const errorKeyRe = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)+$/;
+      function decorate(e) {
+        const chips = [];
+        const detail = (e.raw || []).find(
+          (a) => a && typeof a === "object" && !Array.isArray(a)
+        );
+        if (detail) {
+          // Prefer the structured error key (e.g. "pull_request_not_found")
+          // over the generic logger message ("anonymous error", "http error").
+          if (detail.message && errorKeyRe.test(detail.message)) {
+            e.displayMessage = detail.message;
+            e.displayContext = e.message;
+          } else if (detail.code && errorKeyRe.test(String(detail.code))) {
+            e.displayMessage = String(detail.code);
+            e.displayContext = e.message;
+          } else {
+            e.displayMessage = e.message;
+          }
+          if (detail.httpStatus) chips.push({ label: "status", value: detail.httpStatus, kind: statusKind(detail.httpStatus) });
+          else if (detail.status) chips.push({ label: "status", value: detail.status, kind: statusKind(detail.status) });
+          if (detail.method) chips.push({ label: "method", value: detail.method });
+          if (detail.url) chips.push({ label: "url", value: detail.url, mono: true });
+          if (detail.repoId) chips.push({ label: "repo", value: detail.repoId, mono: true });
+          if (detail.code && detail.code !== detail.message && detail.code !== e.displayMessage) {
+            chips.push({ label: "code", value: detail.code });
+          }
+        } else {
+          e.displayMessage = e.message;
+        }
+        const tail = (e.raw || []).slice(1);
+        const detailJson = !tail.length
+          ? ""
+          : tail.length === 1
+            ? JSON.stringify(tail[0], null, 2)
+            : JSON.stringify(tail, null, 2);
+        e._chips = chips;
+        e._detailJson = detailJson;
+        return e;
+      }
+
+      function applyFilter() {
+        const q = ($scope.query.search || "").toLowerCase();
+        const mod = $scope.query.module || "";
+        $scope.filtered = $scope.entries.filter((e) => {
+          if (mod && e.module !== mod) return false;
+          if (!q) return true;
+          const hay = (
+            (e.displayMessage || e.message || "") +
+            " " +
+            e.module +
+            " " +
+            JSON.stringify(e.raw || [])
+          ).toLowerCase();
+          return hay.indexOf(q) > -1;
+        });
+      }
+
+      function load() {
+        $http.get("/api/admin/errors").then(
+          (res) => {
+            $scope.entries = (res.data.entries || []).map(decorate);
+            $scope.available = !!res.data.available;
+            const set = new Set();
+            $scope.entries.forEach((e) => e.module && set.add(e.module));
+            $scope.modules = Array.from(set).sort();
+            applyFilter();
+          },
+          (err) => console.error(err)
+        );
+      }
+
+      $scope.refreshNow = load;
+      $scope.clearAll = () => {
+        if (!confirm("Clear all captured errors?")) return;
+        $http.delete("/api/admin/errors").then(load, (err) => console.error(err));
+      };
+
+      load();
+      const stop = $interval(() => {
+        if ($scope.query.autoRefresh) load();
+      }, 5000);
+      $scope.$on("$destroy", () => $interval.cancel(stop));
+
+      $scope.$watch("query.search", applyFilter);
+      $scope.$watch("query.module", applyFilter);
+    },
   ]);

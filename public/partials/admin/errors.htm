@@ -1,0 +1,77 @@
+<div class="container paper-page admin-page">
+  <div class="paper-crumbs">Admin &nbsp;/&nbsp; <span class="here">Errors</span></div>
+  <h1 class="paper-page-title">Errors</h1>
+
+  <nav class="admin-nav">
+    <a href="/admin/"><i class="fas fa-code-branch"></i> Repositories</a>
+    <a href="/admin/users"><i class="fas fa-users"></i> Users</a>
+    <a href="/admin/conferences"><i class="fas fa-chalkboard-teacher"></i> Conferences</a>
+    <a href="/admin/queues"><i class="fas fa-tasks"></i> Queues</a>
+    <a href="/admin/errors" class="active"><i class="fas fa-bug"></i> Errors</a>
+  </nav>
+
+  <div class="admin-summary">
+    <span class="summary-pill error">{{filtered.length}} shown</span>
+    <span class="summary-pill">{{entries.length}} captured</span>
+    <span class="summary-pill" ng-if="!available">redis sink unavailable</span>
+  </div>
+
+  <form class="w-100 admin-filter-toolbar" aria-label="Error filters">
+    <div class="admin-filter-row">
+      <div class="search-wrap">
+        <input type="search" class="form-control" placeholder="Search message, module, or url…" ng-model="query.search" autocomplete="off" />
+      </div>
+      <span class="admin-filter-inline">
+        <label>Module</label>
+        <select class="form-control form-control-sm" ng-model="query.module">
+          <option value="">Any</option>
+          <option ng-repeat="m in modules" value="{{m}}">{{m}}</option>
+        </select>
+      </span>
+      <span class="admin-filter-spacer"></span>
+      <label class="admin-filter-inline" style="cursor:pointer;">
+        <input type="checkbox" ng-model="query.autoRefresh" />
+        Auto-refresh
+      </label>
+      <button class="btn btn-sm" type="button" ng-click="refreshNow()" title="Refresh now"><i class="fas fa-sync"></i></button>
+      <button class="btn btn-sm btn-danger" type="button" ng-click="clearAll()" title="Clear all errors"><i class="fas fa-trash"></i> Clear</button>
+    </div>
+  </form>
+
+  <div ng-if="!filtered.length" class="admin-empty">No errors captured.</div>
+
+  <table class="table errors-table" ng-if="filtered.length">
+    <thead>
+      <tr>
+        <th style="width: 9em;">When</th>
+        <th style="width: 9em;">Module</th>
+        <th>Message</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr ng-repeat="e in filtered track by $index">
+        <td class="error-when">
+          <time title="{{absTime(e.ts)}}">{{relTime(e.ts)}}</time>
+        </td>
+        <td><span class="pill pill-module">{{e.module}}</span></td>
+        <td class="error-msg">
+          <div class="error-msg-line">
+            <strong>{{e.displayMessage}}</strong>
+            <span class="error-context" ng-if="e.displayContext && e.displayContext !== e.displayMessage">{{e.displayContext}}</span>
+            <span class="error-chip"
+                  ng-repeat="c in e._chips track by $index"
+                  ng-class="{'chip-err': c.kind === 'err', 'chip-warn': c.kind === 'warn', 'chip-ok': c.kind === 'ok', 'chip-mono': c.mono}"
+                  title="{{c.label}}: {{c.value}}">
+              <span class="chip-label">{{c.label}}</span>
+              <span class="chip-value">{{c.value}}</span>
+            </span>
+          </div>
+          <details ng-if="e._detailJson" class="error-details">
+            <summary>raw</summary>
+            <pre>{{e._detailJson}}</pre>
+          </details>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>

@@ -82,6 +82,7 @@ const UNICODE_ESCAPE_CHARS = new Set(
 export function diacriticInsensitive(escapedTerm: string): string {
   let out = "";
   let i = 0;
+  let inClass = false;
   while (i < escapedTerm.length) {
     const c = escapedTerm[i];
     if (c === "\\" && i + 1 < escapedTerm.length) {
@@ -94,6 +95,26 @@ export function diacriticInsensitive(escapedTerm: string): string {
         out += next;
       }
       i += 2;
+      continue;
+    }
+    // Inside a character class, leave letters alone — expanding them into
+    // bracketed alternatives would produce nested `[...]` which is a syntax
+    // error. The user's regex is responsible for its own char-class content.
+    if (c === "[" && !inClass) {
+      inClass = true;
+      out += c;
+      i += 1;
+      continue;
+    }
+    if (c === "]" && inClass) {
+      inClass = false;
+      out += c;
+      i += 1;
+      continue;
+    }
+    if (inClass) {
+      out += c;
+      i += 1;
       continue;
     }
     const lower = c.toLowerCase();

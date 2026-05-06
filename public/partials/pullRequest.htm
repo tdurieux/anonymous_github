@@ -9,6 +9,13 @@
       <h1 class="paper-page-title pr-title">
         <span ng-if="details.title" ng-bind="details.title"></span>
         <span ng-if="!details.title" class="text-muted">Untitled pull request</span>
+        <a
+          ng-if="options.isAdmin || options.isOwner"
+          ng-href="/pull-request-anonymize/{{pullRequestId}}"
+          class="btn btn-sm"
+          aria-label="Edit"
+          ><i class="far fa-edit"></i><span class="d-none d-md-inline"> Edit</span></a
+        >
       </h1>
       <div class="pr-header-meta">
         <span class="paper-pill" ng-class="{'good': details.merged, 'warn': details.state == 'open', 'bad': details.state == 'closed' && !details.merged}">

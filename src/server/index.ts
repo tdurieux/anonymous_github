@@ -20,6 +20,9 @@ import { startWorker, recoverStuckPreparing } from "../queue";
 import AnonymizedPullRequestModel from "../core/model/anonymizedPullRequests/anonymizedPullRequests.model";
 import { getUser } from "./routes/route-utils";
 import config from "../config";
+import { createLogger, serializeError } from "../core/logger";
+
+const logger = createLogger("server");
 
 function indexResponse(req: express.Request, res: express.Response) {
   if (
@@ -67,7 +70,9 @@ export default async function start() {
       port: config.REDIS_PORT,
     },
   });
-  redisClient.on("error", (err) => console.log("Redis Client Error", err));
+  redisClient.on("error", (err) =>
+    logger.error("redis client error", serializeError(err))
+  );
 
   await redisClient.connect();
 
@@ -79,7 +84,7 @@ export default async function start() {
       return request.headers["cf-connecting-ip"] as string;
     }
     if (!request.ip && request.socket.remoteAddress) {
-      console.error("Warning: request.ip is missing!");
+      logger.warn("request.ip is missing");
       return request.socket.remoteAddress;
     }
     // remove port number from IPv4 addresses
@@ -136,12 +141,12 @@ export default async function start() {
     const start = Date.now();
     res.on("finish", function () {
       const time = Date.now() - start;
-      console.log(
-        `${req.method} ${res.statusCode} ${join(
-          req.baseUrl || "",
-          req.url || ""
-        )} ${time}ms`
-      );
+      logger.info("request", {
+        method: req.method,
+        status: res.statusCode,
+        url: join(req.baseUrl || "", req.url || ""),
+        ms: time,
+      });
     });
     next();
   });
@@ -252,7 +257,7 @@ export default async function start() {
   await connect();
   await recoverStuckPreparing();
   app.listen(config.PORT);
-  console.log("Database connected and Server started on port: " + config.PORT);
+  logger.info("server started", { port: config.PORT });
 }
 
 start();

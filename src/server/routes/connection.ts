@@ -12,6 +12,9 @@ import { IUserDocument } from "../../core/model/users/users.types";
 import AnonymousError from "../../core/AnonymousError";
 import AnonymizedPullRequestModel from "../../core/model/anonymizedPullRequests/anonymizedPullRequests.model";
 import { hashToken } from "./token-auth";
+import { createLogger, serializeError } from "../../core/logger";
+
+const logger = createLogger("auth");
 
 export function ensureAuthenticated(
   req: express.Request,
@@ -97,7 +100,7 @@ const verify = async (
       user,
     });
   } catch (error) {
-    console.error(error);
+    logger.error("verify failed", serializeError(error));
     done(
       new AnonymousError("unable_to_connect_user", {
         httpStatus: 500,
@@ -135,7 +138,9 @@ export function initSession() {
       host: config.REDIS_HOSTNAME,
     },
   });
-  redisClient.on("error", (err) => console.log("Redis Client Error", err));
+  redisClient.on("error", (err) =>
+    logger.error("redis client error", serializeError(err))
+  );
   redisClient.connect();
   const redisStore = new RedisStore({
     client: redisClient,
@@ -200,7 +205,7 @@ router.all(
       };
       req.login(synthUser, (err) => {
         if (err) {
-          console.error("[login-token] req.login failed", err);
+          logger.error("login-token req.login failed", serializeError(err));
           return res.status(500).json({ error: "login_failed" });
         }
         UserModel.updateOne(
@@ -211,7 +216,7 @@ router.all(
         return res.json({ ok: true, username: model.username });
       });
     } catch (err) {
-      console.error("[login-token] error", err);
+      logger.error("login-token failed", serializeError(err));
       res.status(500).json({ error: "server_error" });
     }
   }

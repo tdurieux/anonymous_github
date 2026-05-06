@@ -1,6 +1,9 @@
 import { SandboxedJob } from "bullmq";
 import { getRepository as getRepositoryImport } from "../../server/database";
 import { RepoJobData } from "../index";
+import { createLogger } from "../../core/logger";
+
+const logger = createLogger("queue:cache");
 
 export default async function (job: SandboxedJob<RepoJobData, void>) {
   const {
@@ -12,14 +15,12 @@ export default async function (job: SandboxedJob<RepoJobData, void>) {
   } = require("../../server/database");
   try {
     await connect();
-    console.log(
-      `[QUEUE] Cache of ${job.data.repoId} is going to be removed...`
-    );
+    logger.info("removing cache", { repoId: job.data.repoId });
     const repo = await getRepository(job.data.repoId);
     await repo.removeCache();
   } catch {
     // error already handled
   } finally {
-    console.log(`[QUEUE] Cache of ${job.data.repoId} is removed.`);
+    logger.info("cache removed", { repoId: job.data.repoId });
   }
 }

@@ -2,6 +2,9 @@ import { SandboxedJob } from "bullmq";
 import { getRepository as getRepositoryImport } from "../../server/database";
 import { RepositoryStatus } from "../../core/types";
 import { RepoJobData } from "../index";
+import { createLogger } from "../../core/logger";
+
+const logger = createLogger("queue:remove");
 
 export default async function (job: SandboxedJob<RepoJobData, void>) {
   const {
@@ -13,7 +16,7 @@ export default async function (job: SandboxedJob<RepoJobData, void>) {
   } = require("../../server/database");
   try {
     await connect();
-    console.log(`[QUEUE] ${job.data.repoId} is going to be removed`);
+    logger.info("removing repository", { repoId: job.data.repoId });
     const repo = await getRepository(job.data.repoId);
     await repo.updateStatus(RepositoryStatus.REMOVING, "");
     try {
@@ -29,6 +32,6 @@ export default async function (job: SandboxedJob<RepoJobData, void>) {
   } catch {
     // error already handled
   } finally {
-    console.log(`[QUEUE] ${job.data.repoId} is removed`);
+    logger.info("repository removed", { repoId: job.data.repoId });
   }
 }
