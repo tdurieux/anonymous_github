@@ -1,5 +1,4 @@
 const { expect } = require("chai");
-const { Readable } = require("stream");
 
 // Standalone test of the LFS-pointer detection shape used in
 // GitHubStream#resolveLfsPointer. We can't easily import that method (it's

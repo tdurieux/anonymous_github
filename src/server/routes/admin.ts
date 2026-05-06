@@ -5,7 +5,6 @@ import AnonymizedRepositoryModel from "../../core/model/anonymizedRepositories/a
 import ConferenceModel from "../../core/model/conference/conferences.model";
 import UserModel from "../../core/model/users/users.model";
 import { cacheQueue, downloadQueue, removeQueue } from "../../queue";
-import Repository from "../../core/Repository";
 import User from "../../core/User";
 import { ensureAuthenticated } from "./connection";
 import { handleError, getUser, isOwnerOrAdmin, getRepo } from "./route-utils";

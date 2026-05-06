@@ -13,7 +13,6 @@ import { getRepositoryFromGitHub } from "../../core/source/GitHubRepository";
 import gh = require("parse-github-url");
 import AnonymizedRepositoryModel from "../../core/model/anonymizedRepositories/anonymizedRepositories.model";
 import { IAnonymizedRepositoryDocument } from "../../core/model/anonymizedRepositories/anonymizedRepositories.types";
-import Repository from "../../core/Repository";
 import UserModel from "../../core/model/users/users.model";
 import ConferenceModel from "../../core/model/conference/conferences.model";
 import AnonymousError from "../../core/AnonymousError";
@@ -622,7 +621,7 @@ router.post(
       try {
         const r = await oct.users.getByUsername({ username });
         ghUser = r.data;
-      } catch (e) {
+      } catch {
         throw new AnonymousError("github_user_not_found", {
           object: { username },
           httpStatus: 404,

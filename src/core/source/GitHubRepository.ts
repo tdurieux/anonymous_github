@@ -66,7 +66,7 @@ export class GitHubRepository {
       const status = (error as { status?: number }).status;
       if (status === 404) {
         // Distinguish: does the repo itself still exist?
-        let repoExists = false;
+        let repoExists: boolean;
         try {
           await oct.repos.get({ owner: this.owner, repo: this.repo });
           repoExists = true;
