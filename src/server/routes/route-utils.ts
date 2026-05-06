@@ -122,22 +122,42 @@ function printError(error: any, req?: express.Request) {
       ...serializeError(error),
       url: req?.originalUrl,
     };
+    // Use the error's snake_case message as the logger summary so the admin
+    // Errors page surfaces something meaningful (e.g. "repoId_already_used")
+    // instead of a generic "anonymous error" wrapper.
+    const summary = error.message || error.name || "AnonymousError";
     // 4xx are expected client errors (not_found, expired, not_connected) —
     // route them to warn so the admin Errors page can split server faults
     // (5xx) from client misuse (4xx) cleanly.
     const status = error.httpStatus;
     if (typeof status === "number" && status >= 400 && status < 500) {
-      logger.warn("anonymous error", payload);
+      logger.warn(summary, payload);
     } else {
-      logger.error("anonymous error", payload);
+      logger.error(summary, payload);
     }
   } else if (error instanceof HTTPError) {
-    logger.error("http error", {
-      code: error.code,
-      message: error.message,
+    logger.error(error.code || error.name || "HTTPError", {
+      ...serializeError(error),
+      url: req?.originalUrl,
     });
   } else {
-    logger.error("unhandled error", serializeError(error));
+    // Unhandled errors: use the error class name (SyntaxError, TypeError,
+    // RangeError, ...) as the summary so the admin page shows
+    // something far more useful than a generic "unhandled error" label.
+    const serialized = serializeError(error) as Record<string, unknown>;
+    if (
+      typeof serialized.status !== "number" &&
+      typeof serialized.httpStatus !== "number"
+    ) {
+      serialized.httpStatus = 500;
+    }
+    if (req?.originalUrl) serialized.url = req.originalUrl;
+    const summary =
+      (error && typeof error === "object" &&
+        ((error as { name?: string }).name ||
+          (error as { message?: string }).message)) ||
+      "UnhandledError";
+    logger.error(summary, serialized);
   }
 }
 

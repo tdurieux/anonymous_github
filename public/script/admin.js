@@ -943,6 +943,16 @@ angular
           } else if (detail.code && errorKeyRe.test(String(detail.code))) {
             e.displayMessage = String(detail.code);
             e.displayContext = e.message;
+          } else if (
+            detail.name &&
+            detail.name !== "AnonymousError" &&
+            detail.name !== "Error"
+          ) {
+            // Plain JS errors (SyntaxError, TypeError, RangeError, ...) — use
+            // the class name as the visible code; the original message is
+            // shown as italic context.
+            e.displayMessage = detail.name;
+            e.displayContext = detail.message || e.message;
           } else {
             e.displayMessage = e.message;
           }
@@ -951,10 +961,20 @@ angular
           e._method = detail.method || null;
           e._repoId = detail.repoId || detail.detail || null;
           e._detail = detail.detail && detail.detail !== e._repoId ? detail.detail : null;
+          // Walk into `cause` to surface the deepest stack — for unhandled
+          // errors the inner cause is usually the actual JS error frame.
+          let s = typeof detail.stack === "string" ? detail.stack : null;
+          let c = detail.cause;
+          while (!s && c && typeof c === "object") {
+            if (typeof c.stack === "string") s = c.stack;
+            c = c.cause;
+          }
+          e._stack = s;
         } else {
           e.displayMessage = e.message;
           e._status = null;
           e._url = null;
+          e._stack = null;
         }
         e._bucket = bucketFor(detail, e.level);
         e._detailJson = renderDisplayPayload(e, detail);
@@ -1138,9 +1158,16 @@ angular
       }
 
       function loadEntries(append) {
+        // On auto-refresh after the user has paginated ("Load older"),
+        // request the SAME-sized window from the head so we don't blow away
+        // their loaded tail. Newer entries take the top, the oldest visible
+        // ones drop off naturally as the redis list rotates.
         const offset = append ? $scope.entries.length : 0;
+        const limit = append
+          ? $scope.pageSize
+          : Math.max($scope.pageSize, $scope.entries.length || $scope.pageSize);
         $http
-          .get("/api/admin/errors", { params: { offset, limit: $scope.pageSize } })
+          .get("/api/admin/errors", { params: { offset, limit } })
           .then(
             (res) => {
               const next = (res.data.entries || []).map(decorate);

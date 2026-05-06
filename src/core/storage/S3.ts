@@ -163,7 +163,7 @@ export default class S3Storage extends StorageBase {
     if (!res) {
       throw new AnonymousError("file_not_found", {
         httpStatus: 404,
-        object: join(this.repoPath(repoId), path),
+        url: join(this.repoPath(repoId), path),
       });
     }
     return res as Readable;

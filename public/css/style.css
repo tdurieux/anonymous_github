@@ -5068,6 +5068,13 @@ body {
   max-height: 22em; overflow: auto;
   box-shadow: var(--card-shadow);
 }
+.errors-page .stack-pre {
+  /* Stack frames look better with a tighter line-height than the curated
+     JSON view, since each frame is a single readable line. */
+  line-height: 1.45;
+  white-space: pre;
+  overflow-x: auto;
+}
 .errors-page .related-row {
   display: flex; gap: 10px; padding: 6px 12px; align-items: center;
   border-bottom: 1px solid var(--border-soft);

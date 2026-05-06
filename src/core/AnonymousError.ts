@@ -12,6 +12,7 @@ export default class AnonymousError extends CustomError {
   value?: unknown;
   httpStatus?: number;
   cause?: Error;
+  private explicitUrl?: string;
 
   constructor(
     message: string,
@@ -19,15 +20,18 @@ export default class AnonymousError extends CustomError {
       httpStatus?: number;
       cause?: Error;
       object?: unknown;
+      url?: string;
     }
   ) {
     super(message);
     this.value = opt?.object;
     this.httpStatus = opt?.httpStatus;
     this.cause = opt?.cause;
+    this.explicitUrl = opt?.url;
   }
 
   url(): string | undefined {
+    if (this.explicitUrl) return this.explicitUrl;
     if (this.value == null) return undefined;
     try {
       if (this.value instanceof AnonymizedFile) {

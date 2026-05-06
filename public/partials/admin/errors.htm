@@ -148,11 +148,13 @@
       <div class="errors-row-detail" ng-if="expanded[row._key]">
         <div class="detail-tabs">
           <button type="button" ng-class="{active: detailTab[row._key] === 'raw' || !detailTab[row._key]}" ng-click="detailTab[row._key] = 'raw'">Raw</button>
+          <button type="button" ng-class="{active: detailTab[row._key] === 'stack'}" ng-click="detailTab[row._key] = 'stack'" ng-if="row._stack">Stack</button>
           <button type="button" ng-class="{active: detailTab[row._key] === 'related'}" ng-click="detailTab[row._key] = 'related'" ng-if="row.count > 1">Related ({{row.count}})</button>
         </div>
         <div class="detail-body">
           <div class="detail-main">
             <pre ng-if="(detailTab[row._key] || 'raw') === 'raw'">{{row._detailJson}}</pre>
+            <pre ng-if="detailTab[row._key] === 'stack'" class="stack-pre">{{row._stack}}</pre>
             <div ng-if="detailTab[row._key] === 'related'" class="related-list">
               <div class="related-row" ng-repeat="r in row._related track by $index">
                 <span class="when-abs">{{absTimeShort(r.ts)}}</span>

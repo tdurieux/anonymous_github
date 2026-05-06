@@ -27,7 +27,7 @@ app.all("*", (req, res) => {
   handleError(
     new AnonymousError("file_not_found", {
       httpStatus: 404,
-      object: req.originalUrl,
+      url: req.originalUrl,
     }),
     res,
     req
