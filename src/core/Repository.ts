@@ -397,7 +397,13 @@ export default class Repository {
     this._model.lastView = new Date();
     this._model.pageView = (this._model.pageView || 0) + 1;
     if (!isConnected) return this.model;
-    await this._model.save();
+    await AnonymizedRepositoryModel.updateOne(
+      { _id: this._model._id },
+      {
+        $set: { lastView: this._model.lastView },
+        $inc: { pageView: 1 },
+      }
+    ).exec();
   }
 
   /**
