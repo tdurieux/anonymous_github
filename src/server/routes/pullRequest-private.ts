@@ -186,6 +186,16 @@ router.post(
       updatePullRequestModel(pullRequest.model, pullRequestUpdate);
       // TODO handle conference
       pullRequest.model.conference = pullRequestUpdate.conference;
+      await AnonymizedPullRequestModel.updateOne(
+        { _id: pullRequest.model._id },
+        {
+          $set: {
+            options: pullRequest.model.options,
+            conference: pullRequest.model.conference,
+            anonymizeDate: pullRequest.model.anonymizeDate,
+          },
+        }
+      ).exec();
       await pullRequest.updateStatus(RepositoryStatus.PREPARING);
       await pullRequest.updateIfNeeded({ force: true });
       res.json(pullRequest.toJSON());
@@ -222,6 +232,7 @@ router.post("/", async (req: express.Request, res: express.Response) => {
 
     pullRequest.conference = pullRequestUpdate.conference;
 
+    await pullRequest.model.save();
     await pullRequest.anonymize();
     res.send(pullRequest.toJSON());
   } catch (error) {

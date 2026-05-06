@@ -213,15 +213,14 @@ export default class Repository {
   /**
    * Check the status of the repository
    */
-  check() {
+  async check() {
     if (
       this._model.options.expirationMode !== "never" &&
       this.status == RepositoryStatus.READY &&
       this._model.options.expirationDate
     ) {
       if (this._model.options.expirationDate <= new Date()) {
-        this._model.status = RepositoryStatus.EXPIRED;
-        this.expire();
+        await this.expire();
       }
     }
     if (
@@ -384,6 +383,18 @@ export default class Repository {
           commit: newCommit,
         });
 
+        if (isConnected) {
+          await AnonymizedRepositoryModel.updateOne(
+            { _id: this._model._id },
+            {
+              $set: {
+                "source.commit": newCommit,
+                "source.commitDate": this._model.source.commitDate,
+                anonymizeDate: this._model.anonymizeDate,
+              },
+            }
+          ).exec();
+        }
         await this.resetSate(RepositoryStatus.PREPARING);
         await downloadQueue.add(this.repoId, { repoId: this.repoId }, {
           jobId: this.repoId,

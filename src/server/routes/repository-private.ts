@@ -480,6 +480,17 @@ router.post(
         }
       }
       repo.model.conference = repoUpdate.conference;
+      await AnonymizedRepositoryModel.updateOne(
+        { _id: repo.model._id },
+        {
+          $set: {
+            options: repo.model.options,
+            source: repo.model.source,
+            conference: repo.model.conference,
+            anonymizeDate: repo.model.anonymizeDate,
+          },
+        }
+      ).exec();
       await repo.updateStatus(RepositoryStatus.PREPARING);
       res.json({ status: repo.status });
       await downloadQueue.add(repo.repoId, { repoId: repo.repoId }, { jobId: repo.repoId });

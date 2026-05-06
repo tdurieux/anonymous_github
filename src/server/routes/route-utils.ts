@@ -83,7 +83,7 @@ export async function getRepo(
         return null;
       }
 
-      repo.check();
+      await repo.check();
     }
     return repo;
   } catch (error) {

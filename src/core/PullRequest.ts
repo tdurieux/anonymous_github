@@ -192,7 +192,12 @@ export default class PullRequest {
       await this.updateStatus(RepositoryStatus.READY);
       await AnonymizedPullRequestModel.updateOne(
         { _id: this._model._id },
-        { $set: { anonymizeDate: this._model.anonymizeDate } }
+        {
+          $set: {
+            anonymizeDate: this._model.anonymizeDate,
+            pullRequest: this._model.pullRequest,
+          },
+        }
       ).exec();
     }
   }

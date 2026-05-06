@@ -35,10 +35,10 @@ export function repositoryStatusCheck() {
         status: { $eq: "ready" },
         isReseted: { $eq: false },
       })
-    ).forEach((data) => {
+    ).forEach(async (data) => {
       const repo = new Repository(data);
       try {
-        repo.check();
+        await repo.check();
       } catch {
         logger.info("repository expired", { repoId: repo.repoId });
       }

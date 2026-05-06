@@ -166,6 +166,16 @@ router.post(
 
       updateGistModel(gist.model, gistUpdate);
       gist.model.conference = gistUpdate.conference;
+      await AnonymizedGistModel.updateOne(
+        { _id: gist.model._id },
+        {
+          $set: {
+            options: gist.model.options,
+            conference: gist.model.conference,
+            anonymizeDate: gist.model.anonymizeDate,
+          },
+        }
+      ).exec();
       await gist.updateStatus(RepositoryStatus.PREPARING);
       await gist.updateIfNeeded({ force: true });
       res.json(gist.toJSON());
@@ -200,6 +210,7 @@ router.post("/", async (req: express.Request, res: express.Response) => {
 
     gist.model.conference = gistUpdate.conference;
 
+    await gist.model.save();
     await gist.anonymize();
     res.send(gist.toJSON());
   } catch (error) {

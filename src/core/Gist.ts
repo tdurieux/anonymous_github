@@ -178,7 +178,12 @@ export default class Gist {
       await this.updateStatus(RepositoryStatus.READY);
       await AnonymizedGistModel.updateOne(
         { _id: this._model._id },
-        { $set: { anonymizeDate: this._model.anonymizeDate } }
+        {
+          $set: {
+            anonymizeDate: this._model.anonymizeDate,
+            gist: this._model.gist,
+          },
+        }
       ).exec();
     }
   }
