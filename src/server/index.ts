@@ -14,10 +14,17 @@ import { connect } from "./database";
 import { initSession, router as connectionRouter } from "./routes/connection";
 import { bearerTokenAuth } from "./routes/token-auth";
 import router from "./routes";
-import AnonymizedRepositoryModel from "../core/model/anonymizedRepositories/anonymizedRepositories.model";
-import { conferenceStatusCheck, repositoryStatusCheck } from "./schedule";
+import {
+  conferenceStatusCheck,
+  repositoryStatusCheck,
+  dailyStatsSnapshot,
+} from "./schedule";
 import { startWorker, recoverStuckPreparing } from "../queue";
-import AnonymizedPullRequestModel from "../core/model/anonymizedPullRequests/anonymizedPullRequests.model";
+import {
+  computeStats,
+  ensureTodaySnapshot,
+} from "./dailyStatsSnapshot";
+import DailyStatsModel from "../core/model/dailyStats/dailyStats.model";
 import { getUser } from "./routes/route-utils";
 import config from "../config";
 import { createLogger, serializeError } from "../core/logger";
@@ -186,9 +193,13 @@ export default async function start() {
   });
 
   let stat: Record<string, unknown> = {};
+  let history: Array<Record<string, unknown>> | null = null;
+  let historyKey: number | null = null;
 
   setInterval(() => {
     stat = {};
+    history = null;
+    historyKey = null;
   }, 1000 * 60 * 60);
 
   apiRouter.get("/healthcheck", async (_, res) => {
@@ -199,35 +210,34 @@ export default async function start() {
       res.json(stat);
       return;
     }
-    const [nbRepositories, nbUsersAgg, nbPageViews, nbPullRequests] =
-      await Promise.all([
-        AnonymizedRepositoryModel.estimatedDocumentCount(),
-        // Count distinct owners server-side instead of materializing the full
-        // list of ObjectIds with `.distinct("owner")` only to take its length.
-        AnonymizedRepositoryModel.collection
-          .aggregate([
-            { $group: { _id: "$owner" } },
-            { $count: "n" },
-          ])
-          .toArray(),
-        AnonymizedRepositoryModel.collection
-          .aggregate([
-            {
-              $group: { _id: null, total: { $sum: "$pageView" } },
-            },
-          ])
-          .toArray(),
-        AnonymizedPullRequestModel.estimatedDocumentCount(),
-      ]);
-
-    stat = {
-      nbRepositories,
-      nbUsers: (nbUsersAgg[0] as { n?: number } | undefined)?.n || 0,
-      nbPageViews: nbPageViews[0]?.total || 0,
-      nbPullRequests,
-    };
-
+    stat = { ...(await computeStats()) };
     res.json(stat);
+  });
+
+  apiRouter.get("/stat/history", async (req, res) => {
+    const days = Math.min(
+      Math.max(parseInt(req.query.days as string) || 30, 1),
+      365
+    );
+    if (history && historyKey === days) {
+      res.json(history);
+      return;
+    }
+    const since = new Date();
+    since.setUTCDate(since.getUTCDate() - days + 1);
+    since.setUTCHours(0, 0, 0, 0);
+    const docs = await DailyStatsModel.find({ date: { $gte: since } })
+      .sort({ date: 1 })
+      .lean();
+    history = docs.map((d) => ({
+      date: d.date,
+      nbRepositories: d.nbRepositories,
+      nbUsers: d.nbUsers,
+      nbPageViews: d.nbPageViews,
+      nbPullRequests: d.nbPullRequests,
+    }));
+    historyKey = days;
+    res.json(history);
   });
 
   // web view
@@ -253,10 +263,14 @@ export default async function start() {
   // start schedules
   conferenceStatusCheck();
   repositoryStatusCheck();
+  dailyStatsSnapshot();
 
   await connect();
   app.listen(config.PORT);
   logger.info("server started", { port: config.PORT });
+  ensureTodaySnapshot().catch((err) =>
+    logger.error("ensureTodaySnapshot failed", { err })
+  );
   recoverStuckPreparing().catch((err) =>
     logger.error("recoverStuckPreparing failed", { err })
   );

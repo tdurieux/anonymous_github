@@ -61,17 +61,35 @@
   <!-- Stats strip -->
   <section class="paper-stats" id="metrics">
     <div class="paper-stats-inner">
-      <div>
-        <div class="paper-stat-value">{{stat.nbRepositories | number}}</div>
-        <div class="paper-stat-label">repositories anonymized</div>
+      <div class="paper-stats-meta">
+        <div class="paper-stats-meta-left">LIVE &middot; LAST 60 DAYS</div>
+        <div class="paper-stats-meta-right">
+          updated daily &middot;
+          <span class="paper-stats-dot"></span> in sync
+        </div>
       </div>
-      <div>
-        <div class="paper-stat-value">{{stat.nbUsers | number}}</div>
-        <div class="paper-stat-label">researchers</div>
-      </div>
-      <div>
-        <div class="paper-stat-value">{{stat.nbPageViews | number}}</div>
-        <div class="paper-stat-label">page views</div>
+      <div class="paper-stats-grid">
+        <div class="paper-stat-card" ng-repeat="card in cards track by card.key">
+          <div class="paper-stat-value">{{card.total | bigNum}}</div>
+          <div class="paper-stat-label">{{card.label}}</div>
+          <svg class="paper-stat-bars" preserveAspectRatio="none"
+               ng-attr-viewBox="0 0 {{history[card.key].viewW}} 36"
+               ng-if="history[card.key].bars.length > 1">
+            <rect ng-repeat="b in history[card.key].bars track by $index"
+                  ng-attr-x="{{b.x}}" ng-attr-y="{{b.y}}"
+                  ng-attr-width="{{b.w}}" ng-attr-height="{{b.h}}"
+                  ng-class="{'is-latest': $last}"/>
+          </svg>
+          <div class="paper-stat-delta" ng-if="history[card.key].bars.length > 1">
+            <span class="paper-stat-today">+{{history[card.key].deltaToday | number}} today</span>
+            <span class="paper-stat-sep">&middot;</span>
+            <span class="paper-stat-pct"
+                  ng-class="{'is-up': history[card.key].isUp, 'is-down': !history[card.key].isUp}">
+              <span class="paper-stat-arrow">{{history[card.key].isUp ? '▲' : '▼'}}</span>
+              {{history[card.key].pctAbs}}%
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   </section>

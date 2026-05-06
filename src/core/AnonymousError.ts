@@ -27,10 +27,9 @@ export default class AnonymousError extends CustomError {
     this.cause = opt?.cause;
   }
 
-  detail(): string | undefined {
+  url(): string | undefined {
     if (this.value == null) return undefined;
     try {
-      if (this.value instanceof Repository) return this.value.repoId;
       if (this.value instanceof AnonymizedFile) {
         const repoId = this.value.repository?.repoId;
         // anonymizedPath getter can throw if the file isn't initialized;
@@ -43,6 +42,17 @@ export default class AnonymousError extends CustomError {
         }
         return repoId ? `/r/${repoId}/${p ?? ""}` : p;
       }
+    } catch {
+      /* ignore */
+    }
+    return undefined;
+  }
+
+  detail(): string | undefined {
+    if (this.value == null) return undefined;
+    try {
+      if (this.value instanceof Repository) return this.value.repoId;
+      if (this.value instanceof AnonymizedFile) return undefined;
       if (this.value instanceof GitHubRepository) return this.value.fullName;
       if (this.value instanceof User) return this.value.username;
       if (this.value instanceof GitHubBase) {
@@ -57,9 +67,9 @@ export default class AnonymousError extends CustomError {
 
   toString(): string {
     let out = this.message;
-    const detail = this.detail();
-    if (detail) {
-      out += `: ${detail}`;
+    const info = this.url() ?? this.detail();
+    if (info) {
+      out += `: ${info}`;
     }
     if (this.cause) {
       out += `\n\tCause by ${this.cause}\n${this.cause.stack}`;

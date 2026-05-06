@@ -866,12 +866,21 @@ angular
       }
 
       $scope.entries = [];
-      $scope.filtered = [];
-      $scope.modules = [];
+      $scope.visible = [];
       $scope.available = true;
+      $scope.cap = 1000;
+      $scope.total = 0;
+      $scope.pageSize = 250;
+      $scope.expanded = {};
+      $scope.detailTab = {};
+      $scope.copyHint = "";
+      $scope.parsedFilterCount = 0;
+      $scope.stats = { last24h: 0, prev24h: 0, delta: 0, severity: { error: 0, warn: 0, info: 0 }, unique: { error: 0, warn: 0, info: 0 }, buckets: [], dropped: 0 };
       $scope.query = {
         search: "",
-        module: "",
+        bucket: "",
+        sort: "recent",
+        group: "code",
         autoRefresh: true,
       };
 
@@ -897,27 +906,34 @@ angular
         if (isNaN(d.getTime())) return iso;
         return d.toLocaleString();
       };
+      $scope.absTimeShort = (iso) => {
+        if (!iso) return "";
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return iso;
+        return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+      };
 
-      // Decorate each entry once with derived display fields (chips + json).
-      // Returning a fresh array from a template-bound function each digest
-      // cycle triggers Angular's $rootScope:infdig — so we precompute on load.
-      function statusKind(s) {
-        const n = parseInt(s, 10);
-        if (!n) return "";
-        if (n >= 500) return "err";
-        if (n >= 400) return "warn";
-        return "ok";
-      }
-      // snake_case identifier looking like an error key (e.g. "repo_not_found").
+      // Decorate each entry once with derived display fields. Pre-computing
+      // avoids returning new arrays from template functions each digest
+      // cycle (which trips Angular's $rootScope:infdig).
       const errorKeyRe = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)+$/;
+      function bucketFor(detail, level) {
+        const s =
+          (detail && (detail.httpStatus || detail.status)) || null;
+        if (typeof s === "number") {
+          if (s >= 500) return "error";
+          if (s === 401 || s === 403 || s === 404) return "info";
+          if (s >= 400) return "warn";
+        }
+        if (level === "error") return "error";
+        if (level === "warn") return "warn";
+        return "info";
+      }
       function decorate(e) {
-        const chips = [];
         const detail = (e.raw || []).find(
           (a) => a && typeof a === "object" && !Array.isArray(a)
         );
         if (detail) {
-          // Prefer the structured error key (e.g. "pull_request_not_found")
-          // over the generic logger message ("anonymous error", "http error").
           if (detail.message && errorKeyRe.test(detail.message)) {
             e.displayMessage = detail.message;
             e.displayContext = e.message;
@@ -927,63 +943,272 @@ angular
           } else {
             e.displayMessage = e.message;
           }
-          if (detail.httpStatus) chips.push({ label: "status", value: detail.httpStatus, kind: statusKind(detail.httpStatus) });
-          else if (detail.status) chips.push({ label: "status", value: detail.status, kind: statusKind(detail.status) });
-          if (detail.method) chips.push({ label: "method", value: detail.method });
-          if (detail.url) chips.push({ label: "url", value: detail.url, mono: true });
-          if (detail.repoId) chips.push({ label: "repo", value: detail.repoId, mono: true });
-          if (detail.code && detail.code !== detail.message && detail.code !== e.displayMessage) {
-            chips.push({ label: "code", value: detail.code });
-          }
+          e._status = detail.httpStatus || detail.status || null;
+          e._url = detail.url || null;
+          e._method = detail.method || null;
+          e._repoId = detail.repoId || detail.detail || null;
+          e._detail = detail.detail && detail.detail !== e._repoId ? detail.detail : null;
         } else {
           e.displayMessage = e.message;
+          e._status = null;
+          e._url = null;
         }
-        const tail = (e.raw || []).slice(1);
-        const detailJson = !tail.length
-          ? ""
-          : tail.length === 1
-            ? JSON.stringify(tail[0], null, 2)
-            : JSON.stringify(tail, null, 2);
-        e._chips = chips;
-        e._detailJson = detailJson;
+        e._bucket = bucketFor(detail, e.level);
+        e._detailJson = renderDisplayPayload(e, detail);
         return e;
       }
 
-      function applyFilter() {
-        const q = ($scope.query.search || "").toLowerCase();
-        const mod = $scope.query.module || "";
-        $scope.filtered = $scope.entries.filter((e) => {
-          if (mod && e.module !== mod) return false;
-          if (!q) return true;
-          const hay = (
-            (e.displayMessage || e.message || "") +
-            " " +
-            e.module +
-            " " +
-            JSON.stringify(e.raw || [])
-          ).toLowerCase();
-          return hay.indexOf(q) > -1;
+      // Build a curated, column-aligned JSON payload for the Raw tab. Mirrors
+      // the reference admin design: name / code / kind / httpStatus / module /
+      // detail / url / ts on aligned colons. We can't just JSON.stringify the
+      // raw entry because it includes the human "anonymous error" wrapper
+      // arg and the keys aren't column-aligned.
+      function renderDisplayPayload(entry, detail) {
+        const fields = [];
+        const push = (k, v) => {
+          if (v === undefined || v === null || v === "") return;
+          fields.push([k, v]);
+        };
+        push("name", detail && detail.name);
+        push("code", entry.displayMessage || (detail && detail.message));
+        // "kind" is a friendly grouping; only emit if we know the bucket.
+        if (entry._bucket) push("kind", entry._bucket);
+        push("httpStatus", detail && detail.httpStatus);
+        if (detail && detail.status && !(detail.httpStatus)) push("status", detail.status);
+        push("module", entry.module);
+        push("detail", detail && detail.detail);
+        push("url", entry._url);
+        push("ts", entry.ts);
+        if (!fields.length) return JSON.stringify(entry, null, 2);
+        const keyW = fields.reduce((w, f) => Math.max(w, f[0].length), 0);
+        const lines = ["{"];
+        fields.forEach(([k, v], i) => {
+          const key = `"${k}":`.padEnd(keyW + 3, " ");
+          const val = typeof v === "number" || typeof v === "boolean"
+            ? String(v)
+            : JSON.stringify(v);
+          const comma = i < fields.length - 1 ? "," : "";
+          lines.push(`  ${key} ${val}${comma}`);
         });
+        lines.push("}");
+        return lines.join("\n");
       }
 
-      function load() {
-        $http.get("/api/admin/errors").then(
+      // Lightweight filter parser. Pulls `key:value` and `status:>=400` style
+      // tokens out of the search box; everything else falls back to a free
+      // text contains-match against the rendered fields.
+      function parseFilter(input) {
+        const filters = [];
+        let free = "";
+        const re = /(\w+):(>=|<=|!=|>|<|=)?([^\s]+)/g;
+        let lastEnd = 0;
+        let m;
+        while ((m = re.exec(input))) {
+          free += input.slice(lastEnd, m.index);
+          lastEnd = re.lastIndex;
+          filters.push({ key: m[1], op: m[2] || "=", val: m[3] });
+        }
+        free += input.slice(lastEnd);
+        return { filters, free: free.trim().toLowerCase() };
+      }
+      function matchFilter(row, parsed) {
+        for (const f of parsed.filters) {
+          const cmp = (a, b, op) => {
+            const an = parseFloat(a);
+            const bn = parseFloat(b);
+            if (op === "=") return String(a) === String(b);
+            if (op === "!=") return String(a) !== String(b);
+            if (op === ">=") return an >= bn;
+            if (op === "<=") return an <= bn;
+            if (op === ">") return an > bn;
+            if (op === "<") return an < bn;
+            return true;
+          };
+          let v;
+          if (f.key === "code") v = row.displayMessage;
+          else if (f.key === "module") v = row.module;
+          else if (f.key === "status") v = row._status;
+          else if (f.key === "url") v = row._url;
+          else if (f.key === "repo") v = row._repoId;
+          else if (f.key === "level") v = row.level;
+          else continue;
+          if (v == null) return false;
+          if (!cmp(v, f.val, f.op)) return false;
+        }
+        if (parsed.free) {
+          const hay = (
+            (row.displayMessage || "") + " " +
+            (row.module || "") + " " +
+            (row._url || "") + " " +
+            JSON.stringify(row.raw || [])
+          ).toLowerCase();
+          if (hay.indexOf(parsed.free) === -1) return false;
+        }
+        return true;
+      }
+
+      function recompute() {
+        const parsed = parseFilter($scope.query.search || "");
+        $scope.parsedFilterCount = parsed.filters.length;
+        const bucket = $scope.query.bucket;
+        let rows = $scope.entries.filter((e) => {
+          if (bucket && e._bucket !== bucket) return false;
+          return matchFilter(e, parsed);
+        });
+
+        const group = $scope.query.group;
+        if (group) {
+          const keyOf = (r) =>
+            group === "module" ? r.module : (r.displayMessage || r.message || "_");
+          const map = new Map();
+          for (const r of rows) {
+            const k = keyOf(r);
+            if (!map.has(k)) {
+              const seed = Object.assign({}, r);
+              seed._key = `${group}:${k}`;
+              seed._related = [r];
+              seed._firstSeen = r.ts;
+              seed._lastHourCount = 0;
+              seed.count = 1;
+              map.set(k, seed);
+            } else {
+              const g = map.get(k);
+              g.count++;
+              g._related.push(r);
+              if (new Date(r.ts) > new Date(g.ts)) {
+                g.ts = r.ts;
+                g._url = r._url;
+                g._status = r._status;
+              }
+              if (new Date(r.ts) < new Date(g._firstSeen)) g._firstSeen = r.ts;
+            }
+          }
+          // count "this hour"
+          const cutoffH = Date.now() - 3600 * 1000;
+          for (const g of map.values()) {
+            g._lastHourCount = g._related.filter((r) => new Date(r.ts).getTime() >= cutoffH).length;
+          }
+          rows = Array.from(map.values());
+        } else {
+          rows = rows.map((r, i) => {
+            r._key = "row:" + i + ":" + r.ts;
+            r._related = [r];
+            r._firstSeen = r.ts;
+            r._lastHourCount = 0;
+            r.count = 1;
+            return r;
+          });
+        }
+
+        if ($scope.query.sort === "count") {
+          rows.sort((a, b) => b.count - a.count || new Date(b.ts) - new Date(a.ts));
+        } else {
+          rows.sort((a, b) => new Date(b.ts) - new Date(a.ts));
+        }
+        $scope.visible = rows;
+      }
+
+      function loadEntries(append) {
+        const offset = append ? $scope.entries.length : 0;
+        $http
+          .get("/api/admin/errors", { params: { offset, limit: $scope.pageSize } })
+          .then(
+            (res) => {
+              const next = (res.data.entries || []).map(decorate);
+              $scope.entries = append ? $scope.entries.concat(next) : next;
+              $scope.available = !!res.data.available;
+              $scope.cap = res.data.max || $scope.cap;
+              $scope.total = res.data.total || $scope.entries.length;
+              recompute();
+            },
+            (err) => console.error(err)
+          );
+      }
+      $scope.loadMore = () => loadEntries(true);
+      $scope.canLoadMore = () => $scope.entries.length < $scope.total;
+      function loadStats() {
+        $http.get("/api/admin/errors/stats").then(
           (res) => {
-            $scope.entries = (res.data.entries || []).map(decorate);
-            $scope.available = !!res.data.available;
-            const set = new Set();
-            $scope.entries.forEach((e) => e.module && set.add(e.module));
-            $scope.modules = Array.from(set).sort();
-            applyFilter();
+            const s = res.data || {};
+            const delta = s.prev24h ? Math.round(((s.last24h - s.prev24h) / s.prev24h) * 100) : 0;
+            $scope.stats = {
+              last24h: s.last24h || 0,
+              prev24h: s.prev24h || 0,
+              delta,
+              severity: s.severity || { error: 0, warn: 0, info: 0 },
+              unique: s.unique || { error: 0, warn: 0, info: 0 },
+              buckets: s.buckets || [],
+              dropped: s.dropped || 0,
+            };
           },
           (err) => console.error(err)
         );
       }
+      function load() {
+        loadEntries();
+        loadStats();
+      }
+
+      // For the volume chart: scale tallest bucket-total to a fixed pixel max.
+      $scope.barPx = (b, key) => {
+        const all = $scope.stats.buckets || [];
+        let max = 0;
+        for (const x of all) max = Math.max(max, (x.error || 0) + (x.warn || 0) + (x.info || 0));
+        if (!max) return 0;
+        const total = (b.error || 0) + (b.warn || 0) + (b.info || 0);
+        if (!total) return 0;
+        const targetTotal = Math.round((total / max) * 60); // 60px max
+        const part = b[key] || 0;
+        return Math.round((part / total) * targetTotal);
+      };
+      $scope.bucketTitle = (b) => {
+        const t = new Date(b.hour);
+        return `${t.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} · ${b.error || 0} err · ${b.warn || 0} warn · ${b.info || 0} info`;
+      };
+
+      $scope.toggle = (row) => {
+        $scope.expanded[row._key] = !$scope.expanded[row._key];
+      };
+      $scope.setBucket = (b) => {
+        $scope.query.bucket = b;
+      };
 
       $scope.refreshNow = load;
       $scope.clearAll = () => {
         if (!confirm("Clear all captured errors?")) return;
         $http.delete("/api/admin/errors").then(load, (err) => console.error(err));
+      };
+      $scope.exportCsv = () => {
+        const cols = ["ts", "level", "module", "displayMessage", "_status", "_url", "_repoId"];
+        const lines = [cols.join(",")];
+        for (const r of $scope.visible) {
+          lines.push(cols.map((c) => {
+            const v = r[c] == null ? "" : String(r[c]);
+            return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+          }).join(","));
+        }
+        const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `errors-${new Date().toISOString().slice(0, 19)}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      };
+      function flashCopy(label) {
+        $scope.copyHint = `${label} copied`;
+        setTimeout(() => { $scope.copyHint = ""; $scope.$apply(); }, 1500);
+      }
+      $scope.copyJson = (row) => {
+        navigator.clipboard.writeText(row._detailJson).then(() => flashCopy("JSON"));
+      };
+      $scope.copyCurl = (row) => {
+        if (!row._url) return;
+        const method = row._method || "GET";
+        const cmd = `curl -X ${method} '${window.location.origin}${row._url}'`;
+        navigator.clipboard.writeText(cmd).then(() => flashCopy("curl"));
       };
 
       load();
@@ -992,7 +1217,9 @@ angular
       }, 5000);
       $scope.$on("$destroy", () => $interval.cancel(stop));
 
-      $scope.$watch("query.search", applyFilter);
-      $scope.$watch("query.module", applyFilter);
+      $scope.$watch("query.search", recompute);
+      $scope.$watch("query.bucket", recompute);
+      $scope.$watch("query.sort", recompute);
+      $scope.$watch("query.group", recompute);
     },
   ]);

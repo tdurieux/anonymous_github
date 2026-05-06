@@ -465,9 +465,13 @@ export default class Repository {
   async removeCache() {
     await storage.rm(this.repoId);
     this.model.isReseted = true;
+    this.model.size = { storage: 0, file: 0 };
     if (isConnected) {
       try {
-        await this.model.save();
+        await AnonymizedRepositoryModel.updateOne(
+          { _id: this._model._id },
+          { $set: { isReseted: true, size: this._model.size } }
+        ).exec();
       } catch (error) {
         logger.error("removeCache save failed", serializeError(error));
       }

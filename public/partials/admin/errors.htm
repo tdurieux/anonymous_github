@@ -1,6 +1,13 @@
-<div class="container paper-page admin-page">
+<div class="container paper-page admin-page errors-page">
   <div class="paper-crumbs">Admin &nbsp;/&nbsp; <span class="here">Errors</span></div>
-  <h1 class="paper-page-title">Errors</h1>
+
+  <header class="errors-header">
+    <h1 class="paper-page-title">Errors</h1>
+    <div class="errors-actions">
+      <button class="btn btn-sm" type="button" ng-click="exportCsv()"><i class="fas fa-file-export"></i> Export CSV</button>
+      <button class="btn btn-sm btn-danger" type="button" ng-click="clearAll()"><i class="fas fa-trash"></i> Clear all</button>
+    </div>
+  </header>
 
   <nav class="admin-nav">
     <a href="/admin/"><i class="fas fa-code-branch"></i> Repositories</a>
@@ -10,68 +17,179 @@
     <a href="/admin/errors" class="active"><i class="fas fa-bug"></i> Errors</a>
   </nav>
 
-  <div class="admin-summary">
-    <span class="summary-pill error">{{filtered.length}} shown</span>
-    <span class="summary-pill">{{entries.length}} captured</span>
-    <span class="summary-pill" ng-if="!available">redis sink unavailable</span>
-  </div>
-
-  <form class="w-100 admin-filter-toolbar" aria-label="Error filters">
-    <div class="admin-filter-row">
-      <div class="search-wrap">
-        <input type="search" class="form-control" placeholder="Search message, module, or url…" ng-model="query.search" autocomplete="off" />
+  <section class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-label">Last 24h</div>
+      <div class="kpi-value">{{stats.last24h}}</div>
+      <div class="kpi-sub" ng-class="{up: stats.delta > 0, down: stats.delta < 0}">
+        <span ng-if="stats.prev24h">{{stats.delta > 0 ? '+' : ''}}{{stats.delta}}% vs yesterday</span>
+        <span ng-if="!stats.prev24h">no prior baseline</span>
       </div>
-      <span class="admin-filter-inline">
-        <label>Module</label>
-        <select class="form-control form-control-sm" ng-model="query.module">
-          <option value="">Any</option>
-          <option ng-repeat="m in modules" value="{{m}}">{{m}}</option>
-        </select>
-      </span>
-      <span class="admin-filter-spacer"></span>
-      <label class="admin-filter-inline" style="cursor:pointer;">
-        <input type="checkbox" ng-model="query.autoRefresh" />
-        Auto-refresh
-      </label>
-      <button class="btn btn-sm" type="button" ng-click="refreshNow()" title="Refresh now"><i class="fas fa-sync"></i></button>
-      <button class="btn btn-sm btn-danger" type="button" ng-click="clearAll()" title="Clear all errors"><i class="fas fa-trash"></i> Clear</button>
     </div>
+    <div class="kpi-card kpi-error">
+      <div class="kpi-label">Errors (5xx)</div>
+      <div class="kpi-value">{{stats.severity.error}}</div>
+      <div class="kpi-sub">{{stats.unique.error}} unique</div>
+    </div>
+    <div class="kpi-card kpi-warn">
+      <div class="kpi-label">Warnings (4xx)</div>
+      <div class="kpi-value">{{stats.severity.warn}}</div>
+      <div class="kpi-sub">{{stats.unique.warn}} unique</div>
+    </div>
+    <div class="kpi-card kpi-info">
+      <div class="kpi-label">Info (auth, 404)</div>
+      <div class="kpi-value">{{stats.severity.info}}</div>
+      <div class="kpi-sub">{{stats.unique.info}} unique</div>
+    </div>
+    <div class="kpi-card" ng-class="{'kpi-error': stats.dropped > 0}">
+      <div class="kpi-label">Captured</div>
+      <div class="kpi-value">{{total}}</div>
+      <div class="kpi-sub">
+        cap {{cap}} · {{available ? 'live' : 'redis off'}}
+        <span ng-if="stats.dropped > 0" class="dropped-warn"> · {{stats.dropped}} dropped</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="volume-chart">
+    <div class="volume-head">
+      <span class="volume-title">Volume · 24h · 1h buckets</span>
+      <span class="volume-legend">
+        <span class="dot dot-error"></span>error
+        <span class="dot dot-warn"></span>warn
+        <span class="dot dot-info"></span>info
+      </span>
+    </div>
+    <div class="volume-bars">
+      <div class="volume-bar" ng-repeat="b in stats.buckets track by $index" title="{{bucketTitle(b)}}">
+        <span class="seg seg-error" ng-style="{height: barPx(b, 'error') + 'px'}"></span>
+        <span class="seg seg-warn" ng-style="{height: barPx(b, 'warn') + 'px'}"></span>
+        <span class="seg seg-info" ng-style="{height: barPx(b, 'info') + 'px'}"></span>
+      </div>
+    </div>
+  </section>
+
+  <form class="errors-toolbar" aria-label="Error filters">
+    <div class="seg-tabs">
+      <button type="button" ng-class="{active: query.bucket === ''}" ng-click="setBucket('')">All</button>
+      <button type="button" ng-class="{active: query.bucket === 'error'}" ng-click="setBucket('error')">5xx</button>
+      <button type="button" ng-class="{active: query.bucket === 'warn'}" ng-click="setBucket('warn')">4xx</button>
+      <button type="button" ng-class="{active: query.bucket === 'info'}" ng-click="setBucket('info')">Info</button>
+    </div>
+    <div class="search-wrap">
+      <i class="fas fa-search search-icon"></i>
+      <input type="search" class="form-control" placeholder="code:repo_not_found module:route status:>=400" ng-model="query.search" autocomplete="off" />
+      <span class="filter-count" ng-if="parsedFilterCount">{{parsedFilterCount}} filter{{parsedFilterCount > 1 ? 's' : ''}}</span>
+    </div>
+    <div class="select-wrap">
+      <label>Sort</label>
+      <select class="form-control form-control-sm" ng-model="query.sort">
+        <option value="recent">Most recent</option>
+        <option value="count">Most frequent</option>
+      </select>
+    </div>
+    <div class="select-wrap">
+      <label>Group</label>
+      <select class="form-control form-control-sm" ng-model="query.group">
+        <option value="">Off</option>
+        <option value="code">By code</option>
+        <option value="module">By module</option>
+      </select>
+    </div>
+    <label class="autoref">
+      <input type="checkbox" ng-model="query.autoRefresh" />
+      Auto-refresh
+    </label>
+    <button class="btn btn-sm btn-icon" type="button" ng-click="refreshNow()" title="Refresh now"><i class="fas fa-sync"></i></button>
   </form>
 
-  <div ng-if="!filtered.length" class="admin-empty">No errors captured.</div>
+  <div ng-if="!visible.length" class="admin-empty">No errors captured.</div>
+  <div ng-if="canLoadMore() && visible.length" class="errors-pager">
+    <span>Showing {{entries.length}} of {{total}} captured</span>
+    <button class="btn btn-sm" type="button" ng-click="loadMore()">Load older</button>
+  </div>
 
-  <table class="table errors-table" ng-if="filtered.length">
-    <thead>
-      <tr>
-        <th style="width: 9em;">When</th>
-        <th style="width: 9em;">Module</th>
-        <th>Message</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr ng-repeat="e in filtered track by $index">
-        <td class="error-when">
-          <time title="{{absTime(e.ts)}}">{{relTime(e.ts)}}</time>
-        </td>
-        <td><span class="pill pill-module">{{e.module}}</span></td>
-        <td class="error-msg">
-          <div class="error-msg-line">
-            <strong>{{e.displayMessage}}</strong>
-            <span class="error-context" ng-if="e.displayContext && e.displayContext !== e.displayMessage">{{e.displayContext}}</span>
-            <span class="error-chip"
-                  ng-repeat="c in e._chips track by $index"
-                  ng-class="{'chip-err': c.kind === 'err', 'chip-warn': c.kind === 'warn', 'chip-ok': c.kind === 'ok', 'chip-mono': c.mono}"
-                  title="{{c.label}}: {{c.value}}">
-              <span class="chip-label">{{c.label}}</span>
-              <span class="chip-value">{{c.value}}</span>
-            </span>
+  <div class="errors-list" ng-if="visible.length">
+    <div class="errors-list-head">
+      <span class="col-when">When</span>
+      <span class="col-sev">Severity</span>
+      <span class="col-mod">Module</span>
+      <span class="col-msg">Message</span>
+      <span class="col-count">Count</span>
+      <span class="col-status">Status</span>
+    </div>
+
+    <div class="errors-row" ng-repeat="row in visible track by row._key" ng-class="{open: expanded[row._key]}">
+      <div class="errors-row-main" ng-click="toggle(row)">
+        <div class="col-when">
+          <div class="when-rel">{{relTime(row.ts)}}</div>
+          <div class="when-abs">{{absTimeShort(row.ts)}}</div>
+        </div>
+        <div class="col-sev">
+          <span class="sev-dot" ng-class="'sev-' + row._bucket"></span>
+          <span class="sev-label">{{row._bucket | uppercase}}</span>
+        </div>
+        <div class="col-mod"><span class="pill pill-module">{{row.module}}</span></div>
+        <div class="col-msg">
+          <strong class="msg-code">{{row.displayMessage}}</strong>
+          <span class="msg-context" ng-if="row.displayContext && row.displayContext !== row.displayMessage">{{row.displayContext}}</span>
+          <span class="msg-detail" ng-if="row._detail">{{row._detail}}</span>
+          <div class="msg-url" ng-if="row._url">{{row._url}}</div>
+        </div>
+        <div class="col-count">
+          <span class="count-pill" ng-if="row.count > 1">×{{row.count}}</span>
+          <span class="count-pill count-pill-muted" ng-if="row.count === 1">×1</span>
+        </div>
+        <div class="col-status">
+          <span class="status-pill" ng-if="row._status" ng-class="'status-' + row._bucket">{{row._status}}</span>
+        </div>
+      </div>
+
+      <div class="errors-row-detail" ng-if="expanded[row._key]">
+        <div class="detail-tabs">
+          <button type="button" ng-class="{active: detailTab[row._key] === 'raw' || !detailTab[row._key]}" ng-click="detailTab[row._key] = 'raw'">Raw</button>
+          <button type="button" ng-class="{active: detailTab[row._key] === 'related'}" ng-click="detailTab[row._key] = 'related'" ng-if="row.count > 1">Related ({{row.count}})</button>
+        </div>
+        <div class="detail-body">
+          <div class="detail-main">
+            <pre ng-if="(detailTab[row._key] || 'raw') === 'raw'">{{row._detailJson}}</pre>
+            <div ng-if="detailTab[row._key] === 'related'" class="related-list">
+              <div class="related-row" ng-repeat="r in row._related track by $index">
+                <span class="when-abs">{{absTimeShort(r.ts)}}</span>
+                <span class="msg-url">{{r._url}}</span>
+                <span class="status-pill" ng-if="r._status" ng-class="'status-' + r._bucket">{{r._status}}</span>
+              </div>
+            </div>
+            <div class="detail-actions">
+              <button class="btn btn-sm" type="button" ng-click="copyCurl(row)" title="Copy a curl that reproduces the request"><i class="fas fa-terminal"></i> Copy curl</button>
+              <button class="btn btn-sm" type="button" ng-click="copyJson(row)"><i class="fas fa-clipboard"></i> Copy JSON</button>
+              <span class="copy-hint" ng-if="copyHint">{{copyHint}}</span>
+            </div>
           </div>
-          <details ng-if="e._detailJson" class="error-details">
-            <summary>raw</summary>
-            <pre>{{e._detailJson}}</pre>
-          </details>
-        </td>
-      </tr>
-    </tbody>
-  </table>
+          <aside class="detail-aside">
+            <div class="aside-block">
+              <div class="aside-label">First seen</div>
+              <div class="aside-value" title="{{absTime(row._firstSeen)}}">{{relTime(row._firstSeen)}}</div>
+            </div>
+            <div class="aside-block">
+              <div class="aside-label">Last seen</div>
+              <div class="aside-value" title="{{absTime(row.ts)}}">{{relTime(row.ts)}}</div>
+            </div>
+            <div class="aside-block">
+              <div class="aside-label">Occurrences</div>
+              <div class="aside-value">{{row.count}}<span class="aside-sub" ng-if="row._lastHourCount"> · {{row._lastHourCount}} this hour</span></div>
+            </div>
+            <div class="aside-block" ng-if="row._repoId">
+              <div class="aside-label">Repository</div>
+              <a class="aside-value" ng-href="/admin/?search={{row._repoId}}">{{row._repoId}}</a>
+            </div>
+            <div class="aside-block" ng-if="row._url">
+              <div class="aside-label">URL</div>
+              <div class="aside-value mono">{{row._url}}</div>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>

@@ -10,7 +10,15 @@ import { ensureAuthenticated } from "./connection";
 import { handleError, getUser, isOwnerOrAdmin, getRepo } from "./route-utils";
 import adminTokensRouter from "./admin-tokens";
 import { octokit, getToken } from "../../core/GitHubUtils";
-import { createLogger, serializeError, ERROR_LOG_KEY, ERROR_LOG_MAX } from "../../core/logger";
+import {
+  createLogger,
+  serializeError,
+  ERROR_LOG_KEY,
+  ERROR_LOG_MAX,
+  ERROR_LOG_HOURLY_PREFIX,
+  ERROR_LOG_DROPPED_KEY,
+  getInProcessDropped,
+} from "../../core/logger";
 import { createClient, RedisClientType } from "redis";
 import config from "../../config";
 
@@ -227,14 +235,32 @@ router.get("/queues", async (req, res) => {
   });
 });
 
-// Errors captured by the logger sink (last ERROR_LOG_MAX entries).
+// Errors captured by the logger sink. Server-paginated to avoid pulling
+// the full ERROR_LOG_MAX entries on every poll — payloads can be a few KB
+// each once detail() enrichment is included.
 router.get("/errors", async (req, res) => {
   try {
     const client = await getErrorLogClient();
     if (!client) {
-      return res.json({ entries: [], max: ERROR_LOG_MAX, available: false });
+      return res.json({
+        entries: [],
+        offset: 0,
+        limit: 0,
+        total: 0,
+        max: ERROR_LOG_MAX,
+        available: false,
+      });
     }
-    const raw = await client.lRange(ERROR_LOG_KEY, 0, ERROR_LOG_MAX - 1);
+    const offset = Math.max(0, parseInt(String(req.query.offset || "0"), 10) || 0);
+    const limit = Math.min(
+      ERROR_LOG_MAX,
+      Math.max(1, parseInt(String(req.query.limit || "250"), 10) || 250)
+    );
+    const stop = offset + limit - 1;
+    const [raw, total] = await Promise.all([
+      client.lRange(ERROR_LOG_KEY, offset, stop),
+      client.lLen(ERROR_LOG_KEY),
+    ]);
     const entries = raw.map((s) => {
       try {
         return JSON.parse(s);
@@ -242,7 +268,141 @@ router.get("/errors", async (req, res) => {
         return { ts: null, module: null, message: s, raw: [] };
       }
     });
-    res.json({ entries, max: ERROR_LOG_MAX, available: true });
+    res.json({
+      entries,
+      offset,
+      limit,
+      total,
+      max: ERROR_LOG_MAX,
+      available: true,
+    });
+  } catch (error) {
+    handleError(error, res, req);
+  }
+});
+
+// Aggregated stats from the precomputed hourly counters (HINCRBY on each
+// persistError). No JSON parsing of stored entries — O(48 small HGETALLs).
+router.get("/errors/stats", async (req, res) => {
+  try {
+    const client = await getErrorLogClient();
+    if (!client) {
+      return res.json({
+        available: false,
+        last24h: 0,
+        prev24h: 0,
+        severity: { error: 0, warn: 0, info: 0 },
+        unique: { error: 0, warn: 0, info: 0 },
+        buckets: [],
+        dropped: getInProcessDropped(),
+      });
+    }
+    const now = new Date();
+    // Build the 48 hour keys to fetch (24 for current window + 24 for prev).
+    function hourKey(d: Date) {
+      const y = d.getUTCFullYear();
+      const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+      const day = String(d.getUTCDate()).padStart(2, "0");
+      const h = String(d.getUTCHours()).padStart(2, "0");
+      return `${ERROR_LOG_HOURLY_PREFIX}${y}${m}${day}${h}`;
+    }
+    const currentKeys: string[] = [];
+    const prevKeys: string[] = [];
+    const bucketHourTs: number[] = [];
+    for (let i = 23; i >= 0; i--) {
+      const d = new Date(now.getTime() - i * 3600 * 1000);
+      // Anchor each bar at the end of its hour so a "9s ago" event lands in
+      // the rightmost bar.
+      const anchor = new Date(
+        Date.UTC(
+          d.getUTCFullYear(),
+          d.getUTCMonth(),
+          d.getUTCDate(),
+          d.getUTCHours()
+        )
+      );
+      currentKeys.push(hourKey(anchor));
+      bucketHourTs.push(anchor.getTime() + 3600 * 1000);
+    }
+    for (let i = 47; i >= 24; i--) {
+      const d = new Date(now.getTime() - i * 3600 * 1000);
+      const anchor = new Date(
+        Date.UTC(
+          d.getUTCFullYear(),
+          d.getUTCMonth(),
+          d.getUTCDate(),
+          d.getUTCHours()
+        )
+      );
+      prevKeys.push(hourKey(anchor));
+    }
+    const pipe = client.multi();
+    for (const k of currentKeys) pipe.hGetAll(k);
+    for (const k of prevKeys) pipe.hGetAll(k);
+    pipe.get(ERROR_LOG_DROPPED_KEY);
+    const results = (await pipe.exec()) as unknown[];
+    const currentHashes = results.slice(0, currentKeys.length) as Record<
+      string,
+      string
+    >[];
+    const prevHashes = results.slice(
+      currentKeys.length,
+      currentKeys.length + prevKeys.length
+    ) as Record<string, string>[];
+    const droppedRedis =
+      parseInt(String(results[results.length - 1] || "0"), 10) || 0;
+
+    const buckets: {
+      hour: number;
+      error: number;
+      warn: number;
+      info: number;
+    }[] = [];
+    const sev = { error: 0, warn: 0, info: 0 };
+    const uniqueCodes: Record<"error" | "warn" | "info", Set<string>> = {
+      error: new Set(),
+      warn: new Set(),
+      info: new Set(),
+    };
+    let last24h = 0;
+    currentHashes.forEach((h, i) => {
+      const flat = h || {};
+      const e = parseInt(flat["bucket:error"] || "0", 10) || 0;
+      const w = parseInt(flat["bucket:warn"] || "0", 10) || 0;
+      const inf = parseInt(flat["bucket:info"] || "0", 10) || 0;
+      buckets.push({ hour: bucketHourTs[i], error: e, warn: w, info: inf });
+      sev.error += e;
+      sev.warn += w;
+      sev.info += inf;
+      last24h += parseInt(flat.total || "0", 10) || 0;
+      // cb:<bucket>:<code> fields → unique code sets.
+      for (const k of Object.keys(flat)) {
+        if (!k.startsWith("cb:")) continue;
+        const sep = k.indexOf(":", 3);
+        if (sep < 0) continue;
+        const b = k.slice(3, sep) as "error" | "warn" | "info";
+        const code = k.slice(sep + 1);
+        if (b in uniqueCodes) uniqueCodes[b].add(code);
+      }
+    });
+    let prev24h = 0;
+    for (const h of prevHashes) {
+      prev24h += parseInt((h || {}).total || "0", 10) || 0;
+    }
+
+    res.json({
+      available: true,
+      last24h,
+      prev24h,
+      severity: sev,
+      unique: {
+        error: uniqueCodes.error.size,
+        warn: uniqueCodes.warn.size,
+        info: uniqueCodes.info.size,
+      },
+      buckets,
+      dropped: droppedRedis + getInProcessDropped(),
+    });
   } catch (error) {
     handleError(error, res, req);
   }
@@ -253,8 +413,24 @@ router.delete("/errors", async (req, res) => {
     const client = await getErrorLogClient();
     if (!client) return res.json({ ok: true, cleared: 0 });
     const len = await client.lLen(ERROR_LOG_KEY);
-    await client.del(ERROR_LOG_KEY);
-    res.json({ ok: true, cleared: len });
+    // SCAN the hourly counter keys and del them along with the list and
+    // dropped counter so the admin page comes back to a clean slate.
+    const hourlyKeys: string[] = [];
+    let cursor = 0;
+    do {
+      const reply = await client.scan(cursor, {
+        MATCH: `${ERROR_LOG_HOURLY_PREFIX}*`,
+        COUNT: 100,
+      });
+      cursor = Number(reply.cursor);
+      for (const k of reply.keys) hourlyKeys.push(k);
+    } while (cursor !== 0);
+    const pipe = client.multi();
+    pipe.del(ERROR_LOG_KEY);
+    pipe.del(ERROR_LOG_DROPPED_KEY);
+    if (hourlyKeys.length) pipe.del(hourlyKeys);
+    await pipe.exec();
+    res.json({ ok: true, cleared: len, hourlyCleared: hourlyKeys.length });
   } catch (error) {
     handleError(error, res, req);
   }

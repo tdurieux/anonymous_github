@@ -156,6 +156,17 @@ angular
   .filter("humanFileSize", function () {
     return humanFileSize;
   })
+  .filter("bigNum", function () {
+    return function bigNum(v) {
+      const n = Number(v) || 0;
+      const abs = Math.abs(n);
+      if (abs < 1000) return String(n);
+      if (abs < 10000) return (n / 1000).toFixed(1).replace(/\.0$/, "") + "k";
+      if (abs < 1000000) return Math.round(n / 1000) + "k";
+      if (abs < 10000000) return (n / 1000000).toFixed(1).replace(/\.0$/, "") + "M";
+      return Math.round(n / 1000000) + "M";
+    };
+  })
   .filter("humanTime", function () {
     return function humanTime(seconds) {
       if (!seconds) {
@@ -942,12 +953,86 @@ angular
         }
       });
 
+      $scope.cards = [
+        { key: "repositories", total: 0, label: "repositories anonymized" },
+        { key: "users", total: 0, label: "researchers" },
+        { key: "pageViews", total: 0, label: "page views" },
+        { key: "pullRequests", total: 0, label: "pull requests" },
+      ];
       function getStat() {
         $http.get("/api/stat/").then((res) => {
           $scope.stat = res.data;
+          $scope.cards[0].total = res.data.nbRepositories;
+          $scope.cards[1].total = res.data.nbUsers;
+          $scope.cards[2].total = res.data.nbPageViews;
+          $scope.cards[3].total = res.data.nbPullRequests;
         });
       }
       getStat();
+
+      function buildSeriesView(series) {
+        const view = {
+          series: series,
+          bars: [],
+          viewW: 100,
+          deltaToday: 0,
+          pctChange: 0,
+          pctAbs: 0,
+          isUp: true,
+        };
+        if (!series || series.length < 2) return view;
+        // Bars represent the *daily increment* (today - yesterday), not the
+        // cumulative total. The big number above the chart shows the total.
+        const deltas = new Array(series.length - 1);
+        for (let i = 1; i < series.length; i++) {
+          deltas[i - 1] = series[i] - series[i - 1];
+        }
+        const n = deltas.length;
+        const max = Math.max.apply(null, deltas);
+        const min = Math.min.apply(null, deltas);
+        // Anchor scale to zero so visually small days look small even when all
+        // deltas are positive; only fall back to min when there are negatives.
+        const base = Math.min(0, min);
+        const range = max - base || 1;
+        view.viewW = n * 2;
+        view.bars = new Array(n);
+        for (let i = 0; i < n; i++) {
+          const norm = (deltas[i] - base) / range;
+          const h = Math.max(1.5, norm * 34);
+          view.bars[i] = {
+            x: (i * 2 + 0.25).toFixed(2),
+            y: (36 - h).toFixed(2),
+            w: "1.5",
+            h: h.toFixed(2),
+          };
+        }
+        view.deltaToday = deltas[n - 1];
+        if (n >= 2) {
+          const prior = deltas[n - 2];
+          if (prior) {
+            view.pctChange = ((view.deltaToday - prior) / prior) * 100;
+          }
+        }
+        view.pctAbs = Math.round(Math.abs(view.pctChange));
+        view.isUp = view.pctChange >= 0;
+        return view;
+      }
+
+      $scope.history = {
+        repositories: buildSeriesView([]),
+        users: buildSeriesView([]),
+        pageViews: buildSeriesView([]),
+        pullRequests: buildSeriesView([]),
+      };
+      $http.get("/api/stat/history?days=60").then((res) => {
+        const rows = res.data || [];
+        $scope.history = {
+          repositories: buildSeriesView(rows.map((r) => r.nbRepositories || 0)),
+          users: buildSeriesView(rows.map((r) => r.nbUsers || 0)),
+          pageViews: buildSeriesView(rows.map((r) => r.nbPageViews || 0)),
+          pullRequests: buildSeriesView(rows.map((r) => r.nbPullRequests || 0)),
+        };
+      });
     },
   ])
   .controller("unifiedDashboardController", [

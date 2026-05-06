@@ -4,6 +4,7 @@ import AnonymizedRepositoryModel from "../core/model/anonymizedRepositories/anon
 import ConferenceModel from "../core/model/conference/conferences.model";
 import Repository from "../core/Repository";
 import { createLogger, serializeError } from "../core/logger";
+import { computeAndStoreDailyStats } from "./dailyStatsSnapshot";
 
 const logger = createLogger("schedule");
 
@@ -52,5 +53,13 @@ export function repositoryStatusCheck() {
         });
       }
     });
+  });
+}
+
+export function dailyStatsSnapshot() {
+  // snapshot home-page stats once per day at 00:05 UTC
+  schedule.scheduleJob("5 0 * * *", async () => {
+    logger.info("running daily stats snapshot");
+    await computeAndStoreDailyStats();
   });
 }

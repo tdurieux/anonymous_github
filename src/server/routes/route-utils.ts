@@ -118,10 +118,19 @@ export function isOwnerCoauthorOrAdmin(repo: Repository, user: User) {
 function printError(error: any, req?: express.Request) {
   if (error instanceof AnonymousError) {
     if (req?.originalUrl === "/api/repo/undefined/options") return;
-    logger.error("anonymous error", {
+    const payload = {
       ...serializeError(error),
       url: req?.originalUrl,
-    });
+    };
+    // 4xx are expected client errors (not_found, expired, not_connected) —
+    // route them to warn so the admin Errors page can split server faults
+    // (5xx) from client misuse (4xx) cleanly.
+    const status = error.httpStatus;
+    if (typeof status === "number" && status >= 400 && status < 500) {
+      logger.warn("anonymous error", payload);
+    } else {
+      logger.error("anonymous error", payload);
+    }
   } else if (error instanceof HTTPError) {
     logger.error("http error", {
       code: error.code,
