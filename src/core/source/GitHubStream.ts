@@ -15,6 +15,8 @@ import { octokit } from "../GitHubUtils";
 import FileModel from "../model/files/files.model";
 import { IFile } from "../model/files/files.types";
 import { createLogger, serializeError } from "../logger";
+import config from "../../config";
+
 
 const logger = createLogger("gh-stream");
 
@@ -85,7 +87,7 @@ export default class GitHubStream extends GitHubBase {
     const PROBE_BYTES = 150;
     const LFS_PREFIX = "version https://git-lfs.github.com/spec/";
 
-    const decide = (extra?: Buffer) => {
+    const decide = (extra?: Buffer, sourceEnded = false) => {
       if (decided) return;
       decided = true;
       const head = probe.toString(
@@ -98,13 +100,17 @@ export default class GitHubStream extends GitHubBase {
         const lfsStream = this.downloadFileViaRaw(token, filePath);
         lfsStream.on("error", (err) => out.destroy(err));
         lfsStream.pipe(out);
-      } else {
-        out.write(probe);
-        if (extra && extra.length) out.write(extra);
-        blobStream.on("data", (c) => out.write(c));
-        blobStream.on("end", () => out.end());
-        blobStream.on("error", (err) => out.destroy(err));
+        return;
       }
+      out.write(probe);
+      if (extra && extra.length) out.write(extra);
+      if (sourceEnded) {
+        out.end();
+        return;
+      }
+      blobStream.on("data", (c) => out.write(c));
+      blobStream.on("end", () => out.end());
+      blobStream.on("error", (err) => out.destroy(err));
     };
 
     blobStream.on("data", (chunk: Buffer) => {
@@ -118,7 +124,7 @@ export default class GitHubStream extends GitHubBase {
         decide(chunk.slice(remaining));
       }
     });
-    blobStream.on("end", () => decide());
+    blobStream.on("end", () => decide(undefined, true));
     blobStream.on("error", (err) => {
       // Always propagate — pre-decision this is the only listener; once a
       // non-LFS decision is made, the inner branch attaches its own
@@ -169,6 +175,17 @@ export default class GitHubStream extends GitHubBase {
     } else if (fileInfo == FILE_TYPE.FOLDER) {
       throw new AnonymousError("folder_not_supported", {
         httpStatus: 400,
+        object: filePath,
+      });
+    }
+
+    // GitHub's blob API rejects blobs larger than 100 MB with HTTP 422.
+    // Skip the download entirely when the tree already tells us the file is
+    // over the cap, so we surface a clean `file_too_big` instead of paying
+    // the round-trip just to translate a 422.
+    if (expected.size != null && expected.size > config.MAX_FILE_SIZE) {
+      throw new AnonymousError("file_too_big", {
+        httpStatus: 413,
         object: filePath,
       });
     }
