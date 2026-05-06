@@ -138,10 +138,11 @@ angular
         search: "",
       });
 
-      // pre-fill owner / conference from URL ?owner= / ?conference=
-      const params = new URLSearchParams(window.location.search);
-      if (params.get("owner")) $scope.query.owner = params.get("owner");
-      if (params.get("conference")) $scope.query.conference = params.get("conference");
+      // pre-fill filters from URL ?owner= / ?conference= / ?search=
+      const urlParams = $location.search();
+      if (urlParams.owner) $scope.query.owner = urlParams.owner;
+      if (urlParams.conference) $scope.query.conference = urlParams.conference;
+      if (urlParams.search) $scope.query.search = urlParams.search;
 
       // -------- presets --------
       const presetsKey = "admin.repos.presets";
@@ -203,13 +204,18 @@ angular
       };
 
       $scope.removeCache = (repo) => {
+        if (!confirm("Remove cached files for " + repo.repoId + "?")) return;
         $http.delete("/api/admin/repos/" + repo.repoId).then(
-          (res) => {
-            $scope.$apply();
-          },
-          (err) => {
-            console.error(err);
-          }
+          () => getRepositories(),
+          (err) => console.error(err)
+        );
+      };
+
+      $scope.removeRepository = (repo) => {
+        if (!confirm("Remove repository " + repo.repoId + "?")) return;
+        $http.delete("/api/repo/" + repo.repoId + "/").then(
+          () => getRepositories(),
+          (err) => console.error(err)
         );
       };
 
@@ -551,13 +557,18 @@ angular
       };
 
       $scope.removeCache = (repo) => {
+        if (!confirm("Remove cached files for " + repo.repoId + "?")) return;
         $http.delete("/api/admin/repos/" + repo.repoId).then(
-          (res) => {
-            $scope.$apply();
-          },
-          (err) => {
-            console.error(err);
-          }
+          () => getUserRepositories($routeParams.username),
+          (err) => console.error(err)
+        );
+      };
+
+      $scope.removeRepository = (repo) => {
+        if (!confirm("Remove repository " + repo.repoId + "?")) return;
+        $http.delete("/api/repo/" + repo.repoId + "/").then(
+          () => getUserRepositories($routeParams.username),
+          (err) => console.error(err)
         );
       };
 
