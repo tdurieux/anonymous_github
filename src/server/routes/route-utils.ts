@@ -114,12 +114,42 @@ export function isOwnerCoauthorOrAdmin(repo: Repository, user: User) {
   });
 }
 
+// Pull the first project-relevant frame ("file:line:col") out of a stack so
+// background-job errors (no req.originalUrl) still get a debug pointer in the
+// `url` slot. Skips node internals and node_modules.
+function originFromStack(stack: unknown): string | undefined {
+  if (typeof stack !== "string") return undefined;
+  const lines = stack.split("\n");
+  for (const line of lines) {
+    const m = line.match(/\(([^()\s]+:\d+:\d+)\)\s*$/) ||
+      line.match(/at\s+([^()\s]+:\d+:\d+)\s*$/);
+    if (!m) continue;
+    const loc = m[1];
+    if (loc.startsWith("node:") || loc.includes("node_modules")) continue;
+    return loc;
+  }
+  return undefined;
+}
+
+function ensureUrl(
+  payload: Record<string, unknown>,
+  req?: express.Request
+) {
+  if (req?.originalUrl) {
+    payload.url = req.originalUrl;
+    return;
+  }
+  if (typeof payload.url === "string" && payload.url) return;
+  const origin = originFromStack(payload.stack);
+  if (origin) payload.url = origin;
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function printError(error: any, req?: express.Request) {
   if (error instanceof AnonymousError) {
     if (req?.originalUrl === "/api/repo/undefined/options") return;
     const payload: Record<string, unknown> = serializeError(error);
-    if (req?.originalUrl) payload.url = req.originalUrl;
+    ensureUrl(payload, req);
     // Use the error's snake_case message as the logger summary so the admin
     // Errors page surfaces something meaningful (e.g. "repoId_already_used")
     // instead of a generic "anonymous error" wrapper.
@@ -135,7 +165,7 @@ function printError(error: any, req?: express.Request) {
     }
   } else if (error instanceof HTTPError) {
     const payload: Record<string, unknown> = serializeError(error);
-    if (req?.originalUrl) payload.url = req.originalUrl;
+    ensureUrl(payload, req);
     logger.error(error.code || error.name || "HTTPError", payload);
   } else {
     // Unhandled errors: use the error class name (SyntaxError, TypeError,
@@ -148,7 +178,7 @@ function printError(error: any, req?: express.Request) {
     ) {
       serialized.httpStatus = 500;
     }
-    if (req?.originalUrl) serialized.url = req.originalUrl;
+    ensureUrl(serialized, req);
     const summary =
       (error && typeof error === "object" &&
         ((error as { name?: string }).name ||

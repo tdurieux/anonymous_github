@@ -292,11 +292,17 @@ function compileTerms(terms: string[] | undefined): CompiledTermVariant[] {
         unicode: variant.unicode,
       });
       const baseFlags = variant.unicode ? "iu" : "i";
-      compiled.push({
-        replaceRegex: new RegExp(bounded, "g" + baseFlags),
-        testRegex: new RegExp(bounded, baseFlags),
-        mask,
-      });
+      // A user-supplied regex can be valid without `u` but illegal with it
+      // (e.g. `[\w-\.]` — a range between class shorthands is rejected only
+      // in unicode mode). Skip variants that fail to compile so the other
+      // variant still anonymizes.
+      try {
+        const replaceRegex = new RegExp(bounded, "g" + baseFlags);
+        const testRegex = new RegExp(bounded, baseFlags);
+        compiled.push({ replaceRegex, testRegex, mask });
+      } catch {
+        continue;
+      }
     }
   }
   return compiled;

@@ -119,6 +119,12 @@ class ContentAnonimizer {
           unicode: variant.unicode,
         });
         const flags = variant.unicode ? "giu" : "gi";
+        let regex;
+        try {
+          regex = new RegExp(bounded, flags);
+        } catch {
+          continue;
+        }
         content = content.replace(urlRegex, (match) => {
           if (new RegExp(bounded, flags).test(match)) {
             this.wasAnonymized = true;
@@ -126,7 +132,7 @@ class ContentAnonimizer {
           }
           return match;
         });
-        content = content.replace(new RegExp(bounded, flags), () => {
+        content = content.replace(regex, () => {
           this.wasAnonymized = true;
           return mask;
         });
@@ -215,6 +221,21 @@ describe("ContentAnonimizer", function () {
       // Since \b won't match around '(' properly, the replacement may not fire
       // on the raw term, but crucially it must not throw
       expect(() => anon.anonymize("some foo(bar here")).to.not.throw();
+    });
+
+    // A user regex valid without `u` but illegal with it (range between
+    // class shorthands like `[\w-\.]`) must not crash compilation; the
+    // non-unicode variant should still anonymize matches.
+    it("accepts a regex that only compiles without the unicode flag", function () {
+      const anon = new ContentAnonimizer({
+        terms: ["[\\w-\\.]+@([\\w-]+\\.)+[\\w-]{2,4}"],
+      });
+      let result;
+      expect(() => {
+        result = anon.anonymize("contact me at alice@example.com please");
+      }).to.not.throw();
+      expect(result).to.not.include("alice@example.com");
+      expect(result).to.include("XXXX-1");
     });
 
     // #175 — terms starting with a non-word char (e.g. "@username") were
