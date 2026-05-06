@@ -6,7 +6,7 @@ import ConferenceModel from "./model/conference/conferences.model";
 import AnonymousError from "./AnonymousError";
 import { IAnonymizedPullRequestDocument } from "./model/anonymizedPullRequests/anonymizedPullRequests.types";
 import config from "../config";
-import got from "got";
+import got, { HTTPError } from "got";
 import { octokit } from "./GitHubUtils";
 import { ContentAnonimizer } from "./anonymize-utils";
 
@@ -57,20 +57,61 @@ export default class PullRequest {
     const [owner, repo] = this._model.source.repositoryFullName.split("/");
     const pull_number = this._model.source.pullRequestId;
 
-    const [prInfo, comments, diff] = await Promise.all([
-      oct.rest.pulls.get({
+    let prInfo;
+    try {
+      prInfo = await oct.rest.pulls.get({
         owner,
         repo,
         pull_number,
-      }),
-      oct.paginate("GET /repos/{owner}/{repo}/issues/{issue_number}/comments", {
+      });
+    } catch (err) {
+      if ((err as { status?: number }).status === 404) {
+        throw new AnonymousError("pull_request_not_found", {
+          httpStatus: 404,
+          object: this,
+          cause: err as Error,
+        });
+      }
+      throw err;
+    }
+
+    const commentsPromise = oct
+      .paginate("GET /repos/{owner}/{repo}/issues/{issue_number}/comments", {
         owner: owner,
         repo: repo,
         issue_number: pull_number,
         per_page: 100,
-      }),
-      got(`https://github.com/${owner}/${repo}/pull/${pull_number}.diff`),
-    ]);
+      })
+      .catch((err): Array<{
+        body?: string | null;
+        created_at: string;
+        updated_at: string;
+        user?: { login?: string } | null;
+      }> => {
+        if ((err as { status?: number }).status === 404) {
+          console.warn(
+            "[WARN] Failed to fetch PR comments (404), continuing without them",
+            `${owner}/${repo}#${pull_number}`
+          );
+          return [];
+        }
+        throw err;
+      });
+
+    const diffPromise = got(
+      `https://github.com/${owner}/${repo}/pull/${pull_number}.diff`
+    ).catch((err) => {
+      if (err instanceof HTTPError && err.response.statusCode === 404) {
+        console.warn(
+          "[WARN] Failed to fetch PR diff (404), continuing without it",
+          `${owner}/${repo}#${pull_number}`
+        );
+        return { body: "" };
+      }
+      throw err;
+    });
+
+    const [comments, diff] = await Promise.all([commentsPromise, diffPromise]);
 
     this._model.pullRequest = {
       diff: diff.body,

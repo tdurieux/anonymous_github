@@ -177,7 +177,7 @@
     <div
       class="paper-table-row"
       role="row"
-      ng-class="{'repo-inactive': repo.status == 'expired' || repo.status == 'removed'}"
+      ng-class="{'repo-inactive': repo.status == 'expired' || repo.status == 'removed', 'repo-error': repo.status == 'error'}"
       ng-repeat="repo in repositories | filter:repoFiler | orderBy:orderBy as filteredRepositories"
     >
       <div class="cell-anon" role="cell">
@@ -190,8 +190,11 @@
         </div>
       </div>
       <div class="cell-status" role="cell">
-        <span class="status-dot" ng-class="{'status-removed': repo.status == 'removed' || repo.status == 'expired', 'status-ready': repo.status == 'ready', 'status-error': repo.status == 'error'}"></span>
-        <span ng-bind="repo.status | title"></span>
+        <span class="status-line">
+          <span class="status-dot" ng-class="{'status-removed': repo.status == 'removed' || repo.status == 'expired', 'status-ready': repo.status == 'ready', 'status-error': repo.status == 'error'}"></span>
+          <span ng-bind="repo.status | title"></span>
+        </span>
+        <span class="status-sub status-sub-error" ng-if="repo.status == 'error' && repo.statusMessage" title="{{repo.statusMessage}}" ng-bind="repo.statusMessage"></span>
       </div>
       <div class="cell-views num" role="cell" ng-bind="::repo.pageView | number"></div>
       <div class="cell-expires" role="cell" ng-bind="repo.anonymizeDate | humanTime"></div>

@@ -81,7 +81,7 @@
     <div
       class="paper-table-row"
       role="row"
-      ng-class="{'repo-inactive': repo.status == 'expired' || repo.status == 'removed', 'row-selected': selected[repo.repoId]}"
+      ng-class="{'repo-inactive': repo.status == 'expired' || repo.status == 'removed', 'repo-error': repo.status == 'error', 'row-selected': selected[repo.repoId]}"
       ng-repeat="repo in repositories | filter:repoFiler | orderBy:orderBy as filteredRepositories"
     >
       <div role="cell" style="width: 28px;">

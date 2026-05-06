@@ -1,5 +1,8 @@
 import AnonymizedFile from "../AnonymizedFile";
-import GitHubBase, { GitHubBaseData } from "./GitHubBase";
+import GitHubBase, {
+  GitHubBaseData,
+  classifyGitHubMissError,
+} from "./GitHubBase";
 import storage from "../storage";
 import * as path from "path";
 import got from "got";
@@ -274,7 +277,8 @@ export default class GitHubStream extends GitHubBase {
         });
       }
       if (status === 404) {
-        throw new AnonymousError("repo_not_found", {
+        const code = await classifyGitHubMissError(error, this.data);
+        throw new AnonymousError(code, {
           httpStatus: 404,
           object: this.data,
           cause: error as Error,

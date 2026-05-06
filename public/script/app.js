@@ -1374,7 +1374,18 @@ angular
               if (res.data.options.expirationDate) {
                 $scope.options.expirationDate = new Date(res.data.options.expirationDate);
               }
-              $scope.details = (await $http.get(`/api/pr/${res.data.source.repositoryFullName}/${res.data.source.pullRequestId}`)).data;
+              try {
+                $scope.details = (await $http.get(`/api/pr/${res.data.source.repositoryFullName}/${res.data.source.pullRequestId}`)).data;
+              } catch (error) {
+                const code = error && error.data && error.data.error;
+                if (code) {
+                  $translate("ERRORS." + code).then((translation) => {
+                    $scope.addToast({ title: "Error", date: new Date(), body: translation });
+                    $scope.error = translation;
+                  }, console.error);
+                  displayErrorMessage(code);
+                }
+              }
               $scope.$apply();
             },
             () => { $location.url("/404"); }
@@ -2867,3 +2878,11 @@ angular
       getConference();
     },
   ]);
+
+$(document).on("click", "#navbarSupportedContent .nav-link", function (e) {
+  if ($(this).attr("data-toggle") === "dropdown") return;
+  var $collapse = $("#navbarSupportedContent");
+  if ($collapse.hasClass("show")) {
+    $collapse.collapse("hide");
+  }
+});

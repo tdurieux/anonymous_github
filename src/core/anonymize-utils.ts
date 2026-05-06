@@ -1,7 +1,8 @@
 import { basename } from "path";
 import { Transform, Readable } from "stream";
 import { StringDecoder } from "string_decoder";
-import { isText } from "istextorbinary";
+import { isBinaryFileSync } from "isbinaryfile";
+import { lookup as lookupMime } from "mime-types";
 
 import config from "../config";
 import {
@@ -22,47 +23,93 @@ export function streamToString(stream: Readable): Promise<string> {
   });
 }
 
-// Common conventional plaintext filenames that have no extension. The
-// istextorbinary package returns null (unknown) for these, which our
-// `=== true` check then treats as binary — so terms in LICENSE, COPYING,
-// etc. silently went through unchanged (#493).
-const KNOWN_TEXT_FILENAMES = new Set(
-  [
-    "license",
-    "licence",
-    "copying",
-    "copyright",
-    "authors",
-    "contributors",
-    "readme",
-    "changelog",
-    "changes",
-    "notice",
-    "install",
-    "todo",
-    "version",
-    "manifest",
-  ]
-);
+// Common conventional plaintext filenames that have no extension and no MIME
+// match. Without this whitelist a bare LICENSE / COPYING / etc. would fall
+// through to content sniffing, which is fine for non-empty files but breaks
+// on zero-byte ones — so we short-circuit them here (#493).
+const KNOWN_TEXT_FILENAMES = new Set([
+  "license",
+  "licence",
+  "copying",
+  "copyright",
+  "authors",
+  "contributors",
+  "readme",
+  "changelog",
+  "changes",
+  "notice",
+  "install",
+  "todo",
+  "version",
+  "manifest",
+]);
 
-export function isTextFile(filePath: string, content?: Buffer) {
-  const filename = basename(filePath);
-  const extensions = filename.split(".").reverse();
-  const extension = extensions[0].toLowerCase();
-  if (config.additionalExtensions.includes(extension)) {
-    return true;
-  }
-  if (KNOWN_TEXT_FILENAMES.has(filename.toLowerCase())) {
-    return true;
-  }
-  if (isText(filename)) {
-    return true;
-  }
-  return isText(filename, content);
+// Application/* MIME types that carry text payloads. text/* is always text,
+// application/* needs an allowlist (most are binary: zip, pdf, octet-stream).
+const TEXTUAL_APPLICATION_MIMES = new Set([
+  "application/json",
+  "application/ld+json",
+  "application/xml",
+  "application/javascript",
+  "application/ecmascript",
+  "application/typescript",
+  "application/toml",
+  "application/sql",
+  "application/x-sql",
+  "application/x-sh",
+  "application/x-csh",
+  "application/x-yaml",
+  "application/yaml",
+  "application/x-httpd-php",
+  "application/graphql",
+  "application/x-tex",
+  "application/x-latex",
+  "application/x-perl",
+  "application/x-ruby",
+  "application/x-python",
+]);
+
+function isTextualMime(mime: string): boolean {
+  if (mime.startsWith("text/")) return true;
+  if (TEXTUAL_APPLICATION_MIMES.has(mime)) return true;
+  // application/*+json, application/*+xml, application/*+yaml
+  return /\+(json|xml|yaml)$/.test(mime);
+}
+
+// Name-only classification: returns true (known text), false (known binary),
+// or null when the name alone is inconclusive. The streaming transformer
+// resolves null by sniffing the first chunk with isbinaryfile.
+function classifyByName(filePath: string): boolean | null {
+  const name = basename(filePath);
+  const extension = name.split(".").reverse()[0].toLowerCase();
+  if (config.additionalExtensions.includes(extension)) return true;
+  if (KNOWN_TEXT_FILENAMES.has(name.toLowerCase())) return true;
+  const mime = lookupMime(name);
+  if (mime === false) return null;
+  // mime-types treats `.ts` as video/mp2t; route.ts already special-cases it.
+  // Prefer text for the ambiguous extension since it matches our typical use.
+  if (extension === "ts") return true;
+  return isTextualMime(mime);
+}
+
+export function isTextFile(filePath: string, content?: Buffer): boolean {
+  const byName = classifyByName(filePath);
+  if (byName === true) return true;
+  if (byName === false) return false;
+  // Name was inconclusive — sniff the buffer if we have one. isbinaryfile
+  // checks for null bytes / non-printable ratio in the first 512 bytes
+  // and returns a decisive boolean.
+  if (content && content.length > 0) return !isBinaryFileSync(content);
+  return false;
 }
 
 export class AnonymizeTransformer extends Transform {
-  public isText: boolean;
+  // Set in the constructor for known extensions; left null until the first
+  // chunk arrives for unknown extensions, where it's resolved by sniffing.
+  // Consumers of the "transform" event always see a resolved boolean — we
+  // sniff before emitting.
+  public isText!: boolean;
+  private nameVerdict: boolean | null;
   anonimizer: ContentAnonimizer;
   private decoder = new StringDecoder("utf8");
   // Trailing decoded text held back between chunks so that terms, URLs, or
@@ -84,11 +131,13 @@ export class AnonymizeTransformer extends Transform {
     } & ConstructorParameters<typeof ContentAnonimizer>[0]
   ) {
     super();
-    // isTextFile may return null for unknown extensions; treat unknown as
-    // binary. Sniffing from chunk content is unsafe — split archives,
-    // compressed blobs, etc. can have an ASCII-looking first 64 KB and get
-    // misclassified as text, which then UTF-8-round-trips and corrupts them.
-    this.isText = isTextFile(this.opt.filePath) === true;
+    // Tri-state: name-based check returns true (known text), false (known
+    // binary), or null (name inconclusive). For null we defer to a content
+    // sniff on the first chunk in _transform — known binary extensions
+    // (archives, compressed blobs, images) are resolved here and never
+    // reach the sniff path (#493).
+    this.nameVerdict = classifyByName(this.opt.filePath);
+    if (this.nameVerdict !== null) this.isText = this.nameVerdict;
     this.anonimizer = new ContentAnonimizer(this.opt);
   }
 
@@ -105,6 +154,12 @@ export class AnonymizeTransformer extends Transform {
   }
 
   _transform(chunk: Buffer, encoding: string, callback: () => void) {
+    if (this.nameVerdict === null) {
+      // Name didn't decide. isbinaryfile inspects the first 512 bytes for
+      // null bytes and non-printable ratio and returns a decisive boolean.
+      this.isText = chunk.length === 0 ? true : !isBinaryFileSync(chunk);
+      this.nameVerdict = this.isText;
+    }
     if (!this.isText) {
       this.emit("transform", {
         isText: this.isText,
@@ -166,6 +221,12 @@ export class AnonymizeTransformer extends Transform {
   }
 
   _flush(callback: () => void) {
+    // Empty file with an unknown extension: no chunk arrived to trigger
+    // sniffing. Treat as text — there's nothing to corrupt.
+    if (this.nameVerdict === null) {
+      this.isText = true;
+      this.nameVerdict = true;
+    }
     if (this.isText) {
       this.pending += this.decoder.end();
       if (this.pending) {
