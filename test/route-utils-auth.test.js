@@ -133,7 +133,7 @@ describe("route-utils.isOwnerCoauthorOrAdmin", function () {
     expect(() => isOwnerCoauthorOrAdmin(repo, user)).to.not.throw();
   });
 
-  it("throws not_authorized with httpStatus 401 for an unrelated user", function () {
+  it("throws not_authorized with httpStatus 403 for an unrelated user", function () {
     const user = makeUser({ username: "stranger" });
     const repo = makeRepo({ coauthors: [{ username: "alice" }] });
     let caught;
@@ -144,6 +144,6 @@ describe("route-utils.isOwnerCoauthorOrAdmin", function () {
     }
     expect(caught).to.be.instanceOf(AnonymousError);
     expect(caught.message).to.equal("not_authorized");
-    expect(caught.httpStatus).to.equal(401);
+    expect(caught.httpStatus).to.equal(403);
   });
 });
