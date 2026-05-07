@@ -69,10 +69,15 @@ function streamerErrorToAnonymous(
   }
 
   logger.warn("streamer fetch failed", {
+    code: errCode,
+    httpStatus,
     repoId: context.repoId,
     filePath: context.filePath,
     upstreamStatus,
     upstreamBody: upstreamBody?.slice(0, 500),
+    url: config.STREAMER_ENTRYPOINT
+      ? join(config.STREAMER_ENTRYPOINT, "api")
+      : undefined,
     err: serializeError(err),
   });
 

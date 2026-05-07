@@ -43,6 +43,8 @@ export default class PullRequest {
         return this._model.source.accessToken;
       } catch {
         logger.warn("invalid token", {
+          code: "invalid_token",
+          httpStatus: 401,
           pullRequestId: this._model.source.pullRequestId,
         });
       }
@@ -92,6 +94,8 @@ export default class PullRequest {
       }> => {
         if ((err as { status?: number }).status === 404) {
           logger.warn("PR comments 404, continuing without them", {
+            code: "pr_comments_not_found",
+            httpStatus: 404,
             pr: `${owner}/${repo}#${pull_number}`,
           });
           return [];
@@ -104,6 +108,8 @@ export default class PullRequest {
     ).catch((err) => {
       if (err instanceof HTTPError && err.response.statusCode === 404) {
         logger.warn("PR diff 404, continuing without it", {
+          code: "pr_diff_not_found",
+          httpStatus: 404,
           pr: `${owner}/${repo}#${pull_number}`,
         });
         return { body: "" };

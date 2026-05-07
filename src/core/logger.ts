@@ -101,13 +101,20 @@ function trimStack(s: unknown): unknown {
   }
   return s;
 }
+function trimErrorLike(o: Record<string, unknown>): Record<string, unknown> {
+  const out = { ...o };
+  if (typeof out.stack === "string") out.stack = trimStack(out.stack);
+  if (out.cause && typeof out.cause === "object") {
+    out.cause = trimErrorLike(out.cause as Record<string, unknown>);
+  }
+  if (out.err && typeof out.err === "object") {
+    out.err = trimErrorLike(out.err as Record<string, unknown>);
+  }
+  return out;
+}
 function trimRawArg(a: unknown): unknown {
   if (!a || typeof a !== "object") return a;
-  const o = a as Record<string, unknown>;
-  if (typeof o.stack === "string") {
-    return { ...o, stack: trimStack(o.stack) };
-  }
-  return o;
+  return trimErrorLike(a as Record<string, unknown>);
 }
 
 function clampPayload(entry: {
@@ -127,8 +134,21 @@ function clampPayload(entry: {
   entry.raw = entry.raw.slice(0, 1);
   s = JSON.stringify(entry);
   if (s.length <= MAX_PAYLOAD_BYTES) return s;
-  // Step 2: replace the payload with a placeholder so the entry still shows
-  // up in the list but doesn't blow the cap.
+  // Step 2: strip heavy nested fields (err, cause, upstreamBody) but keep
+  // the flat diagnostic fields (code, httpStatus, repoId, url, …).
+  const first = entry.raw[0];
+  if (first && typeof first === "object" && !Array.isArray(first)) {
+    const slim = { ...(first as Record<string, unknown>) };
+    delete slim.err;
+    delete slim.cause;
+    delete slim.stack;
+    delete slim.upstreamBody;
+    entry.raw = [slim];
+    s = JSON.stringify(entry);
+    if (s.length <= MAX_PAYLOAD_BYTES) return s;
+  }
+  // Step 3: nothing left to trim — replace with a placeholder so the entry
+  // still shows up in the list.
   entry.raw = [{ truncated: true, originalBytes: s.length }];
   return JSON.stringify(entry);
 }

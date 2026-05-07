@@ -984,13 +984,16 @@ angular
           e._method = detail.method || null;
           e._repoId = detail.repoId || detail.detail || null;
           e._detail = detail.detail && detail.detail !== e._repoId ? detail.detail : null;
-          // Walk into `cause` to surface the deepest stack — for unhandled
-          // errors the inner cause is usually the actual JS error frame.
+          // Walk into `cause` (and `err` for streamer-style entries) to
+          // surface the deepest stack.
           let s = typeof detail.stack === "string" ? detail.stack : null;
-          let c = detail.cause;
-          while (!s && c && typeof c === "object") {
-            if (typeof c.stack === "string") s = c.stack;
-            c = c.cause;
+          var roots = [detail.cause, detail.err].filter(Boolean);
+          for (var ri = 0; !s && ri < roots.length; ri++) {
+            var c = roots[ri];
+            while (!s && c && typeof c === "object") {
+              if (typeof c.stack === "string") s = c.stack;
+              c = c.cause;
+            }
           }
           e._stack = s;
         } else {
@@ -1037,7 +1040,13 @@ angular
           }
         }
         push("detail", detailValue);
+        push("repoId", detail && detail.repoId);
+        push("filePath", detail && detail.filePath);
+        push("upstreamStatus", detail && detail.upstreamStatus);
+        push("upstreamBody", detail && detail.upstreamBody);
         push("url", entry._url);
+        push("err", detail && detail.err);
+        push("cause", detail && !detail.err && detail.cause);
         push("ts", entry.ts);
         if (!fields.length) return JSON.stringify(entry, null, 2);
         const keyW = fields.reduce((w, f) => Math.max(w, f[0].length), 0);

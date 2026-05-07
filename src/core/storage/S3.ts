@@ -132,7 +132,7 @@ export default class S3Storage extends StorageBase {
       try {
         res.status(500).json({ error: "file_not_found" });
       } catch (err) {
-        logger.error("send failed", { path, err: serializeError(err) });
+        logger.error("send failed", { ...serializeError(err), filePath: path });
       }
     }
   }

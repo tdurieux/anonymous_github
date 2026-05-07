@@ -63,7 +63,7 @@ export default class Gist {
       try {
         return this._model.source.accessToken;
       } catch {
-        logger.warn("invalid token", { gistId: this._model.source.gistId });
+        logger.warn("invalid token", { code: "invalid_token", httpStatus: 401, gistId: this._model.source.gistId });
       }
     }
     return config.GITHUB_TOKEN;

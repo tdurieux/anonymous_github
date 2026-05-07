@@ -269,10 +269,10 @@ export default async function start() {
   app.listen(config.PORT);
   logger.info("server started", { port: config.PORT });
   ensureTodaySnapshot().catch((err) =>
-    logger.error("ensureTodaySnapshot failed", { err })
+    logger.error("ensureTodaySnapshot failed", serializeError(err))
   );
   recoverStuckPreparing().catch((err) =>
-    logger.error("recoverStuckPreparing failed", { err })
+    logger.error("recoverStuckPreparing failed", serializeError(err))
   );
 }
 

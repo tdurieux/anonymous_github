@@ -62,6 +62,8 @@ export function octokit(token: string) {
     throttle: {
       onRateLimit: (retryAfter, options, _o, retryCount) => {
         logger.warn("github primary rate limit hit", {
+          code: "github_rate_limit",
+          httpStatus: 429,
           method: options.method,
           url: options.url,
           retryAfter,
@@ -73,6 +75,8 @@ export function octokit(token: string) {
       },
       onSecondaryRateLimit: (retryAfter, options, _o, retryCount) => {
         logger.warn("github secondary rate limit hit", {
+          code: "github_secondary_rate_limit",
+          httpStatus: 429,
           method: options.method,
           url: options.url,
           retryAfter,
@@ -193,8 +197,9 @@ export async function getToken(repository: Repository) {
         }
       }
       logger.warn("token refresh failed; falling back", {
+        code: "token_refresh_failed",
+        httpStatus: res.status,
         username: repository.owner.model.username,
-        status: res.status,
       });
       // fall through to the checkToken path / config.GITHUB_TOKEN
     }
