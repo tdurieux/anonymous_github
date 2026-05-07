@@ -64,6 +64,13 @@ export class GitHubRepository {
       return commit.data;
     } catch (error) {
       const status = (error as { status?: number }).status;
+      if (status === 409) {
+        throw new AnonymousError("repo_empty", {
+          httpStatus: 409,
+          cause: error as Error,
+          object: this,
+        });
+      }
       if (status === 404 || status === 422) {
         // Distinguish: does the repo itself still exist?
         let repoExists: boolean;
