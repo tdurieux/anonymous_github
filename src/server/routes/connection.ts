@@ -92,6 +92,14 @@ const verify = async (
         await user.save();
       }
     }
+    if (user!.status === "banned") {
+      done(
+        new AnonymousError("user_banned", {
+          httpStatus: 403,
+        })
+      );
+      return;
+    }
     done(null, {
       username: profile.username,
       accessToken,
@@ -197,6 +205,7 @@ router.all(
         "apiTokens.tokenHash": hashToken(token),
       });
       if (!model) return res.status(401).json({ error: "invalid_token" });
+      if (model.status === "banned") return res.status(403).json({ error: "user_banned" });
       const synthUser = {
         username: model.username,
         accessToken: model.accessTokens?.github,

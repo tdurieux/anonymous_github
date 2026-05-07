@@ -216,7 +216,9 @@ export function handleError(
     status = 401;
   }
   if (res && !res.headersSent) {
-    res.status(status).json({ error: errorCode });
+    const safeCode =
+      error instanceof AnonymousError ? errorCode : "internal_error";
+    res.status(status).json({ error: safeCode });
   }
   return;
 }
@@ -243,6 +245,16 @@ export async function getUser(req: express.Request) {
   const model = await UserModel.findById(user._id);
   if (!model) {
     notConnected();
+  }
+  if (model.status === "banned") {
+    req.logout((error) => {
+      if (error) {
+        logger.error("logout failed", serializeError(error));
+      }
+    });
+    throw new AnonymousError("user_banned", {
+      httpStatus: 403,
+    });
   }
   return new User(model);
 }

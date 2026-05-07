@@ -22,6 +22,10 @@
           </span>
           <span class="type-badge type-repo" ng-if="userInfo.isAdmin">Admin</span>
         </h1>
+        <div class="user-actions" style="margin-top: 4px;">
+          <button class="btn btn-sm text-danger" ng-if="userInfo.status !== 'banned'" ng-click="banUser()"><i class="fas fa-ban"></i> Ban</button>
+          <button class="btn btn-sm" ng-if="userInfo.status === 'banned' || userInfo.status === 'removed'" ng-click="activateUser()"><i class="fas fa-check-circle"></i> Activate</button>
+        </div>
       </div>
     </div>
 

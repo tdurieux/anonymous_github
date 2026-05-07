@@ -806,6 +806,42 @@ router.get(
     }
   }
 );
+router.post(
+  "/users/:username/ban",
+  async (req: express.Request, res: express.Response) => {
+    try {
+      const result = await UserModel.updateOne(
+        { username: req.params.username },
+        { $set: { status: "banned" } }
+      );
+      if (result.matchedCount === 0) {
+        throw new AnonymousError("user_not_found", { httpStatus: 404 });
+      }
+      res.json({ ok: true });
+    } catch (error) {
+      handleError(error, res, req);
+    }
+  }
+);
+
+router.post(
+  "/users/:username/activate",
+  async (req: express.Request, res: express.Response) => {
+    try {
+      const result = await UserModel.updateOne(
+        { username: req.params.username },
+        { $set: { status: "active" } }
+      );
+      if (result.matchedCount === 0) {
+        throw new AnonymousError("user_not_found", { httpStatus: 404 });
+      }
+      res.json({ ok: true });
+    } catch (error) {
+      handleError(error, res, req);
+    }
+  }
+);
+
 router.get("/conferences", async (req, res) => {
   const page = parseInt(req.query.page as string) || 1;
   const limit = Math.min(parseInt(req.query.limit as string) || 10, 1000);

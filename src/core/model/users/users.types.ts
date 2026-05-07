@@ -38,7 +38,7 @@ export interface IUser {
       page: string | null;
     };
   };
-  status?: "active" | "removed";
+  status?: "active" | "removed" | "banned";
   dateOfEntry?: Date;
   lastUpdated?: Date;
 }

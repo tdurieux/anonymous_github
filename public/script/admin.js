@@ -519,6 +519,18 @@ angular
       getUser($routeParams.username);
       getUserRepositories($routeParams.username);
 
+      $scope.banUser = () => {
+        if (!confirm(`Ban user ${$routeParams.username}?`)) return;
+        $http
+          .post(`/api/admin/users/${$routeParams.username}/ban`)
+          .then(() => getUser($routeParams.username), (err) => console.error(err));
+      };
+      $scope.activateUser = () => {
+        $http
+          .post(`/api/admin/users/${$routeParams.username}/activate`)
+          .then(() => getUser($routeParams.username), (err) => console.error(err));
+      };
+
       $scope.tokens = [];
       $scope.tokenForm = { name: "", plaintext: null };
 
