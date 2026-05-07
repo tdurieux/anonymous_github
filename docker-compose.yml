@@ -5,6 +5,10 @@ services:
     image: tdurieux/anonymous_github:v2
     ports:
       - $EXPOSED_PORT:5000
+    deploy:
+      resources:
+        limits:
+          memory: 3G
     env_file:
       - ./.env
     volumes:
@@ -39,7 +43,10 @@ services:
       mode: replicated
       replicas: 4
       endpoint_mode: dnsrr
-    entrypoint: ["node", "./build/streamer/index.js"]
+      resources:
+        limits:
+          memory: 768M
+    entrypoint: ["node", "--max-old-space-size=512", "./build/streamer/index.js"]
     env_file:
       - ./.env
     volumes:

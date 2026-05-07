@@ -36,4 +36,4 @@ COPY --from=build /app/public ./public
 COPY package.json ./package.json
 COPY healthcheck.js ./healthcheck.js
 
-CMD ["node", "./build/server/index.js"]
+CMD ["node", "--max-old-space-size=2048", "./build/server/index.js"]

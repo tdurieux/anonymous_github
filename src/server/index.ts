@@ -93,7 +93,19 @@ export default async function start() {
   const app = express();
   app.use(express.json());
 
-  app.use(compression());
+  app.use(
+    compression({
+      filter: (req, res) => {
+        // Skip compression for streamed file content — these responses are
+        // piped from the streamer and can be very large.  Compressing them
+        // forces the middleware to hold per-response zlib buffers that pile
+        // up under concurrent load and contribute to heap exhaustion.
+        // Binary files (images, archives) barely compress anyway.
+        if (req.path.match(/^\/api\/repo\/.+\/file\//)) return false;
+        return compression.filter(req, res);
+      },
+    })
+  );
   app.set("etag", "strong");
 
   // handle session and connection

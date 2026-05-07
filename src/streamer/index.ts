@@ -15,7 +15,17 @@ const logger = createLogger("streamer");
 const app = express();
 app.use(express.json());
 
-app.use(compression());
+app.use(
+  compression({
+    filter: (req, res) => {
+      // The streamer serves file blobs that are often binary (images,
+      // archives) and can be very large.  Compressing them holds zlib
+      // buffers per response that pile up under concurrent load.
+      if (req.path === "/api" && req.method === "POST") return false;
+      return compression.filter(req, res);
+    },
+  })
+);
 
 app.use("/api", router);
 

@@ -14,10 +14,27 @@ import {
 const urlRegex =
   /<?\b((https?|ftp|file):\/\/)[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]\b\/?>?/g;
 
-export function streamToString(stream: Readable): Promise<string> {
+export function streamToString(
+  stream: Readable,
+  maxBytes = 2 * 1024 * 1024
+): Promise<string> {
   const chunks: Buffer[] = [];
+  let totalBytes = 0;
   return new Promise((resolve, reject) => {
-    stream.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+    stream.on("data", (chunk) => {
+      const buf = Buffer.from(chunk);
+      totalBytes += buf.length;
+      if (totalBytes > maxBytes) {
+        stream.destroy();
+        reject(
+          new Error(
+            `Stream exceeded ${maxBytes} bytes, refusing to buffer into memory`
+          )
+        );
+        return;
+      }
+      chunks.push(buf);
+    });
     stream.on("error", (err) => reject(err));
     stream.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
   });
