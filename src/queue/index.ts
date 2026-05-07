@@ -119,6 +119,7 @@ export function startWorker() {
       concurrency: 5,
       connection,
       autorun: true,
+      metrics: { maxDataPoints: 120 },
     }
   );
   cacheWorker.on("completed", async (job) => {
@@ -131,6 +132,7 @@ export function startWorker() {
       concurrency: 5,
       connection,
       autorun: true,
+      metrics: { maxDataPoints: 120 },
     }
   );
   removeWorker.on("completed", async (job) => {
@@ -144,6 +146,7 @@ export function startWorker() {
       concurrency: 3,
       connection,
       autorun: true,
+      metrics: { maxDataPoints: 120 },
     }
   );
   if (!downloadWorker.isRunning()) downloadWorker.run();

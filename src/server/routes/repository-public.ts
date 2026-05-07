@@ -9,6 +9,7 @@ import { downloadQueue } from "../../queue";
 import { RepositoryStatus } from "../../core/types";
 import User from "../../core/User";
 import { streamAnonymizedZip } from "../../core/zipStream";
+import FileModel from "../../core/model/files/files.model";
 import { createLogger, serializeError } from "../../core/logger";
 import gh = require("parse-github-url");
 
@@ -178,6 +179,114 @@ router.get(
           recursive: false,
           path: req.query.path as string,
         })
+      );
+    } catch (error) {
+      handleError(error, res, req);
+    }
+  }
+);
+
+router.get(
+  "/:repoId/files/counts",
+  async (req: express.Request, res: express.Response) => {
+    res.header("Cache-Control", "no-cache");
+    const repo = await getRepo(req, res);
+    if (!repo) return;
+    try {
+      const repoId = repo.repoId;
+      const results = await FileModel.aggregate([
+        { $match: { repoId, size: { $ne: null } } },
+        { $project: { path: 1 } },
+        { $group: { _id: "$path", count: { $sum: 1 } } },
+      ]).exec();
+
+      const directCounts: Record<string, number> = {};
+      for (const r of results) {
+        directCounts[r._id ?? ""] = r.count;
+      }
+
+      const folderCounts: Record<string, number> = {};
+      for (const [folder, count] of Object.entries(directCounts)) {
+        let p = folder;
+        folderCounts[p] = (folderCounts[p] || 0) + count;
+        while (p) {
+          const idx = p.lastIndexOf("/");
+          p = idx >= 0 ? p.substring(0, idx) : "";
+          folderCounts[p] = (folderCounts[p] || 0) + count;
+          if (!p) break;
+        }
+      }
+
+      const terms = repo.options?.terms || [];
+      if (terms.length > 0) {
+        const { anonymizePathCompiled, compileTerms } = await import(
+          "../../core/anonymize-utils"
+        );
+        const compiled = compileTerms(terms);
+        const anonymized: Record<string, number> = {};
+        for (const [folder, count] of Object.entries(folderCounts)) {
+          const anonFolder = anonymizePathCompiled(folder, compiled);
+          anonymized[anonFolder] = (anonymized[anonFolder] || 0) + count;
+        }
+        return res.json(anonymized);
+      }
+
+      res.json(folderCounts);
+    } catch (error) {
+      handleError(error, res, req);
+    }
+  }
+);
+
+router.get(
+  "/:repoId/files/search",
+  async (req: express.Request, res: express.Response) => {
+    res.header("Cache-Control", "no-cache");
+    const repo = await getRepo(req, res);
+    if (!repo) return;
+    try {
+      const query = ((req.query.q as string) || "").trim();
+      if (!query || query.length < 2) {
+        return res.json([]);
+      }
+      const allFiles = await repo.anonymizedFiles({
+        includeSha: false,
+        recursive: true,
+      });
+      const q = query.toLowerCase();
+
+      // Collect folder paths whose name segment matches the query
+      const matchingFolders = new Set<string>();
+      for (const f of allFiles) {
+        const segments = (f.path || "").split("/").filter(Boolean);
+        let accumulated = "";
+        for (const seg of segments) {
+          accumulated = accumulated ? `${accumulated}/${seg}` : seg;
+          if (seg.toLowerCase().includes(q)) {
+            matchingFolders.add(accumulated);
+          }
+        }
+      }
+
+      const matches = allFiles.filter((f) => {
+        // File name matches
+        if (f.name?.toLowerCase().includes(q)) return true;
+        // File is inside a matching folder
+        const fullPath = f.path ? `${f.path}/${f.name}` : f.name;
+        let found = false;
+        matchingFolders.forEach((folder) => {
+          if (fullPath?.startsWith(folder + "/") || fullPath === folder) found = true;
+        })
+        if (found) return true;
+        return false;
+      });
+
+      res.json(
+        matches.slice(0, 500).map((f) => ({
+          name: f.name,
+          path: f.path,
+          size: f.size,
+        }))
       );
     } catch (error) {
       handleError(error, res, req);

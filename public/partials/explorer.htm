@@ -16,6 +16,31 @@
         <i class="fas fa-times"></i>
       </button>
     </div>
+    <div class="leftCol-search">
+      <div class="tree-search-box">
+        <i class="fas tree-search-icon" ng-class="fileSearchLoading ? 'fa-spinner fa-spin' : 'fa-search'"></i>
+        <input
+          type="text"
+          class="tree-search-input"
+          placeholder="Search files"
+          ng-model="fileSearchQuery"
+          ng-model-options="{ debounce: 300 }"
+          ng-change="onFileSearchChange()"
+          aria-label="Search files"
+        />
+        <kbd class="tree-search-kbd" ng-hide="fileSearchQuery">{{isMac ? '⌘' : 'Ctrl+'}}K</kbd>
+        <button
+          class="tree-search-clear"
+          ng-show="fileSearchQuery"
+          ng-click="fileSearchQuery = ''; onFileSearchChange()"
+          aria-label="Clear search"
+        >&times;</button>
+      </div>
+    </div>
+    <div class="leftCol-project-header">
+      <span class="project-name" ng-bind="repoId"></span>
+      <span class="project-file-count">{{fileCounts[''] || files.length}} files</span>
+    </div>
     <div class="leftCol-body">
       <div
         ng-if="options.truncatedFolders.length > 0"
@@ -25,7 +50,7 @@
         <i class="fas fa-exclamation-triangle"></i>
         {{ 'WARNINGS.repo_truncated' | translate }}
       </div>
-      <tree class="files" file="files"></tree>
+      <tree class="files" file="files" search-query="fileSearchQuery" search-results="fileSearchResults"></tree>
     </div>
     <div class="leftCol-foot">
       <span

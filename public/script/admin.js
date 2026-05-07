@@ -452,11 +452,14 @@ angular
       $scope.userInfo;
       $scope.repositories = [];
       $scope.search = "";
+      $scope.selected = {};
+      $scope.allSelected = false;
 
       const adminUserPrefsKey = "admin.user.filterPrefs";
       const adminUserDefaults = {
         filters: { status: { ready: true, expired: true, removed: true, error: true, preparing: true } },
-        orderBy: "-anonymizeDate",
+        sort: "anonymizeDate",
+        direction: "desc",
       };
       const savedAdminUserPrefs = loadFilterPrefs(adminUserPrefsKey) || {};
       $scope.filters = {
@@ -466,24 +469,48 @@ angular
           (savedAdminUserPrefs.filters && savedAdminUserPrefs.filters.status) || {}
         ),
       };
-      $scope.orderBy = savedAdminUserPrefs.orderBy || adminUserDefaults.orderBy;
+      $scope.query = {
+        sort: savedAdminUserPrefs.sort || adminUserDefaults.sort,
+        direction: savedAdminUserPrefs.direction || adminUserDefaults.direction,
+      };
+      $scope.orderBy = ($scope.query.direction === "asc" ? "" : "-") + $scope.query.sort;
 
-      $scope.$watch("orderBy", () => {
+      $scope.sortBy = (field) => {
+        if ($scope.query.sort === field) {
+          $scope.query.direction = $scope.query.direction === "asc" ? "desc" : "asc";
+        } else {
+          $scope.query.sort = field;
+          $scope.query.direction = "desc";
+        }
+        $scope.orderBy = ($scope.query.direction === "asc" ? "" : "-") + $scope.query.sort;
+      };
+      $scope.sortIcon = (field) =>
+        $scope.query.sort === field
+          ? ($scope.query.direction === "asc" ? "fa-arrow-up" : "fa-arrow-down")
+          : "";
+
+      $scope.$watch("query", () => {
         saveFilterPrefs(adminUserPrefsKey, {
           filters: $scope.filters,
-          orderBy: $scope.orderBy,
+          sort: $scope.query.sort,
+          direction: $scope.query.direction,
         });
-      });
+      }, true);
       $scope.$watch(
         "filters",
         () => {
           saveFilterPrefs(adminUserPrefsKey, {
             filters: $scope.filters,
-            orderBy: $scope.orderBy,
+            sort: $scope.query.sort,
+            direction: $scope.query.direction,
           });
         },
         true
       );
+
+      $scope.statusCountFor = (s) => {
+        return ($scope.repositories || []).filter((r) => r.status === s).length;
+      };
 
       $scope.repoFiler = (repo) => {
         if ($scope.filters.status[repo.status] == false) return false;
@@ -492,8 +519,82 @@ angular
 
         if (repo.source.fullName.indexOf($scope.search) > -1) return true;
         if (repo.repoId.indexOf($scope.search) > -1) return true;
+        if (repo.statusMessage && repo.statusMessage.indexOf($scope.search) > -1) return true;
+        if (repo.conference && repo.conference.indexOf($scope.search) > -1) return true;
 
         return false;
+      };
+
+      // -------- selection / bulk --------
+      $scope.selectAllOnPage = () => {
+        $scope.allSelected = !$scope.allSelected;
+        ($scope.filteredRepositories || $scope.repositories).forEach((r) => {
+          $scope.selected[r.repoId] = $scope.allSelected;
+        });
+      };
+      $scope.selectedCount = () =>
+        Object.values($scope.selected || {}).filter(Boolean).length;
+      $scope.selectedRepos = () =>
+        $scope.repositories.filter((r) => $scope.selected[r.repoId]);
+      $scope.bulkRefresh = () => {
+        const repos = $scope.selectedRepos();
+        if (!repos.length) return;
+        if (!confirm(`Force refresh ${repos.length} repositories?`)) return;
+        repos.forEach((r) => $scope.updateRepository(r));
+      };
+      $scope.bulkRemoveCache = () => {
+        const repos = $scope.selectedRepos();
+        if (!repos.length) return;
+        if (!confirm(`Purge cache for ${repos.length} repositories?`)) return;
+        repos.forEach((r) => $scope.removeCache(r));
+      };
+      $scope.clearSelection = () => {
+        $scope.selected = {};
+        $scope.allSelected = false;
+      };
+
+      // -------- export --------
+      $scope.exportCsv = () => {
+        const filtered = ($scope.filteredRepositories || $scope.repositories);
+        const columns = ["repoId", "status", "statusMessage", "pageView", "anonymizeDate", "source.fullName", "conference", "size.storage"];
+        const header = columns.join(",");
+        const rows = filtered.map((r) =>
+          [r.repoId, r.status, r.statusMessage || "", r.pageView || 0, r.anonymizeDate || "", (r.source && r.source.fullName) || "", r.conference || "", (r.size && r.size.storage) || 0]
+            .map((v) => { const s = String(v == null ? "" : v); return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; })
+            .join(",")
+        );
+        const blob = new Blob([header + "\n" + rows.join("\n")], { type: "text/csv" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = $routeParams.username + "-repositories.csv";
+        a.click();
+      };
+
+      $scope.showStatusMessage = (repo) => {
+        const msg = repo.statusMessage || "(no message)";
+        window.prompt(`Status message for ${repo.repoId} (${repo.status}):`, msg);
+      };
+
+      $scope.fetchGithubInfo = (repo) => {
+        const w = window.open("", "_blank");
+        if (w) w.document.write("<pre>Loading GitHub info for " + repo.repoId + "...</pre>");
+        $http.get("/api/admin/repos/" + repo.repoId + "/github").then(
+          (res) => {
+            if (w) {
+              w.document.open();
+              w.document.write(
+                "<pre style=\"font:13px monospace;padding:16px;white-space:pre-wrap\">" +
+                  JSON.stringify(res.data, null, 2).replace(/[<>]/g, (c) => c === "<" ? "&lt;" : "&gt;") +
+                  "</pre>"
+              );
+              w.document.close();
+            }
+          },
+          (err) => {
+            const msg = err && err.data ? JSON.stringify(err.data, null, 2) : String(err);
+            if (w) w.document.body.innerHTML = "<pre style=\"color:#B42318;padding:16px\">" + msg + "</pre>";
+          }
+        );
       };
 
       function getUserRepositories(username) {
@@ -528,6 +629,18 @@ angular
       $scope.activateUser = () => {
         $http
           .post(`/api/admin/users/${$routeParams.username}/activate`)
+          .then(() => getUser($routeParams.username), (err) => console.error(err));
+      };
+      $scope.promoteUser = () => {
+        if (!confirm(`Promote ${$routeParams.username} to admin?`)) return;
+        $http
+          .post(`/api/admin/users/${$routeParams.username}/promote`)
+          .then(() => getUser($routeParams.username), (err) => console.error(err));
+      };
+      $scope.demoteUser = () => {
+        if (!confirm(`Remove admin privileges from ${$routeParams.username}?`)) return;
+        $http
+          .post(`/api/admin/users/${$routeParams.username}/demote`)
           .then(() => getUser($routeParams.username), (err) => console.error(err));
       };
 
@@ -667,7 +780,9 @@ angular
       };
       $scope.chips = [];
       const recomputeChipsConf = () => {
-        $scope.chips = [];
+        const out = [];
+        if ($scope.query.dateFrom || $scope.query.dateTo) out.push({ key: "dateRange", label: "Date", value: ($scope.query.dateFrom || "…") + " – " + ($scope.query.dateTo || "…") });
+        $scope.chips = out;
       };
 
       $scope.statusCountFor = (s) => {
@@ -699,15 +814,51 @@ angular
         sort: "name",
         direction: "asc",
         search: "",
-        status: "",
         dateFrom: "",
         dateTo: "",
+        ready: false,
+        expired: false,
+        removed: false,
+        error: true,
+        preparing: true,
       };
       const savedConfAdminPrefs = loadFilterPrefs(confAdminPrefsKey) || {};
       $scope.query = Object.assign({}, confAdminDefaults, savedConfAdminPrefs, {
         page: 1,
         search: "",
       });
+
+      // pre-fill filters from URL ?search=
+      const urlParams = $location.search();
+      if (urlParams.search) $scope.query.search = urlParams.search;
+
+      // -------- presets --------
+      const confPresetsKey = "admin.conferences.presets";
+      $scope.presets = JSON.parse(localStorage.getItem(confPresetsKey) || "[]");
+      $scope.savePreset = () => {
+        const name = window.prompt("Preset name:");
+        if (!name) return;
+        const snapshot = Object.assign({}, $scope.query);
+        delete snapshot.page;
+        $scope.presets = ($scope.presets || []).filter((p) => p.name !== name);
+        $scope.presets.push({ name, query: snapshot });
+        localStorage.setItem(confPresetsKey, JSON.stringify($scope.presets));
+      };
+      $scope.applyPreset = (p) => {
+        Object.assign($scope.query, p.query, { page: 1 });
+      };
+      $scope.deletePreset = (p) => {
+        $scope.presets = ($scope.presets || []).filter((x) => x.name !== p.name);
+        localStorage.setItem(confPresetsKey, JSON.stringify($scope.presets));
+      };
+
+      $scope.removeConference = (conference) => {
+        if (!confirm("Remove conference " + conference.conferenceID + "?")) return;
+        $http.delete("/api/admin/conferences/" + conference.conferenceID).then(
+          () => getConferences(),
+          (err) => console.error(err)
+        );
+      };
 
       $scope.exportCsv = () => {
         const params = new URLSearchParams(
@@ -727,7 +878,6 @@ angular
             $scope.totalPage = Math.ceil(res.data.total / $scope.query.limit);
             $scope.conferences = res.data.results;
             $scope.statusCounts = res.data.statusCounts || [];
-            $scope.$apply();
           },
           (err) => {
             $scope.fetchError = (err && err.data && err.data.error) || "Failed to load conferences";
@@ -757,37 +907,22 @@ angular
     "$http",
     "$location",
     "$interval",
-    function ($scope, $http, $location, $interval) {
+    "$timeout",
+    function ($scope, $http, $location, $interval, $timeout) {
       $scope.$watch("user.status", () => {
-        if ($scope.user == null) {
-          $location.url("/");
-        }
+        if ($scope.user == null) $location.url("/");
       });
-      if ($scope.user == null) {
-        $location.url("/");
-      }
+      if ($scope.user == null) $location.url("/");
 
-      $scope.downloadJobs = [];
-      $scope.removeJobs = [];
-      $scope.removeCaches = [];
-      $scope.counts = { download: {}, remove: {}, cache: {} };
+      $scope.queueList = [];
+      $scope.jobs = [];
+      $scope.selectedQueue = "download";
+      $scope.selectedStats = null;
+      $scope.range = "1h";
       $scope.query = {
         search: "",
-        state: "",
+        state: "active",
         autoRefresh: true,
-      };
-
-      $scope.jobMatchesState = (job) => {
-        if (!$scope.query.state) return true;
-        const finished = !!job.finishedOn;
-        const failed = (job.stacktrace || []).length > 0 || job.failedReason;
-        const map = {
-          completed: finished && !failed,
-          failed: failed,
-          active: job.processedOn && !finished,
-          waiting: !job.processedOn,
-        };
-        return !!map[$scope.query.state];
       };
 
       $scope.jobProgressPct = (job) => {
@@ -800,31 +935,42 @@ angular
         return null;
       };
 
-      $scope.bulkRetryFailed = (queue) => {
-        if (!confirm(`Retry all failed jobs in the ${queue} queue?`)) return;
-        $http.post(`/api/admin/queue/${queue}/retry-failed`).then(getQueues, (err) => console.error(err));
+      $scope.jobDuration = (job) => {
+        if (!job.processedOn) return "-";
+        const end = job.finishedOn || Date.now();
+        const ms = end - job.processedOn;
+        if (ms < 1000) return ms + "ms";
+        return (ms / 1000).toFixed(1) + "s";
       };
-      $scope.bulkDrain = (queue) => {
-        if (!confirm(`Drain (clear waiting+delayed) the ${queue} queue?`)) return;
-        $http.post(`/api/admin/queue/${queue}/drain`).then(getQueues, (err) => console.error(err));
+
+      $scope.selectQueue = (key) => {
+        $scope.selectedQueue = key;
+        getQueues();
+      };
+
+      $scope.setRange = (r) => {
+        $scope.range = r;
+        getQueues();
       };
 
       function getQueues() {
-        $http.get("/api/admin/queues", { params: $scope.query }).then(
+        const params = {
+          queue: $scope.selectedQueue,
+          state: $scope.query.state,
+          search: $scope.query.search,
+        };
+        $http.get("/api/admin/queues", { params }).then(
           (res) => {
-            $scope.downloadJobs = res.data.downloadQueue;
-            $scope.removeJobs = res.data.removeQueue;
-            $scope.removeCaches = res.data.cacheQueue;
-            $scope.counts = res.data.counts || $scope.counts;
+            $scope.queueList = res.data.queues || [];
+            $scope.jobs = res.data.jobs || [];
+            $scope.selectedStats = $scope.queueList.find((q) => q.key === $scope.selectedQueue) || $scope.queueList[0] || null;
+            $timeout(drawChart, 0);
           },
-          (err) => {
-            console.error(err);
-          }
+          (err) => console.error(err)
         );
       }
       getQueues();
 
-      // auto-refresh every 5 seconds while autoRefresh is on
       const stop = $interval(() => {
         if ($scope.query.autoRefresh) getQueues();
       }, 5000);
@@ -832,45 +978,126 @@ angular
 
       $scope.refreshNow = getQueues;
 
-      $scope.removeJob = function (queue, job) {
-        $http
-          .delete(`/api/admin/queue/${queue}/${job.id}`, {
-            params: $scope.query,
-          })
-          .then(
-            (res) => {
-              getQueues();
-            },
-            (err) => {
-              console.error(err);
-            }
-          );
+      $scope.removeJob = (job) => {
+        $http.delete(`/api/admin/queue/${$scope.selectedQueue}/${job.id}`).then(getQueues, (err) => console.error(err));
       };
 
-      $scope.retryJob = function (queue, job) {
-        $http
-          .post(`/api/admin/queue/${queue}/${job.id}`, {
-            params: $scope.query,
-          })
-          .then(
-            (res) => {
-              getQueues();
-            },
-            (err) => {
-              console.error(err);
-            }
-          );
+      $scope.retryJob = (job) => {
+        $http.post(`/api/admin/queue/${$scope.selectedQueue}/${job.id}`).then(getQueues, (err) => console.error(err));
+      };
+
+      $scope.retryFailed = () => {
+        if (!confirm(`Retry all failed jobs in ${$scope.selectedQueue}?`)) return;
+        $http.post(`/api/admin/queue/${$scope.selectedQueue}/retry-failed`).then(getQueues, (err) => console.error(err));
+      };
+
+      $scope.drainSelected = () => {
+        if (!confirm(`Drain the ${$scope.selectedQueue} queue?`)) return;
+        $http.post(`/api/admin/queue/${$scope.selectedQueue}/drain`).then(getQueues, (err) => console.error(err));
+      };
+
+      $scope.togglePause = () => {
+        const action = $scope.selectedStats && $scope.selectedStats.paused ? "resume" : "pause";
+        $http.post(`/api/admin/queue/${$scope.selectedQueue}/${action}`).then(getQueues, (err) => console.error(err));
+      };
+
+      $scope.emptyQueue = () => {
+        if (!confirm(`Empty the ${$scope.selectedQueue} queue? This removes ALL jobs.`)) return;
+        $http.post(`/api/admin/queue/${$scope.selectedQueue}/empty`).then(getQueues, (err) => console.error(err));
+      };
+
+      $scope.pauseAll = () => {
+        if (!confirm("Pause all queues?")) return;
+        $http.post("/api/admin/queues/pause-all").then(getQueues, (err) => console.error(err));
       };
 
       let searchClear = null;
-      $scope.$watch(
-        "query.search",
-        () => {
-          clearTimeout(searchClear);
-          searchClear = setTimeout(getQueues, 350);
-        }
-      );
+      $scope.$watch("query.search", () => {
+        clearTimeout(searchClear);
+        searchClear = setTimeout(getQueues, 350);
+      });
       $scope.$watch("query.state", getQueues);
+
+      function drawChart() {
+        const canvas = document.getElementById("q-throughput-chart");
+        if (!canvas || !$scope.selectedStats) return;
+        const ctx = canvas.getContext("2d");
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.parentElement.getBoundingClientRect();
+        const w = rect.width - 40;
+        const h = 160;
+        canvas.width = w * dpr;
+        canvas.height = h * dpr;
+        canvas.style.width = w + "px";
+        canvas.style.height = h + "px";
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        const data = ($scope.selectedStats.throughput || []).slice().reverse();
+        if (data.length === 0) {
+          ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--ink-muted").trim() || "#8A857C";
+          ctx.font = "12px var(--font-mono)";
+          ctx.textAlign = "center";
+          ctx.fillText("No throughput data yet", w / 2, h / 2);
+          return;
+        }
+
+        const rangePoints = { "1h": 60, "6h": 120, "24h": 120, "7d": 120 };
+        const pts = data.slice(0, rangePoints[$scope.range] || 60);
+        const max = Math.max(1, ...pts);
+        const step = w / (pts.length - 1 || 1);
+
+        const isDark = document.body.classList.contains("dark-mode");
+        const lineColor = isDark ? "#A7B2FF" : "#3B4AD6";
+        const fillColor = isDark ? "rgba(167,178,255,0.12)" : "rgba(59,74,214,0.08)";
+        const gridColor = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
+
+        // grid
+        ctx.strokeStyle = gridColor;
+        ctx.lineWidth = 1;
+        for (let i = 0; i < 4; i++) {
+          const y = (h / 4) * i;
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(w, y);
+          ctx.stroke();
+        }
+
+        // area fill
+        ctx.beginPath();
+        ctx.moveTo(0, h);
+        pts.forEach((v, i) => {
+          const x = i * step;
+          const y = h - (v / max) * (h - 10);
+          if (i === 0) ctx.lineTo(x, y);
+          else {
+            const px = (i - 1) * step;
+            const py = h - (pts[i - 1] / max) * (h - 10);
+            const cx = (px + x) / 2;
+            ctx.bezierCurveTo(cx, py, cx, y, x, y);
+          }
+        });
+        ctx.lineTo(w, h);
+        ctx.closePath();
+        ctx.fillStyle = fillColor;
+        ctx.fill();
+
+        // line
+        ctx.beginPath();
+        pts.forEach((v, i) => {
+          const x = i * step;
+          const y = h - (v / max) * (h - 10);
+          if (i === 0) ctx.moveTo(x, y);
+          else {
+            const px = (i - 1) * step;
+            const py = h - (pts[i - 1] / max) * (h - 10);
+            const cx = (px + x) / 2;
+            ctx.bezierCurveTo(cx, py, cx, y, x, y);
+          }
+        });
+        ctx.strokeStyle = lineColor;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
     },
   ])
   .controller("errorsAdminController", [
@@ -1309,5 +1536,123 @@ angular
       $scope.$watch("query.bucket", recompute);
       $scope.$watch("query.sort", recompute);
       $scope.$watch("query.group", recompute);
+    },
+  ])
+  .controller("overviewAdminController", [
+    "$scope",
+    "$http",
+    "$location",
+    "$interval",
+    function ($scope, $http, $location, $interval) {
+      $scope.Math = Math;
+      $scope.$watch("user.status", () => {
+        if ($scope.user == null) $location.url("/");
+      });
+      if ($scope.user == null) { $location.url("/"); return; }
+
+      $scope.data = null;
+      $scope.loading = true;
+      $scope.error = null;
+      $scope.range = "24h";
+
+      $scope.setRange = function (r) { $scope.range = r; };
+
+      function humanBytes(b) {
+        if (b == null) return "—";
+        var units = ["B","KB","MB","GB","TB"];
+        var i = 0;
+        var v = b;
+        while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+        return v.toFixed(i > 0 ? 1 : 0) + " " + units[i];
+      }
+      $scope.humanBytes = humanBytes;
+
+      function humanDuration(seconds) {
+        if (!seconds) return "—";
+        var d = Math.floor(seconds / 86400);
+        var h = Math.floor((seconds % 86400) / 3600);
+        var m = Math.floor((seconds % 3600) / 60);
+        if (d > 0) return d + "d " + (h < 10 ? "0" : "") + h + "h";
+        if (h > 0) return h + "h " + (m < 10 ? "0" : "") + m + "m";
+        return m + "m";
+      }
+      $scope.humanDuration = humanDuration;
+
+      function humanNum(n) {
+        if (n == null) return "—";
+        if (n >= 1000000) return (n / 1000000).toFixed(1) + "M";
+        if (n >= 1000) return (n / 1000).toFixed(1) + "K";
+        return String(n);
+      }
+      $scope.humanNum = humanNum;
+
+      $scope.queueTotal = function (q) {
+        if (!q) return 0;
+        return (q.waiting || 0) + (q.active || 0) + (q.delayed || 0) + (q.failed || 0);
+      };
+
+      $scope.statusCount = function (status) {
+        if (!$scope.data || !$scope.data.repos) return 0;
+        var bd = $scope.data.repos.statusBreakdown || [];
+        for (var i = 0; i < bd.length; i++) {
+          if (bd[i]._id === status) return bd[i].count;
+        }
+        return 0;
+      };
+
+      $scope.barPct = function (status) {
+        var total = $scope.data && $scope.data.repos ? $scope.data.repos.total : 0;
+        if (!total) return 0;
+        var names = [status];
+        if (status === "expired") names.push("expiring");
+        if (status === "removed") names.push("removing");
+        if (status === "preparing") names.push("download");
+        var sum = 0;
+        names.forEach(function (n) { sum += $scope.statusCount(n); });
+        return Math.max(0.4, (sum / total) * 100);
+      };
+
+      $scope.errPct = function (key) {
+        if (!$scope.data || !$scope.data.errors) return 0;
+        var max = Math.max(
+          $scope.data.errors.severity.error,
+          $scope.data.errors.severity.warn,
+          $scope.data.errors.severity.info,
+          1
+        );
+        return ($scope.data.errors.severity[key] / max) * 100;
+      };
+
+      var historyMaxes = {};
+      $scope.historyBarH = function (d, field) {
+        if (!d || !historyMaxes[field]) return 0;
+        return Math.max(1, Math.round((d[field] / historyMaxes[field]) * 140));
+      };
+      $scope.historyLabel = function (d) {
+        if (!d || !d.date) return "";
+        var dt = new Date(d.date);
+        return (dt.getUTCMonth() + 1) + "/" + dt.getUTCDate();
+      };
+
+      function load() {
+        $http.get("/api/admin/overview").then(function (r) {
+          $scope.data = r.data;
+          $scope.loading = false;
+          $scope.error = null;
+          historyMaxes = {};
+          (r.data.history || []).forEach(function (d) {
+            ["nbPageViews", "nbRepositories", "nbUsers"].forEach(function (k) {
+              if (!historyMaxes[k] || d[k] > historyMaxes[k]) historyMaxes[k] = d[k];
+            });
+          });
+        }, function (err) {
+          $scope.loading = false;
+          $scope.error = (err.data && err.data.error) || "Failed to load overview";
+        });
+      }
+
+      load();
+      var stop = $interval(load, 30000);
+      $scope.$on("$destroy", function () { $interval.cancel(stop); });
     },
   ]);

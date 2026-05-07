@@ -1,3 +1,5 @@
+import * as os from "os";
+import { execSync } from "child_process";
 import { Queue, JobType } from "bullmq";
 import * as express from "express";
 import AnonymousError from "../../core/AnonymousError";
@@ -199,21 +201,100 @@ router.post("/queue/:name/drain", async (req, res) => {
   }
 });
 
+router.post("/queue/:name/pause", async (req, res) => {
+  const queue = pickQueue(req.params.name);
+  if (!queue) return res.status(404).json({ error: "queue_not_found" });
+  try {
+    await queue.pause();
+    res.json({ ok: true });
+  } catch (error) {
+    handleError(error, res, req);
+  }
+});
+
+router.post("/queue/:name/resume", async (req, res) => {
+  const queue = pickQueue(req.params.name);
+  if (!queue) return res.status(404).json({ error: "queue_not_found" });
+  try {
+    await queue.resume();
+    res.json({ ok: true });
+  } catch (error) {
+    handleError(error, res, req);
+  }
+});
+
+router.post("/queue/:name/empty", async (req, res) => {
+  const queue = pickQueue(req.params.name);
+  if (!queue) return res.status(404).json({ error: "queue_not_found" });
+  try {
+    await queue.obliterate({ force: true });
+    res.json({ ok: true });
+  } catch (error) {
+    handleError(error, res, req);
+  }
+});
+
+router.post("/queues/pause-all", async (_req, res) => {
+  try {
+    await Promise.all([downloadQueue.pause(), removeQueue.pause(), cacheQueue.pause()]);
+    res.json({ ok: true });
+  } catch (error) {
+    handleError(error, res, _req);
+  }
+});
+
+async function queueStats(queue: Queue) {
+  const [counts, workers, paused, completedMetrics, failedMetrics] =
+    await Promise.all([
+      queue.getJobCounts(...QUEUE_STATES),
+      queue.getWorkers().catch(() => []),
+      queue.isPaused().catch(() => false),
+      queue.getMetrics("completed", 0, 119).catch(() => ({ data: [], count: 0 })),
+      queue.getMetrics("failed", 0, 119).catch(() => ({ data: [], count: 0 })),
+    ]);
+
+  const workerCount = workers.length;
+  const concurrency = workerCount > 0 ? (workers as any)[0]?.opts?.concurrency ?? null : null;
+
+  return {
+    counts,
+    paused,
+    workers: workerCount,
+    concurrency,
+    throughput: completedMetrics.data || [],
+    completed24h: completedMetrics.count || 0,
+    failed24h: failedMetrics.count || 0,
+  };
+}
+
 router.get("/queues", async (req, res) => {
   const search = req.query.search ? String(req.query.search).toLowerCase() : "";
+  const queueName = req.query.queue ? String(req.query.queue) : "";
   const stateFilter: JobType | null = req.query.state ? String(req.query.state) as JobType : null;
   const states: JobType[] = stateFilter && QUEUE_STATES.includes(stateFilter)
     ? [stateFilter]
     : QUEUE_STATES;
 
-  const [download, remove, cache, dCounts, rCounts, cCounts] = await Promise.all([
-    downloadQueue.getJobs(states),
-    removeQueue.getJobs(states),
-    cacheQueue.getJobs(states),
-    downloadQueue.getJobCounts(...QUEUE_STATES),
-    removeQueue.getJobCounts(...QUEUE_STATES),
-    cacheQueue.getJobCounts(...QUEUE_STATES),
-  ]);
+  const allQueues: { key: string; label: string; queue: Queue }[] = [
+    { key: "download", label: "Download", queue: downloadQueue },
+    { key: "remove", label: "Remove", queue: removeQueue },
+    { key: "cache", label: "Cache cleanup", queue: cacheQueue },
+  ];
+
+  const statsResults = await Promise.all(
+    allQueues.map(async (q) => ({
+      key: q.key,
+      label: q.label,
+      ...(await queueStats(q.queue)),
+    }))
+  );
+
+  const target = queueName
+    ? allQueues.find((q) => q.key === queueName)
+    : allQueues[0];
+  const targetQueue = target ? target.queue : downloadQueue;
+
+  const jobs = await targetQueue.getJobs(states);
 
   const matches = (job: { id?: string | undefined; name?: string }) => {
     if (!search) return true;
@@ -224,14 +305,9 @@ router.get("/queues", async (req, res) => {
   };
 
   res.json({
-    downloadQueue: download.filter(matches),
-    removeQueue: remove.filter(matches),
-    cacheQueue: cache.filter(matches),
-    counts: {
-      download: dCounts,
-      remove: rCounts,
-      cache: cCounts,
-    },
+    queues: statsResults,
+    selectedQueue: target?.key || "download",
+    jobs: jobs.filter(matches),
   });
 });
 
@@ -431,6 +507,187 @@ router.delete("/errors", async (req, res) => {
     if (hourlyKeys.length) pipe.del(hourlyKeys);
     await pipe.exec();
     res.json({ ok: true, cleared: len, hourlyCleared: hourlyKeys.length });
+  } catch (error) {
+    handleError(error, res, req);
+  }
+});
+
+// System overview endpoint: process metrics, queue health, DB counts, daily history
+router.get("/overview", async (req, res) => {
+  try {
+    const mem = process.memoryUsage();
+    const totalMem = os.totalmem();
+    const freeMem = os.freemem();
+    const cpus = os.cpus();
+    const cpuCount = cpus.length;
+
+    // Average CPU load (1-min) as percentage
+    const loadAvg1m = os.loadavg()[0];
+    const cpuPercent = Math.round((loadAvg1m / cpuCount) * 100);
+
+    // Disk usage via df (root partition)
+    let diskTotal = 0, diskUsed = 0, diskFree = 0, diskPercent = 0, diskMount = "/";
+    try {
+      const dfOut = execSync("df -k / 2>/dev/null", { timeout: 3000 }).toString();
+      const lines = dfOut.trim().split("\n");
+      if (lines.length >= 2) {
+        const cols = lines[1].split(/\s+/);
+        diskTotal = parseInt(cols[1], 10) * 1024 || 0;
+        diskUsed = parseInt(cols[2], 10) * 1024 || 0;
+        diskFree = parseInt(cols[3], 10) * 1024 || 0;
+        diskPercent = diskTotal ? Math.round((diskUsed / diskTotal) * 100) : 0;
+        diskMount = cols[cols.length - 1] || "/";
+      }
+    } catch {
+      // df not available or timed out
+    }
+
+    const now24h = new Date(Date.now() - 24 * 3600 * 1000);
+
+    const [
+      statusBreakdown,
+      totalSize,
+      recentErrors,
+      totalUsers,
+      totalConferences,
+      totalRepos,
+      activeRepos24h,
+      newRepos24h,
+      newUsers24h,
+      dCounts,
+      rCounts,
+      cCounts,
+    ] = await Promise.all([
+      AnonymizedRepositoryModel.aggregate([
+        { $group: { _id: "$status", count: { $sum: 1 }, storage: { $sum: "$size.storage" } } },
+      ]),
+      AnonymizedRepositoryModel.aggregate([
+        { $group: { _id: null, total: { $sum: "$size.storage" } } },
+      ]),
+      AnonymizedRepositoryModel.countDocuments({
+        status: "error",
+        statusDate: { $gte: now24h },
+      }),
+      UserModel.estimatedDocumentCount(),
+      ConferenceModel.estimatedDocumentCount(),
+      AnonymizedRepositoryModel.estimatedDocumentCount(),
+      AnonymizedRepositoryModel.countDocuments({
+        lastView: { $gte: now24h },
+      }),
+      AnonymizedRepositoryModel.countDocuments({
+        anonymizeDate: { $gte: now24h },
+      }),
+      UserModel.countDocuments({
+        dateOfEntry: { $gte: now24h },
+      }),
+      downloadQueue.getJobCounts(...QUEUE_STATES),
+      removeQueue.getJobCounts(...QUEUE_STATES),
+      cacheQueue.getJobCounts(...QUEUE_STATES),
+    ]);
+
+    // Error stats (from Redis hourly counters)
+    let errorStats = { last24h: 0, severity: { error: 0, warn: 0, info: 0 } };
+    try {
+      const client = await getErrorLogClient();
+      if (client) {
+        const nowDate = new Date();
+        const keys: string[] = [];
+        for (let i = 23; i >= 0; i--) {
+          const d = new Date(nowDate.getTime() - i * 3600 * 1000);
+          const anchor = new Date(
+            Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), d.getUTCHours())
+          );
+          const y = anchor.getUTCFullYear();
+          const m = String(anchor.getUTCMonth() + 1).padStart(2, "0");
+          const day = String(anchor.getUTCDate()).padStart(2, "0");
+          const h = String(anchor.getUTCHours()).padStart(2, "0");
+          keys.push(`${ERROR_LOG_HOURLY_PREFIX}${y}${m}${day}${h}`);
+        }
+        const pipe = client.multi();
+        for (const k of keys) pipe.hGetAll(k);
+        const results = (await pipe.exec()) as unknown as Record<string, string>[];
+        let total = 0;
+        const sev = { error: 0, warn: 0, info: 0 };
+        for (const h of results) {
+          const flat = h || {};
+          total += parseInt(flat.total || "0", 10) || 0;
+          sev.error += parseInt(flat["bucket:error"] || "0", 10) || 0;
+          sev.warn += parseInt(flat["bucket:warn"] || "0", 10) || 0;
+          sev.info += parseInt(flat["bucket:info"] || "0", 10) || 0;
+        }
+        errorStats = { last24h: total, severity: sev };
+      }
+    } catch {
+      // Redis unavailable — keep defaults
+    }
+
+    // Daily history (last 30 days) from DailyStatsModel
+    let history: Array<Record<string, unknown>> = [];
+    try {
+      const { default: DailyStatsModel } = await import(
+        "../../core/model/dailyStats/dailyStats.model"
+      );
+      const since = new Date();
+      since.setUTCDate(since.getUTCDate() - 29);
+      since.setUTCHours(0, 0, 0, 0);
+      const docs = await DailyStatsModel.find({ date: { $gte: since } })
+        .sort({ date: 1 })
+        .lean();
+      history = docs.map((d) => ({
+        date: d.date,
+        nbRepositories: d.nbRepositories,
+        nbUsers: d.nbUsers,
+        nbPageViews: d.nbPageViews,
+      }));
+    } catch {
+      // DailyStats collection might not exist yet
+    }
+
+    res.json({
+      system: {
+        platform: os.platform(),
+        arch: os.arch(),
+        nodeVersion: process.version,
+        uptime: process.uptime(),
+        cpuCount,
+        cpuPercent,
+        loadAvg: os.loadavg(),
+        memTotal: totalMem,
+        memFree: freeMem,
+        memUsed: totalMem - freeMem,
+        memPercent: Math.round(((totalMem - freeMem) / totalMem) * 100),
+        processRss: mem.rss,
+        processHeapUsed: mem.heapUsed,
+        processHeapTotal: mem.heapTotal,
+        diskTotal,
+        diskUsed,
+        diskFree,
+        diskPercent,
+        diskMount,
+      },
+      repos: {
+        total: totalRepos,
+        statusBreakdown,
+        totalStorage: totalSize[0]?.total || 0,
+        recentErrors24h: recentErrors,
+        activeRepos24h,
+        newRepos24h,
+      },
+      users: {
+        total: totalUsers,
+        newUsers24h,
+      },
+      conferences: {
+        total: totalConferences,
+      },
+      queues: {
+        download: dCounts,
+        remove: rCounts,
+        cache: cCounts,
+      },
+      errors: errorStats,
+      history,
+    });
   } catch (error) {
     handleError(error, res, req);
   }
@@ -856,23 +1113,81 @@ router.post(
   }
 );
 
+router.post(
+  "/users/:username/promote",
+  async (req: express.Request, res: express.Response) => {
+    try {
+      const result = await UserModel.updateOne(
+        { username: req.params.username },
+        { $set: { isAdmin: true } }
+      );
+      if (result.matchedCount === 0) {
+        throw new AnonymousError("user_not_found", { httpStatus: 404 });
+      }
+      res.json({ ok: true });
+    } catch (error) {
+      handleError(error, res, req);
+    }
+  }
+);
+
+router.post(
+  "/users/:username/demote",
+  async (req: express.Request, res: express.Response) => {
+    try {
+      const result = await UserModel.updateOne(
+        { username: req.params.username },
+        { $set: { isAdmin: false } }
+      );
+      if (result.matchedCount === 0) {
+        throw new AnonymousError("user_not_found", { httpStatus: 404 });
+      }
+      res.json({ ok: true });
+    } catch (error) {
+      handleError(error, res, req);
+    }
+  }
+);
+
 router.get("/conferences", async (req, res) => {
   const page = parseInt(req.query.page as string) || 1;
   const limit = Math.min(parseInt(req.query.limit as string) || 10, 1000);
   const skipIndex = (page - 1) * limit;
 
+  const ready = req.query.ready == "true";
+  const error = req.query.error == "true";
+  const preparing = req.query.preparing == "true";
+  const expired = req.query.expired == "true";
+  const removed = req.query.removed == "true";
+
   const sort = parseSort(req);
-  const filter: Record<string, unknown> = {};
+  const query: Record<string, unknown>[] = [];
+
   if (req.query.search) {
     const escaped = escapeRegex(req.query.search as string);
-    filter.$or = [
-      { name: { $regex: escaped, $options: "i" } },
-      { conferenceID: { $regex: escaped, $options: "i" } },
-    ];
+    const re = { $regex: escaped, $options: "i" };
+    query.push({
+      $or: [
+        { name: re },
+        { conferenceID: re },
+      ],
+    });
   }
-  if (req.query.status) filter.status = req.query.status;
+
   const dateFilter = parseDateRange(req, "startDate");
-  if (dateFilter) Object.assign(filter, dateFilter);
+  if (dateFilter) query.push(dateFilter);
+
+  const status: { status: string }[] = [];
+  if (ready) status.push({ status: "ready" });
+  if (error) status.push({ status: "error" });
+  if (preparing) status.push({ status: "preparing" });
+  if (expired) status.push({ status: "expired" });
+  if (removed) status.push({ status: "removed" });
+  if (status.length > 0) {
+    query.push({ $or: status });
+  }
+
+  const filter = query.length ? { $and: query } : {};
 
   if (req.query.format === "csv") {
     const all = await ConferenceModel.find(filter).sort(sort).limit(50000).lean();

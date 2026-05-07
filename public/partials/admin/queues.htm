@@ -1,102 +1,156 @@
 <div class="container paper-page admin-page">
   <div class="paper-crumbs">Admin &nbsp;/&nbsp; <span class="here">Queues</span></div>
-  <h1 class="paper-page-title">Queues</h1>
+
+  <div class="q-header">
+    <h1 class="paper-page-title">Queues</h1>
+    <div class="q-header-actions">
+      <div class="q-range-btns">
+        <button class="btn btn-sm" ng-class="{active: range == '1h'}" ng-click="setRange('1h')">1h</button>
+        <button class="btn btn-sm" ng-class="{active: range == '6h'}" ng-click="setRange('6h')">6h</button>
+        <button class="btn btn-sm" ng-class="{active: range == '24h'}" ng-click="setRange('24h')">24h</button>
+        <button class="btn btn-sm" ng-class="{active: range == '7d'}" ng-click="setRange('7d')">7d</button>
+      </div>
+      <button class="btn btn-sm" ng-click="pauseAll()">Pause all</button>
+      <button class="btn btn-sm btn-dark" ng-click="drainSelected()">Drain {{selectedQueue}}</button>
+    </div>
+  </div>
 
   <nav class="admin-nav">
-    <a href="/admin/"><i class="fas fa-code-branch"></i> Repositories</a>
+    <a href="/admin/"><i class="fas fa-tachometer-alt"></i> Overview</a>
+    <a href="/admin/repositories"><i class="fas fa-code-branch"></i> Repositories</a>
     <a href="/admin/users"><i class="fas fa-users"></i> Users</a>
     <a href="/admin/conferences"><i class="fas fa-chalkboard-teacher"></i> Conferences</a>
     <a href="/admin/queues" class="active"><i class="fas fa-tasks"></i> Queues</a>
     <a href="/admin/errors"><i class="fas fa-bug"></i> Errors</a>
   </nav>
 
-  <div class="admin-summary">
-    <span class="summary-pill warn" ng-class="{active: query.state == 'active'}" ng-click="query.state = query.state == 'active' ? '' : 'active'">Active <span class="count">{{(counts.download.active || 0) + (counts.remove.active || 0) + (counts.cache.active || 0)}}</span></span>
-    <span class="summary-pill" ng-class="{active: query.state == 'waiting'}" ng-click="query.state = query.state == 'waiting' ? '' : 'waiting'">Waiting <span class="count">{{(counts.download.waiting || 0) + (counts.remove.waiting || 0) + (counts.cache.waiting || 0)}}</span></span>
-    <span class="summary-pill error" ng-class="{active: query.state == 'failed'}" ng-click="query.state = query.state == 'failed' ? '' : 'failed'">Failed <span class="count">{{(counts.download.failed || 0) + (counts.remove.failed || 0) + (counts.cache.failed || 0)}}</span></span>
-    <span class="summary-pill ok" ng-class="{active: query.state == 'completed'}" ng-click="query.state = query.state == 'completed' ? '' : 'completed'">Completed <span class="count">{{(counts.download.completed || 0) + (counts.remove.completed || 0) + (counts.cache.completed || 0)}}</span></span>
-    <span class="summary-pill" ng-class="{active: query.state == 'delayed'}" ng-click="query.state = query.state == 'delayed' ? '' : 'delayed'">Delayed <span class="count">{{(counts.download.delayed || 0) + (counts.remove.delayed || 0) + (counts.cache.delayed || 0)}}</span></span>
+  <!-- Queue overview cards -->
+  <div class="q-cards">
+    <div class="q-card" ng-repeat="q in queueList" ng-class="{selected: selectedQueue == q.key, paused: q.paused}" ng-click="selectQueue(q.key)">
+      <div class="q-card-head">
+        <span class="q-dot" ng-class="{'q-dot-red': q.paused || q.counts.failed > 0}"></span>
+        <span class="q-card-name" ng-bind="q.label"></span>
+      </div>
+      <div class="q-card-count" ng-bind="(q.counts.waiting || 0) + (q.counts.active || 0) + (q.counts.delayed || 0)"></div>
+      <div class="q-card-sub">
+        <span>waiting &middot; {{q.counts.active || 0}} active</span>
+        <div class="q-card-bar" ng-if="q.counts.active">
+          <div class="q-card-bar-fill" ng-style="{width: (q.counts.active / ((q.counts.waiting || 0) + (q.counts.active || 0) + (q.counts.delayed || 0) || 1) * 100) + '%'}"></div>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <form class="w-100 admin-filter-toolbar" aria-label="Queue filters">
-    <div class="admin-filter-row">
-      <div class="search-wrap">
-        <input type="search" class="form-control" placeholder="Search by job/repo id…" ng-model="query.search" autocomplete="off" />
-        <span class="admin-search-hint" ng-if="!query.search">/</span>
+  <!-- Detail: throughput chart + stats panel -->
+  <div class="q-detail" ng-if="selectedStats">
+    <div class="q-throughput">
+      <div class="q-section-label">{{selectedQueue}}&middot;throughput <span class="q-section-right">COMPLETED / MIN &middot; {{range | uppercase}}</span></div>
+      <canvas id="q-throughput-chart" height="180"></canvas>
+    </div>
+    <div class="q-stats-panel">
+      <div class="q-section-label">{{selectedQueue}}&middot;stats</div>
+      <div class="q-stats-grid">
+        <div class="q-stat">
+          <div class="q-stat-label">WAITING</div>
+          <div class="q-stat-value" ng-bind="selectedStats.counts.waiting || 0"></div>
+        </div>
+        <div class="q-stat">
+          <div class="q-stat-label">ACTIVE</div>
+          <div class="q-stat-value" ng-bind="selectedStats.counts.active || 0"></div>
+        </div>
+        <div class="q-stat">
+          <div class="q-stat-label">COMPLETED (24H)</div>
+          <div class="q-stat-value" ng-bind="selectedStats.completed24h | number"></div>
+        </div>
+        <div class="q-stat">
+          <div class="q-stat-label">FAILED (24H)</div>
+          <div class="q-stat-value" ng-bind="selectedStats.failed24h || 0"></div>
+        </div>
+        <div class="q-stat">
+          <div class="q-stat-label">DELAYED</div>
+          <div class="q-stat-value" ng-bind="selectedStats.counts.delayed || 0"></div>
+        </div>
+        <div class="q-stat">
+          <div class="q-stat-label">WORKERS</div>
+          <div class="q-stat-value" ng-bind="selectedStats.workers || 0"></div>
+        </div>
       </div>
-      <span class="admin-filter-inline">
-        <label>State</label>
-        <select class="form-control form-control-sm" ng-model="query.state">
-          <option value="">Any</option>
-          <option value="waiting">Waiting</option>
-          <option value="active">Active</option>
-          <option value="completed">Completed</option>
-          <option value="failed">Failed</option>
-          <option value="delayed">Delayed</option>
-        </select>
-      </span>
-      <span class="admin-filter-spacer"></span>
-      <label class="admin-filter-inline" style="cursor:pointer;">
+      <div class="q-stats-actions">
+        <button class="btn btn-sm" ng-click="togglePause()">{{selectedStats.paused ? 'Resume' : 'Pause'}}</button>
+        <button class="btn btn-sm" ng-click="retryFailed()" ng-disabled="!selectedStats.counts.failed">Retry failed</button>
+        <button class="btn btn-sm" ng-click="emptyQueue()">Empty</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Jobs table -->
+  <div class="q-jobs">
+    <div class="q-jobs-header">
+      <div class="q-section-label">{{query.state | uppercase}} JOBS &middot; {{selectedQueue | uppercase}}</div>
+      <div class="q-tabs">
+        <button class="q-tab" ng-class="{active: query.state == 'active'}" ng-click="query.state = 'active'">Active</button>
+        <button class="q-tab" ng-class="{active: query.state == 'waiting'}" ng-click="query.state = 'waiting'">Waiting</button>
+        <button class="q-tab" ng-class="{active: query.state == 'completed'}" ng-click="query.state = 'completed'">Completed</button>
+        <button class="q-tab" ng-class="{active: query.state == 'failed'}" ng-click="query.state = 'failed'">Failed</button>
+        <button class="q-tab" ng-class="{active: query.state == 'delayed'}" ng-click="query.state = 'delayed'">Delayed</button>
+      </div>
+    </div>
+
+    <div class="q-search-row">
+      <input type="search" class="form-control" placeholder="Search by job/repo id…" ng-model="query.search" autocomplete="off" />
+      <label class="q-auto-refresh">
         <input type="checkbox" ng-model="query.autoRefresh" />
         Auto-refresh
       </label>
       <button class="btn btn-sm" type="button" ng-click="refreshNow()" title="Refresh now"><i class="fas fa-sync"></i></button>
     </div>
-  </form>
 
-  <div ng-repeat="qInfo in [
-    {key: 'download', label: 'Download jobs', icon: 'fa-download', jobs: downloadJobs, counts: counts.download},
-    {key: 'remove', label: 'Remove jobs', icon: 'fa-trash', jobs: removeJobs, counts: counts.remove},
-    {key: 'cache', label: 'Cache cleanup jobs', icon: 'fa-broom', jobs: removeCaches, counts: counts.cache}
-  ]">
-    <div class="admin-section-header">
-      <h2><i class="fas {{qInfo.icon}}"></i> {{qInfo.label}}</h2>
-      <span class="section-count">{{qInfo.jobs.length || 0}}</span>
-      <span class="queue-state-pills">
-        <span class="pill pill-waiting" ng-if="qInfo.counts.waiting">{{qInfo.counts.waiting}} waiting</span>
-        <span class="pill pill-active" ng-if="qInfo.counts.active">{{qInfo.counts.active}} active</span>
-        <span class="pill pill-completed" ng-if="qInfo.counts.completed">{{qInfo.counts.completed}} done</span>
-        <span class="pill pill-failed" ng-if="qInfo.counts.failed">{{qInfo.counts.failed}} failed</span>
-        <span class="pill pill-delayed" ng-if="qInfo.counts.delayed">{{qInfo.counts.delayed}} delayed</span>
-      </span>
-      <span style="margin-left: auto; display: inline-flex; gap: 6px;">
-        <button class="btn btn-sm" type="button" ng-click="bulkRetryFailed(qInfo.key)" ng-disabled="!qInfo.counts.failed"><i class="fas fa-redo"></i> Retry all failed</button>
-        <button class="btn btn-sm text-danger" type="button" ng-click="bulkDrain(qInfo.key)"><i class="fas fa-eraser"></i> Drain</button>
-      </span>
+    <table class="q-table" ng-if="jobs.length > 0">
+      <thead>
+        <tr>
+          <th>JOB ID</th>
+          <th>PAYLOAD</th>
+          <th>ATTEMPTS</th>
+          <th>DURATION</th>
+          <th>PROGRESS</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr ng-repeat="job in jobs" ng-class="{'q-row-failed': job.failedReason || job.stacktrace.length}">
+          <td class="q-cell-id">
+            <a target="_blank" ng-href="/r/{{job.id}}" ng-bind="'job:' + (job.id | limitTo:6)"></a>
+          </td>
+          <td class="q-cell-payload">
+            <span ng-bind="job.name || 'anonymize'"></span>
+            <span class="q-payload-detail" ng-if="job.data.repoId"> &middot; {{job.data.repoId}}</span>
+          </td>
+          <td class="q-cell-num" ng-bind="job.attemptsMade || 1"></td>
+          <td class="q-cell-num" ng-bind="jobDuration(job)"></td>
+          <td class="q-cell-progress">
+            <div class="q-progress-wrap" ng-if="jobProgressPct(job) !== null">
+              <div class="q-progress-bar" ng-style="{'--pct': jobProgressPct(job) + '%'}"></div>
+              <span class="q-progress-label" ng-bind="jobProgressPct(job) + '%'"></span>
+            </div>
+          </td>
+          <td class="q-cell-actions">
+            <button class="btn btn-sm" ng-click="retryJob(job)" title="Retry"><i class="fas fa-sync"></i></button>
+            <button class="btn btn-sm" ng-click="removeJob(job)" title="Remove"><i class="fas fa-trash-alt"></i></button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Expanded error detail -->
+    <div ng-repeat="job in jobs" ng-if="job.failedReason || job.stacktrace.length" class="q-error-detail" style="display:none;">
+      <div ng-if="job.failedReason" class="q-error-reason" ng-bind="job.failedReason"></div>
+      <pre ng-repeat="stack in job.stacktrace track by $index" class="q-error-stack"><code ng-bind="stack"></code></pre>
     </div>
 
-    <div class="queue-job-card" ng-repeat="job in qInfo.jobs | filter:jobMatchesState as filteredJobs">
-      <div class="job-header">
-        <div class="job-id">
-          <span class="status-dot" ng-class="{'status-ready': job.progress.status == 'ready', 'status-error': job.progress.status == 'error' || (job.stacktrace && job.stacktrace.length), 'status-preparing': job.progress.status == 'preparing' || (job.processedOn && !job.finishedOn), 'status-removed': job.progress.status == 'removed'}"></span>
-          <a target="_blank" ng-href="/r/{{job.id}}" ng-bind="job.id"></a>
-          <span ng-bind="job.progress.status | title" style="font-family: var(--font-sans); color: var(--ink-muted); font-size: 12px;"></span>
-        </div>
-        <div ng-if="jobProgressPct(job) !== null" class="job-progress" title="{{jobProgressPct(job)}}%">
-          <div class="job-progress-bar" style="width: {{jobProgressPct(job)}}%;"></div>
-        </div>
-      </div>
-      <div class="job-timestamps">
-        <span ng-if="job.timestamp"><i class="fas fa-clock"></i> Created: {{job.timestamp | humanTime}}</span>
-        <span ng-if="job.processedOn"><i class="fas fa-cog"></i> Processed: {{job.processedOn | humanTime}}</span>
-        <span ng-if="job.finishedOn"><i class="fas fa-check"></i> Finished: {{job.finishedOn | humanTime}}</span>
-        <span ng-if="job.attemptsMade"><i class="fas fa-redo"></i> Attempts: {{job.attemptsMade}}</span>
-      </div>
-      <div ng-if="job.failedReason" style="color:#B42318; font-size:0.8rem; margin-top:4px;">{{job.failedReason}}</div>
-      <div ng-if="job.stacktrace.length">
-        <pre ng-repeat="stack in job.stacktrace track by $index" style="font-size: 0.8rem; max-height: 100px; overflow: auto; margin: 6px 0 0 0"><code ng-bind="stack"></code></pre>
-      </div>
-      <div class="job-actions">
-        <button class="btn btn-sm" ng-click="retryJob(qInfo.key, job)"><i class="fas fa-sync"></i> Retry</button>
-        <button class="btn btn-sm" ng-click="removeJob(qInfo.key, job)"><i class="fas fa-trash-alt"></i> Remove</button>
-        <a class="btn btn-sm" href="/anonymize/{{job.id}}"><i class="far fa-edit"></i> Edit</a>
-      </div>
-    </div>
-
-    <div class="paper-table-empty" ng-if="filteredJobs.length == 0" style="border:1px solid var(--border-color);border-radius:10px;background:var(--paper-card);">
+    <div class="paper-table-empty" ng-if="jobs.length == 0" style="border:1px solid var(--border-color);border-radius:10px;background:var(--paper-card);">
       <i class="fas fa-check-circle"></i>
-      <span ng-if="!query.search && !query.state">No {{qInfo.label | lowercase}} in the queue.</span>
-      <span ng-if="query.search || query.state">No jobs match the current filters.</span>
+      <span ng-if="!query.search">No {{query.state}} jobs in the {{selectedQueue}} queue.</span>
+      <span ng-if="query.search">No jobs match the current filters.</span>
     </div>
   </div>
 </div>

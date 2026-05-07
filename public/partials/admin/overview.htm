@@ -1,0 +1,237 @@
+<div class="container paper-page admin-page overview-page">
+  <div class="paper-crumbs">Admin &middot; System Health</div>
+
+  <div class="ov-header">
+    <h1 class="paper-page-title">Overview</h1>
+    <div class="ov-header-actions">
+      <div class="ov-range-btns">
+        <button class="btn btn-sm" ng-class="{active: range === '1h'}"  ng-click="setRange('1h')">1h</button>
+        <button class="btn btn-sm" ng-class="{active: range === '6h'}"  ng-click="setRange('6h')">6h</button>
+        <button class="btn btn-sm" ng-class="{active: range === '24h'}" ng-click="setRange('24h')">24h</button>
+        <button class="btn btn-sm" ng-class="{active: range === '7d'}"  ng-click="setRange('7d')">7d</button>
+        <button class="btn btn-sm" ng-class="{active: range === '30d'}" ng-click="setRange('30d')">30d</button>
+      </div>
+    </div>
+  </div>
+
+  <nav class="admin-nav">
+    <a href="/admin/" class="active"><i class="fas fa-tachometer-alt"></i> Overview</a>
+    <a href="/admin/repositories"><i class="fas fa-code-branch"></i> Repositories</a>
+    <a href="/admin/users"><i class="fas fa-users"></i> Users</a>
+    <a href="/admin/conferences"><i class="fas fa-chalkboard-teacher"></i> Conferences</a>
+    <a href="/admin/queues"><i class="fas fa-tasks"></i> Queues</a>
+    <a href="/admin/errors"><i class="fas fa-bug"></i> Errors</a>
+  </nav>
+
+  <div ng-if="loading" class="admin-empty">Loading overview&hellip;</div>
+  <div ng-if="error" class="alert alert-danger" style="margin:12px 0"><i class="fas fa-exclamation-triangle"></i> {{error}}</div>
+
+  <div ng-if="data">
+
+    <!-- ── Top KPI row ──────────────────────────────────────────── -->
+    <section class="ov-kpi-row">
+      <div class="ov-kpi-card">
+        <div class="ov-kpi-label">Repositories <span class="ov-dot ov-dot-ok"></span></div>
+        <div class="ov-kpi-value">{{humanNum(data.repos.total)}}</div>
+        <div class="ov-kpi-sub">+{{data.repos.newRepos24h}} &middot; last 24h</div>
+      </div>
+      <div class="ov-kpi-card">
+        <div class="ov-kpi-label">CPU</div>
+        <div class="ov-kpi-value" ng-class="{'ov-val-warn': data.system.cpuPercent > 80}">{{data.system.cpuPercent}}%</div>
+        <div class="ov-kpi-sub">{{data.system.cpuCount}} cores &middot; load {{data.system.loadAvg[0].toFixed(1)}}</div>
+      </div>
+      <div class="ov-kpi-card">
+        <div class="ov-kpi-label">Memory</div>
+        <div class="ov-kpi-value" ng-class="{'ov-val-warn': data.system.memPercent > 85}">{{data.system.memPercent}}%</div>
+        <div class="ov-kpi-sub">{{humanBytes(data.system.memUsed)}} / {{humanBytes(data.system.memTotal)}}</div>
+      </div>
+      <div class="ov-kpi-card">
+        <div class="ov-kpi-label">Disk</div>
+        <div class="ov-kpi-value" ng-class="{'ov-val-warn': data.system.diskPercent > 85}">{{data.system.diskPercent}}%</div>
+        <div class="ov-kpi-sub">{{humanBytes(data.system.diskUsed)}} / {{humanBytes(data.system.diskTotal)}} &middot; {{data.system.diskMount}}</div>
+      </div>
+      <div class="ov-kpi-card">
+        <div class="ov-kpi-label">Uptime</div>
+        <div class="ov-kpi-value">{{humanDuration(data.system.uptime)}}</div>
+        <div class="ov-kpi-sub">{{data.system.nodeVersion}} &middot; {{data.system.platform}}</div>
+      </div>
+    </section>
+
+    <!-- ── Two wide charts ──────────────────────────────────────── -->
+    <section class="ov-chart-row">
+      <div class="ov-chart-card">
+        <div class="ov-chart-head">
+          <span class="ov-chart-title">Page views &middot; 30d</span>
+          <span class="ov-chart-legend"><span class="ov-dot-legend ov-dot-accent"></span>views</span>
+        </div>
+        <div class="ov-spark-bars" ng-if="data.history.length">
+          <div class="ov-spark-col" ng-repeat="d in data.history track by $index"
+               title="{{historyLabel(d)}}: {{d.nbPageViews | number}} views">
+            <span class="ov-spark-fill" ng-style="{height: historyBarH(d, 'nbPageViews') + 'px'}"></span>
+          </div>
+        </div>
+        <div class="ov-spark-x" ng-if="data.history.length">
+          <span>{{historyLabel(data.history[0])}}</span>
+          <span>{{historyLabel(data.history[Math.floor(data.history.length/2)])}}</span>
+          <span>{{historyLabel(data.history[data.history.length - 1])}}</span>
+        </div>
+      </div>
+      <div class="ov-chart-card">
+        <div class="ov-chart-head">
+          <span class="ov-chart-title">New repos &middot; 30d</span>
+          <span class="ov-chart-legend"><span class="ov-dot-legend ov-dot-ok-fill"></span>repos</span>
+        </div>
+        <div class="ov-spark-bars" ng-if="data.history.length">
+          <div class="ov-spark-col" ng-repeat="d in data.history track by $index"
+               title="{{historyLabel(d)}}: {{d.nbRepositories | number}} repos">
+            <span class="ov-spark-fill ov-spark-fill-alt" ng-style="{height: historyBarH(d, 'nbRepositories') + 'px'}"></span>
+          </div>
+        </div>
+        <div class="ov-spark-x" ng-if="data.history.length">
+          <span>{{historyLabel(data.history[0])}}</span>
+          <span>{{historyLabel(data.history[Math.floor(data.history.length/2)])}}</span>
+          <span>{{historyLabel(data.history[data.history.length - 1])}}</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Three-panel row: Status / Errors / Queues ────────────── -->
+    <section class="ov-triple-row">
+
+      <!-- Repo status breakdown -->
+      <div class="ov-panel-card">
+        <div class="ov-panel-head">
+          <span class="ov-panel-title">Repo status</span>
+          <span class="ov-panel-meta">{{data.repos.total | number}} total</span>
+        </div>
+        <div class="ov-stacked-bar">
+          <span class="ov-bar-seg ov-bar-ready"    ng-style="{width: barPct('ready') + '%'}"    title="Ready"></span>
+          <span class="ov-bar-seg ov-bar-preparing" ng-style="{width: barPct('preparing') + '%'}" title="Preparing"></span>
+          <span class="ov-bar-seg ov-bar-error"     ng-style="{width: barPct('error') + '%'}"     title="Error"></span>
+          <span class="ov-bar-seg ov-bar-expired"   ng-style="{width: barPct('expired') + '%'}"   title="Expired"></span>
+          <span class="ov-bar-seg ov-bar-removed"   ng-style="{width: barPct('removed') + '%'}"   title="Removed"></span>
+        </div>
+        <div class="ov-bar-legend">
+          <a href="/admin/repositories" class="ov-legend-item"><span class="ov-swatch ov-bar-ready"></span> ready <span class="ov-legend-n">{{statusCount('ready') | number}}</span></a>
+          <a href="/admin/repositories" class="ov-legend-item"><span class="ov-swatch ov-bar-preparing"></span> preparing <span class="ov-legend-n">{{statusCount('preparing') + statusCount('download') | number}}</span></a>
+          <a href="/admin/repositories" class="ov-legend-item"><span class="ov-swatch ov-bar-error"></span> error <span class="ov-legend-n">{{statusCount('error') | number}}</span></a>
+          <a href="/admin/repositories" class="ov-legend-item"><span class="ov-swatch ov-bar-expired"></span> expired <span class="ov-legend-n">{{statusCount('expired') + statusCount('expiring') | number}}</span></a>
+          <a href="/admin/repositories" class="ov-legend-item"><span class="ov-swatch ov-bar-removed"></span> removed <span class="ov-legend-n">{{statusCount('removed') + statusCount('removing') | number}}</span></a>
+        </div>
+      </div>
+
+      <!-- Error breakdown -->
+      <div class="ov-panel-card">
+        <div class="ov-panel-head">
+          <span class="ov-panel-title">Errors &middot; 24h</span>
+          <span class="ov-panel-meta">{{data.errors.last24h}} total</span>
+        </div>
+        <div class="ov-error-bars">
+          <div class="ov-ebar-row">
+            <span class="ov-ebar-label">5xx</span>
+            <span class="ov-ebar-track"><span class="ov-ebar-fill ov-ebar-error" ng-style="{width: errPct('error') + '%'}"></span></span>
+            <span class="ov-ebar-n">{{data.errors.severity.error}}</span>
+          </div>
+          <div class="ov-ebar-row">
+            <span class="ov-ebar-label">4xx</span>
+            <span class="ov-ebar-track"><span class="ov-ebar-fill ov-ebar-warn" ng-style="{width: errPct('warn') + '%'}"></span></span>
+            <span class="ov-ebar-n">{{data.errors.severity.warn}}</span>
+          </div>
+          <div class="ov-ebar-row">
+            <span class="ov-ebar-label">Info</span>
+            <span class="ov-ebar-track"><span class="ov-ebar-fill ov-ebar-info" ng-style="{width: errPct('info') + '%'}"></span></span>
+            <span class="ov-ebar-n">{{data.errors.severity.info}}</span>
+          </div>
+        </div>
+        <div class="ov-panel-foot" ng-if="data.repos.recentErrors24h">
+          <a href="/admin/errors">{{data.repos.recentErrors24h}} repos in error state &rarr;</a>
+        </div>
+      </div>
+
+      <!-- Top routes / queues -->
+      <div class="ov-panel-card">
+        <div class="ov-panel-head">
+          <span class="ov-panel-title">Queues</span>
+          <span class="ov-panel-meta">by state</span>
+        </div>
+        <div class="ov-routes-table">
+          <div class="ov-route-row ov-route-head">
+            <span class="ov-route-name">Queue</span>
+            <span class="ov-route-n">Active</span>
+            <span class="ov-route-n">Wait</span>
+            <span class="ov-route-n ov-route-lat">Failed</span>
+          </div>
+          <a class="ov-route-row" href="/admin/queues">
+            <span class="ov-route-name">download</span>
+            <span class="ov-route-n">{{data.queues.download.active}}</span>
+            <span class="ov-route-n">{{data.queues.download.waiting}}</span>
+            <span class="ov-route-n ov-route-lat" ng-class="{'ov-n-bad': data.queues.download.failed > 0}">{{data.queues.download.failed}}</span>
+          </a>
+          <a class="ov-route-row" href="/admin/queues">
+            <span class="ov-route-name">remove</span>
+            <span class="ov-route-n">{{data.queues.remove.active}}</span>
+            <span class="ov-route-n">{{data.queues.remove.waiting}}</span>
+            <span class="ov-route-n ov-route-lat" ng-class="{'ov-n-bad': data.queues.remove.failed > 0}">{{data.queues.remove.failed}}</span>
+          </a>
+          <a class="ov-route-row" href="/admin/queues">
+            <span class="ov-route-name">cache</span>
+            <span class="ov-route-n">{{data.queues.cache.active}}</span>
+            <span class="ov-route-n">{{data.queues.cache.waiting}}</span>
+            <span class="ov-route-n ov-route-lat" ng-class="{'ov-n-bad': data.queues.cache.failed > 0}">{{data.queues.cache.failed}}</span>
+          </a>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ── Services bar ─────────────────────────────────────────── -->
+    <section class="ov-services-card">
+      <div class="ov-services-head">
+        <span class="ov-panel-title">Services</span>
+        <span class="ov-panel-meta">{{data.users.total | number}} users &middot; {{data.conferences.total}} conferences</span>
+      </div>
+      <div class="ov-services-grid">
+        <div class="ov-svc">
+          <span class="ov-svc-dot ov-dot-ok"></span>
+          <div class="ov-svc-info">
+            <span class="ov-svc-name">web</span>
+            <span class="ov-svc-meta">{{data.system.nodeVersion}}</span>
+          </div>
+          <span class="ov-svc-detail">uptime {{humanDuration(data.system.uptime)}}</span>
+        </div>
+        <div class="ov-svc">
+          <span class="ov-svc-dot" ng-class="queueTotal(data.queues.download) > 0 ? 'ov-dot-ok' : 'ov-dot-idle'"></span>
+          <div class="ov-svc-info">
+            <span class="ov-svc-name">download</span>
+            <span class="ov-svc-meta" ng-if="queueTotal(data.queues.download)">{{queueTotal(data.queues.download)}} jobs</span>
+            <span class="ov-svc-meta" ng-if="!queueTotal(data.queues.download)">idle</span>
+          </div>
+        </div>
+        <div class="ov-svc">
+          <span class="ov-svc-dot" ng-class="queueTotal(data.queues.cache) > 0 ? 'ov-dot-ok' : 'ov-dot-idle'"></span>
+          <div class="ov-svc-info">
+            <span class="ov-svc-name">cache</span>
+            <span class="ov-svc-meta" ng-if="queueTotal(data.queues.cache)">{{queueTotal(data.queues.cache)}} jobs</span>
+            <span class="ov-svc-meta" ng-if="!queueTotal(data.queues.cache)">idle</span>
+          </div>
+        </div>
+        <div class="ov-svc">
+          <span class="ov-svc-dot" ng-class="queueTotal(data.queues.remove) > 0 ? 'ov-dot-ok' : 'ov-dot-idle'"></span>
+          <div class="ov-svc-info">
+            <span class="ov-svc-name">remove</span>
+            <span class="ov-svc-meta" ng-if="queueTotal(data.queues.remove)">{{queueTotal(data.queues.remove)}} jobs</span>
+            <span class="ov-svc-meta" ng-if="!queueTotal(data.queues.remove)">idle</span>
+          </div>
+        </div>
+        <div class="ov-svc">
+          <span class="ov-svc-dot" ng-class="data.repos.recentErrors24h > 10 ? 'ov-dot-warn' : 'ov-dot-ok'"></span>
+          <div class="ov-svc-info">
+            <span class="ov-svc-name">errors</span>
+            <span class="ov-svc-meta">{{data.errors.last24h}} / 24h</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>

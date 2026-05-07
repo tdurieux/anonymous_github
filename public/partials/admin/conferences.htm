@@ -3,7 +3,8 @@
   <h1 class="paper-page-title">Conferences</h1>
 
   <nav class="admin-nav">
-    <a href="/admin/"><i class="fas fa-code-branch"></i> Repositories</a>
+    <a href="/admin/"><i class="fas fa-tachometer-alt"></i> Overview</a>
+    <a href="/admin/repositories"><i class="fas fa-code-branch"></i> Repositories</a>
     <a href="/admin/users"><i class="fas fa-users"></i> Users</a>
     <a href="/admin/conferences" class="active"><i class="fas fa-chalkboard-teacher"></i> Conferences</a>
     <a href="/admin/queues"><i class="fas fa-tasks"></i> Queues</a>
@@ -12,11 +13,11 @@
 
   <div class="admin-summary">
     <span class="summary-total">{{total >= 0 ? (total | number) : '…'}}</span>
-    <span class="summary-pill ok" ng-class="{active: query.status == 'ready'}" ng-click="query.status = query.status == 'ready' ? '' : 'ready'; query.page = 1">Ready <span class="count">{{statusCountFor('ready') | number}}</span></span>
-    <span class="summary-pill warn" ng-class="{active: query.status == 'preparing'}" ng-click="query.status = query.status == 'preparing' ? '' : 'preparing'; query.page = 1">Preparing <span class="count">{{statusCountFor('preparing') | number}}</span></span>
-    <span class="summary-pill error" ng-class="{active: query.status == 'error'}" ng-click="query.status = query.status == 'error' ? '' : 'error'; query.page = 1">Errored <span class="count">{{statusCountFor('error') | number}}</span></span>
-    <span class="summary-pill" ng-class="{active: query.status == 'expired'}" ng-click="query.status = query.status == 'expired' ? '' : 'expired'; query.page = 1">Expired <span class="count">{{statusCountFor('expired') | number}}</span></span>
-    <span class="summary-pill" ng-class="{active: query.status == 'removed'}" ng-click="query.status = query.status == 'removed' ? '' : 'removed'; query.page = 1">Removed <span class="count">{{statusCountFor('removed') | number}}</span></span>
+    <span class="summary-pill ok" ng-class="{active: query.ready}" ng-click="query.ready = !query.ready; query.page = 1" title="Toggle ready filter">Ready <span class="count">{{statusCountFor('ready') | number}}</span></span>
+    <span class="summary-pill warn" ng-class="{active: query.preparing}" ng-click="query.preparing = !query.preparing; query.page = 1" title="Toggle preparing filter">Preparing <span class="count">{{statusCountFor('preparing') | number}}</span></span>
+    <span class="summary-pill error" ng-class="{active: query.error}" ng-click="query.error = !query.error; query.page = 1" title="Toggle errored filter">Errored <span class="count">{{statusCountFor('error') | number}}</span></span>
+    <span class="summary-pill" ng-class="{active: query.expired}" ng-click="query.expired = !query.expired; query.page = 1" title="Toggle expired filter">Expired <span class="count">{{statusCountFor('expired') | number}}</span></span>
+    <span class="summary-pill" ng-class="{active: query.removed}" ng-click="query.removed = !query.removed; query.page = 1" title="Toggle removed filter">Removed <span class="count">{{statusCountFor('removed') | number}}</span></span>
   </div>
 
   <div class="alert alert-danger" ng-if="fetchError" style="margin: 8px 0;">
@@ -60,7 +61,7 @@
     <div
       class="paper-table-row"
       role="row"
-      ng-repeat="conference in conferences | filter:conferenceFiler | orderBy:orderBy as filteredConferences"
+      ng-repeat="conference in conferences as filteredConferences"
     >
       <div class="cell-anon" role="cell">
         <span class="type-badge type-repo">Conf</span>
@@ -110,7 +111,7 @@
     </div>
     <span class="admin-filter-inline">
       <label>Per page</label>
-      <select class="form-control form-control-sm" ng-model="query.limit"><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select>
+      <select class="form-control form-control-sm" ng-model="query.limit"><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option><option value="250">250</option></select>
     </span>
   </div>
 </div>

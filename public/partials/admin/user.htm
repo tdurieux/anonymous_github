@@ -3,7 +3,8 @@
   <h1 class="paper-page-title">{{userInfo.username || 'User'}}</h1>
 
   <nav class="admin-nav">
-    <a href="/admin/"><i class="fas fa-code-branch"></i> Repositories</a>
+    <a href="/admin/"><i class="fas fa-tachometer-alt"></i> Overview</a>
+    <a href="/admin/repositories"><i class="fas fa-code-branch"></i> Repositories</a>
     <a href="/admin/users" class="active"><i class="fas fa-users"></i> Users</a>
     <a href="/admin/conferences"><i class="fas fa-chalkboard-teacher"></i> Conferences</a>
     <a href="/admin/queues"><i class="fas fa-tasks"></i> Queues</a>
@@ -25,6 +26,8 @@
         <div class="user-actions" style="margin-top: 4px;">
           <button class="btn btn-sm text-danger" ng-if="userInfo.status !== 'banned'" ng-click="banUser()"><i class="fas fa-ban"></i> Ban</button>
           <button class="btn btn-sm" ng-if="userInfo.status === 'banned' || userInfo.status === 'removed'" ng-click="activateUser()"><i class="fas fa-check-circle"></i> Activate</button>
+          <button class="btn btn-sm" ng-if="!userInfo.isAdmin" ng-click="promoteUser()"><i class="fas fa-user-shield"></i> Promote to admin</button>
+          <button class="btn btn-sm text-danger" ng-if="userInfo.isAdmin" ng-click="demoteUser()"><i class="fas fa-user-minus"></i> Remove admin</button>
         </div>
       </div>
     </div>
@@ -44,6 +47,15 @@
         <a ng-href="https://github.com/{{userInfo.username}}" target="_blank">
           <i class="fab fa-github"></i> {{userInfo.username}}
         </a>
+      </div>
+
+      <div class="detail-label">Created</div>
+      <div class="detail-value">{{userInfo.dateOfEntry | humanTime}}</div>
+
+      <div class="detail-label">Last connection</div>
+      <div class="detail-value">
+        <span ng-if="userInfo.accessTokenDates.github">{{userInfo.accessTokenDates.github | humanTime}}</span>
+        <span class="text-muted" ng-if="!userInfo.accessTokenDates.github">never</span>
       </div>
 
       <div class="detail-label">GitHub repos</div>
@@ -122,86 +134,76 @@
     <span class="section-count">{{repositories.length}}</span>
   </div>
 
-  <form class="w-100 dashboard-filter-row" aria-label="Repositories" accept-charset="UTF-8">
-    <div class="search-wrap">
-      <input
-        type="search"
-        class="form-control"
-        aria-label="Search repositories"
-        placeholder="Search repositories…"
-        autocomplete="off"
-        ng-model="search"
-      />
-    </div>
-    <div class="d-flex flex-wrap" style="gap: 8px;">
-      <div class="dropdown">
-        <button class="btn dropdown-toggle" type="button" id="dropdownSort" data-toggle="dropdown">Sort</button>
-        <div class="dropdown-menu" aria-labelledby="dropdownSort">
-          <h6 class="dropdown-header">Sort by</h6>
-          <a class="dropdown-item" href="#" ng-click="orderBy = '-anonymizeDate'">
-            <i class="fas fa-check" ng-show="orderBy == '-anonymizeDate'"></i> Anonymize date
-          </a>
-          <a class="dropdown-item" href="#" ng-click="orderBy = 'repoId'">
-            <i class="fas fa-check" ng-show="orderBy == 'repoId'"></i> ID
-          </a>
-          <a class="dropdown-item" href="#" ng-click="orderBy = '-status'">
-            <i class="fas fa-check" ng-show="orderBy == '-status'"></i> Status
-          </a>
-        </div>
-      </div>
+  <div class="admin-summary">
+    <span class="summary-total">{{repositories.length | number}}</span>
+    <span class="summary-pill ok" ng-class="{active: filters.status.ready === false}" ng-click="filters.status.ready = !filters.status.ready" title="Toggle ready filter">Ready <span class="count">{{statusCountFor('ready') | number}}</span></span>
+    <span class="summary-pill warn" ng-class="{active: filters.status.preparing === false}" ng-click="filters.status.preparing = !filters.status.preparing" title="Toggle preparing filter">Preparing <span class="count">{{statusCountFor('preparing') | number}}</span></span>
+    <span class="summary-pill error" ng-class="{active: filters.status.error === false}" ng-click="filters.status.error = !filters.status.error" title="Toggle errored filter">Errored <span class="count">{{statusCountFor('error') | number}}</span></span>
+    <span class="summary-pill" ng-class="{active: filters.status.expired === false}" ng-click="filters.status.expired = !filters.status.expired" title="Toggle expired filter">Expired <span class="count">{{statusCountFor('expired') | number}}</span></span>
+    <span class="summary-pill" ng-class="{active: filters.status.removed === false}" ng-click="filters.status.removed = !filters.status.removed" title="Toggle removed filter">Removed <span class="count">{{statusCountFor('removed') | number}}</span></span>
+  </div>
 
-      <div class="dropdown">
-        <button class="btn dropdown-toggle" type="button" id="dropdownStatus" data-toggle="dropdown">Status</button>
-        <div class="dropdown-menu" aria-labelledby="dropdownStatus">
-          <h6 class="dropdown-header">Filter by status</h6>
-          <div class="form-check dropdown-item">
-            <input class="form-check-input" type="checkbox" id="adminUserStatusReady" ng-model="filters.status.ready" />
-            <label class="form-check-label" for="adminUserStatusReady">Ready</label>
-          </div>
-          <div class="form-check dropdown-item">
-            <input class="form-check-input" type="checkbox" id="adminUserStatusExpired" ng-model="filters.status.expired" />
-            <label class="form-check-label" for="adminUserStatusExpired">Expired</label>
-          </div>
-          <div class="form-check dropdown-item">
-            <input class="form-check-input" type="checkbox" id="adminUserStatusRemoved" ng-model="filters.status.removed" />
-            <label class="form-check-label" for="adminUserStatusRemoved">Removed</label>
-          </div>
-        </div>
+  <form class="w-100 admin-filter-toolbar" aria-label="Repositories" accept-charset="UTF-8">
+    <div class="admin-filter-row">
+      <div class="search-wrap">
+        <input
+          type="search"
+          class="form-control"
+          aria-label="Search repositories"
+          placeholder="Search repoId, source repo, error message…"
+          autocomplete="off"
+          ng-model="search"
+        />
       </div>
+      <span class="admin-filter-spacer"></span>
+      <button class="btn btn-sm" type="button" ng-click="exportCsv()" title="Export current view to CSV"><i class="fas fa-file-csv"></i> Export</button>
     </div>
   </form>
 
-  <div class="paper-table paper-table-repos w-100" role="table" aria-label="Repositories">
+  <div class="bulk-bar" ng-if="selectedCount() > 0">
+    <span><strong>{{selectedCount()}}</strong> selected</span>
+    <button class="btn btn-sm" type="button" ng-click="bulkRefresh()"><i class="fas fa-sync"></i> Force refresh</button>
+    <button class="btn btn-sm text-danger" type="button" ng-click="bulkRemoveCache()"><i class="fas fa-broom"></i> Remove cache</button>
+    <button class="btn btn-sm" type="button" ng-click="clearSelection()">Clear</button>
+  </div>
+
+  <div class="paper-table paper-table-repos has-bulk w-100" role="table" aria-label="Repositories">
     <div class="paper-table-head" role="row">
-      <div role="columnheader">Repository</div>
-      <div role="columnheader">Status</div>
-      <div role="columnheader" class="num">Views</div>
-      <div role="columnheader">Anonymized</div>
+      <div role="columnheader" style="width: 28px;">
+        <input type="checkbox" ng-click="selectAllOnPage()" ng-checked="allSelected" aria-label="Select all on page" />
+      </div>
+      <div role="columnheader"><span class="sortable" ng-class="{active: query.sort == 'source.repositoryName'}" ng-click="sortBy('source.repositoryName')">Repository <i class="fas" ng-class="sortIcon('source.repositoryName')"></i></span></div>
+      <div role="columnheader"><span class="sortable" ng-class="{active: query.sort == 'status'}" ng-click="sortBy('status')">Status <i class="fas" ng-class="sortIcon('status')"></i></span></div>
+      <div role="columnheader" class="num"><span class="sortable" ng-class="{active: query.sort == 'pageView'}" ng-click="sortBy('pageView')">Views <i class="fas" ng-class="sortIcon('pageView')"></i></span></div>
+      <div role="columnheader"><span class="sortable" ng-class="{active: query.sort == 'anonymizeDate'}" ng-click="sortBy('anonymizeDate')">Anonymized <i class="fas" ng-class="sortIcon('anonymizeDate')"></i></span></div>
       <div role="columnheader" aria-label="Actions"></div>
     </div>
     <div
       class="paper-table-row"
       role="row"
-      ng-class="{'repo-inactive': repo.status == 'expired' || repo.status == 'removed', 'repo-error': repo.status == 'error'}"
+      ng-class="{'repo-inactive': repo.status == 'expired' || repo.status == 'removed', 'repo-error': repo.status == 'error', 'row-selected': selected[repo.repoId]}"
       ng-repeat="repo in repositories | filter:repoFiler | orderBy:orderBy as filteredRepositories"
     >
+      <div role="cell" style="width: 28px;">
+        <input type="checkbox" ng-model="selected[repo.repoId]" aria-label="Select repository" />
+      </div>
       <div class="cell-anon" role="cell">
         <span class="type-badge type-repo">Repo</span>
         <div class="anon-text">
-          <a class="repo-name" ng-href="/r/{{repo.repoId}}" ng-bind="repo.repoId"></a>
+          <a class="repo-name" target="_blank" ng-href="/r/{{repo.repoId}}" ng-bind="repo.repoId"></a>
           <div class="anon-sub">
-            <a href="https://github.com/{{repo.source.fullName}}/" ng-bind="repo.source.fullName"></a><span ng-if="repo.options.update">&nbsp;&middot;&nbsp;<a href="https://github.com/{{repo.source.fullName}}/tree/{{repo.source.branch}}" ng-bind="repo.source.branch"></a></span><span ng-if="!repo.options.update">&nbsp;&middot;&nbsp;@<a href="https://github.com/{{repo.source.fullName}}/tree/{{repo.source.commit}}" ng-bind="repo.source.commit.substring(0, 8)"></a></span><span>&nbsp;&middot;&nbsp;{{::repo.size.storage | humanFileSize}}</span><span>&nbsp;&middot;&nbsp;{{::repo.options.terms.length | number}} terms</span>
+            <a href="https://github.com/{{repo.source.fullName}}/" ng-bind="repo.source.fullName"></a><span ng-if="repo.options.update">&nbsp;&middot;&nbsp;<a href="https://github.com/{{repo.source.fullName}}/tree/{{repo.source.branch}}" ng-bind="repo.source.branch"></a></span><span ng-if="!repo.options.update">&nbsp;&middot;&nbsp;@<a href="https://github.com/{{repo.source.fullName}}/tree/{{repo.source.commit}}" ng-bind="repo.source.commit.substring(0, 8)"></a></span><span ng-if="::repo.conference">&nbsp;&middot;&nbsp;<i class="fas fa-chalkboard-teacher"></i> {{repo.conference}}</span><span>&nbsp;&middot;&nbsp;{{::repo.size.storage | humanFileSize}}</span><span>&nbsp;&middot;&nbsp;{{::repo.options.terms.length | number}} terms</span>
           </div>
         </div>
       </div>
       <div class="cell-status" role="cell">
         <span class="status-line">
-          <span class="status-dot" ng-class="{'status-removed': repo.status == 'removed' || repo.status == 'expired', 'status-ready': repo.status == 'ready', 'status-error': repo.status == 'error'}"></span>
+          <span class="status-dot" ng-class="{'status-removed': repo.status == 'removed' || repo.status == 'expired', 'status-ready': repo.status == 'ready', 'status-error': repo.status == 'error', 'status-preparing': repo.status == 'preparing'}"></span>
           <span ng-bind="repo.status | title"></span>
         </span>
-        <span class="status-sub status-sub-error" ng-if="repo.status == 'error' && repo.statusMessage" title="{{repo.statusMessage}}" ng-bind="repo.statusMessage"></span>
+        <span class="status-sub" ng-if="repo.statusMessage" title="{{repo.statusMessage}}" ng-bind="repo.statusMessage"></span>
       </div>
-      <div class="cell-views num" role="cell" ng-bind="::repo.pageView | number"></div>
+      <div class="cell-views num" role="cell" ng-bind="::repo.pageView || 0 | number"></div>
       <div class="cell-expires" role="cell" ng-bind="repo.anonymizeDate | humanTime"></div>
       <div class="cell-actions" role="cell">
         <div class="dropdown">
@@ -212,9 +214,11 @@
             <a class="dropdown-item" href="/anonymize/{{repo.repoId}}"><i class="far fa-edit"></i> Edit</a>
             <a class="dropdown-item" href="/r/{{repo.repoId}}/"><i class="fa fa-eye"></i> View repo</a>
             <a class="dropdown-item" href="/w/{{repo.repoId}}/" target="_self" ng-if="repo.options.page && repo.status == 'ready'"><i class="fas fa-globe"></i> View page</a>
+            <a class="dropdown-item" href="#" ng-click="fetchGithubInfo(repo)"><i class="fab fa-github"></i> Live GitHub info</a>
             <div class="dropdown-divider"></div>
             <a class="dropdown-item" href="#" ng-show="repo.status == 'ready' || repo.status == 'error'" ng-click="updateRepository(repo)"><i class="fas fa-sync"></i> Force update</a>
             <a class="dropdown-item" href="#" ng-show="repo.status == 'removed'" ng-click="updateRepository(repo)"><i class="fas fa-check-circle"></i> Enable</a>
+            <a class="dropdown-item" href="#" ng-show="repo.statusMessage" ng-click="showStatusMessage(repo)"><i class="fas fa-exclamation-triangle"></i> View status message</a>
             <div class="dropdown-divider"></div>
             <a class="dropdown-item" href="#" ng-click="removeCache(repo)"><i class="fas fa-broom"></i> Remove cache</a>
             <a class="dropdown-item text-danger" href="#" ng-show="repo.status == 'ready'" ng-click="removeRepository(repo)"><i class="fas fa-trash-alt"></i> Remove</a>
@@ -224,7 +228,7 @@
     </div>
     <div class="paper-table-empty" ng-if="filteredRepositories.length == 0">
       <i class="fas fa-inbox"></i>
-      <span>No repositories to display.</span>
+      <span>No repositories match the current filters.</span>
     </div>
   </div>
 </div>

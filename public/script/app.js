@@ -113,6 +113,11 @@ angular
           reloadOnUrl: false,
         })
         .when("/admin/", {
+          templateUrl: "/partials/admin/overview.htm",
+          controller: "overviewAdminController",
+          title: "Admin · Overview – Anonymous GitHub",
+        })
+        .when("/admin/repositories", {
           templateUrl: "/partials/admin/repositories.htm",
           controller: "repositoriesAdminController",
           title: "Admin · Repositories – Anonymous GitHub",
@@ -469,7 +474,7 @@ angular
     function () {
       return {
         restrict: "E",
-        scope: { file: "=", parent: "@" },
+        scope: { file: "=", parent: "@", searchQuery: "=", searchResults: "=" },
         controller: [
           "$element",
           "$scope",
@@ -491,26 +496,44 @@ angular
             const toArray = function (arr) {
               const output = [];
               const keys = { "": { child: output } };
+              function ensurePath(path) {
+                if (keys[path]) return;
+                const segments = path.split("/");
+                let acc = "";
+                for (let i = 0; i < segments.length; i++) {
+                  const parent = acc;
+                  acc = acc ? acc + "/" + segments[i] : segments[i];
+                  if (!keys[acc]) {
+                    const dir = { name: segments[i], child: [] };
+                    keys[acc] = dir;
+                    keys[parent].child.push(dir);
+                  }
+                }
+              }
               for (let file of arr) {
-                let current = keys[file.path].child;
+                if (file.path && !keys[file.path]) {
+                  ensurePath(file.path);
+                }
+                let current = keys[file.path || ""].child;
                 let fPath = `${file.path}/${file.name}`;
                 if (fPath.startsWith("/")) {
                   fPath = fPath.substring(1);
                 }
                 if (file.size != null) {
-                  // it is a file
                   current.push({
                     name: file.name,
                     size: file.size,
                     sha: file.sha,
                   });
                 } else {
-                  const dir = {
-                    name: file.name,
-                    child: [],
-                  };
-                  keys[fPath] = dir;
-                  current.push(dir);
+                  if (!keys[fPath]) {
+                    const dir = {
+                      name: file.name,
+                      child: [],
+                    };
+                    keys[fPath] = dir;
+                    current.push(dir);
+                  }
                 }
               }
               return output;
@@ -520,7 +543,7 @@ angular
               const f1d = !!f1.child;
               const f2d = !!f2.child;
               if (f1d && f2d) {
-                return f1.name - f2.name;
+                return f1.name.localeCompare(f2.name);
               }
               if (f1d) {
                 return -1;
@@ -528,8 +551,17 @@ angular
               if (f2d) {
                 return 1;
               }
-              return f1.name - f2.name;
+              return f1.name.localeCompare(f2.name);
             };
+
+            function getFileCount(folderPath) {
+              const counts = $scope.$parent.fileCounts;
+              if (!counts) return 0;
+              const normalized = folderPath.startsWith("/")
+                ? folderPath.substring(1)
+                : folderPath;
+              return counts[normalized] || 0;
+            }
 
             function isTruncated(folderPath) {
               const truncated =
@@ -543,40 +575,82 @@ angular
               return truncated.indexOf(normalized) !== -1;
             }
 
-            function generate(current, parentPath) {
+            function escapeHtml(str) {
+              return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+            }
+
+            function buildSearchFilter() {
+              const results = $scope.searchResults;
+              if (!results || !results.length) return null;
+              const matchPaths = new Set();
+              const matchFolders = new Set();
+              for (const f of results) {
+                const full = f.path ? `${f.path}/${f.name}` : f.name;
+                matchPaths.add(full);
+                // Also collect all ancestor folders
+                if (f.path) {
+                  const segments = f.path.split("/").filter(Boolean);
+                  let acc = "";
+                  for (const seg of segments) {
+                    acc = acc ? `${acc}/${seg}` : seg;
+                    matchFolders.add(acc);
+                  }
+                }
+              }
+              return { paths: matchPaths, folders: matchFolders };
+            }
+
+            function nodeMatchesFilter(node, parentPath, filterSet) {
+              if (!filterSet) return true;
+              const path = parentPath
+                ? `${parentPath}/${node.name}`
+                : node.name;
+              if (!node.child) {
+                return filterSet.paths.has(path);
+              }
+              // Show folder if it's an ancestor of a match or contains matches
+              if (filterSet.folders.has(path)) return true;
+              return node.child.some((c) =>
+                nodeMatchesFilter(c, path, filterSet)
+              );
+            }
+
+            function generate(current, parentPath, filterSet) {
               if (!current) return "";
               current = current.sort(sortFiles);
-              const afiles = current;
               let output = "<ul>";
-              for (let f of afiles) {
+              for (let f of current) {
+                if (filterSet && !nodeMatchesFilter(f, parentPath ? parentPath.substring(1) : "", filterSet)) {
+                  continue;
+                }
                 let dir = !!f.child;
                 let name = f.name;
                 let size = f.size;
+                let collapsed = f;
                 if (dir) {
                   let test = name;
-                  current = f.child;
-                  while (current && current.length == 1) {
-                    test += "/" + current[0].name;
-                    size = current[0].size;
-                    current = current[0].child;
+                  let inner = f.child;
+                  while (inner && inner.length == 1) {
+                    test += "/" + inner[0].name;
+                    size = inner[0].size;
+                    inner = inner[0].child;
                   }
                   name = test;
+                  collapsed = inner ? { child: inner } : f;
                   if (size != null && size >= 0) {
                     dir = false;
                   }
                 }
-                if (size != null) {
-                  size = `Size: ${humanFileSize(size || 0)}`;
-                } else {
-                  size = "";
-                }
+                const sizeTitle = size != null ? `Size: ${humanFileSize(size || 0)}` : "";
                 const path = `${parentPath}/${name}`;
+                const fileCount = dir ? getFileCount(path) : 0;
 
+                const isOpen = filterSet ? ($scope.opens[path] !== false) : $scope.opens[path];
                 const cssClasses = ["file"];
                 if (dir) {
                   cssClasses.push("folder");
                 }
-                if ($scope.opens[path]) {
+                if (isOpen) {
                   cssClasses.push("open");
                 }
                 if ($scope.isActive(path)) {
@@ -589,48 +663,54 @@ angular
 
                 output += `<li class="${cssClasses.join(
                   " "
-                )}" ng-class="{active: isActive('${path}'), open: opens['${path}']}" title="${size}">`;
+                )}" ng-class="{active: isActive('${path}'), open: ${filterSet ? "opens['" + path + "'] !== false" : "opens['" + path + "']"}}" title="${escapeHtml(sizeTitle)}">`;
                 if (dir) {
-                  output += `<a ng-click="openFolder('${path}', $event)">${name}</a>`;
+                  output += `<a ng-click="openFolder('${path}', $event)"><span class="tree-toggle"></span><span class="tree-icon-folder"></span><span class="tree-name">${escapeHtml(name)}</span>`;
+                  if (truncated) {
+                    output += `<span class="truncated-warning" title="{{ 'WARNINGS.folder_truncated' | translate }}"><i class="fas fa-exclamation-triangle"></i></span>`;
+                  }
+                  if (fileCount > 0) {
+                    output += `<span class="tree-count">${fileCount}</span>`;
+                  }
+                  output += `</a>`;
                 } else {
+                  const needsSpacer = parentPath !== "";
                   output += `<a href='/r/${$scope.repoId}${encodePathForUrl(
                     path
-                  )}'>${name}</a>`;
+                  )}'>${needsSpacer ? '<span class="tree-spacer"></span>' : ''}<span class="tree-icon-file"></span><span class="tree-name">${escapeHtml(name)}</span></a>`;
                 }
-                if (truncated) {
-                  output += `<span class="truncated-warning" title="{{ 'WARNINGS.folder_truncated' | translate }}"><i class="fas fa-exclamation-triangle"></i></span>`;
-                }
-                if ($scope.opens[path] && f.child) {
-                  if (f.child.length > 1) {
-                    output += generate(f.child, path);
+                if (isOpen && collapsed.child) {
+                  const children = collapsed.child;
+                  if (children.length > 1) {
+                    output += generate(children, path, filterSet);
                   } else if (dir) {
-                    current = f.child;
-                    while (current && current.length == 1) {
-                      current = current[0].child;
+                    let inner = children;
+                    while (inner && inner.length == 1) {
+                      inner = inner[0].child;
                     }
-                    output += generate(current, path);
+                    output += generate(inner, path, filterSet);
                   }
                 }
-                // output += generate(f.child, parentPath + "/" + f.name);
-                output + "</li>";
+                output += "</li>";
               }
               return output + "</ul>";
             }
+
             function display() {
               $element.html("");
-              const output = generate(toArray($scope.file).sort(sortFiles), "");
+              const filterSet = $scope.searchQuery ? buildSearchFilter() : null;
+              let output;
+              if (filterSet !== null && filterSet.paths.size === 0) {
+                output = '<div class="tree-search-empty">No files found</div>';
+              } else {
+                output = generate(toArray($scope.file).sort(sortFiles), "", filterSet);
+              }
               $compile(output)($scope, (clone) => {
                 $element.append(clone);
+                restoreFocus();
               });
             }
 
-            // #496 — expand folders whose children are already loaded so
-            // reviewers see the whole tree without clicking through. Skip
-            // folders with empty children to avoid emitting an empty <ul>
-            // that breaks the click-time lazy-load (#496-followup): the
-            // openFolder handler used to detect "needs to load" by looking
-            // at the absence of a sibling node, but a pre-expanded empty
-            // <ul> is a non-null sibling and silently suppressed the fetch.
             function expandAllFolders(nodes, parentPath) {
               if (!nodes) return;
               for (const f of nodes) {
@@ -656,24 +736,148 @@ angular
               true
             );
 
+            $scope.$watch("searchResults", (newVal, oldVal) => {
+              if (newVal === oldVal) return;
+              if ($scope.file && $scope.file.length) {
+                display();
+              }
+            });
+
+            $scope.$watch("searchQuery", (newVal, oldVal) => {
+              if (newVal === oldVal) return;
+              if (!newVal && $scope.file && $scope.file.length) {
+                display();
+              }
+            });
+
             $scope.isActive = function (name) {
               return $routeParams.path == name.substring(1);
             };
 
-            $scope.openFolder = async function (folder, event) {
-              $scope.opens[folder] = !$scope.opens[folder];
-              const sib = event.srcElement.nextSibling;
-              // Lazy-load when there's no sibling (folder never expanded) or
-              // when the sibling is an empty <ul> from a pre-expanded folder
-              // whose children weren't fetched yet (#496-followup).
+            $scope.openFolder = function (folder, event) {
+              var currentlyOpen = $scope.opens[folder];
+              if (currentlyOpen === undefined && $scope.searchQuery) {
+                currentlyOpen = true;
+              }
+              $scope.opens[folder] = !currentlyOpen;
+              const li = event.target.closest("li");
+              const childUl = li ? li.querySelector(":scope > ul") : null;
               const needsLoad =
-                sib == null ||
-                (sib.tagName === "UL" && sib.children.length === 0);
+                childUl == null ||
+                childUl.children.length === 0;
               if (needsLoad) {
-                await $scope.$parent.getFiles(folder.substring(1));
-                $scope.$apply();
+                $scope.$parent.getFiles(folder.substring(1));
               }
             };
+
+            var focusedPath = $routeParams.path ? "/" + $routeParams.path : null;
+
+            function getVisibleLinks() {
+              return Array.from($element[0].querySelectorAll("li > a"));
+            }
+
+            function getFocusedLink() {
+              return $element[0].querySelector("a.tree-focused");
+            }
+
+            function getLinkPath(link) {
+              if (!link) return null;
+              var href = link.getAttribute("href");
+              if (href) {
+                var prefix = "/r/" + $scope.repoId;
+                return href.indexOf(prefix) === 0 ? decodeURIComponent(href.substring(prefix.length)) : null;
+              }
+              var onclick = link.getAttribute("ng-click");
+              if (onclick) {
+                var m = onclick.match(/openFolder\('([^']+)'/);
+                return m ? m[1] : null;
+              }
+              return null;
+            }
+
+            function findLinkByPath(path) {
+              if (!path) return null;
+              var links = getVisibleLinks();
+              for (var i = 0; i < links.length; i++) {
+                if (getLinkPath(links[i]) === path) return links[i];
+              }
+              return null;
+            }
+
+            function setFocus(link) {
+              var prev = getFocusedLink();
+              if (prev) prev.classList.remove("tree-focused");
+              if (link) {
+                link.classList.add("tree-focused");
+                link.scrollIntoView({ block: "nearest" });
+                focusedPath = getLinkPath(link);
+              } else {
+                focusedPath = null;
+              }
+            }
+
+            function restoreFocus() {
+              if (!focusedPath) return;
+              var link = findLinkByPath(focusedPath);
+              if (link) {
+                link.classList.add("tree-focused");
+                $element[0].focus();
+              }
+            }
+
+            $element[0].setAttribute("tabindex", "0");
+
+            $element[0].addEventListener("keydown", function (e) {
+              var links = getVisibleLinks();
+              if (!links.length) return;
+              var focused = getFocusedLink();
+              var idx = focused ? links.indexOf(focused) : -1;
+
+              if (e.key === "ArrowDown") {
+                e.preventDefault();
+                var next = idx < links.length - 1 ? idx + 1 : 0;
+                setFocus(links[next]);
+              } else if (e.key === "ArrowUp") {
+                e.preventDefault();
+                var prev = idx > 0 ? idx - 1 : links.length - 1;
+                setFocus(links[prev]);
+              } else if (e.key === "ArrowRight") {
+                e.preventDefault();
+                if (!focused) return;
+                var li = focused.closest("li");
+                if (li && li.classList.contains("folder")) {
+                  if (!li.classList.contains("open")) {
+                    focused.click();
+                  } else {
+                    var childLink = li.querySelector(":scope > ul > li > a");
+                    if (childLink) setFocus(childLink);
+                  }
+                }
+              } else if (e.key === "ArrowLeft") {
+                e.preventDefault();
+                if (!focused) return;
+                var li = focused.closest("li");
+                if (li && li.classList.contains("folder") && li.classList.contains("open")) {
+                  focused.click();
+                } else {
+                  var parentLi = li && li.parentElement ? li.parentElement.closest("li.folder") : null;
+                  if (parentLi) {
+                    var parentLink = parentLi.querySelector(":scope > a");
+                    if (parentLink) setFocus(parentLink);
+                  }
+                }
+              } else if (e.key === "Enter") {
+                e.preventDefault();
+                if (focused) focused.click();
+              }
+            });
+
+            $element[0].addEventListener("click", function (e) {
+              var link = e.target.closest("a");
+              if (link && $element[0].contains(link)) {
+                setFocus(link);
+              }
+            });
           },
         ],
       };
@@ -2157,9 +2361,100 @@ angular
     "$location",
     "$routeParams",
     "$sce",
+    "$q",
     "PDFViewerService",
-    function ($scope, $http, $location, $routeParams, $sce, PDFViewerService) {
+    function ($scope, $http, $location, $routeParams, $sce, $q, PDFViewerService) {
       $scope.files = [];
+      $scope.isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent);
+      $scope.fileSearchQuery = "";
+      $scope.fileSearchResults = null;
+      $scope.fileSearchLoading = false;
+
+      document.addEventListener("keydown", function (e) {
+        if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+          e.preventDefault();
+          var input = document.querySelector(".tree-search-input");
+          if (input) {
+            input.focus();
+            input.select();
+          }
+        }
+      });
+      var searchCanceller = null;
+      $scope.onFileSearchChange = function () {
+        // Cancel any in-flight search request
+        if (searchCanceller) {
+          searchCanceller.resolve();
+          searchCanceller = null;
+        }
+        const query = $scope.fileSearchQuery;
+        if (!query || query.length < 2) {
+          $scope.fileSearchResults = null;
+          $scope.fileSearchLoading = false;
+          return;
+        }
+        $scope.fileSearchLoading = true;
+        searchCanceller = $q.defer();
+        $http.get(
+          `/api/repo/${$scope.repoId}/files/search?q=${encodeURIComponent(query)}`,
+          { timeout: searchCanceller.promise }
+        ).then(function (res) {
+          searchCanceller = null;
+          $scope.fileSearchLoading = false;
+          // Merge search results into $scope.files so the tree can render them.
+          // Ancestor folders must appear before their children for toArray() to work.
+          var existing = {};
+          $scope.files.forEach(function(f) {
+            existing[(f.path || "") + "/" + f.name] = true;
+          });
+          // First pass: collect ancestor folders (shallow to deep)
+          var foldersToAdd = [];
+          var folderSeen = {};
+          for (var i = 0; i < res.data.length; i++) {
+            var f = res.data[i];
+            if (f.path) {
+              var segments = f.path.split("/");
+              var acc = "";
+              for (var j = 0; j < segments.length; j++) {
+                var parent = acc;
+                acc = acc ? acc + "/" + segments[j] : segments[j];
+                var folderKey = parent + "/" + segments[j];
+                if (!existing[folderKey] && !folderSeen[folderKey]) {
+                  folderSeen[folderKey] = true;
+                  foldersToAdd.push({ name: segments[j], path: parent });
+                }
+              }
+            }
+          }
+          // Sort folders by depth (shallow first)
+          foldersToAdd.sort(function(a, b) {
+            return (a.path || "").split("/").length - (b.path || "").split("/").length;
+          });
+          // Add folders first, then files
+          if (foldersToAdd.length > 0) {
+            $scope.files.push.apply($scope.files, foldersToAdd);
+          }
+          var filesToAdd = [];
+          for (var k = 0; k < res.data.length; k++) {
+            var rf = res.data[k];
+            var key = (rf.path || "") + "/" + rf.name;
+            if (!existing[key] && rf.size != null) {
+              filesToAdd.push(rf);
+              existing[key] = true;
+            }
+          }
+          if (filesToAdd.length > 0) {
+            $scope.files.push.apply($scope.files, filesToAdd);
+          }
+          $scope.fileSearchResults = res.data;
+        }, function () {
+          // Only clear loading if this wasn't a cancellation
+          if (!searchCanceller) {
+            $scope.fileSearchLoading = false;
+            $scope.fileSearchResults = [];
+          }
+        });
+      };
       const extensionModes = {
         yml: "yaml",
         txt: "text",
@@ -2270,21 +2565,30 @@ angular
           );
         }
       }
-      $scope.getFiles = async function (path) {
-        try {
-          const res = await $http.get(
-            `/api/repo/${$scope.repoId}/files/?path=${encodeURIComponent(path)}&v=${$scope.options.lastUpdateDate}`
-          );
+      $scope.fileCounts = null;
+      $scope.getFiles = function (path) {
+        return $http.get(
+          `/api/repo/${$scope.repoId}/files/?path=${encodeURIComponent(path)}&v=${$scope.options.lastUpdateDate}`
+        ).then(function (res) {
           const normalized = path || "";
           $scope.files = $scope.files.filter((f) => f.path !== normalized);
           $scope.files.push(...res.data);
           return res.data;
-        } catch (err) {
+        }, function (err) {
           $scope.type = "error";
           $scope.content = (err && err.data && err.data.error) || "unknown_error";
           $scope.files = [];
-        }
+        });
       };
+      function fetchFileCounts() {
+        $http.get(
+          `/api/repo/${$scope.repoId}/files/counts`
+        ).then(function (res) {
+          $scope.fileCounts = res.data;
+        }, function () {
+          $scope.fileCounts = {};
+        });
+      }
 
       function getSelectedFile() {
         return $scope.files.filter(
@@ -2592,25 +2896,28 @@ angular
         $scope.filePath = $routeParams.path || "";
         $scope.paths = $scope.filePath.split("/");
 
-        getOptions(async (options) => {
+        getOptions(function (options) {
+          fetchFileCounts();
+          var chain = $q.resolve();
           for (let i = 0; i < $scope.paths.length; i++) {
             const path = i > 0 ? $scope.paths.slice(0, i).join("/") : "";
-            await $scope.getFiles(path);
-            if ($scope.type === "error") {
-              $scope.$apply();
-              return;
-            }
-          }
-          if ($scope.files.length == 1 && $scope.files[0].name == "") {
-            $scope.files = [];
-            $scope.type = "empty";
-            $scope.$apply();
-          } else {
-            $scope.$apply(() => {
-              selectFile();
-              updateContent();
+            chain = chain.then(function () {
+              return $scope.getFiles(path);
+            }).then(function () {
+              if ($scope.type === "error") {
+                return $q.reject("error");
+              }
             });
           }
+          chain.then(function () {
+            if ($scope.files.length == 1 && $scope.files[0].name == "") {
+              $scope.files = [];
+              $scope.type = "empty";
+            } else {
+              selectFile();
+              updateContent();
+            }
+          });
         });
       }
 
