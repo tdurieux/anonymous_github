@@ -69,10 +69,18 @@ export interface MetricPoint {
   avgMs: number;
 }
 
+const METRIC_FIELDS = ["c", "f", "ms"];
+const metricsCache = new Map<string, { data: MetricPoint[]; ts: number }>();
+const METRICS_CACHE_TTL = 30_000;
+
 export async function queryMetrics(
   queue: string,
   rangeMinutes: number
 ): Promise<MetricPoint[]> {
+  const cacheKey = `${queue}:${rangeMinutes}`;
+  const cached = metricsCache.get(cacheKey);
+  if (cached && Date.now() - cached.ts < METRICS_CACHE_TTL) return cached.data;
+
   const c = getClient();
   if (!c || !c.isOpen) return [];
 
@@ -88,14 +96,14 @@ export async function queryMetrics(
 
   try {
     const pipe = c.multi();
-    for (const k of keys) pipe.hGetAll(k);
+    for (const k of keys) pipe.hmGet(k, METRIC_FIELDS);
     const results = await pipe.exec();
 
-    return timestamps.map((ts, i) => {
-      const h = (results[i] as unknown as Record<string, string>) || {};
-      const completed = parseInt(h.c || "0", 10) || 0;
-      const failed = parseInt(h.f || "0", 10) || 0;
-      const totalMs = parseInt(h.ms || "0", 10) || 0;
+    const points = timestamps.map((ts, i) => {
+      const vals = (results[i] as unknown as (string | null)[]) || [];
+      const completed = parseInt(vals[0] || "0", 10) || 0;
+      const failed = parseInt(vals[1] || "0", 10) || 0;
+      const totalMs = parseInt(vals[2] || "0", 10) || 0;
       const total = completed + failed;
       return {
         ts,
@@ -104,6 +112,8 @@ export async function queryMetrics(
         avgMs: total > 0 ? Math.round(totalMs / total) : 0,
       };
     });
+    metricsCache.set(cacheKey, { data: points, ts: Date.now() });
+    return points;
   } catch {
     return [];
   }

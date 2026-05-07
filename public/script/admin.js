@@ -995,7 +995,7 @@ angular
           getQueues();
           getMetrics();
         }
-      }, 5000);
+      }, 15000);
       $scope.$on("$destroy", () => $interval.cancel(stop));
 
       $scope.refreshNow = function () { getQueues(); getMetrics(); };
@@ -1732,7 +1732,7 @@ angular
       load();
       const stop = $interval(() => {
         if ($scope.query.autoRefresh) load();
-      }, 5000);
+      }, 15000);
       $scope.$on("$destroy", () => $interval.cancel(stop));
 
       $scope.$watch("query.search", recompute);
