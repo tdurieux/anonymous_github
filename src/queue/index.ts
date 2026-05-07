@@ -4,6 +4,7 @@ import AnonymizedRepositoryModel from "../core/model/anonymizedRepositories/anon
 import { RepositoryStatus } from "../core/types";
 import * as path from "path";
 import { createLogger, serializeError } from "../core/logger";
+import { recordMetric } from "./queueMetrics";
 
 const logger = createLogger("queue");
 
@@ -119,11 +120,14 @@ export function startWorker() {
       concurrency: 5,
       connection,
       autorun: true,
-      metrics: { maxDataPoints: 120 },
     }
   );
   cacheWorker.on("completed", async (job) => {
+    recordMetric("cache", "completed", (job.finishedOn || Date.now()) - (job.processedOn || job.timestamp));
     await job.remove();
+  });
+  cacheWorker.on("failed", async (job) => {
+    if (job) recordMetric("cache", "failed", Date.now() - (job.processedOn || job.timestamp));
   });
   const removeWorker = new Worker<RepoJobData>(
     removeQueue.name,
@@ -132,11 +136,14 @@ export function startWorker() {
       concurrency: 5,
       connection,
       autorun: true,
-      metrics: { maxDataPoints: 120 },
     }
   );
   removeWorker.on("completed", async (job) => {
+    recordMetric("remove", "completed", (job.finishedOn || Date.now()) - (job.processedOn || job.timestamp));
     await job.remove();
+  });
+  removeWorker.on("failed", async (job) => {
+    if (job) recordMetric("remove", "failed", Date.now() - (job.processedOn || job.timestamp));
   });
 
   const downloadWorker = new Worker<RepoJobData>(
@@ -146,7 +153,6 @@ export function startWorker() {
       concurrency: 3,
       connection,
       autorun: true,
-      metrics: { maxDataPoints: 120 },
     }
   );
   if (!downloadWorker.isRunning()) downloadWorker.run();
@@ -156,8 +162,10 @@ export function startWorker() {
   });
   downloadWorker.on("completed", async (job) => {
     logger.info("download completed", { repoId: job.data.repoId });
+    recordMetric("download", "completed", (job.finishedOn || Date.now()) - (job.processedOn || job.timestamp));
   });
   downloadWorker.on("failed", async (job, err) => {
+    if (job) recordMetric("download", "failed", Date.now() - (job.processedOn || job.timestamp));
     const repoId = job?.data?.repoId;
     logger.error("download failed", {
       ...serializeError(err),

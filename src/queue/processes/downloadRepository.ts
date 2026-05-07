@@ -5,6 +5,8 @@ import { getRepository as getRepositoryImport } from "../../server/database";
 import { RepositoryStatus } from "../../core/types";
 import { RepoJobData } from "../index";
 import { createLogger, serializeError } from "../../core/logger";
+import { RateLimitDelayError, getRedisGateResetAt, setRedisGateFromWorker } from "../../core/GitHubUtils";
+import { DelayedError } from "bullmq";
 
 const logger = createLogger("queue:download");
 
@@ -20,6 +22,24 @@ export default async function (job: SandboxedJob<RepoJobData, void>) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let statusInterval: any = null;
   await connect();
+
+  const gateResetAt = await getRedisGateResetAt();
+  if (gateResetAt > 0) {
+    const delaySec = Math.ceil((gateResetAt - Date.now()) / 1000);
+    logger.info("rate limit gate active, delaying job before work", {
+      repoId: job.data.repoId,
+      delaySec,
+      resetAt: new Date(gateResetAt).toISOString(),
+    });
+    const repo = await getRepository(job.data.repoId);
+    await repo.updateStatus(
+      RepositoryStatus.QUEUE,
+      `rate_limited:${gateResetAt}`
+    );
+    await job.moveToDelayed(gateResetAt);
+    throw new DelayedError();
+  }
+
   const repo = await getRepository(job.data.repoId);
   let tickPromise: Promise<void> | null = null;
   try {
@@ -68,6 +88,30 @@ export default async function (job: SandboxedJob<RepoJobData, void>) {
     } catch (error) {
       clearInterval(statusInterval);
       if (tickPromise) await tickPromise;
+
+      // Rate-limited: delay the job and free the worker slot
+      const isRateDelay = error instanceof RateLimitDelayError;
+      const isRateError = !isRateDelay && error instanceof Error &&
+        (error.message === "github_rate_limit_exceeded" || error.message.includes("rate limit"));
+      if (isRateDelay || isRateError) {
+        const resetAt = isRateDelay
+          ? (error as RateLimitDelayError).resetAt
+          : Date.now() + 60_000; // fallback: retry in 1 min
+        const delaySec = Math.ceil(Math.max(0, resetAt - Date.now()) / 1000);
+        logger.info("rate-limited, delaying job", {
+          repoId: job.data.repoId,
+          delaySec,
+          resetAt: new Date(resetAt).toISOString(),
+        });
+        await setRedisGateFromWorker(resetAt);
+        await repo.updateStatus(
+          RepositoryStatus.QUEUE,
+          `rate_limited:${resetAt}`
+        );
+        await job.moveToDelayed(resetAt);
+        throw new DelayedError();
+      }
+
       updateProgress({ status: "error" });
       if (error instanceof Error) {
         await repo.updateStatus(RepositoryStatus.ERROR, error.message);
@@ -82,6 +126,9 @@ export default async function (job: SandboxedJob<RepoJobData, void>) {
       try {
         await tickPromise;
       } catch { /* ignored */ }
+    }
+    if (error instanceof DelayedError || (error instanceof Error && error.name === "DelayedError")) {
+      throw error;
     }
     logger.error("finished with error", {
       ...serializeError(error),

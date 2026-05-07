@@ -1,5 +1,6 @@
 import { Octokit } from "@octokit/rest";
 import { throttling } from "@octokit/plugin-throttling";
+import { createClient, RedisClientType } from "redis";
 
 import AnonymousError from "./AnonymousError";
 import Repository from "./Repository";
@@ -53,6 +54,155 @@ function rateLimitDetail(err: OctokitRequestErrorLike): string {
 
 const ThrottledOctokit = Octokit.plugin(throttling);
 
+/**
+ * Per-token gate that blocks all callers when a rate limit is active.
+ * When any request for a given token hits a rate limit, the gate records
+ * the reset time and makes every subsequent caller wait until then —
+ * preventing a stampede of doomed requests.
+ */
+const tokenGates = new Map<string, { resetAt: number }>();
+
+function setTokenGate(token: string, retryAfterSec: number) {
+  const key = token.slice(-8);
+  const resetAt = Date.now() + retryAfterSec * 1000;
+  const existing = tokenGates.get(key);
+  if (!existing || resetAt > existing.resetAt) {
+    tokenGates.set(key, { resetAt });
+    logger.warn("rate limit gate set", {
+      code: "rate_limit_gate",
+      retryAfterSec,
+      resetAt: new Date(resetAt).toISOString(),
+    });
+    setRedisGate(retryAfterSec).catch(() => {});
+  }
+}
+
+export class RateLimitDelayError extends Error {
+  resetAt: number;
+  constructor(resetAt: number) {
+    const delaySec = Math.ceil((resetAt - Date.now()) / 1000);
+    super(`github_rate_limit_delay:${delaySec}s`);
+    this.name = "RateLimitDelayError";
+    this.resetAt = resetAt;
+  }
+}
+
+/**
+ * Check if a rate limit gate is active for a token.
+ * Returns the reset timestamp, or 0 if no gate is active.
+ */
+export function getTokenGateResetAt(token: string): number {
+  const key = token.slice(-8);
+  const gate = tokenGates.get(key);
+  if (!gate) return 0;
+  if (gate.resetAt <= Date.now()) {
+    tokenGates.delete(key);
+    return 0;
+  }
+  return gate.resetAt;
+}
+
+async function waitForTokenGate(token: string): Promise<void> {
+  const key = token.slice(-8);
+  const localGate = tokenGates.get(key);
+  let waitMs = 0;
+  let resetAt = 0;
+
+  if (localGate && localGate.resetAt > Date.now()) {
+    resetAt = localGate.resetAt;
+    waitMs = resetAt - Date.now();
+  }
+
+  const redisResetAt = await getRedisGateResetAt();
+  if (redisResetAt > resetAt) {
+    resetAt = redisResetAt;
+    waitMs = resetAt - Date.now();
+  }
+
+  if (waitMs <= 0) {
+    if (localGate) tokenGates.delete(key);
+    return;
+  }
+
+  logger.info("waiting for rate limit gate", {
+    code: "rate_limit_gate_wait",
+    waitMs,
+    resetAt: new Date(resetAt).toISOString(),
+  });
+  await new Promise((resolve) => setTimeout(resolve, waitMs));
+  if (localGate) tokenGates.delete(key);
+}
+
+const REDIS_GATE_PREFIX = "gh_rate_gate:";
+
+let redisGateDisabled = false;
+let redisGateReady: Promise<RedisClientType | null> | null = null;
+
+function ensureRedisGateClient(): Promise<RedisClientType | null> {
+  if (redisGateDisabled) return Promise.resolve(null);
+  if (redisGateReady) return redisGateReady;
+  redisGateReady = (async () => {
+    try {
+      const c = createClient({
+        socket: {
+          host: config.REDIS_HOSTNAME,
+          port: config.REDIS_PORT,
+          reconnectStrategy: () => false as any,
+        },
+      }) as RedisClientType;
+      c.on("error", () => {
+        redisGateDisabled = true;
+        c.disconnect().catch(() => {});
+        redisGateReady = null;
+      });
+      await c.connect();
+      return c;
+    } catch {
+      redisGateDisabled = true;
+      redisGateReady = null;
+      return null;
+    }
+  })();
+  return redisGateReady;
+}
+
+async function setRedisGate(retryAfterSec: number): Promise<void> {
+  const c = await ensureRedisGateClient();
+  if (!c || !c.isOpen) return;
+  const resetAt = Date.now() + retryAfterSec * 1000;
+  const ttl = Math.ceil(retryAfterSec) + 10;
+  try {
+    await c.set(REDIS_GATE_PREFIX + "global", String(resetAt), { EX: ttl });
+    logger.info("redis rate limit gate written", {
+      code: "redis_gate_set",
+      resetAt: new Date(resetAt).toISOString(),
+      ttl,
+    });
+  } catch {
+    // non-critical
+  }
+}
+
+export async function setRedisGateFromWorker(resetAt: number): Promise<void> {
+  const retryAfterSec = Math.max(0, (resetAt - Date.now()) / 1000);
+  if (retryAfterSec <= 0) return;
+  await setRedisGate(retryAfterSec);
+}
+
+export async function getRedisGateResetAt(): Promise<number> {
+  const c = await ensureRedisGateClient();
+  if (!c || !c.isOpen) return 0;
+  try {
+    const val = await c.get(REDIS_GATE_PREFIX + "global");
+    if (!val) return 0;
+    const resetAt = parseInt(val, 10);
+    if (isNaN(resetAt) || resetAt <= Date.now()) return 0;
+    return resetAt;
+  } catch {
+    return 0;
+  }
+}
+
 export function octokit(token: string) {
   const oct = new ThrottledOctokit({
     auth: token,
@@ -69,8 +219,7 @@ export function octokit(token: string) {
           retryAfter,
           retryCount,
         });
-        // Retry once; if GitHub is still throttling after that, surface the
-        // error to the caller so the UI shows github_rate_limit_exceeded.
+        setTokenGate(token, retryAfter);
         return retryCount < 1;
       },
       onSecondaryRateLimit: (retryAfter, options, _o, retryCount) => {
@@ -82,6 +231,7 @@ export function octokit(token: string) {
           retryAfter,
           retryCount,
         });
+        setTokenGate(token, retryAfter);
         return retryCount < 1;
       },
     },
@@ -99,12 +249,20 @@ export function octokit(token: string) {
   return oct;
 }
 
+export { waitForTokenGate };
+
 export async function checkToken(token: string) {
   const oct = octokit(token);
   try {
     await oct.users.getAuthenticated();
     return true;
-  } catch {
+  } catch (err) {
+    if (
+      err instanceof AnonymousError &&
+      err.message === "github_rate_limit_exceeded"
+    ) {
+      throw err;
+    }
     return false;
   }
 }

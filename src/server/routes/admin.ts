@@ -7,6 +7,7 @@ import AnonymizedRepositoryModel from "../../core/model/anonymizedRepositories/a
 import ConferenceModel from "../../core/model/conference/conferences.model";
 import UserModel from "../../core/model/users/users.model";
 import { cacheQueue, downloadQueue, removeQueue } from "../../queue";
+import { queryMetrics } from "../../queue/queueMetrics";
 import User from "../../core/User";
 import { ensureAuthenticated } from "./connection";
 import { handleError, getUser, isOwnerOrAdmin, getRepo } from "./route-utils";
@@ -131,25 +132,25 @@ function sendCsv(
 router.post("/queue/:name/:repo_id", async (req, res) => {
   const queue = pickQueue(req.params.name);
   if (!queue) return res.status(404).json({ error: "queue_not_found" });
-  let job;
   try {
-    job = await queue.getJob(req.params.repo_id);
+    const job = await queue.getJob(req.params.repo_id);
     if (!job) {
       return res.status(404).json({ error: "job_not_found" });
     }
-
-    await job.retry();
-    res.send("ok");
-  } catch {
-    try {
-      if (job) {
-        await job.remove();
-        queue.add(job.name, job.data, job.opts);
-      }
-      res.send("ok");
-    } catch {
-      res.status(500).json({ error: "error_retrying_job" });
+    const state = await job.getState();
+    if (state === "active") {
+      return res.status(409).json({ error: "job_is_active", message: "Cannot retry an active job — wait for it to finish or remove it first." });
     }
+    try {
+      await job.retry();
+    } catch {
+      const { name, data, opts } = job;
+      await job.remove().catch(() => {});
+      await queue.add(name, data, opts);
+    }
+    res.json({ ok: true });
+  } catch (error) {
+    handleError(error, res, req);
   }
 });
 
@@ -157,12 +158,24 @@ router.delete("/queue/:name/:repo_id", async (req, res) => {
   const queue = pickQueue(req.params.name);
   if (!queue) return res.status(404).json({ error: "queue_not_found" });
   try {
-    const job = await queue.getJob(req.params.repo_id);
+    const jobId = req.params.repo_id;
+    const job = await queue.getJob(jobId);
     if (!job) {
       return res.status(404).json({ error: "job_not_found" });
     }
+
+    const state = await job.getState();
+
+    if (state === "active") {
+      // Active jobs hold a worker lock — delete it so remove() succeeds
+      const client = await (queue as any).client;
+      const lockKey = queue.toKey(jobId) + ":lock";
+      await client.del(lockKey);
+      logger.info("cleared lock for active job", { queue: queue.name, jobId });
+    }
+
     await job.remove();
-    res.send("ok");
+    res.json({ ok: true });
   } catch (error) {
     handleError(error, res, req);
   }
@@ -243,37 +256,58 @@ router.post("/queues/pause-all", async (_req, res) => {
   }
 });
 
-async function queueStats(queue: Queue) {
-  const [counts, workers, paused, completedMetrics, failedMetrics] =
+async function queueStats(queueKey: string, queue: Queue) {
+  const [counts, workers, paused, metrics24h] =
     await Promise.all([
       queue.getJobCounts(...QUEUE_STATES),
       queue.getWorkers().catch(() => []),
       queue.isPaused().catch(() => false),
-      queue.getMetrics("completed", 0, 119).catch(() => ({ data: [], count: 0 })),
-      queue.getMetrics("failed", 0, 119).catch(() => ({ data: [], count: 0 })),
+      queryMetrics(queueKey, 1440),
     ]);
 
   const workerCount = workers.length;
   const concurrency = workerCount > 0 ? (workers as any)[0]?.opts?.concurrency ?? null : null;
+
+  let completed24h = 0;
+  let failed24h = 0;
+  for (const p of metrics24h) {
+    completed24h += p.completed;
+    failed24h += p.failed;
+  }
 
   return {
     counts,
     paused,
     workers: workerCount,
     concurrency,
-    throughput: completedMetrics.data || [],
-    completed24h: completedMetrics.count || 0,
-    failed24h: failedMetrics.count || 0,
+    completed24h,
+    failed24h,
   };
 }
+
+const RANGE_MINUTES: Record<string, number> = {
+  "1h": 60,
+  "6h": 360,
+  "24h": 1440,
+  "7d": 10080,
+};
+
+router.get("/queues/metrics", async (req, res) => {
+  const queueName = String(req.query.queue || "download");
+  if (!pickQueue(queueName)) return res.status(404).json({ error: "queue_not_found" });
+  const range = String(req.query.range || "1h");
+  const minutes = RANGE_MINUTES[range] || 60;
+  try {
+    const points = await queryMetrics(queueName, minutes);
+    res.json({ queue: queueName, range, points });
+  } catch (error) {
+    handleError(error, res, req);
+  }
+});
 
 router.get("/queues", async (req, res) => {
   const search = req.query.search ? String(req.query.search).toLowerCase() : "";
   const queueName = req.query.queue ? String(req.query.queue) : "";
-  const stateFilter: JobType | null = req.query.state ? String(req.query.state) as JobType : null;
-  const states: JobType[] = stateFilter && QUEUE_STATES.includes(stateFilter)
-    ? [stateFilter]
-    : QUEUE_STATES;
 
   const allQueues: { key: string; label: string; queue: Queue }[] = [
     { key: "download", label: "Download", queue: downloadQueue },
@@ -285,7 +319,7 @@ router.get("/queues", async (req, res) => {
     allQueues.map(async (q) => ({
       key: q.key,
       label: q.label,
-      ...(await queueStats(q.queue)),
+      ...(await queueStats(q.key, q.queue)),
     }))
   );
 
@@ -293,8 +327,6 @@ router.get("/queues", async (req, res) => {
     ? allQueues.find((q) => q.key === queueName)
     : allQueues[0];
   const targetQueue = target ? target.queue : downloadQueue;
-
-  const jobs = await targetQueue.getJobs(states);
 
   const matches = (job: { id?: string | undefined; name?: string }) => {
     if (!search) return true;
@@ -304,10 +336,31 @@ router.get("/queues", async (req, res) => {
     );
   };
 
+  // Fetch all states in parallel, tag each job with its state
+  const jobsByState = await Promise.all(
+    QUEUE_STATES.map(async (state) => {
+      const jobs = await targetQueue.getJobs([state]);
+      return jobs.map((j) => {
+        const json: Record<string, unknown> = { ...j.asJSON(), _state: state };
+        if (state === "delayed" && j.delay > 0) {
+          json.delayUntil = j.timestamp + j.delay;
+        }
+        return json;
+      });
+    })
+  );
+  const allJobs = jobsByState.flat().filter(matches);
+
+  // Sort: active first, then waiting, delayed, failed, completed
+  const stateOrder: Record<string, number> = {
+    active: 0, waiting: 1, delayed: 2, failed: 3, completed: 4,
+  };
+  allJobs.sort((a, b) => (stateOrder[a._state as string] ?? 9) - (stateOrder[b._state as string] ?? 9));
+
   res.json({
     queues: statsResults,
     selectedQueue: target?.key || "download",
-    jobs: jobs.filter(matches),
+    jobs: allJobs,
   });
 });
 

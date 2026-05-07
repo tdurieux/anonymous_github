@@ -206,7 +206,7 @@
             ></span>
             <span ng-bind="item.status | title"></span>
           </div>
-          <div class="status-sub status-sub-error" ng-if="item.status == 'error' && item.statusMessage" title="{{item.statusMessage}}" ng-bind="item.statusMessage"></div>
+          <div class="status-sub status-sub-error" ng-if="item.status == 'error' && item.statusMessage" title="{{item.statusMessage}}" ng-bind="item.statusMessage | statusMsg"></div>
           <div class="status-sub" ng-if="item.status != 'error' && item.anonymizeDate" title="Last anonymized {{item.anonymizeDate | humanTime}}" ng-bind="item.anonymizeDate | humanTime"></div>
         </div>
         <div class="cell-views num" role="cell" ng-bind="item.pageView | number"></div>

@@ -339,8 +339,8 @@ router.get(
         fiveMinuteAgo.setMinutes(fiveMinuteAgo.getMinutes() - 5);
         if (repo.status != "ready") {
           if (
+            repo.status != RepositoryStatus.QUEUE &&
             repo.model.statusDate < fiveMinuteAgo
-            // && repo.status != "preparing"
           ) {
             await repo.updateStatus(RepositoryStatus.PREPARING);
             await downloadQueue.add(repo.repoId, { repoId: repo.repoId }, {
@@ -358,6 +358,14 @@ router.get(
                 httpStatus: 500,
               }
             );
+          }
+          const rlMatch = (repo.model.statusMessage || "").match(/^rate_limited:(\d+)$/);
+          if (rlMatch) {
+            const resetAt = parseInt(rlMatch[1], 10);
+            throw new AnonymousError("rate_limited", {
+              httpStatus: 425,
+              object: { resetAt },
+            });
           }
           throw new AnonymousError("repository_not_ready", {
             httpStatus: 425,

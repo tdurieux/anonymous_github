@@ -23,6 +23,7 @@
     "repoUrl_not_defined": "The repository URL needs to be defined.",
     "source_not_provided": "A repository source must be provided.",
     "github_rate_limit_exceeded": "GitHub temporarily blocked the request because we hit its API rate limit. Wait a few minutes and try again. If the problem persists and you contact GitHub Support, include the request ID and timestamp shown in GitHub's response (the 'X-GitHub-Request-Id' header).",
+    "rate_limited": "GitHub API rate limit reached. The repository will be available shortly — please wait a moment and refresh.",
     "repoId_already_used": "The repository ID is already used.",
     "invalid_repoId": "The format of the repository ID is invalid.",
     "unsupported_source": "The repository source type is not supported.",

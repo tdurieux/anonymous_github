@@ -11,7 +11,7 @@ import { basename, dirname } from "path";
 import * as stream from "stream";
 import AnonymousError from "../AnonymousError";
 import { FILE_TYPE } from "../storage/Storage";
-import { octokit } from "../GitHubUtils";
+import { octokit, waitForTokenGate } from "../GitHubUtils";
 import FileModel from "../model/files/files.model";
 import { IFile } from "../model/files/files.types";
 import { createLogger, serializeError } from "../logger";
@@ -19,6 +19,27 @@ import config from "../../config";
 
 
 const logger = createLogger("gh-stream");
+
+const GH_API_CONCURRENCY = 6;
+
+async function pMap<T, R>(
+  items: T[],
+  fn: (item: T, index: number) => Promise<R>,
+  concurrency: number
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let next = 0;
+  async function worker() {
+    while (next < items.length) {
+      const i = next++;
+      results[i] = await fn(items[i], i);
+    }
+  }
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, items.length) }, () => worker())
+  );
+  return results;
+}
 
 export function githubRawFileUrl(
   owner: string,
@@ -354,11 +375,13 @@ export default class GitHubStream extends GitHubBase {
   }
 
   private async getGHTree(
+    oct: ReturnType<typeof octokit>,
+    token: string,
     sha: string,
     count = { request: 0, file: 0 },
     opt = { recursive: true, callback: () => {} }
   ) {
-    const oct = octokit(await this.data.getToken());
+    await waitForTokenGate(token);
     const ghRes = await oct.git.getTree({
       owner: this.data.organization,
       repo: this.data.repoName,
@@ -378,6 +401,8 @@ export default class GitHubStream extends GitHubBase {
     progress?: (status: string) => void,
     parentPath: string = ""
   ) {
+    const token = await this.data.getToken();
+    const oct = octokit(token);
     const count = {
       request: 0,
       file: 0,
@@ -385,7 +410,7 @@ export default class GitHubStream extends GitHubBase {
     const output: IFile[] = [];
     let data;
     try {
-      data = await this.getGHTree(sha, count, {
+      data = await this.getGHTree(oct, token, sha, count, {
         recursive: false,
         callback: () => {
           if (progress) {
@@ -423,29 +448,33 @@ export default class GitHubStream extends GitHubBase {
         cause: error as Error,
       });
     }
-    const promises: ReturnType<GitHubStream["getGHTree"]>[] = [];
-    const parentPaths: string[] = [];
+    const subtrees: { sha: string; parentPath: string }[] = [];
     for (const file of data.tree) {
       if (file.type == "tree" && file.path && file.sha) {
-        const elementPath = path.join(parentPath, file.path);
-        parentPaths.push(elementPath);
-        promises.push(
-          this.getGHTree(file.sha, count, {
-            recursive: true,
-            callback: () => {
-              if (progress) {
-                progress("List file: " + count.file);
-              }
-            },
-          })
-        );
+        subtrees.push({
+          sha: file.sha,
+          parentPath: path.join(parentPath, file.path),
+        });
       }
     }
-    (await Promise.all(promises)).forEach((data, i) => {
+    const results = await pMap(
+      subtrees,
+      async (entry) =>
+        this.getGHTree(oct, token, entry.sha, count, {
+          recursive: true,
+          callback: () => {
+            if (progress) {
+              progress("List file: " + count.file);
+            }
+          },
+        }),
+      GH_API_CONCURRENCY
+    );
+    results.forEach((data, i) => {
       if (data.truncated) {
-        this._truncatedFolders.push(parentPaths[i]);
+        this._truncatedFolders.push(subtrees[i].parentPath);
       }
-      output.push(...this.tree2Tree(data.tree, parentPaths[i]));
+      output.push(...this.tree2Tree(data.tree, subtrees[i].parentPath));
     });
     return output;
   }

@@ -103,7 +103,7 @@
           <span class="status-dot" ng-class="{'status-removed': repo.status == 'removed' || repo.status == 'expired', 'status-ready': repo.status == 'ready', 'status-error': repo.status == 'error', 'status-preparing': repo.status == 'preparing'}"></span>
           <span ng-bind="repo.status | title"></span>
         </span>
-        <span class="status-sub" ng-if="repo.statusMessage" title="{{repo.statusMessage}}" ng-bind="repo.statusMessage"></span>
+        <span class="status-sub" ng-if="repo.statusMessage" title="{{repo.statusMessage}}" ng-bind="repo.statusMessage | statusMsg"></span>
       </div>
       <div class="cell-views num" role="cell" ng-bind="::repo.pageView || 0 | number"></div>
       <div class="cell-expires" role="cell" ng-bind="repo.anonymizeDate | humanTime"></div>

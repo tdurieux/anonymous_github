@@ -919,10 +919,15 @@ angular
       $scope.selectedQueue = "download";
       $scope.selectedStats = null;
       $scope.range = "1h";
+      $scope.allStates = ["active", "waiting", "delayed", "failed", "completed"];
+      $scope.stateFilter = { active: true, waiting: true, delayed: true, failed: true, completed: true };
       $scope.query = {
         search: "",
-        state: "active",
         autoRefresh: true,
+      };
+
+      $scope.filteredJobs = () => {
+        return ($scope.jobs || []).filter((j) => $scope.stateFilter[j._state]);
       };
 
       $scope.jobProgressPct = (job) => {
@@ -943,20 +948,22 @@ angular
         return (ms / 1000).toFixed(1) + "s";
       };
 
+      $scope.metricsPoints = [];
+
       $scope.selectQueue = (key) => {
         $scope.selectedQueue = key;
         getQueues();
+        getMetrics();
       };
 
       $scope.setRange = (r) => {
         $scope.range = r;
-        getQueues();
+        getMetrics();
       };
 
       function getQueues() {
         const params = {
           queue: $scope.selectedQueue,
-          state: $scope.query.state,
           search: $scope.query.search,
         };
         $http.get("/api/admin/queues", { params }).then(
@@ -964,26 +971,50 @@ angular
             $scope.queueList = res.data.queues || [];
             $scope.jobs = res.data.jobs || [];
             $scope.selectedStats = $scope.queueList.find((q) => q.key === $scope.selectedQueue) || $scope.queueList[0] || null;
+          },
+          (err) => console.error(err)
+        );
+      }
+
+      function getMetrics() {
+        $http.get("/api/admin/queues/metrics", {
+          params: { queue: $scope.selectedQueue, range: $scope.range }
+        }).then(
+          (res) => {
+            $scope.metricsPoints = res.data.points || [];
             $timeout(drawChart, 0);
           },
           (err) => console.error(err)
         );
       }
       getQueues();
+      getMetrics();
 
       const stop = $interval(() => {
-        if ($scope.query.autoRefresh) getQueues();
+        if ($scope.query.autoRefresh) {
+          getQueues();
+          getMetrics();
+        }
       }, 5000);
       $scope.$on("$destroy", () => $interval.cancel(stop));
 
-      $scope.refreshNow = getQueues;
+      $scope.refreshNow = function () { getQueues(); getMetrics(); };
+
+      function apiError(err) {
+        const msg = (err && err.data && (err.data.message || err.data.error)) || "Request failed";
+        $scope.actionError = msg;
+        $timeout(() => { $scope.actionError = null; }, 5000);
+        console.error(err);
+      }
+
+      $scope.actionError = null;
 
       $scope.removeJob = (job) => {
-        $http.delete(`/api/admin/queue/${$scope.selectedQueue}/${job.id}`).then(getQueues, (err) => console.error(err));
+        $http.delete(`/api/admin/queue/${$scope.selectedQueue}/${job.id}`).then(getQueues, apiError);
       };
 
       $scope.retryJob = (job) => {
-        $http.post(`/api/admin/queue/${$scope.selectedQueue}/${job.id}`).then(getQueues, (err) => console.error(err));
+        $http.post(`/api/admin/queue/${$scope.selectedQueue}/${job.id}`).then(getQueues, apiError);
       };
 
       $scope.retryFailed = () => {
@@ -1016,88 +1047,260 @@ angular
         clearTimeout(searchClear);
         searchClear = setTimeout(getQueues, 350);
       });
-      $scope.$watch("query.state", getQueues);
+      $scope.expanded = {};
+      $scope.toggleJob = (job) => {
+        $scope.expanded[job.id] = !$scope.expanded[job.id];
+      };
+
+      $scope.humanTime = (ts) => {
+        if (!ts) return "";
+        const d = new Date(ts);
+        return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false })
+          + " " + d.toLocaleDateString([], { month: "short", day: "numeric" });
+      };
+
+      $scope.delayCountdown = (ts) => {
+        if (!ts) return "";
+        var remaining = Math.max(0, Math.ceil((ts - Date.now()) / 1000));
+        if (remaining <= 0) return "resuming soon";
+        var min = Math.floor(remaining / 60);
+        var sec = remaining % 60;
+        return "in " + (min > 0 ? min + "m " + sec + "s" : sec + "s");
+      };
+
+      function niceScale(max) {
+        if (max <= 0) return { ticks: [0], niceMax: 1 };
+        const mag = Math.pow(10, Math.floor(Math.log10(max)));
+        let step = mag;
+        if (max / step < 2) step = mag / 2;
+        else if (max / step > 5) step = mag * 2;
+        const niceMax = Math.ceil(max / step) * step;
+        const ticks = [];
+        for (let v = 0; v <= niceMax; v += step) ticks.push(v);
+        return { ticks, niceMax };
+      }
 
       function drawChart() {
-        const canvas = document.getElementById("q-throughput-chart");
-        if (!canvas || !$scope.selectedStats) return;
-        const ctx = canvas.getContext("2d");
-        const dpr = window.devicePixelRatio || 1;
-        const rect = canvas.parentElement.getBoundingClientRect();
-        const w = rect.width - 40;
-        const h = 160;
-        canvas.width = w * dpr;
-        canvas.height = h * dpr;
-        canvas.style.width = w + "px";
-        canvas.style.height = h + "px";
+        var canvas = document.getElementById("q-throughput-chart");
+        if (!canvas) return;
+        var ctx = canvas.getContext("2d");
+        var dpr = window.devicePixelRatio || 1;
+        var rect = canvas.parentElement.getBoundingClientRect();
+        var marginLeft = 44;
+        var marginRight = 50;
+        var marginBottom = 20;
+        var totalW = rect.width - 40;
+        var totalH = 180;
+        var w = totalW - marginLeft - marginRight;
+        var h = totalH - marginBottom;
+        canvas.width = totalW * dpr;
+        canvas.height = totalH * dpr;
+        canvas.style.width = totalW + "px";
+        canvas.style.height = totalH + "px";
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-        const data = ($scope.selectedStats.throughput || []).slice().reverse();
-        if (data.length === 0) {
-          ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--ink-muted").trim() || "#8A857C";
-          ctx.font = "12px var(--font-mono)";
+        var isDark = document.body.classList.contains("dark-mode");
+        var labelColor = "#8A857C";
+        var gridColor = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
+        var completedColor = isDark ? "#A7B2FF" : "#3B4AD6";
+        var completedFill = isDark ? "rgba(167,178,255,0.12)" : "rgba(59,74,214,0.08)";
+        var failedColor = isDark ? "#F08A82" : "#B42318";
+        var failedFill = isDark ? "rgba(240,138,130,0.08)" : "rgba(180,35,24,0.06)";
+        var execColor = isDark ? "#F5C842" : "#B8860B";
+
+        var pts = $scope.metricsPoints || [];
+        if (pts.length === 0) {
+          ctx.fillStyle = labelColor;
+          ctx.font = "12px monospace";
           ctx.textAlign = "center";
-          ctx.fillText("No throughput data yet", w / 2, h / 2);
+          ctx.fillText("No metrics data yet", totalW / 2, totalH / 2);
+          chartState = null;
           return;
         }
 
-        const rangePoints = { "1h": 60, "6h": 120, "24h": 120, "7d": 120 };
-        const pts = data.slice(0, rangePoints[$scope.range] || 60);
-        const max = Math.max(1, ...pts);
-        const step = w / (pts.length - 1 || 1);
+        // Data is oldest→newest from the API; chart shows newest on the right
+        var completedPts = pts.map(function (p) { return p.completed; });
+        var failedPts = pts.map(function (p) { return p.failed; });
+        var execPts = pts.map(function (p) { return p.avgMs; });
+        var maxLen = pts.length;
+        var step = w / (maxLen - 1 || 1);
 
-        const isDark = document.body.classList.contains("dark-mode");
-        const lineColor = isDark ? "#A7B2FF" : "#3B4AD6";
-        const fillColor = isDark ? "rgba(167,178,255,0.12)" : "rgba(59,74,214,0.08)";
-        const gridColor = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
+        // Left Y-axis: jobs/min
+        var rawMax = Math.max(1, Math.max.apply(null, completedPts), Math.max.apply(null, failedPts));
+        var left = niceScale(rawMax);
 
-        // grid
-        ctx.strokeStyle = gridColor;
-        ctx.lineWidth = 1;
-        for (let i = 0; i < 4; i++) {
-          const y = (h / 4) * i;
+        // Right Y-axis: avg exec time (ms)
+        var execMax = Math.max.apply(null, execPts);
+        var right = execMax > 0 ? niceScale(execMax) : { ticks: [0], niceMax: 1 };
+
+        var toY = function (v) { return h - (v / left.niceMax) * (h - 10); };
+        var toYr = function (v) { return h - (v / right.niceMax) * (h - 10); };
+        var toX = function (i) { return marginLeft + i * step; };
+
+        // Grid + left Y-axis labels (jobs/min)
+        ctx.textAlign = "right";
+        ctx.textBaseline = "middle";
+        ctx.font = "10px monospace";
+        left.ticks.forEach(function (v) {
+          var y = toY(v);
+          ctx.strokeStyle = gridColor;
+          ctx.lineWidth = 1;
           ctx.beginPath();
-          ctx.moveTo(0, y);
-          ctx.lineTo(w, y);
+          ctx.moveTo(marginLeft, y);
+          ctx.lineTo(totalW - marginRight, y);
+          ctx.stroke();
+          ctx.fillStyle = labelColor;
+          ctx.fillText(v >= 1000 ? (v / 1000).toFixed(1) + "k" : String(v), marginLeft - 6, y);
+        });
+
+        // Right Y-axis labels (ms)
+        if (execMax > 0) {
+          ctx.textAlign = "left";
+          right.ticks.forEach(function (v) {
+            var y = toYr(v);
+            ctx.fillStyle = execColor;
+            ctx.fillText(v >= 1000 ? (v / 1000).toFixed(1) + "s" : v + "ms", totalW - marginRight + 6, y);
+          });
+        }
+
+        // X-axis time labels using actual timestamps
+        var now = Date.now();
+        var xLabelCount = Math.min(6, maxLen);
+        ctx.textAlign = "center";
+        ctx.textBaseline = "top";
+        for (var i = 0; i < xLabelCount; i++) {
+          var idx = Math.round((i / (xLabelCount - 1)) * (maxLen - 1));
+          var minsAgo = Math.round((now - pts[idx].ts) / 60000);
+          var x = toX(idx);
+          var lbl;
+          if (minsAgo <= 0) lbl = "now";
+          else if (minsAgo < 60) lbl = minsAgo + "m";
+          else if (minsAgo < 1440) lbl = Math.round(minsAgo / 60) + "h";
+          else lbl = Math.round(minsAgo / 1440) + "d";
+          ctx.fillStyle = labelColor;
+          ctx.fillText(lbl, x, h + 4);
+        }
+
+        function drawArea(data, yFn, fillStyle, strokeStyle) {
+          if (data.length === 0) return;
+          ctx.beginPath();
+          ctx.moveTo(toX(0), h);
+          data.forEach(function (v, i) {
+            var x = toX(i), y = yFn(v);
+            if (i === 0) ctx.lineTo(x, y);
+            else {
+              var cx = (toX(i - 1) + x) / 2;
+              ctx.bezierCurveTo(cx, yFn(data[i - 1]), cx, y, x, y);
+            }
+          });
+          ctx.lineTo(toX(data.length - 1), h);
+          ctx.closePath();
+          ctx.fillStyle = fillStyle;
+          ctx.fill();
+          ctx.beginPath();
+          data.forEach(function (v, i) {
+            var x = toX(i), y = yFn(v);
+            if (i === 0) ctx.moveTo(x, y);
+            else {
+              var cx = (toX(i - 1) + x) / 2;
+              ctx.bezierCurveTo(cx, yFn(data[i - 1]), cx, y, x, y);
+            }
+          });
+          ctx.strokeStyle = strokeStyle;
+          ctx.lineWidth = 1.5;
           ctx.stroke();
         }
 
-        // area fill
-        ctx.beginPath();
-        ctx.moveTo(0, h);
-        pts.forEach((v, i) => {
-          const x = i * step;
-          const y = h - (v / max) * (h - 10);
-          if (i === 0) ctx.lineTo(x, y);
-          else {
-            const px = (i - 1) * step;
-            const py = h - (pts[i - 1] / max) * (h - 10);
-            const cx = (px + x) / 2;
-            ctx.bezierCurveTo(cx, py, cx, y, x, y);
-          }
-        });
-        ctx.lineTo(w, h);
-        ctx.closePath();
-        ctx.fillStyle = fillColor;
-        ctx.fill();
+        drawArea(completedPts, toY, completedFill, completedColor);
+        drawArea(failedPts, toY, failedFill, failedColor);
+        // Exec time as a line only (no fill) on the right axis
+        if (execMax > 0) {
+          ctx.beginPath();
+          execPts.forEach(function (v, i) {
+            var x = toX(i), y = toYr(v);
+            if (i === 0) ctx.moveTo(x, y);
+            else {
+              var cx = (toX(i - 1) + x) / 2;
+              ctx.bezierCurveTo(cx, toYr(execPts[i - 1]), cx, y, x, y);
+            }
+          });
+          ctx.strokeStyle = execColor;
+          ctx.lineWidth = 1;
+          ctx.setLineDash([4, 3]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
 
-        // line
-        ctx.beginPath();
-        pts.forEach((v, i) => {
-          const x = i * step;
-          const y = h - (v / max) * (h - 10);
-          if (i === 0) ctx.moveTo(x, y);
-          else {
-            const px = (i - 1) * step;
-            const py = h - (pts[i - 1] / max) * (h - 10);
-            const cx = (px + x) / 2;
-            ctx.bezierCurveTo(cx, py, cx, y, x, y);
-          }
-        });
-        ctx.strokeStyle = lineColor;
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
+        chartState = { pts: pts, maxLen: maxLen, marginLeft: marginLeft, step: step, totalW: totalW, toX: toX };
       }
+
+      var chartState = null;
+
+      function setupTooltip() {
+        var canvas = document.getElementById("q-throughput-chart");
+        if (!canvas || canvas._tipBound) return;
+        canvas._tipBound = true;
+
+        var tooltip = document.getElementById("q-chart-tooltip");
+        var crosshair = document.getElementById("q-chart-crosshair");
+
+        canvas.addEventListener("mousemove", function (e) {
+          if (!chartState || !tooltip || !crosshair) return;
+          var cs = chartState;
+          var rect = canvas.getBoundingClientRect();
+          var mx = e.clientX - rect.left;
+
+          var idx = Math.round((mx - cs.marginLeft) / cs.step);
+          if (idx < 0 || idx >= cs.maxLen) {
+            tooltip.style.display = "none";
+            crosshair.style.display = "none";
+            return;
+          }
+
+          var p = cs.pts[idx];
+          var now = Date.now();
+          var minsAgo = Math.round((now - p.ts) / 60000);
+          var timeLabel;
+          if (minsAgo <= 0) timeLabel = "now";
+          else if (minsAgo < 60) timeLabel = minsAgo + "m ago";
+          else if (minsAgo < 1440) {
+            var hrs = Math.floor(minsAgo / 60);
+            var mins = minsAgo % 60;
+            timeLabel = hrs + "h" + (mins ? " " + mins + "m" : "") + " ago";
+          } else timeLabel = Math.round(minsAgo / 1440) + "d ago";
+
+          var html =
+            '<div class="q-tip-time">' + timeLabel + '</div>' +
+            '<div class="q-tip-completed">&#9679; completed: ' + p.completed + '/min</div>' +
+            '<div class="q-tip-failed">&#9679; failed: ' + p.failed + '/min</div>';
+          if (p.avgMs > 0) {
+            var dur = p.avgMs >= 1000 ? (p.avgMs / 1000).toFixed(1) + "s" : p.avgMs + "ms";
+            html += '<div class="q-tip-exec">&#9679; avg time: ' + dur + '</div>';
+          }
+          tooltip.innerHTML = html;
+
+          var xPos = cs.toX(idx);
+          var tipW = tooltip.offsetWidth;
+          var tipLeft = xPos + 10;
+          if (tipLeft + tipW > cs.totalW) tipLeft = xPos - tipW - 10;
+
+          tooltip.style.display = "block";
+          tooltip.style.left = tipLeft + "px";
+          tooltip.style.top = "8px";
+
+          crosshair.style.display = "block";
+          crosshair.style.left = xPos + "px";
+        });
+
+        canvas.addEventListener("mouseleave", function () {
+          if (tooltip) tooltip.style.display = "none";
+          if (crosshair) crosshair.style.display = "none";
+        });
+      }
+
+      $scope.$watch("metricsPoints", function () {
+        $timeout(setupTooltip, 50);
+      });
     },
   ])
   .controller("errorsAdminController", [

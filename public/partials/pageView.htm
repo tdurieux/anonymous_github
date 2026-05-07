@@ -8,6 +8,18 @@
 </div>
 <div ng-if="type == 'audio'"><audio controls="controls"><source ng-src="{{url}}" /></audio></div>
 <div ng-if="type == 'IPython'"><notebook file="url"></notebook></div>
+<div ng-if="type == 'rate_limited'" class="file-error container d-flex h-100">
+  <div class="paper-ratelimit-card m-auto" style="max-width:520px;">
+    <div class="paper-ratelimit-head">
+      <i class="fas fa-hourglass-half"></i>
+      <div>
+        <div class="paper-error-eyebrow">Temporarily paused</div>
+        <div class="paper-error-title">GitHub API rate limit reached</div>
+      </div>
+    </div>
+    <p class="paper-error-msg">This repository will be available in <strong>{{rateLimitCountdown}}</strong>. The page will reload automatically.</p>
+  </div>
+</div>
 <div ng-if="type == 'error'" class="file-error container d-flex h-100"><h1 class="paper-empty-title m-auto" translate="ERRORS.{{content}}">Error</h1></div>
 <div ng-if="type == 'loading' && !error" class="file-error container d-flex h-100"><h1 class="paper-empty-title m-auto">Loading&hellip;</h1></div>
 <div ng-if="type == 'empty'" class="file-error container d-flex h-100"><h1 class="paper-empty-title m-auto">Empty <em>repository</em>.</h1></div>

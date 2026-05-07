@@ -218,7 +218,17 @@ export function handleError(
   if (res && !res.headersSent) {
     const safeCode =
       error instanceof AnonymousError ? errorCode : "internal_error";
-    res.status(status).json({ error: safeCode });
+    const body: Record<string, unknown> = { error: safeCode };
+    if (
+      error instanceof AnonymousError &&
+      safeCode === "rate_limited" &&
+      error.value &&
+      typeof error.value === "object" &&
+      "resetAt" in (error.value as Record<string, unknown>)
+    ) {
+      body.resetAt = (error.value as Record<string, unknown>).resetAt;
+    }
+    res.status(status).json(body);
   }
   return;
 }

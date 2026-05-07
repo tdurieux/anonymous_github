@@ -5,9 +5,10 @@
       <h1 class="paper-page-title">Status of <em>{{repoId}}</em></h1>
       <p class="paper-page-lede">Track progress as your anonymization is prepared.</p>
     </div>
-    <span class="status-pill" ng-class="{'status-pill-ready': repo.status == 'ready', 'status-pill-error': repo.status == 'error', 'status-pill-removed': repo.status == 'removed' || repo.status == 'expired'}">
-      <span class="status-dot" ng-class="{'status-ready': repo.status == 'ready', 'status-error': repo.status == 'error', 'status-removed': repo.status == 'removed' || repo.status == 'expired'}"></span>
-      <span ng-bind="repo.status | title"></span>
+    <span class="status-pill" ng-class="{'status-pill-ready': repo.status == 'ready', 'status-pill-error': repo.status == 'error', 'status-pill-removed': repo.status == 'removed' || repo.status == 'expired', 'status-pill-ratelimit': rateLimitResetAt}">
+      <span class="status-dot" ng-class="{'status-ready': repo.status == 'ready', 'status-error': repo.status == 'error', 'status-removed': repo.status == 'removed' || repo.status == 'expired', 'status-ratelimit': rateLimitResetAt}"></span>
+      <span ng-if="!rateLimitResetAt" ng-bind="repo.status | title"></span>
+      <span ng-if="rateLimitResetAt">Rate limited</span>
     </span>
   </div>
 
@@ -19,7 +20,18 @@
       size. Visit the <a href="/faq">FAQ</a> for more information.
     </p>
 
-    <div class="paper-progress" ng-if="repo.status != 'error'" role="progressbar" aria-valuenow="{{progress}}" aria-valuemin="0" aria-valuemax="100" ng-class="{'paper-progress-ready': repo.status == 'ready'}">
+    <div class="paper-ratelimit-card" ng-if="rateLimitResetAt" role="status">
+      <div class="paper-ratelimit-head">
+        <i class="fas fa-hourglass-half"></i>
+        <div>
+          <div class="paper-error-eyebrow">Temporarily paused</div>
+          <div class="paper-error-title">GitHub API rate limit reached</div>
+        </div>
+      </div>
+      <p class="paper-error-msg">Anonymization will resume automatically in <strong>{{rateLimitCountdown}}</strong>. No action needed &mdash; the job is queued and will continue where it left off.</p>
+    </div>
+
+    <div class="paper-progress" ng-if="repo.status != 'error' && !rateLimitResetAt" role="progressbar" aria-valuenow="{{progress}}" aria-valuemin="0" aria-valuemax="100" ng-class="{'paper-progress-ready': repo.status == 'ready'}">
       <div class="paper-progress-bar" style="width: {{progress}}%;"></div>
       <div class="paper-progress-label">
         <span ng-bind="repo.status | title"></span><span ng-if="repo.statusMessage">&nbsp;&middot;&nbsp;<span ng-bind="repo.statusMessage"></span></span>
@@ -27,7 +39,7 @@
       </div>
     </div>
 
-    <div class="paper-error-card" ng-if="repo.status == 'error'" role="alert">
+    <div class="paper-error-card" ng-if="repo.status == 'error' && !rateLimitResetAt" role="alert">
       <div class="paper-error-head">
         <i class="fas fa-exclamation-triangle"></i>
         <div>

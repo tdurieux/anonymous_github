@@ -19,7 +19,7 @@ import {
   getRepositoryFromGitHub,
   GitHubRepository,
 } from "./source/GitHubRepository";
-import { getToken } from "./GitHubUtils";
+import { getToken, getRedisGateResetAt } from "./GitHubUtils";
 import config from "../config";
 import FileModel from "./model/files/files.model";
 import AnonymizedRepositoryModel from "./model/anonymizedRepositories/anonymizedRepositories.model";
@@ -234,14 +234,30 @@ export default class Repository {
         httpStatus: 410,
       });
     }
+    const redisGateReset = await getRedisGateResetAt();
+    if (redisGateReset > 0) {
+      throw new AnonymousError("rate_limited", {
+        httpStatus: 425,
+        object: { resetAt: redisGateReset },
+      });
+    }
+
     const fiveMinuteAgo = new Date();
     fiveMinuteAgo.setMinutes(fiveMinuteAgo.getMinutes() - 5);
 
     if (
       this.status == RepositoryStatus.PREPARING ||
+      this.status == RepositoryStatus.QUEUE ||
       (this.status == RepositoryStatus.DOWNLOAD &&
         this._model.statusDate > fiveMinuteAgo)
     ) {
+      const rlMatch = (this._model.statusMessage || "").match(/^rate_limited:(\d+)$/);
+      if (rlMatch) {
+        throw new AnonymousError("rate_limited", {
+          httpStatus: 425,
+          object: { resetAt: parseInt(rlMatch[1], 10) },
+        });
+      }
       throw new AnonymousError("repository_not_ready", {
         object: this,
         httpStatus: 425,

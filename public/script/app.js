@@ -226,6 +226,20 @@ angular
       return capitalized.join(" ");
     };
   })
+  .filter("statusMsg", function () {
+    return function (msg) {
+      if (!msg) return msg;
+      var m = msg.match(/^rate_limited:(\d+)$/);
+      if (m) {
+        var remaining = Math.max(0, Math.ceil((parseInt(m[1], 10) - Date.now()) / 1000));
+        if (remaining <= 0) return "Rate limited — resuming soon";
+        var min = Math.floor(remaining / 60);
+        var sec = remaining % 60;
+        return "Rate limited — retrying in " + (min > 0 ? min + "m " + sec + "s" : sec + "s");
+      }
+      return msg;
+    };
+  })
   .filter("diff", [
     "$sce",
     function ($sce) {
@@ -1520,6 +1534,47 @@ angular
       $scope.repoId = $routeParams.repoId;
       $scope.repo = null;
       $scope.progress = 0;
+      $scope.rateLimitResetAt = 0;
+      $scope.rateLimitCountdown = "";
+
+      var countdownTimer = null;
+      function startRateLimitCountdown(resetAt) {
+        $scope.rateLimitResetAt = resetAt;
+        if (countdownTimer) clearInterval(countdownTimer);
+        function tick() {
+          var remaining = Math.max(0, Math.ceil((resetAt - Date.now()) / 1000));
+          if (remaining <= 0) {
+            $scope.rateLimitCountdown = "";
+            $scope.rateLimitResetAt = 0;
+            clearInterval(countdownTimer);
+            countdownTimer = null;
+          } else {
+            var min = Math.floor(remaining / 60);
+            var sec = remaining % 60;
+            $scope.rateLimitCountdown = min > 0
+              ? min + "m " + sec + "s"
+              : sec + "s";
+          }
+          $scope.$applyAsync();
+        }
+        tick();
+        countdownTimer = setInterval(tick, 1000);
+      }
+      $scope.$on("$destroy", function () {
+        if (countdownTimer) clearInterval(countdownTimer);
+      });
+
+      function parseStatusMessage(msg) {
+        if (!msg) return msg;
+        var m = msg.match(/^rate_limited:(\d+)$/);
+        if (m) {
+          startRateLimitCountdown(parseInt(m[1], 10));
+          return null;
+        }
+        $scope.rateLimitResetAt = 0;
+        return msg;
+      }
+
       $scope.getStatus = () => {
         $http
           .get("/api/repo/" + $scope.repoId, {
@@ -1529,6 +1584,11 @@ angular
           .then(
             (res) => {
               $scope.repo = res.data;
+              if (res.data.rateLimitResetAt) {
+                startRateLimitCountdown(res.data.rateLimitResetAt);
+              } else {
+                $scope.repo.statusMessage = parseStatusMessage($scope.repo.statusMessage);
+              }
               if ($scope.repo.status == "ready") {
                 $scope.progress = 100;
               } else if ($scope.repo.status == "queue") {
@@ -1542,10 +1602,11 @@ angular
               } else if ($scope.repo.status == "anonymizing") {
                 $scope.progress = 75;
               }
-              if (
-                $scope.repo.status != "ready" &&
-                $scope.repo.status != "error"
-              ) {
+              var shouldPoll = $scope.repo.status != "ready";
+              if ($scope.repo.status == "error" && !$scope.rateLimitResetAt) {
+                shouldPoll = false;
+              }
+              if (shouldPoll) {
                 setTimeout($scope.getStatus, 2000);
               }
             },
@@ -2598,12 +2659,14 @@ angular
         )[0];
       }
 
+      var rlCountdownTimer = null;
+      $scope.$on("$destroy", function () { if (rlCountdownTimer) clearInterval(rlCountdownTimer); });
+
       function getOptions(callback) {
         $http.get(`/api/repo/${$scope.repoId}/options`).then(
           (res) => {
             $scope.options = res.data;
             if ($scope.options.url) {
-              // the repository is expired with redirect option
               window.location = $scope.options.url;
               return;
             }
@@ -2612,8 +2675,34 @@ angular
             }
           },
           (err) => {
-            $scope.type = "error";
-            $scope.content = err.data.error;
+            var data = err.data || {};
+            if (data.error === "rate_limited" && data.resetAt) {
+              $scope.type = "rate_limited";
+              $scope.rateLimitResetAt = data.resetAt;
+              if (rlCountdownTimer) clearInterval(rlCountdownTimer);
+              function rlTick() {
+                var remaining = Math.max(0, Math.ceil(($scope.rateLimitResetAt - Date.now()) / 1000));
+                if (remaining <= 0) {
+                  $scope.rateLimitCountdown = "";
+                  $scope.rateLimitResetAt = 0;
+                  if (rlCountdownTimer) { clearInterval(rlCountdownTimer); rlCountdownTimer = null; }
+                  getOptions(callback);
+                } else {
+                  var min = Math.floor(remaining / 60);
+                  var sec = remaining % 60;
+                  $scope.rateLimitCountdown = min > 0 ? min + "m " + sec + "s" : sec + "s";
+                }
+                $scope.$applyAsync();
+              }
+              rlTick();
+              rlCountdownTimer = setInterval(rlTick, 1000);
+            } else if (data.error === "repository_not_ready") {
+              $scope.type = "loading";
+              setTimeout(function () { getOptions(callback); }, 3000);
+            } else {
+              $scope.type = "error";
+              $scope.content = data.error;
+            }
           }
         );
       }
