@@ -291,14 +291,23 @@ export default class GitHubStream extends GitHubBase {
           ?.statusCode ??
         (error as { status?: number })?.status ??
         (error as { httpStatus?: number })?.httpStatus;
+      const errCode = (error as { code?: string })?.code;
+      const isTransient =
+        !httpStatus &&
+        (errCode === "ECONNRESET" ||
+          errCode === "ETIMEDOUT" ||
+          errCode === "ERR_BODY_PARSE_FAILURE" ||
+          error.name === "ReadError");
       const code =
         httpStatus === 422
           ? "file_too_big"
           : httpStatus === 403
           ? "file_not_accessible"
+          : isTransient
+          ? "upstream_error"
           : "file_not_found";
       const wrapped = new AnonymousError(code, {
-        httpStatus,
+        httpStatus: isTransient ? 502 : httpStatus,
         cause: error as Error,
         object: filePath,
       });

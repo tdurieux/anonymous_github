@@ -108,6 +108,7 @@ router.post("/", async (req: express.Request, res: express.Response) => {
     content
       .on("error", handleStreamError)
       .pipe(anonymizer)
+      .on("error", handleStreamError)
       .pipe(res)
       .on("error", handleStreamError)
       .on("close", () => {

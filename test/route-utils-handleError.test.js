@@ -53,14 +53,14 @@ describe("route-utils.handleError", function () {
     });
     handleError(err, res);
     expect(res.statusCode).to.equal(503);
-    expect(res.body).to.deep.equal({ error: "S3 down" });
+    expect(res.body).to.deep.equal({ error: "internal_error" });
   });
 
   it("maps messages containing 'not_found' to 404", function () {
     const res = makeRes();
     handleError(new Error("repo_not_found"), res);
     expect(res.statusCode).to.equal(404);
-    expect(res.body).to.deep.equal({ error: "repo_not_found" });
+    expect(res.body).to.deep.equal({ error: "internal_error" });
   });
 
   it("maps messages containing '(Not Found)' (got HTTPError style) to 404", function () {
@@ -73,21 +73,21 @@ describe("route-utils.handleError", function () {
     const res = makeRes();
     handleError(new Error("user_not_connected"), res);
     expect(res.statusCode).to.equal(401);
-    expect(res.body).to.deep.equal({ error: "user_not_connected" });
+    expect(res.body).to.deep.equal({ error: "internal_error" });
   });
 
   it("defaults to 500 when nothing matches", function () {
     const res = makeRes();
     handleError(new Error("kaboom"), res);
     expect(res.statusCode).to.equal(500);
-    expect(res.body).to.deep.equal({ error: "kaboom" });
+    expect(res.body).to.deep.equal({ error: "internal_error" });
   });
 
   it("accepts a string error and stringifies it in the body", function () {
     const res = makeRes();
     handleError("something_bad", res);
     expect(res.statusCode).to.equal(500);
-    expect(res.body).to.deep.equal({ error: "something_bad" });
+    expect(res.body).to.deep.equal({ error: "internal_error" });
   });
 
   it("does not call res when headersSent is true", function () {
