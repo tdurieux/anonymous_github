@@ -228,10 +228,12 @@ export default class FileSystem extends StorageBase {
 
     await this.listFiles(repoId, dir, {
       onEntry: async (file) => {
-        let rs = await this.read(repoId, file.path);
+        let rs: Readable = await this.read(repoId, file.path);
         if (opt?.fileTransformer) {
-          // apply transformation on the stream
-          rs = rs.pipe(opt.fileTransformer(file.path));
+          const src = rs;
+          const transformer = opt.fileTransformer(file.path);
+          src.on("error", (err) => transformer.destroy(err));
+          rs = src.pipe(transformer);
         }
         const f = file.path.replace(fullPath, "");
         archive.append(rs, {

@@ -269,6 +269,7 @@ export default class AnonymizedFile {
     if (!config.STREAMER_ENTRYPOINT) {
       // collect the content locally
       const content = await this.content();
+      content.on("error", (err) => anonymizer.destroy(err));
       return content.pipe(anonymizer);
     }
 
@@ -412,6 +413,7 @@ export default class AnonymizedFile {
         content
           .on("error", handleStreamError)
           .pipe(anonymizer)
+          .on("error", handleStreamError)
           .pipe(res)
           .on("error", handleStreamError)
           .on("finish", () => {

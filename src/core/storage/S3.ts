@@ -124,7 +124,13 @@ export default class S3Storage extends StorageBase {
         res.set("Content-Length", s.ContentLength.toString());
       }
       if (s.Body) {
-        (s.Body as Readable)?.pipe(res);
+        const body = s.Body as Readable;
+        body.on("error", (err) => {
+          logger.error("S3 body stream error", { ...serializeError(err), filePath: path });
+          if (!res.headersSent) res.status(502).json({ error: "storage_read_error" });
+          else res.destroy();
+        });
+        body.pipe(res);
       } else {
         res.end();
       }
@@ -344,10 +350,12 @@ export default class S3Storage extends StorageBase {
           f.Key.replace(join(this.repoPath(repoId), dir), "")
         );
 
-        let rs = await this.read(repoId, f.Key);
+        let rs: Readable = await this.read(repoId, f.Key);
         if (opt?.fileTransformer) {
-          // apply transformation on the stream
-          rs = rs.pipe(opt.fileTransformer(f.Key));
+          const src = rs;
+          const transformer = opt.fileTransformer(f.Key);
+          src.on("error", (err) => transformer.destroy(err));
+          rs = src.pipe(transformer);
         }
 
         archive.append(rs, {
