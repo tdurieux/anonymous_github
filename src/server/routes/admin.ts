@@ -592,7 +592,7 @@ router.delete(
     const repo = await getRepo(req, res, { nocheck: true });
     if (!repo) return;
     try {
-      await cacheQueue.add(repo.repoId, { repoId: repo.repoId }, { jobId: repo.repoId });
+      await cacheQueue.add(repo.repoId, { repoId: repo.repoId }, { jobId: `repo-${repo.repoId}` });
       return res.json({ status: repo.status });
     } catch (error) {
       handleError(error, res, req);

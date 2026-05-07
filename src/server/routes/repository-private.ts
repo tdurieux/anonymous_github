@@ -180,7 +180,7 @@ router.delete(
       const user = await getUser(req);
       isOwnerOrAdmin([repo.owner.id], user);
       await repo.updateStatus(RepositoryStatus.REMOVING);
-      await removeQueue.add(repo.repoId, { repoId: repo.repoId }, { jobId: repo.repoId });
+      await removeQueue.add(repo.repoId, { repoId: repo.repoId }, { jobId: `repo-${repo.repoId}` });
       return res.json({ status: repo.status });
     } catch (error) {
       handleError(error, res, req);
@@ -498,7 +498,7 @@ router.post(
       ).exec();
       await repo.updateStatus(RepositoryStatus.PREPARING);
       res.json({ status: repo.status });
-      await downloadQueue.add(repo.repoId, { repoId: repo.repoId }, { jobId: repo.repoId });
+      await downloadQueue.add(repo.repoId, { repoId: repo.repoId }, { jobId: `repo-${repo.repoId}` });
     } catch (error) {
       return handleError(error, res, req);
     }
@@ -592,7 +592,7 @@ router.post("/", async (req: express.Request, res: express.Response) => {
 
     res.send({ status: repo.status });
     downloadQueue.add(repo.repoId, { repoId: repo.repoId }, {
-      jobId: repo.repoId,
+      jobId: `repo-${repo.repoId}`,
       attempts: 3,
     });
   } catch (error) {

@@ -35,8 +35,8 @@ async function markErrorIfInFlight(repoId: string, message: string) {
     ).exec();
   } catch (e) {
     logger.error("markErrorIfInFlight failed", {
+      ...serializeError(e),
       repoId,
-      err: serializeError(e),
     });
   }
 }
@@ -56,7 +56,7 @@ export async function recoverStuckPreparing() {
     ).lean();
     for (const doc of stuck) {
       try {
-        const job = await downloadQueue.getJob(doc.repoId);
+        const job = await downloadQueue.getJob(`repo-${doc.repoId}`);
         if (job) {
           const state = await job.getState();
           if (state === "active" || state === "waiting" || state === "delayed") {
@@ -67,8 +67,8 @@ export async function recoverStuckPreparing() {
         logger.info("recovered stuck repo", { repoId: doc.repoId });
       } catch (e) {
         logger.warn("recover failed", {
+          ...serializeError(e),
           repoId: doc.repoId,
-          err: serializeError(e),
         });
       }
     }
@@ -157,8 +157,8 @@ export function startWorker() {
   downloadWorker.on("failed", async (job, err) => {
     const repoId = job?.data?.repoId;
     logger.error("download failed", {
+      ...serializeError(err),
       repoId,
-      err: serializeError(err),
     });
     if (!repoId) return;
     if (job && typeof job.attemptsMade === "number" && job.opts?.attempts) {

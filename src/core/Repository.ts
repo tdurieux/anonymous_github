@@ -347,6 +347,9 @@ export default class Repository {
 
         if (!newCommit) {
           logger.error("branch not found", {
+            code: "branch_not_found",
+            httpStatus: 404,
+            repoId: this.repoId,
             branch: branchName,
             repo: this.model.source.repositoryName,
           });
@@ -397,7 +400,7 @@ export default class Repository {
         }
         await this.resetSate(RepositoryStatus.PREPARING);
         await downloadQueue.add(this.repoId, { repoId: this.repoId }, {
-          jobId: this.repoId,
+          jobId: `repo-${this.repoId}`,
           attempts: 3,
         });
       }

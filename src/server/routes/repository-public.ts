@@ -103,9 +103,14 @@ router.get(
               httpStatus = upstreamStatus >= 500 ? 502 : upstreamStatus;
             }
             logger.warn("streamer zip fetch failed", {
+              code: errCode,
+              httpStatus,
               repoId: repo.repoId,
               upstreamStatus,
               upstreamBody: upstreamBody?.slice(0, 500),
+              url: config.STREAMER_ENTRYPOINT
+                ? join(config.STREAMER_ENTRYPOINT, "api/zip")
+                : undefined,
               err: serializeError(err),
             });
             handleError(
@@ -230,7 +235,7 @@ router.get(
           ) {
             await repo.updateStatus(RepositoryStatus.PREPARING);
             await downloadQueue.add(repo.repoId, { repoId: repo.repoId }, {
-              jobId: repo.repoId,
+              jobId: `repo-${repo.repoId}`,
               attempts: 3,
             });
           }
