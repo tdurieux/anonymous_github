@@ -810,14 +810,28 @@ router.post(
   "/users/:username/ban",
   async (req: express.Request, res: express.Response) => {
     try {
-      const result = await UserModel.updateOne(
-        { username: req.params.username },
-        { $set: { status: "banned" } }
-      );
-      if (result.matchedCount === 0) {
+      const user = await UserModel.findOne({ username: req.params.username });
+      if (!user) {
         throw new AnonymousError("user_not_found", { httpStatus: 404 });
       }
-      res.json({ ok: true });
+      await UserModel.updateOne(
+        { _id: user._id },
+        { $set: { status: "banned" } }
+      );
+      const repos = await AnonymizedRepositoryModel.find(
+        { owner: user._id, status: { $nin: ["removed", "removing"] } },
+        { repoId: 1 }
+      ).lean();
+      let queued = 0;
+      for (const repo of repos) {
+        try {
+          await removeQueue.add(repo.repoId, { repoId: repo.repoId }, { jobId: `repo-${repo.repoId}` });
+          queued++;
+        } catch {
+          // job may already exist in the queue
+        }
+      }
+      res.json({ ok: true, reposQueued: queued });
     } catch (error) {
       handleError(error, res, req);
     }
