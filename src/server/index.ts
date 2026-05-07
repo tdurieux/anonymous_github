@@ -3,7 +3,7 @@ dotenv();
 
 import { createClient } from "redis";
 import { resolve, join } from "path";
-import { existsSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import rateLimit from "express-rate-limit";
 import { slowDown } from "express-slow-down";
 import RedisStore from "rate-limit-redis";
@@ -31,6 +31,40 @@ import { createLogger, serializeError } from "../core/logger";
 
 const logger = createLogger("server");
 
+// Lazily build the templated index.html on first request so the server
+// works even when started before `gulp` finishes.
+const indexHtmlPath = resolve("public", "index.html");
+const manifestPath = resolve("public", "asset-manifest.json");
+let indexHtmlCache: string | null = null;
+
+function getIndexHtml(): string {
+  if (indexHtmlCache) return indexHtmlCache;
+
+  let assetManifest: Record<string, string> = {};
+  if (existsSync(manifestPath)) {
+    try {
+      assetManifest = JSON.parse(readFileSync(manifestPath, "utf-8"));
+    } catch {
+      // manifest missing or malformed — fall back to unhashed names
+    }
+  }
+  function asset(name: string): string {
+    return assetManifest[name] || name;
+  }
+
+  let html = existsSync(indexHtmlPath)
+    ? readFileSync(indexHtmlPath, "utf-8")
+    : "";
+
+  html = html
+    .replace("__CORE_JS__", asset("core.min.js"))
+    .replace("__VENDOR_JS__", asset("vendor.min.js"))
+    .replace("__MERMAID_JS__", asset("mermaid.min.js"))
+    .replace("__ALL_CSS__", asset("all.min.css"));
+  indexHtmlCache = html;
+  return html;
+}
+
 function indexResponse(req: express.Request, res: express.Response) {
   if (
     req.path.startsWith("/script") ||
@@ -46,14 +80,13 @@ function indexResponse(req: express.Request, res: express.Response) {
     req.headers["accept"].indexOf("text/html") == -1
   ) {
     const repoId = req.path.split("/")[2];
-    // if it is not an html request, it assumes that the browser try to load a different type of resource
     return res.redirect(
       `/api/repo/${repoId}/file/${req.path.substring(
         req.path.indexOf(repoId) + repoId.length + 1
       )}`
     );
   }
-  res.sendFile(resolve("public", "index.html"));
+  res.type("html").send(getIndexHtml());
 }
 
 export default async function start() {
@@ -243,11 +276,27 @@ export default async function start() {
   // web view
   app.use("/w/", rate, webViewSpeedLimiter, router.webview);
 
+  // Hashed assets (e.g. core.a1b2c3d4e5.min.js) — immutable, cache for 1 year.
+  // Strip the hash from the filename and serve the underlying file.
+  app.get(
+    /^\/(script|css)\/(.+)\.([a-f0-9]{10})\.(min\.\w+|\w+)$/,
+    (req, res, next) => {
+      const dir = req.params[0];     // "script" or "css"
+      const base = req.params[1];    // e.g. "core"
+      const ext = req.params[3];     // e.g. "min.js"
+      const filePath = join("public", dir, `${base}.${ext}`);
+      if (!existsSync(filePath)) return next();
+      res.set("Cache-Control", "public, max-age=31536000, immutable");
+      res.sendFile(resolve(filePath));
+    }
+  );
+
   app.use(
     express.static(join("public"), {
       etag: true,
       lastModified: true,
-      maxAge: 3600, // 1h
+      maxAge: 86400000, // 1 day (fonts, images, partials)
+      index: false, // don't serve index.html for "/" — indexResponse handles it
     })
   );
 

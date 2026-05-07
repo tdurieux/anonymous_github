@@ -1,6 +1,6 @@
 <!-- index.html -->
 <!DOCTYPE html>
-<html lang="en" ng-app="anonymous-github" ng-controller="mainController">
+<html lang="en" ng-controller="mainController">
   <head>
     <meta charset="UTF-8" />
     <meta
@@ -38,8 +38,16 @@
     <link
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap"
+      media="print"
+      onload="this.media='all'"
     />
-    <link rel="stylesheet" href="/css/all.min.css" />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap"
+      />
+    </noscript>
+    <link rel="stylesheet" href="/css/__ALL_CSS__" />
   </head>
   <body keypress-events class="d-flex flex-column">
     <ng-include src="'partials/header.htm'"></ng-include>
@@ -74,26 +82,51 @@
       </div>
     </div>
 
-    <script src="/script/bundle.min.js"></script>
+    <script src="/script/__CORE_JS__"></script>
     <script>
-      ace.config.set("basePath", "/script/external/ace/");
-      PDFJS.workerSrc = "/script/external/pdf.worker.js";
+      // Lazy-load mermaid only when a mermaid diagram is encountered
+      window.loadMermaid = function () {
+        if (window._mermaidLoaded || window._mermaidLoading) return;
+        window._mermaidLoading = true;
+        var s = document.createElement("script");
+        s.src = "/script/__MERMAID_JS__";
+        s.onload = function () {
+          window._mermaidLoaded = true;
+          window._mermaidLoading = false;
+          if (typeof mermaid !== "undefined") {
+            mermaid.initialize({ startOnLoad: false, theme: "default", securityLevel: "loose" });
+            window.mermaidInitialized = true;
+            var els = document.querySelectorAll(".mermaid:not([data-processed])");
+            if (els.length) mermaid.init(undefined, els);
+          }
+        };
+        document.body.appendChild(s);
+      };
     </script>
-    <script src="https://storage.ko-fi.com/cdn/scripts/overlay-widget.js"></script>
+    <script src="/script/__VENDOR_JS__" defer onload="
+      ace.config.set('basePath', '/script/external/ace/');
+      PDFJS.workerSrc = '/script/external/pdf.worker.js';
+      angular.bootstrap(document, ['anonymous-github']);
+    "></script>
     <script>
-      (function () {
-        var isDark = localStorage.getItem("darkMode") === "true";
-        kofiWidgetOverlay.draw("tdurieux", {
-          type: "floating-chat",
-          "floating-chat.donateButton.text": "Support me",
-          "floating-chat.donateButton.background-color": isDark
-            ? "#FAF9F6"
-            : "#1A1815",
-          "floating-chat.donateButton.text-color": isDark
-            ? "#1A1815"
-            : "#FAF9F6",
-        });
-      })();
+      window.addEventListener("load", function () {
+        var s = document.createElement("script");
+        s.src = "https://storage.ko-fi.com/cdn/scripts/overlay-widget.js";
+        s.onload = function () {
+          var isDark = localStorage.getItem("darkMode") === "true";
+          kofiWidgetOverlay.draw("tdurieux", {
+            type: "floating-chat",
+            "floating-chat.donateButton.text": "Support me",
+            "floating-chat.donateButton.background-color": isDark
+              ? "#FAF9F6"
+              : "#1A1815",
+            "floating-chat.donateButton.text-color": isDark
+              ? "#1A1815"
+              : "#FAF9F6",
+          });
+        };
+        document.body.appendChild(s);
+      });
     </script>
   </body>
 </html>
