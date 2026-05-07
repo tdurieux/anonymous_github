@@ -64,7 +64,7 @@ export class GitHubRepository {
       return commit.data;
     } catch (error) {
       const status = (error as { status?: number }).status;
-      if (status === 404) {
+      if (status === 404 || status === 422) {
         // Distinguish: does the repo itself still exist?
         let repoExists: boolean;
         try {
@@ -76,7 +76,7 @@ export class GitHubRepository {
         throw new AnonymousError(
           repoExists ? "commit_not_found" : "repo_not_found",
           {
-            httpStatus: 404,
+            httpStatus: repoExists ? 422 : 404,
             cause: error as Error,
             object: this,
           }
