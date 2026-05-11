@@ -1756,9 +1756,6 @@ angular
       $scope.data = null;
       $scope.loading = true;
       $scope.error = null;
-      $scope.range = "24h";
-
-      $scope.setRange = function (r) { $scope.range = r; };
 
       function humanBytes(b) {
         if (b == null) return "—";
@@ -1869,7 +1866,7 @@ angular
           $scope.error = null;
           historyMaxes = {};
           (r.data.history || []).forEach(function (d) {
-            ["dailyPageViews", "dailyRepositories", "dailyUsers"].forEach(function (k) {
+            ["dailyPageViews", "dailyRepositories", "dailyUsers", "nbUsers"].forEach(function (k) {
               if (!historyMaxes[k] || d[k] > historyMaxes[k]) historyMaxes[k] = d[k];
             });
           });

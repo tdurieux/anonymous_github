@@ -5872,28 +5872,6 @@ body {
   gap: 16px;
   margin-bottom: 2px;
 }
-.overview-page .ov-header-actions { display: flex; align-items: center; gap: 12px; }
-.overview-page .ov-range-btns {
-  display: inline-flex;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  overflow: hidden;
-}
-.overview-page .ov-range-btns .btn {
-  border: none;
-  border-radius: 0;
-  border-right: 1px solid var(--border-color);
-  padding: 5px 14px;
-  font-family: var(--font-mono);
-  font-size: 0.76rem;
-  background: transparent;
-  color: var(--ink-muted);
-}
-.overview-page .ov-range-btns .btn:last-child { border-right: none; }
-.overview-page .ov-range-btns .btn.active {
-  background: var(--primary-bg);
-  color: var(--primary-color);
-}
 
 /* Status dot */
 .overview-page .ov-dot {
@@ -5989,7 +5967,7 @@ body {
 /* ── Chart cards ─────────────────────────────────────────────── */
 .overview-page .ov-chart-row {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
   margin-bottom: 18px;
 }
@@ -6026,8 +6004,10 @@ body {
 .overview-page .ov-dot-accent   { background: var(--accent, #3B4AD6); }
 .overview-page .ov-dot-ok-fill  { background: #2F7A44; }
 .overview-page .ov-dot-user-fill { background: #8B5E2E; }
+.overview-page .ov-dot-new-user-fill { background: #C48A2E; }
 .dark-mode .overview-page .ov-dot-ok-fill { background: #7DC894; }
 .dark-mode .overview-page .ov-dot-user-fill { background: #D0A15F; }
+.dark-mode .overview-page .ov-dot-new-user-fill { background: #E8B970; }
 
 /* Spark bar chart */
 .overview-page .ov-spark-bars {
@@ -6041,6 +6021,7 @@ body {
   display: flex;
   align-items: flex-end;
   height: 100%;
+  position: relative;
 }
 .overview-page .ov-spark-fill {
   width: 100%;
@@ -6051,9 +6032,48 @@ body {
 }
 .overview-page .ov-spark-fill-alt { background: #2F7A44; }
 .overview-page .ov-spark-fill-user { background: #8B5E2E; }
+.overview-page .ov-spark-fill-new-user { background: #C48A2E; }
 .dark-mode .overview-page .ov-spark-fill-alt { background: #7DC894; }
 .dark-mode .overview-page .ov-spark-fill-user { background: #D0A15F; }
+.dark-mode .overview-page .ov-spark-fill-new-user { background: #E8B970; }
 .overview-page .ov-spark-col:hover .ov-spark-fill { opacity: 1; }
+.overview-page .ov-spark-col.has-tip::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 10px);
+  transform: translateX(-50%) translateY(4px);
+  z-index: 10;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--color);
+  color: var(--background-color);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  line-height: 1;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+.overview-page .ov-spark-col.has-tip::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 4px);
+  transform: translateX(-50%) translateY(4px);
+  z-index: 10;
+  border: 5px solid transparent;
+  border-top-color: var(--color);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+.overview-page .ov-spark-col.has-tip:hover::after,
+.overview-page .ov-spark-col.has-tip:hover::before {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
 .overview-page .ov-spark-x {
   display: flex;
   justify-content: space-between;
