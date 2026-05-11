@@ -5963,6 +5963,12 @@ body {
   color: var(--ink-muted);
   margin-top: 5px;
 }
+.dark-mode .overview-page .ov-daily-card {
+  background: var(--paper-card);
+}
+.dark-mode .overview-page .ov-daily-value {
+  color: #A7B2FF;
+}
 
 /* ── Chart cards ─────────────────────────────────────────────── */
 .overview-page .ov-chart-row {
@@ -6047,7 +6053,7 @@ body {
   padding: 6px 8px;
   border-radius: 6px;
   background: var(--color);
-  color: var(--background-color);
+  color: var(--canvas-bg-color);
   font-family: var(--font-mono);
   font-size: 0.68rem;
   line-height: 1;
