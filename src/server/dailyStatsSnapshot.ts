@@ -12,6 +12,10 @@ export interface HomeStats {
   nbPullRequests: number;
 }
 
+export interface HomeStatsHistoryRow extends HomeStats {
+  date: Date;
+}
+
 export async function computeStats(): Promise<HomeStats> {
   const [nbRepositories, nbUsersAgg, nbPageViews, nbPullRequests] =
     await Promise.all([
@@ -38,6 +42,31 @@ function utcMidnight(d: Date = new Date()): Date {
   return new Date(
     Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
   );
+}
+
+export function mergeCurrentStatsIntoHistory(
+  rows: HomeStatsHistoryRow[],
+  currentStats: HomeStats,
+  now: Date = new Date()
+): HomeStatsHistoryRow[] {
+  const today = utcMidnight(now);
+  const history = rows.map((row) => ({
+    ...row,
+    date: new Date(row.date),
+  }));
+  const currentRow = { date: today, ...currentStats };
+  const todayTime = today.getTime();
+  const todayIndex = history.findIndex(
+    (row) => utcMidnight(row.date).getTime() === todayTime
+  );
+
+  if (todayIndex >= 0) {
+    history[todayIndex] = currentRow;
+  } else {
+    history.push(currentRow);
+  }
+
+  return history.sort((a, b) => a.date.getTime() - b.date.getTime());
 }
 
 export async function computeAndStoreDailyStats(): Promise<void> {

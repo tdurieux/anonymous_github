@@ -23,6 +23,8 @@ import { startWorker, recoverStuckPreparing } from "../queue";
 import {
   computeStats,
   ensureTodaySnapshot,
+  HomeStatsHistoryRow,
+  mergeCurrentStatsIntoHistory,
 } from "./dailyStatsSnapshot";
 import DailyStatsModel from "../core/model/dailyStats/dailyStats.model";
 import { getUser } from "./routes/route-utils";
@@ -238,7 +240,7 @@ export default async function start() {
   });
 
   let stat: Record<string, unknown> = {};
-  let history: Array<Record<string, unknown>> | null = null;
+  let history: HomeStatsHistoryRow[] | null = null;
   let historyKey: number | null = null;
 
   setInterval(() => {
@@ -274,13 +276,14 @@ export default async function start() {
     const docs = await DailyStatsModel.find({ date: { $gte: since } })
       .sort({ date: 1 })
       .lean();
-    history = docs.map((d) => ({
+    const rows = docs.map((d) => ({
       date: d.date,
       nbRepositories: d.nbRepositories,
       nbUsers: d.nbUsers,
       nbPageViews: d.nbPageViews,
       nbPullRequests: d.nbPullRequests,
     }));
+    history = mergeCurrentStatsIntoHistory(rows, await computeStats());
     historyKey = days;
     res.json(history);
   });

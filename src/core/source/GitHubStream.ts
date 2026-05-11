@@ -457,25 +457,66 @@ export default class GitHubStream extends GitHubBase {
         });
       }
     }
+
+    const fetchSubtree = async (
+      entry: { sha: string; parentPath: string }
+    ) => {
+      const data = await this.getGHTree(oct, token, entry.sha, count, {
+        recursive: true,
+        callback: () => {
+          if (progress) {
+            progress("List file: " + count.file);
+          }
+        },
+      });
+      if (!data.truncated) {
+        return this.tree2Tree(data.tree, entry.parentPath);
+      }
+      // Subtree was truncated — break it down by fetching non-recursively
+      // and then recursing into each child subtree individually.
+      logger.info(
+        `Tree truncated for ${entry.parentPath}, breaking down into subtrees`
+      );
+      const shallow = await this.getGHTree(oct, token, entry.sha, count, {
+        recursive: false,
+        callback: () => {
+          if (progress) {
+            progress("List file: " + count.file);
+          }
+        },
+      });
+      if (shallow.truncated) {
+        this._truncatedFolders.push(entry.parentPath);
+      }
+      const files = this.tree2Tree(shallow.tree, entry.parentPath);
+      const childSubtrees = shallow.tree
+        .filter(
+          (f): f is typeof f & { sha: string; path: string } =>
+            f.type === "tree" && !!f.path && !!f.sha
+        )
+        .map((f) => ({
+          sha: f.sha,
+          parentPath: path.join(entry.parentPath, f.path),
+        }));
+      const childResults = await pMap(
+        childSubtrees,
+        (child) => fetchSubtree(child),
+        GH_API_CONCURRENCY
+      );
+      for (const childFiles of childResults) {
+        files.push(...childFiles);
+      }
+      return files;
+    };
+
     const results = await pMap(
       subtrees,
-      async (entry) =>
-        this.getGHTree(oct, token, entry.sha, count, {
-          recursive: true,
-          callback: () => {
-            if (progress) {
-              progress("List file: " + count.file);
-            }
-          },
-        }),
+      (entry) => fetchSubtree(entry),
       GH_API_CONCURRENCY
     );
-    results.forEach((data, i) => {
-      if (data.truncated) {
-        this._truncatedFolders.push(subtrees[i].parentPath);
-      }
-      output.push(...this.tree2Tree(data.tree, subtrees[i].parentPath));
-    });
+    for (const files of results) {
+      output.push(...files);
+    }
     return output;
   }
 

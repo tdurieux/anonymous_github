@@ -396,24 +396,7 @@ router.post(
 
       validateNewRepo(repoUpdate);
 
-      // Only the commit/branch backs the cached FileModel — anonymization
-      // options (terms, image/link toggles, etc.) are applied on the fly per
-      // request. Re-running the download queue is therefore only needed when
-      // the underlying snapshot moves. Other edits (e.g. turning off
-      // auto-update — see #360) just persist and return.
-      const sourceChanged =
-        repoUpdate.source.commit != repo.model.source.commit ||
-        repoUpdate.source.branch != repo.model.source.branch;
-
-      if (sourceChanged) {
-        repo.model.anonymizeDate = new Date();
-        repo.model.source.commit = repoUpdate.source.commit;
-        await repo.remove();
-      }
-
-      updateRepoModel(repo.model, repoUpdate);
-
-      const r = gh(repo.model.source.repositoryName || repoUpdate.fullName);
+      const r = gh(repoUpdate.fullName);
       if (!r?.owner || !r?.name) {
         await repo.resetSate(RepositoryStatus.ERROR, "repo_not_found");
         throw new AnonymousError("repo_not_found", {
@@ -421,11 +404,22 @@ router.post(
           httpStatus: 404,
         });
       }
+
+      // Only the source repository/commit/branch backs the cached FileModel —
+      // anonymization options (terms, image/link toggles, etc.) are applied on
+      // the fly per request. Re-running the download queue is therefore only
+      // needed when the underlying snapshot moves. Other edits (e.g. turning
+      // off auto-update — see #360) just persist and return.
+      const sourceChanged =
+        repoUpdate.source.commit != repo.model.source.commit ||
+        repoUpdate.source.branch != repo.model.source.branch ||
+        repoUpdate.fullName != repo.model.source.repositoryName;
+
+      updateRepoModel(repo.model, repoUpdate);
       const repository = await getRepositoryFromGitHub({
         accessToken: user.accessToken,
         owner: r.owner,
         repo: r.name,
-        repositoryID: repo.model.source.repositoryId,
       });
 
       if (!repository) {
@@ -439,6 +433,13 @@ router.post(
       await repository.getCommitInfo(repoUpdate.source.commit, {
         accessToken: user.accessToken,
       });
+      repo.model.source.repositoryId = repository.model.id;
+      repo.model.source.repositoryName = repository.fullName || repoUpdate.fullName;
+
+      if (sourceChanged) {
+        repo.model.anonymizeDate = new Date();
+        await repo.remove();
+      }
 
       const removeRepoFromConference = async (conferenceID: string) => {
         const conf = await ConferenceModel.findOne({

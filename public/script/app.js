@@ -1686,6 +1686,24 @@ angular
         }
       }
 
+      function parseRepoFullName(url) {
+        try {
+          const parsed = parseGithubUrl(url);
+          if (parsed && parsed.owner && parsed.repo) {
+            return parsed.owner + "/" + parsed.repo;
+          }
+        } catch (_) { /* sourceUrl not yet parseable */ }
+        return null;
+      }
+
+      function sourceRepositoryID() {
+        if (!$scope.isUpdate || !$scope._originalRepositoryID) return undefined;
+        const currentFullName = parseRepoFullName($scope.sourceUrl);
+        return currentFullName === $scope._originalFullName
+          ? $scope._originalRepositoryID
+          : undefined;
+      }
+
       getDefault(() => {
         // Edit mode: repo
         if ($routeParams.repoId && $routeParams.repoId != "") {
@@ -1695,6 +1713,7 @@ angular
           $http.get("/api/repo/" + $scope.repoId).then(
             async (res) => {
               $scope.sourceUrl = "https://github.com/" + res.data.source.fullName;
+              $scope._originalFullName = res.data.source.fullName;
               $scope.terms = res.data.options.terms.filter((f) => f).join("\n");
               $scope.source = res.data.source;
               $scope.role = res.data.role || "owner";
@@ -1708,6 +1727,7 @@ angular
               $scope.options = Object.assign({}, $scope.options, res.data.options);
               $scope.conference = res.data.conference;
               $scope.repositoryID = res.data.source.repositoryID;
+              $scope._originalRepositoryID = res.data.source.repositoryID;
               if (res.data.options.expirationDate) {
                 $scope.options.expirationDate = new Date(res.data.options.expirationDate);
               }
@@ -1719,7 +1739,6 @@ angular
           );
           $scope.$watch("anonymize", () => {
             if ($scope.anonymize.repoId) $scope.anonymize.repoId.$$element[0].disabled = true;
-            if ($scope.anonymize.sourceUrl) $scope.anonymize.sourceUrl.$$element[0].disabled = true;
           });
         }
         // Edit mode: PR
@@ -1788,9 +1807,11 @@ angular
       // URL change handler - auto-detect type
       $scope.urlSelected = async () => {
         $scope.terms = $scope.defaultTerms;
-        $scope.repoId = "";
-        $scope.pullRequestId = "";
-        $scope.gistId = "";
+        if (!$scope.isUpdate) {
+          $scope.repoId = "";
+          $scope.pullRequestId = "";
+          $scope.gistId = "";
+        }
         $scope.details = null;
         $scope.branches = [];
         $scope.source = { type: "GitHubStream", branch: "", commit: "" };
@@ -1862,7 +1883,7 @@ angular
         const o = parseGithubUrl($scope.sourceUrl);
         try {
           const branches = await $http.get(`/api/repo/${o.owner}/${o.repo}/branches`, {
-            params: { force: force === true ? "1" : "0", repositoryID: $scope.repositoryID },
+            params: { force: force === true ? "1" : "0", repositoryID: sourceRepositoryID() },
           });
           $scope.branches = branches.data;
           $scope.sourceUnreachable = false;
@@ -1910,9 +1931,12 @@ angular
           // #364) are reflected without waiting for the cached metadata to
           // expire. The endpoint hits the GitHub API once.
           const res = await $http.get(`/api/repo/${o.owner}/${o.repo}/`, {
-            params: { repositoryID: $scope.repositoryID, force: "1" },
+            params: { repositoryID: sourceRepositoryID(), force: "1" },
           });
           $scope.details = res.data;
+          if ($scope.details && $scope.details.id) {
+            $scope.repositoryID = $scope.details.id;
+          }
           if (!$scope.repoId) {
             $scope.repoId = $scope.details.repo + "-" + generateRandomId(4);
           }
@@ -1935,7 +1959,7 @@ angular
         const o = parseGithubUrl($scope.sourceUrl);
         try {
           const res = await $http.get(`/api/repo/${o.owner}/${o.repo}/readme`, {
-            params: { force: force === true ? "1" : "0", branch: $scope.source.branch, repositoryID: $scope.repositoryID },
+            params: { force: force === true ? "1" : "0", branch: $scope.source.branch, repositoryID: sourceRepositoryID() },
           });
           $scope.readme = res.data;
         } catch (error) {

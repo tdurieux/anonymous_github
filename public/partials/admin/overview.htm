@@ -57,17 +57,36 @@
       </div>
     </section>
 
-    <!-- ── Two wide charts ──────────────────────────────────────── -->
+    <!-- ── Daily activity highlights ───────────────────────────── -->
+    <section class="ov-daily-row">
+      <div class="ov-daily-card">
+        <div class="ov-daily-label">New repos today</div>
+        <div class="ov-daily-value">+{{data.daily.today.repositories | number}}</div>
+        <div class="ov-daily-sub">day-over-day total</div>
+      </div>
+      <div class="ov-daily-card">
+        <div class="ov-daily-label">New users today</div>
+        <div class="ov-daily-value">+{{data.daily.today.users | number}}</div>
+        <div class="ov-daily-sub">{{data.users.total | number}} total users</div>
+      </div>
+      <div class="ov-daily-card">
+        <div class="ov-daily-label">Page views today</div>
+        <div class="ov-daily-value">+{{data.daily.today.pageViews | number}}</div>
+        <div class="ov-daily-sub">since yesterday snapshot</div>
+      </div>
+    </section>
+
+    <!-- ── Daily charts ─────────────────────────────────────────── -->
     <section class="ov-chart-row">
       <div class="ov-chart-card">
         <div class="ov-chart-head">
-          <span class="ov-chart-title">Page views &middot; 30d</span>
-          <span class="ov-chart-legend"><span class="ov-dot-legend ov-dot-accent"></span>views</span>
+          <span class="ov-chart-title">Daily page views &middot; 30d</span>
+          <span class="ov-chart-legend"><span class="ov-dot-legend ov-dot-accent"></span>views/day</span>
         </div>
         <div class="ov-spark-bars" ng-if="data.history.length">
           <div class="ov-spark-col" ng-repeat="d in data.history track by $index"
-               title="{{historyLabel(d)}}: {{d.nbPageViews | number}} views">
-            <span class="ov-spark-fill" ng-style="{height: historyBarH(d, 'nbPageViews') + 'px'}"></span>
+               title="{{historyLabel(d)}}: +{{d.dailyPageViews | number}} views">
+            <span class="ov-spark-fill" ng-style="{height: historyBarH(d, 'dailyPageViews') + 'px'}"></span>
           </div>
         </div>
         <div class="ov-spark-x" ng-if="data.history.length">
@@ -79,12 +98,29 @@
       <div class="ov-chart-card">
         <div class="ov-chart-head">
           <span class="ov-chart-title">New repos &middot; 30d</span>
-          <span class="ov-chart-legend"><span class="ov-dot-legend ov-dot-ok-fill"></span>repos</span>
+          <span class="ov-chart-legend"><span class="ov-dot-legend ov-dot-ok-fill"></span>repos/day</span>
         </div>
         <div class="ov-spark-bars" ng-if="data.history.length">
           <div class="ov-spark-col" ng-repeat="d in data.history track by $index"
-               title="{{historyLabel(d)}}: {{d.nbRepositories | number}} repos">
-            <span class="ov-spark-fill ov-spark-fill-alt" ng-style="{height: historyBarH(d, 'nbRepositories') + 'px'}"></span>
+               title="{{historyLabel(d)}}: +{{d.dailyRepositories | number}} repos">
+            <span class="ov-spark-fill ov-spark-fill-alt" ng-style="{height: historyBarH(d, 'dailyRepositories') + 'px'}"></span>
+          </div>
+        </div>
+        <div class="ov-spark-x" ng-if="data.history.length">
+          <span>{{historyLabel(data.history[0])}}</span>
+          <span>{{historyLabel(data.history[Math.floor(data.history.length/2)])}}</span>
+          <span>{{historyLabel(data.history[data.history.length - 1])}}</span>
+        </div>
+      </div>
+      <div class="ov-chart-card">
+        <div class="ov-chart-head">
+          <span class="ov-chart-title">New users &middot; 30d</span>
+          <span class="ov-chart-legend"><span class="ov-dot-legend ov-dot-user-fill"></span>users/day</span>
+        </div>
+        <div class="ov-spark-bars" ng-if="data.history.length">
+          <div class="ov-spark-col" ng-repeat="d in data.history track by $index"
+               title="{{historyLabel(d)}}: +{{d.dailyUsers | number}} users">
+            <span class="ov-spark-fill ov-spark-fill-user" ng-style="{height: historyBarH(d, 'dailyUsers') + 'px'}"></span>
           </div>
         </div>
         <div class="ov-spark-x" ng-if="data.history.length">

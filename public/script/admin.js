@@ -1826,6 +1826,27 @@ angular
         return ($scope.data.errors.severity[key] / max) * 100;
       };
 
+      function computeDailyHistory(history) {
+        var rows = history || [];
+        return rows.map(function (d, i) {
+          var previous = rows[i - 1] || {};
+          var row = Object.assign({}, d);
+          row.dailyRepositories = i ? Math.max(0, (d.nbRepositories || 0) - (previous.nbRepositories || 0)) : 0;
+          row.dailyUsers = i ? Math.max(0, (d.nbUsers || 0) - (previous.nbUsers || 0)) : 0;
+          row.dailyPageViews = i ? Math.max(0, (d.nbPageViews || 0) - (previous.nbPageViews || 0)) : 0;
+          return row;
+        });
+      }
+
+      function todayDailyStats(history) {
+        var latest = history && history.length ? history[history.length - 1] : {};
+        return {
+          repositories: latest.dailyRepositories || 0,
+          users: latest.dailyUsers || 0,
+          pageViews: latest.dailyPageViews || 0,
+        };
+      }
+
       var historyMaxes = {};
       $scope.historyBarH = function (d, field) {
         if (!d || !historyMaxes[field]) return 0;
@@ -1839,12 +1860,16 @@ angular
 
       function load() {
         $http.get("/api/admin/overview").then(function (r) {
+          r.data.history = computeDailyHistory(r.data.history);
+          r.data.daily = {
+            today: todayDailyStats(r.data.history),
+          };
           $scope.data = r.data;
           $scope.loading = false;
           $scope.error = null;
           historyMaxes = {};
           (r.data.history || []).forEach(function (d) {
-            ["nbPageViews", "nbRepositories", "nbUsers"].forEach(function (k) {
+            ["dailyPageViews", "dailyRepositories", "dailyUsers"].forEach(function (k) {
               if (!historyMaxes[k] || d[k] > historyMaxes[k]) historyMaxes[k] = d[k];
             });
           });

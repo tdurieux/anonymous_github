@@ -8,6 +8,11 @@ import ConferenceModel from "../../core/model/conference/conferences.model";
 import UserModel from "../../core/model/users/users.model";
 import { cacheQueue, downloadQueue, removeQueue } from "../../queue";
 import { queryMetrics } from "../../queue/queueMetrics";
+import {
+  computeStats,
+  HomeStatsHistoryRow,
+  mergeCurrentStatsIntoHistory,
+} from "../dailyStatsSnapshot";
 import User from "../../core/User";
 import { ensureAuthenticated } from "./connection";
 import { handleError, getUser, isOwnerOrAdmin, getRepo } from "./route-utils";
@@ -712,7 +717,7 @@ router.get("/overview", async (req, res) => {
     }
 
     // Daily history (last 30 days) from DailyStatsModel
-    let history: Array<Record<string, unknown>> = [];
+    let history: HomeStatsHistoryRow[] = [];
     try {
       const { default: DailyStatsModel } = await import(
         "../../core/model/dailyStats/dailyStats.model"
@@ -723,12 +728,14 @@ router.get("/overview", async (req, res) => {
       const docs = await DailyStatsModel.find({ date: { $gte: since } })
         .sort({ date: 1 })
         .lean();
-      history = docs.map((d) => ({
+      const rows = docs.map((d) => ({
         date: d.date,
         nbRepositories: d.nbRepositories,
         nbUsers: d.nbUsers,
         nbPageViews: d.nbPageViews,
+        nbPullRequests: d.nbPullRequests,
       }));
+      history = mergeCurrentStatsIntoHistory(rows, await computeStats());
     } catch {
       // DailyStats collection might not exist yet
     }

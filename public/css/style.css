@@ -5951,10 +5951,45 @@ body {
   margin-top: 2px;
 }
 
-/* ── Two chart cards side-by-side ─────────────────────────────── */
+/* ── Daily highlights ─────────────────────────────────────────── */
+.overview-page .ov-daily-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin: -4px 0 22px;
+}
+.overview-page .ov-daily-card {
+  background: var(--primary-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 16px 20px;
+  box-shadow: var(--card-shadow);
+}
+.overview-page .ov-daily-label {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-muted);
+}
+.overview-page .ov-daily-value {
+  font-family: var(--font-serif);
+  font-size: 2.35rem;
+  font-weight: 400;
+  line-height: 1;
+  color: var(--accent, #3B4AD6);
+  margin-top: 6px;
+}
+.overview-page .ov-daily-sub {
+  font-size: 0.76rem;
+  color: var(--ink-muted);
+  margin-top: 5px;
+}
+
+/* ── Chart cards ─────────────────────────────────────────────── */
 .overview-page .ov-chart-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 16px;
   margin-bottom: 18px;
 }
@@ -5990,7 +6025,9 @@ body {
 }
 .overview-page .ov-dot-accent   { background: var(--accent, #3B4AD6); }
 .overview-page .ov-dot-ok-fill  { background: #2F7A44; }
+.overview-page .ov-dot-user-fill { background: #8B5E2E; }
 .dark-mode .overview-page .ov-dot-ok-fill { background: #7DC894; }
+.dark-mode .overview-page .ov-dot-user-fill { background: #D0A15F; }
 
 /* Spark bar chart */
 .overview-page .ov-spark-bars {
@@ -6013,7 +6050,9 @@ body {
   opacity: 0.55;
 }
 .overview-page .ov-spark-fill-alt { background: #2F7A44; }
+.overview-page .ov-spark-fill-user { background: #8B5E2E; }
 .dark-mode .overview-page .ov-spark-fill-alt { background: #7DC894; }
+.dark-mode .overview-page .ov-spark-fill-user { background: #D0A15F; }
 .overview-page .ov-spark-col:hover .ov-spark-fill { opacity: 1; }
 .overview-page .ov-spark-x {
   display: flex;
@@ -6233,10 +6272,12 @@ body {
 /* ── Responsive ───────────────────────────────────────────────── */
 @media (max-width: 900px) {
   .overview-page .ov-kpi-row { grid-template-columns: repeat(3, 1fr); }
+  .overview-page .ov-daily-row { grid-template-columns: repeat(3, 1fr); }
   .overview-page .ov-triple-row { grid-template-columns: 1fr; }
 }
 @media (max-width: 720px) {
   .overview-page .ov-kpi-row { grid-template-columns: repeat(2, 1fr); }
+  .overview-page .ov-daily-row { grid-template-columns: 1fr; }
   .overview-page .ov-chart-row { grid-template-columns: 1fr; }
   .overview-page .ov-header { flex-direction: column; gap: 8px; }
 }
@@ -6244,4 +6285,3 @@ body {
   .overview-page .ov-kpi-row { grid-template-columns: 1fr 1fr; }
   .overview-page .ov-services-grid { grid-template-columns: 1fr 1fr; }
 }
-
