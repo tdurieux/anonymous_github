@@ -21,7 +21,7 @@ import RepositoryModel from "../../core/model/repositories/repositories.model";
 import User from "../../core/User";
 import { RepositoryStatus } from "../../core/types";
 import { IUserDocument } from "../../core/model/users/users.types";
-import { checkToken, octokit, getRedisGateResetAt } from "../../core/GitHubUtils";
+import { checkToken, octokit, getRedisGateResetAt, getToken } from "../../core/GitHubUtils";
 import { createLogger, serializeError } from "../../core/logger";
 
 const logger = createLogger("route:repo");
@@ -294,7 +294,8 @@ router.get("/:repoId/", async (req: express.Request, res: express.Response) => {
         : fullRepo.owner.id === user.model.id
         ? "owner"
         : "coauthor";
-    const gateResetAt = await getRedisGateResetAt();
+    const repoToken = await getToken(fullRepo);
+    const gateResetAt = await getRedisGateResetAt(repoToken.slice(-8));
     if (gateResetAt > 0) {
       json.rateLimitResetAt = gateResetAt;
     }

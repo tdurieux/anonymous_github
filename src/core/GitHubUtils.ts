@@ -70,20 +70,23 @@ function setTokenGate(token: string, retryAfterSec: number) {
     tokenGates.set(key, { resetAt });
     logger.warn("rate limit gate set", {
       code: "rate_limit_gate",
+      tokenKey: key,
       retryAfterSec,
       resetAt: new Date(resetAt).toISOString(),
     });
-    setRedisGate(retryAfterSec).catch(() => {});
+    setRedisGate(key, retryAfterSec).catch(() => {});
   }
 }
 
 export class RateLimitDelayError extends Error {
   resetAt: number;
-  constructor(resetAt: number) {
+  tokenKey: string;
+  constructor(resetAt: number, tokenKey: string) {
     const delaySec = Math.ceil((resetAt - Date.now()) / 1000);
     super(`github_rate_limit_delay:${delaySec}s`);
     this.name = "RateLimitDelayError";
     this.resetAt = resetAt;
+    this.tokenKey = tokenKey;
   }
 }
 
@@ -113,7 +116,7 @@ async function waitForTokenGate(token: string): Promise<void> {
     waitMs = resetAt - Date.now();
   }
 
-  const redisResetAt = await getRedisGateResetAt();
+  const redisResetAt = await getRedisGateResetAt(key);
   if (redisResetAt > resetAt) {
     resetAt = redisResetAt;
     waitMs = resetAt - Date.now();
@@ -166,15 +169,16 @@ function ensureRedisGateClient(): Promise<RedisClientType | null> {
   return redisGateReady;
 }
 
-async function setRedisGate(retryAfterSec: number): Promise<void> {
+async function setRedisGate(tokenKey: string, retryAfterSec: number): Promise<void> {
   const c = await ensureRedisGateClient();
   if (!c || !c.isOpen) return;
   const resetAt = Date.now() + retryAfterSec * 1000;
   const ttl = Math.ceil(retryAfterSec) + 10;
   try {
-    await c.set(REDIS_GATE_PREFIX + "global", String(resetAt), { EX: ttl });
+    await c.set(REDIS_GATE_PREFIX + tokenKey, String(resetAt), { EX: ttl });
     logger.info("redis rate limit gate written", {
       code: "redis_gate_set",
+      tokenKey,
       resetAt: new Date(resetAt).toISOString(),
       ttl,
     });
@@ -183,17 +187,17 @@ async function setRedisGate(retryAfterSec: number): Promise<void> {
   }
 }
 
-export async function setRedisGateFromWorker(resetAt: number): Promise<void> {
+export async function setRedisGateFromWorker(tokenKey: string, resetAt: number): Promise<void> {
   const retryAfterSec = Math.max(0, (resetAt - Date.now()) / 1000);
   if (retryAfterSec <= 0) return;
-  await setRedisGate(retryAfterSec);
+  await setRedisGate(tokenKey, retryAfterSec);
 }
 
-export async function getRedisGateResetAt(): Promise<number> {
+export async function getRedisGateResetAt(tokenKey: string): Promise<number> {
   const c = await ensureRedisGateClient();
   if (!c || !c.isOpen) return 0;
   try {
-    const val = await c.get(REDIS_GATE_PREFIX + "global");
+    const val = await c.get(REDIS_GATE_PREFIX + tokenKey);
     if (!val) return 0;
     const resetAt = parseInt(val, 10);
     if (isNaN(resetAt) || resetAt <= Date.now()) return 0;

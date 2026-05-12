@@ -5,7 +5,7 @@ import { getRepository as getRepositoryImport } from "../../server/database";
 import { RepositoryStatus } from "../../core/types";
 import { RepoJobData } from "../index";
 import { createLogger, serializeError } from "../../core/logger";
-import { RateLimitDelayError, getRedisGateResetAt, setRedisGateFromWorker } from "../../core/GitHubUtils";
+import { RateLimitDelayError, getRedisGateResetAt, setRedisGateFromWorker, getToken } from "../../core/GitHubUtils";
 import { DelayedError } from "bullmq";
 
 const logger = createLogger("queue:download");
@@ -23,7 +23,11 @@ export default async function (job: SandboxedJob<RepoJobData, void>) {
   let statusInterval: any = null;
   await connect();
 
-  const gateResetAt = await getRedisGateResetAt();
+  const repo = await getRepository(job.data.repoId);
+  const token = await getToken(repo);
+  const tokenKey = token.slice(-8);
+
+  const gateResetAt = await getRedisGateResetAt(tokenKey);
   if (gateResetAt > 0) {
     const delaySec = Math.ceil((gateResetAt - Date.now()) / 1000);
     logger.info("rate limit gate active, delaying job before work", {
@@ -31,7 +35,6 @@ export default async function (job: SandboxedJob<RepoJobData, void>) {
       delaySec,
       resetAt: new Date(gateResetAt).toISOString(),
     });
-    const repo = await getRepository(job.data.repoId);
     await repo.updateStatus(
       RepositoryStatus.QUEUE,
       `rate_limited:${gateResetAt}`
@@ -39,8 +42,6 @@ export default async function (job: SandboxedJob<RepoJobData, void>) {
     await job.moveToDelayed(gateResetAt);
     throw new DelayedError();
   }
-
-  const repo = await getRepository(job.data.repoId);
   let tickPromise: Promise<void> | null = null;
   try {
     let progress: { status: string } | null = null;
@@ -103,7 +104,7 @@ export default async function (job: SandboxedJob<RepoJobData, void>) {
           delaySec,
           resetAt: new Date(resetAt).toISOString(),
         });
-        await setRedisGateFromWorker(resetAt);
+        await setRedisGateFromWorker(tokenKey, resetAt);
         await repo.updateStatus(
           RepositoryStatus.QUEUE,
           `rate_limited:${resetAt}`

@@ -19,7 +19,7 @@ import {
   getRepositoryFromGitHub,
   GitHubRepository,
 } from "./source/GitHubRepository";
-import { getToken, getRedisGateResetAt } from "./GitHubUtils";
+import { getToken } from "./GitHubUtils";
 import config from "../config";
 import FileModel from "./model/files/files.model";
 import AnonymizedRepositoryModel from "./model/anonymizedRepositories/anonymizedRepositories.model";
@@ -234,14 +234,6 @@ export default class Repository {
         httpStatus: 410,
       });
     }
-    const redisGateReset = await getRedisGateResetAt();
-    if (redisGateReset > 0) {
-      throw new AnonymousError("rate_limited", {
-        httpStatus: 425,
-        object: { resetAt: redisGateReset },
-      });
-    }
-
     const fiveMinuteAgo = new Date();
     fiveMinuteAgo.setMinutes(fiveMinuteAgo.getMinutes() - 5);
 
