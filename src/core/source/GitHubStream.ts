@@ -460,64 +460,54 @@ export default class GitHubStream extends GitHubBase {
       }
     }
 
-    const fetchSubtree = async (
-      entry: { sha: string; parentPath: string }
-    ) => {
-      const data = await this.getGHTree(oct, token, entry.sha, count, {
-        recursive: true,
-        callback: () => {
-          if (progress) {
-            progress("List file: " + count.file);
+    const queue = [...subtrees];
+    while (queue.length > 0) {
+      const batch = queue.splice(0, GH_API_CONCURRENCY);
+      const batchResults = await pMap(
+        batch,
+        async (entry) => {
+          const treeData = await this.getGHTree(oct, token, entry.sha, count, {
+            recursive: true,
+            callback: () => {
+              if (progress) {
+                progress("List file: " + count.file);
+              }
+            },
+          });
+          if (!treeData.truncated) {
+            return { files: this.tree2Tree(treeData.tree, entry.parentPath), children: [] as typeof subtrees };
           }
-        },
-      });
-      if (!data.truncated) {
-        return this.tree2Tree(data.tree, entry.parentPath);
-      }
-      // Subtree was truncated — break it down by fetching non-recursively
-      // and then recursing into each child subtree individually.
-      logger.info(
-        `Tree truncated for ${entry.parentPath}, breaking down into subtrees`
-      );
-      const shallow = await this.getGHTree(oct, token, entry.sha, count, {
-        recursive: false,
-        callback: () => {
-          if (progress) {
-            progress("List file: " + count.file);
+          logger.info(
+            `Tree truncated for ${entry.parentPath}, breaking down into subtrees`
+          );
+          const shallow = await this.getGHTree(oct, token, entry.sha, count, {
+            recursive: false,
+            callback: () => {
+              if (progress) {
+                progress("List file: " + count.file);
+              }
+            },
+          });
+          if (shallow.truncated) {
+            this._truncatedFolders.push(entry.parentPath);
           }
+          const children = shallow.tree
+            .filter(
+              (f): f is typeof f & { sha: string; path: string } =>
+                f.type === "tree" && !!f.path && !!f.sha
+            )
+            .map((f) => ({
+              sha: f.sha,
+              parentPath: path.join(entry.parentPath, f.path),
+            }));
+          return { files: this.tree2Tree(shallow.tree, entry.parentPath), children };
         },
-      });
-      if (shallow.truncated) {
-        this._truncatedFolders.push(entry.parentPath);
-      }
-      const files = this.tree2Tree(shallow.tree, entry.parentPath);
-      const childSubtrees = shallow.tree
-        .filter(
-          (f): f is typeof f & { sha: string; path: string } =>
-            f.type === "tree" && !!f.path && !!f.sha
-        )
-        .map((f) => ({
-          sha: f.sha,
-          parentPath: path.join(entry.parentPath, f.path),
-        }));
-      const childResults = await pMap(
-        childSubtrees,
-        (child) => fetchSubtree(child),
         GH_API_CONCURRENCY
       );
-      for (const childFiles of childResults) {
-        files.push(...childFiles);
+      for (const result of batchResults) {
+        output.push(...result.files);
+        queue.push(...result.children);
       }
-      return files;
-    };
-
-    const results = await pMap(
-      subtrees,
-      (entry) => fetchSubtree(entry),
-      GH_API_CONCURRENCY
-    );
-    for (const files of results) {
-      output.push(...files);
     }
     return output;
   }
