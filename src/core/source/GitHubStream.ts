@@ -126,7 +126,7 @@ export default class GitHubStream extends GitHubBase {
       const blobStream = this.downloadFile(token, sha);
       let settled = false;
 
-      const fallbackStatuses = new Set([404, 422]);
+      const fallbackStatuses = new Set([403, 404, 422]);
       const fallbackToRaw = (statusCode?: number) => {
         settled = true;
         logger.info("blob API failed, falling back to raw URL", {
@@ -146,10 +146,12 @@ export default class GitHubStream extends GitHubBase {
           return;
         }
         // Other errors: let the normal pipeline handle them.
+        // Defer destroy so callers can attach error listeners before
+        // the error event fires, avoiding an uncaughtException crash.
         settled = true;
         const passthrough = new stream.PassThrough();
-        passthrough.destroy(err);
         resolve(passthrough);
+        process.nextTick(() => passthrough.destroy(err));
       });
 
       blobStream.on("response", (response) => {
