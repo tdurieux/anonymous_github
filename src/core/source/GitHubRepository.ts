@@ -4,7 +4,7 @@ import { RestEndpointMethodTypes } from "@octokit/rest";
 
 import AnonymousError from "../AnonymousError";
 import { isConnected } from "../../server/database";
-import { octokit } from "../GitHubUtils";
+import { checkToken, octokit } from "../GitHubUtils";
 import { IRepositoryDocument } from "../model/repositories/repositories.types";
 import RepositoryModel from "../model/repositories/repositories.model";
 
@@ -306,13 +306,36 @@ export async function getRepositoryFromGitHub(opt: {
           })
         ).data as RestEndpointMethodTypes["repos"]["get"]["response"]["data"];
       } catch (idError) {
+        const idStatus = (idError as { status?: number }).status;
+        if (
+          idStatus === 401 ||
+          idStatus === 403 ||
+          !(await checkToken(opt.accessToken))
+        ) {
+          throw new AnonymousError("token_expired", {
+            httpStatus: 401,
+            object: { owner: opt.owner, repo: opt.repo },
+            cause: idError as Error,
+          });
+        }
         throw new AnonymousError("repo_not_found", {
-          httpStatus: (idError as { status?: number }).status || 404,
+          httpStatus: idStatus || 404,
           object: { owner: opt.owner, repo: opt.repo },
           cause: idError as Error,
         });
       }
     } else {
+      if (
+        status === 401 ||
+        status === 403 ||
+        !(await checkToken(opt.accessToken))
+      ) {
+        throw new AnonymousError("token_expired", {
+          httpStatus: 401,
+          object: { owner: opt.owner, repo: opt.repo },
+          cause: error as Error,
+        });
+      }
       throw new AnonymousError("repo_not_found", {
         httpStatus: status,
         object: {

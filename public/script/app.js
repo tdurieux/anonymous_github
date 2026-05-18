@@ -1115,7 +1115,7 @@ angular
           if (data.terms) {
             $scope.terms = data.terms.join("\n");
           }
-          $scope.option = Object.assign({}, $scope.option, data.options);
+          $scope.options = Object.assign({}, $scope.options, data.options);
         });
       }
       getDefault();

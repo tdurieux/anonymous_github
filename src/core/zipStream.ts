@@ -3,6 +3,8 @@ import { Parse } from "unzip-stream";
 import archiver = require("archiver");
 
 import GitHubDownload from "./source/GitHubDownload";
+import { classifyGitHubMissError } from "./source/GitHubBase";
+import AnonymousError from "./AnonymousError";
 import {
   AnonymizeTransformer,
   anonymizePathCompiled,
@@ -81,7 +83,27 @@ export async function streamAnonymizedZip(
     getToken: opt.getToken,
   });
 
-  const response = await source.getZipUrl();
+  let response;
+  try {
+    response = await source.getZipUrl();
+  } catch (error) {
+    const code = await classifyGitHubMissError(error, {
+      organization: opt.organization,
+      repoName: opt.repoName,
+      repoId: opt.repoId,
+      commit: opt.commit,
+      getToken: opt.getToken,
+    });
+    const status = (error as { status?: number }).status;
+    throw new AnonymousError(code, {
+      httpStatus: status && status >= 500 ? 502 : status || 502,
+      cause: error as Error,
+      object: {
+        repoId: opt.repoId,
+        fullName: `${opt.organization}/${opt.repoName}`,
+      },
+    });
+  }
   const downloadStream = got.stream(response.url);
 
   res.on("error", (error) => {
