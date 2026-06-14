@@ -295,6 +295,24 @@ export async function getRepositoryFromGitHub(opt: {
         cause: error as Error,
       });
     }
+    // SAML SSO-protected orgs return a 403 with a distinct message. Without
+    // this branch it falls through to the generic 401/403 handler below and
+    // is reported as "token_expired", which sends users to re-login instead
+    // of authorizing their token for the organization (the real fix). See
+    // #379/#550.
+    if (
+      error instanceof Error &&
+      error.message.includes("SAML enforcement")
+    ) {
+      throw new AnonymousError("repo_saml_enforcement", {
+        httpStatus: 403,
+        object: {
+          owner: opt.owner,
+          repo: opt.repo,
+        },
+        cause: error as Error,
+      });
+    }
     // If the name 404s but we know the GitHub repo id, the repo was
     // probably renamed. Look it up by id and continue with the new name.
     const status = (error as { status?: number }).status;
