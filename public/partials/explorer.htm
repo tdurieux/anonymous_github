@@ -88,7 +88,8 @@
           ng-href="{{url}}"
           target="__self"
           class="btn btn-sm"
-          aria-label="Raw"
+          aria-label="View raw current file"
+          title="View the raw content of the current file"
           ><i class="fas fa-file-alt"></i><span class="d-none d-md-inline"> Raw</span></a
         >
         <a
@@ -96,7 +97,8 @@
           ng-href="{{url}}&download=true"
           target="__self"
           class="btn btn-sm"
-          aria-label="Download"
+          aria-label="Download current file"
+          title="Download the current file"
           ><i class="fas fa-download"></i><span class="d-none d-md-inline"> Download</span></a
         >
         <a
@@ -104,8 +106,9 @@
           ng-href="/api/repo/{{repoId}}/zip"
           target="__self"
           class="btn btn-sm"
-          aria-label="Download ZIP"
-          ><i class="fas fa-file-archive"></i><span class="d-none d-md-inline"> ZIP</span></a
+          aria-label="Download full repository as ZIP"
+          title="Download the full repository as a ZIP archive"
+          ><i class="fas fa-file-archive"></i><span class="d-none d-md-inline"> Full repo ZIP</span></a
         >
         <a
           ng-if="options.hasWebsite"

@@ -88,13 +88,13 @@ angular
           controller: "claimController",
           title: "Claim an anonymization – Anonymous GitHub",
         })
-        .when("/pr/:pullRequestId", {
+        .when("/pr/:pullRequestId/:path*?", {
           templateUrl: "/partials/pullRequest.htm",
           controller: "pullRequestController",
           title: "Anonymous pull request – Anonymous GitHub",
           reloadOnUrl: false,
         })
-        .when("/gist/:gistId", {
+        .when("/gist/:gistId/:path*?", {
           templateUrl: "/partials/gist.htm",
           controller: "gistController",
           title: "Anonymous gist – Anonymous GitHub",
@@ -3142,6 +3142,12 @@ angular
         $http.get(`/api/gist/${$scope.gistId}/content`).then(
           (res) => {
             $scope.details = res.data;
+            // Pick the default tab once the content is loaded. The ng-init in
+            // the template runs before this async response arrives (details is
+            // still null then), so without this a files-only gist would default
+            // to the hidden "comments" tab and render blank.
+            const hasFiles = res.data && res.data.files && res.data.files.length;
+            $scope.tabState = { active: hasFiles ? "files" : "comments" };
             if (callback) callback(res.data);
           },
           (err) => {
