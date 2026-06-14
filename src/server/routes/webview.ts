@@ -85,6 +85,15 @@ async function webView(req: express.Request, res: express.Response) {
     const filePath = req.path.substring(
       indexRepoId + req.params.repoId.length + 1
     );
+    // Reject traversal in the URL-derived segment before joining it onto the
+    // page-source root. Stripping a single leading "/" or "." is not enough
+    // to stop "../../" sequences from climbing out of the repo (CWE-22).
+    if (filePath.split(/[\\/]/).some((segment) => segment === "..")) {
+      throw new AnonymousError("invalid_path", {
+        httpStatus: 400,
+        object: filePath,
+      });
+    }
     let requestPath = path.join(wRoot, filePath);
     if (requestPath.at(0) == "/" || requestPath.at(0) == ".") {
       requestPath = requestPath.substring(1);

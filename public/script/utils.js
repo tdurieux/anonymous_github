@@ -54,11 +54,20 @@ function urlRel2abs(
 ) {
   /* Only accept commonly trusted protocols:
    * Only data-image URLs are accepted, Exotic flavours (escaped slash,
-   * html-entitied characters) are not supported to keep the function fast */
+   * html-entitied characters) are not supported to keep the function fast.
+   * "javascript:" is intentionally NOT allowed — returning such a URL
+   * unchanged would let it reach an href attribute and execute on click
+   * (XSS, CWE-79). */
   if (
-    /^(https?|file|ftps?|mailto|javascript|data:image\/[^;]{2,9};):/i.test(url)
+    /^(https?|file|ftps?|mailto|data:image\/[^;]{2,9};):/i.test(url)
   ) {
     return url; //Url is already absolute
+  }
+  // Block any other explicit scheme (javascript:, vbscript:, data:text/html,
+  // …) so it can't slip through as an "absolute" URL via the relative-path
+  // handling below.
+  if (/^\s*[a-z][a-z0-9+.-]*:/i.test(url)) {
+    return "";
   }
 
   if (url.substring(0, 2) == "//") return location.protocol + url;

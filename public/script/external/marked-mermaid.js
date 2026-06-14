@@ -39,7 +39,12 @@ function markedMermaid(options) {
               mermaid.initialize({
                 startOnLoad: false,
                 theme: 'default',
-                securityLevel: 'loose'
+                // 'strict' keeps Mermaid's own HTML/script sanitisation and
+                // disables click-binding callbacks. 'loose' (the previous
+                // value) lets diagram syntax inject clickable elements with
+                // JavaScript handlers that run in the viewer's browser
+                // (XSS, CWE-79).
+                securityLevel: 'strict'
               });
               window.mermaidInitialized = true;
             }

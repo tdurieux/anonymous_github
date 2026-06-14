@@ -593,6 +593,23 @@ angular
               return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
             }
 
+            // Escape a value for safe interpolation into a single-quoted
+            // AngularJS expression string (e.g. ng-click="openFolder('...')")
+            // that itself sits inside a double-quoted HTML attribute which is
+            // later $compile()d. Backslash/quote are escaped at the Angular
+            // string level; &<>" are HTML-encoded for the attribute. Without
+            // this a file name like `');$emit(...)//` would break out of the
+            // expression string and execute (DOM XSS, CWE-79).
+            function escapeNgString(str) {
+              return String(str)
+                .replace(/\\/g, "\\\\")
+                .replace(/'/g, "\\'")
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;");
+            }
+
             function buildSearchFilter() {
               const results = $scope.searchResults;
               if (!results || !results.length) return null;
@@ -675,11 +692,12 @@ angular
                   cssClasses.push("truncated");
                 }
 
+                const ngPath = escapeNgString(path);
                 output += `<li class="${cssClasses.join(
                   " "
-                )}" ng-class="{active: isActive('${path}'), open: ${filterSet ? "opens['" + path + "'] !== false" : "opens['" + path + "']"}}" title="${escapeHtml(sizeTitle)}">`;
+                )}" ng-class="{active: isActive('${ngPath}'), open: ${filterSet ? "opens['" + ngPath + "'] !== false" : "opens['" + ngPath + "']"}}" title="${escapeHtml(sizeTitle)}">`;
                 if (dir) {
-                  output += `<a ng-click="openFolder('${path}', $event)"><span class="tree-toggle"></span><span class="tree-icon-folder"></span><span class="tree-name">${escapeHtml(name)}</span>`;
+                  output += `<a ng-click="openFolder('${ngPath}', $event)"><span class="tree-toggle"></span><span class="tree-icon-folder"></span><span class="tree-name">${escapeHtml(name)}</span>`;
                   if (truncated) {
                     output += `<span class="truncated-warning" title="{{ 'WARNINGS.folder_truncated' | translate }}"><i class="fas fa-exclamation-triangle"></i></span>`;
                   }
@@ -911,7 +929,13 @@ angular
               const notebook = nb.parse(json);
               try {
                 $element.html("");
-                $element.append(notebook.render());
+                // notebook.render() turns notebook JSON (markdown cells, cell
+                // outputs) into HTML without sanitising it — a malicious
+                // notebook could embed <script>/onerror handlers that execute
+                // in the viewer's browser (XSS, CWE-79). Run the rendered
+                // output through DOMPurify before inserting it.
+                const rendered = notebook.render();
+                $element.html(DOMPurify.sanitize(rendered));
                 Prism.highlightAll();
               } catch (error) {
                 $element.html("Unable to render the notebook.");

@@ -284,6 +284,25 @@ interface CompiledTermVariant {
   mask: string;
 }
 
+// Detect the classic exponential-backtracking regex shapes — a quantifier
+// applied to a group that itself contains a quantifier or top-level
+// alternation, e.g. (a+)+, (a*)*, (a|aa)+. Anonymization terms come from the
+// repository owner and are applied as live regexes against file content, so a
+// crafted term could otherwise hang the worker (ReDoS, CWE-1333/624). This is
+// intentionally conservative: it may over-escape some benign regexes, but it
+// never lets a known-catastrophic shape through.
+function hasCatastrophicBacktracking(src: string): boolean {
+  const quantifiedGroup = /\(([^()]*)\)\s*(?:[*+]|\{\d+(?:,\d*)?\})/g;
+  let match: RegExpExecArray | null;
+  while ((match = quantifiedGroup.exec(src)) !== null) {
+    const inner = match[1];
+    if (/[*+]|\{\d+(?:,\d*)?\}/.test(inner) || inner.includes("|")) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function compileTerms(terms: string[] | undefined): CompiledTermVariant[] {
   if (!terms || terms.length === 0) return [];
   const compiled: CompiledTermVariant[] = [];
@@ -298,9 +317,16 @@ function compileTerms(terms: string[] | undefined): CompiledTermVariant[] {
       parsed.replacement !== null
         ? parsed.replacement
         : config.ANONYMIZATION_MASK + "-" + (i + 1);
+    // Use the term as a regex only when it both compiles AND is free of
+    // catastrophic-backtracking shapes; otherwise escape it to a literal so a
+    // malicious term cannot trigger ReDoS during anonymization.
+    let useAsRegex = true;
     try {
       new RegExp(term, "gi");
     } catch {
+      useAsRegex = false;
+    }
+    if (!useAsRegex || hasCatastrophicBacktracking(term)) {
       term = term.replace(/[-[\]{}()*+?.,\\^$|#]/g, "\\$&");
     }
     for (const variant of termVariants(term)) {

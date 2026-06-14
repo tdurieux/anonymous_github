@@ -50,6 +50,23 @@ router.get(
         res
       );
     }
+    // Reject path traversal before the path reaches the storage layer. The
+    // storage backends also validate, but failing fast here keeps a crafted
+    // "../" URL from being treated as a real lookup (CWE-22/25).
+    if (
+      anonymizedPath
+        .split("/")
+        .some((segment) => segment === "..") ||
+      anonymizedPath.startsWith("/")
+    ) {
+      return handleError(
+        new AnonymousError("invalid_path", {
+          httpStatus: 400,
+          object: anonymizedPath,
+        }),
+        res
+      );
+    }
 
     const repo = await getRepo(req, res, {
       nocheck: false,

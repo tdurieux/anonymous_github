@@ -13,7 +13,11 @@ export const router = express.Router();
 router.post(
   "/download",
   async (req: express.Request, res: express.Response) => {
+    req.body = req.body || {};
     const token: string = req.body.token;
+    if (typeof req.body.repoFullName !== "string" || typeof token !== "string") {
+      return res.status(400).json({ error: "invalid_request" });
+    }
     const repoFullName = req.body.repoFullName.split("/");
     const repoId = req.body.repoId;
     const commit = req.body.commit;
@@ -41,6 +45,9 @@ router.post(
 router.post("/", async (req: express.Request, res: express.Response) => {
   req.body = req.body || {};
   const token: string = req.body.token;
+  if (typeof req.body.repoFullName !== "string" || typeof token !== "string") {
+    return res.status(400).json({ error: "invalid_request" });
+  }
   const repoFullName = req.body.repoFullName.split("/");
   const repoId = req.body.repoId;
   const fileSha = req.body.sha;
