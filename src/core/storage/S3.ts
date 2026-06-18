@@ -54,6 +54,7 @@ export default class S3Storage extends StorageBase {
   /** @override */
   async exists(repoId: string, path: string = ""): Promise<FILE_TYPE> {
     if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
+    this.assertSafePath(path);
     try {
       // if we can get the file info, it is a file
       await this.fileInfo(repoId, path);
@@ -79,6 +80,7 @@ export default class S3Storage extends StorageBase {
   /** @override */
   async rm(repoId: string, dir: string = ""): Promise<void> {
     if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
+    this.assertSafePath(dir);
     const data = await this.client(200000).listObjectsV2({
       Bucket: config.S3_BUCKET,
       Prefix: join(this.repoPath(repoId), dir),
@@ -110,6 +112,7 @@ export default class S3Storage extends StorageBase {
   /** @override */
   async send(repoId: string, path: string, res: Response) {
     if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
+    this.assertSafePath(path);
     try {
       const command = new GetObjectCommand({
         Bucket: config.S3_BUCKET,
@@ -145,6 +148,7 @@ export default class S3Storage extends StorageBase {
 
   async fileInfo(repoId: string, path: string) {
     if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
+    this.assertSafePath(path);
     const info = await this.client(3000).headObject({
       Bucket: config.S3_BUCKET,
       Key: join(this.repoPath(repoId), path),
@@ -161,6 +165,7 @@ export default class S3Storage extends StorageBase {
   /** @override */
   async read(repoId: string, path: string): Promise<Readable> {
     if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
+    this.assertSafePath(path);
     const command = new GetObjectCommand({
       Bucket: config.S3_BUCKET,
       Key: join(this.repoPath(repoId), path),
@@ -184,6 +189,7 @@ export default class S3Storage extends StorageBase {
     expectedSize?: number
   ): Promise<void> {
     if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
+    this.assertSafePath(path);
 
     // No fire-and-forget rm on stream error: Upload uses multipart and
     // does not commit a partially-uploaded object, so there's nothing to
@@ -249,6 +255,7 @@ export default class S3Storage extends StorageBase {
   /** @override */
   async listFiles(repoId: string, dir: string = ""): Promise<IFile[]> {
     if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
+    this.assertSafePath(dir);
     if (dir && dir[dir.length - 1] != "/") dir = dir + "/";
     const out: IFile[] = [];
     let req: ListObjectsV2CommandOutput;
@@ -287,6 +294,7 @@ export default class S3Storage extends StorageBase {
     data: Readable,
     source?: string
   ): Promise<void> {
+    this.assertSafePath(path);
     let toS3: ArchiveStreamToS3;
     return new Promise((resolve, reject) => {
       if (!config.S3_BUCKET) return reject("S3_BUCKET not set");
@@ -296,7 +304,13 @@ export default class S3Storage extends StorageBase {
         s3: this.client(2 * 60 * 60 * 1000), // 2h timeout
         type: "zip",
         onEntry: (header) => {
-          header.name = header.name.substring(header.name.indexOf("/") + 1);
+          // Strip the wrapping top-level dir, then drop any "../" / absolute
+          // segments so a crafted entry name cannot write objects outside
+          // the repo key prefix (zip-slip, CWE-23).
+          const stripped = header.name.substring(
+            header.name.indexOf("/") + 1
+          );
+          header.name = this.sanitizeZipEntryName(stripped);
           if (source) {
             header.Tagging = `source=${source}`;
             header.Metadata = {
@@ -329,6 +343,7 @@ export default class S3Storage extends StorageBase {
     }
   ) {
     if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
+    this.assertSafePath(dir);
     const archive = archiver(opt?.format || "zip", {});
     if (dir && dir[dir.length - 1] != "/") dir = dir + "/";
 

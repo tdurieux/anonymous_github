@@ -88,13 +88,13 @@ angular
           controller: "claimController",
           title: "Claim an anonymization – Anonymous GitHub",
         })
-        .when("/pr/:pullRequestId", {
+        .when("/pr/:pullRequestId/:path*?", {
           templateUrl: "/partials/pullRequest.htm",
           controller: "pullRequestController",
           title: "Anonymous pull request – Anonymous GitHub",
           reloadOnUrl: false,
         })
-        .when("/gist/:gistId", {
+        .when("/gist/:gistId/:path*?", {
           templateUrl: "/partials/gist.htm",
           controller: "gistController",
           title: "Anonymous gist – Anonymous GitHub",
@@ -593,6 +593,23 @@ angular
               return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
             }
 
+            // Escape a value for safe interpolation into a single-quoted
+            // AngularJS expression string (e.g. ng-click="openFolder('...')")
+            // that itself sits inside a double-quoted HTML attribute which is
+            // later $compile()d. Backslash/quote are escaped at the Angular
+            // string level; &<>" are HTML-encoded for the attribute. Without
+            // this a file name like `');$emit(...)//` would break out of the
+            // expression string and execute (DOM XSS, CWE-79).
+            function escapeNgString(str) {
+              return String(str)
+                .replace(/\\/g, "\\\\")
+                .replace(/'/g, "\\'")
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;");
+            }
+
             function buildSearchFilter() {
               const results = $scope.searchResults;
               if (!results || !results.length) return null;
@@ -675,11 +692,12 @@ angular
                   cssClasses.push("truncated");
                 }
 
+                const ngPath = escapeNgString(path);
                 output += `<li class="${cssClasses.join(
                   " "
-                )}" ng-class="{active: isActive('${path}'), open: ${filterSet ? "opens['" + path + "'] !== false" : "opens['" + path + "']"}}" title="${escapeHtml(sizeTitle)}">`;
+                )}" ng-class="{active: isActive('${ngPath}'), open: ${filterSet ? "opens['" + ngPath + "'] !== false" : "opens['" + ngPath + "']"}}" title="${escapeHtml(sizeTitle)}">`;
                 if (dir) {
-                  output += `<a ng-click="openFolder('${path}', $event)"><span class="tree-toggle"></span><span class="tree-icon-folder"></span><span class="tree-name">${escapeHtml(name)}</span>`;
+                  output += `<a ng-click="openFolder('${ngPath}', $event)"><span class="tree-toggle"></span><span class="tree-icon-folder"></span><span class="tree-name">${escapeHtml(name)}</span>`;
                   if (truncated) {
                     output += `<span class="truncated-warning" title="{{ 'WARNINGS.folder_truncated' | translate }}"><i class="fas fa-exclamation-triangle"></i></span>`;
                   }
@@ -911,7 +929,13 @@ angular
               const notebook = nb.parse(json);
               try {
                 $element.html("");
-                $element.append(notebook.render());
+                // notebook.render() turns notebook JSON (markdown cells, cell
+                // outputs) into HTML without sanitising it — a malicious
+                // notebook could embed <script>/onerror handlers that execute
+                // in the viewer's browser (XSS, CWE-79). Run the rendered
+                // output through DOMPurify before inserting it.
+                const rendered = notebook.render();
+                $element.html(DOMPurify.sanitize(rendered));
                 Prism.highlightAll();
               } catch (error) {
                 $element.html("Unable to render the notebook.");
@@ -3118,6 +3142,12 @@ angular
         $http.get(`/api/gist/${$scope.gistId}/content`).then(
           (res) => {
             $scope.details = res.data;
+            // Pick the default tab once the content is loaded. The ng-init in
+            // the template runs before this async response arrives (details is
+            // still null then), so without this a files-only gist would default
+            // to the hidden "comments" tab and render blank.
+            const hasFiles = res.data && res.data.files && res.data.files.length;
+            $scope.tabState = { active: hasFiles ? "files" : "comments" };
             if (callback) callback(res.data);
           },
           (err) => {

@@ -109,6 +109,10 @@ export default async function start() {
     })
   );
   app.set("etag", "strong");
+  // Trust exactly TRUST_PROXY proxy hops so Express derives request.ip from
+  // the right X-Forwarded-For entry. This is what makes request.ip
+  // trustworthy for rate limiting instead of a client-spoofable header.
+  app.set("trust proxy", config.TRUST_PROXY);
 
   // handle session and connection
   app.use(initSession());
@@ -134,9 +138,11 @@ export default async function start() {
     request: express.Request,
     _response: express.Response
   ): string {
-    if (request.headers["cf-connecting-ip"]) {
-      return request.headers["cf-connecting-ip"] as string;
-    }
+    // Use request.ip, which Express resolves from X-Forwarded-For honouring
+    // the configured "trust proxy" hop count. Do NOT key off the
+    // cf-connecting-ip header directly: when the server isn't actually behind
+    // Cloudflare a client can set that header to an arbitrary value per
+    // request and trivially bypass the rate limiter (CWE-290).
     if (!request.ip && request.socket.remoteAddress) {
       logger.warn("request.ip is missing");
       return request.socket.remoteAddress;

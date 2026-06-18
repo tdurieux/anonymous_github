@@ -1,4 +1,5 @@
 import { resolve } from "path";
+import { randomBytes } from "crypto";
 
 interface Config {
   SESSION_SECRET: string;
@@ -37,7 +38,10 @@ interface Config {
   RATE_LIMIT: number;
 }
 const config: Config = {
-  SESSION_SECRET: "SESSION_SECRET",
+  // Predictable defaults are dangerous: a known SESSION_SECRET lets anyone
+  // forge session cookies. Default to empty and resolve below — random in
+  // dev, required in production. See the post-env block.
+  SESSION_SECRET: "",
   CLIENT_ID: "CLIENT_ID",
   CLIENT_SECRET: "CLIENT_SECRET",
   GITHUB_TOKEN: "",
@@ -95,6 +99,44 @@ for (const conf in process.env) {
       configRecord[conf] = envValue === "true" || envValue === "1";
     } else {
       configRecord[conf] = envValue;
+    }
+  }
+}
+
+// Harden security-sensitive secrets that still hold an unset/predictable
+// value after reading the environment (CWE-798).
+const isProduction = process.env.NODE_ENV === "production";
+
+// SESSION_SECRET: a known value allows session forgery. Require it in
+// production; in development fall back to a per-process random value so the
+// app still boots without shipping a guessable secret.
+if (!config.SESSION_SECRET || config.SESSION_SECRET === "SESSION_SECRET") {
+  if (isProduction) {
+    throw new Error(
+      "SESSION_SECRET must be set to a strong random value in production"
+    );
+  }
+  config.SESSION_SECRET = randomBytes(32).toString("hex");
+  // eslint-disable-next-line no-console
+  console.warn(
+    "SESSION_SECRET not set — generated a random development secret. " +
+      "Sessions will not persist across restarts. Set SESSION_SECRET in production."
+  );
+}
+
+// Refuse to start in production with the placeholder OAuth credentials or the
+// default database password baked into the image.
+if (isProduction) {
+  const insecureDefaults: [string, string][] = [
+    ["CLIENT_ID", "CLIENT_ID"],
+    ["CLIENT_SECRET", "CLIENT_SECRET"],
+    ["DB_PASSWORD", "password"],
+  ];
+  for (const [key, badValue] of insecureDefaults) {
+    if ((config as unknown as Record<string, unknown>)[key] === badValue) {
+      throw new Error(
+        `${key} is using its insecure default value; set it via the environment in production`
+      );
     }
   }
 }

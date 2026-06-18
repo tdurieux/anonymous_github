@@ -105,9 +105,18 @@ function escapeRegex(s: string): string {
   return s.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
 }
 
+// Only plain field paths may be used as a Mongo sort key. Rejecting keys that
+// start with "$" or contain anything other than [A-Za-z0-9_.] prevents an
+// admin-supplied req.query.sort from injecting operator-prefixed keys
+// (e.g. "$where") into the query object (CWE-943).
+function isSafeSortField(field: unknown): field is string {
+  return typeof field === "string" && /^[A-Za-z_][A-Za-z0-9_.]*$/.test(field);
+}
+
 function parseSort(req: express.Request, fallbackField = "_id"): Record<string, 1 | -1> {
   const direction = req.query.direction === "asc" ? 1 : -1;
-  const field = (req.query.sort as string) || fallbackField;
+  const requested = req.query.sort;
+  const field = isSafeSortField(requested) ? requested : fallbackField;
   return { [field]: direction };
 }
 

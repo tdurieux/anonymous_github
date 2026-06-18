@@ -24,6 +24,7 @@ export default class FileSystem extends StorageBase {
 
   /** @override */
   async exists(repoId: string, p: string = ""): Promise<FILE_TYPE> {
+    this.assertSafePath(p);
     const fullPath = join(config.FOLDER, this.repoPath(repoId), p);
     try {
       const stat = await fs.promises.stat(fullPath);
@@ -37,17 +38,20 @@ export default class FileSystem extends StorageBase {
 
   /** @override */
   async send(repoId: string, p: string, res: Response) {
+    this.assertSafePath(p);
     const fullPath = join(config.FOLDER, this.repoPath(repoId), p);
     res.sendFile(fullPath, { dotfiles: "allow" });
   }
 
   /** @override */
   async read(repoId: string, p: string): Promise<Readable> {
+    this.assertSafePath(p);
     const fullPath = join(config.FOLDER, this.repoPath(repoId), p);
     return fs.createReadStream(fullPath);
   }
 
   async fileInfo(repoId: string, path: string) {
+    this.assertSafePath(path);
     const fullPath = join(config.FOLDER, this.repoPath(repoId), path);
     const info = await fs.promises.stat(fullPath);
     return {
@@ -67,6 +71,7 @@ export default class FileSystem extends StorageBase {
     _source?: string,
     expectedSize?: number
   ): Promise<void> {
+    this.assertSafePath(p);
     const fullPath = join(config.FOLDER, this.repoPath(repoId), p);
     // Atomic write: stream into a sibling .tmp and only rename into place
     // when the source stream finishes successfully. If the source errors
@@ -126,6 +131,7 @@ export default class FileSystem extends StorageBase {
 
   /** @override */
   async rm(repoId: string, dir: string = ""): Promise<void> {
+    this.assertSafePath(dir);
     const fullPath = join(config.FOLDER, this.repoPath(repoId), dir);
     await fs.promises.rm(fullPath, {
       force: true,
@@ -135,6 +141,7 @@ export default class FileSystem extends StorageBase {
 
   /** @override */
   async mk(repoId: string, dir: string = ""): Promise<void> {
+    this.assertSafePath(dir);
     const fullPath = join(config.FOLDER, this.repoPath(repoId), dir);
     try {
       await fs.promises.mkdir(fullPath, {
@@ -155,6 +162,7 @@ export default class FileSystem extends StorageBase {
       onEntry?: (file: { path: string; size: number }) => void;
     } = {}
   ): Promise<IFile[]> {
+    this.assertSafePath(dir);
     const fullPath = join(config.FOLDER, this.repoPath(repoId), dir);
     const files = await fs.promises.readdir(fullPath);
     const output2: IFile[] = [];
@@ -197,13 +205,18 @@ export default class FileSystem extends StorageBase {
 
   /** @override */
   async extractZip(repoId: string, p: string, data: Readable): Promise<void> {
+    this.assertSafePath(p);
     const pipe = promisify(pipeline);
     const fullPath = join(config.FOLDER, this.repoPath(repoId), p);
     const extractor = Extract({
       path: fullPath,
       decodeString: (buf) => {
         const name = buf.toString();
-        const newName = name.substr(name.indexOf("/") + 1);
+        // Strip the top-level directory GitHub wraps every entry in, then
+        // drop any "../" / absolute segments so a malicious entry name
+        // cannot escape the extraction root (zip-slip, CWE-24).
+        const stripped = name.substr(name.indexOf("/") + 1);
+        const newName = this.sanitizeZipEntryName(stripped);
         if (newName == "") {
           return "___IGNORE___";
         }
@@ -223,6 +236,7 @@ export default class FileSystem extends StorageBase {
       fileTransformer?: (path: string) => Transform;
     }
   ) {
+    this.assertSafePath(dir);
     const archive = archiver(opt?.format || "zip", {});
     const fullPath = join(config.FOLDER, this.repoPath(repoId), dir);
 

@@ -284,6 +284,29 @@ interface CompiledTermVariant {
   mask: string;
 }
 
+// Detect exponential-backtracking regex shapes — a quantifier applied to a
+// group that itself contains a quantifier or top-level alternation, e.g.
+// (a+)+, (a*)*, (a|aa)+, and the nested form ((a+))+. Anonymization terms come
+// from the repository owner and are applied as live regexes against file
+// content, so a crafted term could otherwise hang the worker (ReDoS,
+// CWE-1333/624). This is a heuristic, not a proof: the lazy [\s\S]*? body
+// matches across nested parentheses so nested quantified groups are caught,
+// and it errs toward over-escaping benign regexes rather than letting a
+// dangerous one through. It is not exhaustive — exotic backtracking shapes may
+// still slip past — so it backstops, rather than replaces, any execution-time
+// bound on the regex.
+function hasCatastrophicBacktracking(src: string): boolean {
+  const quantifiedGroup = /\(([\s\S]*?)\)\s*(?:[*+]|\{\d+(?:,\d*)?\})/g;
+  let match: RegExpExecArray | null;
+  while ((match = quantifiedGroup.exec(src)) !== null) {
+    const inner = match[1];
+    if (/[*+]|\{\d+(?:,\d*)?\}/.test(inner) || inner.includes("|")) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function compileTerms(terms: string[] | undefined): CompiledTermVariant[] {
   if (!terms || terms.length === 0) return [];
   const compiled: CompiledTermVariant[] = [];
@@ -298,9 +321,16 @@ function compileTerms(terms: string[] | undefined): CompiledTermVariant[] {
       parsed.replacement !== null
         ? parsed.replacement
         : config.ANONYMIZATION_MASK + "-" + (i + 1);
+    // Use the term as a regex only when it both compiles AND is free of
+    // catastrophic-backtracking shapes; otherwise escape it to a literal so a
+    // malicious term cannot trigger ReDoS during anonymization.
+    let useAsRegex = true;
     try {
       new RegExp(term, "gi");
     } catch {
+      useAsRegex = false;
+    }
+    if (!useAsRegex || hasCatastrophicBacktracking(term)) {
       term = term.replace(/[-[\]{}()*+?.,\\^$|#]/g, "\\$&");
     }
     for (const variant of termVariants(term)) {

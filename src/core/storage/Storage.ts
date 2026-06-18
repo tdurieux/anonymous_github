@@ -6,6 +6,7 @@ import { Response } from "express";
 import S3Storage from "./S3";
 import FileSystem from "./FileSystem";
 import { IFile } from "../model/files/files.types";
+import AnonymousError from "../AnonymousError";
 
 export type Storage = S3Storage | FileSystem;
 
@@ -123,5 +124,57 @@ export default abstract class StorageBase {
     return (
       join(repoId, "original") + (process.platform === "win32" ? "\\" : "/")
     );
+  }
+
+  /**
+   * Reject any path/dir argument that could escape the per-repo base
+   * directory (filesystem) or key prefix (S3) once joined. The storage
+   * methods take a path component that ultimately derives from the request
+   * URL; `path.join`/key concatenation normalises `../` but does NOT stop it
+   * from climbing above the base. Validating the raw component before it is
+   * joined is the load-bearing defence against path traversal / zip-slip
+   * (CWE-22/23/24) for both backends.
+   *
+   * Throws AnonymousError(400) when the path is absolute or contains a `..`
+   * segment. An empty string (the repo root) is allowed.
+   */
+  protected assertSafePath(p: string | undefined): void {
+    if (p == null || p === "") return;
+    if (typeof p !== "string") {
+      throw new AnonymousError("invalid_path", {
+        httpStatus: 400,
+        object: String(p),
+      });
+    }
+    // Absolute paths (POSIX "/x", Windows "C:\x" / "\x") must not be allowed
+    // to override the base in a join.
+    if (/^([a-zA-Z]:)?[\\/]/.test(p)) {
+      throw new AnonymousError("invalid_path", { httpStatus: 400, object: p });
+    }
+    for (const segment of p.split(/[\\/]/)) {
+      if (segment === "..") {
+        throw new AnonymousError("invalid_path", {
+          httpStatus: 400,
+          object: p,
+        });
+      }
+    }
+  }
+
+  /**
+   * Sanitise a single zip entry name during extraction. The archive
+   * extractors strip the leading top-level directory of each entry; this
+   * additionally drops any `..` / absolute components so a crafted entry like
+   * `repo/../../../etc/crontab` cannot escape the extraction root
+   * (zip-slip, CWE-23/24). Returns "" when nothing safe remains.
+   */
+  protected sanitizeZipEntryName(name: string): string {
+    return name
+      .split(/[\\/]/)
+      .filter(
+        (segment) =>
+          segment !== "" && segment !== "." && segment !== ".."
+      )
+      .join("/");
   }
 }
