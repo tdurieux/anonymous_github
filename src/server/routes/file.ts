@@ -55,9 +55,9 @@ router.get(
     // "../" URL from being treated as a real lookup (CWE-22/25).
     if (
       anonymizedPath
-        .split("/")
+        .split(/[\\/]/)
         .some((segment) => segment === "..") ||
-      anonymizedPath.startsWith("/")
+      /^[\\/]/.test(anonymizedPath)
     ) {
       return handleError(
         new AnonymousError("invalid_path", {

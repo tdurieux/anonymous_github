@@ -284,15 +284,19 @@ interface CompiledTermVariant {
   mask: string;
 }
 
-// Detect the classic exponential-backtracking regex shapes — a quantifier
-// applied to a group that itself contains a quantifier or top-level
-// alternation, e.g. (a+)+, (a*)*, (a|aa)+. Anonymization terms come from the
-// repository owner and are applied as live regexes against file content, so a
-// crafted term could otherwise hang the worker (ReDoS, CWE-1333/624). This is
-// intentionally conservative: it may over-escape some benign regexes, but it
-// never lets a known-catastrophic shape through.
+// Detect exponential-backtracking regex shapes — a quantifier applied to a
+// group that itself contains a quantifier or top-level alternation, e.g.
+// (a+)+, (a*)*, (a|aa)+, and the nested form ((a+))+. Anonymization terms come
+// from the repository owner and are applied as live regexes against file
+// content, so a crafted term could otherwise hang the worker (ReDoS,
+// CWE-1333/624). This is a heuristic, not a proof: the lazy [\s\S]*? body
+// matches across nested parentheses so nested quantified groups are caught,
+// and it errs toward over-escaping benign regexes rather than letting a
+// dangerous one through. It is not exhaustive — exotic backtracking shapes may
+// still slip past — so it backstops, rather than replaces, any execution-time
+// bound on the regex.
 function hasCatastrophicBacktracking(src: string): boolean {
-  const quantifiedGroup = /\(([^()]*)\)\s*(?:[*+]|\{\d+(?:,\d*)?\})/g;
+  const quantifiedGroup = /\(([\s\S]*?)\)\s*(?:[*+]|\{\d+(?:,\d*)?\})/g;
   let match: RegExpExecArray | null;
   while ((match = quantifiedGroup.exec(src)) !== null) {
     const inner = match[1];
