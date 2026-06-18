@@ -4,6 +4,12 @@ build
 repo/
 db_backups
 message.txt
+
+# macOS
+.DS_Store
+
+# Local Claude Code settings
+.claude/
 # Created by https://www.gitignore.io/api/node
 # Edit at https://www.gitignore.io/?templates=node
 
