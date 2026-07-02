@@ -108,7 +108,9 @@
     "cannot_coauthor_self": "You cannot add yourself as a co-author.",
     "storage_write_size_mismatch": "The downloaded file was smaller than expected. The upstream source may have returned an incomplete response — please try again.",
     "storage_read_error": "An error occurred while reading the file from storage — please try again.",
-    "upstream_error": "A temporary error occurred while fetching from GitHub — please try again."
+    "upstream_error": "A temporary error occurred while fetching from GitHub — please try again.",
+    "token_expired": "Your GitHub access token has expired. Please log out and log in again to refresh it.",
+    "job_is_active": "This job is currently running — wait for it to finish or remove it first."
   },
   "WARNINGS": {
     "page_not_enabled_on_repo": "GitHub Pages is not enabled on this repository. Enable it in the repository's Settings → Pages on GitHub, then refresh.",
