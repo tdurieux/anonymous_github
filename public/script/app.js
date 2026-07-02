@@ -1701,6 +1701,9 @@ angular
       $scope.options.expirationDate.setDate(
         $scope.options.expirationDate.getDate() + 90
       );
+      const maxDate = new Date();
+      maxDate.setFullYear(maxDate.getFullYear() + 1);
+      $scope.maxExpirationDate = maxDate.toISOString().split("T")[0];
       $scope.anonymize_readme = "";
       $scope.readme = "";
       $scope.html_readme = "";

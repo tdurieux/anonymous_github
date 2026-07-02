@@ -263,14 +263,13 @@
               <div class="form-group">
                 <label class="paper-field-label" for="expiration">Strategy</label>
                 <select class="form-control" id="expiration" name="expiration" ng-model="options.expirationMode">
-                  <option value="never" selected>Never expire</option>
                   <option value="redirect">Redirect to GitHub when expired</option>
-                  <option value="remove">Remove when expired</option>
+                  <option value="remove" selected>Remove when expired</option>
                 </select>
               </div>
-              <div class="form-group" ng-show="options.expirationMode!='never'">
+              <div class="form-group">
                 <label class="paper-field-label" for="expirationDate">Expiration date</label>
-                <input class="form-control" type="date" name="expirationDate" id="expirationDate" ng-model="options.expirationDate" />
+                <input class="form-control" type="date" name="expirationDate" id="expirationDate" ng-model="options.expirationDate" max="{{maxExpirationDate}}" />
               </div>
             </div>
             <small class="form-text text-muted" ng-show="options.expirationMode=='remove'">After {{options.expirationDate | date}}, the content will be removed.</small>

@@ -153,9 +153,8 @@
           <div class="form-group">
             <label class="paper-field-label" for="expiration">Expiration strategy</label>
             <select class="form-control" id="expiration" name="expiration" ng-model="options.expirationMode">
-              <option value="never" selected>Never expire</option>
               <option value="redirect">Redirect to GitHub</option>
-              <option value="remove">Remove anonymized repository</option>
+              <option value="remove" selected>Remove anonymized repository</option>
             </select>
             <small class="form-text text-muted">Define the expiration strategy for new repositories.</small>
           </div>
