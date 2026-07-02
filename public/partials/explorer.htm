@@ -50,6 +50,14 @@
         <i class="fas fa-exclamation-triangle"></i>
         {{ 'WARNINGS.repo_truncated' | translate }}
       </div>
+      <div
+        ng-if="options.hasSubmodules"
+        class="paper-inline-warning"
+        role="alert"
+      >
+        <i class="fas fa-exclamation-triangle"></i>
+        {{ 'WARNINGS.submodules_not_included' | translate }}
+      </div>
       <tree class="files" file="files" search-query="fileSearchQuery" search-results="fileSearchResults"></tree>
     </div>
     <div class="leftCol-foot">

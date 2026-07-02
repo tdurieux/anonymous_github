@@ -1161,6 +1161,26 @@ angular
           }
         );
       };
+
+      $scope.deleteAccount = () => {
+        if (
+          !confirm(
+            "Delete your account? All your anonymized repositories, gists, and pull requests will be removed, and your personal data will be erased. This cannot be undone."
+          )
+        )
+          return;
+        $scope.deletingAccount = true;
+        $http.delete("/api/user").then(
+          () => {
+            window.location.href = "/";
+          },
+          () => {
+            $scope.deletingAccount = false;
+            $scope.deleteError =
+              "Unable to delete the account. Please try again.";
+          }
+        );
+      };
     },
   ])
   .controller("claimController", [

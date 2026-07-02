@@ -147,6 +147,17 @@ export default class AnonymizedFile {
         this._file = res;
         return res;
       }
+      // The stored tree can be incomplete: GitHub truncates tree listings of
+      // very large repositories, and folders recorded in `truncatedFolders`
+      // have entries that never made it into the database. Ask GitHub
+      // directly for the path before concluding the file does not exist
+      // (#738). Without an anonymization mask the anonymized path is the
+      // original path, so it can be looked up as-is.
+      const recovered = await this.recoverTruncatedFile(fileDir);
+      if (recovered) {
+        this._file = recovered;
+        return recovered;
+      }
       throw new AnonymousError("file_not_found", {
         object: this,
         httpStatus: 404,
@@ -187,6 +198,39 @@ export default class AnonymizedFile {
       object: this,
       httpStatus: 404,
     });
+  }
+
+  // On-demand recovery for files missing from the database because the
+  // GitHub tree listing was truncated. Only paths under a recorded
+  // truncated folder qualify — everything else is a genuine miss.
+  private async recoverTruncatedFile(fileDir: string): Promise<IFile | null> {
+    const truncated = this.repository.model.truncatedFolders || [];
+    const isAffected = truncated.some(
+      (folder) =>
+        folder === "" || fileDir === folder || fileDir.startsWith(folder + "/")
+    );
+    if (!isAffected) return null;
+    const source = this.repository.source as {
+      fetchFileInfoFromPath?: (filePath: string) => Promise<IFile | null>;
+    };
+    if (typeof source.fetchFileInfoFromPath !== "function") return null;
+    const recovered = await source.fetchFileInfoFromPath(this.anonymizedPath);
+    if (!recovered) return null;
+    recovered.repoId = this.repository.repoId;
+    logger.info("recovered file from truncated tree", {
+      repoId: this.repository.repoId,
+      path: this.anonymizedPath,
+    });
+    try {
+      // Cache it so the next request is served from the database.
+      await FileModel.create(recovered);
+    } catch (error) {
+      logger.warn(
+        "failed to cache recovered file",
+        serializeError(error as Error)
+      );
+    }
+    return recovered;
   }
 
   /**

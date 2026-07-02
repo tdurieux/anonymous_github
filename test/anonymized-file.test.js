@@ -219,3 +219,40 @@ describe("AnonymizedFile.isFileSupported()", function () {
       .false;
   });
 });
+
+// ---------------------------------------------------------------------------
+// Replicated logic from AnonymizedFile.recoverTruncatedFile (#738): a file
+// missing from the database is only recovered from GitHub when its directory
+// is under a folder whose tree listing was truncated.
+// ---------------------------------------------------------------------------
+
+function isUnderTruncatedFolder(fileDir, truncatedFolders) {
+  return truncatedFolders.some(
+    (folder) =>
+      folder === "" || fileDir === folder || fileDir.startsWith(folder + "/")
+  );
+}
+
+describe("AnonymizedFile truncated-folder matching (#738)", function () {
+  it("matches files directly inside a truncated folder", function () {
+    expect(isUnderTruncatedFolder("data", ["data"])).to.be.true;
+  });
+
+  it("matches files nested under a truncated folder", function () {
+    expect(isUnderTruncatedFolder("data/sub/dir", ["data"])).to.be.true;
+  });
+
+  it("matches everything when the root listing was truncated", function () {
+    expect(isUnderTruncatedFolder("", [""])).to.be.true;
+    expect(isUnderTruncatedFolder("any/dir", [""])).to.be.true;
+  });
+
+  it("does not match sibling folders sharing a prefix", function () {
+    expect(isUnderTruncatedFolder("database", ["data"])).to.be.false;
+    expect(isUnderTruncatedFolder("database/sub", ["data"])).to.be.false;
+  });
+
+  it("does not match when nothing was truncated", function () {
+    expect(isUnderTruncatedFolder("data", [])).to.be.false;
+  });
+});

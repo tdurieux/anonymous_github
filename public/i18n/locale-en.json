@@ -108,12 +108,15 @@
     "cannot_coauthor_self": "You cannot add yourself as a co-author.",
     "storage_write_size_mismatch": "The downloaded file was smaller than expected. The upstream source may have returned an incomplete response — please try again.",
     "storage_read_error": "An error occurred while reading the file from storage — please try again.",
-    "upstream_error": "A temporary error occurred while fetching from GitHub — please try again."
+    "upstream_error": "A temporary error occurred while fetching from GitHub — please try again.",
+    "token_expired": "Your GitHub access token has expired. Please log out and log in again to refresh it.",
+    "job_is_active": "This job is currently running — wait for it to finish or remove it first."
   },
   "WARNINGS": {
     "page_not_enabled_on_repo": "GitHub Pages is not enabled on this repository. Enable it in the repository's Settings → Pages on GitHub, then refresh.",
     "page_branch_mismatch": "GitHub Pages on this repository is served from the '{{pageBranch}}' branch, but you selected '{{selectedBranch}}'. Switch the branch above to '{{pageBranch}}' to anonymize the Pages site.",
     "folder_truncated": "This folder has more than 10,000 entries; only a partial listing is shown.",
-    "repo_truncated": "Some folders in this repository have too many files to be fully listed. Affected folders are marked with a warning icon."
+    "repo_truncated": "Some folders in this repository have too many files to be fully listed. Affected folders are marked with a warning icon.",
+    "submodules_not_included": "This repository uses git submodules. Submodule contents are not included in the anonymized repository and appear as empty folders."
   }
 }

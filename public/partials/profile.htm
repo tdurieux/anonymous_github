@@ -12,6 +12,7 @@
         <a href="#settings-rendering">Rendering</a>
         <a href="#settings-features">Features</a>
         <a href="#settings-expiration">Expiration</a>
+        <a href="#settings-account">Account</a>
       </nav>
     </aside>
 
@@ -168,6 +169,20 @@
           </button>
         </div>
       </form>
+
+      <section id="settings-account" class="paper-settings-section">
+        <div class="paper-section-eyebrow">Account</div>
+        <p class="form-text text-muted">
+          Deleting your account removes all your anonymized repositories,
+          gists, and pull requests, revokes the application's access to your
+          GitHub account, and erases your personal data (username, email,
+          access tokens) from our database. This cannot be undone.
+        </p>
+        <div class="alert alert-danger" role="alert" ng-if="deleteError" ng-bind="deleteError"></div>
+        <button type="button" class="btn btn-danger" ng-click="deleteAccount()" ng-disabled="deletingAccount">
+          {{ deletingAccount ? 'Deleting…' : 'Delete my account' }}
+        </button>
+      </section>
     </div>
   </div>
 </div>
