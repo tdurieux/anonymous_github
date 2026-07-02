@@ -51,7 +51,10 @@ const AnonymizedGistSchema = new Schema({
         content: String,
         language: String,
         size: Number,
-        type: String,
+        // `type` is a reserved key in Mongoose type declarations; without the
+        // nested `{ type: String }` the whole object is compiled as an array
+        // of strings and file objects are silently dropped on save.
+        type: { type: String },
       },
     ],
     comments: [

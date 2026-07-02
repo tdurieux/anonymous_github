@@ -114,9 +114,6 @@ export default class Gist {
       comments: commentsMapped,
     };
     this._gistPayload = payload;
-    // `gist` is a nested path (not a sub-schema), so assigning the whole
-    // object via set("gist", payload) mis-casts the inner subdoc arrays.
-    // Set each sub-path individually so Mongoose casts arrays correctly.
     this._model.set("gist.description", payload.description);
     this._model.set("gist.isPublic", payload.isPublic);
     this._model.set("gist.creationDate", payload.creationDate);
