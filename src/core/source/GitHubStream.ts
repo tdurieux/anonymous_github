@@ -376,6 +376,44 @@ export default class GitHubStream extends GitHubBase {
     return this.getTruncatedTree(this.data.commit, progress);
   }
 
+  /**
+   * Fetch a single file's blob metadata directly from GitHub. Used as a
+   * fallback when the stored tree is incomplete because GitHub truncated
+   * the tree listing of a very large repository (#738). The `object` media
+   * type returns sha/size without the content payload, so it also works for
+   * files above the 1MB contents-API inline limit.
+   */
+  async fetchFileInfoFromPath(filePath: string): Promise<IFile | null> {
+    const token = await this.data.getToken();
+    const oct = octokit(token);
+    try {
+      await waitForTokenGate(token);
+      const res = await oct.repos.getContent({
+        owner: this.data.organization,
+        repo: this.data.repoName,
+        path: filePath,
+        ref: this.data.commit,
+        mediaType: { format: "object" },
+      });
+      const data = res.data as { type?: string; sha?: string; size?: number };
+      if (data.type !== "file" || !data.sha) return null;
+      const parent = dirname(filePath);
+      return {
+        name: basename(filePath),
+        path: parent === "." ? "" : parent,
+        repoId: this.data.repoId,
+        sha: data.sha,
+        size: data.size,
+      };
+    } catch (error) {
+      logger.debug("fetchFileInfoFromPath miss", {
+        filePath,
+        error: serializeError(error),
+      });
+      return null;
+    }
+  }
+
   private async getGHTree(
     oct: ReturnType<typeof octokit>,
     token: string,
