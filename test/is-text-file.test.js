@@ -28,6 +28,19 @@ describe("isTextFile", function () {
     expect(isTextFile("foo.zip")).to.equal(false);
   });
 
+  // #735 — mime-types maps .bat to application/x-msdownload (same MIME as
+  // .exe/.dll), which classified batch scripts as binary and skipped
+  // anonymization entirely.
+  it("recognizes Windows batch scripts as text", function () {
+    expect(isTextFile("script.bat")).to.equal(true);
+    expect(isTextFile("SCRIPT.BAT")).to.equal(true);
+    expect(isTextFile("script.cmd")).to.equal(true);
+    expect(isTextFile("path/to/build.bat")).to.equal(true);
+    // .exe/.dll share the same MIME type but must stay binary
+    expect(isTextFile("app.exe")).to.equal(false);
+    expect(isTextFile("lib.dll")).to.equal(false);
+  });
+
   it("recognizes jsonl-family dataset extensions", function () {
     expect(isTextFile("data.jsonl")).to.equal(true);
     expect(isTextFile("data.ndjson")).to.equal(true);

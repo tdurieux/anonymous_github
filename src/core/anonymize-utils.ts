@@ -101,6 +101,10 @@ function classifyByName(filePath: string): boolean | null {
   const extension = name.split(".").reverse()[0].toLowerCase();
   if (config.additionalExtensions.includes(extension)) return true;
   if (KNOWN_TEXT_FILENAMES.has(name.toLowerCase())) return true;
+  // mime-types maps `.bat` to application/x-msdownload, the same MIME as
+  // .exe/.dll, so the MIME allowlist can't distinguish them. Batch scripts
+  // are text and must be anonymized (#735).
+  if (extension === "bat" || extension === "cmd") return true;
   const mime = lookupMime(name);
   if (mime === false) return null;
   // mime-types treats `.ts` as video/mp2t; route.ts already special-cases it.
