@@ -1,4 +1,5 @@
 import * as express from "express";
+import got from "got";
 import config from "../../config";
 import { ensureAuthenticated } from "./connection";
 import { handleError, getUser, isOwnerOrAdmin } from "./route-utils";
@@ -142,6 +143,77 @@ router.post("/default", async (req: express.Request, res: express.Response) => {
       { $set: { default: d } }
     ).exec();
     res.send("ok");
+  } catch (error) {
+    handleError(error, res, req);
+  }
+});
+
+// Delete the account: remove all anonymized content owned by the user,
+// best-effort revoke the GitHub OAuth grant, and scrub personal data from
+// the user record (#741). The record itself is kept (with a placeholder
+// username) so removed repoIds stay reserved and owner references remain
+// resolvable.
+router.delete("/", async (req: express.Request, res: express.Response) => {
+  try {
+    const user = await getUser(req);
+
+    const repositories = (await user.getRepositories()).filter(
+      (r) => r.owner.id === user.model.id && r.status !== "removed"
+    );
+    for (const repo of repositories) {
+      await repo.remove();
+    }
+    for (const pullRequest of await user.getPullRequests()) {
+      if (pullRequest.status !== "removed") await pullRequest.remove();
+    }
+    for (const gist of await user.getGists()) {
+      if (gist.status !== "removed") await gist.remove();
+    }
+
+    // Revoke the OAuth grant so the application no longer appears in the
+    // user's GitHub authorized applications. Best-effort: the account is
+    // scrubbed even if GitHub rejects the revocation.
+    try {
+      await got.delete(
+        `https://api.github.com/applications/${config.CLIENT_ID}/grant`,
+        {
+          username: config.CLIENT_ID,
+          password: config.CLIENT_SECRET,
+          headers: { accept: "application/vnd.github+json" },
+          json: { access_token: user.accessToken },
+        }
+      );
+    } catch (error) {
+      logger.warn("oauth grant revocation failed", serializeError(error));
+    }
+
+    await UserModel.updateOne(
+      { _id: user.model._id },
+      {
+        $set: {
+          status: "removed",
+          username: `deleted-${user.model._id}`,
+          emails: [],
+          apiTokens: [],
+          repositories: [],
+        },
+        $unset: {
+          accessTokens: "",
+          accessTokenDates: "",
+          externalIDs: "",
+          photo: "",
+          default: "",
+        },
+      }
+    ).exec();
+
+    logger.info("account removed", { userId: user.model.id });
+    req.logout((error) => {
+      if (error) {
+        logger.error("logout after account removal failed", serializeError(error));
+      }
+      res.json({ status: "ok" });
+    });
   } catch (error) {
     handleError(error, res, req);
   }
