@@ -1,0 +1,30 @@
+name: Issue Report
+description: Report a problem with Anonymous GitHub
+body:
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope of the issue
+      description: >-
+        Anonymous GitHub is a service to anonymize repositories for double-blind
+        reviews. Issues about the anonymized paper itself or the content of an
+        anonymized repository should be addressed to the authors of the paper,
+        not here.
+      options:
+        - label: This issue is about Anonymous GitHub and not the paper or the content of the repository.
+          required: true
+  - type: input
+    id: repo-id
+    attributes:
+      label: Anonymous repository ID
+      description: The ID of the anonymous repository (e.g. the XXXX in https://anonymous.4open.science/r/XXXX).
+      placeholder: e.g. 1234
+    validations:
+      required: false
+  - type: textarea
+    id: description
+    attributes:
+      label: Description of the issue
+      description: A clear and concise description of the issue, including steps to reproduce it if applicable.
+    validations:
+      required: true
