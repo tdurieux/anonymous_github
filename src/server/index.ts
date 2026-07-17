@@ -29,6 +29,7 @@ import {
 import DailyStatsModel from "../core/model/dailyStats/dailyStats.model";
 import { getUser } from "./routes/route-utils";
 import config from "../config";
+import { resolveTrustProxy, isCloudflareIP } from "./trustProxy";
 import { createLogger, serializeError } from "../core/logger";
 
 const logger = createLogger("server");
@@ -109,10 +110,14 @@ export default async function start() {
     })
   );
   app.set("etag", "strong");
-  // Trust exactly TRUST_PROXY proxy hops so Express derives request.ip from
-  // the right X-Forwarded-For entry. This is what makes request.ip
-  // trustworthy for rate limiting instead of a client-spoofable header.
-  app.set("trust proxy", config.TRUST_PROXY);
+  // Trust the proxies declared in TRUST_PROXY (subnet list or legacy hop
+  // count) so Express derives request.ip from the right X-Forwarded-For
+  // entry. With the subnet form, Express skips every trusted address no
+  // matter how many entries the proxies add, so request.ip stays the real
+  // visitor even when Cloudflare changes how it builds the header. This is
+  // what makes request.ip trustworthy for rate limiting instead of a
+  // client-spoofable header.
+  app.set("trust proxy", resolveTrustProxy(config.TRUST_PROXY));
 
   // handle session and connection
   app.use(initSession());
@@ -139,16 +144,30 @@ export default async function start() {
     _response: express.Response
   ): string {
     // Use request.ip, which Express resolves from X-Forwarded-For honouring
-    // the configured "trust proxy" hop count. Do NOT key off the
-    // cf-connecting-ip header directly: when the server isn't actually behind
-    // Cloudflare a client can set that header to an arbitrary value per
-    // request and trivially bypass the rate limiter (CWE-290).
-    if (!request.ip && request.socket.remoteAddress) {
+    // the configured "trust proxy" setting. Do NOT key off the
+    // cf-connecting-ip header unconditionally: when the server isn't actually
+    // behind Cloudflare a client can set that header to an arbitrary value
+    // per request and trivially bypass the rate limiter (CWE-290).
+    let ip = request.ip;
+    if (!ip && request.socket.remoteAddress) {
       logger.warn("request.ip is missing");
-      return request.socket.remoteAddress;
+      ip = request.socket.remoteAddress;
+    }
+    // If resolution stopped at a Cloudflare edge address (X-Forwarded-For no
+    // longer contains the visitor, e.g. after a Cloudflare-side change), fall
+    // back to cf-connecting-ip. This is safe: request.ip can only be a
+    // Cloudflare address when every hop up to it is trusted, i.e. the request
+    // genuinely traversed Cloudflare. A direct client forging the header is
+    // keyed by its own untrusted address instead, so the CWE-290 bypass above
+    // does not apply.
+    if (ip && isCloudflareIP(ip)) {
+      const cfConnectingIP = request.headers["cf-connecting-ip"];
+      if (typeof cfConnectingIP === "string" && cfConnectingIP) {
+        ip = cfConnectingIP.trim();
+      }
     }
     // remove port number from IPv4 addresses
-    return (request.ip || "").replace(/:\d+[^:]*$/, "");
+    return (ip || "").replace(/:\d+[^:]*$/, "");
   }
 
   const rate = rateLimit({

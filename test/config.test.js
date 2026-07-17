@@ -38,7 +38,7 @@ describe("Config environment variable parsing", function () {
     MAX_REPO_SIZE: 60000,
     ENABLE_DOWNLOAD: true,
     RATE_LIMIT: 350,
-    TRUST_PROXY: 1,
+    TRUST_PROXY: "loopback,uniquelocal,cloudflare",
     SESSION_SECRET: "SESSION_SECRET",
     CLIENT_ID: "CLIENT_ID",
     APP_HOSTNAME: "anonymous.4open.science",
@@ -80,14 +80,14 @@ describe("Config environment variable parsing", function () {
     });
 
     it("handles zero correctly", function () {
-      const config = parseConfigFromEnv(defaults, { TRUST_PROXY: "0" });
-      expect(config.TRUST_PROXY).to.equal(0);
-      expect(config.TRUST_PROXY).to.be.a("number");
+      const config = parseConfigFromEnv(defaults, { RATE_LIMIT: "0" });
+      expect(config.RATE_LIMIT).to.equal(0);
+      expect(config.RATE_LIMIT).to.be.a("number");
     });
 
     it("handles negative numbers", function () {
-      const config = parseConfigFromEnv(defaults, { TRUST_PROXY: "-1" });
-      expect(config.TRUST_PROXY).to.equal(-1);
+      const config = parseConfigFromEnv(defaults, { RATE_LIMIT: "-1" });
+      expect(config.RATE_LIMIT).to.equal(-1);
     });
 
     it("correctly compares parsed numbers (no string comparison bug)", function () {
@@ -162,6 +162,13 @@ describe("Config environment variable parsing", function () {
     it("overwrites STORAGE", function () {
       const config = parseConfigFromEnv(defaults, { STORAGE: "s3" });
       expect(config.STORAGE).to.equal("s3");
+    });
+
+    it("keeps TRUST_PROXY as a string (legacy hop counts included)", function () {
+      // resolveTrustProxy() interprets the string later; a numeric env value
+      // like "2" must survive as-is.
+      const config = parseConfigFromEnv(defaults, { TRUST_PROXY: "2" });
+      expect(config.TRUST_PROXY).to.equal("2");
     });
   });
 
