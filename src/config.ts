@@ -34,7 +34,15 @@ interface Config {
   S3_ENDPOINT: string | null;
   S3_REGION: string | null;
   STORAGE: "filesystem" | "s3";
-  TRUST_PROXY: number;
+  /**
+   * Value for Express "trust proxy": either a fixed hop count ("1", "2")
+   * or a comma-separated list of trusted subnets — named subnets
+   * ("loopback", "linklocal", "uniquelocal"), IPs/CIDRs, and the keyword
+   * "cloudflare" (expands to Cloudflare's published ranges). The subnet
+   * form keeps request.ip pointing at the real visitor even when the
+   * proxy chain gains or loses hops. See src/server/trustProxy.ts.
+   */
+  TRUST_PROXY: string;
   RATE_LIMIT: number;
 }
 const config: Config = {
@@ -55,7 +63,11 @@ const config: Config = {
   AUTH_CALLBACK: "http://localhost:5000/github/auth",
   ANONYMIZATION_MASK: "XXXX",
   PORT: 5000,
-  TRUST_PROXY: 1,
+  // Trust the local reverse proxy (docker network / host nginx) and
+  // Cloudflare's edges by subnet rather than by hop count, so client-IP
+  // resolution survives Cloudflare adding or removing X-Forwarded-For
+  // entries. Set a plain number to restore the legacy hop-count behavior.
+  TRUST_PROXY: "loopback,uniquelocal,cloudflare",
   RATE_LIMIT: 350,
   APP_HOSTNAME: "anonymous.4open.science",
   DB_USERNAME: "admin",
