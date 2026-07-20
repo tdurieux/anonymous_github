@@ -6,6 +6,7 @@ import {
   getUser,
   handleError,
   isOwnerOrAdmin,
+  extendExpirationDate,
 } from "./route-utils";
 import AnonymousError from "../../core/AnonymousError";
 import { IAnonymizedPullRequestDocument } from "../../core/model/anonymizedPullRequests/anonymizedPullRequests.types";
@@ -30,6 +31,47 @@ router.post(
       isOwnerOrAdmin([pullRequest.owner.id], user);
       await pullRequest.updateIfNeeded({ force: true });
       res.json({ status: pullRequest.status });
+    } catch (error) {
+      handleError(error, res, req);
+    }
+  }
+);
+
+// extend the expiration of a pullRequest (default +6 months) and bring it back
+// online if it had expired
+router.post(
+  "/:pullRequestId/extend",
+  async (req: express.Request, res: express.Response) => {
+    try {
+      const pullRequest = await getPullRequest(req, res, { nocheck: true });
+      if (!pullRequest) return;
+
+      if (
+        pullRequest.status == RepositoryStatus.PREPARING ||
+        pullRequest.status == RepositoryStatus.REMOVING ||
+        pullRequest.status == RepositoryStatus.EXPIRING ||
+        pullRequest.status == RepositoryStatus.REMOVED
+      ) {
+        throw new AnonymousError("invalid_status", {
+          object: pullRequest,
+          httpStatus: 409,
+        });
+      }
+
+      const user = await getUser(req);
+      isOwnerOrAdmin([pullRequest.owner.id], user);
+
+      const newExpiration = extendExpirationDate(
+        pullRequest.model.options.expirationDate
+      );
+      pullRequest.model.options.expirationDate = newExpiration;
+      await AnonymizedPullRequestModel.updateOne(
+        { _id: pullRequest.model._id },
+        { $set: { "options.expirationDate": newExpiration } }
+      ).exec();
+
+      await pullRequest.updateIfNeeded({ force: true });
+      res.json({ status: pullRequest.status, expirationDate: newExpiration });
     } catch (error) {
       handleError(error, res, req);
     }

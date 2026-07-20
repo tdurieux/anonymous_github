@@ -8,6 +8,7 @@ import {
   handleError,
   isOwnerOrAdmin,
   isOwnerCoauthorOrAdmin,
+  extendExpirationDate,
 } from "./route-utils";
 import { getRepositoryFromGitHub } from "../../core/source/GitHubRepository";
 import gh = require("parse-github-url");
@@ -156,6 +157,49 @@ router.post(
       isOwnerCoauthorOrAdmin(repo, user);
       await repo.updateIfNeeded({ force: true });
       res.json({ status: repo.status });
+    } catch (error) {
+      handleError(error, res, req);
+    }
+  }
+);
+
+// extend the expiration of a repository (default +6 months) and bring it back
+// online if it had expired
+router.post(
+  "/:repoId/extend",
+  async (req: express.Request, res: express.Response) => {
+    try {
+      const repo = await getRepo(req, res, { nocheck: true });
+      if (!repo) return;
+
+      if (
+        repo.status == RepositoryStatus.PREPARING ||
+        repo.status == RepositoryStatus.REMOVING ||
+        repo.status == RepositoryStatus.EXPIRING ||
+        repo.status == RepositoryStatus.REMOVED
+      ) {
+        throw new AnonymousError("invalid_status", {
+          object: repo,
+          httpStatus: 409,
+        });
+      }
+
+      const user = await getUser(req);
+      isOwnerCoauthorOrAdmin(repo, user);
+
+      const newExpiration = extendExpirationDate(
+        repo.model.options.expirationDate
+      );
+      repo.model.options.expirationDate = newExpiration;
+      await AnonymizedRepositoryModel.updateOne(
+        { _id: repo.model._id },
+        { $set: { "options.expirationDate": newExpiration } }
+      ).exec();
+
+      // Re-anonymize so an expired repository comes back online, mirroring the
+      // refresh flow.
+      await repo.updateIfNeeded({ force: true });
+      res.json({ status: repo.status, expirationDate: newExpiration });
     } catch (error) {
       handleError(error, res, req);
     }

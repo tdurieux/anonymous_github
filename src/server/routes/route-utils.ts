@@ -114,6 +114,20 @@ export function isOwnerCoauthorOrAdmin(repo: Repository, user: User) {
   });
 }
 
+// Compute a new expiration date `months` ahead. Anchors on the current
+// expiration date when it is still in the future, otherwise on now, so an
+// already-expired item is pushed forward from today rather than from a stale
+// past date.
+export function extendExpirationDate(
+  current: Date | null | undefined,
+  months = 6
+): Date {
+  const now = new Date();
+  const base = current && new Date(current) > now ? new Date(current) : now;
+  base.setMonth(base.getMonth() + months);
+  return base;
+}
+
 // Pull the first project-relevant frame ("file:line:col") out of a stack so
 // background-job errors (no req.originalUrl) still get a debug pointer in the
 // `url` slot. Skips node internals and node_modules.
