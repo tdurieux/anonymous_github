@@ -15,6 +15,7 @@
     "repo_empty": "The selected branch has no commits on GitHub. Push at least one commit, or pick a different branch, then retry.",
     "repo_not_accessible": "Anonymous GitHub cannot access this repository. Verify the repository exists and that Anonymous GitHub has been authorized for the owning organization.",
     "repository_expired": "The repository is expired.",
+    "invalid_status": "This action cannot be performed while the resource is in its current state.",
     "repository_not_ready": "Anonymous GitHub is still processing the repository, it can take several minutes.",
     "repository_not_accessible": "This repository is currently not accessible.",
     "repo_is_updating": "Anonymous GitHub is still processing the repository, it can take several minutes.",
