@@ -1,7 +1,13 @@
 import * as express from "express";
 import { ensureAuthenticated } from "./connection";
 
-import { getGist, getUser, handleError, isOwnerOrAdmin } from "./route-utils";
+import {
+  getGist,
+  getUser,
+  handleError,
+  isOwnerOrAdmin,
+  extendExpirationDate,
+} from "./route-utils";
 import AnonymousError from "../../core/AnonymousError";
 import { IAnonymizedGistDocument } from "../../core/model/anonymizedGists/anonymizedGists.types";
 import Gist from "../../core/Gist";
@@ -25,6 +31,45 @@ router.post(
       isOwnerOrAdmin([gist.owner.id], user);
       await gist.updateIfNeeded({ force: true });
       res.json({ status: gist.status });
+    } catch (error) {
+      handleError(error, res, req);
+    }
+  }
+);
+
+// extend the expiration of a gist (default +6 months) and bring it back online
+// if it had expired
+router.post(
+  "/:gistId/extend",
+  async (req: express.Request, res: express.Response) => {
+    try {
+      const gist = await getGist(req, res, { nocheck: true });
+      if (!gist) return;
+
+      if (
+        gist.status == RepositoryStatus.PREPARING ||
+        gist.status == RepositoryStatus.REMOVING ||
+        gist.status == RepositoryStatus.EXPIRING ||
+        gist.status == RepositoryStatus.REMOVED
+      ) {
+        throw new AnonymousError("invalid_status", {
+          object: gist,
+          httpStatus: 409,
+        });
+      }
+
+      const user = await getUser(req);
+      isOwnerOrAdmin([gist.owner.id], user);
+
+      const newExpiration = extendExpirationDate(gist.model.options.expirationDate);
+      gist.model.options.expirationDate = newExpiration;
+      await AnonymizedGistModel.updateOne(
+        { _id: gist.model._id },
+        { $set: { "options.expirationDate": newExpiration } }
+      ).exec();
+
+      await gist.updateIfNeeded({ force: true });
+      res.json({ status: gist.status, expirationDate: newExpiration });
     } catch (error) {
       handleError(error, res, req);
     }

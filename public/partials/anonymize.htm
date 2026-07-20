@@ -269,11 +269,14 @@
               </div>
               <div class="form-group">
                 <label class="paper-field-label" for="expirationDate">Expiration date</label>
-                <input class="form-control" type="date" name="expirationDate" id="expirationDate" ng-model="options.expirationDate" max="{{maxExpirationDate}}" />
+                <input class="form-control" type="date" name="expirationDate" id="expirationDate" ng-model="options.expirationDate" ng-class="{'is-invalid': anonymize.expirationDate.$invalid}" min="{{minExpirationDate}}" max="{{maxExpirationDate}}" required />
+                <div class="invalid-feedback" ng-show="anonymize.expirationDate.$error.min">Pick a date in the future.</div>
+                <div class="invalid-feedback" ng-show="anonymize.expirationDate.$error.max">Pick a date on or before {{maxExpirationDate | date}}.</div>
+                <div class="invalid-feedback" ng-show="anonymize.expirationDate.$error.required || anonymize.expirationDate.$error.date">Enter a valid expiration date.</div>
               </div>
             </div>
-            <small class="form-text text-muted" ng-show="options.expirationMode=='remove'">After {{options.expirationDate | date}}, the content will be removed.</small>
-            <small class="form-text text-muted" ng-show="options.expirationMode=='redirect'">After {{options.expirationDate | date}}, visitors will be redirected to GitHub.</small>
+            <small class="form-text text-muted" ng-show="options.expirationMode=='remove' && options.expirationDate">After {{options.expirationDate | date}}, the content will be removed.</small>
+            <small class="form-text text-muted" ng-show="options.expirationMode=='redirect' && options.expirationDate">After {{options.expirationDate | date}}, visitors will be redirected to GitHub.</small>
           </section>
 
           <section class="paper-settings-section" ng-show="isUpdate && detectedType === 'repo'">

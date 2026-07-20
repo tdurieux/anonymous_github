@@ -4289,7 +4289,12 @@ textarea::selection {
 .paper-table .paper-table-row:hover {
   background: var(--hover-bg-color);
 }
-.paper-table .paper-table-row.repo-inactive { opacity: 0.55; }
+/* Dim inactive rows through their cells rather than the row itself. Applying
+   opacity to the row creates a stacking context that traps the actions
+   dropdown menu (z-index) beneath the rows rendered after it, making its
+   items unclickable. Leave the actions column at full opacity so it stays
+   interactive. */
+.paper-table .paper-table-row.repo-inactive > *:not(.cell-actions) { opacity: 0.55; }
 .paper-table .paper-table-row.repo-error {
   background: rgba(180, 35, 24, 0.04);
   border-left: 2px solid #B42318;

@@ -1546,6 +1546,37 @@ angular
         );
       };
 
+      $scope.extendItem = (item) => {
+        const label = labelOf(item._type);
+        const toast = {
+          title: `Extending ${item._id}...`,
+          date: new Date(),
+          body: `The expiration of ${label} ${item._id} is going to be extended by 6 months.`,
+        };
+        $scope.addToast(toast);
+        const endpoint = `${apiBaseOf(item._type)}/${item._id}/extend`;
+        $http.post(endpoint).then(
+          () => {
+            if (item._type === "repo") {
+              waitRepoToBeReady(item._id, () => {
+                toast.title = `${item._id} is extended.`;
+                toast.body = `The expiration of ${label} ${item._id} is extended by 6 months.`;
+                $scope.$apply();
+              });
+            } else {
+              toast.title = `${item._id} is extended.`;
+              toast.body = `The expiration of ${label} ${item._id} is extended by 6 months.`;
+              loadAll();
+            }
+          },
+          (error) => {
+            toast.title = `Error during the extension of ${item._id}.`;
+            toast.body = (error.data && error.data.error) || error.body;
+            loadAll();
+          }
+        );
+      };
+
       $scope.itemFilter = (item) => {
         if ($scope.typeFilter !== "all" && item._type !== $scope.typeFilter) return false;
         if ($scope.filters.status[item.status] == false) return false;
@@ -1698,12 +1729,29 @@ angular
         username: true,
         date: true,
       };
-      $scope.options.expirationDate.setDate(
-        $scope.options.expirationDate.getDate() + 90
-      );
+      // Default expiration: 6 months from today.
+      function defaultExpirationDate() {
+        const d = new Date();
+        d.setMonth(d.getMonth() + 6);
+        return d;
+      }
+      $scope.options.expirationDate = defaultExpirationDate();
+      // Format a Date to a "yyyy-MM-dd" string using local date parts. Using
+      // toISOString() here would convert to UTC and can shift the bound by a
+      // day for users in negative-offset timezones, which the native date
+      // picker (local calendar) would then render off by one.
+      function toLocalDateString(d) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        return `${y}-${m}-${day}`;
+      }
+      // Bound the expiration date: no earlier than today, no later than 1 year
+      // out.
+      $scope.minExpirationDate = toLocalDateString(new Date());
       const maxDate = new Date();
       maxDate.setFullYear(maxDate.getFullYear() + 1);
-      $scope.maxExpirationDate = maxDate.toISOString().split("T")[0];
+      $scope.maxExpirationDate = toLocalDateString(maxDate);
       $scope.anonymize_readme = "";
       $scope.readme = "";
       $scope.html_readme = "";
@@ -1716,12 +1764,13 @@ angular
             $scope.defaultTerms = data.terms.join("\n");
           }
           $scope.options = Object.assign({}, $scope.options, data.options);
-          $scope.options.expirationDate = new Date(
-            $scope.options.expirationDate
-          );
-          $scope.options.expirationDate.setDate(
-            $scope.options.expirationDate.getDate() + 90
-          );
+          // Honour a server-provided default date, otherwise fall back to the
+          // 6-month default. (Previously this re-added the offset on top of the
+          // already-defaulted date, doubling it.)
+          $scope.options.expirationDate =
+            data.options && data.options.expirationDate
+              ? new Date(data.options.expirationDate)
+              : defaultExpirationDate();
           if (cb) cb();
         });
       }
@@ -2305,6 +2354,19 @@ angular
         $scope.termsRegexWarning = false;
       }
 
+      // Guards against submitting a missing or out-of-range expiration date.
+      // When the picked date fails min/max validation AngularJS sets the model
+      // to undefined, so we check both the field validity and the model value.
+      function expirationDateInvalid() {
+        const field = $scope.anonymize && $scope.anonymize.expirationDate;
+        if (!$scope.options.expirationDate || (field && field.$invalid)) {
+          if (field && field.$setDirty) field.$setDirty();
+          $scope.error = "Please choose a valid expiration date.";
+          return true;
+        }
+        return false;
+      }
+
       function displayErrorMessage(message) {
         const idField =
           $scope.detectedType === "pr"
@@ -2392,6 +2454,7 @@ angular
 
       // Submit: repo
       $scope.anonymizeRepo = (event) => {
+        if (expirationDateInvalid()) return;
         event.target.disabled = true;
         const o = parseGithubUrl($scope.sourceUrl);
         const payload = {
@@ -2419,6 +2482,7 @@ angular
 
       // Submit: Gist
       $scope.anonymizeGist = (event) => {
+        if (expirationDateInvalid()) return;
         event.target.disabled = true;
         const o = parseGithubUrl($scope.sourceUrl);
         const payload = {
@@ -2443,6 +2507,7 @@ angular
 
       // Submit: PR
       $scope.anonymizePullRequest = (event) => {
+        if (expirationDateInvalid()) return;
         event.target.disabled = true;
         const o = parseGithubUrl($scope.sourceUrl);
         const payload = {
