@@ -19,7 +19,7 @@ const Repository = require("../src/core/Repository").default;
  * model objects without a live DB.
  */
 
-function makeUser({ id, username, isAdmin = false } = {}) {
+function makeUser({ id, username, githubId, isAdmin = false } = {}) {
   const _id = id || new mongoose.Types.ObjectId();
   return new User(
     new UserModel({
@@ -28,6 +28,7 @@ function makeUser({ id, username, isAdmin = false } = {}) {
       username,
       isAdmin,
       accessTokens: { github: "tok" },
+      externalIDs: githubId ? { github: githubId } : {},
     })
   );
 }
@@ -103,6 +104,30 @@ describe("route-utils.isCoauthor", function () {
     const user = makeUser({ username: undefined });
     const repo = makeRepo({ coauthors: [{ username: "alice" }] });
     expect(isCoauthor(repo, user)).to.equal(false);
+  });
+
+  it("uses the immutable GitHub id when a coauthor id is present", function () {
+    const user = makeUser({ username: "renamed", githubId: "123" });
+    const repo = makeRepo({
+      coauthors: [{ username: "old-name", githubId: "123" }],
+    });
+    expect(isCoauthor(repo, user)).to.equal(true);
+  });
+
+  it("does not grant access from a recycled username", function () {
+    const user = makeUser({ username: "alice", githubId: "456" });
+    const repo = makeRepo({
+      coauthors: [{ username: "alice", githubId: "123" }],
+    });
+    expect(isCoauthor(repo, user)).to.equal(false);
+  });
+
+  it("matches by GitHub id even when the user has no username", function () {
+    const user = makeUser({ username: undefined, githubId: "123" });
+    const repo = makeRepo({
+      coauthors: [{ username: "old-name", githubId: "123" }],
+    });
+    expect(isCoauthor(repo, user)).to.equal(true);
   });
 
   it("matches case-sensitively (alice !== Alice)", function () {

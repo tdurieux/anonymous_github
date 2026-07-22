@@ -5,6 +5,8 @@ import { ensureAuthenticated } from "./connection";
 import { handleError, getUser, isOwnerOrAdmin } from "./route-utils";
 import UserModel from "../../core/model/users/users.model";
 import AnonymizedRepositoryModel from "../../core/model/anonymizedRepositories/anonymizedRepositories.model";
+import AnonymizedPullRequestModel from "../../core/model/anonymizedPullRequests/anonymizedPullRequests.model";
+import AnonymizedGistModel from "../../core/model/anonymizedGists/anonymizedGists.model";
 import User from "../../core/User";
 import FileModel from "../../core/model/files/files.model";
 import { isConnected } from "../database";
@@ -169,6 +171,23 @@ router.delete("/", async (req: express.Request, res: express.Response) => {
     for (const gist of await user.getGists()) {
       if (gist.status !== "removed") await gist.remove();
     }
+
+    // Removal keeps anonymized records as tombstones, so explicitly erase the
+    // duplicated OAuth credentials stored on each source record.
+    await Promise.all([
+      AnonymizedRepositoryModel.updateMany(
+        { owner: user.model._id },
+        { $unset: { "source.accessToken": "" } }
+      ).exec(),
+      AnonymizedPullRequestModel.updateMany(
+        { owner: user.model._id },
+        { $unset: { "source.accessToken": "" } }
+      ).exec(),
+      AnonymizedGistModel.updateMany(
+        { owner: user.model._id },
+        { $unset: { "source.accessToken": "" } }
+      ).exec(),
+    ]);
 
     // Revoke the OAuth grant so the application no longer appears in the
     // user's GitHub authorized applications. Best-effort: the account is
