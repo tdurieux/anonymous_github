@@ -144,7 +144,9 @@ export class AnonymizeTransformer extends Transform {
   // byte, isn't silently corrupted by a UTF-8 round-trip through the
   // StringDecoder. See discussion in #493.
   private pendingBytes: Buffer = Buffer.alloc(0);
-  private static readonly OVERLAP = 4096;
+  private static readonly DEFAULT_OVERLAP = 4096;
+  private readonly overlap: number;
+  private readonly bufferWholeStream: boolean;
 
   constructor(
     readonly opt: {
@@ -160,6 +162,26 @@ export class AnonymizeTransformer extends Transform {
     this.nameVerdict = classifyByName(this.opt.filePath);
     if (this.nameVerdict !== null) this.isText = this.nameVerdict;
     this.anonimizer = new ContentAnonimizer(this.opt);
+
+    const termPatterns = (opt.terms || []).map((term) => parseTermSpec(term).term);
+    // Streaming replacement can only safely emit a prefix when every possible
+    // match is shorter than the retained suffix. Regex quantifiers such as
+    // `*`, `+`, and `{m,n}` can exceed any fixed overlap, as can the URL/image
+    // removal patterns. Buffer those uncommon configurations in full (bounded
+    // by MAX_FILE_SIZE) so anonymization fails closed instead of leaking a
+    // match that straddles the streaming boundary.
+    this.bufferWholeStream =
+      opt.link === false ||
+      opt.image === false ||
+      termPatterns.some(termNeedsWholeStream);
+    const longestFixedPattern = Math.max(
+      0,
+      ...termPatterns.map((term) => term.length),
+      (opt.repoName?.length || 0) + (opt.branchName?.length || 0) + 128
+    );
+    this.overlap = this.bufferWholeStream
+      ? Number.POSITIVE_INFINITY
+      : Math.max(AnonymizeTransformer.DEFAULT_OVERLAP, longestFixedPattern + 32);
   }
 
   get wasAnonimized() {
@@ -174,7 +196,7 @@ export class AnonymizeTransformer extends Transform {
     return reencoded.length === candidate.length && reencoded.equals(candidate);
   }
 
-  _transform(chunk: Buffer, encoding: string, callback: () => void) {
+  _transform(chunk: Buffer, encoding: string, callback: (error?: Error) => void) {
     if (this.nameVerdict === null) {
       // Name didn't decide. isbinaryfile inspects the first 512 bytes for
       // null bytes and non-printable ratio and returns a decisive boolean.
@@ -196,8 +218,19 @@ export class AnonymizeTransformer extends Transform {
     this.pending += this.decoder.write(chunk);
     this.pendingBytes = Buffer.concat([this.pendingBytes, chunk]);
 
-    if (this.pending.length > AnonymizeTransformer.OVERLAP) {
-      let split = this.pending.length - AnonymizeTransformer.OVERLAP;
+    if (
+      this.bufferWholeStream &&
+      this.pendingBytes.length > config.MAX_FILE_SIZE
+    ) {
+      return callback(
+        new Error(
+          `Text file exceeded ${config.MAX_FILE_SIZE} bytes while buffering an unbounded anonymization pattern`
+        )
+      );
+    }
+
+    if (this.pending.length > this.overlap) {
+      let split = this.pending.length - this.overlap;
       // Avoid splitting a UTF-16 surrogate pair.
       const code = this.pending.charCodeAt(split);
       if (code >= 0xdc00 && code <= 0xdfff) {
@@ -311,6 +344,45 @@ function hasCatastrophicBacktracking(src: string): boolean {
   return false;
 }
 
+function termNeedsWholeStream(term: string): boolean {
+  try {
+    new RegExp(term, "i");
+  } catch {
+    // Invalid regular expressions are escaped and treated literally.
+    return false;
+  }
+  if (hasCatastrophicBacktracking(term)) {
+    // Catastrophic expressions are also escaped and treated literally.
+    return false;
+  }
+
+  let escaped = false;
+  let inCharacterClass = false;
+  for (let i = 0; i < term.length; i++) {
+    const char = term[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char === "\\") {
+      escaped = true;
+      continue;
+    }
+    if (char === "[") {
+      inCharacterClass = true;
+      continue;
+    }
+    if (char === "]") {
+      inCharacterClass = false;
+      continue;
+    }
+    if (!inCharacterClass && (char === "*" || char === "+" || char === "{")) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function compileTerms(terms: string[] | undefined): CompiledTermVariant[] {
   if (!terms || terms.length === 0) return [];
   const compiled: CompiledTermVariant[] = [];
@@ -379,13 +451,16 @@ export class ContentAnonimizer {
   ) {
     this.compiledTerms = compileTerms(opt.terms);
     if (opt.repoName && opt.branchName) {
-      const r = opt.repoName;
-      const b = opt.branchName;
+      const r = escapeRegex(opt.repoName);
+      const b = escapeRegex(opt.branchName);
       this.selfLinkRegexes = [
-        new RegExp(`https://raw.githubusercontent.com/${r}/${b}\\b`, "gi"),
-        new RegExp(`https://github.com/${r}/blob/${b}\\b`, "gi"),
-        new RegExp(`https://github.com/${r}/tree/${b}\\b`, "gi"),
-        new RegExp(`https://github.com/${r}`, "gi"),
+        new RegExp(
+          `https://raw\\.githubusercontent\\.com/${r}/${b}(?=$|[/?#])`,
+          "gi"
+        ),
+        new RegExp(`https://github\\.com/${r}/blob/${b}(?=$|[/?#])`, "gi"),
+        new RegExp(`https://github\\.com/${r}/tree/${b}(?=$|[/?#])`, "gi"),
+        new RegExp(`https://github\\.com/${r}(?=$|[/?#])`, "gi"),
       ];
     }
   }
@@ -454,6 +529,12 @@ export function anonymizePath(path: string, terms: string[]) {
   return anonymizePathCompiled(path, compileTerms(terms));
 }
 
+export function hasCustomTermReplacement(terms: string[] | undefined): boolean {
+  return (terms || []).some(
+    (term) => parseTermSpec(term).replacement !== null
+  );
+}
+
 // Variant that accepts pre-compiled term regexes — call sites that anonymize
 // many paths in a row (tree traversal) should compile once and reuse.
 export function anonymizePathCompiled(
@@ -468,3 +549,7 @@ export function anonymizePathCompiled(
 
 export { compileTerms };
 export type { CompiledTermVariant };
+
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}

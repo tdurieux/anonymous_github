@@ -5,7 +5,11 @@ import * as sha1 from "crypto-js/sha1";
 import User from "./User";
 import GitHubStream from "./source/GitHubStream";
 import Zip from "./source/Zip";
-import { anonymizePathCompiled, compileTerms } from "./anonymize-utils";
+import {
+  anonymizePathCompiled,
+  compileTerms,
+  hasCustomTermReplacement,
+} from "./anonymize-utils";
 import UserModel from "./model/users/users.model";
 import { IAnonymizedRepositoryDocument } from "./model/anonymizedRepositories/anonymizedRepositories.types";
 import { AnonymizeTransformer } from "./anonymize-utils";
@@ -141,6 +145,7 @@ export default class Repository {
       force: false,
     }
   ): Promise<IFile[]> {
+    const terms = this._model.options.terms || [];
     let hasFile = await FileModel.exists({ repoId: this.repoId }).exec();
     // Files created by GitHubDownload don't carry a valid 40-char GitHub
     // blob SHA.  When the source type later switches to GitHubStream the
@@ -183,7 +188,11 @@ export default class Repository {
         ).exec();
       }
     }
-    if (opt.path?.includes(config.ANONYMIZATION_MASK)) {
+    if (
+      opt.path &&
+      (opt.path.includes(config.ANONYMIZATION_MASK) ||
+        hasCustomTermReplacement(terms))
+    ) {
       const f = new AnonymizedFile({
         repository: this,
         anonymizedPath: opt.path,
