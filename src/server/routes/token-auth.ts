@@ -2,6 +2,7 @@ import * as express from "express";
 import * as crypto from "crypto";
 import UserModel from "../../core/model/users/users.model";
 import { createLogger, serializeError } from "../../core/logger";
+import { isDisabledAccount } from "./auth-utils";
 
 const logger = createLogger("token-auth");
 
@@ -29,7 +30,7 @@ export async function bearerTokenAuth(
   try {
     const model = await UserModel.findOne({ "apiTokens.tokenHash": tokenHash });
     if (!model) return next();
-    if (model.status === "banned") return next();
+    if (isDisabledAccount(model.status)) return next();
 
     // Mirror the shape produced by passport's verify() in connection.ts
     // so existing getUser()/route code works unchanged.

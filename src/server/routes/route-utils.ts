@@ -7,6 +7,7 @@ import Repository from "../../core/Repository";
 import { HTTPError } from "got";
 import { RepositoryStatus } from "../../core/types";
 import { createLogger, serializeError } from "../../core/logger";
+import { isDisabledAccount } from "./auth-utils";
 
 const logger = createLogger("route");
 
@@ -101,8 +102,13 @@ export function isOwnerOrAdmin(authorizedUsers: string[], user: User) {
 }
 
 export function isCoauthor(repo: Repository, user: User): boolean {
-  if (!user.username) return false;
-  return (repo.model.coauthors || []).some((c) => c.username === user.username);
+  const githubId = user.model.externalIDs?.github;
+  return (repo.model.coauthors || []).some((coauthor) => {
+    if (coauthor.githubId) {
+      return Boolean(githubId && coauthor.githubId === githubId);
+    }
+    return Boolean(user.username && coauthor.username === user.username);
+  });
 }
 
 export function isOwnerCoauthorOrAdmin(repo: Repository, user: User) {
@@ -270,15 +276,18 @@ export async function getUser(req: express.Request) {
   if (!model) {
     notConnected();
   }
-  if (model.status === "banned") {
+  if (isDisabledAccount(model.status)) {
     req.logout((error) => {
       if (error) {
         logger.error("logout failed", serializeError(error));
       }
     });
-    throw new AnonymousError("user_banned", {
-      httpStatus: 403,
-    });
+    throw new AnonymousError(
+      model.status === "banned" ? "user_banned" : "not_connected",
+      {
+        httpStatus: model.status === "banned" ? 403 : 401,
+      }
+    );
   }
   return new User(model);
 }

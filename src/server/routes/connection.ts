@@ -13,6 +13,7 @@ import AnonymousError from "../../core/AnonymousError";
 import AnonymizedPullRequestModel from "../../core/model/anonymizedPullRequests/anonymizedPullRequests.model";
 import { hashToken } from "./token-auth";
 import { createLogger, serializeError } from "../../core/logger";
+import { getLoginToken, isDisabledAccount } from "./auth-utils";
 
 const logger = createLogger("auth");
 
@@ -38,6 +39,15 @@ const verify = async (
     const now = new Date();
     user = await UserModel.findOne({ "externalIDs.github": profile.id });
     if (user) {
+      if (isDisabledAccount(user.status)) {
+        done(
+          new AnonymousError(
+            user.status === "banned" ? "user_banned" : "not_connected",
+            { httpStatus: user.status === "banned" ? 403 : 401 }
+          )
+        );
+        return;
+      }
       await UserModel.updateOne(
         { _id: user._id },
         {
@@ -59,6 +69,15 @@ const verify = async (
       // the isAdmin flag.
       user = await UserModel.findOne({ username: profile.username });
       if (user) {
+        if (isDisabledAccount(user.status)) {
+          done(
+            new AnonymousError(
+              user.status === "banned" ? "user_banned" : "not_connected",
+              { httpStatus: user.status === "banned" ? 403 : 401 }
+            )
+          );
+          return;
+        }
         await UserModel.updateOne(
           { _id: user._id },
           {
@@ -92,11 +111,14 @@ const verify = async (
         await user.save();
       }
     }
-    if (user!.status === "banned") {
+    if (isDisabledAccount(user!.status)) {
       done(
-        new AnonymousError("user_banned", {
-          httpStatus: 403,
-        })
+        new AnonymousError(
+          user!.status === "banned" ? "user_banned" : "not_connected",
+          {
+            httpStatus: user!.status === "banned" ? 403 : 401,
+          }
+        )
       );
       return;
     }
@@ -181,22 +203,13 @@ router.get(
   }
 );
 
-// Dev-friendly login: accept an admin API token and establish a session
-// cookie so the web UI is reachable without going through GitHub OAuth.
-// Token may come from `Authorization: Bearer …`, `?token=…`, or JSON body.
-router.all(
+// Accept an API token and establish a session cookie so the web UI is
+// reachable without going through GitHub OAuth. Keep credentials out of URLs,
+// which are routinely retained in access logs and browser history.
+router.post(
   "/login-token",
   async function (req: express.Request, res: express.Response) {
-    const fromHeader = (() => {
-      const h = req.headers["authorization"];
-      if (typeof h !== "string") return null;
-      const m = h.match(/^Bearer\s+(.+)$/i);
-      return m ? m[1].trim() : null;
-    })();
-    const token =
-      fromHeader ||
-      (typeof req.query.token === "string" ? req.query.token : null) ||
-      (req.body && typeof req.body.token === "string" ? req.body.token : null);
+    const token = getLoginToken(req);
     if (!token) {
       return res.status(400).json({ error: "missing_token" });
     }
@@ -205,7 +218,11 @@ router.all(
         "apiTokens.tokenHash": hashToken(token),
       });
       if (!model) return res.status(401).json({ error: "invalid_token" });
-      if (model.status === "banned") return res.status(403).json({ error: "user_banned" });
+      if (isDisabledAccount(model.status)) {
+        return res.status(model.status === "banned" ? 403 : 401).json({
+          error: model.status === "banned" ? "user_banned" : "not_connected",
+        });
+      }
       const synthUser = {
         username: model.username,
         accessToken: model.accessTokens?.github,
@@ -221,7 +238,6 @@ router.all(
           { _id: model._id, "apiTokens.tokenHash": hashToken(token) },
           { $set: { "apiTokens.$.lastUsedAt": new Date() } }
         ).catch(() => undefined);
-        if (req.method === "GET") return res.redirect("/");
         return res.json({ ok: true, username: model.username });
       });
     } catch (err) {
