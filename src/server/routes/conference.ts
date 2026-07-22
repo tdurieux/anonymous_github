@@ -145,6 +145,21 @@ function validateConferenceForm(conf: any) {
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function applyConferenceForm(
+  model: IConferenceDocument,
+  body: any,
+  isNew: boolean
+) {
+  model.name = body.name;
+  model.startDate = new Date(body.startDate);
+  model.endDate = new Date(body.endDate);
+  model.status = "ready";
+  model.url = body.url;
+  model.options = body.options;
+  if (isNew) model.repositories = [];
+}
+
 router.post(
   "/:conferenceID?",
   async (req: express.Request, res: express.Response) => {
@@ -164,13 +179,7 @@ router.post(
         isOwnerOrAdmin(model.owners, user);
       }
       validateConferenceForm(req.body);
-      model.name = req.body.name;
-      model.startDate = new Date(req.body.startDate);
-      model.endDate = new Date(req.body.endDate);
-      model.status = "ready";
-      model.url = req.body.url;
-      model.repositories = [];
-      model.options = req.body.options;
+      applyConferenceForm(model, req.body, !req.params.conferenceID);
 
       if (!req.params.conferenceID) {
         model.owners.push(user.model.id);

@@ -2,18 +2,21 @@ import { SandboxedJob } from "bullmq";
 import { getRepository as getRepositoryImport } from "../../server/database";
 import { RepositoryStatus } from "../../core/types";
 import { RepoJobData } from "../index";
-import { createLogger } from "../../core/logger";
+import { createLogger, serializeError } from "../../core/logger";
 
 const logger = createLogger("queue:remove");
 
-export default async function (job: SandboxedJob<RepoJobData, void>) {
-  const {
-    connect,
-    getRepository,
-  }: {
-    connect: () => Promise<void>;
-    getRepository: typeof getRepositoryImport;
-  } = require("../../server/database");
+interface Database {
+  connect: () => Promise<void>;
+  getRepository: typeof getRepositoryImport;
+}
+
+export async function processRemoveRepository(
+  job: SandboxedJob<RepoJobData, void>,
+  database?: Database
+) {
+  const { connect, getRepository }: Database =
+    database || require("../../server/database");
   try {
     await connect();
     logger.info("removing repository", { repoId: job.data.repoId });
@@ -29,9 +32,14 @@ export default async function (job: SandboxedJob<RepoJobData, void>) {
       }
       throw error;
     }
-  } catch {
-    // error already handled
-  } finally {
     logger.info("repository removed", { repoId: job.data.repoId });
+  } catch (error) {
+    logger.error("repository removal failed", {
+      ...serializeError(error),
+      repoId: job.data.repoId,
+    });
+    throw error;
   }
 }
+
+export default processRemoveRepository;
