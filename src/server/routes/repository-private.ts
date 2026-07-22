@@ -424,6 +424,18 @@ function updateRepoModel(
   };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function hasRepositorySourceChanged(
+  model: IAnonymizedRepositoryDocument,
+  repoUpdate: any
+): boolean {
+  return (
+    repoUpdate.source.commit != model.source.commit ||
+    repoUpdate.source.branch != model.source.branch ||
+    repoUpdate.fullName != model.source.repositoryName
+  );
+}
+
 // update a repository
 router.post(
   "/:repoId/",
@@ -441,47 +453,42 @@ router.post(
 
       validateNewRepo(repoUpdate);
 
-      const r = gh(repoUpdate.fullName);
-      if (!r?.owner || !r?.name) {
-        await repo.resetSate(RepositoryStatus.ERROR, "repo_not_found");
-        throw new AnonymousError("repo_not_found", {
-          object: req.body,
-          httpStatus: 404,
-        });
-      }
-
       // Only the source repository/commit/branch backs the cached FileModel —
       // anonymization options (terms, image/link toggles, etc.) are applied on
       // the fly per request. Re-running the download queue is therefore only
       // needed when the underlying snapshot moves. Other edits (e.g. turning
       // off auto-update — see #360) just persist and return.
-      const sourceChanged =
-        repoUpdate.source.commit != repo.model.source.commit ||
-        repoUpdate.source.branch != repo.model.source.branch ||
-        repoUpdate.fullName != repo.model.source.repositoryName;
+      const sourceChanged = hasRepositorySourceChanged(repo.model, repoUpdate);
 
       updateRepoModel(repo.model, repoUpdate);
-      const repository = await getRepositoryFromGitHub({
-        accessToken: user.accessToken,
-        owner: r.owner,
-        repo: r.name,
-      });
-
-      if (!repository) {
-        await repo.resetSate(RepositoryStatus.ERROR, "repo_not_found");
-        throw new AnonymousError("repo_not_found", {
-          object: req.body,
-          httpStatus: 404,
-        });
-      }
-
-      await repository.getCommitInfo(repoUpdate.source.commit, {
-        accessToken: user.accessToken,
-      });
-      repo.model.source.repositoryId = repository.model.id;
-      repo.model.source.repositoryName = repository.fullName || repoUpdate.fullName;
 
       if (sourceChanged) {
+        const parsedRepository = gh(repoUpdate.fullName);
+        if (!parsedRepository?.owner || !parsedRepository?.name) {
+          await repo.resetSate(RepositoryStatus.ERROR, "repo_not_found");
+          throw new AnonymousError("repo_not_found", {
+            object: req.body,
+            httpStatus: 404,
+          });
+        }
+        const repository = await getRepositoryFromGitHub({
+          accessToken: user.accessToken,
+          owner: parsedRepository.owner,
+          repo: parsedRepository.name,
+        });
+        if (!repository) {
+          await repo.resetSate(RepositoryStatus.ERROR, "repo_not_found");
+          throw new AnonymousError("repo_not_found", {
+            object: req.body,
+            httpStatus: 404,
+          });
+        }
+        await repository.getCommitInfo(repoUpdate.source.commit, {
+          accessToken: user.accessToken,
+        });
+        repo.model.source.repositoryId = repository.model.id;
+        repo.model.source.repositoryName =
+          repository.fullName || repoUpdate.fullName;
         repo.model.anonymizeDate = new Date();
         await repo.remove();
       }
@@ -546,9 +553,17 @@ router.post(
           },
         }
       ).exec();
+      if (!sourceChanged) {
+        return res.json({ status: repo.status });
+      }
+
       await repo.updateStatus(RepositoryStatus.PREPARING);
       res.json({ status: repo.status });
-      await downloadQueue.add(repo.repoId, { repoId: repo.repoId }, { jobId: `repo-${repo.repoId}` });
+      await downloadQueue.add(
+        repo.repoId,
+        { repoId: repo.repoId },
+        { jobId: `repo-${repo.repoId}` }
+      );
     } catch (error) {
       return handleError(error, res, req);
     }
