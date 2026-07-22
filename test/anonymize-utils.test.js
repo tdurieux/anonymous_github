@@ -3,6 +3,10 @@ const { Transform } = require("stream");
 const { StringDecoder } = require("string_decoder");
 require("ts-node/register/transpile-only");
 const {
+  ContentAnonimizer: RealContentAnonimizer,
+  AnonymizeTransformer: RealAnonymizeTransformer,
+} = require("../src/core/anonymize-utils");
+const {
   withWordBoundaries,
   termVariants,
   parseTermSpec,
@@ -449,6 +453,20 @@ describe("ContentAnonimizer", function () {
       expect(result).to.include("anonymous.4open.science/r/abc123");
     });
 
+    it("escapes regex characters in repository and branch names", function () {
+      const anon = new RealContentAnonimizer({
+        repoName: "secret-owner/secret.repo",
+        branchName: "release+candidate",
+        repoId: "abc123",
+      });
+      const result = anon.anonymize(
+        "https://raw.githubusercontent.com/secret-owner/secret.repo/release+candidate/src/index.ts"
+      );
+      expect(result).to.equal(
+        "https://anonymous.4open.science/r/abc123/src/index.ts"
+      );
+    });
+
     it("is case-insensitive for repo name", function () {
       const anon = new ContentAnonimizer({
         repoName: "Owner/Repo",
@@ -645,6 +663,25 @@ describe("AnonymizeTransformer (streaming)", function () {
     const input = "Created by Alice at 2025/01/01";
     const result = await runStream(input, 8, { terms: ["Alice"] });
     expect(result).to.equal("Created by XXXX-1 at 2025/01/01");
+  });
+
+  it("does not leak matches longer than the normal streaming overlap", async function () {
+    const secret = "A".repeat(5000);
+    const transformer = new RealAnonymizeTransformer({
+      filePath: "fixture.txt",
+      terms: ["A{5000}"],
+    });
+    const chunks = [];
+    const done = new Promise((resolve, reject) => {
+      transformer.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+      transformer.on("end", () =>
+        resolve(Buffer.concat(chunks).toString("utf8"))
+      );
+      transformer.on("error", reject);
+    });
+    transformer.end(Buffer.from(` ${secret} `));
+    const result = await done;
+    expect(result).to.equal(" XXXX-1 ");
   });
 
   // Regression for #342/#349: zip download was constructing the transformer

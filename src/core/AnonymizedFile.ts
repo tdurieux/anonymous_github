@@ -7,7 +7,11 @@ import got from "got";
 import Repository from "./Repository";
 import { RepositoryStatus } from "./types";
 import config from "../config";
-import { anonymizePath, isTextFile } from "./anonymize-utils";
+import {
+  anonymizePath,
+  hasCustomTermReplacement,
+  isTextFile,
+} from "./anonymize-utils";
 import AnonymousError from "./AnonymousError";
 import { handleError } from "../server/routes/route-utils";
 import FileModel from "./model/files/files.model";
@@ -16,6 +20,27 @@ import { FilterQuery } from "mongoose";
 import { createLogger, serializeError } from "./logger";
 
 const logger = createLogger("anonymized-file");
+
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function defaultMaskCandidateRegex(value: string): RegExp {
+  const mask = new RegExp(
+    `${escapeRegex(config.ANONYMIZATION_MASK)}(?:-[0-9]+)?`,
+    "g"
+  );
+  let source = "^";
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = mask.exec(value)) !== null) {
+    source += escapeRegex(value.slice(lastIndex, match.index));
+    source += "[^/]+";
+    lastIndex = match.index + match[0].length;
+  }
+  source += escapeRegex(value.slice(lastIndex)) + "$";
+  return new RegExp(source);
+}
 
 // Map a streamer error response to an AnonymousError that preserves the
 // upstream status and error code instead of collapsing every failure into a
@@ -129,24 +154,33 @@ export default class AnonymizedFile {
     if (fileDir.endsWith("/")) fileDir = fileDir.slice(0, -1);
     const filename = basename(this.anonymizedPath);
 
-    if (!this.anonymizedPath.includes(config.ANONYMIZATION_MASK)) {
-      if (this.anonymizedPath == "") {
-        return {
-          name: "",
-          path: "",
-          repoId: this.repository.repoId,
-        };
-      }
-      const query: FilterQuery<IFile> = {
+    if (this.anonymizedPath == "") {
+      return {
+        name: "",
+        path: "",
         repoId: this.repository.repoId,
-        path: fileDir,
       };
-      if (filename != "") query.name = filename;
-      const res = await FileModel.findOne(query);
-      if (res) {
-        this._file = res;
-        return res;
-      }
+    }
+
+    // Always try the path verbatim first. Most paths contain no configured
+    // term, even when the repository uses custom replacements.
+    const exactQuery: FilterQuery<IFile> = {
+      repoId: this.repository.repoId,
+      path: fileDir,
+    };
+    if (filename != "") exactQuery.name = filename;
+    const exact = await FileModel.findOne(exactQuery);
+    if (exact) {
+      this._file = exact;
+      return exact;
+    }
+
+    const terms = this.repository.options.terms || [];
+    const usesDefaultMask = this.anonymizedPath.includes(
+      config.ANONYMIZATION_MASK
+    );
+    const usesCustomReplacement = hasCustomTermReplacement(terms);
+    if (!usesDefaultMask && !usesCustomReplacement) {
       // The stored tree can be incomplete: GitHub truncates tree listings of
       // very large repositories, and folders recorded in `truncatedFolders`
       // have entries that never made it into the database. Ask GitHub
@@ -164,34 +198,35 @@ export default class AnonymizedFile {
       });
     }
 
-    const pathQuery = fileDir
-      .split("/")
-      .map((p) => {
-        if (p.includes(config.ANONYMIZATION_MASK)) {
-          return "[^/]+";
-        }
-        return p;
-      })
-      .join("/");
-    const nameQuery = filename.replace(
-      new RegExp(config.ANONYMIZATION_MASK + "(-[0-9]+)?"),
-      "[^/]+"
-    );
-
-    const candidates = await FileModel.find({
-      repoId: this.repository.repoId,
-      path: new RegExp(pathQuery),
-      name: new RegExp(nameQuery),
-    }).exec();
+    // Custom replacements do not carry a marker that can be reversed into a
+    // narrow Mongo query. Fetch the repository's paths and verify them by
+    // re-applying anonymization. Default XXXX-N masks retain the optimized,
+    // anchored query.
+    const candidates = usesCustomReplacement
+      ? await FileModel.find({ repoId: this.repository.repoId }).exec()
+      : await FileModel.find({
+          repoId: this.repository.repoId,
+          path: defaultMaskCandidateRegex(fileDir),
+          name: defaultMaskCandidateRegex(filename),
+        }).exec();
 
     for (const candidate of candidates) {
       const candidatePath = join(candidate.path, candidate.name);
       if (
-        anonymizePath(candidatePath, this.repository.options.terms || []) ==
-        this.anonymizedPath
+        anonymizePath(candidatePath, terms) == this.anonymizedPath
       ) {
         this._file = candidate;
         return candidate;
+      }
+    }
+
+    // If applying the configured terms does not alter the requested path, it
+    // may simply be absent from a truncated tree and can be recovered as-is.
+    if (anonymizePath(this.anonymizedPath, terms) === this.anonymizedPath) {
+      const recovered = await this.recoverTruncatedFile(fileDir);
+      if (recovered) {
+        this._file = recovered;
+        return recovered;
       }
     }
     throw new AnonymousError("file_not_found", {
