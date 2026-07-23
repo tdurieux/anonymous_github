@@ -1,37 +1,53 @@
-# Anonymous Github
+<div align="center">
 
-Anonymous Github is a system that helps anonymize Github repositories for double-anonymous paper submissions. A public instance of Anonymous Github is hosted at https://anonymous.4open.science/.
+# Anonymous GitHub
 
-![screenshot](public/imgs/screenshot.png)
+**Share your code and data for double-anonymous peer review — without giving your identity away.**
 
+[![npm](https://img.shields.io/npm/v/@tdurieux/anonymous_github?logo=npm)](https://www.npmjs.com/package/@tdurieux/anonymous_github)
+[![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
+[![Live instance](https://img.shields.io/badge/live-anonymous.4open.science-e5503a)](https://anonymous.4open.science/)
+[![GitHub stars](https://img.shields.io/github/stars/tdurieux/anonymous_github?style=social)](https://github.com/tdurieux/anonymous_github/stargazers)
 
-Anonymous Github anonymizes the following:
+[**Public instance**](https://anonymous.4open.science/) · [How it works](#how-it-works) · [Self-hosting](#self-hosting)
 
-- Github repository owner, organization, and name
-- File and directory names
-- File contents of all extensions, including markdown, text, Java, etc.
+![Anonymous GitHub screenshot](public/imgs/screenshot.png)
+
+</div>
+
+## Why
+
+Double-anonymous review asks you to anonymize the artifact behind your paper — the code and data — exactly like the paper itself. Doing that by hand (owner, organization, repository name, logins, and every mention buried in the files) is tedious and easy to get wrong. Anonymous GitHub does it for you and serves the result behind a shareable link.
+
+A free public instance is available at **[anonymous.4open.science](https://anonymous.4open.science/)**.
+
+## What it anonymizes
+
+- The GitHub **owner, organization, and repository name**
+- **File and directory names**
+- **File contents** of every extension (Markdown, text, source code, …), replacing a configurable list of terms
 
 ## Usage
 
 ### Public instance
 
-**https://anonymous.4open.science/**
+Just open **[anonymous.4open.science](https://anonymous.4open.science/)**, paste your repository URL, add the terms to hide, and share the generated link.
 
 ### CLI
 
-This CLI tool allows you to anonymize your GitHub repositories locally, generating an anonymized zip file based on your configuration settings.
+Anonymize a repository locally and produce an anonymized zip:
 
 ```bash
-# Install the Anonymous GitHub CLI tool
 npm install -g @tdurieux/anonymous_github
-
-# Run the Anonymous GitHub CLI tool
 anonymous_github
 ```
 
-### Own instance
+## Self-hosting
 
-#### 1. Clone the repository
+<details>
+<summary>Run your own instance with Docker</summary>
+
+**1. Clone and install**
 
 ```bash
 git clone https://github.com/tdurieux/anonymous_github/
@@ -39,9 +55,7 @@ cd anonymous_github
 npm i
 ```
 
-#### 2. Configure the GitHub token
-
-Create a `.env` file with the following contents:
+**2. Configure GitHub access** — create a `.env` file:
 
 ```env
 GITHUB_TOKEN=<GITHUB_TOKEN>
@@ -50,38 +64,41 @@ CLIENT_SECRET=<CLIENT_SECRET>
 PORT=5000
 DB_USERNAME=
 DB_PASSWORD=
-AUTH_CALLBACK=http://localhost:5000/github/auth,
+AUTH_CALLBACK=http://localhost:5000/github/auth
 ```
 
-- `GITHUB_TOKEN` can be generated here: https://github.com/settings/tokens/new with `repo` scope.
-- `CLIENT_ID` and `CLIENT_SECRET` are the tokens are generated when you create a new GitHub app https://github.com/settings/applications/new.
-- The callback of the GitHub app needs to be defined as `https://<host>/github/auth` (the same as defined in AUTH_CALLBACK).
+- `GITHUB_TOKEN` — create one at <https://github.com/settings/tokens/new> with the `repo` scope.
+- `CLIENT_ID` / `CLIENT_SECRET` — from a new GitHub App at <https://github.com/settings/applications/new>.
+- The App's callback must be `https://<host>/github/auth` (matching `AUTH_CALLBACK`).
 
-#### 3. Start Anonymous Github server
+**3. Start the server**
 
 ```bash
 docker-compose up -d
 ```
 
-#### 4. Go to Anonymous Github
+**4. Open** <http://localhost:5000>. The port can be changed in `docker-compose.yml`; putting Anonymous GitHub behind nginx is recommended for HTTPS.
 
-Go to http://localhost:5000. By default, Anonymous Github uses port 5000. It can be changed in `docker-compose.yml`. I would recommand to put Anonymous GitHub behind ngnix to handle the https certificates.
+</details>
 
-## What is the scope of anonymization?
+## Scope of anonymization
 
-In double-anonymous peer-review, the boundary of anonymization is the paper plus its online appendix, and only this, it's not the whole world. Googling any part of the paper or the online appendix can be considered as a deliberate attempt to break anonymity ([explanation](https://www.monperrus.net/martin/open-science-double-blind))
+In double-anonymous review, the boundary of anonymization is **the paper plus its online appendix — and only that**. Googling part of the paper or appendix to reveal authorship is considered a deliberate attempt to break anonymity ([explanation](https://www.monperrus.net/martin/open-science-double-blind)).
 
-## How does it work?
+## How it works
 
-Anonymous Github either downloads the complete repository and anonymizes the content of the file or proxies the request to GitHub. In both cases, the original and anonymized versions of the file are cached on the server.
+Anonymous GitHub either downloads the full repository and anonymizes each file, or proxies requests to GitHub on the fly. In both cases the original and anonymized versions are cached on the server, so even large repositories stay responsive.
 
 ## Related tools
 
-[gitmask](https://www.gitmask.com/) is a tool to anonymously contribute to a Github repository.
-
-[blind-reviews](https://github.com/zombie/blind-reviews/) is a browser add-on that enables a person reviewing a GitHub pull request to hide identifying information about the person submitting it.
+- [gitmask](https://www.gitmask.com/) — contribute anonymously to a GitHub repository.
+- [blind-reviews](https://github.com/zombie/blind-reviews/) — browser add-on that hides identifying information when reviewing a pull request.
 
 ## See also
 
-- [Open-science and double-anonymous Peer-Review](https://www.monperrus.net/martin/open-science-double-blind)
-- [ACM Policy on Double-Blind Reviewing](https://dl.acm.org/journal/tods/DoubleBlindPolicy)
+- [Open science and double-anonymous peer review](https://www.monperrus.net/martin/open-science-double-blind)
+- [ACM policy on double-blind reviewing](https://dl.acm.org/journal/tods/DoubleBlindPolicy)
+
+## License
+
+[GPL-3.0](LICENSE) © [Thomas Durieux](https://durieux.me)
