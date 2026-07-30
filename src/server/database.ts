@@ -8,7 +8,12 @@ import PullRequest from "../core/PullRequest";
 import AnonymizedGistModel from "../core/model/anonymizedGists/anonymizedGists.model";
 import Gist from "../core/Gist";
 
-const MONGO_URL = `mongodb://${config.DB_USERNAME}:${config.DB_PASSWORD}@${config.DB_HOSTNAME}:27017/`;
+export function getMongoUrl(): string {
+  return (
+    config.MONGODB_URI ||
+    `mongodb://${config.DB_USERNAME}:${config.DB_PASSWORD}@${config.DB_HOSTNAME}:27017/production`
+  );
+}
 
 export const database = mongoose.connection;
 
@@ -16,11 +21,12 @@ export let isConnected = false;
 
 export async function connect() {
   mongoose.set("strictQuery", false);
-  await mongoose.connect(MONGO_URL + "production", {
-    authSource: "admin",
+  const options: ConnectOptions = {
     appName: "Anonymous GitHub Server",
     compressors: "zstd",
-  } as ConnectOptions);
+  };
+  if (!config.MONGODB_URI) options.authSource = "admin";
+  await mongoose.connect(getMongoUrl(), options);
   isConnected = true;
 
   return database;

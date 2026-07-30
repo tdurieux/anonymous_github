@@ -79,6 +79,9 @@ docker-compose up -d
 
 **4. Open** <http://localhost:5000>. The port can be changed in `docker-compose.yml`; putting Anonymous GitHub behind nginx is recommended for HTTPS.
 
+For an optional remote, hidden, delayed MongoDB replica and backup source, see
+the [MongoDB replication guide](docs/mongodb-replication.md).
+
 </details>
 
 ## Scope of anonymization

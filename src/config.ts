@@ -26,6 +26,12 @@ interface Config {
   DB_USERNAME: string;
   DB_PASSWORD: string;
   DB_HOSTNAME: string;
+  /**
+   * Complete MongoDB connection string. When set, this takes precedence over
+   * DB_USERNAME, DB_PASSWORD, and DB_HOSTNAME and supports replica-set seed
+   * lists and options.
+   */
+  MONGODB_URI: string;
   FOLDER: string;
   additionalExtensions: string[];
   S3_BUCKET: string | null;
@@ -73,6 +79,7 @@ const config: Config = {
   DB_USERNAME: "admin",
   DB_PASSWORD: "password",
   DB_HOSTNAME: "mongodb",
+  MONGODB_URI: "",
   REDIS_HOSTNAME: "redis",
   REDIS_PORT: 6379,
   FOLDER: resolve(__dirname, "..", "repositories"),
@@ -142,8 +149,10 @@ if (isProduction) {
   const insecureDefaults: [string, string][] = [
     ["CLIENT_ID", "CLIENT_ID"],
     ["CLIENT_SECRET", "CLIENT_SECRET"],
-    ["DB_PASSWORD", "password"],
   ];
+  if (!config.MONGODB_URI) {
+    insecureDefaults.push(["DB_PASSWORD", "password"]);
+  }
   for (const [key, badValue] of insecureDefaults) {
     if ((config as unknown as Record<string, unknown>)[key] === badValue) {
       throw new Error(
