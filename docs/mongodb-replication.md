@@ -43,6 +43,34 @@ secondary.
    MONGO_IMAGE=mongo:<exact-version>
    ```
 
+### Find each server's bind address
+
+`MONGO_BIND_ADDRESS` is the address of the server whose `.env` file you are
+editing. It tells Docker to publish MongoDB on that server's Tailscale
+interface. It is not the address of the other replica-set member.
+
+Run this separately on each server:
+
+```bash
+tailscale ip -4
+```
+
+For example, if the commands return:
+
+- `100.64.10.20` on `mongo-primary`
+- `100.64.10.30` on `mongo-secondary`
+
+then configure:
+
+| Server | Its local `.env` value |
+| --- | --- |
+| `mongo-primary` | `MONGO_BIND_ADDRESS=100.64.10.20` |
+| `mongo-secondary` | `MONGO_BIND_ADDRESS=100.64.10.30` |
+
+The `100.x.x.x` values in this guide are examples, not values to copy. Paste
+the actual output from `tailscale ip -4`; do not put a shell command in
+`.env`.
+
 ## 1. Generate the shared member key
 
 On the primary server:
@@ -71,8 +99,8 @@ Add these values to the primary server's `.env`:
 # Use the exact version already running in production.
 MONGO_IMAGE=mongo:<exact-version>
 
-# The primary server's private/VPN interface.
-MONGO_BIND_ADDRESS=<primary-private-ip>
+# Output of `tailscale ip -4` when run on the primary server.
+MONGO_BIND_ADDRESS=<primary-tailscale-ip>
 MONGO_REPLICA_KEYFILE=./secrets/mongo-replica-keyfile
 
 # Make the replica overlay the default for future Compose commands.
@@ -105,7 +133,8 @@ On the secondary server, create a minimal `.env`:
 
 ```env
 MONGO_IMAGE=mongo:<same-exact-version-as-primary>
-MONGO_BIND_ADDRESS=<secondary-private-ip>
+# Output of `tailscale ip -4` when run on the secondary server.
+MONGO_BIND_ADDRESS=<secondary-tailscale-ip>
 MONGO_REPLICA_KEYFILE=./secrets/mongo-replica-keyfile
 ```
 
