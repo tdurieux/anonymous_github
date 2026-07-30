@@ -3,6 +3,7 @@ name: anonymous-github-mongo-secondary
 services:
   mongodb-secondary:
     image: ${MONGO_IMAGE:-mongo:latest}
+    hostname: ${MONGO_SECONDARY_HOSTNAME:-mongo-secondary}
     restart: unless-stopped
     entrypoint:
       - /bin/bash
@@ -16,6 +17,12 @@ services:
       - --bind_ip_all
     environment:
       MONGO_REPLICA_KEYFILE_PATH: /run/secrets/mongo-replica-keyfile
+    extra_hosts:
+      - "${MONGO_PRIMARY_HOSTNAME:-mongo-primary}:${MONGO_PRIMARY_ADDRESS:?Set MONGO_PRIMARY_ADDRESS to the primary server Tailscale IP}"
+    networks:
+      default:
+        aliases:
+          - ${MONGO_SECONDARY_HOSTNAME:-mongo-secondary}
     volumes:
       - mongodb_secondary_data:/data/db
       - ${MONGO_REPLICA_KEYFILE:-./secrets/mongo-replica-keyfile}:/run/secrets/mongo-replica-keyfile:ro

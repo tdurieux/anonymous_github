@@ -1,5 +1,6 @@
 services:
   mongodb:
+    hostname: ${MONGO_PRIMARY_HOSTNAME:-mongo-primary}
     entrypoint:
       - /bin/bash
       - /opt/anonymous-github/mongodb-replica-entrypoint.sh
@@ -12,6 +13,12 @@ services:
       - --bind_ip_all
     environment:
       MONGO_REPLICA_KEYFILE_PATH: /run/secrets/mongo-replica-keyfile
+    extra_hosts:
+      - "${MONGO_SECONDARY_HOSTNAME:-mongo-secondary}:${MONGO_SECONDARY_ADDRESS:?Set MONGO_SECONDARY_ADDRESS to the secondary server Tailscale IP}"
+    networks:
+      default:
+        aliases:
+          - ${MONGO_PRIMARY_HOSTNAME:-mongo-primary}
     volumes:
       - ${MONGO_REPLICA_KEYFILE:-./secrets/mongo-replica-keyfile}:/run/secrets/mongo-replica-keyfile:ro
       - ./scripts/mongodb-replica-entrypoint.sh:/opt/anonymous-github/mongodb-replica-entrypoint.sh:ro
