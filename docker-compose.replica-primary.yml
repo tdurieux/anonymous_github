@@ -1,0 +1,17 @@
+services:
+  mongodb:
+    entrypoint:
+      - /bin/bash
+      - /opt/anonymous-github/mongodb-replica-entrypoint.sh
+    command:
+      - --quiet
+      - --replSet
+      - rs0
+      - --keyFile
+      - /tmp/mongo-replica-keyfile
+      - --bind_ip_all
+    environment:
+      MONGO_REPLICA_KEYFILE_PATH: /run/secrets/mongo-replica-keyfile
+    volumes:
+      - ${MONGO_REPLICA_KEYFILE:-./secrets/mongo-replica-keyfile}:/run/secrets/mongo-replica-keyfile:ro
+      - ./scripts/mongodb-replica-entrypoint.sh:/opt/anonymous-github/mongodb-replica-entrypoint.sh:ro

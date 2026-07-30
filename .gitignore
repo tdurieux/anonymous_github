@@ -3,6 +3,7 @@ build
 /repositories
 repo/
 db_backups
+/secrets/mongo-replica-keyfile
 message.txt
 
 # macOS
