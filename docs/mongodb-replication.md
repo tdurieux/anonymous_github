@@ -55,14 +55,19 @@ The guide uses these examples:
 
 | Setting | Example |
 | --- | --- |
-| Repository path on both servers | `/home/ubuntu/git/anonymous_github` |
+| Primary SSH user | `ubuntu` |
+| Primary repository path | `/home/ubuntu/git/anonymous_github` |
+| Secondary SSH user | `deploy` |
+| Secondary repository path | `/srv/anonymous_github` |
 | Primary Tailscale machine name | `mongo-primary` |
 | Primary Tailscale IPv4 | `100.64.10.20` |
 | Secondary Tailscale machine name | `mongo-secondary` |
 | Secondary Tailscale IPv4 | `100.64.10.30` |
 
-Replace every example IP and repository path with the value from your server.
-Never enter the literal value `100.x.x.x`.
+The users and absolute repository paths may be different on the two servers.
+Run each command from that server's own checkout. Replace every example user,
+IP, and path with the value from your server. Never enter the literal value
+`100.x.x.x`.
 
 `MONGO_BIND_ADDRESS` always contains the Tailscale IP of the server whose
 `.env` file you are editing:
@@ -78,7 +83,8 @@ Before starting, confirm all of the following:
 
 - The production standalone MongoDB is healthy.
 - You have a recent, verified `mongodump` backup.
-- The repository is installed at the same path on both servers.
+- The repository is installed on both servers; the absolute paths and owners
+  may be different.
 - Both servers run the same repository revision.
 - Both servers run the exact same MongoDB version.
 - Tailscale is connected on both servers.
@@ -193,10 +199,17 @@ Restrict your Tailscale policy so only the required servers can reach TCP
 
 ## 4. Install the same repository revision on the secondary
 
-On both servers:
+On the primary:
 
 ```bash
 cd /home/ubuntu/git/anonymous_github
+git rev-parse HEAD
+```
+
+On the secondary, use its own repository path:
+
+```bash
+cd /srv/anonymous_github
 git rev-parse HEAD
 ```
 
@@ -227,31 +240,45 @@ secondary.
 Create the destination directory:
 
 ```bash
-ssh ubuntu@mongo-secondary \
-  'mkdir -p /home/ubuntu/git/anonymous_github/secrets &&
-   chmod 700 /home/ubuntu/git/anonymous_github/secrets'
+ssh deploy@mongo-secondary \
+  'mkdir -p /srv/anonymous_github/secrets &&
+   chmod 700 /srv/anonymous_github/secrets'
 ```
 
 Copy the key over Tailscale:
 
 ```bash
 scp secrets/mongo-replica-keyfile \
-  ubuntu@mongo-secondary:/home/ubuntu/git/anonymous_github/secrets/mongo-replica-keyfile
+  deploy@mongo-secondary:/srv/anonymous_github/secrets/mongo-replica-keyfile
 ```
 
 On the secondary:
 
 ```bash
-chmod 600 /home/ubuntu/git/anonymous_github/secrets/mongo-replica-keyfile
+chmod 600 /srv/anonymous_github/secrets/mongo-replica-keyfile
 ```
 
 Verify that both servers have the exact same file:
 
 ```bash
+# Run on the primary.
 sha256sum /home/ubuntu/git/anonymous_github/secrets/mongo-replica-keyfile
+
+# Run on the secondary.
+sha256sum /srv/anonymous_github/secrets/mongo-replica-keyfile
 ```
 
 The hashes must match. The keyfile is ignored by Git; never commit it.
+
+The relative setting below works on both servers even though their absolute
+paths and Unix users differ:
+
+```env
+MONGO_REPLICA_KEYFILE=./secrets/mongo-replica-keyfile
+```
+
+It is resolved from the repository/Compose project on each server. Each local
+user only needs to own and read the key in their own checkout.
 
 ## 6. Configure the primary `.env`
 
@@ -304,7 +331,7 @@ MONGO_REPLICA_KEYFILE=./secrets/mongo-replica-keyfile
 Validate and start it:
 
 ```bash
-cd /home/ubuntu/git/anonymous_github
+cd /srv/anonymous_github
 
 docker compose -f docker-compose.replica-secondary.yml config -q
 ./scripts/mongodb-replica.sh secondary-up mongo-secondary:27017
@@ -584,14 +611,14 @@ On the primary:
 ./scripts/mongodb-replica.sh generate-key
 ```
 
-Copy that same file to:
+Copy that same file to the `secrets` directory inside the secondary server's
+own repository checkout, for example:
 
 ```text
-/home/ubuntu/git/anonymous_github/secrets/mongo-replica-keyfile
+/srv/anonymous_github/secrets/mongo-replica-keyfile
 ```
 
-on the secondary. Do not generate two independent keys. Compare both files
-with `sha256sum`.
+Do not generate two independent keys. Compare both files with `sha256sum`.
 
 ### `MongoServerError: not running with --replSet`
 
