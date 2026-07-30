@@ -25,7 +25,7 @@ usage() {
 Usage:
   ./scripts/mongodb-replica.sh generate-key
   ./scripts/mongodb-replica.sh primary-up <primary-hostname:port>
-  ./scripts/mongodb-replica.sh secondary-up
+  ./scripts/mongodb-replica.sh secondary-up <secondary-hostname:port>
   ./scripts/mongodb-replica.sh add-secondary <secondary-hostname:port> [delay-seconds]
   ./scripts/mongodb-replica.sh status
 
@@ -96,6 +96,66 @@ wait_for_primary_container() {
   exit 1
 }
 
+wait_for_replica_primary() {
+  local attempt
+  for attempt in $(seq 1 60); do
+    if mongo_eval \
+      "if (!db.hello().isWritablePrimary) throw new Error('not primary yet');" \
+      >/dev/null 2>&1; then
+      return
+    fi
+    sleep 2
+  done
+  echo "Replica set rs0 did not elect a writable primary within 120 seconds" >&2
+  echo "Check ./scripts/mongodb-replica.sh status and the MongoDB container logs." >&2
+  exit 1
+}
+
+wait_for_secondary_container() {
+  local attempt
+  for attempt in $(seq 1 60); do
+    if secondary_compose exec -T mongodb-secondary mongosh --quiet \
+      --eval "db.adminCommand({ ping: 1 }).ok" >/dev/null 2>&1; then
+      return
+    fi
+    sleep 2
+  done
+  echo "Secondary MongoDB did not become ready within 120 seconds" >&2
+  exit 1
+}
+
+check_primary_endpoint() {
+  local endpoint="$1"
+  primary_compose exec -T -e "MONGO_RS_ENDPOINT=$endpoint" mongodb sh -eu -c '
+    host="${MONGO_RS_ENDPOINT%:*}"
+    port="${MONGO_RS_ENDPOINT##*:}"
+    echo "Checking $host resolves inside the primary MongoDB container:"
+    getent hosts "$host"
+    mongosh --quiet --host "$host" --port "$port" \
+      --eval "db.adminCommand({ ping: 1 }).ok" >/dev/null
+  ' || {
+    echo "The endpoint $endpoint does not resolve to a reachable MongoDB instance from the primary container." >&2
+    echo "Check MONGO_PRIMARY_HOSTNAME, MONGO_PRIMARY_ADDRESS, MONGO_SECONDARY_HOSTNAME, and MONGO_SECONDARY_ADDRESS." >&2
+    exit 1
+  }
+}
+
+check_secondary_endpoint() {
+  local endpoint="$1"
+  secondary_compose exec -T -e "MONGO_RS_ENDPOINT=$endpoint" mongodb-secondary sh -eu -c '
+    host="${MONGO_RS_ENDPOINT%:*}"
+    port="${MONGO_RS_ENDPOINT##*:}"
+    echo "Checking $host resolves inside the secondary MongoDB container:"
+    getent hosts "$host"
+    mongosh --quiet --host "$host" --port "$port" \
+      --eval "db.adminCommand({ ping: 1 }).ok" >/dev/null
+  ' || {
+    echo "The endpoint $endpoint does not resolve to the secondary MongoDB container." >&2
+    echo "Check MONGO_SECONDARY_HOSTNAME and the secondary Compose configuration." >&2
+    exit 1
+  }
+}
+
 command="${1:-}"
 case "$command" in
   generate-key)
@@ -117,6 +177,7 @@ case "$command" in
     require_keyfile
     primary_compose up -d mongodb
     wait_for_primary_container
+    check_primary_endpoint "$primary_host"
     mongo_eval "
       try {
         const status = rs.status();
@@ -129,11 +190,16 @@ case "$command" in
         }));
       }
     "
+    wait_for_replica_primary
     ;;
 
   secondary-up)
+    secondary_host="${2:-}"
+    validate_host "$secondary_host"
     require_keyfile
     secondary_compose up -d mongodb-secondary
+    wait_for_secondary_container
+    check_secondary_endpoint "$secondary_host"
     ;;
 
   add-secondary)
@@ -141,6 +207,7 @@ case "$command" in
     delay="${3:-3600}"
     validate_host "$secondary_host"
     validate_delay "$delay"
+    check_primary_endpoint "$secondary_host"
     mongo_eval "
       const host = '$secondary_host';
       const existing = rs.conf().members.find((member) => member.host === host);
