@@ -64,19 +64,19 @@
     <div class="paper-detail-grid">
       <div class="detail-label">Repository</div>
       <div class="detail-value">
-        <a href="/r/{{repoId}}/" target="__self">/r/{{repoId}}/</a>
+        <a href="/r/{{repoId}}/" target="_self">/r/{{repoId}}/</a>
       </div>
       <div class="detail-label" ng-if="repo.options.page">GitHub Page</div>
       <div class="detail-value" ng-if="repo.options.page">
-        <a href="/w/{{repoId}}/" target="__self">/w/{{repoId}}/</a>
+        <a href="/w/{{repoId}}/" target="_self">/w/{{repoId}}/</a>
       </div>
     </div>
 
     <div class="anonymize-submit-bar" ng-if="repo.status == 'ready'">
-      <a class="btn btn-ink" href="/r/{{repoId}}/" target="__self">
+      <a class="btn btn-ink" href="/r/{{repoId}}/" target="_self">
         <i class="far fa-eye mr-1"></i> Go to anonymized repository
       </a>
-      <a class="btn" href="/w/{{repoId}}/" target="__self" ng-if="repo.options.page">
+      <a class="btn" href="/w/{{repoId}}/" target="_self" ng-if="repo.options.page">
         <i class="fas fa-globe mr-1"></i> Go to anonymized GitHub page
       </a>
     </div>

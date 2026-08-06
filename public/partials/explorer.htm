@@ -118,7 +118,7 @@
         <a
           ng-show="content != null"
           ng-href="{{url}}"
-          target="__self"
+          target="_self"
           class="btn btn-sm"
           aria-label="View raw current file"
           title="View the raw content of the current file"
@@ -127,7 +127,7 @@
         <a
           ng-show="content != null"
           ng-href="{{url}}&download=true"
-          target="__self"
+          target="_self"
           class="btn btn-sm"
           aria-label="Download current file"
           title="Download the current file"
@@ -136,7 +136,7 @@
         <a
           ng-if="options.download"
           ng-href="/api/repo/{{repoId}}/zip"
-          target="__self"
+          target="_self"
           class="btn btn-sm"
           aria-label="Download full repository as ZIP"
           title="Download the full repository as a ZIP archive"
@@ -145,7 +145,7 @@
         <a
           ng-if="options.hasWebsite"
           ng-href="/w/{{repoId}}/"
-          target="__self"
+          target="_self"
           class="btn btn-sm"
           aria-label="Website"
           ><i class="fas fa-globe"></i><span class="d-none d-md-inline"> Website</span></a

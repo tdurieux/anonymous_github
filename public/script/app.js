@@ -159,6 +159,34 @@ angular
       $locationProvider.html5Mode(true);
     },
   ])
+  // Paths served by express, not by the Angular router. html5Mode makes
+  // Angular swallow every same-origin anchor click and resolve it against the
+  // route table, so a link to /w/<repoId>/ — the one an anonymized README
+  // points at for the repository's GitHub Page — fell through to .otherwise()
+  // and rendered the 404 partial. Reloading worked because that bypassed
+  // Angular and reached the server. Give these URLs back to the browser as a
+  // real navigation.
+  .run([
+    "$rootScope",
+    "$window",
+    function ($rootScope, $window) {
+      const serverPaths = /^\/(w|api|github)(\/|$)/;
+      $rootScope.$on("$locationChangeStart", function (event, next) {
+        let url;
+        try {
+          url = new URL(next, $window.location.href);
+        } catch (e) {
+          return;
+        }
+        if (url.origin !== $window.location.origin) return;
+        if (!serverPaths.test(url.pathname)) return;
+        // Reverts $location to the previous URL so the address bar stays
+        // consistent until the browser leaves the page.
+        event.preventDefault();
+        $window.location.assign(url.href);
+      });
+    },
+  ])
   .filter("humanFileSize", function () {
     return humanFileSize;
   })
