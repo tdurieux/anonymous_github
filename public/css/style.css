@@ -1329,6 +1329,11 @@ a:hover {
   background: var(--hover-bg-color);
   color: var(--color);
 }
+/* An action that is currently on, e.g. JS execution enabled for this file. */
+.status-bar-actions .btn.btn-active {
+  border-color: currentColor;
+  font-weight: 600;
+}
 
 .paths {
   flex: 1 1 auto;
@@ -1370,6 +1375,116 @@ a:hover {
   max-height: 100%;
   text-align: center;
   padding: 4px;
+}
+
+/* Rendered PDF: a toolbar above a scrolling column of pages. */
+.pdf-viewer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background-color: var(--main-bg-color);
+}
+
+.pdf-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border-color, rgba(0, 0, 0, 0.12));
+}
+
+.pdf-toolbar-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pdf-toolbar-right {
+  margin-left: auto;
+}
+
+.pdf-toolbar-btn {
+  border: 0;
+  background: none;
+  color: inherit;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 13px;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.pdf-toolbar-btn:hover:not(:disabled) {
+  background-color: rgba(128, 128, 128, 0.18);
+}
+
+.pdf-toolbar-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.pdf-toolbar-zoom {
+  min-width: 52px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pdf-toolbar-page {
+  width: 3.5em;
+  text-align: right;
+  padding: 2px 4px;
+  font-size: 13px;
+  color: inherit;
+  background: none;
+  border: 1px solid var(--border-color, rgba(0, 0, 0, 0.2));
+  border-radius: 4px;
+}
+
+.pdf-toolbar-count {
+  font-size: 13px;
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+}
+
+.pdf-pages {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px 0;
+}
+
+.pdf-viewer-page {
+  /* Sized to the page's aspect ratio while empty so the scrollbar is honest
+     and only on-screen pages get rasterised; the canvas takes over once the
+     page renders. */
+  margin: 0 auto 12px;
+}
+
+.pdf-viewer-page canvas {
+  display: block;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+
+.pdf-viewer-error {
+  padding: 24px;
+  text-align: center;
+  font-weight: bold;
+}
+
+/* Rendered HTML document. Always light: the document brings its own styling
+   and dark mode can't reach inside a cross-origin frame to adapt it. */
+.html-doc {
+  display: block;
+  height: 100%;
+}
+
+.html-doc-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background-color: #fff;
 }
 
 .file-error {

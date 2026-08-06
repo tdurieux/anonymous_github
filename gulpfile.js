@@ -26,9 +26,9 @@ const coreJsFiles = [
 ];
 
 const vendorJsFiles = [
-  "public/script/external/pdf.compat.js",
   "public/script/external/pdf.js",
-  "public/script/ng-pdfviewer.min.js",
+  "public/script/pdf-viewer.js",
+  "public/script/html-doc.js",
   "public/script/external/katex.min.js",
   "public/script/external/katex-auto-render.min.js",
   "public/script/external/marked-katex-extension.umd.min.js",

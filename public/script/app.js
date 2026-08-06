@@ -4,6 +4,7 @@ angular
     "ngSanitize",
     "ui.ace",
     "ngPDFViewer",
+    "htmlDoc",
     "pascalprecht.translate",
     "admin",
   ])
@@ -2559,8 +2560,7 @@ angular
     "$routeParams",
     "$sce",
     "$q",
-    "PDFViewerService",
-    function ($scope, $http, $location, $routeParams, $sce, $q, PDFViewerService) {
+    function ($scope, $http, $location, $routeParams, $sce, $q) {
       $scope.files = [];
       $scope.isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent);
       $scope.fileSearchQuery = "";
@@ -2843,6 +2843,18 @@ angular
         );
       }
 
+      // Defined as methods rather than inline `showSource = !showSource` in the
+      // template: the toolbar and the file view sit in different child scopes,
+      // so an inline assignment would shadow the value on one of them instead
+      // of updating the controller's.
+      $scope.toggleSource = function () {
+        $scope.showSource = !$scope.showSource;
+      };
+
+      $scope.toggleAllowScripts = function () {
+        $scope.allowScripts = !$scope.allowScripts;
+      };
+
       function getMode(extension) {
         if (extensionModes[extension]) {
           return extensionModes[extension];
@@ -2852,8 +2864,13 @@ angular
 
       function getType(extension) {
         if (extension == "pdf") {
-          $scope.instance = PDFViewerService.Instance("viewer");
           return "pdf";
+        }
+        // Rendered as a document in a sandboxed frame rather than as source —
+        // see html-doc.js. "html" is reserved for markup we generated
+        // ourselves (rendered markdown/org) and inject directly.
+        if (extension == "html" || extension == "htm") {
+          return "html-doc";
         }
         if (extension == "md") {
           return "md";
@@ -2975,6 +2992,20 @@ angular
         $scope.url = `/api/repo/${$scope.repoId}/file/${encodePathForUrl(
           $scope.filePath
         )}?v=${fileVersion}`;
+        // Directory the file lives in, used as the <base> for a rendered HTML
+        // document so its relative images/stylesheets still resolve.
+        const dirPath = $scope.filePath.substring(
+          0,
+          $scope.filePath.lastIndexOf("/") + 1
+        );
+        $scope.fileBaseUrl = `/api/repo/${$scope.repoId}/file/${
+          dirPath ? encodePathForUrl(dirPath) : ""
+        }`;
+        $scope.showSource = false;
+        // Scripts in a repository's HTML are opt-in, per file — see
+        // html-doc.js. Reset on navigation so trust never carries over from
+        // one file to the next.
+        $scope.allowScripts = false;
 
         let extension = $scope.filePath.toLowerCase();
         const extensionIndex = extension.lastIndexOf(".");
@@ -3111,6 +3142,15 @@ angular
           $scope.aceOption.theme = "nord_dark";
         }
         $scope.type = getType(extension);
+
+        if ($scope.type == "pdf") {
+          // The viewer streams the file itself from $scope.url, so fetching
+          // the bytes again here only to hold them as a JS string wastes a
+          // request and a lot of memory on a large report. Content stays
+          // non-null so the Raw/Download actions remain available.
+          $scope.content = "pdf";
+          return;
+        }
 
         getContent($scope.filePath, $scope.file);
       }
