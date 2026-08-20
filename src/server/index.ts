@@ -17,9 +17,14 @@ import router from "./routes";
 import {
   conferenceStatusCheck,
   repositoryStatusCheck,
+  runRepositoryStatusCheck,
   dailyStatsSnapshot,
 } from "./schedule";
-import { startWorker, recoverStuckPreparing } from "../queue";
+import {
+  startWorker,
+  recoverStuckPreparing,
+  recoverStuckRemoving,
+} from "../queue";
 import {
   computeStats,
   ensureTodaySnapshot,
@@ -362,6 +367,12 @@ export default async function start() {
   );
   recoverStuckPreparing().catch((err) =>
     logger.error("recoverStuckPreparing failed", serializeError(err))
+  );
+  recoverStuckRemoving().catch((err) =>
+    logger.error("recoverStuckRemoving failed", serializeError(err))
+  );
+  runRepositoryStatusCheck().catch((err) =>
+    logger.error("initial repository status check failed", serializeError(err))
   );
 }
 

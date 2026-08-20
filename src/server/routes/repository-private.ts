@@ -17,7 +17,7 @@ import { IAnonymizedRepositoryDocument } from "../../core/model/anonymizedReposi
 import UserModel from "../../core/model/users/users.model";
 import ConferenceModel from "../../core/model/conference/conferences.model";
 import AnonymousError from "../../core/AnonymousError";
-import { downloadQueue, removeQueue } from "../../queue";
+import { addRemovalJob, downloadQueue } from "../../queue";
 import RepositoryModel from "../../core/model/repositories/repositories.model";
 import User from "../../core/User";
 import { RepositoryStatus } from "../../core/types";
@@ -241,7 +241,14 @@ router.delete(
       const user = await getUser(req);
       isOwnerOrAdmin([repo.owner.id], user);
       await repo.updateStatus(RepositoryStatus.REMOVING);
-      await removeQueue.add(repo.repoId, { repoId: repo.repoId }, { jobId: `repo-${repo.repoId}` });
+      try {
+        await addRemovalJob(repo.repoId);
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "removal_enqueue_failed";
+        await repo.updateStatus(RepositoryStatus.ERROR, message);
+        throw error;
+      }
       return res.json({ status: repo.status });
     } catch (error) {
       handleError(error, res, req);

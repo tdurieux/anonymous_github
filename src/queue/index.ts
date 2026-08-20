@@ -1,4 +1,4 @@
-import { Queue, Worker } from "bullmq";
+import { JobsOptions, Queue, Worker } from "bullmq";
 import config from "../config";
 import AnonymizedRepositoryModel from "../core/model/anonymizedRepositories/anonymizedRepositories.model";
 import { RepositoryStatus } from "../core/types";
@@ -22,6 +22,22 @@ const IN_FLIGHT_STATUSES: RepositoryStatus[] = [
   RepositoryStatus.DOWNLOAD,
 ];
 
+const LIVE_JOB_STATES = new Set([
+  "active",
+  "waiting",
+  "delayed",
+  "prioritized",
+  "waiting-children",
+]);
+
+const REMOVAL_JOB_OPTIONS: JobsOptions = {
+  attempts: 3,
+  backoff: { type: "exponential", delay: 1000 },
+  removeOnComplete: true,
+  // Keep a bounded failure history so operators can inspect and retry jobs.
+  removeOnFail: { count: 1000 },
+};
+
 async function markErrorIfInFlight(repoId: string, message: string) {
   try {
     await AnonymizedRepositoryModel.updateOne(
@@ -38,6 +54,26 @@ async function markErrorIfInFlight(repoId: string, message: string) {
       .exec();
   } catch (e) {
     logger.error("markErrorIfInFlight failed", {
+      ...serializeError(e),
+      repoId,
+    });
+  }
+}
+
+async function markErrorIfRemoving(repoId: string, message: string) {
+  try {
+    await AnonymizedRepositoryModel.updateOne(
+      { repoId, status: RepositoryStatus.REMOVING },
+      {
+        $set: {
+          status: RepositoryStatus.ERROR,
+          statusDate: new Date(),
+          statusMessage: message || "removal_failed",
+        },
+      }
+    ).exec();
+  } catch (e) {
+    logger.error("markErrorIfRemoving failed", {
       ...serializeError(e),
       repoId,
     });
@@ -84,6 +120,58 @@ export let cacheQueue: Queue<RepoJobData>;
 export let removeQueue: Queue<RepoJobData>;
 export let downloadQueue: Queue<RepoJobData>;
 
+type RemovalQueue = Pick<Queue<RepoJobData>, "add" | "getJob">;
+
+/**
+ * Add an idempotent repository-removal job. A live job wins; a terminal job
+ * with the same stable id is replaced so a retry is not silently discarded.
+ */
+export async function addRemovalJob(
+  repoId: string,
+  queue: RemovalQueue = removeQueue
+): Promise<boolean> {
+  const jobId = `repo-${repoId}`;
+  const existing = await queue.getJob(jobId);
+  if (existing) {
+    const state = await existing.getState();
+    if (LIVE_JOB_STATES.has(state)) return false;
+    await existing.remove().catch(() => undefined);
+  }
+  await queue.add(repoId, { repoId }, { ...REMOVAL_JOB_OPTIONS, jobId });
+  return true;
+}
+
+/**
+ * Requeue removals whose database status survived but whose BullMQ job did
+ * not, for example after a crash between updating MongoDB and queueing Redis.
+ * Repository removal is idempotent, so replaying a terminal job is safe.
+ */
+export async function recoverStuckRemoving() {
+  if (!removeQueue) return;
+  try {
+    const stuck = await AnonymizedRepositoryModel.find(
+      { status: RepositoryStatus.REMOVING },
+      { repoId: 1 }
+    ).lean();
+    for (const doc of stuck) {
+      try {
+        const queued = await addRemovalJob(doc.repoId);
+        if (queued) {
+          logger.info("requeued interrupted removal", { repoId: doc.repoId });
+        }
+      } catch (e) {
+        logger.warn("removal recovery failed", {
+          ...serializeError(e),
+          repoId: doc.repoId,
+        });
+        await markErrorIfRemoving(doc.repoId, "removal_interrupted");
+      }
+    }
+  } catch (e) {
+    logger.error("recoverStuckRemoving failed", serializeError(e));
+  }
+}
+
 // avoid to load the queue outside the main server
 export function startWorker() {
   const connection = {
@@ -103,10 +191,7 @@ export function startWorker() {
       host: config.REDIS_HOSTNAME,
       port: config.REDIS_PORT,
     },
-    defaultJobOptions: {
-      removeOnComplete: true,
-      removeOnFail: true,
-    },
+    defaultJobOptions: REMOVAL_JOB_OPTIONS,
   });
   downloadQueue = new Queue<RepoJobData>("repository download", {
     connection,
@@ -144,8 +229,18 @@ export function startWorker() {
     recordMetric("remove", "completed", (job.finishedOn || Date.now()) - (job.processedOn || job.timestamp));
     await job.remove();
   });
-  removeWorker.on("failed", async (job) => {
+  removeWorker.on("failed", async (job, err) => {
     if (job) recordMetric("remove", "failed", Date.now() - (job.processedOn || job.timestamp));
+    const repoId = job?.data?.repoId;
+    logger.error("removal failed", {
+      ...serializeError(err),
+      repoId,
+    });
+    if (!repoId) return;
+    if (job && typeof job.attemptsMade === "number" && job.opts?.attempts) {
+      if (job.attemptsMade < job.opts.attempts) return;
+    }
+    await markErrorIfRemoving(repoId, err?.message || "removal_failed");
   });
 
   const downloadWorker = new Worker<RepoJobData>(

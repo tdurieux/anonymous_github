@@ -544,6 +544,20 @@ export default class Repository {
   }
 
   /**
+   * Record that repository content has been cached again after a reset.
+   */
+  async markCachePresent() {
+    if (!this.model.isReseted) return;
+    this.model.isReseted = false;
+    if (isConnected) {
+      await AnonymizedRepositoryModel.updateOne(
+        { _id: this._model._id },
+        { $set: { isReseted: false } }
+      ).exec();
+    }
+  }
+
+  /**
    * Compute the size of the repository in term of storage and number of files.
    *
    * @returns The size of the repository in bite

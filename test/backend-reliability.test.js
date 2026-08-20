@@ -16,6 +16,12 @@ const {
 const {
   processRemoveCache,
 } = require("../src/queue/processes/removeCache");
+const { addRemovalJob } = require("../src/queue");
+const {
+  repositoryMaintenanceQuery,
+} = require("../src/server/schedule");
+const Repository = require("../src/core/Repository").default;
+const AnonymizedRepositoryModel = require("../src/core/model/anonymizedRepositories/anonymizedRepositories.model").default;
 
 describe("conference edits", function () {
   const form = {
@@ -149,6 +155,72 @@ describe("removal workers", function () {
     expect(statuses[statuses.length - 1][1]).to.equal(failure.message);
   });
 
+  it("records errors that happen before repository removal starts", async function () {
+    const statuses = [];
+    const failure = new Error("status write failed");
+    let statusCalls = 0;
+    const repo = {
+      updateStatus: async (status, message) => {
+        statusCalls++;
+        statuses.push([status, message]);
+        if (statusCalls === 1) throw failure;
+      },
+      remove: async () => undefined,
+    };
+
+    let caught;
+    try {
+      await processRemoveRepository(job, {
+        connect: async () => undefined,
+        getRepository: async () => repo,
+      });
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).to.equal(failure);
+    expect(statuses[statuses.length - 1][1]).to.equal(failure.message);
+  });
+
+  it("does not add a duplicate when a removal job is live", async function () {
+    let additions = 0;
+    const queue = {
+      getJob: async () => ({
+        getState: async () => "active",
+        remove: async () => undefined,
+      }),
+      add: async () => {
+        additions++;
+      },
+    };
+
+    expect(await addRemovalJob("repo-1", queue)).to.equal(false);
+    expect(additions).to.equal(0);
+  });
+
+  it("replaces a terminal removal job with a retryable job", async function () {
+    let removed = false;
+    let added;
+    const queue = {
+      getJob: async () => ({
+        getState: async () => "failed",
+        remove: async () => {
+          removed = true;
+        },
+      }),
+      add: async (...args) => {
+        added = args;
+      },
+    };
+
+    expect(await addRemovalJob("repo-1", queue)).to.equal(true);
+    expect(removed).to.equal(true);
+    expect(added[0]).to.equal("repo-1");
+    expect(added[1]).to.deep.equal({ repoId: "repo-1" });
+    expect(added[2].jobId).to.equal("repo-repo-1");
+    expect(added[2].attempts).to.equal(3);
+    expect(added[2].removeOnFail).to.deep.equal({ count: 1000 });
+  });
+
   it("rejects cache jobs when cache removal fails", async function () {
     const failure = new Error("storage unavailable");
     let caught;
@@ -165,5 +237,34 @@ describe("removal workers", function () {
       caught = error;
     }
     expect(caught).to.equal(failure);
+  });
+});
+
+describe("repository expiration maintenance", function () {
+  it("selects due repositories regardless of their cache reset flag", function () {
+    const now = new Date("2026-08-20T00:00:00.000Z");
+    const query = repositoryMaintenanceQuery(now);
+
+    expect(query).not.to.have.property("isReseted");
+    expect(query.$or[0]).to.deep.equal({
+      "options.expirationMode": { $in: ["redirect", "remove"] },
+      "options.expirationDate": { $lte: now },
+    });
+  });
+
+  it("marks a cache as present again after content is restored", async function () {
+    const model = new AnonymizedRepositoryModel({
+      repoId: "repo-cache-state",
+      owner: "507f1f77bcf86cd799439011",
+      isReseted: true,
+      status: "ready",
+      options: { terms: [], expirationMode: "never" },
+      source: { type: "GitHubStream", repositoryName: "owner/repo" },
+    });
+    const repo = new Repository(model);
+
+    await repo.markCachePresent();
+
+    expect(repo.model.isReseted).to.equal(false);
   });
 });

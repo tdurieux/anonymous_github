@@ -331,11 +331,11 @@ export default class AnonymizedFile {
       });
     }
     const content = await this.repository.source?.getFileContent(this);
-    if (
-      !this.repository.model.isReseted ||
-      this.repository.status != RepositoryStatus.READY
-    ) {
-      this.repository.model.isReseted = false;
+    const cacheWasReset = this.repository.model.isReseted;
+    if (cacheWasReset) {
+      await this.repository.markCachePresent();
+    }
+    if (cacheWasReset || this.repository.status != RepositoryStatus.READY) {
       await this.repository.updateStatus(RepositoryStatus.READY);
     }
     return content;
