@@ -12,9 +12,11 @@ const {
 } = require("../src/server/routes/repository-private");
 const {
   processRemoveRepository,
+  createRemoveRepositoryProcessor,
 } = require("../src/queue/processes/removeRepository");
 const {
   processRemoveCache,
+  createRemoveCacheProcessor,
 } = require("../src/queue/processes/removeCache");
 const { addRemovalJob } = require("../src/queue");
 const {
@@ -181,6 +183,22 @@ describe("removal workers", function () {
     expect(statuses[statuses.length - 1][1]).to.equal(failure.message);
   });
 
+  it("does not treat the BullMQ lock token as a database dependency", async function () {
+    const statuses = [];
+    const database = {
+      connect: async () => undefined,
+      getRepository: async () => ({
+        updateStatus: async (status) => statuses.push(status),
+        remove: async () => undefined,
+      }),
+    };
+    const processor = createRemoveRepositoryProcessor(database);
+
+    await processor(job, "bullmq-lock-token");
+
+    expect(statuses).to.include("removing");
+  });
+
   it("does not add a duplicate when a removal job is live", async function () {
     let additions = 0;
     const queue = {
@@ -237,6 +255,22 @@ describe("removal workers", function () {
       caught = error;
     }
     expect(caught).to.equal(failure);
+  });
+
+  it("keeps the BullMQ lock token out of cache worker injection", async function () {
+    let removed = false;
+    const processor = createRemoveCacheProcessor({
+      connect: async () => undefined,
+      getRepository: async () => ({
+        removeCache: async () => {
+          removed = true;
+        },
+      }),
+    });
+
+    await processor(job, "bullmq-lock-token");
+
+    expect(removed).to.equal(true);
   });
 });
 
