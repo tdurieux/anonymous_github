@@ -77,4 +77,6 @@ const AnonymizedRepositorySchema = new Schema({
   },
 });
 
+AnonymizedRepositorySchema.index({ "source.repositoryName": 1 });
+
 export default AnonymizedRepositorySchema;
