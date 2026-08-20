@@ -190,15 +190,32 @@ router.post(
       const newExpiration = extendExpirationDate(
         repo.model.options.expirationDate
       );
+      const reactivating = repo.status === RepositoryStatus.EXPIRED;
+      const updates: Record<string, Date> = {
+        "options.expirationDate": newExpiration,
+      };
       repo.model.options.expirationDate = newExpiration;
+      if (reactivating) {
+        repo.model.anonymizeDate = new Date();
+        updates.anonymizeDate = repo.model.anonymizeDate;
+      }
       await AnonymizedRepositoryModel.updateOne(
         { _id: repo.model._id },
-        { $set: { "options.expirationDate": newExpiration } }
+        { $set: updates }
       ).exec();
 
-      // Re-anonymize so an expired repository comes back online, mirroring the
-      // refresh flow.
-      await repo.updateIfNeeded({ force: true });
+      if (reactivating) {
+        // Expiration removes the cached files. Rebuild the saved commit
+        // directly instead of asking GitHub for the latest branch head first;
+        // that lookup can fail after the new date has already been persisted
+        // and leave the repository stuck in the expired state.
+        await repo.updateStatus(RepositoryStatus.PREPARING);
+        await downloadQueue.add(
+          repo.repoId,
+          { repoId: repo.repoId },
+          { jobId: `repo-${repo.repoId}`, attempts: 3 }
+        );
+      }
       res.json({ status: repo.status, expirationDate: newExpiration });
     } catch (error) {
       handleError(error, res, req);
@@ -424,15 +441,34 @@ function updateRepoModel(
   };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function hasRepositorySourceChanged(
   model: IAnonymizedRepositoryDocument,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   repoUpdate: any
 ): boolean {
   return (
     repoUpdate.source.commit != model.source.commit ||
     repoUpdate.source.branch != model.source.branch ||
     repoUpdate.fullName != model.source.repositoryName
+  );
+}
+
+/**
+ * An expired repository has had its cached files removed, so saving a valid
+ * future expiration must rebuild it even when its GitHub source is unchanged.
+ */
+export function shouldReactivateExpiredRepository(
+  model: IAnonymizedRepositoryDocument,
+  now = new Date()
+): boolean {
+  if (model.status !== RepositoryStatus.EXPIRED) return false;
+  if (model.options.expirationMode === "never") return true;
+
+  const expirationDate = model.options.expirationDate;
+  return (
+    !!expirationDate &&
+    !isNaN(expirationDate.getTime()) &&
+    expirationDate > now
   );
 }
 
@@ -461,6 +497,11 @@ router.post(
       const sourceChanged = hasRepositorySourceChanged(repo.model, repoUpdate);
 
       updateRepoModel(repo.model, repoUpdate);
+      const reactivating = shouldReactivateExpiredRepository(repo.model);
+
+      if (reactivating) {
+        repo.model.anonymizeDate = new Date();
+      }
 
       if (sourceChanged) {
         const parsedRepository = gh(repoUpdate.fullName);
@@ -553,7 +594,7 @@ router.post(
           },
         }
       ).exec();
-      if (!sourceChanged) {
+      if (!sourceChanged && !reactivating) {
         return res.json({ status: repo.status });
       }
 
