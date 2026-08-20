@@ -77,4 +77,15 @@ const AnonymizedRepositorySchema = new Schema({
   },
 });
 
+AnonymizedRepositorySchema.index({ "source.repositoryName": 1 });
+AnonymizedRepositorySchema.index({ status: 1, statusDate: 1 });
+AnonymizedRepositorySchema.index({ lastView: 1 });
+AnonymizedRepositorySchema.index({ anonymizeDate: 1 });
+AnonymizedRepositorySchema.index({ status: 1, isReseted: 1, lastView: 1 });
+AnonymizedRepositorySchema.index({
+  status: 1,
+  isReseted: 1,
+  "options.expirationDate": 1,
+});
+
 export default AnonymizedRepositorySchema;

@@ -196,7 +196,7 @@ router.get(
       const repoId = repo.repoId;
       const results = await FileModel.aggregate([
         { $match: { repoId, size: { $ne: null } } },
-        { $project: { path: 1 } },
+        { $project: { _id: 0, path: 1 } },
         { $group: { _id: "$path", count: { $sum: 1 } } },
       ]).exec();
 

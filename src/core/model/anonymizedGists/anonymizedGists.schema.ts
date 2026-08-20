@@ -14,7 +14,7 @@ const AnonymizedGistSchema = new Schema({
   anonymizeDate: Date,
   lastView: Date,
   pageView: Number,
-  owner: Schema.Types.ObjectId,
+  owner: { type: Schema.Types.ObjectId, index: true },
   conference: String,
   source: {
     gistId: String,

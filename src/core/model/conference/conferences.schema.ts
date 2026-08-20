@@ -55,4 +55,7 @@ const RepositorySchema = new Schema({
   },
 });
 
+RepositorySchema.index({ owners: 1 });
+RepositorySchema.index({ status: 1, endDate: 1 });
+
 export default RepositorySchema;

@@ -58,4 +58,6 @@ const UserSchema = new Schema({
   },
 });
 
+UserSchema.index({ dateOfEntry: 1 });
+
 export default UserSchema;

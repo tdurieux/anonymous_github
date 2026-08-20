@@ -129,7 +129,7 @@ router.post("/claim", async (req: express.Request, res: express.Response) => {
     await AnonymizedRepositoryModel.updateOne(
       { repoId: repoConfig.repoId },
       { $set: { owner: user.model.id } }
-    );
+    ).collation({ locale: "en", strength: 2 });
     return res.send("Ok");
   } catch (error) {
     handleError(error, res, req);

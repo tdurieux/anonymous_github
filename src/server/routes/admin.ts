@@ -650,7 +650,6 @@ router.get("/overview", async (req, res) => {
 
     const [
       statusBreakdown,
-      totalSize,
       recentErrors,
       totalUsers,
       totalConferences,
@@ -664,9 +663,6 @@ router.get("/overview", async (req, res) => {
     ] = await Promise.all([
       AnonymizedRepositoryModel.aggregate([
         { $group: { _id: "$status", count: { $sum: 1 }, storage: { $sum: "$size.storage" } } },
-      ]),
-      AnonymizedRepositoryModel.aggregate([
-        { $group: { _id: null, total: { $sum: "$size.storage" } } },
       ]),
       AnonymizedRepositoryModel.countDocuments({
         status: "error",
@@ -774,7 +770,10 @@ router.get("/overview", async (req, res) => {
       repos: {
         total: totalRepos,
         statusBreakdown,
-        totalStorage: totalSize[0]?.total || 0,
+        totalStorage: statusBreakdown.reduce(
+          (total, row) => total + (row.storage || 0),
+          0
+        ),
         recentErrors24h: recentErrors,
         activeRepos24h,
         newRepos24h,
@@ -802,13 +801,10 @@ router.get("/overview", async (req, res) => {
 // Global stats endpoint: counts by status, total disk, recent failures
 router.get("/stats", async (req, res) => {
   try {
-    const [statusBreakdown, totalSize, recentErrors, totalUsers, totalConferences] =
+    const [statusBreakdown, recentErrors, totalUsers, totalConferences] =
       await Promise.all([
         AnonymizedRepositoryModel.aggregate([
           { $group: { _id: "$status", count: { $sum: 1 }, storage: { $sum: "$size.storage" } } },
-        ]),
-        AnonymizedRepositoryModel.aggregate([
-          { $group: { _id: null, total: { $sum: "$size.storage" } } },
         ]),
         AnonymizedRepositoryModel.countDocuments({
           status: "error",
@@ -819,7 +815,10 @@ router.get("/stats", async (req, res) => {
       ]);
     res.json({
       statusBreakdown,
-      totalStorage: totalSize[0]?.total || 0,
+      totalStorage: statusBreakdown.reduce(
+        (total, row) => total + (row.storage || 0),
+        0
+      ),
       recentErrors24h: recentErrors,
       totalUsers,
       totalConferences,
@@ -921,7 +920,7 @@ router.get("/repos", async (req, res) => {
     );
   }
 
-  const [total, results, statusCounts, sizeAgg] = await Promise.all([
+  const [total, results, statusCounts] = await Promise.all([
     AnonymizedRepositoryModel.find(filter).countDocuments(),
     AnonymizedRepositoryModel.find(filter)
       .skip(skipIndex)
@@ -932,10 +931,6 @@ router.get("/repos", async (req, res) => {
       { $match: filter },
       { $group: { _id: "$status", count: { $sum: 1 }, storage: { $sum: "$size.storage" } } },
     ]),
-    AnonymizedRepositoryModel.aggregate([
-      { $match: filter },
-      { $group: { _id: null, total: { $sum: "$size.storage" } } },
-    ]),
   ]);
   res.json({
     query: filter,
@@ -944,7 +939,10 @@ router.get("/repos", async (req, res) => {
     sort,
     results,
     statusCounts,
-    totalSize: sizeAgg[0]?.total || 0,
+    totalSize: statusCounts.reduce(
+      (total, row) => total + (row.storage || 0),
+      0
+    ),
   });
 });
 
