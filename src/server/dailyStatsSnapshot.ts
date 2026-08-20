@@ -17,23 +17,37 @@ export interface HomeStatsHistoryRow extends HomeStats {
 }
 
 export async function computeStats(): Promise<HomeStats> {
-  const [nbRepositories, nbUsersAgg, nbPageViews, nbPullRequests] =
+  const [nbRepositories, usageTotals, nbPullRequests] =
     await Promise.all([
       AnonymizedRepositoryModel.estimatedDocumentCount(),
       AnonymizedRepositoryModel.collection
-        .aggregate([{ $group: { _id: "$owner" } }, { $count: "n" }])
-        .toArray(),
-      AnonymizedRepositoryModel.collection
-        .aggregate([{ $group: { _id: null, total: { $sum: "$pageView" } } }])
+        .aggregate([
+          {
+            $group: {
+              _id: "$owner",
+              pageViews: { $sum: "$pageView" },
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              nbUsers: { $sum: 1 },
+              nbPageViews: { $sum: "$pageViews" },
+            },
+          },
+        ])
         .toArray(),
       AnonymizedPullRequestModel.estimatedDocumentCount(),
     ]);
 
+  const usage = usageTotals[0] as
+    | { nbUsers?: number; nbPageViews?: number }
+    | undefined;
+
   return {
     nbRepositories,
-    nbUsers: (nbUsersAgg[0] as { n?: number } | undefined)?.n || 0,
-    nbPageViews:
-      (nbPageViews[0] as { total?: number } | undefined)?.total || 0,
+    nbUsers: usage?.nbUsers || 0,
+    nbPageViews: usage?.nbPageViews || 0,
     nbPullRequests,
   };
 }

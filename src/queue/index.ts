@@ -33,7 +33,9 @@ async function markErrorIfInFlight(repoId: string, message: string) {
           statusMessage: message || "preparation_failed",
         },
       }
-    ).exec();
+    )
+      .collation({ locale: "en", strength: 2 })
+      .exec();
   } catch (e) {
     logger.error("markErrorIfInFlight failed", {
       ...serializeError(e),
