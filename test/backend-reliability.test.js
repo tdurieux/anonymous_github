@@ -8,7 +8,7 @@ const {
 } = require("../src/server/routes/conference");
 const {
   hasRepositorySourceChanged,
-  shouldReactivateExpiredRepository,
+  shouldReactivateInactiveRepository,
 } = require("../src/server/routes/repository-private");
 const {
   processRemoveRepository,
@@ -90,7 +90,7 @@ describe("repository update source detection", function () {
   it("rebuilds an expired repository when its expiration is in the future", function () {
     const now = new Date("2026-08-20T00:00:00.000Z");
     expect(
-      shouldReactivateExpiredRepository(
+      shouldReactivateInactiveRepository(
         {
           status: "expired",
           options: {
@@ -106,7 +106,7 @@ describe("repository update source detection", function () {
   it("does not rebuild an expired repository with a stale expiration", function () {
     const now = new Date("2026-08-20T00:00:00.000Z");
     expect(
-      shouldReactivateExpiredRepository(
+      shouldReactivateInactiveRepository(
         {
           status: "expired",
           options: {
@@ -121,10 +121,26 @@ describe("repository update source detection", function () {
 
   it("rebuilds an expired repository configured never to expire", function () {
     expect(
-      shouldReactivateExpiredRepository({
+      shouldReactivateInactiveRepository({
         status: "expired",
         options: { expirationMode: "never" },
       })
+    ).to.equal(true);
+  });
+
+  it("rebuilds a removed repository when its expiration is in the future", function () {
+    const now = new Date("2026-08-20T00:00:00.000Z");
+    expect(
+      shouldReactivateInactiveRepository(
+        {
+          status: "removed",
+          options: {
+            expirationMode: "remove",
+            expirationDate: new Date("2027-01-31T04:18:02.444Z"),
+          },
+        },
+        now
+      )
     ).to.equal(true);
   });
 });

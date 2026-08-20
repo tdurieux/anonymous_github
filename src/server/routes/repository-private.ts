@@ -461,14 +461,20 @@ export function hasRepositorySourceChanged(
 }
 
 /**
- * An expired repository has had its cached files removed, so saving a valid
- * future expiration must rebuild it even when its GitHub source is unchanged.
+ * An expired or removed repository has had its cached files removed, so saving
+ * a valid future expiration must rebuild it even when its GitHub source is
+ * unchanged.
  */
-export function shouldReactivateExpiredRepository(
+export function shouldReactivateInactiveRepository(
   model: IAnonymizedRepositoryDocument,
   now = new Date()
 ): boolean {
-  if (model.status !== RepositoryStatus.EXPIRED) return false;
+  if (
+    model.status !== RepositoryStatus.EXPIRED &&
+    model.status !== RepositoryStatus.REMOVED
+  ) {
+    return false;
+  }
   if (model.options.expirationMode === "never") return true;
 
   const expirationDate = model.options.expirationDate;
@@ -504,7 +510,7 @@ router.post(
       const sourceChanged = hasRepositorySourceChanged(repo.model, repoUpdate);
 
       updateRepoModel(repo.model, repoUpdate);
-      const reactivating = shouldReactivateExpiredRepository(repo.model);
+      const reactivating = shouldReactivateInactiveRepository(repo.model);
 
       if (reactivating) {
         repo.model.anonymizeDate = new Date();
