@@ -158,8 +158,16 @@ body {
   overflow-x: hidden;
 }
 
-/* Prevent ng-view from scrolling horizontally */
-[ng-view] {
+body {
+  overflow-y: hidden;
+}
+
+/* Angular removes the ng-view attribute after compiling the route. Target the
+   element so it remains the scroll container below the fixed-height header. */
+ng-view {
+  display: block;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-x: hidden !important;
   overflow-y: auto !important;
   max-width: 100%;
