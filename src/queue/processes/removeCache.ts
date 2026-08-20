@@ -31,4 +31,15 @@ export async function processRemoveCache(
   }
 }
 
-export default processRemoveCache;
+/**
+ * BullMQ passes its lock token as the second processor argument. Do not let
+ * that token occupy the database-injection slot used by processRemoveCache.
+ */
+export function createRemoveCacheProcessor(database?: Database) {
+  return async (
+    job: SandboxedJob<RepoJobData, void>,
+    _lockToken?: string
+  ) => processRemoveCache(job, database);
+}
+
+export default createRemoveCacheProcessor();

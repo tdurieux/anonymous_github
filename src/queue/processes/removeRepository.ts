@@ -50,4 +50,15 @@ export async function processRemoveRepository(
   }
 }
 
-export default processRemoveRepository;
+/**
+ * BullMQ calls sandbox processors with (job, lockToken). Keep that transport
+ * signature separate from the injectable worker function used by tests.
+ */
+export function createRemoveRepositoryProcessor(database?: Database) {
+  return async (
+    job: SandboxedJob<RepoJobData, void>,
+    _lockToken?: string
+  ) => processRemoveRepository(job, database);
+}
+
+export default createRemoveRepositoryProcessor();

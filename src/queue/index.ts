@@ -149,6 +149,23 @@ export async function addRemovalJob(
 export async function recoverStuckRemoving() {
   if (!removeQueue) return;
   try {
+    // A failed job is durable proof that removal was requested. Retry it even
+    // if the final failure handler already changed the repository to ERROR.
+    const failedJobs = await removeQueue.getJobs(["failed"]);
+    for (const job of failedJobs) {
+      const repoId = job.data?.repoId;
+      if (!repoId) continue;
+      try {
+        await addRemovalJob(repoId);
+        logger.info("requeued failed removal", { repoId });
+      } catch (e) {
+        logger.warn("failed removal recovery failed", {
+          ...serializeError(e),
+          repoId,
+        });
+      }
+    }
+
     const stuck = await AnonymizedRepositoryModel.find(
       { status: RepositoryStatus.REMOVING },
       { repoId: 1 }
