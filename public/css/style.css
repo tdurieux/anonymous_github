@@ -4465,7 +4465,16 @@ textarea::selection {
 }
 .paper-table .cell-anon .anon-sub a { color: var(--ink-muted); border-bottom: 1px dotted var(--border-color); }
 .paper-table .cell-anon .anon-sub a:hover { color: var(--color); }
-.paper-table .cell-conf { font-family: var(--font-mono); font-size: 13px; color: var(--color); }
+.paper-table .cell-conf {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--color);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.paper-table .cell-conf span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .paper-table .cell-status { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; font-size: 14px; color: var(--color); }
 .paper-table .cell-status .status-line { display: inline-flex; align-items: center; gap: 8px; }
 .paper-table .cell-status .status-sub { flex-basis: 100%; font-size: 11px; line-height: 1.2; color: var(--ink-muted); }
@@ -5294,6 +5303,12 @@ textarea::selection {
     align-items: center;
     gap: 6px;
     text-align: left;
+  }
+  .paper-table .cell-conf {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .paper-table .cell-views.num { text-align: left; }
   .paper-table .cell-views::before {

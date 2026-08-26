@@ -195,7 +195,7 @@
           </div>
         </div>
         <div class="cell-conf" role="cell">
-          <span ng-if="item.conference" ng-bind="item.conference"></span>
+          <span ng-if="item.conference" title="{{item.conference}}" ng-bind="item.conference"></span>
           <span class="empty-dash" ng-if="!item.conference">&mdash;</span>
         </div>
         <div class="cell-status" role="cell">
