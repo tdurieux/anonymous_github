@@ -48,7 +48,7 @@
     "crypto-js": "^4.2.0",
     "decompress-stream-to-s3": "^2.1.1",
     "dotenv": "^16.4.5",
-    "express": "^4.19.2",
+    "express": "^5.2.1",
     "express-rate-limit": "^6.11.2",
     "express-session": "^1.18.0",
     "express-slow-down": "^2.0.1",
