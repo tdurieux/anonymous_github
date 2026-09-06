@@ -66,4 +66,12 @@ describe("frontend production regressions", function () {
     expect(template).to.include("treeNodes");
     expect(h.scope.treeNodes[0].path).to.equal("/constructor/index.js");
   });
+  it("sanitizes Org output before trusting it", async function () {
+    const h = explorer(); let untrusted;
+    h.context.Org = { Parser: function () { this.parse = () => ({ convert: () => ({ toString: () => '<img onerror="probe()">' }) }); }, ConverterHTML: {} };
+    h.context.contentAbs2Relative = x => x;
+    h.context.DOMPurify = { sanitize: html => { untrusted = html; return "sanitized"; } };
+    h.navigate("file.org"); h.requests.at(-1).resolve({ data: "org source", headers: () => "text/plain" }); await h.flush();
+    expect(untrusted).to.include("onerror"); expect(h.scope.content).to.equal("sanitized");
+  });
 });

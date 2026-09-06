@@ -2961,7 +2961,7 @@ angular
                   suppressSubScriptHandling: true,
                   suppressAutoLink: false,
                 });
-                $scope.content = $sce.trustAsHtml(orgHTMLDocument.toString());
+                $scope.content = $sce.trustAsHtml(DOMPurify.sanitize(orgHTMLDocument.toString()));
                 $scope.type = "html";
               }
               if (
