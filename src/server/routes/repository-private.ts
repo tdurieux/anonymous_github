@@ -241,14 +241,9 @@ router.delete(
       const user = await getUser(req);
       isOwnerOrAdmin([repo.owner.id], user);
       await repo.updateStatus(RepositoryStatus.REMOVING);
-      try {
-        await addRemovalJob(repo.repoId);
-      } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "removal_enqueue_failed";
-        await repo.updateStatus(RepositoryStatus.ERROR, message);
-        throw error;
-      }
+      // Keep removal intent durable if Redis is unavailable. Recovery can
+      // enqueue it later, and public requests must remain blocked meanwhile.
+      await addRemovalJob(repo.repoId);
       return res.json({ status: repo.status });
     } catch (error) {
       handleError(error, res, req);

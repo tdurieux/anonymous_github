@@ -203,7 +203,7 @@ export async function recoverStuckRemoving() {
           ...serializeError(e),
           repoId: doc.repoId,
         });
-        await markErrorIfRemoving(doc.repoId, "removal_interrupted");
+        // Keep REMOVING so another recovery pass can retry the enqueue.
       }
     }
   } catch (e) {

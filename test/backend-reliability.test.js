@@ -110,6 +110,44 @@ describe("removal recovery", function () {
       expect(added[1]).to.deep.equal({ repoId: repo.repoId });
     });
   }
+
+  it("preserves deletion across a failed request enqueue and recovery enqueue", async function () {
+    const repo = new Repository(new AnonymizedRepositoryModel({
+      repoId: "repo-1", status: "ready",
+      owner: "507f1f77bcf86cd799439011",
+      options: { expirationMode: "never" }, source: {},
+    }));
+    routeUtils.getRepo = async () => repo;
+    routeUtils.getUser = async () => ({ model: { id: "admin" }, isAdmin: true });
+    let responseError;
+    routeUtils.handleError = (error) => { responseError = error; };
+    const failure = new Error("Redis unavailable");
+    queueModule.removeQueue = {
+      getJobs: async () => [],
+      getJob: async () => undefined,
+      add: async () => { throw failure; },
+    };
+    const router = require("../src/server/routes/repository-private").default;
+    const handler = router.stack.find((layer) =>
+      layer.route?.path === "/:repoId/" && layer.route.methods.delete
+    ).route.stack[0].handle;
+    await handler({ params: { repoId: repo.repoId } }, {});
+    expect(responseError).to.equal(failure);
+    expect(repo.status).to.equal("removing");
+    let publicError;
+    try { await repo.check(); } catch (error) { publicError = error; }
+    expect(publicError.message).to.equal("repository_expired");
+
+    AnonymizedRepositoryModel.find = (filter) => ({
+      lean: async () => repo.status === filter.status ? [repo.model] : [],
+    });
+    await queueModule.recoverStuckRemoving();
+    expect(repo.status).to.equal("removing");
+    let added;
+    queueModule.removeQueue.add = async (...args) => { added = args; };
+    await queueModule.recoverStuckRemoving();
+    expect(added[1]).to.deep.equal({ repoId: repo.repoId });
+  });
 });
 
 describe("conference edits", function () {
