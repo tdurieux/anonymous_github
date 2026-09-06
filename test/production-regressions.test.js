@@ -85,6 +85,20 @@ describe("production regressions", function () {
     const storage = new S3(); storage.client = () => client; storage.repoPath = () => "repo";
     return storage;
   }
+  it("deletes only exact S3 keys and descendants across pages", async function () {
+    const deleted = []; const tokens = [];
+    const storage = s3({
+      listObjectsV2: async ({ ContinuationToken }) => {
+        tokens.push(ContinuationToken);
+        return ContinuationToken ? { Contents: [{ Key: "repo/data/a" }, { Key: "repo/database" }] } :
+          { Contents: [{ Key: "repo/data.csv" }, { Key: "repo/data" }], IsTruncated: true, NextContinuationToken: "next" };
+      },
+      deleteObjects: async ({ Delete }) => { deleted.push(...Delete.Objects.map(x => x.Key)); return {}; },
+    });
+    await storage.rm("repo", "data");
+    expect(tokens).to.deep.equal([undefined, "next"]);
+    expect(deleted).to.deep.equal(["repo/data", "repo/data/a"]);
+  });
   it("rejects S3 per-object deletion failures", async function () {
     const storage = s3({
       listObjectsV2: async () => ({ Contents: [{ Key: "repo/data" }] }),

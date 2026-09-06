@@ -81,38 +81,36 @@ export default class S3Storage extends StorageBase {
   async rm(repoId: string, dir: string = ""): Promise<void> {
     if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
     this.assertSafePath(dir);
-    const data = await this.client(200000).listObjectsV2({
-      Bucket: config.S3_BUCKET,
-      Prefix: join(this.repoPath(repoId), dir),
-      MaxKeys: 100,
-    });
-
-    const params = {
-      Bucket: config.S3_BUCKET,
-      Delete: { Objects: new Array<{ Key: string }>() },
-    };
-
-    data.Contents?.forEach(function (content) {
-      if (content.Key) {
-        params.Delete.Objects.push({ Key: content.Key });
-      }
-    });
-
-    if (params.Delete.Objects.length == 0) {
-      // nothing to remove
-      return;
-    }
-    const result = await this.client(200000).deleteObjects(params);
-    if (result.Errors?.length) {
-      throw new AnonymousError("storage_delete_failed", {
-        httpStatus: 502,
-        object: result.Errors,
+    const prefix = join(this.repoPath(repoId), dir).replace(/\/$/, "");
+    const client = this.client(200000);
+    let continuationToken: string | undefined;
+    do {
+      const data = await client.listObjectsV2({
+        Bucket: config.S3_BUCKET,
+        Prefix: prefix,
+        MaxKeys: 1000,
+        ContinuationToken: continuationToken,
       });
-    }
-
-    if (data.IsTruncated) {
-      await this.rm(repoId, dir);
-    }
+      const objects = (data.Contents || [])
+        .filter(({ Key }) => Key === prefix || Key?.startsWith(prefix + "/"))
+        .map(({ Key }) => ({ Key: Key! }));
+      if (objects.length) {
+        const result = await client.deleteObjects({
+          Bucket: config.S3_BUCKET,
+          Delete: { Objects: objects },
+        });
+        if (result.Errors?.length) {
+          throw new AnonymousError("storage_delete_failed", {
+            httpStatus: 502,
+            object: result.Errors,
+          });
+        }
+      }
+      continuationToken = data.IsTruncated ? data.NextContinuationToken : undefined;
+      if (data.IsTruncated && !continuationToken) {
+        throw new Error("S3 returned a truncated listing without a continuation token");
+      }
+    } while (continuationToken);
   }
 
   /** @override */
