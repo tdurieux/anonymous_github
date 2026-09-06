@@ -69,6 +69,10 @@ const verify = async (
       // the isAdmin flag.
       user = await UserModel.findOne({ username: profile.username });
       if (user) {
+        if (user.externalIDs?.github && user.externalIDs.github !== profile.id) {
+          done(new AnonymousError("not_connected", { httpStatus: 401 }));
+          return;
+        }
         if (isDisabledAccount(user.status)) {
           done(
             new AnonymousError(

@@ -54,6 +54,17 @@ describe("production regressions", function () {
     expect((await error)[0].message).to.include("exceeded");
     expect(emitted).to.equal(false);
   });
+
+  it("does not link a recycled OAuth username to an existing GitHub identity", async function () {
+    require("../src/server/routes/connection");
+    const passport = require("passport");
+    const UserModel = require("../src/core/model/users/users.model").default;
+    let calls = 0;
+    stub(UserModel, "findOne", async () => ++calls === 1 ? null : { externalIDs: { github: "old-id" }, isAdmin: true });
+    stub(UserModel, "updateOne", () => { throw new Error("must not overwrite identity"); });
+    const error = await new Promise(resolve => passport._strategy("github")._verify("token", "", { id: "new-id", username: "recycled" }, resolve));
+    expect(error.message).to.equal("not_connected");
+  });
   it("omits an upstream length when later text is rewritten", async function () {
     const File = require("../src/core/AnonymizedFile").default;
     stub(config, "STREAMER_ENTRYPOINT", "");
