@@ -144,18 +144,40 @@ export async function addRemovalJob(
 /**
  * Requeue removals whose database status survived but whose BullMQ job did
  * not, for example after a crash between updating MongoDB and queueing Redis.
- * Repository removal is idempotent, so replaying a terminal job is safe.
+ * Failed jobs are replayed only while their removal request is still current.
  */
 export async function recoverStuckRemoving() {
   if (!removeQueue) return;
   try {
-    // A failed job is durable proof that removal was requested. Retry it even
-    // if the final failure handler already changed the repository to ERROR.
+    // Claim the pending removal before queueing it. A restored repository, or
+    // an error from a later operation, must not revive an old deletion request.
     const failedJobs = await removeQueue.getJobs(["failed"]);
     for (const job of failedJobs) {
       const repoId = job.data?.repoId;
       if (!repoId) continue;
       try {
+        const pending = await AnonymizedRepositoryModel.findOneAndUpdate(
+          {
+            repoId,
+            $or: [
+              { status: RepositoryStatus.REMOVING },
+              ...(job.timestamp
+                ? [{
+                    status: RepositoryStatus.ERROR,
+                    $or: [
+                      { anonymizeDate: { $lte: new Date(job.timestamp) } },
+                      { anonymizeDate: { $exists: false } },
+                    ],
+                  }]
+                : []),
+            ],
+          },
+          { $set: { status: RepositoryStatus.REMOVING } }
+        ).collation({ locale: "en", strength: 2 }).exec();
+        if (!pending) {
+          await job.remove();
+          continue;
+        }
         await addRemovalJob(repoId);
         logger.info("requeued failed removal", { repoId });
       } catch (e) {

@@ -24,6 +24,93 @@ const {
 } = require("../src/server/schedule");
 const Repository = require("../src/core/Repository").default;
 const AnonymizedRepositoryModel = require("../src/core/model/anonymizedRepositories/anonymizedRepositories.model").default;
+const queueModule = require("../src/queue");
+const routeUtils = require("../src/server/routes/route-utils");
+
+const UserModel = require("../src/core/model/users/users.model").default;
+
+describe("removal recovery", function () {
+  let originals;
+  beforeEach(function () {
+    originals = {
+      distinct: UserModel.distinct,
+      queue: queueModule.removeQueue,
+      find: AnonymizedRepositoryModel.find,
+      findOneAndUpdate: AnonymizedRepositoryModel.findOneAndUpdate,
+      getRepo: routeUtils.getRepo,
+      getUser: routeUtils.getUser,
+      handleError: routeUtils.handleError,
+    };
+    UserModel.distinct = () => ({ exec: async () => [] });
+  });
+  afterEach(function () {
+    UserModel.distinct = originals.distinct;
+    queueModule.removeQueue = originals.queue;
+    AnonymizedRepositoryModel.find = originals.find;
+    AnonymizedRepositoryModel.findOneAndUpdate = originals.findOneAndUpdate;
+    routeUtils.getRepo = originals.getRepo;
+    routeUtils.getUser = originals.getUser;
+    routeUtils.handleError = originals.handleError;
+  });
+
+  for (const status of ["ready", "preparing", "removed", "error"]) {
+    it(`discards an old failed removal after restoration to ${status}`, async function () {
+      let discarded = false;
+      let queued = false;
+      const job = {
+        data: { repoId: "repo-1" }, timestamp: 1000,
+        remove: async () => { discarded = true; },
+      };
+      queueModule.removeQueue = {
+        getJobs: async () => [job],
+        getJob: async () => undefined,
+        add: async () => { queued = true; },
+      };
+      AnonymizedRepositoryModel.findOneAndUpdate = (filter) => ({
+        collation() { return this; },
+        exec: async () => {
+          // A restored snapshot was created after the failed deletion request.
+          const eligible = require("sift").default(filter)({
+            repoId: "repo-1", status, anonymizeDate: new Date(2000),
+          });
+          return eligible ? { repoId: "repo-1" } : null;
+        },
+      });
+      AnonymizedRepositoryModel.find = () => ({ lean: async () => [] });
+      await queueModule.recoverStuckRemoving();
+      expect(discarded).to.equal(true);
+      expect(queued).to.equal(false);
+    });
+  }
+
+  for (const status of ["error", "removing"]) {
+    it(`retries a failed removal still in ${status}`, async function () {
+      const repo = {
+        repoId: "repo-1", status, anonymizeDate: new Date(500),
+        statusDate: new Date(3000),
+      };
+      let added;
+      const job = { data: { repoId: repo.repoId }, timestamp: 1000, finishedOn: 2000 };
+      queueModule.removeQueue = {
+        getJobs: async () => [job],
+        getJob: async () => undefined,
+        add: async (...args) => { added = args; },
+      };
+      AnonymizedRepositoryModel.findOneAndUpdate = (filter, update) => ({
+        collation() { return this; },
+        exec: async () => {
+          if (!require("sift").default(filter)(repo)) return null;
+          Object.assign(repo, update.$set);
+          return repo;
+        },
+      });
+      AnonymizedRepositoryModel.find = () => ({ lean: async () => [] });
+      await queueModule.recoverStuckRemoving();
+      expect(repo.status).to.equal("removing");
+      expect(added[1]).to.deep.equal({ repoId: repo.repoId });
+    });
+  }
+});
 
 describe("conference edits", function () {
   const form = {
