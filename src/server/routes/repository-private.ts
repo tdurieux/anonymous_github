@@ -817,9 +817,12 @@ router.delete(
       const user = await getUser(req);
       const target = req.params.username;
       const isOwner = repo.owner.id === user.model.id;
-      const isSelf =
-        !!user.username &&
-        user.username.toLowerCase() === target.toLowerCase();
+      const coauthor = (repo.model.coauthors || []).find(
+        (c) => c.username.toLowerCase() === target.toLowerCase()
+      );
+      const isSelf = coauthor?.githubId
+        ? coauthor.githubId === user.model.externalIDs?.github
+        : !!user.username && user.username.toLowerCase() === target.toLowerCase();
       if (!isOwner && !isSelf && !user.isAdmin) {
         throw new AnonymousError("not_authorized", { httpStatus: 401 });
       }

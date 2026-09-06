@@ -132,9 +132,16 @@ export default class User {
    * @returns the list of anonymized repositories
    */
   async getRepositories() {
-    const query: Record<string, unknown> = this.username
-      ? { $or: [{ owner: this.id }, { "coauthors.username": this.username }] }
-      : { owner: this.id };
+    const memberships: Record<string, unknown>[] = [{ owner: this.id }];
+    const githubId = this.model.externalIDs?.github;
+    if (githubId) memberships.push({ "coauthors.githubId": githubId });
+    if (this.username) {
+      memberships.push({ coauthors: { $elemMatch: {
+        username: this.username,
+        $or: [{ githubId: { $exists: false } }, { githubId: null }, { githubId: "" }],
+      } } });
+    }
+    const query = { $or: memberships };
     const repositories = (
       await AnonymizedRepositoryModel.find(query).exec()
     ).map((d) => new Repository(d));

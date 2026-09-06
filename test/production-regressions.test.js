@@ -55,6 +55,18 @@ describe("production regressions", function () {
     expect(emitted).to.equal(false);
   });
 
+  it("denies another GitHub identity access through a reused coauthor username", async function () {
+    const User = require("../src/core/User").default;
+    const UserModel = require("../src/core/model/users/users.model").default;
+    const user = new User(new UserModel({ username: "old-name", externalIDs: { github: "new-id" } }));
+    stub(RepoModel, "find", filter => {
+      expect(require("sift").default(filter)({ owner: "someone", coauthors: [{ username: "old-name", githubId: "old-id" }] })).to.equal(false);
+      expect(require("sift").default(filter)({ owner: "someone", coauthors: [{ username: "renamed", githubId: "new-id" }] })).to.equal(true);
+      return { exec: async () => [] };
+    });
+    expect(await user.getRepositories()).to.deep.equal([]);
+  });
+
   it("does not link a recycled OAuth username to an existing GitHub identity", async function () {
     require("../src/server/routes/connection");
     const passport = require("passport");
