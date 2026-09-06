@@ -62,6 +62,7 @@ const indexPriority = [
 ];
 
 async function webView(req: express.Request, res: express.Response) {
+  res.header("Content-Security-Policy", "sandbox allow-popups allow-forms allow-modals");
   const repo = await getRepo(req, res);
   if (!repo) return;
   try {

@@ -152,6 +152,21 @@ describe("production regressions", function () {
     expect(second.headers.ETag).not.to.equal(first.headers.ETag);
     expect(second.statusCode).not.to.equal(304);
   });
+  it("sandboxes rendered webview documents", async function () {
+    const File = require("../src/core/AnonymizedFile").default;
+    const utils = require("../src/server/routes/route-utils");
+    const repo = { options: { terms: [], page: true, pageSource: { path: "/", branch: "main" }, image: true }, model: { source: { branch: "main" } } };
+    stub(utils, "getRepo", async () => repo);
+    let path;
+    stub(File.prototype, "getFileInfo", async function () { path = this.anonymizedPath; return { name: "my file.html", path: "", size: 10 }; });
+    stub(File.prototype, "send", async () => {});
+    const handler = require("../src/server/routes/webview").default.stack[0].route.stack[0].handle;
+    const res = response();
+    await handler({ path: "/repo/my file.html", params: { repoId: "repo" }, headers: {} }, res);
+    expect(path).to.equal("my file.html");
+    expect(res.headers["Content-Security-Policy"]).to.include("sandbox");
+    expect(res.headers["Content-Security-Policy"]).not.to.include("allow-same-origin");
+  });
   it("omits an upstream length when later text is rewritten", async function () {
     const File = require("../src/core/AnonymizedFile").default;
     stub(config, "STREAMER_ENTRYPOINT", "");
