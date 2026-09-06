@@ -65,6 +65,16 @@ describe("production regressions", function () {
     const error = await new Promise(resolve => passport._strategy("github")._verify("token", "", { id: "new-id", username: "recycled" }, resolve));
     expect(error.message).to.equal("not_connected");
   });
+  it("checks GitHub authorization before returning shared cached metadata", async function () {
+    const CachedRepoModel = require("../src/core/model/repositories/repositories.model").default;
+    stub(db, "isConnected", true);
+    stub(CachedRepoModel, "findOne", async () => ({ name: "owner/private", branches: [{ readme: "secret" }] }));
+    stub(gh, "octokit", () => ({ repos: { get: async () => { throw Object.assign(new Error("Forbidden"), { status: 403 }); } } }));
+    try {
+      await require("../src/core/source/GitHubRepository").getRepositoryFromGitHub({ owner: "owner", repo: "private", accessToken: "unauthorized" });
+      throw new Error("expected rejection");
+    } catch (error) { expect(error.message).to.equal("token_expired"); }
+  });
   it("omits an upstream length when later text is rewritten", async function () {
     const File = require("../src/core/AnonymizedFile").default;
     stub(config, "STREAMER_ENTRYPOINT", "");

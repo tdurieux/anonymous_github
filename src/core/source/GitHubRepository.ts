@@ -259,9 +259,6 @@ export async function getRepositoryFromGitHub(opt: {
         })
       : null;
   }
-  if (dbModel && !opt.force) {
-    return new GitHubRepository(dbModel);
-  }
   const oct = octokit(opt.accessToken);
   let r: RestEndpointMethodTypes["repos"]["get"]["response"]["data"];
   // Recover the numeric GitHub repository id from `externalId` (stored as
@@ -372,6 +369,9 @@ export async function getRepositoryFromGitHub(opt: {
         repo: opt.repo,
       },
     });
+  // Cached private data is usable only after this token passed repos.get.
+  if (dbModel && !opt.force) return new GitHubRepository(dbModel);
+
   let pageSource:
     | RestEndpointMethodTypes["repos"]["getPages"]["response"]["data"]["source"]
     | undefined;
