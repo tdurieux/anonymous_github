@@ -79,6 +79,21 @@ describe("production regressions", function () {
     });
   }
 
+  function s3(client) {
+    stub(config, "S3_BUCKET", "test");
+    const S3 = require("../src/core/storage/S3").default;
+    const storage = new S3(); storage.client = () => client; storage.repoPath = () => "repo";
+    return storage;
+  }
+  it("rejects S3 per-object deletion failures", async function () {
+    const storage = s3({
+      listObjectsV2: async () => ({ Contents: [{ Key: "repo/data" }] }),
+      deleteObjects: async () => ({ Errors: [{ Key: "repo/data", Code: "AccessDenied" }] }),
+    });
+    try { await storage.rm("repo", "data"); throw new Error("expected rejection"); }
+    catch (error) { expect(error.message).to.equal("storage_delete_failed"); }
+  });
+
   for (const status of ["removing", "removed", "expiring", "expired"]) {
     it(`ignores delayed downloads for ${status} repositories`, async function () {
       stub(db, "connect", async () => {});

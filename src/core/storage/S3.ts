@@ -102,7 +102,13 @@ export default class S3Storage extends StorageBase {
       // nothing to remove
       return;
     }
-    await this.client(200000).deleteObjects(params);
+    const result = await this.client(200000).deleteObjects(params);
+    if (result.Errors?.length) {
+      throw new AnonymousError("storage_delete_failed", {
+        httpStatus: 502,
+        object: result.Errors,
+      });
+    }
 
     if (data.IsTruncated) {
       await this.rm(repoId, dir);
