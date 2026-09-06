@@ -139,4 +139,11 @@ describe("frontend production regressions", function () {
     h.scope.saveDefault(); h.requests.at(-1).reject({ data: { error: "not_connected" } }); await h.flush();
     expect(h.scope.error).to.equal("ERRORS.not_connected");
   });
+  it("keeps the conference end date after the start across December", function () {
+    class December extends Date { constructor(...args) { super(...(args.length ? args : ["2026-12-15T12:00:00Z"])); } }
+    const h = harness(December); h.scope.user = {};
+    h.defs.newConferenceController.at(-1)(h.scope, h.http, {}, {});
+    expect(h.scope.options.startDate.getFullYear()).to.equal(2027);
+    expect(h.scope.options.endDate.getTime()).to.be.greaterThan(h.scope.options.startDate.getTime());
+  });
 });

@@ -3484,7 +3484,7 @@ angular
       const start = new Date();
       start.setDate(1);
       start.setMonth(start.getMonth() + 1);
-      const end = new Date();
+      const end = new Date(start);
       end.setMonth(start.getMonth() + 7, 0);
       $scope.options = {
         startDate: start,
