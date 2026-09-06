@@ -142,10 +142,15 @@ describe("production regressions", function () {
     await handler(req, response());
     expect(failure.message).to.equal("file_not_supported");
   });
-  it("sandboxes renamed HTML documents", async function () {
-    const { handler, req } = fileRoute("page.html");
+  it("sandboxes renamed HTML and invalidates stale client versions", async function () {
+    const { handler, req, repo } = fileRoute("page.html");
     const first = response(); await handler(req, first);
     expect(first.headers["Content-Security-Policy"]).to.include("sandbox");
+    repo.model.source.commit = "commit-2";
+    req.headers["if-none-match"] = first.headers.ETag;
+    const second = response(); await handler(req, second);
+    expect(second.headers.ETag).not.to.equal(first.headers.ETag);
+    expect(second.statusCode).not.to.equal(304);
   });
   it("omits an upstream length when later text is rewritten", async function () {
     const File = require("../src/core/AnonymizedFile").default;

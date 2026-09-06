@@ -132,7 +132,7 @@ router.get(
         );
       }
       const etag = fileETag(
-        req.query.v as string | undefined,
+        `${repo.model.source.commit || ""}:${await f.sha() || ""}`,
         anonymizedPath,
         repo.model.options
       );
