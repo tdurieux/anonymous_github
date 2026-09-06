@@ -232,6 +232,21 @@ describe("production regressions", function () {
     expect(res.headers["Content-Security-Policy"]).to.include("sandbox");
     expect(res.headers["Content-Security-Policy"]).not.to.include("allow-same-origin");
   });
+  it("terminates the streamer response after a late upstream error", async function () {
+    const input = new (require("stream").PassThrough)();
+    stub(GitHubStream.prototype, "getFileContentCache", async () => input);
+    stub(require("../src/server/routes/route-utils"), "handleError", () => {});
+    const res = new (require("stream").PassThrough)();
+    res.header = res.contentType = () => res;
+    res.headersSent = true;
+    res.resume();
+    const handler = require("../src/streamer/route").default.stack.find(x => x.route.path === "/").route.stack[0].handle;
+    await handler({ body: { token: "token", repoFullName: "owner/repo", repoId: "repo", filePath: "file.txt", anonymizerOptions: { filePath: "file.txt", image: true, link: true } } }, res);
+    input.write("partial data");
+    input.destroy(new Error("upstream broke"));
+    await new Promise(resolve => setImmediate(resolve));
+    expect(res.destroyed).to.equal(true);
+  });
   it("keeps a conference eligible for retry when repository expiration fails", async function () {
     const Conference = require("../src/core/Conference").default;
     const model = { status: "ready", save: async () => {} };

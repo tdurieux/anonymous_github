@@ -172,10 +172,10 @@ async function webView(req: express.Request, res: express.Response) {
         const html = `<!DOCTYPE html><html><head><title>Content</title></head><link rel="stylesheet" href="/css/all.min.css" /><body><div class="container p-3 file-content markdown-body">${body}</div></body></html>`;
         res.contentType("text/html").send(html);
       } catch {
-        f.send(res);
+        await f.send(res);
       }
     } else {
-      f.send(res);
+      await f.send(res);
     }
   } catch (error) {
     handleError(error, res, req);

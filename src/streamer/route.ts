@@ -39,6 +39,7 @@ router.post(
       );
     } catch (error) {
       handleError(error, res);
+      if (res.headersSent && !res.writableEnded) res.destroy();
     }
   }
 );
@@ -111,6 +112,8 @@ router.post("/", async (req: express.Request, res: express.Response) => {
         content.destroy();
       }
       handleError(error, res);
+      if (res.headersSent && !res.writableEnded) res.destroy();
+      anonymizer.destroy();
     }
     content
       .on("error", handleStreamError)
