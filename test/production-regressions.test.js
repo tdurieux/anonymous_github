@@ -286,6 +286,17 @@ describe("production regressions", function () {
     catch (error) { expect(error.message).to.equal("storage failed"); }
     expect(model.status).to.equal("ready");
   });
+
+  it("creates fresh entry dates for each document", async function () {
+    const models = [
+      ["users", "users"], ["repositories", "repositories"], ["conference", "conferences"],
+      ["anonymizedRepositories", "anonymizedRepositories"], ["anonymizedGists", "anonymizedGists"],
+      ["anonymizedPullRequests", "anonymizedPullRequests"],
+    ].map(([folder, name]) => require(`../src/core/model/${folder}/${name}.model`).default);
+    const first = models.map(Model => new Model().dateOfEntry);
+    await new Promise(resolve => setTimeout(resolve, 15));
+    models.forEach((Model, i) => expect(new Model().dateOfEntry.getTime()).to.be.greaterThan(first[i].getTime()));
+  });
   it("omits an upstream length when later text is rewritten", async function () {
     const File = require("../src/core/AnonymizedFile").default;
     stub(config, "STREAMER_ENTRYPOINT", "");

@@ -37,7 +37,7 @@ const AnonymizedGistSchema = new Schema({
   },
   dateOfEntry: {
     type: Date,
-    default: new Date(),
+    default: Date.now,
   },
   gist: {
     description: String,

@@ -32,7 +32,7 @@ const RepositorySchema = new Schema({
   },
   dateOfEntry: {
     type: Date,
-    default: new Date(),
+    default: Date.now,
   },
   plan: {
     planID: String,

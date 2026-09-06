@@ -59,7 +59,7 @@ const AnonymizedRepositorySchema = new Schema({
   },
   dateOfEntry: {
     type: Date,
-    default: new Date(),
+    default: Date.now,
   },
   size: {
     storage: {

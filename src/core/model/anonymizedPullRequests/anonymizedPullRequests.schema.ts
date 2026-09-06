@@ -38,7 +38,7 @@ const AnonymizedPullRequestSchema = new Schema({
   },
   dateOfEntry: {
     type: Date,
-    default: new Date(),
+    default: Date.now,
   },
   pullRequest: {
     diff: String,
