@@ -1,6 +1,5 @@
 import { basename } from "path";
 import { Transform, Readable } from "stream";
-import { StringDecoder } from "string_decoder";
 import { isBinaryFileSync } from "isbinaryfile";
 import { lookup as lookupMime } from "mime-types";
 
@@ -132,20 +131,8 @@ export class AnonymizeTransformer extends Transform {
   public isText!: boolean;
   private nameVerdict: boolean | null;
   anonimizer: ContentAnonimizer;
-  private decoder = new StringDecoder("utf8");
-  // Trailing decoded text held back between chunks so that terms, URLs, or
-  // markdown image patterns straddling a stream chunk boundary still match.
-  // Must exceed the longest pattern we replace (terms + URLs + images).
-  private pending = "";
-  // Raw bytes corresponding to `pending` (plus any partial UTF-8 sequence
-  // currently buffered by the decoder). Kept so we can emit the original
-  // buffer verbatim when anonymization didn't change anything — that way
-  // a binary file misclassified as text, or text with a stray non-UTF-8
-  // byte, isn't silently corrupted by a UTF-8 round-trip through the
-  // StringDecoder. See discussion in #493.
-  private pendingBytes: Buffer = Buffer.alloc(0);
-  private static readonly DEFAULT_OVERLAP = 4096;
-  private readonly overlap: number;
+  private wholeChunks: Buffer[] = [];
+  private wholeBytes = 0;
   private readonly bufferWholeStream: boolean;
 
   constructor(
@@ -163,147 +150,54 @@ export class AnonymizeTransformer extends Transform {
     if (this.nameVerdict !== null) this.isText = this.nameVerdict;
     this.anonimizer = new ContentAnonimizer(this.opt);
 
-    const termPatterns = (opt.terms || []).map((term) => parseTermSpec(term).term);
-    // Streaming replacement can only safely emit a prefix when every possible
-    // match is shorter than the retained suffix. Regex quantifiers such as
-    // `*`, `+`, and `{m,n}` can exceed any fixed overlap, as can the URL/image
-    // removal patterns. Buffer those uncommon configurations in full (bounded
-    // by MAX_FILE_SIZE) so anonymization fails closed instead of leaking a
-    // match that straddles the streaming boundary.
+    // Matching a prefix in isolation can split even a fixed-length name or
+    // turn the split into a false word boundary. Preserve the complete text
+    // whenever a rewrite is enabled, with MAX_FILE_SIZE as a hard limit.
     this.bufferWholeStream =
-      opt.link === false ||
-      opt.image === false ||
-      termPatterns.some(termNeedsWholeStream);
-    const longestFixedPattern = Math.max(
-      0,
-      ...termPatterns.map((term) => term.length),
-      (opt.repoName?.length || 0) + (opt.branchName?.length || 0) + 128
-    );
-    this.overlap = this.bufferWholeStream
-      ? Number.POSITIVE_INFINITY
-      : Math.max(AnonymizeTransformer.DEFAULT_OVERLAP, longestFixedPattern + 32);
+      opt.link === false || opt.image === false ||
+      (opt.terms || []).length > 0 || !!(opt.repoName && opt.branchName);
   }
 
   get wasAnonimized() {
     return this.anonimizer.wasAnonymized;
   }
 
-  // Whether the candidate original bytes round-trip to the same byte
-  // sequence as `text` re-encoded. Used by the streaming path to confirm
-  // it can safely use byte-length slicing.
-  private decodeIsLossless(text: string, candidate: Buffer): boolean {
-    const reencoded = Buffer.from(text, "utf8");
-    return reencoded.length === candidate.length && reencoded.equals(candidate);
-  }
-
   _transform(chunk: Buffer, encoding: string, callback: (error?: Error) => void) {
     if (this.nameVerdict === null) {
-      // Name didn't decide. isbinaryfile inspects the first 512 bytes for
-      // null bytes and non-printable ratio and returns a decisive boolean.
       this.isText = chunk.length === 0 ? true : !isBinaryFileSync(chunk);
       this.nameVerdict = this.isText;
     }
-    if (!this.isText) {
-      this.emit("transform", {
-        isText: this.isText,
-        wasAnonimized: this.wasAnonimized,
-        chunk,
-      });
+    if (this.isText && this.bufferWholeStream) {
+      this.wholeBytes += chunk.length;
+      if (this.wholeBytes > config.MAX_FILE_SIZE) {
+        this.wholeChunks = [];
+        return callback(new Error(`Text file exceeded ${config.MAX_FILE_SIZE} bytes`));
+      }
+      this.wholeChunks.push(chunk);
+    } else {
+      this.emit("transform", { isText: this.isText, wasAnonimized: false, chunk });
       this.push(chunk);
-      return callback();
-    }
-
-    // StringDecoder buffers trailing partial UTF-8 sequences across chunk
-    // boundaries so we never decode half a codepoint into U+FFFD.
-    this.pending += this.decoder.write(chunk);
-    this.pendingBytes = Buffer.concat([this.pendingBytes, chunk]);
-
-    if (
-      this.bufferWholeStream &&
-      this.pendingBytes.length > config.MAX_FILE_SIZE
-    ) {
-      return callback(
-        new Error(
-          `Text file exceeded ${config.MAX_FILE_SIZE} bytes while buffering an unbounded anonymization pattern`
-        )
-      );
-    }
-
-    if (this.pending.length > this.overlap) {
-      let split = this.pending.length - this.overlap;
-      // Avoid splitting a UTF-16 surrogate pair.
-      const code = this.pending.charCodeAt(split);
-      if (code >= 0xdc00 && code <= 0xdfff) {
-        split -= 1;
-      }
-      const toProcess = this.pending.slice(0, split);
-      this.pending = this.pending.slice(split);
-
-      // Try to keep the original byte slice alongside the decoded text. If
-      // the re-encoded text matches those bytes, the decode was lossless and
-      // we can safely emit the original buffer when nothing changed —
-      // preserving lone CRs, BOMs, etc. If it doesn't match (invalid UTF-8
-      // somewhere in the chunk), fall back to encoded output and resync
-      // pendingBytes to the canonical re-encoding of what's left.
-      const toProcessBytes = Buffer.from(toProcess, "utf8");
-      const candidateOriginal = this.pendingBytes.slice(
-        0,
-        toProcessBytes.length
-      );
-      const out = this.anonimizer.anonymize(toProcess);
-      const lossless = this.decodeIsLossless(toProcess, candidateOriginal);
-      let outChunk: Buffer;
-      if (out === toProcess && lossless) {
-        outChunk = candidateOriginal;
-      } else {
-        outChunk = Buffer.from(out, "utf8");
-      }
-      if (lossless) {
-        this.pendingBytes = this.pendingBytes.slice(toProcessBytes.length);
-      } else {
-        this.pendingBytes = Buffer.from(this.pending, "utf8");
-      }
-
-      this.emit("transform", {
-        isText: this.isText,
-        wasAnonimized: this.wasAnonimized,
-        chunk: outChunk,
-      });
-      this.push(outChunk);
     }
     callback();
   }
 
-  _flush(callback: () => void) {
-    // Empty file with an unknown extension: no chunk arrived to trigger
-    // sniffing. Treat as text — there's nothing to corrupt.
-    if (this.nameVerdict === null) {
-      this.isText = true;
-      this.nameVerdict = true;
-    }
-    if (this.isText) {
-      this.pending += this.decoder.end();
-      if (this.pending) {
-        const out = this.anonimizer.anonymize(this.pending);
-        // At end-of-stream we have every original byte buffered. If nothing
-        // changed, emit them verbatim regardless of whether the decode was
-        // lossy — preserves invalid-UTF-8 / binary content that happened
-        // to be classified as text and didn't match any term.
-        const outChunk =
-          out === this.pending
-            ? this.pendingBytes
-            : Buffer.from(out, "utf8");
-        this.pending = "";
-        this.pendingBytes = Buffer.alloc(0);
-        this.emit("transform", {
-          isText: this.isText,
-          wasAnonimized: this.wasAnonimized,
-          chunk: outChunk,
-        });
-        this.push(outChunk);
+  _flush(callback: (error?: Error) => void) {
+    try {
+      if (this.nameVerdict === null) this.isText = true;
+      if (this.wholeBytes) {
+        const original = Buffer.concat(this.wholeChunks, this.wholeBytes);
+        this.wholeChunks = [];
+        const text = original.toString("utf8");
+        const out = this.anonimizer.anonymize(text);
+        // Preserve the original encoding when no replacement was needed.
+        const chunk = out === text ? original : Buffer.from(out, "utf8");
+        this.emit("transform", { isText: true, wasAnonimized: this.wasAnonimized, chunk });
+        this.push(chunk);
       }
+      callback();
+    } catch (error) {
+      callback(error as Error);
     }
-    callback();
   }
 }
 
@@ -344,44 +238,6 @@ function hasCatastrophicBacktracking(src: string): boolean {
   return false;
 }
 
-function termNeedsWholeStream(term: string): boolean {
-  try {
-    new RegExp(term, "i");
-  } catch {
-    // Invalid regular expressions are escaped and treated literally.
-    return false;
-  }
-  if (hasCatastrophicBacktracking(term)) {
-    // Catastrophic expressions are also escaped and treated literally.
-    return false;
-  }
-
-  let escaped = false;
-  let inCharacterClass = false;
-  for (let i = 0; i < term.length; i++) {
-    const char = term[i];
-    if (escaped) {
-      escaped = false;
-      continue;
-    }
-    if (char === "\\") {
-      escaped = true;
-      continue;
-    }
-    if (char === "[") {
-      inCharacterClass = true;
-      continue;
-    }
-    if (char === "]") {
-      inCharacterClass = false;
-      continue;
-    }
-    if (!inCharacterClass && (char === "*" || char === "+" || char === "{")) {
-      return true;
-    }
-  }
-  return false;
-}
 
 function compileTerms(terms: string[] | undefined): CompiledTermVariant[] {
   if (!terms || terms.length === 0) return [];

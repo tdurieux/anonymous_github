@@ -23,6 +23,29 @@ describe("production regressions", function () {
     const old = object[key]; restores.push(() => { object[key] = old; }); object[key] = value;
   }
   afterEach(() => { while (restores.length) restores.pop()(); });
+
+  it("masks literal names across the retained-suffix boundary", async function () {
+    const input = "xx Alice " + "z".repeat(4091);
+    const options = { filePath: "a.txt", terms: ["Alice"], image: true, link: true };
+    for (const split of [1, 5, 4096, input.length]) {
+      const transformer = new AnonymizeTransformer(options);
+      const output = collect(transformer);
+      for (let i = 0; i < input.length; i += split) transformer.write(Buffer.from(input.slice(i, i + split)));
+      transformer.end();
+      expect(await output).to.equal(new ContentAnonimizer(options).anonymize(input));
+    }
+  });
+
+  it("enforces the text buffering limit without emitting source bytes", async function () {
+    stub(config, "MAX_FILE_SIZE", 8);
+    const transformer = new AnonymizeTransformer({ filePath: "a.txt", terms: ["Alice"] });
+    let emitted = false;
+    transformer.on("data", () => { emitted = true; });
+    const error = once(transformer, "error");
+    transformer.end(Buffer.from("Alice Alice"));
+    expect((await error)[0].message).to.include("exceeded");
+    expect(emitted).to.equal(false);
+  });
   it("omits an upstream length when later text is rewritten", async function () {
     const File = require("../src/core/AnonymizedFile").default;
     stub(config, "STREAMER_ENTRYPOINT", "");
