@@ -622,23 +622,6 @@ angular
               return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
             }
 
-            // Escape a value for safe interpolation into a single-quoted
-            // AngularJS expression string (e.g. ng-click="openFolder('...')")
-            // that itself sits inside a double-quoted HTML attribute which is
-            // later $compile()d. Backslash/quote are escaped at the Angular
-            // string level; &<>" are HTML-encoded for the attribute. Without
-            // this a file name like `');$emit(...)//` would break out of the
-            // expression string and execute (DOM XSS, CWE-79).
-            function escapeNgString(str) {
-              return String(str)
-                .replace(/\\/g, "\\\\")
-                .replace(/'/g, "\\'")
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;");
-            }
-
             function buildSearchFilter() {
               const results = $scope.searchResults;
               if (!results || !results.length) return null;
@@ -721,12 +704,14 @@ angular
                   cssClasses.push("truncated");
                 }
 
-                const ngPath = escapeNgString(path);
+                const nodeIndex = $scope.treeNodes.length;
+                $scope.treeNodes.push({ name, path, href: `/r/${encodeURIComponent($scope.repoId)}${encodePathForUrl(path)}` });
+                const node = `treeNodes[${nodeIndex}]`;
                 output += `<li class="${cssClasses.join(
                   " "
-                )}" ng-class="{active: isActive('${ngPath}'), open: ${filterSet ? "opens['" + ngPath + "'] !== false" : "opens['" + ngPath + "']"}}" title="${escapeHtml(sizeTitle)}">`;
+                )}" ng-class="{active: isActive(${node}.path), open: opens[${node}.path]${filterSet ? ' !== false' : ''}}" title="${escapeHtml(sizeTitle)}">`;
                 if (dir) {
-                  output += `<a ng-click="openFolder('${ngPath}', $event)"><span class="tree-toggle"></span><span class="tree-icon-folder"></span><span class="tree-name">${escapeHtml(name)}</span>`;
+                  output += `<a ng-click="openFolder(${node}.path, $event)"><span class="tree-toggle"></span><span class="tree-icon-folder"></span><span class="tree-name" ng-bind="${node}.name"></span>`;
                   if (truncated) {
                     output += `<span class="truncated-warning" title="{{ 'WARNINGS.folder_truncated' | translate }}"><i class="fas fa-exclamation-triangle"></i></span>`;
                   }
@@ -736,9 +721,7 @@ angular
                   output += `</a>`;
                 } else {
                   const needsSpacer = parentPath !== "";
-                  output += `<a href='/r/${$scope.repoId}${encodePathForUrl(
-                    path
-                  )}'>${needsSpacer ? '<span class="tree-spacer"></span>' : ''}<span class="tree-icon-file"></span><span class="tree-name">${escapeHtml(name)}</span></a>`;
+                  output += `<a ng-href='{{${node}.href}}'>${needsSpacer ? '<span class="tree-spacer"></span>' : ''}<span class="tree-icon-file"></span><span class="tree-name" ng-bind="${node}.name"></span></a>`;
                 }
                 if (isOpen && collapsed.child) {
                   const children = collapsed.child;
@@ -757,7 +740,11 @@ angular
               return output + "</ul>";
             }
 
+            let renderScope = null;
             function display() {
+              if (renderScope) renderScope.$destroy();
+              renderScope = $scope.$new();
+              $scope.treeNodes = [];
               $element.html("");
               const filterSet = $scope.searchQuery ? buildSearchFilter() : null;
               let output;
@@ -766,7 +753,7 @@ angular
               } else {
                 output = generate(toArray($scope.file).sort(sortFiles), "", filterSet);
               }
-              $compile(output)($scope, (clone) => {
+              $compile(output)(renderScope, (clone) => {
                 $element.append(clone);
                 restoreFocus();
               });
