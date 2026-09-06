@@ -2614,11 +2614,13 @@ angular
           return;
         }
         $scope.fileSearchLoading = true;
-        searchCanceller = $q.defer();
+        const requestCanceller = $q.defer();
+        searchCanceller = requestCanceller;
         $http.get(
           `/api/repo/${$scope.repoId}/files/search?q=${encodeURIComponent(query)}`,
-          { timeout: searchCanceller.promise }
+          { timeout: requestCanceller.promise }
         ).then(function (res) {
+          if (destroyed || searchCanceller !== requestCanceller) return;
           searchCanceller = null;
           $scope.fileSearchLoading = false;
           // Merge search results into $scope.files so the tree can render them.
@@ -2668,8 +2670,8 @@ angular
           }
           $scope.fileSearchResults = res.data;
         }, function () {
-          // Only clear loading if this wasn't a cancellation
-          if (!searchCanceller) {
+          if (!destroyed && searchCanceller === requestCanceller) {
+            searchCanceller = null;
             $scope.fileSearchLoading = false;
             $scope.fileSearchResults = [];
           }

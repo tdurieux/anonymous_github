@@ -91,4 +91,11 @@ describe("frontend production regressions", function () {
     expect(h.scope.repoId).to.equal("new-repo"); expect(h.scope.files).to.have.length(0);
     expect(h.requests.at(-1).url).to.equal("/api/repo/new-repo/options");
   });
+  it("finishes failed searches without letting canceled requests reset the next search", async function () {
+    const h = explorer(); h.scope.fileSearchQuery = "old"; h.scope.onFileSearchChange(); const old = h.requests.at(-1);
+    h.scope.fileSearchQuery = "new"; h.scope.onFileSearchChange(); const current = h.requests.at(-1);
+    old.reject({ status: -1 }); await h.flush(); expect(h.scope.fileSearchLoading).to.equal(true);
+    current.reject({ status: 500 }); await h.flush(); expect(h.scope.fileSearchLoading).to.equal(false);
+    expect(h.scope.fileSearchResults).to.have.length(0);
+  });
 });
