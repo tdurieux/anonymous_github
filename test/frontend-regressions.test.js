@@ -98,6 +98,18 @@ describe("frontend production regressions", function () {
       expect(h.routes[route].reloadOnSearch).to.equal(false);
     }
   });
+  it("includes PR comment authors and bodies in the preview batch", async function () {
+    const h = harness(); const pending = new Map(); let id = 0;
+    const timeout = fn => { pending.set(++id, fn); return id; }; timeout.cancel = id => pending.delete(id);
+    h.defs.anonymizeController.at(-1)(h.scope, h.http, {}, {}, {}, () => {}, timeout);
+    h.scope.detectedType = "pr"; h.scope.terms = "Alice";
+    h.scope.details = { pullRequest: { title: "title", comments: [{ author: "Alice", body: "Alice comment" }] } };
+    h.watches.terms(); [...pending.values()][0]();
+    const request = h.requests.at(-1);
+    expect(Array.from(request.body.contents)).to.deep.equal(["title", "Alice", "Alice comment"]);
+    request.resolve({ data: { contents: ["title", "MASK", "MASK comment"] } }); await h.flush();
+    expect(h.scope.anonymizePrContent("Alice")).to.equal("MASK");
+  });
   it("finishes failed searches without letting canceled requests reset the next search", async function () {
     const h = explorer(); h.scope.fileSearchQuery = "old"; h.scope.onFileSearchChange(); const old = h.requests.at(-1);
     h.scope.fileSearchQuery = "new"; h.scope.onFileSearchChange(); const current = h.requests.at(-1);

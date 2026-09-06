@@ -2203,7 +2203,7 @@ angular
         if (typeof d.body === "string") out.add(d.body);
         if (typeof d.diff === "string") out.add(d.diff);
         const comments =
-          ($scope.details && $scope.details.comments) || [];
+          d.comments || [];
         for (const c of comments) {
           if (typeof c.author === "string") out.add(c.author);
           if (typeof c.body === "string") out.add(c.body);
