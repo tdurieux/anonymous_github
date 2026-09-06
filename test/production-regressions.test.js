@@ -152,7 +152,7 @@ describe("production regressions", function () {
     expect(second.headers.ETag).not.to.equal(first.headers.ETag);
     expect(second.statusCode).not.to.equal(304);
   });
-  it("sandboxes rendered webview documents", async function () {
+  it("decodes webview filenames and sandboxes rendered documents", async function () {
     const File = require("../src/core/AnonymizedFile").default;
     const utils = require("../src/server/routes/route-utils");
     const repo = { options: { terms: [], page: true, pageSource: { path: "/", branch: "main" }, image: true }, model: { source: { branch: "main" } } };
@@ -162,7 +162,7 @@ describe("production regressions", function () {
     stub(File.prototype, "send", async () => {});
     const handler = require("../src/server/routes/webview").default.stack[0].route.stack[0].handle;
     const res = response();
-    await handler({ path: "/repo/my file.html", params: { repoId: "repo" }, headers: {} }, res);
+    await handler({ path: "/repo/my%20file.html", params: { repoId: "repo" }, headers: {} }, res);
     expect(path).to.equal("my file.html");
     expect(res.headers["Content-Security-Policy"]).to.include("sandbox");
     expect(res.headers["Content-Security-Policy"]).not.to.include("allow-same-origin");
