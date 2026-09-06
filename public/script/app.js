@@ -2577,6 +2577,13 @@ angular
     "$sce",
     "$q",
     function ($scope, $http, $location, $routeParams, $sce, $q) {
+      let contentGeneration = 0;
+      let destroyed = false;
+      $scope.$on("$destroy", () => {
+        destroyed = true;
+        contentGeneration++;
+        if (searchCanceller) searchCanceller.resolve();
+      });
       $scope.files = [];
       $scope.isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent);
       $scope.fileSearchQuery = "";
@@ -2913,6 +2920,7 @@ angular
       }
 
       function getContent(path, fileInfo) {
+        const generation = contentGeneration;
         if (!path) {
           $scope.type = "error";
           $scope.content = "no_file_selected";
@@ -2938,6 +2946,7 @@ angular
           )
           .then(
             (res) => {
+              if (destroyed || generation !== contentGeneration) return;
               $scope.type = originalType;
               $scope.content = res.data;
               if ($scope.content == "") {
@@ -2976,6 +2985,7 @@ angular
               }, 50);
             },
             (err) => {
+              if (destroyed || generation !== contentGeneration) return;
               $scope.type = "error";
               $scope.content = "unknown_error";
               try {
@@ -2999,6 +3009,7 @@ angular
       }
 
       function updateContent() {
+        contentGeneration++;
         $scope.content = "";
         $scope.file = getSelectedFile();
         let fileVersion = "0";
@@ -3172,6 +3183,7 @@ angular
       }
 
       function init() {
+        contentGeneration++;
         $scope.repoId = $routeParams.repoId;
         $scope.type = "loading";
         $scope.filePath = $routeParams.path || "";

@@ -74,4 +74,15 @@ describe("frontend production regressions", function () {
     h.navigate("file.org"); h.requests.at(-1).resolve({ data: "org source", headers: () => "text/plain" }); await h.flush();
     expect(untrusted).to.include("onerror"); expect(h.scope.content).to.equal("sanitized");
   });
+  it("ignores stale successes and failures after selecting another file", async function () {
+    const h = explorer();
+    h.navigate("first.js"); const first = h.requests.at(-1);
+    h.navigate("second.js"); const second = h.requests.at(-1);
+    second.resolve({ data: "SECOND", headers: () => "text/plain" }); await h.flush();
+    first.resolve({ data: "FIRST", headers: () => "text/plain" }); await h.flush();
+    expect(h.scope.content).to.equal("SECOND");
+    h.navigate("third.js"); const third = h.requests.at(-1);
+    h.navigate("fourth.pdf"); third.reject({ status: 500 }); await h.flush();
+    expect(h.scope.type).to.equal("pdf");
+  });
 });
