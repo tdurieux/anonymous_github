@@ -1138,7 +1138,8 @@ angular
   .controller("profileController", [
     "$scope",
     "$http",
-    function ($scope, $http) {
+    "$translate",
+    function ($scope, $http, $translate) {
       $scope.terms = "";
       $scope.options = {
         expirationMode: "remove",

@@ -133,4 +133,10 @@ describe("frontend production regressions", function () {
     const late = harness(); late.defs.statusController.at(-1)(late.scope, late.http, { repoId: "repo" });
     late.emit("$destroy"); late.requests[0].resolve({ data: { status: "preparing" } }); await late.flush(); expect(late.timers.size).to.equal(0);
   });
+  it("translates profile save failures", async function () {
+    const h = harness(); expect(h.defs.profileController).to.include("$translate");
+    h.defs.profileController.at(-1)(h.scope, h.http, key => Promise.resolve(key));
+    h.scope.saveDefault(); h.requests.at(-1).reject({ data: { error: "not_connected" } }); await h.flush();
+    expect(h.scope.error).to.equal("ERRORS.not_connected");
+  });
 });
