@@ -56,4 +56,14 @@ describe("frontend production regressions", function () {
     expect(template).to.include('ng-bind="treeNodes[0].name"');
     expect(h.scope.treeNodes[0].name).to.equal(h.scope.file[0].name);
   });
+  it("renders directories whose names collide with Object.prototype", function () {
+    const h = harness(); let template;
+    const element = { html() {}, 0: { addEventListener() {}, setAttribute() {} } };
+    h.scope.file = [{ name: "constructor", path: "" }, { name: "index.js", path: "constructor", size: 1 }];
+    h.scope.$parent = {};
+    h.defs.tree[0]().controller.at(-1)(element, h.scope, {}, html => { template = html; return () => {}; });
+    expect(() => h.watches.file(h.scope.file)).not.to.throw();
+    expect(template).to.include("treeNodes");
+    expect(h.scope.treeNodes[0].path).to.equal("/constructor/index.js");
+  });
 });

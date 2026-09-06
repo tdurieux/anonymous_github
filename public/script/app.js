@@ -526,7 +526,7 @@ angular
           function ($element, $scope, $routeParams, $compile) {
             $scope.repoId = document.location.pathname.split("/")[2];
 
-            $scope.opens = {};
+            $scope.opens = Object.create(null);
 
             if ($routeParams.path) {
               let accumulatedPath = "";
@@ -538,7 +538,8 @@ angular
 
             const toArray = function (arr) {
               const output = [];
-              const keys = { "": { child: output } };
+              const keys = Object.create(null);
+              keys[""] = { child: output };
               function ensurePath(path) {
                 if (keys[path]) return;
                 const segments = path.split("/");
