@@ -119,6 +119,34 @@ describe("production regressions", function () {
       throw new Error("expected rejection");
     } catch (error) { expect(error.message).to.equal("token_expired"); }
   });
+
+  function response() {
+    return { headers: {}, header(key, value) { this.headers[key] = value; return this; },
+      contentType() { return this; }, status(value) { this.statusCode = value; return this; }, end() {}, send() {} };
+  }
+  function fileRoute(originalName) {
+    const File = require("../src/core/AnonymizedFile").default;
+    const utils = require("../src/server/routes/route-utils");
+    const repo = { options: { pdf: false, image: false, terms: [] }, model: { source: { commit: "commit-1" }, options: {} }, isReady: async () => true, countView: async () => {} };
+    stub(utils, "getRepo", async () => repo);
+    stub(File.prototype, "originalPath", async function () { this._file = { name: originalName, path: "" }; return originalName; });
+    stub(File.prototype, "sha", async () => "sha");
+    stub(File.prototype, "send", async () => {});
+    const handler = require("../src/server/routes/file").default.stack[0].route.stack[0].handle;
+    return { repo, handler, req: { url: "/repo/file/page.txt?v=old", protocol: "https", hostname: "host", params: { repoId: "repo" }, query: { v: "old" }, headers: {} } };
+  }
+  it("gates PDFs using their original extension", async function () {
+    const { handler, req } = fileRoute("report.pdf");
+    let failure;
+    stub(require("../src/server/routes/route-utils"), "handleError", error => { failure = error; });
+    await handler(req, response());
+    expect(failure.message).to.equal("file_not_supported");
+  });
+  it("sandboxes renamed HTML documents", async function () {
+    const { handler, req } = fileRoute("page.html");
+    const first = response(); await handler(req, first);
+    expect(first.headers["Content-Security-Policy"]).to.include("sandbox");
+  });
   it("omits an upstream length when later text is rewritten", async function () {
     const File = require("../src/core/AnonymizedFile").default;
     stub(config, "STREAMER_ENTRYPOINT", "");

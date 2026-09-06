@@ -343,7 +343,7 @@ export default class AnonymizedFile {
 
   async anonymizedContent() {
     const anonymizer = this.repository.generateAnonymizeTransformer(
-      this.anonymizedPath
+      await this.originalPath()
     );
     if (!config.STREAMER_ENTRYPOINT) {
       // collect the content locally
@@ -385,7 +385,7 @@ export default class AnonymizedFile {
 
   async send(res: Response): Promise<void> {
     const anonymizer = this.repository.generateAnonymizeTransformer(
-      this.anonymizedPath
+      await this.originalPath()
     );
     // eslint-disable-next-line no-async-promise-executor
     return new Promise<void>(async (resolve, reject) => {

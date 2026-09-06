@@ -151,6 +151,7 @@ async function webView(req: express.Request, res: express.Response) {
       }
     }
 
+    await f.originalPath();
     if (!f.isFileSupported()) {
       throw new AnonymousError("file_not_supported", {
         httpStatus: 400,

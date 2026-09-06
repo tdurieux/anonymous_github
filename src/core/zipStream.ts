@@ -149,7 +149,7 @@ export async function streamAnonymizedZip(
             entry.path.substring(entry.path.indexOf("/") + 1),
             compiledTerms
           );
-          if (!isEntryAllowed(fileName, opt.contentOptions)) {
+          if (!isEntryAllowed(entry.path, opt.contentOptions)) {
             entry.autodrain();
             return;
           }
@@ -159,7 +159,7 @@ export async function streamAnonymizedZip(
           // isText=false for every file, so the zip ships unanonymized.
           const anonymizer = new AnonymizeTransformer({
             ...opt.anonymizerOptions,
-            filePath: fileName,
+            filePath: entry.path,
           });
           const st = entry.pipe(anonymizer);
           archive.append(st, { name: fileName });

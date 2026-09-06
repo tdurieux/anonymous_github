@@ -105,6 +105,7 @@ router.get(
         repository: repo,
         anonymizedPath,
       });
+      const originalPath = await f.originalPath();
       if (!f.isFileSupported()) {
         throw new AnonymousError("file_not_supported", {
           httpStatus: 403,
@@ -115,7 +116,7 @@ router.get(
         res.attachment(
           anonymizedPath.substring(anonymizedPath.lastIndexOf("/") + 1)
         );
-      } else if (isScriptableDocument(anonymizedPath)) {
+      } else if (isScriptableDocument(originalPath) || isScriptableDocument(anonymizedPath)) {
         // A repository's own .html/.svg is untrusted content served from our
         // origin: opening it renders it as a document, and any script in it
         // would run as the site itself (session cookie, same-origin fetches
