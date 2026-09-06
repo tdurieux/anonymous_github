@@ -110,6 +110,14 @@ describe("frontend production regressions", function () {
     request.resolve({ data: { contents: ["title", "MASK", "MASK comment"] } }); await h.flush();
     expect(h.scope.anonymizePrContent("Alice")).to.equal("MASK");
   });
+  it("selects the diff tab after asynchronous PR loading", async function () {
+    const h = harness(); h.defs.pullRequestController.at(-1)(h.scope, h.http, {}, { pullRequestId: "pr" }, {});
+    h.requests[0].resolve({ data: {} }); await h.flush();
+    h.requests[1].resolve({ data: { diff: "patch" } }); await h.flush();
+    expect(h.scope.tabState.active).to.equal("diff");
+    const template = fs.readFileSync(path.join(__dirname, "../public/partials/pullRequest.htm"), "utf8");
+    expect(template).not.to.include('ng-init="tabState');
+  });
   it("finishes failed searches without letting canceled requests reset the next search", async function () {
     const h = explorer(); h.scope.fileSearchQuery = "old"; h.scope.onFileSearchChange(); const old = h.requests.at(-1);
     h.scope.fileSearchQuery = "new"; h.scope.onFileSearchChange(); const current = h.requests.at(-1);

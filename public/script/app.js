@@ -3264,6 +3264,7 @@ angular
         $http.get(`/api/pr/${$scope.pullRequestId}/content`).then(
           (res) => {
             $scope.details = res.data;
+            $scope.tabState = { active: res.data.diff ? "diff" : "comments" };
             if (callback) {
               callback(res.data);
             }
