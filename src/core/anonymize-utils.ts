@@ -1,3 +1,5 @@
+import { RE2JS } from "re2js";
+import { Script } from "vm";
 import { basename } from "path";
 import { Transform, Readable } from "stream";
 import { isBinaryFileSync } from "isbinaryfile";
@@ -207,11 +209,10 @@ const markdownImageRegex =
   /!\[[^\]]*\]\((?<filename>.*?)(?="|\))(?<optionalpart>".*")?\)/g;
 
 interface CompiledTermVariant {
-  // Global regex used to replace matches in content (and paths).
-  replaceRegex: RegExp;
-  // Non-global twin used inside the URL callback to test() without
-  // mutating shared lastIndex state.
-  testRegex: RegExp;
+  // RE2 for regular patterns; time-limited native fallback for JS extensions.
+  pattern: RE2JS | RegExp;
+  before: boolean;
+  after: boolean;
   mask: string;
 }
 
@@ -270,18 +271,23 @@ function compileTerms(terms: string[] | undefined): CompiledTermVariant[] {
         sniffSource: variant.sniff,
         unicode: variant.unicode,
       });
-      const baseFlags = variant.unicode ? "iu" : "i";
-      // A user-supplied regex can be valid without `u` but illegal with it
-      // (e.g. `[\w-\.]` — a range between class shorthands is rejected only
-      // in unicode mode). Skip variants that fail to compile so the other
-      // variant still anonymizes.
+      const before = variant.unicode && bounded.startsWith("(?<![\\p{L}\\p{N}_])");
+      const after = variant.unicode && bounded.endsWith("(?![\\p{L}\\p{N}_])");
       try {
-        const replaceRegex = new RegExp(bounded, "g" + baseFlags);
-        const testRegex = new RegExp(bounded, baseFlags);
-        compiled.push({ replaceRegex, testRegex, mask });
+        const pattern = RE2JS.compile(
+          variant.unicode ? variant.pattern : bounded,
+          RE2JS.CASE_INSENSITIVE
+        );
+        compiled.push({ pattern, before, after, mask });
       } catch {
-        continue;
+        // Retain JavaScript-only syntax and large repetition counts under
+        // the execution deadline; RE2 handles the common case without backtracking.
+        try {
+          compiled.push({ pattern: new RegExp(bounded, variant.unicode ? "giu" : "gi"),
+            before: false, after: false, mask });
+        } catch { /* The other variant may still compile. */ }
       }
+
     }
   }
   return compiled;
@@ -357,27 +363,28 @@ export class ContentAnonimizer {
     for (const c of this.compiledTerms) {
       // remove whole url if it contains the term
       content = content.replace(urlRegex, (match) => {
-        if (c.testRegex.test(match)) {
+        if (replaceTerm(match, c) !== match) {
           this.wasAnonymized = true;
           return c.mask;
         }
         return match;
       });
       // remove the term in the text
-      content = content.replace(c.replaceRegex, () => {
-        this.wasAnonymized = true;
-        return c.mask;
-      });
+      const replaced = replaceTerm(content, c);
+      if (replaced !== content) this.wasAnonymized = true;
+      content = replaced;
     }
     return content;
   }
 
-  anonymize(content: string) {
-    content = this.removeImage(content);
-    content = this.removeLink(content);
-    content = this.replaceGitHubSelfLinks(content);
-    content = this.replaceTerms(content);
-    return content;
+  anonymize(content: string): string {
+    return runWithAnonymizationDeadline(() => {
+      content = this.removeImage(content);
+      content = this.removeLink(content);
+      content = this.replaceGitHubSelfLinks(content);
+      content = this.replaceTerms(content);
+      return content;
+    });
   }
 }
 
@@ -397,10 +404,13 @@ export function anonymizePathCompiled(
   path: string,
   compiled: CompiledTermVariant[]
 ) {
-  for (const c of compiled) {
-    path = path.replace(c.replaceRegex, c.mask);
-  }
-  return path;
+  const replace = () => {
+    for (const c of compiled) path = replaceTerm(path, c);
+    return path;
+  };
+  return compiled.some((term) => term.pattern instanceof RegExp)
+    ? runWithAnonymizationDeadline(replace)
+    : replace();
 }
 
 export { compileTerms };
@@ -408,4 +418,33 @@ export type { CompiledTermVariant };
 
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// V8 interrupts even a native RegExp that never returns to JavaScript. A
+// timeout aborts the operation instead of returning partially anonymized text.
+const anonymizationScript = new Script("run()");
+function runWithAnonymizationDeadline(run: () => string): string {
+  return anonymizationScript.runInNewContext({ run }, { timeout: 1000 });
+}
+
+function replaceTerm(content: string, term: CompiledTermVariant): string {
+  if (term.pattern instanceof RegExp) {
+    return content.replace(term.pattern, () => term.mask);
+  }
+  const matcher = term.pattern.matcher(content);
+  const pieces: string[] = [];
+  let cursor = 0;
+  while (matcher.find()) {
+    const start = matcher.start();
+    const end = matcher.end();
+    // RE2 has no lookahead. Check the generated Unicode word boundaries
+    // outside the engine, without executing any user-supplied native regex.
+    if (term.before && /[\p{L}\p{N}_]$/u.test(content.slice(Math.max(0, start - 2), start))) continue;
+    if (term.after && /^[\p{L}\p{N}_]/u.test(content.slice(end, end + 2))) continue;
+    pieces.push(content.slice(cursor, start), term.mask);
+    cursor = end;
+  }
+  if (!pieces.length) return content;
+  pieces.push(content.slice(cursor));
+  return pieces.join("");
 }

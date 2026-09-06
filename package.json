@@ -63,6 +63,7 @@
     "passport": "^0.6.0",
     "passport-github2": "^0.1.12",
     "rate-limit-redis": "^4.2.0",
+    "re2js": "^2.8.6",
     "redis": "^4.6.13",
     "sanitize-html": "^2.17.2",
     "ts-custom-error": "^3.3.1",

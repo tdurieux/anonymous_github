@@ -36,6 +36,14 @@ describe("production regressions", function () {
     }
   });
 
+  it("executes adjacent repeated patterns without backtracking", function () {
+    const start = Date.now();
+    const text = "a".repeat(250);
+    expect(new ContentAnonimizer({ terms: ["a+a+a+a+a+a+b"] }).anonymize(text)).to.equal(text);
+    expect(anonymizePath(text, ["a+a+a+a+a+a+b"])).to.equal(text);
+    expect(Date.now() - start).to.be.lessThan(1000);
+  });
+
   it("enforces the text buffering limit without emitting source bytes", async function () {
     stub(config, "MAX_FILE_SIZE", 8);
     const transformer = new AnonymizeTransformer({ filePath: "a.txt", terms: ["Alice"] });
@@ -62,6 +70,12 @@ describe("production regressions", function () {
     await file.send(res);
     expect(await output).to.equal("z".repeat(9000) + " XXXX-1");
     expect(headers).not.to.have.property("Content-Length");
+  });
+
+  it("fails closed when a JavaScript-only pattern exceeds its execution deadline", function () {
+    this.timeout(3000);
+    const anonymizer = new ContentAnonimizer({ terms: ["a+a+a+a+a+a+b(?=x)"] });
+    expect(() => anonymizer.anonymize("a".repeat(250))).to.throw(/timed out/);
   });
 
 });
