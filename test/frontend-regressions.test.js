@@ -91,6 +91,13 @@ describe("frontend production regressions", function () {
     expect(h.scope.repoId).to.equal("new-repo"); expect(h.scope.files).to.have.length(0);
     expect(h.requests.at(-1).url).to.equal("/api/repo/new-repo/options");
   });
+  it("reloads PR and Gist controllers for new resource IDs", function () {
+    const h = harness();
+    for (const route of ["/pr/:pullRequestId/:path*?", "/gist/:gistId/:path*?"]) {
+      expect(h.routes[route].reloadOnUrl).not.to.equal(false);
+      expect(h.routes[route].reloadOnSearch).to.equal(false);
+    }
+  });
   it("finishes failed searches without letting canceled requests reset the next search", async function () {
     const h = explorer(); h.scope.fileSearchQuery = "old"; h.scope.onFileSearchChange(); const old = h.requests.at(-1);
     h.scope.fileSearchQuery = "new"; h.scope.onFileSearchChange(); const current = h.requests.at(-1);

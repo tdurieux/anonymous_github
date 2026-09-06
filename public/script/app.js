@@ -93,13 +93,13 @@ angular
           templateUrl: "/partials/pullRequest.htm",
           controller: "pullRequestController",
           title: "Anonymous pull request – Anonymous GitHub",
-          reloadOnUrl: false,
+          reloadOnSearch: false,
         })
         .when("/gist/:gistId/:path*?", {
           templateUrl: "/partials/gist.htm",
           controller: "gistController",
           title: "Anonymous gist – Anonymous GitHub",
-          reloadOnUrl: false,
+          reloadOnSearch: false,
         })
         .when("/r/:repoId/:path*?", {
           templateUrl: "/partials/explorer.htm",
