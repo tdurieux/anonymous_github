@@ -24,6 +24,9 @@ export default async function (job: SandboxedJob<RepoJobData, void>) {
   await connect();
 
   const repo = await getRepository(job.data.repoId);
+  if ([RepositoryStatus.REMOVING, RepositoryStatus.REMOVED,
+    RepositoryStatus.EXPIRING, RepositoryStatus.EXPIRED].some((status) => status === repo.status)) return;
+  repo.protectLifecycle = true;
   const token = await getToken(repo);
   const tokenKey = token.slice(-8);
 
@@ -88,6 +91,7 @@ export default async function (job: SandboxedJob<RepoJobData, void>) {
       logger.info("downloaded", { repoId: job.data.repoId });
     } catch (error) {
       clearInterval(statusInterval);
+      if (error instanceof Error && error.message === "repository_job_cancelled") return;
       if (tickPromise) await tickPromise;
 
       // Rate-limited: delay the job and free the worker slot
@@ -123,6 +127,7 @@ export default async function (job: SandboxedJob<RepoJobData, void>) {
     }
   } catch (error: unknown) {
     clearInterval(statusInterval);
+    if (error instanceof Error && error.message === "repository_job_cancelled") return;
     if (tickPromise) {
       try {
         await tickPromise;

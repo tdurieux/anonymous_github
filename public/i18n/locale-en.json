@@ -1,5 +1,6 @@
 {
   "ERRORS": {
+    "repository_job_cancelled": "The repository changed or was removed while processing.",
     "unknown_error": "Unknown error, contact the admin.",
     "unreachable": "Anonymous GitHub is unreachable, contact the admin.",
     "request_error": "Unable to download the file, check your connection or contact the admin.",

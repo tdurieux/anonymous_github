@@ -55,6 +55,25 @@ describe("production regressions", function () {
     expect(emitted).to.equal(false);
   });
 
+  for (const status of ["removing", "removed", "expiring", "expired"]) {
+    it(`ignores delayed downloads for ${status} repositories`, async function () {
+      stub(db, "connect", async () => {});
+      stub(db, "getRepository", async () => ({ status }));
+      stub(gh, "getToken", async () => { throw new Error("must not download"); });
+      await require("../src/queue/processes/downloadRepository").default({ data: { repoId: "repo" } });
+    });
+    it(`does not let an active worker overwrite concurrent ${status}`, async function () {
+      stub(db, "isConnected", true);
+      const model = new RepoModel({ repoId: "repo", status: "download", anonymizeDate: new Date(1000) });
+      const repo = new Repository(model); repo.protectLifecycle = true;
+      stub(RepoModel, "updateOne", filter => ({ exec: async () => ({ matchedCount:
+        require("sift").default(filter)({ _id: model._id, anonymizeDate: model.anonymizeDate, status }) ? 1 : 0 }) }));
+      try { await repo.updateStatus("ready"); throw new Error("expected rejection"); }
+      catch (error) { expect(error.message).to.equal("repository_job_cancelled"); }
+      expect(repo.status).to.equal("download");
+    });
+  }
+
   it("denies another GitHub identity access through a reused coauthor username", async function () {
     const User = require("../src/core/User").default;
     const UserModel = require("../src/core/model/users/users.model").default;

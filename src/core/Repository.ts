@@ -470,22 +470,30 @@ export default class Repository {
    * @param status the new status
    * @param errorMessage a potential error message to display
    */
+  public protectLifecycle = false;
+
   async updateStatus(status: RepositoryStatus, statusMessage?: string) {
     if (!status) return this.model;
-    this._model.status = status;
-    this._model.statusDate = new Date();
-    this._model.statusMessage = statusMessage;
-    if (!isConnected) return this.model;
-    await AnonymizedRepositoryModel.updateOne(
-      { _id: this._model._id },
-      {
-        $set: {
-          status,
-          statusDate: this._model.statusDate,
-          statusMessage,
+    const statusDate = new Date();
+    if (isConnected) {
+      const result = await AnonymizedRepositoryModel.updateOne(
+        {
+          _id: this._model._id,
+          ...(this.protectLifecycle ? {
+            status: { $nin: [RepositoryStatus.REMOVING, RepositoryStatus.REMOVED,
+              RepositoryStatus.EXPIRING, RepositoryStatus.EXPIRED] },
+            anonymizeDate: this._model.anonymizeDate,
+          } : {}),
         },
+        { $set: { status, statusDate, statusMessage } }
+      ).exec();
+      if (this.protectLifecycle && result.matchedCount === 0) {
+        throw new AnonymousError("repository_job_cancelled", { httpStatus: 410 });
       }
-    ).exec();
+    }
+    this._model.status = status;
+    this._model.statusDate = statusDate;
+    this._model.statusMessage = statusMessage;
   }
 
   /**
