@@ -85,4 +85,10 @@ describe("frontend production regressions", function () {
     h.navigate("fourth.pdf"); third.reject({ status: 500 }); await h.flush();
     expect(h.scope.type).to.equal("pdf");
   });
+  it("reloads the repository when only its ID changes", function () {
+    const h = explorer(); h.scope.files = [{ name: "old", path: "old" }];
+    h.params.repoId = "new-repo"; h.emit("$routeUpdate");
+    expect(h.scope.repoId).to.equal("new-repo"); expect(h.scope.files).to.have.length(0);
+    expect(h.requests.at(-1).url).to.equal("/api/repo/new-repo/options");
+  });
 });

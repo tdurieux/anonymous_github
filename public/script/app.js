@@ -2719,6 +2719,7 @@ angular
       ];
 
       $scope.$on("$routeUpdate", function (event, current) {
+        if ($scope.repoId != $routeParams.repoId) return init();
         if (($routeParams.path || "") == $scope.filePath) {
           return;
         }
@@ -2727,9 +2728,6 @@ angular
           .split("/")
           .filter((f) => f && f.trim().length > 0);
 
-        if ($scope.repoId != $routeParams.repoId) {
-          return init();
-        }
 
         updateContent();
 
@@ -2787,23 +2785,28 @@ angular
       }
       $scope.fileCounts = null;
       $scope.getFiles = function (path) {
+        const repoId = $scope.repoId;
         return $http.get(
           `/api/repo/${$scope.repoId}/files/?path=${encodeURIComponent(path)}&v=${$scope.options.lastUpdateDate}`
         ).then(function (res) {
+          if (destroyed || repoId !== $scope.repoId) return [];
           const normalized = path || "";
           $scope.files = $scope.files.filter((f) => f.path !== normalized);
           $scope.files.push(...res.data);
           return res.data;
         }, function (err) {
+          if (destroyed || repoId !== $scope.repoId) return [];
           $scope.type = "error";
           $scope.content = (err && err.data && err.data.error) || "unknown_error";
           $scope.files = [];
         });
       };
       function fetchFileCounts() {
+        const repoId = $scope.repoId;
         $http.get(
           `/api/repo/${$scope.repoId}/files/counts`
         ).then(function (res) {
+          if (destroyed || repoId !== $scope.repoId) return;
           $scope.fileCounts = res.data;
         }, function () {
           $scope.fileCounts = {};
@@ -2822,8 +2825,11 @@ angular
       $scope.$on("$destroy", function () { if (rlCountdownTimer) clearInterval(rlCountdownTimer); });
 
       function getOptions(callback) {
+        if (destroyed) return;
+        const repoId = $scope.repoId;
         $http.get(`/api/repo/${$scope.repoId}/options`).then(
           (res) => {
+            if (destroyed || repoId !== $scope.repoId) return;
             $scope.options = res.data;
             if ($scope.options.url) {
               window.location = $scope.options.url;
@@ -2834,6 +2840,7 @@ angular
             }
           },
           (err) => {
+            if (destroyed || repoId !== $scope.repoId) return;
             var data = err.data || {};
             if (data.error === "rate_limited" && data.resetAt) {
               $scope.type = "rate_limited";
@@ -3184,11 +3191,17 @@ angular
 
       function init() {
         contentGeneration++;
+        $scope.files = [];
+        $scope.content = null;
+        $scope.fileCounts = null;
+        $scope.fileSearchQuery = "";
+        $scope.onFileSearchChange();
         $scope.repoId = $routeParams.repoId;
         $scope.type = "loading";
         $scope.filePath = $routeParams.path || "";
         $scope.paths = $scope.filePath.split("/");
 
+        const repoId = $scope.repoId;
         getOptions(function (options) {
           fetchFileCounts();
           var chain = $q.resolve();
@@ -3203,6 +3216,7 @@ angular
             });
           }
           chain.then(function () {
+            if (destroyed || repoId !== $scope.repoId) return;
             if ($scope.files.length == 1 && $scope.files[0].name == "") {
               $scope.files = [];
               $scope.type = "empty";
