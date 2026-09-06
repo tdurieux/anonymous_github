@@ -477,10 +477,6 @@ export default class AnonymizedFile {
           if (!mime && data.isText) {
             res.contentType("text/plain");
           }
-          if (!data.wasAnonimized && this._file?.size) {
-            // the text files may be anonymized and therefore the size may be different
-            res.header("Content-Length", this._file?.size.toString());
-          }
         });
         const content = await this.content();
         function handleStreamError(error: Error) {
