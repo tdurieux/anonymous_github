@@ -175,6 +175,23 @@ describe("production regressions", function () {
     await gist.download();
     expect(gist.toJSON().gist.files[0].content).to.equal("complete gist content");
   });
+
+  it("retrieves private PR diffs with the authenticated API", async function () {
+    const PR = require("../src/core/PullRequest").default;
+    const pr = new PR(new (require("../src/core/model/anonymizedPullRequests/anonymizedPullRequests.model").default)({ source: { repositoryFullName: "owner/repo", pullRequestId: 1 } }));
+    pr.getToken = async () => "private-token";
+    let diffRequested = false;
+    stub(gh, "octokit", token => {
+      expect(token).to.equal("private-token");
+      return { rest: { pulls: { get: async options => {
+        if (options.mediaType?.format === "diff") { diffRequested = true; return { data: "private diff" }; }
+        return { data: { title: "PR", base: { repo: { full_name: "owner/repo" } }, head: {} } };
+      } } }, paginate: async () => [] };
+    });
+    await pr.download();
+    expect(diffRequested).to.equal(true);
+    expect(pr.model.pullRequest.diff).to.equal("private diff");
+  });
   it("checks GitHub authorization before returning shared cached metadata", async function () {
     const CachedRepoModel = require("../src/core/model/repositories/repositories.model").default;
     stub(db, "isConnected", true);

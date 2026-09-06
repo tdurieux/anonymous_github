@@ -7,7 +7,6 @@ import AnonymousError from "./AnonymousError";
 import { IAnonymizedPullRequestDocument } from "./model/anonymizedPullRequests/anonymizedPullRequests.types";
 import AnonymizedPullRequestModel from "./model/anonymizedPullRequests/anonymizedPullRequests.model";
 import config from "../config";
-import got, { HTTPError } from "got";
 import { octokit } from "./GitHubUtils";
 import { ContentAnonimizer } from "./anonymize-utils";
 import { createLogger } from "./logger";
@@ -103,24 +102,15 @@ export default class PullRequest {
         throw err;
       });
 
-    const diffPromise = got(
-      `https://github.com/${owner}/${repo}/pull/${pull_number}.diff`
-    ).catch((err) => {
-      if (err instanceof HTTPError && err.response.statusCode === 404) {
-        logger.warn("PR diff 404, continuing without it", {
-          code: "pr_diff_not_found",
-          httpStatus: 404,
-          pr: `${owner}/${repo}#${pull_number}`,
-        });
-        return { body: "" };
-      }
-      throw err;
+    const diffPromise = oct.rest.pulls.get({
+      owner, repo, pull_number,
+      mediaType: { format: "diff" },
     });
 
     const [comments, diff] = await Promise.all([commentsPromise, diffPromise]);
 
     this._model.pullRequest = {
-      diff: diff.body,
+      diff: diff.data as unknown as string,
       title: prInfo.data.title,
       body: prInfo.data.body || "",
       creationDate: new Date(prInfo.data.created_at),
