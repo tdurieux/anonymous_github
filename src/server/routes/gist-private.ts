@@ -102,8 +102,8 @@ router.delete(
 router.get(
   "/source/:gistId",
   async (req: express.Request, res: express.Response) => {
-    const user = await getUser(req);
     try {
+      const user = await getUser(req);
       const gist = new Gist(
         new AnonymizedGistModel({
           owner: user.id,
@@ -232,10 +232,9 @@ router.post(
 
 // add gist
 router.post("/", async (req: express.Request, res: express.Response) => {
-  const user = await getUser(req);
   const gistUpdate = req.body;
-
   try {
+    const user = await getUser(req);
     validateNewGist(gistUpdate);
 
     const gist = new Gist(

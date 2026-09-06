@@ -96,6 +96,19 @@ describe("production regressions", function () {
     const error = await new Promise(resolve => passport._strategy("github")._verify("token", "", { id: "new-id", username: "recycled" }, resolve));
     expect(error.message).to.equal("not_connected");
   });
+
+  for (const name of ["repository-private", "gist-private", "pullRequest-private"]) {
+    it(`handles rejected authentication in ${name} create routes`, async function () {
+      const utils = require("../src/server/routes/route-utils");
+      const router = require(`../src/server/routes/${name}`).default;
+      const failure = new Error("banned"); let handled;
+      stub(utils, "getUser", async () => { throw failure; });
+      stub(utils, "handleError", error => { handled = error; });
+      const route = router.stack.find(x => x.route?.path === "/" && x.route.methods.post).route;
+      await route.stack[0].handle({ body: {} }, {});
+      expect(handled).to.equal(failure);
+    });
+  }
   it("checks GitHub authorization before returning shared cached metadata", async function () {
     const CachedRepoModel = require("../src/core/model/repositories/repositories.model").default;
     stub(db, "isConnected", true);

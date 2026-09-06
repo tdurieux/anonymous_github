@@ -64,8 +64,8 @@ router.use(
     res: express.Response,
     next: express.NextFunction
   ) => {
-    const user = await getUser(req);
     try {
+      const user = await getUser(req);
       // only admins are allowed here
       isOwnerOrAdmin([], user);
       next();

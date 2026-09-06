@@ -103,8 +103,8 @@ router.delete(
 router.get(
   "/:owner/:repository/:pullRequestId",
   async (req: express.Request, res: express.Response) => {
-    const user = await getUser(req);
     try {
+      const user = await getUser(req);
       const pullRequest = new PullRequest(
         new AnonymizedPullRequestModel({
           owner: user.id,
@@ -249,10 +249,9 @@ router.post(
 
 // add pullRequest
 router.post("/", async (req: express.Request, res: express.Response) => {
-  const user = await getUser(req);
   const pullRequestUpdate = req.body;
-
   try {
+    const user = await getUser(req);
     validateNewPullRequest(pullRequestUpdate);
 
     const pullRequest = new PullRequest(

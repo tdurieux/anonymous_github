@@ -66,8 +66,8 @@ async function getTokenForAdmin(user: User, req: express.Request) {
 
 // claim a repository
 router.post("/claim", async (req: express.Request, res: express.Response) => {
-  const user = await getUser(req);
   try {
+    const user = await getUser(req);
     if (!req.body.repoId) {
       throw new AnonymousError("repoId_not_defined", {
         object: req.body,
@@ -254,12 +254,12 @@ router.delete(
 router.get(
   "/:owner/:repo/",
   async (req: express.Request, res: express.Response) => {
-    const user = await getUser(req);
-    let token = user.accessToken;
-    if (user.isAdmin) {
-      token = (await getTokenForAdmin(user, req)) || token;
-    }
     try {
+      const user = await getUser(req);
+      let token = user.accessToken;
+      if (user.isAdmin) {
+        token = (await getTokenForAdmin(user, req)) || token;
+      }
       const repo = await getRepositoryFromGitHub({
         owner: req.params.owner,
         repo: req.params.repo,
@@ -277,12 +277,12 @@ router.get(
 router.get(
   "/:owner/:repo/branches",
   async (req: express.Request, res: express.Response) => {
-    const user = await getUser(req);
-    let token = user.accessToken;
-    if (user.isAdmin) {
-      token = (await getTokenForAdmin(user, req)) || token;
-    }
     try {
+      const user = await getUser(req);
+      let token = user.accessToken;
+      if (user.isAdmin) {
+        token = (await getTokenForAdmin(user, req)) || token;
+      }
       const repository = await getRepositoryFromGitHub({
         accessToken: token,
         owner: req.params.owner,
@@ -621,10 +621,9 @@ router.post(
 
 // add repository
 router.post("/", async (req: express.Request, res: express.Response) => {
-  const user = await getUser(req);
   const repoUpdate = req.body;
-
   try {
+    const user = await getUser(req);
     try {
       await db.getRepository(repoUpdate.repoId);
       throw new AnonymousError("repoId_already_used", {
