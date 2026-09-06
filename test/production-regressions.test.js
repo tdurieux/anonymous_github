@@ -55,6 +55,30 @@ describe("production regressions", function () {
     expect(emitted).to.equal(false);
   });
 
+  it("propagates backpressure and cancellation through the blob probe", async function () {
+    let generated = 0;
+    const input = new Readable({ read() { generated++; this.push(Buffer.alloc(65536, 65)); } });
+    const source = Object.create(GitHubStream.prototype);
+    const output = source.resolveLfsPointer(input, "token", "file.bin");
+    await new Promise(resolve => setTimeout(resolve, 20));
+    expect(generated).to.be.lessThan(10);
+    expect(output.readableLength).to.be.lessThan(300000);
+    output.destroy();
+    await new Promise(resolve => setImmediate(resolve));
+    expect(input.destroyed).to.equal(true);
+  });
+
+  for (const chunkSize of [1, 200]) {
+    it(`resolves LFS pointers using ${chunkSize}-byte chunks`, async function () {
+      const source = Object.create(GitHubStream.prototype);
+      source.downloadFileViaRaw = () => Readable.from(["complete LFS file"]);
+      const pointer = "version https://git-lfs.github.com/spec/v1\noid sha256:" + "a".repeat(64) + "\nsize 1024\n";
+      const chunks = [];
+      for (let i = 0; i < pointer.length; i += chunkSize) chunks.push(Buffer.from(pointer.slice(i, i + chunkSize)));
+      expect(await collect(source.resolveLfsPointer(Readable.from(chunks), "token", "file"))).to.equal("complete LFS file");
+    });
+  }
+
   for (const status of ["removing", "removed", "expiring", "expired"]) {
     it(`ignores delayed downloads for ${status} repositories`, async function () {
       stub(db, "connect", async () => {});

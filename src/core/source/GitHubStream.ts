@@ -177,57 +177,43 @@ export default class GitHubStream extends GitHubBase {
     filePath: string
   ): stream.Readable {
     const out = new stream.PassThrough();
-    let probe = Buffer.alloc(0);
-    let decided = false;
-    const PROBE_BYTES = 150;
-    const LFS_PREFIX = "version https://git-lfs.github.com/spec/";
-
-    const decide = (extra?: Buffer, sourceEnded = false) => {
-      if (decided) return;
-      decided = true;
-      const head = probe.toString(
-        "utf8",
-        0,
-        Math.min(probe.length, LFS_PREFIX.length)
-      );
-      if (head === LFS_PREFIX) {
-        blobStream.destroy();
-        const lfsStream = this.downloadFileViaRaw(token, filePath);
-        lfsStream.on("error", (err) => out.destroy(err));
-        lfsStream.pipe(out);
-        return;
+    let active = blobStream;
+    out.once("close", () => active.destroy());
+    // The generator only reads upstream when the output has capacity.
+    const downloadRaw = () => this.downloadFileViaRaw(token, filePath);
+    async function* resolve() {
+      let probe = Buffer.alloc(0);
+      let decided = false;
+      for await (const chunk of blobStream) {
+        const bytes = Buffer.from(chunk);
+        if (decided) {
+          yield bytes;
+          continue;
+        }
+        probe = Buffer.concat([probe, bytes]);
+        if (probe.length < 150) continue;
+        decided = true;
+        if (probe.toString("utf8", 0, 39) === "version https://git-lfs.github.com/spec/") {
+          active = downloadRaw();
+          for await (const raw of active) yield raw;
+          return;
+        }
+        yield probe;
+        probe = Buffer.alloc(0);
       }
-      out.write(probe);
-      if (extra && extra.length) out.write(extra);
-      if (sourceEnded) {
-        out.end();
-        return;
+      if (!decided) {
+        if (probe.toString("utf8").startsWith("version https://git-lfs.github.com/spec/")) {
+          active = downloadRaw();
+          for await (const raw of active) yield raw;
+        } else if (probe.length) {
+          yield probe;
+        }
       }
-      blobStream.on("data", (c) => out.write(c));
-      blobStream.on("end", () => out.end());
-      blobStream.on("error", (err) => out.destroy(err));
-    };
-
-    blobStream.on("data", (chunk: Buffer) => {
-      if (decided) return;
-      const remaining = PROBE_BYTES - probe.length;
-      if (chunk.length <= remaining) {
-        probe = Buffer.concat([probe, chunk]);
-        if (probe.length >= PROBE_BYTES) decide();
-      } else {
-        probe = Buffer.concat([probe, chunk.slice(0, remaining)]);
-        decide(chunk.slice(remaining));
-      }
-    });
-    blobStream.on("end", () => decide(undefined, true));
-    blobStream.on("error", (err) => {
-      // Always propagate — pre-decision this is the only listener; once a
-      // non-LFS decision is made, the inner branch attaches its own
-      // listener that will also fire, but we shouldn't rely on that being
-      // there if the code is later refactored.
-      decided = true;
-      out.destroy(err);
-    });
+    }
+    const resolved = stream.Readable.from(resolve());
+    out.once("close", () => resolved.destroy());
+    resolved.on("error", (error) => out.destroy(error));
+    resolved.pipe(out);
 
     return out;
   }
