@@ -125,4 +125,12 @@ describe("frontend production regressions", function () {
     current.reject({ status: 500 }); await h.flush(); expect(h.scope.fileSearchLoading).to.equal(false);
     expect(h.scope.fileSearchResults).to.have.length(0);
   });
+  it("cancels status polling on destroy, including late responses", async function () {
+    const h = harness(); h.defs.statusController.at(-1)(h.scope, h.http, { repoId: "repo" });
+    h.requests[0].resolve({ data: { status: "preparing" } }); await h.flush();
+    expect(h.timers.size).to.equal(1); const callback = [...h.timers.values()][0];
+    h.emit("$destroy"); expect(h.timers.size).to.equal(0); callback(); expect(h.requests).to.have.length(1);
+    const late = harness(); late.defs.statusController.at(-1)(late.scope, late.http, { repoId: "repo" });
+    late.emit("$destroy"); late.requests[0].resolve({ data: { status: "preparing" } }); await late.flush(); expect(late.timers.size).to.equal(0);
+  });
 });

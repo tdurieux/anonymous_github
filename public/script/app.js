@@ -1630,6 +1630,8 @@ angular
       $scope.rateLimitCountdown = "";
 
       var countdownTimer = null;
+      let pollTimer = null;
+      let destroyed = false;
       function startRateLimitCountdown(resetAt) {
         $scope.rateLimitResetAt = resetAt;
         if (countdownTimer) clearInterval(countdownTimer);
@@ -1653,7 +1655,9 @@ angular
         countdownTimer = setInterval(tick, 1000);
       }
       $scope.$on("$destroy", function () {
+        destroyed = true;
         if (countdownTimer) clearInterval(countdownTimer);
+        if (pollTimer) clearTimeout(pollTimer);
       });
 
       function parseStatusMessage(msg) {
@@ -1668,6 +1672,7 @@ angular
       }
 
       $scope.getStatus = () => {
+        if (destroyed) return;
         $http
           .get("/api/repo/" + $scope.repoId, {
             repoId: $scope.repoId,
@@ -1675,6 +1680,7 @@ angular
           })
           .then(
             (res) => {
+              if (destroyed) return;
               $scope.repo = res.data;
               if (res.data.rateLimitResetAt) {
                 startRateLimitCountdown(res.data.rateLimitResetAt);
@@ -1694,12 +1700,12 @@ angular
               } else if ($scope.repo.status == "anonymizing") {
                 $scope.progress = 75;
               }
-              var shouldPoll = $scope.repo.status != "ready";
+              var shouldPoll = !["ready", "removed", "expired"].includes($scope.repo.status);
               if ($scope.repo.status == "error" && !$scope.rateLimitResetAt) {
                 shouldPoll = false;
               }
               if (shouldPoll) {
-                setTimeout($scope.getStatus, 2000);
+                pollTimer = setTimeout($scope.getStatus, 2000);
               }
             },
             (err) => {
