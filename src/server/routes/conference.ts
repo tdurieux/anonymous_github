@@ -56,7 +56,7 @@ router.get("/", async (req: express.Request, res: express.Response) => {
       ).map(async (data) => {
         const conf = new Conference(data);
         if (data.endDate < new Date() && data.status == "ready") {
-          await conf.updateStatus("expired");
+          await conf.expire();
         }
         return conf;
       })

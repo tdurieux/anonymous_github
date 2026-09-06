@@ -232,6 +232,15 @@ describe("production regressions", function () {
     expect(res.headers["Content-Security-Policy"]).to.include("sandbox");
     expect(res.headers["Content-Security-Policy"]).not.to.include("allow-same-origin");
   });
+  it("keeps a conference eligible for retry when repository expiration fails", async function () {
+    const Conference = require("../src/core/Conference").default;
+    const model = { status: "ready", save: async () => {} };
+    const conference = new Conference(model);
+    conference.repositories = async () => [{ expire: async () => { throw new Error("storage failed"); } }];
+    try { await conference.expire(); throw new Error("expected rejection"); }
+    catch (error) { expect(error.message).to.equal("storage failed"); }
+    expect(model.status).to.equal("ready");
+  });
   it("omits an upstream length when later text is rewritten", async function () {
     const File = require("../src/core/AnonymizedFile").default;
     stub(config, "STREAMER_ENTRYPOINT", "");

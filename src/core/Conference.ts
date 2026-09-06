@@ -33,10 +33,10 @@ export default class Conference {
    * Expire the conference
    */
   async expire() {
-    await this.updateStatus("expired");
     await Promise.all(
       (await this.repositories()).map(async (conf) => await conf.expire())
     );
+    await this.updateStatus("expired");
   }
 
   /**
