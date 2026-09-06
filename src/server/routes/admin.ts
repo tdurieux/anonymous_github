@@ -6,7 +6,7 @@ import AnonymousError from "../../core/AnonymousError";
 import AnonymizedRepositoryModel from "../../core/model/anonymizedRepositories/anonymizedRepositories.model";
 import ConferenceModel from "../../core/model/conference/conferences.model";
 import UserModel from "../../core/model/users/users.model";
-import { cacheQueue, downloadQueue, removeQueue } from "../../queue";
+import { addRemovalJob, cacheQueue, downloadQueue, removeQueue } from "../../queue";
 import { queryMetrics } from "../../queue/queueMetrics";
 import {
   computeStats,
@@ -1186,7 +1186,11 @@ router.post(
       let queued = 0;
       for (const repo of repos) {
         try {
-          await removeQueue.add(repo.repoId, { repoId: repo.repoId }, { jobId: `repo-${repo.repoId}` });
+          await AnonymizedRepositoryModel.updateOne(
+            { repoId: repo.repoId },
+            { $set: { status: "removing", statusDate: new Date() } }
+          ).exec();
+          await addRemovalJob(repo.repoId);
           queued++;
         } catch {
           // job may already exist in the queue

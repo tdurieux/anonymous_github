@@ -53,6 +53,24 @@ describe("removal recovery", function () {
     routeUtils.handleError = originals.handleError;
   });
 
+  it("retries an older ban job that failed before marking the repository removing", async function () {
+    let queued = false;
+    UserModel.distinct = () => ({ exec: async () => ["banned-owner"] });
+    queueModule.removeQueue = {
+      getJobs: async () => [{ data: { repoId: "repo" }, timestamp: 1000,
+        remove: async () => { throw new Error("must not discard ban"); } }],
+      getJob: async () => undefined,
+      add: async () => { queued = true; },
+    };
+    AnonymizedRepositoryModel.findOneAndUpdate = filter => ({
+      collation() { return this; },
+      exec: async () => require("sift").default(filter)({ repoId: "repo", owner: "banned-owner", status: "ready" }) ? { repoId: "repo" } : null,
+    });
+    AnonymizedRepositoryModel.find = () => ({ lean: async () => [] });
+    await queueModule.recoverStuckRemoving();
+    expect(queued).to.equal(true);
+  });
+
   for (const status of ["ready", "preparing", "removed", "error"]) {
     it(`discards an old failed removal after restoration to ${status}`, async function () {
       let discarded = false;

@@ -1,3 +1,4 @@
+import UserModel from "../core/model/users/users.model";
 import { JobsOptions, Queue, Worker } from "bullmq";
 import config from "../config";
 import AnonymizedRepositoryModel from "../core/model/anonymizedRepositories/anonymizedRepositories.model";
@@ -152,6 +153,11 @@ export async function recoverStuckRemoving() {
     // Claim the pending removal before queueing it. A restored repository, or
     // an error from a later operation, must not revive an old deletion request.
     const failedJobs = await removeQueue.getJobs(["failed"]);
+    // Older ban jobs could fail before persisting REMOVING. A banned owner
+    // still has a current removal request even if that old job left READY.
+    const bannedOwners = failedJobs.length
+      ? await UserModel.distinct("_id", { status: "banned" }).exec()
+      : [];
     for (const job of failedJobs) {
       const repoId = job.data?.repoId;
       if (!repoId) continue;
@@ -161,6 +167,10 @@ export async function recoverStuckRemoving() {
             repoId,
             $or: [
               { status: RepositoryStatus.REMOVING },
+              ...(bannedOwners.length ? [{
+                owner: { $in: bannedOwners },
+                status: { $ne: RepositoryStatus.REMOVED },
+              }] : []),
               ...(job.timestamp
                 ? [{
                     status: RepositoryStatus.ERROR,
