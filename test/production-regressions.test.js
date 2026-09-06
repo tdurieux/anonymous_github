@@ -162,6 +162,19 @@ describe("production regressions", function () {
       expect(handled).to.equal(failure);
     });
   }
+
+  it("fetches complete truncated gist content", async function () {
+    const Gist = require("../src/core/Gist").default;
+    const model = new (require("../src/core/model/anonymizedGists/anonymizedGists.model").default)({ source: { gistId: "123" } });
+    const gist = new Gist(model); gist.getToken = async () => "private-token";
+    stub(gh, "octokit", token => {
+      expect(token).to.equal("private-token");
+      return { rest: { gists: { get: async () => ({ data: { files: { file: { filename: "file", content: "prefix", truncated: true, raw_url: "https://gist.githubusercontent.com/raw", size: 20 } } } }) } },
+        paginate: async () => [], request: async (route, { url }) => { expect(url).to.include("gist.githubusercontent.com"); return { data: "complete gist content" }; } };
+    });
+    await gist.download();
+    expect(gist.toJSON().gist.files[0].content).to.equal("complete gist content");
+  });
   it("checks GitHub authorization before returning shared cached metadata", async function () {
     const CachedRepoModel = require("../src/core/model/repositories/repositories.model").default;
     stub(db, "isConnected", true);

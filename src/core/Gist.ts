@@ -83,14 +83,25 @@ export default class Gist {
       }),
     ]);
 
-    const files = Object.values(gistInfo.data.files || {})
+    const files = await Promise.all(Object.values(gistInfo.data.files || {})
       .filter((f): f is NonNullable<typeof f> => !!f)
-      .map((f) => ({
-        filename: f.filename || "",
-        content: f.content || "",
-        language: f.language || undefined,
-        size: f.size || 0,
-        type: f.type || undefined,
+      .map(async (f) => {
+        let content = (f as typeof f & { encoding?: string }).encoding === "base64"
+          ? Buffer.from(f.content || "", "base64").toString("utf8")
+          : f.content || "";
+        if (f.truncated) {
+          if (!f.raw_url) throw new Error("Truncated gist file has no raw URL");
+          const raw = await oct.request("GET {url}", { url: f.raw_url, request: { parseSuccessResponseBody: false } });
+          if (typeof raw.data !== "string") throw new Error("Invalid raw gist response");
+          content = raw.data;
+        }
+        return {
+          filename: f.filename || "",
+          content,
+          language: f.language || undefined,
+          size: f.size || 0,
+          type: f.type || undefined,
+        };
       }));
 
     const commentsMapped = comments.map((comment) => ({
