@@ -163,11 +163,12 @@ export default class Repository {
     }
     if (!hasFile || opt.force) {
       await FileModel.deleteMany({ repoId: this.repoId }).exec();
-      const files = await this.source.getFiles(opt.progress);
+      const source = this.source;
+      const files = await source.getFiles(opt.progress);
       files.forEach((f) => (f.repoId = this.repoId));
       await FileModel.insertMany(files);
 
-      const sourceWithTruncation = this.source as unknown as {
+      const sourceWithTruncation = source as unknown as {
         truncatedFolderList?: string[];
       };
       if (Array.isArray(sourceWithTruncation.truncatedFolderList)) {

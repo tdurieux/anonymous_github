@@ -144,6 +144,18 @@ describe("production regressions", function () {
     } catch (error) { expect(error.message).to.equal("token_expired"); }
   });
 
+  it("retains truncation warnings from the source instance that fetched the tree", async function () {
+    const FileModel = require("../src/core/model/files/files.model").default;
+    stub(db, "isConnected", false);
+    for (const method of ["exists", "deleteMany", "find"]) stub(FileModel, method, () => ({ exec: async () => method === "find" ? [] : null }));
+    stub(FileModel, "insertMany", async () => []);
+    const repo = new Repository(new RepoModel({ repoId: "repo", options: {} }));
+    repo.computeSize = async () => {};
+    Object.defineProperty(repo, "source", { get() { return { truncatedFolderList: [], async getFiles() { this.truncatedFolderList = ["private/folder"]; return []; } }; } });
+    await repo.files({ force: true });
+    expect(repo.model.truncatedFolders).to.deep.equal(["private/folder"]);
+  });
+
   function response() {
     return { headers: {}, header(key, value) { this.headers[key] = value; return this; },
       contentType() { return this; }, status(value) { this.statusCode = value; return this; }, end() {}, send() {} };

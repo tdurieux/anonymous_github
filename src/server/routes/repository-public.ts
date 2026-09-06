@@ -1,3 +1,4 @@
+import { anonymizePath } from "../../core/anonymize-utils";
 import * as express from "express";
 import config from "../../config";
 import got from "got";
@@ -389,7 +390,9 @@ router.get(
         isAdmin: user?.isAdmin === true,
         isOwner: user?.id == repo.model.owner,
         hasWebsite: !!repo.options.page && !!repo.options.pageSource,
-        truncatedFolders: repo.model.truncatedFolders || [],
+        truncatedFolders: (repo.model.truncatedFolders || []).map((path) =>
+          anonymizePath(path, repo.options.terms || [])
+        ),
         // Submodule contents are not included in GitHub archives/trees, so
         // they end up as empty folders in the anonymized repository. Surface
         // a warning in the explorer when the repository uses submodules (#737).
