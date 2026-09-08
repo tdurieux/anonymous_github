@@ -9,6 +9,7 @@ export enum RepositoryStatus {
   PREPARING = "preparing",
   DOWNLOAD = "download",
   READY = "ready",
+  ARCHIVED = "archived",
   EXPIRED = "expired",
   EXPIRING = "expiring",
   REMOVED = "removed",

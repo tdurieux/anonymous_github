@@ -71,10 +71,12 @@ export default class Repository {
   }
 
   async getToken() {
+    this.assertNotArchived();
     return getToken(this);
   }
 
   get source() {
+    this.assertNotArchived();
     const ghRepo = new GitHubRepository({
       name: this.model.source.repositoryName,
     });
@@ -130,6 +132,7 @@ export default class Repository {
       force: false,
     }
   ): Promise<IFile[]> {
+    this.assertNotArchived();
     const terms = this._model.options.terms || [];
     let hasFile = await FileModel.exists({ repoId: this.repoId }).exec();
     // Files created by GitHubDownload don't carry a valid 40-char GitHub
@@ -208,7 +211,14 @@ export default class Repository {
   /**
    * Check the status of the repository
    */
+  assertNotArchived() {
+    if (this.status === RepositoryStatus.ARCHIVED) {
+      throw new AnonymousError("repository_archived", { httpStatus: 410 });
+    }
+  }
+
   async check() {
+    this.assertNotArchived();
     if (
       this._model.options.expirationMode !== "never" &&
       this.status == RepositoryStatus.READY &&
@@ -258,6 +268,7 @@ export default class Repository {
    * @returns A stream of anonymized repository compressed
    */
   zip(): Promise<Readable> {
+    this.assertNotArchived();
     return storage.archive(this.repoId, "", {
       format: "zip",
       fileTransformer: (filename: string) =>
@@ -293,6 +304,7 @@ export default class Repository {
    * @returns void
    */
   async updateIfNeeded(opt?: { force: boolean }): Promise<void> {
+    this.assertNotArchived();
     if (
       this._model.options.expirationMode !== "never" &&
       this.status != RepositoryStatus.EXPIRED &&
@@ -415,6 +427,7 @@ export default class Repository {
    * @returns void
    */
   async anonymize(progress?: (status: string) => void) {
+    this.assertNotArchived();
     if (this.status === RepositoryStatus.READY) {
       return;
     }
@@ -459,6 +472,7 @@ export default class Repository {
   public protectLifecycle = false;
 
   async updateStatus(status: RepositoryStatus, statusMessage?: string) {
+    if (status !== RepositoryStatus.ARCHIVED) this.assertNotArchived();
     if (!status) return this.model;
     const statusDate = new Date();
     if (isConnected) {
@@ -466,7 +480,7 @@ export default class Repository {
         {
           _id: this._model._id,
           ...(this.protectLifecycle ? {
-            status: { $nin: [RepositoryStatus.REMOVING, RepositoryStatus.REMOVED,
+            status: { $nin: [RepositoryStatus.ARCHIVED, RepositoryStatus.REMOVING, RepositoryStatus.REMOVED,
               RepositoryStatus.EXPIRING, RepositoryStatus.EXPIRED] },
             anonymizeDate: this._model.anonymizeDate,
           } : {}),
@@ -504,6 +518,7 @@ export default class Repository {
    * Reset/delete the state of the repository
    */
   async resetSate(status?: RepositoryStatus, statusMessage?: string) {
+    this.assertNotArchived();
     // remove attribute
     this._model.size = { storage: 0, file: 0 };
     if (status) {
@@ -522,6 +537,8 @@ export default class Repository {
    * @returns
    */
   async removeCache() {
+    // Archive cleanup is handled by the resumable recovery script. Preserve DB metadata.
+    if (this.status === RepositoryStatus.ARCHIVED) return;
     await storage.rm(this.repoId);
     this.model.isReseted = true;
     this.model.size = { storage: 0, file: 0 };
