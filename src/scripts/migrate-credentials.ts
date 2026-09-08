@@ -7,7 +7,7 @@ import { migrateCredentials, verifyCredentials, enforceCredentialStorage } from 
 async function main() {
   const args = new Set(process.argv.slice(2));
   for (const arg of args) {
-    if (!["--apply", "--remove-legacy", "--prefer-owner-token", "--maintenance", "--verify", "--enforce"].includes(arg)) {
+    if (!["--apply", "--remove-legacy", "--prefer-owner-token", "--recover-owner-tokens", "--maintenance", "--verify", "--enforce"].includes(arg)) {
       throw new Error("Unknown migration option");
     }
   }
@@ -28,6 +28,7 @@ async function main() {
     const result = await migrateCredentials(db, cipher, {
       apply: args.has("--apply"), removeLegacy: args.has("--remove-legacy"),
       preferOwnerToken: args.has("--prefer-owner-token"),
+      recoverOwnerTokens: args.has("--recover-owner-tokens"),
       report: event => process.stdout.write(JSON.stringify(event) + "\n"),
     });
     process.stdout.write(JSON.stringify(result) + "\n");

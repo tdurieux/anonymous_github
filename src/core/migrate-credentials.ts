@@ -1,5 +1,7 @@
 import { mongo } from "mongoose";
 import { createTokenCipher, EncryptedToken } from "./credential-crypto";
+import { createOwnerCredentialRecovery } from "./recover-owner-credential";
+import { IdentityResult } from "./recover-repository-owners";
 
 type Cipher = ReturnType<typeof createTokenCipher>;
 const resources = ["anonymizedrepositories", "anonymizedgists", "anonymizedpullrequests"];
@@ -8,6 +10,8 @@ export interface MigrationOptions {
   apply?: boolean;
   removeLegacy?: boolean;
   preferOwnerToken?: boolean;
+  recoverOwnerTokens?: boolean;
+  identify?: (token: string) => Promise<IdentityResult>;
   batchSize?: number;
   report?: (event: { collection: string; id: string; issue: string }) => void;
 }
@@ -17,13 +21,14 @@ export async function migrateCredentials(db: mongo.Db, cipher: Cipher, options: 
   const credentials = db.collection("credentials");
   const users = db.collection("users");
   const batchSize = options.batchSize || 100;
-  const counts = { owners: 0, created: 0, removed: 0, issues: 0 };
+  const counts = { owners: 0, created: 0, removed: 0, issues: 0, halted: false };
+  const recover = createOwnerCredentialRecovery(options.identify);
   const issue = (collection: string, id: unknown, reason: string) => {
     counts.issues++;
     options.report?.({ collection, id: String(id), issue: reason });
   };
   if (options.apply) await credentials.createIndex({ ownerId: 1, provider: 1 }, { unique: true });
-  for await (const user of users.find({}, { projection: { accessTokens: 1, accessTokenDates: 1, status: 1 } }).batchSize(batchSize)) {
+  for await (const user of users.find({}, { projection: { accessTokens: 1, accessTokenDates: 1, status: 1, externalIDs: 1 } }).batchSize(batchSize)) {
     counts.owners++;
     const ownerId = user._id;
     const existing = await credentials.findOne({ ownerId, provider: "github" });
@@ -35,11 +40,14 @@ export async function migrateCredentials(db: mongo.Db, cipher: Cipher, options: 
     }
     const ownerToken = user.accessTokens?.github;
     const authoritative = !!(selected || (typeof ownerToken === "string" && ownerToken));
+    const recovering = options.recoverOwnerTokens && !authoritative && user.status !== "removed";
+    const candidates = new Set<string>();
     const inspect = (value: unknown, collection: string, id: unknown) => {
       if (value === undefined || value === null || value === "") return;
       if (typeof value !== "string") {
         issue(collection, id, "malformed_token"); valid = false; return;
       }
+      if (recovering) { candidates.add(value); return; }
       if (!selected) selected = value;
       else if (selected !== value && !(options.preferOwnerToken && authoritative)) {
         issue(collection, id, "conflicting_token"); valid = false;
@@ -55,6 +63,15 @@ export async function migrateCredentials(db: mongo.Db, cipher: Cipher, options: 
       }
     }
     if (!valid) continue;
+    if (recovering && candidates.size) {
+      const result = await recover(user.externalIDs?.github, candidates);
+      if ("issue" in result) {
+        issue("users", ownerId, result.issue);
+        if (result.halt) { counts.halted = true; return counts; }
+        continue;
+      }
+      selected = result.token;
+    }
     // Removed accounts must never regain credentials during backfill.
     if (user.status === "removed") {
       if (options.apply && options.removeLegacy) await credentials.deleteMany({ ownerId });
