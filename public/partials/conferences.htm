@@ -1,30 +1,30 @@
 <div class="container page paper-page">
   <div class="row">
     <div class="w-100">
-      <div class="paper-crumbs">Reference &nbsp;/&nbsp; <span class="here">Conferences</span></div>
+      <div class="paper-crumbs"><a href="/dashboard">My work</a> &nbsp;/&nbsp; <span class="here">Conferences</span></div>
       <div class="d-flex align-items-end justify-content-between flex-wrap" style="gap: 12px;">
         <div>
           <h1 class="paper-page-title">Your <em>conferences</em></h1>
-          <p class="paper-page-lede">Group anonymizations by venue; set shared expiry and defaults.</p>
+          <p class="paper-page-lede">Group anonymizations by venue, give chairs a shared dashboard, and set one expiry for every submission.</p>
         </div>
         <a href="/conference/new" class="btn btn-ink">
-          <i class="fa fa-plus-circle mr-1"></i> New conference
+          <i class="fa fa-plus-circle mr-1" aria-hidden="true"></i> New conference
         </a>
       </div>
 
-      <form class="w-100 dashboard-filter-row" aria-label="Conferences" accept-charset="UTF-8">
+      <form class="w-100 dashboard-filter-row" aria-label="Filter conferences" accept-charset="UTF-8" ng-submit="$event.preventDefault()">
         <div class="search-wrap">
           <input
             type="search"
             id="search"
             class="form-control"
-            aria-label="Find a conference…"
-            placeholder="Find a conference…"
+            aria-label="Search conferences"
+            placeholder="Search by name or ID…"
             autocomplete="off"
             ng-model="search"
           />
         </div>
-        <div class="d-flex flex-wrap" style="gap: 8px">
+        <div class="dashboard-filter-controls">
           <div class="dropdown">
             <button
               class="btn dropdown-toggle"
@@ -34,10 +34,11 @@
               aria-haspopup="true"
               aria-expanded="false"
             >
-              Sort
+              <span class="filter-btn-label">Sort</span>
+              <span class="filter-btn-value">{{ ({name: 'Name', conferenceID: 'ID', '-status': 'Status'})[orderBy] || 'Custom' }}</span>
             </button>
             <div class="dropdown-menu" aria-labelledby="dropdownSort">
-              <h6 class="dropdown-header">Select order</h6>
+              <h6 class="dropdown-header">Order by</h6>
               <div class="form-check dropdown-item">
                 <input class="form-check-input" type="radio" name="sort" id="sortName" value="name" ng-model="orderBy" />
                 <label class="form-check-label" for="sortName">Name</label>
@@ -53,7 +54,7 @@
             </div>
           </div>
 
-          <div class="dropdown">
+          <div class="dropdown" ng-init="statusLabels = {ready: 'Ready', expired: 'Expired', removed: 'Removed'}">
             <button
               class="btn dropdown-toggle"
               type="button"
@@ -62,26 +63,33 @@
               aria-haspopup="true"
               aria-expanded="false"
             >
-              Status
+              <span class="filter-btn-label">Status</span>
+              <span class="filter-btn-value" ng-if="filters.status.ready && filters.status.expired && filters.status.removed">All</span>
+              <span class="filter-btn-value" ng-if="!(filters.status.ready && filters.status.expired && filters.status.removed)">
+                {{ (filters.status.ready ? 0 : 1) + (filters.status.expired ? 0 : 1) + (filters.status.removed ? 0 : 1) }} hidden
+              </span>
             </button>
             <div class="dropdown-menu" aria-labelledby="dropdownStatus">
-              <h6 class="dropdown-header">Select status</h6>
-              <div class="form-check dropdown-item">
-                <input class="form-check-input" type="checkbox" name="sort" id="statusReady" value="ready" ng-model="filters.status.ready" />
-                <label class="form-check-label" for="statusReady">Ready</label>
-              </div>
-              <div class="form-check dropdown-item">
-                <input class="form-check-input" type="checkbox" name="sort" id="statusExpired" value="expired" ng-model="filters.status.expired" />
-                <label class="form-check-label" for="statusExpired">Expired</label>
-              </div>
-              <div class="form-check dropdown-item">
-                <input class="form-check-input" type="checkbox" name="sort" id="statusRemoved" value="removed" ng-model="filters.status.removed" />
-                <label class="form-check-label" for="statusRemoved">Removed</label>
+              <h6 class="dropdown-header">Show statuses</h6>
+              <div class="form-check dropdown-item" ng-repeat="(key, label) in statusLabels">
+                <input class="form-check-input" type="checkbox" id="status-{{key}}" ng-model="filters.status[key]" />
+                <label class="form-check-label" for="status-{{key}}">{{label}}</label>
               </div>
             </div>
           </div>
         </div>
       </form>
+
+      <div class="dashboard-meta">
+        <span class="dashboard-count">
+          <span ng-if="filteredConferences.length === conferences.length">{{conferences.length | number}} conference<span ng-if="conferences.length !== 1">s</span></span>
+          <span ng-if="filteredConferences.length !== conferences.length">{{filteredConferences.length | number}} of {{conferences.length | number}} shown</span>
+        </span>
+        <span class="filter-chip" ng-repeat="(f, v) in filters.status" ng-if="v === false">
+          Hiding {{statusLabels[f]}}
+          <button type="button" class="filter-chip-close" aria-label="Show {{statusLabels[f]}} again" ng-click="filters.status[f] = true;">&times;</button>
+        </span>
+      </div>
     </div>
 
     <div class="paper-table paper-table-conferences w-100" role="table" aria-label="Conferences">
@@ -89,63 +97,72 @@
         <div role="columnheader">Conference</div>
         <div role="columnheader">Status</div>
         <div role="columnheader" class="num">Repos</div>
-        <div role="columnheader">Window</div>
-        <div role="columnheader" aria-label="Actions"></div>
+        <div role="columnheader">Review window</div>
+        <div role="columnheader"><span class="sr-only">Actions</span></div>
       </div>
       <div
-        class="paper-table-row"
+        class="paper-table-row row-clickable"
         role="row"
         ng-class="{'repo-inactive': conference.status == 'expired' || conference.status == 'removed'}"
-        ng-repeat="conference in conferences| filter:conferenceFilter| orderBy:orderBy as filteredConferences"
+        ng-repeat="conference in conferences | filter:conferenceFilter | orderBy:orderBy as filteredConferences track by conference.conferenceID"
       >
         <div class="cell-anon" role="cell">
           <span class="type-badge type-repo">Conf</span>
           <div class="anon-text">
             <a class="repo-name" ng-href="/conference/{{conference.conferenceID}}" ng-bind="conference.name"></a>
             <div class="anon-sub">
-              ID <a ng-href="/conference/{{conference.conferenceID}}" ng-bind="conference.conferenceID"></a>
+              <span class="anon-source">ID <span class="commit-hash" ng-bind="conference.conferenceID"></span><span ng-if="conference.url"> &middot; <a ng-href="{{conference.url}}" target="_blank" rel="noopener" ng-bind="conference.url | limitTo: 60"></a></span></span>
             </div>
           </div>
         </div>
         <div class="cell-status" role="cell">
-          <span class="status-dot" ng-class="{'status-removed': conference.status == 'removed' || conference.status == 'expired', 'status-ready': conference.status == 'ready'}"></span>
-          <span ng-bind="conference.status | title"></span>
+          <div class="status-line">
+            <span class="status-dot" ng-class="'status-' + conference.status" aria-hidden="true"></span>
+            <span class="status-word" ng-bind="conference.status | statusLabel"></span>
+          </div>
         </div>
         <div class="cell-views num" role="cell" ng-bind="::conference.nbRepositories || 0 | number"></div>
         <div class="cell-expires" role="cell">
-          <span ng-if="conference.startDate">{{conference.startDate | date}} &ndash; {{conference.endDate | date}}</span>
-          <span class="empty-dash" ng-if="!conference.startDate">&mdash;</span>
+          <span ng-if="conference.startDate">{{conference.startDate | date:'mediumDate'}} &ndash; {{conference.endDate | date:'mediumDate'}}</span>
+          <span class="empty-dash" ng-if="!conference.startDate" aria-label="No review window">&mdash;</span>
         </div>
         <div class="cell-actions" role="cell">
           <div class="dropdown">
             <button
               class="btn btn-icon-dots"
               type="button"
-              id="dropdownMenuButton"
               data-toggle="dropdown"
               aria-haspopup="true"
               aria-expanded="false"
-              aria-label="Actions"
+              aria-label="Actions for {{conference.name}}"
             >
               <i class="fas fa-ellipsis-h" aria-hidden="true"></i>
             </button>
-            <div class="dropdown-menu dropdown-menu-right" aria-labelledby="dropdownMenuButton">
+            <div class="dropdown-menu dropdown-menu-right">
+              <a class="dropdown-item" href="/conference/{{conference.conferenceID}}/">
+                <i class="fa fa-eye" aria-hidden="true"></i> View
+              </a>
               <a class="dropdown-item" href="/conference/{{conference.conferenceID}}/edit">
                 <i class="far fa-edit" aria-hidden="true"></i> Edit
               </a>
-              <a class="dropdown-item" href="#" ng-show="conference.status != 'removed'" ng-click="removeConference(conference)">
-                <i class="fas fa-trash-alt"></i> Remove
-              </a>
-              <a class="dropdown-item" href="/conference/{{conference.conferenceID}}/">
-                <i class="fa fa-eye" aria-hidden="true"></i> View conference
-              </a>
+              <div ng-if="conference.status != 'removed'">
+                <div class="dropdown-divider"></div>
+                <button type="button" class="dropdown-item dropdown-item-danger" ng-click="removeConference(conference)">
+                  <i class="fas fa-trash-alt" aria-hidden="true"></i> Remove
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </div>
       <div class="paper-table-empty" ng-if="filteredConferences.length == 0">
-        <i class="fas fa-inbox"></i>
-        <span>There are no conference entries. You can create a <a href="/conference/new">new one</a>.</span>
+        <i class="fas fa-inbox" aria-hidden="true"></i>
+        <span ng-if="conferences.length == 0">You have not created a conference yet.</span>
+        <span ng-if="conferences.length > 0">Nothing matches the current filters.</span>
+        <div class="paper-table-empty-actions">
+          <button type="button" class="btn btn-outline-ink" ng-if="conferences.length > 0" ng-click="search = ''; filters.status.ready = true; filters.status.expired = true; filters.status.removed = true;">Clear filters</button>
+          <a href="/conference/new" class="btn btn-ink" ng-if="conferences.length == 0"><i class="fa fa-plus-circle mr-1" aria-hidden="true"></i> New conference</a>
+        </div>
       </div>
     </div>
   </div>

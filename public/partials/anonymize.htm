@@ -15,13 +15,13 @@
           type="text"
           class="form-control form-control-lg"
           ng-model="sourceUrl"
-          placeholder="https://github.com/owner/repo, https://github.com/owner/repo/pull/42, or https://gist.github.com/owner/abcdef…"
+          placeholder="https://github.com/owner/repository"
           ng-model-options="{ debounce: {default: 1000, blur: 0, click: 0}, updateOn: 'default blur click' }"
           ng-change="urlSelected()"
         />
       </div>
       <small class="form-text" style="color: var(--ink-muted);">
-        Paste a repository URL to anonymize a repo, a pull-request URL for a PR, or a gist URL for a gist.
+        Repository, pull request (…/pull/42) and gist (gist.github.com/…) URLs are all accepted.
       </small>
     </div>
   </div>
@@ -90,7 +90,7 @@
                   </select>
                   <div class="input-group-append">
                     <button class="btn" type="button" ng-click="getBranches(true)" title="Refresh" data-toggle="tooltip" data-placement="bottom">
-                      <i class="fa fa-undo"></i>
+                      <i class="fas fa-sync" aria-hidden="true"></i>
                     </button>
                   </div>
                 </div>
@@ -110,8 +110,8 @@
 
             <div class="form-check" ng-show="detectedType">
               <input class="form-check-input" type="checkbox" id="update" name="update" ng-model="options.update" />
-              <label class="form-check-label" for="update">Auto update</label>
-              <small class="form-text text-muted">Automatically update with the latest changes (hourly max).</small>
+              <label class="form-check-label" for="update">Auto-update from GitHub</label>
+              <small class="form-text text-muted">Follow the branch and pull the latest commit automatically, at most once an hour.</small>
             </div>
           </section>
 

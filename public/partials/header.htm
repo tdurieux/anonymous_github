@@ -74,30 +74,37 @@
           class="nav-link nav-icon"
           target="_blank"
           href="https://github.com/tdurieux/anonymous_github/"
-          title="GitHub repository"
+          title="Anonymous GitHub source code"
+          aria-label="Anonymous GitHub source code on GitHub"
+          rel="noopener"
           data-offset="30"
           ><i class="fab fa-github" aria-hidden="true"></i
         ></a>
       </li>
+      <!-- "Report a bug" is about this service. Reviewers who land on an
+           anonymized repository often think it is about the paper, so the
+           label names the service and the tooltip says who to contact. -->
       <li class="nav-item d-none d-lg-block">
         <a
           class="nav-link"
           target="_blank"
-          href="https://github.com/tdurieux/anonymous_github/issues/new"
+          rel="noopener"
+          href="https://github.com/tdurieux/anonymous_github/issues/new?template=issue_report.yml"
+          title="Report a problem with the Anonymous GitHub service. Questions about an anonymized repository or paper go to its authors."
           data-offset="30"
-          >Report an issue
+          ><i class="fas fa-bug d-lg-none mr-1" aria-hidden="true"></i>Report a bug
         </a>
       </li>
 
       <li class="nav-item" ng-if="!isDarkMode">
-        <a class="nav-link nav-icon" href="#" ng-click="darkMode(true);" title="Dark mode">
-          <i class="fas fa-moon"></i>
+        <a class="nav-link nav-icon" href="#" ng-click="darkMode(true);" title="Switch to dark mode" aria-label="Switch to dark mode" role="button">
+          <i class="fas fa-moon" aria-hidden="true"></i>
         </a>
       </li>
 
       <li class="nav-item" ng-if="isDarkMode">
-        <a class="nav-link nav-icon" href="#" ng-click="darkMode(false);" title="Light mode">
-          <i class="fas fa-sun"></i>
+        <a class="nav-link nav-icon" href="#" ng-click="darkMode(false);" title="Switch to light mode" aria-label="Switch to light mode" role="button">
+          <i class="fas fa-sun" aria-hidden="true"></i>
         </a>
       </li>
 
@@ -126,12 +133,30 @@
           />
           <span class="user-chip-name">{{user.username}}</span>
         </a>
-        <div class="dropdown-menu dropdown-menu-right" aria-labelledby="navbarDropdownMenuLink">
-          <a class="dropdown-item" href="/profile">Default settings</a>
+        <div class="dropdown-menu dropdown-menu-right user-menu" aria-labelledby="navbarDropdownMenuLink">
+          <h6 class="dropdown-header">Signed in as @{{user.username}}</h6>
+          <a class="dropdown-item" href="/profile">
+            <i class="fas fa-sliders-h" aria-hidden="true"></i>
+            <span>Settings<small>Defaults, quotas, account</small></span>
+          </a>
+          <a class="dropdown-item" href="/claim">
+            <i class="fas fa-link" aria-hidden="true"></i>
+            <span>Claim an anonymization<small>Attach an existing mirror to your account</small></span>
+          </a>
           <div class="dropdown-divider"></div>
-          <a class="dropdown-item" href="/api/user/logout" target="_self"
-            >Logout</a
-          >
+          <a class="dropdown-item" href="https://github.com/tdurieux/anonymous_github/issues/new?template=issue_report.yml" target="_blank" rel="noopener">
+            <i class="fas fa-bug" aria-hidden="true"></i>
+            <span>Report a bug<small>About this service, not a paper</small></span>
+          </a>
+          <a class="dropdown-item" href="https://github.com/tdurieux/anonymous_github/" target="_blank" rel="noopener">
+            <i class="fab fa-github" aria-hidden="true"></i>
+            <span>Source code</span>
+          </a>
+          <div class="dropdown-divider"></div>
+          <a class="dropdown-item" href="/api/user/logout" target="_self">
+            <i class="fas fa-sign-out-alt" aria-hidden="true"></i>
+            <span>Sign out</span>
+          </a>
         </div>
       </li>
     </ul>

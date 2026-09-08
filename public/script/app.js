@@ -93,13 +93,13 @@ angular
           templateUrl: "/partials/pullRequest.htm",
           controller: "pullRequestController",
           title: "Anonymous pull request – Anonymous GitHub",
-          reloadOnUrl: false,
+          reloadOnSearch: false,
         })
         .when("/gist/:gistId/:path*?", {
           templateUrl: "/partials/gist.htm",
           controller: "gistController",
           title: "Anonymous gist – Anonymous GitHub",
-          reloadOnUrl: false,
+          reloadOnSearch: false,
         })
         .when("/r/:repoId/:path*?", {
           templateUrl: "/partials/explorer.htm",
@@ -212,11 +212,19 @@ angular
         seconds = Math.round((Date.now() - new Date(seconds)) / 1000);
       var suffix = seconds < 0 ? "from now" : "ago";
 
-      // more than 2 days ago display Date
+      // more than 2 days ago display Date. Spell the month out so the date
+      // is unambiguous regardless of the reader's locale (9/6 vs 6/9).
       if (Math.abs(seconds) > 2 * 60 * 60 * 24) {
         const now = new Date();
         now.setSeconds(now.getSeconds() - seconds);
-        return "on " + now.toLocaleDateString();
+        return (
+          "on " +
+          now.toLocaleDateString(undefined, {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+          })
+        );
       }
 
       seconds = Math.abs(seconds);
@@ -255,7 +263,44 @@ angular
       return capitalized.join(" ");
     };
   })
+  // Human-readable labels for the raw status values stored on repositories,
+  // pull requests and gists. Anything unknown falls back to Title Case.
+  .filter("statusLabel", function () {
+    var labels = {
+      ready: "Ready",
+      error: "Error",
+      expired: "Expired",
+      expiring: "Expiring",
+      removed: "Removed",
+      removing: "Removing",
+      queue: "Queued",
+      download: "Downloading",
+      downloaded: "Downloaded",
+      preparing: "Preparing",
+      anonymizing: "Anonymizing",
+    };
+    return function (status) {
+      if (!status) return "";
+      if (labels[status]) return labels[status];
+      var s = String(status).replace(/[_-]+/g, " ").toLowerCase();
+      return s.charAt(0).toUpperCase() + s.slice(1);
+    };
+  })
   .filter("statusMsg", function () {
+    // Known machine codes → sentences. Unknown snake_case codes are
+    // converted to a sentence instead of leaking `branch_not_found`.
+    var codes = {
+      branch_not_found: "Branch not found on GitHub",
+      repo_not_found: "Repository not found on GitHub",
+      repository_not_found: "Repository not found on GitHub",
+      repo_not_accessible: "Repository is not accessible with your token",
+      pr_not_found: "Pull request not found on GitHub",
+      gist_not_found: "Gist not found on GitHub",
+      commit_not_found: "Commit not found on GitHub",
+      repo_too_big: "Repository exceeds the size limit",
+      quota_exceeded: "Storage quota exceeded",
+      incomplete_record: "Incomplete record: missing identifier",
+    };
     return function (msg) {
       if (!msg) return msg;
       var m = msg.match(/^rate_limited:(\d+)$/);
@@ -266,9 +311,94 @@ angular
         var sec = remaining % 60;
         return "Rate limited — retrying in " + (min > 0 ? min + "m " + sec + "s" : sec + "s");
       }
+      if (codes[msg]) return codes[msg];
+      if (/^[a-z0-9]+(_[a-z0-9]+)+$/.test(msg)) {
+        var s = msg.replace(/_/g, " ");
+        return s.charAt(0).toUpperCase() + s.slice(1);
+      }
       return msg;
     };
   })
+  // Shared quota loader. A total of 0 means unlimited: no percentage, no fill.
+  // `level` drives the bar colour: ink until 80%, amber to 95%, red above.
+  .factory("quotaService", [
+    "$http",
+    function ($http) {
+      function decorate(q) {
+        q = q || { used: 0, total: 0 };
+        q.unlimited = !q.total;
+        q.percent = q.unlimited ? 0 : Math.min(100, (q.used * 100) / q.total);
+        q.level = q.unlimited
+          ? "unlimited"
+          : q.percent >= 95
+          ? "danger"
+          : q.percent >= 80
+          ? "warn"
+          : "ok";
+        return q;
+      }
+      return {
+        decorate: decorate,
+        load: function () {
+          return $http.get("/api/user/quota").then((res) => {
+            const quota = res.data || {};
+            quota.storage = decorate(quota.storage);
+            quota.file = decorate(quota.file);
+            quota.repository = decorate(quota.repository);
+            return quota;
+          });
+        },
+      };
+    },
+  ])
+  // Highlights the link of the section currently in view inside a
+  // `.paper-settings-toc`-style navigation. Falls back to no-op without
+  // IntersectionObserver.
+  .directive("paperScrollspy", [
+    "$window",
+    function ($window) {
+      return {
+        restrict: "A",
+        link: function (scope, element) {
+          if (!$window.IntersectionObserver) return;
+          const links = Array.from(element[0].querySelectorAll('a[href^="#"]'));
+          const byId = {};
+          links.forEach((a) => {
+            byId[a.getAttribute("href").slice(1)] = a;
+          });
+          const visible = new Set();
+          function update() {
+            let current = null;
+            for (const id of Object.keys(byId)) {
+              if (visible.has(id)) {
+                current = id;
+                break;
+              }
+            }
+            links.forEach((a) => a.classList.toggle("active", a === byId[current]));
+          }
+          const observer = new $window.IntersectionObserver(
+            (entries) => {
+              entries.forEach((e) => {
+                if (e.isIntersecting) visible.add(e.target.id);
+                else visible.delete(e.target.id);
+              });
+              update();
+            },
+            { rootMargin: "-20% 0px -60% 0px", threshold: 0 }
+          );
+          // Sections may render after the toc; observe on the next tick.
+          $window.setTimeout(() => {
+            Object.keys(byId).forEach((id) => {
+              const target = $window.document.getElementById(id);
+              if (target) observer.observe(target);
+            });
+          }, 0);
+          scope.$on("$destroy", () => observer.disconnect());
+        },
+      };
+    },
+  ])
   .filter("diff", [
     "$sce",
     function ($sce) {
@@ -526,7 +656,7 @@ angular
           function ($element, $scope, $routeParams, $compile) {
             $scope.repoId = document.location.pathname.split("/")[2];
 
-            $scope.opens = {};
+            $scope.opens = Object.create(null);
 
             if ($routeParams.path) {
               let accumulatedPath = "";
@@ -538,7 +668,8 @@ angular
 
             const toArray = function (arr) {
               const output = [];
-              const keys = { "": { child: output } };
+              const keys = Object.create(null);
+              keys[""] = { child: output };
               function ensurePath(path) {
                 if (keys[path]) return;
                 const segments = path.split("/");
@@ -620,23 +751,6 @@ angular
 
             function escapeHtml(str) {
               return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-            }
-
-            // Escape a value for safe interpolation into a single-quoted
-            // AngularJS expression string (e.g. ng-click="openFolder('...')")
-            // that itself sits inside a double-quoted HTML attribute which is
-            // later $compile()d. Backslash/quote are escaped at the Angular
-            // string level; &<>" are HTML-encoded for the attribute. Without
-            // this a file name like `');$emit(...)//` would break out of the
-            // expression string and execute (DOM XSS, CWE-79).
-            function escapeNgString(str) {
-              return String(str)
-                .replace(/\\/g, "\\\\")
-                .replace(/'/g, "\\'")
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;");
             }
 
             function buildSearchFilter() {
@@ -721,12 +835,14 @@ angular
                   cssClasses.push("truncated");
                 }
 
-                const ngPath = escapeNgString(path);
+                const nodeIndex = $scope.treeNodes.length;
+                $scope.treeNodes.push({ name, path, href: `/r/${encodeURIComponent($scope.repoId)}${encodePathForUrl(path)}` });
+                const node = `treeNodes[${nodeIndex}]`;
                 output += `<li class="${cssClasses.join(
                   " "
-                )}" ng-class="{active: isActive('${ngPath}'), open: ${filterSet ? "opens['" + ngPath + "'] !== false" : "opens['" + ngPath + "']"}}" title="${escapeHtml(sizeTitle)}">`;
+                )}" ng-class="{active: isActive(${node}.path), open: opens[${node}.path]${filterSet ? ' !== false' : ''}}" title="${escapeHtml(sizeTitle)}">`;
                 if (dir) {
-                  output += `<a ng-click="openFolder('${ngPath}', $event)"><span class="tree-toggle"></span><span class="tree-icon-folder"></span><span class="tree-name">${escapeHtml(name)}</span>`;
+                  output += `<a ng-click="openFolder(${node}.path, $event)"><span class="tree-toggle"></span><span class="tree-icon-folder"></span><span class="tree-name" ng-bind="${node}.name"></span>`;
                   if (truncated) {
                     output += `<span class="truncated-warning" title="{{ 'WARNINGS.folder_truncated' | translate }}"><i class="fas fa-exclamation-triangle"></i></span>`;
                   }
@@ -736,9 +852,7 @@ angular
                   output += `</a>`;
                 } else {
                   const needsSpacer = parentPath !== "";
-                  output += `<a href='/r/${$scope.repoId}${encodePathForUrl(
-                    path
-                  )}'>${needsSpacer ? '<span class="tree-spacer"></span>' : ''}<span class="tree-icon-file"></span><span class="tree-name">${escapeHtml(name)}</span></a>`;
+                  output += `<a ng-href='{{${node}.href}}'>${needsSpacer ? '<span class="tree-spacer"></span>' : ''}<span class="tree-icon-file"></span><span class="tree-name" ng-bind="${node}.name"></span></a>`;
                 }
                 if (isOpen && collapsed.child) {
                   const children = collapsed.child;
@@ -757,7 +871,11 @@ angular
               return output + "</ul>";
             }
 
+            let renderScope = null;
             function display() {
+              if (renderScope) renderScope.$destroy();
+              renderScope = $scope.$new();
+              $scope.treeNodes = [];
               $element.html("");
               const filterSet = $scope.searchQuery ? buildSearchFilter() : null;
               let output;
@@ -766,7 +884,7 @@ angular
               } else {
                 output = generate(toArray($scope.file).sort(sortFiles), "", filterSet);
               }
-              $compile(output)($scope, (clone) => {
+              $compile(output)(renderScope, (clone) => {
                 $element.append(clone);
                 restoreFocus();
               });
@@ -1150,7 +1268,10 @@ angular
   .controller("profileController", [
     "$scope",
     "$http",
-    function ($scope, $http) {
+    "$translate",
+    "$timeout",
+    "quotaService",
+    function ($scope, $http, $translate, $timeout, quotaService) {
       $scope.terms = "";
       $scope.options = {
         expirationMode: "remove",
@@ -1161,10 +1282,17 @@ angular
         loc: true,
         link: true,
       };
+      $scope.saving = false;
+      $scope.message = null;
+      $scope.error = null;
+
+      quotaService.load().then((quota) => {
+        $scope.quota = quota;
+      }, console.error);
 
       function getDefault() {
         $http.get("/api/user/default").then((res) => {
-          const data = res.data;
+          const data = res.data || {};
           if (data.terms) {
             $scope.terms = data.terms.join("\n");
           }
@@ -1173,20 +1301,36 @@ angular
       }
       getDefault();
 
-      $scope.saveDefault = () => {
+      let savedTimer = null;
+      $scope.saveDefault = ($event) => {
+        if ($event && $event.preventDefault) $event.preventDefault();
         const params = {
-          terms: $scope.terms.trim().split("\n"),
+          terms: $scope.terms
+            .split("\n")
+            .map((t) => t.trim())
+            .filter((t) => t.length > 0),
           options: $scope.options,
         };
+        $scope.saving = true;
+        $scope.error = null;
         $http.post("/api/user/default", params).then(
           () => {
             getDefault();
+            $scope.saving = false;
             $scope.message = "Saved";
+            if (savedTimer) $timeout.cancel(savedTimer);
+            savedTimer = $timeout(() => {
+              $scope.message = null;
+            }, 2500);
           },
           (error) => {
-            $translate("ERRORS." + error.data.error).then((translation) => {
+            $scope.saving = false;
+            const code = error && error.data && error.data.error;
+            $translate("ERRORS." + code).then((translation) => {
               $scope.error = translation;
-            }, console.error);
+            }, () => {
+              $scope.error = "Unable to save your defaults. Please try again.";
+            });
           }
         );
       };
@@ -1338,7 +1482,10 @@ angular
     "$scope",
     "$http",
     "$location",
-    function ($scope, $http, $location) {
+    "$q",
+    "$window",
+    "quotaService",
+    function ($scope, $http, $location, $q, $window, quotaService) {
       $scope.$on("$routeChangeStart", function () {
         $('[data-toggle="tooltip"]').tooltip("dispose");
       });
@@ -1357,11 +1504,35 @@ angular
 
       $scope.items = [];
       $scope.search = "";
+      $scope.loading = true;
+
+      // Status buckets used by the Status filter. Raw statuses are mapped
+      // onto these keys so in-progress and error items can be filtered too.
+      $scope.statusKeyLabels = {
+        ready: "Ready",
+        progress: "In progress",
+        error: "Error",
+        expired: "Expired",
+        removed: "Removed",
+      };
+      const inProgress = ["queue", "download", "downloaded", "preparing", "anonymizing"];
+      function statusKey(status) {
+        if (status === "ready" || status === "error") return status;
+        if (status === "expired" || status === "expiring") return "expired";
+        if (status === "removed" || status === "removing") return "removed";
+        if (inProgress.indexOf(status) > -1) return "progress";
+        return "progress";
+      }
+      // An in-progress item whose last activity is older than this is
+      // probably stuck; the row says so instead of showing "Downloading".
+      const STALE_AFTER_MS = 2 * 60 * 60 * 1000;
 
       const dashboardPrefsKey = "dashboard.filterPrefs";
       const dashboardPrefDefaults = {
         typeFilter: "all",
-        filters: { status: { ready: true, expired: true, removed: false } },
+        filters: {
+          status: { ready: true, progress: true, error: true, expired: true, removed: false },
+        },
         orderBy: "-anonymizeDate",
       };
       const savedDashboardPrefs = loadFilterPrefs(dashboardPrefsKey) || {};
@@ -1374,6 +1545,37 @@ angular
         ),
       };
       $scope.orderBy = savedDashboardPrefs.orderBy || dashboardPrefDefaults.orderBy;
+
+      // ---- Sorting -------------------------------------------------------
+      // `orderBy` is kept as the Angular orderBy expression ("-field" for
+      // descending) so saved preferences stay compatible.
+      const sortFields = {
+        _name: { label: "Name", defaultDesc: false },
+        anonymizeDate: { label: "Anonymize date", defaultDesc: true },
+        status: { label: "Status", defaultDesc: false },
+        lastView: { label: "Last view", defaultDesc: true },
+        pageView: { label: "Views", defaultDesc: true },
+        "options.expirationDate": { label: "Expiration", defaultDesc: false },
+      };
+      $scope.sortFields = sortFields;
+      $scope.sortField = () => $scope.orderBy.replace(/^-/, "");
+      $scope.sortDesc = () => $scope.orderBy.charAt(0) === "-";
+      $scope.sortLabel = () => {
+        const f = sortFields[$scope.sortField()];
+        return f ? f.label : "Custom";
+      };
+      $scope.isSortedBy = (field) => $scope.sortField() === field;
+      $scope.setSort = (field, desc) => {
+        if (typeof desc !== "boolean") {
+          desc = $scope.isSortedBy(field)
+            ? !$scope.sortDesc()
+            : !!(sortFields[field] && sortFields[field].defaultDesc);
+        }
+        $scope.orderBy = (desc ? "-" : "") + field;
+      };
+      $scope.toggleSortDirection = () => {
+        $scope.setSort($scope.sortField(), !$scope.sortDesc());
+      };
 
       $scope.$watchGroup(
         ["typeFilter", "orderBy"],
@@ -1397,93 +1599,147 @@ angular
         true
       );
 
-      function getQuota() {
-        $http.get("/api/user/quota").then((res) => {
-          $scope.quota = res.data;
-          $scope.quota.storage.percent = $scope.quota.storage.total
-            ? ($scope.quota.storage.used * 100) / $scope.quota.storage.total
-            : 100;
-          $scope.quota.file.percent = $scope.quota.file.total
-            ? ($scope.quota.file.used * 100) / $scope.quota.file.total
-            : 100;
-          $scope.quota.repository.percent = $scope.quota.repository.total
-            ? ($scope.quota.repository.used * 100) /
-              $scope.quota.repository.total
-            : 100;
-        }, console.error);
+      // ---- Quota (shared with the settings page via quotaService) --------
+      quotaService.load().then((quota) => {
+        $scope.quota = quota;
+      }, console.error);
+
+      // ---- Items ---------------------------------------------------------
+      // Fields shared by repositories, pull requests and gists. Records that
+      // lost their identifier (legacy data) are flagged as broken instead of
+      // rendering an empty link to /pr/undefined/.
+      function decorateItem(item, id, name, source, editUrl, viewUrl) {
+        if (!item.pageView) item.pageView = 0;
+        if (!item.lastView) item.lastView = "";
+        item.options = item.options || {};
+        item.options.terms = (item.options.terms || []).filter((f) => f);
+        item._id = id || "";
+        item._source = source;
+        item._broken = !id;
+        item._name = id || source || "(unnamed)";
+        item._editUrl = id ? editUrl : null;
+        item._viewUrl = id ? viewUrl : null;
+        if (item._broken) {
+          item.status = "error";
+          item.statusMessage = "incomplete_record";
+        }
+        item._statusKey = statusKey(item.status);
+        const last = item.anonymizeDate || item.lastView;
+        item._stale =
+          item._statusKey === "progress" &&
+          !!last &&
+          Date.now() - new Date(last).getTime() > STALE_AFTER_MS;
+        // What the Expires column should show.
+        if (item.status === "expired" || item.status === "expiring") {
+          item._expiry = { kind: "expired", date: item.options.expirationDate };
+        } else if (item.status !== "ready") {
+          item._expiry = { kind: "none" };
+        } else if (item.options.expirationMode === "never" || !item.options.expirationDate) {
+          item._expiry = { kind: "never" };
+        } else {
+          item._expiry = { kind: "date", date: item.options.expirationDate };
+        }
+        return item;
       }
-      getQuota();
 
-      let loadedRepos = null;
-      let loadedPRs = null;
-      let loadedGists = null;
-
-      function mergeItems() {
-        $scope.items = (loadedRepos || [])
-          .concat(loadedPRs || [])
-          .concat(loadedGists || []);
+      function safeGet(url) {
+        return $http.get(url).then(
+          (res) => res.data || [],
+          (err) => {
+            console.error(err);
+            return [];
+          }
+        );
       }
 
+      // All three lists load in parallel and are merged once, so the table
+      // does not re-sort three times while it fills in.
       function loadAll() {
-        loadedRepos = null;
-        loadedPRs = null;
-        loadedGists = null;
-        $http.get("/api/user/anonymized_repositories").then(
-          (res) => {
-            loadedRepos = res.data.map((repo) => {
-              if (!repo.pageView) repo.pageView = 0;
-              if (!repo.lastView) repo.lastView = "";
-              repo.options.terms = repo.options.terms.filter((f) => f);
+        $scope.loading = true;
+        return $q
+          .all([
+            safeGet("/api/user/anonymized_repositories"),
+            safeGet("/api/user/anonymized_pull_requests"),
+            safeGet("/api/user/anonymized_gists"),
+          ])
+          .then((results) => {
+            const repos = results[0];
+            const prs = results[1];
+            const gists = results[2];
+            const items = [];
+            repos.forEach((repo) => {
               repo._type = "repo";
-              repo._id = repo.repoId;
-              repo._name = repo.repoId;
-              repo._source = repo.source.fullName;
-              repo._editUrl = "/anonymize/" + repo.repoId;
-              repo._viewUrl = "/r/" + repo.repoId + "/";
-              return repo;
+              const src = repo.source || {};
+              items.push(
+                decorateItem(
+                  repo,
+                  repo.repoId,
+                  repo.repoId,
+                  src.fullName,
+                  "/anonymize/" + repo.repoId,
+                  "/r/" + repo.repoId + "/"
+                )
+              );
             });
-            mergeItems();
-          },
-          (err) => { console.error(err); }
-        );
-        $http.get("/api/user/anonymized_pull_requests").then(
-          (res2) => {
-            loadedPRs = res2.data.map((pr) => {
-              if (!pr.pageView) pr.pageView = 0;
-              if (!pr.lastView) pr.lastView = "";
-              pr.options.terms = pr.options.terms.filter((f) => f);
+            prs.forEach((pr) => {
               pr._type = "pr";
-              pr._id = pr.pullRequestId;
-              pr._name = pr.pullRequestId;
-              pr._source = pr.source.repositoryFullName + "#" + pr.source.pullRequestId;
-              pr._editUrl = "/pull-request-anonymize/" + pr.pullRequestId;
-              pr._viewUrl = "/pr/" + pr.pullRequestId + "/";
-              return pr;
+              const src = pr.source || {};
+              items.push(
+                decorateItem(
+                  pr,
+                  pr.pullRequestId,
+                  pr.pullRequestId,
+                  src.repositoryFullName + "#" + src.pullRequestId,
+                  "/pull-request-anonymize/" + pr.pullRequestId,
+                  "/pr/" + pr.pullRequestId + "/"
+                )
+              );
             });
-            mergeItems();
-          },
-          (err) => { console.error(err); }
-        );
-        $http.get("/api/user/anonymized_gists").then(
-          (res3) => {
-            loadedGists = res3.data.map((g) => {
-              if (!g.pageView) g.pageView = 0;
-              if (!g.lastView) g.lastView = "";
-              g.options.terms = (g.options.terms || []).filter((f) => f);
+            gists.forEach((g) => {
               g._type = "gist";
-              g._id = g.gistId;
-              g._name = g.gistId;
-              g._source = g.source.gistId;
-              g._editUrl = "/gist-anonymize/" + g.gistId;
-              g._viewUrl = "/gist/" + g.gistId + "/";
-              return g;
+              const src = g.source || {};
+              items.push(
+                decorateItem(
+                  g,
+                  g.gistId,
+                  g.gistId,
+                  src.gistId,
+                  "/gist-anonymize/" + g.gistId,
+                  "/gist/" + g.gistId + "/"
+                )
+              );
             });
-            mergeItems();
-          },
-          (err) => { console.error(err); }
-        );
+            $scope.items = items;
+            $scope.loading = false;
+          });
       }
       loadAll();
+
+      // Whole row opens the anonymized view; clicks on links, buttons and the
+      // actions menu keep their own behaviour.
+      $scope.openItem = (item, $event) => {
+        if (!item._viewUrl) return;
+        const target = $event && $event.target;
+        if (target && target.closest && target.closest("a, button, .dropdown, input")) return;
+        $window.location.href = item._viewUrl;
+      };
+
+      $scope.hiddenStatusCount = () =>
+        Object.keys($scope.filters.status).filter((k) => $scope.filters.status[k] === false).length;
+      $scope.hasHiddenStatus = () => $scope.hiddenStatusCount() > 0;
+
+      $scope.hasActiveFilters = () =>
+        $scope.typeFilter !== "all" ||
+        $scope.search.trim().length > 0 ||
+        Object.keys($scope.filters.status).some((k) => $scope.filters.status[k] === false);
+
+      $scope.clearFilters = () => {
+        $scope.typeFilter = "all";
+        $scope.search = "";
+        Object.keys($scope.filters.status).forEach((k) => {
+          $scope.filters.status[k] = true;
+        });
+      };
 
       function waitRepoToBeReady(repoId, callback) {
         $http.get("/api/repo/" + repoId).then((res) => {
@@ -1608,10 +1864,12 @@ angular
 
       $scope.itemFilter = (item) => {
         if ($scope.typeFilter !== "all" && item._type !== $scope.typeFilter) return false;
-        if ($scope.filters.status[item.status] == false) return false;
-        if ($scope.search.trim().length == 0) return true;
-        if (item._source && item._source.indexOf($scope.search) > -1) return true;
-        if (item._id.indexOf($scope.search) > -1) return true;
+        if ($scope.filters.status[item._statusKey] === false) return false;
+        const needle = $scope.search.trim().toLowerCase();
+        if (needle.length == 0) return true;
+        if (item._source && String(item._source).toLowerCase().indexOf(needle) > -1) return true;
+        if (item._id && String(item._id).toLowerCase().indexOf(needle) > -1) return true;
+        if (item.conference && String(item.conference).toLowerCase().indexOf(needle) > -1) return true;
         return false;
       };
     },
@@ -1642,6 +1900,8 @@ angular
       $scope.rateLimitCountdown = "";
 
       var countdownTimer = null;
+      let pollTimer = null;
+      let destroyed = false;
       function startRateLimitCountdown(resetAt) {
         $scope.rateLimitResetAt = resetAt;
         if (countdownTimer) clearInterval(countdownTimer);
@@ -1665,7 +1925,9 @@ angular
         countdownTimer = setInterval(tick, 1000);
       }
       $scope.$on("$destroy", function () {
+        destroyed = true;
         if (countdownTimer) clearInterval(countdownTimer);
+        if (pollTimer) clearTimeout(pollTimer);
       });
 
       function parseStatusMessage(msg) {
@@ -1680,6 +1942,7 @@ angular
       }
 
       $scope.getStatus = () => {
+        if (destroyed) return;
         $http
           .get("/api/repo/" + $scope.repoId, {
             repoId: $scope.repoId,
@@ -1687,6 +1950,7 @@ angular
           })
           .then(
             (res) => {
+              if (destroyed) return;
               $scope.repo = res.data;
               if (res.data.rateLimitResetAt) {
                 startRateLimitCountdown(res.data.rateLimitResetAt);
@@ -1706,12 +1970,12 @@ angular
               } else if ($scope.repo.status == "anonymizing") {
                 $scope.progress = 75;
               }
-              var shouldPoll = $scope.repo.status != "ready";
+              var shouldPoll = !["ready", "removed", "expired"].includes($scope.repo.status);
               if ($scope.repo.status == "error" && !$scope.rateLimitResetAt) {
                 shouldPoll = false;
               }
               if (shouldPoll) {
-                setTimeout($scope.getStatus, 2000);
+                pollTimer = setTimeout($scope.getStatus, 2000);
               }
             },
             (err) => {
@@ -2215,7 +2479,7 @@ angular
         if (typeof d.body === "string") out.add(d.body);
         if (typeof d.diff === "string") out.add(d.diff);
         const comments =
-          ($scope.details && $scope.details.comments) || [];
+          d.comments || [];
         for (const c of comments) {
           if (typeof c.author === "string") out.add(c.author);
           if (typeof c.body === "string") out.add(c.body);
@@ -2589,6 +2853,13 @@ angular
     "$sce",
     "$q",
     function ($scope, $http, $location, $routeParams, $sce, $q) {
+      let contentGeneration = 0;
+      let destroyed = false;
+      $scope.$on("$destroy", () => {
+        destroyed = true;
+        contentGeneration++;
+        if (searchCanceller) searchCanceller.resolve();
+      });
       $scope.files = [];
       $scope.isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent);
       $scope.fileSearchQuery = "";
@@ -2619,11 +2890,13 @@ angular
           return;
         }
         $scope.fileSearchLoading = true;
-        searchCanceller = $q.defer();
+        const requestCanceller = $q.defer();
+        searchCanceller = requestCanceller;
         $http.get(
           `/api/repo/${$scope.repoId}/files/search?q=${encodeURIComponent(query)}`,
-          { timeout: searchCanceller.promise }
+          { timeout: requestCanceller.promise }
         ).then(function (res) {
+          if (destroyed || searchCanceller !== requestCanceller) return;
           searchCanceller = null;
           $scope.fileSearchLoading = false;
           // Merge search results into $scope.files so the tree can render them.
@@ -2673,8 +2946,8 @@ angular
           }
           $scope.fileSearchResults = res.data;
         }, function () {
-          // Only clear loading if this wasn't a cancellation
-          if (!searchCanceller) {
+          if (!destroyed && searchCanceller === requestCanceller) {
+            searchCanceller = null;
             $scope.fileSearchLoading = false;
             $scope.fileSearchResults = [];
           }
@@ -2724,6 +2997,7 @@ angular
       ];
 
       $scope.$on("$routeUpdate", function (event, current) {
+        if ($scope.repoId != $routeParams.repoId) return init();
         if (($routeParams.path || "") == $scope.filePath) {
           return;
         }
@@ -2732,9 +3006,6 @@ angular
           .split("/")
           .filter((f) => f && f.trim().length > 0);
 
-        if ($scope.repoId != $routeParams.repoId) {
-          return init();
-        }
 
         updateContent();
 
@@ -2792,23 +3063,28 @@ angular
       }
       $scope.fileCounts = null;
       $scope.getFiles = function (path) {
+        const repoId = $scope.repoId;
         return $http.get(
           `/api/repo/${$scope.repoId}/files/?path=${encodeURIComponent(path)}&v=${$scope.options.lastUpdateDate}`
         ).then(function (res) {
+          if (destroyed || repoId !== $scope.repoId) return [];
           const normalized = path || "";
           $scope.files = $scope.files.filter((f) => f.path !== normalized);
           $scope.files.push(...res.data);
           return res.data;
         }, function (err) {
+          if (destroyed || repoId !== $scope.repoId) return [];
           $scope.type = "error";
           $scope.content = (err && err.data && err.data.error) || "unknown_error";
           $scope.files = [];
         });
       };
       function fetchFileCounts() {
+        const repoId = $scope.repoId;
         $http.get(
           `/api/repo/${$scope.repoId}/files/counts`
         ).then(function (res) {
+          if (destroyed || repoId !== $scope.repoId) return;
           $scope.fileCounts = res.data;
         }, function () {
           $scope.fileCounts = {};
@@ -2827,8 +3103,11 @@ angular
       $scope.$on("$destroy", function () { if (rlCountdownTimer) clearInterval(rlCountdownTimer); });
 
       function getOptions(callback) {
+        if (destroyed) return;
+        const repoId = $scope.repoId;
         $http.get(`/api/repo/${$scope.repoId}/options`).then(
           (res) => {
+            if (destroyed || repoId !== $scope.repoId) return;
             $scope.options = res.data;
             if ($scope.options.url) {
               window.location = $scope.options.url;
@@ -2839,6 +3118,7 @@ angular
             }
           },
           (err) => {
+            if (destroyed || repoId !== $scope.repoId) return;
             var data = err.data || {};
             if (data.error === "rate_limited" && data.resetAt) {
               $scope.type = "rate_limited";
@@ -2925,6 +3205,7 @@ angular
       }
 
       function getContent(path, fileInfo) {
+        const generation = contentGeneration;
         if (!path) {
           $scope.type = "error";
           $scope.content = "no_file_selected";
@@ -2950,6 +3231,7 @@ angular
           )
           .then(
             (res) => {
+              if (destroyed || generation !== contentGeneration) return;
               $scope.type = originalType;
               $scope.content = res.data;
               if ($scope.content == "") {
@@ -2973,7 +3255,7 @@ angular
                   suppressSubScriptHandling: true,
                   suppressAutoLink: false,
                 });
-                $scope.content = $sce.trustAsHtml(orgHTMLDocument.toString());
+                $scope.content = $sce.trustAsHtml(DOMPurify.sanitize(orgHTMLDocument.toString()));
                 $scope.type = "html";
               }
               if (
@@ -2988,6 +3270,7 @@ angular
               }, 50);
             },
             (err) => {
+              if (destroyed || generation !== contentGeneration) return;
               $scope.type = "error";
               $scope.content = "unknown_error";
               try {
@@ -3011,6 +3294,7 @@ angular
       }
 
       function updateContent() {
+        contentGeneration++;
         $scope.content = "";
         $scope.file = getSelectedFile();
         let fileVersion = "0";
@@ -3184,11 +3468,18 @@ angular
       }
 
       function init() {
+        contentGeneration++;
+        $scope.files = [];
+        $scope.content = null;
+        $scope.fileCounts = null;
+        $scope.fileSearchQuery = "";
+        $scope.onFileSearchChange();
         $scope.repoId = $routeParams.repoId;
         $scope.type = "loading";
         $scope.filePath = $routeParams.path || "";
         $scope.paths = $scope.filePath.split("/");
 
+        const repoId = $scope.repoId;
         getOptions(function (options) {
           fetchFileCounts();
           var chain = $q.resolve();
@@ -3203,6 +3494,7 @@ angular
             });
           }
           chain.then(function () {
+            if (destroyed || repoId !== $scope.repoId) return;
             if ($scope.files.length == 1 && $scope.files[0].name == "") {
               $scope.files = [];
               $scope.type = "empty";
@@ -3248,6 +3540,7 @@ angular
         $http.get(`/api/pr/${$scope.pullRequestId}/content`).then(
           (res) => {
             $scope.details = res.data;
+            $scope.tabState = { active: res.data.diff ? "diff" : "comments" };
             if (callback) {
               callback(res.data);
             }
@@ -3460,7 +3753,7 @@ angular
       const start = new Date();
       start.setDate(1);
       start.setMonth(start.getMonth() + 1);
-      const end = new Date();
+      const end = new Date(start);
       end.setMonth(start.getMonth() + 7, 0);
       $scope.options = {
         startDate: start,
