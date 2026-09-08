@@ -379,3 +379,50 @@ identities never trigger automatic archiving.
 Once archival completes, rerun credential migration with `--prefer-owner-token`,
 then follow the verification/enforcement steps above. Start only a release that
 understands the archived status.
+
+### Conflicting resource tokens when the owner has no credential
+
+`--prefer-owner-token` cannot resolve conflicting repository tokens when neither
+`users.accessTokens.github` nor an encrypted credential exists. Use the opt-in
+`--recover-owner-tokens` option to validate resource tokens against that user's
+existing `externalIDs.github`. It never changes repository ownership or archives
+repositories. Only one distinct token authenticating the recorded owner is
+accepted; revoked and other users' tokens cannot be selected. Existing encrypted
+credentials and user tokens still take precedence with `--prefer-owner-token`.
+
+After updating the code and rebuilding `anonymous_github`, preview:
+
+```bash
+docker compose run --rm --no-deps -T --entrypoint node anonymous_github \
+  build/scripts/migrate-credentials.js --prefer-owner-token --recover-owner-tokens
+```
+
+With all application writers stopped, create the verified encrypted credentials
+first, retaining plaintext until the results have been reviewed:
+
+```bash
+docker compose run --rm --no-deps -T --entrypoint node anonymous_github \
+  build/scripts/migrate-credentials.js --prefer-owner-token --recover-owner-tokens \
+  --apply --maintenance
+```
+
+Then rerun the preview and follow the legacy-removal, verification and enforcement
+steps above. Do not regenerate encryption keys between runs.
+
+Recovery contacts GitHub even in preview mode. Requests are sequential, paced at
+least 250 ms apart, with a bounded cache keyed by token hashes. Network failures,
+rate limits and server errors halt the run (`halted: true`); earlier completed
+owners may already have been migrated in apply mode. Rerunning is safe.
+
+Unresolved owners are reported once in the `users` collection:
+
+- `missing_or_invalid_owner_github_id`: no usable GitHub ID recorded on the user.
+- `no_valid_owner_token`: no candidate authenticates that owner.
+- `multiple_valid_owner_tokens`: several distinct tokens authenticate the owner;
+  the script does not guess which token or scope is appropriate.
+- `unsupported_github_identity`: a response cannot establish a personal identity.
+
+These owners retain their legacy tokens, including with `--remove-legacy`.
+Have the owner sign in again to establish a fresh authoritative credential, or
+review their records manually. Do not bulk-archive owned repositories solely
+because credential recovery failed.
