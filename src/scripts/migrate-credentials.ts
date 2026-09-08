@@ -6,7 +6,12 @@ import { migrateCredentials, verifyCredentials, enforceCredentialStorage } from 
 
 async function main() {
   const args = new Set(process.argv.slice(2));
+  const concurrencyArgs = [...args].filter(arg => arg.startsWith("--concurrency="));
+  if (concurrencyArgs.length > 1) throw new Error("Specify concurrency once");
+  const concurrency = concurrencyArgs.length ? Number(concurrencyArgs[0].slice("--concurrency=".length)) : 10;
+  if (!Number.isInteger(concurrency) || concurrency < 1 || concurrency > 32) throw new Error("Concurrency must be 1..32");
   for (const arg of args) {
+    if (concurrencyArgs.includes(arg)) continue;
     if (!["--apply", "--remove-legacy", "--prefer-owner-token", "--recover-owner-tokens", "--maintenance", "--verify", "--enforce"].includes(arg)) {
       throw new Error("Unknown migration option");
     }
@@ -26,6 +31,7 @@ async function main() {
     if (result.legacy) process.exitCode = 1;
   } else {
     const result = await migrateCredentials(db, cipher, {
+      concurrency,
       apply: args.has("--apply"), removeLegacy: args.has("--remove-legacy"),
       preferOwnerToken: args.has("--prefer-owner-token"),
       recoverOwnerTokens: args.has("--recover-owner-tokens"),

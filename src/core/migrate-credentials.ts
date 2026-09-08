@@ -13,11 +13,14 @@ export interface MigrationOptions {
   recoverOwnerTokens?: boolean;
   identify?: (token: string) => Promise<IdentityResult>;
   batchSize?: number;
+  concurrency?: number;
   report?: (event: { collection: string; id: string; issue: string }) => void;
 }
 
 /** Run with all application writers stopped. Reruns never replace an existing credential. */
 export async function migrateCredentials(db: mongo.Db, cipher: Cipher, options: MigrationOptions = {}) {
+  const concurrency = options.concurrency ?? 10;
+  if (!Number.isInteger(concurrency) || concurrency < 1 || concurrency > 32) throw new Error("Concurrency must be 1..32");
   const credentials = db.collection("credentials");
   const users = db.collection("users");
   const batchSize = options.batchSize || 100;
@@ -28,7 +31,9 @@ export async function migrateCredentials(db: mongo.Db, cipher: Cipher, options: 
     options.report?.({ collection, id: String(id), issue: reason });
   };
   if (options.apply) await credentials.createIndex({ ownerId: 1, provider: 1 }, { unique: true });
-  for await (const user of users.find({}, { projection: { accessTokens: 1, accessTokenDates: 1, status: 1, externalIDs: 1 } }).batchSize(batchSize)) {
+  const ownerIds = new Set<string>();
+  const processOwner = async (user: mongo.Document) => {
+    if (counts.halted) return;
     counts.owners++;
     const ownerId = user._id;
     const existing = await credentials.findOne({ ownerId, provider: "github" });
@@ -36,7 +41,7 @@ export async function migrateCredentials(db: mongo.Db, cipher: Cipher, options: 
     let valid = true;
     if (existing) {
       try { selected = cipher.decrypt(existing.encryptedToken as EncryptedToken, String(ownerId), "github"); }
-      catch { issue("credentials", existing._id, "decryption_failed"); continue; }
+      catch { issue("credentials", existing._id, "decryption_failed"); return; }
     }
     const ownerToken = user.accessTokens?.github;
     const authoritative = !!(selected || (typeof ownerToken === "string" && ownerToken));
@@ -56,22 +61,23 @@ export async function migrateCredentials(db: mongo.Db, cipher: Cipher, options: 
     inspect(ownerToken, "users", ownerId);
     for (const name of resources) {
       for await (const row of db.collection(name).find({ owner: ownerId, ...legacyQuery }, {
-        projection: { source: 1, accessToken: 1 },
+        projection: { "source.accessToken": 1, accessToken: 1 },
       }).batchSize(batchSize)) {
         inspect(row.source?.accessToken, name, row._id);
         inspect(row.accessToken, name, row._id);
       }
     }
-    if (!valid) continue;
+    if (!valid) return;
     if (recovering && candidates.size) {
       const result = await recover(user.externalIDs?.github, candidates);
       if ("issue" in result) {
         issue("users", ownerId, result.issue);
-        if (result.halt) { counts.halted = true; return counts; }
-        continue;
+        if (result.halt) { counts.halted = true; return; }
+        return;
       }
       selected = result.token;
     }
+    if (counts.halted) return;
     // Removed accounts must never regain credentials during backfill.
     if (user.status === "removed") {
       if (options.apply && options.removeLegacy) await credentials.deleteMany({ ownerId });
@@ -84,7 +90,7 @@ export async function migrateCredentials(db: mongo.Db, cipher: Cipher, options: 
         } }, { upsert: true });
         const stored = await credentials.findOne({ ownerId, provider: "github" });
         if (!stored || cipher.decrypt(stored.encryptedToken as EncryptedToken, String(ownerId), "github") !== selected) {
-          issue("users", ownerId, "credential_changed_retry"); continue;
+          issue("users", ownerId, "credential_changed_retry"); return;
         }
       }
       counts.created++;
@@ -100,11 +106,34 @@ export async function migrateCredentials(db: mongo.Db, cipher: Cipher, options: 
         counts.removed += result.modifiedCount;
       }
     }
+  };
+  // Keep one cursor reader and at most concurrency owner jobs in flight.
+  const pending = new Set<Promise<void>>();
+  let failure: unknown;
+  try {
+    for await (const user of users.find({}, { projection: {
+      accessTokens: 1, accessTokenDates: 1, status: 1, externalIDs: 1,
+    } }).batchSize(batchSize)) {
+      if (counts.halted) break;
+      ownerIds.add(String(user._id));
+      const job = processOwner(user).catch(error => {
+        failure = error;
+        counts.halted = true;
+      });
+      pending.add(job);
+      void job.then(() => pending.delete(job));
+      if (pending.size >= concurrency) await Promise.race(pending);
+    }
+  } finally {
+    // Drain before returning or letting the CLI disconnect, including cursor failures.
+    await Promise.all(pending);
   }
+  if (failure) throw failure;
+  if (counts.halted) return counts;
   // Credentials attached to missing owners cannot be assigned safely.
   for (const name of resources) {
     for await (const row of db.collection(name).find(legacyQuery, { projection: { owner: 1 } }).batchSize(batchSize)) {
-      if (!row.owner || !(await users.findOne({ _id: row.owner }, { projection: { _id: 1 } }))) {
+      if (!row.owner || !ownerIds.has(String(row.owner))) {
         issue(name, row._id, "missing_owner");
       }
     }
