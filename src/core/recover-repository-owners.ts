@@ -100,7 +100,11 @@ export async function recoverRepositoryOwners(db: mongo.Db, options: RecoveryOpt
     const unchanged = (value: unknown) => value === undefined ? { $exists: false } : { $eq: value, $exists: true };
     const original = { _id: row._id, repoId: unchanged(row.repoId), owner: unchanged(row.owner), status: unchanged(row.status),
       "source.accessToken": unchanged(row.source?.accessToken), accessToken: unchanged(row.accessToken) };
-    const safeRepoId = () => typeof row.repoId === "string" && /^[a-zA-Z0-9_.-]+$/.test(row.repoId) && ![".", ".."].includes(row.repoId);
+    // Legacy IDs can contain spaces. Keep their exact spelling for storage lookup.
+    // Separators/control characters stay forbidden, as do empty and dot-only IDs.
+    const safeRepoId = () => typeof row.repoId === "string" &&
+      /^[a-zA-Z0-9_. -]+$/.test(row.repoId) &&
+      !["", ".", ".."].includes(row.repoId.trim());
     const cleanup = async () => {
       if (!safeRepoId()) { fail("unsafe_or_missing_repo_id"); return; }
       try {
