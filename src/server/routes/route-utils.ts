@@ -17,6 +17,9 @@ export async function getGist(
   opt?: { nocheck?: boolean }
 ) {
   try {
+    if (typeof req.params.gistId !== "string") {
+      throw new AnonymousError("invalid_path", { httpStatus: 400 });
+    }
     const gist = await db.getGist(req.params.gistId);
     if (opt?.nocheck !== true) {
       if (
@@ -42,6 +45,9 @@ export async function getPullRequest(
   opt?: { nocheck?: boolean }
 ) {
   try {
+    if (typeof req.params.pullRequestId !== "string") {
+      throw new AnonymousError("invalid_path", { httpStatus: 400 });
+    }
     const pullRequest = await db.getPullRequest(req.params.pullRequestId);
     if (opt?.nocheck !== true) {
       // redirect if the repository is expired
@@ -72,6 +78,9 @@ export async function getRepo(
   }
 ) {
   try {
+    if (typeof req.params.repoId !== "string") {
+      throw new AnonymousError("invalid_path", { httpStatus: 400 });
+    }
     const repo = await db.getRepository(req.params.repoId);
     if (opt.nocheck !== true) {
       // redirect if the repository is expired

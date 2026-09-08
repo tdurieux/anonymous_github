@@ -99,7 +99,13 @@ function indexResponse(req: express.Request, res: express.Response) {
 
 export default async function start() {
   const app = express();
+  app.set("query parser", "extended");
   app.use(express.json());
+  // Preserve the empty body used by API validation when no JSON was parsed.
+  app.use((req, _res, next) => {
+    req.body ??= {};
+    next();
+  });
 
   app.use(
     compression({
@@ -349,10 +355,10 @@ export default async function start() {
     .get("/", indexResponse)
     .get("/404", indexResponse)
     .get("/anonymize", indexResponse)
-    .get("/r/:repoId/?*", indexResponse)
-    .get("/repository/:repoId/?*", indexResponse);
+    .get("/r/:repoId{/*path}", indexResponse)
+    .get("/repository/:repoId{/*path}", indexResponse);
 
-  app.get("*", indexResponse);
+  app.get("/{*path}", indexResponse);
 
   // start schedules
   conferenceStatusCheck();

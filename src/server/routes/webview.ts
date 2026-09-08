@@ -61,7 +61,10 @@ const indexPriority = [
   "readme",
 ];
 
-async function webView(req: express.Request, res: express.Response) {
+async function webView(
+  req: express.Request<{ repoId: string; path?: string[] }>,
+  res: express.Response
+) {
   res.header("Content-Security-Policy", "sandbox allow-popups allow-forms allow-modals");
   const repo = await getRepo(req, res);
   if (!repo) return;
@@ -182,7 +185,7 @@ async function webView(req: express.Request, res: express.Response) {
   }
 }
 
-router.get("/:repoId/*", webView);
+router.get("/:repoId/{*path}", webView);
 router.get("/:repoId", (req: express.Request, res: express.Response) => {
   res.redirect("/w" + req.url + "/");
 });
