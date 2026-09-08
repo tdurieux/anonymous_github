@@ -180,21 +180,99 @@ app.get(/^\/(script|css)\/(.+)\.([a-f0-9]{10})\.(min\.\w+|\w+)$/, (req, res, nex
   res.sendFile(filePath);
 });
 
-app.get("/api/user", (req, res) => res.json({ username: "tdurieux", photo: "", isAdmin: false }));
-app.get("/api/options", (req, res) => res.json({}));
+const conferences = [
+  {
+    conferenceID: "FSE25",
+    name: "Foundations of Software Engineering 2025",
+    url: "https://conf.researchr.org/home/fse-2025",
+    startDate: ago(400),
+    endDate: ahead(30),
+    status: "ready",
+    options: opts({ page: true }),
+    plan: { planID: "premium_conference", name: "Premium", pricePerRepository: 0.5 },
+    price: 12.5,
+    nbRepositories: 2,
+    repositories: repositories.slice(0, 4).map((r) => Object.assign({}, r, { addDate: ago(60) })),
+  },
+  {
+    conferenceID: "ICSE26-AE",
+    name: "ICSE 2026 Artifact Evaluation",
+    url: "https://conf.researchr.org/home/icse-2026",
+    startDate: ahead(10),
+    endDate: ahead(120),
+    status: "ready",
+    options: opts(),
+    plan: { planID: "free_conference", name: "Free", pricePerRepository: 0 },
+    price: 0,
+    nbRepositories: 0,
+    repositories: [],
+  },
+  {
+    conferenceID: "FSE23",
+    name: "Foundations of Software Engineering 2023",
+    url: "",
+    startDate: ago(1200),
+    endDate: ago(900),
+    status: "expired",
+    options: opts(),
+    plan: { planID: "free_conference", name: "Free", pricePerRepository: 0 },
+    price: 0,
+    nbRepositories: 3,
+    repositories: [],
+  },
+];
+
+const plans = [
+  { id: "free_conference", name: "Free", pricePerRepo: 0, storagePerRepo: -1, description: "<li><strong>Quota is deducted from user account</strong></li><li>No download</li><li>Conference dashboard</li>" },
+  { id: "premium_conference", name: "Premium", pricePerRepo: 0.5, storagePerRepo: 500 * 8 * 1024, description: "<li>500 MB per repository</li><li>Repository download</li><li>Conference dashboard</li>" },
+  { id: "unlimited_conference", name: "Unlimited", pricePerRepo: 3, storagePerRepo: 0, description: "<li><strong>Unlimited</strong> repository size</li><li>Repository download</li><li>Conference dashboard</li>" },
+];
+
+const stat = { nbRepositories: 41230, nbUsers: 9870, nbPageViews: 3120000, nbPullRequests: 1480 };
+const history = Array.from({ length: 60 }, (_, i) => ({
+  date: ago(59 - i),
+  nbRepositories: 40000 + i * 20,
+  nbUsers: 9500 + i * 6,
+  nbPageViews: 3000000 + i * 2000,
+  nbPullRequests: 1400 + i,
+}));
+
+// ANON=1 serves the signed-out experience (landing page, FAQ) instead.
+app.get("/api/user", (req, res) =>
+  process.env.ANON
+    ? res.status(401).json({ error: "not_connected" })
+    : res.json({ username: "tdurieux", photo: "https://avatars.githubusercontent.com/u/5577568?v=4", isAdmin: false })
+);
+app.get("/api/options", (req, res) => res.json({ MAX_REPO_SIZE: 8 * 1024, ANONYMIZATION_MASK: "XXXX" }));
 app.get("/api/message", (req, res) => res.status(404).end());
 app.get("/api/user/quota", (req, res) => res.json(quota));
 app.get("/api/user/anonymized_repositories", (req, res) => res.json(repositories));
 app.get("/api/user/anonymized_pull_requests", (req, res) => res.json(pullRequests));
 app.get("/api/user/anonymized_gists", (req, res) => res.json(gists));
-app.get("/api/user/default", (req, res) => res.json({}));
+app.get("/api/user/default", (req, res) =>
+  res.json({ terms: ["Jane Smith", "MIT CSAIL"], options: { link: true, image: true, pdf: true, notebook: true, loc: true, page: false, update: false, mode: "GitHubStream", expirationMode: "remove" } })
+);
+app.post("/api/user/default", (req, res) => res.json({}));
+app.get("/api/conferences/plans", (req, res) => res.json(plans));
+app.get("/api/conferences/", (req, res) => res.json(conferences));
+app.get("/api/conferences/:id", (req, res) => {
+  const c = conferences.find((x) => x.conferenceID === req.params.id);
+  return c ? res.json(c) : res.status(404).json({ error: "conf_not_found" });
+});
+app.get("/api/repo/:id", (req, res) => {
+  const r = repositories.find((x) => x.repoId === req.params.id) || repositories[0];
+  res.json(r);
+});
+app.get("/api/stat", (req, res) => res.json(stat));
+app.get("/api/stat/history", (req, res) => res.json(history));
 app.all("/api/{*rest}", (req, res) => res.status(404).json({ error: "not mocked: " + req.path }));
 
 app.use((req, res, next) => {
   res.setHeader("Cache-Control", "no-store, max-age=0");
   next();
 });
-app.use(express.static(PUBLIC_DIR, { etag: false, cacheControl: false }));
+// index: false so "/" falls through to the placeholder-filled index.html below.
+app.use(express.static(PUBLIC_DIR, { etag: false, cacheControl: false, index: false }));
 app.get("/{*rest}", (req, res) => res.type("html").send(indexHtml()));
 
 app.listen(PORT, () => {

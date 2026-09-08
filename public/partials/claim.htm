@@ -1,25 +1,26 @@
 <div class="container paper-page">
-  <div class="paper-crumbs">Reference &nbsp;/&nbsp; <span class="here">Claim</span></div>
+  <div class="paper-crumbs"><a href="/dashboard">My work</a> &nbsp;/&nbsp; <span class="here">Claim</span></div>
   <h1 class="paper-page-title">Claim an <em>anonymization</em></h1>
   <p class="paper-page-lede">
     Take ownership of an existing anonymized repository so it appears on your
     dashboard.
   </p>
-  <div class="paper-meta-rule"></div>
-  <form class="form needs-validation" name="claimForm" novalidate>
+  <div class="paper-settings-main claim-form">
+  <p class="paper-section-copy">Use this when an anonymization was created by a co-author or from another account. You must have access to the GitHub repository it was made from.</p>
+  <form class="form needs-validation" name="claimForm" novalidate ng-submit="claim()">
     <div class="form-group">
-      <label class="paper-field-label" for="repoUrl">Repository URL</label>
+      <label class="paper-field-label" for="repoUrl">GitHub repository URL</label>
       <input
         type="text"
         class="form-control"
         name="repoUrl"
         id="repoUrl"
         required
-        ng-class="{'is-invalid': claimForm.repoUrl.$invalid}"
+        ng-class="{'is-invalid': claimForm.repoUrl.$invalid && (claimForm.repoUrl.$touched || claimForm.$submitted)}"
         ng-model="repoUrl"
       />
       <div class="invalid-feedback" ng-show="claimForm.repoUrl.$error.not_found">
-        The repository is not found.
+        No anonymization matches this repository and ID. Check both values and that you can access the repository on GitHub.
       </div>
     </div>
     <div class="form-group">
@@ -31,11 +32,10 @@
         id="repoId"
         required
         ng-model="repoId"
-        ng-class="{'is-invalid': claimForm.repoId.$invalid}"
+        ng-class="{'is-invalid': claimForm.repoId.$invalid && (claimForm.repoId.$touched || claimForm.$submitted)}"
       />
       <small id="idHelp" class="form-text text-muted"
-        >The id is in the repository
-        https://anonymous.4open.science/r/{id}</small
+        >The ID is the last part of the anonymized URL: <code>anonymous.4open.science/r/&lt;ID&gt;</code>.</small
       >
     </div>
 
@@ -43,9 +43,9 @@
       id="submit"
       type="submit"
       class="btn btn-ink"
-      ng-click="claim()"
     >
-      Claim
+      Claim anonymization
     </button>
   </form>
+  </div>
 </div>

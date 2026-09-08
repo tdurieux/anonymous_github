@@ -319,6 +319,86 @@ angular
       return msg;
     };
   })
+  // Shared quota loader. A total of 0 means unlimited: no percentage, no fill.
+  // `level` drives the bar colour: ink until 80%, amber to 95%, red above.
+  .factory("quotaService", [
+    "$http",
+    function ($http) {
+      function decorate(q) {
+        q = q || { used: 0, total: 0 };
+        q.unlimited = !q.total;
+        q.percent = q.unlimited ? 0 : Math.min(100, (q.used * 100) / q.total);
+        q.level = q.unlimited
+          ? "unlimited"
+          : q.percent >= 95
+          ? "danger"
+          : q.percent >= 80
+          ? "warn"
+          : "ok";
+        return q;
+      }
+      return {
+        decorate: decorate,
+        load: function () {
+          return $http.get("/api/user/quota").then((res) => {
+            const quota = res.data || {};
+            quota.storage = decorate(quota.storage);
+            quota.file = decorate(quota.file);
+            quota.repository = decorate(quota.repository);
+            return quota;
+          });
+        },
+      };
+    },
+  ])
+  // Highlights the link of the section currently in view inside a
+  // `.paper-settings-toc`-style navigation. Falls back to no-op without
+  // IntersectionObserver.
+  .directive("paperScrollspy", [
+    "$window",
+    function ($window) {
+      return {
+        restrict: "A",
+        link: function (scope, element) {
+          if (!$window.IntersectionObserver) return;
+          const links = Array.from(element[0].querySelectorAll('a[href^="#"]'));
+          const byId = {};
+          links.forEach((a) => {
+            byId[a.getAttribute("href").slice(1)] = a;
+          });
+          const visible = new Set();
+          function update() {
+            let current = null;
+            for (const id of Object.keys(byId)) {
+              if (visible.has(id)) {
+                current = id;
+                break;
+              }
+            }
+            links.forEach((a) => a.classList.toggle("active", a === byId[current]));
+          }
+          const observer = new $window.IntersectionObserver(
+            (entries) => {
+              entries.forEach((e) => {
+                if (e.isIntersecting) visible.add(e.target.id);
+                else visible.delete(e.target.id);
+              });
+              update();
+            },
+            { rootMargin: "-20% 0px -60% 0px", threshold: 0 }
+          );
+          // Sections may render after the toc; observe on the next tick.
+          $window.setTimeout(() => {
+            Object.keys(byId).forEach((id) => {
+              const target = $window.document.getElementById(id);
+              if (target) observer.observe(target);
+            });
+          }, 0);
+          scope.$on("$destroy", () => observer.disconnect());
+        },
+      };
+    },
+  ])
   .filter("diff", [
     "$sce",
     function ($sce) {
@@ -1189,7 +1269,9 @@ angular
     "$scope",
     "$http",
     "$translate",
-    function ($scope, $http, $translate) {
+    "$timeout",
+    "quotaService",
+    function ($scope, $http, $translate, $timeout, quotaService) {
       $scope.terms = "";
       $scope.options = {
         expirationMode: "remove",
@@ -1200,10 +1282,17 @@ angular
         loc: true,
         link: true,
       };
+      $scope.saving = false;
+      $scope.message = null;
+      $scope.error = null;
+
+      quotaService.load().then((quota) => {
+        $scope.quota = quota;
+      }, console.error);
 
       function getDefault() {
         $http.get("/api/user/default").then((res) => {
-          const data = res.data;
+          const data = res.data || {};
           if (data.terms) {
             $scope.terms = data.terms.join("\n");
           }
@@ -1212,20 +1301,36 @@ angular
       }
       getDefault();
 
-      $scope.saveDefault = () => {
+      let savedTimer = null;
+      $scope.saveDefault = ($event) => {
+        if ($event && $event.preventDefault) $event.preventDefault();
         const params = {
-          terms: $scope.terms.trim().split("\n"),
+          terms: $scope.terms
+            .split("\n")
+            .map((t) => t.trim())
+            .filter((t) => t.length > 0),
           options: $scope.options,
         };
+        $scope.saving = true;
+        $scope.error = null;
         $http.post("/api/user/default", params).then(
           () => {
             getDefault();
+            $scope.saving = false;
             $scope.message = "Saved";
+            if (savedTimer) $timeout.cancel(savedTimer);
+            savedTimer = $timeout(() => {
+              $scope.message = null;
+            }, 2500);
           },
           (error) => {
-            $translate("ERRORS." + error.data.error).then((translation) => {
+            $scope.saving = false;
+            const code = error && error.data && error.data.error;
+            $translate("ERRORS." + code).then((translation) => {
               $scope.error = translation;
-            }, console.error);
+            }, () => {
+              $scope.error = "Unable to save your defaults. Please try again.";
+            });
           }
         );
       };
@@ -1379,7 +1484,8 @@ angular
     "$location",
     "$q",
     "$window",
-    function ($scope, $http, $location, $q, $window) {
+    "quotaService",
+    function ($scope, $http, $location, $q, $window, quotaService) {
       $scope.$on("$routeChangeStart", function () {
         $('[data-toggle="tooltip"]').tooltip("dispose");
       });
@@ -1493,30 +1599,10 @@ angular
         true
       );
 
-      // ---- Quota ---------------------------------------------------------
-      // A quota with total 0 is unlimited: no percentage, no fill. Colour is
-      // only introduced once a quota is nearly used up.
-      function decorateQuota(q) {
-        q.unlimited = !q.total;
-        q.percent = q.unlimited ? 0 : Math.min(100, (q.used * 100) / q.total);
-        q.level = q.unlimited
-          ? "unlimited"
-          : q.percent >= 95
-          ? "danger"
-          : q.percent >= 80
-          ? "warn"
-          : "ok";
-        return q;
-      }
-      function getQuota() {
-        $http.get("/api/user/quota").then((res) => {
-          $scope.quota = res.data;
-          decorateQuota($scope.quota.storage);
-          decorateQuota($scope.quota.file);
-          decorateQuota($scope.quota.repository);
-        }, console.error);
-      }
-      getQuota();
+      // ---- Quota (shared with the settings page via quotaService) --------
+      quotaService.load().then((quota) => {
+        $scope.quota = quota;
+      }, console.error);
 
       // ---- Items ---------------------------------------------------------
       // Fields shared by repositories, pull requests and gists. Records that

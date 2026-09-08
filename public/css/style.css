@@ -3415,16 +3415,26 @@ code {
 }
 
 /* Paper progress bar */
+/* The track is a pseudo-element so the label below it lives in normal flow
+   instead of overflowing an 8px-high box into the next section. */
 .paper-progress {
   position: relative;
+  height: auto;
+  background: none;
+  margin: 18px 0 8px;
+}
+.paper-progress::before {
+  content: "";
+  display: block;
   height: 8px;
   background: var(--paper-bg-alt);
   border-radius: 999px;
-  overflow: visible;
-  margin: 18px 0 8px;
 }
 .paper-progress .paper-progress-bar {
-  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 8px;
   background: var(--color);
   border-radius: 999px;
   transition: width 0.4s ease;
@@ -3991,7 +4001,7 @@ code {
 
 .paper-section-eyebrow {
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: 11px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--ink-muted);
@@ -4413,10 +4423,81 @@ textarea::selection {
 .paper-settings-section .form-group { margin-bottom: 18px; }
 .paper-settings-section .form-check { padding: 10px 0 10px 28px; border-bottom: 1px solid var(--border-soft, var(--border-color)); }
 .paper-settings-section .form-check:last-child { border-bottom: none; }
-.paper-settings-section .form-check-label { font-family: var(--font-serif); font-size: 16px; color: var(--color); }
+/* Checkbox labels are UI text, so they use the sans face like the rest of
+   the forms; the serif stays reserved for display headings. */
+.paper-settings-section .form-check-label { font-family: var(--font-sans); font-size: 14px; font-weight: 500; color: var(--color); cursor: pointer; }
+.paper-settings-section .form-check-input { cursor: pointer; width: 16px; height: 16px; margin-top: 3px; margin-left: -28px; accent-color: var(--color); }
 .paper-settings-section .form-text { color: var(--ink-soft); font-size: 13px; margin-top: 4px; max-width: 48em; }
+.paper-settings-section .paper-section-copy { margin: -4px 0 14px; }
 .paper-settings-footer { padding-top: 24px; display: flex; flex-direction: column; gap: 14px; }
 .paper-settings-footer .btn-ink { align-self: flex-start; }
+.paper-settings-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; }
+.paper-settings-hint { font-size: 13px; color: var(--ink-muted); }
+
+/* Inline alerts in the paper palette (Bootstrap's .alert colours clash) */
+.paper-inline-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--radius-control, 6px);
+  border: 1px solid var(--border-color);
+  background: var(--paper-bg-alt);
+  font-size: 13px;
+  color: var(--color);
+}
+.paper-inline-alert i { margin-top: 2px; color: var(--ink-muted); }
+.paper-inline-alert-error { border-color: var(--status-error); background: var(--status-error-soft); }
+.paper-inline-alert-error i { color: var(--status-error); }
+
+/* Account card and danger zone on the settings page */
+.paper-account-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-surface, 10px);
+  background: var(--paper-card);
+  margin-bottom: 20px;
+}
+.paper-account-card img { flex-shrink: 0; }
+.paper-account-identity { flex: 1 1 auto; min-width: 0; }
+.paper-account-name { font-family: var(--font-mono); font-size: 14px; font-weight: 500; color: var(--color); }
+.paper-account-meta { font-size: 13px; color: var(--ink-muted); margin-top: 2px; }
+.paper-danger-zone {
+  padding: 16px;
+  border: 1px solid var(--status-error);
+  border-radius: var(--radius-surface, 10px);
+  background: var(--status-error-soft);
+}
+.paper-danger-head { font-weight: 600; font-size: 14px; color: var(--status-error); margin-bottom: 6px; }
+.paper-danger-copy { font-size: 13px; color: var(--ink-soft); max-width: 52em; margin-bottom: 12px; }
+.paper-danger-zone .paper-inline-alert { margin-bottom: 12px; }
+.btn.btn-outline-danger {
+  background: transparent;
+  color: var(--status-error);
+  border: 1px solid var(--status-error);
+  font-weight: 500;
+  border-radius: var(--radius-control, 6px);
+  padding: 8px 14px;
+}
+.btn.btn-outline-danger:hover { background: var(--status-error); color: #fff; border-color: var(--status-error); }
+
+/* Navbar user menu: two-line items (label + hint) */
+.navbar .user-menu { min-width: 260px; }
+.navbar .user-menu .dropdown-item { display: flex; align-items: flex-start; gap: 10px; padding: 8px 10px !important; }
+.navbar .user-menu .dropdown-item i { width: 16px; margin-top: 3px; font-size: 13px; color: var(--ink-muted); text-align: center; }
+.navbar .user-menu .dropdown-item span { display: flex; flex-direction: column; line-height: 1.3; }
+.navbar .user-menu .dropdown-item small { font-size: 12px; color: var(--ink-muted); }
+.navbar .user-menu .dropdown-header {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  padding: 8px 10px 6px;
+}
 .paper-field-label {
   font-family: var(--font-mono);
   font-size: 11px;

@@ -135,7 +135,8 @@ describe("frontend production regressions", function () {
   });
   it("translates profile save failures", async function () {
     const h = harness(); expect(h.defs.profileController).to.include("$translate");
-    h.defs.profileController.at(-1)(h.scope, h.http, key => Promise.resolve(key));
+    const timeout = Object.assign(() => 0, { cancel() {} });
+    h.defs.profileController.at(-1)(h.scope, h.http, key => Promise.resolve(key), timeout, { load: () => Promise.resolve({}) });
     h.scope.saveDefault(); h.requests.at(-1).reject({ data: { error: "not_connected" } }); await h.flush();
     expect(h.scope.error).to.equal("ERRORS.not_connected");
   });
