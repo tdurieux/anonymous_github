@@ -278,3 +278,50 @@ points elsewhere, back up that database instead. The host needs Python 3 and GPG
 
 The one-off invocation follows Docker's [Compose run documentation](https://docs.docker.com/reference/cli/docker/compose/run/).
 The backup password handling uses MongoDB's [mongodump configuration-file support](https://www.mongodb.com/docs/database-tools/mongodump/).
+
+## Recover missing repository owners using GitHub
+
+For `missing_owner` repositories that still have a valid token, the recovery script
+calls GitHub's [authenticated-user endpoint](https://docs.github.com/en/rest/users/users#get-the-authenticated-user)
+and matches the returned ID against `users.externalIDs.github`. It assigns the
+matching database user's `_id` to the repository's `owner`. This grants that user
+management access to the repository, based on the identity of the stored token.
+It does not create users or change tokens, and it never matches by username.
+
+Build the updated image first, while keeping production writers stopped:
+
+```bash
+docker compose build anonymous_github
+```
+
+Preview matches for one document from the migration report:
+
+```bash
+docker compose run --rm --no-deps -T --entrypoint node anonymous_github \
+  build/scripts/recover-repository-owners.js --id=6136d362bf270d7f1688cd59
+```
+
+Omit `--id` to preview all repositories. Apply automatic matches with:
+
+```bash
+docker compose run --rm --no-deps -T --entrypoint node anonymous_github \
+  build/scripts/recover-repository-owners.js --apply --maintenance
+```
+
+The script skips existing owners, handles dangling owner references, and requires
+exactly one matching, non-disabled database user. Duplicate user matches, revoked
+tokens, and missing users remain unresolved. If the two legacy token locations
+identify different accounts, it leaves the repository untouched. Conditional
+updates avoid overwriting a repository whose owner or tokens changed after it was
+read. Keep application writers stopped for apply runs.
+
+Requests are sequential and spaced one second apart, with a 15-second timeout.
+Repeated tokens share a bounded in-memory lookup cache. HTTP 403/429 responses,
+other unexpected HTTP errors, and network failures stop the scan; fix the issue or
+wait for GitHub's limit to reset, then rerun. Existing assignments are skipped on
+reruns. Reports contain record IDs, matched GitHub/user IDs, actions, and issue
+codes, never tokens or raw GitHub responses. A nonzero exit status means unresolved
+records remain or the scan halted; successful assignments are retained.
+
+After recovery, rerun the credential migration with `--prefer-owner-token`.
+Recovery leaves legacy tokens in place so the migration can still encrypt them.
