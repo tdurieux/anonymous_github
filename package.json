@@ -71,7 +71,16 @@
     "unzip-stream": "^0.3.1"
   },
   "overrides": {
-    "msgpackr": "^1.11.12"
+    "msgpackr": "^1.11.12",
+    "nanoid": {
+      "nanoid": "5.1.16"
+    },
+    "postcss": {
+      "nanoid": "5.1.16"
+    },
+    "sanitize-html": {
+      "nanoid": "5.1.16"
+    }
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
