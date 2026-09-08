@@ -266,7 +266,6 @@ router.post("/", async (req: express.Request, res: express.Response) => {
     pullRequest.model.owner = user.id;
 
     updatePullRequestModel(pullRequest.model, pullRequestUpdate);
-    pullRequest.source.accessToken = user.accessToken;
     pullRequest.source.pullRequestId = pullRequestUpdate.source.pullRequestId;
     pullRequest.source.repositoryFullName =
       pullRequestUpdate.source.repositoryFullName;

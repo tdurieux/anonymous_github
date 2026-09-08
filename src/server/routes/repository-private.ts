@@ -1,3 +1,4 @@
+import { getCredentialToken } from "../../core/credentials";
 import * as express from "express";
 import { ensureAuthenticated } from "./connection";
 
@@ -14,14 +15,12 @@ import { getRepositoryFromGitHub } from "../../core/source/GitHubRepository";
 import gh = require("parse-github-url");
 import AnonymizedRepositoryModel from "../../core/model/anonymizedRepositories/anonymizedRepositories.model";
 import { IAnonymizedRepositoryDocument } from "../../core/model/anonymizedRepositories/anonymizedRepositories.types";
-import UserModel from "../../core/model/users/users.model";
 import ConferenceModel from "../../core/model/conference/conferences.model";
 import AnonymousError from "../../core/AnonymousError";
 import { addRemovalJob, downloadQueue } from "../../queue";
 import RepositoryModel from "../../core/model/repositories/repositories.model";
 import User from "../../core/User";
 import { RepositoryStatus } from "../../core/types";
-import { IUserDocument } from "../../core/model/users/users.types";
 import { checkToken, octokit, getRedisGateResetAt, getToken } from "../../core/GitHubUtils";
 import { createLogger, serializeError } from "../../core/logger";
 
@@ -40,23 +39,14 @@ async function getTokenForAdmin(user: User, req: express.Request) {
           "source.repositoryName": `${req.params.owner}/${req.params.repo}`,
         },
         {
-          "source.accessToken": 1,
           owner: 1,
         }
-      ).populate({
-        path: "owner",
-        model: UserModel,
-      });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const user: IUserDocument = existingRepo?.owner as any;
-      if (user instanceof UserModel) {
-        const check = await checkToken(user.accessTokens.github);
-        if (check) {
-          return user.accessTokens.github;
-        }
-      }
-      if (existingRepo) {
-        return existingRepo.source.accessToken;
+      );
+      if (existingRepo?.owner) {
+        const token = await getCredentialToken(String(existingRepo.owner), "github", {
+          collection: "anonymizedrepositories", id: existingRepo._id,
+        });
+        if (token && await checkToken(token)) return token;
       }
     } catch (error) {
       logger.warn("getToken lookup failed", serializeError(error));
@@ -100,7 +90,7 @@ router.post("/claim", async (req: express.Request, res: express.Response) => {
       owner: r.owner,
       repo: r.name,
       repositoryID: req.query.repositoryID as string,
-      accessToken: user.accessToken,
+      accessToken: await user.getAccessToken(),
     });
     if (!repo) {
       throw new AnonymousError("repo_not_found", {
@@ -256,7 +246,7 @@ router.get(
   async (req: express.Request, res: express.Response) => {
     try {
       const user = await getUser(req);
-      let token = user.accessToken;
+      let token = await user.getAccessToken();
       if (user.isAdmin) {
         token = (await getTokenForAdmin(user, req)) || token;
       }
@@ -279,7 +269,7 @@ router.get(
   async (req: express.Request, res: express.Response) => {
     try {
       const user = await getUser(req);
-      let token = user.accessToken;
+      let token = await user.getAccessToken();
       if (user.isAdmin) {
         token = (await getTokenForAdmin(user, req)) || token;
       }
@@ -307,7 +297,7 @@ router.get(
   async (req: express.Request, res: express.Response) => {
     try {
       const user = await getUser(req);
-      let token = user.accessToken;
+      let token = await user.getAccessToken();
       if (user.isAdmin) {
         token = (await getTokenForAdmin(user, req)) || token;
       }
@@ -521,7 +511,7 @@ router.post(
           });
         }
         const repository = await getRepositoryFromGitHub({
-          accessToken: user.accessToken,
+          accessToken: await user.getAccessToken(),
           owner: parsedRepository.owner,
           repo: parsedRepository.name,
         });
@@ -533,7 +523,7 @@ router.post(
           });
         }
         await repository.getCommitInfo(repoUpdate.source.commit, {
-          accessToken: user.accessToken,
+          accessToken: await user.getAccessToken(),
         });
         repo.model.source.repositoryId = repository.model.id;
         repo.model.source.repositoryName =
@@ -648,7 +638,7 @@ router.post("/", async (req: express.Request, res: express.Response) => {
       });
     }
     const repository = await getRepositoryFromGitHub({
-      accessToken: user.accessToken,
+      accessToken: await user.getAccessToken(),
       owner: r.owner,
       repo: r.name,
     });
@@ -661,7 +651,7 @@ router.post("/", async (req: express.Request, res: express.Response) => {
     }
 
     await repository.getCommitInfo(repoUpdate.source.commit, {
-      accessToken: user.accessToken,
+      accessToken: await user.getAccessToken(),
     });
 
     const repo = new AnonymizedRepositoryModel();
@@ -671,7 +661,6 @@ router.post("/", async (req: express.Request, res: express.Response) => {
 
     updateRepoModel(repo, repoUpdate);
     repo.source.type = "GitHubStream";
-    repo.source.accessToken = user.accessToken;
     repo.source.repositoryId = repository.model.id;
     repo.source.repositoryName = repoUpdate.fullName;
 
@@ -762,7 +751,7 @@ router.post(
       }
 
       // verify the GitHub user exists and capture identity fields
-      const oct = octokit(user.accessToken);
+      const oct = octokit(await user.getAccessToken());
       let ghUser;
       try {
         const r = await oct.users.getByUsername({ username });

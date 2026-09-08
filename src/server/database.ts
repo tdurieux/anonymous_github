@@ -1,3 +1,5 @@
+import { credentialCipher } from "../core/credentials";
+import CredentialModel from "../core/model/credentials/credentials.model";
 import mongoose, { ConnectOptions } from "mongoose";
 import Repository from "../core/Repository";
 import config from "../config";
@@ -20,6 +22,7 @@ export const database = mongoose.connection;
 export let isConnected = false;
 
 export async function connect() {
+  credentialCipher(); // Refuse to serve persisted credentials without a valid keyring.
   mongoose.set("strictQuery", false);
   const options: ConnectOptions = {
     appName: "Anonymous GitHub Server",
@@ -27,6 +30,7 @@ export async function connect() {
   };
   if (!config.MONGODB_URI) options.authSource = "admin";
   await mongoose.connect(getMongoUrl(), options);
+  await CredentialModel.createIndexes();
   isConnected = true;
 
   return database;

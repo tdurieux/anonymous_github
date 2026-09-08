@@ -1,3 +1,4 @@
+import CredentialModel from "../../core/model/credentials/credentials.model";
 import * as express from "express";
 import got from "got";
 import config from "../../config";
@@ -177,15 +178,15 @@ router.delete("/", async (req: express.Request, res: express.Response) => {
     await Promise.all([
       AnonymizedRepositoryModel.updateMany(
         { owner: user.model._id },
-        { $unset: { "source.accessToken": "" } }
+        { $unset: { "source.accessToken": "", accessToken: "" } }
       ).exec(),
       AnonymizedPullRequestModel.updateMany(
         { owner: user.model._id },
-        { $unset: { "source.accessToken": "" } }
+        { $unset: { "source.accessToken": "", accessToken: "" } }
       ).exec(),
       AnonymizedGistModel.updateMany(
         { owner: user.model._id },
-        { $unset: { "source.accessToken": "" } }
+        { $unset: { "source.accessToken": "", accessToken: "" } }
       ).exec(),
     ]);
 
@@ -199,12 +200,14 @@ router.delete("/", async (req: express.Request, res: express.Response) => {
           username: config.CLIENT_ID,
           password: config.CLIENT_SECRET,
           headers: { accept: "application/vnd.github+json" },
-          json: { access_token: user.accessToken },
+          json: { access_token: await user.getAccessToken() },
         }
       );
     } catch (error) {
       logger.warn("oauth grant revocation failed", serializeError(error));
     }
+
+    await CredentialModel.deleteMany({ ownerId: user.model._id });
 
     await UserModel.updateOne(
       { _id: user.model._id },
@@ -296,7 +299,7 @@ router.get(
       if (!q || q.length < 2) {
         return res.json([]);
       }
-      const oct = octokit(user.accessToken);
+      const oct = octokit(await user.getAccessToken());
       const r = await oct.search.users({ q, per_page: 10 });
       res.json(
         r.data.items.map((u) => ({

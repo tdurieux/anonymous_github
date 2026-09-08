@@ -10,7 +10,7 @@ import config from "../../config";
 import UserModel from "../../core/model/users/users.model";
 import { IUserDocument } from "../../core/model/users/users.types";
 import AnonymousError from "../../core/AnonymousError";
-import AnonymizedPullRequestModel from "../../core/model/anonymizedPullRequests/anonymizedPullRequests.model";
+import { setCredential } from "../../core/credentials";
 import { hashToken } from "./token-auth";
 import { createLogger, serializeError } from "../../core/logger";
 import { getLoginToken, isDisabledAccount } from "./auth-utils";
@@ -30,13 +30,12 @@ export function ensureAuthenticated(
 
 const verify = async (
   accessToken: string,
-  refreshToken: string,
+  _refreshToken: string,
   profile: Profile,
   done: OAuth2Strategy.VerifyCallback
 ): Promise<void> => {
   let user: IUserDocument | null;
   try {
-    const now = new Date();
     user = await UserModel.findOne({ "externalIDs.github": profile.id });
     if (user) {
       if (isDisabledAccount(user.status)) {
@@ -48,20 +47,6 @@ const verify = async (
         );
         return;
       }
-      await UserModel.updateOne(
-        { _id: user._id },
-        {
-          $set: {
-            "accessTokens.github": accessToken,
-            "accessTokenDates.github": now,
-          },
-        }
-      );
-      await AnonymizedPullRequestModel.updateMany(
-        { owner: user._id },
-        { "source.accessToken": accessToken }
-      );
-      user = await UserModel.findById(user._id);
     } else {
       // Check if a user with this username already exists (e.g. created
       // manually without externalIDs.github). Link the GitHub ID to the
@@ -87,8 +72,6 @@ const verify = async (
           {
             $set: {
               "externalIDs.github": profile.id,
-              "accessTokens.github": accessToken,
-              "accessTokenDates.github": now,
             },
           }
         );
@@ -97,12 +80,6 @@ const verify = async (
         const photo = profile.photos ? profile.photos[0]?.value : null;
         user = new UserModel({
           username: profile.username,
-          accessTokens: {
-            github: accessToken,
-          },
-          accessTokenDates: {
-            github: now,
-          },
           externalIDs: {
             github: profile.id,
           },
@@ -126,13 +103,8 @@ const verify = async (
       );
       return;
     }
-    done(null, {
-      username: profile.username,
-      accessToken,
-      refreshToken,
-      profile,
-      user,
-    });
+    await setCredential(String(user!._id), accessToken);
+    done(null, { username: user!.username, user });
   } catch (error) {
     logger.error("verify failed", serializeError(error));
     done(
@@ -157,11 +129,20 @@ passport.use(
 );
 
 passport.serializeUser((user: Express.User, done) => {
-  done(null, user);
+  const id = (user as { user?: { _id?: unknown } }).user?._id;
+  done(null, String(id));
 });
 
-passport.deserializeUser((user: Express.User, done) => {
-  done(null, user);
+passport.deserializeUser(async (id: string, done) => {
+  // Reject the old session format, which included plaintext credentials.
+  if (typeof id !== "string" || !/^[a-f0-9]{24}$/i.test(id)) return done(null, false);
+  try {
+    const user = await UserModel.findById(id);
+    if (!user || isDisabledAccount(user.status)) return done(null, false);
+    done(null, { username: user.username, user });
+  } catch {
+    done(new Error("Session user lookup failed"));
+  }
 });
 
 export function initSession() {
@@ -229,7 +210,6 @@ router.post(
       }
       const synthUser = {
         username: model.username,
-        accessToken: model.accessTokens?.github,
         profile: undefined,
         user: model,
       };

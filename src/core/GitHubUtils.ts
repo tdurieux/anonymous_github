@@ -4,7 +4,7 @@ import { createClient, RedisClientType } from "redis";
 
 import AnonymousError from "./AnonymousError";
 import Repository from "./Repository";
-import UserModel from "./model/users/users.model";
+import { getCredential, replaceCredential, getCredentialToken } from "./credentials";
 import config from "../config";
 import { createLogger } from "./logger";
 
@@ -271,36 +271,21 @@ export async function checkToken(token: string) {
   }
 }
 
+const checkedRepositoryTokens = new WeakMap<Repository, string>();
+
 export async function getToken(repository: Repository) {
   logger.debug("getToken", { repoId: repository.repoId });
-  // if (repository.model.source.accessToken) {
-  //   // only check the token if the repo has been visited less than 10 minutes ago
-  //   if (
-  //     repository.status == RepositoryStatus.READY &&
-  //     repository.model.lastView > new Date(Date.now() - 1000 * 60 * 10)
-  //   ) {
-  //     return repository.model.source.accessToken;
-  //   } else if (await checkToken(repository.model.source.accessToken)) {
-  //     return repository.model.source.accessToken;
-  //   }
-  // }
-  if (!repository.owner.model.accessTokens?.github) {
-    const query = await UserModel.findById(repository.owner.id, {
-      accessTokens: 1,
-      accessTokenDates: 1,
-    });
-    if (query?.accessTokens) {
-      repository.owner.model.accessTokens = query.accessTokens;
-      repository.owner.model.accessTokenDates = query.accessTokenDates;
-    }
-  }
-  const ownerAccessToken = repository.owner.model.accessTokens?.github;
+  const credential = await getCredential(repository.owner.id);
+  const ownerAccessToken = credential?.token;
   if (ownerAccessToken) {
-    const tokenAge = repository.owner.model.accessTokenDates?.github;
+    if (checkedRepositoryTokens.get(repository) === ownerAccessToken) {
+      return ownerAccessToken;
+    }
+    const tokenAge = credential?.updatedAt;
     // if the token is older than 7 days, refresh it
     if (
-      !tokenAge ||
-      tokenAge < new Date(Date.now() - 1000 * 60 * 60 * 24 * 7)
+      credential?.persisted &&
+      (!tokenAge || tokenAge < new Date(Date.now() - 1000 * 60 * 60 * 24 * 7))
     ) {
       const url = `https://api.github.com/applications/${config.CLIENT_ID}/token`;
       const headers = {
@@ -339,23 +324,11 @@ export async function getToken(repository: Repository) {
             ? resBody.token
             : null;
         if (refreshed) {
-          repository.owner.model.accessTokens.github = refreshed;
-          if (!repository.owner.model.accessTokenDates) {
-            repository.owner.model.accessTokenDates = { github: new Date() };
-          } else {
-            repository.owner.model.accessTokenDates.github = new Date();
+          if (await replaceCredential(repository.owner.id, ownerAccessToken, refreshed)) {
+            checkedRepositoryTokens.set(repository, refreshed);
+            return refreshed;
           }
-          await UserModel.updateOne(
-            { _id: repository.owner.model._id },
-            {
-              $set: {
-                "accessTokens.github": refreshed,
-                "accessTokenDates.github":
-                  repository.owner.model.accessTokenDates.github,
-              },
-            }
-          ).exec();
-          return refreshed;
+          return (await getCredentialToken(repository.owner.id)) || config.GITHUB_TOKEN;
         }
       }
       logger.warn("token refresh failed; falling back", {
@@ -367,9 +340,12 @@ export async function getToken(repository: Repository) {
     }
     const check = await checkToken(ownerAccessToken);
     if (check) {
-      repository.model.source.accessToken = ownerAccessToken;
+      checkedRepositoryTokens.set(repository, ownerAccessToken);
       return ownerAccessToken;
     }
+    return config.GITHUB_TOKEN;
   }
-  return config.GITHUB_TOKEN;
+  return (await getCredentialToken(repository.owner.id, "github", {
+    collection: "anonymizedrepositories", id: repository.model._id,
+  })) || config.GITHUB_TOKEN;
 }

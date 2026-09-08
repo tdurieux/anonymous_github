@@ -19,7 +19,7 @@ const AnonymizedPullRequestSchema = new Schema({
   source: {
     pullRequestId: Number,
     repositoryFullName: String,
-    accessToken: String,
+    accessToken: { type: String, select: false },
   },
   options: {
     terms: [String],
