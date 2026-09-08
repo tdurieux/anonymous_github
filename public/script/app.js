@@ -212,11 +212,19 @@ angular
         seconds = Math.round((Date.now() - new Date(seconds)) / 1000);
       var suffix = seconds < 0 ? "from now" : "ago";
 
-      // more than 2 days ago display Date
+      // more than 2 days ago display Date. Spell the month out so the date
+      // is unambiguous regardless of the reader's locale (9/6 vs 6/9).
       if (Math.abs(seconds) > 2 * 60 * 60 * 24) {
         const now = new Date();
         now.setSeconds(now.getSeconds() - seconds);
-        return "on " + now.toLocaleDateString();
+        return (
+          "on " +
+          now.toLocaleDateString(undefined, {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+          })
+        );
       }
 
       seconds = Math.abs(seconds);
@@ -255,7 +263,44 @@ angular
       return capitalized.join(" ");
     };
   })
+  // Human-readable labels for the raw status values stored on repositories,
+  // pull requests and gists. Anything unknown falls back to Title Case.
+  .filter("statusLabel", function () {
+    var labels = {
+      ready: "Ready",
+      error: "Error",
+      expired: "Expired",
+      expiring: "Expiring",
+      removed: "Removed",
+      removing: "Removing",
+      queue: "Queued",
+      download: "Downloading",
+      downloaded: "Downloaded",
+      preparing: "Preparing",
+      anonymizing: "Anonymizing",
+    };
+    return function (status) {
+      if (!status) return "";
+      if (labels[status]) return labels[status];
+      var s = String(status).replace(/[_-]+/g, " ").toLowerCase();
+      return s.charAt(0).toUpperCase() + s.slice(1);
+    };
+  })
   .filter("statusMsg", function () {
+    // Known machine codes → sentences. Unknown snake_case codes are
+    // converted to a sentence instead of leaking `branch_not_found`.
+    var codes = {
+      branch_not_found: "Branch not found on GitHub",
+      repo_not_found: "Repository not found on GitHub",
+      repository_not_found: "Repository not found on GitHub",
+      repo_not_accessible: "Repository is not accessible with your token",
+      pr_not_found: "Pull request not found on GitHub",
+      gist_not_found: "Gist not found on GitHub",
+      commit_not_found: "Commit not found on GitHub",
+      repo_too_big: "Repository exceeds the size limit",
+      quota_exceeded: "Storage quota exceeded",
+      incomplete_record: "Incomplete record: missing identifier",
+    };
     return function (msg) {
       if (!msg) return msg;
       var m = msg.match(/^rate_limited:(\d+)$/);
@@ -265,6 +310,11 @@ angular
         var min = Math.floor(remaining / 60);
         var sec = remaining % 60;
         return "Rate limited — retrying in " + (min > 0 ? min + "m " + sec + "s" : sec + "s");
+      }
+      if (codes[msg]) return codes[msg];
+      if (/^[a-z0-9]+(_[a-z0-9]+)+$/.test(msg)) {
+        var s = msg.replace(/_/g, " ");
+        return s.charAt(0).toUpperCase() + s.slice(1);
       }
       return msg;
     };
@@ -1327,7 +1377,9 @@ angular
     "$scope",
     "$http",
     "$location",
-    function ($scope, $http, $location) {
+    "$q",
+    "$window",
+    function ($scope, $http, $location, $q, $window) {
       $scope.$on("$routeChangeStart", function () {
         $('[data-toggle="tooltip"]').tooltip("dispose");
       });
@@ -1346,11 +1398,35 @@ angular
 
       $scope.items = [];
       $scope.search = "";
+      $scope.loading = true;
+
+      // Status buckets used by the Status filter. Raw statuses are mapped
+      // onto these keys so in-progress and error items can be filtered too.
+      $scope.statusKeyLabels = {
+        ready: "Ready",
+        progress: "In progress",
+        error: "Error",
+        expired: "Expired",
+        removed: "Removed",
+      };
+      const inProgress = ["queue", "download", "downloaded", "preparing", "anonymizing"];
+      function statusKey(status) {
+        if (status === "ready" || status === "error") return status;
+        if (status === "expired" || status === "expiring") return "expired";
+        if (status === "removed" || status === "removing") return "removed";
+        if (inProgress.indexOf(status) > -1) return "progress";
+        return "progress";
+      }
+      // An in-progress item whose last activity is older than this is
+      // probably stuck; the row says so instead of showing "Downloading".
+      const STALE_AFTER_MS = 2 * 60 * 60 * 1000;
 
       const dashboardPrefsKey = "dashboard.filterPrefs";
       const dashboardPrefDefaults = {
         typeFilter: "all",
-        filters: { status: { ready: true, expired: true, removed: false } },
+        filters: {
+          status: { ready: true, progress: true, error: true, expired: true, removed: false },
+        },
         orderBy: "-anonymizeDate",
       };
       const savedDashboardPrefs = loadFilterPrefs(dashboardPrefsKey) || {};
@@ -1363,6 +1439,37 @@ angular
         ),
       };
       $scope.orderBy = savedDashboardPrefs.orderBy || dashboardPrefDefaults.orderBy;
+
+      // ---- Sorting -------------------------------------------------------
+      // `orderBy` is kept as the Angular orderBy expression ("-field" for
+      // descending) so saved preferences stay compatible.
+      const sortFields = {
+        _name: { label: "Name", defaultDesc: false },
+        anonymizeDate: { label: "Anonymize date", defaultDesc: true },
+        status: { label: "Status", defaultDesc: false },
+        lastView: { label: "Last view", defaultDesc: true },
+        pageView: { label: "Views", defaultDesc: true },
+        "options.expirationDate": { label: "Expiration", defaultDesc: false },
+      };
+      $scope.sortFields = sortFields;
+      $scope.sortField = () => $scope.orderBy.replace(/^-/, "");
+      $scope.sortDesc = () => $scope.orderBy.charAt(0) === "-";
+      $scope.sortLabel = () => {
+        const f = sortFields[$scope.sortField()];
+        return f ? f.label : "Custom";
+      };
+      $scope.isSortedBy = (field) => $scope.sortField() === field;
+      $scope.setSort = (field, desc) => {
+        if (typeof desc !== "boolean") {
+          desc = $scope.isSortedBy(field)
+            ? !$scope.sortDesc()
+            : !!(sortFields[field] && sortFields[field].defaultDesc);
+        }
+        $scope.orderBy = (desc ? "-" : "") + field;
+      };
+      $scope.toggleSortDirection = () => {
+        $scope.setSort($scope.sortField(), !$scope.sortDesc());
+      };
 
       $scope.$watchGroup(
         ["typeFilter", "orderBy"],
@@ -1386,93 +1493,167 @@ angular
         true
       );
 
+      // ---- Quota ---------------------------------------------------------
+      // A quota with total 0 is unlimited: no percentage, no fill. Colour is
+      // only introduced once a quota is nearly used up.
+      function decorateQuota(q) {
+        q.unlimited = !q.total;
+        q.percent = q.unlimited ? 0 : Math.min(100, (q.used * 100) / q.total);
+        q.level = q.unlimited
+          ? "unlimited"
+          : q.percent >= 95
+          ? "danger"
+          : q.percent >= 80
+          ? "warn"
+          : "ok";
+        return q;
+      }
       function getQuota() {
         $http.get("/api/user/quota").then((res) => {
           $scope.quota = res.data;
-          $scope.quota.storage.percent = $scope.quota.storage.total
-            ? ($scope.quota.storage.used * 100) / $scope.quota.storage.total
-            : 100;
-          $scope.quota.file.percent = $scope.quota.file.total
-            ? ($scope.quota.file.used * 100) / $scope.quota.file.total
-            : 100;
-          $scope.quota.repository.percent = $scope.quota.repository.total
-            ? ($scope.quota.repository.used * 100) /
-              $scope.quota.repository.total
-            : 100;
+          decorateQuota($scope.quota.storage);
+          decorateQuota($scope.quota.file);
+          decorateQuota($scope.quota.repository);
         }, console.error);
       }
       getQuota();
 
-      let loadedRepos = null;
-      let loadedPRs = null;
-      let loadedGists = null;
-
-      function mergeItems() {
-        $scope.items = (loadedRepos || [])
-          .concat(loadedPRs || [])
-          .concat(loadedGists || []);
+      // ---- Items ---------------------------------------------------------
+      // Fields shared by repositories, pull requests and gists. Records that
+      // lost their identifier (legacy data) are flagged as broken instead of
+      // rendering an empty link to /pr/undefined/.
+      function decorateItem(item, id, name, source, editUrl, viewUrl) {
+        if (!item.pageView) item.pageView = 0;
+        if (!item.lastView) item.lastView = "";
+        item.options = item.options || {};
+        item.options.terms = (item.options.terms || []).filter((f) => f);
+        item._id = id || "";
+        item._source = source;
+        item._broken = !id;
+        item._name = id || source || "(unnamed)";
+        item._editUrl = id ? editUrl : null;
+        item._viewUrl = id ? viewUrl : null;
+        if (item._broken) {
+          item.status = "error";
+          item.statusMessage = "incomplete_record";
+        }
+        item._statusKey = statusKey(item.status);
+        const last = item.anonymizeDate || item.lastView;
+        item._stale =
+          item._statusKey === "progress" &&
+          !!last &&
+          Date.now() - new Date(last).getTime() > STALE_AFTER_MS;
+        // What the Expires column should show.
+        if (item.status === "expired" || item.status === "expiring") {
+          item._expiry = { kind: "expired", date: item.options.expirationDate };
+        } else if (item.status !== "ready") {
+          item._expiry = { kind: "none" };
+        } else if (item.options.expirationMode === "never" || !item.options.expirationDate) {
+          item._expiry = { kind: "never" };
+        } else {
+          item._expiry = { kind: "date", date: item.options.expirationDate };
+        }
+        return item;
       }
 
+      function safeGet(url) {
+        return $http.get(url).then(
+          (res) => res.data || [],
+          (err) => {
+            console.error(err);
+            return [];
+          }
+        );
+      }
+
+      // All three lists load in parallel and are merged once, so the table
+      // does not re-sort three times while it fills in.
       function loadAll() {
-        loadedRepos = null;
-        loadedPRs = null;
-        loadedGists = null;
-        $http.get("/api/user/anonymized_repositories").then(
-          (res) => {
-            loadedRepos = res.data.map((repo) => {
-              if (!repo.pageView) repo.pageView = 0;
-              if (!repo.lastView) repo.lastView = "";
-              repo.options.terms = repo.options.terms.filter((f) => f);
+        $scope.loading = true;
+        return $q
+          .all([
+            safeGet("/api/user/anonymized_repositories"),
+            safeGet("/api/user/anonymized_pull_requests"),
+            safeGet("/api/user/anonymized_gists"),
+          ])
+          .then((results) => {
+            const repos = results[0];
+            const prs = results[1];
+            const gists = results[2];
+            const items = [];
+            repos.forEach((repo) => {
               repo._type = "repo";
-              repo._id = repo.repoId;
-              repo._name = repo.repoId;
-              repo._source = repo.source.fullName;
-              repo._editUrl = "/anonymize/" + repo.repoId;
-              repo._viewUrl = "/r/" + repo.repoId + "/";
-              return repo;
+              const src = repo.source || {};
+              items.push(
+                decorateItem(
+                  repo,
+                  repo.repoId,
+                  repo.repoId,
+                  src.fullName,
+                  "/anonymize/" + repo.repoId,
+                  "/r/" + repo.repoId + "/"
+                )
+              );
             });
-            mergeItems();
-          },
-          (err) => { console.error(err); }
-        );
-        $http.get("/api/user/anonymized_pull_requests").then(
-          (res2) => {
-            loadedPRs = res2.data.map((pr) => {
-              if (!pr.pageView) pr.pageView = 0;
-              if (!pr.lastView) pr.lastView = "";
-              pr.options.terms = pr.options.terms.filter((f) => f);
+            prs.forEach((pr) => {
               pr._type = "pr";
-              pr._id = pr.pullRequestId;
-              pr._name = pr.pullRequestId;
-              pr._source = pr.source.repositoryFullName + "#" + pr.source.pullRequestId;
-              pr._editUrl = "/pull-request-anonymize/" + pr.pullRequestId;
-              pr._viewUrl = "/pr/" + pr.pullRequestId + "/";
-              return pr;
+              const src = pr.source || {};
+              items.push(
+                decorateItem(
+                  pr,
+                  pr.pullRequestId,
+                  pr.pullRequestId,
+                  src.repositoryFullName + "#" + src.pullRequestId,
+                  "/pull-request-anonymize/" + pr.pullRequestId,
+                  "/pr/" + pr.pullRequestId + "/"
+                )
+              );
             });
-            mergeItems();
-          },
-          (err) => { console.error(err); }
-        );
-        $http.get("/api/user/anonymized_gists").then(
-          (res3) => {
-            loadedGists = res3.data.map((g) => {
-              if (!g.pageView) g.pageView = 0;
-              if (!g.lastView) g.lastView = "";
-              g.options.terms = (g.options.terms || []).filter((f) => f);
+            gists.forEach((g) => {
               g._type = "gist";
-              g._id = g.gistId;
-              g._name = g.gistId;
-              g._source = g.source.gistId;
-              g._editUrl = "/gist-anonymize/" + g.gistId;
-              g._viewUrl = "/gist/" + g.gistId + "/";
-              return g;
+              const src = g.source || {};
+              items.push(
+                decorateItem(
+                  g,
+                  g.gistId,
+                  g.gistId,
+                  src.gistId,
+                  "/gist-anonymize/" + g.gistId,
+                  "/gist/" + g.gistId + "/"
+                )
+              );
             });
-            mergeItems();
-          },
-          (err) => { console.error(err); }
-        );
+            $scope.items = items;
+            $scope.loading = false;
+          });
       }
       loadAll();
+
+      // Whole row opens the anonymized view; clicks on links, buttons and the
+      // actions menu keep their own behaviour.
+      $scope.openItem = (item, $event) => {
+        if (!item._viewUrl) return;
+        const target = $event && $event.target;
+        if (target && target.closest && target.closest("a, button, .dropdown, input")) return;
+        $window.location.href = item._viewUrl;
+      };
+
+      $scope.hiddenStatusCount = () =>
+        Object.keys($scope.filters.status).filter((k) => $scope.filters.status[k] === false).length;
+      $scope.hasHiddenStatus = () => $scope.hiddenStatusCount() > 0;
+
+      $scope.hasActiveFilters = () =>
+        $scope.typeFilter !== "all" ||
+        $scope.search.trim().length > 0 ||
+        Object.keys($scope.filters.status).some((k) => $scope.filters.status[k] === false);
+
+      $scope.clearFilters = () => {
+        $scope.typeFilter = "all";
+        $scope.search = "";
+        Object.keys($scope.filters.status).forEach((k) => {
+          $scope.filters.status[k] = true;
+        });
+      };
 
       function waitRepoToBeReady(repoId, callback) {
         $http.get("/api/repo/" + repoId).then((res) => {
@@ -1597,10 +1778,12 @@ angular
 
       $scope.itemFilter = (item) => {
         if ($scope.typeFilter !== "all" && item._type !== $scope.typeFilter) return false;
-        if ($scope.filters.status[item.status] == false) return false;
-        if ($scope.search.trim().length == 0) return true;
-        if (item._source && item._source.indexOf($scope.search) > -1) return true;
-        if (item._id.indexOf($scope.search) > -1) return true;
+        if ($scope.filters.status[item._statusKey] === false) return false;
+        const needle = $scope.search.trim().toLowerCase();
+        if (needle.length == 0) return true;
+        if (item._source && String(item._source).toLowerCase().indexOf(needle) > -1) return true;
+        if (item._id && String(item._id).toLowerCase().indexOf(needle) > -1) return true;
+        if (item.conference && String(item.conference).toLowerCase().indexOf(needle) > -1) return true;
         return false;
       };
     },
