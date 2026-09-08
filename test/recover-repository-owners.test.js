@@ -176,7 +176,7 @@ describe("archive ownerless repositories", () => {
     expect(f.writes).to.have.length(0);
   });
   it("rejects unsafe storage paths before changing the record", async () => {
-    for (const repoId of [undefined, "", ".", "..", "../other", "a/b", "/etc"]) {
+    for (const repoId of [undefined, "", "   ", ".", "..", ".. ", "../other", "a/b", "a\\b", "/etc", "repo\n", "repo\0"]) {
       const f = fixture([{ _id: "repo", repoId }]);
       await recoverRepositoryOwners(f.db, { ...f.options, apply: true, archiveAllOwnerless: true });
       expect(f.events[0].issue).to.equal("unsafe_or_missing_repo_id");
@@ -255,14 +255,14 @@ describe("archived repository access", () => {
     const before = config.FOLDER;
     try {
       config.FOLDER = root;
-      for (const id of ["archive-target", "keep-sibling"]) {
+      for (const id of ["Paccmann Polymer", "keep-sibling"]) {
         fs.mkdirSync(path.join(root, id, "original"), { recursive: true });
         fs.writeFileSync(path.join(root, id, "original", "file.txt"), "cached content");
       }
-      const f = fixture([{ _id: "repo", repoId: "archive-target" }]);
+      const f = fixture([{ _id: "repo", repoId: "Paccmann Polymer" }]);
       await recoverRepositoryOwners(f.db, { ...f.options, apply: true, archiveAllOwnerless: true,
         deleteCache: id => new FileSystem().rm(id) });
-      expect(fs.existsSync(path.join(root, "archive-target", "original"))).to.equal(false);
+      expect(fs.existsSync(path.join(root, "Paccmann Polymer", "original"))).to.equal(false);
       expect(fs.existsSync(path.join(root, "keep-sibling", "original", "file.txt"))).to.equal(true);
       expect(f.writes).to.have.length(2);
     } finally { config.FOLDER = before; fs.rmSync(root, { recursive: true, force: true }); }
