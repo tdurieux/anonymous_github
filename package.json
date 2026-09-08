@@ -55,6 +55,7 @@
     "express-session": "^1.18.0",
     "express-slow-down": "^2.0.1",
     "got": "^11.8.6",
+    "helmet": "^7.1.0",
     "inquirer": "^8.2.6",
     "isbinaryfile": "^5.0.4",
     "marked": "^5.1.2",

@@ -3,12 +3,13 @@ dotenv();
 
 import { createClient } from "redis";
 import { resolve, join } from "path";
-import { existsSync, readFileSync } from "fs";
+import { existsSync, readFileSync, readdirSync } from "fs";
 import rateLimit from "express-rate-limit";
 import { slowDown } from "express-slow-down";
 import RedisStore from "rate-limit-redis";
 import * as express from "express";
 import * as compression from "compression";
+import helmet from "helmet";
 import * as passport from "passport";
 import { connect } from "./database";
 import { initSession, router as connectionRouter } from "./routes/connection";
@@ -99,6 +100,7 @@ function indexResponse(req: express.Request, res: express.Response) {
 
 export default async function start() {
   const app = express();
+  app.use(helmet());
   app.use(express.json());
 
   app.use(
@@ -228,7 +230,7 @@ export default async function start() {
       logger.info("request", {
         method: req.method,
         status: res.statusCode,
-        url: join(req.baseUrl || "", req.url || ""),
+        url: `${req.baseUrl || ""}${req.url || ""}`,
         ms: time,
       });
     });
