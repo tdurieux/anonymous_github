@@ -177,7 +177,8 @@ app.use(
   }),
 );
 
-app.listen(PORT, () => {
+app.listen(PORT, (error) => {
+  if (error) throw error;
   console.log(
     `\n  dev-proxy  http://localhost:${PORT}` +
       `\n  → local:   ${PUBLIC_DIR}` +

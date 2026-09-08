@@ -55,7 +55,7 @@ async function getTokenForAdmin(user: User, req: express.Request) {
 }
 
 // claim a repository
-router.post("/claim", async (req: express.Request, res: express.Response) => {
+router.post("/claim", async (req, res) => {
   try {
     const user = await getUser(req);
     if (!req.body.repoId) {
@@ -129,7 +129,7 @@ router.post("/claim", async (req: express.Request, res: express.Response) => {
 // refresh repository
 router.post(
   "/:repoId/refresh",
-  async (req: express.Request, res: express.Response) => {
+  async (req, res) => {
     try {
       const repo = await getRepo(req, res, {
         nocheck: true,
@@ -157,7 +157,7 @@ router.post(
 // online if it had expired
 router.post(
   "/:repoId/extend",
-  async (req: express.Request, res: express.Response) => {
+  async (req, res) => {
     try {
       const repo = await getRepo(req, res, { nocheck: true });
       if (!repo) return;
@@ -216,7 +216,7 @@ router.post(
 // delete a repository
 router.delete(
   "/:repoId/",
-  async (req: express.Request, res: express.Response) => {
+  async (req, res) => {
     const repo = await getRepo(req, res, {
       nocheck: true,
     });
@@ -243,7 +243,7 @@ router.delete(
 
 router.get(
   "/:owner/:repo/",
-  async (req: express.Request, res: express.Response) => {
+  async (req, res) => {
     try {
       const user = await getUser(req);
       let token = await user.getAccessToken();
@@ -266,7 +266,7 @@ router.get(
 
 router.get(
   "/:owner/:repo/branches",
-  async (req: express.Request, res: express.Response) => {
+  async (req, res) => {
     try {
       const user = await getUser(req);
       let token = await user.getAccessToken();
@@ -294,7 +294,7 @@ router.get(
 
 router.get(
   "/:owner/:repo/readme",
-  async (req: express.Request, res: express.Response) => {
+  async (req, res) => {
     try {
       const user = await getUser(req);
       let token = await user.getAccessToken();
@@ -311,7 +311,7 @@ router.get(
       });
       if (!repo) {
         throw new AnonymousError("repo_not_found", {
-          object: req.params.repoId,
+          object: `${req.params.owner}/${req.params.repo}`,
           httpStatus: 404,
         });
       }
@@ -329,7 +329,7 @@ router.get(
 );
 
 // get repository information
-router.get("/:repoId/", async (req: express.Request, res: express.Response) => {
+router.get("/:repoId/", async (req, res) => {
   try {
     const repo = await getRepo(req, res, {
       nocheck: true,
@@ -473,7 +473,7 @@ export function shouldReactivateInactiveRepository(
 // update a repository
 router.post(
   "/:repoId/",
-  async (req: express.Request, res: express.Response) => {
+  async (req, res) => {
     try {
       const repo = await getRepo(req, res, {
         nocheck: true,
@@ -610,7 +610,7 @@ router.post(
 );
 
 // add repository
-router.post("/", async (req: express.Request, res: express.Response) => {
+router.post("/", async (req, res) => {
   const repoUpdate = req.body;
   try {
     const user = await getUser(req);
@@ -719,7 +719,7 @@ router.post("/", async (req: express.Request, res: express.Response) => {
 // list coauthors
 router.get(
   "/:repoId/coauthors",
-  async (req: express.Request, res: express.Response) => {
+  async (req, res) => {
     try {
       const repo = await getRepo(req, res, { nocheck: true });
       if (!repo) return;
@@ -735,7 +735,7 @@ router.get(
 // add a coauthor (owner/admin only)
 router.post(
   "/:repoId/coauthors",
-  async (req: express.Request, res: express.Response) => {
+  async (req, res) => {
     try {
       const repo = await getRepo(req, res, { nocheck: true });
       if (!repo) return;
@@ -798,7 +798,7 @@ router.post(
 // remove a coauthor (owner/admin only, or the coauthor themselves)
 router.delete(
   "/:repoId/coauthors/:username",
-  async (req: express.Request, res: express.Response) => {
+  async (req, res) => {
     try {
       const repo = await getRepo(req, res, { nocheck: true });
       if (!repo) return;

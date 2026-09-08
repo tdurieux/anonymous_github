@@ -54,8 +54,8 @@ export function filePathFromRequestUrl(
 }
 
 router.get(
-  "/:repoId/file/:path*",
-  async (req: express.Request, res: express.Response) => {
+  "/:repoId/file/*path",
+  async (req, res) => {
     const anonymizedPath = filePathFromRequestUrl(
       req.url,
       req.protocol,

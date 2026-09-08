@@ -21,7 +21,7 @@ const router = express.Router();
 // user needs to be connected for all user API
 router.use(ensureAuthenticated);
 
-router.get("/logout", async (req: express.Request, res: express.Response) => {
+router.get("/logout", async (req, res) => {
   try {
     req.logout((error) => {
       if (error) {
@@ -34,7 +34,7 @@ router.get("/logout", async (req: express.Request, res: express.Response) => {
   }
 });
 
-router.get("/", async (req: express.Request, res: express.Response) => {
+router.get("/", async (req, res) => {
   try {
     const user = await getUser(req);
     res.json({
@@ -47,7 +47,7 @@ router.get("/", async (req: express.Request, res: express.Response) => {
   }
 });
 
-router.get("/quota", async (req: express.Request, res: express.Response) => {
+router.get("/quota", async (req, res) => {
   try {
     const user = await getUser(req);
     const repositories = (await user.getRepositories()).filter(
@@ -124,7 +124,7 @@ router.get("/quota", async (req: express.Request, res: express.Response) => {
   }
 });
 
-router.get("/default", async (req: express.Request, res: express.Response) => {
+router.get("/default", async (req, res) => {
   try {
     const user = await getUser(req);
 
@@ -134,7 +134,7 @@ router.get("/default", async (req: express.Request, res: express.Response) => {
   }
 });
 
-router.post("/default", async (req: express.Request, res: express.Response) => {
+router.post("/default", async (req, res) => {
   try {
     const user = await getUser(req);
 
@@ -156,7 +156,7 @@ router.post("/default", async (req: express.Request, res: express.Response) => {
 // the user record (#741). The record itself is kept (with a placeholder
 // username) so removed repoIds stay reserved and owner references remain
 // resolvable.
-router.delete("/", async (req: express.Request, res: express.Response) => {
+router.delete("/", async (req, res) => {
   try {
     const user = await getUser(req);
 
@@ -243,7 +243,7 @@ router.delete("/", async (req: express.Request, res: express.Response) => {
 
 router.get(
   "/anonymized_repositories",
-  async (req: express.Request, res: express.Response) => {
+  async (req, res) => {
     try {
       const user = await getUser(req);
       res.json(
@@ -260,7 +260,7 @@ router.get(
 );
 router.get(
   "/anonymized_gists",
-  async (req: express.Request, res: express.Response) => {
+  async (req, res) => {
     try {
       const user = await getUser(req);
       res.json(
@@ -275,7 +275,7 @@ router.get(
 );
 router.get(
   "/anonymized_pull_requests",
-  async (req: express.Request, res: express.Response) => {
+  async (req, res) => {
     try {
       const user = await getUser(req);
       res.json(
@@ -292,7 +292,7 @@ router.get(
 // search GitHub users (used by the coauthor picker)
 router.get(
   "/search/github-users",
-  async (req: express.Request, res: express.Response) => {
+  async (req, res) => {
     try {
       const user = await getUser(req);
       const q = (req.query.q as string) || "";
@@ -327,7 +327,7 @@ async function getAllRepositories(user: User, force: boolean) {
 }
 router.get(
   "/all_repositories",
-  async (req: express.Request, res: express.Response) => {
+  async (req, res) => {
     try {
       const user = await getUser(req);
       res.json(await getAllRepositories(user, req.query.force == "1"));
@@ -338,7 +338,7 @@ router.get(
 );
 router.get(
   "/:username/all_repositories",
-  async (req: express.Request, res: express.Response) => {
+  async (req, res) => {
     try {
       const loggedUser = await getUser(req);
       isOwnerOrAdmin([req.params.username], loggedUser);

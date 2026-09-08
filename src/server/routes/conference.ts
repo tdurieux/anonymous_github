@@ -161,7 +161,7 @@ export function applyConferenceForm(
 }
 
 router.post(
-  "/:conferenceID?",
+  "/{:conferenceID}",
   async (req: express.Request, res: express.Response) => {
     try {
       const user = await getUser(req);

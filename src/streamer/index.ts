@@ -33,7 +33,7 @@ app.get("/healthcheck", async (_, res) => {
   res.json({ status: "ok" });
 });
 
-app.all("*", (req, res) => {
+app.all("/{*path}", (req, res) => {
   handleError(
     new AnonymousError("file_not_found", {
       httpStatus: 404,
@@ -43,6 +43,7 @@ app.all("*", (req, res) => {
     req
   );
 });
-app.listen(config.PORT, () => {
+app.listen(config.PORT, (error?: Error) => {
+  if (error) throw error;
   logger.info("streamer started", { port: config.PORT });
 });

@@ -22,7 +22,7 @@ router.use(ensureAuthenticated);
 // refresh pullRequest
 router.post(
   "/:pullRequestId/refresh",
-  async (req: express.Request, res: express.Response) => {
+  async (req, res) => {
     try {
       const pullRequest = await getPullRequest(req, res, { nocheck: true });
       if (!pullRequest) return;
@@ -41,7 +41,7 @@ router.post(
 // online if it had expired
 router.post(
   "/:pullRequestId/extend",
-  async (req: express.Request, res: express.Response) => {
+  async (req, res) => {
     try {
       const pullRequest = await getPullRequest(req, res, { nocheck: true });
       if (!pullRequest) return;
@@ -81,7 +81,7 @@ router.post(
 // delete a pullRequest
 router.delete(
   "/:pullRequestId/",
-  async (req: express.Request, res: express.Response) => {
+  async (req, res) => {
     const pullRequest = await getPullRequest(req, res, { nocheck: true });
     if (!pullRequest) return;
     try {
@@ -102,7 +102,7 @@ router.delete(
 
 router.get(
   "/:owner/:repository/:pullRequestId",
-  async (req: express.Request, res: express.Response) => {
+  async (req, res) => {
     try {
       const user = await getUser(req);
       const pullRequest = new PullRequest(
@@ -126,7 +126,7 @@ router.get(
 // get pullRequest information
 router.get(
   "/:pullRequestId/",
-  async (req: express.Request, res: express.Response) => {
+  async (req, res) => {
     try {
       const pullRequest = await getPullRequest(req, res, { nocheck: true });
       if (!pullRequest) return;
@@ -214,7 +214,7 @@ function updatePullRequestModel(
 // update a pullRequest
 router.post(
   "/:pullRequestId/",
-  async (req: express.Request, res: express.Response) => {
+  async (req, res) => {
     try {
       const pullRequest = await getPullRequest(req, res, { nocheck: true });
       if (!pullRequest) return;
@@ -248,7 +248,7 @@ router.post(
 );
 
 // add pullRequest
-router.post("/", async (req: express.Request, res: express.Response) => {
+router.post("/", async (req, res) => {
   const pullRequestUpdate = req.body;
   try {
     const user = await getUser(req);
