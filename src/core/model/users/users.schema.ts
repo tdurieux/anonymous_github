@@ -2,7 +2,7 @@ import { Schema } from "mongoose";
 
 const UserSchema = new Schema({
   accessTokens: {
-    github: { type: String },
+    github: { type: String, select: false },
   },
   accessTokenDates: {
     github: { type: Date },

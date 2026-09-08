@@ -2,6 +2,9 @@ import { resolve } from "path";
 import { randomBytes } from "crypto";
 
 interface Config {
+  CREDENTIAL_KEYS: string;
+  CREDENTIAL_ACTIVE_KEY_ID: string;
+  CREDENTIAL_LEGACY_READS: boolean;
   SESSION_SECRET: string;
   REDIS_PORT: number;
   REDIS_HOSTNAME: string;
@@ -55,6 +58,9 @@ const config: Config = {
   // Predictable defaults are dangerous: a known SESSION_SECRET lets anyone
   // forge session cookies. Default to empty and resolve below — random in
   // dev, required in production. See the post-env block.
+  CREDENTIAL_KEYS: "",
+  CREDENTIAL_ACTIVE_KEY_ID: "",
+  CREDENTIAL_LEGACY_READS: false,
   SESSION_SECRET: "",
   CLIENT_ID: "CLIENT_ID",
   CLIENT_SECRET: "CLIENT_SECRET",

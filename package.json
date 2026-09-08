@@ -14,7 +14,8 @@
     "dev": "nodemon --transpile-only ./src/server/index.ts",
     "dev:ui": "node scripts/dev-proxy.js",
     "build": "rm -rf build && tsc && gulp",
-    "knip": "knip"
+    "knip": "knip",
+    "migrate:credentials": "node -r ts-node/register src/scripts/migrate-credentials.ts"
   },
   "repository": {
     "type": "git",

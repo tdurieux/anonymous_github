@@ -70,23 +70,8 @@ export default class Repository {
     this.owner.model.isNew = false;
   }
 
-  private checkedToken: boolean = false;
-
   async getToken() {
-    if (this.checkedToken) return this._model.source.accessToken as string;
-    const originalToken = this._model.source.accessToken;
-    const token = await getToken(this);
-    if (originalToken != token) {
-      this._model.source.accessToken = token;
-      if (isConnected) {
-        await AnonymizedRepositoryModel.updateOne(
-          { _id: this._model._id },
-          { $set: { "source.accessToken": token } }
-        ).exec();
-      }
-    }
-    this.checkedToken = true;
-    return token;
+    return getToken(this);
   }
 
   get source() {

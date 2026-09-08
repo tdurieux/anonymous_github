@@ -1,3 +1,4 @@
+import { getCredentialToken } from "./credentials";
 import AnonymizedRepositoryModel from "./model/anonymizedRepositories/anonymizedRepositories.model";
 import RepositoryModel from "./model/repositories/repositories.model";
 import UserModel from "./model/users/users.model";
@@ -31,8 +32,8 @@ export default class User {
     return !!this._model.isAdmin;
   }
 
-  get accessToken(): string {
-    return this._model.accessTokens.github;
+  async getAccessToken(): Promise<string> {
+    return getCredentialToken(this.id);
   }
 
   get photo(): string | undefined {
@@ -64,7 +65,7 @@ export default class User {
       opt?.force === true
     ) {
       // get the list of repo from github
-      const oct = octokit(this.accessToken);
+      const oct = octokit(await this.getAccessToken());
       const repositories = (
         await oct.paginate("GET /user/repos", {
           visibility: "all",
@@ -213,6 +214,9 @@ export default class User {
   }
 
   toJSON() {
-    return this._model.toJSON();
+    const value = this._model.toJSON();
+    delete (value as Partial<typeof value>).accessTokens;
+    delete value.apiTokens;
+    return value;
   }
 }

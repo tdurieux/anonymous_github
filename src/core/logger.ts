@@ -1,3 +1,4 @@
+import { redactSecrets } from "./redact-secrets";
 import { createClient, RedisClientType } from "redis";
 import config from "../config";
 
@@ -251,6 +252,7 @@ function persistError(entry: {
 
 function emit(level: Level, module: string, args: unknown[]) {
   if (LEVEL_ORDER[level] < threshold) return;
+  args = args.map(arg => redactSecrets(arg instanceof Error ? serializeError(arg) : arg));
   const ts = new Date().toISOString();
   const formatted = args.map(formatArg);
   const line = `${ts} ${level.toUpperCase()} [${module}] ${formatted.join(" ")}`;
@@ -341,5 +343,5 @@ export function serializeError(err: unknown): Record<string, unknown> {
   // a stack for handled HTTP errors but keeps debuggability for plain Errors.
   if (!out.status && !out.httpStatus && e.stack) out.stack = e.stack;
 
-  return out;
+  return redactSecrets(out) as Record<string, unknown>;
 }

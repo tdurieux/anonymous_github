@@ -61,6 +61,9 @@ npm i
 GITHUB_TOKEN=<GITHUB_TOKEN>
 CLIENT_ID=<CLIENT_ID>
 CLIENT_SECRET=<CLIENT_SECRET>
+CREDENTIAL_KEYS='{"2026-09":"<base64-encoded 32-byte random key>"}'
+CREDENTIAL_ACTIVE_KEY_ID=2026-09
+CREDENTIAL_LEGACY_READS=false
 PORT=5000
 DB_USERNAME=
 DB_PASSWORD=
@@ -68,6 +71,7 @@ AUTH_CALLBACK=http://localhost:5000/github/auth
 ```
 
 - `GITHUB_TOKEN` — create one at <https://github.com/settings/tokens/new> with the `repo` scope.
+- `CREDENTIAL_KEYS` / `CREDENTIAL_ACTIVE_KEY_ID` — generate a key with `openssl rand -base64 32`. Existing installations must follow the [credential migration guide](docs/credential-encryption.md) before starting this release.
 - `CLIENT_ID` / `CLIENT_SECRET` — from a new GitHub App at <https://github.com/settings/applications/new>.
 - The App's callback must be `https://<host>/github/auth` (matching `AUTH_CALLBACK`).
 

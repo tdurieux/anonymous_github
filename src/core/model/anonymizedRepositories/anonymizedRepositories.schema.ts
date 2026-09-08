@@ -14,7 +14,7 @@ const AnonymizedRepositorySchema = new Schema({
   anonymizeDate: Date,
   lastView: Date,
   pageView: Number,
-  accessToken: String,
+  accessToken: { type: String, select: false },
   owner: {
     type: Schema.Types.ObjectId,
     ref: "user",
@@ -36,7 +36,7 @@ const AnonymizedRepositorySchema = new Schema({
     commitDate: Date,
     repositoryId: String,
     repositoryName: String,
-    accessToken: String,
+    accessToken: { type: String, select: false },
   },
   truncatedFolders: {
     type: [String],

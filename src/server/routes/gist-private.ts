@@ -249,7 +249,6 @@ router.post("/", async (req: express.Request, res: express.Response) => {
     gist.model.owner = user.id;
 
     updateGistModel(gist.model, gistUpdate);
-    gist.source.accessToken = user.accessToken;
     gist.source.gistId = gistUpdate.source.gistId;
 
     gist.model.conference = gistUpdate.conference;

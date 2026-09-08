@@ -1,7 +1,8 @@
 import { Document, Model } from "mongoose";
 
 export interface IUser {
-  accessTokens: {
+  /** Legacy storage, read only when CREDENTIAL_LEGACY_READS is enabled. */
+  accessTokens?: {
     github: string;
   };
   accessTokenDates?: {

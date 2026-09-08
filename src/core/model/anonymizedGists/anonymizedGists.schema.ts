@@ -18,7 +18,7 @@ const AnonymizedGistSchema = new Schema({
   conference: String,
   source: {
     gistId: String,
-    accessToken: String,
+    accessToken: { type: String, select: false },
   },
   options: {
     terms: [String],

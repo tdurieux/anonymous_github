@@ -1,3 +1,4 @@
+import { getCredentialToken } from "./credentials";
 import { RepositoryStatus } from "./types";
 import User from "./User";
 import UserModel from "./model/users/users.model";
@@ -24,31 +25,7 @@ export default class PullRequest {
   }
 
   async getToken() {
-    let owner = this.owner.model;
-    if (owner && !owner.accessTokens.github) {
-      const temp = await UserModel.findById(owner._id);
-      if (temp) {
-        owner = temp;
-      }
-    }
-    if (owner && owner.accessTokens && owner.accessTokens.github) {
-      if (owner.accessTokens.github != this._model.source.accessToken) {
-        this._model.source.accessToken = owner.accessTokens.github;
-      }
-      return owner.accessTokens.github;
-    }
-    if (this._model.source.accessToken) {
-      try {
-        return this._model.source.accessToken;
-      } catch {
-        logger.warn("invalid token", {
-          code: "invalid_token",
-          httpStatus: 401,
-          pullRequestId: this._model.source.pullRequestId,
-        });
-      }
-    }
-    return config.GITHUB_TOKEN;
+    return (await getCredentialToken(this.owner.id, "github", { collection: "anonymizedpullrequests", id: this._model._id })) || config.GITHUB_TOKEN;
   }
 
   async download() {
