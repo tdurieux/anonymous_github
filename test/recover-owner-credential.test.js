@@ -110,3 +110,70 @@ describe("migration owner recovery decisions", function () {
     expect(cipher.decrypt(f.credential().encryptedToken, "owner", "github")).to.equal("authoritative");
   });
 });
+
+describe("parallel credential migration", function () {
+  const { setTimeout } = require("timers/promises");
+  const cipher = createTokenCipher(JSON.stringify({ test: Buffer.alloc(32, 7).toString("base64") }), "test");
+  it("bounds owner jobs and avoids per-resource owner lookups", async () => {
+    const owners = Array.from({ length: 12 }, (_, i) => ({ _id: String(i) }));
+    let active = 0, peak = 0, completed = 0;
+    const cursor = values => ({ batchSize() { return this; }, async *[Symbol.asyncIterator]() { yield* values; } });
+    const events = [];
+    const db = { collection(name) { return {
+      find: query => cursor(name === "users" ? owners : name === "anonymizedrepositories" && !query.owner
+        ? [{ _id: "known", owner: "1" }, { _id: "orphan", owner: "missing" }] : []),
+      findOne: async () => {
+        expect(name).to.equal("credentials");
+        active++; peak = Math.max(peak, active);
+        await setTimeout(5);
+        active--; completed++;
+        return null;
+      },
+    }; } };
+    const result = await migrateCredentials(db, cipher, { concurrency: 3, report: e => events.push(e) });
+    expect(peak).to.equal(3);
+    expect(active).to.equal(0);
+    expect(completed).to.equal(12);
+    expect(result.owners).to.equal(12);
+    expect(events).to.deep.equal([{ collection: "anonymizedrepositories", id: "orphan", issue: "missing_owner" }]);
+  });
+  it("drains outstanding jobs before propagating a database failure", async () => {
+    let active = 0, calls = 0;
+    const cursor = values => ({ batchSize() { return this; }, async *[Symbol.asyncIterator]() { yield* values; } });
+    const db = { collection(name) { return {
+      find: () => cursor(name === "users" ? [{ _id: "1" }, { _id: "2" }, { _id: "3" }] : []),
+      findOne: async () => {
+        const call = ++calls;
+        active++;
+        await setTimeout(call === 1 ? 5 : 20);
+        active--;
+        if (call === 1) throw new Error("database failed");
+        return null;
+      },
+    }; } };
+    let error;
+    try { await migrateCredentials(db, cipher, { concurrency: 2 }); } catch (e) { error = e; }
+    expect(error.message).to.equal("database failed");
+    expect(active).to.equal(0);
+    expect(calls).to.equal(2);
+  });
+  it("shares in-flight identities and spaces requests across concurrent owners", async () => {
+    const starts = [];
+    const recover = createOwnerCredentialRecovery(async () => {
+      starts.push(Date.now());
+      await setTimeout(30);
+      return { githubId: "42" };
+    });
+    const results = await Promise.all([recover("42", ["a"]), recover("42", ["a"]), recover("42", ["b"])]);
+    expect(results).to.deep.equal([{ token: "a" }, { token: "a" }, { token: "b" }]);
+    expect(starts).to.have.length(2);
+    expect(starts[1] - starts[0]).to.be.at.least(240);
+  });
+  it("suppresses queued GitHub requests after a rate limit", async () => {
+    let calls = 0;
+    const recover = createOwnerCredentialRecovery(async () => { calls++; return { issue: "github_http_429", halt: true }; });
+    const results = await Promise.all([recover("42", ["a"]), recover("42", ["b"])]);
+    expect(calls).to.equal(1);
+    expect(results.every(r => r.halt)).to.equal(true);
+  });
+});

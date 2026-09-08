@@ -409,8 +409,9 @@ docker compose run --rm --no-deps -T --entrypoint node anonymous_github \
 Then rerun the preview and follow the legacy-removal, verification and enforcement
 steps above. Do not regenerate encryption keys between runs.
 
-Recovery contacts GitHub even in preview mode. Requests are sequential, paced at
-least 250 ms apart, with a bounded cache keyed by token hashes. Network failures,
+Recovery contacts GitHub even in preview mode. Request starts are paced at
+least 250 ms apart across all workers, with a bounded cache keyed by token hashes
+that also shares in-flight requests. Network failures,
 rate limits and server errors halt the run (`halted: true`); earlier completed
 owners may already have been migrated in apply mode. Rerunning is safe.
 
@@ -426,3 +427,27 @@ These owners retain their legacy tokens, including with `--remove-legacy`.
 Have the owner sign in again to establish a fresh authoritative credential, or
 review their records manually. Do not bulk-archive owned repositories solely
 because credential recovery failed.
+
+
+### Parallel migration analysis
+
+Migration processes 10 owners concurrently by default. Set `--concurrency=1..32`
+to tune database load; `1` restores sequential owner processing. For example:
+
+```bash
+docker compose run --rm --no-deps -T --entrypoint node anonymous_github \
+  build/scripts/migrate-credentials.js \
+  --prefer-owner-token --recover-owner-tokens --concurrency=20
+```
+
+The same option works with `--apply --maintenance` and `--remove-legacy`.
+Each owner is handled by one job, with token validation before writes or cleanup.
+On failure, new jobs stop and existing jobs drain before disconnecting. Writes
+already in progress may finish; reruns remain safe. Reports can arrive out of
+owner order. All writers must remain stopped for apply runs.
+
+The orphan scan reuses the user IDs read during migration instead of querying
+MongoDB for each resource. Only IDs are retained for this check (memory grows
+with the number of users). Existing resource `owner` indexes and the credentials
+`(ownerId, provider)` index should be present for efficient lookups. Increasing
+concurrency does not bypass GitHub pacing or rate-limit handling.
