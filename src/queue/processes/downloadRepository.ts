@@ -24,7 +24,7 @@ export default async function (job: SandboxedJob<RepoJobData, void>) {
   await connect();
 
   const repo = await getRepository(job.data.repoId);
-  if ([RepositoryStatus.REMOVING, RepositoryStatus.REMOVED,
+  if ([RepositoryStatus.ARCHIVED, RepositoryStatus.REMOVING, RepositoryStatus.REMOVED,
     RepositoryStatus.EXPIRING, RepositoryStatus.EXPIRED].some((status) => status === repo.status)) return;
   repo.protectLifecycle = true;
   const token = await getToken(repo);

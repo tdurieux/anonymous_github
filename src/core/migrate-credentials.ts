@@ -106,6 +106,8 @@ export async function verifyCredentials(db: mongo.Db, cipher: Cipher) {
   }
   let legacy = await db.collection("users").countDocuments({ accessTokens: { $exists: true } });
   for (const name of resources) legacy += await db.collection(name).countDocuments(legacyQuery);
+  const pendingArchiveCleanup = await db.collection("anonymizedrepositories").countDocuments({ archiveCachePending: true });
+  if (pendingArchiveCleanup) throw new Error("Archived repository cache cleanup is pending");
   return { checked, legacy };
 }
 

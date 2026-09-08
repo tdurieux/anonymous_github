@@ -6,6 +6,9 @@ export interface IAnonymizedRepository {
   status?: RepositoryStatus;
   statusMessage?: string;
   statusDate: Date;
+  archivedAt?: Date;
+  archiveReason?: string;
+  archiveCachePending?: boolean;
   anonymizeDate: Date;
   source: {
     type: "GitHubDownload" | "GitHubStream" | "Zip";

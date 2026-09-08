@@ -274,6 +274,7 @@ export async function checkToken(token: string) {
 const checkedRepositoryTokens = new WeakMap<Repository, string>();
 
 export async function getToken(repository: Repository) {
+  repository.assertNotArchived();
   logger.debug("getToken", { repoId: repository.repoId });
   const credential = await getCredential(repository.owner.id);
   const ownerAccessToken = credential?.token;

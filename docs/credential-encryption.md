@@ -315,7 +315,10 @@ identify different accounts, it leaves the repository untouched. Conditional
 updates avoid overwriting a repository whose owner or tokens changed after it was
 read. Keep application writers stopped for apply runs.
 
-Requests are sequential and spaced one second apart, with a 15-second timeout.
+Processing uses five workers by default. Set `--concurrency=1..32` to adjust
+the bound. GitHub requests share a global pacing gate of at most four new requests
+per second, with a 15-second timeout. In-flight work may finish after a rate limit
+is detected, but no new work is scheduled.
 Repeated tokens share a bounded in-memory lookup cache. HTTP 403/429 responses,
 other unexpected HTTP errors, and network failures stop the scan; fix the issue or
 wait for GitHub's limit to reset, then rerun. Existing assignments are skipped on
@@ -325,3 +328,54 @@ records remain or the scan halted; successful assignments are retained.
 
 After recovery, rerun the credential migration with `--prefer-owner-token`.
 Recovery leaves legacy tokens in place so the migration can still encrypt them.
+
+
+## Archive all ownerless repositories
+
+A token may belong to a shared administrator account rather than the original
+repository creator. To avoid assigning those repositories to the administrator,
+use `--archive-all-ownerless`. This mode makes no GitHub calls and never assigns
+owners. It processes missing owners and references to deleted users, while
+preserving every repository with an existing database owner.
+
+Keep API instances, workers, streamers, and other writers stopped. Build the new
+image and preview the archive actions:
+
+```bash
+docker compose build anonymous_github
+docker compose run --rm --no-deps -T --entrypoint node anonymous_github \
+  build/scripts/recover-repository-owners.js \
+  --archive-all-ownerless --concurrency=10
+```
+
+Apply the same operation:
+
+```bash
+docker compose run --rm --no-deps -T --entrypoint node anonymous_github \
+  build/scripts/recover-repository-owners.js \
+  --archive-all-ownerless --concurrency=10 --apply --maintenance
+```
+
+Each archive sets `status=archived`, records the reason/date, disables source
+updates, and removes both plaintext token fields. It deletes cached file content
+from the configured filesystem or S3 storage. MongoDB repository records and file
+metadata remain. Archived URLs return HTTP 410, and download workers do not
+reactivate them. Existing owner assignments from earlier apply runs are not
+undone. Review those separately if owner recovery was previously applied.
+
+File deletion is intentional. The status change happens first, with
+`archiveCachePending=true`. Successful deletion clears the marker. Failed or
+interrupted cleanup is retried by the same apply command without GitHub access.
+Migration verification also refuses to finish while any archive cleanup remains
+pending. A clean rerun reports no issues and only already-archived records for
+previously completed work. Review `unsafe_or_missing_repo_id` failures manually;
+the script will not construct a storage deletion path from an unsafe ID.
+
+For the narrower policy of archiving only missing or entirely revoked tokens,
+use `--archive-unrecoverable` instead. Valid-token owner recovery still runs in
+that mode. Mixed valid/invalid tokens, unexpected GitHub errors, and ambiguous
+identities never trigger automatic archiving.
+
+Once archival completes, rerun credential migration with `--prefer-owner-token`,
+then follow the verification/enforcement steps above. Start only a release that
+understands the archived status.

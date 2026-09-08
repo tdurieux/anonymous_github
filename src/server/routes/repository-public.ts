@@ -309,6 +309,7 @@ router.get(
       try {
         user = await getUser(req);
       } catch { /* not logged in */ }
+      repo.assertNotArchived();
       const canEdit =
         !!user &&
         (user.isAdmin ||

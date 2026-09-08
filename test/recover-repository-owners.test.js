@@ -1,3 +1,4 @@
+const { setTimeout } = require("timers");
 const { expect } = require("chai");
 require("ts-node/register/transpile-only");
 const { recoverRepositoryOwners, identifyGitHubToken } = require("../src/core/recover-repository-owners");
@@ -119,5 +120,151 @@ describe("GitHub token identification", () => {
       global.fetch = async () => ({ ok: true, json: async () => body });
       expect(await identifyGitHubToken("secret")).to.deep.equal({ issue: "unsupported_github_identity" });
     }
+  });
+});
+
+describe("archive ownerless repositories", () => {
+  it("previews all ownerless records without GitHub calls or storage deletion", async () => {
+    const f = fixture([{ _id: "repo", repoId: "legacy-repo", accessToken: "admin-token" }]);
+    const result = await recoverRepositoryOwners(f.db, { ...f.options, archiveAllOwnerless: true,
+      identify: async () => { throw new Error("must not call GitHub"); },
+      deleteCache: async () => { throw new Error("must not delete in dry run"); } });
+    expect(result.archiveCandidates).to.equal(1);
+    expect(result.archived).to.equal(0);
+    expect(result.issues).to.equal(0);
+    expect(f.writes).to.have.length(0);
+    expect(f.events[0]).to.include({ action: "would_archive", reason: "missing_owner" });
+  });
+  it("marks archived before deleting cache and retains database records", async () => {
+    const f = fixture([{ _id: "repo", repoId: "legacy-repo", source: { accessToken: "admin-token" } }]);
+    const deleted = [];
+    const result = await recoverRepositoryOwners(f.db, { ...f.options, apply: true, archiveAllOwnerless: true,
+      identify: async () => { throw new Error("must not call GitHub"); },
+      deleteCache: async id => {
+        expect(f.writes[0].update.$set.status).to.equal("archived");
+        expect(f.writes[0].update.$set.archiveCachePending).to.equal(true);
+        deleted.push(id);
+      } });
+    expect(result.archived).to.equal(1);
+    expect(result.cacheDeleted).to.equal(1);
+    expect(deleted).to.deep.equal(["legacy-repo"]);
+    expect(f.writes[0].update.$unset).to.deep.equal({ "source.accessToken": "", accessToken: "" });
+    expect(f.writes[0].update.$set["options.update"]).to.equal(false);
+    expect(f.writes[1].update.$set.archiveCachePending).to.equal(false);
+  });
+  it("never archives a repository with an existing owner", async () => {
+    const f = fixture([{ _id: "repo", owner: "admin", repoId: "repo" }], [{ _id: "admin" }]);
+    const result = await recoverRepositoryOwners(f.db, { ...f.options, apply: true, archiveAllOwnerless: true });
+    expect(result.archiveCandidates).to.equal(0);
+    expect(f.writes).to.have.length(0);
+  });
+  it("keeps failed cache cleanup pending and resumes without calling GitHub", async () => {
+    const f = fixture([{ _id: "repo", repoId: "legacy-repo" }]);
+    const result = await recoverRepositoryOwners(f.db, { ...f.options, apply: true, archiveAllOwnerless: true,
+      deleteCache: async () => { throw new Error("storage unavailable"); } });
+    expect(result.issues).to.equal(1);
+    expect(f.writes).to.have.length(1);
+    const resumed = fixture([{ _id: "repo", repoId: "legacy-repo", status: "archived", archiveCachePending: true }]);
+    const retry = await recoverRepositoryOwners(resumed.db, { ...resumed.options, apply: true, archiveAllOwnerless: true,
+      identify: async () => { throw new Error("must not call GitHub"); }, deleteCache: async () => {} });
+    expect(retry.cacheDeleted).to.equal(1);
+    expect(retry.issues).to.equal(0);
+  });
+  it("skips completed archives on reruns", async () => {
+    const f = fixture([{ _id: "repo", repoId: "legacy-repo", status: "archived", archiveCachePending: false }]);
+    expect((await recoverRepositoryOwners(f.db, { ...f.options, apply: true, archiveAllOwnerless: true })).alreadyArchived).to.equal(1);
+    expect(f.writes).to.have.length(0);
+  });
+  it("rejects unsafe storage paths before changing the record", async () => {
+    for (const repoId of [undefined, "", ".", "..", "../other", "a/b", "/etc"]) {
+      const f = fixture([{ _id: "repo", repoId }]);
+      await recoverRepositoryOwners(f.db, { ...f.options, apply: true, archiveAllOwnerless: true });
+      expect(f.events[0].issue).to.equal("unsafe_or_missing_repo_id");
+      expect(f.writes).to.have.length(0);
+    }
+  });
+  it("does not delete files after a conditional update loses a race", async () => {
+    const f = fixture([{ _id: "repo", repoId: "legacy-repo" }]);
+    const original = f.db.collection;
+    f.db.collection = name => name === "users" ? original(name) : { ...original(name), updateOne: async () => ({ modifiedCount: 0 }) };
+    const result = await recoverRepositoryOwners(f.db, { ...f.options, apply: true, archiveAllOwnerless: true,
+      deleteCache: async () => { throw new Error("must not delete"); } });
+    expect(result.cacheDeleted).to.equal(0);
+    expect(f.events[0].issue).to.equal("repository_changed_retry");
+  });
+  it("archives only missing or entirely revoked tokens in selective mode", async () => {
+    const f = fixture([{ _id: "missing", repoId: "missing" }, { _id: "revoked", repoId: "revoked", accessToken: "bad" },
+      { _id: "mixed", repoId: "mixed", accessToken: "bad", source: { accessToken: "good" } }]);
+    const result = await recoverRepositoryOwners(f.db, { ...f.options, archiveUnrecoverable: true,
+      identify: async token => token === "bad" ? { issue: "invalid_or_revoked_token" } : { githubId: "42" } });
+    expect(result.archiveCandidates).to.equal(2);
+    expect(f.events.find(e => e.id === "mixed").issue).to.equal("mixed_token_validity");
+  });
+  it("runs work concurrently within the configured bound", async () => {
+    const f = fixture(Array.from({ length: 9 }, (_, i) => ({ _id: String(i), accessToken: `token-${i}` })), [{ _id: "owner", githubId: "42" }]);
+    let active = 0, maximum = 0;
+    await recoverRepositoryOwners(f.db, { ...f.options, concurrency: 3, identify: async () => {
+      active++; maximum = Math.max(maximum, active);
+      await new Promise(resolve => setTimeout(resolve, 5));
+      active--; return { githubId: "42" };
+    } });
+    expect(maximum).to.equal(3);
+    expect(f.events).to.have.length(9);
+  });
+  it("validates concurrency", async () => {
+    const f = fixture([]);
+    for (const concurrency of [0, 33, 1.5]) {
+      try { await recoverRepositoryOwners(f.db, { ...f.options, concurrency }); throw new Error("expected failure"); }
+      catch (error) { expect(error.message).to.equal("Concurrency must be an integer between 1 and 32"); }
+    }
+  });
+});
+
+describe("archived repository access", () => {
+  const Repository = require("../src/core/Repository").default;
+  const UserModel = require("../src/core/model/users/users.model").default;
+  function archived() {
+    return new Repository({ owner: new UserModel()._id, repoId: "archived-test", status: "archived",
+      source: {}, options: { update: false }, size: { file: 9, storage: 123 } });
+  }
+  it("rejects public access and source fetching without querying storage", async () => {
+    const repo = archived();
+    for (const action of [() => repo.check(), () => repo.getToken(), () => repo.files(), () => repo.updateIfNeeded({ force: true }), () => repo.anonymize(), () => repo.resetSate()]) {
+      try { await action(); throw new Error("expected archive rejection"); }
+      catch (error) { expect(error.message).to.equal("repository_archived"); }
+    }
+    expect(() => repo.source).to.throw("repository_archived");
+    expect(() => repo.zip()).to.throw("repository_archived");
+    expect(repo.model.size).to.deep.equal({ file: 9, storage: 123 });
+  });
+  it("cannot reactivate an archive through a status update or old cache job", async () => {
+    const repo = archived();
+    try { await repo.updateStatus("ready"); throw new Error("expected rejection"); }
+    catch (error) { expect(error.message).to.equal("repository_archived"); }
+    await repo.removeCache();
+    expect(repo.status).to.equal("archived");
+    expect(repo.model.size.file).to.equal(9);
+  });
+  it("deletes only the target cache directory using filesystem storage", async () => {
+    const fs = require("fs");
+    const os = require("os");
+    const path = require("path");
+    const config = require("../src/config").default;
+    const FileSystem = require("../src/core/storage/FileSystem").default;
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "archive-cache-test-"));
+    const before = config.FOLDER;
+    try {
+      config.FOLDER = root;
+      for (const id of ["archive-target", "keep-sibling"]) {
+        fs.mkdirSync(path.join(root, id, "original"), { recursive: true });
+        fs.writeFileSync(path.join(root, id, "original", "file.txt"), "cached content");
+      }
+      const f = fixture([{ _id: "repo", repoId: "archive-target" }]);
+      await recoverRepositoryOwners(f.db, { ...f.options, apply: true, archiveAllOwnerless: true,
+        deleteCache: id => new FileSystem().rm(id) });
+      expect(fs.existsSync(path.join(root, "archive-target", "original"))).to.equal(false);
+      expect(fs.existsSync(path.join(root, "keep-sibling", "original", "file.txt"))).to.equal(true);
+      expect(f.writes).to.have.length(2);
+    } finally { config.FOLDER = before; fs.rmSync(root, { recursive: true, force: true }); }
   });
 });
