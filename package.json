@@ -67,12 +67,9 @@
     "rate-limit-redis": "^4.2.0",
     "re2js": "^2.8.6",
     "redis": "^4.6.13",
-    "sanitize-html": "^2.17.2",
+    "sanitize-html": "^2.17.7",
     "ts-custom-error": "^3.3.1",
     "unzip-stream": "^0.3.1"
-  },
-  "overrides": {
-    "msgpackr": "^1.11.12"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -97,12 +94,12 @@
     "gulp": "^5.0.0",
     "gulp-clean-css": "^4.3.0",
     "gulp-concat": "^2.6.1",
-    "gulp-order": "^1.2.0",
     "gulp-uglify": "^3.0.2",
     "http-proxy-middleware": "^3.0.5",
     "knip": "^5.1.0",
     "mocha": "^12.0.0",
     "nodemon": "^3.1.0",
+    "ordered-read-streams": "^2.0.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.3",
     "typescript-eslint": "^8.58.2"

@@ -1,11 +1,11 @@
-const { src, dest, parallel } = require("gulp");
+const { src, dest, parallel, series } = require("gulp");
 const uglify = require("gulp-uglify");
 const concat = require("gulp-concat");
-var order = require("gulp-order");
+const order = require("ordered-read-streams");
+const { pipeline } = require("node:stream");
 const cleanCss = require("gulp-clean-css");
 const crypto = require("crypto");
 const fs = require("fs");
-const path = require("path");
 
 const coreJsFiles = [
   "public/script/external/angular.min.js",
@@ -60,38 +60,26 @@ function hashFile(filePath) {
   return crypto.createHash("md5").update(content).digest("hex").slice(0, 10);
 }
 
+// Gulp 5 does not preserve array order. Read each asset in its declared order
+// so libraries precede their plugins and application code, and CSS keeps its cascade.
+function orderedSrc(files) {
+  return order(files.map(file => src(file)));
+}
+
 function buildCoreJs(cb) {
-  src(coreJsFiles)
-    .pipe(order(coreJsFiles, { base: "./" }))
-    .pipe(concat("core.min.js"))
-    .pipe(uglify())
-    .pipe(dest("public/script"))
-    .on("end", cb);
+  pipeline(orderedSrc(coreJsFiles), concat("core.min.js"), uglify(), dest("public/script"), cb);
 }
 
 function buildVendorJs(cb) {
-  src(vendorJsFiles)
-    .pipe(order(vendorJsFiles, { base: "./" }))
-    .pipe(concat("vendor.min.js"))
-    .pipe(uglify())
-    .pipe(dest("public/script"))
-    .on("end", cb);
+  pipeline(orderedSrc(vendorJsFiles), concat("vendor.min.js"), uglify(), dest("public/script"), cb);
 }
 
 function buildMermaidJs(cb) {
-  src(mermaidFiles)
-    .pipe(concat("mermaid.min.js"))
-    .pipe(dest("public/script"))
-    .on("end", cb);
+  pipeline(src(mermaidFiles), concat("mermaid.min.js"), dest("public/script"), cb);
 }
 
 function buildCss(cb) {
-  src(cssFiles)
-    .pipe(order(cssFiles, { base: "./" }))
-    .pipe(concat("all.min.css"))
-    .pipe(cleanCss())
-    .pipe(dest("public/css"))
-    .on("end", cb);
+  pipeline(orderedSrc(cssFiles), concat("all.min.css"), cleanCss(), dest("public/css"), cb);
 }
 
 function writeManifest(cb) {
@@ -119,8 +107,4 @@ function writeManifest(cb) {
 
 const buildAssets = parallel(buildCoreJs, buildVendorJs, buildMermaidJs, buildCss);
 
-exports.default = function (cb) {
-  buildAssets(function () {
-    writeManifest(cb);
-  });
-};
+exports.default = series(buildAssets, writeManifest);
