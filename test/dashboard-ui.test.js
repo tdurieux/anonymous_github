@@ -49,10 +49,6 @@ function loadFilters() {
     localStorage: { getItem: () => null, setItem() {} },
     navigator: { language: "en-US" },
     console,
-    setTimeout,
-    clearTimeout,
-    setInterval,
-    clearInterval,
   };
   sandbox.window = sandbox;
   vm.createContext(sandbox);
