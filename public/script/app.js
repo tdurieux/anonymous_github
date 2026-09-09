@@ -1006,6 +1006,7 @@ export const anonymizeController = function (state, http, html, params, location
               state._originalBranch = res.data.source.branch;
               state.options = Object.assign({}, state.options, res.data.options);
               state.conference = res.data.conference;
+              state._originalConference = res.data.conference;
               state.repositoryID = res.data.source.repositoryID;
               state._originalRepositoryID = res.data.source.repositoryID;
               if (res.data.options.expirationDate) {
@@ -1030,6 +1031,7 @@ export const anonymizeController = function (state, http, html, params, location
               state.source = res.data.source;
               state.options = Object.assign({}, state.options, res.data.options);
               state.conference = res.data.conference;
+              state._originalConference = res.data.conference;
               if (res.data.options.expirationDate) {
                 state.options.expirationDate = new Date(res.data.options.expirationDate);
               }
@@ -1062,6 +1064,7 @@ export const anonymizeController = function (state, http, html, params, location
               state.source = res.data.source;
               state.options = Object.assign({}, state.options, res.data.options);
               state.conference = res.data.conference;
+              state._originalConference = res.data.conference;
               if (res.data.options.expirationDate) {
                 state.options.expirationDate = new Date(res.data.options.expirationDate);
               }
@@ -1486,12 +1489,20 @@ export const anonymizeController = function (state, http, html, params, location
 
       // ========== SHARED LOGIC ==========
       function getConference() {
-        if (!state.conference) return;
-        http.get("/api/conferences/" + state.conference).then(
+        const conference = state.conference;
+        state.conference_data = null;
+        if (!conference) return;
+        const preserveSavedOptions =
+          state.isUpdate && conference === state._originalConference;
+        http.get("/api/conferences/" + conference).then(
           (res) => {
+            if (state.conference !== conference) return;
             state.conference_data = res.data;
             state.conference_data.startDate = new Date(state.conference_data.startDate);
             state.conference_data.endDate = new Date(state.conference_data.endDate);
+            // Conference defaults must not overwrite an existing submission's
+            // saved settings when its edit form loads (#791).
+            if (preserveSavedOptions) return;
             state.options.expirationDate = new Date(state.conference_data.endDate);
             state.options.expirationMode = "remove";
             state.options.update = state.conference_data.options.update;
@@ -1500,7 +1511,9 @@ export const anonymizeController = function (state, http, html, params, location
             state.options.notebook = state.conference_data.options.notebook;
             state.options.link = state.conference_data.options.link;
           },
-          () => { state.conference_data = null; }
+          () => {
+            if (state.conference === conference) state.conference_data = null;
+          }
         );
       }
 

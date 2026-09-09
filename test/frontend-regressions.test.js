@@ -45,6 +45,55 @@ function explorer() {
 }
 
 describe("frontend production regressions", function () {
+  describe("conference defaults on edit (#791)", function () {
+    const conferenceData = () => ({
+      startDate: "2026-01-01", endDate: "2026-12-31",
+      options: { update: true, image: true, pdf: true, notebook: true, link: true },
+    });
+    function anonymize(params = {}) {
+      const h = harness();
+      h.defs.anonymizeController(h.scope, h.http, {}, params, {}, () => {}, Object.assign(() => 0, { cancel() {} }));
+      return h;
+    }
+    for (const id of ["repoId", "pullRequestId", "gistId"]) {
+      it(`preserves saved options when reopening a conference-linked ${id}`, async function () {
+        const h = anonymize({ [id]: "saved" });
+        h.requests[0].resolve({ data: { options: { update: true } } }); await h.flush();
+        h.requests.at(-1).resolve({ data: {
+          source: { fullName: "owner/repo", repositoryFullName: "owner/repo", branch: "main", commit: "abcdef", gistId: "123", pullRequestId: 1 },
+          conference: "conf",
+          options: { terms: [], update: false, image: false, expirationMode: "remove", expirationDate: "2026-11-01" },
+        } }); await h.flush();
+        h.watches.conference();
+        h.requests.at(-1).resolve({ data: conferenceData() }); await h.flush();
+        expect(h.scope.options.update).to.equal(false);
+        expect(h.scope.options.image).to.equal(false);
+        expect(h.scope.options.expirationDate.toISOString()).to.equal("2026-11-01T00:00:00.000Z");
+        expect(h.scope.conference_data).not.to.equal(null);
+        if (id === "repoId") {
+          h.scope.anonymizeRepo({ target: {} });
+          expect(h.requests.at(-1).body.options.update).to.equal(false);
+          expect(h.requests.at(-1).url).to.equal("/api/repo/saved");
+        }
+      });
+    }
+    it("applies defaults when selecting a different conference", async function () {
+      const h = anonymize();
+      h.scope.isUpdate = true; h.scope._originalConference = "old";
+      h.scope.conference = "new"; h.watches.conference();
+      h.requests.at(-1).resolve({ data: conferenceData() }); await h.flush();
+      expect(h.scope.options.update).to.equal(true);
+      expect(h.scope.options.expirationDate.toISOString()).to.equal("2026-12-31T00:00:00.000Z");
+    });
+    it("ignores defaults arriving after a conference is deselected", async function () {
+      const h = anonymize(); h.scope.conference = "conf"; h.watches.conference();
+      const pending = h.requests.at(-1);
+      h.scope.conference = ""; h.watches.conference();
+      pending.resolve({ data: conferenceData() }); await h.flush();
+      expect(h.scope.options.update).to.equal(false);
+      expect(h.scope.conference_data).to.equal(null);
+    });
+  });
   it("sanitizes Org output before trusting it", async function () {
     const h = explorer(); let untrusted;
     h.context.Org = { Parser: function () { this.parse = () => ({ convert: () => ({ toString: () => '<img onerror="probe()">' }) }); }, ConverterHTML: {} };
