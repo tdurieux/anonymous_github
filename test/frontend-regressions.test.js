@@ -140,6 +140,51 @@ describe("frontend production regressions", function () {
     h.scope.saveDefault(); h.requests.at(-1).reject({ data: { error: "not_connected" } }); await h.flush();
     expect(h.scope.error).to.equal("ERRORS.not_connected");
   });
+  describe("landing page features", function () {
+    const home = fs.readFileSync(path.join(__dirname, "..", "public", "partials", "home.htm"), "utf8");
+    function landing(user) {
+      const h = harness(); h.scope.user = user;
+      const focused = []; h.focused = focused;
+      const win = { document: { getElementById: id => ({ focus: () => focused.push(id) }) } };
+      const timeout = fn => fn();
+      h.defs.homeController.at(-1)(h.scope, h.http, { url() {} }, win, timeout);
+      return h;
+    }
+    it("selects the first feature and switches on click", function () {
+      const h = landing(null);
+      expect(h.scope.feature).to.equal("anonymize");
+      h.scope.selectFeature("manage"); expect(h.scope.feature).to.equal("manage");
+    });
+    it("moves between tabs with the arrow keys, wrapping and moving focus", function () {
+      const h = landing(null); let prevented = 0;
+      const key = k => ({ key: k, preventDefault: () => prevented++ });
+      h.scope.featureKeydown(key("ArrowDown"), 0); expect(h.scope.feature).to.equal("review");
+      h.scope.featureKeydown(key("ArrowUp"), 1); expect(h.scope.feature).to.equal("anonymize");
+      h.scope.featureKeydown(key("ArrowUp"), 0); expect(h.scope.feature).to.equal("manage");
+      h.scope.featureKeydown(key("End"), 0); expect(h.scope.feature).to.equal("manage");
+      h.scope.featureKeydown(key("Home"), 2); expect(h.scope.feature).to.equal("anonymize");
+      h.scope.featureKeydown(key("Tab"), 0); expect(h.scope.feature).to.equal("anonymize");
+      expect(prevented).to.equal(5);
+      expect(h.focused).to.deep.equal(["review", "anonymize", "manage", "manage", "anonymize"].map(k => "feature-tab-" + k));
+    });
+    it("sends signed-out visitors to sign in instead of the dashboard", function () {
+      const manage = f => f.key === "manage";
+      const out = landing(null);
+      expect(out.scope.featureHref(out.scope.features.find(manage))).to.equal("/github/login");
+      expect(out.scope.featureTarget(out.scope.features.find(manage))).to.equal("_self");
+      const signedIn = landing({ username: "jane" });
+      expect(signedIn.scope.featureHref(signedIn.scope.features.find(manage))).to.equal("/dashboard");
+      expect(signedIn.scope.featureTarget(signedIn.scope.features.find(manage))).to.equal(undefined);
+    });
+    it("marks the tabs up as tabs and keeps links out of the buttons", function () {
+      expect(home).to.match(/<button[^>]*class="paper-feature-tab"[^>]*role="tab"/);
+      expect(home).to.match(/role="tablist"/);
+      expect(home).to.match(/role="tabpanel"[^>]*aria-labelledby="feature-tab-\{\{f\.key\}\}"/);
+      const button = home.slice(home.indexOf('class="paper-feature-tab"'), home.indexOf("</button>"));
+      expect(button).to.not.include("<a ");
+      expect(home).to.not.match(/href="#"/);
+    });
+  });
   it("keeps the conference end date after the start across December", function () {
     class December extends Date { constructor(...args) { super(...(args.length ? args : ["2026-12-15T12:00:00Z"])); } }
     const h = harness(December); h.scope.user = {};
