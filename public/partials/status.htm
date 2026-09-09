@@ -2,13 +2,13 @@
   <div class="paper-crumbs">Anonymization &nbsp;/&nbsp; <span class="here">Status</span></div>
   <div class="d-flex align-items-end justify-content-between flex-wrap" style="gap: 12px;">
     <div>
-      <h1 class="paper-page-title">Status of <em>{{repoId}}</em></h1>
+      <h1 class="paper-page-title">Status of <em>{{ repoId }}</em></h1>
       <p class="paper-page-lede">Track progress as your anonymization is prepared.</p>
     </div>
-    <span class="status-pill" ng-class="{'status-pill-ready': repo.status == 'ready', 'status-pill-error': repo.status == 'error', 'status-pill-removed': repo.status == 'removed' || repo.status == 'expired', 'status-pill-ratelimit': rateLimitResetAt}">
-      <span class="status-dot" ng-class="{'status-ready': repo.status == 'ready', 'status-error': repo.status == 'error', 'status-removed': repo.status == 'removed' || repo.status == 'expired', 'status-ratelimit': rateLimitResetAt}"></span>
-      <span ng-if="!rateLimitResetAt" ng-bind="repo.status | title"></span>
-      <span ng-if="rateLimitResetAt">Rate limited</span>
+    <span class="status-pill" :class="{&#x27;status-pill-ready&#x27;: repo?.status == &#x27;ready&#x27;, &#x27;status-pill-error&#x27;: repo?.status == &#x27;error&#x27;, &#x27;status-pill-removed&#x27;: repo?.status == &#x27;removed&#x27; || repo?.status == &#x27;expired&#x27;, &#x27;status-pill-ratelimit&#x27;: rateLimitResetAt}">
+      <span class="status-dot" :class="{&#x27;status-ready&#x27;: repo?.status == &#x27;ready&#x27;, &#x27;status-error&#x27;: repo?.status == &#x27;error&#x27;, &#x27;status-removed&#x27;: repo?.status == &#x27;removed&#x27; || repo?.status == &#x27;expired&#x27;, &#x27;status-ratelimit&#x27;: rateLimitResetAt}"></span>
+      <span v-if="!rateLimitResetAt" v-text="fmt?.title(repo?.status)"></span>
+      <span v-if="rateLimitResetAt">Rate limited</span>
     </span>
   </div>
 
@@ -20,7 +20,7 @@
       size. Visit the <a href="/faq">FAQ</a> for more information.
     </p>
 
-    <div class="paper-ratelimit-card" ng-if="rateLimitResetAt" role="status">
+    <div class="paper-ratelimit-card" role="status" v-if="rateLimitResetAt">
       <div class="paper-ratelimit-head">
         <i class="fas fa-hourglass-half"></i>
         <div>
@@ -28,18 +28,18 @@
           <div class="paper-error-title">GitHub API rate limit reached</div>
         </div>
       </div>
-      <p class="paper-error-msg">Anonymization will resume automatically in <strong>{{rateLimitCountdown}}</strong>. No action needed &mdash; the job is queued and will continue where it left off.</p>
+      <p class="paper-error-msg">Anonymization will resume automatically in <strong>{{ rateLimitCountdown }}</strong>. No action needed &mdash; the job is queued and will continue where it left off.</p>
     </div>
 
-    <div class="paper-progress" ng-if="repo.status != 'error' && !rateLimitResetAt" role="progressbar" aria-valuenow="{{progress}}" aria-valuemin="0" aria-valuemax="100" ng-class="{'paper-progress-ready': repo.status == 'ready'}">
-      <div class="paper-progress-bar" style="width: {{progress}}%;"></div>
+    <div class="paper-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" v-if="repo?.status != &#x27;error&#x27; &amp;&amp; !rateLimitResetAt" :class="{&#x27;paper-progress-ready&#x27;: repo?.status == &#x27;ready&#x27;}" :aria-valuenow="(progress)">
+      <div class="paper-progress-bar" :style="&quot;width: &quot; + (progress) + &quot;%;&quot;"></div>
       <div class="paper-progress-label">
-        <span ng-bind="repo.status | title"></span><span ng-if="repo.statusMessage">&nbsp;&middot;&nbsp;<span ng-bind="repo.statusMessage"></span></span>
-        <span class="paper-progress-pct">{{progress || 0}}%</span>
+        <span v-text="fmt?.title(repo?.status)"></span><span v-if="repo?.statusMessage">&nbsp;&middot;&nbsp;<span v-text="repo?.statusMessage"></span></span>
+        <span class="paper-progress-pct">{{ progress || 0 }}%</span>
       </div>
     </div>
 
-    <div class="paper-error-card" ng-if="repo.status == 'error' && !rateLimitResetAt" role="alert">
+    <div class="paper-error-card" role="alert" v-if="repo?.status == &#x27;error&#x27; &amp;&amp; !rateLimitResetAt">
       <div class="paper-error-head">
         <i class="fas fa-exclamation-triangle"></i>
         <div>
@@ -47,15 +47,15 @@
           <div class="paper-error-title">Something went wrong while preparing this repository.</div>
         </div>
       </div>
-      <p class="paper-error-msg" ng-if="repo.statusMessage">{{ 'ERRORS.' + repo.statusMessage | translate }}</p>
-      <p class="paper-error-msg" ng-if="!repo.statusMessage">No additional details were reported. The most common causes are private repositories, missing branches, and rate limits.</p>
+      <p class="paper-error-msg" v-if="repo?.statusMessage">{{ fmt?.translate('ERRORS.' + repo?.statusMessage) }}</p>
+      <p class="paper-error-msg" v-if="!repo?.statusMessage">No additional details were reported. The most common causes are private repositories, missing branches, and rate limits.</p>
       <ul class="paper-error-hints">
         <li>Make sure the source URL points to a repository or pull request you can access.</li>
         <li>Check that the chosen branch and commit still exist on GitHub.</li>
         <li>If you just signed in, the access token may need a moment to propagate &mdash; try again.</li>
       </ul>
       <div class="paper-error-actions">
-        <a class="btn btn-ink" ng-href="/anonymize/{{repoId}}"><i class="far fa-edit mr-1"></i> Edit anonymization</a>
+        <a class="btn btn-ink" :href="safeUrl(&quot;/anonymize/&quot; + (repoId))"><i class="far fa-edit mr-1"></i> Edit anonymization</a>
         <a class="btn" href="/faq"><i class="far fa-question-circle mr-1"></i> Read the FAQ</a>
         <a class="btn" href="https://github.com/tdurieux/anonymous_github/issues/new?template=issue_report.yml" target="_blank" rel="noopener"><i class="fas fa-bug mr-1" aria-hidden="true"></i> Report a bug in Anonymous GitHub</a>
       </div>
@@ -64,19 +64,19 @@
     <div class="paper-detail-grid">
       <div class="detail-label">Repository</div>
       <div class="detail-value">
-        <a href="/r/{{repoId}}/" target="_self">/r/{{repoId}}/</a>
+        <a target="_self" :href="safeUrl(&quot;/r/&quot; + (repoId) + &quot;/&quot;)">/r/{{ repoId }}/</a>
       </div>
-      <div class="detail-label" ng-if="repo.options.page">GitHub Page</div>
-      <div class="detail-value" ng-if="repo.options.page">
-        <a href="/w/{{repoId}}/" target="_self">/w/{{repoId}}/</a>
+      <div class="detail-label" v-if="repo?.options?.page">GitHub Page</div>
+      <div class="detail-value" v-if="repo?.options?.page">
+        <a target="_self" :href="safeUrl(&quot;/w/&quot; + (repoId) + &quot;/&quot;)">/w/{{ repoId }}/</a>
       </div>
     </div>
 
-    <div class="anonymize-submit-bar" ng-if="repo.status == 'ready'">
-      <a class="btn btn-ink" href="/r/{{repoId}}/" target="_self">
+    <div class="anonymize-submit-bar" v-if="repo?.status == &#x27;ready&#x27;">
+      <a class="btn btn-ink" target="_self" :href="safeUrl(&quot;/r/&quot; + (repoId) + &quot;/&quot;)">
         <i class="far fa-eye mr-1"></i> Go to anonymized repository
       </a>
-      <a class="btn" href="/w/{{repoId}}/" target="_self" ng-if="repo.options.page">
+      <a class="btn" target="_self" v-if="repo?.options?.page" :href="safeUrl(&quot;/w/&quot; + (repoId) + &quot;/&quot;)">
         <i class="fas fa-globe mr-1"></i> Go to anonymized GitHub page
       </a>
     </div>
@@ -108,12 +108,7 @@
     </div>
 
     <div class="paper-kofi-wrap">
-      <iframe
-        id="kofiframe"
-        src="https://ko-fi.com/tdurieux/?hidefeed=true&widget=true&embed=true&preview=true"
-        title="tdurieux"
-        loading="lazy"
-      ></iframe>
+      <iframe id="kofiframe" src="https://ko-fi.com/tdurieux/?hidefeed=true&amp;widget=true&amp;embed=true&amp;preview=true" title="tdurieux" loading="lazy"></iframe>
     </div>
   </section>
 </div>

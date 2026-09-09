@@ -12,39 +12,39 @@
   </nav>
 
   <div class="admin-summary">
-    <span class="summary-total">{{total >= 0 ? (total | number) : '…'}}</span>
-    <span class="summary-pill ok" ng-class="{active: query.ready}" ng-click="query.ready = !query.ready; query.page = 1" title="Toggle ready filter">Ready <span class="count">{{statusCountFor('ready') | number}}</span></span>
-    <span class="summary-pill warn" ng-class="{active: query.preparing}" ng-click="query.preparing = !query.preparing; query.page = 1" title="Toggle preparing filter">Preparing <span class="count">{{statusCountFor('preparing') | number}}</span></span>
-    <span class="summary-pill error" ng-class="{active: query.error}" ng-click="query.error = !query.error; query.page = 1" title="Toggle errored filter">Errored <span class="count">{{statusCountFor('error') | number}}</span></span>
-    <span class="summary-pill" ng-class="{active: query.expired}" ng-click="query.expired = !query.expired; query.page = 1" title="Toggle expired filter">Expired <span class="count">{{statusCountFor('expired') | number}}</span></span>
-    <span class="summary-pill" ng-class="{active: query.removed}" ng-click="query.removed = !query.removed; query.page = 1" title="Toggle removed filter">Removed <span class="count">{{statusCountFor('removed') | number}}</span></span>
+    <span class="summary-total">{{ total >= 0 ? fmt.number(total) : '…' }}</span>
+    <span class="summary-pill ok" title="Toggle ready filter" :class="{active: query?.ready}" @click="query.ready = !query.ready; query.page = 1">Ready <span class="count">{{ fmt?.number(statusCountFor('ready')) }}</span></span>
+    <span class="summary-pill warn" title="Toggle preparing filter" :class="{active: query?.preparing}" @click="query.preparing = !query.preparing; query.page = 1">Preparing <span class="count">{{ fmt?.number(statusCountFor('preparing')) }}</span></span>
+    <span class="summary-pill error" title="Toggle errored filter" :class="{active: query?.error}" @click="query.error = !query.error; query.page = 1">Errored <span class="count">{{ fmt?.number(statusCountFor('error')) }}</span></span>
+    <span class="summary-pill" title="Toggle expired filter" :class="{active: query?.expired}" @click="query.expired = !query.expired; query.page = 1">Expired <span class="count">{{ fmt?.number(statusCountFor('expired')) }}</span></span>
+    <span class="summary-pill" title="Toggle removed filter" :class="{active: query?.removed}" @click="query.removed = !query.removed; query.page = 1">Removed <span class="count">{{ fmt?.number(statusCountFor('removed')) }}</span></span>
   </div>
 
-  <div class="alert alert-danger" ng-if="fetchError" style="margin: 8px 0;">
-    <i class="fas fa-exclamation-triangle"></i> {{fetchError}}
+  <div class="alert alert-danger" style="margin: 8px 0;" v-if="fetchError">
+    <i class="fas fa-exclamation-triangle"></i> {{ fetchError }}
   </div>
 
-  <form class="w-100 admin-filter-toolbar" aria-label="Conferences" accept-charset="UTF-8">
+  <form class="w-100 admin-filter-toolbar" aria-label="Conferences" accept-charset="UTF-8" v-form="viewState">
     <div class="admin-filter-row">
       <div class="search-wrap">
-        <input type="search" class="form-control" placeholder="Search conferences…" autocomplete="off" ng-model="query.search" />
-        <span class="admin-search-hint" ng-if="!query.search">/</span>
+        <input type="search" class="form-control" placeholder="Search conferences…" autocomplete="off" v-field="{ state: viewState, set: value =&gt; { query.search = value }, value: query?.search, form: null, options: {} }">
+        <span class="admin-search-hint" v-if="!query?.search">/</span>
       </div>
       <span class="admin-filter-spacer"></span>
-      <button class="btn btn-sm" type="button" ng-click="exportCsv()"><i class="fas fa-file-csv"></i> Export</button>
+      <button class="btn btn-sm" type="button" @click="exportCsv()"><i class="fas fa-file-csv"></i> Export</button>
       <span class="admin-filter-inline" aria-label="Pagination">
-        <button class="btn btn-sm" type="button" ng-click="query.page = Math.max(1, query.page - 1)" ng-disabled="query.page <= 1"><i class="fas fa-chevron-left"></i></button>
-        <span style="font-family: var(--font-mono); font-size: 12px; color: var(--ink-muted);">{{query.page}}/{{totalPage || 1}}</span>
-        <button class="btn btn-sm" type="button" ng-click="query.page = Math.min(totalPage, query.page + 1)" ng-disabled="query.page >= totalPage"><i class="fas fa-chevron-right"></i></button>
+        <button class="btn btn-sm" type="button" @click="query.page = Math.max(1, query.page - 1)" :disabled="query?.page &lt;= 1"><i class="fas fa-chevron-left"></i></button>
+        <span style="font-family: var(--font-mono); font-size: 12px; color: var(--ink-muted);">{{ query?.page }}/{{ totalPage || 1 }}</span>
+        <button class="btn btn-sm" type="button" @click="query.page = Math.min(totalPage, query.page + 1)" :disabled="query?.page &gt;= totalPage"><i class="fas fa-chevron-right"></i></button>
       </span>
     </div>
 
-    <div class="admin-filter-row" ng-if="chips.length">
+    <div class="admin-filter-row" v-if="chips?.length">
       <div class="admin-active-chips">
-        <span class="admin-active-chip" ng-repeat="chip in chips track by chip.key">
-          <span class="key">{{chip.label}}</span>
-          <span>{{chip.value}}</span>
-          <button type="button" ng-click="clearFilter(chip.key)"><i class="fas fa-times"></i></button>
+        <span class="admin-active-chip" v-for="(chip, index) in chips" :key="chip?.key">
+          <span class="key">{{ chip?.label }}</span>
+          <span>{{ chip?.value }}</span>
+          <button type="button" @click="clearFilter(chip.key)"><i class="fas fa-times"></i></button>
         </span>
       </div>
     </div>
@@ -52,66 +52,62 @@
 
   <div class="paper-table paper-table-conferences w-100" role="table" aria-label="Conferences">
     <div class="paper-table-head" role="row">
-      <div role="columnheader"><span class="sortable" ng-class="{active: query.sort == 'name'}" ng-click="sortBy('name')">Conference <i class="fas" ng-class="sortIcon('name')"></i></span></div>
-      <div role="columnheader"><span class="sortable" ng-class="{active: query.sort == 'status'}" ng-click="sortBy('status')">Status <i class="fas" ng-class="sortIcon('status')"></i></span></div>
+      <div role="columnheader"><span class="sortable" :class="{active: query?.sort == &#x27;name&#x27;}" @click="sortBy(&#x27;name&#x27;)">Conference <i class="fas" :class="sortIcon(&#x27;name&#x27;)"></i></span></div>
+      <div role="columnheader"><span class="sortable" :class="{active: query?.sort == &#x27;status&#x27;}" @click="sortBy(&#x27;status&#x27;)">Status <i class="fas" :class="sortIcon(&#x27;status&#x27;)"></i></span></div>
       <div role="columnheader" class="num">Repos</div>
-      <div role="columnheader"><span class="sortable" ng-class="{active: query.sort == 'startDate'}" ng-click="sortBy('startDate')">Window <i class="fas" ng-class="sortIcon('startDate')"></i></span></div>
+      <div role="columnheader"><span class="sortable" :class="{active: query?.sort == &#x27;startDate&#x27;}" @click="sortBy(&#x27;startDate&#x27;)">Window <i class="fas" :class="sortIcon(&#x27;startDate&#x27;)"></i></span></div>
       <div role="columnheader" aria-label="Actions"></div>
     </div>
-    <div
-      class="paper-table-row"
-      role="row"
-      ng-repeat="conference in conferences as filteredConferences"
-    >
+    <div class="paper-table-row" role="row" v-for="(conference, index) in filteredConferences">
       <div class="cell-anon" role="cell">
         <span class="type-badge type-repo">Conf</span>
         <div class="anon-text">
-          <a class="repo-name" ng-href="/conference/{{conference.conferenceID}}" ng-bind="conference.name"></a>
+          <a class="repo-name" v-text="conference?.name" :href="safeUrl(&quot;/conference/&quot; + (conference?.conferenceID))"></a>
           <div class="anon-sub">
-            <span>{{conference.conferenceID}}</span>&nbsp;&middot;&nbsp;<span>{{conference.price || 0 | number}} &euro;</span>
+            <span>{{ conference?.conferenceID }}</span>&nbsp;&middot;&nbsp;<span>{{ fmt?.number(conference?.price || 0) }} &euro;</span>
           </div>
         </div>
       </div>
       <div class="cell-status" role="cell">
-        <span class="status-dot" ng-class="{'status-removed': conference.status == 'removed' || conference.status == 'expired', 'status-ready': conference.status == 'ready', 'status-error': conference.status == 'error', 'status-preparing': conference.status == 'preparing'}"></span>
-        <span ng-bind="conference.status | title"></span>
+        <span class="status-dot" :class="{&#x27;status-removed&#x27;: conference?.status == &#x27;removed&#x27; || conference?.status == &#x27;expired&#x27;, &#x27;status-ready&#x27;: conference?.status == &#x27;ready&#x27;, &#x27;status-error&#x27;: conference?.status == &#x27;error&#x27;, &#x27;status-preparing&#x27;: conference?.status == &#x27;preparing&#x27;}"></span>
+        <span v-text="fmt?.title(conference?.status)"></span>
       </div>
       <div class="cell-views num" role="cell">
-        <a ng-href="/admin/?conference={{conference.conferenceID}}" ng-bind="::conference.repositories.length || 0 | number" title="Show repositories in this conference"></a>
+        <a title="Show repositories in this conference" v-text="fmt?.number(conference?.repositories?.length || 0)" :href="safeUrl(&quot;/admin/?conference=&quot; + (conference?.conferenceID))"></a>
       </div>
-      <div class="cell-expires" role="cell">{{conference.startDate | date}} &ndash; {{conference.endDate | date}}</div>
+      <div class="cell-expires" role="cell">{{ fmt?.date(conference?.startDate) }} &ndash; {{ fmt?.date(conference?.endDate) }}</div>
       <div class="cell-actions" role="cell">
         <div class="dropdown">
           <button class="btn btn-icon-dots" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" aria-label="Actions">
             <i class="fas fa-ellipsis-h" aria-hidden="true"></i>
           </button>
           <div class="dropdown-menu dropdown-menu-right">
-            <a class="dropdown-item" href="/conference/{{conference.conferenceID}}/edit"><i class="far fa-edit"></i> Edit</a>
-            <a class="dropdown-item" href="/conference/{{conference.conferenceID}}/"><i class="fa fa-eye"></i> View</a>
-            <a class="dropdown-item" href="/admin/?conference={{conference.conferenceID}}"><i class="fas fa-code-branch"></i> View repositories</a>
+            <a class="dropdown-item" :href="safeUrl(&quot;/conference/&quot; + (conference?.conferenceID) + &quot;/edit&quot;)"><i class="far fa-edit"></i> Edit</a>
+            <a class="dropdown-item" :href="safeUrl(&quot;/conference/&quot; + (conference?.conferenceID) + &quot;/&quot;)"><i class="fa fa-eye"></i> View</a>
+            <a class="dropdown-item" :href="safeUrl(&quot;/admin/?conference=&quot; + (conference?.conferenceID))"><i class="fas fa-code-branch"></i> View repositories</a>
             <div class="dropdown-divider"></div>
-            <a class="dropdown-item text-danger" href="#" ng-show="conference.status != 'removed'" ng-click="removeConference(conference)"><i class="fas fa-trash-alt"></i> Remove</a>
+            <a class="dropdown-item text-danger" href="#" v-show="conference?.status != &#x27;removed&#x27;" @click.prevent="removeConference(conference)"><i class="fas fa-trash-alt"></i> Remove</a>
           </div>
         </div>
       </div>
     </div>
-    <div class="paper-table-empty" ng-if="filteredConferences.length == 0">
+    <div class="paper-table-empty" v-if="filteredConferences?.length == 0">
       <i class="fas fa-inbox"></i>
       <span>No conferences match the current filters.</span>
     </div>
   </div>
 
   <div class="admin-toolbar" style="justify-content: space-between; border-bottom: none;">
-    <span style="font-size: 12px; color: var(--ink-muted);">{{total | number}} results</span>
-    <div class="pagination-compact" ng-if="totalPage > 1">
-      <button class="btn btn-sm" ng-click="query.page = Math.max(1, query.page - 1)" ng-disabled="query.page <= 1"><i class="fas fa-chevron-left"></i> Previous</button>
-      <input type="number" class="form-control form-control-sm" ng-model="query.page" min="1" max="{{totalPage}}" style="width: 56px;" />
-      <span>of {{totalPage}}</span>
-      <button class="btn btn-sm" ng-click="query.page = Math.min(totalPage, query.page + 1)" ng-disabled="query.page >= totalPage">Next <i class="fas fa-chevron-right"></i></button>
+    <span style="font-size: 12px; color: var(--ink-muted);">{{ fmt?.number(total) }} results</span>
+    <div class="pagination-compact" v-if="totalPage &gt; 1">
+      <button class="btn btn-sm" @click="query.page = Math.max(1, query.page - 1)" :disabled="query?.page &lt;= 1"><i class="fas fa-chevron-left"></i> Previous</button>
+      <input type="number" class="form-control form-control-sm" min="1" style="width: 56px;" v-field="{ state: viewState, set: value =&gt; { query.page = value }, value: query?.page, form: null, options: {} }" :max="(totalPage)">
+      <span>of {{ totalPage }}</span>
+      <button class="btn btn-sm" @click="query.page = Math.min(totalPage, query.page + 1)" :disabled="query?.page &gt;= totalPage">Next <i class="fas fa-chevron-right"></i></button>
     </div>
     <span class="admin-filter-inline">
       <label>Per page</label>
-      <select class="form-control form-control-sm" ng-model="query.limit"><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option><option value="250">250</option></select>
+      <select class="form-control form-control-sm" v-field="{ state: viewState, set: value =&gt; { query.limit = value }, value: query?.limit, form: null, options: {} }"><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option><option value="250">250</option></select>
     </span>
   </div>
 </div>

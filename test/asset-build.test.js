@@ -20,6 +20,8 @@ describe("asset build", function () {
 
   beforeEach(function () {
     directory = fs.mkdtempSync(path.join(os.tmpdir(), "anonymous-assets-"));
+    fs.mkdirSync(path.join(directory, "public/script"), { recursive: true });
+    fs.writeFileSync(path.join(directory, "public/script/main.js"), 'globalThis.appLoaded = true;');
     for (const file of Object.values(groups).flat()) {
       const target = path.join(directory, file);
       fs.mkdirSync(path.dirname(target), { recursive: true });
@@ -49,6 +51,7 @@ describe("asset build", function () {
       const context = { assetOrder: [] };
       vm.runInNewContext(fs.readFileSync(path.join(directory, `public/script/${bundle}.min.js`), "utf8"), context);
       expect(context.assetOrder).to.deep.equal(groups[group]);
+      if (bundle === "vendor") expect(context.appLoaded).to.equal(true);
     }
     expect(fs.readFileSync(path.join(directory, "public/css/all.min.css"), "utf8")).to.equal(".cascade{color:#00f}".repeat(groups.cssFiles.length - 1) + ".cascade{color:red}");
     const manifest = JSON.parse(fs.readFileSync(path.join(directory, "public/asset-manifest.json"), "utf8"));

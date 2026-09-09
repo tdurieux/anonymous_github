@@ -8,15 +8,7 @@ const source = fs.readFileSync(path.join(__dirname, "../public/script/app.js"), 
 function harness(date) {
   const defs = {}, routes = {}, timers = new Map();
   let timerId = 0;
-  const chain = new Proxy({}, { get: (_, method) => (...args) => {
-    if (["controller", "directive"].includes(method)) defs[args[0]] = args[1];
-    if (method === "config") {
-      const route = { when(p, opt) { routes[p] = opt; return route; }, otherwise() {} };
-      args[0].at(-1)(route, { html5Mode() {} }, { useStaticFilesLoader() {}, preferredLanguage() {} });
-    }
-    return chain;
-  } });
-  const context = { angular: { module: () => chain }, console, Map, Set, Date: date || Date,
+  const context = { reactive: value => value, console, Map, Set, Date: date || Date,
     navigator: { platform: "Linux" }, document: { location: { pathname: "/r/repo" }, addEventListener() {}, querySelector() {} },
     window: {}, Prism: { highlightAll() {} }, encodeURIComponent,
     encodePathForUrl: p => p.split("/").map(encodeURIComponent).join("/"),
@@ -25,9 +17,17 @@ function harness(date) {
     setTimeout: fn => { timers.set(++timerId, fn); return timerId; },
     clearTimeout: id => timers.delete(id), setInterval: () => 0, clearInterval() {},
   };
-  vm.runInNewContext(source, context);
+  context.createTimers = () => ({ timeout: Object.assign(context.setTimeout, { cancel: context.clearTimeout }), interval: Object.assign(context.setInterval, { cancel: context.clearInterval }) });
+  context.createListeners = () => (target, name, callback) => target.addEventListener(name, callback);
+  const names = [...source.matchAll(/export const (\w+)/g)].map(match => match[1]);
+  vm.runInNewContext(source.replace(/^import .*;$/gm, "").replace(/export const/g, "var") + "\nthis.pageSetups = {" + names.join(",") + "};", context);
+  Object.assign(defs, context.pageSetups);
+  const routeSource = fs.readFileSync(path.join(__dirname, "../public/script/routes.js"), "utf8");
+  const routeContext = { pages: defs, admin: {} };
+  vm.runInNewContext(routeSource.replace(/^import .*;$/gm, "").replace("export const pageRoutes", "this.pageRoutes"), routeContext);
+  routeContext.pageRoutes.forEach(route => { routes[route.path] = route; });
   const events = {}, watches = {};
-  const scope = { $new() { return { $destroy() {} }; }, $on: (key, fn) => { (events[key] ||= []).push(fn); }, $watch: (key, fn) => { watches[key] = fn; }, $apply() {}, $applyAsync() {} };
+  const scope = { $new() { return { dispose() {} }; }, on: (key, fn) => { (events[key] ||= []).push(fn); }, watch: (key, fn) => { watches[key] = fn; }, $apply() {}, $applyAsync() {} };
   const requests = [];
   const http = {};
   for (const method of ["get", "post"]) http[method] = (url, body) => new Promise((resolve, reject) => requests.push({ method, url, body, resolve, reject }));
@@ -39,33 +39,12 @@ function harness(date) {
 }
 function explorer() {
   const h = harness(); h.params = { repoId: "repo", path: "README.md" };
-  h.defs.exploreController.at(-1)(h.scope, h.http, { url: () => "/r/repo/README.md" }, h.params, { trustAsHtml: x => x }, h.q);
-  h.navigate = path => { h.params.path = path; h.emit("$routeUpdate"); };
+  h.defs.exploreController(h.scope, h.http, { url: () => "/r/repo/README.md" }, h.params, { trustAsHtml: x => x }, h.q);
+  h.navigate = path => { h.params.path = path; h.emit("routeUpdate"); };
   return h;
 }
 
 describe("frontend production regressions", function () {
-  it("keeps filenames and folder paths out of compiled Angular templates", function () {
-    const h = harness(); let template;
-    const element = { html() {}, append() {}, 0: { addEventListener() {}, setAttribute() {} } };
-    h.scope.file = [{ name: '{{constructor.constructor("window.probe=1")()}}.txt', path: "", size: 1 }];
-    h.scope.$parent = {};
-    h.defs.tree[0]().controller.at(-1)(element, h.scope, {}, html => { template = html; return () => {}; });
-    h.watches.file(h.scope.file);
-    expect(template).not.to.include("constructor.constructor");
-    expect(template).to.include('ng-bind="treeNodes[0].name"');
-    expect(h.scope.treeNodes[0].name).to.equal(h.scope.file[0].name);
-  });
-  it("renders directories whose names collide with Object.prototype", function () {
-    const h = harness(); let template;
-    const element = { html() {}, 0: { addEventListener() {}, setAttribute() {} } };
-    h.scope.file = [{ name: "constructor", path: "" }, { name: "index.js", path: "constructor", size: 1 }];
-    h.scope.$parent = {};
-    h.defs.tree[0]().controller.at(-1)(element, h.scope, {}, html => { template = html; return () => {}; });
-    expect(() => h.watches.file(h.scope.file)).not.to.throw();
-    expect(template).to.include("treeNodes");
-    expect(h.scope.treeNodes[0].path).to.equal("/constructor/index.js");
-  });
   it("sanitizes Org output before trusting it", async function () {
     const h = explorer(); let untrusted;
     h.context.Org = { Parser: function () { this.parse = () => ({ convert: () => ({ toString: () => '<img onerror="probe()">' }) }); }, ConverterHTML: {} };
@@ -87,21 +66,20 @@ describe("frontend production regressions", function () {
   });
   it("reloads the repository when only its ID changes", function () {
     const h = explorer(); h.scope.files = [{ name: "old", path: "old" }];
-    h.params.repoId = "new-repo"; h.emit("$routeUpdate");
+    h.params.repoId = "new-repo"; h.emit("routeUpdate");
     expect(h.scope.repoId).to.equal("new-repo"); expect(h.scope.files).to.have.length(0);
     expect(h.requests.at(-1).url).to.equal("/api/repo/new-repo/options");
   });
   it("reloads PR and Gist controllers for new resource IDs", function () {
     const h = harness();
-    for (const route of ["/pr/:pullRequestId/:path*?", "/gist/:gistId/:path*?"]) {
-      expect(h.routes[route].reloadOnUrl).not.to.equal(false);
-      expect(h.routes[route].reloadOnSearch).to.equal(false);
+    for (const route of ["/pr/:pullRequestId/:path(.*)*", "/gist/:gistId/:path(.*)*"]) {
+      expect(h.routes[route].preserveExplorer).to.equal(false);
     }
   });
   it("includes PR comment authors and bodies in the preview batch", async function () {
     const h = harness(); const pending = new Map(); let id = 0;
     const timeout = fn => { pending.set(++id, fn); return id; }; timeout.cancel = id => pending.delete(id);
-    h.defs.anonymizeController.at(-1)(h.scope, h.http, {}, {}, {}, () => {}, timeout);
+    h.defs.anonymizeController(h.scope, h.http, {}, {}, {}, () => {}, timeout);
     h.scope.detectedType = "pr"; h.scope.terms = "Alice";
     h.scope.details = { pullRequest: { title: "title", comments: [{ author: "Alice", body: "Alice comment" }] } };
     h.watches.terms(); [...pending.values()][0]();
@@ -111,7 +89,7 @@ describe("frontend production regressions", function () {
     expect(h.scope.anonymizePrContent("Alice")).to.equal("MASK");
   });
   it("selects the diff tab after asynchronous PR loading", async function () {
-    const h = harness(); h.defs.pullRequestController.at(-1)(h.scope, h.http, {}, { pullRequestId: "pr" }, {});
+    const h = harness(); h.defs.pullRequestController(h.scope, h.http, {}, { pullRequestId: "pr" }, {});
     h.requests[0].resolve({ data: {} }); await h.flush();
     h.requests[1].resolve({ data: { diff: "patch" } }); await h.flush();
     expect(h.scope.tabState.active).to.equal("diff");
@@ -126,17 +104,17 @@ describe("frontend production regressions", function () {
     expect(h.scope.fileSearchResults).to.have.length(0);
   });
   it("cancels status polling on destroy, including late responses", async function () {
-    const h = harness(); h.defs.statusController.at(-1)(h.scope, h.http, { repoId: "repo" });
+    const h = harness(); h.defs.statusController(h.scope, h.http, { repoId: "repo" });
     h.requests[0].resolve({ data: { status: "preparing" } }); await h.flush();
     expect(h.timers.size).to.equal(1); const callback = [...h.timers.values()][0];
-    h.emit("$destroy"); expect(h.timers.size).to.equal(0); callback(); expect(h.requests).to.have.length(1);
-    const late = harness(); late.defs.statusController.at(-1)(late.scope, late.http, { repoId: "repo" });
-    late.emit("$destroy"); late.requests[0].resolve({ data: { status: "preparing" } }); await late.flush(); expect(late.timers.size).to.equal(0);
+    h.emit("dispose"); expect(h.timers.size).to.equal(0); callback(); expect(h.requests).to.have.length(1);
+    const late = harness(); late.defs.statusController(late.scope, late.http, { repoId: "repo" });
+    late.emit("dispose"); late.requests[0].resolve({ data: { status: "preparing" } }); await late.flush(); expect(late.timers.size).to.equal(0);
   });
   it("translates profile save failures", async function () {
-    const h = harness(); expect(h.defs.profileController).to.include("$translate");
+    const h = harness(); expect(h.defs.profileController.toString()).to.include("translate");
     const timeout = Object.assign(() => 0, { cancel() {} });
-    h.defs.profileController.at(-1)(h.scope, h.http, key => Promise.resolve(key), timeout, { load: () => Promise.resolve({}) });
+    h.defs.profileController(h.scope, h.http, key => Promise.resolve(key), timeout, { load: () => Promise.resolve({}) });
     h.scope.saveDefault(); h.requests.at(-1).reject({ data: { error: "not_connected" } }); await h.flush();
     expect(h.scope.error).to.equal("ERRORS.not_connected");
   });
@@ -147,7 +125,7 @@ describe("frontend production regressions", function () {
       const focused = []; h.focused = focused;
       const win = { document: { getElementById: id => ({ focus: () => focused.push(id) }) } };
       const timeout = fn => fn();
-      h.defs.homeController.at(-1)(h.scope, h.http, { url() {} }, win, timeout);
+      h.defs.homeController(h.scope, h.http, { url() {} }, win, timeout);
       return h;
     }
     it("selects the first feature and switches on click", function () {
@@ -179,7 +157,7 @@ describe("frontend production regressions", function () {
     it("marks the tabs up as tabs and keeps links out of the buttons", function () {
       expect(home).to.match(/<button[^>]*class="paper-feature-tab"[^>]*role="tab"/);
       expect(home).to.match(/role="tablist"/);
-      expect(home).to.match(/role="tabpanel"[^>]*aria-labelledby="feature-tab-\{\{f\.key\}\}"/);
+      expect(home).to.match(/role="tabpanel"[^>]*:aria-labelledby=/);
       const button = home.slice(home.indexOf('class="paper-feature-tab"'), home.indexOf("</button>"));
       expect(button).to.not.include("<a ");
       expect(home).to.not.match(/href="#"/);
@@ -188,7 +166,7 @@ describe("frontend production regressions", function () {
   it("keeps the conference end date after the start across December", function () {
     class December extends Date { constructor(...args) { super(...(args.length ? args : ["2026-12-15T12:00:00Z"])); } }
     const h = harness(December); h.scope.user = {};
-    h.defs.newConferenceController.at(-1)(h.scope, h.http, {}, {});
+    h.defs.newConferenceController(h.scope, h.http, {}, {});
     expect(h.scope.options.startDate.getFullYear()).to.equal(2027);
     expect(h.scope.options.endDate.getTime()).to.be.greaterThan(h.scope.options.startDate.getTime());
   });

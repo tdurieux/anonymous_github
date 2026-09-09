@@ -1,23 +1,12 @@
-/**
- * AngularJS PDF viewer directive built on pdf.js.
- *
- * Replaces the old ng-pdfviewer directive, which drove pdf.js 0.8.505 (2013)
- * through the long-removed `PDFJS.getDocument()` global API. That build
- * emitted malformed CFF/OpenType data for subsetted fonts — the browser
- * rejected the font ("OTS parsing error: CFF: Failed to parse Top DICT
- * Data") and every glyph fell back to the wrong character, so PDFs rendered
- * as garbage text rather than failing outright (#771).
- *
- * Pages rasterise lazily as they scroll into view: a LaTeX/Quarto report can
- * run to dozens of pages, and drawing every canvas up front costs hundreds of
- * megabytes. Visibility is computed from element rects rather than an
- * IntersectionObserver — an observer reports nothing while the tab is
- * occluded, which would leave the reader looking at empty placeholders.
- */
+import { h, ref, watch, onMounted, onBeforeUnmount } from "vue";
 
-angular.module("ngPDFViewer", []).directive("pdfviewer", [
-  "$window",
-  function ($window) {
+export default {
+  name: "pdfviewer",
+  props: ["src"],
+  setup(props) {
+    const host = ref(null);
+    onMounted(() => {
+      const element = [host.value];
     // How far beyond the viewport to rasterise, so scrolling stays ahead of
     // the reader.
     const PRERENDER_MARGIN = 400;
@@ -26,12 +15,7 @@ angular.module("ngPDFViewer", []).directive("pdfviewer", [
     // to read zoomed than stretched across a wide monitor.
     const FIT_MAX_WIDTH = 1000;
 
-    return {
-      restrict: "E",
-      scope: {
-        src: "@",
-      },
-      link: function (scope, element) {
+
         const container = element[0];
         container.classList.add("pdf-viewer");
 
@@ -231,7 +215,7 @@ angular.module("ngPDFViewer", []).directive("pdfviewer", [
         // Match the canvas backing store to the device pixel ratio, else text
         // is visibly soft on HiDPI screens.
         function renderPage(page, slot) {
-          const ratio = $window.devicePixelRatio || 1;
+          const ratio = window.devicePixelRatio || 1;
           const unscaled = page.getViewport({ scale: 1 });
           const cssWidth = parseFloat(slot.style.width);
           if (!cssWidth) return;
@@ -300,7 +284,7 @@ angular.module("ngPDFViewer", []).directive("pdfviewer", [
         function schedule() {
           if (scheduled) return;
           scheduled = true;
-          $window.requestAnimationFrame(function () {
+          window.requestAnimationFrame(function () {
             scheduled = false;
             updateCurrentPage();
             renderVisible();
@@ -317,8 +301,8 @@ angular.module("ngPDFViewer", []).directive("pdfviewer", [
             ran = true;
             renderVisible();
           }
-          $window.requestAnimationFrame(once);
-          $window.setTimeout(once, 50);
+          window.requestAnimationFrame(once);
+          window.setTimeout(once, 50);
         }
 
         // Reset every page to a placeholder at the current width, then redraw
@@ -402,15 +386,16 @@ angular.module("ngPDFViewer", []).directive("pdfviewer", [
         }
 
         pages.addEventListener("scroll", schedule, { passive: true });
-        angular.element($window).on("resize", onResize);
+        $(window).on("resize", onResize);
         syncToolbar();
-        scope.$watch("src", load);
-        scope.$on("$destroy", function () {
+        watch(() => props.src, load, { immediate: true });
+        onBeforeUnmount(function () {
           pages.removeEventListener("scroll", schedule);
-          angular.element($window).off("resize", onResize);
+          $(window).off("resize", onResize);
           teardown();
         });
-      },
-    };
+
+    });
+    return () => h("pdfviewer", { ref: host });
   },
-]);
+};

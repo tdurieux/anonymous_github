@@ -14,92 +14,64 @@
           <a href="/pull-request-anonymize" class="btn btn-ink">
             <i class="fa fa-plus-circle mr-1" aria-hidden="true"></i> Anonymize PR
           </a>
-          <a
-            title="Claim the ownership of an existing anonymized repository."
-            data-toggle="tooltip"
-            data-placement="bottom"
-            href="/claim"
-            class="btn"
-          >
+          <a title="Claim the ownership of an existing anonymized repository." data-toggle="tooltip" data-placement="bottom" href="/claim" class="btn">
             Claim
           </a>
         </div>
       </div>
 
       <!-- Search + filters row -->
-      <form class="w-100" aria-label="Pull Requests" accept-charset="UTF-8">
+      <form class="w-100" aria-label="Pull Requests" accept-charset="UTF-8" v-form="viewState">
         <div class="d-flex flex-column flex-md-row align-items-md-center" style="gap: 8px">
           <div class="flex-grow-1">
-            <input
-              type="search"
-              id="search"
-              class="form-control"
-              aria-label="Find a pull request..."
-              placeholder="Find a pull request..."
-              autocomplete="off"
-              ng-model="search"
-            />
+            <input type="search" id="search" class="form-control" aria-label="Find a pull request..." placeholder="Find a pull request..." autocomplete="off" v-field="{ state: viewState, set: value =&gt; { search = value }, value: search, form: null, options: {} }">
           </div>
           <div class="d-flex flex-wrap" style="gap: 6px">
             <div class="dropdown">
-              <button
-                class="btn btn-sm dropdown-toggle"
-                type="button"
-                id="dropdownSort"
-                data-toggle="dropdown"
-                aria-haspopup="true"
-                aria-expanded="false"
-              >
+              <button class="btn btn-sm dropdown-toggle" type="button" id="dropdownSort" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                 Sort
               </button>
               <div class="dropdown-menu" aria-labelledby="dropdownSort">
                 <h6 class="dropdown-header">Select order</h6>
                 <div class="form-check dropdown-item">
-                  <input class="form-check-input" type="radio" name="sort" id="sortFullName" value="fullName" ng-model="orderBy" />
+                  <input class="form-check-input" type="radio" name="sort" id="sortFullName" value="fullName" v-field="{ state: viewState, set: value =&gt; { orderBy = value }, value: orderBy, form: null, options: {} }">
                   <label class="form-check-label" for="sortFullName">Pull Request</label>
                 </div>
                 <div class="form-check dropdown-item">
-                  <input class="form-check-input" type="radio" name="sort" id="sortAnonymizeDate" value="-anonymizeDate" ng-model="orderBy" />
+                  <input class="form-check-input" type="radio" name="sort" id="sortAnonymizeDate" value="-anonymizeDate" v-field="{ state: viewState, set: value =&gt; { orderBy = value }, value: orderBy, form: null, options: {} }">
                   <label class="form-check-label" for="sortAnonymizeDate">Anonymize Date</label>
                 </div>
                 <div class="form-check dropdown-item">
-                  <input class="form-check-input" type="radio" name="sort" id="sortStatus" value="-status" ng-model="orderBy" />
+                  <input class="form-check-input" type="radio" name="sort" id="sortStatus" value="-status" v-field="{ state: viewState, set: value =&gt; { orderBy = value }, value: orderBy, form: null, options: {} }">
                   <label class="form-check-label" for="sortStatus">Status</label>
                 </div>
                 <div class="form-check dropdown-item">
-                  <input class="form-check-input" type="radio" name="sort" id="sortLastView" value="-lastView" ng-model="orderBy" />
+                  <input class="form-check-input" type="radio" name="sort" id="sortLastView" value="-lastView" v-field="{ state: viewState, set: value =&gt; { orderBy = value }, value: orderBy, form: null, options: {} }">
                   <label class="form-check-label" for="sortLastView">Last View</label>
                 </div>
                 <div class="form-check dropdown-item">
-                  <input class="form-check-input" type="radio" name="sort" id="sortPageView" value="-pageView" ng-model="orderBy" />
+                  <input class="form-check-input" type="radio" name="sort" id="sortPageView" value="-pageView" v-field="{ state: viewState, set: value =&gt; { orderBy = value }, value: orderBy, form: null, options: {} }">
                   <label class="form-check-label" for="sortPageView">Page View</label>
                 </div>
               </div>
             </div>
 
             <div class="dropdown">
-              <button
-                class="btn btn-sm dropdown-toggle"
-                type="button"
-                id="dropdownStatus"
-                data-toggle="dropdown"
-                aria-haspopup="true"
-                aria-expanded="false"
-              >
+              <button class="btn btn-sm dropdown-toggle" type="button" id="dropdownStatus" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                 Status
               </button>
               <div class="dropdown-menu" aria-labelledby="dropdownStatus">
                 <h6 class="dropdown-header">Select status</h6>
                 <div class="form-check dropdown-item">
-                  <input class="form-check-input" type="checkbox" name="sort" id="statusReady" value="ready" ng-model="filters.status.ready" />
+                  <input class="form-check-input" type="checkbox" name="sort" id="statusReady" value="ready" v-field="{ state: viewState, set: value =&gt; { filters.status.ready = value }, value: filters?.status?.ready, form: null, options: {} }">
                   <label class="form-check-label" for="statusReady">Ready</label>
                 </div>
                 <div class="form-check dropdown-item">
-                  <input class="form-check-input" type="checkbox" name="sort" id="statusExpired" value="expired" ng-model="filters.status.expired" />
+                  <input class="form-check-input" type="checkbox" name="sort" id="statusExpired" value="expired" v-field="{ state: viewState, set: value =&gt; { filters.status.expired = value }, value: filters?.status?.expired, form: null, options: {} }">
                   <label class="form-check-label" for="statusExpired">Expired</label>
                 </div>
                 <div class="form-check dropdown-item">
-                  <input class="form-check-input" type="checkbox" name="sort" id="statusRemoved" value="removed" ng-model="filters.status.removed" />
+                  <input class="form-check-input" type="checkbox" name="sort" id="statusRemoved" value="removed" v-field="{ state: viewState, set: value =&gt; { filters.status.removed = value }, value: filters?.status?.removed, form: null, options: {} }">
                   <label class="form-check-label" for="statusRemoved">Removed</label>
                 </div>
               </div>
@@ -109,10 +81,10 @@
       </form>
 
       <!-- Active filter chips -->
-      <div class="d-flex flex-wrap mt-2" style="gap: 6px" ng-show="filters.status.ready === false || filters.status.expired === false || filters.status.removed === false">
-        <span class="filter-chip" ng-show="!v" ng-repeat="(f, v) in filters.status">
-          {{f | title}}
-          <button type="button" class="filter-chip-close" aria-label="Remove filter" ng-click="filters.status[f] = true;">
+      <div class="d-flex flex-wrap mt-2" style="gap: 6px" v-show="filters?.status?.ready === false || filters?.status?.expired === false || filters?.status?.removed === false">
+        <span class="filter-chip" v-for="(v, f, index) in filters?.status" v-show="!v">
+          {{ fmt?.title(f) }}
+          <button type="button" class="filter-chip-close" aria-label="Remove filter" @click="filters.status[f] = true;">
             &times;
           </button>
         </span>
@@ -121,88 +93,68 @@
 
     <!-- Pull request list -->
     <ul class="repo-list w-100">
-      <li
-        class="repo-list-item"
-        ng-class="{'repo-inactive': pr.status == 'expired' || pr.status == 'removed' || pr.status == 'error'}"
-        ng-repeat="pr in pullRequests| filter:pullRequestFilter| orderBy:orderBy as filteredPullRequests"
-      >
+      <li class="repo-list-item" v-for="(pr, index) in filteredPullRequests" :class="{&#x27;repo-inactive&#x27;: pr?.status == &#x27;expired&#x27; || pr?.status == &#x27;removed&#x27; || pr?.status == &#x27;error&#x27;}">
         <div class="repo-list-item-content">
           <div class="repo-list-item-main">
             <div class="repo-list-item-header">
-              <a ng-href="/pr/{{pr.pullRequestId}}" class="repo-name" ng-bind="pr.pullRequestId"></a>
-              <span
-                class="status-badge"
-                ng-class="{'status-removed': pr.status == 'removed' || pr.status == 'expired' || pr.status == 'removing' || pr.status == 'expiring', 'status-preparing': pr.status == 'preparing' || pr.status == 'download', 'status-ready': pr.status == 'ready', 'status-error': pr.status == 'error'}"
-              ><span ng-bind="pr.status | title"></span><span
-                  ng-if="pr.status == 'error'"
-                  ng-bind="': ' + pr.statusMessage"
-                ></span></span>
+              <a class="repo-name" v-text="pr?.pullRequestId" :href="safeUrl(&quot;/pr/&quot; + (pr?.pullRequestId))"></a>
+              <span class="status-badge" :class="{&#x27;status-removed&#x27;: pr?.status == &#x27;removed&#x27; || pr?.status == &#x27;expired&#x27; || pr?.status == &#x27;removing&#x27; || pr?.status == &#x27;expiring&#x27;, &#x27;status-preparing&#x27;: pr?.status == &#x27;preparing&#x27; || pr?.status == &#x27;download&#x27;, &#x27;status-ready&#x27;: pr?.status == &#x27;ready&#x27;, &#x27;status-error&#x27;: pr?.status == &#x27;error&#x27;}"><span v-text="fmt?.title(pr?.status)"></span><span v-if="pr?.status == &#x27;error&#x27;" v-text="&#x27;: &#x27; + pr?.statusMessage"></span></span>
             </div>
             <div class="repo-source">
               <span>
                 <i class="fab fa-github" aria-hidden="true"></i>
-                <a href="https://github.com/{{pr.source.repositoryFullName}}/pull/{{pr.source.pullRequestId}}">{{pr.source.repositoryFullName}}#{{pr.source.pullRequestId}}</a>
+                <a :href="safeUrl(&quot;https://github.com/&quot; + (pr?.source?.repositoryFullName) + &quot;/pull/&quot; + (pr?.source?.pullRequestId))">{{ pr?.source?.repositoryFullName }}#{{ pr?.source?.pullRequestId }}</a>
               </span>
-              <span
-                class="status-badge"
-                ng-class="{'status-ready': pr.merged, 'status-removed': pr.state=='open', 'status-error': pr.state=='closed' && !pr.merged}"
-                style="font-size: 10px;"
-              >
-                {{pr.merged ? "merged" : pr.state | title}}
+              <span class="status-badge" style="font-size: 10px;" :class="{&#x27;status-ready&#x27;: pr?.merged, &#x27;status-removed&#x27;: pr?.state==&#x27;open&#x27;, &#x27;status-error&#x27;: pr?.state==&#x27;closed&#x27; &amp;&amp; !pr?.merged}">
+                {{ fmt?.title(pr?.merged ? "merged" : pr?.state) }}
               </span>
-              <span class="repo-date">anonymized {{pr.anonymizeDate | humanTime}}</span>
+              <span class="repo-date">anonymized {{ fmt?.humanTime(pr?.anonymizeDate) }}</span>
             </div>
           </div>
           <div class="repo-meta">
-            <span ng-if="::pr.conference" title="Conference">
-              <i class="fas fa-chalkboard-teacher"></i> {{pr.conference}}
+            <span title="Conference" v-if="pr?.conference">
+              <i class="fas fa-chalkboard-teacher"></i> {{ pr?.conference }}
             </span>
-            <span title="Terms: {{::pr.options.terms.join(', ')}}" data-toggle="tooltip" data-placement="bottom">
-              <i class="fas fa-shield-alt"></i> {{::pr.options.terms.length | number}}
+            <span data-toggle="tooltip" data-placement="bottom" :title="&quot;Terms: &quot; + (pr?.options?.terms?.join(&#x27;, &#x27;))">
+              <i class="fas fa-shield-alt"></i> {{ fmt?.number(pr?.options?.terms?.length) }}
             </span>
-            <span title="Views: {{::pr.pageView | number}}" data-toggle="tooltip" data-placement="bottom">
-              <i class="far fa-eye"></i> {{::pr.pageView | number}}
+            <span data-toggle="tooltip" data-placement="bottom" :title="&quot;Views: &quot; + (fmt?.number(pr?.pageView))">
+              <i class="far fa-eye"></i> {{ fmt?.number(pr?.pageView) }}
             </span>
-            <span title="Last view: {{::pr.lastView | date}}" data-toggle="tooltip" data-placement="bottom">
-              <i class="far fa-calendar-alt"></i> {{::pr.lastView | humanTime}}
+            <span data-toggle="tooltip" data-placement="bottom" :title="&quot;Last view: &quot; + (fmt?.date(pr?.lastView))">
+              <i class="far fa-calendar-alt"></i> {{ fmt?.humanTime(pr?.lastView) }}
             </span>
-            <span ng-if="pr.options.expirationMode!='never' && pr.status == 'ready'">
-              <i class="far fa-clock"></i> Expire: {{pr.options.expirationDate | humanTime}}
+            <span v-if="pr?.options?.expirationMode!=&#x27;never&#x27; &amp;&amp; pr?.status == &#x27;ready&#x27;">
+              <i class="far fa-clock"></i> Expire: {{ fmt?.humanTime(pr?.options?.expirationDate) }}
             </span>
           </div>
         </div>
         <div class="repo-list-item-actions">
           <div class="dropdown">
-            <button
-              class="btn btn-sm dropdown-toggle"
-              type="button"
-              data-toggle="dropdown"
-              aria-haspopup="true"
-              aria-expanded="false"
-            >
+            <button class="btn btn-sm dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
               Actions
             </button>
             <div class="dropdown-menu dropdown-menu-right">
-              <a class="dropdown-item" href="/pull-request-anonymize/{{pr.pullRequestId}}">
+              <a class="dropdown-item" :href="safeUrl(&quot;/pull-request-anonymize/&quot; + (pr?.pullRequestId))">
                 <i class="far fa-edit" aria-hidden="true"></i> Edit
               </a>
-              <a class="dropdown-item" href="#" ng-show="pr.status == 'ready' || pr.status == 'error'" ng-click="updatePullRequest(pr)">
+              <a class="dropdown-item" href="#" v-show="pr?.status == &#x27;ready&#x27; || pr?.status == &#x27;error&#x27;" @click.prevent="updatePullRequest(pr)">
                 <i class="fas fa-sync"></i> Force update
               </a>
-              <a class="dropdown-item" href="#" ng-show="pr.status == 'removed'" ng-click="updatePullRequest(pr)">
+              <a class="dropdown-item" href="#" v-show="pr?.status == &#x27;removed&#x27;" @click.prevent="updatePullRequest(pr)">
                 <i class="fas fa-check-circle"></i> Enable
               </a>
-              <a class="dropdown-item" href="#" ng-show="pr.status == 'ready'" ng-click="removePullRequest(pr)">
+              <a class="dropdown-item" href="#" v-show="pr?.status == &#x27;ready&#x27;" @click.prevent="removePullRequest(pr)">
                 <i class="fas fa-trash-alt"></i> Remove
               </a>
-              <a class="dropdown-item" href="/pr/{{pr.pullRequestId}}/">
+              <a class="dropdown-item" :href="safeUrl(&quot;/pr/&quot; + (pr?.pullRequestId) + &quot;/&quot;)">
                 <i class="fa fa-eye" aria-hidden="true"></i> View PR
               </a>
             </div>
           </div>
         </div>
       </li>
-      <li class="repo-list-empty" ng-if="filteredPullRequests.length == 0">
+      <li class="repo-list-empty" v-if="filteredPullRequests?.length == 0">
         <i class="fas fa-inbox"></i>
         <span>No pull requests to display.</span>
       </li>

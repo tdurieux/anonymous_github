@@ -6,13 +6,11 @@ const { pipeline } = require("node:stream");
 const cleanCss = require("gulp-clean-css");
 const crypto = require("crypto");
 const fs = require("fs");
+const esbuild = require("esbuild");
+const { compileTemplate } = require("vue/compiler-sfc");
+const { promisify } = require("node:util");
 
 const coreJsFiles = [
-  "public/script/external/angular.min.js",
-  "public/script/external/angular-translate.min.js",
-  "public/script/external/angular-translate-loader-static-files.min.js",
-  "public/script/external/angular-sanitize.min.js",
-  "public/script/external/angular-route.min.js",
   "public/script/external/github-emojis.js",
   "public/script/external/marked-emoji.js",
   "public/script/external/marked.min.js",
@@ -27,8 +25,6 @@ const coreJsFiles = [
 
 const vendorJsFiles = [
   "public/script/external/pdf.js",
-  "public/script/pdf-viewer.js",
-  "public/script/html-doc.js",
   "public/script/external/katex.min.js",
   "public/script/external/katex-auto-render.min.js",
   "public/script/external/marked-katex-extension.umd.min.js",
@@ -36,9 +32,6 @@ const vendorJsFiles = [
   "public/script/external/notebook.min.js",
   "public/script/external/org.js",
   "public/script/external/ace/ace.js",
-  "public/script/external/ui-ace.min.js",
-  "public/script/app.js",
-  "public/script/admin.js",
 ];
 
 const mermaidFiles = [
@@ -70,8 +63,26 @@ function buildCoreJs(cb) {
   pipeline(orderedSrc(coreJsFiles), concat("core.min.js"), uglify(), dest("public/script"), cb);
 }
 
-function buildVendorJs(cb) {
-  pipeline(orderedSrc(vendorJsFiles), concat("vendor.min.js"), uglify(), dest("public/script"), cb);
+async function buildVendorJs() {
+  const app = await esbuild.build({
+    entryPoints: ["public/script/main.js"], bundle: true, write: false,
+    format: "iife", minify: true, target: "es2020",
+    define: { "process.env.NODE_ENV": JSON.stringify("production"), __VUE_OPTIONS_API__: "true", __VUE_PROD_DEVTOOLS__: "false", __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: "false" },
+    plugins: [{ name: "vue-templates", setup(build) {
+      build.onLoad({ filter: /\.htm$/ }, async ({ path }) => {
+        const { code, errors } = compileTemplate({
+          source: fs.readFileSync(path, "utf8"), filename: path, id: "anonymous",
+          compilerOptions: { nodeTransforms: [node => {
+            if (node.type === 1 && node.props.some(prop => prop.type === 7 && ["text", "html"].includes(prop.name))) node.children = [];
+          }] },
+        });
+        if (errors.length) throw errors[0];
+        return { contents: code, loader: "js" };
+      });
+    } }],
+  });
+  await promisify(pipeline)(orderedSrc(vendorJsFiles), concat("vendor.min.js"), uglify(), dest("public/script"));
+  fs.appendFileSync("public/script/vendor.min.js", "\n;" + app.outputFiles[0].text);
 }
 
 function buildMermaidJs(cb) {

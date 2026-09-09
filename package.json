@@ -16,7 +16,9 @@
     "build": "rm -rf build && tsc && gulp",
     "knip": "knip",
     "migrate:credentials": "node -r ts-node/register src/scripts/migrate-credentials.ts",
-    "recover:owners": "node -r ts-node/register src/scripts/recover-repository-owners.ts"
+    "recover:owners": "node -r ts-node/register src/scripts/recover-repository-owners.ts",
+    "build:ui": "gulp",
+    "test:ui": "gulp && mocha test/frontend-regressions.test.js test/dashboard-ui.test.js test/vue-ui.test.js"
   },
   "repository": {
     "type": "git",
@@ -90,19 +92,23 @@
     "@types/unzip-stream": "^0.3.4",
     "c8": "^10.1.3",
     "chai": "^4.5.0",
+    "esbuild": "^0.25.12",
     "eslint": "^10.2.0",
     "gulp": "^5.0.0",
     "gulp-clean-css": "^4.3.0",
     "gulp-concat": "^2.6.1",
     "gulp-uglify": "^3.0.2",
     "http-proxy-middleware": "^3.0.5",
+    "jsdom": "^26.1.0",
     "knip": "^5.1.0",
     "mocha": "^12.0.0",
     "nodemon": "^3.1.0",
     "ordered-read-streams": "^2.0.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.3",
-    "typescript-eslint": "^8.58.2"
+    "typescript-eslint": "^8.58.2",
+    "vue": "^3.5.42",
+    "vue-router": "^4.6.4"
   },
   "nodemonConfig": {
     "ignore": [

@@ -1,159 +1,71 @@
-<div class="explorer-page" ng-init="sidebarCollapsed = window.matchMedia && window.matchMedia('(max-width: 767px)').matches">
-  <button
-    class="sidebar-toggle"
-    ng-show="files.length"
-    ng-click="sidebarCollapsed = !sidebarCollapsed"
-    aria-label="{{sidebarCollapsed ? 'Show files' : 'Hide files'}}"
-  >
-    <i class="fas" ng-class="sidebarCollapsed ? 'fa-folder-open' : 'fa-times'"></i>
-    <span ng-bind="sidebarCollapsed ? 'Files' : 'Close'"></span>
+<div class="explorer-page">
+  <button class="sidebar-toggle" v-show="files?.length" @click="sidebarCollapsed = !sidebarCollapsed" :aria-label="(sidebarCollapsed ? &#x27;Show files&#x27; : &#x27;Hide files&#x27;)">
+    <i class="fas" :class="sidebarCollapsed ? &#x27;fa-folder-open&#x27; : &#x27;fa-times&#x27;"></i>
+    <span v-text="sidebarCollapsed ? &#x27;Files&#x27; : &#x27;Close&#x27;"></span>
   </button>
 
-  <div class="leftCol" ng-show="files.length" ng-class="{'collapsed': sidebarCollapsed}">
+  <div class="leftCol" v-show="files?.length" :class="{&#x27;collapsed&#x27;: sidebarCollapsed}">
     <div class="leftCol-head">
       <span class="leftCol-eyebrow">Files</span>
-      <button class="leftCol-close" ng-click="sidebarCollapsed = true" aria-label="Close files">
+      <button class="leftCol-close" aria-label="Close files" @click="sidebarCollapsed = true">
         <i class="fas fa-times"></i>
       </button>
     </div>
     <div class="leftCol-search">
       <div class="tree-search-box">
-        <i class="fas tree-search-icon" ng-class="fileSearchLoading ? 'fa-spinner fa-spin' : 'fa-search'"></i>
-        <input
-          type="text"
-          class="tree-search-input"
-          placeholder="Search files"
-          ng-model="fileSearchQuery"
-          ng-model-options="{ debounce: 300 }"
-          ng-change="onFileSearchChange()"
-          aria-label="Search files"
-        />
-        <kbd class="tree-search-kbd" ng-hide="fileSearchQuery">{{isMac ? '⌘' : 'Ctrl+'}}K</kbd>
-        <button
-          class="tree-search-clear"
-          ng-show="fileSearchQuery"
-          ng-click="fileSearchQuery = ''; onFileSearchChange()"
-          aria-label="Clear search"
-        >&times;</button>
+        <i class="fas tree-search-icon" :class="fileSearchLoading ? &#x27;fa-spinner fa-spin&#x27; : &#x27;fa-search&#x27;"></i>
+        <input type="text" class="tree-search-input" placeholder="Search files" aria-label="Search files" v-field="{ state: viewState, set: value =&gt; { fileSearchQuery = value }, value: fileSearchQuery, form: null, options: { debounce: 300 }, change: () =&gt; { onFileSearchChange() } }">
+        <kbd class="tree-search-kbd" v-show="!(fileSearchQuery)">{{ isMac ? '⌘' : 'Ctrl+' }}K</kbd>
+        <button class="tree-search-clear" aria-label="Clear search" v-show="fileSearchQuery" @click="fileSearchQuery = &#x27;&#x27;; onFileSearchChange()">&times;</button>
       </div>
     </div>
     <div class="leftCol-project-header">
-      <span class="project-name" ng-bind="repoId"></span>
-      <span class="project-file-count">{{fileCounts[''] || files.length}} files</span>
+      <span class="project-name" v-text="repoId"></span>
+      <span class="project-file-count">{{ fileCounts?.[''] || files?.length }} files</span>
     </div>
     <div class="leftCol-body">
-      <div
-        ng-if="options.truncatedFolders.length > 0"
-        class="paper-inline-warning"
-        role="alert"
-      >
+      <div class="paper-inline-warning" role="alert" v-if="options?.truncatedFolders?.length &gt; 0">
         <i class="fas fa-exclamation-triangle"></i>
-        {{ 'WARNINGS.repo_truncated' | translate }}
+        {{ fmt?.translate('WARNINGS.repo_truncated') }}
       </div>
-      <div
-        ng-if="options.hasSubmodules"
-        class="paper-inline-warning"
-        role="alert"
-      >
+      <div class="paper-inline-warning" role="alert" v-if="options?.hasSubmodules">
         <i class="fas fa-exclamation-triangle"></i>
-        {{ 'WARNINGS.submodules_not_included' | translate }}
+        {{ fmt?.translate('WARNINGS.submodules_not_included') }}
       </div>
-      <tree class="files" file="files" search-query="fileSearchQuery" search-results="fileSearchResults"></tree>
+      <tree class="files" :file="files" :search-query="fileSearchQuery" :search-results="fileSearchResults" :page="viewState"></tree>
     </div>
     <div class="leftCol-foot">
-      <span
-        class="last-update"
-        data-toggle="tooltip"
-        data-placement="top"
-        title="{{options.lastUpdateDate}}"
-      >
-        Updated {{options.lastUpdateDate|date}}
+      <span class="last-update" data-toggle="tooltip" data-placement="top" :title="(options?.lastUpdateDate)">
+        Updated {{ fmt?.date(options?.lastUpdateDate) }}
       </span>
     </div>
   </div>
 
-  <div
-    class="leftCol-backdrop"
-    ng-show="files.length && !sidebarCollapsed"
-    ng-click="sidebarCollapsed = true"
-  ></div>
+  <div class="leftCol-backdrop" v-show="files?.length &amp;&amp; !sidebarCollapsed" @click="sidebarCollapsed = true"></div>
 
   <div class="explorer-main">
     <div class="status-bar">
       <ol class="breadcrumb paths" aria-label="Path">
-        <li class="breadcrumb-item" ng-repeat="p in paths" ng-bind="p"></li>
+        <li class="breadcrumb-item" v-for="(p, index) in paths" v-text="p"></li>
       </ol>
       <div class="status-bar-actions">
-        <a
-          ng-if="options.isAdmin || options.isOwner"
-          ng-href="/anonymize/{{repoId}}"
-          class="btn btn-sm"
-          aria-label="Edit"
-          ><i class="far fa-edit"></i><span class="d-none d-md-inline"> Edit</span></a
-        >
-        <button
-          ng-if="type == 'html-doc' && !showSource"
-          ng-click="toggleAllowScripts()"
-          class="btn btn-sm"
-          ng-class="{'btn-active': allowScripts}"
-          aria-label="Allow this document to run JavaScript"
-          title="Scripts in this file are blocked by default. Enable them only if you trust the repository — the document stays isolated from your session either way."
-        >
+        <a class="btn btn-sm" aria-label="Edit" v-if="options?.isAdmin || options?.isOwner" :href="safeUrl(&quot;/anonymize/&quot; + (repoId))"><i class="far fa-edit"></i><span class="d-none d-md-inline"> Edit</span></a>
+        <button class="btn btn-sm" aria-label="Allow this document to run JavaScript" title="Scripts in this file are blocked by default. Enable them only if you trust the repository — the document stays isolated from your session either way." v-if="type == &#x27;html-doc&#x27; &amp;&amp; !showSource" :class="{&#x27;btn-active&#x27;: allowScripts}" @click="toggleAllowScripts()">
           <i class="fab fa-js"></i><span class="d-none d-md-inline">
-            {{ allowScripts ? "JS on" : "JS off" }}</span
-          >
+            {{ allowScripts ? "JS on" : "JS off" }}</span>
         </button>
-        <button
-          ng-if="type == 'html-doc'"
-          ng-click="toggleSource()"
-          class="btn btn-sm"
-          aria-label="Toggle between the rendered document and its source"
-          title="Toggle between the rendered document and its source"
-        >
-          <i class="fas" ng-class="showSource ? 'fa-eye' : 'fa-code'"></i
-          ><span class="d-none d-md-inline">
-            {{ showSource ? "Rendered" : "Source" }}</span
-          >
+        <button class="btn btn-sm" aria-label="Toggle between the rendered document and its source" title="Toggle between the rendered document and its source" v-if="type == &#x27;html-doc&#x27;" @click="toggleSource()">
+          <i class="fas" :class="showSource ? &#x27;fa-eye&#x27; : &#x27;fa-code&#x27;"></i><span class="d-none d-md-inline">
+            {{ showSource ? "Rendered" : "Source" }}</span>
         </button>
-        <a
-          ng-show="content != null"
-          ng-href="{{url}}"
-          target="_self"
-          class="btn btn-sm"
-          aria-label="View raw current file"
-          title="View the raw content of the current file"
-          ><i class="fas fa-file-alt"></i><span class="d-none d-md-inline"> Raw</span></a
-        >
-        <a
-          ng-show="content != null"
-          ng-href="{{url}}&download=true"
-          target="_self"
-          class="btn btn-sm"
-          aria-label="Download current file"
-          title="Download the current file"
-          ><i class="fas fa-download"></i><span class="d-none d-md-inline"> Download</span></a
-        >
-        <a
-          ng-if="options.download"
-          ng-href="/api/repo/{{repoId}}/zip"
-          target="_self"
-          class="btn btn-sm"
-          aria-label="Download full repository as ZIP"
-          title="Download the full repository as a ZIP archive"
-          ><i class="fas fa-file-archive"></i><span class="d-none d-md-inline"> Full repo ZIP</span></a
-        >
-        <a
-          ng-if="options.hasWebsite"
-          ng-href="/w/{{repoId}}/"
-          target="_self"
-          class="btn btn-sm"
-          aria-label="Website"
-          ><i class="fas fa-globe"></i><span class="d-none d-md-inline"> Website</span></a
-        >
+        <a target="_self" class="btn btn-sm" aria-label="View raw current file" title="View the raw content of the current file" v-show="content != null" :href="safeUrl((url))"><i class="fas fa-file-alt"></i><span class="d-none d-md-inline"> Raw</span></a>
+        <a target="_self" class="btn btn-sm" aria-label="Download current file" title="Download the current file" v-show="content != null" :href="safeUrl((url) + &quot;&amp;download=true&quot;)"><i class="fas fa-download"></i><span class="d-none d-md-inline"> Download</span></a>
+        <a target="_self" class="btn btn-sm" aria-label="Download full repository as ZIP" title="Download the full repository as a ZIP archive" v-if="options?.download" :href="safeUrl(&quot;/api/repo/&quot; + (repoId) + &quot;/zip&quot;)"><i class="fas fa-file-archive"></i><span class="d-none d-md-inline"> Full repo ZIP</span></a>
+        <a target="_self" class="btn btn-sm" aria-label="Website" v-if="options?.hasWebsite" :href="safeUrl(&quot;/w/&quot; + (repoId) + &quot;/&quot;)"><i class="fas fa-globe"></i><span class="d-none d-md-inline"> Website</span></a>
       </div>
     </div>
     <div class="explorer-content">
-      <ng-include src="'./partials/pageView.htm'"></ng-include>
+      <partial-view name="partials/pageView.htm" :state="viewState"></partial-view>
     </div>
   </div>
 </div>

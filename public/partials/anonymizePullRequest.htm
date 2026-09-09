@@ -1,18 +1,8 @@
 <div class="container-fluid h-100 anonymize-page">
   <div class="row h-100 flex-column flex-md-row">
-    <div
-      class="col-md sidePanel shadow overflow-auto anonymize-form-col"
-    >
-      <div
-        class="p-0 py-2 m-auto"
-        ng-class="{'card': !pullRequestUrl,'container': pullRequestUrl}"
-      >
-        <form
-          class="form needs-validation"
-          ng-class="{'card-body': !pullRequestUrl}"
-          name="anonymizeForm"
-          novalidate
-        >
+    <div class="col-md sidePanel shadow overflow-auto anonymize-form-col">
+      <div class="p-0 py-2 m-auto" :class="{&#x27;card&#x27;: !pullRequestUrl,&#x27;container&#x27;: pullRequestUrl}">
+        <form class="form needs-validation" name="anonymizeForm" novalidate v-form="viewState" :class="{&#x27;card-body&#x27;: !pullRequestUrl}">
           <div class="paper-crumbs">Anonymize &nbsp;/&nbsp; <span class="here">Pull request</span></div>
           <h1 class="paper-page-title">Anonymize a <em>pull request</em></h1>
           <p class="paper-page-lede">
@@ -24,56 +14,27 @@
           </div>
           <!-- pullRequestUrl -->
           <div class="form-group">
-            <label for="pullRequestUrl"
-              >URL of your pull request</label
-            >
-            <input
-              type="text"
-              class="form-control"
-              name="pullRequestUrl"
-              id="pullRequestUrl"
-              ng-class="{'is-invalid': anonymize.pullRequestUrl.$invalid}"
-              ng-model="pullRequestUrl"
-              placeholder="https://github.com/owner/repo/pull/123"
-              ng-model-options="{ debounce: {default: 1000, blur: 0, click: 0}, updateOn: 'default blur click' }"
-              ng-change="pullRequestSelected()"
-            />
-            <div
-              class="invalid-feedback"
-              ng-show="anonymize.pullRequestUrl.$error.access"
-            >
-              {{pullRequestUrl}} is not accessible. Some organizations are
+            <label for="pullRequestUrl">URL of your pull request</label>
+            <input type="text" class="form-control" name="pullRequestUrl" id="pullRequestUrl" placeholder="https://github.com/owner/repo/pull/123" v-field="{ state: viewState, set: value =&gt; { pullRequestUrl = value }, value: pullRequestUrl, form: &quot;anonymizeForm&quot;, options: { debounce: {default: 1000, blur: 0, click: 0}, updateOn: &#x27;default blur click&#x27; }, change: () =&gt; { pullRequestSelected() } }" :class="{&#x27;is-invalid&#x27;: anonymize?.pullRequestUrl?.invalid}">
+            <div class="invalid-feedback" v-show="anonymize?.pullRequestUrl?.errors?.access">
+              {{ pullRequestUrl }} is not accessible. Some organizations are
               restricting the access to the repositories.
             </div>
-            <div
-              class="invalid-feedback"
-              ng-show="anonymize.pullRequestUrl.$error.missing"
-            >
-              {{pullRequestUrl}} does not exist or is not accessible
+            <div class="invalid-feedback" v-show="anonymize?.pullRequestUrl?.errors?.missing">
+              {{ pullRequestUrl }} does not exist or is not accessible
             </div>
-            <div
-              class="invalid-feedback"
-              ng-show="anonymize.pullRequestUrl.$error.used"
-            >
-              {{pullRequestUrl}} is already anonymized
+            <div class="invalid-feedback" v-show="anonymize?.pullRequestUrl?.errors?.used">
+              {{ pullRequestUrl }} is already anonymized
             </div>
           </div>
-          <div ng-show="pullRequestUrl">
+          <div v-show="pullRequestUrl">
             <div class="form-group">
               <div class="form-check">
-                <input
-                  class="form-check-input"
-                  type="checkbox"
-                  id="update"
-                  name="update"
-                  ng-model="options.update"
-                />
+                <input class="form-check-input" type="checkbox" id="update" name="update" v-field="{ state: viewState, set: value =&gt; { options.update = value }, value: options?.update, form: &quot;anonymizeForm&quot;, options: {} }">
                 <label class="form-check-label" for="update">Auto update</label>
-                <small id="updateHelp" class="form-text text-muted"
-                  >Automatically update the anonymized pull request with the
+                <small id="updateHelp" class="form-text text-muted">Automatically update the anonymized pull request with the
                   latest updates. The pull request is updated once per day
-                  maximum.</small
-                >
+                  maximum.</small>
               </div>
             </div>
 
@@ -82,31 +43,15 @@
             </div>
             <!-- Conference -->
             <div class="form-group">
-              <label for="conference"
-                >Conference ID <span class="text-muted">(Optional)</span></label
-              >
-              <input
-                class="form-control"
-                id="conference"
-                name="conference"
-                ng-model="conference"
-                ng-model-options="{ debounce: { default: 800, blur: 0 }, updateOn: 'default blur' }"
-                ng-class="{'is-invalid': anonymize.conference.$invalid}"
-              />
-              <small class="form-text text-muted" ng-show="conference_data"
-                ><a ng-href="{{conference_data.url}}" target="_target"
-                  >{{conference_data.name}}</a
-                >
-                will expire on {{conference_data.endDate | date}}.</small
-              >
+              <label for="conference">Conference ID <span class="text-muted">(Optional)</span></label>
+              <input class="form-control" id="conference" name="conference" v-field="{ state: viewState, set: value =&gt; { conference = value }, value: conference, form: &quot;anonymizeForm&quot;, options: { debounce: { default: 800, blur: 0 }, updateOn: &#x27;default blur&#x27; } }" :class="{&#x27;is-invalid&#x27;: anonymize?.conference?.invalid}">
+              <small class="form-text text-muted" v-show="conference_data"><a target="_target" :href="safeUrl((conference_data?.url))">{{ conference_data?.name }}</a>
+                will expire on {{ fmt?.date(conference_data?.endDate) }}.</small>
 
-              <div
-                class="invalid-feedback"
-                ng-show="anonymize.conference.$error.activated"
-              >
+              <div class="invalid-feedback" v-show="anonymize?.conference?.errors?.activated">
                 The conference is not activated.
               </div>
-              <small class="form-text text-muted" ng-show="!conference_data">
+              <small class="form-text text-muted" v-show="!conference_data">
                 Use the Conference ID that your conference provided you. This
                 will update automatically the anonymization options based on the
                 conference preferences.
@@ -119,247 +64,101 @@
             <!-- Pull Request ID -->
             <div class="form-group">
               <label for="pullRequestId">Anonymized pull request id</label>
-              <input
-                type="text"
-                class="form-control"
-                name="pullRequestId"
-                id="pullRequestId"
-                ng-class="{'is-invalid': anonymize.pullRequestId.$invalid}"
-                ng-model="pullRequestId"
-                ng-model-options="{ debounce: {default: 1000, blur: 0, click: 0}, updateOn: 'default blur click' }"
-              />
-              <small id="idHelp" class="form-text text-muted"
-                >Id used in the url:
-                https://anonymous.4open.science/r/{{pullRequestId}}</small
-              >
-              <div
-                class="invalid-feedback"
-                ng-show="anonymize.pullRequestId.$error.format"
-              >
+              <input type="text" class="form-control" name="pullRequestId" id="pullRequestId" v-field="{ state: viewState, set: value =&gt; { pullRequestId = value }, value: pullRequestId, form: &quot;anonymizeForm&quot;, options: { debounce: {default: 1000, blur: 0, click: 0}, updateOn: &#x27;default blur click&#x27; } }" :class="{&#x27;is-invalid&#x27;: anonymize?.pullRequestId?.invalid}">
+              <small id="idHelp" class="form-text text-muted">Id used in the url:
+                https://anonymous.4open.science/r/{{ pullRequestId }}</small>
+              <div class="invalid-feedback" v-show="anonymize?.pullRequestId?.errors?.format">
                 Repository id can only contain letters and numbers
               </div>
-              <div
-                class="invalid-feedback"
-                ng-show="anonymize.pullRequestId.$error.used"
-              >
-                {{pullRequestId}} is already used
+              <div class="invalid-feedback" v-show="anonymize?.pullRequestId?.errors?.used">
+                {{ pullRequestId }} is already used
               </div>
             </div>
             <!-- Terms -->
             <div class="form-group">
               <label for="terms">Terms to anonymize</label>
-              <textarea
-                class="form-control"
-                id="terms"
-                name="terms"
-                rows="3"
-                ng-model="terms"
-                ng-model-options="{ debounce: 250 }"
-                ng-class="{'is-invalid': anonymize.terms.$invalid}"
-              ></textarea>
-              <small id="termsHelp" class="form-text text-muted"
-                >One term per line. Each term will be replaced by XXX.</small
-              >
-              <div
-                class="invalid-feedback"
-                ng-show="anonymize.terms.$error.format"
-              >
+              <textarea class="form-control" id="terms" name="terms" rows="3" v-field="{ state: viewState, set: value =&gt; { terms = value }, value: terms, form: &quot;anonymizeForm&quot;, options: { debounce: 250 } }" :class="{&#x27;is-invalid&#x27;: anonymize?.terms?.invalid}"></textarea>
+              <small id="termsHelp" class="form-text text-muted">One term per line. Each term will be replaced by XXX.</small>
+              <div class="invalid-feedback" v-show="anonymize?.terms?.errors?.format">
                 Terms are in an invalid format
               </div>
             </div>
 
             <div class="form-group">
               <label for="expiration">Expiration strategy</label>
-              <select
-                class="form-control"
-                id="expiration"
-                name="expiration"
-                ng-model="options.expirationMode"
-              >
+              <select class="form-control" id="expiration" name="expiration" v-field="{ state: viewState, set: value =&gt; { options.expirationMode = value }, value: options?.expirationMode, form: &quot;anonymizeForm&quot;, options: {} }">
                 <option value="never" selected>Never expire</option>
                 <option value="redirect">
                   Redirect to GitHub when expired
                 </option>
                 <option value="remove">Remove when expired</option>
               </select>
-              <small class="form-text text-muted"
-                >Define the expiration strategy for the anonymized
-                repository.</small
-              >
+              <small class="form-text text-muted">Define the expiration strategy for the anonymized
+                repository.</small>
             </div>
-            <div
-              class="form-group"
-              id="expiration-date-form"
-              ng-hide="options.expirationMode=='never'"
-            >
-              <label for="expirationDate"
-                >Expiration date of the anonymized repository</label
-              >
-              <input
-                class="form-control"
-                type="date"
-                name="expirationDate"
-                id="expirationDate"
-                ng-model="options.expirationDate"
-              />
-              <small
-                class="form-text text-muted"
-                ng-show="options.expirationMode=='remove'"
-                >After {{options.expirationDate | date}}, the repository will be
+            <div class="form-group" id="expiration-date-form" v-show="!(options?.expirationMode==&#x27;never&#x27;)">
+              <label for="expirationDate">Expiration date of the anonymized repository</label>
+              <input class="form-control" type="date" name="expirationDate" id="expirationDate" v-field="{ state: viewState, set: value =&gt; { options.expirationDate = value }, value: options?.expirationDate, form: &quot;anonymizeForm&quot;, options: {} }">
+              <small class="form-text text-muted" v-show="options?.expirationMode==&#x27;remove&#x27;">After {{ fmt?.date(options?.expirationDate) }}, the repository will be
                 removed and the visitor will not be able to see the content of
-                the repository.</small
-              >
-              <small
-                class="form-text text-muted"
-                ng-show="options.expirationMode=='redirect'"
-                >After {{options.expirationDate | date}}, the visitors of the
+                the repository.</small>
+              <small class="form-text text-muted" v-show="options?.expirationMode==&#x27;redirect&#x27;">After {{ fmt?.date(options?.expirationDate) }}, the visitors of the
                 anonymized repository will be redirected to
-                {{pullRequestUrl}}.</small
-              >
+                {{ pullRequestUrl }}.</small>
             </div>
 
             <div class="accordion mb-3" id="options">
               <div class="card">
                 <div class="card-header" id="headingOne">
                   <h2 class="mb-0">
-                    <button
-                      class="btn btn-block text-left"
-                      type="button"
-                      data-toggle="collapse"
-                      data-target="#collapseOne"
-                      aria-expanded="true"
-                      aria-controls="collapseOne"
-                    >
+                    <button class="btn btn-block text-left" type="button" data-toggle="collapse" data-target="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
                       <i class="fas fa-cog mr-1"></i> Advanced options
                     </button>
                   </h2>
                 </div>
 
-                <div
-                  id="collapseOne"
-                  class="collapse show"
-                  aria-labelledby="headingOne"
-                  data-parent="#options"
-                >
+                <div id="collapseOne" class="collapse show" aria-labelledby="headingOne" data-parent="#options">
                   <div class="card-body">
                     <div class="form-group mb-0">
                       <div class="form-check">
-                        <input
-                          class="form-check-input"
-                          type="checkbox"
-                          id="link"
-                          name="link"
-                          ng-model="options.link"
-                        />
-                        <label class="form-check-label" for="link"
-                          >Keep links</label
-                        >
-                        <small class="form-text text-muted"
-                          >Keep or remove all the links.</small
-                        >
+                        <input class="form-check-input" type="checkbox" id="link" name="link" v-field="{ state: viewState, set: value =&gt; { options.link = value }, value: options?.link, form: &quot;anonymizeForm&quot;, options: {} }">
+                        <label class="form-check-label" for="link">Keep links</label>
+                        <small class="form-text text-muted">Keep or remove all the links.</small>
                       </div>
                       <div class="form-check">
-                        <input
-                          class="form-check-input"
-                          type="checkbox"
-                          id="image"
-                          name="image"
-                          ng-model="options.image"
-                        />
-                        <label class="form-check-label" for="image"
-                          >Display images</label
-                        >
-                        <small class="form-text text-muted"
-                          >Images are not anonymized</small
-                        >
+                        <input class="form-check-input" type="checkbox" id="image" name="image" v-field="{ state: viewState, set: value =&gt; { options.image = value }, value: options?.image, form: &quot;anonymizeForm&quot;, options: {} }">
+                        <label class="form-check-label" for="image">Display images</label>
+                        <small class="form-text text-muted">Images are not anonymized</small>
                       </div>
                       <div class="form-check">
-                        <input
-                          class="form-check-input"
-                          type="checkbox"
-                          id="date"
-                          name="date"
-                          ng-model="options.date"
-                        />
-                        <label class="form-check-label" for="date"
-                          >Display dates</label
-                        >
-                        <small class="form-text text-muted"
-                          >Display the date of the Pull Request and the date of
-                          the comments.</small
-                        >
+                        <input class="form-check-input" type="checkbox" id="date" name="date" v-field="{ state: viewState, set: value =&gt; { options.date = value }, value: options?.date, form: &quot;anonymizeForm&quot;, options: {} }">
+                        <label class="form-check-label" for="date">Display dates</label>
+                        <small class="form-text text-muted">Display the date of the Pull Request and the date of
+                          the comments.</small>
                       </div>
                       <div class="form-check">
-                        <input
-                          class="form-check-input"
-                          type="checkbox"
-                          id="username"
-                          name="username"
-                          ng-model="options.username"
-                        />
-                        <label class="form-check-label" for="username"
-                          >Display username</label
-                        >
+                        <input class="form-check-input" type="checkbox" id="username" name="username" v-field="{ state: viewState, set: value =&gt; { options.username = value }, value: options?.username, form: &quot;anonymizeForm&quot;, options: {} }">
+                        <label class="form-check-label" for="username">Display username</label>
                       </div>
                       <div class="form-check">
-                        <input
-                          class="form-check-input"
-                          type="checkbox"
-                          id="comments"
-                          name="comments"
-                          ng-model="options.comments"
-                        />
-                        <label class="form-check-label" for="comments"
-                          >Display comments</label
-                        >
+                        <input class="form-check-input" type="checkbox" id="comments" name="comments" v-field="{ state: viewState, set: value =&gt; { options.comments = value }, value: options?.comments, form: &quot;anonymizeForm&quot;, options: {} }">
+                        <label class="form-check-label" for="comments">Display comments</label>
                       </div>
                       <div class="form-check">
-                        <input
-                          class="form-check-input"
-                          type="checkbox"
-                          id="diff"
-                          name="diff"
-                          ng-model="options.diff"
-                        />
-                        <label class="form-check-label" for="diff"
-                          >Display diff</label
-                        >
+                        <input class="form-check-input" type="checkbox" id="diff" name="diff" v-field="{ state: viewState, set: value =&gt; { options.diff = value }, value: options?.diff, form: &quot;anonymizeForm&quot;, options: {} }">
+                        <label class="form-check-label" for="diff">Display diff</label>
                       </div>
                       <div class="form-check">
-                        <input
-                          class="form-check-input"
-                          type="checkbox"
-                          id="origin"
-                          name="origin"
-                          ng-model="options.origin"
-                        />
-                        <label class="form-check-label" for="origin"
-                          >Display the project name</label
-                        >
+                        <input class="form-check-input" type="checkbox" id="origin" name="origin" v-field="{ state: viewState, set: value =&gt; { options.origin = value }, value: options?.origin, form: &quot;anonymizeForm&quot;, options: {} }">
+                        <label class="form-check-label" for="origin">Display the project name</label>
                       </div>
                       <div class="form-check">
-                        <input
-                          class="form-check-input"
-                          type="checkbox"
-                          id="title"
-                          name="title"
-                          ng-model="options.title"
-                        />
-                        <label class="form-check-label" for="title"
-                          >Display the PR title</label
-                        >
+                        <input class="form-check-input" type="checkbox" id="title" name="title" v-field="{ state: viewState, set: value =&gt; { options.title = value }, value: options?.title, form: &quot;anonymizeForm&quot;, options: {} }">
+                        <label class="form-check-label" for="title">Display the PR title</label>
                       </div>
                       <div class="form-check">
-                        <input
-                          class="form-check-input"
-                          type="checkbox"
-                          id="body"
-                          name="body"
-                          ng-model="options.body"
-                        />
-                        <label class="form-check-label" for="body"
-                          >Display the PR body and comment bodies</label
-                        >
+                        <input class="form-check-input" type="checkbox" id="body" name="body" v-field="{ state: viewState, set: value =&gt; { options.body = value }, value: options?.body, form: &quot;anonymizeForm&quot;, options: {} }">
+                        <label class="form-check-label" for="body">Display the PR body and comment bodies</label>
                       </div>
                     </div>
                   </div>
@@ -367,149 +166,64 @@
               </div>
             </div>
           </div>
-          <div
-            class="alert alert-danger"
-            role="alert"
-            ng-if="error"
-            ng-bind="error"
-          ></div>
-          <div class="anonymize-submit-bar" ng-show="pullRequestUrl">
-            <button
-              id="submit"
-              type="submit"
-              class="btn btn-ink btn-block"
-              ng-click="anonymizePullRequest($event)"
-              ng-if="!isUpdate"
-            >
+          <div class="alert alert-danger" role="alert" v-if="error" v-text="error"></div>
+          <div class="anonymize-submit-bar" v-show="pullRequestUrl">
+            <button id="submit" type="submit" class="btn btn-ink btn-block" v-if="!isUpdate" @click.prevent="submitForm($event, () =&gt; { anonymizePullRequest($event) })">
               <i class="fas fa-user-secret mr-1"></i> Anonymize
             </button>
-            <button
-              id="submit"
-              type="submit"
-              class="btn btn-ink btn-block"
-              ng-click="updatePullRequest($event)"
-              ng-if="isUpdate"
-            >
+            <button id="submit" type="submit" class="btn btn-ink btn-block" v-if="isUpdate" @click.prevent="submitForm($event, () =&gt; { updatePullRequest($event) })">
               <i class="fas fa-save mr-1"></i> Update
             </button>
           </div>
         </form>
       </div>
     </div>
-    <div class="col-md-8 p-2 overflow-auto anonymize-preview-col" ng-if="details">
+    <div class="col-md-8 p-2 overflow-auto anonymize-preview-col" v-if="details">
       <div class="d-flex w-100 justify-content-between align-items-center flex-wrap">
         <h2 class="pr-title mb-1">
-          <span ng-if="options.title"
-            >{{anonymize(details.pullRequest.title)}}</span
-          >
-          <span
-            class="badge"
-            ng-class="{'badge-success':details.pullRequest.merged, 'badge-warning':details.pullRequest.state=='open', 'badge-danger':details.pullRequest.state=='closed' &&!details.pullRequest.merged}"
-          >
-            {{details.pullRequest.merged?"merged":details.pullRequest.state |
-            title}}
+          <span v-if="options?.title">{{ anonymize(details?.pullRequest?.title) }}</span>
+          <span class="badge" :class="{&#x27;badge-success&#x27;:details?.pullRequest?.merged, &#x27;badge-warning&#x27;:details?.pullRequest?.state==&#x27;open&#x27;, &#x27;badge-danger&#x27;:details?.pullRequest?.state==&#x27;closed&#x27; &amp;&amp;!details?.pullRequest?.merged}">
+            {{ fmt?.title(details?.pullRequest?.merged?"merged":details?.pullRequest?.state) }}
           </span>
         </h2>
-        <small
-          ng-bind="details.pullRequest.updatedDate | date"
-          ng-if="options.date"
-        ></small>
+        <small v-if="options?.date" v-text="fmt?.date(details?.pullRequest?.updatedDate)"></small>
       </div>
-      <small ng-if="options.origin"
-        >Pull Request on {{details.pullRequest.baseRepositoryFullName}}</small
-      >
-      <div
-        class="pr-body shadow-sm p-3 mb-4 rounded"
-        style="background: var(--sidebar-bg-color)"
-        ng-if="options.body"
-      >
-        <markdown
-          content="anonymize(details.pullRequest.body)"
-          options="options"
-          terms="terms"
-        ></markdown>
+      <small v-if="options?.origin">Pull Request on {{ details?.pullRequest?.baseRepositoryFullName }}</small>
+      <div class="pr-body shadow-sm p-3 mb-4 rounded" style="background: var(--sidebar-bg-color)" v-if="options?.body">
+        <markdown :content="anonymize(details?.pullRequest?.body)" :options="options" :terms="terms"></markdown>
       </div>
       <ul class="nav nav-tabs" id="myTab" role="tablist">
-        <li class="nav-item" role="presentation" ng-if="options.diff">
-          <button
-            class="nav-link active"
-            id="pills-diff-tab"
-            data-toggle="pill"
-            data-target="#pills-diff"
-            type="button"
-            role="tab"
-            aria-controls="pills-diff"
-            aria-selected="true"
-          >
+        <li class="nav-item" role="presentation" v-if="options?.diff">
+          <button class="nav-link active" id="pills-diff-tab" data-toggle="pill" data-target="#pills-diff" type="button" role="tab" aria-controls="pills-diff" aria-selected="true">
             Diff
           </button>
         </li>
-        <li class="nav-item" role="presentation" ng-if="options.comments">
-          <button
-            class="nav-link"
-            ng-class="{'active':!options.diff}"
-            id="pills-comments-tab"
-            data-toggle="pill"
-            data-target="#pills-comments"
-            type="button"
-            role="tab"
-            aria-controls="pills-comments"
-            aria-selected="false"
-          >
-            <ng-pluralize
-              count="details.pullRequest.comments.length"
-              when="{'0': 'No comment',
-                     'one': 'One Comment',
-                     'other': '{} Comments'}"
-            >
-            </ng-pluralize>
+        <li class="nav-item" role="presentation" v-if="options?.comments">
+          <button class="nav-link" id="pills-comments-tab" data-toggle="pill" data-target="#pills-comments" type="button" role="tab" aria-controls="pills-comments" aria-selected="false" :class="{&#x27;active&#x27;:!options?.diff}">
+            <span v-text="fmt.plural(details?.pullRequest?.comments?.length, {&#x27;0&#x27;: &#x27;No comment&#x27;,
+                     &#x27;one&#x27;: &#x27;One Comment&#x27;,
+                     &#x27;other&#x27;: &#x27;{} Comments&#x27;})">
+            </span>
           </button>
         </li>
       </ul>
       <div class="tab-content" id="pills-tabContent">
-        <div
-          class="tab-pane show active"
-          id="pills-diff"
-          role="tabpanel"
-          aria-labelledby="pills-diff-tab"
-        >
-          <div
-            class="pr-diff shadow-sm p-3 mb-4 rounded"
-            style="background: var(--sidebar-bg-color)"
-            ng-if="options.diff"
-          >
-            <pre style="overflow-x: auto"><code ng-bind-html="anonymize(details.pullRequest.diff) | diff"></code></pre>
+        <div class="tab-pane show active" id="pills-diff" role="tabpanel" aria-labelledby="pills-diff-tab">
+          <div class="pr-diff shadow-sm p-3 mb-4 rounded" style="background: var(--sidebar-bg-color)" v-if="options?.diff">
+            <pre style="overflow-x: auto"><code v-html="sanitize(fmt?.diff(anonymize(details?.pullRequest?.diff)))"></code></pre>
           </div>
         </div>
-        <div
-          class="tab-pane"
-          ng-class="{'show active':!options.diff}"
-          id="pills-comments"
-          role="tabpanel"
-          aria-labelledby="pills-comments-tab"
-        >
-          <ul class="pr-comments list-group" ng-if="options.comments">
-            <li
-              class="pr-comment list-group-item"
-              ng-repeat="comment in details.pullRequest.comments"
-            >
+        <div class="tab-pane" id="pills-comments" role="tabpanel" aria-labelledby="pills-comments-tab" :class="{&#x27;show active&#x27;:!options?.diff}">
+          <ul class="pr-comments list-group" v-if="options?.comments">
+            <li class="pr-comment list-group-item" v-for="(comment, index) in details?.pullRequest?.comments">
               <div class="d-flex w-100 justify-content-between flex-wrap">
-                <h5 class="mb-1" ng-if="options.username">
-                  @{{anonymize(comment.author)}}
+                <h5 class="mb-1" v-if="options?.username">
+                  @{{ anonymize(comment?.author) }}
                 </h5>
-                <small
-                  ng-bind="comment.updatedDate | date"
-                  ng-if="options.date"
-                ></small>
+                <small v-if="options?.date" v-text="fmt?.date(comment?.updatedDate)"></small>
               </div>
               <p class="mb-1">
-                <markdown
-                  class="pr-comment-body"
-                  ng-if="options.body"
-                  content="anonymize(comment.body)"
-                  options="options"
-                  terms="terms"
-                ></markdown>
+                <markdown class="pr-comment-body" v-if="options?.body" :content="anonymize(comment?.body)" :options="options" :terms="terms"></markdown>
               </p>
             </li>
           </ul>

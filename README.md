@@ -109,3 +109,16 @@ Anonymous GitHub either downloads the full repository and anonymizes each file, 
 ## License
 
 [GPL-3.0](LICENSE) © [Thomas Durieux](https://durieux.me)
+
+### Frontend development
+
+The UI uses Vue 3 and Vue Router with the existing Express API. Page setup
+functions live in `public/script/app.js` and `admin.js`; the Vue templates are
+in `public/partials/`. Gulp compiles the templates and bundles the app with
+esbuild, then updates the asset manifest used by Express.
+
+Run `npm run build:ui` after changing a template or frontend script. Use
+`npm run dev:ui` to serve the built UI locally with API requests proxied to the
+configured upstream. `npm run test:ui` rebuilds the assets and runs the frontend
+regression and DOM interaction tests. `npm run build` also builds the UI for
+production.
