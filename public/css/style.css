@@ -1419,7 +1419,7 @@ a:hover {
   background: rgba(128, 128, 128, 0.15);
   color: var(--color);
 }
-.files .file.active > a .tree-icon-file { background: #5B7BA5; }
+.files .file.active > a .tree-icon-file { color: #5B7BA5; }
 .files .file.active > a .tree-count { color: var(--ink-muted); }
 
 /* Tree icon shapes */
@@ -1429,37 +1429,43 @@ a:hover {
   flex-shrink: 0;
 }
 
-/* Collapsed folder: outlined square */
+/* Compact folder outline with a tab; expansion adds a light tint. */
 .tree-icon-folder {
-  width: 9px;
-  height: 9px;
-  border-radius: 2px;
-  background: transparent;
-  border: 1.2px solid var(--ink-muted);
-  opacity: 0.45;
-}
-/* Open folder: filled brown square */
-.files .folder.open > a .tree-icon-folder {
-  background: #A07D2E;
-  border-color: #A07D2E;
+  width: 14px;
+  height: 12px;
+  color: var(--ink-muted);
   opacity: 0.75;
 }
+.tree-icon-folder svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  fill: currentColor;
+  fill-opacity: 0;
+  stroke: currentColor;
+  stroke-width: 1.2;
+  stroke-linejoin: round;
+}
+.files .folder.open > a .tree-icon-folder {
+  color: #A07D2E;
+  opacity: 0.9;
+}
+.files .folder.open > a .tree-icon-folder svg {
+  fill-opacity: 0.12;
+}
 .dark-mode .files .folder.open > a .tree-icon-folder {
-  background: #C9A03A;
-  border-color: #C9A03A;
+  color: #C9A03A;
 }
 
 .tree-icon-file {
-  width: 6px;
-  height: 6px;
-  background: #5B7BA5;
-  transform: rotate(45deg);
-  border-radius: 1px;
-  margin: 0 2px;
-  opacity: 0.7;
+  width: 16px;
+  font-size: 14px;
+  text-align: center;
+  color: #5B7BA5;
 }
-.dark-mode .tree-icon-file {
-  background: #7BA3D0;
+.dark-mode .tree-icon-file,
+.dark-mode .files .file.active > a .tree-icon-file {
+  color: #7BA3D0;
 }
 
 /* Expand/collapse triangle */

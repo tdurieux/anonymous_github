@@ -86,7 +86,8 @@ export default {
         const open = matching.value ? opens[path] !== false : !!opens[path];
         const truncated = folder && props.page?.options?.truncatedFolders?.includes(path.slice(1));
         const count = props.page?.fileCounts?.[path.slice(1)] || 0;
-        const icon = h("span", { class: folder ? "tree-icon-folder" : "tree-icon-file" });
+        const icon = h("span", { class: folder ? "tree-icon-folder" : "far fa-file tree-icon-file", "aria-hidden": "true" },
+          folder ? h("svg", { viewBox: "0 0 14 12", focusable: "false" }, h("path", { d: "M1.5 10.5v-9h4l1.5 2h5.5v7z" })) : null);
         const label = h("span", { class: "tree-name" }, name);
         const onClick = event => {
           focus(event.currentTarget);
