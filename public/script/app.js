@@ -1386,7 +1386,9 @@ angular
     "$scope",
     "$http",
     "$location",
-    function ($scope, $http, $location) {
+    "$window",
+    "$timeout",
+    function ($scope, $http, $location, $window, $timeout) {
       if ($scope.user && !$scope.user.status) {
         $location.url("/dashboard");
       }
@@ -1395,6 +1397,86 @@ angular
           $location.url("/dashboard");
         }
       });
+
+      // "What you get": one screenshot, three tabs. The selected key drives
+      // both the expanded description and the visible panel.
+      $scope.features = [
+        {
+          key: "anonymize",
+          num: "01",
+          eyebrow: "Anonymize",
+          title: "Double-anonymous,",
+          accent: "your rules.",
+          text:
+            "Choose what reviewers may see: links, images, PDFs, notebooks, GitHub Pages. Add your own terms, with regex if you need it, and pick the expiration date.",
+          cta: "Start an anonymization",
+          href: "/anonymize",
+          url: "anonymous.4open.science/anonymize",
+          img: "/imgs/anonymize.png",
+          alt: "The anonymize form: source repository, terms to redact, options and a live README preview",
+        },
+        {
+          key: "review",
+          num: "02",
+          eyebrow: "Review",
+          title: "Reviewers browse",
+          accent: "the real thing.",
+          text:
+            "Highlighted source code, rendered PDFs, images, and notebooks, in a familiar file explorer. GitHub Pages is also supported.",
+          cta: "Open the example",
+          href: "https://anonymous.4open.science/r/840c8c57-3c32-451e-bf12-0e20be300389/",
+          target: "_self",
+          url: "anonymous.4open.science/r/840c8c57-…",
+          img: "/imgs/explorer.png",
+          alt: "The repository explorer with a file tree and a rendered README",
+        },
+        {
+          key: "manage",
+          num: "03",
+          eyebrow: "Manage",
+          title: "One dashboard,",
+          accent: "until the decision.",
+          text:
+            "Monitor views, edit configuration, remove or update your repository. Program chairs can group submissions under a conference with one shared expiry.",
+          cta: "Open the dashboard",
+          href: "/dashboard",
+          needsUser: true,
+          url: "anonymous.4open.science/dashboard",
+          img: "/imgs/dashboard.png",
+          alt: "The dashboard listing anonymized repositories with status, views and expiry",
+        },
+      ];
+      $scope.feature = $scope.features[0].key;
+      $scope.selectFeature = function (key) {
+        $scope.feature = key;
+      };
+      // Signed-out visitors cannot open the dashboard; send them to sign in.
+      $scope.featureHref = function (f) {
+        return f.needsUser && !$scope.user ? "/github/login" : f.href;
+      };
+      $scope.featureTarget = function (f) {
+        return f.needsUser && !$scope.user ? "_self" : f.target || undefined;
+      };
+      $scope.featureKeydown = function ($event, index) {
+        const step = {
+          ArrowDown: 1,
+          ArrowRight: 1,
+          ArrowUp: -1,
+          ArrowLeft: -1,
+          Home: "first",
+          End: "last",
+        }[$event.key];
+        if (step === undefined) return;
+        $event.preventDefault();
+        const n = $scope.features.length;
+        const next =
+          step === "first" ? 0 : step === "last" ? n - 1 : (index + step + n) % n;
+        $scope.feature = $scope.features[next].key;
+        $timeout(() => {
+          const el = $window.document.getElementById("feature-tab-" + $scope.feature);
+          if (el) el.focus();
+        });
+      };
 
       $scope.cards = [
         { key: "repositories", total: 0, label: "repositories anonymized" },

@@ -1,257 +1,233 @@
 <div class="paper-landing">
-  <!-- Hero -->
+  <!-- Hero: copy on the left, the product on the right -->
   <section class="paper-hero">
-    <div class="paper-eyebrow">For double-blind peer review</div>
-    <h1 class="hero-title">
-      Share the code,<br />
-      <span class="accent">not the author.</span>
-    </h1>
-    <p class="hero-subtitle">
-      Anonymous GitHub makes a read-only mirror of your repository, pull
-      request, or gist with every trace of identity removed &mdash; so you can attach a
-      link to your submission without breaking anonymity.
-    </p>
+    <div class="paper-hero-copy">
+      <div class="paper-eyebrow">For double-blind peer review</div>
+      <h1 class="hero-title">
+        Share the code,<br />
+        <span class="accent">not the author.</span>
+      </h1>
+      <p class="hero-subtitle">
+        Anonymous GitHub makes a read-only mirror of your repository, pull
+        request, or gist with every trace of identity removed, so you can
+        attach a link to your submission without breaking anonymity.
+      </p>
 
-    <div class="paper-cta-row">
-      <span ng-if="!user">
-        <a href="/github/login" target="_self" class="btn-hero">
-          <i class="fab fa-github mr-2"></i>Sign in with GitHub
+      <div class="paper-cta-row">
+        <a ng-if="!user" href="/github/login" target="_self" class="btn-hero">
+          <i class="fab fa-github mr-2" aria-hidden="true"></i>Sign in with GitHub
         </a>
-      </span>
-      <span ng-if="user">
-        <a href="/anonymize" class="btn-hero">
+        <a ng-if="user" href="/anonymize" class="btn-hero">
           Anonymize a repository &rarr;
         </a>
-      </span>
-      <a href="/anonymize" ng-if="user" class="btn-hero-ghost">
-        Anonymize a pull request
-      </a>
-      <span class="meta">Free &middot; Open source &middot; Self-hostable</span>
+        <a
+          class="paper-link-arrow"
+          target="_self"
+          href="https://anonymous.4open.science/r/840c8c57-3c32-451e-bf12-0e20be300389/"
+          >See an anonymized repository &rarr;</a
+        >
+      </div>
+      <ul class="paper-reassure">
+        <li>Free and open source</li>
+        <li>Read-only: never writes to your repos</li>
+        <li>Expires on the date you set</li>
+      </ul>
     </div>
-
-    <!-- Before / after -->
-    <div class="paper-preview" aria-label="Before and after example">
-      <div class="pane">
-        <div class="pane-header">
-          <span class="pane-label">Before &middot; your repo</span>
-          <span class="pane-url">github.com/jane-smith/DeepLearnUtils</span>
+    <div class="paper-hero-shot">
+      <div class="paper-frame">
+        <div class="paper-frame-bar" aria-hidden="true">
+          <span class="dots"><i></i><i></i><i></i></span>
+          <span class="url">anonymous.4open.science/anonymize</span>
         </div>
-        <div class="pane-body">
-          <div><span class="tok">#</span> <strong>DeepLearnUtils</strong></div>
-          <div>Developed by Jane Smith at MIT CSAIL.</div>
-          <div>See Smith et&nbsp;al., &ldquo;Attention That Works,&rdquo; 2026.</div>
-          <div>Contact: jane.smith@mit.edu</div>
-        </div>
-      </div>
-      <div class="pane">
-        <div class="pane-header">
-          <span class="pane-label">After &middot; anonymous mirror</span>
-          <span class="pane-url">anonymous.4open.science/r/paper-7f2a</span>
-        </div>
-        <div class="pane-body">
-          <div><span class="tok">#</span> <strong>DeepLearnUtils</strong></div>
-          <div>Developed by <span class="redact">Jane Smith</span> at <span class="redact">MIT CSAIL</span>.</div>
-          <div>See <span class="redact">Smith et al.</span>, &ldquo;Attention That Works,&rdquo; 2026.</div>
-          <div>Contact: <span class="redact">jane.smith@mit.edu</span></div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Stats strip -->
-  <section class="paper-stats" id="metrics">
-    <div class="paper-stats-inner">
-      <div class="paper-stats-meta">
-        <div class="paper-stats-meta-left">LIVE &middot; LAST 60 DAYS</div>
-        <div class="paper-stats-meta-right">
-          updated daily &middot;
-          <span class="paper-stats-dot"></span> in sync
-        </div>
-      </div>
-      <div class="paper-stats-grid">
-        <div class="paper-stat-card" ng-repeat="card in cards track by card.key">
-          <div class="paper-stat-value">{{card.total | bigNum}}</div>
-          <div class="paper-stat-label">{{card.label}}</div>
-          <svg class="paper-stat-bars" preserveAspectRatio="none"
-               ng-attr-viewBox="0 0 {{history[card.key].viewW}} 36"
-               ng-if="history[card.key].bars.length > 1">
-            <rect ng-repeat="b in history[card.key].bars track by $index"
-                  ng-attr-x="{{b.x}}" ng-attr-y="{{b.y}}"
-                  ng-attr-width="{{b.w}}" ng-attr-height="{{b.h}}"
-                  ng-class="{'is-latest': $last}"/>
-          </svg>
-          <div class="paper-stat-delta" ng-if="history[card.key].bars.length > 1">
-            <span class="paper-stat-today">+{{history[card.key].deltaToday | number}} today</span>
-            <span class="paper-stat-sep">&middot;</span>
-            <span class="paper-stat-pct"
-                  ng-class="{'is-up': history[card.key].isUp, 'is-down': !history[card.key].isUp}">
-              <span class="paper-stat-arrow">{{history[card.key].isUp ? '▲' : '▼'}}</span>
-              {{history[card.key].pctAbs}}%
-            </span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- How it works -->
-  <section class="paper-how" id="usage">
-    <div>
-      <div class="paper-eyebrow">How it works</div>
-      <h2 class="paper-how-heading">
-        Three steps,<br />about a minute.
-      </h2>
-    </div>
-    <div>
-      <div class="paper-step">
-        <div class="step-num">01</div>
-        <div>
-          <div class="step-title">Authenticate</div>
-          <div class="step-desc">
-            <a href="/github/login" target="_self">Sign in with GitHub</a> to
-            access your dashboard. Anonymous GitHub only ever reads your
-            repositories &mdash; we never push, modify, or delete anything.
-            GitHub may display a broader scope at sign-in because its OAuth
-            scopes don't offer read-only access to private repositories
-            (<a href="/faq#permissions">see FAQ</a>).
-          </div>
-        </div>
-      </div>
-      <div class="paper-step">
-        <div class="step-num">02</div>
-        <div>
-          <div class="step-title">Configure</div>
-          <div class="step-desc">
-            Point us at a repo, branch, commit, or pull request. List the
-            terms to redact (names, affiliation, emails). Set an expiry.
-          </div>
-        </div>
-      </div>
-      <div class="paper-step">
-        <div class="step-num">03</div>
-        <div>
-          <div class="step-title">Share</div>
-          <div class="step-desc">
-            You get a stable link with a randomised slug. Reviewers browse,
-            diff, and download &mdash; never seeing who you are.
-          </div>
-        </div>
-      </div>
-      <div class="paper-step" style="border-top: none;">
-        <div class="step-num">&nbsp;</div>
-        <div>
-          <div class="step-desc">
-            Example:
-            <a
-              target="_self"
-              href="https://anonymous.4open.science/r/840c8c57-3c32-451e-bf12-0e20be300389/"
-              >anonymous.4open.science/r/840c8c57-3c32-451e-bf12-0e20be300389</a>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Trust row -->
-  <section class="paper-trust">
-    <div class="paper-trust-inner">
-      <div>
-        <div class="paper-eyebrow">Trusted by the community</div>
-        <div class="paper-trust-lede">
-          Used by authors submitting to major software-engineering and systems
-          venues.
-        </div>
-      </div>
-      <div class="paper-trust-item">
-        <div class="short">ICSE</div>
-        <div class="long">International Conference on Software Engineering</div>
-      </div>
-      <div class="paper-trust-item">
-        <div class="short">FSE</div>
-        <div class="long">Foundations of Software Engineering</div>
-      </div>
-      <div class="paper-trust-item">
-        <div class="short">OOPSLA</div>
-        <div class="long">
-          Object-Oriented Programming, Systems, Languages, and Applications
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Featurettes — existing content, kept but restyled -->
-  <main class="container home-content" id="about">
-    <div class="row featurette align-items-center">
-      <div class="col-md-7 order-md-2">
-        <h2 class="featurette-heading">Double-anonymous</h2>
-        <p class="featurette-lead">
-          Anonymize your GitHub repository with options to remove links,
-          images, or specific terms. Keep full control &mdash; set an
-          expiration date to make your repository unavailable after review.
-        </p>
-      </div>
-      <div class="col-md-5 order-md-1">
         <img
-          width="500"
-          loading="lazy"
           src="/imgs/anonymize.png"
-          class="featurette-image img-fluid mx-auto"
-          alt="Anonymize form"
+          width="2880"
+          height="1800"
+          alt="The anonymize form with a live README preview showing the redactions"
         />
       </div>
     </div>
+  </section>
 
-    <hr class="featurette-divider" />
+  <!-- Proof -->
+  <section class="paper-proof paper-wrap" aria-label="Venues">
+    <div class="paper-eyebrow">Trusted by authors at</div>
+    <div class="paper-proof-venues">
+      <span>ICSE</span><i aria-hidden="true">&middot;</i>
+      <span>FSE</span><i aria-hidden="true">&middot;</i>
+      <span>OOPSLA</span>
+    </div>
+  </section>
 
-    <div class="row featurette align-items-center">
-      <div class="col-md-7">
-        <h2 class="featurette-heading">Explorer</h2>
-        <p class="featurette-lead">
-          Reviewers can browse your repository with highlighted source code,
-          rendered PDFs, images, and notebooks.
-          <a href="https://pages.github.com">GitHub Pages</a> is also supported.
+  <!-- Live stats -->
+  <section class="paper-stats paper-wrap" id="metrics" aria-label="Usage over the last 60 days">
+    <div class="paper-stats-meta">
+      <div class="paper-stats-meta-left">Live &middot; last 60 days</div>
+      <div class="paper-stats-meta-right">
+        <span class="paper-stats-dot" aria-hidden="true"></span> updated daily
+      </div>
+    </div>
+    <div class="paper-stats-grid">
+      <div class="paper-stat-card" ng-repeat="card in cards track by card.key">
+        <div class="paper-stat-value">{{card.total | bigNum}}</div>
+        <div class="paper-stat-label">{{card.label}}</div>
+        <svg class="paper-stat-bars" preserveAspectRatio="none" aria-hidden="true"
+             ng-attr-viewBox="0 0 {{history[card.key].viewW}} 36"
+             ng-if="history[card.key].bars.length > 1">
+          <rect ng-repeat="b in history[card.key].bars track by $index"
+                ng-attr-x="{{b.x}}" ng-attr-y="{{b.y}}"
+                ng-attr-width="{{b.w}}" ng-attr-height="{{b.h}}"
+                ng-class="{'is-latest': $last}"/>
+        </svg>
+        <div class="paper-stat-delta" ng-if="history[card.key].bars.length > 1">
+          +{{history[card.key].deltaToday | number}} today
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Before / after -->
+  <section class="paper-section-head paper-wrap">
+    <div>
+      <div class="paper-eyebrow">Before &middot; after</div>
+      <h2>The same repository, <em>minus you.</em></h2>
+    </div>
+    <p>
+      Names, affiliations, emails, and any term you list are replaced across
+      the README, source files, notebooks, and PDF links. Reviewers browse the
+      real thing, not a zip.
+    </p>
+  </section>
+  <div class="paper-preview paper-wrap" aria-label="Before and after example">
+    <div class="pane">
+      <div class="pane-header">
+        <span class="pane-label">Before &middot; your repo</span>
+        <span class="pane-url">github.com/jane-smith/DeepLearnUtils</span>
+      </div>
+      <div class="pane-body">
+        <div><span class="tok">#</span> <strong>DeepLearnUtils</strong></div>
+        <div>Developed by Jane Smith at MIT CSAIL.</div>
+        <div>See Smith et&nbsp;al., &ldquo;Attention That Works,&rdquo; 2026.</div>
+        <div>Contact: jane.smith@mit.edu</div>
+      </div>
+    </div>
+    <div class="pane">
+      <div class="pane-header">
+        <span class="pane-label">After &middot; anonymous mirror</span>
+        <span class="pane-url">anonymous.4open.science/r/paper-7f2a</span>
+      </div>
+      <div class="pane-body">
+        <div><span class="tok">#</span> <strong>DeepLearnUtils</strong></div>
+        <div>Developed by <span class="redact" role="img" aria-label="redacted author name">XXXX-1</span> at <span class="redact" role="img" aria-label="redacted affiliation">XXXX-2</span>.</div>
+        <div>See <span class="redact" role="img" aria-label="redacted author name">XXXX-1</span> et&nbsp;al., &ldquo;Attention That Works,&rdquo; 2026.</div>
+        <div>Contact: <span class="redact" role="img" aria-label="redacted email address">XXXX-3</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- What you get: one screenshot, three tabs -->
+  <section class="paper-section-head paper-wrap" id="about">
+    <div>
+      <div class="paper-eyebrow">What you get</div>
+      <h2>Anonymize, review, <em>manage.</em></h2>
+    </div>
+    <p>
+      Every mirror is read-only and passes through the same filter, from the
+      README to a PDF's link targets. Monitor it, update it, or remove it the
+      day the decision is out.
+    </p>
+  </section>
+  <section class="paper-features paper-wrap" aria-label="Product features">
+    <div class="paper-features-list" role="tablist" aria-label="Features" aria-orientation="vertical">
+      <div
+        class="paper-feature"
+        ng-repeat="f in features track by f.key"
+        ng-class="{'is-on': feature === f.key}"
+      >
+        <button
+          type="button"
+          class="paper-feature-tab"
+          role="tab"
+          id="feature-tab-{{f.key}}"
+          aria-controls="feature-panel-{{f.key}}"
+          aria-selected="{{feature === f.key}}"
+          tabindex="{{feature === f.key ? 0 : -1}}"
+          ng-click="selectFeature(f.key)"
+          ng-keydown="featureKeydown($event, $index)"
+        >
+          <span class="paper-eyebrow">{{f.num}} &middot; {{f.eyebrow}}</span>
+          <span class="paper-feature-title">{{f.title}} <em>{{f.accent}}</em></span>
+        </button>
+        <div class="paper-feature-more">
+          <span class="paper-feature-title paper-feature-title-m" aria-hidden="true">{{f.title}} <em>{{f.accent}}</em></span>
+          <p>{{f.text}}</p>
+          <a class="paper-link-arrow" ng-href="{{featureHref(f)}}" ng-attr-target="{{featureTarget(f)}}">{{f.cta}} &rarr;</a>
+        </div>
+      </div>
+    </div>
+    <div class="paper-features-stage">
+      <div
+        class="paper-feature-panel"
+        ng-repeat="f in features track by f.key"
+        ng-show="feature === f.key"
+        id="feature-panel-{{f.key}}"
+        role="tabpanel"
+        aria-labelledby="feature-tab-{{f.key}}"
+      >
+        <div class="paper-frame">
+          <div class="paper-frame-bar" aria-hidden="true">
+            <span class="dots"><i></i><i></i><i></i></span>
+            <span class="url">{{f.url}}</span>
+          </div>
+          <div class="paper-crop paper-crop-{{f.key}}">
+            <img ng-src="{{f.img}}" alt="{{f.alt}}" loading="lazy" width="2880" height="1800" />
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ teaser -->
+  <section class="paper-qa paper-wrap" aria-labelledby="qa-heading">
+    <div>
+      <div class="paper-eyebrow">Before you sign in</div>
+      <h2 id="qa-heading">The questions that <em>come up most.</em></h2>
+      <a class="paper-link-arrow" href="/faq">Read the full FAQ &rarr;</a>
+    </div>
+    <div>
+      <div class="q">
+        <a href="/faq#howWork">Why does GitHub ask for write access at sign-in?</a>
+        <p>
+          GitHub's OAuth scopes have no read-only option for private
+          repositories. Anonymous GitHub only ever reads your repositories; it
+          never pushes, modifies, or deletes anything.
         </p>
       </div>
-      <div class="col-md-5">
-        <img
-          width="500"
-          loading="lazy"
-          src="/imgs/explorer.png"
-          class="featurette-image img-fluid mx-auto"
-          alt="Repository explorer"
-        />
-      </div>
-    </div>
-
-    <hr class="featurette-divider" />
-
-    <div class="row featurette align-items-center">
-      <div class="col-md-7 order-md-2">
-        <h2 class="featurette-heading">Manage</h2>
-        <p class="featurette-lead">
-          Monitor views, edit configuration, remove or update your repository
-          &mdash; all from a clean dashboard.
+      <div class="q">
+        <a href="/faq#formats">Which file formats are supported?</a>
+        <p>
+          Source code with syntax highlighting, Markdown, Jupyter notebooks,
+          PDFs, images, and GitHub Pages sites. Everything passes through the
+          same redaction filter.
         </p>
       </div>
-      <div class="col-md-5 order-md-1">
-        <img
-          width="500"
-          loading="lazy"
-          src="/imgs/dashboard.png"
-          class="featurette-image img-fluid mx-auto"
-          alt="Dashboard"
-        />
+      <div class="q">
+        <a href="/faq#expiration">What happens when an anonymized repository expires?</a>
+        <p>
+          You choose: the mirror is removed, or visitors are redirected to the
+          original GitHub repository once the review is over.
+        </p>
       </div>
     </div>
-  </main>
+  </section>
 
   <footer class="paper-footer">
     <div class="paper-footer-inner">
       <div class="paper-footer-brand">
         <div class="paper-footer-mark">Anonymous <em>GitHub</em></div>
         <p class="paper-footer-tag">
-          A read-only, identity-stripped mirror of your repository &mdash;
-          built for double-blind peer review.
+          A read-only, identity-stripped mirror of your repository, built for
+          double-blind peer review.
         </p>
       </div>
       <div class="paper-footer-col">
@@ -263,14 +239,14 @@
       </div>
       <div class="paper-footer-col">
         <div class="paper-footer-head">Project</div>
-        <a href="https://github.com/tdurieux/anonymous_github/" target="_blank">Source code</a>
+        <a href="https://github.com/tdurieux/anonymous_github/" target="_blank" rel="noopener">Source code</a>
         <a href="https://github.com/tdurieux/anonymous_github/issues/new?template=issue_report.yml" target="_blank" rel="noopener">Report a bug</a>
-        <a href="https://github.com/sponsors/tdurieux/" target="_blank">Sponsor</a>
+        <a href="https://github.com/sponsors/tdurieux/" target="_blank" rel="noopener">Sponsor</a>
       </div>
       <div class="paper-footer-col">
         <div class="paper-footer-head">Contact</div>
         <a href="mailto:tdurieux@anonymous.4open.science">Email maintainer</a>
-        <a href="https://github.com/tdurieux" target="_blank">@tdurieux</a>
+        <a href="https://github.com/tdurieux" target="_blank" rel="noopener">@tdurieux</a>
       </div>
     </div>
     <div class="paper-footer-rule"></div>
