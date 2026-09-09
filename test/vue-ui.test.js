@@ -88,6 +88,70 @@ describe("Vue 3 UI", function () {
     expect(ui.errors).to.deep.equal([]);
   });
 
+  for (const type of ["gist", "pr", "repo"]) {
+    for (const status of ["removed", "expired", "error", "ready"]) {
+      it(`submits ${status} ${type} edits and exposes invalid expiration dates`, async function () {
+        const route = { gist: "gist-anonymize", pr: "pull-request-anonymize", repo: "anonymize" }[type];
+        const source = { gist: { gistId: "311fc9" }, pr: { repositoryFullName: "owner/repo", pullRequestId: 1 }, repo: { fullName: "owner/repo", branch: "main", commit: "abcdef123" } }[type];
+        const endpoint = `/api/${type}/test`;
+        ui = await browser(`/${route}/test`, {
+          [endpoint]: request => request.method === "POST" ? {} : { status, source, options: { terms: [], update: false, expirationDate: "2000-01-01" } },
+          "/api/gist/source/311fc9": { files: [], comments: [] },
+          "/api/pr/owner/repo/1": { pullRequest: { title: "Test", body: "", comments: [] } },
+          "/api/repo/owner/repo/": { defaultBranch: "main" },
+          "/api/repo/owner/repo/branches": [{ name: "main", commit: "abcdef123" }],
+          "/api/repo/owner/repo/readme": "",
+        });
+        const button = [...ui.window.document.querySelectorAll("button")].find(b => b.textContent.includes("Update "));
+        const posts = () => ui.requests.filter(r => r.method === "POST" && r.url.pathname === endpoint);
+        button.click();
+        await delay(10);
+        expect(posts()).to.have.length(0);
+        expect(ui.window.document.activeElement.id).to.equal("expirationDate");
+        const future = new Date();
+        future.setDate(future.getDate() + 30);
+        await ui.input("#expirationDate", future.toISOString().slice(0, 10), "change");
+        button.click();
+        await delay(20);
+        expect(posts()).to.have.length(1);
+        expect(ui.window.document.querySelector("#commit") === null).to.equal(type !== "repo");
+        expect(ui.errors).to.deep.equal([]);
+      });
+    }
+  }
+
+  for (const type of ["gist", "pr"]) {
+    it(`creates a new ${type} with auto-update disabled`, async function () {
+      const sourceUrl = type === "gist" ? "https://gist.github.com/311fc9" : "https://github.com/owner/repo/pull/1";
+      ui = await browser("/anonymize", {
+        "/api/gist/source/311fc9": { files: [], comments: [] },
+        "/api/pr/owner/repo/1": { pullRequest: { title: "Test", body: "", comments: [] } },
+      });
+      const input = await ui.input("#sourceUrl", sourceUrl);
+      input.dispatchEvent(new ui.window.Event("blur"));
+      await delay(40);
+      expect(ui.window.document.querySelector("#update").checked).to.equal(false);
+      const button = [...ui.window.document.querySelectorAll("button[type=submit]")][0];
+      button.click();
+      await delay(20);
+      expect(ui.requests.filter(r => r.method === "POST" && r.url.pathname === `/api/${type}/`)).to.have.length(1);
+      expect(ui.errors).to.deep.equal([]);
+    });
+  }
+
+  it("still rejects a missing commit for a repository with auto-update disabled", async function () {
+    ui = await browser("/anonymize/test", {
+      "/api/repo/test": { source: { fullName: "owner/repo", branch: "main", commit: "abcdef123" }, options: { terms: [], update: false } },
+      "/api/repo/owner/repo/": { defaultBranch: "main" },
+      "/api/repo/owner/repo/branches": [{ name: "main", commit: "abcdef123" }],
+      "/api/repo/owner/repo/readme": "",
+    });
+    await ui.input("#commit", "");
+    ui.window.document.querySelector("button[type=submit]").click();
+    expect(ui.requests.filter(r => r.method === "POST" && r.url.pathname === "/api/repo/test")).to.have.length(0);
+    expect(ui.window.document.activeElement.id).to.equal("commit");
+  });
+
   it("loads document libraries on demand and reuses them across navigation", async function () {
     ui = await browser("/dashboard");
     expect(ui.assets.filter(url => url.endsWith(".js"))).to.deep.equal([]);
