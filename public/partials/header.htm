@@ -64,7 +64,7 @@
       </li>
 
       <li class="nav-item" v-if="!user">
-        <a class="nav-link btn-signin" target="_self" href="/github/login" data-offset="30"><i class="fab fa-github mr-1"></i>
+        <a class="nav-link btn-signin" target="_self" href="/signin" data-offset="30"><i class="fab fa-github mr-1"></i>
           Sign in
         </a>
       </li>
@@ -75,6 +75,7 @@
         </a>
         <div class="dropdown-menu dropdown-menu-right user-menu" aria-labelledby="navbarDropdownMenuLink">
           <h6 class="dropdown-header">Signed in as @{{ user?.username }}</h6>
+          <a class="dropdown-item" href="/connections">GitHub connections</a>
           <a class="dropdown-item" href="/profile">
             <i class="fas fa-sliders-h" aria-hidden="true"></i>
             <span>Settings<small>Defaults, quotas, account</small></span>

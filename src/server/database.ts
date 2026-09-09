@@ -1,3 +1,4 @@
+import InstallationModel from "../core/model/github-installation";
 import { credentialCipher } from "../core/credentials";
 import CredentialModel from "../core/model/credentials/credentials.model";
 import mongoose, { ConnectOptions } from "mongoose";
@@ -31,6 +32,7 @@ export async function connect() {
   if (!config.MONGODB_URI) options.authSource = "admin";
   await mongoose.connect(getMongoUrl(), options);
   await CredentialModel.createIndexes();
+  if (config.GITHUB_APP_ENABLED) await InstallationModel.createIndexes();
   isConnected = true;
 
   return database;

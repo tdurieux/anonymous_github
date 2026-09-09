@@ -8,7 +8,7 @@ const { setTimeout: delay } = require("node:timers/promises");
 const publicDir = path.join(__dirname, "../public");
 const bundles = ["core.min.js", "vendor.min.js"].map(name => fs.readFileSync(path.join(publicDir, "script", name), "utf8"));
 
-async function browser(route = "/", overrides = {}) {
+async function browser(route = "/", overrides = {}, storage = {}) {
   const errors = [], requests = [], assets = [];
   const virtualConsole = new VirtualConsole();
   virtualConsole.on("jsdomError", error => {
@@ -50,6 +50,7 @@ async function browser(route = "/", overrides = {}) {
     if (data?.__status) data = data.body;
     return { ok: status < 400, status, headers: { get: () => typeof data === "string" ? "text/plain" : "application/json" }, text: async () => typeof data === "string" ? data : JSON.stringify(data) };
   };
+  for (const [key, value] of Object.entries(storage)) window.sessionStorage.setItem(key, JSON.stringify(value));
   bundles.forEach(bundle => window.eval(bundle));
   const app = window.anonymousApp;
   await app.router.isReady();
@@ -87,6 +88,86 @@ describe("Vue 3 UI", function () {
     }
     expect(ui.errors).to.deep.equal([]);
   });
+
+  it("offers App and OAuth sign-in and direct repository access links", async function () {
+    ui = await browser("/signin", { "/api/options": { GITHUB_APP_ENABLED: true, GITHUB_OAUTH_ENABLED: true } });
+    expect(ui.window.document.querySelector('a[href="/github/app/login"]')).not.to.equal(null);
+    expect(ui.window.document.querySelector('a[href="/github/login"]')).not.to.equal(null);
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("previews a connection migration before switching and includes CSRF protection", async function () {
+    const resource = { type: "repository", id: "saved", name: "owner/private", connection: "oauth", status: "ready" };
+    ui = await browser("/connections", {
+      "/api/user": { username: "owner" },
+      "/github/connections": { csrf: "csrf-value", appEnabled: true, appConnected: true, oauthEnabled: true, oauthConnected: true,
+        installations: [{ id: 4, account: "owner" }], gistCount: 0, resources: [resource] },
+      "/github/connections/migrate": request => request.payload.preview ? { eligible: true } : { connection: "github-app" },
+    });
+    const button = label => [...ui.window.document.querySelectorAll("button")].find(node => node.textContent.includes(label));
+    expect(button("Switch to read-only access")).to.equal(undefined);
+    expect(ui.window.document.querySelector('a[href="/github/app/install?installationId=4"]')).not.to.equal(null);
+    button("Check read-only access").click();
+    await delay(30);
+    button("Switch to read-only access").click();
+    await delay(30);
+    const changes = ui.requests.filter(r => r.url.pathname === "/github/connections/migrate");
+    expect(changes).to.have.length(2);
+    expect(changes[0].payload.preview).to.equal(true);
+    expect(changes[1].payload.preview).to.equal(false);
+    expect(changes[1].payload.connection).to.equal("github-app");
+    expect(changes[1].headers["X-CSRF-Token"]).to.equal("csrf-value");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+
+  it("preserves redactions, identifiers and pinned commits when switching connections", async () => {
+    ui = await browser("/anonymize", {
+      "/github/connections": { appEnabled: true, oauthConnected: true },
+      "/api/repo/owner/repo/": { defaultBranch: "main", repo: "repo" },
+      "/api/repo/owner/repo/branches": [{ name: "main", commit: "abcdef123" }],
+      "/api/repo/owner/repo/readme": "",
+    });
+    const url = await ui.input("#sourceUrl", "https://github.com/owner/repo");
+    url.dispatchEvent(new ui.window.Event("blur"));
+    await delay(50);
+    await ui.input("#terms", "Private Author");
+    await delay(300);
+    const id = await ui.input("#repoId", "chosen-id");
+    id.dispatchEvent(new ui.window.Event("blur"));
+    await ui.input("#commit", "123456abcdef");
+    [...ui.window.document.querySelectorAll("button")].find(b => b.textContent.includes("Read-only GitHub App")).click();
+    await delay(60);
+    expect(ui.window.document.querySelector("#terms").value).to.equal("Private Author");
+    expect(ui.window.document.querySelector("#repoId").value).to.equal("chosen-id");
+    expect(ui.window.document.querySelector("#commit").value).to.equal("123456abcdef");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  for (const type of ["repo", "pr", "gist"]) {
+    it(`restores unsaved ${type} edits after granting GitHub access`, async () => {
+      const route = { repo: "anonymize", pr: "pull-request-anonymize", gist: "gist-anonymize" }[type];
+      const source = { repo: { fullName: "owner/repo", branch: "main", commit: "123456abcdef" },
+        pr: { repositoryFullName: "owner/repo", pullRequestId: 1 }, gist: { gistId: "311fc9" } }[type];
+      const sourceUrl = { repo: "https://github.com/owner/repo", pr: "https://github.com/owner/repo/pull/1", gist: "https://gist.github.com/311fc9" }[type];
+      const routePath = `/${route}/test`;
+      ui = await browser(routePath, {
+        [`/api/${type}/test`]: { status: "ready", source, options: { terms: ["persisted"], update: false } },
+        "/api/repo/owner/repo/": { defaultBranch: "main" },
+        "/api/repo/owner/repo/branches": [{ name: "main", commit: "abcdef123" }],
+        "/api/repo/owner/repo/readme": "",
+        "/api/pr/owner/repo/1": { pullRequest: { title: "Test", body: "", comments: [] } },
+        "/api/gist/source/311fc9": { files: [], comments: [] },
+      }, { "github-access-draft": { path: routePath, savedAt: Date.now(), draft: {
+        sourceUrl, source, terms: "unsaved redaction", options: { update: false, expirationDate: "2030-01-01" },
+      } } });
+      await delay(60);
+      expect(ui.window.document.querySelector("#terms").value).to.equal("unsaved redaction");
+      if (type === "repo") expect(ui.window.document.querySelector("#commit").value).to.equal("123456abcdef");
+      expect(ui.window.sessionStorage.getItem("github-access-draft")).to.equal(null);
+      expect(ui.errors).to.deep.equal([]);
+    });
+  }
 
   for (const type of ["gist", "pr", "repo"]) {
     for (const status of ["removed", "expired", "error", "ready"]) {

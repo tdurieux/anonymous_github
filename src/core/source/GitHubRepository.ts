@@ -376,11 +376,12 @@ export async function getRepositoryFromGitHub(opt: {
     | RestEndpointMethodTypes["repos"]["getPages"]["response"]["data"]["source"]
     | undefined;
   if (r.has_pages) {
-    const ghPageRes = await oct.repos.getPages({
-      owner: opt.owner,
-      repo: opt.repo,
-    });
-    pageSource = ghPageRes.data.source;
+    try {
+      const ghPageRes = await oct.repos.getPages({ owner: opt.owner, repo: opt.repo });
+      pageSource = ghPageRes.data.source;
+    } catch (error) {
+      if (![403, 404].includes((error as { status?: number }).status || 0)) throw error;
+    }
   }
 
   if (!isConnected) {

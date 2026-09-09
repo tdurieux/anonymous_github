@@ -1,3 +1,5 @@
+import { render as connectionsTemplate } from "../partials/connections.htm";
+import { render as signinTemplate } from "../partials/signin.htm";
 import { render as template0 } from "../partials/404.htm";
 import { render as template1 } from "../partials/admin/conferences.htm";
 import { render as template2 } from "../partials/admin/errors.htm";
@@ -25,6 +27,8 @@ import { render as template23 } from "../partials/profile.htm";
 import { render as template24 } from "../partials/pullRequest.htm";
 import { render as template25 } from "../partials/status.htm";
 export const templates = {
+  "partials/connections.htm": connectionsTemplate,
+  "partials/signin.htm": signinTemplate,
   "partials/404.htm": template0,
   "partials/admin/conferences.htm": template1,
   "partials/admin/errors.htm": template2,

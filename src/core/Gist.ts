@@ -1,3 +1,5 @@
+import { APP_PROVIDER, appError } from "./github-app";
+import CredentialModel from "./model/credentials/credentials.model";
 import { getCredentialToken } from "./credentials";
 import { RepositoryStatus } from "./types";
 import User from "./User";
@@ -47,6 +49,9 @@ export default class Gist {
   }
 
   async getToken() {
+    if (config.GITHUB_APP_ENABLED && !(await getCredentialToken(this.owner.id)) && await CredentialModel.exists({ ownerId: this.owner.id, provider: APP_PROVIDER })) {
+      throw appError("github_oauth_required");
+    }
     return (await getCredentialToken(this.owner.id, "github", { collection: "anonymizedgists", id: this._model._id })) || config.GITHUB_TOKEN;
   }
 

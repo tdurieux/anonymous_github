@@ -1,0 +1,9 @@
+# Enable with: docker compose -f docker-compose.yml -f docker-compose.github-app.yml up -d
+# App settings are supplied through the existing .env file for both services.
+services:
+  anonymous_github:
+    volumes:
+      - ./secrets/github-app.pem:/run/secrets/github-app.pem:ro
+  streamer:
+    volumes:
+      - ./secrets/github-app.pem:/run/secrets/github-app.pem:ro

@@ -1,3 +1,7 @@
+import AnonymizedRepositoryModel from "./model/anonymizedRepositories/anonymizedRepositories.model";
+import { isConnected } from "../server/database";
+import { githubQuotaKey, githubTokenContext } from "./github-token-context";
+import { boundAppToken } from "./github-app";
 import { Octokit } from "@octokit/rest";
 import { throttling } from "@octokit/plugin-throttling";
 import { createClient, RedisClientType } from "redis";
@@ -63,7 +67,7 @@ const ThrottledOctokit = Octokit.plugin(throttling);
 const tokenGates = new Map<string, { resetAt: number }>();
 
 function setTokenGate(token: string, retryAfterSec: number) {
-  const key = token.slice(-8);
+  const key = githubQuotaKey(token);
   const resetAt = Date.now() + retryAfterSec * 1000;
   const existing = tokenGates.get(key);
   if (!existing || resetAt > existing.resetAt) {
@@ -95,7 +99,7 @@ export class RateLimitDelayError extends Error {
  * Returns the reset timestamp, or 0 if no gate is active.
  */
 export function getTokenGateResetAt(token: string): number {
-  const key = token.slice(-8);
+  const key = githubQuotaKey(token);
   const gate = tokenGates.get(key);
   if (!gate) return 0;
   if (gate.resetAt <= Date.now()) {
@@ -106,7 +110,7 @@ export function getTokenGateResetAt(token: string): number {
 }
 
 async function waitForTokenGate(token: string): Promise<void> {
-  const key = token.slice(-8);
+  const key = githubQuotaKey(token);
   const localGate = tokenGates.get(key);
   let waitMs = 0;
   let resetAt = 0;
@@ -208,8 +212,11 @@ export async function getRedisGateResetAt(tokenKey: string): Promise<number> {
 }
 
 export function octokit(token: string) {
+  const context = githubTokenContext(token);
   const oct = new ThrottledOctokit({
-    auth: token,
+    // Managed App tokens are supplied by the renewal hook. Octokit's static
+    // token strategy would otherwise overwrite the renewed Authorization header.
+    auth: context ? undefined : token,
     request: {
       fetch: fetch,
     },
@@ -240,6 +247,19 @@ export function octokit(token: string) {
       },
     },
   });
+  if (context) {
+    oct.hook.before("request", async options => {
+      options.headers.authorization = `token ${await context.renew()}`;
+    });
+    oct.hook.wrap("request", async (request, options) => {
+      try { return await request(options); }
+      catch (error) {
+        if ((error as { status?: number }).status !== 401) throw error;
+        options.headers.authorization = `token ${await context.renew(true)}`;
+        return request(options);
+      }
+    });
+  }
   oct.hook.error("request", (err) => {
     if (isGitHubRateLimitError(err)) {
       throw new AnonymousError("github_rate_limit_exceeded", {
@@ -258,7 +278,8 @@ export { waitForTokenGate };
 export async function checkToken(token: string) {
   const oct = octokit(token);
   try {
-    await oct.users.getAuthenticated();
+    if (token.startsWith("ghs_")) await oct.request("GET /installation/repositories");
+    else await oct.users.getAuthenticated();
     return true;
   } catch (err) {
     if (
@@ -276,6 +297,15 @@ const checkedRepositoryTokens = new WeakMap<Repository, string>();
 export async function getToken(repository: Repository) {
   repository.assertNotArchived();
   logger.debug("getToken", { repoId: repository.repoId });
+  if (isConnected && !repository.model.isNew) {
+    const current = await AnonymizedRepositoryModel.findById(repository.model._id).select("owner githubAccess").lean();
+    if (!current || String(current.owner) !== repository.owner.id || current.githubAccess?.revision !== repository.model.githubAccess?.revision) {
+      throw new AnonymousError("connection_changed", { httpStatus: 409 });
+    }
+  }
+  if (repository.model.githubAccess?.kind === "github-app") {
+    return boundAppToken(repository.owner.id, repository.model.githubAccess);
+  }
   const credential = await getCredential(repository.owner.id);
   const ownerAccessToken = credential?.token;
   if (ownerAccessToken) {

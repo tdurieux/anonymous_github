@@ -1,4 +1,6 @@
-import { getCredentialToken } from "../../core/credentials";
+import { randomUUID } from "crypto";
+import { githubQuotaKey } from "../../core/github-token-context";
+import { selectRepositoryAccess, boundAppToken, appError } from "../../core/github-app";
 import * as express from "express";
 import { ensureAuthenticated } from "./connection";
 
@@ -19,10 +21,9 @@ import ConferenceModel from "../../core/model/conference/conferences.model";
 import AnonymousError from "../../core/AnonymousError";
 import { addRemovalJob, downloadQueue } from "../../queue";
 import RepositoryModel from "../../core/model/repositories/repositories.model";
-import User from "../../core/User";
 import { RepositoryStatus } from "../../core/types";
-import { checkToken, octokit, getRedisGateResetAt, getToken } from "../../core/GitHubUtils";
-import { createLogger, serializeError } from "../../core/logger";
+import { octokit, getRedisGateResetAt, getToken } from "../../core/GitHubUtils";
+import { createLogger } from "../../core/logger";
 
 const logger = createLogger("route:repo");
 
@@ -31,27 +32,15 @@ const router = express.Router();
 // user needs to be connected for all user API
 router.use(ensureAuthenticated);
 
-async function getTokenForAdmin(user: User, req: express.Request) {
-  if (user.isAdmin) {
-    try {
-      const existingRepo = await AnonymizedRepositoryModel.findOne(
-        {
-          "source.repositoryName": `${req.params.owner}/${req.params.repo}`,
-        },
-        {
-          owner: 1,
-        }
-      );
-      if (existingRepo?.owner) {
-        const token = await getCredentialToken(String(existingRepo.owner), "github", {
-          collection: "anonymizedrepositories", id: existingRepo._id,
-        });
-        if (token && await checkToken(token)) return token;
-      }
-    } catch (error) {
-      logger.warn("getToken lookup failed", serializeError(error));
-    }
+async function previewToken(req: express.Request) {
+  const user = await getUser(req);
+  if (typeof req.query.anonymizedRepoId === "string") {
+    const resource = await db.getRepository(req.query.anonymizedRepoId);
+    isOwnerCoauthorOrAdmin(resource, user);
+    if (resource.model.source.repositoryName?.toLowerCase() !== `${req.params.owner}/${req.params.repo}`.toLowerCase()) throw appError("repo_not_found", 404);
+    return getToken(resource);
   }
+  return (await selectRepositoryAccess(user.id, `${req.params.owner}/${req.params.repo}`, req.query.connection)).token;
 }
 
 // claim a repository
@@ -86,11 +75,12 @@ router.post("/claim", async (req, res) => {
         httpStatus: 404,
       });
     }
+    const selectedAccess = await selectRepositoryAccess(user.id, `${r.owner}/${r.name}`, req.body.connection);
     const repo = await getRepositoryFromGitHub({
       owner: r.owner,
       repo: r.name,
       repositoryID: req.query.repositoryID as string,
-      accessToken: await user.getAccessToken(),
+      accessToken: selectedAccess.token,
     });
     if (!repo) {
       throw new AnonymousError("repo_not_found", {
@@ -118,7 +108,7 @@ router.post("/claim", async (req, res) => {
 
     await AnonymizedRepositoryModel.updateOne(
       { repoId: repoConfig.repoId },
-      { $set: { owner: user.model.id } }
+      { $set: { owner: user.model.id, githubAccess: selectedAccess.binding } }
     ).collation({ locale: "en", strength: 2 });
     return res.send("Ok");
   } catch (error) {
@@ -245,11 +235,7 @@ router.get(
   "/:owner/:repo/",
   async (req, res) => {
     try {
-      const user = await getUser(req);
-      let token = await user.getAccessToken();
-      if (user.isAdmin) {
-        token = (await getTokenForAdmin(user, req)) || token;
-      }
+      const token = await previewToken(req);
       const repo = await getRepositoryFromGitHub({
         owner: req.params.owner,
         repo: req.params.repo,
@@ -268,11 +254,7 @@ router.get(
   "/:owner/:repo/branches",
   async (req, res) => {
     try {
-      const user = await getUser(req);
-      let token = await user.getAccessToken();
-      if (user.isAdmin) {
-        token = (await getTokenForAdmin(user, req)) || token;
-      }
+      const token = await previewToken(req);
       const repository = await getRepositoryFromGitHub({
         accessToken: token,
         owner: req.params.owner,
@@ -296,11 +278,7 @@ router.get(
   "/:owner/:repo/readme",
   async (req, res) => {
     try {
-      const user = await getUser(req);
-      let token = await user.getAccessToken();
-      if (user.isAdmin) {
-        token = (await getTokenForAdmin(user, req)) || token;
-      }
+      const token = await previewToken(req);
 
       const repo = await getRepositoryFromGitHub({
         owner: req.params.owner,
@@ -347,8 +325,13 @@ router.get("/:repoId/", async (req, res) => {
         : fullRepo.owner.id === user.model.id
         ? "owner"
         : "coauthor";
-    const repoToken = await getToken(fullRepo);
-    const gateResetAt = await getRedisGateResetAt(repoToken.slice(-8));
+    json.connection = fullRepo.model.githubAccess?.kind || "oauth";
+    // Connection diagnostics must remain available even when access is revoked.
+    let gateResetAt = 0;
+    try {
+      const repoToken = await getToken(fullRepo);
+      gateResetAt = await getRedisGateResetAt(githubQuotaKey(repoToken));
+    } catch (error) { json.connectionError = error instanceof Error ? error.message : "github_app_reconnect_required"; }
     if (gateResetAt > 0) {
       json.rateLimitResetAt = gateResetAt;
     }
@@ -493,6 +476,7 @@ router.post(
       // needed when the underlying snapshot moves. Other edits (e.g. turning
       // off auto-update — see #360) just persist and return.
       const sourceChanged = hasRepositorySourceChanged(repo.model, repoUpdate);
+      const previousAccessRevision = repo.model.githubAccess?.revision;
 
       updateRepoModel(repo.model, repoUpdate);
       const reactivating = shouldReactivateInactiveRepository(repo.model);
@@ -504,32 +488,35 @@ router.post(
       if (sourceChanged) {
         const parsedRepository = gh(repoUpdate.fullName);
         if (!parsedRepository?.owner || !parsedRepository?.name) {
-          await repo.resetSate(RepositoryStatus.ERROR, "repo_not_found");
           throw new AnonymousError("repo_not_found", {
             object: req.body,
             httpStatus: 404,
           });
         }
+        if (repoUpdate.fullName !== repo.model.source.repositoryName && user.id !== repo.owner.id) throw appError("not_owner", 403);
+        const sourceAccess = repo.model.githubAccess?.kind === "github-app" && repoUpdate.fullName === repo.model.source.repositoryName
+          ? { token: await boundAppToken(repo.owner.id, repo.model.githubAccess), binding: repo.model.githubAccess }
+          : await selectRepositoryAccess(repo.owner.id, `${parsedRepository.owner}/${parsedRepository.name}`, repo.model.githubAccess?.kind || "oauth");
         const repository = await getRepositoryFromGitHub({
-          accessToken: await user.getAccessToken(),
+          accessToken: sourceAccess.token,
           owner: parsedRepository.owner,
           repo: parsedRepository.name,
         });
         if (!repository) {
-          await repo.resetSate(RepositoryStatus.ERROR, "repo_not_found");
           throw new AnonymousError("repo_not_found", {
             object: req.body,
             httpStatus: 404,
           });
         }
         await repository.getCommitInfo(repoUpdate.source.commit, {
-          accessToken: await user.getAccessToken(),
+          accessToken: sourceAccess.token,
         });
+        repo.model.githubAccess = { ...sourceAccess.binding, revision: randomUUID() };
         repo.model.source.repositoryId = repository.model.id;
         repo.model.source.repositoryName =
           repository.fullName || repoUpdate.fullName;
         repo.model.anonymizeDate = new Date();
-        await repo.remove();
+        await repo.remove({ accessRevision: previousAccessRevision });
       }
 
       const removeRepoFromConference = async (conferenceID: string) => {
@@ -581,17 +568,19 @@ router.post(
         }
       }
       repo.model.conference = repoUpdate.conference;
-      await AnonymizedRepositoryModel.updateOne(
-        { _id: repo.model._id },
+      const saved = await AnonymizedRepositoryModel.updateOne(
+        { _id: repo.model._id, "githubAccess.revision": previousAccessRevision || { $exists: false } },
         {
           $set: {
             options: repo.model.options,
             source: repo.model.source,
+            githubAccess: repo.model.githubAccess,
             conference: repo.model.conference,
             anonymizeDate: repo.model.anonymizeDate,
           },
         }
       ).exec();
+      if (!saved.matchedCount) throw appError("connection_changed", 409);
       if (!sourceChanged && !reactivating) {
         return res.json({ status: repo.status });
       }
@@ -637,8 +626,9 @@ router.post("/", async (req, res) => {
         httpStatus: 404,
       });
     }
+    const selectedAccess = await selectRepositoryAccess(user.id, `${r.owner}/${r.name}`, repoUpdate.connection);
     const repository = await getRepositoryFromGitHub({
-      accessToken: await user.getAccessToken(),
+      accessToken: selectedAccess.token,
       owner: r.owner,
       repo: r.name,
     });
@@ -651,13 +641,14 @@ router.post("/", async (req, res) => {
     }
 
     await repository.getCommitInfo(repoUpdate.source.commit, {
-      accessToken: await user.getAccessToken(),
+      accessToken: selectedAccess.token,
     });
 
     const repo = new AnonymizedRepositoryModel();
     repo.repoId = repoUpdate.repoId;
     repo.anonymizeDate = new Date();
     repo.owner = user.id;
+    repo.githubAccess = selectedAccess.binding;
 
     updateRepoModel(repo, repoUpdate);
     repo.source.type = "GitHubStream";

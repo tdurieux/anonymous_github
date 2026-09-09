@@ -1,3 +1,4 @@
+import { githubAppRouter, githubAppWebhook } from "./routes/github-app";
 import { config as dotenv } from "dotenv";
 dotenv();
 
@@ -100,6 +101,7 @@ function indexResponse(req: express.Request, res: express.Response) {
 export default async function start() {
   const app = express();
   app.set("query parser", "extended");
+  app.use("/github/app/webhook", githubAppWebhook);
   app.use(express.json());
   // Preserve the empty body used by API validation when no JSON was parsed.
   app.use((req, _res, next) => {
@@ -241,6 +243,7 @@ export default async function start() {
     next();
   });
 
+  app.use("/github", rate, speedLimiter, githubAppRouter);
   app.use("/github", rate, speedLimiter, connectionRouter);
 
   // api routes

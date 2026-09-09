@@ -1,6 +1,6 @@
+import { revokeGrant } from "./github-app";
 import CredentialModel from "../../core/model/credentials/credentials.model";
 import * as express from "express";
-import got from "got";
 import config from "../../config";
 import { ensureAuthenticated } from "./connection";
 import { handleError, getUser, isOwnerOrAdmin } from "./route-utils";
@@ -190,21 +190,10 @@ router.delete("/", async (req, res) => {
       ).exec(),
     ]);
 
-    // Revoke the OAuth grant so the application no longer appears in the
-    // user's GitHub authorized applications. Best-effort: the account is
-    // scrubbed even if GitHub rejects the revocation.
-    try {
-      await got.delete(
-        `https://api.github.com/applications/${config.CLIENT_ID}/grant`,
-        {
-          username: config.CLIENT_ID,
-          password: config.CLIENT_SECRET,
-          headers: { accept: "application/vnd.github+json" },
-          json: { access_token: await user.getAccessToken() },
-        }
-      );
-    } catch (error) {
-      logger.warn("oauth grant revocation failed", serializeError(error));
+    // Removing one account must not uninstall a shared organization installation.
+    for (const provider of ["github", "github-app-user"] as const) {
+      try { await revokeGrant(user.id, provider); }
+      catch (error) { logger.warn("grant revocation failed", serializeError(error)); }
     }
 
     await CredentialModel.deleteMany({ ownerId: user.model._id });

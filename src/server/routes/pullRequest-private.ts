@@ -1,3 +1,4 @@
+import { selectRepositoryAccess } from "../../core/github-app";
 import * as express from "express";
 import { ensureAuthenticated } from "./connection";
 
@@ -105,9 +106,11 @@ router.get(
   async (req, res) => {
     try {
       const user = await getUser(req);
+      const access = await selectRepositoryAccess(user.id, `${req.params.owner}/${req.params.repository}`, req.query.connection);
       const pullRequest = new PullRequest(
         new AnonymizedPullRequestModel({
           owner: user.id,
+          githubAccess: access.binding,
           source: {
             pullRequestId: parseInt(req.params.pullRequestId),
             repositoryFullName: `${req.params.owner}/${req.params.repository}`,
@@ -116,7 +119,7 @@ router.get(
       );
       pullRequest.owner = user;
       await pullRequest.download();
-      res.json(pullRequest.toJSON());
+      res.json({ ...pullRequest.toJSON(), connection: pullRequest.model.githubAccess?.kind || "oauth" });
     } catch (error) {
       handleError(error, res, req);
     }
@@ -133,7 +136,7 @@ router.get(
 
       const user = await getUser(req);
       isOwnerOrAdmin([pullRequest.owner.id], user);
-      res.json(pullRequest.toJSON());
+      res.json({ ...pullRequest.toJSON(), connection: pullRequest.model.githubAccess?.kind || "oauth" });
     } catch (error) {
       handleError(error, res, req);
     }
@@ -240,7 +243,7 @@ router.post(
       ).exec();
       await pullRequest.updateStatus(RepositoryStatus.PREPARING);
       await pullRequest.updateIfNeeded({ force: true });
-      res.json(pullRequest.toJSON());
+      res.json({ ...pullRequest.toJSON(), connection: pullRequest.model.githubAccess?.kind || "oauth" });
     } catch (error) {
       return handleError(error, res, req);
     }
@@ -264,6 +267,8 @@ router.post("/", async (req, res) => {
     pullRequest.model.pullRequestId = pullRequestUpdate.pullRequestId;
     pullRequest.model.anonymizeDate = new Date();
     pullRequest.model.owner = user.id;
+    const access = await selectRepositoryAccess(user.id, pullRequestUpdate.source.repositoryFullName, pullRequestUpdate.connection);
+    pullRequest.model.githubAccess = access.binding;
 
     updatePullRequestModel(pullRequest.model, pullRequestUpdate);
     pullRequest.source.pullRequestId = pullRequestUpdate.source.pullRequestId;

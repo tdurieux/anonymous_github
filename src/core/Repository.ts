@@ -483,6 +483,7 @@ export default class Repository {
             status: { $nin: [RepositoryStatus.ARCHIVED, RepositoryStatus.REMOVING, RepositoryStatus.REMOVED,
               RepositoryStatus.EXPIRING, RepositoryStatus.EXPIRED] },
             anonymizeDate: this._model.anonymizeDate,
+            "githubAccess.revision": this._model.githubAccess?.revision || { $exists: false },
           } : {}),
         },
         { $set: { status, statusDate, statusMessage } }
@@ -508,8 +509,19 @@ export default class Repository {
   /**
    * Remove the repository
    */
-  async remove() {
-    await this.updateStatus(RepositoryStatus.REMOVING);
+  async remove(expected?: { accessRevision?: string }) {
+    if (expected) {
+      // Claim the lifecycle before deleting files; migration rejects REMOVING.
+      this.assertNotArchived();
+      const result = await AnonymizedRepositoryModel.updateOne({ _id: this.model._id,
+        status: this.model.status,
+        "githubAccess.revision": expected.accessRevision || { $exists: false },
+      }, { $set: { status: RepositoryStatus.REMOVING, statusDate: new Date() } });
+      if (!result.matchedCount) throw new AnonymousError("connection_changed", { httpStatus: 409 });
+      this.model.status = RepositoryStatus.REMOVING;
+    } else {
+      await this.updateStatus(RepositoryStatus.REMOVING);
+    }
     await this.resetSate();
     await this.updateStatus(RepositoryStatus.REMOVED);
   }

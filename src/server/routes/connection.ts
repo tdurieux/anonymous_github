@@ -117,12 +117,14 @@ const verify = async (
   }
 };
 
-passport.use(
+if (config.GITHUB_OAUTH_ENABLED) passport.use(
   new Strategy(
     {
       clientID: config.CLIENT_ID,
       clientSecret: config.CLIENT_SECRET,
       callbackURL: config.AUTH_CALLBACK,
+      // passport-oauth2 supports boolean session state; github2 types incorrectly narrow it.
+      state: true as unknown as string,
     },
     verify
   )
@@ -174,6 +176,7 @@ export const router = express.Router();
 
 router.get(
   "/login",
+  (req, res, next) => config.GITHUB_OAUTH_ENABLED ? next() : res.status(503).json({ error: "github_oauth_disabled" }),
   passport.authenticate("github", { scope: ["repo"] }), // Note the scope here
   function (req: express.Request, res: express.Response) {
     res.redirect("/");
@@ -182,9 +185,19 @@ router.get(
 
 router.get(
   "/auth",
-  passport.authenticate("github", { failureRedirect: "/" }),
-  function (req: express.Request, res: express.Response) {
-    res.redirect("/");
+  (req, res, next) => {
+    if (!config.GITHUB_OAUTH_ENABLED) return res.status(503).json({ error: "github_oauth_disabled" });
+    const existingId = (req.user as { user?: { id?: string } } | undefined)?.user?.id;
+    passport.authenticate("github", (error: Error | null, identity: Express.User | false) => {
+      if (error) return next(error);
+      if (!identity) return res.redirect("/signin");
+      const id = (identity as { user?: { id?: string } }).user?.id;
+      if (existingId && id !== existingId) return res.status(409).json({ error: "github_identity_mismatch" });
+      req.login(identity, loginError => {
+        if (loginError) return next(loginError);
+        res.redirect(existingId ? "/connections" : "/dashboard");
+      });
+    })(req, res, next);
   }
 );
 

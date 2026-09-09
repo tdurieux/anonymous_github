@@ -145,6 +145,7 @@ export async function verifyCredentials(db: mongo.Db, cipher: Cipher) {
   let checked = 0;
   for await (const row of db.collection("credentials").find({})) {
     cipher.decrypt(row.encryptedToken as EncryptedToken, String(row.ownerId), row.provider);
+    if (row.encryptedRefreshToken) cipher.decrypt(row.encryptedRefreshToken as EncryptedToken, String(row.ownerId), row.provider, "encryptedRefreshToken");
     if (!(await db.collection("users").findOne({ _id: row.ownerId, status: { $ne: "removed" } }))) {
       throw new Error("Credential has no active owner");
     }
