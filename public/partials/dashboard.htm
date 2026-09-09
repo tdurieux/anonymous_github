@@ -13,105 +13,74 @@
       </div>
 
       <!-- Quota -->
-      <div class="quota-row" ng-if="quota">
-        <div class="quota-item" ng-repeat="q in [
-            {key: 'repository', label: 'Repositories', kind: 'count'},
-            {key: 'storage',    label: 'Storage',      kind: 'bytes'},
-            {key: 'file',       label: 'Files',        kind: 'count'}
+      <div class="quota-row" v-if="quota">
+        <div class="quota-item" v-for="(q, index) in [
+            {key: &#x27;repository&#x27;, label: &#x27;Repositories&#x27;, kind: &#x27;count&#x27;},
+            {key: &#x27;storage&#x27;,    label: &#x27;Storage&#x27;,      kind: &#x27;bytes&#x27;},
+            {key: &#x27;file&#x27;,       label: &#x27;Files&#x27;,        kind: &#x27;count&#x27;}
           ]">
           <div class="quota-header">
-            <span class="quota-label">{{q.label}}</span>
-            <span class="quota-value" ng-if="q.kind === 'count'">
-              {{quota[q.key].used | number}}<span ng-if="!quota[q.key].unlimited"> / {{quota[q.key].total | number}}</span>
-              <span class="quota-unlimited-tag" ng-if="quota[q.key].unlimited">Unlimited</span>
+            <span class="quota-label">{{ q?.label }}</span>
+            <span class="quota-value" v-if="q?.kind === &#x27;count&#x27;">
+              {{ fmt?.number(quota[q?.key].used) }}<span v-if="!quota[q?.key].unlimited"> / {{ fmt?.number(quota[q?.key].total) }}</span>
+              <span class="quota-unlimited-tag" v-if="quota[q?.key].unlimited">Unlimited</span>
             </span>
-            <span class="quota-value" ng-if="q.kind === 'bytes'">
-              {{quota[q.key].used | humanFileSize}}<span ng-if="!quota[q.key].unlimited"> / {{quota[q.key].total | humanFileSize}}</span>
-              <span class="quota-unlimited-tag" ng-if="quota[q.key].unlimited">Unlimited</span>
+            <span class="quota-value" v-if="q?.kind === &#x27;bytes&#x27;">
+              {{ fmt?.humanFileSize(quota[q?.key].used) }}<span v-if="!quota[q?.key].unlimited"> / {{ fmt?.humanFileSize(quota[q?.key].total) }}</span>
+              <span class="quota-unlimited-tag" v-if="quota[q?.key].unlimited">Unlimited</span>
             </span>
           </div>
-          <div
-            class="quota-track"
-            ng-class="'quota-' + quota[q.key].level"
-            role="progressbar"
-            aria-label="{{q.label}} quota"
-            aria-valuenow="{{quota[q.key].used}}"
-            aria-valuemin="0"
-            aria-valuemax="{{quota[q.key].unlimited ? quota[q.key].used : quota[q.key].total}}"
-            aria-valuetext="{{quota[q.key].unlimited ? 'unlimited' : (quota[q.key].percent | number:0) + '% used'}}"
-          >
-            <div class="quota-fill" ng-if="!quota[q.key].unlimited" ng-style="{width: quota[q.key].percent + '%'}"></div>
+          <div class="quota-track" role="progressbar" aria-valuemin="0" :class="&#x27;quota-&#x27; + quota[q?.key].level" :aria-label="(q?.label) + &quot; quota&quot;" :aria-valuenow="(quota[q?.key].used)" :aria-valuemax="(quota[q?.key].unlimited ? quota[q?.key].used : quota[q?.key].total)" :aria-valuetext="(quota[q?.key].unlimited ? &#x27;unlimited&#x27; : fmt.number(quota[q?.key].percent, 0) + &#x27;% used&#x27;)">
+            <div class="quota-fill" v-if="!quota[q?.key].unlimited" :style="{width: quota[q?.key].percent + &#x27;%&#x27;}"></div>
           </div>
         </div>
       </div>
 
       <!-- Search + filters -->
-      <form class="w-100 dashboard-filter-row" aria-label="Filter anonymizations" accept-charset="UTF-8" ng-submit="$event.preventDefault()">
+      <form class="w-100 dashboard-filter-row" aria-label="Filter anonymizations" accept-charset="UTF-8" v-form="viewState" @submit.prevent="submitForm($event, () =&gt; { $event.preventDefault() })">
         <div class="search-wrap">
-          <input
-            type="search"
-            id="search"
-            class="form-control"
-            aria-label="Search anonymizations"
-            placeholder="Search by name, source, or conference…"
-            autocomplete="off"
-            ng-model="search"
-          />
+          <input type="search" id="search" class="form-control" aria-label="Search anonymizations" placeholder="Search by name, source, or conference…" autocomplete="off" v-field="{ state: viewState, set: value =&gt; { search = value }, value: search, form: null, options: {} }">
         </div>
         <div class="dashboard-filter-controls">
           <div class="btn-group" role="group" aria-label="Type">
-            <button type="button" class="btn" ng-class="{'btn-primary': typeFilter === 'all'}" aria-pressed="{{typeFilter === 'all'}}" ng-click="typeFilter = 'all'">All</button>
-            <button type="button" class="btn" ng-class="{'btn-primary': typeFilter === 'repo'}" aria-pressed="{{typeFilter === 'repo'}}" ng-click="typeFilter = 'repo'">Repos</button>
-            <button type="button" class="btn" ng-class="{'btn-primary': typeFilter === 'pr'}" aria-pressed="{{typeFilter === 'pr'}}" ng-click="typeFilter = 'pr'">PRs</button>
-            <button type="button" class="btn" ng-class="{'btn-primary': typeFilter === 'gist'}" aria-pressed="{{typeFilter === 'gist'}}" ng-click="typeFilter = 'gist'">Gists</button>
+            <button type="button" class="btn" :class="{&#x27;btn-primary&#x27;: typeFilter === &#x27;all&#x27;}" @click="typeFilter = &#x27;all&#x27;" :aria-pressed="(typeFilter === &#x27;all&#x27;)">All</button>
+            <button type="button" class="btn" :class="{&#x27;btn-primary&#x27;: typeFilter === &#x27;repo&#x27;}" @click="typeFilter = &#x27;repo&#x27;" :aria-pressed="(typeFilter === &#x27;repo&#x27;)">Repos</button>
+            <button type="button" class="btn" :class="{&#x27;btn-primary&#x27;: typeFilter === &#x27;pr&#x27;}" @click="typeFilter = &#x27;pr&#x27;" :aria-pressed="(typeFilter === &#x27;pr&#x27;)">PRs</button>
+            <button type="button" class="btn" :class="{&#x27;btn-primary&#x27;: typeFilter === &#x27;gist&#x27;}" @click="typeFilter = &#x27;gist&#x27;" :aria-pressed="(typeFilter === &#x27;gist&#x27;)">Gists</button>
           </div>
 
           <div class="dropdown">
-            <button
-              class="btn dropdown-toggle"
-              type="button"
-              id="dropdownSort"
-              data-toggle="dropdown"
-              aria-haspopup="true"
-              aria-expanded="false"
-            >
+            <button class="btn dropdown-toggle" type="button" id="dropdownSort" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
               <span class="filter-btn-label">Sort</span>
-              <span class="filter-btn-value">{{sortLabel()}}</span>
-              <i class="fas" ng-class="sortDesc() ? 'fa-arrow-down' : 'fa-arrow-up'" aria-hidden="true"></i>
-              <span class="sr-only">{{sortDesc() ? 'descending' : 'ascending'}}</span>
+              <span class="filter-btn-value">{{ sortLabel() }}</span>
+              <i class="fas" aria-hidden="true" :class="sortDesc() ? &#x27;fa-arrow-down&#x27; : &#x27;fa-arrow-up&#x27;"></i>
+              <span class="sr-only">{{ sortDesc() ? 'descending' : 'ascending' }}</span>
             </button>
             <div class="dropdown-menu" aria-labelledby="dropdownSort">
               <h6 class="dropdown-header">Order by</h6>
-              <div class="form-check dropdown-item" ng-repeat="(field, def) in sortFields">
-                <input class="form-check-input" type="radio" name="sort" id="sort-{{$index}}" ng-checked="isSortedBy(field)" ng-click="setSort(field, def.defaultDesc)" />
-                <label class="form-check-label" for="sort-{{$index}}">{{def.label}}</label>
+              <div class="form-check dropdown-item" v-for="(def, field, index) in sortFields">
+                <input class="form-check-input" type="radio" name="sort" @click="setSort(field, def.defaultDesc)" :checked="isSortedBy(field)" :id="&quot;sort-&quot; + (index)">
+                <label class="form-check-label" :for="&quot;sort-&quot; + (index)">{{ def?.label }}</label>
               </div>
               <div class="dropdown-divider"></div>
-              <button type="button" class="dropdown-item" ng-click="toggleSortDirection()">
+              <button type="button" class="dropdown-item" @click="toggleSortDirection()">
                 <i class="fas fa-exchange-alt fa-rotate-90" aria-hidden="true"></i>
-                {{sortDesc() ? 'Switch to ascending' : 'Switch to descending'}}
+                {{ sortDesc() ? 'Switch to ascending' : 'Switch to descending' }}
               </button>
             </div>
           </div>
 
           <div class="dropdown">
-            <button
-              class="btn dropdown-toggle"
-              type="button"
-              id="dropdownStatus"
-              data-toggle="dropdown"
-              aria-haspopup="true"
-              aria-expanded="false"
-            >
+            <button class="btn dropdown-toggle" type="button" id="dropdownStatus" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
               <span class="filter-btn-label">Status</span>
-              <span class="filter-btn-value" ng-if="!hasHiddenStatus()">All</span>
-              <span class="filter-btn-value" ng-if="hasHiddenStatus()">{{hiddenStatusCount()}} hidden</span>
+              <span class="filter-btn-value" v-if="!hasHiddenStatus()">All</span>
+              <span class="filter-btn-value" v-if="hasHiddenStatus()">{{ hiddenStatusCount() }} hidden</span>
             </button>
             <div class="dropdown-menu" aria-labelledby="dropdownStatus">
               <h6 class="dropdown-header">Show statuses</h6>
-              <div class="form-check dropdown-item" ng-repeat="(key, label) in statusKeyLabels">
-                <input class="form-check-input" type="checkbox" id="status-{{key}}" ng-model="filters.status[key]" />
-                <label class="form-check-label" for="status-{{key}}">{{label}}</label>
+              <div class="form-check dropdown-item" v-for="(label, key, index) in statusKeyLabels">
+                <input class="form-check-input" type="checkbox" v-field="{ state: viewState, set: value =&gt; { filters.status[key] = value }, value: filters?.status[key], form: null, options: {} }" :id="&quot;status-&quot; + (key)">
+                <label class="form-check-label" :for="&quot;status-&quot; + (key)">{{ label }}</label>
               </div>
             </div>
           </div>
@@ -119,154 +88,140 @@
       </form>
 
       <!-- Result count + active filter chips -->
-      <div class="dashboard-meta" ng-if="!loading">
+      <div class="dashboard-meta" v-if="!loading">
         <span class="dashboard-count">
-          <span ng-if="filteredItems.length === items.length">{{items.length | number}} anonymization<span ng-if="items.length !== 1">s</span></span>
-          <span ng-if="filteredItems.length !== items.length">{{filteredItems.length | number}} of {{items.length | number}} shown</span>
+          <span v-if="filteredItems?.length === items?.length">{{ fmt?.number(items?.length) }} anonymization<span v-if="items?.length !== 1">s</span></span>
+          <span v-if="filteredItems?.length !== items?.length">{{ fmt?.number(filteredItems?.length) }} of {{ fmt?.number(items?.length) }} shown</span>
         </span>
-        <span class="filter-chip" ng-repeat="(f, v) in filters.status" ng-if="v === false">
-          Hiding {{statusKeyLabels[f]}}
-          <button type="button" class="filter-chip-close" aria-label="Show {{statusKeyLabels[f]}} again" ng-click="filters.status[f] = true;">&times;</button>
-        </span>
-        <button type="button" class="btn-link-inline" ng-if="hasActiveFilters()" ng-click="clearFilters()">Clear filters</button>
+        <template v-for="(v, f, index) in filters?.status"><span class="filter-chip" v-if="v === false">
+          Hiding {{ statusKeyLabels[f] }}
+          <button type="button" class="filter-chip-close" @click="filters.status[f] = true;" :aria-label="&quot;Show &quot; + (statusKeyLabels[f]) + &quot; again&quot;">&times;</button>
+        </span></template>
+        <button type="button" class="btn-link-inline" v-if="hasActiveFilters()" @click="clearFilters()">Clear filters</button>
       </div>
     </div>
 
     <!-- Table -->
-    <div class="paper-table paper-table-dashboard w-100" role="table" aria-label="Anonymizations" aria-busy="{{loading}}">
+    <div class="paper-table paper-table-dashboard w-100" role="table" aria-label="Anonymizations" :aria-busy="(loading)">
       <div class="paper-table-head" role="row">
-        <div role="columnheader" aria-sort="{{isSortedBy('_name') ? (sortDesc() ? 'descending' : 'ascending') : 'none'}}">
-          <button type="button" class="sortable" ng-class="{active: isSortedBy('_name')}" ng-click="setSort('_name')">
-            Anonymization <i class="fas" ng-if="isSortedBy('_name')" ng-class="sortDesc() ? 'fa-arrow-down' : 'fa-arrow-up'" aria-hidden="true"></i>
+        <div role="columnheader" :aria-sort="(isSortedBy(&#x27;_name&#x27;) ? (sortDesc() ? &#x27;descending&#x27; : &#x27;ascending&#x27;) : &#x27;none&#x27;)">
+          <button type="button" class="sortable" :class="{active: isSortedBy(&#x27;_name&#x27;)}" @click="setSort(&#x27;_name&#x27;)">
+            Anonymization <i class="fas" aria-hidden="true" v-if="isSortedBy(&#x27;_name&#x27;)" :class="sortDesc() ? &#x27;fa-arrow-down&#x27; : &#x27;fa-arrow-up&#x27;"></i>
           </button>
         </div>
-        <div role="columnheader" aria-sort="{{isSortedBy('status') ? (sortDesc() ? 'descending' : 'ascending') : 'none'}}">
-          <button type="button" class="sortable" ng-class="{active: isSortedBy('status')}" ng-click="setSort('status')">
-            Status <i class="fas" ng-if="isSortedBy('status')" ng-class="sortDesc() ? 'fa-arrow-down' : 'fa-arrow-up'" aria-hidden="true"></i>
+        <div role="columnheader" :aria-sort="(isSortedBy(&#x27;status&#x27;) ? (sortDesc() ? &#x27;descending&#x27; : &#x27;ascending&#x27;) : &#x27;none&#x27;)">
+          <button type="button" class="sortable" :class="{active: isSortedBy(&#x27;status&#x27;)}" @click="setSort(&#x27;status&#x27;)">
+            Status <i class="fas" aria-hidden="true" v-if="isSortedBy(&#x27;status&#x27;)" :class="sortDesc() ? &#x27;fa-arrow-down&#x27; : &#x27;fa-arrow-up&#x27;"></i>
           </button>
         </div>
-        <div role="columnheader" class="num" aria-sort="{{isSortedBy('pageView') ? (sortDesc() ? 'descending' : 'ascending') : 'none'}}">
-          <button type="button" class="sortable" ng-class="{active: isSortedBy('pageView')}" ng-click="setSort('pageView')">
-            Views <i class="fas" ng-if="isSortedBy('pageView')" ng-class="sortDesc() ? 'fa-arrow-down' : 'fa-arrow-up'" aria-hidden="true"></i>
+        <div role="columnheader" class="num" :aria-sort="(isSortedBy(&#x27;pageView&#x27;) ? (sortDesc() ? &#x27;descending&#x27; : &#x27;ascending&#x27;) : &#x27;none&#x27;)">
+          <button type="button" class="sortable" :class="{active: isSortedBy(&#x27;pageView&#x27;)}" @click="setSort(&#x27;pageView&#x27;)">
+            Views <i class="fas" aria-hidden="true" v-if="isSortedBy(&#x27;pageView&#x27;)" :class="sortDesc() ? &#x27;fa-arrow-down&#x27; : &#x27;fa-arrow-up&#x27;"></i>
           </button>
         </div>
-        <div role="columnheader" aria-sort="{{isSortedBy('options.expirationDate') ? (sortDesc() ? 'descending' : 'ascending') : 'none'}}">
-          <button type="button" class="sortable" ng-class="{active: isSortedBy('options.expirationDate')}" ng-click="setSort('options.expirationDate')">
-            Expires <i class="fas" ng-if="isSortedBy('options.expirationDate')" ng-class="sortDesc() ? 'fa-arrow-down' : 'fa-arrow-up'" aria-hidden="true"></i>
+        <div role="columnheader" :aria-sort="(isSortedBy(&#x27;options.expirationDate&#x27;) ? (sortDesc() ? &#x27;descending&#x27; : &#x27;ascending&#x27;) : &#x27;none&#x27;)">
+          <button type="button" class="sortable" :class="{active: isSortedBy(&#x27;options.expirationDate&#x27;)}" @click="setSort(&#x27;options.expirationDate&#x27;)">
+            Expires <i class="fas" aria-hidden="true" v-if="isSortedBy(&#x27;options.expirationDate&#x27;)" :class="sortDesc() ? &#x27;fa-arrow-down&#x27; : &#x27;fa-arrow-up&#x27;"></i>
           </button>
         </div>
         <div role="columnheader"><span class="sr-only">Actions</span></div>
       </div>
 
       <!-- Loading skeleton: keeps the layout stable while the three lists load -->
-      <div class="paper-table-row paper-table-skeleton" role="row" aria-hidden="true" ng-if="loading" ng-repeat="i in [1, 2, 3, 4]">
+      <template v-for="(i, index) in [1, 2, 3, 4]"><div class="paper-table-row paper-table-skeleton" role="row" aria-hidden="true" v-if="loading">
         <div class="cell-anon" role="cell"><span class="skeleton skeleton-badge"></span><div class="anon-text"><span class="skeleton skeleton-line" style="width: 38%"></span><span class="skeleton skeleton-line skeleton-line-sm" style="width: 56%"></span></div></div>
         <div class="cell-status" role="cell"><span class="skeleton skeleton-line" style="width: 60%"></span></div>
         <div class="cell-views num" role="cell"><span class="skeleton skeleton-line" style="width: 40%"></span></div>
         <div class="cell-expires" role="cell"><span class="skeleton skeleton-line" style="width: 55%"></span></div>
         <div class="cell-actions" role="cell"></div>
-      </div>
+      </div></template>
 
-      <div
-        class="paper-table-row"
-        role="row"
-        ng-if="!loading"
-        ng-class="{'repo-inactive': item._statusKey == 'expired' || item._statusKey == 'removed', 'repo-error': item.status == 'error', 'row-clickable': !!item._viewUrl}"
-        ng-repeat="item in items | filter:itemFilter | orderBy:orderBy as filteredItems track by (item._type + ':' + (item._id || $index))"
-        ng-click="openItem(item, $event)"
-      >
+      <template v-for="(item, index) in filteredItems" :key="(item?._type + &#x27;:&#x27; + (item?._id || index))"><div class="paper-table-row" role="row" v-if="!loading" :class="{&#x27;repo-inactive&#x27;: item?._statusKey == &#x27;expired&#x27; || item?._statusKey == &#x27;removed&#x27;, &#x27;repo-error&#x27;: item?.status == &#x27;error&#x27;, &#x27;row-clickable&#x27;: !!item?._viewUrl}" @click="openItem(item, $event)">
         <div class="cell-anon" role="cell">
-          <span class="type-badge" ng-class="{'type-repo': item._type === 'repo', 'type-pr': item._type === 'pr', 'type-gist': item._type === 'gist'}">{{item._type === 'repo' ? 'Repo' : item._type === 'pr' ? 'PR' : 'Gist'}}</span>
+          <span class="type-badge" :class="{&#x27;type-repo&#x27;: item?._type === &#x27;repo&#x27;, &#x27;type-pr&#x27;: item?._type === &#x27;pr&#x27;, &#x27;type-gist&#x27;: item?._type === &#x27;gist&#x27;}">{{ item?._type === 'repo' ? 'Repo' : item?._type === 'pr' ? 'PR' : 'Gist' }}</span>
           <div class="anon-text">
             <div class="anon-title">
-              <a ng-if="item._viewUrl" ng-href="{{item._viewUrl}}" class="repo-name" ng-bind="item._name"></a>
-              <span ng-if="!item._viewUrl" class="repo-name repo-name-static" ng-bind="item._name"></span>
-              <span class="type-badge type-coauthor" ng-if="item.role === 'coauthor'" title="You are a co-author on this anonymization">Co-author</span>
+              <a class="repo-name" v-if="item?._viewUrl" v-text="item?._name" :href="safeUrl((item?._viewUrl))"></a>
+              <span class="repo-name repo-name-static" v-if="!item?._viewUrl" v-text="item?._name"></span>
+              <span class="type-badge type-coauthor" title="You are a co-author on this anonymization" v-if="item?.role === &#x27;coauthor&#x27;">Co-author</span>
             </div>
-            <div class="anon-sub" ng-if="!item._broken || item.conference">
-              <span class="anon-source" ng-if="item._type === 'repo' && item.source.fullName && !item._broken">
-                <a href="https://github.com/{{item.source.fullName}}/" target="_blank" rel="noopener" ng-bind="item.source.fullName"></a><span ng-if="item.options.update && item.source.branch"> &middot; <a href="https://github.com/{{item.source.fullName}}/tree/{{item.source.branch}}" target="_blank" rel="noopener" ng-bind="item.source.branch"></a></span><span ng-if="item.source.commit"> &middot; <a class="commit-hash" href="https://github.com/{{item.source.fullName}}/tree/{{item.source.commit}}" target="_blank" rel="noopener">@{{item.source.commit.substring(0, 8)}}</a></span>
+            <div class="anon-sub" v-if="!item?._broken || item?.conference">
+              <span class="anon-source" v-if="item?._type === &#x27;repo&#x27; &amp;&amp; item?.source?.fullName &amp;&amp; !item?._broken">
+                <a target="_blank" rel="noopener" v-text="item?.source?.fullName" :href="safeUrl(&quot;https://github.com/&quot; + (item?.source?.fullName) + &quot;/&quot;)"></a><span v-if="item?.options?.update &amp;&amp; item?.source?.branch"> &middot; <a target="_blank" rel="noopener" v-text="item?.source?.branch" :href="safeUrl(&quot;https://github.com/&quot; + (item?.source?.fullName) + &quot;/tree/&quot; + (item?.source?.branch))"></a></span><span v-if="item?.source?.commit"> &middot; <a class="commit-hash" target="_blank" rel="noopener" :href="safeUrl(&quot;https://github.com/&quot; + (item?.source?.fullName) + &quot;/tree/&quot; + (item?.source?.commit))">@{{ item?.source?.commit?.substring(0, 8) }}</a></span>
               </span>
-              <span class="anon-source" ng-if="item._type === 'pr' && item.source.repositoryFullName && !item._broken">
-                <a href="https://github.com/{{item.source.repositoryFullName}}/pull/{{item.source.pullRequestId}}" target="_blank" rel="noopener" ng-bind="item._source"></a>
+              <span class="anon-source" v-if="item?._type === &#x27;pr&#x27; &amp;&amp; item?.source?.repositoryFullName &amp;&amp; !item?._broken">
+                <a target="_blank" rel="noopener" v-text="item?._source" :href="safeUrl(&quot;https://github.com/&quot; + (item?.source?.repositoryFullName) + &quot;/pull/&quot; + (item?.source?.pullRequestId))"></a>
               </span>
-              <span class="anon-source" ng-if="item._type === 'gist' && item.source.gistId && !item._broken">
-                <a href="https://gist.github.com/{{item.source.gistId}}" target="_blank" rel="noopener" ng-bind="item._source"></a>
+              <span class="anon-source" v-if="item?._type === &#x27;gist&#x27; &amp;&amp; item?.source?.gistId &amp;&amp; !item?._broken">
+                <a target="_blank" rel="noopener" v-text="item?._source" :href="safeUrl(&quot;https://gist.github.com/&quot; + (item?.source?.gistId))"></a>
               </span>
-              <span class="cell-conf conf-tag" ng-if="item.conference" title="{{item.conference}}"><i class="fas fa-university" aria-hidden="true"></i> <span ng-bind="item.conference"></span></span>
+              <span class="cell-conf conf-tag" v-if="item?.conference" :title="(item?.conference)"><i class="fas fa-university" aria-hidden="true"></i> <span v-text="item?.conference"></span></span>
             </div>
           </div>
         </div>
         <div class="cell-status" role="cell">
           <div class="status-line">
-            <span class="status-dot" ng-class="'status-' + item._statusKey" aria-hidden="true"></span>
-            <span class="status-word" ng-bind="item.status | statusLabel"></span>
+            <span class="status-dot" aria-hidden="true" :class="&#x27;status-&#x27; + item?._statusKey"></span>
+            <span class="status-word" v-text="fmt?.statusLabel(item?.status)"></span>
           </div>
-          <div class="status-sub status-sub-error" ng-if="item.status == 'error' && item.statusMessage" title="{{item.statusMessage}}" ng-bind="item.statusMessage | statusMsg"></div>
-          <div class="status-sub status-sub-warn" ng-if="item._stale" title="Last activity {{item.anonymizeDate || item.lastView | humanTime}}">
-            Last activity {{item.anonymizeDate || item.lastView | humanTime}} &middot; may be stuck
+          <div class="status-sub status-sub-error" v-if="item?.status == &#x27;error&#x27; &amp;&amp; item?.statusMessage" v-text="fmt?.statusMsg(item?.statusMessage)" :title="(item?.statusMessage)"></div>
+          <div class="status-sub status-sub-warn" v-if="item?._stale" :title="&quot;Last activity &quot; + (fmt?.humanTime(item?.anonymizeDate || item?.lastView))">
+            Last activity {{ fmt?.humanTime(item?.anonymizeDate || item?.lastView) }} &middot; may be stuck
           </div>
-          <div class="status-sub" ng-if="item.status != 'error' && !item._stale && item.anonymizeDate">
-            anonymized {{item.anonymizeDate | humanTime}}
+          <div class="status-sub" v-if="item?.status != &#x27;error&#x27; &amp;&amp; !item?._stale &amp;&amp; item?.anonymizeDate">
+            anonymized {{ fmt?.humanTime(item?.anonymizeDate) }}
           </div>
         </div>
-        <div class="cell-views num" role="cell" ng-bind="item.pageView | number"></div>
+        <div class="cell-views num" role="cell" v-text="fmt?.number(item?.pageView)"></div>
         <div class="cell-expires" role="cell">
-          <span ng-if="item._expiry.kind === 'never'" class="expires-never">Never</span>
-          <span ng-if="item._expiry.kind === 'date'" ng-bind="item._expiry.date | humanTime"></span>
-          <span ng-if="item._expiry.kind === 'expired' && item._expiry.date" class="expires-past">Expired {{item._expiry.date | humanTime}}</span>
-          <span ng-if="item._expiry.kind === 'expired' && !item._expiry.date" class="expires-past">Expired</span>
-          <span class="empty-dash" ng-if="item._expiry.kind === 'none'" aria-label="Not applicable">&mdash;</span>
+          <span class="expires-never" v-if="item?._expiry?.kind === &#x27;never&#x27;">Never</span>
+          <span v-if="item?._expiry?.kind === &#x27;date&#x27;" v-text="fmt?.humanTime(item?._expiry?.date)"></span>
+          <span class="expires-past" v-if="item?._expiry?.kind === &#x27;expired&#x27; &amp;&amp; item?._expiry?.date">Expired {{ fmt?.humanTime(item?._expiry?.date) }}</span>
+          <span class="expires-past" v-if="item?._expiry?.kind === &#x27;expired&#x27; &amp;&amp; !item?._expiry?.date">Expired</span>
+          <span class="empty-dash" aria-label="Not applicable" v-if="item?._expiry?.kind === &#x27;none&#x27;">&mdash;</span>
         </div>
         <div class="cell-actions" role="cell">
-          <div class="dropdown" ng-if="!item._broken">
-            <button
-              class="btn btn-icon-dots"
-              type="button"
-              data-toggle="dropdown"
-              aria-haspopup="true"
-              aria-expanded="false"
-              aria-label="Actions for {{item._name}}"
-            >
+          <div class="dropdown" v-if="!item?._broken">
+            <button class="btn btn-icon-dots" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" :aria-label="&quot;Actions for &quot; + (item?._name)">
               <i class="fas fa-ellipsis-h" aria-hidden="true"></i>
             </button>
             <div class="dropdown-menu dropdown-menu-right">
-              <a class="dropdown-item" ng-href="{{item._viewUrl}}">
+              <a class="dropdown-item" :href="safeUrl((item?._viewUrl))">
                 <i class="fa fa-eye" aria-hidden="true"></i> View
               </a>
-              <a class="dropdown-item" href="/w/{{item.repoId}}/" target="_self" ng-if="item._type === 'repo' && item.options.page && item.status == 'ready'">
+              <a class="dropdown-item" target="_self" v-if="item?._type === &#x27;repo&#x27; &amp;&amp; item?.options?.page &amp;&amp; item?.status == &#x27;ready&#x27;" :href="safeUrl(&quot;/w/&quot; + (item?.repoId) + &quot;/&quot;)">
                 <i class="fas fa-globe" aria-hidden="true"></i> View page
               </a>
-              <a class="dropdown-item" ng-href="{{item._editUrl}}">
+              <a class="dropdown-item" :href="safeUrl((item?._editUrl))">
                 <i class="far fa-edit" aria-hidden="true"></i> Edit
               </a>
-              <button type="button" class="dropdown-item" ng-if="item.status == 'ready' || item.status == 'error'" ng-click="refreshItem(item)">
+              <button type="button" class="dropdown-item" v-if="item?.status == &#x27;ready&#x27; || item?.status == &#x27;error&#x27;" @click="refreshItem(item)">
                 <i class="fas fa-sync" aria-hidden="true"></i> Force update
               </button>
-              <button type="button" class="dropdown-item" ng-if="item.status == 'removed'" ng-click="refreshItem(item)">
+              <button type="button" class="dropdown-item" v-if="item?.status == &#x27;removed&#x27;" @click="refreshItem(item)">
                 <i class="fas fa-check-circle" aria-hidden="true"></i> Enable
               </button>
-              <button type="button" class="dropdown-item" ng-if="item.status == 'expired'" ng-click="extendItem(item)">
+              <button type="button" class="dropdown-item" v-if="item?.status == &#x27;expired&#x27;" @click="extendItem(item)">
                 <i class="fas fa-calendar-plus" aria-hidden="true"></i> Extend 6 months
               </button>
-              <div ng-if="(item.status == 'ready' || item.status == 'expired' || item.status == 'error') && item.role !== 'coauthor'">
+              <div v-if="(item?.status == &#x27;ready&#x27; || item?.status == &#x27;expired&#x27; || item?.status == &#x27;error&#x27;) &amp;&amp; item?.role !== &#x27;coauthor&#x27;">
                 <div class="dropdown-divider"></div>
-                <button type="button" class="dropdown-item dropdown-item-danger" ng-click="removeItem(item)">
+                <button type="button" class="dropdown-item dropdown-item-danger" @click="removeItem(item)">
                   <i class="fas fa-trash-alt" aria-hidden="true"></i> Remove
                 </button>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      </div></template>
 
-      <div class="paper-table-empty" ng-if="!loading && filteredItems.length == 0">
+      <div class="paper-table-empty" v-if="!loading &amp;&amp; filteredItems?.length == 0">
         <i class="fas fa-inbox" aria-hidden="true"></i>
-        <span ng-if="items.length == 0">You have no anonymizations yet.</span>
-        <span ng-if="items.length > 0">Nothing matches the current filters.</span>
+        <span v-if="items?.length == 0">You have no anonymizations yet.</span>
+        <span v-if="items?.length &gt; 0">Nothing matches the current filters.</span>
         <div class="paper-table-empty-actions">
-          <button type="button" class="btn btn-outline-ink" ng-if="hasActiveFilters()" ng-click="clearFilters()">Clear filters</button>
-          <a href="/anonymize" class="btn btn-ink" ng-if="items.length == 0"><i class="fa fa-plus-circle mr-1" aria-hidden="true"></i> New anonymization</a>
+          <button type="button" class="btn btn-outline-ink" v-if="hasActiveFilters()" @click="clearFilters()">Clear filters</button>
+          <a href="/anonymize" class="btn btn-ink" v-if="items?.length == 0"><i class="fa fa-plus-circle mr-1" aria-hidden="true"></i> New anonymization</a>
         </div>
       </div>
     </div>

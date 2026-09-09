@@ -6,13 +6,11 @@ const { pipeline } = require("node:stream");
 const cleanCss = require("gulp-clean-css");
 const crypto = require("crypto");
 const fs = require("fs");
+const esbuild = require("esbuild");
+const { compileTemplate } = require("vue/compiler-sfc");
+const { promisify } = require("node:util");
 
 const coreJsFiles = [
-  "public/script/external/angular.min.js",
-  "public/script/external/angular-translate.min.js",
-  "public/script/external/angular-translate-loader-static-files.min.js",
-  "public/script/external/angular-sanitize.min.js",
-  "public/script/external/angular-route.min.js",
   "public/script/external/github-emojis.js",
   "public/script/external/marked-emoji.js",
   "public/script/external/marked.min.js",
@@ -25,21 +23,17 @@ const coreJsFiles = [
   "public/script/utils.js",
 ];
 
-const vendorJsFiles = [
-  "public/script/external/pdf.js",
-  "public/script/pdf-viewer.js",
-  "public/script/html-doc.js",
+const markdownFiles = [
   "public/script/external/katex.min.js",
   "public/script/external/katex-auto-render.min.js",
   "public/script/external/marked-katex-extension.umd.min.js",
   "public/script/external/marked-mermaid.js",
-  "public/script/external/notebook.min.js",
-  "public/script/external/org.js",
-  "public/script/external/ace/ace.js",
-  "public/script/external/ui-ace.min.js",
-  "public/script/app.js",
-  "public/script/admin.js",
-];
+ ];
+const pdfFiles = ["public/script/external/pdf.js"];
+const notebookFiles = ["public/script/external/notebook.min.js"];
+const orgFiles = ["public/script/external/org.js"];
+const editorFiles = ["public/script/external/ace/ace.js"];
+const lazyGroups = { markdown: markdownFiles, pdf: pdfFiles, notebook: notebookFiles, org: orgFiles, editor: editorFiles };
 
 const mermaidFiles = [
   "public/script/external/mermaid.min.js",
@@ -70,8 +64,30 @@ function buildCoreJs(cb) {
   pipeline(orderedSrc(coreJsFiles), concat("core.min.js"), uglify(), dest("public/script"), cb);
 }
 
-function buildVendorJs(cb) {
-  pipeline(orderedSrc(vendorJsFiles), concat("vendor.min.js"), uglify(), dest("public/script"), cb);
+async function buildVendorJs() {
+  const lazyAssets = {};
+  await Promise.all(Object.entries(lazyGroups).map(async ([name, files]) => {
+    await promisify(pipeline)(orderedSrc(files), concat(`${name}.min.js`), uglify(), dest("public/script"));
+    lazyAssets[name] = `/script/${name}.${hashFile(`public/script/${name}.min.js`)}.min.js`;
+  }));
+  const app = await esbuild.build({
+    entryPoints: ["public/script/main.js"], bundle: true, write: false,
+    format: "iife", minify: true, target: "es2020",
+    define: { __LAZY_ASSETS__: JSON.stringify(lazyAssets), "process.env.NODE_ENV": JSON.stringify("production"), __VUE_OPTIONS_API__: "true", __VUE_PROD_DEVTOOLS__: "false", __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: "false" },
+    plugins: [{ name: "vue-templates", setup(build) {
+      build.onLoad({ filter: /\.htm$/ }, async ({ path }) => {
+        const { code, errors } = compileTemplate({
+          source: fs.readFileSync(path, "utf8"), filename: path, id: "anonymous",
+          compilerOptions: { nodeTransforms: [node => {
+            if (node.type === 1 && node.props.some(prop => prop.type === 7 && ["text", "html"].includes(prop.name))) node.children = [];
+          }] },
+        });
+        if (errors.length) throw errors[0];
+        return { contents: code, loader: "js" };
+      });
+    } }],
+  });
+  fs.writeFileSync("public/script/vendor.min.js", app.outputFiles[0].text);
 }
 
 function buildMermaidJs(cb) {
@@ -89,6 +105,7 @@ function writeManifest(cb) {
     "mermaid.min.js": "public/script/mermaid.min.js",
     "all.min.css": "public/css/all.min.css",
   };
+  for (const name of Object.keys(lazyGroups)) files[`${name}.min.js`] = `public/script/${name}.min.js`;
   const manifest = {};
   for (const [key, filePath] of Object.entries(files)) {
     const hash = hashFile(filePath);

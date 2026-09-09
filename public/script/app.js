@@ -1,1172 +1,18 @@
-angular
-  .module("anonymous-github", [
-    "ngRoute",
-    "ngSanitize",
-    "ui.ace",
-    "ngPDFViewer",
-    "htmlDoc",
-    "pascalprecht.translate",
-    "admin",
-  ])
-  .config([
-    "$routeProvider",
-    "$locationProvider",
-    "$translateProvider",
-    function ($routeProvider, $locationProvider, $translateProvider) {
-      $translateProvider.useStaticFilesLoader({
-        prefix: "/i18n/locale-",
-        suffix: ".json",
-      });
+import { reactive } from "vue";
+import { createTimers, createListeners } from "./state.js";
 
-      $translateProvider.preferredLanguage("en");
+// Page setup functions run inside Vue effect scopes.
+export const mainController = function (state, http, location, timeout) {
+      state.title = "Main";
+      state.user = { status: "connection" };
+      state.site_options;
 
-      $routeProvider
-        .when("/", {
-          templateUrl: "/partials/home.htm",
-          controller: "homeController",
-          title: "Anonymous GitHub – Share the code, not the author",
-        })
-        .when("/dashboard", {
-          templateUrl: "/partials/dashboard.htm",
-          controller: "unifiedDashboardController",
-          title: "Your anonymizations – Anonymous GitHub",
-        })
-        .when("/pr-dashboard", {
-          redirectTo: "/dashboard",
-        })
-        .when("/anonymize/:repoId?", {
-          templateUrl: "/partials/anonymize.htm",
-          controller: "anonymizeController",
-          title: "New anonymization – Anonymous GitHub",
-        })
-        .when("/pull-request-anonymize/:pullRequestId?", {
-          templateUrl: "/partials/anonymize.htm",
-          controller: "anonymizeController",
-          title: "Anonymize a pull request – Anonymous GitHub",
-        })
-        .when("/gist-anonymize/:gistId?", {
-          templateUrl: "/partials/anonymize.htm",
-          controller: "anonymizeController",
-          title: "Anonymize a gist – Anonymous GitHub",
-        })
-        .when("/status/:repoId", {
-          templateUrl: "/partials/status.htm",
-          controller: "statusController",
-          title: "Repository status – Anonymous GitHub",
-        })
-        .when("/conferences", {
-          templateUrl: "/partials/conferences.htm",
-          controller: "conferencesController",
-          title: "Your conferences – Anonymous GitHub",
-        })
-        .when("/conference/new", {
-          templateUrl: "/partials/newConference.htm",
-          controller: "newConferenceController",
-          title: "New conference – Anonymous GitHub",
-        })
-        .when("/conference/:conferenceId/edit", {
-          templateUrl: "/partials/newConference.htm",
-          controller: "newConferenceController",
-          title: "Edit conference – Anonymous GitHub",
-        })
-        .when("/conference/:conferenceId", {
-          templateUrl: "/partials/conference.htm",
-          controller: "conferenceController",
-          title: "Conference – Anonymous GitHub",
-        })
-        .when("/faq", {
-          templateUrl: "/partials/faq.htm",
-          controller: "faqController",
-          title: "FAQ – Anonymous GitHub",
-        })
-        .when("/profile", {
-          templateUrl: "/partials/profile.htm",
-          controller: "profileController",
-          title: "Your settings – Anonymous GitHub",
-        })
-        .when("/claim", {
-          templateUrl: "/partials/claim.htm",
-          controller: "claimController",
-          title: "Claim an anonymization – Anonymous GitHub",
-        })
-        .when("/pr/:pullRequestId/:path*?", {
-          templateUrl: "/partials/pullRequest.htm",
-          controller: "pullRequestController",
-          title: "Anonymous pull request – Anonymous GitHub",
-          reloadOnSearch: false,
-        })
-        .when("/gist/:gistId/:path*?", {
-          templateUrl: "/partials/gist.htm",
-          controller: "gistController",
-          title: "Anonymous gist – Anonymous GitHub",
-          reloadOnSearch: false,
-        })
-        .when("/r/:repoId/:path*?", {
-          templateUrl: "/partials/explorer.htm",
-          controller: "exploreController",
-          title: "Anonymous repository – Anonymous GitHub",
-          reloadOnUrl: false,
-        })
-        .when("/repository/:repoId/:path*?", {
-          templateUrl: "/partials/explorer.htm",
-          controller: "exploreController",
-          title: "Anonymous repository – Anonymous GitHub",
-          reloadOnUrl: false,
-        })
-        .when("/admin/", {
-          templateUrl: "/partials/admin/overview.htm",
-          controller: "overviewAdminController",
-          title: "Admin · Overview – Anonymous GitHub",
-        })
-        .when("/admin/repositories", {
-          templateUrl: "/partials/admin/repositories.htm",
-          controller: "repositoriesAdminController",
-          title: "Admin · Repositories – Anonymous GitHub",
-        })
-        .when("/admin/users", {
-          templateUrl: "/partials/admin/users.htm",
-          controller: "usersAdminController",
-          title: "Admin · Users – Anonymous GitHub",
-        })
-        .when("/admin/users/:username", {
-          templateUrl: "/partials/admin/user.htm",
-          controller: "userAdminController",
-          title: "Admin · User details – Anonymous GitHub",
-        })
-        .when("/admin/conferences", {
-          templateUrl: "/partials/admin/conferences.htm",
-          controller: "conferencesAdminController",
-          title: "Admin · Conferences – Anonymous GitHub",
-        })
-        .when("/admin/queues", {
-          templateUrl: "/partials/admin/queues.htm",
-          controller: "queuesAdminController",
-          title: "Admin · Queues – Anonymous GitHub",
-        })
-        .when("/admin/errors", {
-          templateUrl: "/partials/admin/errors.htm",
-          controller: "errorsAdminController",
-          title: "Admin · Errors – Anonymous GitHub",
-        })
-        .when("/404", {
-          templateUrl: "/partials/404.htm",
-          title: "Page not found – Anonymous GitHub",
-        })
-        .otherwise({
-          templateUrl: "/partials/404.htm",
-          title: "Page not found – Anonymous GitHub",
-        });
-      $locationProvider.html5Mode(true);
-    },
-  ])
-  // Paths served by express, not by the Angular router. html5Mode makes
-  // Angular swallow every same-origin anchor click and resolve it against the
-  // route table, so a link to /w/<repoId>/ — the one an anonymized README
-  // points at for the repository's GitHub Page — fell through to .otherwise()
-  // and rendered the 404 partial. Reloading worked because that bypassed
-  // Angular and reached the server. Give these URLs back to the browser as a
-  // real navigation.
-  .run([
-    "$rootScope",
-    "$window",
-    function ($rootScope, $window) {
-      const serverPaths = /^\/(w|api|github)(\/|$)/;
-      $rootScope.$on("$locationChangeStart", function (event, next) {
-        let url;
-        try {
-          url = new URL(next, $window.location.href);
-        } catch (e) {
-          return;
-        }
-        if (url.origin !== $window.location.origin) return;
-        if (!serverPaths.test(url.pathname)) return;
-        // Reverts $location to the previous URL so the address bar stays
-        // consistent until the browser leaves the page.
-        event.preventDefault();
-        $window.location.assign(url.href);
-      });
-    },
-  ])
-  .filter("humanFileSize", function () {
-    return humanFileSize;
-  })
-  .filter("bigNum", function () {
-    return function bigNum(v) {
-      const n = Number(v) || 0;
-      const abs = Math.abs(n);
-      if (abs < 1000) return String(n);
-      if (abs < 10000) return (n / 1000).toFixed(1).replace(/\.0$/, "") + "k";
-      if (abs < 1000000) return Math.round(n / 1000) + "k";
-      if (abs < 10000000) return (n / 1000000).toFixed(1).replace(/\.0$/, "") + "M";
-      return Math.round(n / 1000000) + "M";
-    };
-  })
-  .filter("humanTime", function () {
-    return function humanTime(seconds) {
-      if (!seconds) {
-        return "never";
-      }
-      if (seconds instanceof Date)
-        seconds = Math.round((Date.now() - seconds) / 1000);
-      if (typeof seconds == "string" || typeof seconds == "number")
-        seconds = Math.round((Date.now() - new Date(seconds)) / 1000);
-      var suffix = seconds < 0 ? "from now" : "ago";
+      state.toasts = [];
 
-      // more than 2 days ago display Date. Spell the month out so the date
-      // is unambiguous regardless of the reader's locale (9/6 vs 6/9).
-      if (Math.abs(seconds) > 2 * 60 * 60 * 24) {
-        const now = new Date();
-        now.setSeconds(now.getSeconds() - seconds);
-        return (
-          "on " +
-          now.toLocaleDateString(undefined, {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-          })
-        );
-      }
-
-      seconds = Math.abs(seconds);
-
-      var times = [
-        seconds / 60 / 60 / 24 / 365, // years
-        seconds / 60 / 60 / 24 / 30, // months
-        seconds / 60 / 60 / 24 / 7, // weeks
-        seconds / 60 / 60 / 24, // days
-        seconds / 60 / 60, // hours
-        seconds / 60, // minutes
-        seconds, // seconds
-      ];
-      var names = ["year", "month", "week", "day", "hour", "minute", "second"];
-
-      for (var i = 0; i < names.length; i++) {
-        var time = Math.floor(times[i]);
-        var name = names[i];
-        if (time > 1) name += "s";
-
-        if (time >= 1) return time + " " + name + " " + suffix;
-      }
-      return "0 seconds " + suffix;
-    };
-  })
-  .filter("title", function () {
-    return function (str) {
-      if (!str) return str;
-
-      str = str.toLowerCase();
-      var words = str.split(" ");
-
-      var capitalized = words.map(function (word) {
-        return word.charAt(0).toUpperCase() + word.substring(1, word.length);
-      });
-      return capitalized.join(" ");
-    };
-  })
-  // Human-readable labels for the raw status values stored on repositories,
-  // pull requests and gists. Anything unknown falls back to Title Case.
-  .filter("statusLabel", function () {
-    var labels = {
-      ready: "Ready",
-      error: "Error",
-      expired: "Expired",
-      expiring: "Expiring",
-      removed: "Removed",
-      removing: "Removing",
-      queue: "Queued",
-      download: "Downloading",
-      downloaded: "Downloaded",
-      preparing: "Preparing",
-      anonymizing: "Anonymizing",
-    };
-    return function (status) {
-      if (!status) return "";
-      if (labels[status]) return labels[status];
-      var s = String(status).replace(/[_-]+/g, " ").toLowerCase();
-      return s.charAt(0).toUpperCase() + s.slice(1);
-    };
-  })
-  .filter("statusMsg", function () {
-    // Known machine codes → sentences. Unknown snake_case codes are
-    // converted to a sentence instead of leaking `branch_not_found`.
-    var codes = {
-      branch_not_found: "Branch not found on GitHub",
-      repo_not_found: "Repository not found on GitHub",
-      repository_not_found: "Repository not found on GitHub",
-      repo_not_accessible: "Repository is not accessible with your token",
-      pr_not_found: "Pull request not found on GitHub",
-      gist_not_found: "Gist not found on GitHub",
-      commit_not_found: "Commit not found on GitHub",
-      repo_too_big: "Repository exceeds the size limit",
-      quota_exceeded: "Storage quota exceeded",
-      incomplete_record: "Incomplete record: missing identifier",
-    };
-    return function (msg) {
-      if (!msg) return msg;
-      var m = msg.match(/^rate_limited:(\d+)$/);
-      if (m) {
-        var remaining = Math.max(0, Math.ceil((parseInt(m[1], 10) - Date.now()) / 1000));
-        if (remaining <= 0) return "Rate limited — resuming soon";
-        var min = Math.floor(remaining / 60);
-        var sec = remaining % 60;
-        return "Rate limited — retrying in " + (min > 0 ? min + "m " + sec + "s" : sec + "s");
-      }
-      if (codes[msg]) return codes[msg];
-      if (/^[a-z0-9]+(_[a-z0-9]+)+$/.test(msg)) {
-        var s = msg.replace(/_/g, " ");
-        return s.charAt(0).toUpperCase() + s.slice(1);
-      }
-      return msg;
-    };
-  })
-  // Shared quota loader. A total of 0 means unlimited: no percentage, no fill.
-  // `level` drives the bar colour: ink until 80%, amber to 95%, red above.
-  .factory("quotaService", [
-    "$http",
-    function ($http) {
-      function decorate(q) {
-        q = q || { used: 0, total: 0 };
-        q.unlimited = !q.total;
-        q.percent = q.unlimited ? 0 : Math.min(100, (q.used * 100) / q.total);
-        q.level = q.unlimited
-          ? "unlimited"
-          : q.percent >= 95
-          ? "danger"
-          : q.percent >= 80
-          ? "warn"
-          : "ok";
-        return q;
-      }
-      return {
-        decorate: decorate,
-        load: function () {
-          return $http.get("/api/user/quota").then((res) => {
-            const quota = res.data || {};
-            quota.storage = decorate(quota.storage);
-            quota.file = decorate(quota.file);
-            quota.repository = decorate(quota.repository);
-            return quota;
-          });
-        },
-      };
-    },
-  ])
-  // Highlights the link of the section currently in view inside a
-  // `.paper-settings-toc`-style navigation. Falls back to no-op without
-  // IntersectionObserver.
-  .directive("paperScrollspy", [
-    "$window",
-    function ($window) {
-      return {
-        restrict: "A",
-        link: function (scope, element) {
-          if (!$window.IntersectionObserver) return;
-          const links = Array.from(element[0].querySelectorAll('a[href^="#"]'));
-          const byId = {};
-          links.forEach((a) => {
-            byId[a.getAttribute("href").slice(1)] = a;
-          });
-          const visible = new Set();
-          function update() {
-            let current = null;
-            for (const id of Object.keys(byId)) {
-              if (visible.has(id)) {
-                current = id;
-                break;
-              }
-            }
-            links.forEach((a) => a.classList.toggle("active", a === byId[current]));
-          }
-          const observer = new $window.IntersectionObserver(
-            (entries) => {
-              entries.forEach((e) => {
-                if (e.isIntersecting) visible.add(e.target.id);
-                else visible.delete(e.target.id);
-              });
-              update();
-            },
-            { rootMargin: "-20% 0px -60% 0px", threshold: 0 }
-          );
-          // Sections may render after the toc; observe on the next tick.
-          $window.setTimeout(() => {
-            Object.keys(byId).forEach((id) => {
-              const target = $window.document.getElementById(id);
-              if (target) observer.observe(target);
-            });
-          }, 0);
-          scope.$on("$destroy", () => observer.disconnect());
-        },
-      };
-    },
-  ])
-  .filter("diff", [
-    "$sce",
-    function ($sce) {
-      const esc = (s) =>
-        s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-
-      function flushFile(out, file) {
-        if (!file) return;
-        const headerName =
-          file.newPath && file.newPath !== "/dev/null"
-            ? file.newPath
-            : file.oldPath || "";
-        const status =
-          file.oldPath === "/dev/null"
-            ? "added"
-            : file.newPath === "/dev/null"
-            ? "deleted"
-            : file.oldPath && file.newPath && file.oldPath !== file.newPath
-            ? "renamed"
-            : "modified";
-        out.push('<div class="diff-file-block">');
-        out.push(
-          '<div class="diff-file-header"><span class="diff-file-icon"><i class="far fa-file-code"></i></span>' +
-            '<span class="diff-file-name">' +
-            esc(headerName) +
-            "</span>" +
-            '<span class="diff-file-status diff-file-status-' +
-            status +
-            '">' +
-            status +
-            "</span></div>"
-        );
-        if (file.lines.length) {
-          out.push('<table class="diff-file-table"><tbody>');
-          for (const line of file.lines) {
-            out.push(
-              '<tr class="diff-row diff-row-' +
-                line.kind +
-                '">' +
-                '<td class="diff-gutter diff-gutter-old">' +
-                (line.oldNo || "") +
-                "</td>" +
-                '<td class="diff-gutter diff-gutter-new">' +
-                (line.newNo || "") +
-                "</td>" +
-                '<td class="diff-sign">' +
-                (line.kind === "add"
-                  ? "+"
-                  : line.kind === "remove"
-                  ? "-"
-                  : line.kind === "hunk"
-                  ? "@"
-                  : "") +
-                "</td>" +
-                '<td class="diff-code">' +
-                esc(line.text) +
-                "</td>" +
-                "</tr>"
-            );
-          }
-          out.push("</tbody></table>");
-        }
-        out.push("</div>");
-      }
-
-      return function (str) {
-        if (!str) return str;
-        const out = [];
-        let file = null;
-        let oldNo = 0;
-        let newNo = 0;
-        const ensureFile = () => {
-          if (!file) file = { oldPath: "", newPath: "", lines: [] };
-          return file;
-        };
-        const startNewFileIfNeeded = () => {
-          if (file && (file.lines.length || file.oldPath || file.newPath)) {
-            flushFile(out, file);
-            file = null;
-          }
-        };
-        const lines = str.split("\n");
-        for (let i = 0; i < lines.length; i++) {
-          const ln = lines[i];
-          if (ln.startsWith("diff --git")) {
-            startNewFileIfNeeded();
-            ensureFile();
-            continue;
-          }
-          if (ln.startsWith("--- ")) {
-            // New file boundary if the previous file already had lines.
-            if (file && file.lines.length) startNewFileIfNeeded();
-            ensureFile().oldPath = ln.replace(/^--- (a\/)?/, "").trim();
-            continue;
-          }
-          if (ln.startsWith("+++ ")) {
-            ensureFile().newPath = ln.replace(/^\+\+\+ (b\/)?/, "").trim();
-            continue;
-          }
-          if (
-            ln.startsWith("index ") ||
-            ln.startsWith("similarity index") ||
-            ln.startsWith("rename ") ||
-            ln.startsWith("new file mode") ||
-            ln.startsWith("deleted file mode") ||
-            ln.startsWith("Binary files")
-          ) {
-            continue;
-          }
-          if (ln.startsWith("@@")) {
-            const m = ln.match(/@@\s+-(\d+)(?:,\d+)?\s+\+(\d+)(?:,\d+)?\s+@@/);
-            if (m) {
-              oldNo = parseInt(m[1], 10);
-              newNo = parseInt(m[2], 10);
-            }
-            ensureFile().lines.push({ kind: "hunk", oldNo: "", newNo: "", text: ln });
-            continue;
-          }
-          if (!file) continue;
-          if (ln.startsWith("+")) {
-            file.lines.push({ kind: "add", oldNo: "", newNo: newNo, text: ln.slice(1) });
-            newNo++;
-          } else if (ln.startsWith("-")) {
-            file.lines.push({ kind: "remove", oldNo: oldNo, newNo: "", text: ln.slice(1) });
-            oldNo++;
-          } else {
-            file.lines.push({ kind: "ctx", oldNo: oldNo, newNo: newNo, text: ln.startsWith(" ") ? ln.slice(1) : ln });
-            oldNo++;
-            newNo++;
-          }
-        }
-        flushFile(out, file);
-        return $sce.trustAsHtml(out.join(""));
-      };
-    },
-  ])
-  .directive("gistFile", [
-    "$location",
-    "$timeout",
-    "$sce",
-    function ($location, $timeout, $sce) {
-      // Map GitHub `language` and file extensions to Prism aliases. Prism
-      // only ships a handful of grammars (js/py/r/julia/markup); unknown
-      // classes still render as readable <pre><code>.
-      const langAliases = {
-        javascript: "javascript",
-        js: "javascript",
-        typescript: "javascript",
-        ts: "javascript",
-        jsx: "javascript",
-        tsx: "javascript",
-        python: "python",
-        py: "python",
-        ipynb: "json",
-        r: "r",
-        julia: "julia",
-        html: "markup",
-        xml: "markup",
-        svg: "markup",
-        json: "json",
-        yaml: "yaml",
-        yml: "yaml",
-        bash: "bash",
-        sh: "bash",
-        shell: "bash",
-        css: "css",
-        scss: "css",
-        c: "c",
-        "c++": "cpp",
-        cpp: "cpp",
-        java: "java",
-        go: "go",
-        rust: "rust",
-        ruby: "ruby",
-        php: "php",
-        sql: "sql",
-        diff: "diff",
-      };
-      function ext(filename) {
-        const i = (filename || "").lastIndexOf(".");
-        return i < 0 ? "" : filename.slice(i + 1).toLowerCase();
-      }
-      function langFor(file) {
-        const fromLang =
-          file && file.language && langAliases[file.language.toLowerCase()];
-        if (fromLang) return fromLang;
-        const fromExt = langAliases[ext(file && file.filename)];
-        return fromExt || "none";
-      }
-      function kind(file) {
-        const e = ext(file && file.filename);
-        if (e === "md" || e === "markdown" || (file && file.language === "Markdown"))
-          return "md";
-        return "code";
-      }
-      return {
-        restrict: "E",
-        scope: { file: "=", terms: "=", options: "=" },
-        template:
-          '<div ng-if="kind === \'md\'"><markdown content="file.content" terms="terms" options="options"></markdown></div>' +
-          '<pre ng-if="kind === \'code\'" class="line-numbers"><code class="{{prismClass}}" ng-bind="file.content"></code></pre>',
-        link: function (scope, elem) {
-          function update() {
-            if (!scope.file) return;
-            scope.kind = kind(scope.file);
-            scope.prismClass = "language-" + langFor(scope.file);
-            // Re-run Prism after the new <code> lands in the DOM.
-            $timeout(() => {
-              const codes = elem[0].querySelectorAll("pre code");
-              codes.forEach((c) => {
-                if (window.Prism) Prism.highlightElement(c);
-              });
-            }, 50);
-          }
-          scope.$watch("file", update);
-          scope.$watch("file.content", update);
-          scope.$watch("terms", update);
-          scope.$watch("options", update, true);
-        },
-      };
-    },
-  ])
-  .directive("markdown", [
-    "$location",
-    function ($location) {
-      return {
-        restrict: "E",
-        scope: {
-          terms: "=",
-          options: "=",
-          content: "=",
-        },
-        link: function (scope, elem, attrs) {
-          function update() {
-            elem.html(renderMD(scope.content, $location.url() + "/../"));
-          }
-          scope.$watch(attrs.terms, update);
-          scope.$watch("terms", update);
-          scope.$watch("options", update);
-          scope.$watch("content", update);
-        },
-      };
-    },
-  ])
-  .directive("tree", [
-    function () {
-      return {
-        restrict: "E",
-        scope: { file: "=", parent: "@", searchQuery: "=", searchResults: "=" },
-        controller: [
-          "$element",
-          "$scope",
-          "$routeParams",
-          "$compile",
-          function ($element, $scope, $routeParams, $compile) {
-            $scope.repoId = document.location.pathname.split("/")[2];
-
-            $scope.opens = Object.create(null);
-
-            if ($routeParams.path) {
-              let accumulatedPath = "";
-              $routeParams.path.split("/").forEach((f) => {
-                $scope.opens[accumulatedPath + "/" + f] = true;
-                accumulatedPath = accumulatedPath + "/" + f;
-              });
-            }
-
-            const toArray = function (arr) {
-              const output = [];
-              const keys = Object.create(null);
-              keys[""] = { child: output };
-              function ensurePath(path) {
-                if (keys[path]) return;
-                const segments = path.split("/");
-                let acc = "";
-                for (let i = 0; i < segments.length; i++) {
-                  const parent = acc;
-                  acc = acc ? acc + "/" + segments[i] : segments[i];
-                  if (!keys[acc]) {
-                    const dir = { name: segments[i], child: [] };
-                    keys[acc] = dir;
-                    keys[parent].child.push(dir);
-                  }
-                }
-              }
-              for (let file of arr) {
-                if (file.path && !keys[file.path]) {
-                  ensurePath(file.path);
-                }
-                let current = keys[file.path || ""].child;
-                let fPath = `${file.path}/${file.name}`;
-                if (fPath.startsWith("/")) {
-                  fPath = fPath.substring(1);
-                }
-                if (file.size != null) {
-                  current.push({
-                    name: file.name,
-                    size: file.size,
-                    sha: file.sha,
-                  });
-                } else {
-                  if (!keys[fPath]) {
-                    const dir = {
-                      name: file.name,
-                      child: [],
-                    };
-                    keys[fPath] = dir;
-                    current.push(dir);
-                  }
-                }
-              }
-              return output;
-            };
-
-            const sortFiles = (f1, f2) => {
-              const f1d = !!f1.child;
-              const f2d = !!f2.child;
-              if (f1d && f2d) {
-                return f1.name.localeCompare(f2.name);
-              }
-              if (f1d) {
-                return -1;
-              }
-              if (f2d) {
-                return 1;
-              }
-              return f1.name.localeCompare(f2.name);
-            };
-
-            function getFileCount(folderPath) {
-              const counts = $scope.$parent.fileCounts;
-              if (!counts) return 0;
-              const normalized = folderPath.startsWith("/")
-                ? folderPath.substring(1)
-                : folderPath;
-              return counts[normalized] || 0;
-            }
-
-            function isTruncated(folderPath) {
-              const truncated =
-                ($scope.$parent.options &&
-                  $scope.$parent.options.truncatedFolders) ||
-                [];
-              if (!truncated.length) return false;
-              const normalized = folderPath.startsWith("/")
-                ? folderPath.substring(1)
-                : folderPath;
-              return truncated.indexOf(normalized) !== -1;
-            }
-
-            function escapeHtml(str) {
-              return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-            }
-
-            function buildSearchFilter() {
-              const results = $scope.searchResults;
-              if (!results || !results.length) return null;
-              const matchPaths = new Set();
-              const matchFolders = new Set();
-              for (const f of results) {
-                const full = f.path ? `${f.path}/${f.name}` : f.name;
-                matchPaths.add(full);
-                // Also collect all ancestor folders
-                if (f.path) {
-                  const segments = f.path.split("/").filter(Boolean);
-                  let acc = "";
-                  for (const seg of segments) {
-                    acc = acc ? `${acc}/${seg}` : seg;
-                    matchFolders.add(acc);
-                  }
-                }
-              }
-              return { paths: matchPaths, folders: matchFolders };
-            }
-
-            function nodeMatchesFilter(node, parentPath, filterSet) {
-              if (!filterSet) return true;
-              const path = parentPath
-                ? `${parentPath}/${node.name}`
-                : node.name;
-              if (!node.child) {
-                return filterSet.paths.has(path);
-              }
-              // Show folder if it's an ancestor of a match or contains matches
-              if (filterSet.folders.has(path)) return true;
-              return node.child.some((c) =>
-                nodeMatchesFilter(c, path, filterSet)
-              );
-            }
-
-            function generate(current, parentPath, filterSet) {
-              if (!current) return "";
-              current = current.sort(sortFiles);
-              let output = "<ul>";
-              for (let f of current) {
-                if (filterSet && !nodeMatchesFilter(f, parentPath ? parentPath.substring(1) : "", filterSet)) {
-                  continue;
-                }
-                let dir = !!f.child;
-                let name = f.name;
-                let size = f.size;
-                let collapsed = f;
-                if (dir) {
-                  let test = name;
-                  let inner = f.child;
-                  while (inner && inner.length == 1) {
-                    test += "/" + inner[0].name;
-                    size = inner[0].size;
-                    inner = inner[0].child;
-                  }
-                  name = test;
-                  collapsed = inner ? { child: inner } : f;
-                  if (size != null && size >= 0) {
-                    dir = false;
-                  }
-                }
-                const sizeTitle = size != null ? `Size: ${humanFileSize(size || 0)}` : "";
-                const path = `${parentPath}/${name}`;
-                const fileCount = dir ? getFileCount(path) : 0;
-
-                const isOpen = filterSet ? ($scope.opens[path] !== false) : $scope.opens[path];
-                const cssClasses = ["file"];
-                if (dir) {
-                  cssClasses.push("folder");
-                }
-                if (isOpen) {
-                  cssClasses.push("open");
-                }
-                if ($scope.isActive(path)) {
-                  cssClasses.push("active");
-                }
-                const truncated = dir && isTruncated(path);
-                if (truncated) {
-                  cssClasses.push("truncated");
-                }
-
-                const nodeIndex = $scope.treeNodes.length;
-                $scope.treeNodes.push({ name, path, href: `/r/${encodeURIComponent($scope.repoId)}${encodePathForUrl(path)}` });
-                const node = `treeNodes[${nodeIndex}]`;
-                output += `<li class="${cssClasses.join(
-                  " "
-                )}" ng-class="{active: isActive(${node}.path), open: opens[${node}.path]${filterSet ? ' !== false' : ''}}" title="${escapeHtml(sizeTitle)}">`;
-                if (dir) {
-                  output += `<a ng-click="openFolder(${node}.path, $event)"><span class="tree-toggle"></span><span class="tree-icon-folder"></span><span class="tree-name" ng-bind="${node}.name"></span>`;
-                  if (truncated) {
-                    output += `<span class="truncated-warning" title="{{ 'WARNINGS.folder_truncated' | translate }}"><i class="fas fa-exclamation-triangle"></i></span>`;
-                  }
-                  if (fileCount > 0) {
-                    output += `<span class="tree-count">${fileCount}</span>`;
-                  }
-                  output += `</a>`;
-                } else {
-                  const needsSpacer = parentPath !== "";
-                  output += `<a ng-href='{{${node}.href}}'>${needsSpacer ? '<span class="tree-spacer"></span>' : ''}<span class="tree-icon-file"></span><span class="tree-name" ng-bind="${node}.name"></span></a>`;
-                }
-                if (isOpen && collapsed.child) {
-                  const children = collapsed.child;
-                  if (children.length > 1) {
-                    output += generate(children, path, filterSet);
-                  } else if (dir) {
-                    let inner = children;
-                    while (inner && inner.length == 1) {
-                      inner = inner[0].child;
-                    }
-                    output += generate(inner, path, filterSet);
-                  }
-                }
-                output += "</li>";
-              }
-              return output + "</ul>";
-            }
-
-            let renderScope = null;
-            function display() {
-              if (renderScope) renderScope.$destroy();
-              renderScope = $scope.$new();
-              $scope.treeNodes = [];
-              $element.html("");
-              const filterSet = $scope.searchQuery ? buildSearchFilter() : null;
-              let output;
-              if (filterSet !== null && filterSet.paths.size === 0) {
-                output = '<div class="tree-search-empty">No files found</div>';
-              } else {
-                output = generate(toArray($scope.file).sort(sortFiles), "", filterSet);
-              }
-              $compile(output)(renderScope, (clone) => {
-                $element.append(clone);
-                restoreFocus();
-              });
-            }
-
-            function expandAllFolders(nodes, parentPath) {
-              if (!nodes) return;
-              for (const f of nodes) {
-                if (!f.child || f.child.length === 0) continue;
-                const path = `${parentPath}/${f.name}`;
-                if (!(path in $scope.opens)) {
-                  $scope.opens[path] = true;
-                }
-                expandAllFolders(f.child, path);
-              }
-            }
-
-            $scope.$watch(
-              "file",
-              (newValue) => {
-                if (newValue == null) return;
-                if (newValue.length == 0) {
-                  return $element.html("Empty repository");
-                }
-                expandAllFolders(toArray(newValue), "");
-                display();
-              },
-              true
-            );
-
-            $scope.$watch("searchResults", (newVal, oldVal) => {
-              if (newVal === oldVal) return;
-              if ($scope.file && $scope.file.length) {
-                display();
-              }
-            });
-
-            $scope.$watch("searchQuery", (newVal, oldVal) => {
-              if (newVal === oldVal) return;
-              if (!newVal && $scope.file && $scope.file.length) {
-                display();
-              }
-            });
-
-            $scope.isActive = function (name) {
-              return $routeParams.path == name.substring(1);
-            };
-
-            $scope.openFolder = function (folder, event) {
-              var currentlyOpen = $scope.opens[folder];
-              if (currentlyOpen === undefined && $scope.searchQuery) {
-                currentlyOpen = true;
-              }
-              $scope.opens[folder] = !currentlyOpen;
-              const li = event.target.closest("li");
-              const childUl = li ? li.querySelector(":scope > ul") : null;
-              const needsLoad =
-                childUl == null ||
-                childUl.children.length === 0;
-              if (needsLoad) {
-                $scope.$parent.getFiles(folder.substring(1));
-              }
-            };
-
-            var focusedPath = $routeParams.path ? "/" + $routeParams.path : null;
-
-            function getVisibleLinks() {
-              return Array.from($element[0].querySelectorAll("li > a"));
-            }
-
-            function getFocusedLink() {
-              return $element[0].querySelector("a.tree-focused");
-            }
-
-            function getLinkPath(link) {
-              if (!link) return null;
-              var href = link.getAttribute("href");
-              if (href) {
-                var prefix = "/r/" + $scope.repoId;
-                return href.indexOf(prefix) === 0 ? decodeURIComponent(href.substring(prefix.length)) : null;
-              }
-              var onclick = link.getAttribute("ng-click");
-              if (onclick) {
-                var m = onclick.match(/openFolder\('([^']+)'/);
-                return m ? m[1] : null;
-              }
-              return null;
-            }
-
-            function findLinkByPath(path) {
-              if (!path) return null;
-              var links = getVisibleLinks();
-              for (var i = 0; i < links.length; i++) {
-                if (getLinkPath(links[i]) === path) return links[i];
-              }
-              return null;
-            }
-
-            function setFocus(link) {
-              var prev = getFocusedLink();
-              if (prev) prev.classList.remove("tree-focused");
-              if (link) {
-                link.classList.add("tree-focused");
-                link.scrollIntoView({ block: "nearest" });
-                focusedPath = getLinkPath(link);
-              } else {
-                focusedPath = null;
-              }
-            }
-
-            function restoreFocus() {
-              if (!focusedPath) return;
-              var link = findLinkByPath(focusedPath);
-              if (link) {
-                link.classList.add("tree-focused");
-                $element[0].focus();
-              }
-            }
-
-            $element[0].setAttribute("tabindex", "0");
-
-            $element[0].addEventListener("keydown", function (e) {
-              var links = getVisibleLinks();
-              if (!links.length) return;
-              var focused = getFocusedLink();
-              var idx = focused ? links.indexOf(focused) : -1;
-
-              if (e.key === "ArrowDown") {
-                e.preventDefault();
-                var next = idx < links.length - 1 ? idx + 1 : 0;
-                setFocus(links[next]);
-              } else if (e.key === "ArrowUp") {
-                e.preventDefault();
-                var prev = idx > 0 ? idx - 1 : links.length - 1;
-                setFocus(links[prev]);
-              } else if (e.key === "ArrowRight") {
-                e.preventDefault();
-                if (!focused) return;
-                var li = focused.closest("li");
-                if (li && li.classList.contains("folder")) {
-                  if (!li.classList.contains("open")) {
-                    focused.click();
-                  } else {
-                    var childLink = li.querySelector(":scope > ul > li > a");
-                    if (childLink) setFocus(childLink);
-                  }
-                }
-              } else if (e.key === "ArrowLeft") {
-                e.preventDefault();
-                if (!focused) return;
-                var li = focused.closest("li");
-                if (li && li.classList.contains("folder") && li.classList.contains("open")) {
-                  focused.click();
-                } else {
-                  var parentLi = li && li.parentElement ? li.parentElement.closest("li.folder") : null;
-                  if (parentLi) {
-                    var parentLink = parentLi.querySelector(":scope > a");
-                    if (parentLink) setFocus(parentLink);
-                  }
-                }
-              } else if (e.key === "Enter") {
-                e.preventDefault();
-                if (focused) focused.click();
-              }
-            });
-
-            $element[0].addEventListener("click", function (e) {
-              var link = e.target.closest("a");
-              if (link && $element[0].contains(link)) {
-                setFocus(link);
-              }
-            });
-          },
-        ],
-      };
-    },
-  ])
-  .directive("notebook", [
-    function () {
-      return {
-        restrict: "E",
-        scope: { file: "=" },
-        controller: [
-          "$element",
-          "$scope",
-          "$http",
-          function ($element, $scope, $http) {
-            function renderNotebookJSON(json) {
-              const notebook = nb.parse(json);
-              try {
-                $element.html("");
-                // notebook.render() turns notebook JSON (markdown cells, cell
-                // outputs) into HTML without sanitising it — a malicious
-                // notebook could embed <script>/onerror handlers that execute
-                // in the viewer's browser (XSS, CWE-79). Run the rendered
-                // output through DOMPurify before inserting it.
-                const rendered = notebook.render();
-                $element.html(DOMPurify.sanitize(rendered));
-                Prism.highlightAll();
-              } catch (error) {
-                $element.html("Unable to render the notebook.");
-              }
-            }
-            function render() {
-              if ($scope.$parent.content) {
-                try {
-                  renderNotebookJSON(JSON.parse($scope.$parent.content));
-                } catch (error) {
-                  $element.html(
-                    "Unable to render the notebook invalid notebook format."
-                  );
-                }
-              } else if ($scope.file) {
-                $http
-                  .get($scope.file.download_url)
-                  .then((res) => renderNotebookJSON(res.data));
-              }
-            }
-            $scope.$watch("file", (v) => {
-              render();
-            });
-            render();
-          },
-        ],
-      };
-    },
-  ])
-  .directive("loc", [
-    function () {
-      return {
-        restrict: "E",
-        scope: { stats: "=" },
-        template:
-          "<div class='lang' ng-repeat='lang in elements' title='{{lang.lang|title}}: {{lang.loc | number}} lines' data-toggle='tooltip' data-placement='bottom'  style='width:{{lang.loc*100/total}}%;background:{{lang.color}};'></div>",
-        controller: [
-          "$scope",
-          function ($scope) {
-            function render() {
-              $scope.elements = [];
-              $scope.total = 0;
-              for (let lang in $scope.stats) {
-                const loc = $scope.stats[lang].code;
-                if (!loc) {
-                  continue;
-                }
-                $scope.total += loc;
-                $scope.elements.push({
-                  lang,
-                  loc,
-                  color: langColors[lang],
-                });
-              }
-              setTimeout(() => {
-                $('[data-toggle="tooltip"]').tooltip();
-              }, 100);
-            }
-
-            $scope.$watch("stats", (v) => {
-              render();
-            });
-            render();
-          },
-        ],
-      };
-    },
-  ])
-  .controller("mainController", [
-    "$scope",
-    "$http",
-    "$location",
-    "$timeout",
-    function ($scope, $http, $location, $timeout) {
-      $scope.title = "Main";
-      $scope.user = { status: "connection" };
-      $scope.site_options;
-
-      $scope.toasts = [];
-
-      $scope.removeToast = function (toast) {
-        const index = $scope.toasts.indexOf(toast);
+      state.removeToast = function (toast) {
+        const index = state.toasts.indexOf(toast);
         if (index === -1) return;
-        $scope.toasts.splice(index, 1);
+        state.toasts.splice(index, 1);
       };
 
       // Auto-dismiss toasts after a fixed delay so they don't pile up across
@@ -1174,20 +20,20 @@ angular
       // edit screen was reopened — see #246). Long-running operations that
       // mutate the toast (remove/refresh) will simply disappear once the
       // delay elapses; users can re-check status from the dashboard.
-      $scope.addToast = function (toast) {
-        $scope.toasts.push(toast);
-        $timeout(function () {
-          $scope.removeToast(toast);
+      state.addToast = function (toast) {
+        state.toasts.push(toast);
+        timeout(function () {
+          state.removeToast(toast);
         }, 8000);
         return toast;
       };
 
-      $scope.path = $location.url();
-      $scope.paths = $location.path().substring(1).split("/");
+      state.path = location.url();
+      state.paths = location.path().substring(1).split("/");
 
-      $scope.darkMode = function (on) {
+      state.darkMode = function (on) {
         localStorage.setItem("darkMode", on);
-        $scope.isDarkMode = on;
+        state.isDarkMode = on;
         const darkPrismLink = "/css/prism-okaidia.css";
         const lightPrismLink = "/css/prism.css";
         if (on) {
@@ -1211,42 +57,42 @@ angular
           kofiBtn.style.backgroundColor = on ? "#FAF9F6" : "#1A1815";
           kofiBtn.style.color = on ? "#1A1815" : "#FAF9F6";
         }
-        $scope.$broadcast("dark-mode", on);
+        state.emit("dark-mode", on);
       };
 
-      $scope.darkMode(localStorage.getItem("darkMode") == "true");
+      state.darkMode(localStorage.getItem("darkMode") == "true");
 
       function getUser() {
-        $http.get("/api/user").then(
+        http.get("/api/user").then(
           (res) => {
-            if (res) $scope.user = res.data;
+            if (res) state.user = res.data;
           },
           () => {
-            $scope.user = null;
+            state.user = null;
           }
         );
       }
       getUser();
 
       function getOptions() {
-        $http.get("/api/options").then(
+        http.get("/api/options").then(
           (res) => {
-            if (res) $scope.site_options = res.data;
+            if (res) state.site_options = res.data;
           },
           () => {
-            $scope.site_options = null;
+            state.site_options = null;
           }
         );
       }
       getOptions();
 
       function getMessage() {
-        $http.get("/api/message").then(
+        http.get("/api/message").then(
           (res) => {
-            if (res) $scope.generalMessage = res.data;
+            if (res) state.generalMessage = res.data;
           },
           () => {
-            $scope.generalMessage = null;
+            state.generalMessage = null;
           }
         );
       }
@@ -1254,26 +100,22 @@ angular
 
       function changedUrl(_, current) {
         if (current) {
-          $scope.title = current.title;
+          state.title = current.title;
         }
-        $scope.path = $location.url();
-        $scope.paths = $location.path().substring(1).split("/");
+        state.path = location.url();
+        state.paths = location.path().substring(1).split("/");
       }
 
-      $scope.$on("$routeChangeSuccess", changedUrl);
-      $scope.$on("$routeUpdate", changedUrl);
-    },
-  ])
-  .controller("faqController", ["$scope", "$http", function ($scope, $http) {}])
-  .controller("profileController", [
-    "$scope",
-    "$http",
-    "$translate",
-    "$timeout",
-    "quotaService",
-    function ($scope, $http, $translate, $timeout, quotaService) {
-      $scope.terms = "";
-      $scope.options = {
+      state.on("routeChange", changedUrl);
+      state.on("routeUpdate", changedUrl);
+    };
+
+export const faqController = function (state, http) {
+      const listen = createListeners();};
+
+export const profileController = function (state, http, translate, timeout, quotaService) {
+      state.terms = "";
+      state.options = {
         expirationMode: "remove",
         update: false,
         image: true,
@@ -1282,125 +124,115 @@ angular
         loc: true,
         link: true,
       };
-      $scope.saving = false;
-      $scope.message = null;
-      $scope.error = null;
+      state.saving = false;
+      state.message = null;
+      state.error = null;
 
       quotaService.load().then((quota) => {
-        $scope.quota = quota;
+        state.quota = quota;
       }, console.error);
 
       function getDefault() {
-        $http.get("/api/user/default").then((res) => {
+        http.get("/api/user/default").then((res) => {
           const data = res.data || {};
           if (data.terms) {
-            $scope.terms = data.terms.join("\n");
+            state.terms = data.terms.join("\n");
           }
-          $scope.options = Object.assign({}, $scope.options, data.options);
+          state.options = Object.assign({}, state.options, data.options);
         });
       }
       getDefault();
 
       let savedTimer = null;
-      $scope.saveDefault = ($event) => {
+      state.saveDefault = ($event) => {
         if ($event && $event.preventDefault) $event.preventDefault();
         const params = {
-          terms: $scope.terms
+          terms: state.terms
             .split("\n")
             .map((t) => t.trim())
             .filter((t) => t.length > 0),
-          options: $scope.options,
+          options: state.options,
         };
-        $scope.saving = true;
-        $scope.error = null;
-        $http.post("/api/user/default", params).then(
+        state.saving = true;
+        state.error = null;
+        http.post("/api/user/default", params).then(
           () => {
             getDefault();
-            $scope.saving = false;
-            $scope.message = "Saved";
-            if (savedTimer) $timeout.cancel(savedTimer);
-            savedTimer = $timeout(() => {
-              $scope.message = null;
+            state.saving = false;
+            state.message = "Saved";
+            if (savedTimer) timeout.cancel(savedTimer);
+            savedTimer = timeout(() => {
+              state.message = null;
             }, 2500);
           },
           (error) => {
-            $scope.saving = false;
+            state.saving = false;
             const code = error && error.data && error.data.error;
-            $translate("ERRORS." + code).then((translation) => {
-              $scope.error = translation;
+            translate("ERRORS." + code).then((translation) => {
+              state.error = translation;
             }, () => {
-              $scope.error = "Unable to save your defaults. Please try again.";
+              state.error = "Unable to save your defaults. Please try again.";
             });
           }
         );
       };
 
-      $scope.deleteAccount = () => {
+      state.deleteAccount = () => {
         if (
           !confirm(
             "Delete your account? All your anonymized repositories, gists, and pull requests will be removed, and your personal data will be erased. This cannot be undone."
           )
         )
           return;
-        $scope.deletingAccount = true;
-        $http.delete("/api/user").then(
+        state.deletingAccount = true;
+        http.delete("/api/user").then(
           () => {
             window.location.href = "/";
           },
           () => {
-            $scope.deletingAccount = false;
-            $scope.deleteError =
+            state.deletingAccount = false;
+            state.deleteError =
               "Unable to delete the account. Please try again.";
           }
         );
       };
-    },
-  ])
-  .controller("claimController", [
-    "$scope",
-    "$http",
-    "$location",
-    function ($scope, $http, $location) {
-      $scope.repoId = null;
-      $scope.repoUrl = null;
-      $scope.claim = () => {
-        $http
+    };
+
+export const claimController = function (state, http, location) {
+      state.repoId = null;
+      state.repoUrl = null;
+      state.claim = () => {
+        http
           .post("/api/repo/claim", {
-            repoId: $scope.repoId,
-            repoUrl: $scope.repoUrl,
+            repoId: state.repoId,
+            repoUrl: state.repoUrl,
           })
           .then(
             (res) => {
-              $location.url("/dashboard");
+              location.url("/dashboard");
             },
             (err) => {
-              $scope.error = err.data;
-              $scope.claimForm.repoUrl.$setValidity("not_found", false);
-              $scope.claimForm.repoId.$setValidity("not_found", false);
+              state.error = err.data;
+              state.claimForm.repoUrl.setValidity("not_found", false);
+              state.claimForm.repoId.setValidity("not_found", false);
             }
           );
       };
-    },
-  ])
-  .controller("homeController", [
-    "$scope",
-    "$http",
-    "$location",
-    "$window",
-    "$timeout",
-    function ($scope, $http, $location, $window, $timeout) {
-      if ($scope.user && !$scope.user.status) {
-        $location.url("/dashboard");
+    };
+
+export const homeController = function (state, http, location, window, timeout) {
+      if (state.user && !state.user.status) {
+        location.url("/dashboard");
       }
-      $scope.$watch("user.status", () => {
-        if ($scope.user && !$scope.user.status) {
-          $location.url("/dashboard");
+      state.watch("user.status", () => {
+        if (state.user && !state.user.status) {
+          location.url("/dashboard");
         }
       });
 
       // "What you get": one screenshot, three tabs. The selected key drives
       // both the expanded description and the visible panel.
-      $scope.features = [
+      state.features = [
         {
           key: "anonymize",
           num: "01",
@@ -1446,18 +278,18 @@ angular
           alt: "The dashboard listing anonymized repositories with status, views and expiry",
         },
       ];
-      $scope.feature = $scope.features[0].key;
-      $scope.selectFeature = function (key) {
-        $scope.feature = key;
+      state.feature = state.features[0].key;
+      state.selectFeature = function (key) {
+        state.feature = key;
       };
       // Signed-out visitors cannot open the dashboard; send them to sign in.
-      $scope.featureHref = function (f) {
-        return f.needsUser && !$scope.user ? "/github/login" : f.href;
+      state.featureHref = function (f) {
+        return f.needsUser && !state.user ? "/github/login" : f.href;
       };
-      $scope.featureTarget = function (f) {
-        return f.needsUser && !$scope.user ? "_self" : f.target || undefined;
+      state.featureTarget = function (f) {
+        return f.needsUser && !state.user ? "_self" : f.target || undefined;
       };
-      $scope.featureKeydown = function ($event, index) {
+      state.featureKeydown = function ($event, index) {
         const step = {
           ArrowDown: 1,
           ArrowRight: 1,
@@ -1468,29 +300,29 @@ angular
         }[$event.key];
         if (step === undefined) return;
         $event.preventDefault();
-        const n = $scope.features.length;
+        const n = state.features.length;
         const next =
           step === "first" ? 0 : step === "last" ? n - 1 : (index + step + n) % n;
-        $scope.feature = $scope.features[next].key;
-        $timeout(() => {
-          const el = $window.document.getElementById("feature-tab-" + $scope.feature);
+        state.feature = state.features[next].key;
+        timeout(() => {
+          const el = window.document.getElementById("feature-tab-" + state.feature);
           if (el) el.focus();
         });
       };
 
-      $scope.cards = [
+      state.cards = [
         { key: "repositories", total: 0, label: "repositories anonymized" },
         { key: "users", total: 0, label: "researchers" },
         { key: "pageViews", total: 0, label: "page views" },
         { key: "pullRequests", total: 0, label: "pull requests" },
       ];
       function getStat() {
-        $http.get("/api/stat/").then((res) => {
-          $scope.stat = res.data;
-          $scope.cards[0].total = res.data.nbRepositories;
-          $scope.cards[1].total = res.data.nbUsers;
-          $scope.cards[2].total = res.data.nbPageViews;
-          $scope.cards[3].total = res.data.nbPullRequests;
+        http.get("/api/stat/").then((res) => {
+          state.stat = res.data;
+          state.cards[0].total = res.data.nbRepositories;
+          state.cards[1].total = res.data.nbUsers;
+          state.cards[2].total = res.data.nbPageViews;
+          state.cards[3].total = res.data.nbPullRequests;
         });
       }
       getStat();
@@ -1543,54 +375,48 @@ angular
         return view;
       }
 
-      $scope.history = {
+      state.history = {
         repositories: buildSeriesView([]),
         users: buildSeriesView([]),
         pageViews: buildSeriesView([]),
         pullRequests: buildSeriesView([]),
       };
-      $http.get("/api/stat/history?days=60").then((res) => {
+      http.get("/api/stat/history?days=60").then((res) => {
         const rows = res.data || [];
-        $scope.history = {
+        state.history = {
           repositories: buildSeriesView(rows.map((r) => r.nbRepositories || 0)),
           users: buildSeriesView(rows.map((r) => r.nbUsers || 0)),
           pageViews: buildSeriesView(rows.map((r) => r.nbPageViews || 0)),
           pullRequests: buildSeriesView(rows.map((r) => r.nbPullRequests || 0)),
         };
       });
-    },
-  ])
-  .controller("unifiedDashboardController", [
-    "$scope",
-    "$http",
-    "$location",
-    "$q",
-    "$window",
-    "quotaService",
-    function ($scope, $http, $location, $q, $window, quotaService) {
-      $scope.$on("$routeChangeStart", function () {
+    };
+
+export const unifiedDashboardController = function (state, http, location, promises, window, quotaService) {
+      const timers = createTimers();
+      state.on("routeLeave", function () {
         $('[data-toggle="tooltip"]').tooltip("dispose");
       });
-      $scope.$watch("user.status", () => {
-        if ($scope.user == null) {
-          $location.url("/");
+      state.watch("user.status", () => {
+        if (state.user == null) {
+          location.url("/");
         }
       });
-      if ($scope.user == null) {
-        $location.url("/");
+      if (state.user == null) {
+        location.url("/");
       }
 
-      setTimeout(() => {
+      timers.timeout(() => {
         $('[data-toggle="tooltip"]').tooltip();
       }, 250);
 
-      $scope.items = [];
-      $scope.search = "";
-      $scope.loading = true;
+      state.items = [];
+      state.search = "";
+      state.loading = true;
 
       // Status buckets used by the Status filter. Raw statuses are mapped
       // onto these keys so in-progress and error items can be filtered too.
-      $scope.statusKeyLabels = {
+      state.statusKeyLabels = {
         ready: "Ready",
         progress: "In progress",
         error: "Error",
@@ -1618,15 +444,15 @@ angular
         orderBy: "-anonymizeDate",
       };
       const savedDashboardPrefs = loadFilterPrefs(dashboardPrefsKey) || {};
-      $scope.typeFilter = savedDashboardPrefs.typeFilter || dashboardPrefDefaults.typeFilter;
-      $scope.filters = {
+      state.typeFilter = savedDashboardPrefs.typeFilter || dashboardPrefDefaults.typeFilter;
+      state.filters = {
         status: Object.assign(
           {},
           dashboardPrefDefaults.filters.status,
           (savedDashboardPrefs.filters && savedDashboardPrefs.filters.status) || {}
         ),
       };
-      $scope.orderBy = savedDashboardPrefs.orderBy || dashboardPrefDefaults.orderBy;
+      state.orderBy = savedDashboardPrefs.orderBy || dashboardPrefDefaults.orderBy;
 
       // ---- Sorting -------------------------------------------------------
       // `orderBy` is kept as the Angular orderBy expression ("-field" for
@@ -1639,43 +465,43 @@ angular
         pageView: { label: "Views", defaultDesc: true },
         "options.expirationDate": { label: "Expiration", defaultDesc: false },
       };
-      $scope.sortFields = sortFields;
-      $scope.sortField = () => $scope.orderBy.replace(/^-/, "");
-      $scope.sortDesc = () => $scope.orderBy.charAt(0) === "-";
-      $scope.sortLabel = () => {
-        const f = sortFields[$scope.sortField()];
+      state.sortFields = sortFields;
+      state.sortField = () => state.orderBy.replace(/^-/, "");
+      state.sortDesc = () => state.orderBy.charAt(0) === "-";
+      state.sortLabel = () => {
+        const f = sortFields[state.sortField()];
         return f ? f.label : "Custom";
       };
-      $scope.isSortedBy = (field) => $scope.sortField() === field;
-      $scope.setSort = (field, desc) => {
+      state.isSortedBy = (field) => state.sortField() === field;
+      state.setSort = (field, desc) => {
         if (typeof desc !== "boolean") {
-          desc = $scope.isSortedBy(field)
-            ? !$scope.sortDesc()
+          desc = state.isSortedBy(field)
+            ? !state.sortDesc()
             : !!(sortFields[field] && sortFields[field].defaultDesc);
         }
-        $scope.orderBy = (desc ? "-" : "") + field;
+        state.orderBy = (desc ? "-" : "") + field;
       };
-      $scope.toggleSortDirection = () => {
-        $scope.setSort($scope.sortField(), !$scope.sortDesc());
+      state.toggleSortDirection = () => {
+        state.setSort(state.sortField(), !state.sortDesc());
       };
 
-      $scope.$watchGroup(
+      state.watchGroup(
         ["typeFilter", "orderBy"],
         () => {
           saveFilterPrefs(dashboardPrefsKey, {
-            typeFilter: $scope.typeFilter,
-            filters: $scope.filters,
-            orderBy: $scope.orderBy,
+            typeFilter: state.typeFilter,
+            filters: state.filters,
+            orderBy: state.orderBy,
           });
         }
       );
-      $scope.$watch(
+      state.watch(
         "filters",
         () => {
           saveFilterPrefs(dashboardPrefsKey, {
-            typeFilter: $scope.typeFilter,
-            filters: $scope.filters,
-            orderBy: $scope.orderBy,
+            typeFilter: state.typeFilter,
+            filters: state.filters,
+            orderBy: state.orderBy,
           });
         },
         true
@@ -1683,7 +509,7 @@ angular
 
       // ---- Quota (shared with the settings page via quotaService) --------
       quotaService.load().then((quota) => {
-        $scope.quota = quota;
+        state.quota = quota;
       }, console.error);
 
       // ---- Items ---------------------------------------------------------
@@ -1725,7 +551,7 @@ angular
       }
 
       function safeGet(url) {
-        return $http.get(url).then(
+        return http.get(url).then(
           (res) => res.data || [],
           (err) => {
             console.error(err);
@@ -1737,8 +563,8 @@ angular
       // All three lists load in parallel and are merged once, so the table
       // does not re-sort three times while it fills in.
       function loadAll() {
-        $scope.loading = true;
-        return $q
+        state.loading = true;
+        return promises
           .all([
             safeGet("/api/user/anonymized_repositories"),
             safeGet("/api/user/anonymized_pull_requests"),
@@ -1791,41 +617,41 @@ angular
                 )
               );
             });
-            $scope.items = items;
-            $scope.loading = false;
+            state.items = items;
+            state.loading = false;
           });
       }
       loadAll();
 
       // Whole row opens the anonymized view; clicks on links, buttons and the
       // actions menu keep their own behaviour.
-      $scope.openItem = (item, $event) => {
+      state.openItem = (item, $event) => {
         if (!item._viewUrl) return;
         const target = $event && $event.target;
         if (target && target.closest && target.closest("a, button, .dropdown, input")) return;
-        $window.location.href = item._viewUrl;
+        window.location.href = item._viewUrl;
       };
 
-      $scope.hiddenStatusCount = () =>
-        Object.keys($scope.filters.status).filter((k) => $scope.filters.status[k] === false).length;
-      $scope.hasHiddenStatus = () => $scope.hiddenStatusCount() > 0;
+      state.hiddenStatusCount = () =>
+        Object.keys(state.filters.status).filter((k) => state.filters.status[k] === false).length;
+      state.hasHiddenStatus = () => state.hiddenStatusCount() > 0;
 
-      $scope.hasActiveFilters = () =>
-        $scope.typeFilter !== "all" ||
-        $scope.search.trim().length > 0 ||
-        Object.keys($scope.filters.status).some((k) => $scope.filters.status[k] === false);
+      state.hasActiveFilters = () =>
+        state.typeFilter !== "all" ||
+        state.search.trim().length > 0 ||
+        Object.keys(state.filters.status).some((k) => state.filters.status[k] === false);
 
-      $scope.clearFilters = () => {
-        $scope.typeFilter = "all";
-        $scope.search = "";
-        Object.keys($scope.filters.status).forEach((k) => {
-          $scope.filters.status[k] = true;
+      state.clearFilters = () => {
+        state.typeFilter = "all";
+        state.search = "";
+        Object.keys(state.filters.status).forEach((k) => {
+          state.filters.status[k] = true;
         });
       };
 
       function waitRepoToBeReady(repoId, callback) {
-        $http.get("/api/repo/" + repoId).then((res) => {
-          for (const item of $scope.items) {
+        http.get("/api/repo/" + repoId).then((res) => {
+          for (const item of state.items) {
             if (item._type === "repo" && item.repoId == repoId) {
               item.status = res.data.status;
               break;
@@ -1840,7 +666,7 @@ angular
             callback(res.data);
             return;
           }
-          setTimeout(() => waitRepoToBeReady(repoId, callback), 2500);
+          timers.timeout(() => waitRepoToBeReady(repoId, callback), 2500);
         });
       }
 
@@ -1849,23 +675,23 @@ angular
       const apiBaseOf = (t) =>
         t === "repo" ? "/api/repo" : t === "gist" ? "/api/gist" : "/api/pr";
 
-      $scope.removeItem = (item) => {
+      state.removeItem = (item) => {
         const label = labelOf(item._type);
         if (confirm(`Are you sure that you want to remove the ${label} ${item._id}?`)) {
-          const toast = {
+          const toast = reactive({
             title: `Removing ${item._id}...`,
             date: new Date(),
             body: `The ${label} ${item._id} is going to be removed.`,
-          };
-          $scope.addToast(toast);
+          });
+          state.addToast(toast);
           const endpoint = `${apiBaseOf(item._type)}/${item._id}`;
-          $http.delete(endpoint).then(
+          http.delete(endpoint).then(
             () => {
               if (item._type === "repo") {
                 waitRepoToBeReady(item._id, () => {
                   toast.title = `${item._id} is removed.`;
                   toast.body = `The ${label} ${item._id} is removed.`;
-                  $scope.$apply();
+
                 });
               } else {
                 toast.title = `${item._id} is removed.`;
@@ -1882,22 +708,22 @@ angular
         }
       };
 
-      $scope.refreshItem = (item) => {
+      state.refreshItem = (item) => {
         const label = labelOf(item._type);
-        const toast = {
+        const toast = reactive({
           title: `Refreshing ${item._id}...`,
           date: new Date(),
           body: `The ${label} ${item._id} is going to be refreshed.`,
-        };
-        $scope.addToast(toast);
+        });
+        state.addToast(toast);
         const endpoint = `${apiBaseOf(item._type)}/${item._id}/refresh`;
-        $http.post(endpoint).then(
+        http.post(endpoint).then(
           () => {
             if (item._type === "repo") {
               waitRepoToBeReady(item._id, () => {
                 toast.title = `${item._id} is refreshed.`;
                 toast.body = `The ${label} ${item._id} is refreshed.`;
-                $scope.$apply();
+
               });
             } else {
               toast.title = `${item._id} is refreshed.`;
@@ -1913,22 +739,22 @@ angular
         );
       };
 
-      $scope.extendItem = (item) => {
+      state.extendItem = (item) => {
         const label = labelOf(item._type);
-        const toast = {
+        const toast = reactive({
           title: `Extending ${item._id}...`,
           date: new Date(),
           body: `The expiration of ${label} ${item._id} is going to be extended by 6 months.`,
-        };
-        $scope.addToast(toast);
+        });
+        state.addToast(toast);
         const endpoint = `${apiBaseOf(item._type)}/${item._id}/extend`;
-        $http.post(endpoint).then(
+        http.post(endpoint).then(
           () => {
             if (item._type === "repo") {
               waitRepoToBeReady(item._id, () => {
                 toast.title = `${item._id} is extended.`;
                 toast.body = `The expiration of ${label} ${item._id} is extended by 6 months.`;
-                $scope.$apply();
+
               });
             } else {
               toast.title = `${item._id} is extended.`;
@@ -1944,72 +770,63 @@ angular
         );
       };
 
-      $scope.itemFilter = (item) => {
-        if ($scope.typeFilter !== "all" && item._type !== $scope.typeFilter) return false;
-        if ($scope.filters.status[item._statusKey] === false) return false;
-        const needle = $scope.search.trim().toLowerCase();
+      state.itemFilter = (item) => {
+        if (state.typeFilter !== "all" && item._type !== state.typeFilter) return false;
+        if (state.filters.status[item._statusKey] === false) return false;
+        const needle = state.search.trim().toLowerCase();
         if (needle.length == 0) return true;
         if (item._source && String(item._source).toLowerCase().indexOf(needle) > -1) return true;
         if (item._id && String(item._id).toLowerCase().indexOf(needle) > -1) return true;
         if (item.conference && String(item.conference).toLowerCase().indexOf(needle) > -1) return true;
         return false;
       };
-    },
-  ])
-  .controller("dashboardController", [
-    "$scope",
-    "$location",
-    function ($scope, $location) {
-      $location.url("/dashboard");
-    },
-  ])
-  .controller("prDashboardController", [
-    "$scope",
-    "$location",
-    function ($scope, $location) {
-      $location.url("/dashboard");
-    },
-  ])
-  .controller("statusController", [
-    "$scope",
-    "$http",
-    "$routeParams",
-    function ($scope, $http, $routeParams) {
-      $scope.repoId = $routeParams.repoId;
-      $scope.repo = null;
-      $scope.progress = 0;
-      $scope.rateLimitResetAt = 0;
-      $scope.rateLimitCountdown = "";
+    };
+
+export const dashboardController = function (state, location) {
+      location.url("/dashboard");
+    };
+
+export const prDashboardController = function (state, location) {
+      location.url("/dashboard");
+    };
+
+export const statusController = function (state, http, params) {
+      const timers = createTimers();
+      state.repoId = params.repoId;
+      state.repo = null;
+      state.progress = 0;
+      state.rateLimitResetAt = 0;
+      state.rateLimitCountdown = "";
 
       var countdownTimer = null;
       let pollTimer = null;
       let destroyed = false;
       function startRateLimitCountdown(resetAt) {
-        $scope.rateLimitResetAt = resetAt;
-        if (countdownTimer) clearInterval(countdownTimer);
+        state.rateLimitResetAt = resetAt;
+        if (countdownTimer) timers.interval.cancel(countdownTimer);
         function tick() {
           var remaining = Math.max(0, Math.ceil((resetAt - Date.now()) / 1000));
           if (remaining <= 0) {
-            $scope.rateLimitCountdown = "";
-            $scope.rateLimitResetAt = 0;
-            clearInterval(countdownTimer);
+            state.rateLimitCountdown = "";
+            state.rateLimitResetAt = 0;
+            timers.interval.cancel(countdownTimer);
             countdownTimer = null;
           } else {
             var min = Math.floor(remaining / 60);
             var sec = remaining % 60;
-            $scope.rateLimitCountdown = min > 0
+            state.rateLimitCountdown = min > 0
               ? min + "m " + sec + "s"
               : sec + "s";
           }
-          $scope.$applyAsync();
+
         }
         tick();
-        countdownTimer = setInterval(tick, 1000);
+        countdownTimer = timers.interval(tick, 1000);
       }
-      $scope.$on("$destroy", function () {
+      state.on("dispose", function () {
         destroyed = true;
-        if (countdownTimer) clearInterval(countdownTimer);
-        if (pollTimer) clearTimeout(pollTimer);
+        if (countdownTimer) timers.interval.cancel(countdownTimer);
+        if (pollTimer) timers.timeout.cancel(pollTimer);
       });
 
       function parseStatusMessage(msg) {
@@ -2019,75 +836,67 @@ angular
           startRateLimitCountdown(parseInt(m[1], 10));
           return null;
         }
-        $scope.rateLimitResetAt = 0;
+        state.rateLimitResetAt = 0;
         return msg;
       }
 
-      $scope.getStatus = () => {
+      state.getStatus = () => {
         if (destroyed) return;
-        $http
-          .get("/api/repo/" + $scope.repoId, {
-            repoId: $scope.repoId,
-            repoUrl: $scope.repoUrl,
+        http
+          .get("/api/repo/" + state.repoId, {
+            repoId: state.repoId,
+            repoUrl: state.repoUrl,
           })
           .then(
             (res) => {
               if (destroyed) return;
-              $scope.repo = res.data;
+              state.repo = res.data;
               if (res.data.rateLimitResetAt) {
                 startRateLimitCountdown(res.data.rateLimitResetAt);
               } else {
-                $scope.repo.statusMessage = parseStatusMessage($scope.repo.statusMessage);
+                state.repo.statusMessage = parseStatusMessage(state.repo.statusMessage);
               }
-              if ($scope.repo.status == "ready") {
-                $scope.progress = 100;
-              } else if ($scope.repo.status == "queue") {
-                $scope.progress = 10;
-              } else if ($scope.repo.status == "downloaded") {
-                $scope.progress = 50;
-              } else if ($scope.repo.status == "download") {
-                $scope.progress = 25;
-              } else if ($scope.repo.status == "preparing") {
-                $scope.progress = 25;
-              } else if ($scope.repo.status == "anonymizing") {
-                $scope.progress = 75;
+              if (state.repo.status == "ready") {
+                state.progress = 100;
+              } else if (state.repo.status == "queue") {
+                state.progress = 10;
+              } else if (state.repo.status == "downloaded") {
+                state.progress = 50;
+              } else if (state.repo.status == "download") {
+                state.progress = 25;
+              } else if (state.repo.status == "preparing") {
+                state.progress = 25;
+              } else if (state.repo.status == "anonymizing") {
+                state.progress = 75;
               }
-              var shouldPoll = !["ready", "removed", "expired"].includes($scope.repo.status);
-              if ($scope.repo.status == "error" && !$scope.rateLimitResetAt) {
+              var shouldPoll = !["ready", "removed", "expired"].includes(state.repo.status);
+              if (state.repo.status == "error" && !state.rateLimitResetAt) {
                 shouldPoll = false;
               }
               if (shouldPoll) {
-                pollTimer = setTimeout($scope.getStatus, 2000);
+                pollTimer = timers.timeout(state.getStatus, 2000);
               }
             },
             (err) => {
-              $scope.error = err.data.error;
+              state.error = err.data.error;
             }
           );
       };
-      $scope.getStatus();
-    },
-  ])
-  .controller("anonymizeController", [
-    "$scope",
-    "$http",
-    "$sce",
-    "$routeParams",
-    "$location",
-    "$translate",
-    "$timeout",
-    function ($scope, $http, $sce, $routeParams, $location, $translate, $timeout) {
+      state.getStatus();
+    };
+
+export const anonymizeController = function (state, http, html, params, location, translate, timeout) {
       // Unified state
-      $scope.sourceUrl = "";
-      $scope.detectedType = null; // 'repo' | 'pr' | 'gist'
-      $scope.repoId = "";
-      $scope.pullRequestId = "";
-      $scope.gistId = "";
-      $scope.terms = "";
-      $scope.defaultTerms = "";
-      $scope.branches = [];
-      $scope.source = { branch: "", commit: "" };
-      $scope.options = {
+      state.sourceUrl = "";
+      state.detectedType = null; // 'repo' | 'pr' | 'gist'
+      state.repoId = "";
+      state.pullRequestId = "";
+      state.gistId = "";
+      state.terms = "";
+      state.defaultTerms = "";
+      state.branches = [];
+      state.source = { branch: "", commit: "" };
+      state.options = {
         expirationMode: "remove",
         expirationDate: new Date(),
         update: false,
@@ -2110,7 +919,7 @@ angular
         d.setMonth(d.getMonth() + 6);
         return d;
       }
-      $scope.options.expirationDate = defaultExpirationDate();
+      state.options.expirationDate = defaultExpirationDate();
       // Format a Date to a "yyyy-MM-dd" string using local date parts. Using
       // toISOString() here would convert to UTC and can shift the bound by a
       // day for users in negative-offset timezones, which the native date
@@ -2123,26 +932,26 @@ angular
       }
       // Bound the expiration date: no earlier than today, no later than 1 year
       // out.
-      $scope.minExpirationDate = toLocalDateString(new Date());
+      state.minExpirationDate = toLocalDateString(new Date());
       const maxDate = new Date();
       maxDate.setFullYear(maxDate.getFullYear() + 1);
-      $scope.maxExpirationDate = toLocalDateString(maxDate);
-      $scope.anonymize_readme = "";
-      $scope.readme = "";
-      $scope.html_readme = "";
-      $scope.isUpdate = false;
+      state.maxExpirationDate = toLocalDateString(maxDate);
+      state.anonymize_readme = "";
+      state.readme = "";
+      state.html_readme = "";
+      state.isUpdate = false;
 
       function getDefault(cb) {
-        $http.get("/api/user/default").then((res) => {
+        http.get("/api/user/default").then((res) => {
           const data = res.data;
           if (data.terms) {
-            $scope.defaultTerms = data.terms.join("\n");
+            state.defaultTerms = data.terms.join("\n");
           }
-          $scope.options = Object.assign({}, $scope.options, data.options);
+          state.options = Object.assign({}, state.options, data.options);
           // Honour a server-provided default date, otherwise fall back to the
           // 6-month default. (Previously this re-added the offset on top of the
           // already-defaulted date, doubling it.)
-          $scope.options.expirationDate =
+          state.options.expirationDate =
             data.options && data.options.expirationDate
               ? new Date(data.options.expirationDate)
               : defaultExpirationDate();
@@ -2152,8 +961,8 @@ angular
 
       // Helper to safely set validity on form fields
       function setValidity(field, key, value) {
-        if ($scope.anonymize && $scope.anonymize[field]) {
-          $scope.anonymize[field].$setValidity(key, value);
+        if (state.anonymize && state.anonymize[field]) {
+          state.anonymize[field].setValidity(key, value);
         }
       }
 
@@ -2168,132 +977,121 @@ angular
       }
 
       function sourceRepositoryID() {
-        if (!$scope.isUpdate || !$scope._originalRepositoryID) return undefined;
-        const currentFullName = parseRepoFullName($scope.sourceUrl);
-        return currentFullName === $scope._originalFullName
-          ? $scope._originalRepositoryID
+        if (!state.isUpdate || !state._originalRepositoryID) return undefined;
+        const currentFullName = parseRepoFullName(state.sourceUrl);
+        return currentFullName === state._originalFullName
+          ? state._originalRepositoryID
           : undefined;
       }
 
       getDefault(() => {
         // Edit mode: repo
-        if ($routeParams.repoId && $routeParams.repoId != "") {
-          $scope.isUpdate = true;
-          $scope.detectedType = "repo";
-          $scope.repoId = $routeParams.repoId;
-          $http.get("/api/repo/" + $scope.repoId).then(
+        if (params.repoId && params.repoId != "") {
+          state.isUpdate = true;
+          state.detectedType = "repo";
+          state.repoId = params.repoId;
+          http.get("/api/repo/" + state.repoId).then(
             async (res) => {
-              $scope.sourceUrl = "https://github.com/" + res.data.source.fullName;
-              $scope._originalFullName = res.data.source.fullName;
-              $scope.terms = res.data.options.terms.filter((f) => f).join("\n");
-              $scope.source = res.data.source;
-              $scope.role = res.data.role || "owner";
-              $scope.coauthors = res.data.coauthors || [];
+              state.sourceUrl = "https://github.com/" + res.data.source.fullName;
+              state._originalFullName = res.data.source.fullName;
+              state.terms = res.data.options.terms.filter((f) => f).join("\n");
+              state.source = res.data.source;
+              state.role = res.data.role || "owner";
+              state.coauthors = res.data.coauthors || [];
               // Remember the saved branch so the source.branch watcher knows
               // not to bump source.commit to GitHub HEAD on edit-page load
               // (#360). Without this, just opening the Edit form silently
               // pulled in any new commits and saving — even to toggle a
               // checkbox — picked them up.
-              $scope._originalBranch = res.data.source.branch;
-              $scope.options = Object.assign({}, $scope.options, res.data.options);
-              $scope.conference = res.data.conference;
-              $scope.repositoryID = res.data.source.repositoryID;
-              $scope._originalRepositoryID = res.data.source.repositoryID;
+              state._originalBranch = res.data.source.branch;
+              state.options = Object.assign({}, state.options, res.data.options);
+              state.conference = res.data.conference;
+              state.repositoryID = res.data.source.repositoryID;
+              state._originalRepositoryID = res.data.source.repositoryID;
               if (res.data.options.expirationDate) {
-                $scope.options.expirationDate = new Date(res.data.options.expirationDate);
+                state.options.expirationDate = new Date(res.data.options.expirationDate);
               }
               await Promise.all([getRepoDetails(), getReadme()]);
               anonymizeReadme();
-              $scope.$apply();
+
             },
-            () => { $location.url("/404"); }
+            () => { location.url("/404"); }
           );
-          $scope.$watch("anonymize", () => {
-            if ($scope.anonymize.repoId) $scope.anonymize.repoId.$$element[0].disabled = true;
-          });
         }
         // Edit mode: PR
-        if ($routeParams.pullRequestId && $routeParams.pullRequestId != "") {
-          $scope.isUpdate = true;
-          $scope.detectedType = "pr";
-          $scope.pullRequestId = $routeParams.pullRequestId;
-          $http.get("/api/pr/" + $scope.pullRequestId).then(
+        if (params.pullRequestId && params.pullRequestId != "") {
+          state.isUpdate = true;
+          state.detectedType = "pr";
+          state.pullRequestId = params.pullRequestId;
+          http.get("/api/pr/" + state.pullRequestId).then(
             async (res) => {
-              $scope.sourceUrl = "https://github.com/" + res.data.source.repositoryFullName + "/pull/" + res.data.source.pullRequestId;
-              $scope.terms = res.data.options.terms.filter((f) => f).join("\n");
-              $scope.source = res.data.source;
-              $scope.options = Object.assign({}, $scope.options, res.data.options);
-              $scope.conference = res.data.conference;
+              state.sourceUrl = "https://github.com/" + res.data.source.repositoryFullName + "/pull/" + res.data.source.pullRequestId;
+              state.terms = res.data.options.terms.filter((f) => f).join("\n");
+              state.source = res.data.source;
+              state.options = Object.assign({}, state.options, res.data.options);
+              state.conference = res.data.conference;
               if (res.data.options.expirationDate) {
-                $scope.options.expirationDate = new Date(res.data.options.expirationDate);
+                state.options.expirationDate = new Date(res.data.options.expirationDate);
               }
               try {
-                $scope.details = (await $http.get(`/api/pr/${res.data.source.repositoryFullName}/${res.data.source.pullRequestId}`)).data;
+                state.details = (await http.get(`/api/pr/${res.data.source.repositoryFullName}/${res.data.source.pullRequestId}`)).data;
               } catch (error) {
                 const code = error && error.data && error.data.error;
                 if (code) {
-                  $translate("ERRORS." + code).then((translation) => {
-                    $scope.addToast({ title: "Error", date: new Date(), body: translation });
-                    $scope.error = translation;
+                  translate("ERRORS." + code).then((translation) => {
+                    state.addToast({ title: "Error", date: new Date(), body: translation });
+                    state.error = translation;
                   }, console.error);
                   displayErrorMessage(code);
                 }
               }
-              $scope.$apply();
+
             },
-            () => { $location.url("/404"); }
+            () => { location.url("/404"); }
           );
-          $scope.$watch("anonymize", () => {
-            if ($scope.anonymize.pullRequestId) $scope.anonymize.pullRequestId.$$element[0].disabled = true;
-            if ($scope.anonymize.sourceUrl) $scope.anonymize.sourceUrl.$$element[0].disabled = true;
-          });
         }
         // Edit mode: Gist
-        if ($routeParams.gistId && $routeParams.gistId != "") {
-          $scope.isUpdate = true;
-          $scope.detectedType = "gist";
-          $scope.gistId = $routeParams.gistId;
-          $http.get("/api/gist/" + $scope.gistId).then(
+        if (params.gistId && params.gistId != "") {
+          state.isUpdate = true;
+          state.detectedType = "gist";
+          state.gistId = params.gistId;
+          http.get("/api/gist/" + state.gistId).then(
             async (res) => {
-              $scope.sourceUrl = "https://gist.github.com/" + res.data.source.gistId;
-              $scope.terms = res.data.options.terms.filter((f) => f).join("\n");
-              $scope.source = res.data.source;
-              $scope.options = Object.assign({}, $scope.options, res.data.options);
-              $scope.conference = res.data.conference;
+              state.sourceUrl = "https://gist.github.com/" + res.data.source.gistId;
+              state.terms = res.data.options.terms.filter((f) => f).join("\n");
+              state.source = res.data.source;
+              state.options = Object.assign({}, state.options, res.data.options);
+              state.conference = res.data.conference;
               if (res.data.options.expirationDate) {
-                $scope.options.expirationDate = new Date(res.data.options.expirationDate);
+                state.options.expirationDate = new Date(res.data.options.expirationDate);
               }
-              $scope.details = (await $http.get(`/api/gist/source/${res.data.source.gistId}`)).data;
-              $scope.$apply();
+              state.details = (await http.get(`/api/gist/source/${res.data.source.gistId}`)).data;
+
             },
-            () => { $location.url("/404"); }
+            () => { location.url("/404"); }
           );
-          $scope.$watch("anonymize", () => {
-            if ($scope.anonymize.gistId) $scope.anonymize.gistId.$$element[0].disabled = true;
-            if ($scope.anonymize.sourceUrl) $scope.anonymize.sourceUrl.$$element[0].disabled = true;
-          });
         }
       });
 
       // URL change handler - auto-detect type
-      $scope.urlSelected = async () => {
-        $scope.terms = $scope.defaultTerms;
-        if (!$scope.isUpdate) {
-          $scope.repoId = "";
-          $scope.pullRequestId = "";
-          $scope.gistId = "";
+      state.urlSelected = async () => {
+        state.terms = state.defaultTerms;
+        if (!state.isUpdate) {
+          state.repoId = "";
+          state.pullRequestId = "";
+          state.gistId = "";
         }
-        $scope.details = null;
-        $scope.branches = [];
-        $scope.source = { type: "GitHubStream", branch: "", commit: "" };
-        $scope.anonymize_readme = "";
-        $scope.readme = "";
-        $scope.html_readme = "";
-        $scope.detectedType = null;
+        state.details = null;
+        state.branches = [];
+        state.source = { type: "GitHubStream", branch: "", commit: "" };
+        state.anonymize_readme = "";
+        state.readme = "";
+        state.html_readme = "";
+        state.detectedType = null;
 
         let o;
         try {
-          o = parseGithubUrl($scope.sourceUrl);
+          o = parseGithubUrl(state.sourceUrl);
         } catch (error) {
           setValidity("sourceUrl", "github", false);
           return;
@@ -2301,122 +1099,116 @@ angular
         setValidity("sourceUrl", "github", true);
         try {
           if (o.gistId && !o.repo) {
-            $scope.detectedType = "gist";
-            $scope.source = { gistId: o.gistId };
+            state.detectedType = "gist";
+            state.source = { gistId: o.gistId };
             await getGistDetails();
           } else if (o.pullRequestId) {
-            $scope.detectedType = "pr";
-            $scope.source = { repositoryFullName: o.owner + "/" + o.repo, pullRequestId: o.pullRequestId };
+            state.detectedType = "pr";
+            state.source = { repositoryFullName: o.owner + "/" + o.repo, pullRequestId: o.pullRequestId };
             await getPrDetails();
           } else {
-            $scope.detectedType = "repo";
+            state.detectedType = "repo";
             await Promise.all([getRepoDetails(), getReadme()]);
             anonymizeReadme();
           }
         } catch (error) {
           return;
         }
-        $scope.$apply();
+
         $('[data-toggle="tooltip"]').tooltip();
       };
       $('[data-toggle="tooltip"]').tooltip();
 
       // ========== REPO LOGIC ==========
-      $scope.$watch("options.update", (v) => {
-        if ($scope.detectedType !== "repo") return;
-        if ($scope.anonymize && $scope.anonymize.commit) {
-          $scope.anonymize.commit.$$element[0].disabled = !!v;
-        }
-      });
 
-      $scope.$watch("source.branch", async () => {
-        if ($scope.detectedType !== "repo") return;
-        const selected = $scope.branches.filter((f) => f.name == $scope.source.branch)[0];
+      state.watch("source.branch", async () => {
+        if (state.detectedType !== "repo") return;
+        const selected = state.branches.filter((f) => f.name == state.source.branch)[0];
         if (!selected) return;
         // In update mode, preserve the saved commit while the branch is
         // unchanged — see #360. Saving the form (e.g. to turn off
         // auto-update) used to bump the commit to GitHub HEAD because this
         // watcher overwrote it on edit-page load.
         const keepSavedCommit =
-          $scope.isUpdate &&
-          $scope._originalBranch === $scope.source.branch &&
-          !!$scope.source.commit;
+          state.isUpdate &&
+          state._originalBranch === state.source.branch &&
+          !!state.source.commit;
         if (!keepSavedCommit) {
-          $scope.source.commit = selected.commit;
+          state.source.commit = selected.commit;
         }
-        $scope.readme = selected.readme;
+        state.readme = selected.readme;
         await getReadme();
         anonymizeReadme();
-        $scope.$apply();
+
       });
 
-      $scope.getBranches = async (force) => {
-        const o = parseGithubUrl($scope.sourceUrl);
+      state.getBranches = async (force) => {
+        const o = parseGithubUrl(state.sourceUrl);
         try {
-          const branches = await $http.get(`/api/repo/${o.owner}/${o.repo}/branches`, {
+          const branches = await http.get(`/api/repo/${o.owner}/${o.repo}/branches`, {
             params: { force: force === true ? "1" : "0", repositoryID: sourceRepositoryID() },
           });
-          $scope.branches = branches.data;
-          $scope.sourceUnreachable = false;
-          if (!$scope.source.branch) {
-            $scope.source.branch = $scope.details.defaultBranch;
+          state.branches = branches.data;
+          state.sourceUnreachable = false;
+          if (!state.source.branch) {
+            state.source.branch = state.details.defaultBranch;
           }
-          const selected = $scope.branches.filter((b) => b.name == $scope.source.branch);
+          const selected = state.branches.filter((b) => b.name == state.source.branch);
           if (selected.length > 0) {
             // When the user explicitly clicks refresh (force=true), always
             // update the commit to the latest on the branch. Only preserve
             // the saved commit on the initial edit-page load (#360).
             const keepSavedCommit =
               !force &&
-              $scope.isUpdate &&
-              !$scope.options.update &&
-              $scope._originalBranch === $scope.source.branch &&
-              !!$scope.source.commit;
+              state.isUpdate &&
+              !state.options.update &&
+              state._originalBranch === state.source.branch &&
+              !!state.source.commit;
             if (!keepSavedCommit) {
-              $scope.source.commit = selected[0].commit;
+              state.source.commit = selected[0].commit;
             }
-            $scope.readme = selected[0].readme;
+            state.readme = selected[0].readme;
             await getReadme(force);
           }
         } catch (error) {
-          $scope.branches = [];
-          $scope.sourceUnreachable = error && (error.status === 404 || (error.data && error.data.error === "repo_not_found"));
+          state.branches = [];
+          state.sourceUnreachable = error && (error.status === 404 || (error.data && error.data.error === "repo_not_found"));
           const code = (error && error.data && error.data.error) || (error && error.status === 404 ? "repo_not_found" : "unknown_error");
-          $translate("ERRORS." + code).then((translation) => {
-            $scope.toasts = $scope.toasts || [];
-            $scope.addToast({ title: "Error", date: new Date(), body: translation });
-            $scope.error = translation;
+          translate("ERRORS." + code).then((translation) => {
+            state.toasts = state.toasts || [];
+            state.addToast({ title: "Error", date: new Date(), body: translation });
+            state.error = translation;
           }, console.error);
           if (typeof setValidity === "function") {
             setValidity("sourceUrl", "missing", false);
           }
         }
-        $scope.$apply();
+
       };
 
       async function getRepoDetails() {
-        const o = parseGithubUrl($scope.sourceUrl);
+        const o = parseGithubUrl(state.sourceUrl);
         try {
           resetValidity();
           // force=1 so newly enabled features (e.g. GitHub Pages — see
           // #364) are reflected without waiting for the cached metadata to
           // expire. The endpoint hits the GitHub API once.
-          const res = await $http.get(`/api/repo/${o.owner}/${o.repo}/`, {
+          const res = await http.get(`/api/repo/${o.owner}/${o.repo}/`, {
             params: { repositoryID: sourceRepositoryID(), force: "1" },
           });
-          $scope.details = res.data;
-          if ($scope.details && $scope.details.id) {
-            $scope.repositoryID = $scope.details.id;
+          state.details = res.data;
+          if (state.details && state.details.id) {
+            state.repositoryID = state.details.id;
           }
-          if (!$scope.repoId) {
-            $scope.repoId = $scope.details.repo + "-" + generateRandomId(4);
+          if (!state.repoId) {
+            state.repoId = state.details.repo + "-" + generateRandomId(4);
           }
-          await $scope.getBranches();
+          await state.getBranches();
         } catch (error) {
           if (error.data) {
-            $translate("ERRORS." + error.data.error).then((translation) => {
-              $scope.addToast({ title: "Error", date: new Date(), body: translation });
-              $scope.error = translation;
+            translate("ERRORS." + error.data.error).then((translation) => {
+              state.addToast({ title: "Error", date: new Date(), body: translation });
+              state.error = translation;
             }, console.error);
             displayErrorMessage(error.data.error);
           }
@@ -2426,15 +1218,15 @@ angular
       }
 
       async function getReadme(force) {
-        if ($scope.readme && !force) return $scope.readme;
-        const o = parseGithubUrl($scope.sourceUrl);
+        if (state.readme && !force) return state.readme;
+        const o = parseGithubUrl(state.sourceUrl);
         try {
-          const res = await $http.get(`/api/repo/${o.owner}/${o.repo}/readme`, {
-            params: { force: force === true ? "1" : "0", branch: $scope.source.branch, repositoryID: sourceRepositoryID() },
+          const res = await http.get(`/api/repo/${o.owner}/${o.repo}/readme`, {
+            params: { force: force === true ? "1" : "0", branch: state.source.branch, repositoryID: sourceRepositoryID() },
           });
-          $scope.readme = res.data;
+          state.readme = res.data;
         } catch (error) {
-          $scope.readme = "";
+          state.readme = "";
         }
       }
 
@@ -2448,16 +1240,16 @@ angular
 
       function previewOptions() {
         const opts = {
-          terms: $scope.terms ? $scope.terms.split("\n") : [],
-          image: !!$scope.options.image,
-          link: !!$scope.options.link,
-          repoId: $scope.repoId,
+          terms: state.terms ? state.terms.split("\n") : [],
+          image: !!state.options.image,
+          link: !!state.options.link,
+          repoId: state.repoId,
         };
-        if ($scope.source && $scope.source.branch) {
-          opts.branchName = $scope.source.branch;
+        if (state.source && state.source.branch) {
+          opts.branchName = state.source.branch;
         }
         try {
-          const o = parseGithubUrl($scope.sourceUrl);
+          const o = parseGithubUrl(state.sourceUrl);
           opts.repoName = `${o.owner}/${o.repo}`;
         } catch (_) { /* sourceUrl not yet parseable */ }
         return opts;
@@ -2469,13 +1261,13 @@ angular
         let pendingTimer = null;
         let inflightToken = 0;
         return function schedule() {
-          if (pendingTimer) $timeout.cancel(pendingTimer);
-          pendingTimer = $timeout(() => {
+          if (pendingTimer) timeout.cancel(pendingTimer);
+          pendingTimer = timeout(() => {
             pendingTimer = null;
             const myToken = ++inflightToken;
             const body = buildBody();
             if (!body) return;
-            $http.post("/api/anonymize-preview", body).then(
+            http.post("/api/anonymize-preview", body).then(
               (res) => {
                 if (myToken !== inflightToken) return; // stale
                 applyResult(res.data);
@@ -2488,55 +1280,55 @@ angular
 
       const scheduleReadmePreview = makePreviewBatcher(
         () => {
-          if (!$scope.readme) return null;
-          return { content: $scope.readme, options: previewOptions() };
+          if (!state.readme) return null;
+          return { content: state.readme, options: previewOptions() };
         },
         (data) => {
-          $scope.anonymize_readme = data.content || "";
+          state.anonymize_readme = data.content || "";
           let baseUrl = "";
           try {
-            const o = parseGithubUrl($scope.sourceUrl);
+            const o = parseGithubUrl(state.sourceUrl);
             // Fall back to the repo's default branch when source.branch
             // hasn't loaded yet — without this, relative <img src="./X">
             // resolved against a baseUrl like ".../raw//" (no branch
             // segment), so the browser fetched ".../raw/X" and 404'd
             // (#407).
             const branch =
-              $scope.source.branch ||
-              ($scope.details && $scope.details.defaultBranch) ||
+              state.source.branch ||
+              (state.details && state.details.defaultBranch) ||
               "main";
             baseUrl = `https://github.com/${o.owner}/${o.repo}/raw/${branch}/`;
           } catch (_) { /* fall through with empty base */ }
-          const html = renderMD($scope.anonymize_readme, baseUrl);
-          $scope.html_readme = $sce.trustAsHtml(html);
-          $timeout(Prism.highlightAll, 150);
+          const html = renderMD(state.anonymize_readme, baseUrl);
+          state.html_readme = html;
+          timeout(Prism.highlightAll, 150);
         }
       );
 
       function anonymizeReadme() {
-        if (!$scope.anonymize || !$scope.anonymize.terms) return;
+        if (!state.anonymize || !state.anonymize.terms) return;
         // The "regex characters detected" hint is informational, not a blocker
         // — IP addresses, escaped chars, etc. are all legitimate terms (#430).
-        $scope.termsRegexWarning =
-          !!$scope.terms && !!$scope.terms.match(/[-[\]{}()*+?.,\\^$|#]/g);
+        state.termsRegexWarning =
+          !!state.terms && !!state.terms.match(/[-[\]{}()*+?.,\\^$|#]/g);
         scheduleReadmePreview();
       }
 
       // ========== PR LOGIC ==========
       async function getPrDetails() {
-        const o = parseGithubUrl($scope.sourceUrl);
+        const o = parseGithubUrl(state.sourceUrl);
         try {
           resetValidity();
-          const res = await $http.get(`/api/pr/${o.owner}/${o.repo}/${o.pullRequestId}`);
-          $scope.details = res.data;
-          if (!$scope.pullRequestId) {
-            $scope.pullRequestId = o.repo + "-PR" + o.pullRequestId + "-" + generateRandomId(4);
+          const res = await http.get(`/api/pr/${o.owner}/${o.repo}/${o.pullRequestId}`);
+          state.details = res.data;
+          if (!state.pullRequestId) {
+            state.pullRequestId = o.repo + "-PR" + o.pullRequestId + "-" + generateRandomId(4);
           }
         } catch (error) {
           if (error.data) {
-            $translate("ERRORS." + error.data.error).then((translation) => {
-              $scope.addToast({ title: "Error", date: new Date(), body: translation });
-              $scope.error = translation;
+            translate("ERRORS." + error.data.error).then((translation) => {
+              state.addToast({ title: "Error", date: new Date(), body: translation });
+              state.error = translation;
             }, console.error);
             displayErrorMessage(error.data.error);
           }
@@ -2550,12 +1342,12 @@ angular
       // /api/anonymize-preview whenever the PR details, terms, or options
       // change. anonymizePrContent() returns the cached value if known and
       // falls back to the original until the next cycle resolves.
-      let _prAnonCache = new Map();
+      const _prAnonCache = reactive(new Map());
       let _prSeenContents = new Set();
 
       function collectPrContents() {
         const out = new Set();
-        const d = $scope.details && $scope.details.pullRequest;
+        const d = state.details && state.details.pullRequest;
         if (!d) return out;
         if (typeof d.title === "string") out.add(d.title);
         if (typeof d.body === "string") out.add(d.body);
@@ -2584,11 +1376,12 @@ angular
           for (let i = 0; i < seen.length && i < data.contents.length; i++) {
             next.set(seen[i], data.contents[i]);
           }
-          _prAnonCache = next;
+          _prAnonCache.clear();
+          next.forEach((value, key) => _prAnonCache.set(key, value));
         }
       );
 
-      $scope.anonymizePrContent = function (content) {
+      state.anonymizePrContent = function (content) {
         if (!content) return content;
         if (_prAnonCache.has(content)) return _prAnonCache.get(content);
         if (!_prSeenContents.has(content)) {
@@ -2599,19 +1392,19 @@ angular
 
       // ========== GIST LOGIC ==========
       async function getGistDetails() {
-        const o = parseGithubUrl($scope.sourceUrl);
+        const o = parseGithubUrl(state.sourceUrl);
         try {
           resetValidity();
-          const res = await $http.get(`/api/gist/source/${o.gistId}`);
-          $scope.details = res.data;
-          if (!$scope.gistId) {
-            $scope.gistId = "gist-" + o.gistId.substring(0, 6) + "-" + generateRandomId(4);
+          const res = await http.get(`/api/gist/source/${o.gistId}`);
+          state.details = res.data;
+          if (!state.gistId) {
+            state.gistId = "gist-" + o.gistId.substring(0, 6) + "-" + generateRandomId(4);
           }
         } catch (error) {
           if (error.data) {
-            $translate("ERRORS." + error.data.error).then((translation) => {
-              $scope.addToast({ title: "Error", date: new Date(), body: translation });
-              $scope.error = translation;
+            translate("ERRORS." + error.data.error).then((translation) => {
+              state.addToast({ title: "Error", date: new Date(), body: translation });
+              state.error = translation;
             }, console.error);
             displayErrorMessage(error.data.error);
           }
@@ -2620,13 +1413,12 @@ angular
         }
       }
 
-      let _gistAnonCache = new Map();
+      const _gistAnonCache = reactive(new Map());
       let _gistSeenContents = new Set();
-      let _gistCacheVersion = 0;
 
       function collectGistContents() {
         const out = new Set();
-        const d = $scope.details && $scope.details.gist;
+        const d = state.details && state.details.gist;
         if (!d) return out;
         if (typeof d.description === "string") out.add(d.description);
         if (typeof d.ownerLogin === "string") out.add(d.ownerLogin);
@@ -2658,13 +1450,13 @@ angular
           for (let i = 0; i < seen.length && i < data.contents.length; i++) {
             next.set(seen[i], data.contents[i]);
           }
-          _gistAnonCache = next;
-          _gistCacheVersion++;
+          _gistAnonCache.clear();
+          next.forEach((value, key) => _gistAnonCache.set(key, value));
           rebuildPreviewGistFiles();
         }
       );
 
-      $scope.anonymizeGistContent = function (content) {
+      state.anonymizeGistContent = function (content) {
         if (!content) return content;
         if (_gistAnonCache.has(content)) return _gistAnonCache.get(content);
         if (!_gistSeenContents.has(content)) {
@@ -2674,41 +1466,41 @@ angular
       };
 
       // Precomputed file objects for the preview pane so <gist-file>'s
-      // two-way binding has a stable reference. Recomputes when the source
+      // props have a stable reference. Recomputes when the source
       // files change OR when the anonymization cache turns over.
-      $scope.previewGistFiles = [];
+      state.previewGistFiles = [];
       function rebuildPreviewGistFiles() {
         const files =
-          ($scope.details && $scope.details.gist && $scope.details.gist.files) || [];
-        $scope.previewGistFiles = files.map((f) => ({
-          filename: $scope.anonymizeGistContent(f.filename),
-          content: $scope.anonymizeGistContent(f.content),
+          (state.details && state.details.gist && state.details.gist.files) || [];
+        state.previewGistFiles = files.map((f) => ({
+          filename: state.anonymizeGistContent(f.filename),
+          content: state.anonymizeGistContent(f.content),
           language: f.language,
         }));
       }
       // _prAnonCache turns over inside refreshGistPreview's applyResult; the
       // simplest signal we have is the digest cycle, so re-derive each digest.
       // Cheap when _gistAnonCache hits.
-      $scope.$watch("details.gist.files", rebuildPreviewGistFiles, true);
-      $scope.$watch("terms", rebuildPreviewGistFiles);
+      state.watch("details.gist.files", rebuildPreviewGistFiles, true);
+      state.watch("terms", rebuildPreviewGistFiles);
 
       // ========== SHARED LOGIC ==========
       function getConference() {
-        if (!$scope.conference) return;
-        $http.get("/api/conferences/" + $scope.conference).then(
+        if (!state.conference) return;
+        http.get("/api/conferences/" + state.conference).then(
           (res) => {
-            $scope.conference_data = res.data;
-            $scope.conference_data.startDate = new Date($scope.conference_data.startDate);
-            $scope.conference_data.endDate = new Date($scope.conference_data.endDate);
-            $scope.options.expirationDate = new Date($scope.conference_data.endDate);
-            $scope.options.expirationMode = "remove";
-            $scope.options.update = $scope.conference_data.options.update;
-            $scope.options.image = $scope.conference_data.options.image;
-            $scope.options.pdf = $scope.conference_data.options.pdf;
-            $scope.options.notebook = $scope.conference_data.options.notebook;
-            $scope.options.link = $scope.conference_data.options.link;
+            state.conference_data = res.data;
+            state.conference_data.startDate = new Date(state.conference_data.startDate);
+            state.conference_data.endDate = new Date(state.conference_data.endDate);
+            state.options.expirationDate = new Date(state.conference_data.endDate);
+            state.options.expirationMode = "remove";
+            state.options.update = state.conference_data.options.update;
+            state.options.image = state.conference_data.options.image;
+            state.options.pdf = state.conference_data.options.pdf;
+            state.options.notebook = state.conference_data.options.notebook;
+            state.options.link = state.conference_data.options.link;
           },
-          () => { $scope.conference_data = null; }
+          () => { state.conference_data = null; }
         );
       }
 
@@ -2726,17 +1518,17 @@ angular
         setValidity("commit", "exists", true);
         setValidity("conference", "activated", true);
         setValidity("terms", "format", true);
-        $scope.termsRegexWarning = false;
+        state.termsRegexWarning = false;
       }
 
       // Guards against submitting a missing or out-of-range expiration date.
       // When the picked date fails min/max validation AngularJS sets the model
       // to undefined, so we check both the field validity and the model value.
       function expirationDateInvalid() {
-        const field = $scope.anonymize && $scope.anonymize.expirationDate;
-        if (!$scope.options.expirationDate || (field && field.$invalid)) {
-          if (field && field.$setDirty) field.$setDirty();
-          $scope.error = "Please choose a valid expiration date.";
+        const field = state.anonymize && state.anonymize.expirationDate;
+        if (!state.options.expirationDate || (field && field.invalid)) {
+          if (field && field.setDirty) field.setDirty();
+          state.error = "Please choose a valid expiration date.";
           return true;
         }
         return false;
@@ -2744,9 +1536,9 @@ angular
 
       function displayErrorMessage(message) {
         const idField =
-          $scope.detectedType === "pr"
+          state.detectedType === "pr"
             ? "pullRequestId"
-            : $scope.detectedType === "gist"
+            : state.detectedType === "gist"
             ? "gistId"
             : "repoId";
         switch (message) {
@@ -2763,192 +1555,187 @@ angular
       }
 
       // ========== CO-AUTHORS ==========
-      $scope.coauthors = $scope.coauthors || [];
-      $scope.coauthorResults = [];
-      $scope.coauthorError = "";
+      state.coauthors = state.coauthors || [];
+      state.coauthorResults = [];
+      state.coauthorError = "";
 
-      $scope.searchCoauthors = () => {
-        const q = ($scope.coauthorSearch || "").trim();
-        $scope.coauthorError = "";
+      state.searchCoauthors = () => {
+        const q = (state.coauthorSearch || "").trim();
+        state.coauthorError = "";
         if (q.length < 2) {
-          $scope.coauthorResults = [];
+          state.coauthorResults = [];
           return;
         }
-        $http.get("/api/user/search/github-users", { params: { q } }).then(
+        http.get("/api/user/search/github-users", { params: { q } }).then(
           (res) => {
             const existing = new Set(
-              ($scope.coauthors || []).map((c) => (c.username || "").toLowerCase())
+              (state.coauthors || []).map((c) => (c.username || "").toLowerCase())
             );
-            $scope.coauthorResults = (res.data || []).filter(
+            state.coauthorResults = (res.data || []).filter(
               (u) => !existing.has((u.username || "").toLowerCase())
             );
           },
-          () => { $scope.coauthorResults = []; }
+          () => { state.coauthorResults = []; }
         );
       };
 
-      $scope.addCoauthor = (u, event) => {
+      state.addCoauthor = (u, event) => {
         if (event) event.preventDefault();
         if (!u || !u.username) return;
-        $http
-          .post("/api/repo/" + $scope.repoId + "/coauthors", {
+        http
+          .post("/api/repo/" + state.repoId + "/coauthors", {
             username: u.username,
           })
           .then(
             (res) => {
-              $scope.coauthors = res.data || [];
-              $scope.coauthorResults = [];
-              $scope.coauthorSearch = "";
-              $scope.coauthorError = "";
+              state.coauthors = res.data || [];
+              state.coauthorResults = [];
+              state.coauthorSearch = "";
+              state.coauthorError = "";
             },
             (err) => {
               const code = (err && err.data && err.data.error) || "unknown_error";
-              $scope.coauthorError = code;
+              state.coauthorError = code;
             }
           );
       };
 
-      $scope.removeCoauthor = (c) => {
+      state.removeCoauthor = (c) => {
         if (!c || !c.username) return;
         if (!confirm("Remove co-author " + c.username + "?")) return;
-        $http
+        http
           .delete(
             "/api/repo/" +
-              $scope.repoId +
+              state.repoId +
               "/coauthors/" +
               encodeURIComponent(c.username)
           )
           .then(
-            (res) => { $scope.coauthors = res.data || []; },
+            (res) => { state.coauthors = res.data || []; },
             (err) => {
               const code = (err && err.data && err.data.error) || "unknown_error";
-              $scope.coauthorError = code;
+              state.coauthorError = code;
             }
           );
       };
 
       // Submit: repo
-      $scope.anonymizeRepo = (event) => {
+      state.anonymizeRepo = (event) => {
         if (expirationDateInvalid()) return;
         event.target.disabled = true;
-        const o = parseGithubUrl($scope.sourceUrl);
+        const o = parseGithubUrl(state.sourceUrl);
         const payload = {
-          repoId: $scope.repoId,
-          terms: $scope.terms.trim().split("\n").filter((f) => f),
+          repoId: state.repoId,
+          terms: state.terms.trim().split("\n").filter((f) => f),
           fullName: `${o.owner}/${o.repo}`,
-          repository: $scope.sourceUrl,
-          options: $scope.options,
-          source: $scope.source,
-          conference: $scope.conference,
+          repository: state.sourceUrl,
+          options: state.options,
+          source: state.source,
+          conference: state.conference,
         };
-        if ($scope.details) payload.options.pageSource = $scope.details.pageSource;
+        if (state.details) payload.options.pageSource = state.details.pageSource;
         resetValidity();
-        const url = $scope.isUpdate ? "/api/repo/" + $scope.repoId : "/api/repo/";
-        $http.post(url, payload, { headers: { "Content-Type": "application/json" } }).then(
-          () => { window.location.href = "/status/" + $scope.repoId; },
+        const url = state.isUpdate ? "/api/repo/" + state.repoId : "/api/repo/";
+        http.post(url, payload, { headers: { "Content-Type": "application/json" } }).then(
+          () => { window.location.href = "/status/" + state.repoId; },
           (error) => {
             if (error.data) {
-              $translate("ERRORS." + error.data.error).then((t) => { $scope.error = t; }, console.error);
+              translate("ERRORS." + error.data.error).then((t) => { state.error = t; }, console.error);
               displayErrorMessage(error.data.error);
             }
           }
-        ).finally(() => { event.target.disabled = false; $scope.$apply(); });
+        ).finally(() => { event.target.disabled = false;  });
       };
 
       // Submit: Gist
-      $scope.anonymizeGist = (event) => {
+      state.anonymizeGist = (event) => {
         if (expirationDateInvalid()) return;
         event.target.disabled = true;
-        const o = parseGithubUrl($scope.sourceUrl);
+        const o = parseGithubUrl(state.sourceUrl);
         const payload = {
-          gistId: $scope.gistId,
-          terms: $scope.terms.trim().split("\n").filter((f) => f),
+          gistId: state.gistId,
+          terms: state.terms.trim().split("\n").filter((f) => f),
           source: { gistId: o.gistId },
-          options: $scope.options,
-          conference: $scope.conference,
+          options: state.options,
+          conference: state.conference,
         };
         resetValidity();
-        const url = $scope.isUpdate ? "/api/gist/" + $scope.gistId : "/api/gist/";
-        $http.post(url, payload, { headers: { "Content-Type": "application/json" } }).then(
-          () => { window.location.href = "/gist/" + $scope.gistId; },
+        const url = state.isUpdate ? "/api/gist/" + state.gistId : "/api/gist/";
+        http.post(url, payload, { headers: { "Content-Type": "application/json" } }).then(
+          () => { window.location.href = "/gist/" + state.gistId; },
           (error) => {
             if (error.data) {
-              $translate("ERRORS." + error.data.error).then((t) => { $scope.error = t; }, console.error);
+              translate("ERRORS." + error.data.error).then((t) => { state.error = t; }, console.error);
               displayErrorMessage(error.data.error);
             }
           }
-        ).finally(() => { event.target.disabled = false; $scope.$apply(); });
+        ).finally(() => { event.target.disabled = false;  });
       };
 
       // Submit: PR
-      $scope.anonymizePullRequest = (event) => {
+      state.anonymizePullRequest = (event) => {
         if (expirationDateInvalid()) return;
         event.target.disabled = true;
-        const o = parseGithubUrl($scope.sourceUrl);
+        const o = parseGithubUrl(state.sourceUrl);
         const payload = {
-          pullRequestId: $scope.pullRequestId,
-          terms: $scope.terms.trim().split("\n").filter((f) => f),
+          pullRequestId: state.pullRequestId,
+          terms: state.terms.trim().split("\n").filter((f) => f),
           source: { repositoryFullName: `${o.owner}/${o.repo}`, pullRequestId: o.pullRequestId },
-          options: $scope.options,
-          conference: $scope.conference,
+          options: state.options,
+          conference: state.conference,
         };
         resetValidity();
-        const url = $scope.isUpdate ? "/api/pr/" + $scope.pullRequestId : "/api/pr/";
-        $http.post(url, payload, { headers: { "Content-Type": "application/json" } }).then(
-          () => { window.location.href = "/pr/" + $scope.pullRequestId; },
+        const url = state.isUpdate ? "/api/pr/" + state.pullRequestId : "/api/pr/";
+        http.post(url, payload, { headers: { "Content-Type": "application/json" } }).then(
+          () => { window.location.href = "/pr/" + state.pullRequestId; },
           (error) => {
             if (error.data) {
-              $translate("ERRORS." + error.data.error).then((t) => { $scope.error = t; }, console.error);
+              translate("ERRORS." + error.data.error).then((t) => { state.error = t; }, console.error);
               displayErrorMessage(error.data.error);
             }
           }
-        ).finally(() => { event.target.disabled = false; $scope.$apply(); });
+        ).finally(() => { event.target.disabled = false;  });
       };
 
-      $scope.$watch("conference", () => { getConference(); });
-      $scope.$watch("terms", () => {
-        if ($scope.detectedType === "repo") anonymizeReadme();
-        if ($scope.detectedType === "pr") refreshPrPreview();
-        if ($scope.detectedType === "gist") refreshGistPreview();
+      state.watch("conference", () => { getConference(); });
+      state.watch("terms", () => {
+        if (state.detectedType === "repo") anonymizeReadme();
+        if (state.detectedType === "pr") refreshPrPreview();
+        if (state.detectedType === "gist") refreshGistPreview();
       });
-      $scope.$watch("options.image", () => {
-        if ($scope.detectedType === "repo") anonymizeReadme();
-        if ($scope.detectedType === "pr") refreshPrPreview();
-        if ($scope.detectedType === "gist") refreshGistPreview();
+      state.watch("options.image", () => {
+        if (state.detectedType === "repo") anonymizeReadme();
+        if (state.detectedType === "pr") refreshPrPreview();
+        if (state.detectedType === "gist") refreshGistPreview();
       });
-      $scope.$watch("options.link", () => {
-        if ($scope.detectedType === "repo") anonymizeReadme();
-        if ($scope.detectedType === "pr") refreshPrPreview();
-        if ($scope.detectedType === "gist") refreshGistPreview();
+      state.watch("options.link", () => {
+        if (state.detectedType === "repo") anonymizeReadme();
+        if (state.detectedType === "pr") refreshPrPreview();
+        if (state.detectedType === "gist") refreshGistPreview();
       });
-      $scope.$watch("details", () => {
-        if ($scope.detectedType === "pr") refreshPrPreview();
-        if ($scope.detectedType === "gist") refreshGistPreview();
+      state.watch("details", () => {
+        if (state.detectedType === "pr") refreshPrPreview();
+        if (state.detectedType === "gist") refreshGistPreview();
       }, true);
-    },
-  ])
-  .controller("exploreController", [
-    "$scope",
-    "$http",
-    "$location",
-    "$routeParams",
-    "$sce",
-    "$q",
-    function ($scope, $http, $location, $routeParams, $sce, $q) {
+    };
+
+export const exploreController = function (state, http, location, params, html, promises) {
+      const timers = createTimers();
+      const listen = createListeners();
       let contentGeneration = 0;
       let destroyed = false;
-      $scope.$on("$destroy", () => {
+      state.on("dispose", () => {
         destroyed = true;
         contentGeneration++;
         if (searchCanceller) searchCanceller.resolve();
       });
-      $scope.files = [];
-      $scope.isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent);
-      $scope.fileSearchQuery = "";
-      $scope.fileSearchResults = null;
-      $scope.fileSearchLoading = false;
+      state.files = [];
+      state.isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent);
+      state.fileSearchQuery = "";
+      state.fileSearchResults = null;
+      state.fileSearchLoading = false;
 
-      document.addEventListener("keydown", function (e) {
+      listen(document, "keydown", function (e) {
         if ((e.metaKey || e.ctrlKey) && e.key === "k") {
           e.preventDefault();
           var input = document.querySelector(".tree-search-input");
@@ -2959,32 +1746,32 @@ angular
         }
       });
       var searchCanceller = null;
-      $scope.onFileSearchChange = function () {
+      state.onFileSearchChange = function () {
         // Cancel any in-flight search request
         if (searchCanceller) {
           searchCanceller.resolve();
           searchCanceller = null;
         }
-        const query = $scope.fileSearchQuery;
+        const query = state.fileSearchQuery;
         if (!query || query.length < 2) {
-          $scope.fileSearchResults = null;
-          $scope.fileSearchLoading = false;
+          state.fileSearchResults = null;
+          state.fileSearchLoading = false;
           return;
         }
-        $scope.fileSearchLoading = true;
-        const requestCanceller = $q.defer();
+        state.fileSearchLoading = true;
+        const requestCanceller = promises.defer();
         searchCanceller = requestCanceller;
-        $http.get(
-          `/api/repo/${$scope.repoId}/files/search?q=${encodeURIComponent(query)}`,
+        http.get(
+          `/api/repo/${state.repoId}/files/search?q=${encodeURIComponent(query)}`,
           { timeout: requestCanceller.promise }
         ).then(function (res) {
           if (destroyed || searchCanceller !== requestCanceller) return;
           searchCanceller = null;
-          $scope.fileSearchLoading = false;
-          // Merge search results into $scope.files so the tree can render them.
+          state.fileSearchLoading = false;
+          // Merge search results into state.files so the tree can render them.
           // Ancestor folders must appear before their children for toArray() to work.
           var existing = {};
-          $scope.files.forEach(function(f) {
+          state.files.forEach(function(f) {
             existing[(f.path || "") + "/" + f.name] = true;
           });
           // First pass: collect ancestor folders (shallow to deep)
@@ -3012,7 +1799,7 @@ angular
           });
           // Add folders first, then files
           if (foldersToAdd.length > 0) {
-            $scope.files.push.apply($scope.files, foldersToAdd);
+            state.files.push.apply(state.files, foldersToAdd);
           }
           var filesToAdd = [];
           for (var k = 0; k < res.data.length; k++) {
@@ -3024,14 +1811,14 @@ angular
             }
           }
           if (filesToAdd.length > 0) {
-            $scope.files.push.apply($scope.files, filesToAdd);
+            state.files.push.apply(state.files, filesToAdd);
           }
-          $scope.fileSearchResults = res.data;
+          state.fileSearchResults = res.data;
         }, function () {
           if (!destroyed && searchCanceller === requestCanceller) {
             searchCanceller = null;
-            $scope.fileSearchLoading = false;
-            $scope.fileSearchResults = [];
+            state.fileSearchLoading = false;
+            state.fileSearchResults = [];
           }
         });
       };
@@ -3078,13 +1865,13 @@ angular
         "f4b",
       ];
 
-      $scope.$on("$routeUpdate", function (event, current) {
-        if ($scope.repoId != $routeParams.repoId) return init();
-        if (($routeParams.path || "") == $scope.filePath) {
+      state.on("routeUpdate", function (event, current) {
+        if (state.repoId != params.repoId) return init();
+        if ((params.path || "") == state.filePath) {
           return;
         }
-        $scope.filePath = $routeParams.path || "";
-        $scope.paths = $scope.filePath
+        state.filePath = params.path || "";
+        state.paths = state.filePath
           .split("/")
           .filter((f) => f && f.trim().length > 0);
 
@@ -3093,20 +1880,20 @@ angular
 
         // #510 — if we navigated into a subdirectory whose file listing
         // hasn't been fetched, lazy-load the parent directories in the
-        // background so getSelectedFile() can populate $scope.file with the
+        // background so getSelectedFile() can populate state.file with the
         // right sha for the next interaction. Done after updateContent so
         // the request fires immediately (getContent falls back to sha "0").
-        for (let i = 0; i < $scope.paths.length - 1; i++) {
-          const dirPath = i > 0 ? $scope.paths.slice(0, i).join("/") : "";
-          const alreadyLoaded = $scope.files.some((f) => f.path === dirPath);
+        for (let i = 0; i < state.paths.length - 1; i++) {
+          const dirPath = i > 0 ? state.paths.slice(0, i).join("/") : "";
+          const alreadyLoaded = state.files.some((f) => f.path === dirPath);
           if (!alreadyLoaded) {
-            $scope.getFiles(dirPath);
+            state.getFiles(dirPath);
           }
         }
       });
 
       function selectFile() {
-        if ($scope.paths[0] != "") {
+        if (state.paths[0] != "") {
           return;
         }
         const readmePriority = [
@@ -3117,7 +1904,7 @@ angular
           "readme",
         ];
         const readmeCandidates = {};
-        for (const file of $scope.files) {
+        for (const file of state.files) {
           if (file.name.toLowerCase().indexOf("readme") > -1) {
             readmeCandidates[file.name.toLowerCase()] = file.name;
           }
@@ -3132,67 +1919,67 @@ angular
         if (!best_match && Object.keys(readmeCandidates).length > 0)
           best_match = Object.keys(readmeCandidates)[0];
         if (best_match) {
-          let uri = $location.url();
+          let uri = location.url();
           if (uri[uri.length - 1] != "/") {
             uri += "/";
           }
 
           // redirect to readme
-          $location.url(
+          location.url(
             uri + encodePathForUrl(readmeCandidates[best_match])
           );
         }
       }
-      $scope.fileCounts = null;
-      $scope.getFiles = function (path) {
-        const repoId = $scope.repoId;
-        return $http.get(
-          `/api/repo/${$scope.repoId}/files/?path=${encodeURIComponent(path)}&v=${$scope.options.lastUpdateDate}`
+      state.fileCounts = null;
+      state.getFiles = function (path) {
+        const repoId = state.repoId;
+        return http.get(
+          `/api/repo/${state.repoId}/files/?path=${encodeURIComponent(path)}&v=${state.options.lastUpdateDate}`
         ).then(function (res) {
-          if (destroyed || repoId !== $scope.repoId) return [];
+          if (destroyed || repoId !== state.repoId) return [];
           const normalized = path || "";
-          $scope.files = $scope.files.filter((f) => f.path !== normalized);
-          $scope.files.push(...res.data);
+          state.files = state.files.filter((f) => f.path !== normalized);
+          state.files.push(...res.data);
           return res.data;
         }, function (err) {
-          if (destroyed || repoId !== $scope.repoId) return [];
-          $scope.type = "error";
-          $scope.content = (err && err.data && err.data.error) || "unknown_error";
-          $scope.files = [];
+          if (destroyed || repoId !== state.repoId) return [];
+          state.type = "error";
+          state.content = (err && err.data && err.data.error) || "unknown_error";
+          state.files = [];
         });
       };
       function fetchFileCounts() {
-        const repoId = $scope.repoId;
-        $http.get(
-          `/api/repo/${$scope.repoId}/files/counts`
+        const repoId = state.repoId;
+        http.get(
+          `/api/repo/${state.repoId}/files/counts`
         ).then(function (res) {
-          if (destroyed || repoId !== $scope.repoId) return;
-          $scope.fileCounts = res.data;
+          if (destroyed || repoId !== state.repoId) return;
+          state.fileCounts = res.data;
         }, function () {
-          $scope.fileCounts = {};
+          state.fileCounts = {};
         });
       }
 
       function getSelectedFile() {
-        return $scope.files.filter(
+        return state.files.filter(
           (f) =>
-            f.name == $scope.paths[$scope.paths.length - 1] &&
-            f.path == $scope.paths.slice(0, $scope.paths.length - 1).join("/")
+            f.name == state.paths[state.paths.length - 1] &&
+            f.path == state.paths.slice(0, state.paths.length - 1).join("/")
         )[0];
       }
 
       var rlCountdownTimer = null;
-      $scope.$on("$destroy", function () { if (rlCountdownTimer) clearInterval(rlCountdownTimer); });
+      state.on("dispose", function () { if (rlCountdownTimer) timers.interval.cancel(rlCountdownTimer); });
 
       function getOptions(callback) {
         if (destroyed) return;
-        const repoId = $scope.repoId;
-        $http.get(`/api/repo/${$scope.repoId}/options`).then(
+        const repoId = state.repoId;
+        http.get(`/api/repo/${state.repoId}/options`).then(
           (res) => {
-            if (destroyed || repoId !== $scope.repoId) return;
-            $scope.options = res.data;
-            if ($scope.options.url) {
-              window.location = $scope.options.url;
+            if (destroyed || repoId !== state.repoId) return;
+            state.options = res.data;
+            if (state.options.url) {
+              window.location = state.options.url;
               return;
             }
             if (callback) {
@@ -3200,34 +1987,34 @@ angular
             }
           },
           (err) => {
-            if (destroyed || repoId !== $scope.repoId) return;
+            if (destroyed || repoId !== state.repoId) return;
             var data = err.data || {};
             if (data.error === "rate_limited" && data.resetAt) {
-              $scope.type = "rate_limited";
-              $scope.rateLimitResetAt = data.resetAt;
-              if (rlCountdownTimer) clearInterval(rlCountdownTimer);
+              state.type = "rate_limited";
+              state.rateLimitResetAt = data.resetAt;
+              if (rlCountdownTimer) timers.interval.cancel(rlCountdownTimer);
               function rlTick() {
-                var remaining = Math.max(0, Math.ceil(($scope.rateLimitResetAt - Date.now()) / 1000));
+                var remaining = Math.max(0, Math.ceil((state.rateLimitResetAt - Date.now()) / 1000));
                 if (remaining <= 0) {
-                  $scope.rateLimitCountdown = "";
-                  $scope.rateLimitResetAt = 0;
-                  if (rlCountdownTimer) { clearInterval(rlCountdownTimer); rlCountdownTimer = null; }
+                  state.rateLimitCountdown = "";
+                  state.rateLimitResetAt = 0;
+                  if (rlCountdownTimer) { timers.interval.cancel(rlCountdownTimer); rlCountdownTimer = null; }
                   getOptions(callback);
                 } else {
                   var min = Math.floor(remaining / 60);
                   var sec = remaining % 60;
-                  $scope.rateLimitCountdown = min > 0 ? min + "m " + sec + "s" : sec + "s";
+                  state.rateLimitCountdown = min > 0 ? min + "m " + sec + "s" : sec + "s";
                 }
-                $scope.$applyAsync();
+
               }
               rlTick();
-              rlCountdownTimer = setInterval(rlTick, 1000);
+              rlCountdownTimer = timers.interval(rlTick, 1000);
             } else if (data.error === "repository_not_ready") {
-              $scope.type = "loading";
-              setTimeout(function () { getOptions(callback); }, 3000);
+              state.type = "loading";
+              timers.timeout(function () { getOptions(callback); }, 3000);
             } else {
-              $scope.type = "error";
-              $scope.content = data.error;
+              state.type = "error";
+              state.content = data.error;
             }
           }
         );
@@ -3237,12 +2024,12 @@ angular
       // template: the toolbar and the file view sit in different child scopes,
       // so an inline assignment would shadow the value on one of them instead
       // of updating the controller's.
-      $scope.toggleSource = function () {
-        $scope.showSource = !$scope.showSource;
+      state.toggleSource = function () {
+        state.showSource = !state.showSource;
       };
 
-      $scope.toggleAllowScripts = function () {
-        $scope.allowScripts = !$scope.allowScripts;
+      state.toggleAllowScripts = function () {
+        state.allowScripts = !state.allowScripts;
       };
 
       function getMode(extension) {
@@ -3289,21 +2076,21 @@ angular
       function getContent(path, fileInfo) {
         const generation = contentGeneration;
         if (!path) {
-          $scope.type = "error";
-          $scope.content = "no_file_selected";
+          state.type = "error";
+          state.content = "no_file_selected";
           return;
         }
-        const originalType = $scope.type;
-        $scope.type = "loading";
-        $scope.content = "loading";
+        const originalType = state.type;
+        state.type = "loading";
+        state.content = "loading";
         // fileInfo can be undefined when the user navigates (e.g. clicks a
         // markdown link into a subdir whose file list hasn't loaded yet) —
         // see #510. Fall back to "0" so the request still goes through; the
         // server returns a fresh ETag on first hit either way.
         const sha = (fileInfo && fileInfo.sha) || "0";
-        $http
+        http
           .get(
-            `/api/repo/${$scope.repoId}/file/${encodePathForUrl(path)}?v=` +
+            `/api/repo/${state.repoId}/file/${encodePathForUrl(path)}?v=` +
               sha,
             {
               transformResponse: (data) => {
@@ -3314,19 +2101,17 @@ angular
           .then(
             (res) => {
               if (destroyed || generation !== contentGeneration) return;
-              $scope.type = originalType;
-              $scope.content = res.data;
-              if ($scope.content == "") {
-                $scope.content = null;
+              state.type = originalType;
+              state.content = res.data;
+              if (state.content == "") {
+                state.content = null;
               }
 
-              if ($scope.type == "md") {
-                $scope.content = $sce.trustAsHtml(
-                  renderMD(res.data, $location.url() + "/../")
-                );
-                $scope.type = "html";
+              if (state.type == "md") {
+                state.content = renderMD(res.data, location.url() + "/../");
+                state.type = "html";
               }
-              if ($scope.type == "org") {
+              if (state.type == "org") {
                 const content = contentAbs2Relative(res.data);
 
                 const orgParser = new Org.Parser();
@@ -3337,38 +2122,38 @@ angular
                   suppressSubScriptHandling: true,
                   suppressAutoLink: false,
                 });
-                $scope.content = $sce.trustAsHtml(DOMPurify.sanitize(orgHTMLDocument.toString()));
-                $scope.type = "html";
+                state.content = DOMPurify.sanitize(orgHTMLDocument.toString());
+                state.type = "html";
               }
               if (
-                $scope.type == "code" &&
+                state.type == "code" &&
                 res.headers("content-type") == "application/octet-stream"
               ) {
-                $scope.type = "binary";
-                $scope.content = "binary";
+                state.type = "binary";
+                state.content = "binary";
               }
-              setTimeout(() => {
+              timers.timeout(() => {
                 Prism.highlightAll();
               }, 50);
             },
             (err) => {
               if (destroyed || generation !== contentGeneration) return;
-              $scope.type = "error";
-              $scope.content = "unknown_error";
+              state.type = "error";
+              state.content = "unknown_error";
               try {
                 err.data = JSON.parse(err.data);
                 if (err.data.error) {
-                  $scope.content = err.data.error;
+                  state.content = err.data.error;
                 } else {
-                  $scope.content = err.data;
+                  state.content = err.data;
                 }
               } catch (ignore) {
                 console.log(err);
                 if (err.status == -1) {
-                  $scope.content = "request_error";
+                  state.content = "request_error";
                 } else if (err.status == 502) {
                   // cloudflare error
-                  $scope.content = "unreachable";
+                  state.content = "unreachable";
                 }
               }
             }
@@ -3377,45 +2162,43 @@ angular
 
       function updateContent() {
         contentGeneration++;
-        $scope.content = "";
-        $scope.file = getSelectedFile();
+        state.content = "";
+        state.file = getSelectedFile();
         let fileVersion = "0";
-        if ($scope.file && $scope.file.sha) {
-          fileVersion = $scope.file.sha;
+        if (state.file && state.file.sha) {
+          fileVersion = state.file.sha;
         }
-        $scope.url = `/api/repo/${$scope.repoId}/file/${encodePathForUrl(
-          $scope.filePath
+        state.url = `/api/repo/${state.repoId}/file/${encodePathForUrl(
+          state.filePath
         )}?v=${fileVersion}`;
         // Directory the file lives in, used as the <base> for a rendered HTML
         // document so its relative images/stylesheets still resolve.
-        const dirPath = $scope.filePath.substring(
+        const dirPath = state.filePath.substring(
           0,
-          $scope.filePath.lastIndexOf("/") + 1
+          state.filePath.lastIndexOf("/") + 1
         );
-        $scope.fileBaseUrl = `/api/repo/${$scope.repoId}/file/${
+        state.fileBaseUrl = `/api/repo/${state.repoId}/file/${
           dirPath ? encodePathForUrl(dirPath) : ""
         }`;
-        $scope.showSource = false;
+        state.showSource = false;
         // Scripts in a repository's HTML are opt-in, per file — see
         // html-doc.js. Reset on navigation so trust never carries over from
         // one file to the next.
-        $scope.allowScripts = false;
+        state.allowScripts = false;
 
-        let extension = $scope.filePath.toLowerCase();
+        let extension = state.filePath.toLowerCase();
         const extensionIndex = extension.lastIndexOf(".");
         if (extensionIndex > -1) {
           extension = extension.substring(extensionIndex + 1);
         }
 
-        $scope.aceOption = {
+        state.aceOption = {
           readOnly: true,
           useWrapMode: true,
           showGutter: true,
           theme: "chrome",
           useSoftTab: true,
-          showPrintMargin: true,
           tabSize: 2,
-          highlightSelectedWord: true,
           fontSize: 15,
           keyBinding: "vscode",
           fullLineSelection: true,
@@ -3457,7 +2240,7 @@ angular
               const to = m[2] ? parseInt(m[2]) - 1 : from;
               highlightLines(from, to);
               if (scroll) {
-                setTimeout(() => {
+                timers.timeout(() => {
                   _editor.scrollToLine(from, true, true, function () {});
                 }, 100);
               }
@@ -3492,94 +2275,94 @@ angular
               e.stop();
             });
 
-            window.addEventListener("hashchange", () => applyHashFromUrl(false));
+            listen(window, "hashchange", () => applyHashFromUrl(false));
 
-            _editor.setFontSize($scope.aceOption.fontSize);
-            _editor.setReadOnly($scope.aceOption.readOnly);
-            _editor.setKeyboardHandler($scope.aceOption.keyBinding);
+            _editor.setFontSize(state.aceOption.fontSize);
+            _editor.setReadOnly(state.aceOption.readOnly);
+            _editor.setKeyboardHandler(state.aceOption.keyBinding);
             _editor.setSelectionStyle(
-              $scope.aceOption.fullLineSelection ? "line" : "text"
+              state.aceOption.fullLineSelection ? "line" : "text"
             );
             _editor.setOption("displayIndentGuides", true);
             _editor.setHighlightActiveLine(
-              $scope.aceOption.highlightActiveLine
+              state.aceOption.highlightActiveLine
             );
-            if ($scope.aceOption.cursor == "hide") {
+            if (state.aceOption.cursor == "hide") {
               _editor.renderer.$cursorLayer.element.style.display = "none";
             }
             _editor.setHighlightGutterLine(
-              $scope.aceOption.highlightGutterLine
+              state.aceOption.highlightGutterLine
             );
-            _editor.setShowInvisibles($scope.aceOption.showInvisibles);
-            _editor.setDisplayIndentGuides($scope.aceOption.showIndentGuides);
+            _editor.setShowInvisibles(state.aceOption.showInvisibles);
+            _editor.setDisplayIndentGuides(state.aceOption.showIndentGuides);
 
             _editor.renderer.setShowPrintMargin(
-              $scope.aceOption.showPrintMargin
+              state.aceOption.showPrintMargin
             );
             _editor.setHighlightSelectedWord(
-              $scope.aceOption.highlightSelectedWord
+              state.aceOption.highlightSelectedWord
             );
-            _editor.session.setUseSoftTabs($scope.aceOption.useSoftTab);
-            _editor.session.setTabSize($scope.aceOption.tabSize);
-            _editor.setBehavioursEnabled($scope.aceOption.enableBehaviours);
-            _editor.setFadeFoldWidgets($scope.aceOption.fadeFoldWidgets);
+            _editor.session.setUseSoftTabs(state.aceOption.useSoftTab);
+            _editor.session.setTabSize(state.aceOption.tabSize);
+            _editor.setBehavioursEnabled(state.aceOption.enableBehaviours);
+            _editor.setFadeFoldWidgets(state.aceOption.fadeFoldWidgets);
           },
         };
-        $scope.$on("dark-mode", (event, on) => {
+        state.on("dark-mode", (event, on) => {
           if (on) {
-            $scope.aceOption.theme = "nord_dark";
+            state.aceOption.theme = "nord_dark";
           } else {
-            $scope.aceOption.theme = "chrome";
+            state.aceOption.theme = "chrome";
           }
         });
-        if ($scope.isDarkMode) {
-          $scope.aceOption.theme = "nord_dark";
+        if (state.isDarkMode) {
+          state.aceOption.theme = "nord_dark";
         }
-        $scope.type = getType(extension);
+        state.type = getType(extension);
 
-        if ($scope.type == "pdf") {
-          // The viewer streams the file itself from $scope.url, so fetching
+        if (state.type == "pdf") {
+          // The viewer streams the file itself from state.url, so fetching
           // the bytes again here only to hold them as a JS string wastes a
           // request and a lot of memory on a large report. Content stays
           // non-null so the Raw/Download actions remain available.
-          $scope.content = "pdf";
+          state.content = "pdf";
           return;
         }
 
-        getContent($scope.filePath, $scope.file);
+        getContent(state.filePath, state.file);
       }
 
       function init() {
         contentGeneration++;
-        $scope.files = [];
-        $scope.content = null;
-        $scope.fileCounts = null;
-        $scope.fileSearchQuery = "";
-        $scope.onFileSearchChange();
-        $scope.repoId = $routeParams.repoId;
-        $scope.type = "loading";
-        $scope.filePath = $routeParams.path || "";
-        $scope.paths = $scope.filePath.split("/");
+        state.files = [];
+        state.content = null;
+        state.fileCounts = null;
+        state.fileSearchQuery = "";
+        state.onFileSearchChange();
+        state.repoId = params.repoId;
+        state.type = "loading";
+        state.filePath = params.path || "";
+        state.paths = state.filePath.split("/");
 
-        const repoId = $scope.repoId;
+        const repoId = state.repoId;
         getOptions(function (options) {
           fetchFileCounts();
-          var chain = $q.resolve();
-          for (let i = 0; i < $scope.paths.length; i++) {
-            const path = i > 0 ? $scope.paths.slice(0, i).join("/") : "";
+          var chain = promises.resolve();
+          for (let i = 0; i < state.paths.length; i++) {
+            const path = i > 0 ? state.paths.slice(0, i).join("/") : "";
             chain = chain.then(function () {
-              return $scope.getFiles(path);
+              return state.getFiles(path);
             }).then(function () {
-              if ($scope.type === "error") {
-                return $q.reject("error");
+              if (state.type === "error") {
+                return promises.reject("error");
               }
             });
           }
           chain.then(function () {
-            if (destroyed || repoId !== $scope.repoId) return;
-            if ($scope.files.length == 1 && $scope.files[0].name == "") {
-              $scope.files = [];
-              $scope.type = "empty";
+            if (destroyed || repoId !== state.repoId) return;
+            if (state.files.length == 1 && state.files[0].name == "") {
+              state.files = [];
+              state.type = "empty";
             } else {
               selectFile();
               updateContent();
@@ -3589,23 +2372,16 @@ angular
       }
 
       init();
-    },
-  ])
-  // anonymizePullRequestController removed - unified into anonymizeController
-  .controller("pullRequestController", [
-    "$scope",
-    "$http",
-    "$location",
-    "$routeParams",
-    "$sce",
-    function ($scope, $http, $location, $routeParams, $sce) {
+    };
+
+export const pullRequestController = function (state, http, location, params, html) {
       async function getOption(callback) {
-        $http.get(`/api/pr/${$scope.pullRequestId}/options`).then(
+        http.get(`/api/pr/${state.pullRequestId}/options`).then(
           (res) => {
-            $scope.options = res.data;
-            if ($scope.options.url) {
+            state.options = res.data;
+            if (state.options.url) {
               // the repository is expired with redirect option
-              window.location = $scope.options.url;
+              window.location = state.options.url;
               return;
             }
             if (callback) {
@@ -3613,30 +2389,30 @@ angular
             }
           },
           (err) => {
-            $scope.type = "error";
-            $scope.content = err.data.error;
+            state.type = "error";
+            state.content = err.data.error;
           }
         );
       }
       async function getPullRequest(callback) {
-        $http.get(`/api/pr/${$scope.pullRequestId}/content`).then(
+        http.get(`/api/pr/${state.pullRequestId}/content`).then(
           (res) => {
-            $scope.details = res.data;
-            $scope.tabState = { active: res.data.diff ? "diff" : "comments" };
+            state.details = res.data;
+            state.tabState = { active: res.data.diff ? "diff" : "comments" };
             if (callback) {
               callback(res.data);
             }
           },
           (err) => {
-            $scope.type = "error";
-            $scope.content = err.data.error;
+            state.type = "error";
+            state.content = err.data.error;
           }
         );
       }
 
       function init() {
-        $scope.pullRequestId = $routeParams.pullRequestId;
-        $scope.type = "loading";
+        state.pullRequestId = params.pullRequestId;
+        state.type = "loading";
 
         getOption((_) => {
           getPullRequest();
@@ -3644,75 +2420,62 @@ angular
       }
 
       init();
-    },
-  ])
-  .controller("gistController", [
-    "$scope",
-    "$http",
-    "$location",
-    "$routeParams",
-    "$sce",
-    function ($scope, $http, $location, $routeParams, $sce) {
+    };
+
+export const gistController = function (state, http, location, params, html) {
       async function getOption(callback) {
-        $http.get(`/api/gist/${$scope.gistId}/options`).then(
+        http.get(`/api/gist/${state.gistId}/options`).then(
           (res) => {
-            $scope.options = res.data;
-            if ($scope.options.url) {
-              window.location = $scope.options.url;
+            state.options = res.data;
+            if (state.options.url) {
+              window.location = state.options.url;
               return;
             }
             if (callback) callback(res.data);
           },
           (err) => {
-            $scope.type = "error";
-            $scope.content = err.data.error;
+            state.type = "error";
+            state.content = err.data.error;
           }
         );
       }
       async function getGist(callback) {
-        $http.get(`/api/gist/${$scope.gistId}/content`).then(
+        http.get(`/api/gist/${state.gistId}/content`).then(
           (res) => {
-            $scope.details = res.data;
-            // Pick the default tab once the content is loaded. The ng-init in
-            // the template runs before this async response arrives (details is
-            // still null then), so without this a files-only gist would default
-            // to the hidden "comments" tab and render blank.
+            state.details = res.data;
+            // Choose the visible tab after the asynchronous content arrives.
             const hasFiles = res.data && res.data.files && res.data.files.length;
-            $scope.tabState = { active: hasFiles ? "files" : "comments" };
+            state.tabState = { active: hasFiles ? "files" : "comments" };
             if (callback) callback(res.data);
           },
           (err) => {
-            $scope.type = "error";
-            $scope.content = err.data.error;
+            state.type = "error";
+            state.content = err.data.error;
           }
         );
       }
 
       function init() {
-        $scope.gistId = $routeParams.gistId;
-        $scope.type = "loading";
+        state.gistId = params.gistId;
+        state.type = "loading";
         getOption(() => { getGist(); });
       }
 
       init();
-    },
-  ])
-  .controller("conferencesController", [
-    "$scope",
-    "$http",
-    "$location",
-    function ($scope, $http, $location) {
-      $scope.$watch("user.status", () => {
-        if ($scope.user == null) {
-          $location.url("/");
+    };
+
+export const conferencesController = function (state, http, location) {
+      state.watch("user.status", () => {
+        if (state.user == null) {
+          location.url("/");
         }
       });
-      if ($scope.user == null) {
-        $location.url("/");
+      if (state.user == null) {
+        location.url("/");
       }
 
-      $scope.conferences = [];
-      $scope.search = "";
+      state.conferences = [];
+      state.search = "";
 
       const conferencesPrefsKey = "conferences.filterPrefs";
       const conferencesPrefDefaults = {
@@ -3720,45 +2483,45 @@ angular
         orderBy: "name",
       };
       const savedConferencesPrefs = loadFilterPrefs(conferencesPrefsKey) || {};
-      $scope.filters = {
+      state.filters = {
         status: Object.assign(
           {},
           conferencesPrefDefaults.filters.status,
           (savedConferencesPrefs.filters && savedConferencesPrefs.filters.status) || {}
         ),
       };
-      $scope.orderBy = savedConferencesPrefs.orderBy || conferencesPrefDefaults.orderBy;
+      state.orderBy = savedConferencesPrefs.orderBy || conferencesPrefDefaults.orderBy;
 
-      $scope.$watch("orderBy", () => {
+      state.watch("orderBy", () => {
         saveFilterPrefs(conferencesPrefsKey, {
-          filters: $scope.filters,
-          orderBy: $scope.orderBy,
+          filters: state.filters,
+          orderBy: state.orderBy,
         });
       });
-      $scope.$watch(
+      state.watch(
         "filters",
         () => {
           saveFilterPrefs(conferencesPrefsKey, {
-            filters: $scope.filters,
-            orderBy: $scope.orderBy,
+            filters: state.filters,
+            orderBy: state.orderBy,
           });
         },
         true
       );
 
-      $scope.removeConference = function (conf) {
+      state.removeConference = function (conf) {
         if (
           confirm(
             `Are you sure that you want to remove the conference ${conf.name}? All the repositories linked to this conference will expire.`
           )
         ) {
-          const toast = {
+          const toast = reactive({
             title: `Removing ${conf.name}...`,
             date: new Date(),
             body: `The conference ${conf.name} is going to be removed.`,
-          };
-          $scope.addToast(toast);
-          $http.delete(`/api/conferences/${conf.conferenceID}`).then(() => {
+          });
+          state.addToast(toast);
+          http.delete(`/api/conferences/${conf.conferenceID}`).then(() => {
             toast.title = `${conf.name} is removed.`;
             toast.body = `The conference ${conf.name} is removed.`;
             getConferences();
@@ -3767,9 +2530,9 @@ angular
       };
 
       function getConferences() {
-        $http.get("/api/conferences/").then(
+        http.get("/api/conferences/").then(
           (res) => {
-            $scope.conferences = res.data || [];
+            state.conferences = res.data || [];
           },
           (err) => {
             console.error(err);
@@ -3778,56 +2541,51 @@ angular
       }
       getConferences();
 
-      $scope.conferenceFilter = (conference) => {
-        if ($scope.filters.status[conference.status] == false) return false;
+      state.conferenceFilter = (conference) => {
+        if (state.filters.status[conference.status] == false) return false;
 
-        if ($scope.search.trim().length == 0) return true;
+        if (state.search.trim().length == 0) return true;
 
-        if (conference.name.indexOf($scope.search) > -1) return true;
-        if (conference.conferenceID.indexOf($scope.search) > -1) return true;
+        if (conference.name.indexOf(state.search) > -1) return true;
+        if (conference.conferenceID.indexOf(state.search) > -1) return true;
 
         return false;
       };
-    },
-  ])
-  .controller("newConferenceController", [
-    "$scope",
-    "$http",
-    "$location",
-    "$routeParams",
-    function ($scope, $http, $location, $routeParams) {
-      $scope.$watch("user.status", () => {
-        if ($scope.user == null) {
-          $location.url("/");
+    };
+
+export const newConferenceController = function (state, http, location, params) {
+      state.watch("user.status", () => {
+        if (state.user == null) {
+          location.url("/");
         }
       });
-      if ($scope.user == null) {
-        $location.url("/");
+      if (state.user == null) {
+        location.url("/");
       }
 
-      $scope.plans = [];
-      $scope.editionMode = false;
+      state.plans = [];
+      state.editionMode = false;
 
       function getConference() {
-        $http
-          .get("/api/conferences/" + $routeParams.conferenceId)
+        http
+          .get("/api/conferences/" + params.conferenceId)
           .then((res) => {
-            $scope.options = res.data;
-            $scope.options.startDate = new Date($scope.options.startDate);
-            $scope.options.endDate = new Date($scope.options.endDate);
+            state.options = res.data;
+            state.options.startDate = new Date(state.options.startDate);
+            state.options.endDate = new Date(state.options.endDate);
           });
       }
-      if ($routeParams.conferenceId) {
-        $scope.editionMode = true;
+      if (params.conferenceId) {
+        state.editionMode = true;
         getConference();
       }
 
       function getPlans() {
-        $http.get("/api/conferences/plans").then((res) => {
-          $scope.plans = res.data;
+        http.get("/api/conferences/plans").then((res) => {
+          state.plans = res.data;
 
-          $scope.plan = $scope.plans.filter(
-            (f) => f.id == $scope.options.plan.planID
+          state.plan = state.plans.filter(
+            (f) => f.id == state.options.plan.planID
           )[0];
         });
       }
@@ -3837,7 +2595,7 @@ angular
       start.setMonth(start.getMonth() + 1);
       const end = new Date(start);
       end.setMonth(start.getMonth() + 7, 0);
-      $scope.options = {
+      state.options = {
         startDate: start,
         endDate: end,
         plan: {
@@ -3852,143 +2610,129 @@ angular
           page: true,
         },
       };
-      $scope.plan = null;
+      state.plan = null;
 
-      $scope.$watch("options.plan.planID", () => {
-        $scope.plan = $scope.plans.filter(
-          (f) => f.id == $scope.options.plan.planID
+      state.watch("options.plan.planID", () => {
+        state.plan = state.plans.filter(
+          (f) => f.id == state.options.plan.planID
         )[0];
       });
 
       function resetValidity() {
-        $scope.conference.name.$setValidity("required", true);
-        $scope.conference.conferenceID.$setValidity("pattern", true);
-        $scope.conference.conferenceID.$setValidity("required", true);
-        $scope.conference.conferenceID.$setValidity("used", true);
-        $scope.conference.startDate.$setValidity("required", true);
-        $scope.conference.startDate.$setValidity("invalid", true);
-        $scope.conference.endDate.$setValidity("required", true);
-        $scope.conference.endDate.$setValidity("invalid", true);
-        $scope.conference.$setValidity("error", true);
+        state.conference.name.setValidity("required", true);
+        state.conference.conferenceID.setValidity("pattern", true);
+        state.conference.conferenceID.setValidity("required", true);
+        state.conference.conferenceID.setValidity("used", true);
+        state.conference.startDate.setValidity("required", true);
+        state.conference.startDate.setValidity("invalid", true);
+        state.conference.endDate.setValidity("required", true);
+        state.conference.endDate.setValidity("invalid", true);
+        state.conference.setValidity("error", true);
       }
 
       function displayErrorMessage(message) {
         switch (message) {
           case "conf_name_missing":
-            $scope.conference.name.$setValidity("required", false);
+            state.conference.name.setValidity("required", false);
             break;
           case "conf_id_missing":
-            $scope.conference.conferenceID.$setValidity("required", false);
+            state.conference.conferenceID.setValidity("required", false);
             break;
           case "conf_id_format":
-            $scope.conference.conferenceID.$setValidity("pattern", false);
+            state.conference.conferenceID.setValidity("pattern", false);
             break;
           case "conf_id_used":
-            $scope.conference.conferenceID.$setValidity("used", false);
+            state.conference.conferenceID.setValidity("used", false);
             break;
           case "conf_start_date_missing":
-            $scope.conference.startDate.$setValidity("required", false);
+            state.conference.startDate.setValidity("required", false);
             break;
           case "conf_end_date_missing":
-            $scope.conference.endDate.$setValidity("required", false);
+            state.conference.endDate.setValidity("required", false);
             break;
           case "conf_start_date_invalid":
-            $scope.conference.startDate.$setValidity("invalid", false);
+            state.conference.startDate.setValidity("invalid", false);
             break;
           case "conf_end_date_invalid":
-            $scope.conference.endDate.$setValidity("invalid", false);
+            state.conference.endDate.setValidity("invalid", false);
             break;
           default:
-            $scope.conference.$setValidity("error", false);
+            state.conference.setValidity("error", false);
             break;
         }
       }
 
-      $scope.submit = function () {
-        const toast = {
-          title: `Creating ${$scope.options.name}...`,
+      state.submit = function () {
+        const toast = reactive({
+          title: `Creating ${state.options.name}...`,
           date: new Date(),
-          body: `The conference ${$scope.options.conferenceID} is in creation.`,
-        };
-        if ($scope.editionMode) {
-          toast.title = `Updating ${$scope.options.name}...`;
-          toast.body = `The conference '${$scope.options.conferenceID}' is updating.`;
+          body: `The conference ${state.options.conferenceID} is in creation.`,
+        });
+        if (state.editionMode) {
+          toast.title = `Updating ${state.options.name}...`;
+          toast.body = `The conference '${state.options.conferenceID}' is updating.`;
         }
-        $scope.addToast(toast);
+        state.addToast(toast);
         resetValidity();
-        $http
+        http
           .post(
             "/api/conferences/" +
-              ($scope.editionMode ? $scope.options.conferenceID : ""),
-            $scope.options
+              (state.editionMode ? state.options.conferenceID : ""),
+            state.options
           )
           .then(
             () => {
-              if (!$scope.editionMode) {
-                toast.title = `${$scope.options.name} created`;
-                toast.body = `The conference '${$scope.options.conferenceID}' is created.`;
+              if (!state.editionMode) {
+                toast.title = `${state.options.name} created`;
+                toast.body = `The conference '${state.options.conferenceID}' is created.`;
               } else {
-                toast.title = `${$scope.options.name} updated`;
-                toast.body = `The conference '${$scope.options.conferenceID}' is updated.`;
+                toast.title = `${state.options.name} updated`;
+                toast.body = `The conference '${state.options.conferenceID}' is updated.`;
               }
-              $location.url("/conference/" + $scope.options.conferenceID);
+              location.url("/conference/" + state.options.conferenceID);
             },
             (error) => {
               displayErrorMessage(error.data.error);
-              $scope.removeToast(toast);
+              state.removeToast(toast);
             }
           );
       };
-    },
-  ])
-  .controller("conferenceController", [
-    "$scope",
-    "$http",
-    "$location",
-    "$routeParams",
-    function ($scope, $http, $location, $routeParams) {
-      $scope.$watch("user.status", () => {
-        if ($scope.user == null) {
-          $location.url("/");
+    };
+
+export const conferenceController = function (state, http, location, params) {
+      state.watch("user.status", () => {
+        if (state.user == null) {
+          location.url("/");
         }
       });
-      if ($scope.user == null) {
-        $location.url("/");
+      if (state.user == null) {
+        location.url("/");
       }
-      $scope.conference = null;
+      state.conference = null;
 
-      $scope.search = "";
-      $scope.filters = {
+      state.search = "";
+      state.filters = {
         status: { ready: true, expired: false, removed: false },
       };
-      $scope.orderBy = "-anonymizeDate";
+      state.orderBy = "-anonymizeDate";
 
-      $scope.repoFiler = (repo) => {
-        if ($scope.filters.status[repo.status] == false) return false;
+      state.repoFiler = (repo) => {
+        if (state.filters.status[repo.status] == false) return false;
 
-        if ($scope.search.trim().length == 0) return true;
+        if (state.search.trim().length == 0) return true;
 
-        if (repo.source.fullName.indexOf($scope.search) > -1) return true;
-        if (repo.repoId.indexOf($scope.search) > -1) return true;
+        if (repo.source.fullName.indexOf(state.search) > -1) return true;
+        if (repo.repoId.indexOf(state.search) > -1) return true;
 
         return false;
       };
 
       function getConference() {
-        $http
-          .get("/api/conferences/" + $routeParams.conferenceId)
+        http
+          .get("/api/conferences/" + params.conferenceId)
           .then((res) => {
-            $scope.conference = res.data;
+            state.conference = res.data;
           });
       }
       getConference();
-    },
-  ]);
-
-$(document).on("click", "#navbarSupportedContent .nav-link", function (e) {
-  if ($(this).attr("data-toggle") === "dropdown") return;
-  var $collapse = $("#navbarSupportedContent");
-  if ($collapse.hasClass("show")) {
-    $collapse.collapse("hide");
-  }
-});
+    };

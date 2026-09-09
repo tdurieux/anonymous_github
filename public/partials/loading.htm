@@ -1,10 +1,10 @@
 <div class="paper-empty">
   <div class="paper-empty-inner">
-    <div class="paper-eyebrow" ng-if="!error">Working</div>
-    <div class="paper-eyebrow" ng-if="error">Error</div>
-    <h1 class="paper-empty-title" ng-if="!error">
+    <div class="paper-eyebrow" v-if="!error">Working</div>
+    <div class="paper-eyebrow" v-if="error">Error</div>
+    <h1 class="paper-empty-title" v-if="!error">
       Loading<span class="dot-anim">&hellip;</span>
     </h1>
-    <h1 class="paper-empty-title" ng-if="error" translate="{{error}}"></h1>
+    <h1 class="paper-empty-title" v-text="fmt.translate((error))" v-if="error"></h1>
   </div>
 </div>

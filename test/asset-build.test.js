@@ -20,6 +20,8 @@ describe("asset build", function () {
 
   beforeEach(function () {
     directory = fs.mkdtempSync(path.join(os.tmpdir(), "anonymous-assets-"));
+    fs.mkdirSync(path.join(directory, "public/script"), { recursive: true });
+    fs.writeFileSync(path.join(directory, "public/script/main.js"), 'globalThis.appLoaded = true;');
     for (const file of Object.values(groups).flat()) {
       const target = path.join(directory, file);
       fs.mkdirSync(path.dirname(target), { recursive: true });
@@ -45,14 +47,18 @@ describe("asset build", function () {
   it("preserves script dependencies and CSS precedence and hashes completed assets", function () {
     const result = build();
     expect(result.status, result.stderr).to.equal(0);
-    for (const [bundle, group] of [["core", "coreJsFiles"], ["vendor", "vendorJsFiles"], ["mermaid", "mermaidFiles"]]) {
+    for (const [bundle, group] of [["core", "coreJsFiles"], ["markdown", "markdownFiles"], ["pdf", "pdfFiles"], ["editor", "editorFiles"], ["notebook", "notebookFiles"], ["org", "orgFiles"], ["mermaid", "mermaidFiles"]]) {
       const context = { assetOrder: [] };
       vm.runInNewContext(fs.readFileSync(path.join(directory, `public/script/${bundle}.min.js`), "utf8"), context);
       expect(context.assetOrder).to.deep.equal(groups[group]);
+
     }
     expect(fs.readFileSync(path.join(directory, "public/css/all.min.css"), "utf8")).to.equal(".cascade{color:#00f}".repeat(groups.cssFiles.length - 1) + ".cascade{color:red}");
     const manifest = JSON.parse(fs.readFileSync(path.join(directory, "public/asset-manifest.json"), "utf8"));
-    expect(Object.keys(manifest)).to.have.length(4);
+    expect(Object.keys(manifest)).to.have.length(9);
+    const appContext = {};
+    vm.runInNewContext(fs.readFileSync(path.join(directory, "public/script/vendor.min.js"), "utf8"), appContext);
+    expect(appContext.appLoaded).to.equal(true);
     for (const [name, hashed] of Object.entries(manifest)) {
       const content = fs.readFileSync(path.join(directory, "public", name.endsWith(".css") ? "css" : "script", name));
       const hash = require("node:crypto").createHash("md5").update(content).digest("hex").slice(0, 10);
@@ -69,7 +75,7 @@ describe("asset build", function () {
   });
 
   it("fails on invalid JavaScript without publishing a manifest", function () {
-    fs.writeFileSync(path.join(directory, groups.vendorJsFiles[0]), "function {");
+    fs.writeFileSync(path.join(directory, groups.pdfFiles[0]), "function {");
     const result = build();
     expect(result.status).not.to.equal(0);
     expect(result.stderr).to.include("uglify");

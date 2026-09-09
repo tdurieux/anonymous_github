@@ -1,4 +1,4 @@
-<div class="pr-page" ng-init="tabState = { active: (details && details.files) ? 'files' : 'comments' }">
+<div class="pr-page">
   <div class="container paper-page pr-page-inner">
     <div class="paper-crumbs">
       <a href="/dashboard">Reviewer</a> &nbsp;/&nbsp;
@@ -7,94 +7,68 @@
 
     <header class="pr-header">
       <h1 class="paper-page-title pr-title">
-        <span ng-if="details.description" ng-bind="details.description"></span>
-        <span ng-if="!details.description" class="text-muted">Untitled gist</span>
-        <a
-          ng-if="options.isAdmin || options.isOwner"
-          ng-href="/gist-anonymize/{{gistId}}"
-          class="btn btn-sm"
-          aria-label="Edit"
-          ><i class="far fa-edit"></i><span class="d-none d-md-inline"> Edit</span></a
-        >
+        <span v-if="details?.description" v-text="details?.description"></span>
+        <span class="text-muted" v-if="!details?.description">Untitled gist</span>
+        <a class="btn btn-sm" aria-label="Edit" v-if="options?.isAdmin || options?.isOwner" :href="safeUrl(&quot;/gist-anonymize/&quot; + (gistId))"><i class="far fa-edit"></i><span class="d-none d-md-inline"> Edit</span></a>
       </h1>
       <div class="pr-header-meta">
-        <span class="paper-pill" ng-class="{'good': details.isPublic, 'warn': !details.isPublic}">
-          {{ details.isPublic ? 'Public' : 'Secret' }}
+        <span class="paper-pill" :class="{&#x27;good&#x27;: details?.isPublic, &#x27;warn&#x27;: !details?.isPublic}">
+          {{ details?.isPublic ? 'Public' : 'Secret' }}
         </span>
-        <span class="pr-meta-item" ng-if="details.ownerLogin">
-          <i class="far fa-user"></i> @<span ng-bind="details.ownerLogin"></span>
+        <span class="pr-meta-item" v-if="details?.ownerLogin">
+          <i class="far fa-user"></i> @<span v-text="details?.ownerLogin"></span>
         </span>
-        <span class="pr-meta-item" ng-if="details.updatedDate">
-          <i class="far fa-clock"></i> <span ng-bind="details.updatedDate | date"></span>
+        <span class="pr-meta-item" v-if="details?.updatedDate">
+          <i class="far fa-clock"></i> <span v-text="fmt?.date(details?.updatedDate)"></span>
         </span>
-        <span class="pr-meta-item" ng-if="details.anonymizeDate">
-          <i class="fas fa-user-secret"></i> Anonymized <span ng-bind="details.anonymizeDate | date"></span>
+        <span class="pr-meta-item" v-if="details?.anonymizeDate">
+          <i class="fas fa-user-secret"></i> Anonymized <span v-text="fmt?.date(details?.anonymizeDate)"></span>
         </span>
       </div>
     </header>
 
-    <nav class="paper-tabs" ng-if="(details.files && details.files.length) || (details.comments && details.comments.length)" role="tablist">
-      <button
-        class="paper-tab"
-        ng-if="details.files"
-        ng-class="{'active': tabState.active == 'files'}"
-        ng-click="tabState.active = 'files'"
-        type="button"
-        role="tab"
-      >
+    <nav class="paper-tabs" role="tablist" v-if="(details?.files &amp;&amp; details?.files?.length) || (details?.comments &amp;&amp; details?.comments?.length)">
+      <button class="paper-tab" type="button" role="tab" v-if="details?.files" :class="{&#x27;active&#x27;: tabState?.active == &#x27;files&#x27;}" @click="tabState.active = &#x27;files&#x27;">
         <i class="fas fa-file-code"></i>
-        <ng-pluralize
-          count="details.files.length"
-          when="{'0': 'No files', 'one': '1 file', 'other': '{} files'}"
-        ></ng-pluralize>
+        <span v-text="fmt.plural(details?.files?.length, {&#x27;0&#x27;: &#x27;No files&#x27;, &#x27;one&#x27;: &#x27;1 file&#x27;, &#x27;other&#x27;: &#x27;{} files&#x27;})"></span>
       </button>
-      <button
-        class="paper-tab"
-        ng-if="details.comments"
-        ng-class="{'active': tabState.active == 'comments'}"
-        ng-click="tabState.active = 'comments'"
-        type="button"
-        role="tab"
-      >
+      <button class="paper-tab" type="button" role="tab" v-if="details?.comments" :class="{&#x27;active&#x27;: tabState?.active == &#x27;comments&#x27;}" @click="tabState.active = &#x27;comments&#x27;">
         <i class="far fa-comment-dots"></i>
-        <ng-pluralize
-          count="details.comments.length"
-          when="{'0': 'No comments', 'one': '1 comment', 'other': '{} comments'}"
-        ></ng-pluralize>
+        <span v-text="fmt.plural(details?.comments?.length, {&#x27;0&#x27;: &#x27;No comments&#x27;, &#x27;one&#x27;: &#x27;1 comment&#x27;, &#x27;other&#x27;: &#x27;{} comments&#x27;})"></span>
       </button>
     </nav>
 
     <div class="paper-tab-content">
-      <div ng-if="details.files && tabState.active =='files'">
+      <div v-if="details?.files &amp;&amp; tabState?.active ==&#x27;files&#x27;">
         <ul class="pr-comments">
-          <li class="pr-comment" ng-repeat="file in details.files">
+          <li class="pr-comment" v-for="(file, index) in details?.files">
             <div class="pr-comment-head">
-              <strong ng-bind="file.filename"></strong>
-              <span class="pr-comment-date" ng-if="file.language">{{file.language}}</span>
+              <strong v-text="file?.filename"></strong>
+              <span class="pr-comment-date" v-if="file?.language">{{ file?.language }}</span>
             </div>
-            <gist-file file="file"></gist-file>
+            <gist-file :file="file"></gist-file>
           </li>
-          <li class="paper-table-empty" ng-if="!details.files.length">
+          <li class="paper-table-empty" v-if="!details?.files?.length">
             <i class="fas fa-file"></i>
             <span>No files in this gist.</span>
           </li>
         </ul>
       </div>
 
-      <div ng-if="details.comments && tabState.active =='comments'">
+      <div v-if="details?.comments &amp;&amp; tabState?.active ==&#x27;comments&#x27;">
         <ul class="pr-comments">
-          <li class="pr-comment" ng-repeat="comment in details.comments">
+          <li class="pr-comment" v-for="(comment, index) in details?.comments">
             <div class="pr-comment-head">
-              <span class="pr-comment-author" ng-if="comment.author">
-                <i class="far fa-user"></i> @<span ng-bind="comment.author"></span>
+              <span class="pr-comment-author" v-if="comment?.author">
+                <i class="far fa-user"></i> @<span v-text="comment?.author"></span>
               </span>
-              <span class="pr-comment-date" ng-if="comment.updatedDate" ng-bind="comment.updatedDate | date"></span>
+              <span class="pr-comment-date" v-if="comment?.updatedDate" v-text="fmt?.date(comment?.updatedDate)"></span>
             </div>
-            <div class="pr-comment-body" ng-if="comment.body">
-              <markdown content="comment.body"></markdown>
+            <div class="pr-comment-body" v-if="comment?.body">
+              <markdown :content="comment?.body"></markdown>
             </div>
           </li>
-          <li class="paper-table-empty" ng-if="!details.comments.length">
+          <li class="paper-table-empty" v-if="!details?.comments?.length">
             <i class="far fa-comment-dots"></i>
             <span>No comments on this gist.</span>
           </li>

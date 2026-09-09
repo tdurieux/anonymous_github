@@ -1,22 +1,13 @@
-<div ng-if="type == 'text'" ng-model="content" ui-ace="aceOption"></div>
-<div ng-if="type == 'html'" ng-bind-html="content" class="file-content markdown-body"></div>
-<html-doc
-  ng-if="type == 'html-doc' && !showSource && content != null"
-  content="content"
-  base-url="{{fileBaseUrl}}"
-  allow-scripts="allowScripts"
-></html-doc>
-<div
-  ng-if="(type == 'code' || (type == 'html-doc' && showSource)) && content != null"
-  ui-ace="aceOption"
-  ng-model="content"
-></div>
-<img ng-if="type == 'image'" class="image-content" ng-src="{{url}}"></img>
-<iframe class="h-100 overflow-auto w-100 b-0" ng-if="type == 'media'" ng-src="{{url}}"></iframe>
-<pdfviewer ng-if="type == 'pdf'" src="{{url}}"></pdfviewer>
-<div ng-if="type == 'audio'"><audio controls="controls"><source ng-src="{{url}}" /></audio></div>
-<div ng-if="type == 'IPython'"><notebook file="url"></notebook></div>
-<div ng-if="type == 'rate_limited'" class="file-error container d-flex h-100">
+<div v-code-editor="{ content: content, options: aceOption }" v-if="type == &#x27;text&#x27;"></div>
+<div class="file-content markdown-body" v-if="type == &#x27;html&#x27;" v-html="sanitize(content)"></div>
+<html-doc v-if="type == &#x27;html-doc&#x27; &amp;&amp; !showSource &amp;&amp; content != null" :content="content" :base-url="(fileBaseUrl)" :allow-scripts="allowScripts"></html-doc>
+<div v-code-editor="{ content: content, options: aceOption }" v-if="(type == &#x27;code&#x27; || (type == &#x27;html-doc&#x27; &amp;&amp; showSource)) &amp;&amp; content != null"></div>
+<img class="image-content" v-if="type == &#x27;image&#x27;" :src="safeUrl((url))">
+<iframe class="h-100 overflow-auto w-100 b-0" v-if="type == &#x27;media&#x27;" :src="safeUrl((url))"></iframe>
+<pdfviewer v-if="type == &#x27;pdf&#x27;" :src="safeUrl((url))"></pdfviewer>
+<div v-if="type == &#x27;audio&#x27;"><audio controls="controls"><source :src="safeUrl((url))"></audio></div>
+<div v-if="type == &#x27;IPython&#x27;"><notebook :file="url" :content="content"></notebook></div>
+<div class="file-error container d-flex h-100" v-if="type == &#x27;rate_limited&#x27;">
   <div class="paper-ratelimit-card m-auto" style="max-width:520px;">
     <div class="paper-ratelimit-head">
       <i class="fas fa-hourglass-half"></i>
@@ -25,11 +16,11 @@
         <div class="paper-error-title">GitHub API rate limit reached</div>
       </div>
     </div>
-    <p class="paper-error-msg">This repository will be available in <strong>{{rateLimitCountdown}}</strong>. The page will reload automatically.</p>
+    <p class="paper-error-msg">This repository will be available in <strong>{{ rateLimitCountdown }}</strong>. The page will reload automatically.</p>
   </div>
 </div>
-<div ng-if="type == 'error'" class="file-error container d-flex h-100"><h1 class="paper-empty-title m-auto" translate="ERRORS.{{content}}">Error</h1></div>
-<div ng-if="type == 'loading' && !error" class="file-error container d-flex h-100"><h1 class="paper-empty-title m-auto">Loading&hellip;</h1></div>
-<div ng-if="type == 'empty'" class="file-error container d-flex h-100"><h1 class="paper-empty-title m-auto">Empty <em>repository</em>.</h1></div>
-<div ng-if="content == null && type != 'empty'" class="file-error container d-flex h-100"><h1 class="paper-empty-title m-auto">Empty <em>file</em>.</h1></div>
-<div ng-if="type == 'binary'" class="file-error container d-flex h-100"><h1 class="paper-empty-title m-auto">Unsupported <em>binary file</em>. You can <a target="_blank" ng-href="{{url}}&download=true">download it</a>.</h1></div>
+<div class="file-error container d-flex h-100" v-if="type == &#x27;error&#x27;"><h1 class="paper-empty-title m-auto" v-text="fmt.translate(&quot;ERRORS.&quot; + (content))">Error</h1></div>
+<div class="file-error container d-flex h-100" v-if="type == &#x27;loading&#x27; &amp;&amp; !error"><h1 class="paper-empty-title m-auto">Loading&hellip;</h1></div>
+<div class="file-error container d-flex h-100" v-if="type == &#x27;empty&#x27;"><h1 class="paper-empty-title m-auto">Empty <em>repository</em>.</h1></div>
+<div class="file-error container d-flex h-100" v-if="content == null &amp;&amp; type != &#x27;empty&#x27;"><h1 class="paper-empty-title m-auto">Empty <em>file</em>.</h1></div>
+<div class="file-error container d-flex h-100" v-if="type == &#x27;binary&#x27;"><h1 class="paper-empty-title m-auto">Unsupported <em>binary file</em>. You can <a target="_blank" :href="safeUrl((url) + &quot;&amp;download=true&quot;)">download it</a>.</h1></div>

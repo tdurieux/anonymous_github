@@ -201,9 +201,10 @@ body {
   overflow-y: hidden;
 }
 
-/* Angular removes the ng-view attribute after compiling the route. Target the
-   element so it remains the scroll container below the fixed-height header. */
-ng-view {
+/* Keep the route view as the scroll container below the header. */
+#app { flex: 1 1 auto; min-height: 0; }
+.app-header { flex: 0 0 auto; }
+.app-view {
   display: block;
   flex: 1 1 auto;
   min-height: 0;

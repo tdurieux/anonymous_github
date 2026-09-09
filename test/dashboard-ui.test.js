@@ -12,48 +12,16 @@ const vm = require("vm");
  */
 
 const root = path.join(__dirname, "..");
-const appJs = fs.readFileSync(path.join(root, "public", "script", "app.js"), "utf8");
 const css = fs.readFileSync(path.join(root, "public", "css", "style.css"), "utf8");
 const html = fs.readFileSync(path.join(root, "public", "partials", "dashboard.htm"), "utf8");
 
-// Load app.js with a stub `angular` that records filter factories, so the
-// filters can be exercised without a browser.
+// Exercise the same formatting functions used by the Vue templates.
 function loadFilters() {
-  const filters = {};
-  const chain = new Proxy(
-    {},
-    {
-      get(_, prop) {
-        if (prop === "filter") {
-          return (name, factory) => {
-            filters[name] = Array.isArray(factory) ? factory[factory.length - 1] : factory;
-            return chain;
-          };
-        }
-        return () => chain;
-      },
-    }
-  );
-  // jQuery is used at the top level of app.js for a couple of global
-  // listeners; a self-returning proxy absorbs those calls.
-  const jq = new Proxy(function () {}, {
-    get: () => jq,
-    apply: () => jq,
-  });
-  const sandbox = {
-    angular: { module: () => chain, element: () => ({}) },
-    $: jq,
-    jQuery: jq,
-    window: {},
-    document: { addEventListener() {}, querySelector: () => null },
-    localStorage: { getItem: () => null, setItem() {} },
-    navigator: { language: "en-US" },
-    console,
-  };
-  sandbox.window = sandbox;
-  vm.createContext(sandbox);
-  vm.runInContext(appJs, sandbox, { filename: "app.js" });
-  return filters;
+  const source = fs.readFileSync(path.join(__dirname, "../public/script/formatters.js"), "utf8");
+  const names = [...source.matchAll(/export const (\w+)/g)].map(match => match[1]);
+  const sandbox = { window: {}, console };
+  vm.runInNewContext(source.replace(/export const/g, "var").replace(/export function/g, "function") + "\nthis.formatters = {" + names.join(",") + "};", sandbox);
+  return Object.fromEntries(Object.entries(sandbox.formatters).map(([name, fn]) => [name, () => fn]));
 }
 
 function contrast(hexA, hexB) {
@@ -125,14 +93,14 @@ describe("dashboard UI", function () {
       expect(divider).to.be.greaterThan(-1);
     });
     it("labels hidden statuses as hidden, not as active filters", function () {
-      expect(html).to.match(/Hiding \{\{statusKeyLabels\[f\]\}\}/);
+      expect(html).to.match(/Hiding \{\{\s*statusKeyLabels\[f\]\s*\}\}/);
     });
     it("shows an unlimited quota without a full bar", function () {
-      expect(html).to.match(/quota-fill" ng-if="!quota\[q\.key\]\.unlimited"/);
+      expect(html).to.match(/quota-fill" v-if="!quota\[q\?\.key\]\.unlimited"/);
       expect(html).to.not.match(/bg-success|bg-warning|bg-danger/);
     });
     it("right-aligns the Views column and marks it sortable", function () {
-      expect(html).to.match(/class="num"[^>]*>\s*<button type="button" class="sortable"[^>]*ng-click="setSort\('pageView'\)"/);
+      expect(html).to.match(/class="num"[^>]*>\s*<button type="button" class="sortable"[^>]*@click="setSort\(&#x27;pageView&#x27;\)"/);
     });
   });
 

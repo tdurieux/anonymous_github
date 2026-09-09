@@ -1,6 +1,11 @@
 {
-  "core.min.js": "core.6332b3c288.min.js",
-  "vendor.min.js": "vendor.21205fda63.min.js",
+  "core.min.js": "core.c5bd53363a.min.js",
+  "vendor.min.js": "vendor.af902bc3b4.min.js",
   "mermaid.min.js": "mermaid.f848a72d16.min.js",
-  "all.min.css": "all.08e150389d.min.css"
+  "all.min.css": "all.076c089579.min.css",
+  "markdown.min.js": "markdown.ad7b1d71c3.min.js",
+  "pdf.min.js": "pdf.eaa7573247.min.js",
+  "notebook.min.js": "notebook.8844e2735f.min.js",
+  "org.min.js": "org.f4e2a3f59f.min.js",
+  "editor.min.js": "editor.e243722d87.min.js"
 }

@@ -4,7 +4,7 @@
   <p class="paper-page-lede">Defaults applied to every new anonymization, your quotas, and your account.</p>
 
   <div class="paper-settings-body">
-    <aside class="paper-settings-toc" paper-scrollspy>
+    <aside class="paper-settings-toc" v-paper-scrollspy>
       <div class="paper-settings-toc-head">On this page</div>
       <nav>
         <a href="#settings-quota">Quota</a>
@@ -21,65 +21,50 @@
       <section id="settings-quota" class="paper-settings-section">
         <div class="paper-section-eyebrow">Quota</div>
         <p class="paper-section-copy">What you are using across all your anonymizations. Conferences can lift these limits during a review window.</p>
-        <div class="quota-row" ng-if="quota">
-          <div class="quota-item" ng-repeat="q in [
-              {key: 'repository', label: 'Repositories', kind: 'count'},
-              {key: 'storage',    label: 'Storage',      kind: 'bytes'},
-              {key: 'file',       label: 'Files',        kind: 'count'}
+        <div class="quota-row" v-if="quota">
+          <div class="quota-item" v-for="(q, index) in [
+              {key: &#x27;repository&#x27;, label: &#x27;Repositories&#x27;, kind: &#x27;count&#x27;},
+              {key: &#x27;storage&#x27;,    label: &#x27;Storage&#x27;,      kind: &#x27;bytes&#x27;},
+              {key: &#x27;file&#x27;,       label: &#x27;Files&#x27;,        kind: &#x27;count&#x27;}
             ]">
             <div class="quota-header">
-              <span class="quota-label">{{q.label}}</span>
-              <span class="quota-value" ng-if="q.kind === 'count'">
-                {{quota[q.key].used | number}}<span ng-if="!quota[q.key].unlimited"> / {{quota[q.key].total | number}}</span>
-                <span class="quota-unlimited-tag" ng-if="quota[q.key].unlimited">Unlimited</span>
+              <span class="quota-label">{{ q?.label }}</span>
+              <span class="quota-value" v-if="q?.kind === &#x27;count&#x27;">
+                {{ fmt?.number(quota[q?.key].used) }}<span v-if="!quota[q?.key].unlimited"> / {{ fmt?.number(quota[q?.key].total) }}</span>
+                <span class="quota-unlimited-tag" v-if="quota[q?.key].unlimited">Unlimited</span>
               </span>
-              <span class="quota-value" ng-if="q.kind === 'bytes'">
-                {{quota[q.key].used | humanFileSize}}<span ng-if="!quota[q.key].unlimited"> / {{quota[q.key].total | humanFileSize}}</span>
-                <span class="quota-unlimited-tag" ng-if="quota[q.key].unlimited">Unlimited</span>
+              <span class="quota-value" v-if="q?.kind === &#x27;bytes&#x27;">
+                {{ fmt?.humanFileSize(quota[q?.key].used) }}<span v-if="!quota[q?.key].unlimited"> / {{ fmt?.humanFileSize(quota[q?.key].total) }}</span>
+                <span class="quota-unlimited-tag" v-if="quota[q?.key].unlimited">Unlimited</span>
               </span>
             </div>
-            <div
-              class="quota-track"
-              ng-class="'quota-' + quota[q.key].level"
-              role="progressbar"
-              aria-label="{{q.label}} quota"
-              aria-valuenow="{{quota[q.key].used}}"
-              aria-valuemin="0"
-              aria-valuemax="{{quota[q.key].unlimited ? quota[q.key].used : quota[q.key].total}}"
-              aria-valuetext="{{quota[q.key].unlimited ? 'unlimited' : (quota[q.key].percent | number:0) + '% used'}}"
-            >
-              <div class="quota-fill" ng-if="!quota[q.key].unlimited" ng-style="{width: quota[q.key].percent + '%'}"></div>
+            <div class="quota-track" role="progressbar" aria-valuemin="0" :class="&#x27;quota-&#x27; + quota[q?.key].level" :aria-label="(q?.label) + &quot; quota&quot;" :aria-valuenow="(quota[q?.key].used)" :aria-valuemax="(quota[q?.key].unlimited ? quota[q?.key].used : quota[q?.key].total)" :aria-valuetext="(quota[q?.key].unlimited ? &#x27;unlimited&#x27; : fmt.number(quota[q?.key].percent, 0) + &#x27;% used&#x27;)">
+              <div class="quota-fill" v-if="!quota[q?.key].unlimited" :style="{width: quota[q?.key].percent + &#x27;%&#x27;}"></div>
             </div>
           </div>
         </div>
-        <div class="quota-row" ng-if="!quota" aria-hidden="true">
-          <div class="quota-item" ng-repeat="i in [1, 2, 3]">
+        <div class="quota-row" aria-hidden="true" v-if="!quota">
+          <div class="quota-item" v-for="(i, index) in [1, 2, 3]">
             <div class="quota-header"><span class="skeleton skeleton-line" style="width: 40%"></span><span class="skeleton skeleton-line" style="width: 25%"></span></div>
             <div class="quota-track"></div>
           </div>
         </div>
       </section>
 
-      <form class="form needs-validation" name="defaultsForm" novalidate ng-submit="saveDefault($event)">
+      <form class="form needs-validation" name="defaultsForm" novalidate v-form="viewState" @submit.prevent="submitForm($event, () =&gt; { saveDefault($event) })">
         <section id="settings-terms" class="paper-settings-section">
           <div class="paper-section-eyebrow">Terms to redact</div>
           <p class="paper-section-copy">Pre-filled in every new anonymization. You can still edit the list per anonymization.</p>
           <div class="form-group">
             <label class="paper-field-label" for="terms">Default terms</label>
-            <textarea
-              class="form-control"
-              id="terms"
-              name="terms"
-              rows="4"
-              placeholder="Jane Smith&#10;MIT CSAIL&#10;jane.smith@example.org"
-              ng-model="terms"
-              ng-model-options="{ debounce: 250 }"
-            ></textarea>
+            <textarea class="form-control" id="terms" name="terms" rows="4" placeholder="Jane Smith
+MIT CSAIL
+jane.smith@example.org" v-field="{ state: viewState, set: value =&gt; { terms = value }, value: terms, form: &quot;defaultsForm&quot;, options: { debounce: 250 } }"></textarea>
             <small id="termsHelp" class="form-text text-muted">
               One term per line (regex allowed). Each match is replaced by
-              <code>{{site_options.ANONYMIZATION_MASK || 'XXX'}}-[N]</code>, or use <code>term=&gt;replacement</code> to pick your own.
+              <code>{{ site_options?.ANONYMIZATION_MASK || 'XXX' }}-[N]</code>, or use <code>term=&gt;replacement</code> to pick your own.
             </small>
-            <div class="invalid-feedback" ng-show="defaultsForm.terms.$error.format">
+            <div class="invalid-feedback" v-show="defaultsForm?.terms?.errors?.format">
               Terms are in an invalid format
             </div>
           </div>
@@ -90,22 +75,22 @@
           <p class="paper-section-copy">What reviewers can see inside an anonymized repository.</p>
           <div class="form-group paper-check-list">
             <div class="form-check">
-              <input class="form-check-input" type="checkbox" id="link" name="link" ng-model="options.link" />
+              <input class="form-check-input" type="checkbox" id="link" name="link" v-field="{ state: viewState, set: value =&gt; { options.link = value }, value: options?.link, form: &quot;defaultsForm&quot;, options: {} }">
               <label class="form-check-label" for="link">Keep links</label>
               <small class="form-text text-muted">Unchecked, every link in text files is removed.</small>
             </div>
             <div class="form-check">
-              <input class="form-check-input" type="checkbox" id="image" name="image" ng-model="options.image" />
+              <input class="form-check-input" type="checkbox" id="image" name="image" v-field="{ state: viewState, set: value =&gt; { options.image = value }, value: options?.image, form: &quot;defaultsForm&quot;, options: {} }">
               <label class="form-check-label" for="image">Display images</label>
               <small class="form-text text-muted">Images are shown as is. They are not anonymized.</small>
             </div>
             <div class="form-check">
-              <input class="form-check-input" type="checkbox" id="pdf" name="pdf" ng-model="options.pdf" />
+              <input class="form-check-input" type="checkbox" id="pdf" name="pdf" v-field="{ state: viewState, set: value =&gt; { options.pdf = value }, value: options?.pdf, form: &quot;defaultsForm&quot;, options: {} }">
               <label class="form-check-label" for="pdf">Display PDFs</label>
               <small class="form-text text-muted">PDFs are shown as is. They are not anonymized.</small>
             </div>
             <div class="form-check">
-              <input class="form-check-input" type="checkbox" id="notebook" name="notebook" ng-model="options.notebook" />
+              <input class="form-check-input" type="checkbox" id="notebook" name="notebook" v-field="{ state: viewState, set: value =&gt; { options.notebook = value }, value: options?.notebook, form: &quot;defaultsForm&quot;, options: {} }">
               <label class="form-check-label" for="notebook">Display notebooks</label>
               <small class="form-text text-muted">Render Jupyter notebooks instead of raw JSON.</small>
             </div>
@@ -116,30 +101,30 @@
           <div class="paper-section-eyebrow">Features</div>
           <div class="form-group paper-check-list">
             <div class="form-check">
-              <input class="form-check-input" type="checkbox" id="page" name="page" ng-model="options.page" />
+              <input class="form-check-input" type="checkbox" id="page" name="page" v-field="{ state: viewState, set: value =&gt; { options.page = value }, value: options?.page, form: &quot;defaultsForm&quot;, options: {} }">
               <label class="form-check-label" for="page">GitHub Pages</label>
               <small class="form-text text-muted">Serve an anonymized copy of the repository's GitHub Pages site. Only pages built from the anonymized branch are supported.</small>
             </div>
             <div class="form-check">
-              <input class="form-check-input" type="checkbox" id="loc" name="loc" ng-model="options.loc" />
+              <input class="form-check-input" type="checkbox" id="loc" name="loc" v-field="{ state: viewState, set: value =&gt; { options.loc = value }, value: options?.loc, form: &quot;defaultsForm&quot;, options: {} }">
               <label class="form-check-label" for="loc">Lines of code</label>
               <small class="form-text text-muted">Show the line count of the repository in the explorer.</small>
             </div>
             <div class="form-check">
-              <input class="form-check-input" type="checkbox" id="update" name="update" ng-model="options.update" />
+              <input class="form-check-input" type="checkbox" id="update" name="update" v-field="{ state: viewState, set: value =&gt; { options.update = value }, value: options?.update, form: &quot;defaultsForm&quot;, options: {} }">
               <label class="form-check-label" for="update">Auto-update from GitHub</label>
               <small class="form-text text-muted">Follow the branch and pull the latest commit automatically, at most once an hour.</small>
             </div>
           </div>
           <div class="form-group">
             <label class="paper-field-label" for="mode">Fetch mode</label>
-            <select class="form-control" id="mode" name="mode" ng-model="options.mode">
+            <select class="form-control" id="mode" name="mode" v-field="{ state: viewState, set: value =&gt; { options.mode = value }, value: options?.mode, form: &quot;defaultsForm&quot;, options: {} }">
               <option value="GitHubStream" selected>Stream from GitHub on demand</option>
               <option value="GitHubDownload">Download to Anonymous GitHub</option>
             </select>
             <small class="form-text text-muted">
               Download is faster for reviewers and enables every feature. Streaming is the only option above
-              {{site_options.MAX_REPO_SIZE * 1024 | humanFileSize}}.
+              {{ fmt?.humanFileSize(site_options?.MAX_REPO_SIZE * 1024) }}.
             </small>
           </div>
         </section>
@@ -148,7 +133,7 @@
           <div class="paper-section-eyebrow">Expiration</div>
           <div class="form-group">
             <label class="paper-field-label" for="expiration">When an anonymization expires</label>
-            <select class="form-control" id="expiration" name="expiration" ng-model="options.expirationMode">
+            <select class="form-control" id="expiration" name="expiration" v-field="{ state: viewState, set: value =&gt; { options.expirationMode = value }, value: options?.expirationMode, form: &quot;defaultsForm&quot;, options: {} }">
               <option value="redirect">Redirect visitors to the GitHub repository</option>
               <option value="remove" selected>Remove the anonymized repository</option>
             </select>
@@ -159,10 +144,10 @@
         </section>
 
         <div class="paper-settings-footer">
-          <div class="paper-inline-alert paper-inline-alert-error" role="alert" ng-if="error"><i class="fas fa-exclamation-circle" aria-hidden="true"></i> <span ng-bind="error"></span></div>
+          <div class="paper-inline-alert paper-inline-alert-error" role="alert" v-if="error"><i class="fas fa-exclamation-circle" aria-hidden="true"></i> <span v-text="error"></span></div>
           <div class="paper-settings-actions">
-            <button id="save" type="submit" class="btn btn-ink" ng-disabled="saving">
-              <i class="fas fa-check mr-1" aria-hidden="true" ng-if="message"></i>{{ saving ? 'Saving…' : (message ? 'Saved' : 'Save defaults') }}
+            <button id="save" type="submit" class="btn btn-ink" :disabled="saving">
+              <i class="fas fa-check mr-1" aria-hidden="true" v-if="message"></i>{{ saving ? 'Saving…' : (message ? 'Saved' : 'Save defaults') }}
             </button>
             <span class="paper-settings-hint">Applies to new anonymizations only. Existing ones keep their settings.</span>
           </div>
@@ -172,9 +157,9 @@
       <section id="settings-account" class="paper-settings-section">
         <div class="paper-section-eyebrow">Account</div>
         <div class="paper-account-card">
-          <img ng-src="{{user.photo}}" ng-if="user.photo" width="40" height="40" class="rounded-circle" alt="" />
+          <img width="40" height="40" class="rounded-circle" alt="" v-if="user?.photo" :src="safeUrl((user?.photo))">
           <div class="paper-account-identity">
-            <div class="paper-account-name">@{{user.username}}</div>
+            <div class="paper-account-name">@{{ user?.username }}</div>
             <div class="paper-account-meta">Signed in with GitHub. Anonymous GitHub only reads your repositories.</div>
           </div>
           <a class="btn btn-outline-ink" href="/api/user/logout" target="_self">Sign out</a>
@@ -187,8 +172,8 @@
             revokes the application's access to your GitHub account, and erases
             your personal data (username, email, access tokens). This cannot be undone.
           </p>
-          <div class="paper-inline-alert paper-inline-alert-error" role="alert" ng-if="deleteError"><i class="fas fa-exclamation-circle" aria-hidden="true"></i> <span ng-bind="deleteError"></span></div>
-          <button type="button" class="btn btn-outline-danger" ng-click="deleteAccount()" ng-disabled="deletingAccount">
+          <div class="paper-inline-alert paper-inline-alert-error" role="alert" v-if="deleteError"><i class="fas fa-exclamation-circle" aria-hidden="true"></i> <span v-text="deleteError"></span></div>
+          <button type="button" class="btn btn-outline-danger" @click="deleteAccount()" :disabled="deletingAccount">
             <i class="fas fa-trash-alt mr-1" aria-hidden="true"></i>{{ deletingAccount ? 'Deleting…' : 'Delete my account' }}
           </button>
         </div>

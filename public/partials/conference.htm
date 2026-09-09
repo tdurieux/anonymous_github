@@ -1,99 +1,77 @@
 <div class="container page paper-page">
   <div>
     <div class="paper-crumbs">
-      <a href="/dashboard">My work</a> &nbsp;/&nbsp; <a href="/conferences">Conferences</a> &nbsp;/&nbsp; <span class="here">{{conference.conferenceID}}</span>
+      <a href="/dashboard">My work</a> &nbsp;/&nbsp; <a href="/conferences">Conferences</a> &nbsp;/&nbsp; <span class="here">{{ conference?.conferenceID }}</span>
     </div>
     <div class="d-flex align-items-end flex-wrap" style="gap: 12px; justify-content: space-between;">
       <div>
-        <h1 class="paper-page-title" ng-bind="conference.name"></h1>
-        <p class="paper-page-lede" ng-if="conference.url">
-          <a ng-href="{{conference.url}}" target="_blank" rel="noopener" ng-bind="conference.url"></a>
+        <h1 class="paper-page-title" v-text="conference?.name"></h1>
+        <p class="paper-page-lede" v-if="conference?.url">
+          <a target="_blank" rel="noopener" v-text="conference?.url" :href="safeUrl((conference?.url))"></a>
         </p>
       </div>
       <div class="d-flex align-items-center flex-wrap" style="gap: 10px;">
-        <span class="status-pill" ng-class="{'status-pill-ready': conference.status == 'ready', 'status-pill-removed': conference.status == 'removed' || conference.status == 'expired'}">
-          <span class="status-dot" ng-class="'status-' + conference.status" aria-hidden="true"></span>
-          <span ng-bind="conference.status | statusLabel"></span>
+        <span class="status-pill" :class="{&#x27;status-pill-ready&#x27;: conference?.status == &#x27;ready&#x27;, &#x27;status-pill-removed&#x27;: conference?.status == &#x27;removed&#x27; || conference?.status == &#x27;expired&#x27;}">
+          <span class="status-dot" aria-hidden="true" :class="&#x27;status-&#x27; + conference?.status"></span>
+          <span v-text="fmt?.statusLabel(conference?.status)"></span>
         </span>
-        <a class="btn btn-outline-ink" ng-href="/conference/{{conference.conferenceID}}/edit"><i class="far fa-edit mr-1" aria-hidden="true"></i> Edit conference</a>
+        <a class="btn btn-outline-ink" :href="safeUrl(&quot;/conference/&quot; + (conference?.conferenceID) + &quot;/edit&quot;)"><i class="far fa-edit mr-1" aria-hidden="true"></i> Edit conference</a>
       </div>
     </div>
     <div class="paper-meta-rule">
-      <span>ID <b class="commit-hash" ng-bind="conference.conferenceID"></b></span>
-      <span>Review window <b>{{conference.startDate | date:'mediumDate'}} &ndash; {{conference.endDate | date:'mediumDate'}}</b></span>
-      <span>Repositories <b>{{conference.repositories.length | number}}</b></span>
-      <span>Plan <b ng-bind="conference.plan.name || conference.plan.planID || 'Free'"></b></span>
-      <span ng-if="conference.price">Cost so far <b>{{conference.price | number:2}} &euro;</b></span>
+      <span>ID <b class="commit-hash" v-text="conference?.conferenceID"></b></span>
+      <span>Review window <b>{{ fmt?.date(conference?.startDate, 'mediumDate') }} &ndash; {{ fmt?.date(conference?.endDate, 'mediumDate') }}</b></span>
+      <span>Repositories <b>{{ fmt?.number(conference?.repositories?.length) }}</b></span>
+      <span>Plan <b v-text="conference?.plan?.name || conference?.plan?.planID || &#x27;Free&#x27;"></b></span>
+      <span v-if="conference?.price">Cost so far <b>{{ fmt?.number(conference?.price, 2) }} &euro;</b></span>
     </div>
 
     <div class="paper-section-eyebrow">Repositories</div>
 
-    <form class="w-100 dashboard-filter-row" aria-label="Filter repositories" accept-charset="UTF-8" ng-submit="$event.preventDefault()">
+    <form class="w-100 dashboard-filter-row" aria-label="Filter repositories" accept-charset="UTF-8" v-form="viewState" @submit.prevent="submitForm($event, () =&gt; { $event.preventDefault() })">
       <div class="search-wrap">
-        <input
-          type="search"
-          id="search"
-          class="form-control"
-          aria-label="Search repositories"
-          placeholder="Search by ID or source repository…"
-          autocomplete="off"
-          ng-model="search"
-        />
+        <input type="search" id="search" class="form-control" aria-label="Search repositories" placeholder="Search by ID or source repository…" autocomplete="off" v-field="{ state: viewState, set: value =&gt; { search = value }, value: search, form: null, options: {} }">
       </div>
       <div class="dashboard-filter-controls">
         <div class="dropdown">
-          <button
-            class="btn dropdown-toggle"
-            type="button"
-            id="dropdownSort"
-            data-toggle="dropdown"
-            aria-haspopup="true"
-            aria-expanded="false"
-          >
+          <button class="btn dropdown-toggle" type="button" id="dropdownSort" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
             <span class="filter-btn-label">Sort</span>
             <span class="filter-btn-value">{{ ({'-anonymizeDate': 'Anonymize date', repoId: 'ID', '-status': 'Status', '-pageView': 'Views'})[orderBy] || 'Custom' }}</span>
           </button>
           <div class="dropdown-menu" aria-labelledby="dropdownSort">
             <h6 class="dropdown-header">Order by</h6>
             <div class="form-check dropdown-item">
-              <input class="form-check-input" type="radio" name="sort" id="anonymizeDate" value="-anonymizeDate" ng-model="orderBy" />
+              <input class="form-check-input" type="radio" name="sort" id="anonymizeDate" value="-anonymizeDate" v-field="{ state: viewState, set: value =&gt; { orderBy = value }, value: orderBy, form: null, options: {} }">
               <label class="form-check-label" for="anonymizeDate">Anonymize date</label>
             </div>
             <div class="form-check dropdown-item">
-              <input class="form-check-input" type="radio" name="sort" id="sortID" value="repoId" ng-model="orderBy" />
+              <input class="form-check-input" type="radio" name="sort" id="sortID" value="repoId" v-field="{ state: viewState, set: value =&gt; { orderBy = value }, value: orderBy, form: null, options: {} }">
               <label class="form-check-label" for="sortID">ID</label>
             </div>
             <div class="form-check dropdown-item">
-              <input class="form-check-input" type="radio" name="sort" id="sortStatus" value="-status" ng-model="orderBy" />
+              <input class="form-check-input" type="radio" name="sort" id="sortStatus" value="-status" v-field="{ state: viewState, set: value =&gt; { orderBy = value }, value: orderBy, form: null, options: {} }">
               <label class="form-check-label" for="sortStatus">Status</label>
             </div>
             <div class="form-check dropdown-item">
-              <input class="form-check-input" type="radio" name="sort" id="sortViews" value="-pageView" ng-model="orderBy" />
+              <input class="form-check-input" type="radio" name="sort" id="sortViews" value="-pageView" v-field="{ state: viewState, set: value =&gt; { orderBy = value }, value: orderBy, form: null, options: {} }">
               <label class="form-check-label" for="sortViews">Views</label>
             </div>
           </div>
         </div>
 
-        <div class="dropdown" ng-init="statusLabels = {ready: 'Ready', expired: 'Expired', removed: 'Removed'}">
-          <button
-            class="btn dropdown-toggle"
-            type="button"
-            id="dropdownStatus"
-            data-toggle="dropdown"
-            aria-haspopup="true"
-            aria-expanded="false"
-          >
+        <div class="dropdown">
+          <button class="btn dropdown-toggle" type="button" id="dropdownStatus" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
             <span class="filter-btn-label">Status</span>
-            <span class="filter-btn-value" ng-if="filters.status.ready && filters.status.expired && filters.status.removed">All</span>
-            <span class="filter-btn-value" ng-if="!(filters.status.ready && filters.status.expired && filters.status.removed)">
-              {{ (filters.status.ready ? 0 : 1) + (filters.status.expired ? 0 : 1) + (filters.status.removed ? 0 : 1) }} hidden
+            <span class="filter-btn-value" v-if="filters?.status?.ready &amp;&amp; filters?.status?.expired &amp;&amp; filters?.status?.removed">All</span>
+            <span class="filter-btn-value" v-if="!(filters?.status?.ready &amp;&amp; filters?.status?.expired &amp;&amp; filters?.status?.removed)">
+              {{ (filters?.status?.ready ? 0 : 1) + (filters?.status?.expired ? 0 : 1) + (filters?.status?.removed ? 0 : 1) }} hidden
             </span>
           </button>
           <div class="dropdown-menu" aria-labelledby="dropdownStatus">
             <h6 class="dropdown-header">Show statuses</h6>
-            <div class="form-check dropdown-item" ng-repeat="(key, label) in statusLabels">
-              <input class="form-check-input" type="checkbox" id="status-{{key}}" ng-model="filters.status[key]" />
-              <label class="form-check-label" for="status-{{key}}">{{label}}</label>
+            <div class="form-check dropdown-item" v-for="(label, key, index) in statusLabels">
+              <input class="form-check-input" type="checkbox" v-field="{ state: viewState, set: value =&gt; { filters.status[key] = value }, value: filters?.status[key], form: null, options: {} }" :id="&quot;status-&quot; + (key)">
+              <label class="form-check-label" :for="&quot;status-&quot; + (key)">{{ label }}</label>
             </div>
           </div>
         </div>
@@ -102,13 +80,13 @@
 
     <div class="dashboard-meta">
       <span class="dashboard-count">
-        <span ng-if="filteredRepositories.length === conference.repositories.length">{{conference.repositories.length | number}} repositor<span ng-if="conference.repositories.length === 1">y</span><span ng-if="conference.repositories.length !== 1">ies</span></span>
-        <span ng-if="filteredRepositories.length !== conference.repositories.length">{{filteredRepositories.length | number}} of {{conference.repositories.length | number}} shown</span>
+        <span v-if="filteredRepositories?.length === conference?.repositories?.length">{{ fmt?.number(conference?.repositories?.length) }} repositor<span v-if="conference?.repositories?.length === 1">y</span><span v-if="conference?.repositories?.length !== 1">ies</span></span>
+        <span v-if="filteredRepositories?.length !== conference?.repositories?.length">{{ fmt?.number(filteredRepositories?.length) }} of {{ fmt?.number(conference?.repositories?.length) }} shown</span>
       </span>
-      <span class="filter-chip" ng-repeat="(f, v) in filters.status" ng-if="v === false">
-        Hiding {{statusLabels[f]}}
-        <button type="button" class="filter-chip-close" aria-label="Show {{statusLabels[f]}} again" ng-click="filters.status[f] = true;">&times;</button>
-      </span>
+      <template v-for="(v, f, index) in filters?.status"><span class="filter-chip" v-if="v === false">
+        Hiding {{ statusLabels[f] }}
+        <button type="button" class="filter-chip-close" @click="filters.status[f] = true;" :aria-label="&quot;Show &quot; + (statusLabels[f]) + &quot; again&quot;">&times;</button>
+      </span></template>
     </div>
 
     <div class="paper-table paper-table-repos w-100" role="table" aria-label="Repositories">
@@ -119,66 +97,54 @@
         <div role="columnheader">Expires</div>
         <div role="columnheader"><span class="sr-only">Actions</span></div>
       </div>
-      <div
-        class="paper-table-row"
-        role="row"
-        ng-class="{'repo-inactive': repo.status == 'expired' || repo.status == 'removed', 'repo-error': repo.status == 'error'}"
-        ng-repeat="repo in conference.repositories | filter:repoFiler | orderBy:orderBy as filteredRepositories track by repo.repoId"
-      >
+      <div class="paper-table-row" role="row" v-for="(repo, index) in filteredRepositories" :key="repo?.repoId" :class="{&#x27;repo-inactive&#x27;: repo?.status == &#x27;expired&#x27; || repo?.status == &#x27;removed&#x27;, &#x27;repo-error&#x27;: repo?.status == &#x27;error&#x27;}">
         <div class="cell-anon" role="cell">
           <span class="type-badge type-repo">Repo</span>
           <div class="anon-text">
-            <a class="repo-name" ng-href="/r/{{repo.repoId}}/" ng-bind="repo.repoId"></a>
+            <a class="repo-name" v-text="repo?.repoId" :href="safeUrl(&quot;/r/&quot; + (repo?.repoId) + &quot;/&quot;)"></a>
             <div class="anon-sub">
               <span class="anon-source">
-                <a href="https://github.com/{{repo.source.fullName}}/" target="_blank" rel="noopener" ng-bind="repo.source.fullName"></a><span ng-if="repo.options.update && repo.source.branch"> &middot; <a href="https://github.com/{{repo.source.fullName}}/tree/{{repo.source.branch}}" target="_blank" rel="noopener" ng-bind="repo.source.branch"></a></span><span ng-if="repo.source.commit"> &middot; <a class="commit-hash" href="https://github.com/{{repo.source.fullName}}/tree/{{repo.source.commit}}" target="_blank" rel="noopener">@{{repo.source.commit.substring(0, 8)}}</a></span>
+                <a target="_blank" rel="noopener" v-text="repo?.source?.fullName" :href="safeUrl(&quot;https://github.com/&quot; + (repo?.source?.fullName) + &quot;/&quot;)"></a><span v-if="repo?.options?.update &amp;&amp; repo?.source?.branch"> &middot; <a target="_blank" rel="noopener" v-text="repo?.source?.branch" :href="safeUrl(&quot;https://github.com/&quot; + (repo?.source?.fullName) + &quot;/tree/&quot; + (repo?.source?.branch))"></a></span><span v-if="repo?.source?.commit"> &middot; <a class="commit-hash" target="_blank" rel="noopener" :href="safeUrl(&quot;https://github.com/&quot; + (repo?.source?.fullName) + &quot;/tree/&quot; + (repo?.source?.commit))">@{{ repo?.source?.commit?.substring(0, 8) }}</a></span>
               </span>
             </div>
           </div>
         </div>
         <div class="cell-status" role="cell">
           <div class="status-line">
-            <span class="status-dot" ng-class="'status-' + (repo.status == 'error' ? 'error' : repo.status == 'ready' ? 'ready' : (repo.status == 'expired' || repo.status == 'removed') ? repo.status : 'progress')" aria-hidden="true"></span>
-            <span class="status-word" ng-bind="repo.status | statusLabel"></span>
+            <span class="status-dot" aria-hidden="true" :class="&#x27;status-&#x27; + (repo?.status == &#x27;error&#x27; ? &#x27;error&#x27; : repo?.status == &#x27;ready&#x27; ? &#x27;ready&#x27; : (repo?.status == &#x27;expired&#x27; || repo?.status == &#x27;removed&#x27;) ? repo?.status : &#x27;progress&#x27;)"></span>
+            <span class="status-word" v-text="fmt?.statusLabel(repo?.status)"></span>
           </div>
-          <div class="status-sub" ng-if="repo.anonymizeDate">anonymized {{repo.anonymizeDate | humanTime}}</div>
+          <div class="status-sub" v-if="repo?.anonymizeDate">anonymized {{ fmt?.humanTime(repo?.anonymizeDate) }}</div>
         </div>
-        <div class="cell-views num" role="cell" ng-bind="::repo.pageView | number"></div>
+        <div class="cell-views num" role="cell" v-text="fmt?.number(repo?.pageView)"></div>
         <div class="cell-expires" role="cell">
-          <span class="expires-never" ng-if="repo.status == 'ready' && (repo.options.expirationMode === 'never' || !repo.options.expirationDate)">Never</span>
-          <span ng-if="repo.status == 'ready' && repo.options.expirationMode !== 'never' && repo.options.expirationDate" ng-bind="repo.options.expirationDate | humanTime"></span>
-          <span class="expires-past" ng-if="repo.status == 'expired'">Expired<span ng-if="repo.options.expirationDate"> {{repo.options.expirationDate | humanTime}}</span></span>
-          <span class="empty-dash" ng-if="repo.status != 'ready' && repo.status != 'expired'" aria-label="Not applicable">&mdash;</span>
+          <span class="expires-never" v-if="repo?.status == &#x27;ready&#x27; &amp;&amp; (repo?.options?.expirationMode === &#x27;never&#x27; || !repo?.options?.expirationDate)">Never</span>
+          <span v-if="repo?.status == &#x27;ready&#x27; &amp;&amp; repo?.options?.expirationMode !== &#x27;never&#x27; &amp;&amp; repo?.options?.expirationDate" v-text="fmt?.humanTime(repo?.options?.expirationDate)"></span>
+          <span class="expires-past" v-if="repo?.status == &#x27;expired&#x27;">Expired<span v-if="repo?.options?.expirationDate"> {{ fmt?.humanTime(repo?.options?.expirationDate) }}</span></span>
+          <span class="empty-dash" aria-label="Not applicable" v-if="repo?.status != &#x27;ready&#x27; &amp;&amp; repo?.status != &#x27;expired&#x27;">&mdash;</span>
         </div>
         <div class="cell-actions" role="cell">
           <div class="dropdown">
-            <button
-              class="btn btn-icon-dots"
-              type="button"
-              data-toggle="dropdown"
-              aria-haspopup="true"
-              aria-expanded="false"
-              aria-label="Actions for {{repo.repoId}}"
-            >
+            <button class="btn btn-icon-dots" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" :aria-label="&quot;Actions for &quot; + (repo?.repoId)">
               <i class="fas fa-ellipsis-h" aria-hidden="true"></i>
             </button>
             <div class="dropdown-menu dropdown-menu-right">
-              <a class="dropdown-item" href="/r/{{repo.repoId}}/">
+              <a class="dropdown-item" :href="safeUrl(&quot;/r/&quot; + (repo?.repoId) + &quot;/&quot;)">
                 <i class="fa fa-eye" aria-hidden="true"></i> View
               </a>
-              <a class="dropdown-item" href="/anonymize/{{repo.repoId}}">
+              <a class="dropdown-item" :href="safeUrl(&quot;/anonymize/&quot; + (repo?.repoId))">
                 <i class="far fa-edit" aria-hidden="true"></i> Edit
               </a>
             </div>
           </div>
         </div>
       </div>
-      <div class="paper-table-empty" ng-if="filteredRepositories.length == 0">
+      <div class="paper-table-empty" v-if="filteredRepositories?.length == 0">
         <i class="fas fa-inbox" aria-hidden="true"></i>
-        <span ng-if="!conference.repositories.length">No repository has been submitted to this conference yet.</span>
-        <span ng-if="conference.repositories.length">Nothing matches the current filters.</span>
-        <div class="paper-table-empty-actions" ng-if="conference.repositories.length">
-          <button type="button" class="btn btn-outline-ink" ng-click="search = ''; filters.status.ready = true; filters.status.expired = true; filters.status.removed = true;">Clear filters</button>
+        <span v-if="!conference?.repositories?.length">No repository has been submitted to this conference yet.</span>
+        <span v-if="conference?.repositories?.length">Nothing matches the current filters.</span>
+        <div class="paper-table-empty-actions" v-if="conference?.repositories?.length">
+          <button type="button" class="btn btn-outline-ink" @click="search = &#x27;&#x27;; filters.status.ready = true; filters.status.expired = true; filters.status.removed = true;">Clear filters</button>
         </div>
       </div>
     </div>

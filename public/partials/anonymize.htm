@@ -1,6 +1,6 @@
 <div class="anonymize-page h-100">
   <!-- ===== STATE 1: No URL — centered input ===== -->
-  <div class="anonymize-landing" ng-hide="sourceUrl">
+  <div class="anonymize-landing" v-show="!(sourceUrl)">
     <div class="anonymize-landing-inner">
       <div class="paper-crumbs">My work &nbsp;/&nbsp; <span class="here">New anonymization</span></div>
       <h1 class="paper-page-title">New <em>anonymization</em></h1>
@@ -10,15 +10,7 @@
       </p>
       <div class="form-group mt-4 mb-2">
         <label class="paper-field-label" for="sourceUrl-landing">Source URL</label>
-        <input
-          id="sourceUrl-landing"
-          type="text"
-          class="form-control form-control-lg"
-          ng-model="sourceUrl"
-          placeholder="https://github.com/owner/repository"
-          ng-model-options="{ debounce: {default: 1000, blur: 0, click: 0}, updateOn: 'default blur click' }"
-          ng-change="urlSelected()"
-        />
+        <input id="sourceUrl-landing" type="text" class="form-control form-control-lg" placeholder="https://github.com/owner/repository" v-field="{ state: viewState, set: value =&gt; { sourceUrl = value }, value: sourceUrl, form: null, options: { debounce: {default: 1000, blur: 0, click: 0}, updateOn: &#x27;default blur click&#x27; }, change: () =&gt; { urlSelected() } }">
       </div>
       <small class="form-text" style="color: var(--ink-muted);">
         Repository, pull request (…/pull/42) and gist (gist.github.com/…) URLs are all accepted.
@@ -27,7 +19,7 @@
   </div>
 
   <!-- ===== STATE 2: URL provided — form (left) + preview (right) ===== -->
-  <div class="anonymize-workspace" ng-show="sourceUrl">
+  <div class="anonymize-workspace" v-show="sourceUrl">
     <header class="anonymize-topbar">
       <div class="anonymize-topbar-inner">
         <div class="paper-crumbs">
@@ -36,11 +28,11 @@
         </div>
         <div class="anonymize-topbar-head">
           <h1 class="paper-page-title anonymize-topbar-title">
-            <span ng-if="!isUpdate">New <em>anonymization</em></span>
-            <span ng-if="isUpdate">Edit <em>anonymization</em></span>
+            <span v-if="!isUpdate">New <em>anonymization</em></span>
+            <span v-if="isUpdate">Edit <em>anonymization</em></span>
           </h1>
-          <span class="type-badge" ng-show="detectedType" ng-class="{'type-repo': detectedType === 'repo', 'type-pr': detectedType === 'pr', 'type-gist': detectedType === 'gist'}">
-            {{detectedType === 'repo' ? 'Repo' : detectedType === 'pr' ? 'PR' : 'Gist'}}
+          <span class="type-badge" v-show="detectedType" :class="{&#x27;type-repo&#x27;: detectedType === &#x27;repo&#x27;, &#x27;type-pr&#x27;: detectedType === &#x27;pr&#x27;, &#x27;type-gist&#x27;: detectedType === &#x27;gist&#x27;}">
+            {{ detectedType === 'repo' ? 'Repo' : detectedType === 'pr' ? 'PR' : 'Gist' }}
           </span>
         </div>
       </div>
@@ -49,47 +41,37 @@
     <div class="anonymize-split">
       <!-- Form column (left) -->
       <div class="anonymize-form-col overflow-auto">
-        <form class="form needs-validation paper-settings-main" name="anonymize" novalidate>
+        <form class="form needs-validation paper-settings-main" name="anonymize" novalidate v-form="viewState">
 
           <section class="paper-settings-section">
             <div class="paper-section-eyebrow">Source</div>
 
             <div class="form-group">
               <label class="paper-field-label" for="sourceUrl">GitHub URL</label>
-              <input
-                type="text"
-                class="form-control"
-                name="sourceUrl"
-                id="sourceUrl"
-                ng-class="{'is-invalid': anonymize.sourceUrl.$invalid}"
-                ng-model="sourceUrl"
-                placeholder="Paste a GitHub repo or pull request URL"
-                ng-model-options="{ debounce: {default: 1000, blur: 0, click: 0}, updateOn: 'default blur click' }"
-                ng-change="urlSelected()"
-              />
-              <div class="invalid-feedback" ng-show="anonymize.sourceUrl.$error.github">
+              <input type="text" class="form-control" name="sourceUrl" id="sourceUrl" :disabled="isUpdate &amp;&amp; detectedType !== &#x27;repo&#x27;" placeholder="Paste a GitHub repo or pull request URL" v-field="{ state: viewState, set: value =&gt; { sourceUrl = value }, value: sourceUrl, form: &quot;anonymize&quot;, options: { debounce: {default: 1000, blur: 0, click: 0}, updateOn: &#x27;default blur click&#x27; }, change: () =&gt; { urlSelected() } }" :class="{&#x27;is-invalid&#x27;: anonymize?.sourceUrl?.invalid}">
+              <div class="invalid-feedback" v-show="anonymize?.sourceUrl?.errors?.github">
                 Please provide a valid GitHub URL.
               </div>
-              <div class="invalid-feedback" ng-show="anonymize.sourceUrl.$error.access">
+              <div class="invalid-feedback" v-show="anonymize?.sourceUrl?.errors?.access">
                 Not accessible. The organization may restrict access.
               </div>
-              <div class="invalid-feedback" ng-show="anonymize.sourceUrl.$error.missing">
+              <div class="invalid-feedback" v-show="anonymize?.sourceUrl?.errors?.missing">
                 Does not exist or is not accessible.
               </div>
-              <div class="invalid-feedback" ng-show="anonymize.sourceUrl.$error.used">
+              <div class="invalid-feedback" v-show="anonymize?.sourceUrl?.errors?.used">
                 Already anonymized.
               </div>
             </div>
 
-            <div ng-show="detectedType === 'repo'" class="form-grid-2">
+            <div class="form-grid-2" v-show="detectedType === &#x27;repo&#x27;">
               <div class="form-group">
                 <label class="paper-field-label" for="branch">Branch</label>
                 <div class="input-group">
-                  <select class="form-control" id="branch" name="branch" ng-model="source.branch">
-                    <option ng-repeat="b in branches" ng-bind="b.name" value="{{b.name}}"></option>
+                  <select class="form-control" id="branch" name="branch" v-field="{ state: viewState, set: value =&gt; { source.branch = value }, value: source?.branch, form: &quot;anonymize&quot;, options: {} }">
+                    <option v-for="(b, index) in branches" v-text="b?.name" :value="(b?.name)"></option>
                   </select>
                   <div class="input-group-append">
-                    <button class="btn" type="button" ng-click="getBranches(true)" title="Refresh" data-toggle="tooltip" data-placement="bottom">
+                    <button class="btn" type="button" title="Refresh" data-toggle="tooltip" data-placement="bottom" @click="getBranches(true)">
                       <i class="fas fa-sync" aria-hidden="true"></i>
                     </button>
                   </div>
@@ -98,250 +80,241 @@
 
               <div class="form-group">
                 <label class="paper-field-label" for="commit">Commit</label>
-                <input class="form-control" id="commit" name="commit" pattern="[a-fA-Z0-9]{6,}" ng-model="source.commit" required ng-class="{'is-invalid': anonymize.commit.$invalid}" />
-                <div class="invalid-feedback" ng-show="anonymize.commit.$error.pattern || anonymize.commit.$error.required">
+                <input class="form-control" id="commit" :disabled="options.update" name="commit" pattern="[a-fA-Z0-9]{6,}" required v-field="{ state: viewState, set: value =&gt; { source.commit = value }, value: source?.commit, form: &quot;anonymize&quot;, options: {} }" :class="{&#x27;is-invalid&#x27;: anonymize?.commit?.invalid}">
+                <div class="invalid-feedback" v-show="anonymize?.commit?.errors?.pattern || anonymize?.commit?.errors?.required">
                   The commit SHA is not valid.
                 </div>
-                <div class="invalid-feedback" ng-show="anonymize.commit.$error.exists">
+                <div class="invalid-feedback" v-show="anonymize?.commit?.errors?.exists">
                   This commit no longer exists in the repository. Click refresh to get the latest.
                 </div>
               </div>
             </div>
 
-            <div class="form-check" ng-show="detectedType">
-              <input class="form-check-input" type="checkbox" id="update" name="update" ng-model="options.update" />
+            <div class="form-check" v-show="detectedType">
+              <input class="form-check-input" type="checkbox" id="update" name="update" v-field="{ state: viewState, set: value =&gt; { options.update = value }, value: options?.update, form: &quot;anonymize&quot;, options: {} }">
               <label class="form-check-label" for="update">Auto-update from GitHub</label>
               <small class="form-text text-muted">Follow the branch and pull the latest commit automatically, at most once an hour.</small>
             </div>
           </section>
 
-          <section class="paper-settings-section" ng-show="detectedType">
+          <section class="paper-settings-section" v-show="detectedType">
             <div class="paper-section-eyebrow">Identity</div>
 
-            <div class="form-group" ng-show="detectedType === 'repo'">
+            <div class="form-group" v-show="detectedType === &#x27;repo&#x27;">
               <label class="paper-field-label" for="repoId">Anonymized repository ID</label>
-              <input type="text" class="form-control" name="repoId" id="repoId" ng-class="{'is-invalid': anonymize.repoId.$invalid}" ng-model="repoId" ng-model-options="{ debounce: {default: 1000, blur: 0, click: 0}, updateOn: 'default blur click' }" />
-              <small class="form-text text-muted">Your share link will be <code>anonymous.4open.science/r/{{repoId}}</code>.</small>
-              <div class="invalid-feedback" ng-show="anonymize.repoId.$error.format">ID can only contain letters and numbers.</div>
-              <div class="invalid-feedback" ng-show="anonymize.repoId.$error.used">{{repoId}} is already used.</div>
+              <input type="text" class="form-control" name="repoId" id="repoId" :disabled="isUpdate" v-field="{ state: viewState, set: value =&gt; { repoId = value }, value: repoId, form: &quot;anonymize&quot;, options: { debounce: {default: 1000, blur: 0, click: 0}, updateOn: &#x27;default blur click&#x27; } }" :class="{&#x27;is-invalid&#x27;: anonymize?.repoId?.invalid}">
+              <small class="form-text text-muted">Your share link will be <code>anonymous.4open.science/r/{{ repoId }}</code>.</small>
+              <div class="invalid-feedback" v-show="anonymize?.repoId?.errors?.format">ID can only contain letters and numbers.</div>
+              <div class="invalid-feedback" v-show="anonymize?.repoId?.errors?.used">{{ repoId }} is already used.</div>
             </div>
 
-            <div class="form-group" ng-show="detectedType === 'pr'">
+            <div class="form-group" v-show="detectedType === &#x27;pr&#x27;">
               <label class="paper-field-label" for="pullRequestId">Anonymized pull request ID</label>
-              <input type="text" class="form-control" name="pullRequestId" id="pullRequestId" ng-class="{'is-invalid': anonymize.pullRequestId.$invalid}" ng-model="pullRequestId" ng-model-options="{ debounce: {default: 1000, blur: 0, click: 0}, updateOn: 'default blur click' }" />
-              <small class="form-text text-muted">Your share link will be <code>anonymous.4open.science/pr/{{pullRequestId}}</code>.</small>
-              <div class="invalid-feedback" ng-show="anonymize.pullRequestId.$error.format">ID can only contain letters and numbers.</div>
-              <div class="invalid-feedback" ng-show="anonymize.pullRequestId.$error.used">{{pullRequestId}} is already used.</div>
+              <input type="text" class="form-control" name="pullRequestId" id="pullRequestId" :disabled="isUpdate" v-field="{ state: viewState, set: value =&gt; { pullRequestId = value }, value: pullRequestId, form: &quot;anonymize&quot;, options: { debounce: {default: 1000, blur: 0, click: 0}, updateOn: &#x27;default blur click&#x27; } }" :class="{&#x27;is-invalid&#x27;: anonymize?.pullRequestId?.invalid}">
+              <small class="form-text text-muted">Your share link will be <code>anonymous.4open.science/pr/{{ pullRequestId }}</code>.</small>
+              <div class="invalid-feedback" v-show="anonymize?.pullRequestId?.errors?.format">ID can only contain letters and numbers.</div>
+              <div class="invalid-feedback" v-show="anonymize?.pullRequestId?.errors?.used">{{ pullRequestId }} is already used.</div>
             </div>
 
-            <div class="form-group" ng-show="detectedType === 'gist'">
+            <div class="form-group" v-show="detectedType === &#x27;gist&#x27;">
               <label class="paper-field-label" for="gistId">Anonymized gist ID</label>
-              <input type="text" class="form-control" name="gistId" id="gistId" ng-class="{'is-invalid': anonymize.gistId.$invalid}" ng-model="gistId" ng-model-options="{ debounce: {default: 1000, blur: 0, click: 0}, updateOn: 'default blur click' }" />
-              <small class="form-text text-muted">Your share link will be <code>anonymous.4open.science/gist/{{gistId}}</code>.</small>
-              <div class="invalid-feedback" ng-show="anonymize.gistId.$error.format">ID can only contain letters and numbers.</div>
-              <div class="invalid-feedback" ng-show="anonymize.gistId.$error.used">{{gistId}} is already used.</div>
+              <input type="text" class="form-control" name="gistId" id="gistId" :disabled="isUpdate" v-field="{ state: viewState, set: value =&gt; { gistId = value }, value: gistId, form: &quot;anonymize&quot;, options: { debounce: {default: 1000, blur: 0, click: 0}, updateOn: &#x27;default blur click&#x27; } }" :class="{&#x27;is-invalid&#x27;: anonymize?.gistId?.invalid}">
+              <small class="form-text text-muted">Your share link will be <code>anonymous.4open.science/gist/{{ gistId }}</code>.</small>
+              <div class="invalid-feedback" v-show="anonymize?.gistId?.errors?.format">ID can only contain letters and numbers.</div>
+              <div class="invalid-feedback" v-show="anonymize?.gistId?.errors?.used">{{ gistId }} is already used.</div>
             </div>
 
             <div class="form-group">
               <label class="paper-field-label" for="conference">Conference <span class="paper-optional">(optional)</span></label>
-              <input class="form-control" id="conference" name="conference" ng-model="conference" ng-model-options="{ debounce: { default: 800, blur: 0 }, updateOn: 'default blur' }" ng-class="{'is-invalid': anonymize.conference.$invalid}" />
-              <small class="form-text text-muted" ng-show="conference_data">
-                <a ng-href="{{conference_data.url}}" target="_blank">{{conference_data.name}}</a> expires {{conference_data.endDate | date}}.
+              <input class="form-control" id="conference" name="conference" v-field="{ state: viewState, set: value =&gt; { conference = value }, value: conference, form: &quot;anonymize&quot;, options: { debounce: { default: 800, blur: 0 }, updateOn: &#x27;default blur&#x27; } }" :class="{&#x27;is-invalid&#x27;: anonymize?.conference?.invalid}">
+              <small class="form-text text-muted" v-show="conference_data">
+                <a target="_blank" :href="safeUrl((conference_data?.url))">{{ conference_data?.name }}</a> expires {{ fmt?.date(conference_data?.endDate) }}.
               </small>
-              <div class="invalid-feedback" ng-show="anonymize.conference.$error.activated">The conference is not activated.</div>
-              <small class="form-text text-muted" ng-show="!conference_data">Link to a conference to apply its shared defaults.</small>
+              <div class="invalid-feedback" v-show="anonymize?.conference?.errors?.activated">The conference is not activated.</div>
+              <small class="form-text text-muted" v-show="!conference_data">Link to a conference to apply its shared defaults.</small>
             </div>
           </section>
 
-          <section class="paper-settings-section" ng-show="detectedType">
+          <section class="paper-settings-section" v-show="detectedType">
             <div class="paper-section-eyebrow">Anonymization</div>
 
             <div class="form-group">
               <label class="paper-field-label" for="terms">Terms to redact</label>
-              <textarea class="form-control" id="terms" name="terms" rows="4" ng-model="terms" ng-model-options="{ debounce: 250 }" ng-class="{'is-invalid': anonymize.terms.$invalid}"></textarea>
-              <small class="form-text text-muted">One term per line (regex allowed). Replaced by <code>{{site_options.ANONYMIZATION_MASK}}-[N]</code>, or use <code>term=&gt;replacement</code> to pick your own (e.g. <code>Anonymous=&gt;ABC</code>).</small>
-              <div class="warning-feedback" ng-show="termsRegexWarning">Regex characters detected. Escape them if unintentional.</div>
-              <div class="invalid-feedback" ng-show="anonymize.terms.$error.format">Terms are in an invalid format.</div>
+              <textarea class="form-control" id="terms" name="terms" rows="4" v-field="{ state: viewState, set: value =&gt; { terms = value }, value: terms, form: &quot;anonymize&quot;, options: { debounce: 250 } }" :class="{&#x27;is-invalid&#x27;: anonymize?.terms?.invalid}"></textarea>
+              <small class="form-text text-muted">One term per line (regex allowed). Replaced by <code>{{ site_options?.ANONYMIZATION_MASK }}-[N]</code>, or use <code>term=&gt;replacement</code> to pick your own (e.g. <code>Anonymous=&gt;ABC</code>).</small>
+              <div class="warning-feedback" v-show="termsRegexWarning">Regex characters detected. Escape them if unintentional.</div>
+              <div class="invalid-feedback" v-show="anonymize?.terms?.errors?.format">Terms are in an invalid format.</div>
             </div>
           </section>
 
-          <section class="paper-settings-section" ng-show="detectedType">
+          <section class="paper-settings-section" v-show="detectedType">
             <div class="paper-section-eyebrow">Display</div>
 
-            <div ng-show="detectedType === 'repo'">
+            <div v-show="detectedType === &#x27;repo&#x27;">
               <div class="form-check">
-                <input class="form-check-input" type="checkbox" id="link" name="link" ng-model="options.link" />
+                <input class="form-check-input" type="checkbox" id="link" name="link" v-field="{ state: viewState, set: value =&gt; { options.link = value }, value: options?.link, form: &quot;anonymize&quot;, options: {} }">
                 <label class="form-check-label" for="link">Keep links</label>
               </div>
               <div class="form-check">
-                <input class="form-check-input" type="checkbox" id="image" name="image" ng-model="options.image" />
+                <input class="form-check-input" type="checkbox" id="image" name="image" v-field="{ state: viewState, set: value =&gt; { options.image = value }, value: options?.image, form: &quot;anonymize&quot;, options: {} }">
                 <label class="form-check-label" for="image">Display images</label>
               </div>
               <div class="form-check">
-                <input class="form-check-input" type="checkbox" id="pdf" name="pdf" ng-model="options.pdf" />
+                <input class="form-check-input" type="checkbox" id="pdf" name="pdf" v-field="{ state: viewState, set: value =&gt; { options.pdf = value }, value: options?.pdf, form: &quot;anonymize&quot;, options: {} }">
                 <label class="form-check-label" for="pdf">Display PDFs</label>
               </div>
               <div class="form-check">
-                <input class="form-check-input" type="checkbox" id="notebook" name="notebook" ng-model="options.notebook" />
+                <input class="form-check-input" type="checkbox" id="notebook" name="notebook" v-field="{ state: viewState, set: value =&gt; { options.notebook = value }, value: options?.notebook, form: &quot;anonymize&quot;, options: {} }">
                 <label class="form-check-label" for="notebook">Display Notebooks</label>
               </div>
               <div class="form-check">
-                <input class="form-check-input" type="checkbox" id="page" name="page" ng-model="options.page" ng-disabled="!details.hasPage || (details.pageSource && details.pageSource.branch !== source.branch)" />
+                <input class="form-check-input" type="checkbox" id="page" name="page" v-field="{ state: viewState, set: value =&gt; { options.page = value }, value: options?.page, form: &quot;anonymize&quot;, options: {} }" :disabled="!details?.hasPage || (details?.pageSource &amp;&amp; details?.pageSource?.branch !== source?.branch)">
                 <label class="form-check-label" for="page">GitHub Pages</label>
-                <small class="form-text text-muted d-block" ng-show="!details.hasPage">
-                  {{ 'WARNINGS.page_not_enabled_on_repo' | translate }}
+                <small class="form-text text-muted d-block" v-show="!details?.hasPage">
+                  {{ fmt?.translate('WARNINGS.page_not_enabled_on_repo') }}
                 </small>
-                <small class="form-text text-muted d-block" ng-show="details.hasPage && details.pageSource && details.pageSource.branch !== source.branch">
-                  {{ 'WARNINGS.page_branch_mismatch' | translate:{ pageBranch: details.pageSource.branch, selectedBranch: source.branch } }}
+                <small class="form-text text-muted d-block" v-show="details?.hasPage &amp;&amp; details?.pageSource &amp;&amp; details?.pageSource?.branch !== source?.branch">
+                  {{ fmt?.translate('WARNINGS.page_branch_mismatch', { pageBranch: details?.pageSource?.branch, selectedBranch: source?.branch }) }}
                 </small>
               </div>
             </div>
 
-            <div ng-show="detectedType === 'gist'">
+            <div v-show="detectedType === &#x27;gist&#x27;">
               <div class="form-check">
-                <input class="form-check-input" type="checkbox" id="title-gist" name="title-gist" ng-model="options.title" />
+                <input class="form-check-input" type="checkbox" id="title-gist" name="title-gist" v-field="{ state: viewState, set: value =&gt; { options.title = value }, value: options?.title, form: &quot;anonymize&quot;, options: {} }">
                 <label class="form-check-label" for="title-gist">Gist description</label>
               </div>
               <div class="form-check">
-                <input class="form-check-input" type="checkbox" id="content-gist" name="content-gist" ng-model="options.content" />
+                <input class="form-check-input" type="checkbox" id="content-gist" name="content-gist" v-field="{ state: viewState, set: value =&gt; { options.content = value }, value: options?.content, form: &quot;anonymize&quot;, options: {} }">
                 <label class="form-check-label" for="content-gist">File contents</label>
               </div>
               <div class="form-check">
-                <input class="form-check-input" type="checkbox" id="comments-gist" name="comments-gist" ng-model="options.comments" />
+                <input class="form-check-input" type="checkbox" id="comments-gist" name="comments-gist" v-field="{ state: viewState, set: value =&gt; { options.comments = value }, value: options?.comments, form: &quot;anonymize&quot;, options: {} }">
                 <label class="form-check-label" for="comments-gist">Comments</label>
               </div>
               <div class="form-check">
-                <input class="form-check-input" type="checkbox" id="username-gist" name="username-gist" ng-model="options.username" />
+                <input class="form-check-input" type="checkbox" id="username-gist" name="username-gist" v-field="{ state: viewState, set: value =&gt; { options.username = value }, value: options?.username, form: &quot;anonymize&quot;, options: {} }">
                 <label class="form-check-label" for="username-gist">Usernames</label>
               </div>
               <div class="form-check">
-                <input class="form-check-input" type="checkbox" id="date-gist" name="date-gist" ng-model="options.date" />
+                <input class="form-check-input" type="checkbox" id="date-gist" name="date-gist" v-field="{ state: viewState, set: value =&gt; { options.date = value }, value: options?.date, form: &quot;anonymize&quot;, options: {} }">
                 <label class="form-check-label" for="date-gist">Dates</label>
               </div>
               <div class="form-check">
-                <input class="form-check-input" type="checkbox" id="origin-gist" name="origin-gist" ng-model="options.origin" />
+                <input class="form-check-input" type="checkbox" id="origin-gist" name="origin-gist" v-field="{ state: viewState, set: value =&gt; { options.origin = value }, value: options?.origin, form: &quot;anonymize&quot;, options: {} }">
                 <label class="form-check-label" for="origin-gist">Source gist ID</label>
               </div>
             </div>
 
-            <div ng-show="detectedType === 'pr'">
+            <div v-show="detectedType === &#x27;pr&#x27;">
               <div class="form-check">
-                <input class="form-check-input" type="checkbox" id="title" name="title" ng-model="options.title" />
+                <input class="form-check-input" type="checkbox" id="title" name="title" v-field="{ state: viewState, set: value =&gt; { options.title = value }, value: options?.title, form: &quot;anonymize&quot;, options: {} }">
                 <label class="form-check-label" for="title">PR title</label>
               </div>
               <div class="form-check">
-                <input class="form-check-input" type="checkbox" id="body" name="body" ng-model="options.body" />
+                <input class="form-check-input" type="checkbox" id="body" name="body" v-field="{ state: viewState, set: value =&gt; { options.body = value }, value: options?.body, form: &quot;anonymize&quot;, options: {} }">
                 <label class="form-check-label" for="body">PR body</label>
               </div>
               <div class="form-check">
-                <input class="form-check-input" type="checkbox" id="diff" name="diff" ng-model="options.diff" />
+                <input class="form-check-input" type="checkbox" id="diff" name="diff" v-field="{ state: viewState, set: value =&gt; { options.diff = value }, value: options?.diff, form: &quot;anonymize&quot;, options: {} }">
                 <label class="form-check-label" for="diff">Diff</label>
               </div>
               <div class="form-check">
-                <input class="form-check-input" type="checkbox" id="comments" name="comments" ng-model="options.comments" />
+                <input class="form-check-input" type="checkbox" id="comments" name="comments" v-field="{ state: viewState, set: value =&gt; { options.comments = value }, value: options?.comments, form: &quot;anonymize&quot;, options: {} }">
                 <label class="form-check-label" for="comments">Comments</label>
               </div>
               <div class="form-check">
-                <input class="form-check-input" type="checkbox" id="username" name="username" ng-model="options.username" />
+                <input class="form-check-input" type="checkbox" id="username" name="username" v-field="{ state: viewState, set: value =&gt; { options.username = value }, value: options?.username, form: &quot;anonymize&quot;, options: {} }">
                 <label class="form-check-label" for="username">Usernames</label>
               </div>
               <div class="form-check">
-                <input class="form-check-input" type="checkbox" id="date" name="date" ng-model="options.date" />
+                <input class="form-check-input" type="checkbox" id="date" name="date" v-field="{ state: viewState, set: value =&gt; { options.date = value }, value: options?.date, form: &quot;anonymize&quot;, options: {} }">
                 <label class="form-check-label" for="date">Dates</label>
               </div>
               <div class="form-check">
-                <input class="form-check-input" type="checkbox" id="origin" name="origin" ng-model="options.origin" />
+                <input class="form-check-input" type="checkbox" id="origin" name="origin" v-field="{ state: viewState, set: value =&gt; { options.origin = value }, value: options?.origin, form: &quot;anonymize&quot;, options: {} }">
                 <label class="form-check-label" for="origin">Project name</label>
               </div>
             </div>
           </section>
 
-          <section class="paper-settings-section" ng-show="detectedType">
+          <section class="paper-settings-section" v-show="detectedType">
             <div class="paper-section-eyebrow">Expiration</div>
 
             <div class="form-grid-2">
               <div class="form-group">
                 <label class="paper-field-label" for="expiration">Strategy</label>
-                <select class="form-control" id="expiration" name="expiration" ng-model="options.expirationMode">
+                <select class="form-control" id="expiration" name="expiration" v-field="{ state: viewState, set: value =&gt; { options.expirationMode = value }, value: options?.expirationMode, form: &quot;anonymize&quot;, options: {} }">
                   <option value="redirect">Redirect to GitHub when expired</option>
                   <option value="remove" selected>Remove when expired</option>
                 </select>
               </div>
               <div class="form-group">
                 <label class="paper-field-label" for="expirationDate">Expiration date</label>
-                <input class="form-control" type="date" name="expirationDate" id="expirationDate" ng-model="options.expirationDate" ng-class="{'is-invalid': anonymize.expirationDate.$invalid}" min="{{minExpirationDate}}" max="{{maxExpirationDate}}" required />
-                <div class="invalid-feedback" ng-show="anonymize.expirationDate.$error.min">Pick a date in the future.</div>
-                <div class="invalid-feedback" ng-show="anonymize.expirationDate.$error.max">Pick a date on or before {{maxExpirationDate | date}}.</div>
-                <div class="invalid-feedback" ng-show="anonymize.expirationDate.$error.required || anonymize.expirationDate.$error.date">Enter a valid expiration date.</div>
+                <input class="form-control" type="date" name="expirationDate" id="expirationDate" required v-field="{ state: viewState, set: value =&gt; { options.expirationDate = value }, value: options?.expirationDate, form: &quot;anonymize&quot;, options: {} }" :class="{&#x27;is-invalid&#x27;: anonymize?.expirationDate?.invalid}" :min="(minExpirationDate)" :max="(maxExpirationDate)">
+                <div class="invalid-feedback" v-show="anonymize?.expirationDate?.errors?.min">Pick a date in the future.</div>
+                <div class="invalid-feedback" v-show="anonymize?.expirationDate?.errors?.max">Pick a date on or before {{ fmt?.date(maxExpirationDate) }}.</div>
+                <div class="invalid-feedback" v-show="anonymize?.expirationDate?.errors?.required || anonymize?.expirationDate?.errors?.date">Enter a valid expiration date.</div>
               </div>
             </div>
-            <small class="form-text text-muted" ng-show="options.expirationMode=='remove' && options.expirationDate">After {{options.expirationDate | date}}, the content will be removed.</small>
-            <small class="form-text text-muted" ng-show="options.expirationMode=='redirect' && options.expirationDate">After {{options.expirationDate | date}}, visitors will be redirected to GitHub.</small>
+            <small class="form-text text-muted" v-show="options?.expirationMode==&#x27;remove&#x27; &amp;&amp; options?.expirationDate">After {{ fmt?.date(options?.expirationDate) }}, the content will be removed.</small>
+            <small class="form-text text-muted" v-show="options?.expirationMode==&#x27;redirect&#x27; &amp;&amp; options?.expirationDate">After {{ fmt?.date(options?.expirationDate) }}, visitors will be redirected to GitHub.</small>
           </section>
 
-          <section class="paper-settings-section" ng-show="isUpdate && detectedType === 'repo'">
+          <section class="paper-settings-section" v-show="isUpdate &amp;&amp; detectedType === &#x27;repo&#x27;">
             <div class="paper-section-eyebrow">Co-authors</div>
             <p class="form-text text-muted" style="margin-bottom: 8px;">
               Co-authors can view and edit these settings. They cannot delete the anonymization or manage co-authors.
             </p>
 
-            <div class="form-group" ng-show="role === 'owner' || role === 'admin'">
+            <div class="form-group" v-show="role === &#x27;owner&#x27; || role === &#x27;admin&#x27;">
               <label class="paper-field-label" for="coauthorSearch">Add a GitHub user</label>
               <div style="position: relative;">
-                <input
-                  type="text"
-                  id="coauthorSearch"
-                  class="form-control"
-                  placeholder="Search GitHub username…"
-                  ng-model="coauthorSearch"
-                  ng-change="searchCoauthors()"
-                  ng-model-options="{ debounce: 300 }"
-                  autocomplete="off"
-                />
-                <div class="dropdown-menu show" style="display: block; max-height: 220px; overflow-y: auto; width: 100%;" ng-show="coauthorResults.length > 0">
-                  <a href="#" class="dropdown-item d-flex align-items-center" ng-repeat="u in coauthorResults" ng-click="addCoauthor(u, $event)">
-                    <img ng-src="{{u.photo}}" alt="" style="width: 22px; height: 22px; border-radius: 50%; margin-right: 8px;" />
-                    <span ng-bind="u.username"></span>
+                <input type="text" id="coauthorSearch" class="form-control" placeholder="Search GitHub username…" autocomplete="off" v-field="{ state: viewState, set: value =&gt; { coauthorSearch = value }, value: coauthorSearch, form: &quot;anonymize&quot;, options: { debounce: 300 }, change: () =&gt; { searchCoauthors() } }">
+                <div class="dropdown-menu show" style="display: block; max-height: 220px; overflow-y: auto; width: 100%;" v-show="coauthorResults?.length &gt; 0">
+                  <a href="#" class="dropdown-item d-flex align-items-center" v-for="(u, index) in coauthorResults" @click.prevent="addCoauthor(u, $event)">
+                    <img alt="" style="width: 22px; height: 22px; border-radius: 50%; margin-right: 8px;" :src="safeUrl((u?.photo))">
+                    <span v-text="u?.username"></span>
                   </a>
                 </div>
               </div>
-              <small class="form-text text-muted" ng-show="coauthorError" ng-bind="coauthorError"></small>
+              <small class="form-text text-muted" v-show="coauthorError" v-text="coauthorError"></small>
             </div>
 
             <div class="coauthor-list">
-              <div class="coauthor-row d-flex align-items-center" ng-repeat="c in coauthors" style="padding: 6px 0; gap: 8px;">
-                <img ng-src="{{c.photo}}" alt="" style="width: 24px; height: 24px; border-radius: 50%;" ng-if="c.photo" />
-                <a ng-href="https://github.com/{{c.username}}" target="_blank" ng-bind="c.username"></a>
+              <div class="coauthor-row d-flex align-items-center" style="padding: 6px 0; gap: 8px;" v-for="(c, index) in coauthors">
+                <img alt="" style="width: 24px; height: 24px; border-radius: 50%;" v-if="c?.photo" :src="safeUrl((c?.photo))">
+                <a target="_blank" v-text="c?.username" :href="safeUrl(&quot;https://github.com/&quot; + (c?.username))"></a>
                 <span class="type-badge type-coauthor">Co-author</span>
-                <button type="button" class="btn btn-sm" ng-click="removeCoauthor(c)" ng-show="role === 'owner' || role === 'admin'" style="margin-left: auto;" title="Remove co-author">
+                <button type="button" class="btn btn-sm" style="margin-left: auto;" title="Remove co-author" v-show="role === &#x27;owner&#x27; || role === &#x27;admin&#x27;" @click="removeCoauthor(c)">
                   <i class="fas fa-times"></i>
                 </button>
               </div>
-              <div class="form-text text-muted" ng-show="!coauthors || coauthors.length === 0">
+              <div class="form-text text-muted" v-show="!coauthors || coauthors?.length === 0">
                 No co-authors yet.
               </div>
             </div>
           </section>
 
-          <div class="alert alert-danger" role="alert" ng-if="error" ng-bind="error"></div>
+          <div class="alert alert-danger" role="alert" v-if="error" v-text="error"></div>
 
-          <div class="anonymize-submit-bar" ng-show="detectedType">
-            <button type="submit" class="btn btn-ink" ng-click="anonymizeRepo($event)" ng-if="detectedType === 'repo' && !isUpdate">
+          <div class="anonymize-submit-bar" v-show="detectedType">
+            <button type="submit" class="btn btn-ink" v-if="detectedType === &#x27;repo&#x27; &amp;&amp; !isUpdate" @click.prevent="submitForm($event, () =&gt; { anonymizeRepo($event) })">
               <i class="fas fa-user-secret mr-1"></i> Anonymize Repository
             </button>
-            <button type="submit" class="btn btn-ink" ng-click="anonymizeRepo($event)" ng-if="detectedType === 'repo' && isUpdate">
+            <button type="submit" class="btn btn-ink" v-if="detectedType === &#x27;repo&#x27; &amp;&amp; isUpdate" @click.prevent="submitForm($event, () =&gt; { anonymizeRepo($event) })">
               <i class="fas fa-save mr-1"></i> Update Repository
             </button>
-            <button type="submit" class="btn btn-ink" ng-click="anonymizePullRequest($event)" ng-if="detectedType === 'pr' && !isUpdate">
+            <button type="submit" class="btn btn-ink" v-if="detectedType === &#x27;pr&#x27; &amp;&amp; !isUpdate" @click.prevent="submitForm($event, () =&gt; { anonymizePullRequest($event) })">
               <i class="fas fa-user-secret mr-1"></i> Anonymize Pull Request
             </button>
-            <button type="submit" class="btn btn-ink" ng-click="anonymizePullRequest($event)" ng-if="detectedType === 'pr' && isUpdate">
+            <button type="submit" class="btn btn-ink" v-if="detectedType === &#x27;pr&#x27; &amp;&amp; isUpdate" @click.prevent="submitForm($event, () =&gt; { anonymizePullRequest($event) })">
               <i class="fas fa-save mr-1"></i> Update Pull Request
             </button>
-            <button type="submit" class="btn btn-ink" ng-click="anonymizeGist($event)" ng-if="detectedType === 'gist' && !isUpdate">
+            <button type="submit" class="btn btn-ink" v-if="detectedType === &#x27;gist&#x27; &amp;&amp; !isUpdate" @click.prevent="submitForm($event, () =&gt; { anonymizeGist($event) })">
               <i class="fas fa-user-secret mr-1"></i> Anonymize Gist
             </button>
-            <button type="submit" class="btn btn-ink" ng-click="anonymizeGist($event)" ng-if="detectedType === 'gist' && isUpdate">
+            <button type="submit" class="btn btn-ink" v-if="detectedType === &#x27;gist&#x27; &amp;&amp; isUpdate" @click.prevent="submitForm($event, () =&gt; { anonymizeGist($event) })">
               <i class="fas fa-save mr-1"></i> Update Gist
             </button>
           </div>
@@ -349,18 +322,15 @@
       </div>
 
       <!-- Preview column (right) -->
-      <div
-        class="anonymize-preview-col"
-        ng-if="detectedType === 'repo' && html_readme"
-      >
+      <div class="anonymize-preview-col" v-if="detectedType === &#x27;repo&#x27; &amp;&amp; html_readme">
         <div class="anonymize-preview-head">
           <span class="paper-eyebrow">Live preview</span>
           <span class="anonymize-preview-sub">README with redactions applied</span>
         </div>
-        <div class="anonymize-preview-body markdown-body body" ng-bind-html="html_readme"></div>
+        <div class="anonymize-preview-body markdown-body body" v-html="sanitize(html_readme)"></div>
       </div>
 
-      <div class="anonymize-preview-col" ng-if="detectedType === 'gist' && details">
+      <div class="anonymize-preview-col" v-if="detectedType === &#x27;gist&#x27; &amp;&amp; details">
         <div class="anonymize-preview-head">
           <span class="paper-eyebrow">Live preview</span>
           <span class="anonymize-preview-sub">Gist with redactions applied</span>
@@ -368,38 +338,38 @@
         <div class="anonymize-preview-body">
           <div class="d-flex w-100 justify-content-between align-items-center flex-wrap">
             <h2 class="pr-title mb-1">
-              <span ng-if="options.title">{{anonymizeGistContent(details.gist.description) || 'Untitled gist'}}</span>
-              <span class="badge" ng-class="{'badge-success': details.gist.isPublic, 'badge-secondary': !details.gist.isPublic}">
-                {{details.gist.isPublic ? 'public' : 'secret'}}
+              <span v-if="options?.title">{{ anonymizeGistContent(details?.gist?.description) || 'Untitled gist' }}</span>
+              <span class="badge" :class="{&#x27;badge-success&#x27;: details?.gist?.isPublic, &#x27;badge-secondary&#x27;: !details?.gist?.isPublic}">
+                {{ details?.gist?.isPublic ? 'public' : 'secret' }}
               </span>
             </h2>
-            <small ng-bind="details.gist.updatedDate | date" ng-if="options.date"></small>
+            <small v-if="options?.date" v-text="fmt?.date(details?.gist?.updatedDate)"></small>
           </div>
-          <small ng-if="options.origin">Gist ID: {{details.source.gistId}}</small>
-          <small ng-if="options.username && details.gist.ownerLogin">By @{{anonymizeGistContent(details.gist.ownerLogin)}}</small>
-          <div ng-if="options.content && previewGistFiles.length">
+          <small v-if="options?.origin">Gist ID: {{ details?.source?.gistId }}</small>
+          <small v-if="options?.username &amp;&amp; details?.gist?.ownerLogin">By @{{ anonymizeGistContent(details?.gist?.ownerLogin) }}</small>
+          <div v-if="options?.content &amp;&amp; previewGistFiles?.length">
             <ul class="pr-comments mt-3">
-              <li class="pr-comment" ng-repeat="file in previewGistFiles">
+              <li class="pr-comment" v-for="(file, index) in previewGistFiles">
                 <div class="pr-comment-head">
-                  <strong ng-bind="file.filename"></strong>
-                  <span class="pr-comment-date" ng-if="file.language">{{file.language}}</span>
+                  <strong v-text="file?.filename"></strong>
+                  <span class="pr-comment-date" v-if="file?.language">{{ file?.language }}</span>
                 </div>
-                <gist-file file="file" terms="terms" options="options"></gist-file>
+                <gist-file :file="file" :terms="terms" :options="options"></gist-file>
               </li>
             </ul>
           </div>
-          <div ng-if="options.comments && details.gist.comments && details.gist.comments.length">
+          <div v-if="options?.comments &amp;&amp; details?.gist?.comments &amp;&amp; details?.gist?.comments?.length">
             <h3 class="paper-section-eyebrow mt-3">Comments</h3>
             <ul class="pr-comments">
-              <li class="pr-comment" ng-repeat="comment in details.gist.comments">
+              <li class="pr-comment" v-for="(comment, index) in details?.gist?.comments">
                 <div class="pr-comment-head">
-                  <span class="pr-comment-author" ng-if="options.username">
-                    <i class="far fa-user"></i> @<span ng-bind="anonymizeGistContent(comment.author)"></span>
+                  <span class="pr-comment-author" v-if="options?.username">
+                    <i class="far fa-user"></i> @<span v-text="anonymizeGistContent(comment?.author)"></span>
                   </span>
-                  <span class="pr-comment-date" ng-if="options.date" ng-bind="comment.updatedDate | date"></span>
+                  <span class="pr-comment-date" v-if="options?.date" v-text="fmt?.date(comment?.updatedDate)"></span>
                 </div>
-                <div class="pr-comment-body" ng-if="options.body">
-                  <markdown content="anonymizeGistContent(comment.body)" options="options" terms="terms"></markdown>
+                <div class="pr-comment-body" v-if="options?.body">
+                  <markdown :content="anonymizeGistContent(comment?.body)" :options="options" :terms="terms"></markdown>
                 </div>
               </li>
             </ul>
@@ -407,8 +377,7 @@
         </div>
       </div>
 
-      <div class="anonymize-preview-col" ng-if="detectedType === 'pr' && details"
-           ng-init="prTabState = { active: options.diff ? 'diff' : 'comments' }">
+      <div class="anonymize-preview-col" v-if="detectedType === &#x27;pr&#x27; &amp;&amp; details">
         <div class="anonymize-preview-head">
           <span class="paper-eyebrow">Live preview</span>
           <span class="anonymize-preview-sub">Pull request with redactions applied</span>
@@ -416,55 +385,41 @@
         <div class="anonymize-preview-body">
           <div class="d-flex w-100 justify-content-between align-items-center flex-wrap">
             <h2 class="pr-title mb-1">
-              <span ng-if="options.title">{{anonymizePrContent(details.pullRequest.title)}}</span>
-              <span class="badge" ng-class="{'badge-success':details.pullRequest.merged, 'badge-warning':details.pullRequest.state=='open', 'badge-danger':details.pullRequest.state=='closed' && !details.pullRequest.merged}">
-                {{details.pullRequest.merged ? "merged" : details.pullRequest.state | title}}
+              <span v-if="options?.title">{{ anonymizePrContent(details?.pullRequest?.title) }}</span>
+              <span class="badge" :class="{&#x27;badge-success&#x27;:details?.pullRequest?.merged, &#x27;badge-warning&#x27;:details?.pullRequest?.state==&#x27;open&#x27;, &#x27;badge-danger&#x27;:details?.pullRequest?.state==&#x27;closed&#x27; &amp;&amp; !details?.pullRequest?.merged}">
+                {{ fmt?.title(details?.pullRequest?.merged ? "merged" : details?.pullRequest?.state) }}
               </span>
             </h2>
-            <small ng-bind="details.pullRequest.updatedDate | date" ng-if="options.date"></small>
+            <small v-if="options?.date" v-text="fmt?.date(details?.pullRequest?.updatedDate)"></small>
           </div>
-          <small ng-if="options.origin">Pull Request on {{details.pullRequest.baseRepositoryFullName}}</small>
-          <div class="pr-body shadow-sm p-3 mb-4 rounded" style="background: var(--paper-bg-alt)" ng-if="options.body">
-            <markdown content="anonymizePrContent(details.pullRequest.body)" options="options" terms="terms"></markdown>
+          <small v-if="options?.origin">Pull Request on {{ details?.pullRequest?.baseRepositoryFullName }}</small>
+          <div class="pr-body shadow-sm p-3 mb-4 rounded" style="background: var(--paper-bg-alt)" v-if="options?.body">
+            <markdown :content="anonymizePrContent(details?.pullRequest?.body)" :options="options" :terms="terms"></markdown>
           </div>
-          <nav class="paper-tabs" ng-if="options.diff || options.comments" role="tablist">
-            <button
-              class="paper-tab"
-              ng-if="options.diff"
-              ng-class="{'active': prTabState.active == 'diff'}"
-              ng-click="prTabState.active = 'diff'"
-              type="button"
-              role="tab"
-            >
+          <nav class="paper-tabs" role="tablist" v-if="options?.diff || options?.comments">
+            <button class="paper-tab" type="button" role="tab" v-if="options?.diff" :class="{&#x27;active&#x27;: prTabState?.active == &#x27;diff&#x27;}" @click="prTabState.active = &#x27;diff&#x27;">
               <i class="fas fa-code"></i> Diff
             </button>
-            <button
-              class="paper-tab"
-              ng-if="options.comments"
-              ng-class="{'active': prTabState.active == 'comments'}"
-              ng-click="prTabState.active = 'comments'"
-              type="button"
-              role="tab"
-            >
+            <button class="paper-tab" type="button" role="tab" v-if="options?.comments" :class="{&#x27;active&#x27;: prTabState?.active == &#x27;comments&#x27;}" @click="prTabState.active = &#x27;comments&#x27;">
               <i class="far fa-comment-dots"></i>
-              <ng-pluralize count="details.pullRequest.comments.length" when="{'0': 'No comments', 'one': '1 comment', 'other': '{} comments'}"></ng-pluralize>
+              <span v-text="fmt.plural(details?.pullRequest?.comments?.length, {&#x27;0&#x27;: &#x27;No comments&#x27;, &#x27;one&#x27;: &#x27;1 comment&#x27;, &#x27;other&#x27;: &#x27;{} comments&#x27;})"></span>
             </button>
           </nav>
           <div class="paper-tab-content">
-            <div ng-if="options.diff && prTabState.active == 'diff'">
-              <div class="pr-diff" ng-bind-html="anonymizePrContent(details.pullRequest.diff) | diff"></div>
+            <div v-if="options?.diff &amp;&amp; prTabState?.active == &#x27;diff&#x27;">
+              <div class="pr-diff" v-html="sanitize(fmt?.diff(anonymizePrContent(details?.pullRequest?.diff)))"></div>
             </div>
-            <div ng-if="options.comments && prTabState.active == 'comments'">
+            <div v-if="options?.comments &amp;&amp; prTabState?.active == &#x27;comments&#x27;">
               <ul class="pr-comments">
-                <li class="pr-comment" ng-repeat="comment in details.pullRequest.comments">
+                <li class="pr-comment" v-for="(comment, index) in details?.pullRequest?.comments">
                   <div class="pr-comment-head">
-                    <span class="pr-comment-author" ng-if="options.username">
-                      <i class="far fa-user"></i> @<span ng-bind="anonymizePrContent(comment.author)"></span>
+                    <span class="pr-comment-author" v-if="options?.username">
+                      <i class="far fa-user"></i> @<span v-text="anonymizePrContent(comment?.author)"></span>
                     </span>
-                    <span class="pr-comment-date" ng-if="options.date" ng-bind="comment.updatedDate | date"></span>
+                    <span class="pr-comment-date" v-if="options?.date" v-text="fmt?.date(comment?.updatedDate)"></span>
                   </div>
-                  <div class="pr-comment-body" ng-if="options.body">
-                    <markdown content="anonymizePrContent(comment.body)" options="options" terms="terms"></markdown>
+                  <div class="pr-comment-body" v-if="options?.body">
+                    <markdown :content="anonymizePrContent(comment?.body)" :options="options" :terms="terms"></markdown>
                   </div>
                 </li>
               </ul>

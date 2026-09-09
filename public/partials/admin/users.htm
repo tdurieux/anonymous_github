@@ -12,90 +12,85 @@
   </nav>
 
   <div class="admin-summary">
-    <span class="summary-total">{{total >= 0 ? (total | number) : '…'}}</span>
-    <span class="summary-pill ok" ng-class="{active: query.status == 'active'}" ng-click="query.status = query.status == 'active' ? '' : 'active'; query.page = 1">Active <span class="count">{{statusCountFor('active') | number}}</span></span>
-    <span class="summary-pill error" ng-class="{active: query.status == 'banned'}" ng-click="query.status = query.status == 'banned' ? '' : 'banned'; query.page = 1">Banned <span class="count">{{statusCountFor('banned') | number}}</span></span>
-    <span class="summary-pill" ng-class="{active: query.status == 'removed'}" ng-click="query.status = query.status == 'removed' ? '' : 'removed'; query.page = 1">Removed <span class="count">{{statusCountFor('removed') | number}}</span></span>
+    <span class="summary-total">{{ total >= 0 ? fmt.number(total) : '…' }}</span>
+    <span class="summary-pill ok" :class="{active: query?.status == &#x27;active&#x27;}" @click="query.status = query.status == &#x27;active&#x27; ? &#x27;&#x27; : &#x27;active&#x27;; query.page = 1">Active <span class="count">{{ fmt?.number(statusCountFor('active')) }}</span></span>
+    <span class="summary-pill error" :class="{active: query?.status == &#x27;banned&#x27;}" @click="query.status = query.status == &#x27;banned&#x27; ? &#x27;&#x27; : &#x27;banned&#x27;; query.page = 1">Banned <span class="count">{{ fmt?.number(statusCountFor('banned')) }}</span></span>
+    <span class="summary-pill" :class="{active: query?.status == &#x27;removed&#x27;}" @click="query.status = query.status == &#x27;removed&#x27; ? &#x27;&#x27; : &#x27;removed&#x27;; query.page = 1">Removed <span class="count">{{ fmt?.number(statusCountFor('removed')) }}</span></span>
   </div>
 
-  <div class="alert alert-danger" ng-if="fetchError" style="margin: 8px 0;">
-    <i class="fas fa-exclamation-triangle"></i> {{fetchError}}
+  <div class="alert alert-danger" style="margin: 8px 0;" v-if="fetchError">
+    <i class="fas fa-exclamation-triangle"></i> {{ fetchError }}
   </div>
 
-  <form class="w-100 admin-filter-toolbar" aria-label="Users" accept-charset="UTF-8">
+  <form class="w-100 admin-filter-toolbar" aria-label="Users" accept-charset="UTF-8" v-form="viewState">
     <div class="admin-filter-row">
       <div class="search-wrap">
-        <input type="search" class="form-control" aria-label="Search users" placeholder="Search username or email…" autocomplete="off" ng-model="query.search" />
-        <span class="admin-search-hint" ng-if="!query.search">/</span>
+        <input type="search" class="form-control" aria-label="Search users" placeholder="Search username or email…" autocomplete="off" v-field="{ state: viewState, set: value =&gt; { query.search = value }, value: query?.search, form: null, options: {} }">
+        <span class="admin-search-hint" v-if="!query?.search">/</span>
       </div>
       <span class="admin-filter-inline"><label>Role</label>
-        <select class="form-control form-control-sm" ng-model="query.role"><option value="">Any</option><option value="admin">Admin</option></select>
+        <select class="form-control form-control-sm" v-field="{ state: viewState, set: value =&gt; { query.role = value }, value: query?.role, form: null, options: {} }"><option value="">Any</option><option value="admin">Admin</option></select>
       </span>
       <span class="admin-filter-spacer"></span>
-      <button class="btn btn-sm" type="button" ng-click="exportCsv()"><i class="fas fa-file-csv"></i> Export</button>
+      <button class="btn btn-sm" type="button" @click="exportCsv()"><i class="fas fa-file-csv"></i> Export</button>
       <span class="admin-filter-inline" aria-label="Pagination">
-        <button class="btn btn-sm" type="button" ng-click="query.page = Math.max(1, query.page - 1)" ng-disabled="query.page <= 1"><i class="fas fa-chevron-left"></i></button>
-        <span style="font-family: var(--font-mono); font-size: 12px; color: var(--ink-muted);">{{query.page}}/{{totalPage || 1}}</span>
-        <button class="btn btn-sm" type="button" ng-click="query.page = Math.min(totalPage, query.page + 1)" ng-disabled="query.page >= totalPage"><i class="fas fa-chevron-right"></i></button>
+        <button class="btn btn-sm" type="button" @click="query.page = Math.max(1, query.page - 1)" :disabled="query?.page &lt;= 1"><i class="fas fa-chevron-left"></i></button>
+        <span style="font-family: var(--font-mono); font-size: 12px; color: var(--ink-muted);">{{ query?.page }}/{{ totalPage || 1 }}</span>
+        <button class="btn btn-sm" type="button" @click="query.page = Math.min(totalPage, query.page + 1)" :disabled="query?.page &gt;= totalPage"><i class="fas fa-chevron-right"></i></button>
       </span>
     </div>
 
-    <div class="admin-filter-row" ng-if="chips.length">
+    <div class="admin-filter-row" v-if="chips?.length">
       <div class="admin-active-chips">
-        <span class="admin-active-chip" ng-repeat="chip in chips track by chip.key">
-          <span class="key">{{chip.label}}</span>
-          <span>{{chip.value}}</span>
-          <button type="button" ng-click="clearFilter(chip.key)"><i class="fas fa-times"></i></button>
+        <span class="admin-active-chip" v-for="(chip, index) in chips" :key="chip?.key">
+          <span class="key">{{ chip?.label }}</span>
+          <span>{{ chip?.value }}</span>
+          <button type="button" @click="clearFilter(chip.key)"><i class="fas fa-times"></i></button>
         </span>
       </div>
     </div>
   </form>
 
-  <div class="bulk-bar" ng-if="selectedCount() > 0">
-    <span><strong>{{selectedCount()}}</strong> selected</span>
-    <button class="btn btn-sm text-danger" type="button" ng-click="bulkBan()"><i class="fas fa-ban"></i> Ban</button>
-    <button class="btn btn-sm" type="button" ng-click="selected = {}; allSelected = false">Clear</button>
+  <div class="bulk-bar" v-if="selectedCount() &gt; 0">
+    <span><strong>{{ selectedCount() }}</strong> selected</span>
+    <button class="btn btn-sm text-danger" type="button" @click="bulkBan()"><i class="fas fa-ban"></i> Ban</button>
+    <button class="btn btn-sm" type="button" @click="selected = {}; allSelected = false">Clear</button>
   </div>
 
   <div class="paper-table w-100" role="table" aria-label="Users" style="--cols: 28px minmax(280px, 2.4fr) 100px 140px 140px 52px;">
     <div class="paper-table-head admin-users-row" role="row">
       <div role="columnheader" style="width: 28px;">
-        <input type="checkbox" ng-click="selectAllOnPage()" ng-checked="allSelected" aria-label="Select all on page" />
+        <input type="checkbox" aria-label="Select all on page" @click="selectAllOnPage()" :checked="allSelected">
       </div>
-      <div role="columnheader"><span class="sortable" ng-class="{active: query.sort == 'username'}" ng-click="sortBy('username')">User <i class="fas" ng-class="sortIcon('username')"></i></span></div>
+      <div role="columnheader"><span class="sortable" :class="{active: query?.sort == &#x27;username&#x27;}" @click="sortBy(&#x27;username&#x27;)">User <i class="fas" :class="sortIcon(&#x27;username&#x27;)"></i></span></div>
       <div role="columnheader" class="num">Repos</div>
-      <div role="columnheader"><span class="sortable" ng-class="{active: query.sort == 'status'}" ng-click="sortBy('status')">Status <i class="fas" ng-class="sortIcon('status')"></i></span></div>
+      <div role="columnheader"><span class="sortable" :class="{active: query?.sort == &#x27;status&#x27;}" @click="sortBy(&#x27;status&#x27;)">Status <i class="fas" :class="sortIcon(&#x27;status&#x27;)"></i></span></div>
       <div role="columnheader">Role</div>
       <div role="columnheader" aria-label="Actions"></div>
     </div>
-    <div
-      class="paper-table-row admin-users-row"
-      role="row"
-      ng-class="{'row-selected': selected[u.username]}"
-      ng-repeat="u in users | filter:userFiler | orderBy:orderBy as filteredUsers"
-    >
+    <div class="paper-table-row admin-users-row" role="row" v-for="(u, index) in filteredUsers" :class="{&#x27;row-selected&#x27;: selected[u?.username]}">
       <div role="cell" style="width: 28px;">
-        <input type="checkbox" ng-model="selected[u.username]" aria-label="Select user" />
+        <input type="checkbox" aria-label="Select user" v-field="{ state: viewState, set: value =&gt; { selected[u.username] = value }, value: selected[u?.username], form: null, options: {} }">
       </div>
       <div class="cell-anon" role="cell">
-        <img ng-src="{{u.photo}}" ng-if="u.photo" width="28" height="28" class="rounded-circle" style="flex-shrink:0;" />
+        <img width="28" height="28" class="rounded-circle" style="flex-shrink:0;" v-if="u?.photo" :src="safeUrl((u?.photo))">
         <div class="anon-text">
-          <a class="repo-name" ng-href="/admin/users/{{u.username}}" ng-bind="u.username"></a>
+          <a class="repo-name" v-text="u?.username" :href="safeUrl(&quot;/admin/users/&quot; + (u?.username))"></a>
           <div class="anon-sub">
-            <span ng-if="u.emails[0].email">{{u.emails[0].email}}</span><span ng-if="u.emails[0].email">&nbsp;&middot;&nbsp;</span><a href="https://github.com/{{u.username}}" target="_blank"><i class="fab fa-github"></i> {{u.username}}</a><span ng-if="u.dateOfEntry">&nbsp;&middot;&nbsp;Joined {{u.dateOfEntry | humanTime}}</span>
+            <span v-if="u?.emails[0].email">{{ u?.emails[0].email }}</span><span v-if="u?.emails[0].email">&nbsp;&middot;&nbsp;</span><a target="_blank" :href="safeUrl(&quot;https://github.com/&quot; + (u?.username))"><i class="fab fa-github"></i> {{ u?.username }}</a><span v-if="u?.dateOfEntry">&nbsp;&middot;&nbsp;Joined {{ fmt?.humanTime(u?.dateOfEntry) }}</span>
           </div>
         </div>
       </div>
       <div class="cell-views num" role="cell">
-        <a ng-href="/admin/?owner={{u.username}}" ng-bind="(u.repoCount || 0) | number" title="Show this user's repositories"></a>
+        <a title="Show this user&#x27;s repositories" v-text="fmt?.number((u?.repoCount || 0))" :href="safeUrl(&quot;/admin/?owner=&quot; + (u?.username))"></a>
       </div>
       <div class="cell-status" role="cell">
-        <span class="status-dot" ng-class="{'status-ready': u.status == 'active', 'status-removed': u.status == 'removed' || u.status == 'banned'}"></span>
-        <span ng-bind="u.status | title"></span>
+        <span class="status-dot" :class="{&#x27;status-ready&#x27;: u?.status == &#x27;active&#x27;, &#x27;status-removed&#x27;: u?.status == &#x27;removed&#x27; || u?.status == &#x27;banned&#x27;}"></span>
+        <span v-text="fmt?.title(u?.status)"></span>
       </div>
       <div class="cell-status" role="cell">
-        <span ng-if="u.isAdmin" class="type-badge type-repo">Admin</span>
-        <span ng-if="!u.isAdmin" class="empty-dash">&mdash;</span>
+        <span class="type-badge type-repo" v-if="u?.isAdmin">Admin</span>
+        <span class="empty-dash" v-if="!u?.isAdmin">&mdash;</span>
       </div>
       <div class="cell-actions" role="cell">
         <div class="dropdown">
@@ -103,32 +98,32 @@
             <i class="fas fa-ellipsis-h" aria-hidden="true"></i>
           </button>
           <div class="dropdown-menu dropdown-menu-right">
-            <a class="dropdown-item" href="/admin/users/{{u.username}}"><i class="far fa-eye"></i> View details</a>
-            <a class="dropdown-item" href="/admin/?owner={{u.username}}"><i class="fas fa-code-branch"></i> View repositories</a>
+            <a class="dropdown-item" :href="safeUrl(&quot;/admin/users/&quot; + (u?.username))"><i class="far fa-eye"></i> View details</a>
+            <a class="dropdown-item" :href="safeUrl(&quot;/admin/?owner=&quot; + (u?.username))"><i class="fas fa-code-branch"></i> View repositories</a>
             <div class="dropdown-divider"></div>
-            <a class="dropdown-item text-danger" href="#" ng-show="u.status == 'active'" ng-click="banUser(u)"><i class="fas fa-ban"></i> Ban</a>
-            <a class="dropdown-item" href="#" ng-show="u.status == 'removed' || u.status == 'banned'" ng-click="activateUser(u)"><i class="fas fa-check-circle"></i> Activate</a>
+            <a class="dropdown-item text-danger" href="#" v-show="u?.status == &#x27;active&#x27;" @click.prevent="banUser(u)"><i class="fas fa-ban"></i> Ban</a>
+            <a class="dropdown-item" href="#" v-show="u?.status == &#x27;removed&#x27; || u?.status == &#x27;banned&#x27;" @click.prevent="activateUser(u)"><i class="fas fa-check-circle"></i> Activate</a>
           </div>
         </div>
       </div>
     </div>
-    <div class="paper-table-empty" ng-if="filteredUsers.length == 0">
+    <div class="paper-table-empty" v-if="filteredUsers?.length == 0">
       <i class="fas fa-inbox"></i>
       <span>No users match the current filters.</span>
     </div>
   </div>
 
   <div class="admin-toolbar" style="justify-content: space-between; border-bottom: none;">
-    <span style="font-size: 12px; color: var(--ink-muted);">{{total | number}} results</span>
-    <div class="pagination-compact" ng-if="totalPage > 1">
-      <button class="btn btn-sm" ng-click="query.page = Math.max(1, query.page - 1)" ng-disabled="query.page <= 1"><i class="fas fa-chevron-left"></i> Previous</button>
-      <input type="number" class="form-control form-control-sm" ng-model="query.page" min="1" max="{{totalPage}}" style="width: 56px;" />
-      <span>of {{totalPage}}</span>
-      <button class="btn btn-sm" ng-click="query.page = Math.min(totalPage, query.page + 1)" ng-disabled="query.page >= totalPage">Next <i class="fas fa-chevron-right"></i></button>
+    <span style="font-size: 12px; color: var(--ink-muted);">{{ fmt?.number(total) }} results</span>
+    <div class="pagination-compact" v-if="totalPage &gt; 1">
+      <button class="btn btn-sm" @click="query.page = Math.max(1, query.page - 1)" :disabled="query?.page &lt;= 1"><i class="fas fa-chevron-left"></i> Previous</button>
+      <input type="number" class="form-control form-control-sm" min="1" style="width: 56px;" v-field="{ state: viewState, set: value =&gt; { query.page = value }, value: query?.page, form: null, options: {} }" :max="(totalPage)">
+      <span>of {{ totalPage }}</span>
+      <button class="btn btn-sm" @click="query.page = Math.min(totalPage, query.page + 1)" :disabled="query?.page &gt;= totalPage">Next <i class="fas fa-chevron-right"></i></button>
     </div>
     <span class="admin-filter-inline">
       <label>Per page</label>
-      <select class="form-control form-control-sm" ng-model="query.limit"><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select>
+      <select class="form-control form-control-sm" v-field="{ state: viewState, set: value =&gt; { query.limit = value }, value: query?.limit, form: null, options: {} }"><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select>
     </span>
   </div>
 </div>

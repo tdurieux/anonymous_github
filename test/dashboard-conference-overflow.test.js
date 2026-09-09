@@ -44,6 +44,6 @@ describe("dashboard .cell-conf overflow fix", function () {
 
   it("exposes the full conference value via a title attribute for truncated text", function () {
     const html = fs.readFileSync(htmlPath, "utf8");
-    expect(html).to.match(/cell-conf[\s\S]*?title="\{\{item\.conference\}\}"/);
+    expect(html).to.match(/cell-conf[\s\S]*?:title="\(item\?\.conference\)"/);
   });
 });

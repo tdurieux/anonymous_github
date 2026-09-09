@@ -1,13 +1,13 @@
 <div class="container paper-page paper-settings">
-  <div class="paper-crumbs"><a href="/dashboard">My work</a> &nbsp;/&nbsp; <a href="/conferences">Conferences</a> &nbsp;/&nbsp; <span class="here">{{editionMode ? 'Edit' : 'New'}}</span></div>
-  <h1 class="paper-page-title">{{editionMode ? 'Edit' : 'Create a'}} <em>conference</em></h1>
+  <div class="paper-crumbs"><a href="/dashboard">My work</a> &nbsp;/&nbsp; <a href="/conferences">Conferences</a> &nbsp;/&nbsp; <span class="here">{{ editionMode ? 'Edit' : 'New' }}</span></div>
+  <h1 class="paper-page-title">{{ editionMode ? 'Edit' : 'Create a' }} <em>conference</em></h1>
   <p class="paper-page-lede">
     Give chairs access to every anonymization submitted to a venue, and lift
     author quotas during the review window.
   </p>
 
   <div class="paper-settings-body">
-    <aside class="paper-settings-toc" paper-scrollspy>
+    <aside class="paper-settings-toc" v-paper-scrollspy>
       <div class="paper-settings-toc-head">On this page</div>
       <nav>
         <a href="#conf-basics">Basics</a>
@@ -15,71 +15,44 @@
         <a href="#conf-rendering">Rendering defaults</a>
         <a href="#conf-features">Features</a>
         <a href="#conf-plan">Plan</a>
-        <a href="#conf-billing" ng-show="plan.pricePerRepo > 0">Billing</a>
+        <a href="#conf-billing" v-show="plan?.pricePerRepo &gt; 0">Billing</a>
       </nav>
     </aside>
 
-    <form class="form needs-validation paper-settings-main" name="conference" novalidate>
+    <form class="form needs-validation paper-settings-main" name="conference" novalidate v-form="viewState">
       <section id="conf-basics" class="paper-settings-section">
         <div class="paper-section-eyebrow">Basics</div>
 
         <div class="form-group">
           <label class="paper-field-label" for="name">Conference name</label>
-          <input
-            type="text"
-            class="form-control"
-            name="name"
-            id="name"
-            required
-            ng-class="{'is-invalid': conference.name.$invalid && (conference.name.$touched || conference.$submitted)}"
-            ng-model="options.name"
-            placeholder="e.g. International Conference on Software Engineering"
-          />
-          <div class="invalid-feedback" ng-show="conference.name.$error.invalid">
+          <input type="text" class="form-control" name="name" id="name" required placeholder="e.g. International Conference on Software Engineering" v-field="{ state: viewState, set: value =&gt; { options.name = value }, value: options?.name, form: &quot;conference&quot;, options: {} }" :class="{&#x27;is-invalid&#x27;: conference?.name?.invalid &amp;&amp; (conference?.name?.touched || conference?.submitted)}">
+          <div class="invalid-feedback" v-show="conference?.name?.errors?.invalid">
             The name of the conference is invalid.
           </div>
-          <div class="invalid-feedback" ng-show="conference.name.$error.required">
+          <div class="invalid-feedback" v-show="conference?.name?.errors?.required">
             The name of the conference is required.
           </div>
         </div>
 
         <div class="form-group">
           <label class="paper-field-label" for="url">Website</label>
-          <input
-            type="url"
-            class="form-control"
-            name="url"
-            id="url"
-            ng-class="{'is-invalid': conference.url.$invalid && (conference.url.$touched || conference.$submitted)}"
-            ng-model="options.url"
-            placeholder="https://example.org"
-          />
-          <div class="invalid-feedback" ng-show="conference.url.$error.invalid">
+          <input type="url" class="form-control" name="url" id="url" placeholder="https://example.org" v-field="{ state: viewState, set: value =&gt; { options.url = value }, value: options?.url, form: &quot;conference&quot;, options: {} }" :class="{&#x27;is-invalid&#x27;: conference?.url?.invalid &amp;&amp; (conference?.url?.touched || conference?.submitted)}">
+          <div class="invalid-feedback" v-show="conference?.url?.errors?.invalid">
             The url of the conference is invalid.
           </div>
         </div>
 
         <div class="form-group">
           <label class="paper-field-label" for="conferenceID">Conference ID</label>
-          <input
-            type="text"
-            class="form-control"
-            name="conferenceID"
-            id="conferenceID"
-            required
-            pattern="[a-zA-Z0-9\-_]{3,10}"
-            ng-class="{'is-invalid': conference.conferenceID.$invalid && (conference.conferenceID.$touched || conference.$submitted)}"
-            ng-model="options.conferenceID"
-            placeholder="ICSE26"
-          />
+          <input type="text" class="form-control" name="conferenceID" id="conferenceID" required pattern="[a-zA-Z0-9\-_]{3,10}" placeholder="ICSE26" v-field="{ state: viewState, set: value =&gt; { options.conferenceID = value }, value: options?.conferenceID, form: &quot;conference&quot;, options: {} }" :class="{&#x27;is-invalid&#x27;: conference?.conferenceID?.invalid &amp;&amp; (conference?.conferenceID?.touched || conference?.submitted)}">
           <small class="form-text text-muted">3&ndash;10 characters, letters, numbers, <code>-</code> and <code>_</code>. Authors reference this when they anonymize.</small>
-          <div class="invalid-feedback" ng-show="conference.conferenceID.$error.used">
-            The conference ID '{{options.conferenceID}}' is already used.
+          <div class="invalid-feedback" v-show="conference?.conferenceID?.errors?.used">
+            The conference ID '{{ options?.conferenceID }}' is already used.
           </div>
-          <div class="invalid-feedback" ng-show="conference.conferenceID.$error.required">
+          <div class="invalid-feedback" v-show="conference?.conferenceID?.errors?.required">
             The conference ID is required.
           </div>
-          <div class="invalid-feedback" ng-show="conference.conferenceID.$error.pattern">
+          <div class="invalid-feedback" v-show="conference?.conferenceID?.errors?.pattern">
             The format of the conference ID is incorrect ([a-zA-Z0-9-_]{3,10}).
           </div>
         </div>
@@ -91,40 +64,24 @@
         <div class="form-grid-2">
           <div class="form-group">
             <label class="paper-field-label" for="startDate">Start date</label>
-            <input
-              type="date"
-              class="form-control"
-              name="startDate"
-              id="startDate"
-              required
-              ng-class="{'is-invalid': conference.startDate.$invalid && (conference.startDate.$touched || conference.$submitted)}"
-              ng-model="options.startDate"
-            />
+            <input type="date" class="form-control" name="startDate" id="startDate" required v-field="{ state: viewState, set: value =&gt; { options.startDate = value }, value: options?.startDate, form: &quot;conference&quot;, options: {} }" :class="{&#x27;is-invalid&#x27;: conference?.startDate?.invalid &amp;&amp; (conference?.startDate?.touched || conference?.submitted)}">
             <small class="form-text text-muted">Beginning of the review process.</small>
-            <div class="invalid-feedback" ng-show="conference.startDate.$error.required">
+            <div class="invalid-feedback" v-show="conference?.startDate?.errors?.required">
               Start date is required.
             </div>
-            <div class="invalid-feedback" ng-show="conference.startDate.$error.invalid">
+            <div class="invalid-feedback" v-show="conference?.startDate?.errors?.invalid">
               Start date must be before end date.
             </div>
           </div>
 
           <div class="form-group">
             <label class="paper-field-label" for="endDate">End date</label>
-            <input
-              type="date"
-              class="form-control"
-              name="endDate"
-              id="endDate"
-              required
-              ng-class="{'is-invalid': conference.endDate.$invalid && (conference.endDate.$touched || conference.$submitted)}"
-              ng-model="options.endDate"
-            />
+            <input type="date" class="form-control" name="endDate" id="endDate" required v-field="{ state: viewState, set: value =&gt; { options.endDate = value }, value: options?.endDate, form: &quot;conference&quot;, options: {} }" :class="{&#x27;is-invalid&#x27;: conference?.endDate?.invalid &amp;&amp; (conference?.endDate?.touched || conference?.submitted)}">
             <small class="form-text text-muted">All repositories expire on this date.</small>
-            <div class="invalid-feedback" ng-show="conference.endDate.$error.required">
+            <div class="invalid-feedback" v-show="conference?.endDate?.errors?.required">
               End date is required.
             </div>
-            <div class="invalid-feedback" ng-show="conference.endDate.$error.invalid">
+            <div class="invalid-feedback" v-show="conference?.endDate?.errors?.invalid">
               End date is invalid.
             </div>
           </div>
@@ -135,22 +92,22 @@
         <div class="paper-section-eyebrow">Rendering defaults</div>
 
         <div class="form-check">
-          <input class="form-check-input" type="checkbox" id="link" name="link" ng-model="options.options.link" />
+          <input class="form-check-input" type="checkbox" id="link" name="link" v-field="{ state: viewState, set: value =&gt; { options.options.link = value }, value: options?.options?.link, form: &quot;conference&quot;, options: {} }">
           <label class="form-check-label" for="link">Keep links</label>
           <small class="form-text text-muted">Keep or remove all links from text files.</small>
         </div>
         <div class="form-check">
-          <input class="form-check-input" type="checkbox" id="image" name="image" ng-model="options.options.image" />
+          <input class="form-check-input" type="checkbox" id="image" name="image" v-field="{ state: viewState, set: value =&gt; { options.options.image = value }, value: options?.options?.image, form: &quot;conference&quot;, options: {} }">
           <label class="form-check-label" for="image">Display images</label>
           <small class="form-text text-muted">Images are not anonymized.</small>
         </div>
         <div class="form-check">
-          <input class="form-check-input" type="checkbox" id="pdf" name="pdf" ng-model="options.options.pdf" />
+          <input class="form-check-input" type="checkbox" id="pdf" name="pdf" v-field="{ state: viewState, set: value =&gt; { options.options.pdf = value }, value: options?.options?.pdf, form: &quot;conference&quot;, options: {} }">
           <label class="form-check-label" for="pdf">Display PDFs</label>
           <small class="form-text text-muted">PDFs are not anonymized.</small>
         </div>
         <div class="form-check">
-          <input class="form-check-input" type="checkbox" id="notebook" name="notebook" ng-model="options.options.notebook" />
+          <input class="form-check-input" type="checkbox" id="notebook" name="notebook" v-field="{ state: viewState, set: value =&gt; { options.options.notebook = value }, value: options?.options?.notebook, form: &quot;conference&quot;, options: {} }">
           <label class="form-check-label" for="notebook">Display Notebooks</label>
         </div>
       </section>
@@ -159,12 +116,12 @@
         <div class="paper-section-eyebrow">Features</div>
 
         <div class="form-check">
-          <input class="form-check-input" type="checkbox" id="update" name="update" ng-model="options.options.update" />
+          <input class="form-check-input" type="checkbox" id="update" name="update" v-field="{ state: viewState, set: value =&gt; { options.options.update = value }, value: options?.options?.update, form: &quot;conference&quot;, options: {} }">
           <label class="form-check-label" for="update">Auto-update from GitHub</label>
           <small class="form-text text-muted">Pull the latest commit automatically (hourly maximum).</small>
         </div>
         <div class="form-check">
-          <input class="form-check-input" type="checkbox" id="page" name="page" ng-model="options.options.page" />
+          <input class="form-check-input" type="checkbox" id="page" name="page" v-field="{ state: viewState, set: value =&gt; { options.options.page = value }, value: options?.options?.page, form: &quot;conference&quot;, options: {} }">
           <label class="form-check-label" for="page">GitHub Pages</label>
           <small class="form-text text-muted">Enable anonymized GitHub pages.</small>
         </div>
@@ -175,92 +132,65 @@
         <p class="paper-section-copy">Billed per repository per month, prorated by the day for as long as a repository stays in the conference.</p>
 
         <div class="paper-plan-grid">
-          <label
-            class="paper-plan-card"
-            ng-class="{'selected': options.plan.planID == plan.id}"
-            ng-repeat="plan in plans"
-          >
-            <input
-              type="radio"
-              name="planPicker"
-              ng-value="plan.id"
-              ng-model="options.plan.planID"
-            />
-            <div class="paper-plan-head" ng-bind="plan.name"></div>
+          <label class="paper-plan-card" v-for="(plan, index) in plans" :class="{&#x27;selected&#x27;: options?.plan?.planID == plan?.id}">
+            <input type="radio" name="planPicker" v-field="{ state: viewState, set: value =&gt; { options.plan.planID = value }, value: options?.plan?.planID, form: &quot;conference&quot;, options: {} }" :value="plan?.id">
+            <div class="paper-plan-head" v-text="plan?.name"></div>
             <div class="paper-plan-price">
-              {{plan.pricePerRepo | number}}&euro;
+              {{ fmt?.number(plan?.pricePerRepo) }}&euro;
               <span class="paper-plan-per">/ repo / month</span>
             </div>
-            <div class="paper-plan-desc" ng-bind-html="plan.description"></div>
+            <div class="paper-plan-desc" v-html="sanitize(plan?.description)"></div>
           </label>
         </div>
       </section>
 
-      <section id="conf-billing" class="paper-settings-section" ng-if="plan.pricePerRepo > 0">
+      <section id="conf-billing" class="paper-settings-section" v-if="plan?.pricePerRepo &gt; 0">
         <div class="paper-section-eyebrow">Billing</div>
 
         <div class="form-group">
           <label class="paper-field-label" for="billing_name">Name</label>
-          <input type="text" class="form-control" name="billing_name" id="billing_name" required
-            ng-class="{'is-invalid': conference.billing_name.$invalid && (conference.billing_name.$touched || conference.$submitted)}"
-            ng-model="options.billing.name" placeholder="First &amp; last name" />
+          <input type="text" class="form-control" name="billing_name" id="billing_name" required placeholder="First &amp; last name" v-field="{ state: viewState, set: value =&gt; { options.billing.name = value }, value: options?.billing?.name, form: &quot;conference&quot;, options: {} }" :class="{&#x27;is-invalid&#x27;: conference?.billing_name?.invalid &amp;&amp; (conference?.billing_name?.touched || conference?.submitted)}">
         </div>
 
         <div class="form-group">
           <label class="paper-field-label" for="email">Email</label>
-          <input type="email" class="form-control" name="email" id="email" required
-            ng-class="{'is-invalid': conference.email.$invalid && (conference.email.$touched || conference.$submitted)}"
-            ng-model="options.billing.email" placeholder="you@example.org" />
+          <input type="email" class="form-control" name="email" id="email" required placeholder="you@example.org" v-field="{ state: viewState, set: value =&gt; { options.billing.email = value }, value: options?.billing?.email, form: &quot;conference&quot;, options: {} }" :class="{&#x27;is-invalid&#x27;: conference?.email?.invalid &amp;&amp; (conference?.email?.touched || conference?.submitted)}">
         </div>
 
         <div class="form-group">
           <label class="paper-field-label" for="inputAddress">Address</label>
-          <input type="text" class="form-control" name="inputAddress" id="inputAddress" required
-            placeholder="1234 Main St"
-            ng-model="options.billing.address"
-            ng-class="{'is-invalid': conference.inputAddress.$invalid && (conference.inputAddress.$touched || conference.$submitted)}" />
+          <input type="text" class="form-control" name="inputAddress" id="inputAddress" required placeholder="1234 Main St" v-field="{ state: viewState, set: value =&gt; { options.billing.address = value }, value: options?.billing?.address, form: &quot;conference&quot;, options: {} }" :class="{&#x27;is-invalid&#x27;: conference?.inputAddress?.invalid &amp;&amp; (conference?.inputAddress?.touched || conference?.submitted)}">
         </div>
         <div class="form-group">
-          <input type="text" class="form-control" name="inputAddress2" id="inputAddress2"
-            ng-model="options.billing.address2"
-            ng-class="{'is-invalid': conference.inputAddress2.$invalid && (conference.inputAddress2.$touched || conference.$submitted)}"
-            placeholder="Apartment, studio, or floor" />
+          <input type="text" class="form-control" name="inputAddress2" id="inputAddress2" placeholder="Apartment, studio, or floor" v-field="{ state: viewState, set: value =&gt; { options.billing.address2 = value }, value: options?.billing?.address2, form: &quot;conference&quot;, options: {} }" :class="{&#x27;is-invalid&#x27;: conference?.inputAddress2?.invalid &amp;&amp; (conference?.inputAddress2?.touched || conference?.submitted)}">
         </div>
 
         <div class="form-grid-3">
           <div class="form-group">
             <label class="paper-field-label" for="city">City</label>
-            <input type="text" class="form-control" name="city" id="city"
-              ng-model="options.billing.city" required
-              ng-class="{'is-invalid': conference.city.$invalid && (conference.city.$touched || conference.$submitted)}" placeholder="City" />
+            <input type="text" class="form-control" name="city" id="city" required placeholder="City" v-field="{ state: viewState, set: value =&gt; { options.billing.city = value }, value: options?.billing?.city, form: &quot;conference&quot;, options: {} }" :class="{&#x27;is-invalid&#x27;: conference?.city?.invalid &amp;&amp; (conference?.city?.touched || conference?.submitted)}">
           </div>
           <div class="form-group">
             <label class="paper-field-label" for="country">Country</label>
-            <input type="text" class="form-control" name="country" id="country"
-              ng-model="options.billing.country" required
-              ng-class="{'is-invalid': conference.country.$invalid && (conference.country.$touched || conference.$submitted)}" placeholder="Country" />
+            <input type="text" class="form-control" name="country" id="country" required placeholder="Country" v-field="{ state: viewState, set: value =&gt; { options.billing.country = value }, value: options?.billing?.country, form: &quot;conference&quot;, options: {} }" :class="{&#x27;is-invalid&#x27;: conference?.country?.invalid &amp;&amp; (conference?.country?.touched || conference?.submitted)}">
           </div>
           <div class="form-group">
             <label class="paper-field-label" for="zip">Zip</label>
-            <input type="text" class="form-control" name="zip" id="zip"
-              ng-model="options.billing.zip" required
-              ng-class="{'is-invalid': conference.zip.$invalid && (conference.zip.$touched || conference.$submitted)}" placeholder="Zip" />
+            <input type="text" class="form-control" name="zip" id="zip" required placeholder="Zip" v-field="{ state: viewState, set: value =&gt; { options.billing.zip = value }, value: options?.billing?.zip, form: &quot;conference&quot;, options: {} }" :class="{&#x27;is-invalid&#x27;: conference?.zip?.invalid &amp;&amp; (conference?.zip?.touched || conference?.submitted)}">
           </div>
         </div>
 
         <div class="form-group">
           <label class="paper-field-label" for="vat">VAT number</label>
-          <input type="text" class="form-control" name="vat" id="vat"
-            ng-class="{'is-invalid': conference.vat.$invalid && (conference.vat.$touched || conference.$submitted)}"
-            ng-model="options.billing.vat" placeholder="VAT Number" />
+          <input type="text" class="form-control" name="vat" id="vat" placeholder="VAT Number" v-field="{ state: viewState, set: value =&gt; { options.billing.vat = value }, value: options?.billing?.vat, form: &quot;conference&quot;, options: {} }" :class="{&#x27;is-invalid&#x27;: conference?.vat?.invalid &amp;&amp; (conference?.vat?.touched || conference?.submitted)}">
         </div>
       </section>
 
       <div class="paper-settings-footer">
-        <div class="alert alert-danger" role="alert" ng-if="error" ng-bind="error"></div>
-        <div class="alert alert-success" role="alert" ng-if="message" ng-bind="message"></div>
-        <button id="send" type="submit" class="btn btn-ink" ng-click="submit($event)">
-          {{editionMode ? "Update" : "Create"}} conference
+        <div class="alert alert-danger" role="alert" v-if="error" v-text="error"></div>
+        <div class="alert alert-success" role="alert" v-if="message" v-text="message"></div>
+        <button id="send" type="submit" class="btn btn-ink" @click.prevent="submitForm($event, () =&gt; { submit($event) })">
+          {{ editionMode ? "Update" : "Create" }} conference
         </button>
       </div>
     </form>

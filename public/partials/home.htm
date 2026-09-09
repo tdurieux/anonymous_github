@@ -4,7 +4,7 @@
     <div class="paper-hero-copy">
       <div class="paper-eyebrow">For double-blind peer review</div>
       <h1 class="hero-title">
-        Share the code,<br />
+        Share the code,<br>
         <span class="accent">not the author.</span>
       </h1>
       <p class="hero-subtitle">
@@ -14,18 +14,13 @@
       </p>
 
       <div class="paper-cta-row">
-        <a ng-if="!user" href="/github/login" target="_self" class="btn-hero">
+        <a href="/github/login" target="_self" class="btn-hero" v-if="!user">
           <i class="fab fa-github mr-2" aria-hidden="true"></i>Sign in with GitHub
         </a>
-        <a ng-if="user" href="/anonymize" class="btn-hero">
+        <a href="/anonymize" class="btn-hero" v-if="user">
           Anonymize a repository &rarr;
         </a>
-        <a
-          class="paper-link-arrow"
-          target="_self"
-          href="https://anonymous.4open.science/r/840c8c57-3c32-451e-bf12-0e20be300389/"
-          >See an anonymized repository &rarr;</a
-        >
+        <a class="paper-link-arrow" target="_self" href="https://anonymous.4open.science/r/840c8c57-3c32-451e-bf12-0e20be300389/">See an anonymized repository &rarr;</a>
       </div>
       <ul class="paper-reassure">
         <li>Free and open source</li>
@@ -39,12 +34,7 @@
           <span class="dots"><i></i><i></i><i></i></span>
           <span class="url">anonymous.4open.science/anonymize</span>
         </div>
-        <img
-          src="/imgs/anonymize.png"
-          width="2880"
-          height="1800"
-          alt="The anonymize form with a live README preview showing the redactions"
-        />
+        <img src="/imgs/anonymize.png" width="2880" height="1800" alt="The anonymize form with a live README preview showing the redactions">
       </div>
     </div>
   </section>
@@ -68,19 +58,14 @@
       </div>
     </div>
     <div class="paper-stats-grid">
-      <div class="paper-stat-card" ng-repeat="card in cards track by card.key">
-        <div class="paper-stat-value">{{card.total | bigNum}}</div>
-        <div class="paper-stat-label">{{card.label}}</div>
-        <svg class="paper-stat-bars" preserveAspectRatio="none" aria-hidden="true"
-             ng-attr-viewBox="0 0 {{history[card.key].viewW}} 36"
-             ng-if="history[card.key].bars.length > 1">
-          <rect ng-repeat="b in history[card.key].bars track by $index"
-                ng-attr-x="{{b.x}}" ng-attr-y="{{b.y}}"
-                ng-attr-width="{{b.w}}" ng-attr-height="{{b.h}}"
-                ng-class="{'is-latest': $last}"/>
+      <div class="paper-stat-card" v-for="(card, index) in cards" :key="card?.key">
+        <div class="paper-stat-value">{{ fmt?.bigNum(card?.total) }}</div>
+        <div class="paper-stat-label">{{ card?.label }}</div>
+        <svg class="paper-stat-bars" preserveAspectRatio="none" aria-hidden="true" v-if="history[card?.key].bars?.length &gt; 1" :viewBox="&quot;0 0 &quot; + (history[card?.key].viewW) + &quot; 36&quot;">
+          <rect v-for="(b, index) in history[card?.key].bars" :key="index" :class="{&#x27;is-latest&#x27;: index === history[card.key].bars.length - 1}" :x="(b?.x)" :y="(b?.y)" :width="(b?.w)" :height="(b?.h)"></rect>
         </svg>
-        <div class="paper-stat-delta" ng-if="history[card.key].bars.length > 1">
-          +{{history[card.key].deltaToday | number}} today
+        <div class="paper-stat-delta" v-if="history[card?.key].bars?.length &gt; 1">
+          +{{ fmt?.number(history[card?.key].deltaToday) }} today
         </div>
       </div>
     </div>
@@ -139,48 +124,27 @@
   </section>
   <section class="paper-features paper-wrap" aria-label="Product features">
     <div class="paper-features-list" role="tablist" aria-label="Features" aria-orientation="vertical">
-      <div
-        class="paper-feature"
-        ng-repeat="f in features track by f.key"
-        ng-class="{'is-on': feature === f.key}"
-      >
-        <button
-          type="button"
-          class="paper-feature-tab"
-          role="tab"
-          id="feature-tab-{{f.key}}"
-          aria-controls="feature-panel-{{f.key}}"
-          aria-selected="{{feature === f.key}}"
-          tabindex="{{feature === f.key ? 0 : -1}}"
-          ng-click="selectFeature(f.key)"
-          ng-keydown="featureKeydown($event, $index)"
-        >
-          <span class="paper-eyebrow">{{f.num}} &middot; {{f.eyebrow}}</span>
-          <span class="paper-feature-title">{{f.title}} <em>{{f.accent}}</em></span>
+      <div class="paper-feature" v-for="(f, index) in features" :key="f?.key" :class="{&#x27;is-on&#x27;: feature === f?.key}">
+        <button type="button" class="paper-feature-tab" role="tab" @click="selectFeature(f.key)" @keydown="featureKeydown($event, index)" :id="&quot;feature-tab-&quot; + (f?.key)" :aria-controls="&quot;feature-panel-&quot; + (f?.key)" :aria-selected="(feature === f?.key)" :tabindex="(feature === f?.key ? 0 : -1)">
+          <span class="paper-eyebrow">{{ f?.num }} &middot; {{ f?.eyebrow }}</span>
+          <span class="paper-feature-title">{{ f?.title }} <em>{{ f?.accent }}</em></span>
         </button>
         <div class="paper-feature-more">
-          <span class="paper-feature-title paper-feature-title-m" aria-hidden="true">{{f.title}} <em>{{f.accent}}</em></span>
-          <p>{{f.text}}</p>
-          <a class="paper-link-arrow" ng-href="{{featureHref(f)}}" ng-attr-target="{{featureTarget(f)}}">{{f.cta}} &rarr;</a>
+          <span class="paper-feature-title paper-feature-title-m" aria-hidden="true">{{ f?.title }} <em>{{ f?.accent }}</em></span>
+          <p>{{ f?.text }}</p>
+          <a class="paper-link-arrow" :href="safeUrl((featureHref(f)))" :target="(featureTarget(f))">{{ f?.cta }} &rarr;</a>
         </div>
       </div>
     </div>
     <div class="paper-features-stage">
-      <div
-        class="paper-feature-panel"
-        ng-repeat="f in features track by f.key"
-        ng-show="feature === f.key"
-        id="feature-panel-{{f.key}}"
-        role="tabpanel"
-        aria-labelledby="feature-tab-{{f.key}}"
-      >
+      <div class="paper-feature-panel" role="tabpanel" v-for="(f, index) in features" :key="f?.key" v-show="feature === f?.key" :id="&quot;feature-panel-&quot; + (f?.key)" :aria-labelledby="&quot;feature-tab-&quot; + (f?.key)">
         <div class="paper-frame">
           <div class="paper-frame-bar" aria-hidden="true">
             <span class="dots"><i></i><i></i><i></i></span>
-            <span class="url">{{f.url}}</span>
+            <span class="url">{{ f?.url }}</span>
           </div>
-          <div class="paper-crop paper-crop-{{f.key}}">
-            <img ng-src="{{f.img}}" alt="{{f.alt}}" loading="lazy" width="2880" height="1800" />
+          <div :class="&quot;paper-crop paper-crop-&quot; + (f?.key)">
+            <img loading="lazy" width="2880" height="1800" :src="safeUrl((f?.img))" :alt="(f?.alt)">
           </div>
         </div>
       </div>
@@ -233,8 +197,8 @@
       <div class="paper-footer-col">
         <div class="paper-footer-head">Product</div>
         <a href="/anonymize">Anonymize</a>
-        <a href="/dashboard" ng-if="user">My work</a>
-        <a href="/conferences" ng-if="user">Conferences</a>
+        <a href="/dashboard" v-if="user">My work</a>
+        <a href="/conferences" v-if="user">Conferences</a>
         <a href="/faq">FAQ</a>
       </div>
       <div class="paper-footer-col">
@@ -251,7 +215,7 @@
     </div>
     <div class="paper-footer-rule"></div>
     <div class="paper-footer-foot">
-      <span>&copy; {{year || 2026}} Anonymous GitHub &middot; MIT licensed</span>
+      <span>&copy; {{ year || 2026 }} Anonymous GitHub &middot; MIT licensed</span>
       <span class="paper-footer-meta">Built for reviewers, by researchers.</span>
     </div>
   </footer>

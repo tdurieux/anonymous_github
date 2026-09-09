@@ -7,84 +7,61 @@
 
     <header class="pr-header">
       <h1 class="paper-page-title pr-title">
-        <span ng-if="details.title" ng-bind="details.title"></span>
-        <span ng-if="!details.title" class="text-muted">Untitled pull request</span>
-        <a
-          ng-if="options.isAdmin || options.isOwner"
-          ng-href="/pull-request-anonymize/{{pullRequestId}}"
-          class="btn btn-sm"
-          aria-label="Edit"
-          ><i class="far fa-edit"></i><span class="d-none d-md-inline"> Edit</span></a
-        >
+        <span v-if="details?.title" v-text="details?.title"></span>
+        <span class="text-muted" v-if="!details?.title">Untitled pull request</span>
+        <a class="btn btn-sm" aria-label="Edit" v-if="options?.isAdmin || options?.isOwner" :href="safeUrl(&quot;/pull-request-anonymize/&quot; + (pullRequestId))"><i class="far fa-edit"></i><span class="d-none d-md-inline"> Edit</span></a>
       </h1>
       <div class="pr-header-meta">
-        <span class="paper-pill" ng-class="{'good': details.merged, 'warn': details.state == 'open', 'bad': details.state == 'closed' && !details.merged}">
-          <span class="status-dot" ng-class="{'status-ready': details.merged, 'status-error': details.state == 'closed' && !details.merged}"></span>
-          {{ details.merged ? 'Merged' : (details.state | title) }}
+        <span class="paper-pill" :class="{&#x27;good&#x27;: details?.merged, &#x27;warn&#x27;: details?.state == &#x27;open&#x27;, &#x27;bad&#x27;: details?.state == &#x27;closed&#x27; &amp;&amp; !details?.merged}">
+          <span class="status-dot" :class="{&#x27;status-ready&#x27;: details?.merged, &#x27;status-error&#x27;: details?.state == &#x27;closed&#x27; &amp;&amp; !details?.merged}"></span>
+          {{ details?.merged ? 'Merged' : fmt.title(details?.state) }}
         </span>
-        <span class="pr-meta-item" ng-if="details.baseRepositoryFullName">
-          <i class="fab fa-github"></i> <span ng-bind="details.baseRepositoryFullName"></span>
+        <span class="pr-meta-item" v-if="details?.baseRepositoryFullName">
+          <i class="fab fa-github"></i> <span v-text="details?.baseRepositoryFullName"></span>
         </span>
-        <span class="pr-meta-item" ng-if="details.updatedDate">
-          <i class="far fa-clock"></i> <span ng-bind="details.updatedDate | date"></span>
+        <span class="pr-meta-item" v-if="details?.updatedDate">
+          <i class="far fa-clock"></i> <span v-text="fmt?.date(details?.updatedDate)"></span>
         </span>
-        <span class="pr-meta-item" ng-if="details.anonymizeDate">
-          <i class="fas fa-user-secret"></i> Anonymized <span ng-bind="details.anonymizeDate | date"></span>
+        <span class="pr-meta-item" v-if="details?.anonymizeDate">
+          <i class="fas fa-user-secret"></i> Anonymized <span v-text="fmt?.date(details?.anonymizeDate)"></span>
         </span>
       </div>
     </header>
 
-    <section class="pr-body-card" ng-if="details.body">
+    <section class="pr-body-card" v-if="details?.body">
       <div class="paper-section-eyebrow">Description</div>
-      <markdown content="details.body"></markdown>
+      <markdown :content="details?.body"></markdown>
     </section>
 
-    <nav class="paper-tabs" ng-if="details.diff || details.comments" role="tablist">
-      <button
-        class="paper-tab"
-        ng-if="details.diff"
-        ng-class="{'active': tabState.active == 'diff'}"
-        ng-click="tabState.active = 'diff'"
-        type="button"
-        role="tab"
-      >
+    <nav class="paper-tabs" role="tablist" v-if="details?.diff || details?.comments">
+      <button class="paper-tab" type="button" role="tab" v-if="details?.diff" :class="{&#x27;active&#x27;: tabState?.active == &#x27;diff&#x27;}" @click="tabState.active = &#x27;diff&#x27;">
         <i class="fas fa-code"></i> Diff
       </button>
-      <button
-        class="paper-tab"
-        ng-if="details.comments"
-        ng-class="{'active': tabState.active == 'comments'}"
-        ng-click="tabState.active = 'comments'"
-        type="button"
-        role="tab"
-      >
+      <button class="paper-tab" type="button" role="tab" v-if="details?.comments" :class="{&#x27;active&#x27;: tabState?.active == &#x27;comments&#x27;}" @click="tabState.active = &#x27;comments&#x27;">
         <i class="far fa-comment-dots"></i>
-        <ng-pluralize
-          count="details.comments.length"
-          when="{'0': 'No comments', 'one': '1 comment', 'other': '{} comments'}"
-        ></ng-pluralize>
+        <span v-text="fmt.plural(details?.comments?.length, {&#x27;0&#x27;: &#x27;No comments&#x27;, &#x27;one&#x27;: &#x27;1 comment&#x27;, &#x27;other&#x27;: &#x27;{} comments&#x27;})"></span>
       </button>
     </nav>
 
     <div class="paper-tab-content">
-      <div ng-if="details.diff && tabState.active =='diff'">
-        <div class="pr-diff" ng-bind-html="details.diff | diff"></div>
+      <div v-if="details?.diff &amp;&amp; tabState?.active ==&#x27;diff&#x27;">
+        <div class="pr-diff" v-html="sanitize(fmt?.diff(details?.diff))"></div>
       </div>
 
-      <div ng-if="details.comments && tabState.active =='comments'">
+      <div v-if="details?.comments &amp;&amp; tabState?.active ==&#x27;comments&#x27;">
         <ul class="pr-comments">
-          <li class="pr-comment" ng-repeat="comment in details.comments">
+          <li class="pr-comment" v-for="(comment, index) in details?.comments">
             <div class="pr-comment-head">
-              <span class="pr-comment-author" ng-if="comment.author">
-                <i class="far fa-user"></i> @<span ng-bind="comment.author"></span>
+              <span class="pr-comment-author" v-if="comment?.author">
+                <i class="far fa-user"></i> @<span v-text="comment?.author"></span>
               </span>
-              <span class="pr-comment-date" ng-if="comment.updatedDate" ng-bind="comment.updatedDate | date"></span>
+              <span class="pr-comment-date" v-if="comment?.updatedDate" v-text="fmt?.date(comment?.updatedDate)"></span>
             </div>
-            <div class="pr-comment-body" ng-if="comment.body">
-              <markdown content="comment.body"></markdown>
+            <div class="pr-comment-body" v-if="comment?.body">
+              <markdown :content="comment?.body"></markdown>
             </div>
           </li>
-          <li class="paper-table-empty" ng-if="!details.comments.length">
+          <li class="paper-table-empty" v-if="!details?.comments?.length">
             <i class="far fa-comment-dots"></i>
             <span>No comments on this pull request.</span>
           </li>

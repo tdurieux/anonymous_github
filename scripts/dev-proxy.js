@@ -2,9 +2,10 @@
  * Dev proxy for local UI iteration.
  *
  * Serves the local `public/` folder for HTML/CSS/JS/partials/images so you
- * see your design changes instantly, and proxies everything else (API,
+ * see your built UI changes, and proxies everything else (API,
  * auth, repo content, …) to the live https://anonymous.4open.science site.
  *
+ *   npm run build:ui      # rebuild after changing UI scripts or templates
  *   npm run dev:ui         # default port 4001
  *   PORT=5000 npm run dev:ui
  *
