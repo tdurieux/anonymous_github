@@ -1,5 +1,5 @@
 const { expect } = require("chai");
-const { JSDOM, VirtualConsole } = require("jsdom");
+const { JSDOM, VirtualConsole, ResourceLoader } = require("jsdom");
 const fs = require("fs");
 const path = require("path");
 const { URL } = require("node:url");
@@ -9,13 +9,22 @@ const publicDir = path.join(__dirname, "../public");
 const bundles = ["core.min.js", "vendor.min.js"].map(name => fs.readFileSync(path.join(publicDir, "script", name), "utf8"));
 
 async function browser(route = "/", overrides = {}) {
-  const errors = [], requests = [];
+  const errors = [], requests = [], assets = [];
   const virtualConsole = new VirtualConsole();
   virtualConsole.on("jsdomError", error => {
     if (!error.message.includes("navigation (except hash changes)")) errors.push(error.message);
   });
   virtualConsole.on("error", error => errors.push(error?.message || String(error)));
   const dom = new JSDOM('<!doctype html><html><head></head><body><div id="app"></div></body></html>', {
+    resources: new class extends ResourceLoader {
+      fetch(url) {
+        assets.push(new URL(url).pathname);
+        if (/\/pdf\.[a-f0-9]+\.min\.js$/.test(new URL(url).pathname) && dom.window.pdfjsLib) return Promise.resolve(Buffer.from(""));
+        const pathname = new URL(url).pathname.replace(/\.[a-f0-9]{10}\.min\.js$/, ".min.js");
+        if (pathname.startsWith("/script/")) return Promise.resolve(fs.readFileSync(path.join(publicDir, pathname)));
+        return null;
+      }
+    }(),
     url: "http://localhost" + route, runScripts: "dangerously", pretendToBeVisual: true, virtualConsole,
   });
   const window = dom.window;
@@ -46,7 +55,7 @@ async function browser(route = "/", overrides = {}) {
   await app.router.isReady();
   await delay(30);
   return {
-    window, app, errors, requests,
+    window, app, errors, requests, assets,
     async go(path) { await app.router.push(path); await delay(30); },
     async input(selector, value, event = "input") {
       const input = window.document.querySelector(selector);
@@ -76,6 +85,21 @@ describe("Vue 3 UI", function () {
       await ui.go(route);
       expect(ui.window.document.querySelector(".app-view").textContent, route + JSON.stringify(ui.errors)).not.to.equal("");
     }
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("loads document libraries on demand and reuses them across navigation", async function () {
+    ui = await browser("/dashboard");
+    expect(ui.assets.filter(url => url.endsWith(".js"))).to.deep.equal([]);
+    await ui.go("/r/test/README.md");
+    expect(ui.assets.some(url => /\/markdown\./.test(url))).to.equal(true);
+    expect(ui.assets.some(url => /\/(pdf|editor|notebook)\./.test(url))).to.equal(false);
+    await ui.go("/faq");
+    await ui.go("/r/test/README.md");
+    expect(ui.assets.filter(url => /\/markdown\./.test(url))).to.have.length(1);
+    await ui.go("/r/test/hello.js");
+    expect(ui.assets.some(url => /\/editor\./.test(url))).to.equal(true);
+    expect(ui.window.document.querySelector(".ace_editor")).not.to.equal(null);
     expect(ui.errors).to.deep.equal([]);
   });
 
@@ -231,7 +255,7 @@ describe("Vue 3 UI", function () {
   it("loads PDF pages, changes documents and releases the previous document", async function () {
     ui = await browser("/faq");
     const loaded = [], destroyed = [];
-    ui.window.pdfjsLib = { getDocument({ url }) {
+    ui.window.pdfjsLib = { GlobalWorkerOptions: {}, getDocument({ url }) {
       loaded.push(url);
       return { promise: Promise.resolve({
         numPages: 2,

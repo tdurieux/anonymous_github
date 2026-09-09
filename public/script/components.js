@@ -1,4 +1,5 @@
-import { h, ref, watch, onMounted, onBeforeUnmount, nextTick } from "vue";
+import { loadLibrary, loadEditor } from "./lazy-assets.js";
+import { h, ref, watch, onMounted, onBeforeUnmount, nextTick, defineAsyncComponent } from "vue";
 import HtmlDoc from "./html-doc.js";
 import PdfViewer from "./pdf-viewer.js";
 
@@ -44,6 +45,7 @@ const Notebook = {
       request = new AbortController();
       try {
         const json = props.content ? JSON.parse(props.content) : await fetch(props.file?.download_url || props.file, { signal: request.signal }).then(r => { if (!r.ok) throw Error("Notebook request failed"); return r.json(); });
+        await loadLibrary("notebook");
         if (current !== generation) return;
         host.value.innerHTML = DOMPurify.sanitize(nb.parse(json).render());
         host.value.querySelectorAll("pre code").forEach(el => window.Prism?.highlightElement(el));
@@ -64,21 +66,35 @@ const Loc = {
     };
   },
 };
-export const components = { Markdown, GistFile, Notebook, Loc, HtmlDoc, Pdfviewer: PdfViewer };
+export const components = { Markdown, GistFile, Notebook, Loc, HtmlDoc, Pdfviewer: defineAsyncComponent(async () => {
+  await loadLibrary("pdf");
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "/script/external/pdf.worker.js";
+  return PdfViewer;
+}) };
 
 export const codeEditor = {
-  mounted(el, { value }) {
-    const editor = ace.edit(el);
-    el._editor = editor;
-    editor.setValue(String(value.content ?? ""), -1);
-    applyEditorOptions(el, value.options);
-    value.options?.onLoad?.(editor);
+  async mounted(el, { value }) {
+    el._editorValue = value;
+    try {
+      await loadEditor();
+      if (el._editorDisposed) return;
+      const latest = el._editorValue;
+      const editor = ace.edit(el);
+      el._editor = editor;
+      editor.setValue(String(latest.content ?? ""), -1);
+      applyEditorOptions(el, latest.options);
+      latest.options?.onLoad?.(editor);
+    } catch (error) {
+      if (!el._editorDisposed) el.textContent = error.message;
+    }
   },
   updated(el, { value }) {
+    el._editorValue = value;
+    if (!el._editor) return;
     if (el._editor.getValue() !== String(value.content ?? "")) el._editor.setValue(String(value.content ?? ""), -1);
     applyEditorOptions(el, value.options);
   },
-  beforeUnmount(el) { el._editor.destroy(); },
+  beforeUnmount(el) { el._editorDisposed = true; el._editor?.destroy(); },
 };
 function applyEditorOptions(el, options = {}) {
   if (options.mode) el._editor.session.setMode("ace/mode/" + options.mode);

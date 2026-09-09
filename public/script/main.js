@@ -1,3 +1,4 @@
+import { loadLibrary } from "./lazy-assets.js";
 import { createApp, h, watch, provide, inject, onBeforeUnmount } from "vue";
 import { createRouter, createWebHistory, RouterView } from "vue-router";
 import { pageRoutes } from "./routes.js";
@@ -116,7 +117,13 @@ export function mountApplication(target = "#app", options = {}) {
   app.directive("code-editor", codeEditor);
   app.directive("paper-scrollspy", paperScrollspy);
   app.use(router);
-  router.beforeEach(() => { root?.emit("routeLeave"); });
+  router.beforeEach(async to => {
+    root?.emit("routeLeave");
+    if (/^\/(r|repository|anonymize|pull-request-anonymize|gist-anonymize|pr|gist)(\/|$)/.test(to.path)) {
+      await loadLibrary("markdown");
+    }
+    if (/^\/(r|repository)\//.test(to.path)) await loadLibrary("org");
+  });
   router.afterEach(to => {
     if (!root) return;
     root.title = to.meta.title;
@@ -129,6 +136,4 @@ export function mountApplication(target = "#app", options = {}) {
   return { app, router, state: root };
 }
 
-ace.config.set("basePath", "/script/external/ace/");
-pdfjsLib.GlobalWorkerOptions.workerSrc = "/script/external/pdf.worker.js";
 if (document.querySelector("#app")) window.anonymousApp = mountApplication();
