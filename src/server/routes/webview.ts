@@ -65,7 +65,9 @@ async function webView(
   req: express.Request<{ repoId: string; path?: string[] }>,
   res: express.Response
 ) {
-  res.header("Content-Security-Policy", "sandbox allow-popups allow-forms allow-modals");
+  // Project pages need scripts and autoplay, but must stay isolated from the app.
+  // Keep allow-same-origin absent so repository documents retain an opaque origin.
+  res.header("Content-Security-Policy", "sandbox allow-scripts allow-popups allow-forms allow-modals");
   const repo = await getRepo(req, res);
   if (!repo) return;
   try {

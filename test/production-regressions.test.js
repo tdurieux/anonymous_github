@@ -247,7 +247,7 @@ describe("production regressions", function () {
     expect(second.headers.ETag).not.to.equal(first.headers.ETag);
     expect(second.statusCode).not.to.equal(304);
   });
-  it("decodes webview filenames and sandboxes rendered documents", async function () {
+  it("decodes webview filenames and allows scripts without same-origin access", async function () {
     const File = require("../src/core/AnonymizedFile").default;
     const utils = require("../src/server/routes/route-utils");
     const repo = { options: { terms: [], page: true, pageSource: { path: "/", branch: "main" }, image: true }, model: { source: { branch: "main" } } };
@@ -260,6 +260,7 @@ describe("production regressions", function () {
     await handler({ path: "/repo/my%20file.html", params: { repoId: "repo" }, headers: {} }, res);
     expect(path).to.equal("my file.html");
     expect(res.headers["Content-Security-Policy"]).to.include("sandbox");
+    expect(res.headers["Content-Security-Policy"]).to.include("allow-scripts");
     expect(res.headers["Content-Security-Policy"]).not.to.include("allow-same-origin");
   });
   it("terminates the streamer response after a late upstream error", async function () {
