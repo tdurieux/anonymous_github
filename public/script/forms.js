@@ -91,6 +91,12 @@ export function submitForm(event, callback) {
     if (el._field?.timer) el._field.commit();
     if (el._field) validate(el);
   });
-  if (form && !form.checkValidity()) return;
+  if (form && !form.checkValidity()) {
+    const invalid = form.querySelector(":invalid");
+    invalid?.scrollIntoView?.({ block: "center" });
+    invalid?.focus();
+    form.reportValidity();
+    return;
+  }
   return callback();
 }
