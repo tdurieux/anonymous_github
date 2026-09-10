@@ -1118,7 +1118,14 @@ export const anonymizeController = function (state, http, html, params, location
         }
       });
 
-      http.get("/github/connections").then(res => { state.githubConnections = res.data; }).catch(() => {});
+      http.get("/github/connections").then(res => {
+        state.githubConnections = res.data;
+        // Preserve saved resources and an explicit or restored draft choice.
+        if (!params.repoId && !params.pullRequestId && !params.gistId && state.githubConnection === undefined
+            && res.data.appEnabled && res.data.appConnected) {
+          state.githubConnection = "github-app";
+        }
+      }).catch(() => {});
 
       // URL change handler - auto-detect type
       state.urlSelected = async (preserveDraft = false) => {

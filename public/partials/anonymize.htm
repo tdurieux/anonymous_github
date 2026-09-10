@@ -1,19 +1,4 @@
 <div class="anonymize-page h-100">
-  <aside class="repo-access" aria-label="GitHub access" v-if="githubConnections?.appEnabled &amp;&amp; githubConnections.appConnected &amp;&amp; githubConnections.oauthConnected">
-    <div class="repo-access-main">
-      <div class="repo-access-heading"><i class="fab fa-github" aria-hidden="true"></i><div><h2>{{ detectedType === 'gist' ? 'Gist access' : 'Repository access' }}</h2><p>{{ detectedType === 'gist' ? 'Gists use your OAuth connection.' : 'Choose how we read your source code.' }}</p></div></div>
-      <div class="repo-access-controls">
-        <div class="repo-access-switch" role="group" aria-label="Repository connection" v-if="!isUpdate &amp;&amp; detectedType !== 'gist'">
-          <button type="button" :aria-pressed="githubConnection === 'github-app'" :disabled="githubConnection === 'github-app'" @click="chooseGitHubConnection('github-app')"><i class="fas fa-shield-alt" aria-hidden="true"></i> Read-only GitHub App</button>
-          <button type="button" :aria-pressed="githubConnection === 'oauth'" :disabled="githubConnection === 'oauth'" @click="chooseGitHubConnection('oauth')">Legacy OAuth</button>
-        </div>
-        <span class="connection-badge" v-if="isUpdate || detectedType === 'gist'">{{ detectedType !== 'gist' &amp;&amp; githubConnection === 'github-app' ? 'Read-only GitHub App' : 'Legacy OAuth' }}</span>
-        <button type="button" class="btn btn-outline-ink" v-if="detectedType !== 'gist' &amp;&amp; githubConnection !== 'oauth'" @click="grantGitHubAccess()">Manage access <i class="fas fa-external-link-alt" aria-hidden="true"></i></button>
-        <a class="connection-link" href="/connections" v-if="isUpdate || detectedType === 'gist' || githubConnection === 'oauth'">{{ isUpdate ? 'Change connection' : 'Manage connections' }} &rarr;</a>
-      </div>
-    </div>
-    <div class="repo-access-note"><span v-if="detectedType !== 'gist' &amp;&amp; githubConnection !== 'oauth'">Select repositories on GitHub, then return here.</span><span><i class="fas fa-info-circle" aria-hidden="true"></i> Selected content will be published, including content from private repositories.</span></div>
-  </aside>
   <!-- ===== STATE 1: No URL — centered input ===== -->
   <div class="anonymize-landing" v-show="!(sourceUrl)">
     <div class="anonymize-landing-inner">
@@ -24,12 +9,30 @@
         it, strip every trace of identity, and hand you back a stable link.
       </p>
       <div class="form-group mt-4 mb-2">
-        <label class="paper-field-label" for="sourceUrl-landing">Source URL</label>
+        <div class="source-url-label-row">
+          <label class="paper-field-label" for="sourceUrl-landing">Source URL</label>
+          <aside class="repo-access" aria-label="GitHub access" v-if="!sourceUrl &amp;&amp; githubConnections?.appEnabled &amp;&amp; githubConnections.appConnected &amp;&amp; githubConnections.oauthConnected">
+            <div class="repo-access-switch" role="group" aria-label="Repository connection" v-if="!isUpdate &amp;&amp; detectedType !== 'gist'">
+              <button type="button" :aria-pressed="githubConnection === 'github-app'" :disabled="githubConnection === 'github-app'" @click="chooseGitHubConnection('github-app')"><i class="fas fa-shield-alt" aria-hidden="true"></i> <span class="sr-only">Read-only </span>GitHub App</button>
+              <button type="button" :aria-pressed="githubConnection === 'oauth'" :disabled="githubConnection === 'oauth'" @click="chooseGitHubConnection('oauth')">Legacy OAuth</button>
+            </div>
+            <span class="connection-badge" v-if="isUpdate || detectedType === 'gist'">{{ detectedType !== 'gist' &amp;&amp; githubConnection === 'github-app' ? 'Read-only GitHub App' : 'Legacy OAuth' }}</span>
+          </aside>
+        </div>
         <input id="sourceUrl-landing" type="text" class="form-control form-control-lg" placeholder="https://github.com/owner/repository" v-field="{ state: viewState, set: value =&gt; { sourceUrl = value }, value: sourceUrl, form: null, options: { debounce: {default: 1000, blur: 0, click: 0}, updateOn: &#x27;default blur click&#x27; }, change: () =&gt; { urlSelected() } }">
       </div>
       <small class="form-text" style="color: var(--ink-muted);">
         Repository, pull request (…/pull/42) and gist (gist.github.com/…) URLs are all accepted.
       </small>
+      <aside class="repo-access-details" aria-label="GitHub access" v-if="!sourceUrl &amp;&amp; githubConnections?.appEnabled &amp;&amp; githubConnections.appConnected &amp;&amp; githubConnections.oauthConnected">
+        <div class="repo-access-main">
+          <div class="repo-access-controls">
+            <button type="button" class="btn btn-outline-ink" v-if="detectedType !== 'gist' &amp;&amp; githubConnection !== 'oauth'" @click="grantGitHubAccess()">Manage access <i class="fas fa-external-link-alt" aria-hidden="true"></i></button>
+            <a class="connection-link" href="/connections" v-if="isUpdate || detectedType === 'gist' || githubConnection === 'oauth'">{{ isUpdate ? 'Change connection' : 'Manage connections' }} &rarr;</a>
+          </div>
+        </div>
+        <div class="repo-access-note"><span v-if="detectedType !== 'gist' &amp;&amp; githubConnection !== 'oauth'">Select repositories on GitHub, then return here.</span><span><i class="fas fa-info-circle" aria-hidden="true"></i> Selected content will be published, including content from private repositories.</span></div>
+      </aside>
     </div>
   </div>
 
@@ -62,7 +65,16 @@
             <div class="paper-section-eyebrow">Source</div>
 
             <div class="form-group">
-              <label class="paper-field-label" for="sourceUrl">GitHub URL</label>
+              <div class="source-url-label-row">
+                <label class="paper-field-label" for="sourceUrl">GitHub URL</label>
+                <aside class="repo-access" aria-label="GitHub access" v-if="sourceUrl &amp;&amp; githubConnections?.appEnabled &amp;&amp; githubConnections.appConnected &amp;&amp; githubConnections.oauthConnected">
+                  <div class="repo-access-switch" role="group" aria-label="Repository connection" v-if="!isUpdate &amp;&amp; detectedType !== 'gist'">
+                    <button type="button" :aria-pressed="githubConnection === 'github-app'" :disabled="githubConnection === 'github-app'" @click="chooseGitHubConnection('github-app')"><i class="fas fa-shield-alt" aria-hidden="true"></i> <span class="sr-only">Read-only </span>GitHub App</button>
+                    <button type="button" :aria-pressed="githubConnection === 'oauth'" :disabled="githubConnection === 'oauth'" @click="chooseGitHubConnection('oauth')">Legacy OAuth</button>
+                  </div>
+                  <span class="connection-badge" v-if="isUpdate || detectedType === 'gist'">{{ detectedType !== 'gist' &amp;&amp; githubConnection === 'github-app' ? 'Read-only GitHub App' : 'Legacy OAuth' }}</span>
+                </aside>
+              </div>
               <input type="text" class="form-control" name="sourceUrl" id="sourceUrl" :disabled="isUpdate &amp;&amp; detectedType !== &#x27;repo&#x27;" placeholder="Paste a GitHub repo or pull request URL" v-field="{ state: viewState, set: value =&gt; { sourceUrl = value }, value: sourceUrl, form: &quot;anonymize&quot;, options: { debounce: {default: 1000, blur: 0, click: 0}, updateOn: &#x27;default blur click&#x27; }, change: () =&gt; { urlSelected() } }" :class="{&#x27;is-invalid&#x27;: anonymize?.sourceUrl?.invalid}">
               <div class="invalid-feedback" v-show="anonymize?.sourceUrl?.errors?.github">
                 Please provide a valid GitHub URL.
@@ -77,6 +89,16 @@
                 Already anonymized.
               </div>
             </div>
+
+            <aside class="repo-access-details" aria-label="GitHub access" v-if="sourceUrl &amp;&amp; githubConnections?.appEnabled &amp;&amp; githubConnections.appConnected &amp;&amp; githubConnections.oauthConnected">
+              <div class="repo-access-main">
+                <div class="repo-access-controls">
+                  <button type="button" class="btn btn-outline-ink" v-if="detectedType !== 'gist' &amp;&amp; githubConnection !== 'oauth'" @click="grantGitHubAccess()">Manage access <i class="fas fa-external-link-alt" aria-hidden="true"></i></button>
+                  <a class="connection-link" href="/connections" v-if="isUpdate || detectedType === 'gist' || githubConnection === 'oauth'">{{ isUpdate ? 'Change connection' : 'Manage connections' }} &rarr;</a>
+                </div>
+              </div>
+              <div class="repo-access-note"><span v-if="detectedType !== 'gist' &amp;&amp; githubConnection !== 'oauth'">Select repositories on GitHub, then return here.</span><span><i class="fas fa-info-circle" aria-hidden="true"></i> Selected content will be published, including content from private repositories.</span></div>
+            </aside>
 
             <div class="form-grid-2" v-if="detectedType === &#x27;repo&#x27;">
               <div class="form-group">
