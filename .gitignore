@@ -121,3 +121,6 @@ tmp/
 temp/
 
 # End of https://www.gitignore.io/api/node
+
+# GitHub App signing key
+/secrets/github-app.pem

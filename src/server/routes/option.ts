@@ -4,6 +4,8 @@ export const router = express.Router();
 
 router.get("/", async (req: express.Request, res: express.Response) => {
   res.json({
+    GITHUB_APP_ENABLED: config.GITHUB_APP_ENABLED && config.GITHUB_APP_NEW_CONNECTIONS,
+    GITHUB_OAUTH_ENABLED: config.GITHUB_OAUTH_ENABLED,
     ENABLE_DOWNLOAD: config.ENABLE_DOWNLOAD,
     MAX_FILE_SIZE: config.MAX_FILE_SIZE,
     MAX_REPO_SIZE: config.MAX_REPO_SIZE,

@@ -1,4 +1,13 @@
 <div class="anonymize-page h-100">
+  <div class="container py-3" v-if="githubConnections?.appEnabled">
+    <span v-if="isUpdate">Connection: {{ githubConnection === 'github-app' ? 'GitHub App (read-only)' : 'Legacy OAuth' }}. <a href="/connections">Change connection</a></span>
+    <span v-if="!isUpdate">Repository access:
+      <button class="btn" :disabled="githubConnection === 'github-app'" @click="chooseGitHubConnection('github-app')">Read-only GitHub App</button>
+      <button v-if="githubConnections?.oauthConnected" class="btn" :disabled="githubConnection === 'oauth'" @click="chooseGitHubConnection('oauth')">Use existing OAuth access</button>
+    </span>
+    <button class="btn btn-ink" @click="grantGitHubAccess()">{{ githubConnections?.appConnected ? 'Allow repository access on GitHub' : 'Connect read-only GitHub access' }}</button>
+    <p class="mb-0"><small>Return here after confirming access on GitHub. Anonymization publishes the configured content, including content from private repositories. Gists currently use OAuth.</small></p>
+  </div>
   <!-- ===== STATE 1: No URL — centered input ===== -->
   <div class="anonymize-landing" v-show="!(sourceUrl)">
     <div class="anonymize-landing-inner">

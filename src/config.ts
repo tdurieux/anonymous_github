@@ -2,6 +2,18 @@ import { resolve } from "path";
 import { randomBytes } from "crypto";
 
 interface Config {
+  GITHUB_APP_ENABLED: boolean;
+  GITHUB_APP_NEW_CONNECTIONS: boolean;
+  GITHUB_OAUTH_ENABLED: boolean;
+  GITHUB_APP_ID: string;
+  GITHUB_APP_SLUG: string;
+  GITHUB_APP_CLIENT_ID: string;
+  GITHUB_APP_CLIENT_SECRET: string;
+  GITHUB_APP_PRIVATE_KEY: string;
+  GITHUB_APP_PRIVATE_KEY_FILE: string;
+  GITHUB_APP_CALLBACK: string;
+  GITHUB_APP_WEBHOOK_SECRET: string;
+
   CREDENTIAL_KEYS: string;
   CREDENTIAL_ACTIVE_KEY_ID: string;
   CREDENTIAL_LEGACY_READS: boolean;
@@ -55,6 +67,18 @@ interface Config {
   RATE_LIMIT: number;
 }
 const config: Config = {
+  GITHUB_APP_ENABLED: false,
+  GITHUB_APP_NEW_CONNECTIONS: true,
+  GITHUB_OAUTH_ENABLED: true,
+  GITHUB_APP_ID: "",
+  GITHUB_APP_SLUG: "",
+  GITHUB_APP_CLIENT_ID: "",
+  GITHUB_APP_CLIENT_SECRET: "",
+  GITHUB_APP_PRIVATE_KEY: "",
+  GITHUB_APP_PRIVATE_KEY_FILE: "",
+  GITHUB_APP_CALLBACK: "http://localhost:5000/github/app/callback",
+  GITHUB_APP_WEBHOOK_SECRET: "",
+
   // Predictable defaults are dangerous: a known SESSION_SECRET lets anyone
   // forge session cookies. Default to empty and resolve below — random in
   // dev, required in production. See the post-env block.
@@ -152,10 +176,10 @@ if (!config.SESSION_SECRET || config.SESSION_SECRET === "SESSION_SECRET") {
 // Refuse to start in production with the placeholder OAuth credentials or the
 // default database password baked into the image.
 if (isProduction) {
-  const insecureDefaults: [string, string][] = [
+  const insecureDefaults: [string, string][] = config.GITHUB_OAUTH_ENABLED ? [
     ["CLIENT_ID", "CLIENT_ID"],
     ["CLIENT_SECRET", "CLIENT_SECRET"],
-  ];
+  ] : [];
   if (!config.MONGODB_URI) {
     insecureDefaults.push(["DB_PASSWORD", "password"]);
   }
@@ -168,4 +192,10 @@ if (isProduction) {
   }
 }
 
+if (config.GITHUB_APP_ENABLED) {
+  for (const name of ["GITHUB_APP_ID", "GITHUB_APP_SLUG", "GITHUB_APP_CLIENT_ID", "GITHUB_APP_CLIENT_SECRET", "GITHUB_APP_CALLBACK", "GITHUB_APP_WEBHOOK_SECRET"] as const) {
+    if (!config[name]) throw new Error(`${name} is required when GITHUB_APP_ENABLED=true`);
+  }
+  if (!config.GITHUB_APP_PRIVATE_KEY && !config.GITHUB_APP_PRIVATE_KEY_FILE) throw new Error("A GitHub App private key is required");
+}
 export default config;

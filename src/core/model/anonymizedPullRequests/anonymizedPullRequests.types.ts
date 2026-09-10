@@ -1,3 +1,4 @@
+import { RepositoryAccess } from "../../repository-access.types";
 import { Document, Model } from "mongoose";
 import { RepositoryStatus } from "../../types";
 
@@ -13,6 +14,7 @@ export interface IAnonymizedPullRequest {
     accessToken?: string;
   };
   owner: string;
+  githubAccess?: RepositoryAccess;
   conference: string;
   options: {
     terms: string[];

@@ -1,3 +1,6 @@
+import config from "../config";
+import { GitHubRepositoryInfo, APP_PROVIDER, appRepositories, appUserToken } from "./github-app";
+import CredentialModel from "./model/credentials/credentials.model";
 import { getCredentialToken } from "./credentials";
 import AnonymizedRepositoryModel from "./model/anonymizedRepositories/anonymizedRepositories.model";
 import RepositoryModel from "./model/repositories/repositories.model";
@@ -33,7 +36,9 @@ export default class User {
   }
 
   async getAccessToken(): Promise<string> {
-    return getCredentialToken(this.id);
+    const oauth = await getCredentialToken(this.id);
+    if (oauth || !config.GITHUB_APP_ENABLED) return oauth;
+    return appUserToken(this.id);
   }
 
   get photo(): string | undefined {
@@ -59,6 +64,19 @@ export default class User {
      */
     force: boolean;
   }): Promise<GitHubRepository[]> {
+    if (config.GITHUB_APP_ENABLED && await CredentialModel.exists({ ownerId: this.id, provider: APP_PROVIDER })) {
+      const oauth = await getCredentialToken(this.id);
+      let appRepos: GitHubRepositoryInfo[] = [];
+      try { appRepos = await appRepositories(this.id); }
+      catch (error) { if (!oauth) throw error; }
+      // Discovery may list the independently connected OAuth provider when the
+      // App is unavailable. Resource access never falls back between providers.
+      const legacy = oauth ? await octokit(oauth).paginate("GET /user/repos", { visibility: "all", per_page: 100 }) : [];
+      const repos = new Map<number, GitHubRepositoryInfo>(legacy.map(r => [r.id, r]));
+      for (const r of appRepos) repos.set(r.id, r);
+      return [...repos.values()].map(r => new GitHubRepository(new RepositoryModel({ externalId: "gh_" + r.id,
+        name: r.full_name, url: r.html_url, size: r.size, defaultBranch: r.default_branch })));
+    }
     if (
       !this._model.repositories ||
       this._model.repositories.length == 0 ||

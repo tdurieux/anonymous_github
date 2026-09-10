@@ -28,7 +28,7 @@ export async function getCredentialToken(ownerId: string, provider = "github", r
 }): Promise<string> {
   const credential = await getCredential(ownerId, provider);
   if (credential) return credential.token;
-  if (config.CREDENTIAL_LEGACY_READS && resource) {
+  if (config.CREDENTIAL_LEGACY_READS && provider === "github" && resource) {
     const row = await CredentialModel.db.collection(resource.collection).findOne({
       _id: resource.id as Types.ObjectId,
       owner: new Types.ObjectId(ownerId),

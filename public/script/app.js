@@ -888,6 +888,22 @@ export const statusController = function (state, http, params) {
 export const anonymizeController = function (state, http, html, params, location, translate, timeout) {
       // Unified state
       state.sourceUrl = "";
+      state.githubConnection = undefined;
+      state.githubConnections = null;
+      state.grantGitHubAccess = () => {
+        const draft = {};
+        for (const key of ["sourceUrl", "terms", "repoId", "pullRequestId", "gistId", "source", "options", "conference", "githubConnection"]) draft[key] = state[key];
+        sessionStorage.setItem("github-access-draft", JSON.stringify({ path: location.path(), savedAt: Date.now(), draft }));
+        const returnTo = location.path();
+        const repository = parseRepoFullName(state.sourceUrl) || "";
+        const route = state.githubConnections?.appConnected ? "/github/app/install" : "/github/app/login";
+        window.location.href = route + "?returnTo=" + encodeURIComponent(returnTo) + "&repository=" + encodeURIComponent(repository) + "&install=1";
+      };
+      state.chooseGitHubConnection = async (value) => {
+        state.githubConnection = value;
+        state.readme = "";
+        if (state.sourceUrl) await refreshGitHubAccess();
+      };
       state.detectedType = null; // 'repo' | 'pr' | 'gist'
       state.repoId = "";
       state.pullRequestId = "";
@@ -984,7 +1000,28 @@ export const anonymizeController = function (state, http, html, params, location
           : undefined;
       }
 
+      async function refreshGitHubAccess() {
+        state._preservingDraft = true;
+        try { await state.urlSelected(true); }
+        finally { state._preservingDraft = false; }
+      }
+
+      async function restoreGitHubDraft() {
+        let saved;
+        try { saved = JSON.parse(sessionStorage.getItem("github-access-draft") || "null"); }
+        catch (_) { return false; }
+        if (!saved || saved.path !== location.path() || Date.now() - saved.savedAt >= 30 * 60000) return false;
+        for (const key of ["sourceUrl", "terms", "repoId", "pullRequestId", "gistId", "source", "options", "conference", "githubConnection"]) {
+          if (Object.prototype.hasOwnProperty.call(saved.draft, key)) state[key] = saved.draft[key];
+        }
+        if (state.options.expirationDate) state.options.expirationDate = new Date(state.options.expirationDate);
+        await refreshGitHubAccess();
+        sessionStorage.removeItem("github-access-draft");
+        return true;
+      }
+
       getDefault(() => {
+        if (!params.repoId && !params.pullRequestId && !params.gistId) timeout(restoreGitHubDraft, 0);
         // Edit mode: repo
         if (params.repoId && params.repoId != "") {
           state.isUpdate = true;
@@ -992,6 +1029,7 @@ export const anonymizeController = function (state, http, html, params, location
           state.repoId = params.repoId;
           http.get("/api/repo/" + state.repoId).then(
             async (res) => {
+              state.githubConnection = res.data.connection || "oauth";
               state.sourceUrl = "https://github.com/" + res.data.source.fullName;
               state._originalFullName = res.data.source.fullName;
               state.terms = res.data.options.terms.filter((f) => f).join("\n");
@@ -1012,6 +1050,7 @@ export const anonymizeController = function (state, http, html, params, location
               if (res.data.options.expirationDate) {
                 state.options.expirationDate = new Date(res.data.options.expirationDate);
               }
+              if (await restoreGitHubDraft()) return;
               await Promise.all([getRepoDetails(), getReadme()]);
               anonymizeReadme();
 
@@ -1026,6 +1065,7 @@ export const anonymizeController = function (state, http, html, params, location
           state.pullRequestId = params.pullRequestId;
           http.get("/api/pr/" + state.pullRequestId).then(
             async (res) => {
+              state.githubConnection = res.data.connection || "oauth";
               state.sourceUrl = "https://github.com/" + res.data.source.repositoryFullName + "/pull/" + res.data.source.pullRequestId;
               state.terms = res.data.options.terms.filter((f) => f).join("\n");
               state.source = res.data.source;
@@ -1035,8 +1075,9 @@ export const anonymizeController = function (state, http, html, params, location
               if (res.data.options.expirationDate) {
                 state.options.expirationDate = new Date(res.data.options.expirationDate);
               }
+              if (await restoreGitHubDraft()) return;
               try {
-                state.details = (await http.get(`/api/pr/${res.data.source.repositoryFullName}/${res.data.source.pullRequestId}`)).data;
+                state.details = (await http.get(`/api/pr/${res.data.source.repositoryFullName}/${res.data.source.pullRequestId}`, { params: { connection: state.githubConnection } })).data;
               } catch (error) {
                 const code = error && error.data && error.data.error;
                 if (code) {
@@ -1068,6 +1109,7 @@ export const anonymizeController = function (state, http, html, params, location
               if (res.data.options.expirationDate) {
                 state.options.expirationDate = new Date(res.data.options.expirationDate);
               }
+              if (await restoreGitHubDraft()) return;
               state.details = (await http.get(`/api/gist/source/${res.data.source.gistId}`)).data;
 
             },
@@ -1076,17 +1118,19 @@ export const anonymizeController = function (state, http, html, params, location
         }
       });
 
+      http.get("/github/connections").then(res => { state.githubConnections = res.data; }).catch(() => {});
+
       // URL change handler - auto-detect type
-      state.urlSelected = async () => {
-        state.terms = state.defaultTerms;
-        if (!state.isUpdate) {
+      state.urlSelected = async (preserveDraft = false) => {
+        if (!preserveDraft) state.terms = state.defaultTerms;
+        if (!preserveDraft && !state.isUpdate) {
           state.repoId = "";
           state.pullRequestId = "";
           state.gistId = "";
         }
         state.details = null;
         state.branches = [];
-        state.source = { type: "GitHubStream", branch: "", commit: "" };
+        if (!preserveDraft) state.source = { type: "GitHubStream", branch: "", commit: "" };
         state.anonymize_readme = "";
         state.readme = "";
         state.html_readme = "";
@@ -1136,7 +1180,7 @@ export const anonymizeController = function (state, http, html, params, location
           state.isUpdate &&
           state._originalBranch === state.source.branch &&
           !!state.source.commit;
-        if (!keepSavedCommit) {
+        if (!keepSavedCommit && !(state._preservingDraft && state.source.commit)) {
           state.source.commit = selected.commit;
         }
         state.readme = selected.readme;
@@ -1149,7 +1193,7 @@ export const anonymizeController = function (state, http, html, params, location
         const o = parseGithubUrl(state.sourceUrl);
         try {
           const branches = await http.get(`/api/repo/${o.owner}/${o.repo}/branches`, {
-            params: { force: force === true ? "1" : "0", repositoryID: sourceRepositoryID() },
+            params: { anonymizedRepoId: state.isUpdate && params.repoId && parseRepoFullName(state.sourceUrl) === state._originalFullName ? params.repoId : undefined, connection: state.githubConnection, force: force === true ? "1" : "0", repositoryID: sourceRepositoryID() },
           });
           state.branches = branches.data;
           state.sourceUnreachable = false;
@@ -1167,7 +1211,7 @@ export const anonymizeController = function (state, http, html, params, location
               !state.options.update &&
               state._originalBranch === state.source.branch &&
               !!state.source.commit;
-            if (!keepSavedCommit) {
+            if (!keepSavedCommit && !(state._preservingDraft && state.source.commit)) {
               state.source.commit = selected[0].commit;
             }
             state.readme = selected[0].readme;
@@ -1197,7 +1241,7 @@ export const anonymizeController = function (state, http, html, params, location
           // #364) are reflected without waiting for the cached metadata to
           // expire. The endpoint hits the GitHub API once.
           const res = await http.get(`/api/repo/${o.owner}/${o.repo}/`, {
-            params: { repositoryID: sourceRepositoryID(), force: "1" },
+            params: { anonymizedRepoId: state.isUpdate && params.repoId && parseRepoFullName(state.sourceUrl) === state._originalFullName ? params.repoId : undefined, connection: state.githubConnection, repositoryID: sourceRepositoryID(), force: "1" },
           });
           state.details = res.data;
           if (state.details && state.details.id) {
@@ -1225,7 +1269,7 @@ export const anonymizeController = function (state, http, html, params, location
         const o = parseGithubUrl(state.sourceUrl);
         try {
           const res = await http.get(`/api/repo/${o.owner}/${o.repo}/readme`, {
-            params: { force: force === true ? "1" : "0", branch: state.source.branch, repositoryID: sourceRepositoryID() },
+            params: { anonymizedRepoId: state.isUpdate && params.repoId && parseRepoFullName(state.sourceUrl) === state._originalFullName ? params.repoId : undefined, connection: state.githubConnection, force: force === true ? "1" : "0", branch: state.source.branch, repositoryID: sourceRepositoryID() },
           });
           state.readme = res.data;
         } catch (error) {
@@ -1322,7 +1366,7 @@ export const anonymizeController = function (state, http, html, params, location
         const o = parseGithubUrl(state.sourceUrl);
         try {
           resetValidity();
-          const res = await http.get(`/api/pr/${o.owner}/${o.repo}/${o.pullRequestId}`);
+          const res = await http.get(`/api/pr/${o.owner}/${o.repo}/${o.pullRequestId}`, { params: { connection: state.githubConnection } });
           state.details = res.data;
           if (!state.pullRequestId) {
             state.pullRequestId = o.repo + "-PR" + o.pullRequestId + "-" + generateRandomId(4);
@@ -1640,6 +1684,7 @@ export const anonymizeController = function (state, http, html, params, location
         const payload = {
           repoId: state.repoId,
           terms: state.terms.trim().split("\n").filter((f) => f),
+          connection: state.githubConnection,
           fullName: `${o.owner}/${o.repo}`,
           repository: state.sourceUrl,
           options: state.options,
@@ -1692,6 +1737,7 @@ export const anonymizeController = function (state, http, html, params, location
         const o = parseGithubUrl(state.sourceUrl);
         const payload = {
           pullRequestId: state.pullRequestId,
+          connection: state.githubConnection,
           terms: state.terms.trim().split("\n").filter((f) => f),
           source: { repositoryFullName: `${o.owner}/${o.repo}`, pullRequestId: o.pullRequestId },
           options: state.options,
@@ -2749,3 +2795,33 @@ export const conferenceController = function (state, http, location, params) {
       }
       getConference();
     };
+
+
+export const connectionsController = function (state, http) {
+  state.connections = null;
+  state.connectionError = "";
+  state.busy = false;
+  state.loadConnections = () => http.get("/github/connections").then(res => {
+    state.connections = res.data;
+  }).catch(error => { state.connectionError = error.data?.error || "Unable to load connections."; });
+  state.changeConnection = async (resource, connection, preview) => {
+    state.busy = true;
+    state.connectionError = "";
+    try {
+      const result = await http.post("/github/connections/migrate", { type: resource.type, id: resource.id, connection, preview },
+        { headers: { "X-CSRF-Token": state.connections.csrf } });
+      if (preview) resource.eligible = result.data.eligible;
+      else await state.loadConnections();
+    } catch (error) { state.connectionError = error.data?.error || "Unable to change connection."; }
+    finally { state.busy = false; }
+  };
+  state.disconnectOAuth = async () => {
+    state.busy = true;
+    try {
+      await http.post("/github/connections/disconnect-oauth", {}, { headers: { "X-CSRF-Token": state.connections.csrf } });
+      await state.loadConnections();
+    } catch (error) { state.connectionError = error.data?.error || "Unable to disconnect OAuth."; }
+    finally { state.busy = false; }
+  };
+  state.loadConnections();
+};

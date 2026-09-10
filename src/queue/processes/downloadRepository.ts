@@ -1,3 +1,4 @@
+import { githubQuotaKey } from "../../core/github-token-context";
 import { SandboxedJob } from "bullmq";
 import { config } from "dotenv";
 config();
@@ -27,8 +28,13 @@ export default async function (job: SandboxedJob<RepoJobData, void>) {
   if ([RepositoryStatus.ARCHIVED, RepositoryStatus.REMOVING, RepositoryStatus.REMOVED,
     RepositoryStatus.EXPIRING, RepositoryStatus.EXPIRED].some((status) => status === repo.status)) return;
   repo.protectLifecycle = true;
-  const token = await getToken(repo);
-  const tokenKey = token.slice(-8);
+  let token: string;
+  try { token = await getToken(repo); }
+  catch (error) {
+    await repo.updateStatus(RepositoryStatus.ERROR, error instanceof Error ? error.message : "github_app_reconnect_required");
+    throw error;
+  }
+  const tokenKey = githubQuotaKey(token);
 
   const gateResetAt = await getRedisGateResetAt(tokenKey);
   if (gateResetAt > 0) {

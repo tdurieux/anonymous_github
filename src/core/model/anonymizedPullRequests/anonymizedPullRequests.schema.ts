@@ -1,3 +1,4 @@
+import { repositoryAccessSchema } from "../repository-access.schema";
 import { Schema } from "mongoose";
 
 const AnonymizedPullRequestSchema = new Schema({
@@ -15,6 +16,7 @@ const AnonymizedPullRequestSchema = new Schema({
   lastView: Date,
   pageView: Number,
   owner: { type: Schema.Types.ObjectId, index: true },
+  githubAccess: { type: repositoryAccessSchema, default: undefined },
   conference: String,
   source: {
     pullRequestId: Number,

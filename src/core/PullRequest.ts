@@ -1,3 +1,4 @@
+import { boundAppToken } from "./github-app";
 import { getCredentialToken } from "./credentials";
 import { RepositoryStatus } from "./types";
 import User from "./User";
@@ -25,6 +26,7 @@ export default class PullRequest {
   }
 
   async getToken() {
+    if (this._model.githubAccess?.kind === "github-app") return boundAppToken(this.owner.id, this._model.githubAccess);
     return (await getCredentialToken(this.owner.id, "github", { collection: "anonymizedpullrequests", id: this._model._id })) || config.GITHUB_TOKEN;
   }
 

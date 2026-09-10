@@ -1,0 +1,8 @@
+<div class="container page paper-page">
+  <h1 class="paper-page-title">Connect to <em>GitHub</em></h1>
+  <p>Sign in to manage your anonymizations. Both connections use the same Anonymous GitHub account.</p>
+  <p v-if="site_options?.GITHUB_APP_ENABLED"><a class="btn btn-ink" target="_self" href="/github/app/login">Continue with read-only GitHub App</a></p>
+  <p v-if="site_options?.GITHUB_APP_ENABLED">Choose which repositories to allow after signing in. Private repositories are accessed with read-only permissions.</p>
+  <p v-if="site_options?.GITHUB_OAUTH_ENABLED"><a class="btn" target="_self" href="/github/login">Continue with legacy GitHub OAuth</a></p>
+  <p v-if="site_options?.GITHUB_OAUTH_ENABLED">OAuth supports existing connections and gists. GitHub's private repository OAuth scope includes write access.</p>
+</div>

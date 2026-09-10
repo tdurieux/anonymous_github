@@ -72,8 +72,11 @@ AUTH_CALLBACK=http://localhost:5000/github/auth
 
 - `GITHUB_TOKEN` — create one at <https://github.com/settings/tokens/new> with the `repo` scope.
 - `CREDENTIAL_KEYS` / `CREDENTIAL_ACTIVE_KEY_ID` — generate a key with `openssl rand -base64 32`. Existing installations must follow the [credential migration guide](docs/credential-encryption.md) before starting this release.
-- `CLIENT_ID` / `CLIENT_SECRET` — from a new GitHub App at <https://github.com/settings/applications/new>.
+- `CLIENT_ID` / `CLIENT_SECRET` — from an OAuth App at <https://github.com/settings/applications/new>.
 - The App's callback must be `https://<host>/github/auth` (matching `AUTH_CALLBACK`).
+
+To enable read-only access to selected private repositories alongside OAuth, follow
+the [GitHub App setup guide](docs/github-app-setup.md).
 
 **3. Start the server**
 

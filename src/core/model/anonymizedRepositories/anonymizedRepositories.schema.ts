@@ -1,3 +1,4 @@
+import { repositoryAccessSchema } from "../repository-access.schema";
 import { Schema } from "mongoose";
 
 const AnonymizedRepositorySchema = new Schema({
@@ -31,6 +32,7 @@ const AnonymizedRepositorySchema = new Schema({
       addedAt: { type: Date, default: Date.now },
     },
   ],
+  githubAccess: { type: repositoryAccessSchema, default: undefined },
   conference: String,
   source: {
     type: { type: String },

@@ -1,0 +1,44 @@
+<div class="container page paper-page">
+  <div class="paper-crumbs"><a href="/dashboard">My work</a> / GitHub connections</div>
+  <h1 class="paper-page-title">GitHub <em>connections</em></h1>
+  <p>Connect the GitHub account you use here. Your anonymizations and URLs stay the same.</p>
+  <p class="alert alert-danger" role="alert" v-if="connectionError">{{ connectionError }}</p>
+  <div v-if="connections">
+    <section class="paper-settings-section" v-if="connections.appEnabled">
+      <h2>Read-only GitHub App</h2>
+      <p v-if="connections.appError" role="alert">{{ connections.appError }}. Reconnect to restore access.</p>
+      <a class="btn btn-ink" target="_self" href="/github/app/login">{{ connections.appConnected ? 'Reconnect GitHub account' : 'Connect GitHub account' }}</a>
+      <a class="btn" v-if="connections.appConnected" target="_self" href="/github/app/install">Allow repositories on GitHub</a>
+      <p class="mt-2">GitHub opens directly to the access screen. Select repositories and confirm. Organization access may require an administrator's approval.</p>
+      <ul>
+        <li v-for="installation in connections.installations" :key="installation.id">
+          {{ installation.account }} {{ installation.suspended ? '(suspended)' : '' }} —
+          <a target="_self" :href="'/github/app/install?installationId=' + installation.id">Add or remove repository access</a>
+        </li>
+      </ul>
+      <button class="btn" :disabled="busy" @click="loadConnections()">Refresh access after approval</button>
+    </section>
+    <section class="paper-settings-section">
+      <h2>Legacy OAuth</h2>
+      <p>{{ connections.oauthConnected ? 'Connected' : 'Not connected' }}. Existing OAuth anonymizations continue to use this connection.</p>
+      <a v-if="connections.oauthEnabled" target="_self" href="/github/login" class="btn">Connect legacy OAuth</a>
+      <p v-if="connections.gistCount">{{ connections.gistCount }} gist(s) still require OAuth.</p>
+      <button v-if="connections.oauthConnected &amp;&amp; connections.appConnected" class="btn" :disabled="busy || connections.gistCount || connections.resources.some(r => r.connection === 'oauth')" @click="disconnectOAuth()">Revoke OAuth access</button>
+      <p>Migrate all dependent resources before revoking OAuth. Revocation removes GitHub's broad OAuth repository grant.</p>
+    </section>
+    <section class="paper-settings-section">
+      <h2>Repository connections</h2>
+      <p>Check read-only access, then switch each resource. Connecting the App alone does not change existing resources.</p>
+      <p>Removing GitHub access stops fetching new source content. Already published anonymized content follows its existing expiration and removal settings.</p>
+      <div v-for="resource in connections.resources" :key="resource.type + resource.id" class="mb-3">
+        <strong>{{ resource.id }}</strong> — {{ resource.name }} ({{ resource.type }})<br>
+        Connection: {{ resource.connection === 'github-app' ? 'GitHub App (read-only)' : 'Legacy OAuth' }}
+        <div v-if="resource.connection === 'oauth' &amp;&amp; connections.appEnabled &amp;&amp; connections.appConnected">
+          <button class="btn" :disabled="busy" @click="changeConnection(resource, 'github-app', true)">Check read-only access</button>
+          <button v-if="resource.eligible" class="btn btn-ink" :disabled="busy" @click="changeConnection(resource, 'github-app', false)">Switch to read-only access</button>
+        </div>
+        <button v-if="resource.connection === 'github-app' &amp;&amp; connections.oauthConnected" class="btn" :disabled="busy" @click="changeConnection(resource, 'oauth', false)">Switch to existing OAuth access</button>
+      </div>
+    </section>
+  </div>
+</div>

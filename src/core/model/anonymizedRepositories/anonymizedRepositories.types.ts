@@ -1,3 +1,4 @@
+import { RepositoryAccess } from "../../repository-access.types";
 import { Document, Model } from "mongoose";
 import { RepositoryStatus } from "../../types";
 
@@ -20,6 +21,7 @@ export interface IAnonymizedRepository {
     accessToken?: string;
   };
   owner: string;
+  githubAccess?: RepositoryAccess;
   coauthors?: {
     username: string;
     githubId?: string;
