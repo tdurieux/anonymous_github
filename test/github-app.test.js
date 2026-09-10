@@ -1,4 +1,5 @@
 const { expect } = require("chai");
+const { URL } = require("node:url");
 const { createHmac, generateKeyPairSync, createVerify } = require("crypto");
 const process = require("process");
 const { setTimeout } = require("timers");
@@ -96,7 +97,7 @@ describe("GitHub App protocol boundaries", () => {
 const describeMongo = process.env.TEST_MONGODB_URI ? describe : describe.skip;
 describeMongo("GitHub App credential and repository integration", function () {
   this.timeout(15000);
-  let owner, previousConfig, previousFetch, calls, server, base, session;
+  let owner, previousConfig, previousFetch, calls, server, base, session, authenticated;
   const data = (suffix = "1", expires = 3600) => ({ access_token: "ghu_access" + suffix, refresh_token: "ghr_refresh" + suffix,
     expires_in: expires, refresh_token_expires_in: 100000 });
   before(async () => {
@@ -111,13 +112,15 @@ describeMongo("GitHub App credential and repository integration", function () {
     api.use(express.json());
     api.use((req, _res, next) => {
       req.session = session;
-      req.user = { user: owner };
-      req.isAuthenticated = () => true;
+      req.session.regenerate = done => done();
+      req.user = authenticated ? { user: owner } : undefined;
+      req.isAuthenticated = () => authenticated;
       req.login = (identity, done) => { req.user = identity; done(); };
       req.logout = done => done();
       next();
     });
     api.use("/github", githubAppRouter);
+    api.use("/github", require("../src/server/routes/connection").router);
     server = await new Promise(resolve => { const listening = api.listen(0, "127.0.0.1", () => resolve(listening)); });
     base = `http://127.0.0.1:${server.address().port}`;
   });
@@ -134,6 +137,7 @@ describeMongo("GitHub App credential and repository integration", function () {
     calls = [];
     await Credentials.deleteMany({}); await Users.deleteMany({}); await Installations.deleteMany({});
     app.clearAppTokenCache();
+    authenticated = true;
     owner = await Users.create({ username: "owner", externalIDs: { github: "10" } });
   });
   afterEach(() => { globalThis.fetch = previousFetch; });
@@ -248,6 +252,62 @@ describeMongo("GitHub App credential and repository integration", function () {
     const replay = await request("/github/app/callback?state=state&code=code");
     expect(replay.status).to.equal(400);
     expect(calls).to.have.length(2);
+  });
+  it("signs an existing user in through the App without changing legacy access", async () => {
+    authenticated = false;
+    await setCredential(owner.id, "legacy-secret");
+    session.githubAppFlow = { state: "state", expires: Date.now() + 60000, returnTo: "/dashboard" };
+    mock(url => url.includes("/login/oauth/access_token") ? data() : { id: 10, login: "owner-renamed" });
+    const result = await request("/github/app/callback?state=state&code=code");
+    expect(result.location).to.equal("/dashboard");
+    expect(await Users.countDocuments()).to.equal(1);
+    expect(await getCredentialToken(owner.id)).to.equal("legacy-secret");
+    expect(await app.appUserToken(owner.id)).to.equal("ghu_access1");
+  });
+  it("requires legacy verification for an older account before linking its GitHub ID", async () => {
+    authenticated = false;
+    await Users.updateOne({ _id: owner._id }, { $unset: { externalIDs: 1 } });
+    session.githubAppFlow = { state: "state", expires: Date.now() + 60000, returnTo: "/gist-anonymize" };
+    mock(url => url.includes("/login/oauth/access_token") ? data() : { id: 10, login: "owner" });
+    const result = await request("/github/app/callback?state=state&code=code");
+    expect(result.location).to.equal("/signin?recover=1");
+    expect(session.githubRecovery.ownerId).to.equal(owner.id);
+    expect(session.githubRecovery.githubId).to.equal("10");
+    expect(await Credentials.countDocuments()).to.equal(0);
+    expect((await Users.findById(owner.id)).externalIDs?.github).to.equal(undefined);
+    const { verify } = require("../src/server/routes/connection");
+    const identity = await new Promise((resolve, reject) => verify({ githubOAuthContext: session.githubRecovery },
+      "verified-legacy", "", { id: "10", username: "owner" }, (error, user) => error ? reject(error) : resolve(user)));
+    expect(identity.user.id).to.equal(owner.id);
+    expect((await Users.findById(owner.id)).externalIDs.github).to.equal("10");
+    expect(await getCredentialToken(owner.id)).to.equal("verified-legacy");
+  });
+  it("returns OAuth connections to the gist form and rejects callback replay", async () => {
+    const strategy = require("passport")._strategy("github");
+    const exchange = strategy._oauth2.getOAuthAccessToken;
+    const profile = strategy.userProfile;
+    strategy._oauth2.getOAuthAccessToken = (_code, _params, done) => done(null, "gist-oauth", "", {});
+    strategy.userProfile = (_token, done) => done(null, { id: "10", username: "owner" });
+    try {
+      const start = await request("/github/login?returnTo=%2Fgist-anonymize%2Fsaved");
+      const state = new URL(start.location).searchParams.get("state");
+      const result = await request("/github/auth?code=test&state=" + state);
+      expect(result.location).to.equal("/gist-anonymize/saved");
+      expect(await getCredentialToken(owner.id)).to.equal("gist-oauth");
+      expect((await request("/github/auth?code=test&state=" + state)).location).to.equal("/signin");
+      await request("/github/login?returnTo=https%3A%2F%2Fevil.test");
+      expect(session.githubOAuthFlow.returnTo).to.equal("/connections");
+    } finally {
+      strategy._oauth2.getOAuthAccessToken = exchange;
+      strategy.userProfile = profile;
+    }
+  });
+  it("rejects a different account during OAuth recovery before saving credentials", async () => {
+    const { verify } = require("../src/server/routes/connection");
+    await rejects(new Promise((resolve, reject) => verify({ githubOAuthContext: { ownerId: owner.id, githubId: "10", expires: Date.now() + 60000 } },
+      "wrong-token", "", { id: "99", username: "owner" }, (error, user) => error ? reject(error) : resolve(user))), "github_identity_mismatch");
+    expect(await Credentials.countDocuments()).to.equal(0);
+    expect((await Users.findById(owner.id)).externalIDs.github).to.equal("10");
   });
   it("rejects linking a different GitHub identity", async () => {
     session.githubAppFlow = { state: "state", ownerId: owner.id, expires: Date.now() + 60000, returnTo: "/connections" };

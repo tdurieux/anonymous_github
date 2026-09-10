@@ -7,8 +7,13 @@
       <p class="paper-page-lede">Sign in to create and manage your anonymizations.</p>
     </header>
     <div class="auth-options">
-      <p class="auth-existing" role="note" v-if="site_options?.GITHUB_APP_ENABLED &amp;&amp; site_options?.GITHUB_OAUTH_ENABLED">Already have an account? Sign in with <a target="_self" href="/github/login">legacy GitHub OAuth</a> to keep access to your anonymizations. You can connect the read-only App from GitHub connections after signing in.</p>
-      <section v-if="site_options?.GITHUB_APP_ENABLED">
+      <section v-if="accountRecovery">
+        <h2>Verify your existing account</h2>
+        <p>We found an existing account. Verify it with your previous GitHub connection to keep your anonymizations. Future sign-ins will use the GitHub App.</p>
+        <a class="btn btn-ink auth-continue" target="_self" href="/github/login?recover=1" v-if="site_options?.GITHUB_OAUTH_ENABLED">Verify with previous GitHub connection</a>
+        <p v-else>Account verification is currently unavailable. Please try again later.</p>
+      </section>
+      <section v-if="site_options?.GITHUB_APP_ENABLED &amp;&amp; !accountRecovery">
         <div class="connection-top"><i class="fab fa-github" aria-hidden="true"></i><span class="connection-badge">Read-only access</span></div>
         <h2>Continue with GitHub</h2>
         <p>Connect through the GitHub App with read-only repository access.</p>
@@ -17,12 +22,12 @@
           <li><i class="fas fa-check" aria-hidden="true"></i> No permission to write to your code</li>
         </ul>
         <a class="btn btn-ink auth-continue" target="_self" href="/github/app/login">Sign in with GitHub <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
-        <small>Select your repositories after signing in.</small>
+        <small>Your existing anonymizations and connections stay with your account.</small>
       </section>
-      <section class="auth-legacy" v-if="site_options?.GITHUB_OAUTH_ENABLED">
-        <div class="connection-title"><h2>Legacy OAuth</h2><span class="connection-badge connection-badge-muted">For gists &amp; existing accounts</span></div>
-        <p>Use this connection for gists or your existing OAuth setup. GitHub's private repository scope includes write access.</p>
-        <a class="connection-link" target="_self" href="/github/login">Continue with OAuth <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
+      <section class="auth-legacy" v-if="!site_options?.GITHUB_APP_ENABLED &amp;&amp; site_options?.GITHUB_OAUTH_ENABLED &amp;&amp; !accountRecovery">
+        <div class="connection-title"><h2>Continue with GitHub</h2></div>
+        <p>Sign in to access your account. GitHub OAuth includes write access to private repositories.</p>
+        <a class="connection-link" target="_self" href="/github/login">Sign in with GitHub <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
       </section>
       <p role="status" v-if="site_options &amp;&amp; !site_options.GITHUB_APP_ENABLED &amp;&amp; !site_options.GITHUB_OAUTH_ENABLED">GitHub sign-in is currently unavailable. Please try again later.</p>
     </div>

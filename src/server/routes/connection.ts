@@ -13,7 +13,7 @@ import AnonymousError from "../../core/AnonymousError";
 import { setCredential } from "../../core/credentials";
 import { hashToken } from "./token-auth";
 import { createLogger, serializeError } from "../../core/logger";
-import { getLoginToken, isDisabledAccount } from "./auth-utils";
+import { getLoginToken, isDisabledAccount, safeAuthReturnTo } from "./auth-utils";
 
 const logger = createLogger("auth");
 
@@ -28,7 +28,8 @@ export function ensureAuthenticated(
   res.status(401).json({ error: "not_connected" });
 }
 
-const verify = async (
+export const verify = async (
+  req: express.Request,
   accessToken: string,
   _refreshToken: string,
   profile: Profile,
@@ -36,8 +37,19 @@ const verify = async (
 ): Promise<void> => {
   let user: IUserDocument | null;
   try {
+    const flow = req.githubOAuthContext;
+    const currentId = (req.user as { user?: { id?: string } } | undefined)?.user?.id;
+    if (!flow || flow.expires < Date.now() || (flow.githubId && flow.githubId !== profile.id)
+      || (currentId && currentId !== flow.ownerId)) {
+      done(new AnonymousError("github_identity_mismatch", { httpStatus: 409 }));
+      return;
+    }
     user = await UserModel.findOne({ "externalIDs.github": profile.id });
     if (user) {
+      if (flow.ownerId && user.id !== flow.ownerId) {
+        done(new AnonymousError("github_identity_mismatch", { httpStatus: 409 }));
+        return;
+      }
       if (isDisabledAccount(user.status)) {
         done(
           new AnonymousError(
@@ -53,6 +65,10 @@ const verify = async (
       // existing account instead of creating a duplicate that would lose
       // the isAdmin flag.
       user = await UserModel.findOne({ username: profile.username });
+      if (flow.ownerId && (!user || user.id !== flow.ownerId)) {
+        done(new AnonymousError("github_identity_mismatch", { httpStatus: 409 }));
+        return;
+      }
       if (user) {
         if (user.externalIDs?.github && user.externalIDs.github !== profile.id) {
           done(new AnonymousError("not_connected", { httpStatus: 401 }));
@@ -120,6 +136,7 @@ const verify = async (
 if (config.GITHUB_OAUTH_ENABLED) passport.use(
   new Strategy(
     {
+      passReqToCallback: true,
       clientID: config.CLIENT_ID,
       clientSecret: config.CLIENT_SECRET,
       callbackURL: config.AUTH_CALLBACK,
@@ -174,9 +191,22 @@ export function initSession() {
 
 export const router = express.Router();
 
+router.get("/account-recovery", (req, res) => {
+  res.set("Cache-Control", "no-store");
+  res.json({ required: !!req.session.githubRecovery && req.session.githubRecovery.expires > Date.now() });
+});
+
 router.get(
   "/login",
   (req, res, next) => config.GITHUB_OAUTH_ENABLED ? next() : res.status(503).json({ error: "github_oauth_disabled" }),
+  (req, res, next) => {
+    const recovery = req.query.recover === "1" ? req.session.githubRecovery : undefined;
+    if (req.query.recover === "1" && (!recovery || recovery.expires < Date.now())) return res.redirect("/signin");
+    const current = (req.user as { user?: IUserDocument } | undefined)?.user;
+    req.session.githubOAuthFlow = recovery || { ownerId: current?.id, githubId: current?.externalIDs?.github,
+      returnTo: safeAuthReturnTo(req.query.returnTo, current ? "/connections" : "/dashboard"), expires: Date.now() + 10 * 60000 };
+    next();
+  },
   passport.authenticate("github", { scope: ["repo"] }), // Note the scope here
   function (req: express.Request, res: express.Response) {
     res.redirect("/");
@@ -187,6 +217,9 @@ router.get(
   "/auth",
   (req, res, next) => {
     if (!config.GITHUB_OAUTH_ENABLED) return res.status(503).json({ error: "github_oauth_disabled" });
+    const flow = req.session.githubOAuthFlow;
+    delete req.session.githubOAuthFlow;
+    req.githubOAuthContext = flow;
     const existingId = (req.user as { user?: { id?: string } } | undefined)?.user?.id;
     passport.authenticate("github", (error: Error | null, identity: Express.User | false) => {
       if (error) return next(error);
@@ -195,7 +228,11 @@ router.get(
       if (existingId && id !== existingId) return res.status(409).json({ error: "github_identity_mismatch" });
       req.login(identity, loginError => {
         if (loginError) return next(loginError);
-        res.redirect(existingId ? "/connections" : "/dashboard");
+        if (flow?.recovery) {
+          delete req.session.githubRecovery;
+          return res.redirect("/github/app/login?returnTo=" + encodeURIComponent(flow.returnTo));
+        }
+        res.redirect(flow?.returnTo || (existingId ? "/connections" : "/dashboard"));
       });
     })(req, res, next);
   }

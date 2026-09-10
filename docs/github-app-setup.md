@@ -77,10 +77,15 @@ Do not rerun plaintext cleanup just to enable the App.
 
 ## User flow
 
-Sign in offers App and OAuth choices. Both resolve the same existing account by
-its GitHub numeric user ID. A signed-in user cannot attach a different GitHub
-identity. Legacy accounts without a verified GitHub ID require account recovery;
-App login never automatically links by username or email.
+Sign in offers one GitHub App button and resolves existing accounts by GitHub
+numeric user ID. Signing in preserves existing OAuth credentials and resource
+bindings. If the App is disabled, the button uses OAuth instead.
+
+An older account without a GitHub ID receives a one-time recovery prompt. The
+user verifies the previous OAuth connection, then resumes App authorization.
+Recovery is bound to the expected account and GitHub ID and expires after ten
+minutes. A signed-in user cannot attach a different GitHub identity. App login
+never automatically links by username or email.
 
 On the anonymization form, **Connect read-only GitHub access** starts user
 authorization and then repository installation. **Allow repository access on
@@ -93,7 +98,11 @@ after approval** on the Connections page when approval is delayed.
 App-connected accounts default to the App for new repository/PR access. The
 explicit **Use existing OAuth access** choice handles repositories not yet
 available through the App. An App error never silently selects OAuth. Gists
-continue using OAuth in this release.
+continue using OAuth. An App-only user entering a gist URL is prompted to connect
+OAuth, with the current repository permission scope explained. The form draft
+is saved for 30 minutes and restored after authorization. Users with an existing
+OAuth connection can use it immediately. OAuth remains available on the
+Connections page, separate from sign-in.
 
 **GitHub connections** lists each resource's current connection. First check
 read-only access, then switch the resource. The switch validates the existing

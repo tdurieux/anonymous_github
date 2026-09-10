@@ -89,10 +89,44 @@ describe("Vue 3 UI", function () {
     expect(ui.errors).to.deep.equal([]);
   });
 
-  it("offers App and OAuth sign-in and direct repository access links", async function () {
+  it("offers one App sign-in for new and existing accounts", async function () {
     ui = await browser("/signin", { "/api/options": { GITHUB_APP_ENABLED: true, GITHUB_OAUTH_ENABLED: true } });
     expect(ui.window.document.querySelector('a[href="/github/app/login"]')).not.to.equal(null);
+    expect(ui.window.document.querySelector('a[href="/github/login"]')).to.equal(null);
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("shows previous-connection verification only for a pending recovery", async function () {
+    ui = await browser("/signin?recover=1", {
+      "/api/options": { GITHUB_APP_ENABLED: true, GITHUB_OAUTH_ENABLED: true },
+      "/github/account-recovery": { required: true },
+    });
+    expect(ui.window.document.querySelector('a[href="/github/login?recover=1"]')).not.to.equal(null);
+    expect(ui.window.document.querySelector('a[href="/github/app/login"]')).to.equal(null);
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("falls back to one OAuth sign-in when the App is disabled", async function () {
+    ui = await browser("/signin", { "/api/options": { GITHUB_APP_ENABLED: false, GITHUB_OAUTH_ENABLED: true } });
     expect(ui.window.document.querySelector('a[href="/github/login"]')).not.to.equal(null);
+    expect(ui.window.document.querySelector('a[href="/github/app/login"]')).to.equal(null);
+  });
+
+  it("offers OAuth for an App-only gist and saves the draft before connecting", async function () {
+    ui = await browser("/gist-anonymize", {
+      "/api/user": { username: "owner" },
+      "/github/connections": { appEnabled: true, appConnected: true, oauthEnabled: true, oauthConnected: false },
+    });
+    const input = await ui.input("#sourceUrl", "https://gist.github.com/311fc9");
+    input.dispatchEvent(new ui.window.Event("blur"));
+    await delay(60);
+    const button = [...ui.window.document.querySelectorAll("button")].find(node => node.textContent.includes("Connect GitHub OAuth to access gists"));
+    expect(button).not.to.equal(undefined);
+    expect(ui.requests.some(r => r.url.pathname === "/api/gist/source/311fc9")).to.equal(false);
+    button.click();
+    const saved = JSON.parse(ui.window.sessionStorage.getItem("github-access-draft"));
+    expect(saved.path).to.equal("/gist-anonymize");
+    expect(saved.draft.sourceUrl).to.equal("https://gist.github.com/311fc9");
     expect(ui.errors).to.deep.equal([]);
   });
 

@@ -146,7 +146,7 @@ describe("production regressions", function () {
     let calls = 0;
     stub(UserModel, "findOne", async () => ++calls === 1 ? null : { externalIDs: { github: "old-id" }, isAdmin: true });
     stub(UserModel, "updateOne", () => { throw new Error("must not overwrite identity"); });
-    const error = await new Promise(resolve => passport._strategy("github")._verify("token", "", { id: "new-id", username: "recycled" }, resolve));
+    const error = await new Promise(resolve => passport._strategy("github")._verify({ githubOAuthContext: { expires: Date.now() + 60000 } }, "token", "", { id: "new-id", username: "recycled" }, resolve));
     expect(error.message).to.equal("not_connected");
   });
 
