@@ -75,10 +75,13 @@
         </a>
         <div class="dropdown-menu dropdown-menu-right user-menu" aria-labelledby="navbarDropdownMenuLink">
           <h6 class="dropdown-header">Signed in as @{{ user?.username }}</h6>
-          <a class="dropdown-item" href="/connections">GitHub connections</a>
           <a class="dropdown-item" href="/profile">
             <i class="fas fa-sliders-h" aria-hidden="true"></i>
             <span>Settings<small>Defaults, quotas, account</small></span>
+          </a>
+          <a class="dropdown-item" href="/connections">
+            <i class="fab fa-github" aria-hidden="true"></i>
+            <span>GitHub connections<small>Repository access and OAuth</small></span>
           </a>
           <a class="dropdown-item" href="/claim">
             <i class="fas fa-link" aria-hidden="true"></i>
