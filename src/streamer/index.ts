@@ -3,6 +3,7 @@ dotenv();
 
 import * as express from "express";
 import * as compression from "compression";
+import rateLimit from "express-rate-limit";
 
 import config from "../config";
 import router from "./route";
@@ -27,7 +28,18 @@ app.use(
   })
 );
 
-app.use("/api", router);
+// The streamer has no session/user context of its own, so apply a flat
+// per-IP limit (mirrors the main server's unauthenticated rate) to guard
+// against resource exhaustion if this service is directly reachable.
+const rate = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: config.RATE_LIMIT,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: `You can only make ${config.RATE_LIMIT} requests every 15min. Please try again later.`,
+});
+
+app.use("/api", rate, router);
 
 app.get("/healthcheck", async (_, res) => {
   res.json({ status: "ok" });
