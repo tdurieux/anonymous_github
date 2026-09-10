@@ -129,6 +129,17 @@ describe("Vue 3 UI", function () {
     });
   }
 
+  it("selects the connected GitHub App by default beside the source URL", async () => {
+    ui = await browser("/anonymize", { "/github/connections": { appEnabled: true, appConnected: true, oauthConnected: true } });
+    const panel = ui.window.document.querySelector(".anonymize-landing-inner .repo-access");
+    expect(panel).not.to.equal(null);
+    expect(panel.querySelector('button[aria-pressed="true"]').textContent).to.include("Read-only GitHub App");
+    [...panel.querySelectorAll("button")].find(b => b.textContent.includes("Legacy OAuth")).click();
+    await delay(30);
+    expect(panel.querySelector('button[aria-pressed="true"]').textContent).to.include("Legacy OAuth");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
   it("preserves redactions, identifiers and pinned commits when switching connections", async () => {
     ui = await browser("/anonymize", {
       "/github/connections": { appEnabled: true, appConnected: true, oauthConnected: true },
