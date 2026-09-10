@@ -211,6 +211,9 @@ const markdownImageRegex =
 interface CompiledTermVariant {
   // RE2 for regular patterns; time-limited native fallback for JS extensions.
   pattern: RE2JS | RegExp;
+  // A boundary-free, fixed-width native search can cheaply rule out literal
+  // terms before RE2 scans a large file. A hit still uses the usual matcher.
+  literalPrefilter?: RegExp;
   before: boolean;
   after: boolean;
   mask: string;
@@ -266,6 +269,10 @@ function compileTerms(terms: string[] | undefined): CompiledTermVariant[] {
     if (!useAsRegex || hasCatastrophicBacktracking(term)) {
       term = term.replace(/[-[\]{}()*+?.,\\^$|#]/g, "\\$&");
     }
+    // Only plain literals qualify: expanding their letters produces fixed
+    // character classes, never user-controlled backtracking. Do not apply
+    // this shortcut to regex syntax, including escaped literals.
+    const isLiteral = !/[\\^$.*+?()[\]{}|]/.test(term);
     for (const variant of termVariants(term)) {
       const bounded = withWordBoundaries(variant.pattern, {
         sniffSource: variant.sniff,
@@ -278,7 +285,10 @@ function compileTerms(terms: string[] | undefined): CompiledTermVariant[] {
           variant.unicode ? variant.pattern : bounded,
           RE2JS.CASE_INSENSITIVE
         );
-        compiled.push({ pattern, before, after, mask });
+        compiled.push({ pattern, before, after, mask,
+          // RE2 uses Unicode case folding even for the non-diacritic pass.
+          // Omit boundaries so this search can only rule out absent terms.
+          literalPrefilter: isLiteral ? new RegExp(variant.pattern, "iu") : undefined });
       } catch {
         // Retain JavaScript-only syntax and large repetition counts under
         // the execution deadline; RE2 handles the common case without backtracking.
@@ -428,6 +438,7 @@ function runWithAnonymizationDeadline(run: () => string): string {
 }
 
 function replaceTerm(content: string, term: CompiledTermVariant): string {
+  if (term.literalPrefilter && !term.literalPrefilter.test(content)) return content;
   if (term.pattern instanceof RegExp) {
     return content.replace(term.pattern, () => term.mask);
   }
