@@ -264,11 +264,15 @@ export function handleError(
 
 export async function getUser(req: express.Request) {
   function notConnected(): never {
-    req.logout((error) => {
-      if (error) {
-        logger.error("logout failed", serializeError(error));
-      }
-    });
+    // Anonymous sessions can hold an in-progress OAuth flow. Passport's
+    // logout regenerates the session, so only clear an invalid identity.
+    if (req.user) {
+      req.logout((error) => {
+        if (error) {
+          logger.error("logout failed", serializeError(error));
+        }
+      });
+    }
     throw new AnonymousError("not_connected", {
       httpStatus: 401,
     });
