@@ -3,7 +3,7 @@ import * as admin from "./admin.js";
 
 export const pageRoutes = [
 {path: "/connections", template: "partials/connections.htm", title: "GitHub connections – Anonymous GitHub", preserveExplorer: false, setup: (state, services) => pages.connectionsController(state, services.http)},
-{path: "/signin", template: "partials/signin.htm", title: "Sign in – Anonymous GitHub", preserveExplorer: false, setup: () => {}},
+{path: "/signin", template: "partials/signin.htm", title: "Sign in – Anonymous GitHub", preserveExplorer: false, setup: (state, services) => pages.signinController(state, services.http)},
 {path: "/", template: "partials/home.htm", title: "Anonymous GitHub – Share the code, not the author", preserveExplorer: false, setup: (state, services) => pages.homeController(state, services.http, services.location, services.window, services.timeout)},
 {path: "/dashboard", template: "partials/dashboard.htm", title: "Your anonymizations – Anonymous GitHub", preserveExplorer: false, setup: (state, services) => pages.unifiedDashboardController(state, services.http, services.location, services.promises, services.window, services.quotaService)},
 {"path":"/pr-dashboard","redirect":"/dashboard"},

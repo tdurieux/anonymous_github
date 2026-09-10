@@ -11,14 +11,14 @@ import { getCredentialToken } from "../../core/credentials";
 import { APP_PROVIDER, appError, appUserToken, AppInstallation, clearAppTokenCache, exchangeAppToken,
   githubRequest, GitHubRepositoryInfo, reconcileAppGrant, reconcileInstallation, installationURL, saveAppGrant, selectRepositoryAccess, userInstallations } from "../../core/github-app";
 import { getUser, handleError } from "./route-utils";
-import { isDisabledAccount } from "./auth-utils";
+import { isDisabledAccount, safeAuthReturnTo } from "./auth-utils";
 
 type Flow = { state: string; expires: number; ownerId?: string; returnTo: string; repository?: string; install?: boolean };
 declare module "express-session" {
   interface SessionData { githubAppFlow?: Flow; githubInstallFlow?: Flow; githubConnectionCSRF?: string; }
 }
 export function safeReturnTo(value: unknown): string {
-  return typeof value === "string" && /^\/(?:(?:anonymize|pull-request-anonymize|gist-anonymize)(?:\/[\w-]+)?|connections|dashboard)(?:\?[^\\\r\n]*)?$/.test(value) ? value : "/connections";
+  return safeAuthReturnTo(value, "/connections");
 }
 export function consumeFlow(flow: Flow | undefined, state: unknown): Flow {
   if (!flow || typeof state !== "string" || flow.state !== state || flow.expires < Date.now()) throw appError("invalid_auth_state", 400);
@@ -39,7 +39,7 @@ router.use((_req, res, next) => { res.set("Cache-Control", "no-store"); next(); 
 router.get("/app/login", enabled, async (req, res) => {
   try {
     const ownerId = req.isAuthenticated() ? (await getUser(req)).id : undefined;
-    const flow = newFlow(ownerId, req.query.returnTo);
+    const flow = newFlow(ownerId, req.query.returnTo || (ownerId ? "/connections" : "/dashboard"));
     flow.install = req.query.install === "1";
     if (typeof req.query.repository === "string" && /^[\w.-]+\/[\w.-]+$/.test(req.query.repository)) flow.repository = req.query.repository;
     req.session.githubAppFlow = flow;
@@ -73,7 +73,14 @@ router.get("/app/callback", enabled, async (req, res) => {
     }
     if (!user) {
       // A matching login name alone is not proof of account ownership.
-      if (await UserModel.exists({ username: profile.login })) throw appError("github_account_link_required", 409);
+      const existing = await UserModel.findOne({ username: profile.login });
+      if (existing) {
+        if (existing.externalIDs?.github || isDisabledAccount(existing.status)) throw appError("github_identity_mismatch", 409);
+        req.session.githubRecovery = { ownerId: existing.id, githubId: String(profile.id), returnTo: flow.returnTo,
+          expires: Date.now() + 10 * 60000, recovery: true };
+        await saveSession(req);
+        return res.redirect("/signin?recover=1");
+      }
       user = new UserModel({ username: profile.login, externalIDs: { github: String(profile.id) }, photo: profile.avatar_url, emails: [] });
       await user.save();
     }

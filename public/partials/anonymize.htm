@@ -24,6 +24,12 @@
       <small class="form-text" style="color: var(--ink-muted);">
         Repository, pull request (…/pull/42) and gist (gist.github.com/…) URLs are all accepted.
       </small>
+      <aside class="alert alert-info" role="status" v-if="detectedType === 'gist' &amp;&amp; gistOAuthRequired">
+        <p>Connect GitHub OAuth to access gists. Your account and existing anonymizations stay the same, and your draft will be restored when you return.</p>
+        <p>GitHub's legacy OAuth connection includes write access to private repositories.</p>
+        <button type="button" class="btn btn-ink" @click="connectGistOAuth()" v-if="githubConnections?.oauthEnabled">Connect GitHub OAuth to access gists</button>
+        <p v-else>GitHub OAuth is currently unavailable. Please try again later.</p>
+      </aside>
       <aside class="repo-access-details" aria-label="GitHub access" v-if="!sourceUrl &amp;&amp; githubConnections?.appEnabled &amp;&amp; githubConnections.appConnected &amp;&amp; githubConnections.oauthConnected">
         <div class="repo-access-main">
           <div class="repo-access-controls">

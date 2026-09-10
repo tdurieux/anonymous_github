@@ -284,7 +284,7 @@ export const homeController = function (state, http, location, window, timeout) 
       };
       // Signed-out visitors cannot open the dashboard; send them to sign in.
       state.featureHref = function (f) {
-        return f.needsUser && !state.user ? "/github/login" : f.href;
+        return f.needsUser && !state.user ? "/signin" : f.href;
       };
       state.featureTarget = function (f) {
         return f.needsUser && !state.user ? "_self" : f.target || undefined;
@@ -890,10 +890,18 @@ export const anonymizeController = function (state, http, html, params, location
       state.sourceUrl = "";
       state.githubConnection = undefined;
       state.githubConnections = null;
-      state.grantGitHubAccess = () => {
+      state.gistOAuthRequired = false;
+      const saveGitHubDraft = () => {
         const draft = {};
         for (const key of ["sourceUrl", "terms", "repoId", "pullRequestId", "gistId", "source", "options", "conference", "githubConnection"]) draft[key] = state[key];
         sessionStorage.setItem("github-access-draft", JSON.stringify({ path: location.path(), savedAt: Date.now(), draft }));
+      };
+      state.connectGistOAuth = () => {
+        saveGitHubDraft();
+        window.location.href = "/github/login?returnTo=" + encodeURIComponent(location.path());
+      };
+      state.grantGitHubAccess = () => {
+        saveGitHubDraft();
         const returnTo = location.path();
         const repository = parseRepoFullName(state.sourceUrl) || "";
         const route = state.githubConnections?.appConnected ? "/github/app/install" : "/github/app/login";
@@ -1110,7 +1118,7 @@ export const anonymizeController = function (state, http, html, params, location
                 state.options.expirationDate = new Date(res.data.options.expirationDate);
               }
               if (await restoreGitHubDraft()) return;
-              state.details = (await http.get(`/api/gist/source/${res.data.source.gistId}`)).data;
+              await getGistDetails();
 
             },
             () => { location.url("/404"); }
@@ -1142,6 +1150,7 @@ export const anonymizeController = function (state, http, html, params, location
         state.readme = "";
         state.html_readme = "";
         state.detectedType = null;
+        state.gistOAuthRequired = false;
 
         let o;
         try {
@@ -1449,12 +1458,23 @@ export const anonymizeController = function (state, http, html, params, location
         const o = parseGithubUrl(state.sourceUrl);
         try {
           resetValidity();
+          state.gistOAuthRequired = false;
+          if (state.githubConnections?.oauthConnected === false) {
+            state.gistOAuthRequired = true;
+            setValidity("sourceUrl", "missing", false);
+            return;
+          }
           const res = await http.get(`/api/gist/source/${o.gistId}`);
           state.details = res.data;
           if (!state.gistId) {
             state.gistId = "gist-" + o.gistId.substring(0, 6) + "-" + generateRandomId(4);
           }
         } catch (error) {
+          if (error.data?.error === "github_oauth_required") {
+            state.gistOAuthRequired = true;
+            setValidity("sourceUrl", "missing", false);
+            return;
+          }
           if (error.data) {
             translate("ERRORS." + error.data.error).then((translation) => {
               state.addToast({ title: "Error", date: new Date(), body: translation });
@@ -2831,4 +2851,9 @@ export const connectionsController = function (state, http) {
     finally { state.busy = false; }
   };
   state.loadConnections();
+};
+
+export const signinController = function (state, http) {
+  state.accountRecovery = false;
+  http.get("/github/account-recovery").then(res => { state.accountRecovery = res.data.required; }).catch(() => {});
 };

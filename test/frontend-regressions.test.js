@@ -197,7 +197,7 @@ describe("frontend production regressions", function () {
     it("sends signed-out visitors to sign in instead of the dashboard", function () {
       const manage = f => f.key === "manage";
       const out = landing(null);
-      expect(out.scope.featureHref(out.scope.features.find(manage))).to.equal("/github/login");
+      expect(out.scope.featureHref(out.scope.features.find(manage))).to.equal("/signin");
       expect(out.scope.featureTarget(out.scope.features.find(manage))).to.equal("_self");
       const signedIn = landing({ username: "jane" });
       expect(signedIn.scope.featureHref(signedIn.scope.features.find(manage))).to.equal("/dashboard");

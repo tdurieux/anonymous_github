@@ -20,3 +20,18 @@ export function getLoginToken(
   }
   return null;
 }
+
+export function safeAuthReturnTo(value: unknown, fallback = "/dashboard"): string {
+  return typeof value === "string" && /^\/(?:(?:anonymize|pull-request-anonymize|gist-anonymize)(?:\/[\w-]+)?|connections|dashboard)(?:\?[^\\\r\n]*)?$/.test(value) ? value : fallback;
+}
+
+export type OAuthContext = { ownerId?: string; githubId?: string; returnTo: string; expires: number; recovery?: boolean };
+declare module "express-session" {
+  interface SessionData {
+    githubRecovery?: OAuthContext;
+    githubOAuthFlow?: OAuthContext;
+  }
+}
+declare module "express-serve-static-core" {
+  interface Request { githubOAuthContext?: OAuthContext; }
+}

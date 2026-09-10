@@ -192,7 +192,7 @@ describeMongo("credential access (MongoDB)", function () {
   it("OAuth login writes a credential and returns a token-free session user", async () => {
     const passport = require("passport");
     require("../src/server/routes/connection");
-    const result = await new Promise((resolve, reject) => passport._strategy("github")._verify("oauth-secret", "refresh-secret", {
+    const result = await new Promise((resolve, reject) => passport._strategy("github")._verify({ githubOAuthContext: { expires: Date.now() + 60000 } }, "oauth-secret", "refresh-secret", {
       id: "external-test", username: owner.username, emails: [], photos: [],
     }, (error, user) => error ? reject(error) : resolve(user)));
     expect(JSON.stringify(result)).not.to.include("oauth-secret");
