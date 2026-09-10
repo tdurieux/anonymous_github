@@ -1,44 +1,57 @@
-<div class="container page paper-page">
-  <div class="paper-crumbs"><a href="/dashboard">My work</a> / GitHub connections</div>
-  <h1 class="paper-page-title">GitHub <em>connections</em></h1>
-  <p>Connect the GitHub account you use here. Your anonymizations and URLs stay the same.</p>
-  <p class="alert alert-danger" role="alert" v-if="connectionError">{{ connectionError }}</p>
+<div class="container paper-page connections-page">
+  <div class="paper-crumbs"><a href="/dashboard">My work</a> / <span class="here">GitHub connections</span></div>
+  <header class="connections-heading">
+    <h1 class="paper-page-title">GitHub <em>connections</em></h1>
+    <p class="paper-page-lede">Manage how GitHub shares your code. Your anonymizations and URLs stay the same.</p>
+  </header>
+  <p class="paper-inline-alert paper-inline-alert-error" role="alert" v-if="connectionError">{{ connectionError }}</p>
+  <p role="status" v-if="!connections &amp;&amp; !connectionError">Loading your connections…</p>
+  <button class="btn btn-outline-ink" v-if="!connections &amp;&amp; connectionError" :disabled="busy" @click="loadConnections()">Try again</button>
   <div v-if="connections">
-    <section class="paper-settings-section" v-if="connections.appEnabled">
-      <h2>Read-only GitHub App</h2>
-      <p v-if="connections.appError" role="alert">{{ connections.appError }}. Reconnect to restore access.</p>
-      <a class="btn btn-ink" target="_self" href="/github/app/login">{{ connections.appConnected ? 'Reconnect GitHub account' : 'Connect GitHub account' }}</a>
-      <a class="btn" v-if="connections.appConnected" target="_self" href="/github/app/install">Allow repositories on GitHub</a>
-      <p class="mt-2">GitHub opens directly to the access screen. Select repositories and confirm. Organization access may require an administrator's approval.</p>
-      <ul>
-        <li v-for="installation in connections.installations" :key="installation.id">
-          {{ installation.account }} {{ installation.suspended ? '(suspended)' : '' }} —
-          <a target="_self" :href="'/github/app/install?installationId=' + installation.id">Add or remove repository access</a>
-        </li>
-      </ul>
-      <button class="btn" :disabled="busy" @click="loadConnections()">Refresh access after approval</button>
-    </section>
-    <section class="paper-settings-section">
-      <h2>Legacy OAuth</h2>
-      <p>{{ connections.oauthConnected ? 'Connected' : 'Not connected' }}. Existing OAuth anonymizations continue to use this connection.</p>
-      <a v-if="connections.oauthEnabled" target="_self" href="/github/login" class="btn">Connect legacy OAuth</a>
-      <p v-if="connections.gistCount">{{ connections.gistCount }} gist(s) still require OAuth.</p>
-      <button v-if="connections.oauthConnected &amp;&amp; connections.appConnected" class="btn" :disabled="busy || connections.gistCount || connections.resources.some(r => r.connection === 'oauth')" @click="disconnectOAuth()">Revoke OAuth access</button>
-      <p>Migrate all dependent resources before revoking OAuth. Revocation removes GitHub's broad OAuth repository grant.</p>
-    </section>
-    <section class="paper-settings-section">
-      <h2>Repository connections</h2>
-      <p>Check read-only access, then switch each resource. Connecting the App alone does not change existing resources.</p>
-      <p>Removing GitHub access stops fetching new source content. Already published anonymized content follows its existing expiration and removal settings.</p>
-      <div v-for="resource in connections.resources" :key="resource.type + resource.id" class="mb-3">
-        <strong>{{ resource.id }}</strong> — {{ resource.name }} ({{ resource.type }})<br>
-        Connection: {{ resource.connection === 'github-app' ? 'GitHub App (read-only)' : 'Legacy OAuth' }}
-        <div v-if="resource.connection === 'oauth' &amp;&amp; connections.appEnabled &amp;&amp; connections.appConnected">
-          <button class="btn" :disabled="busy" @click="changeConnection(resource, 'github-app', true)">Check read-only access</button>
-          <button v-if="resource.eligible" class="btn btn-ink" :disabled="busy" @click="changeConnection(resource, 'github-app', false)">Switch to read-only access</button>
+    <div class="connections-grid">
+      <section v-if="connections.appEnabled">
+        <div class="connection-top"><i class="fab fa-github" aria-hidden="true"></i><span class="connection-badge">Recommended</span></div>
+        <div class="connection-title"><h2>GitHub App</h2><span class="connection-status" :class="{'is-connected': connections.appConnected &amp;&amp; !connections.appError}">{{ connections.appError ? 'Needs attention' : connections.appConnected ? 'Connected' : 'Not connected' }}</span></div>
+        <p>Read-only access to the repositories you choose.</p>
+        <p class="paper-inline-alert paper-inline-alert-error" v-if="connections.appError" role="alert">{{ connections.appError }}. Reconnect to restore access.</p>
+        <div class="connection-actions">
+          <a class="btn btn-ink" v-if="connections.appConnected &amp;&amp; !connections.appError" target="_self" href="/github/app/install">Manage repository access <i class="fas fa-external-link-alt" aria-hidden="true"></i></a>
+          <a :class="connections.appConnected &amp;&amp; !connections.appError ? 'connection-link' : 'btn btn-ink'" target="_self" href="/github/app/login">{{ connections.appConnected ? 'Reconnect account' : 'Connect GitHub account' }}</a>
         </div>
-        <button v-if="resource.connection === 'github-app' &amp;&amp; connections.oauthConnected" class="btn" :disabled="busy" @click="changeConnection(resource, 'oauth', false)">Switch to existing OAuth access</button>
+        <p class="connection-help">Choose repositories on GitHub. Organization access may need an administrator's approval.</p>
+        <ul class="connection-installations" v-if="connections.installations?.length">
+          <li v-for="installation in connections.installations" :key="installation.id"><div><strong>{{ installation.account }}</strong><span v-if="installation.suspended"> · Suspended</span></div><a target="_self" :href="'/github/app/install?installationId=' + installation.id">Manage access <span class="sr-only">for {{ installation.account }}</span> &rarr;</a></li>
+        </ul>
+        <button class="connection-link" :disabled="busy" @click="loadConnections()"><i class="fas fa-sync-alt" aria-hidden="true"></i> Refresh access</button>
+      </section>
+      <section>
+        <div class="connection-top"><i class="fas fa-key" aria-hidden="true"></i><span class="connection-badge connection-badge-muted">Legacy</span></div>
+        <div class="connection-title"><h2>GitHub OAuth</h2><span class="connection-status" :class="{'is-connected': connections.oauthConnected}">{{ connections.oauthConnected ? 'Connected' : 'Not connected' }}</span></div>
+        <p>For existing OAuth anonymizations and gists.</p>
+        <p class="connection-help">This connection uses GitHub's broader repository permissions. Existing work keeps using it until you switch below.</p>
+        <a v-if="connections.oauthEnabled" target="_self" href="/github/login" class="btn btn-outline-ink">{{ connections.oauthConnected ? 'Reconnect OAuth' : 'Connect legacy OAuth' }}</a>
+        <div class="connection-revoke" v-if="connections.oauthConnected">
+          <p v-if="connections.gistCount">{{ connections.gistCount }} gist(s) still require OAuth.</p>
+          <p>Switch all dependent repositories before revoking access. Gists still require OAuth.</p>
+          <button v-if="connections.appConnected" class="connection-link connection-danger" :disabled="busy || connections.gistCount || connections.resources.some(r => r.connection === 'oauth')" @click="disconnectOAuth()">Revoke OAuth access</button>
+        </div>
+      </section>
+    </div>
+    <section class="connection-resources">
+      <div class="connection-title"><h2>Repository connections</h2><span class="connection-count">{{ connections.resources?.length || 0 }} resources</span></div>
+      <p>Check access, then switch each resource to the GitHub App.</p>
+      <div class="connection-empty" v-if="!connections.resources?.length"><i class="fas fa-code-branch" aria-hidden="true"></i><div><h3>No repository connections yet</h3><p>Your repositories and pull requests will appear here once you anonymize them.</p></div><a class="connection-link" href="/anonymize">New anonymization &rarr;</a></div>
+      <div class="connection-resource" v-for="resource in connections.resources" :key="resource.type + resource.id">
+        <div class="connection-resource-name"><strong>{{ resource.name || resource.id }}</strong><small>{{ resource.type }} · {{ resource.id }}</small></div>
+        <span class="connection-badge" :class="{'connection-badge-muted': resource.connection === 'oauth'}">{{ resource.connection === 'github-app' ? 'Read-only App' : 'Legacy OAuth' }}</span>
+        <div class="connection-resource-actions" v-if="resource.connection === 'oauth' &amp;&amp; connections.appEnabled &amp;&amp; connections.appConnected">
+          <button class="btn btn-outline-ink" :disabled="busy" @click="changeConnection(resource, 'github-app', true)">Check read-only access</button>
+          <button v-if="resource.eligible" class="btn btn-ink" :disabled="busy" @click="changeConnection(resource, 'github-app', false)">Switch to read-only access</button>
+          <span class="connection-help" role="status" v-if="resource.eligible === false">Access unavailable. Allow this repository on GitHub, then check again.</span>
+        </div>
+        <button v-if="resource.connection === 'github-app' &amp;&amp; connections.oauthConnected" class="connection-link" :disabled="busy" @click="changeConnection(resource, 'oauth', false)">Use OAuth</button>
       </div>
+      <p class="connection-footnote"><i class="fas fa-info-circle" aria-hidden="true"></i> Removing access stops new fetches from GitHub. Published content keeps its current expiration and removal settings.</p>
     </section>
   </div>
 </div>

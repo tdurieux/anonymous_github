@@ -7,12 +7,15 @@
           <h1 class="paper-page-title">Your <em>anonymizations</em></h1>
           <p class="paper-page-lede">Every repository, pull request, and gist you&rsquo;ve mirrored, with live status and stats.</p>
         </div>
-        <a href="/anonymize" class="btn btn-ink">
-          <i class="fa fa-plus-circle mr-1" aria-hidden="true"></i> New anonymization
-        </a>
+        <div class="dashboard-heading-actions">
+          <a href="/anonymize" class="btn btn-ink">
+            <i class="fa fa-plus-circle" aria-hidden="true"></i> New anonymization
+          </a>
+          <a href="/connections" class="dashboard-connections-link">
+            <i class="fab fa-github" aria-hidden="true"></i> GitHub connections <span aria-hidden="true">&rarr;</span>
+          </a>
+        </div>
       </div>
-
-      <p class="mt-3"><a href="/connections">Manage GitHub connections and read-only access</a></p>
 
       <!-- Quota -->
       <div class="quota-row" v-if="quota">

@@ -1,13 +1,30 @@
-<div class="container page paper-page">
-  <h1 class="paper-page-title">Connect to <em>GitHub</em></h1>
-  <p>Sign in to manage your anonymizations. Both connections use the same Anonymous GitHub account.</p>
-  <p class="alert alert-warning" role="note" v-if="site_options?.GITHUB_APP_ENABLED &amp;&amp; site_options?.GITHUB_OAUTH_ENABLED">
-    If you already have an Anonymous GitHub account, sign in with
-    <a class="alert-link" target="_self" href="/github/login">legacy GitHub OAuth</a>
-    to keep access to your existing anonymizations. You can connect the read-only GitHub App from GitHub connections after signing in.
-  </p>
-  <p v-if="site_options?.GITHUB_APP_ENABLED"><a class="btn btn-ink" target="_self" href="/github/app/login">Continue with read-only GitHub App</a></p>
-  <p v-if="site_options?.GITHUB_APP_ENABLED">Choose which repositories to allow after signing in. Private repositories are accessed with read-only permissions.</p>
-  <p v-if="site_options?.GITHUB_OAUTH_ENABLED"><a class="btn" target="_self" href="/github/login">Continue with legacy GitHub OAuth</a></p>
-  <p v-if="site_options?.GITHUB_OAUTH_ENABLED">OAuth supports existing connections and gists. GitHub's private repository OAuth scope includes write access.</p>
+<div class="container paper-page auth-page">
+  <a class="auth-back" href="/"><i class="fas fa-arrow-left" aria-hidden="true"></i> Anonymous GitHub</a>
+  <div class="auth-layout">
+    <header class="auth-intro">
+      <div class="paper-eyebrow">Your research, ready for review</div>
+      <h1 class="paper-page-title"><span class="auth-title-desktop">Your code.<br>Your identity,<br><em>protected.</em></span><span class="auth-title-mobile">Sign in to <em>GitHub</em></span></h1>
+      <p class="paper-page-lede">Sign in to create and manage your anonymizations.</p>
+    </header>
+    <div class="auth-options">
+      <p class="auth-existing" role="note" v-if="site_options?.GITHUB_APP_ENABLED &amp;&amp; site_options?.GITHUB_OAUTH_ENABLED">Already have an account? Sign in with <a target="_self" href="/github/login">legacy GitHub OAuth</a> to keep access to your anonymizations. You can connect the read-only App from GitHub connections after signing in.</p>
+      <section v-if="site_options?.GITHUB_APP_ENABLED">
+        <div class="connection-top"><i class="fab fa-github" aria-hidden="true"></i><span class="connection-badge">Read-only access</span></div>
+        <h2>Continue with GitHub</h2>
+        <p>Connect through the GitHub App with read-only repository access.</p>
+        <ul class="auth-permissions">
+          <li><i class="fas fa-check" aria-hidden="true"></i> You choose which repositories to share</li>
+          <li><i class="fas fa-check" aria-hidden="true"></i> No permission to write to your code</li>
+        </ul>
+        <a class="btn btn-ink auth-continue" target="_self" href="/github/app/login">Sign in with GitHub <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
+        <small>Select your repositories after signing in.</small>
+      </section>
+      <section class="auth-legacy" v-if="site_options?.GITHUB_OAUTH_ENABLED">
+        <div class="connection-title"><h2>Legacy OAuth</h2><span class="connection-badge connection-badge-muted">For gists &amp; existing accounts</span></div>
+        <p>Use this connection for gists or your existing OAuth setup. GitHub's private repository scope includes write access.</p>
+        <a class="connection-link" target="_self" href="/github/login">Continue with OAuth <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
+      </section>
+      <p role="status" v-if="site_options &amp;&amp; !site_options.GITHUB_APP_ENABLED &amp;&amp; !site_options.GITHUB_OAUTH_ENABLED">GitHub sign-in is currently unavailable. Please try again later.</p>
+    </div>
+  </div>
 </div>

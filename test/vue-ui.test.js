@@ -121,9 +121,17 @@ describe("Vue 3 UI", function () {
   });
 
 
+  for (const [appConnected, oauthConnected] of [[true, false], [false, true], [false, false], [true, true]]) {
+    it(`shows the access chooser only for two connections: ${appConnected}/${oauthConnected}`, async () => {
+      ui = await browser("/anonymize", { "/github/connections": { appEnabled: true, appConnected, oauthConnected } });
+      expect(Boolean(ui.window.document.querySelector(".repo-access"))).to.equal(appConnected && oauthConnected);
+      expect(ui.errors).to.deep.equal([]);
+    });
+  }
+
   it("preserves redactions, identifiers and pinned commits when switching connections", async () => {
     ui = await browser("/anonymize", {
-      "/github/connections": { appEnabled: true, oauthConnected: true },
+      "/github/connections": { appEnabled: true, appConnected: true, oauthConnected: true },
       "/api/repo/owner/repo/": { defaultBranch: "main", repo: "repo" },
       "/api/repo/owner/repo/branches": [{ name: "main", commit: "abcdef123" }],
       "/api/repo/owner/repo/readme": "",

@@ -243,7 +243,12 @@ app.get("/api/user", (req, res) =>
     ? res.status(401).json({ error: "not_connected" })
     : res.json({ username: "tdurieux", photo: "https://avatars.githubusercontent.com/u/5577568?v=4", isAdmin: false })
 );
-app.get("/api/options", (req, res) => res.json({ MAX_REPO_SIZE: 8 * 1024, ANONYMIZATION_MASK: "XXXX" }));
+// Local connection fixtures keep the account screens usable without GitHub.
+app.get("/github/connections", (req, res) => res.json({
+  appEnabled: true, appConnected: true, oauthEnabled: true, oauthConnected: true,
+  installations: [], gistCount: 0, resources: [], csrf: "local-preview-only",
+}));
+app.get("/api/options", (req, res) => res.json({ MAX_REPO_SIZE: 8 * 1024, ANONYMIZATION_MASK: "XXXX", GITHUB_APP_ENABLED: true, GITHUB_OAUTH_ENABLED: true }));
 app.get("/api/message", (req, res) => res.status(404).end());
 app.get("/api/user/quota", (req, res) => res.json(quota));
 app.get("/api/user/anonymized_repositories", (req, res) => res.json(repositories));
