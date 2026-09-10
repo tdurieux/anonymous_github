@@ -130,7 +130,7 @@
     "invalid_webhook_signature": "The webhook signature is invalid.",
     "webhook_processing_failed": "Webhook processing failed. Retry the delivery.",
     "github_app_authorization_cancelled": "GitHub authorization was cancelled.",
-    "github_account_link_required": "This username belongs to an existing account. Sign in to that account before connecting GitHub.",
+    "github_account_link_required": "This username belongs to an existing account. Sign in with legacy GitHub OAuth to keep access to your existing anonymizations, then connect the read-only GitHub App from GitHub connections.",
     "github_app_refresh_busy": "GitHub credentials are being renewed. Please retry shortly.",
     "github_grant_revocation_failed": "Unable to revoke the GitHub grant. Please retry.",
     "another_login_required": "Connect and verify another sign-in method before disconnecting OAuth.",

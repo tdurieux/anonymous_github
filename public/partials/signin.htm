@@ -1,6 +1,11 @@
 <div class="container page paper-page">
   <h1 class="paper-page-title">Connect to <em>GitHub</em></h1>
   <p>Sign in to manage your anonymizations. Both connections use the same Anonymous GitHub account.</p>
+  <p class="alert alert-warning" role="note" v-if="site_options?.GITHUB_APP_ENABLED &amp;&amp; site_options?.GITHUB_OAUTH_ENABLED">
+    If you already have an Anonymous GitHub account, sign in with
+    <a class="alert-link" target="_self" href="/github/login">legacy GitHub OAuth</a>
+    to keep access to your existing anonymizations. You can connect the read-only GitHub App from GitHub connections after signing in.
+  </p>
   <p v-if="site_options?.GITHUB_APP_ENABLED"><a class="btn btn-ink" target="_self" href="/github/app/login">Continue with read-only GitHub App</a></p>
   <p v-if="site_options?.GITHUB_APP_ENABLED">Choose which repositories to allow after signing in. Private repositories are accessed with read-only permissions.</p>
   <p v-if="site_options?.GITHUB_OAUTH_ENABLED"><a class="btn" target="_self" href="/github/login">Continue with legacy GitHub OAuth</a></p>
