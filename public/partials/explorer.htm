@@ -35,8 +35,17 @@
       <tree class="files" :file="files" :search-query="fileSearchQuery" :search-results="fileSearchResults" :page="viewState"></tree>
     </div>
     <div class="leftCol-foot">
-      <span class="last-update" data-toggle="tooltip" data-placement="top" :title="(options?.lastUpdateDate)">
-        Updated {{ fmt?.date(options?.lastUpdateDate) }}
+      <span class="last-update" :title="options?.sourceCommitDate || options?.anonymizedAt || options?.lastUpdateDate">
+        {{ options?.sourceCommitDate ? 'Source commit' : options?.anonymizedAt ? 'Anonymized' : 'Updated' }} {{ fmt?.date(options?.sourceCommitDate || options?.anonymizedAt || options?.lastUpdateDate) }}
+      </span>
+      <span class="last-update" v-if="options?.settingsSavedAt" :title="options.settingsSavedAt">
+        Settings saved {{ fmt?.date(options.settingsSavedAt) }}
+      </span>
+      <span class="last-update" v-if="options?.publishedAt" :title="options.publishedAt">
+        Snapshot ready {{ fmt?.date(options.publishedAt) }}
+      </span>
+      <span class="last-update" v-if="options?.anonymizedAt &amp;&amp; !options?.publishedAt" title="Older repositories have no recorded publication date. The source commit date does not establish when files became available here.">
+        Snapshot ready date not recorded
       </span>
     </div>
   </div>

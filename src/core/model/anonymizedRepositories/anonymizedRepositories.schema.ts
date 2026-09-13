@@ -16,6 +16,8 @@ const AnonymizedRepositorySchema = new Schema({
   archiveCachePending: Boolean,
   statusMessage: String,
   anonymizeDate: Date,
+  settingsSavedAt: Date,
+  publishedAt: Date,
   lastView: Date,
   pageView: Number,
   accessToken: { type: String, select: false },

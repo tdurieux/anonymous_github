@@ -341,6 +341,29 @@ describe("Vue 3 UI", function () {
     expect(ui.errors).to.deep.equal([]);
   });
 
+  it("distinguishes source, settings and readiness dates in the explorer", async function () {
+    ui = await browser("/r/test/hello.txt", {
+      "/api/repo/test/options": { anonymizedAt: "2026-01-01T00:00:00Z", sourceCommitDate: "2020-01-01T00:00:00Z",
+        settingsSavedAt: "2026-02-01T00:00:00Z", publishedAt: "2026-03-01T00:00:00Z" },
+    });
+    const footer = ui.window.document.querySelector(".leftCol-foot");
+    expect(footer.textContent).to.include("Source commit").and.include("Settings saved").and.include("Snapshot ready");
+    expect([...footer.querySelectorAll(".last-update")].map(node => node.title)).to.deep.equal([
+      "2020-01-01T00:00:00Z", "2026-02-01T00:00:00Z", "2026-03-01T00:00:00Z",
+    ]);
+    expect(footer.textContent).not.to.include("not recorded");
+    expect(ui.errors).to.deep.equal([]);
+  });
+  it("identifies an unknown legacy publication date", async function () {
+    ui = await browser("/r/test/hello.txt", {
+      "/api/repo/test/options": { anonymizedAt: "2026-01-01T00:00:00Z", sourceCommitDate: "2020-01-01T00:00:00Z" },
+    });
+    const footer = ui.window.document.querySelector(".leftCol-foot");
+    expect(footer.textContent).to.include("Snapshot ready date not recorded");
+    expect(footer.textContent).not.to.include("Settings saved");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
   it("renders hostile filenames as text and updates the explorer without losing the tree", async function () {
     const filename = '{{constructor.constructor("window.probe=1")()}}.txt';
     ui = await browser("/r/test/hello.txt", {
