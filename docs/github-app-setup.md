@@ -101,7 +101,9 @@ so users can paste a public URL without installing the App on its owner account.
 The connection records the repository ID and verifies that the stored source
 name still resolves to that ID with public visibility on each source access.
 Private and Enterprise-internal repositories require an installation with access.
-Long API traversals renew the App user token under the same user quota.
+Public reads use a [repository-scoped App user token](https://docs.github.com/en/rest/apps/apps#create-a-scoped-access-token) with read-only permissions.
+Each API request renews through its own repository binding, rechecking identity
+and public visibility while keeping the same user quota.
 Existing installation bindings retain their installation checks.
 This uses GitHub's documented [public resource access for App user tokens](https://docs.github.com/en/apps/creating-github-apps/registering-a-github-app/choosing-permissions-for-a-github-app).
 
