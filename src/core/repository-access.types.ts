@@ -2,6 +2,8 @@
 export interface RepositoryAccess {
   kind: "oauth" | "github-app";
   repositoryId?: number;
+  /** App user access to a verified public repository, without an installation. */
+  publicRead?: boolean;
   installationId?: number;
   revision: string;
 }

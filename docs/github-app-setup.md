@@ -95,8 +95,19 @@ form. Existing installations have direct account-specific configuration links.
 GitHub may require organization administrator approval. Use **Refresh access
 after approval** on the Connections page when approval is delayed.
 
-App-connected accounts default to the App for new repository/PR access. The
-explicit **Use existing OAuth access** choice handles repositories not yet
+App-connected accounts default to the App for new repository/PR access.
+Public repositories outside the selected installations use the App user grant,
+so users can paste a public URL without installing the App on its owner account.
+The connection records the repository ID and verifies that the stored source
+name still resolves to that ID with public visibility on each source access.
+Private and Enterprise-internal repositories require an installation with access.
+Public reads use a [repository-scoped App user token](https://docs.github.com/en/rest/apps/apps#create-a-scoped-access-token) with read-only permissions.
+Each API request renews through its own repository binding, rechecking identity
+and public visibility while keeping the same user quota.
+Existing installation bindings retain their installation checks.
+This uses GitHub's documented [public resource access for App user tokens](https://docs.github.com/en/apps/creating-github-apps/registering-a-github-app/choosing-permissions-for-a-github-app).
+
+The explicit **Use existing OAuth access** choice handles repositories not yet
 available through the App. An App error never silently selects OAuth. Gists
 continue using OAuth. An App-only user entering a gist URL is prompted to connect
 OAuth, with the current repository permission scope explained. The form draft

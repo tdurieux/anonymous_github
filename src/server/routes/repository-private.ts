@@ -497,7 +497,7 @@ router.post(
         }
         if (repoUpdate.fullName !== repo.model.source.repositoryName && user.id !== repo.owner.id) throw appError("not_owner", 403);
         const sourceAccess = repo.model.githubAccess?.kind === "github-app" && repoUpdate.fullName === repo.model.source.repositoryName
-          ? { token: await boundAppToken(repo.owner.id, repo.model.githubAccess), binding: repo.model.githubAccess }
+          ? { token: await boundAppToken(repo.owner.id, repo.model.githubAccess, repo.model.source.repositoryName), binding: repo.model.githubAccess }
           : await selectRepositoryAccess(repo.owner.id, `${parsedRepository.owner}/${parsedRepository.name}`, repo.model.githubAccess?.kind || "oauth");
         const repository = await getRepositoryFromGitHub({
           accessToken: sourceAccess.token,
