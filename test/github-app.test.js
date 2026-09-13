@@ -197,6 +197,72 @@ describeMongo("GitHub App credential and repository integration", function () {
     expect(selected.token).to.equal("legacy-secret");
     expect(selected.binding.kind).to.equal("oauth");
   });
+  it("opens public repository metadata and branches without an installation or OAuth", async () => {
+    await app.saveAppGrant(owner.id, data());
+    mock(url => {
+      if (url.includes("/user/installations")) return { installations: [] };
+      if (url.endsWith("/branches?per_page=100")) return [{ name: "main", commit: { sha: "abc123" } }];
+      if (url.endsWith("/branches")) return [{ name: "main", commit: { sha: "abc123" } }];
+      if (url.endsWith("/readme")) return { status: 404 };
+      if (url.endsWith("/pages")) return { status: 404 };
+      return { id: 7, private: false, full_name: "other/public", name: "public", owner: { login: "other" }, default_branch: "main" };
+    });
+    const selected = await app.selectRepositoryAccess(owner.id, "other/public", "github-app");
+    expect(selected.token).to.equal("ghu_access1");
+    expect(selected.binding).to.include({ kind: "github-app", publicRead: true, repositoryId: 7 });
+    expect(selected.binding.installationId).to.equal(undefined);
+    const Repos = require("../src/core/model/anonymizedRepositories/anonymizedRepositories.model").default;
+    const model = await Repos.create({ repoId: "public-access", owner: owner.id, githubAccess: selected.binding });
+    expect((await Repos.findById(model._id)).githubAccess.publicRead).to.equal(true);
+    const { getRepositoryFromGitHub } = require("../src/core/source/GitHubRepository");
+    const repository = await getRepositoryFromGitHub({ owner: "other", repo: "public", accessToken: selected.token });
+    expect(repository.fullName).to.equal("other/public");
+    expect((await repository.branches({ accessToken: selected.token }))[0].name).to.equal("main");
+    expect(calls.some(call => call.url.includes("/access_tokens"))).to.equal(false);
+    expect(calls.every(call => !String(call.options.headers.authorization || call.options.headers.Authorization).includes("legacy"))).to.equal(true);
+  });
+  it("requires explicit public visibility when selecting an uninstalled repository", async () => {
+    await app.saveAppGrant(owner.id, data());
+    for (const metadata of [{ id: 7, private: true }, { id: 7 }, { private: false }]) {
+      mock(url => url.includes("/user/installations") ? { installations: [] } : metadata);
+      await rejects(app.selectRepositoryAccess(owner.id, "other/private", "github-app"), "github_app_access_required");
+    }
+  });
+  it("rejects missing repositories and propagates upstream failures instead of using OAuth", async () => {
+    await setCredential(owner.id, "legacy-secret");
+    await app.saveAppGrant(owner.id, data());
+    for (const [status, message] of [[404, "github_app_access_required"], [500, "github_unavailable"], [429, "github_rate_limit_exceeded"]]) {
+      mock(url => url.includes("/user/installations") ? { installations: [] } : { status });
+      await rejects(app.selectRepositoryAccess(owner.id, "other/missing", "github-app"), message);
+    }
+  });
+  it("stops public source reads after visibility changes, deletion, or grant revocation", async () => {
+    await app.saveAppGrant(owner.id, data());
+    const binding = { kind: "github-app", publicRead: true, repositoryId: 7, revision: "public" };
+    mock(() => ({ id: 7, private: false }));
+    expect(await app.boundAppToken(owner.id, binding)).to.equal("ghu_access1");
+    for (const metadata of [{ id: 7, private: true }, { status: 404 }, { id: 8, private: false }]) {
+      mock(() => metadata);
+      await rejects(app.boundAppToken(owner.id, binding), "github_app_access_required");
+    }
+    await Credentials.updateOne({ ownerId: owner.id }, { $set: { revoked: true } });
+    mock(() => { throw new Error("revoked grant must not reach GitHub"); });
+    await rejects(app.boundAppToken(owner.id, binding), "github_app_reconnect_required");
+  });
+  it("refreshes an expired App grant before reading a public repository", async () => {
+    await app.saveAppGrant(owner.id, data("old", -1));
+    mock(url => url.includes("/login/oauth/access_token") ? data("new") : { id: 7, private: false });
+    expect(await app.boundAppToken(owner.id, { kind: "github-app", publicRead: true, repositoryId: 7, revision: "public" }))
+      .to.equal("ghu_accessnew");
+  });
+  it("does not reinterpret missing or mixed installation bindings as public access", async () => {
+    await app.saveAppGrant(owner.id, data());
+    mock(() => { throw new Error("invalid binding must not reach GitHub"); });
+    for (const binding of [
+      { kind: "github-app", repositoryId: 7, revision: "one" },
+      { kind: "github-app", publicRead: true, repositoryId: 7, installationId: 4, revision: "one" },
+    ]) await rejects(app.boundAppToken(owner.id, binding), "github_app_reconnect_required");
+  });
   it("checks the user's access before minting a repository-restricted token", async () => {
     await app.saveAppGrant(owner.id, data());
     const binding = { kind: "github-app", installationId: 4, repositoryId: 7, revision: "one" };

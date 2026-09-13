@@ -220,7 +220,19 @@ async function installationToken(binding: RepositoryAccess, ownerId: string): Pr
 }
 
 export async function boundAppToken(ownerId: string, binding: RepositoryAccess): Promise<string> {
-  if (!Number.isSafeInteger(binding.repositoryId) || !Number.isSafeInteger(binding.installationId)) throw appError();
+  if (!Number.isSafeInteger(binding.repositoryId)) throw appError();
+  if (binding.publicRead === true) {
+    if (binding.installationId !== undefined) throw appError();
+    const userToken = await appUserToken(ownerId);
+    const repo = await githubRequest<GitHubRepositoryInfo>(`/repositories/${binding.repositoryId}`, userToken);
+    // A public binding must never gain private access, even if the user later
+    // installs the App on this repository. Reconnect explicitly to do that.
+    if (repo.id !== binding.repositoryId || repo.private !== false) throw appError("github_app_access_required");
+    // Resolve the current grant again on each source read. Do not register a
+    // repository-specific renewal callback against a user token shared by repos.
+    return userToken;
+  }
+  if (!Number.isSafeInteger(binding.installationId)) throw appError();
   const userToken = await appUserToken(ownerId);
   // User token checks the intersection of user and App rights on every access.
   // No indefinite local authorization cache can preserve a departed user's access.
@@ -239,7 +251,15 @@ export async function selectRepositoryAccess(ownerId: string, fullName: string, 
   const hasApp = config.GITHUB_APP_ENABLED && await CredentialModel.exists({ ownerId, provider: APP_PROVIDER });
   if (choice === "github-app" || (choice === undefined && hasApp)) {
     const repo = (await appRepositories(ownerId)).find(r => r.full_name.toLowerCase() === fullName.toLowerCase());
-    if (!repo) throw appError("github_app_access_required");
+    if (!repo) {
+      const userToken = await appUserToken(ownerId);
+      const publicRepo = await githubRequest<GitHubRepositoryInfo>(
+        `/repos/${fullName.split("/").map(encodeURIComponent).join("/")}`, userToken);
+      if (publicRepo.private !== false || !Number.isSafeInteger(publicRepo.id)) throw appError("github_app_access_required");
+      const binding: RepositoryAccess = { kind: "github-app", publicRead: true,
+        repositoryId: publicRepo.id, revision: randomUUID() };
+      return { binding, token: await boundAppToken(ownerId, binding) };
+    }
     const binding: RepositoryAccess = { kind: "github-app", repositoryId: repo.id, installationId: repo.installationId, revision: randomUUID() };
     return { binding, token: await boundAppToken(ownerId, binding) };
   }
