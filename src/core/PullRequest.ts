@@ -26,7 +26,7 @@ export default class PullRequest {
   }
 
   async getToken() {
-    if (this._model.githubAccess?.kind === "github-app") return boundAppToken(this.owner.id, this._model.githubAccess);
+    if (this._model.githubAccess?.kind === "github-app") return boundAppToken(this.owner.id, this._model.githubAccess, this._model.source.repositoryFullName);
     return (await getCredentialToken(this.owner.id, "github", { collection: "anonymizedpullrequests", id: this._model._id })) || config.GITHUB_TOKEN;
   }
 

@@ -144,7 +144,7 @@ export async function reconcileInstallation(installationId: number, revision: st
 }
 
 export interface GitHubRepositoryInfo {
-  id: number; full_name: string; name: string; private: boolean; html_url: string; size: number;
+  id: number; full_name: string; name: string; private: boolean; visibility?: string; html_url: string; size: number;
   default_branch: string; owner: { id: number; login: string };
 }
 export interface AppInstallation {
@@ -219,17 +219,24 @@ async function installationToken(binding: RepositoryAccess, ownerId: string): Pr
   try { return await work; } finally { minting.delete(key); }
 }
 
-export async function boundAppToken(ownerId: string, binding: RepositoryAccess): Promise<string> {
+async function publicAppUserToken(ownerId: string): Promise<string> {
+  const token = await appUserToken(ownerId);
+  registerGitHubToken(token, { quotaKey: `app-user:${ownerId}`, renew: () => publicAppUserToken(ownerId) });
+  return token;
+}
+
+export async function boundAppToken(ownerId: string, binding: RepositoryAccess, sourceName?: string): Promise<string> {
   if (!Number.isSafeInteger(binding.repositoryId)) throw appError();
   if (binding.publicRead === true) {
-    if (binding.installationId !== undefined) throw appError();
-    const userToken = await appUserToken(ownerId);
-    const repo = await githubRequest<GitHubRepositoryInfo>(`/repositories/${binding.repositoryId}`, userToken);
+    if (binding.installationId !== undefined || !sourceName || !/^[^/\s]+\/[^/\s]+$/.test(sourceName)) throw appError();
+    const userToken = await publicAppUserToken(ownerId);
+    // Source reads use owner/name, so validate that exact name against the
+    // bound ID. A replacement at a renamed repository's old URL must fail.
+    const repo = await githubRequest<GitHubRepositoryInfo>(
+      `/repos/${sourceName.split("/").map(encodeURIComponent).join("/")}`, userToken);
     // A public binding must never gain private access, even if the user later
     // installs the App on this repository. Reconnect explicitly to do that.
-    if (repo.id !== binding.repositoryId || repo.private !== false) throw appError("github_app_access_required");
-    // Resolve the current grant again on each source read. Do not register a
-    // repository-specific renewal callback against a user token shared by repos.
+    if (repo.id !== binding.repositoryId || repo.private !== false || repo.visibility !== "public") throw appError("github_app_access_required");
     return userToken;
   }
   if (!Number.isSafeInteger(binding.installationId)) throw appError();
@@ -255,13 +262,13 @@ export async function selectRepositoryAccess(ownerId: string, fullName: string, 
       const userToken = await appUserToken(ownerId);
       const publicRepo = await githubRequest<GitHubRepositoryInfo>(
         `/repos/${fullName.split("/").map(encodeURIComponent).join("/")}`, userToken);
-      if (publicRepo.private !== false || !Number.isSafeInteger(publicRepo.id)) throw appError("github_app_access_required");
+      if (publicRepo.private !== false || publicRepo.visibility !== "public" || !Number.isSafeInteger(publicRepo.id)) throw appError("github_app_access_required");
       const binding: RepositoryAccess = { kind: "github-app", publicRead: true,
         repositoryId: publicRepo.id, revision: randomUUID() };
-      return { binding, token: await boundAppToken(ownerId, binding) };
+      return { binding, token: await boundAppToken(ownerId, binding, fullName) };
     }
     const binding: RepositoryAccess = { kind: "github-app", repositoryId: repo.id, installationId: repo.installationId, revision: randomUUID() };
-    return { binding, token: await boundAppToken(ownerId, binding) };
+    return { binding, token: await boundAppToken(ownerId, binding, fullName) };
   }
   const token = await getCredentialToken(ownerId);
   if (!token) throw appError("github_oauth_required");

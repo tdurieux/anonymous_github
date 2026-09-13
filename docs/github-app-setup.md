@@ -98,9 +98,11 @@ after approval** on the Connections page when approval is delayed.
 App-connected accounts default to the App for new repository/PR access.
 Public repositories outside the selected installations use the App user grant,
 so users can paste a public URL without installing the App on its owner account.
-The connection records the repository ID and checks that it is still public on
-each source access. If it becomes private, reconnect through an installation
-with access. Existing installation bindings retain their installation checks.
+The connection records the repository ID and verifies that the stored source
+name still resolves to that ID with public visibility on each source access.
+Private and Enterprise-internal repositories require an installation with access.
+Long API traversals renew the App user token under the same user quota.
+Existing installation bindings retain their installation checks.
 This uses GitHub's documented [public resource access for App user tokens](https://docs.github.com/en/apps/creating-github-apps/registering-a-github-app/choosing-permissions-for-a-github-app).
 
 The explicit **Use existing OAuth access** choice handles repositories not yet

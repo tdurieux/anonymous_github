@@ -205,7 +205,7 @@ describeMongo("GitHub App credential and repository integration", function () {
       if (url.endsWith("/branches")) return [{ name: "main", commit: { sha: "abc123" } }];
       if (url.endsWith("/readme")) return { status: 404 };
       if (url.endsWith("/pages")) return { status: 404 };
-      return { id: 7, private: false, full_name: "other/public", name: "public", owner: { login: "other" }, default_branch: "main" };
+      return { id: 7, private: false, visibility: "public", full_name: "other/public", name: "public", owner: { login: "other" }, default_branch: "main" };
     });
     const selected = await app.selectRepositoryAccess(owner.id, "other/public", "github-app");
     expect(selected.token).to.equal("ghu_access1");
@@ -223,7 +223,7 @@ describeMongo("GitHub App credential and repository integration", function () {
   });
   it("requires explicit public visibility when selecting an uninstalled repository", async () => {
     await app.saveAppGrant(owner.id, data());
-    for (const metadata of [{ id: 7, private: true }, { id: 7 }, { private: false }]) {
+    for (const metadata of [{ id: 7, private: true }, { id: 7 }, { id: 7, private: false }, { id: 7, private: false, visibility: "internal" }, { private: false, visibility: "public" }]) {
       mock(url => url.includes("/user/installations") ? { installations: [] } : metadata);
       await rejects(app.selectRepositoryAccess(owner.id, "other/private", "github-app"), "github_app_access_required");
     }
@@ -239,21 +239,64 @@ describeMongo("GitHub App credential and repository integration", function () {
   it("stops public source reads after visibility changes, deletion, or grant revocation", async () => {
     await app.saveAppGrant(owner.id, data());
     const binding = { kind: "github-app", publicRead: true, repositoryId: 7, revision: "public" };
-    mock(() => ({ id: 7, private: false }));
-    expect(await app.boundAppToken(owner.id, binding)).to.equal("ghu_access1");
-    for (const metadata of [{ id: 7, private: true }, { status: 404 }, { id: 8, private: false }]) {
+    mock(() => ({ id: 7, private: false, visibility: "public" }));
+    expect(await app.boundAppToken(owner.id, binding, "other/public")).to.equal("ghu_access1");
+    for (const metadata of [{ id: 7, private: true }, { id: 7, private: false, visibility: "internal" }, { id: 7, private: false }, { status: 404 }, { id: 8, private: false, visibility: "public" }]) {
       mock(() => metadata);
-      await rejects(app.boundAppToken(owner.id, binding), "github_app_access_required");
+      await rejects(app.boundAppToken(owner.id, binding, "other/public"), "github_app_access_required");
     }
     await Credentials.updateOne({ ownerId: owner.id }, { $set: { revoked: true } });
     mock(() => { throw new Error("revoked grant must not reach GitHub"); });
-    await rejects(app.boundAppToken(owner.id, binding), "github_app_reconnect_required");
+    await rejects(app.boundAppToken(owner.id, binding, "other/public"), "github_app_reconnect_required");
   });
   it("refreshes an expired App grant before reading a public repository", async () => {
     await app.saveAppGrant(owner.id, data("old", -1));
-    mock(url => url.includes("/login/oauth/access_token") ? data("new") : { id: 7, private: false });
-    expect(await app.boundAppToken(owner.id, { kind: "github-app", publicRead: true, repositoryId: 7, revision: "public" }))
+    mock(url => url.includes("/login/oauth/access_token") ? data("new") : { id: 7, private: false, visibility: "public" });
+    expect(await app.boundAppToken(owner.id, { kind: "github-app", publicRead: true, repositoryId: 7, revision: "public" }, "other/public"))
       .to.equal("ghu_accessnew");
+  });
+  it("renews a public token inside an existing Octokit traversal without changing owner or quota", async () => {
+    await app.saveAppGrant(owner.id, data("old"));
+    const sent = [];
+    mock((url, options) => {
+      if (url.includes("/login/oauth/access_token")) return data("new");
+      if (url.includes("/git/trees/")) {
+        sent.push(new globalThis.Headers(options.headers).get("authorization"));
+        return { tree: [], truncated: false };
+      }
+      return { id: url.endsWith("/second") ? 8 : 7, private: false, visibility: "public" };
+    });
+    const binding = { kind: "github-app", publicRead: true, repositoryId: 7, revision: "public" };
+    const token = await app.boundAppToken(owner.id, binding, "other/public");
+    const oct = require("../src/core/GitHubUtils").octokit(token);
+    await app.boundAppToken(owner.id, { ...binding, repositoryId: 8 }, "other/second");
+    await oct.git.getTree({ owner: "other", repo: "public", tree_sha: "first" });
+    await Credentials.updateOne({ ownerId: owner.id, provider: app.APP_PROVIDER }, { $set: { expiresAt: new Date(0) } });
+    await oct.git.getTree({ owner: "other", repo: "public", tree_sha: "second" });
+    expect(sent).to.deep.equal(["token ghu_accessold", "token ghu_accessnew"]);
+    expect(githubQuotaKey(token)).to.equal(`app-user:${owner.id}`);
+    expect(githubQuotaKey("ghu_accessnew")).to.equal(githubQuotaKey(token));
+  });
+  it("rejects a replacement at the original name for repository and PR source reads", async () => {
+    await app.saveAppGrant(owner.id, data());
+    const binding = { kind: "github-app", publicRead: true, repositoryId: 7, revision: "public" };
+    const Repos = require("../src/core/model/anonymizedRepositories/anonymizedRepositories.model").default;
+    const PRs = require("../src/core/model/anonymizedPullRequests/anonymizedPullRequests.model").default;
+    const Repository = require("../src/core/Repository").default;
+    const PullRequest = require("../src/core/PullRequest").default;
+    const resources = [
+      new Repository(new Repos({ owner: owner.id, githubAccess: binding, source: { repositoryName: "other/original" } })),
+      new PullRequest(new PRs({ owner: owner.id, githubAccess: binding, source: { repositoryFullName: "other/original" } })),
+    ];
+    mock(url => {
+      if (url.endsWith("/repositories/7")) return { id: 7, private: false, visibility: "public", full_name: "other/renamed" };
+      if (url.endsWith("/repos/other/original")) return { id: 8, private: false, visibility: "public" };
+      throw new Error("unexpected source lookup");
+    });
+    for (const resource of resources) await rejects(resource.getToken(), "github_app_access_required");
+    expect(calls.every(call => call.url.endsWith("/repos/other/original"))).to.equal(true);
+    mock(() => ({ id: 7, private: false, visibility: "public" }));
+    for (const resource of resources) expect(await resource.getToken()).to.equal("ghu_access1");
   });
   it("does not reinterpret missing or mixed installation bindings as public access", async () => {
     await app.saveAppGrant(owner.id, data());
@@ -261,7 +304,7 @@ describeMongo("GitHub App credential and repository integration", function () {
     for (const binding of [
       { kind: "github-app", repositoryId: 7, revision: "one" },
       { kind: "github-app", publicRead: true, repositoryId: 7, installationId: 4, revision: "one" },
-    ]) await rejects(app.boundAppToken(owner.id, binding), "github_app_reconnect_required");
+    ]) await rejects(app.boundAppToken(owner.id, binding, "other/public"), "github_app_reconnect_required");
   });
   it("checks the user's access before minting a repository-restricted token", async () => {
     await app.saveAppGrant(owner.id, data());

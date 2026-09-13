@@ -304,7 +304,7 @@ export async function getToken(repository: Repository) {
     }
   }
   if (repository.model.githubAccess?.kind === "github-app") {
-    return boundAppToken(repository.owner.id, repository.model.githubAccess);
+    return boundAppToken(repository.owner.id, repository.model.githubAccess, repository.model.source.repositoryName);
   }
   const credential = await getCredential(repository.owner.id);
   const ownerAccessToken = credential?.token;
