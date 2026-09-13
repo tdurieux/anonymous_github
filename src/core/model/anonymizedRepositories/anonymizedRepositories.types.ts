@@ -11,6 +11,8 @@ export interface IAnonymizedRepository {
   archiveReason?: string;
   archiveCachePending?: boolean;
   anonymizeDate: Date;
+  settingsSavedAt?: Date;
+  publishedAt?: Date;
   source: {
     type: "GitHubDownload" | "GitHubStream" | "Zip";
     branch?: string;

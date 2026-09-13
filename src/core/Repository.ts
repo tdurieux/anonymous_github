@@ -475,6 +475,8 @@ export default class Repository {
     if (status !== RepositoryStatus.ARCHIVED) this.assertNotArchived();
     if (!status) return this.model;
     const statusDate = new Date();
+    const publishedAt = status === RepositoryStatus.READY && this.status !== RepositoryStatus.READY
+      ? statusDate : undefined;
     if (isConnected) {
       const result = await AnonymizedRepositoryModel.updateOne(
         {
@@ -486,12 +488,13 @@ export default class Repository {
             "githubAccess.revision": this._model.githubAccess?.revision || { $exists: false },
           } : {}),
         },
-        { $set: { status, statusDate, statusMessage } }
+        { $set: { status, statusDate, statusMessage, ...(publishedAt ? { publishedAt } : {}) } }
       ).exec();
       if (this.protectLifecycle && result.matchedCount === 0) {
         throw new AnonymousError("repository_job_cancelled", { httpStatus: 410 });
       }
     }
+    if (publishedAt) this._model.publishedAt = publishedAt;
     this._model.status = status;
     this._model.statusDate = statusDate;
     this._model.statusMessage = statusMessage;

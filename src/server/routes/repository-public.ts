@@ -385,9 +385,15 @@ router.get(
       res.json({
         url: redirectURL,
         download: download || user?.isAdmin === true,
-        lastUpdateDate: repo.model.source.commitDate
-          ? repo.model.source.commitDate
-          : repo.model.anonymizeDate,
+        // Source commits can predate publication by months and do not record
+        // changes to anonymization settings or expiration.
+        lastUpdateDate: new Date(Math.max(...[
+          repo.model.anonymizeDate, repo.model.settingsSavedAt, repo.model.publishedAt,
+        ].filter((date): date is Date => !!date).map(date => new Date(date).getTime()))),
+        anonymizedAt: repo.model.anonymizeDate,
+        sourceCommitDate: repo.model.source.commitDate,
+        settingsSavedAt: repo.model.settingsSavedAt,
+        publishedAt: repo.model.publishedAt,
         isAdmin: user?.isAdmin === true,
         isOwner: user?.id == repo.model.owner,
         hasWebsite: !!repo.options.page && !!repo.options.pageSource,

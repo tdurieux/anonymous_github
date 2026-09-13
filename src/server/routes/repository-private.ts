@@ -173,8 +173,10 @@ router.post(
       const reactivating = repo.status === RepositoryStatus.EXPIRED;
       const updates: Record<string, Date> = {
         "options.expirationDate": newExpiration,
+        settingsSavedAt: new Date(),
       };
       repo.model.options.expirationDate = newExpiration;
+      repo.model.settingsSavedAt = updates.settingsSavedAt;
       if (reactivating) {
         repo.model.anonymizeDate = new Date();
         updates.anonymizeDate = repo.model.anonymizeDate;
@@ -572,6 +574,7 @@ router.post(
         { _id: repo.model._id, "githubAccess.revision": previousAccessRevision || { $exists: false } },
         {
           $set: {
+            settingsSavedAt: new Date(),
             options: repo.model.options,
             source: repo.model.source,
             githubAccess: repo.model.githubAccess,
@@ -647,6 +650,7 @@ router.post("/", async (req, res) => {
     const repo = new AnonymizedRepositoryModel();
     repo.repoId = repoUpdate.repoId;
     repo.anonymizeDate = new Date();
+    repo.settingsSavedAt = repo.anonymizeDate;
     repo.owner = user.id;
     repo.githubAccess = selectedAccess.binding;
 

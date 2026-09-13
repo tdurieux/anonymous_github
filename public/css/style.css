@@ -2906,6 +2906,7 @@ code {
   background: var(--paper-bg-alt);
 }
 .leftCol-foot .last-update {
+  display: block;
   border-top: none;
   padding: 0;
 }
