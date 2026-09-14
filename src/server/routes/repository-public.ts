@@ -12,6 +12,7 @@ import User from "../../core/User";
 import { streamAnonymizedZip } from "../../core/zipStream";
 import FileModel from "../../core/model/files/files.model";
 import { createLogger, serializeError } from "../../core/logger";
+import { githubTokenForStreamer } from "../../core/github-token-context";
 import gh = require("parse-github-url");
 
 const logger = createLogger("repository-public");
@@ -62,7 +63,7 @@ router.get(
           .stream(join(config.STREAMER_ENTRYPOINT, "api/download"), {
             method: "POST",
             json: {
-              token,
+              token: await githubTokenForStreamer(token, repo.model.source.repositoryName),
               repoFullName: repo.model.source.repositoryName,
               commit: repo.model.source.commit,
               branch: repo.model.source.branch,

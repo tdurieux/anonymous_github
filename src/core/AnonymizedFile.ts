@@ -18,6 +18,7 @@ import FileModel from "./model/files/files.model";
 import { IFile } from "./model/files/files.types";
 import { FilterQuery } from "mongoose";
 import { createLogger, serializeError } from "./logger";
+import { githubTokenForStreamer } from "./github-token-context";
 
 const logger = createLogger("anonymized-file");
 
@@ -356,7 +357,7 @@ export default class AnonymizedFile {
     return got.stream(join(config.STREAMER_ENTRYPOINT, "api"), {
       method: "POST",
       json: {
-        token: await this.repository.getToken(),
+        token: await githubTokenForStreamer(await this.repository.getToken(), this.repository.model.source.repositoryName),
         repoFullName: this.repository.model.source.repositoryName,
         commit: this.repository.model.source.commit,
         branch: this.repository.model.source.branch,
@@ -403,7 +404,7 @@ export default class AnonymizedFile {
               json: {
                 sha,
                 size,
-                token,
+                token: await githubTokenForStreamer(token, this.repository.model.source.repositoryName),
                 repoFullName: this.repository.model.source.repositoryName,
                 commit: this.repository.model.source.commit,
                 branch: this.repository.model.source.branch,
@@ -507,7 +508,7 @@ export default class AnonymizedFile {
             resolve();
           });
       } catch (error) {
-        handleError(error, res);
+        reject(error);
       }
     });
   }

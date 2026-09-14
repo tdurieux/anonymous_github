@@ -75,17 +75,23 @@ export async function streamAnonymizedZip(
     on(event: string, listener: (...args: unknown[]) => void): unknown;
   }
 ): Promise<void> {
-  const source = new GitHubDownload({
-    repoId: opt.repoId,
-    organization: opt.organization,
-    repoName: opt.repoName,
-    commit: opt.commit,
-    getToken: opt.getToken,
-  });
-
   let response;
   try {
-    response = await source.getZipUrl();
+    const token = await opt.getToken();
+    if (!token) {
+      // The API already checked public access. Codeload serves public archives
+      // directly, avoiding the streamer's shared unauthenticated REST quota.
+      response = { url: `https://codeload.github.com/${encodeURIComponent(opt.organization)}/${encodeURIComponent(opt.repoName)}/zip/${encodeURIComponent(opt.commit || "HEAD")}` };
+    } else {
+      const source = new GitHubDownload({
+        repoId: opt.repoId,
+        organization: opt.organization,
+        repoName: opt.repoName,
+        commit: opt.commit,
+        getToken: () => token,
+      });
+      response = await source.getZipUrl();
+    }
   } catch (error) {
     const code = await classifyGitHubMissError(error, {
       organization: opt.organization,
@@ -124,9 +130,14 @@ export async function streamAnonymizedZip(
   // opens). Destroy the response instead so the client sees a connection
   // drop and knows the download failed. Same class of silent-truncation
   // bug as #694.
-  let upstreamSucceeded = false;
+  let failed = false;
+  const parser = Parse();
   const fail = (error: Error) => {
+    if (failed) return;
+    failed = true;
     logger.error("upstream zipball failed", serializeError(error));
+    downloadStream.destroy();
+    downloadStream.unpipe(parser);
     archive.abort();
     const destroyable = res as unknown as {
       destroy?: (err?: Error) => void;
@@ -138,10 +149,13 @@ export async function streamAnonymizedZip(
       destroyable.end();
     }
   };
+  // pipe() returns the destination. Listen on the archive itself as well,
+  // including errors emitted after the upstream ZIP has finished downloading.
+  archive.on("error", fail);
 
   downloadStream
     .on("error", fail)
-    .pipe(Parse())
+    .pipe(parser)
     .on("entry", (entry: NodeJS.ReadableStream & { type: string; path: string; autodrain: () => void }) => {
       if (entry.type === "File") {
         try {
@@ -161,11 +175,13 @@ export async function streamAnonymizedZip(
             ...opt.anonymizerOptions,
             filePath: entry.path,
           });
+          entry.on("error", fail);
+          anonymizer.on("error", fail);
           const st = entry.pipe(anonymizer);
           archive.append(st, { name: fileName });
         } catch (error) {
           entry.autodrain();
-          logger.error("entry transform failed", serializeError(error));
+          fail(error as Error);
         }
       } else {
         entry.autodrain();
@@ -173,22 +189,13 @@ export async function streamAnonymizedZip(
     })
     .on("error", fail)
     .on("finish", () => {
-      upstreamSucceeded = true;
+      if (failed) return;
       try {
-        archive.finalize();
-      } catch {
-        /* ignored */
+        archive.finalize().catch(fail);
+      } catch (error) {
+        fail(error as Error);
       }
     });
 
-  archive.pipe(res).on("error", (error) => {
-    logger.error("archive pipe error", serializeError(error));
-    if (!upstreamSucceeded) {
-      // archive errored while we were still depending on upstream bytes:
-      // treat as failure rather than truncating.
-      fail(error);
-      return;
-    }
-    (res as { end?: () => void }).end?.();
-  });
+  archive.pipe(res).on("error", fail);
 }
