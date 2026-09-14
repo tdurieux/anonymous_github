@@ -75,6 +75,31 @@ describe("Vue 3 UI", function () {
   let ui;
   afterEach(() => ui?.close());
 
+  for (const path of [
+    "/r/submission-artifact-604F/",
+    "/r/submission-artifact-604F",
+    "/r/submission-artifact-604F/src/hello%20world.js?raw=1&value=a%2Fb#L12",
+  ]) {
+    it(`opens a legacy hashbang repository link at ${path}`, async function () {
+      ui = await browser("/#!" + path);
+      expect(ui.app.router.currentRoute.value.fullPath).to.equal(path);
+      expect(ui.app.router.currentRoute.value.params.repoId).to.equal("submission-artifact-604F");
+      expect(ui.window.location.href).to.equal("http://localhost" + path);
+      expect(ui.window.history.length).to.equal(1);
+      expect(ui.requests.some(request => request.url.pathname.startsWith("/api/repo/submission-artifact-604F/"))).to.equal(true);
+      expect(ui.errors).to.deep.equal([]);
+    });
+  }
+
+  for (const path of ["/r/test/#L12", "/#ordinary-anchor", "/#!//example.com/r/test/"]) {
+    it(`leaves a nonlegacy URL unchanged: ${path}`, async function () {
+      ui = await browser(path);
+      expect(ui.window.location.href).to.equal("http://localhost" + path);
+      expect(ui.app.router.currentRoute.value.fullPath).to.equal(path);
+      expect(ui.errors).to.deep.equal([]);
+    });
+  }
+
   it("renders every public and administrative route", async function () {
     ui = await browser();
     for (const route of ["/faq", "/anonymize", "/gist-anonymize", "/pull-request-anonymize", "/status/test", "/404", "/r/test/", "/repository/test/", "/pr/test/", "/gist/test/"]) {

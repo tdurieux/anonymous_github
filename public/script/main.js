@@ -30,6 +30,11 @@ export function safeUrl(value) {
 }
 
 export function mountApplication(target = "#app", options = {}) {
+  // AngularJS links stored the repository route in the fragment. Normalize it
+  // before web history reads the URL, replacing the entry so Back still works.
+  if (!options.history && window.location.pathname === "/" && /^#!\/r\/[^/?#]+/.test(window.location.hash)) {
+    window.history.replaceState(window.history.state, "", window.location.hash.slice(2));
+  }
   const events = new Map();
   const http = createHttp(options.fetch);
   let root;
