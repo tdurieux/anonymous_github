@@ -105,7 +105,7 @@ export default class GitHubStream extends GitHubBase {
     const url = githubRawFileUrl(
       this.data.organization,
       this.data.repoName,
-      this.data.commit,
+      this.data.commit || "HEAD",
       filePath
     );
     logger.debug("downloading via raw URL (LFS)", { url });

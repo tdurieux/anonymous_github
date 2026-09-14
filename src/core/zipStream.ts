@@ -75,17 +75,23 @@ export async function streamAnonymizedZip(
     on(event: string, listener: (...args: unknown[]) => void): unknown;
   }
 ): Promise<void> {
-  const source = new GitHubDownload({
-    repoId: opt.repoId,
-    organization: opt.organization,
-    repoName: opt.repoName,
-    commit: opt.commit,
-    getToken: opt.getToken,
-  });
-
   let response;
   try {
-    response = await source.getZipUrl();
+    const token = await opt.getToken();
+    if (!token) {
+      // The API already checked public access. Codeload serves public archives
+      // directly, avoiding the streamer's shared unauthenticated REST quota.
+      response = { url: `https://codeload.github.com/${encodeURIComponent(opt.organization)}/${encodeURIComponent(opt.repoName)}/zip/${encodeURIComponent(opt.commit || "HEAD")}` };
+    } else {
+      const source = new GitHubDownload({
+        repoId: opt.repoId,
+        organization: opt.organization,
+        repoName: opt.repoName,
+        commit: opt.commit,
+        getToken: () => token,
+      });
+      response = await source.getZipUrl();
+    }
   } catch (error) {
     const code = await classifyGitHubMissError(error, {
       organization: opt.organization,

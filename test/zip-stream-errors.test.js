@@ -22,7 +22,8 @@ async function fixture() {
 }
 
 describe("ZIP stream errors", function () {
-  it("finishes a valid ZIP with anonymized file content", async function () {
+  for (const commit of ["abc", undefined, ""]) {
+  it(`downloads a public ZIP without a REST lookup with commit ${JSON.stringify(commit)}`, async function () {
     const input = await fixture();
     const previous = { stream: got.stream, zip: GitHubDownload.prototype.getZipUrl };
     const response = new PassThrough();
@@ -37,10 +38,13 @@ describe("ZIP stream errors", function () {
     const finished = once(parser, "finish");
     response.pipe(parser);
     try {
-      GitHubDownload.prototype.getZipUrl = async () => ({ url: "https://example.test/archive.zip" });
-      got.stream = () => Readable.from([input]);
+      GitHubDownload.prototype.getZipUrl = async () => { throw new Error("must not use the anonymous REST quota"); };
+      got.stream = url => {
+        expect(url).to.equal(`https://codeload.github.com/owner/public/zip/${commit || "HEAD"}`);
+        return Readable.from([input]);
+      };
       await streamAnonymizedZip({
-        repoId: "test", organization: "owner", repoName: "public", commit: "abc",
+        repoId: "test", organization: "owner", repoName: "public", commit,
         getToken: () => "", anonymizerOptions: { terms: ["private"], image: true, link: true },
       }, response);
       await finished;
@@ -52,6 +56,7 @@ describe("ZIP stream errors", function () {
       response.destroy();
     }
   });
+  }
 
   it("aborts a download on an asynchronous anonymization timeout without crashing", async function () {
     const input = await fixture();
@@ -73,7 +78,7 @@ describe("ZIP stream errors", function () {
       };
       await streamAnonymizedZip({
         repoId: "test", organization: "owner", repoName: "public", commit: "abc",
-        getToken: () => "", anonymizerOptions: { terms: ["private"], image: true, link: true },
+        getToken: () => "private-token", anonymizerOptions: { terms: ["private"], image: true, link: true },
       }, response);
       await closed;
       await new Promise(resolve => setImmediate(resolve));

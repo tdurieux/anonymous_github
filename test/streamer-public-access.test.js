@@ -1,7 +1,7 @@
 const { expect } = require("chai");
 const express = require("express");
 const got = require("got");
-const { Readable } = require("stream");
+const { Readable, PassThrough } = require("stream");
 require("ts-node/register/transpile-only");
 const config = require("../src/config").default;
 const { registerGitHubToken, githubTokenForStreamer } = require("../src/core/github-token-context");
@@ -36,8 +36,31 @@ describe("public repository streamer handoff", function () {
     await rejects(githubTokenForStreamer("public-read:missing", "owner/public"), "Public repository access context expired");
   });
 
-  for (const mode of ["send", "anonymizedContent"]) {
-    it(`serves a public README through ${mode} and a separate HTTP streamer`, async function () {
+  it("rejects send when the access recheck fails before opening the streamer", async function () {
+    const endpoint = config.STREAMER_ENTRYPOINT;
+    config.STREAMER_ENTRYPOINT = "http://unused.test/";
+    const response = new PassThrough();
+    try {
+      registerGitHubToken("public-read:revoked-send", {
+        quotaKey: "test", publicRepository: "owner/public", renew: async () => { throw new Error("revoked"); },
+      });
+      const file = new File({ repository: {
+        options: { terms: [] }, model: { source: { repositoryName: "owner/public" } },
+        getToken: async () => "public-read:revoked-send",
+        generateAnonymizeTransformer: filePath => new AnonymizeTransformer({ terms: [], filePath }),
+      }, anonymizedPath: "README.md" });
+      file._file = { name: "README.md", path: "", sha: "sha", size: 25 };
+      await rejects(file.send(response), "revoked");
+    } finally {
+      config.STREAMER_ENTRYPOINT = endpoint;
+      response.destroy();
+    }
+  });
+
+  for (const [mode, commit] of [
+    ["send", "abc"], ["anonymizedContent", "abc"], ["send", undefined], ["send", ""],
+  ]) {
+    it(`serves a public README through ${mode} with commit ${JSON.stringify(commit)}`, async function () {
       const previous = { endpoint: config.STREAMER_ENTRYPOINT, stream: got.stream, cache: GitHubStream.prototype.getFileContentCache };
       const servers = [];
       let payload;
@@ -66,7 +89,7 @@ describe("public repository streamer handoff", function () {
         const options = { terms: ["Alice"], image: true, link: true };
         const repo = {
           repoId: "test", options,
-          model: { source: { repositoryName: "owner/public", commit: "abc" } },
+          model: { source: { repositoryName: "owner/public", commit } },
           getToken: async () => "public-read:http-test",
           generateAnonymizeTransformer: path => new AnonymizeTransformer({ ...options, filePath: path }),
         };
@@ -86,7 +109,7 @@ describe("public repository streamer handoff", function () {
         expect(JSON.stringify(payload)).not.to.include("public-read:");
         expect(JSON.stringify(payload)).not.to.include("private-owner-token");
         expect(requests).to.have.length(1);
-        expect(requests[0].url).to.equal("https://github.com/owner/public/raw/abc/README.md");
+        expect(requests[0].url).to.equal(`https://github.com/owner/public/raw/${commit || "HEAD"}/README.md`);
         expect(requests[0].options.headers).not.to.have.property("authorization");
       } finally {
         got.stream = previous.stream;

@@ -508,7 +508,7 @@ export default class AnonymizedFile {
             resolve();
           });
       } catch (error) {
-        handleError(error, res);
+        reject(error);
       }
     });
   }
