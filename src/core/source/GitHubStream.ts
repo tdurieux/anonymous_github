@@ -111,7 +111,7 @@ export default class GitHubStream extends GitHubBase {
     logger.debug("downloading via raw URL (LFS)", { url });
     return got.stream(url, {
       hooks: { beforeRequest: [async () => { await githubTokenContext(token)?.renew(); }] },
-      headers: githubTokenContext(token)?.publicRepository ? {} : { authorization: `token ${token}` },
+      headers: !token || githubTokenContext(token)?.publicRepository ? {} : { authorization: `token ${token}` },
       followRedirect: true,
     });
   }
@@ -127,7 +127,7 @@ export default class GitHubStream extends GitHubBase {
   ): Promise<stream.Readable> {
     // Public raw downloads need no bearer token and do not consume the
     // unauthenticated REST API quota. GitHub also resolves LFS pointers here.
-    if (githubTokenContext(token)?.publicRepository) {
+    if (!token || githubTokenContext(token)?.publicRepository) {
       return Promise.resolve(this.downloadFileViaRaw(token, filePath));
     }
     return new Promise<stream.Readable>((resolve) => {

@@ -124,9 +124,14 @@ export async function streamAnonymizedZip(
   // opens). Destroy the response instead so the client sees a connection
   // drop and knows the download failed. Same class of silent-truncation
   // bug as #694.
-  let upstreamSucceeded = false;
+  let failed = false;
+  const parser = Parse();
   const fail = (error: Error) => {
+    if (failed) return;
+    failed = true;
     logger.error("upstream zipball failed", serializeError(error));
+    downloadStream.destroy();
+    downloadStream.unpipe(parser);
     archive.abort();
     const destroyable = res as unknown as {
       destroy?: (err?: Error) => void;
@@ -138,10 +143,13 @@ export async function streamAnonymizedZip(
       destroyable.end();
     }
   };
+  // pipe() returns the destination. Listen on the archive itself as well,
+  // including errors emitted after the upstream ZIP has finished downloading.
+  archive.on("error", fail);
 
   downloadStream
     .on("error", fail)
-    .pipe(Parse())
+    .pipe(parser)
     .on("entry", (entry: NodeJS.ReadableStream & { type: string; path: string; autodrain: () => void }) => {
       if (entry.type === "File") {
         try {
@@ -161,11 +169,13 @@ export async function streamAnonymizedZip(
             ...opt.anonymizerOptions,
             filePath: entry.path,
           });
+          entry.on("error", fail);
+          anonymizer.on("error", fail);
           const st = entry.pipe(anonymizer);
           archive.append(st, { name: fileName });
         } catch (error) {
           entry.autodrain();
-          logger.error("entry transform failed", serializeError(error));
+          fail(error as Error);
         }
       } else {
         entry.autodrain();
@@ -173,22 +183,13 @@ export async function streamAnonymizedZip(
     })
     .on("error", fail)
     .on("finish", () => {
-      upstreamSucceeded = true;
+      if (failed) return;
       try {
-        archive.finalize();
-      } catch {
-        /* ignored */
+        archive.finalize().catch(fail);
+      } catch (error) {
+        fail(error as Error);
       }
     });
 
-  archive.pipe(res).on("error", (error) => {
-    logger.error("archive pipe error", serializeError(error));
-    if (!upstreamSucceeded) {
-      // archive errored while we were still depending on upstream bytes:
-      // treat as failure rather than truncating.
-      fail(error);
-      return;
-    }
-    (res as { end?: () => void }).end?.();
-  });
+  archive.pipe(res).on("error", fail);
 }
