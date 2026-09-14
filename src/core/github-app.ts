@@ -1,5 +1,5 @@
 import { registerGitHubToken } from "./github-token-context";
-import { createHash, createSign, randomUUID } from "crypto";
+import { createSign, randomUUID } from "crypto";
 import { readFileSync } from "fs";
 import config from "../config";
 import AnonymousError from "./AnonymousError";
@@ -180,7 +180,7 @@ export async function appRepositories(ownerId: string) {
 
 const installationTokens = new Map<string, { token: string; expires: number }>();
 const minting = new Map<string, Promise<string>>();
-export function clearAppTokenCache() { installationTokens.clear(); publicTokens.clear(); }
+export function clearAppTokenCache() { installationTokens.clear(); }
 async function installationToken(binding: RepositoryAccess, ownerId: string): Promise<string> {
   const id = binding.installationId;
   let local = await InstallationModel.findOne({ appId: config.GITHUB_APP_ID, installationId: id }).lean();
@@ -219,54 +219,27 @@ async function installationToken(binding: RepositoryAccess, ownerId: string): Pr
   try { return await work; } finally { minting.delete(key); }
 }
 
-const publicTokens = new Map<string, { token: string; expires: number }>();
-const publicMinting = new Map<string, Promise<string>>();
-
-async function scopedPublicToken(ownerId: string, repositoryId: number, sourceName: string, userToken: string, force: boolean) {
-  const key = `${ownerId}:${repositoryId}:${createHash("sha256").update(userToken).digest("hex")}`;
-  if (force) publicTokens.delete(key);
-  const cached = publicTokens.get(key);
-  if (cached && cached.expires > Date.now() + 60000) return cached.token;
-  if (publicMinting.has(key)) return publicMinting.get(key)!;
-  const mint = (async () => {
-    const basic = Buffer.from(`${config.GITHUB_APP_CLIENT_ID}:${config.GITHUB_APP_CLIENT_SECRET}`).toString("base64");
-    const issued = await githubRequest<{ token: string; expires_at?: string | null }>(
-      `/applications/${encodeURIComponent(config.GITHUB_APP_CLIENT_ID)}/token/scoped`, basic, "POST", {
-        access_token: userToken, target: sourceName.split("/")[0], repository_ids: [repositoryId],
-        permissions: { metadata: "read", contents: "read", pull_requests: "read", pages: "read" },
-      }, "Basic");
-    if (typeof issued.token !== "string" || !issued.token || issued.token === userToken) throw appError("github_app_access_required");
-    // An omitted expiration does not justify caching beyond the current read.
-    const expires = issued.expires_at ? Date.parse(issued.expires_at) : 0;
-    if (Number.isFinite(expires) && expires > Date.now() + 60000) {
-      if (publicTokens.size >= 1000) publicTokens.clear();
-      publicTokens.set(key, { token: issued.token, expires });
-    }
-    return issued.token;
-  })();
-  publicMinting.set(key, mint);
-  try { return await mint; } finally { publicMinting.delete(key); }
-}
-
-export async function boundAppToken(ownerId: string, binding: RepositoryAccess, sourceName?: string, force = false): Promise<string> {
+export async function boundAppToken(ownerId: string, binding: RepositoryAccess, sourceName?: string, _force = false): Promise<string> {
   if (!Number.isSafeInteger(binding.repositoryId)) throw appError();
   if (binding.publicRead === true) {
     if (binding.installationId !== undefined || !sourceName || !/^[^/\s]+\/[^/\s]+$/.test(sourceName)) throw appError();
-    const userToken = await appUserToken(ownerId);
-    // Source reads use owner/name, so validate that exact name against the
-    // bound ID. A replacement at a renamed repository's old URL must fail.
-    const repo = await githubRequest<GitHubRepositoryInfo>(
-      `/repos/${sourceName.split("/").map(encodeURIComponent).join("/")}`, userToken);
-    // A public binding must never gain private access, even if the user later
-    // installs the App on this repository. Reconnect explicitly to do that.
-    if (repo.id !== binding.repositoryId || repo.private !== false || repo.visibility !== "public") throw appError("github_app_access_required");
-    const token = await scopedPublicToken(ownerId, binding.repositoryId!, sourceName, userToken, force);
-    // Each repository gets a distinct bearer token, so concurrent public
-    // traversals can revalidate their own binding on every request.
-    registerGitHubToken(token, { quotaKey: `app-user:${ownerId}`,
-      renew: force => boundAppToken(ownerId, binding, sourceName, force) });
-    return token;
+    const renew = async () => {
+      const userToken = await appUserToken(ownerId);
+      const repo = await githubRequest<GitHubRepositoryInfo>(
+        `/repos/${sourceName.split("/").map(encodeURIComponent).join("/")}`, userToken);
+      // A public binding must not acquire private access or follow a replacement
+      // repository at an old name, even if the user can read it.
+      if (repo.id !== binding.repositoryId || repo.private !== false || repo.visibility !== "public") throw appError("github_app_access_required");
+      return userToken;
+    };
+    await renew();
+    // This process-local handle keeps concurrent repositories independent without
+    // asking GitHub to mint an installation-scoped token for an uninstalled repo.
+    const handle = `public-read:${randomUUID()}`;
+    registerGitHubToken(handle, { quotaKey: `app-user:${ownerId}`, renew, publicRepository: sourceName });
+    return handle;
   }
+
   if (!Number.isSafeInteger(binding.installationId)) throw appError();
   const userToken = await appUserToken(ownerId);
   // User token checks the intersection of user and App rights on every access.
