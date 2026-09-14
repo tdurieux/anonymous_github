@@ -1,3 +1,4 @@
+import { githubTokenContext } from "../github-token-context";
 import AnonymizedFile from "../AnonymizedFile";
 import GitHubBase, {
   GitHubBaseData,
@@ -79,10 +80,11 @@ export default class GitHubStream extends GitHubBase {
       });
       logger.debug("downloading file", { url });
       return got.stream(url, {
+        hooks: { beforeRequest: [async () => { await githubTokenContext(token)?.renew(); }] },
         headers: {
           "X-GitHub-Api-Version": "2022-11-28",
           accept: "application/vnd.github.raw+json",
-          authorization: `token ${token}`,
+          ...(githubTokenContext(token)?.publicRepository ? {} : { authorization: `token ${token}` }),
         },
       });
     } catch (error) {
@@ -108,7 +110,8 @@ export default class GitHubStream extends GitHubBase {
     );
     logger.debug("downloading via raw URL (LFS)", { url });
     return got.stream(url, {
-      headers: { authorization: `token ${token}` },
+      hooks: { beforeRequest: [async () => { await githubTokenContext(token)?.renew(); }] },
+      headers: githubTokenContext(token)?.publicRepository ? {} : { authorization: `token ${token}` },
       followRedirect: true,
     });
   }
@@ -122,6 +125,11 @@ export default class GitHubStream extends GitHubBase {
     sha: string,
     filePath: string
   ): Promise<stream.Readable> {
+    // Public raw downloads need no bearer token and do not consume the
+    // unauthenticated REST API quota. GitHub also resolves LFS pointers here.
+    if (githubTokenContext(token)?.publicRepository) {
+      return Promise.resolve(this.downloadFileViaRaw(token, filePath));
+    }
     return new Promise<stream.Readable>((resolve) => {
       const blobStream = this.downloadFile(token, sha);
       let settled = false;

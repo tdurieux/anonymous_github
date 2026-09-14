@@ -249,6 +249,17 @@ export function octokit(token: string) {
   });
   if (context) {
     oct.hook.before("request", async options => {
+      if (context.publicRepository) {
+        const url = new URL(oct.request.endpoint(options).url);
+        const prefix = `/repos/${context.publicRepository.split("/").map(encodeURIComponent).join("/")}`.toLowerCase();
+        const path = url.pathname.toLowerCase();
+        const suffix = path.slice(prefix.length);
+        const readable = /^(?:\/?|\/branches(?:\/[^/]+)?|\/commits(?:\/[^/]+)?|\/readme|\/pages|\/zipball\/[^/]+|\/git\/(?:trees|blobs)\/[^/]+|\/pulls\/\d+|\/issues\/\d+\/comments)$/.test(suffix);
+        if (!readable || (options.method !== "GET" && !(options.method === "HEAD" && suffix.startsWith("/zipball/"))) || url.origin !== "https://api.github.com" ||
+            (path !== prefix && !path.startsWith(prefix + "/"))) {
+          throw new AnonymousError("github_app_access_required", { httpStatus: 403 });
+        }
+      }
       options.headers.authorization = `token ${await context.renew()}`;
     });
     oct.hook.wrap("request", async (request, options) => {
@@ -278,6 +289,8 @@ export { waitForTokenGate };
 export async function checkToken(token: string) {
   const oct = octokit(token);
   try {
+    const context = githubTokenContext(token);
+    if (context?.publicRepository) { await context.renew(); return true; }
     if (token.startsWith("ghs_")) await oct.request("GET /installation/repositories");
     else await oct.users.getAuthenticated();
     return true;
