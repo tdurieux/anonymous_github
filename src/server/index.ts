@@ -3,7 +3,7 @@ import { config as dotenv } from "dotenv";
 dotenv();
 
 import { createClient } from "redis";
-import { resolve, join } from "path";
+import { resolve, join, sep } from "path";
 import { existsSync, readFileSync } from "fs";
 import rateLimit from "express-rate-limit";
 import { slowDown } from "express-slow-down";
@@ -338,10 +338,20 @@ export default async function start() {
       const dir = req.params[0];     // "script" or "css"
       const base = req.params[1];    // e.g. "core"
       const ext = req.params[3];     // e.g. "min.js"
-      const filePath = join("public", dir, `${base}.${ext}`);
+      // Express decodes captures, so validate before resolving the filename.
+      if (
+        (dir !== "script" && dir !== "css") ||
+        base.startsWith(".") ||
+        /[/\\\0]/.test(base)
+      ) {
+        return res.status(404).end();
+      }
+      const assetRoot = resolve("public", dir);
+      const filePath = resolve(assetRoot, `${base}.${ext}`);
+      if (!filePath.startsWith(assetRoot + sep)) return res.status(404).end();
       if (!existsSync(filePath)) return next();
       res.set("Cache-Control", "public, max-age=31536000, immutable");
-      res.sendFile(resolve(filePath));
+      res.sendFile(filePath);
     }
   );
 
