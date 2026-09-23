@@ -442,12 +442,31 @@ function replaceTerm(content: string, term: CompiledTermVariant): string {
   if (term.pattern instanceof RegExp) {
     return content.replace(term.pattern, () => term.mask);
   }
-  const matcher = term.pattern.matcher(content);
+  // Fixed-width literal searches run natively. Validate each candidate with
+  // RE2 on a small window to preserve its case folding and boundary semantics
+  // without scanning megabytes of notebook outputs in the JS regex engine.
+  const candidates = term.literalPrefilter
+    ? content.matchAll(new RegExp(term.literalPrefilter.source, "giu"))
+    : null;
+  const matcher = candidates ? null : term.pattern.matcher(content);
   const pieces: string[] = [];
   let cursor = 0;
-  while (matcher.find()) {
-    const start = matcher.start();
-    const end = matcher.end();
+  const matches = function* () {
+    if (candidates) {
+      for (const candidate of candidates) {
+        const start = candidate.index!;
+        const end = start + candidate[0].length;
+        const offset = Math.max(0, start - 2);
+        const check = (term.pattern as RE2JS).matcher(content.slice(offset, end + 2));
+        if (check.find(start - offset) && check.start() === start - offset && check.end() === end - offset) {
+          yield { start, end };
+        }
+      }
+    } else {
+      while (matcher!.find()) yield { start: matcher!.start(), end: matcher!.end() };
+    }
+  };
+  for (const { start, end } of matches()) {
     // RE2 has no lookahead. Check the generated Unicode word boundaries
     // outside the engine, without executing any user-supplied native regex.
     if (term.before && /[\p{L}\p{N}_]$/u.test(content.slice(Math.max(0, start - 2), start))) continue;
