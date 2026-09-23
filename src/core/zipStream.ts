@@ -1,4 +1,5 @@
 import got from "got";
+import { Readable, Transform } from "stream";
 import { Parse } from "unzip-stream";
 import archiver = require("archiver");
 
@@ -112,33 +113,24 @@ export async function streamAnonymizedZip(
   }
   const downloadStream = got.stream(response.url);
 
-  res.on("error", (error) => {
-    logger.error("response stream error", serializeError(error));
-    downloadStream.destroy();
-  });
-  res.on("close", () => {
-    downloadStream.destroy();
-  });
-
   const archive = archiver("zip", {});
+  const parser = Parse() as Transform;
+  const activeStreams = new Set<Readable>();
   const compiledTerms = compileTerms(opt.anonymizerOptions.terms || []);
-
-  // Track whether the upstream zipball finished cleanly. If it didn't,
-  // we must NOT finalize the archive — finalizing while bytes are still
-  // flowing to the response produces a valid-looking ZIP that's missing
-  // entries, which the client has no way to detect (status 200, archive
-  // opens). Destroy the response instead so the client sees a connection
-  // drop and knows the download failed. Same class of silent-truncation
-  // bug as #694.
-  let failed = false;
-  const parser = Parse();
-  const fail = (error: Error) => {
-    if (failed) return;
-    failed = true;
-    logger.error("upstream zipball failed", serializeError(error));
+  let stopped = false;
+  const stop = () => {
+    if (stopped) return;
+    stopped = true;
     downloadStream.destroy();
-    downloadStream.unpipe(parser);
+    parser.destroy();
+    for (const stream of activeStreams) stream.destroy();
+    activeStreams.clear();
     archive.abort();
+  };
+  const fail = (error: Error) => {
+    if (stopped) return;
+    logger.error("zip stream failed", serializeError(error));
+    stop();
     const destroyable = res as unknown as {
       destroy?: (err?: Error) => void;
       end?: () => void;
@@ -149,14 +141,23 @@ export async function streamAnonymizedZip(
       destroyable.end();
     }
   };
-  // pipe() returns the destination. Listen on the archive itself as well,
-  // including errors emitted after the upstream ZIP has finished downloading.
+
+  res.on("error", (error) => fail(error as Error));
+  res.on("close", stop);
   archive.on("error", fail);
+  archive.pipe(res);
 
   downloadStream
     .on("error", fail)
     .pipe(parser)
-    .on("entry", (entry: NodeJS.ReadableStream & { type: string; path: string; autodrain: () => void }) => {
+    .on("entry", (entry: Readable & { type: string; path: string; autodrain: () => void }) => {
+      if (stopped) {
+        entry.destroy();
+        return;
+      }
+      entry.on("error", fail);
+      activeStreams.add(entry);
+      entry.once("close", () => activeStreams.delete(entry));
       if (entry.type === "File") {
         try {
           const fileName = anonymizePathCompiled(
@@ -175,12 +176,12 @@ export async function streamAnonymizedZip(
             ...opt.anonymizerOptions,
             filePath: entry.path,
           });
-          entry.on("error", fail);
           anonymizer.on("error", fail);
+          activeStreams.add(anonymizer);
+          anonymizer.once("close", () => activeStreams.delete(anonymizer));
           const st = entry.pipe(anonymizer);
           archive.append(st, { name: fileName });
         } catch (error) {
-          entry.autodrain();
           fail(error as Error);
         }
       } else {
@@ -189,13 +190,7 @@ export async function streamAnonymizedZip(
     })
     .on("error", fail)
     .on("finish", () => {
-      if (failed) return;
-      try {
-        archive.finalize().catch(fail);
-      } catch (error) {
-        fail(error as Error);
-      }
+      if (stopped) return;
+      void archive.finalize().catch(fail);
     });
-
-  archive.pipe(res).on("error", fail);
 }
