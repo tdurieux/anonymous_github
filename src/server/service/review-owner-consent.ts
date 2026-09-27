@@ -1,4 +1,4 @@
-import { createHash, createHmac, timingSafeEqual } from "crypto";
+import { createHash, createHmac, timingSafeEqual, randomBytes } from "crypto";
 import { Connection, ClientSession, Types } from "mongoose";
 import {
   ConsumedReviewIntent,
@@ -37,6 +37,27 @@ type SavedConsent = {
   requestId: string;
   ticketHash: string;
   receipt: ConsentReceipt;
+  intent: ConsumedReviewIntent;
+};
+type BindingReceipt = {
+  contract: "4open.artifacts/1";
+  clientId: string;
+  intentId: string;
+  bindingId: string;
+  submissionRef: string;
+  policy: ConsumedReviewIntent["policy"];
+  entitlementId: string;
+};
+type SavedCompletion = {
+  _id: string;
+  accountId: string;
+  repositoryId: string;
+  ticketHash: string;
+  intent: ConsumedReviewIntent;
+  nonce: string;
+  codeHash: string;
+  expiresAt: string;
+  exchange?: { requestId: string; receipt: BindingReceipt };
 };
 export class ReviewConsentError extends Error {
   constructor(
@@ -79,6 +100,7 @@ export function createReviewOwnerConsent(
   if (!Buffer.isBuffer(signingKey) || signingKey.length !== 32) deny("invalid");
   const key = Buffer.from(signingKey);
   let activeTransactions = 0;
+  let activeReads = 0;
   const signature = (body: string) =>
     createHmac("sha256", key)
       .update("4open.review-consent/1." + body)
@@ -202,7 +224,252 @@ export function createReviewOwnerConsent(
       await session.endSession().catch(() => undefined);
     }
   }
+  const completionCode = (id: string, nonce: string) =>
+    createHmac("sha256", key)
+      .update("4open.review-completion/1." + id + "." + nonce)
+      .digest("hex");
   return Object.freeze({
+    // Called only with the current authenticated browser principal. The HTTP
+    // adapter must retain its session reload, same-origin and CSRF checks.
+    async completion(actor: Principal, ticket: string) {
+      const who = principal(actor),
+        quote = decode(ticket, who);
+      return transaction(
+        who,
+        { _id: new Types.ObjectId(quote.repositoryId) },
+        async (authority, session) => {
+          decode(ticket, who);
+          const id = quote.intent.clientId + ":" + quote.intent.intentId;
+          const consent = await connection.db
+            .collection<SavedConsent>("review_owner_consents")
+            .findOne({ _id: id }, { session, maxTimeMS: 3000 });
+          if (
+            !consent ||
+            consent.ticketHash !== hash(ticket) ||
+            consent.accountId !== who.accountId ||
+            consent.repositoryId !== authority.repositoryId ||
+            !consent.intent
+          )
+            return deny("forbidden");
+          const collection =
+            connection.db.collection<SavedCompletion>("review_completions");
+          let saved = await collection.findOne(
+            { _id: id },
+            { session, maxTimeMS: 3000 },
+          );
+          if (
+            saved &&
+            (saved.ticketHash !== consent.ticketHash ||
+              saved.accountId !== who.accountId ||
+              saved.repositoryId !== authority.repositoryId)
+          )
+            return deny("conflict");
+          if (!saved) {
+            const nonce = randomBytes(32).toString("hex");
+            saved = {
+              _id: id,
+              accountId: who.accountId,
+              repositoryId: authority.repositoryId,
+              ticketHash: consent.ticketHash,
+              intent: consent.intent,
+              nonce,
+              codeHash: hash(completionCode(id, nonce)),
+              expiresAt: new Date(
+                Math.floor(
+                  Math.min(
+                    Date.now() + 300000,
+                    Date.parse(consent.intent.expiresAt),
+                    Date.parse(consent.intent.policy.retainUntil),
+                  ) / 1000,
+                ) * 1000,
+              )
+                .toISOString()
+                .replace(/\.000Z$/, "Z"),
+            };
+            await collection.insertOne(saved, { session, maxTimeMS: 3000 });
+          }
+          if (Date.parse(saved.expiresAt) <= Date.now()) return deny("expired");
+          const code = completionCode(id, saved.nonce);
+          // A key rotation must not silently issue a different code for a saved
+          // intent. Keep the issuing key available for the short code lifetime.
+          if (hash(code) !== saved.codeHash) return deny("conflict");
+          return Object.freeze({
+            contract: "4open.artifacts/1",
+            clientId: saved.intent.clientId,
+            intentId: saved.intent.intentId,
+            code,
+            expiresAt: saved.expiresAt,
+          });
+        },
+      );
+    },
+    // authenticatedClientId must come from service credential verification,
+    // never browser identity or the request body's clientId alone.
+    async exchange(
+      authenticatedClientId: string,
+      input: {
+        contract: string;
+        clientId: string;
+        intentId: string;
+        code: string;
+        requestId: string;
+      },
+    ): Promise<BindingReceipt> {
+      if (
+        !input ||
+        Object.keys(input).sort().join(",") !==
+          "clientId,code,contract,intentId,requestId" ||
+        input.contract !== "4open.artifacts/1" ||
+        ![input.clientId, input.intentId, input.requestId].every(
+          (value) => typeof value === "string" && /^[a-f0-9]{32}$/.test(value),
+        ) ||
+        typeof input.code !== "string" ||
+        !/^[a-f0-9]{64}$/.test(input.code)
+      )
+        return deny("invalid");
+      const command = { ...input };
+      if (authenticatedClientId !== command.clientId) return deny("forbidden");
+      if (connection.readyState !== 1 || activeReads >= 4)
+        return deny("unavailable");
+      const id = command.clientId + ":" + command.intentId;
+      const collection =
+        connection.db.collection<SavedCompletion>("review_completions");
+      const read = async (session?: ClientSession) => {
+        const saved = await collection.findOne(
+          { _id: id },
+          { session, maxTimeMS: 3000, ...(session ? {} : { readConcern: { level: "majority" as const } }) },
+        );
+        if (!saved) return deny("forbidden");
+        if (
+          !timingSafeEqual(
+            Buffer.from(saved.codeHash, "hex"),
+            Buffer.from(hash(command.code), "hex"),
+          )
+        )
+          return deny(
+            saved.exchange?.requestId === command.requestId
+              ? "conflict"
+              : "forbidden",
+          );
+        return saved;
+      };
+      activeReads++;
+      try {
+        const before = await read();
+        if (before.exchange) {
+          if (before.exchange.requestId !== command.requestId)
+            return deny("conflict");
+          return Object.freeze(before.exchange.receipt);
+        }
+        return await transaction(
+          { accountId: before.accountId, sessionHash: "" },
+          { _id: new Types.ObjectId(before.repositoryId) },
+          async (_authority, session) => {
+            const saved = await read(session);
+            if (saved.exchange) {
+              if (saved.exchange.requestId !== command.requestId)
+                return deny("conflict");
+              return Object.freeze(saved.exchange.receipt);
+            }
+            if (
+              Date.parse(saved.expiresAt) <= Date.now() ||
+              Date.parse(saved.intent.policy.retainUntil) <= Date.now()
+            )
+              return deny("expired");
+            // The unique request document detects a reused key on another intent.
+            const requests = connection.db.collection<{
+              _id: string;
+              intentId: string;
+            }>("review_completion_requests");
+            const requestKey = command.clientId + ":" + command.requestId;
+            if (
+              await requests.findOne(
+                { _id: requestKey },
+                { session, maxTimeMS: 3000 },
+              )
+            )
+              return deny("conflict");
+            const receipt: BindingReceipt = {
+              contract: "4open.artifacts/1",
+              clientId: saved.intent.clientId,
+              intentId: saved.intent.intentId,
+              bindingId: randomBytes(16).toString("hex"),
+              submissionRef: saved.intent.submissionRef,
+              policy: { ...saved.intent.policy },
+              entitlementId: saved.intent.entitlementId,
+            };
+            await connection.db
+              .collection<{
+                _id: string;
+                clientId: string;
+                intentId: string;
+                accountId: string;
+                repositoryId: string;
+                state: "pending";
+                revision: number;
+                receipt: BindingReceipt;
+              }>("review_artifact_bindings")
+              .insertOne(
+                {
+                  _id: receipt.bindingId,
+                  clientId: command.clientId,
+                  intentId: command.intentId,
+                  accountId: saved.accountId,
+                  repositoryId: saved.repositoryId,
+                  state: "pending",
+                  revision: 1,
+                  receipt,
+                },
+                { session, maxTimeMS: 3000 },
+              );
+            await requests.insertOne(
+              { _id: requestKey, intentId: command.intentId },
+              { session, maxTimeMS: 3000 },
+            );
+            await collection.updateOne(
+              { _id: id },
+              { $set: { exchange: { requestId: command.requestId, receipt } } },
+              { session, maxTimeMS: 3000 },
+            );
+            return Object.freeze(receipt);
+          },
+        );
+      } catch (error) {
+        if (error instanceof ReviewConsentError) throw error;
+        return deny("unavailable");
+      } finally {
+        activeReads--;
+      }
+    },
+    async receipt(
+      authenticatedClientId: string,
+      intentId: string,
+    ): Promise<BindingReceipt> {
+      if (
+        ![authenticatedClientId, intentId].every(
+          (value) => typeof value === "string" && /^[a-f0-9]{32}$/.test(value),
+        )
+      )
+        return deny("invalid");
+      if (connection.readyState !== 1 || activeReads >= 4)
+        return deny("unavailable");
+      activeReads++;
+      try {
+        const saved = await connection.db
+          .collection<SavedCompletion>("review_completions")
+          .findOne(
+            { _id: authenticatedClientId + ":" + intentId },
+            { maxTimeMS: 3000, readConcern: { level: "majority" }, projection: { exchange: 1 } },
+          );
+        if (!saved?.exchange) return deny("forbidden");
+        return Object.freeze(saved.exchange.receipt);
+      } catch (error) {
+        if (error instanceof ReviewConsentError) throw error;
+        return deny("unavailable");
+      } finally {
+        activeReads--;
+      }
+    },
     async preview(
       actor: Principal,
       repositoryName: string,
@@ -315,6 +582,7 @@ export function createReviewOwnerConsent(
               requestId,
               ticketHash,
               receipt,
+              intent: quote.intent,
             },
             { session, maxTimeMS: 3000 },
           );

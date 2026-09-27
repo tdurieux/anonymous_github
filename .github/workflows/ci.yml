@@ -60,6 +60,7 @@ jobs:
         env:
           TEST_REVIEW_CONSENT_MONGO: mongodb://127.0.0.1:28743/?replicaSet=review-consent-test
           TEST_REVIEW_CONSENT_PERF_REPORT: review-consent-perf.json
+          TEST_REVIEW_COMPLETION_PERF_REPORT: review-completion-perf.json
           TEST_REVIEW_CONSENT_HTTP_PERF: review-consent-http-perf.json
         run: npx mocha test/review-owner-consent.test.js test/review-consent-http.test.js
       - uses: actions/upload-artifact@v4
@@ -68,6 +69,7 @@ jobs:
           path: |
             review-consent-perf.json
             review-consent-http-perf.json
+            review-completion-perf.json
       - name: Remove disposable database
         if: always()
         run: docker rm -f review-consent-test || true
