@@ -109,15 +109,15 @@ export function createReviewCapabilities(
     res.setHeader("Referrer-Policy", "no-referrer");
     res.setHeader("X-Content-Type-Options", "nosniff");
     const fail = (status: number, code: string, retry?: number) => {
+      // Do not keep a rejected request alive while Node drains an unread body.
+      res.setHeader("Connection", "close");
       if (retry) res.setHeader("Retry-After", String(retry));
-      res
-        .status(status)
-        .json({
-          contract,
-          code,
-          requestId: randomBytes(16).toString("hex"),
-          ...(retry ? { retryAfterSeconds: retry } : {}),
-        });
+      res.status(status).json({
+        contract,
+        code,
+        requestId: randomBytes(16).toString("hex"),
+        ...(retry ? { retryAfterSeconds: retry } : {}),
+      });
     };
     if (!keys || req.originalUrl !== "/service/v1/capabilities")
       return fail(404, "not-found");
@@ -190,13 +190,11 @@ export function createReviewCapabilities(
       );
     rate.count++;
     // No link, snapshot, protected-delivery or retention support exists yet.
-    res
-      .status(200)
-      .json({
-        contract,
-        clientId: client,
-        contracts: [contract],
-        available: [],
-      });
+    res.status(200).json({
+      contract,
+      clientId: client,
+      contracts: [contract],
+      available: [],
+    });
   };
 }

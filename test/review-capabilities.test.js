@@ -253,6 +253,34 @@ describe("review service capabilities", function () {
         "Invalid REVIEW_SERVICE_KEYS configuration",
       );
   });
+  it("closes rejected incomplete bodies without waiting for upload completion", async function () {
+    this.timeout(5000);
+    await start();
+    const result = await new Promise((resolve, reject) => {
+      const socket = require("net").createConnection({
+        host: "127.0.0.1",
+        port,
+      });
+      let received = "";
+      socket.setTimeout(1500, () => {
+        socket.destroy();
+        reject(new Error("rejected request still waiting for its unread body"));
+      });
+      socket.on("error", reject);
+      socket.on("data", (data) => {
+        received += data.toString();
+      });
+      socket.on("close", () => resolve(received));
+      socket.on("connect", () =>
+        socket.write(
+          "GET /service/v1/capabilities HTTP/1.1\r\nHost: localhost\r\nContent-Length: 10000000\r\nConnection: keep-alive\r\n\r\n",
+        ),
+      );
+    });
+    expect(result).to.contain("HTTP/1.1 400");
+    expect(result.toLowerCase()).to.contain("connection: close");
+    expect(downstream).to.equal(0);
+  });
   if (process.env.RUN_REVIEW_SERVICE_BENCHMARK === "1")
     it("records bounded loopback read performance", async () => {
       await start();

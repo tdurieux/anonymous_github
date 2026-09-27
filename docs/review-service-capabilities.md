@@ -10,7 +10,8 @@ The endpoint is mounted before JSON parsing, browser sessions and passport. The
 entire `/service` namespace returns a typed 404 when configuration is absent.
 Only the exact GET path is accepted. Query strings, browser context headers,
 cookies, bodies, duplicate authentication headers and unknown paths are rejected.
-Responses contain no credentials, owner identity, repository data, cookies or CORS
+Rejections close the connection immediately, including requests whose declared
+body has not arrived. Responses contain no credentials, owner identity, repository data, cookies or CORS
 permission; they have `no-store` and `no-referrer` headers. No database, queue or
 provider call is involved.
 
@@ -51,7 +52,7 @@ session or repository-owner authority.
 
 ## Verification
 
-`mocha --no-config --no-package test/review-capabilities.test.js` passes seven
+`mocha --no-config --no-package test/review-capabilities.test.js` passes eight
 HTTP/configuration scenarios, including 60 concurrent reads, cross-client and
 wrong-key rejection, raw duplicate headers, exact path checks, browser context,
 expiry, overlapping keys and restart revocation. Add
@@ -76,3 +77,8 @@ changes. Use the lockfile when reproducing these results.
 
 The endpoint is implemented and tested locally. Upstream deployment, private key
 distribution, ownership consent and the remaining artifact workflows are pending.
+
+A raw-socket regression first reproduced a rejected request waiting for its unread
+10 MB body. Closing failed connections makes the same header-only request return
+400 and close immediately; the complete eight-case endpoint suite and full
+TypeScript checking pass. Full PR CI is repeated for this correction.
