@@ -1,3 +1,4 @@
+import { ReviewCallbacks } from "./service/review-callbacks";
 import { Request, Response } from "express";
 import { existsSync, readFileSync } from "fs";
 import { resolve } from "path";
@@ -17,6 +18,7 @@ export function isReviewConsentPagePath(path: string): boolean {
 
 export function createReviewConsentPage(
   manifestPath = resolve("public", "asset-manifest.json"),
+  callbacks?: ReviewCallbacks,
 ) {
   return (req: Request, res: Response): void => {
     res.set({
@@ -25,7 +27,7 @@ export function createReviewConsentPage(
       "X-Content-Type-Options": "nosniff",
       "X-Frame-Options": "DENY",
       "Content-Security-Policy":
-        "default-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+        "default-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action " + (callbacks?.formAction || "'self'") + "; frame-ancestors 'none'",
     });
     if (
       req.originalUrl !== "/review-link" ||

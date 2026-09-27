@@ -228,7 +228,14 @@ export function createReviewOwnerConsent(
     createHmac("sha256", key)
       .update("4open.review-completion/1." + id + "." + nonce)
       .digest("hex");
-  return Object.freeze({
+  const api = {
+    async handoff(actor: Principal, ticket: string, resolveCallback: (clientId: string, callbackId: string) => string | undefined) {
+      const quote = decode(ticket, principal(actor));
+      const callbackUrl = resolveCallback(quote.intent.clientId, quote.intent.callbackId);
+      if (!callbackUrl) return deny("forbidden");
+      const completion = await api.completion(actor, ticket);
+      return Object.freeze({ completion, callbackUrl });
+    },
     // Called only with the current authenticated browser principal. The HTTP
     // adapter must retain its session reload, same-origin and CSRF checks.
     async completion(actor: Principal, ticket: string) {
@@ -590,5 +597,6 @@ export function createReviewOwnerConsent(
         },
       );
     },
-  });
+  };
+  return Object.freeze(api);
 }
