@@ -126,15 +126,19 @@ router.post(
       });
       if (!repo) return;
 
-      if (
-        repo.status == "preparing" ||
-        repo.status == "removing" ||
-        repo.status == "expiring"
-      )
-        return;
-
       const user = await getUser(req);
       isOwnerCoauthorOrAdmin(repo, user);
+
+      if (
+        repo.status == RepositoryStatus.PREPARING ||
+        repo.status == RepositoryStatus.QUEUE ||
+        repo.status == RepositoryStatus.DOWNLOAD ||
+        repo.status == RepositoryStatus.REMOVING ||
+        repo.status == RepositoryStatus.EXPIRING
+      ) {
+        throw new AnonymousError("invalid_status", { httpStatus: 409 });
+      }
+
       await repo.updateIfNeeded({ force: true });
       res.json({ status: repo.status });
     } catch (error) {
