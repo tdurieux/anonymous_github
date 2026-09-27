@@ -649,11 +649,12 @@ export const unifiedDashboardController = function (state, http, location, promi
         });
       };
 
-      function waitRepoToBeReady(repoId, callback) {
+      function waitRepoToBeReady(repoId, callback, onError) {
         http.get("/api/repo/" + repoId).then((res) => {
           for (const item of state.items) {
             if (item._type === "repo" && item.repoId == repoId) {
               item.status = res.data.status;
+              item.statusMessage = res.data.statusMessage;
               break;
             }
           }
@@ -666,8 +667,8 @@ export const unifiedDashboardController = function (state, http, location, promi
             callback(res.data);
             return;
           }
-          timers.timeout(() => waitRepoToBeReady(repoId, callback), 2500);
-        });
+          timers.timeout(() => waitRepoToBeReady(repoId, callback, onError), 2500);
+        }, onError);
       }
 
       const labelOf = (t) =>
@@ -716,26 +717,31 @@ export const unifiedDashboardController = function (state, http, location, promi
           body: `The ${label} ${item._id} is going to be refreshed.`,
         });
         state.addToast(toast);
+        const onError = (error) => {
+          toast.title = `Error during the refresh of ${item._id}.`;
+          toast.body = error.data?.error || error.body || "The refresh could not be completed. Please try again.";
+          loadAll();
+        };
         const endpoint = `${apiBaseOf(item._type)}/${item._id}/refresh`;
         http.post(endpoint).then(
           () => {
             if (item._type === "repo") {
-              waitRepoToBeReady(item._id, () => {
+              waitRepoToBeReady(item._id, (repo) => {
+                if (repo.status !== "ready") {
+                  onError({ body: repo.statusMessage || `The repository is ${repo.status}.` });
+                  return;
+                }
                 toast.title = `${item._id} is refreshed.`;
                 toast.body = `The ${label} ${item._id} is refreshed.`;
 
-              });
+              }, onError);
             } else {
               toast.title = `${item._id} is refreshed.`;
               toast.body = `The ${label} ${item._id} is refreshed.`;
               loadAll();
             }
           },
-          (error) => {
-            toast.title = `Error during the refresh of ${item._id}.`;
-            toast.body = error.body;
-            loadAll();
-          }
+          onError
         );
       };
 
