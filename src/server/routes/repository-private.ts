@@ -132,14 +132,15 @@ router.post(
       if (
         repo.status == RepositoryStatus.PREPARING ||
         repo.status == RepositoryStatus.QUEUE ||
-        repo.status == RepositoryStatus.DOWNLOAD ||
+        (repo.status == RepositoryStatus.DOWNLOAD &&
+          repo.model.statusDate > new Date(Date.now() - 5 * 60_000)) ||
         repo.status == RepositoryStatus.REMOVING ||
         repo.status == RepositoryStatus.EXPIRING
       ) {
         throw new AnonymousError("invalid_status", { httpStatus: 409 });
       }
 
-      await repo.updateIfNeeded({ force: true });
+      await repo.refresh();
       res.json({ status: repo.status });
     } catch (error) {
       handleError(error, res, req);

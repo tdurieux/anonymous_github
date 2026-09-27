@@ -1,4 +1,5 @@
 import storage from "./storage";
+import { randomUUID } from "crypto";
 import { RepositoryStatus } from "./types";
 import { Readable } from "stream";
 import * as sha1 from "crypto-js/sha1";
@@ -298,11 +299,50 @@ export default class Repository {
     return true;
   }
 
-  /**
-   * Update the repository if a new commit exists
-   *
-   * @returns void
-   */
+  private refreshToken?: string;
+
+  private refreshFilter() {
+    return this.refreshToken ? {
+      refreshToken: this.refreshToken,
+      refreshUntil: { $gt: new Date() },
+      status: this.model.status,
+      statusDate: this.model.statusDate || { $exists: false },
+      "githubAccess.revision": this.model.githubAccess?.revision || { $exists: false },
+    } : {};
+  }
+
+  private checkRefreshWrite(result: { matchedCount: number }) {
+    if (this.refreshToken && !result.matchedCount) {
+      throw new AnonymousError("invalid_status", { httpStatus: 409 });
+    }
+  }
+
+  /** Serialize dashboard refreshes across server processes without hiding a ready snapshot. */
+  async refresh() {
+    this.assertNotArchived();
+    if (!isConnected) return this.updateIfNeeded({ force: true });
+    const token = randomUUID();
+    const now = new Date();
+    const claimed = await AnonymizedRepositoryModel.updateOne({
+      _id: this.model._id,
+      status: this.model.status,
+      statusDate: this.model.statusDate || { $exists: false },
+      "githubAccess.revision": this.model.githubAccess?.revision || { $exists: false },
+      $or: [{ refreshUntil: { $exists: false } }, { refreshUntil: { $lte: now } }],
+    }, { $set: { refreshToken: token, refreshUntil: new Date(now.getTime() + 5 * 60_000) } }).exec();
+    if (!claimed.matchedCount) throw new AnonymousError("invalid_status", { httpStatus: 409 });
+    this.refreshToken = token;
+    try {
+      await this.updateIfNeeded({ force: true });
+    } finally {
+      this.refreshToken = undefined;
+      // Only this lease may be released, including after a failed GitHub lookup.
+      await AnonymizedRepositoryModel.updateOne({ _id: this.model._id, refreshToken: token },
+        { $unset: { refreshToken: 1, refreshUntil: 1 } }).exec();
+    }
+  }
+
+  /** Update the repository if a new commit exists. */
   async updateIfNeeded(opt?: { force: boolean }): Promise<void> {
     this.assertNotArchived();
     if (
@@ -311,7 +351,6 @@ export default class Repository {
       this._model.options.expirationDate
     ) {
       if (this._model.options.expirationDate <= new Date()) {
-        this._model.status = RepositoryStatus.EXPIRED;
         await this.expire();
         throw new AnonymousError("repository_expired", {
           object: this,
@@ -345,10 +384,11 @@ export default class Repository {
         if (this.model.source.repositoryName !== ghRepo.fullName) {
           this.model.source.repositoryName = ghRepo.fullName;
           if (isConnected) {
-            await AnonymizedRepositoryModel.updateOne(
-              { _id: this._model._id },
+            const result = await AnonymizedRepositoryModel.updateOne(
+              { _id: this._model._id, ...this.refreshFilter() },
               { $set: { "source.repositoryName": ghRepo.fullName } }
             ).exec();
+            this.checkRefreshWrite(result);
           }
         }
         const branches = await ghRepo.branches({
@@ -402,8 +442,8 @@ export default class Repository {
         });
 
         if (isConnected) {
-          await AnonymizedRepositoryModel.updateOne(
-            { _id: this._model._id },
+          const result = await AnonymizedRepositoryModel.updateOne(
+            { _id: this._model._id, ...this.refreshFilter() },
             {
               $set: {
                 "source.commit": newCommit,
@@ -412,8 +452,14 @@ export default class Repository {
               },
             }
           ).exec();
+          this.checkRefreshWrite(result);
         }
         await this.resetSate(RepositoryStatus.PREPARING);
+        if (isConnected && this.refreshToken) {
+          // Removal or expiry may have started while deleting the old cache.
+          const current = await AnonymizedRepositoryModel.exists({ _id: this.model._id, ...this.refreshFilter() });
+          if (!current) throw new AnonymousError("invalid_status", { httpStatus: 409 });
+        }
         await downloadQueue.add(this.repoId, { repoId: this.repoId }, {
           jobId: `repo-${this.repoId}`,
           attempts: 3,
@@ -481,6 +527,7 @@ export default class Repository {
       const result = await AnonymizedRepositoryModel.updateOne(
         {
           _id: this._model._id,
+          ...this.refreshFilter(),
           ...(this.protectLifecycle ? {
             status: { $nin: [RepositoryStatus.ARCHIVED, RepositoryStatus.REMOVING, RepositoryStatus.REMOVED,
               RepositoryStatus.EXPIRING, RepositoryStatus.EXPIRED] },
@@ -490,6 +537,7 @@ export default class Repository {
         },
         { $set: { status, statusDate, statusMessage, ...(publishedAt ? { publishedAt } : {}) } }
       ).exec();
+      this.checkRefreshWrite(result);
       if (this.protectLifecycle && result.matchedCount === 0) {
         throw new AnonymousError("repository_job_cancelled", { httpStatus: 410 });
       }
