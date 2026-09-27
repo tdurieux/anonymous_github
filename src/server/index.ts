@@ -38,6 +38,8 @@ import config from "../config";
 import { resolveTrustProxy, isCloudflareIP } from "./trustProxy";
 import { createLogger, serializeError } from "../core/logger";
 
+import { createReviewCapabilities } from "./service/review-capabilities";
+
 const logger = createLogger("server");
 
 // Lazily build the templated index.html on first request so the server
@@ -101,6 +103,7 @@ function indexResponse(req: express.Request, res: express.Response) {
 export default async function start() {
   const app = express();
   app.set("query parser", "extended");
+  app.use("/service", createReviewCapabilities(process.env.REVIEW_SERVICE_KEYS));
   app.use("/github/app/webhook", githubAppWebhook);
   app.use(express.json());
   // Preserve the empty body used by API validation when no JSON was parsed.
