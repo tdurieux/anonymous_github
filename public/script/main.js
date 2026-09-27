@@ -1,3 +1,4 @@
+import { takeReviewFragment } from "./review-consent.js";
 import { loadLibrary } from "./lazy-assets.js";
 import { createApp, h, watch, provide, inject, onBeforeUnmount } from "vue";
 import { createRouter, createWebHistory, RouterView } from "vue-router";
@@ -30,6 +31,9 @@ export function safeUrl(value) {
 }
 
 export function mountApplication(target = "#app", options = {}) {
+  const isolatedConsent = !!document.querySelector('meta[name="review-consent-page"][content="1"]');
+  let reviewHandoff = isolatedConsent && window.location.pathname === "/review-link" ? takeReviewFragment(window) : null;
+  const takeReviewHandoff = () => { const value = reviewHandoff; reviewHandoff = null; return value; };
   // AngularJS links stored the repository route in the fragment. Normalize it
   // before web history reads the URL, replacing the entry so Back still works.
   if (!options.history && window.location.pathname === "/" && /^#!\/r\/[^/?#]+/.test(window.location.hash)) {
@@ -50,7 +54,7 @@ export function mountApplication(target = "#app", options = {}) {
       const value = router.currentRoute.value.params[key];
       return Array.isArray(value) ? value.join("/") : value;
     } });
-    return { http, ...timers, location, params, window, promises, html: { trustAsHtml: value => value }, translate: (key, params) => Promise.resolve(translate(key, params)), quotaService: createQuotaService(http) };
+    return { takeReviewHandoff, http, ...timers, location, params, window, promises, html: { trustAsHtml: value => value }, translate: (key, params) => Promise.resolve(translate(key, params)), quotaService: createQuotaService(http) };
   }
   function pageComponent(definition) {
     return {
@@ -92,7 +96,7 @@ export function mountApplication(target = "#app", options = {}) {
         const href = anchor.getAttribute("href");
         if (href.startsWith("#")) return;
         const url = new URL(anchor.href, window.location.href);
-        if (url.origin !== window.location.origin || serverPaths.test(url.pathname)) return;
+        if (isolatedConsent || /^\/review-link\/?$/i.test(url.pathname) || url.origin !== window.location.origin || serverPaths.test(url.pathname)) return;
         event.preventDefault();
         router.push(url.pathname + url.search + url.hash);
         $("#navbarSupportedContent.show").collapse("hide");
@@ -100,7 +104,7 @@ export function mountApplication(target = "#app", options = {}) {
       document.addEventListener("click", navigate);
       onBeforeUnmount(() => document.removeEventListener("click", navigate));
       return () => [
-        h("header", { class: "app-header" }, templates["partials/header.htm"](root, headerCache)),
+        isolatedConsent ? null : h("header", { class: "app-header" }, templates["partials/header.htm"](root, headerCache)),
         h("main", { class: "app-view align-items-stretch w-100" }, h(RouterView, null, {
           default: ({ Component, route }) => Component ? h(Component, { key: route.meta.preserveExplorer ? route.matched[0]?.path : route.path }) : null,
         })),
@@ -123,6 +127,10 @@ export function mountApplication(target = "#app", options = {}) {
   app.directive("paper-scrollspy", paperScrollspy);
   app.use(router);
   router.beforeEach(async to => {
+    if ((to.path === "/review-link" && !isolatedConsent) || (isolatedConsent && to.path !== "/review-link")) {
+      window.location.assign(to.fullPath);
+      return false;
+    }
     root?.emit("routeLeave");
     if (/^\/(r|repository|anonymize|pull-request-anonymize|gist-anonymize|pr|gist)(\/|$)/.test(to.path)) {
       await loadLibrary("markdown");
