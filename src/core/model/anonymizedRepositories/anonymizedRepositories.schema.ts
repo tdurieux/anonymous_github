@@ -2,6 +2,7 @@ import { repositoryAccessSchema } from "../repository-access.schema";
 import { Schema } from "mongoose";
 
 const AnonymizedRepositorySchema = new Schema({
+  reviewConsentRevision: { type: Number, select: false },
   repoId: {
     type: String,
     index: { unique: true, collation: { locale: "en", strength: 2 } },

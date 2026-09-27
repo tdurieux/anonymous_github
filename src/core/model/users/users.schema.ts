@@ -1,6 +1,7 @@
 import { Schema } from "mongoose";
 
 const UserSchema = new Schema({
+  reviewConsentRevision: { type: Number, select: false },
   accessTokens: {
     github: { type: String, select: false },
   },
