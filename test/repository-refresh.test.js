@@ -60,9 +60,9 @@ describe("repository refresh and restoration", () => {
         branches: async () => [{ name: "main", commit }],
         getCommitInfo: async () => ({ commit: {} }),
       }));
-      repo.resetSate = async status => { repo.model.status = status; };
+      repo.resetSate = async () => {};
       let added;
-      stub(queue, "downloadQueue", { add: async (...args) => { added = args; } });
+      stub(queue, "downloadQueue", { getJob: async () => undefined, add: async (...args) => { added = args; } });
       let response;
       await refresh({}, { json: body => { response = body; } });
       expect(response.status).to.equal("preparing");
@@ -76,7 +76,7 @@ describe("repository refresh and restoration", () => {
     const repo = repository("removed");
     const failure = new Error("token_expired");
     repo.getToken = async () => { throw failure; };
-    stub(queue, "downloadQueue", { add: async () => { throw new Error("must not enqueue"); } });
+    stub(queue, "downloadQueue", { getJob: async () => undefined, add: async () => { throw new Error("must not enqueue"); } });
     let caught;
     try { await refresh({}, {}); } catch (error) { caught = error; }
     expect(caught).to.equal(failure);
@@ -96,6 +96,7 @@ describe("repository refresh and restoration", () => {
   function database(repo) {
     const stored = repo.model.toObject();
     stub(db, "isConnected", true);
+    stub(queue, "downloadQueue", { getJob: async () => undefined });
     const matches = filter => require("sift").default(filter)(stored);
     stub(Model, "updateOne", (filter, update) => ({ exec: async () => {
       if (!matches(filter)) return { matchedCount: 0 };
@@ -186,7 +187,7 @@ describe("repository refresh and restoration", () => {
         getCommitInfo: async () => ({ commit: {} }),
       }));
       repo.resetSate = async () => { throw new Error("must not delete cache"); };
-      stub(queue, "downloadQueue", { add: async () => { throw new Error("must not enqueue"); } });
+      stub(queue, "downloadQueue", { getJob: async () => undefined, add: async () => { throw new Error("must not enqueue"); } });
       let failure;
       try { await repo.refresh(); } catch (error) { failure = error; }
       expect(failure?.message).to.equal("invalid_status");
@@ -205,12 +206,11 @@ describe("repository refresh and restoration", () => {
         branches: async () => [{ name: "main", commit: "saved-sha" }],
         getCommitInfo: async () => ({ commit: {} }),
       }));
-      repo.resetSate = async status => {
-        await repo.updateStatus(status);
+      repo.resetSate = async () => {
         if (removedDuringReset) stored.status = "removing";
       };
       let added = false;
-      stub(queue, "downloadQueue", { add: async () => { added = true; } });
+      stub(queue, "downloadQueue", { getJob: async () => undefined, add: async () => { added = true; } });
       let failure;
       try { await repo.refresh(); } catch (error) { failure = error; }
       expect(added).to.equal(!removedDuringReset);
@@ -219,6 +219,65 @@ describe("repository refresh and restoration", () => {
       expect(stored).not.to.have.property("refreshToken");
     });
   }
+
+  for (const state of ["active", "waiting", "delayed", "prioritized", "waiting-children"]) {
+    it(`rejects a stale download with a ${state} job before touching its snapshot`, async () => {
+      const repo = repository("download");
+      repo.model.statusDate = new Date(Date.now() - 6 * 60_000);
+      const stored = database(repo);
+      stub(queue, "downloadQueue", { getJob: async () => ({ getState: async () => state }) });
+      repo.updateIfNeeded = async () => { throw new Error("must not refresh"); };
+      let failure;
+      try { await repo.refresh(); } catch (error) { failure = error; }
+      expect(failure?.message).to.equal("invalid_status");
+      expect(stored.status).to.equal("download");
+      expect(stored.source.commit).to.equal("saved-sha");
+    });
+  }
+
+  for (const state of ["completed", "failed"]) {
+    it(`removes a ${state} download job before reusing its ID`, async () => {
+      const repo = repository("download");
+      database(repo);
+      let removed = false;
+      stub(queue, "downloadQueue", { getJob: async () => ({
+        getState: async () => state, remove: async () => { removed = true; },
+      }) });
+      repo.updateIfNeeded = async () => { expect(removed).to.equal(true); };
+      await repo.refresh();
+    });
+  }
+
+  it("keeps a snapshot retryable if the lease expires after the commit update", async () => {
+    const repo = repository("ready");
+    const stored = database(repo);
+    repo.getToken = async () => "token";
+    stub(github, "getRepositoryFromGitHub", async () => ({
+      fullName: "owner/repo", model: {},
+      branches: async () => [{ name: "main", commit: "new-sha" }],
+      getCommitInfo: async () => ({ commit: {} }),
+    }));
+    repo.resetSate = async () => {
+      expect(stored.source.commit).to.equal("new-sha");
+      expect(stored.status).to.equal("preparing");
+      stored.refreshUntil = new Date(0);
+    };
+    let failure;
+    try { await repo.refresh(); } catch (error) { failure = error; }
+    expect(failure?.message).to.equal("invalid_status");
+    expect(stored.status).to.equal("error");
+    expect(stored).not.to.have.property("refreshToken");
+
+    const retry = new Repository(new Model(stored));
+    retry.getToken = async () => "token";
+    let cleared = false, queued = false;
+    retry.resetSate = async () => { cleared = true; };
+    stub(queue, "downloadQueue", { getJob: async () => undefined, add: async () => { queued = true; } });
+    await retry.refresh();
+    expect(cleared).to.equal(true);
+    expect(queued).to.equal(true);
+    expect(stored.status).to.equal("preparing");
+  });
 
   it("serves the dashboard polling URL with repository status", async () => {
     const repo = repository("ready");

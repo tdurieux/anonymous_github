@@ -333,7 +333,27 @@ export default class Repository {
     if (!claimed.matchedCount) throw new AnonymousError("invalid_status", { httpStatus: 409 });
     this.refreshToken = token;
     try {
+      // An old timestamp can still belong to a live worker. Reusing its job ID
+      // would discard the replacement and cancel the old worker's generation.
+      const job = await downloadQueue.getJob(`repo-${this.repoId}`);
+      if (job) {
+        const state = await job.getState();
+        if (state !== "completed" && state !== "failed") {
+          throw new AnonymousError("invalid_status", { httpStatus: 409 });
+        }
+        await job.remove();
+      }
       await this.updateIfNeeded({ force: true });
+    } catch (error) {
+      if (this.status === RepositoryStatus.PREPARING) {
+        // A failed reset/enqueue must remain retryable, even if the lease
+        // expired. Never change a replacement lease or a concurrent removal.
+        await AnonymizedRepositoryModel.updateOne({
+          _id: this.model._id, refreshToken: token,
+          status: RepositoryStatus.PREPARING, statusDate: this.model.statusDate,
+        }, { $set: { status: RepositoryStatus.ERROR, statusDate: new Date(), statusMessage: "preparation_interrupted" } }).exec();
+      }
+      throw error;
     } finally {
       this.refreshToken = undefined;
       // Only this lease may be released, including after a failed GitHub lookup.
@@ -441,6 +461,7 @@ export default class Repository {
           commit: newCommit,
         });
 
+        const statusDate = new Date();
         if (isConnected) {
           const result = await AnonymizedRepositoryModel.updateOne(
             { _id: this._model._id, ...this.refreshFilter() },
@@ -449,12 +470,18 @@ export default class Repository {
                 "source.commit": newCommit,
                 "source.commitDate": this._model.source.commitDate,
                 anonymizeDate: this._model.anonymizeDate,
+                status: RepositoryStatus.PREPARING,
+                statusDate,
+                statusMessage: null,
               },
             }
           ).exec();
           this.checkRefreshWrite(result);
         }
-        await this.resetSate(RepositoryStatus.PREPARING);
+        this.model.status = RepositoryStatus.PREPARING;
+        this.model.statusDate = statusDate;
+        this.model.statusMessage = undefined;
+        await this.resetSate();
         if (isConnected && this.refreshToken) {
           // Removal or expiry may have started while deleting the old cache.
           const current = await AnonymizedRepositoryModel.exists({ _id: this.model._id, ...this.refreshFilter() });
