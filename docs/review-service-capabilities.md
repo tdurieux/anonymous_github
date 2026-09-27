@@ -56,7 +56,7 @@ HTTP/configuration scenarios, including 60 concurrent reads, cross-client and
 wrong-key rejection, raw duplicate headers, exact path checks, browser context,
 expiry, overlapping keys and restart revocation. Add
 `RUN_REVIEW_SERVICE_BENCHMARK=1` for a 150-request synthetic loopback measurement.
-The recorded run averaged 1.708 ms, median 1.657 ms and p95 1.974 ms with fresh
+The clean-install run averaged 2.035 ms, median 1.732 ms and p95 2.417 ms with fresh
 HTTP connections. These are local tooling measurements, not production latency.
 
 A local HTTPS interoperability rehearsal uses the existing Go
@@ -64,11 +64,15 @@ A local HTTPS interoperability rehearsal uses the existing Go
 certificate trust, accepts the empty capability response, rejects both unsupported
 access policies and rejects a wrong credential. No external provider is contacted.
 
-The isolated new module passes strict TypeScript checking. The repository-wide
-check fails with the same diagnostics on unchanged base `083544b`: ES6 does not
-support existing named regex groups, an existing Octokit response type is missing
-`retryCount`, and the existing library target lacks `String.at`. These are retained
-as baseline limitations; this change does not claim a passing full upstream build.
+A clean `npm ci` install, the full TypeScript check and emitted build, UI build,
+and targeted ESLint pass. The full test suite reports 700 passing in 36 seconds
+and 49 pending opt-in cases; those skipped cases are not claimed as tested.
+The capability suite separately passes eight cases including its benchmark.
+
+An initial check used dependencies copied from another checkout and produced
+TypeScript diagnostics. Those installed versions differed from the lockfile;
+reinstalling the locked dependencies resolved every diagnostic without source
+changes. Use the lockfile when reproducing these results.
 
 The endpoint is implemented and tested locally. Upstream deployment, private key
 distribution, ownership consent and the remaining artifact workflows are pending.
