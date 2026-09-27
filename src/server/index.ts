@@ -40,6 +40,9 @@ import { createLogger, serializeError } from "../core/logger";
 
 import { createReviewCapabilities } from "./service/review-capabilities";
 
+import { createReviewConsentPage, isReviewConsentPagePath } from "./review-consent-page";
+
+const reviewConsentPage = createReviewConsentPage();
 const logger = createLogger("server");
 
 // Lazily build the templated index.html on first request so the server
@@ -77,6 +80,7 @@ function getIndexHtml(): string {
 }
 
 function indexResponse(req: express.Request, res: express.Response) {
+  if (isReviewConsentPagePath(req.path)) return reviewConsentPage(req, res);
   if (
     req.path.startsWith("/script") ||
     req.path.startsWith("/css") ||
