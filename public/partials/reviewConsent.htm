@@ -4,7 +4,8 @@
   <p>This records your approval as the repository owner or an authorized coauthor.</p>
   <p v-if="!user?.username">Sign in first, then reopen the artifact link from your submission. <a href="/signin">Sign in</a></p>
   <p v-if="error" role="alert">{{ error }}</p>
-  <p v-if="saved" role="status">Consent recorded. Artifact linking is not complete. Return to your submission to check its status.</p>
+  <p v-if="saved" role="status">Consent recorded. <span v-if="handoffEnabled">Continue to review to finish linking.</span><span v-else>Artifact linking is not complete. Return to your submission to check its status.</span></p>
+  <button v-if="saved && handoffEnabled" class="btn btn-primary" type="button" @click="continueReview" :disabled="busy">Continue to review</button>
   <form v-if="user?.username && !saved" @submit.prevent="loadPreview">
     <label for="review-repository">Anonymous repository ID</label>
     <input id="review-repository" class="form-control" v-model="repositoryId" maxlength="128" autocomplete="off" :disabled="busy || uncertain" aria-describedby="review-repository-help">

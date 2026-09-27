@@ -783,4 +783,16 @@ describe("review owner consent transactions", function () {
     expect(await connection.db.collection('review_completions').countDocuments({})).equal(0);
   });
 
+  it('resolves callback scope from the signed intent before issuing a code', async function () {
+    const quoted=await store.preview(actor(),'synthetic-repository',request());
+    await store.confirm(actor(),quoted.ticket,confirmation());
+    await rejected(store.handoff(actor(),quoted.ticket,()=>undefined),'forbidden');
+    expect(await connection.db.collection('review_completions').countDocuments({})).equal(0);
+    const selected=[];
+    const result=await store.handoff(actor(),quoted.ticket,(client,callback)=>{selected.push([client,callback]);return 'https://review.example.test/api/v1/artifacts/callback';});
+    expect(selected).deep.equal([[intent().clientId,intent().callbackId]]);
+    expect(result.completion).deep.equal(await store.completion(actor(),quoted.ticket));
+    expect(result.callbackUrl).equal('https://review.example.test/api/v1/artifacts/callback');
+  });
+
 });
