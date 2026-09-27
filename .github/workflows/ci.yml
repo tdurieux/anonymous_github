@@ -45,7 +45,7 @@ jobs:
       - run: npx tsc --noEmit
       - name: Start disposable MongoDB replica set
         run: |
-          docker run -d --name review-consent-test --network host --memory=512m --cpus=1 --tmpfs /data/db:rw,noexec,nosuid,size=256m mongo:7.0@sha256:0e145625e78b94224d16222ff2609c4621ff6e2c390300e4e6bf698305596792 mongod --bind_ip 127.0.0.1 --port 28743 --replSet review-consent-test --oplogSize 16
+          docker run -d --name review-consent-test --network host --memory=1g --cpus=1 --tmpfs /data/db:rw,noexec,nosuid,size=512m mongo:7.0@sha256:0e145625e78b94224d16222ff2609c4621ff6e2c390300e4e6bf698305596792 mongod --bind_ip 127.0.0.1 --port 28743 --replSet review-consent-test --oplogSize 16
           for attempt in $(seq 1 40); do
             if docker exec review-consent-test mongosh --quiet --port 28743 --eval 'db.adminCommand({ping:1})' > /dev/null 2>&1; then break; fi
             sleep 1
