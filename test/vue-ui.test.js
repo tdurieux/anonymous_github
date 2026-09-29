@@ -298,6 +298,47 @@ describe("Vue 3 UI", function () {
     });
   }
 
+  it("reconnects a recreated source without saving until the owner submits", async function () {
+    const oldCommit = "deadbeef";
+    const newCommit = "1a212f1deb74b123804ec90d098c0f843c30da5b";
+    const requireReconnect = data => request => request.url.searchParams.get("reconnect") === "1"
+      ? data : { __status: 404, body: { error: "repo_not_found" } };
+    ui = await browser("/anonymize/test", {
+      "/api/repo/test": request => request.method === "POST" ? { status: "preparing" } : {
+        connection: "github-app", role: "owner",
+        source: { fullName: "owner/repo", repositoryID: "old-record", branch: "main", commit: oldCommit },
+        options: { terms: ["author"], update: false, expirationMode: "never" },
+      },
+      "/api/repo/owner/repo/": requireReconnect({ id: "new-record", externalId: "gh_1396237353", defaultBranch: "main" }),
+      "/api/repo/owner/repo/branches": requireReconnect([{ name: "main", commit: newCommit }]),
+      "/api/repo/owner/repo/readme": requireReconnect("replacement readme"),
+    });
+    const button = [...ui.window.document.querySelectorAll("button")].find(b => b.textContent === "Reconnect source repository");
+    expect(button).not.to.equal(undefined);
+    const before = ui.requests.length;
+    ui.window.confirm = () => false;
+    button.click();
+    await delay(20);
+    expect(ui.requests.length).to.equal(before);
+    ui.window.confirm = () => true;
+    button.click();
+    await delay(100);
+    const previews = ui.requests.filter(r => r.url.searchParams.get("reconnect") === "1");
+    expect(previews.some(r => r.url.pathname.endsWith("/branches"))).to.equal(true);
+    for (const request of previews) {
+      expect(request.url.searchParams.get("anonymizedRepoId")).to.equal("test");
+      expect(request.url.searchParams.has("repositoryID")).to.equal(false);
+    }
+    expect(ui.window.document.querySelector("#commit").value).to.equal(newCommit);
+    expect(ui.requests.filter(r => r.method === "POST" && r.url.pathname === "/api/repo/test")).to.have.length(0);
+    ui.window.document.querySelector("button[type=submit]").click();
+    await delay(30);
+    const save = ui.requests.find(r => r.method === "POST" && r.url.pathname === "/api/repo/test");
+    expect(save?.payload.reconnectRepositoryId).to.equal("gh_1396237353");
+    expect(save.payload.source.commit).to.equal(newCommit);
+    expect(save.payload.terms).to.deep.equal(["author"]);
+  });
+
   it("still rejects a missing commit for a repository with auto-update disabled", async function () {
     ui = await browser("/anonymize/test", {
       "/api/repo/test": { source: { fullName: "owner/repo", branch: "main", commit: "abcdef123" }, options: { terms: [], update: false } },

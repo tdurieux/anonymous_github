@@ -106,6 +106,12 @@
               <div class="repo-access-note"><span v-if="detectedType !== 'gist' &amp;&amp; githubConnection !== 'oauth'">Select repositories on GitHub, then return here.</span><span><i class="fas fa-info-circle" aria-hidden="true"></i> Selected content will be published, including content from private repositories.</span></div>
             </aside>
 
+            <aside class="repo-access-details" v-if="isUpdate &amp;&amp; detectedType === 'repo' &amp;&amp; role === 'owner' &amp;&amp; sourceUrl === 'https://github.com/' + _originalFullName">
+              <p>If you deleted and recreated this repository, reconnect it before choosing a branch.</p>
+              <button type="button" class="btn btn-outline-ink" @click="reconnectSource()">Reconnect source repository</button>
+              <p v-if="reconnectRepositoryId" role="status">Source reloaded. Review the branch, commit, and anonymization preview, then save to replace the published snapshot.</p>
+            </aside>
+
             <div class="form-grid-2" v-if="detectedType === &#x27;repo&#x27;">
               <div class="form-group">
                 <label class="paper-field-label" for="branch">Branch</label>

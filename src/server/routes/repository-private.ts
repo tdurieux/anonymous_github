@@ -38,6 +38,12 @@ async function previewToken(req: express.Request) {
     const resource = await db.getRepository(req.query.anonymizedRepoId);
     isOwnerCoauthorOrAdmin(resource, user);
     if (resource.model.source.repositoryName?.toLowerCase() !== `${req.params.owner}/${req.params.repo}`.toLowerCase()) throw appError("repo_not_found", 404);
+    if (req.query.reconnect === "1") {
+      if (user.id !== resource.owner.id) throw appError("not_owner", 403);
+      resource.assertNotArchived();
+      return (await selectRepositoryAccess(user.id, resource.model.source.repositoryName,
+        resource.model.githubAccess?.kind || "oauth")).token;
+    }
     return getToken(resource);
   }
   return (await selectRepositoryAccess(user.id, `${req.params.owner}/${req.params.repo}`, req.query.connection)).token;
@@ -247,8 +253,8 @@ router.get(
         owner: req.params.owner,
         repo: req.params.repo,
         accessToken: token,
-        repositoryID: req.query.repositoryID as string,
-        force: req.query.force == "1",
+        repositoryID: req.query.reconnect === "1" ? undefined : req.query.repositoryID as string,
+        force: req.query.reconnect === "1" || req.query.force == "1",
       });
       res.json(repo.toJSON());
     } catch (error) {
@@ -266,13 +272,13 @@ router.get(
         accessToken: token,
         owner: req.params.owner,
         repo: req.params.repo,
-        repositoryID: req.query.repositoryID as string,
-        force: req.query.force == "1",
+        repositoryID: req.query.reconnect === "1" ? undefined : req.query.repositoryID as string,
+        force: req.query.reconnect === "1" || req.query.force == "1",
       });
       return res.json(
         await repository.branches({
           accessToken: token,
-          force: req.query.force == "1",
+          force: req.query.reconnect === "1" || req.query.force == "1",
         })
       );
     } catch (error) {
@@ -291,8 +297,8 @@ router.get(
         owner: req.params.owner,
         repo: req.params.repo,
         accessToken: token,
-        repositoryID: req.query.repositoryID as string,
-        force: req.query.force == "1",
+        repositoryID: req.query.reconnect === "1" ? undefined : req.query.repositoryID as string,
+        force: req.query.reconnect === "1" || req.query.force == "1",
       });
       if (!repo) {
         throw new AnonymousError("repo_not_found", {
@@ -303,7 +309,7 @@ router.get(
       return res.send(
         await repo.readme({
           accessToken: token,
-          force: req.query.force == "1",
+          force: req.query.reconnect === "1" || req.query.force == "1",
           branch: req.query.branch as string,
         })
       );
@@ -482,7 +488,17 @@ router.post(
       // the fly per request. Re-running the download queue is therefore only
       // needed when the underlying snapshot moves. Other edits (e.g. turning
       // off auto-update — see #360) just persist and return.
-      const sourceChanged = hasRepositorySourceChanged(repo.model, repoUpdate);
+      const reconnecting = repoUpdate.reconnectRepositoryId !== undefined;
+      if (reconnecting) {
+        if (user.id !== repo.owner.id) throw appError("not_owner", 403);
+        if (typeof repoUpdate.reconnectRepositoryId !== "string" ||
+          !/^gh_[1-9][0-9]*$/.test(repoUpdate.reconnectRepositoryId) ||
+          repoUpdate.fullName !== repo.model.source.repositoryName) throw appError("repo_not_found", 400);
+        if (repo.status && [RepositoryStatus.PREPARING, RepositoryStatus.DOWNLOAD, RepositoryStatus.REMOVING,
+          RepositoryStatus.EXPIRING, RepositoryStatus.QUEUE].includes(repo.status)) throw appError("invalid_status", 409);
+        repo.assertNotArchived();
+      }
+      const sourceChanged = reconnecting || hasRepositorySourceChanged(repo.model, repoUpdate);
       const previousAccessRevision = repo.model.githubAccess?.revision;
 
       updateRepoModel(repo.model, repoUpdate);
@@ -501,13 +517,14 @@ router.post(
           });
         }
         if (repoUpdate.fullName !== repo.model.source.repositoryName && user.id !== repo.owner.id) throw appError("not_owner", 403);
-        const sourceAccess = repo.model.githubAccess?.kind === "github-app" && repoUpdate.fullName === repo.model.source.repositoryName
+        const sourceAccess = !reconnecting && repo.model.githubAccess?.kind === "github-app" && repoUpdate.fullName === repo.model.source.repositoryName
           ? { token: await boundAppToken(repo.owner.id, repo.model.githubAccess, repo.model.source.repositoryName), binding: repo.model.githubAccess }
           : await selectRepositoryAccess(repo.owner.id, `${parsedRepository.owner}/${parsedRepository.name}`, repo.model.githubAccess?.kind || "oauth");
         const repository = await getRepositoryFromGitHub({
           accessToken: sourceAccess.token,
           owner: parsedRepository.owner,
           repo: parsedRepository.name,
+          force: reconnecting,
         });
         if (!repository) {
           throw new AnonymousError("repo_not_found", {
@@ -515,9 +532,18 @@ router.post(
             httpStatus: 404,
           });
         }
-        await repository.getCommitInfo(repoUpdate.source.commit, {
+        // Pin the owner's preview to a GitHub identity, even if the name is
+        // deleted and recreated again before Save.
+        if (reconnecting && (repository.id !== repoUpdate.reconnectRepositoryId ||
+          (sourceAccess.binding.kind === "github-app" &&
+            repository.id !== `gh_${sourceAccess.binding.repositoryId}`))) throw appError("connection_changed", 409);
+        if (reconnecting && !(await repository.branches({ accessToken: sourceAccess.token, force: true }))
+          .some(branch => branch.name === repoUpdate.source.branch)) throw appError("branch_not_specified", 400);
+        const commit = await repository.getCommitInfo(repoUpdate.source.commit, {
           accessToken: sourceAccess.token,
         });
+        if (reconnecting) repo.model.source.commitDate = commit.commit.committer?.date
+          ? new Date(commit.commit.committer.date) : undefined;
         repo.model.githubAccess = { ...sourceAccess.binding, revision: randomUUID() };
         repo.model.source.repositoryId = repository.model.id;
         repo.model.source.repositoryName =
