@@ -1006,7 +1006,22 @@ export const anonymizeController = function (state, http, html, params, location
         return null;
       }
 
+      state.reconnectingSource = false;
+      state.reconnectRepositoryId = undefined;
+      state.reconnectSource = async () => {
+        if (!confirm("Reconnect to the repository currently at this GitHub URL? Review its branch and commit before saving. Saving will replace the published snapshot.")) return;
+        state.reconnectingSource = true;
+        state.reconnectRepositoryId = undefined;
+        state.source.commit = "";
+        state.source.branch = "";
+        state.readme = "";
+        state.branches = [];
+        try { await getRepoDetails(); }
+        catch (_) { /* getRepoDetails displays the access error. */ }
+      };
+
       function sourceRepositoryID() {
+        if (state.reconnectingSource) return undefined;
         if (!state.isUpdate || !state._originalRepositoryID) return undefined;
         const currentFullName = parseRepoFullName(state.sourceUrl);
         return currentFullName === state._originalFullName
@@ -1143,6 +1158,8 @@ export const anonymizeController = function (state, http, html, params, location
 
       // URL change handler - auto-detect type
       state.urlSelected = async (preserveDraft = false) => {
+        state.reconnectingSource = false;
+        state.reconnectRepositoryId = undefined;
         if (!preserveDraft) state.terms = state.defaultTerms;
         if (!preserveDraft && !state.isUpdate) {
           state.repoId = "";
@@ -1199,6 +1216,7 @@ export const anonymizeController = function (state, http, html, params, location
         // auto-update) used to bump the commit to GitHub HEAD because this
         // watcher overwrote it on edit-page load.
         const keepSavedCommit =
+          !state.reconnectingSource &&
           state.isUpdate &&
           state._originalBranch === state.source.branch &&
           !!state.source.commit;
@@ -1215,7 +1233,7 @@ export const anonymizeController = function (state, http, html, params, location
         const o = parseGithubUrl(state.sourceUrl);
         try {
           const branches = await http.get(`/api/repo/${o.owner}/${o.repo}/branches`, {
-            params: { anonymizedRepoId: state.isUpdate && params.repoId && parseRepoFullName(state.sourceUrl) === state._originalFullName ? params.repoId : undefined, connection: state.githubConnection, force: force === true ? "1" : "0", repositoryID: sourceRepositoryID() },
+            params: { reconnect: state.reconnectingSource ? "1" : undefined, anonymizedRepoId: state.isUpdate && params.repoId && parseRepoFullName(state.sourceUrl) === state._originalFullName ? params.repoId : undefined, connection: state.githubConnection, force: force === true || state.reconnectingSource ? "1" : "0", repositoryID: sourceRepositoryID() },
           });
           state.branches = branches.data;
           state.sourceUnreachable = false;
@@ -1228,6 +1246,7 @@ export const anonymizeController = function (state, http, html, params, location
             // update the commit to the latest on the branch. Only preserve
             // the saved commit on the initial edit-page load (#360).
             const keepSavedCommit =
+              !state.reconnectingSource &&
               !force &&
               state.isUpdate &&
               !state.options.update &&
@@ -1263,16 +1282,17 @@ export const anonymizeController = function (state, http, html, params, location
           // #364) are reflected without waiting for the cached metadata to
           // expire. The endpoint hits the GitHub API once.
           const res = await http.get(`/api/repo/${o.owner}/${o.repo}/`, {
-            params: { anonymizedRepoId: state.isUpdate && params.repoId && parseRepoFullName(state.sourceUrl) === state._originalFullName ? params.repoId : undefined, connection: state.githubConnection, repositoryID: sourceRepositoryID(), force: "1" },
+            params: { reconnect: state.reconnectingSource ? "1" : undefined, anonymizedRepoId: state.isUpdate && params.repoId && parseRepoFullName(state.sourceUrl) === state._originalFullName ? params.repoId : undefined, connection: state.githubConnection, repositoryID: sourceRepositoryID(), force: "1" },
           });
           state.details = res.data;
+          if (state.reconnectingSource) state.reconnectRepositoryId = state.details.externalId;
           if (state.details && state.details.id) {
             state.repositoryID = state.details.id;
           }
           if (!state.repoId) {
             state.repoId = state.details.repo + "-" + generateRandomId(4);
           }
-          await state.getBranches();
+          await state.getBranches(state.reconnectingSource);
         } catch (error) {
           if (error.data) {
             translate("ERRORS." + error.data.error).then((translation) => {
@@ -1291,7 +1311,7 @@ export const anonymizeController = function (state, http, html, params, location
         const o = parseGithubUrl(state.sourceUrl);
         try {
           const res = await http.get(`/api/repo/${o.owner}/${o.repo}/readme`, {
-            params: { anonymizedRepoId: state.isUpdate && params.repoId && parseRepoFullName(state.sourceUrl) === state._originalFullName ? params.repoId : undefined, connection: state.githubConnection, force: force === true ? "1" : "0", branch: state.source.branch, repositoryID: sourceRepositoryID() },
+            params: { reconnect: state.reconnectingSource ? "1" : undefined, anonymizedRepoId: state.isUpdate && params.repoId && parseRepoFullName(state.sourceUrl) === state._originalFullName ? params.repoId : undefined, connection: state.githubConnection, force: force === true ? "1" : "0", branch: state.source.branch, repositoryID: sourceRepositoryID() },
           });
           state.readme = res.data;
         } catch (error) {
@@ -1711,6 +1731,7 @@ export const anonymizeController = function (state, http, html, params, location
 
       // Submit: repo
       state.anonymizeRepo = (event) => {
+        if (state.reconnectingSource && !state.reconnectRepositoryId) return;
         if (expirationDateInvalid()) return;
         event.target.disabled = true;
         const o = parseGithubUrl(state.sourceUrl);
@@ -1720,6 +1741,7 @@ export const anonymizeController = function (state, http, html, params, location
           connection: state.githubConnection,
           fullName: `${o.owner}/${o.repo}`,
           repository: state.sourceUrl,
+          reconnectRepositoryId: state.reconnectRepositoryId,
           options: state.options,
           source: state.source,
           conference: state.conference,
