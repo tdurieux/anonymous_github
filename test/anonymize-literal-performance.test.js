@@ -5,6 +5,7 @@ const { ContentAnonimizer, AnonymizeTransformer } = require("../src/core/anonymi
 
 describe("literal term presence checks", function () {
   it("serves a large JavaScript file with absent names within the anonymization deadline", async function () {
+    this.timeout(10000); // Includes worker startup; the matcher retains its one-second deadline.
     const input = Buffer.from('function render(){return "application content";}\n'.repeat(65000));
     const transformer = new AnonymizeTransformer({
       filePath: "main.js",

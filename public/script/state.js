@@ -69,10 +69,15 @@ export function createTimers() {
 }
 
 export function createListeners() {
-  const cleanups = [];
-  onScopeDispose(() => cleanups.forEach(fn => fn()));
+  const cleanups = new Set();
+  onScopeDispose(() => { cleanups.forEach(fn => fn()); cleanups.clear(); });
   return (target, type, callback, options) => {
     target.addEventListener(type, callback, options);
-    cleanups.push(() => target.removeEventListener(type, callback, options));
+    const off = () => {
+      target.removeEventListener(type, callback, options);
+      cleanups.delete(off);
+    };
+    cleanups.add(off);
+    return off;
   };
 }

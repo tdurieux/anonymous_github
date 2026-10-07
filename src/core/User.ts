@@ -14,6 +14,21 @@ import Gist from "./Gist";
 import AnonymizedGistModel from "./model/anonymizedGists/anonymizedGists.model";
 import { octokit } from "./GitHubUtils";
 
+import { isConnected } from "../server/database";
+async function markListExpired(model: {
+  updateMany(filter: Record<string, unknown>, update: Record<string, unknown>): { exec(): Promise<unknown> };
+}, rows: { model: { _id?: unknown; status?: string }; status: string | undefined;
+  options: { expirationMode?: string; expirationDate?: Date } }[]) {
+  const now = new Date();
+  const expired = rows.filter(row => row.status === "ready" && row.options.expirationMode !== "never"
+    && row.options.expirationDate && row.options.expirationDate <= now);
+  if (!expired.length) return;
+  if (isConnected) await model.updateMany({ _id: { $in: expired.map(row => row.model._id) },
+    status: "ready", "options.expirationMode": { $ne: "never" }, "options.expirationDate": { $lte: now },
+  }, { $set: { status: "expiring", statusDate: now } }).exec();
+  for (const row of expired) row.model.status = "expiring";
+}
+
 /**
  * Model for a user
  */
@@ -151,32 +166,11 @@ export default class User {
    * @returns the list of anonymized repositories
    */
   async getRepositories() {
-    const memberships: Record<string, unknown>[] = [{ owner: this.id }];
-    const githubId = this.model.externalIDs?.github;
-    if (githubId) memberships.push({ "coauthors.githubId": githubId });
-    if (this.username) {
-      memberships.push({ coauthors: { $elemMatch: {
-        username: this.username,
-        $or: [{ githubId: { $exists: false } }, { githubId: null }, { githubId: "" }],
-      } } });
-    }
-    const query = { $or: memberships };
+    const query = this.repositoryMembership();
     const repositories = (
       await AnonymizedRepositoryModel.find(query).exec()
     ).map((d) => new Repository(d));
-    const promises = [];
-    for (const repo of repositories) {
-      if (
-        repo.status == "ready" &&
-        repo.options.expirationMode != "never" &&
-        repo.options.expirationDate != null &&
-        repo.options.expirationDate < new Date()
-      ) {
-        // expire the repository
-        promises.push(repo.expire());
-      }
-    }
-    await Promise.all(promises);
+    await markListExpired(AnonymizedRepositoryModel, repositories);
     return repositories;
   }
   /**
@@ -189,19 +183,7 @@ export default class User {
         owner: this.id,
       }).exec()
     ).map((d) => new PullRequest(d));
-    const promises = [];
-    for (const repo of pullRequests) {
-      if (
-        repo.status == "ready" &&
-        repo.options.expirationMode != "never" &&
-        repo.options.expirationDate != null &&
-        repo.options.expirationDate < new Date()
-      ) {
-        // expire the repository
-        promises.push(repo.expire());
-      }
-    }
-    await Promise.all(promises);
+    await markListExpired(AnonymizedPullRequestModel, pullRequests);
     return pullRequests;
   }
 
@@ -212,19 +194,28 @@ export default class User {
     const gists = (
       await AnonymizedGistModel.find({ owner: this.id }).exec()
     ).map((d) => new Gist(d));
-    const promises = [];
-    for (const g of gists) {
-      if (
-        g.status == "ready" &&
-        g.options.expirationMode != "never" &&
-        g.options.expirationDate != null &&
-        g.options.expirationDate < new Date()
-      ) {
-        promises.push(g.expire());
-      }
-    }
-    await Promise.all(promises);
+    await markListExpired(AnonymizedGistModel, gists);
     return gists;
+  }
+
+  repositoryMembership() {
+    const memberships: Record<string, unknown>[] = [{ owner: this.id }];
+    const githubId = this.model.externalIDs?.github;
+    if (githubId) memberships.push({ "coauthors.githubId": githubId });
+    if (this.username) {
+      memberships.push({ coauthors: { $elemMatch: {
+        username: this.username,
+        $or: [{ githubId: { $exists: false } }, { githubId: null }, { githubId: "" }],
+      } } });
+    }
+    return { $or: memberships };
+  }
+
+  async quotaRepositories() {
+    return AnonymizedRepositoryModel.find({ owner: this.id, status: "ready",
+      $or: [{ "options.expirationMode": "never" }, { "options.expirationDate": { $exists: false } },
+        { "options.expirationDate": null }, { "options.expirationDate": { $gt: new Date() } }] })
+      .select("repoId size sizeComputedAt treeGeneration fileMetadataRevision").lean().exec();
   }
 
   get model() {

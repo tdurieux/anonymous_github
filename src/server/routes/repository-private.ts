@@ -192,10 +192,11 @@ router.post(
         repo.model.anonymizeDate = new Date();
         updates.anonymizeDate = repo.model.anonymizeDate;
       }
-      await AnonymizedRepositoryModel.updateOne(
-        { _id: repo.model._id },
+      const saved = await AnonymizedRepositoryModel.updateOne(
+        { _id: repo.model._id, status: repo.status, statusDate: repo.model.statusDate },
         { $set: updates }
       ).exec();
+      if (saved && saved.matchedCount === 0) throw new AnonymousError("invalid_status", { httpStatus: 409 });
 
       if (reactivating) {
         // Expiration removes the cached files. Rebuild the saved commit

@@ -30,6 +30,10 @@ export interface IAnonymizedRepository {
     photo?: string;
     addedAt?: Date;
   }[];
+  treeGeneration?: string;
+  fileMetadataRevision?: string;
+  pathIndexKey?: string;
+  pathIndexBuiltAt?: Date;
   truncatedFolders: string[];
   conference: string;
   options: {
@@ -49,6 +53,7 @@ export interface IAnonymizedRepository {
   };
   pageView: number;
   lastView: Date;
+  sizeComputedAt?: Date;
   size: {
     storage: number;
     file: number;

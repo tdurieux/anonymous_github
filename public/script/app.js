@@ -461,7 +461,7 @@ export const unifiedDashboardController = function (state, http, location, promi
       state.nameMessage = "";
       state.needsAttention = item => item.status === "error" || item._broken
         || (statusKey(item.status) === "progress" && item._stale);
-      state.attentionCount = () => state.items.filter(state.needsAttention).length;
+      state.attentionCount = () => state.dashboardTotals?.attention ?? state.items.filter(state.needsAttention).length;
       state.setProjectView = view => {
         state.projectView = view;
         if (view === "attention") {
@@ -681,7 +681,7 @@ export const unifiedDashboardController = function (state, http, location, promi
 
       // All three lists load in parallel and are merged once, so the table
       // does not re-sort three times while it fills in.
-      function loadAll() {
+      function loadLegacy() {
         state.loading = true;
         return promises
           .all([
@@ -740,6 +740,55 @@ export const unifiedDashboardController = function (state, http, location, promi
             state.loading = false;
           });
       }
+      let dashboardGeneration = 0;
+      let legacyDashboard = false;
+      state.dashboardCursor = null;
+      state.dashboardError = "";
+      function decorateSummary(item) {
+        const src = item.source || {};
+        if (item._type === "repo") return decorateItem(item, item.repoId, item.repoId, src.fullName, "/anonymize/" + item.repoId, "/r/" + item.repoId + "/");
+        if (item._type === "pr") return decorateItem(item, item.pullRequestId, item.pullRequestId,
+          src.repositoryFullName ? src.repositoryFullName + "#" + src.pullRequestId : undefined,
+          "/pull-request-anonymize/" + item.pullRequestId, "/pr/" + item.pullRequestId + "/");
+        return decorateItem(item, item.gistId, item.gistId, src.gistId, "/gist-anonymize/" + item.gistId, "/gist/" + item.gistId + "/");
+      }
+      function loadAll(append = false) {
+        if (legacyDashboard) return loadLegacy();
+        const generation = ++dashboardGeneration;
+        state.loading = !append;
+        state.loadingMore = append;
+        state.dashboardError = "";
+        return http.get("/api/user/dashboard", { params: {
+          q: state.search, type: state.typeFilter, sort: state.orderBy,
+          statuses: Object.keys(state.filters.status).filter(key => state.filters.status[key] !== false).join(",") || "none",
+          attention: String(state.projectView === "attention"),
+          cursor: append ? state.dashboardCursor : undefined,
+        } }).then(response => {
+          if (generation !== dashboardGeneration) return;
+          // Compatibility with servers that have not gained the summary API.
+          if (!Array.isArray(response.data?.items)) { legacyDashboard = true; return loadLegacy(); }
+          state.items = (append ? state.items : []).concat(response.data.items.map(decorateSummary));
+          state.dashboardCursor = response.data.cursor;
+          state.dashboardTotals = response.data;
+        }, error => {
+          if (generation !== dashboardGeneration) return;
+          if (error.status === 404) { legacyDashboard = true; return loadLegacy(); }
+          state.dashboardError = "Projects could not be loaded. Please try again.";
+        }).finally(() => {
+          if (generation === dashboardGeneration) { state.loading = false; state.loadingMore = false; }
+        });
+      }
+      state.loadMoreProjects = () => loadAll(true);
+      let reloadTimer;
+      state.watchGroup(["search", "typeFilter", "orderBy", "projectView"], () => {
+        if (legacyDashboard) return;
+        if (reloadTimer) timers.timeout.cancel(reloadTimer);
+        reloadTimer = timers.timeout(() => loadAll(), 150);
+      });
+      state.watch("filters", () => {
+        if (!legacyDashboard) loadAll();
+      }, true);
+      state.on("dispose", () => { dashboardGeneration++; });
       loadAll();
 
       // Whole row opens the anonymized view; clicks on links, buttons and the
@@ -2065,6 +2114,14 @@ export const anonymizeController = function (state, http, html, params, location
 export const exploreController = function (state, http, location, params, html, promises) {
       const timers = createTimers();
       const listen = createListeners();
+        state.on("dark-mode", (event, on) => {
+          if (!state.aceOption) return;
+          if (on) {
+            state.aceOption.theme = "nord_dark";
+          } else {
+            state.aceOption.theme = "chrome";
+          }
+        });
       let contentGeneration = 0;
       let destroyed = false;
       state.on("dispose", () => {
@@ -2618,7 +2675,7 @@ export const exploreController = function (state, http, location, params, html, 
               e.stop();
             });
 
-            listen(window, "hashchange", () => applyHashFromUrl(false));
+            const removeHashListener = listen(window, "hashchange", () => applyHashFromUrl(false));
 
             _editor.setFontSize(state.aceOption.fontSize);
             _editor.setReadOnly(state.aceOption.readOnly);
@@ -2649,15 +2706,9 @@ export const exploreController = function (state, http, location, params, html, 
             _editor.session.setTabSize(state.aceOption.tabSize);
             _editor.setBehavioursEnabled(state.aceOption.enableBehaviours);
             _editor.setFadeFoldWidgets(state.aceOption.fadeFoldWidgets);
+            return removeHashListener;
           },
         };
-        state.on("dark-mode", (event, on) => {
-          if (on) {
-            state.aceOption.theme = "nord_dark";
-          } else {
-            state.aceOption.theme = "chrome";
-          }
-        });
         if (state.isDarkMode) {
           state.aceOption.theme = "nord_dark";
         }

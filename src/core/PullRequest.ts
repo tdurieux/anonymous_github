@@ -1,3 +1,4 @@
+import { isConnected } from "../server/database";
 import { boundAppToken } from "./github-app";
 import { getCredentialToken } from "./credentials";
 import { RepositoryStatus } from "./types";
@@ -121,7 +122,7 @@ export default class PullRequest {
       this._model.options.expirationDate
     ) {
       if (this._model.options.expirationDate <= new Date()) {
-        await this.expire();
+        await this.markExpired();
       }
     }
     if (
@@ -228,6 +229,15 @@ export default class PullRequest {
   /**
    * Expire the pullRequest
    */
+  async markExpired() {
+    const now = new Date();
+    if (isConnected) await AnonymizedPullRequestModel.updateOne({ _id: this.model._id,
+      status: RepositoryStatus.READY, "options.expirationMode": { $ne: "never" },
+      "options.expirationDate": { $lte: now },
+    }, { $set: { status: RepositoryStatus.EXPIRING, statusDate: now } }).exec();
+    this.model.status = RepositoryStatus.EXPIRING;
+  }
+
   async expire() {
     await this.updateStatus(RepositoryStatus.EXPIRING);
     await this.resetSate();

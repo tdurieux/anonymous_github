@@ -1,3 +1,5 @@
+import DashboardName from "../../core/model/dashboard-name";
+import { dashboardSummary } from "./dashboard-summary";
 import { revokeGrant } from "./github-app";
 import CredentialModel from "../../core/model/credentials/credentials.model";
 import * as express from "express";
@@ -48,20 +50,22 @@ router.get("/", async (req, res) => {
   }
 });
 
+router.get("/dashboard", async (req, res) => {
+  try { res.json(await dashboardSummary(await getUser(req), req.query)); }
+  catch (error) { handleError(error, res, req); }
+});
+
 router.get("/quota", async (req, res) => {
   try {
     const user = await getUser(req);
-    const repositories = (await user.getRepositories()).filter(
-      (r) => r.owner.id === user.model.id
-    );
-    const ready = repositories.filter((r) => r.status == "ready");
+    const ready = await user.quotaRepositories();
 
     let totalStorage = 0;
     let totalFiles = 0;
     const uncachedIds: string[] = [];
     for (const r of ready) {
-      const cached = r.model.size;
-      if (cached && cached.file) {
+      const cached = r.size;
+      if (cached && (cached.file > 0 || r.sizeComputedAt) && cached.storage != null) {
         totalStorage += cached.storage;
         totalFiles += cached.file;
       } else {
@@ -72,7 +76,7 @@ router.get("/quota", async (req, res) => {
     if (uncachedIds.length) {
       const uncachedSet = new Set(uncachedIds);
       const agg = await FileModel.aggregate([
-        { $match: { repoId: { $in: uncachedIds } } },
+        { $match: { $or: ready.filter(r => uncachedSet.has(r.repoId)).map(r => ({ repoId: r.repoId, treeGeneration: r.treeGeneration || { $exists: false } })) } },
         {
           $group: {
             _id: "$repoId",
@@ -90,7 +94,8 @@ router.get("/quota", async (req, res) => {
         const size = byId.get(r.repoId) || { storage: 0, file: 0 };
         totalStorage += size.storage;
         totalFiles += size.file;
-        r.model.size = size;
+        r.size = size;
+        r.sizeComputedAt = new Date();
       }
       if (isConnected) {
         await Promise.all(
@@ -98,8 +103,9 @@ router.get("/quota", async (req, res) => {
             .filter((r) => uncachedSet.has(r.repoId))
             .map((r) =>
               AnonymizedRepositoryModel.updateOne(
-                { _id: r.model._id },
-                { $set: { size: r.model.size } }
+                { _id: r._id, status: "ready", treeGeneration: r.treeGeneration || { $exists: false },
+                  fileMetadataRevision: r.fileMetadataRevision || { $exists: false } },
+                { $set: { size: r.size, sizeComputedAt: r.sizeComputedAt } }
               ).exec()
             )
         );
@@ -207,6 +213,7 @@ router.delete("/", async (req, res) => {
     }
 
     await CredentialModel.deleteMany({ ownerId: user.model._id });
+    if (isConnected) await DashboardName.deleteMany({ owner: user.model._id });
 
     await UserModel.updateOne(
       { _id: user.model._id },

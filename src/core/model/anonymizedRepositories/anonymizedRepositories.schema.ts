@@ -47,6 +47,12 @@ const AnonymizedRepositorySchema = new Schema({
     repositoryName: String,
     accessToken: { type: String, select: false },
   },
+  cleanupToken: { type: String, select: false },
+  cleanupUntil: { type: Date, select: false },
+  treeGeneration: String,
+  fileMetadataRevision: String,
+  pathIndexKey: String,
+  pathIndexBuiltAt: Date,
   truncatedFolders: {
     type: [String],
     default: [],
@@ -70,6 +76,7 @@ const AnonymizedRepositorySchema = new Schema({
     type: Date,
     default: Date.now,
   },
+  sizeComputedAt: Date,
   size: {
     storage: {
       type: Number,
@@ -87,6 +94,7 @@ const AnonymizedRepositorySchema = new Schema({
 });
 
 AnonymizedRepositorySchema.index({ "source.repositoryName": 1 });
+AnonymizedRepositorySchema.index({ "coauthors.githubId": 1 });
 AnonymizedRepositorySchema.index({ status: 1, statusDate: 1 });
 AnonymizedRepositorySchema.index({ lastView: 1 });
 AnonymizedRepositorySchema.index({ anonymizeDate: 1 });

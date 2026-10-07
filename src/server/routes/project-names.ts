@@ -1,3 +1,6 @@
+import { isConnected } from "../database";
+import DashboardName from "../../core/model/dashboard-name";
+import { invalidateDashboardNames } from "./dashboard-names";
 import { createHash } from "crypto";
 import AnonymousError from "../../core/AnonymousError";
 import User from "../../core/User";
@@ -31,7 +34,11 @@ export async function saveProjectName(user: User, input: unknown): Promise<strin
   const path = `projectNames.${key}`;
   await UserModel.updateOne({ _id: user.model._id }, name
     ? { $set: { [path]: name } } : { $unset: { [path]: "" } });
+  invalidateDashboardNames();
   if (name) user.model.set(path, name);
   else user.model.projectNames?.delete(key);
+  if (isConnected && name) await DashboardName.updateOne({ owner: user.model._id, type, artifactId: body.id },
+    { $set: { name } }, { upsert: true });
+  else if (isConnected) await DashboardName.deleteOne({ owner: user.model._id, type, artifactId: body.id });
   return name;
 }

@@ -1,3 +1,4 @@
+import { appendArchiveEntry } from "../archive-entry";
 import {
   GetObjectCommand,
   ListObjectsV2CommandOutput,
@@ -7,7 +8,7 @@ import {
 import { Upload } from "@aws-sdk/lib-storage";
 import { NodeHttpHandler } from "@smithy/node-http-handler";
 import config from "../../config";
-import { pipeline, Readable, Transform, PassThrough } from "stream";
+import { pipeline, Readable, Transform } from "stream";
 import ArchiveStreamToS3 from "decompress-stream-to-s3";
 import { Response } from "express";
 import { lookup } from "mime-types";
@@ -32,23 +33,30 @@ export default class S3Storage extends StorageBase {
       });
   }
 
+  private clients = new Map<number, S3>();
+
   private client(timeout = 10000) {
+    const existing = this.clients.get(timeout);
+    if (existing) return existing;
     if (!config.S3_CLIENT_ID) throw new Error("S3_CLIENT_ID not set");
     if (!config.S3_CLIENT_SECRET) throw new Error("S3_CLIENT_SECRET not set");
     if (!config.S3_REGION) throw new Error("S3_REGION not set");
     if (!config.S3_ENDPOINT) throw new Error("S3_ENDPOINT not set");
-    return new S3({
+    const client = new S3({
       credentials: {
         accessKeyId: config.S3_CLIENT_ID,
         secretAccessKey: config.S3_CLIENT_SECRET,
       },
       region: config.S3_REGION,
       endpoint: config.S3_ENDPOINT,
+      forcePathStyle: true,
       requestHandler: new NodeHttpHandler({
         requestTimeout: timeout,
         connectionTimeout: timeout,
       }),
     });
+    this.clients.set(timeout, client);
+    return client;
   }
 
   /** @override */
@@ -212,11 +220,14 @@ export default class S3Storage extends StorageBase {
     let bytesWritten = -1;
     if (typeof expectedSize === "number" && expectedSize > 0 && typeof data !== "string") {
       bytesWritten = 0;
-      const counter = new PassThrough();
-      counter.on("data", (chunk: Buffer) => {
-        bytesWritten += chunk.length;
+      const counter = new Transform({
+        transform(chunk, _encoding, callback) { bytesWritten += chunk.length; callback(null, chunk); },
+        flush(callback) {
+          callback(bytesWritten < expectedSize! ? new AnonymousError("storage_write_size_mismatch", { httpStatus: 502 }) : undefined);
+        },
       });
       data.on("error", (err: Error) => counter.destroy(err));
+      counter.once("close", () => (data as Readable).destroy());
       data.pipe(counter);
       body = counter;
     }
@@ -351,39 +362,36 @@ export default class S3Storage extends StorageBase {
     const archive = archiver(opt?.format || "zip", {});
     if (dir && dir[dir.length - 1] != "/") dir = dir + "/";
 
-    let req: ListObjectsV2CommandOutput;
-    let nextContinuationToken: string | undefined;
-    do {
-      req = await this.client(30000).listObjectsV2({
-        Bucket: config.S3_BUCKET,
-        Prefix: join(this.repoPath(repoId), dir),
-        MaxKeys: 250,
-        ContinuationToken: nextContinuationToken,
-      });
-
-      nextContinuationToken = req.NextContinuationToken;
-      for (const f of req.Contents || []) {
-        if (!f.Key) continue;
-        const filename = basename(f.Key);
-        const prefix = dirname(
-          f.Key.replace(join(this.repoPath(repoId), dir), "")
-        );
-
-        let rs: Readable = await this.read(repoId, f.Key);
-        if (opt?.fileTransformer) {
-          const src = rs;
-          const transformer = opt.fileTransformer(f.Key);
-          src.on("error", (err) => transformer.destroy(err));
-          rs = src.pipe(transformer);
+    let active: Readable | undefined;
+    let stopped = false;
+    archive.once("close", () => { stopped = true; active?.destroy(); });
+    void (async () => {
+      let next: string | undefined;
+      do {
+        const listing = await this.client(30000).listObjectsV2({ Bucket: config.S3_BUCKET!,
+          Prefix: join(this.repoPath(repoId), dir), MaxKeys: 250, ContinuationToken: next });
+        next = listing.IsTruncated ? listing.NextContinuationToken : undefined;
+        for (const file of listing.Contents || []) {
+          if (stopped) return;
+          if (!file.Key || file.Key.endsWith("/")) continue;
+          const filename = file.Key.slice(this.repoPath(repoId).length);
+          const source = await this.read(repoId, filename);
+          if (stopped) { source.destroy(); return; }
+          active = source;
+          let output = source;
+          if (opt?.fileTransformer) {
+            const transformer = opt.fileTransformer(filename);
+            source.on("error", error => transformer.destroy(error));
+            transformer.once("close", () => source.destroy());
+            output = source.pipe(transformer);
+            active = output;
+          }
+          await appendArchiveEntry(archive, output, { name: filename.slice(dir.length) });
         }
-
-        archive.append(rs, {
-          name: filename,
-          prefix,
-        });
-      }
-    } while (req && req.Contents?.length && req.IsTruncated);
-    archive.finalize();
+        if (listing.IsTruncated && !next) throw new Error("Invalid S3 continuation token");
+      } while (next && !stopped);
+      if (!stopped) await archive.finalize();
+    })().catch(error => archive.destroy(error));
     return archive;
   }
 }

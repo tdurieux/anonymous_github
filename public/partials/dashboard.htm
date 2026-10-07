@@ -94,8 +94,8 @@
           <button type="button" :aria-pressed="projectView === 'attention'" @click="setProjectView('attention')" :aria-label="'Needs attention ' + attentionCount()"><span class="dashboard-attention-prefix">Needs </span><span>attention</span> <span class="attention-count" :class="{'has-attention': attentionCount() > 0}">{{ attentionCount() }}</span></button>
         </div>
         <span class="dashboard-count">
-          <span v-if="filteredItems?.length === items?.length">{{ fmt?.number(items?.length) }} project<span v-if="items?.length !== 1">s</span></span>
-          <span v-if="filteredItems?.length !== items?.length">{{ fmt?.number(filteredItems?.length) }} of {{ fmt?.number(items?.length) }} shown</span>
+          <span v-if="(dashboardTotals?.filtered ?? filteredItems?.length) === (dashboardTotals?.total ?? items?.length)">{{ fmt?.number(dashboardTotals?.total ?? items?.length) }} project<span v-if="(dashboardTotals?.total ?? items?.length) !== 1">s</span></span>
+          <span v-else>{{ fmt?.number(dashboardTotals?.filtered ?? filteredItems?.length) }} of {{ fmt?.number(dashboardTotals?.total ?? items?.length) }} shown</span>
         </span>
         <div class="dashboard-active-filters">
           <template v-for="(v, f, index) in filters?.status"><button type="button" class="filter-chip" v-if="v === false" @click="filters.status[f] = true" :aria-label="'Show ' + statusKeyLabels[f] + ' again'" :title="'Show ' + statusKeyLabels[f] + ' again'">{{ statusKeyLabels[f] }} hidden<svg class="project-type-svg" aria-hidden="true"><use href="#project-icon-close"></use></svg></button></template>
@@ -254,5 +254,11 @@
         </div>
       </div>
     </div>
+  </div>
+  <div class="dashboard-pagination" v-if="dashboardCursor || dashboardError">
+    <p role="alert" v-if="dashboardError">{{ dashboardError }}</p>
+    <button type="button" class="btn" v-if="dashboardCursor" @click="loadMoreProjects()" :disabled="loadingMore">
+      {{ loadingMore ? 'Loading…' : 'Load more projects' }}
+    </button>
   </div>
 </div>

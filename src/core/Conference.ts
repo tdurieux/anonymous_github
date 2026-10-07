@@ -33,9 +33,7 @@ export default class Conference {
    * Expire the conference
    */
   async expire() {
-    await Promise.all(
-      (await this.repositories()).map(async (conf) => await conf.expire())
-    );
+    for (const repo of await this.repositories()) await repo.markExpired(true);
     await this.updateStatus("expired");
   }
 
@@ -44,9 +42,7 @@ export default class Conference {
    */
   async remove() {
     await this.updateStatus("removed");
-    await Promise.all(
-      (await this.repositories()).map(async (conf) => await conf.remove())
-    );
+    for (const repo of await this.repositories()) await repo.remove();
   }
 
   /**

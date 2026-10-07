@@ -1,3 +1,4 @@
+import { isConnected } from "../server/database";
 import { APP_PROVIDER, appError } from "./github-app";
 import CredentialModel from "./model/credentials/credentials.model";
 import { getCredentialToken } from "./credentials";
@@ -131,7 +132,7 @@ export default class Gist {
       this._model.options.expirationDate
     ) {
       if (this._model.options.expirationDate <= new Date()) {
-        await this.expire();
+        await this.markExpired();
       }
     }
     if (
@@ -215,6 +216,15 @@ export default class Gist {
         },
       }
     ).exec();
+  }
+
+  async markExpired() {
+    const now = new Date();
+    if (isConnected) await AnonymizedGistModel.updateOne({ _id: this.model._id,
+      status: RepositoryStatus.READY, "options.expirationMode": { $ne: "never" },
+      "options.expirationDate": { $lte: now },
+    }, { $set: { status: RepositoryStatus.EXPIRING, statusDate: now } }).exec();
+    this.model.status = RepositoryStatus.EXPIRING;
   }
 
   async expire() {

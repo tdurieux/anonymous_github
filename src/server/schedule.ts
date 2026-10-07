@@ -1,4 +1,9 @@
+import { Model, Document } from "mongoose";
 import * as schedule from "node-schedule";
+import AnonymizedGistModel from "../core/model/anonymizedGists/anonymizedGists.model";
+import AnonymizedPullRequestModel from "../core/model/anonymizedPullRequests/anonymizedPullRequests.model";
+import Gist from "../core/Gist";
+import PullRequest from "../core/PullRequest";
 import Conference from "../core/Conference";
 import AnonymizedRepositoryModel from "../core/model/anonymizedRepositories/anonymizedRepositories.model";
 import ConferenceModel from "../core/model/conference/conferences.model";
@@ -28,9 +33,12 @@ export function conferenceStatusCheck() {
 }
 
 export function repositoryStatusCheck() {
-  // check every 6 hours the status of the repositories
-  schedule.scheduleJob("0 */6 * * *", async () => {
-    await runRepositoryStatusCheck();
+  // Claim persisted expiration work every five minutes, without overlapping runs.
+  let running = false;
+  schedule.scheduleJob("*/5 * * * *", async () => {
+    if (running) return;
+    running = true;
+    try { await runRepositoryStatusCheck(); } finally { running = false; }
   });
 }
 
@@ -126,8 +134,7 @@ export async function runRepositoryStatusCheck(now = new Date()) {
       (async () => {
         const repo = new Repository(data);
         try {
-          await repo.resetSate();
-          await repo.updateStatus(RepositoryStatus.EXPIRED);
+          await repo.expire();
           logger.info("recovered expired repository cleanup", {
             repoId: repo.repoId,
           });
@@ -144,6 +151,15 @@ export async function runRepositoryStatusCheck(now = new Date()) {
     }
   }
   await flushBatch();
+  await expireContent(AnonymizedGistModel, data => new Gist(data), now);
+  await expireContent(AnonymizedPullRequestModel, data => new PullRequest(data), now);
+}
+async function expireContent<T extends Document>(model: Model<T>, create: (data: T) => Gist | PullRequest, now: Date) {
+    const cursor = model.find({ $or: [{ status: RepositoryStatus.EXPIRING },
+      { status: RepositoryStatus.READY, "options.expirationMode": { $ne: "never" }, "options.expirationDate": { $lte: now } }] }).cursor();
+    for await (const data of cursor) {
+      try { await create(data).expire(); } catch (error) { logger.error("content expiration failed", serializeError(error)); }
+    }
 }
 
 export function dailyStatsSnapshot() {

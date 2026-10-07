@@ -1,5 +1,8 @@
+import { contentGenerationPrefix } from "./content-generation";
+import { join } from "path";
+import AnonymizedPathModel from "./model/anonymized-path";
 import storage from "./storage";
-import { randomUUID } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import { RepositoryStatus } from "./types";
 import { Readable } from "stream";
 import * as sha1 from "crypto-js/sha1";
@@ -31,6 +34,35 @@ import AnonymizedRepositoryModel from "./model/anonymizedRepositories/anonymized
 import { createLogger, serializeError } from "./logger";
 
 const logger = createLogger("repository");
+const pathIndexes = new Map<string, Promise<void>>();
+async function buildPathIndex(repoId: string, key: string, terms: string[], generation?: string) {
+  const cacheKey = `${repoId}:${key}`;
+  const existing = pathIndexes.get(cacheKey);
+  if (existing) return existing;
+  const task = (async () => {
+    const compiled = compileTerms(terms);
+    const cursor = FileModel.find({ repoId, treeGeneration: generation || { $exists: false } })
+      .select("name path sha size").sort({ path: 1, name: 1 }).lean().cursor();
+    let batch: Parameters<typeof AnonymizedPathModel.bulkWrite>[0] = [];
+    try {
+      for await (const file of cursor) {
+        const name = anonymizePathCompiled(file.name, compiled);
+        const directory = anonymizePathCompiled(file.path, compiled);
+        batch.push({ updateOne: { filter: { repoId, key, originalId: file._id }, update: { $set: {
+          repoId, key, originalId: file._id, name: file.name, path: file.path, sha: file.sha, size: file.size,
+          anonymousName: name, anonymousDirectory: directory, createdAt: new Date(),
+          searchName: name.toLowerCase(), searchDirectory: directory.toLowerCase(),
+          anonymousPath: anonymizePathCompiled(file.path ? `${file.path}/${file.name}` : file.name, compiled),
+        } }, upsert: true } });
+        if (batch.length === 250) { await AnonymizedPathModel.bulkWrite(batch); batch = []; }
+      }
+      if (batch.length) await AnonymizedPathModel.bulkWrite(batch);
+    } finally { await cursor.close(); }
+  })();
+  // Retain only in-flight work. A subsequent recovery can add file rows.
+  pathIndexes.set(cacheKey, task);
+  try { await task; } finally { pathIndexes.delete(cacheKey); }
+}
 import { IFile } from "./model/files/files.types";
 import AnonymizedFile from "./AnonymizedFile";
 import { FilterQuery } from "mongoose";
@@ -87,6 +119,7 @@ export default class Repository {
     return new GitHubStream({
       repoId: this.repoId,
       commit: this.model.source.commit || "HEAD",
+      cacheGeneration: `${this.model.treeGeneration || "legacy"}:${this.model.anonymizeDate?.toISOString() || ""}`,
       organization: ghRepo.owner,
       repoName: ghRepo.repo,
       getToken: () => this.getToken(),
@@ -133,51 +166,8 @@ export default class Repository {
       force: false,
     }
   ): Promise<IFile[]> {
-    this.assertNotArchived();
+    await this.ensureFileTree(opt);
     const terms = this._model.options.terms || [];
-    let hasFile = await FileModel.exists({ repoId: this.repoId }).exec();
-    // Files created by GitHubDownload don't carry a valid 40-char GitHub
-    // blob SHA.  When the source type later switches to GitHubStream the
-    // stale entries cause blob-API 404s.  Detect this by sampling a file
-    // with a sha and checking its length; force a re-fetch if it doesn't
-    // look like a GitHub SHA.
-    if (hasFile && this.source instanceof GitHubStream) {
-      const sample = await FileModel.findOne(
-        { repoId: this.repoId, sha: { $exists: true, $ne: null } },
-        { sha: 1 }
-      ).exec();
-      if (sample?.sha && sample.sha.length !== 40) {
-        hasFile = null;
-      }
-    }
-    if (!hasFile || opt.force) {
-      await FileModel.deleteMany({ repoId: this.repoId }).exec();
-      const source = this.source;
-      const files = await source.getFiles(opt.progress);
-      files.forEach((f) => (f.repoId = this.repoId));
-      await FileModel.insertMany(files);
-
-      const sourceWithTruncation = source as unknown as {
-        truncatedFolderList?: string[];
-      };
-      if (Array.isArray(sourceWithTruncation.truncatedFolderList)) {
-        this._model.truncatedFolders = sourceWithTruncation.truncatedFolderList;
-      }
-
-      this._model.size = { storage: 0, file: 0 };
-      await this.computeSize();
-      if (isConnected) {
-        await AnonymizedRepositoryModel.updateOne(
-          { _id: this._model._id },
-          {
-            $set: {
-              truncatedFolders: this._model.truncatedFolders,
-              size: this._model.size,
-            },
-          }
-        ).exec();
-      }
-    }
     if (
       opt.path &&
       (opt.path.includes(config.ANONYMIZATION_MASK) ||
@@ -202,11 +192,147 @@ export default class Repository {
 
     const query: FilterQuery<IFile> = {
       repoId: this.repoId,
+      treeGeneration: this.model.treeGeneration || { $exists: false },
     };
     if (pathQuery !== undefined) {
       query.path = pathQuery;
     }
     return await FileModel.find(query).exec();
+  }
+
+  private async ensureFileTree(opt: { force?: boolean; progress?: (status: string) => void } = {}) {
+    this.assertNotArchived();
+    let hasFile = await FileModel.exists({ repoId: this.repoId, treeGeneration: this.model.treeGeneration || { $exists: false } }).exec();
+    // Files created by GitHubDownload don't carry a valid 40-char GitHub
+    // blob SHA.  When the source type later switches to GitHubStream the
+    // stale entries cause blob-API 404s.  Detect this by sampling a file
+    // with a sha and checking its length; force a re-fetch if it doesn't
+    // look like a GitHub SHA.
+    if (hasFile && this.source instanceof GitHubStream) {
+      const sample = await FileModel.findOne(
+        { repoId: this.repoId, treeGeneration: this.model.treeGeneration || { $exists: false }, sha: { $exists: true, $ne: null } },
+        { sha: 1 }
+      ).exec();
+      if (sample?.sha && sample.sha.length !== 40) {
+        hasFile = null;
+      }
+    }
+    if (!hasFile || opt.force) {
+      const previousGeneration = this.model.treeGeneration;
+      const source = this.source;
+      const files = await source.getFiles(opt.progress);
+      this._model.treeGeneration = randomUUID();
+      files.forEach(f => { f.repoId = this.repoId; f.treeGeneration = this.model.treeGeneration; });
+      const generation = this.model.treeGeneration;
+      await FileModel.insertMany(files);
+      if (isConnected) {
+        const activated = await AnonymizedRepositoryModel.updateOne({ _id: this.model._id,
+          treeGeneration: previousGeneration || { $exists: false }, ...this.refreshFilter(),
+          status: this.model.status, statusDate: this.model.statusDate,
+          "githubAccess.revision": this.model.githubAccess?.revision || { $exists: false },
+        }, { $set: { treeGeneration: generation, size: { storage: 0, file: 0 } }, $unset: { pathIndexKey: "", pathIndexBuiltAt: "", sizeComputedAt: "" } }).exec();
+        if (!activated.matchedCount) {
+          await FileModel.deleteMany({ repoId: this.repoId, treeGeneration: generation }).exec();
+          this.model.treeGeneration = previousGeneration;
+          throw new AnonymousError("repository_changed", { httpStatus: 409 });
+        }
+      }
+      await FileModel.deleteMany({ repoId: this.repoId, treeGeneration: previousGeneration || { $exists: false } }).exec();
+
+      const sourceWithTruncation = source as unknown as {
+        truncatedFolderList?: string[];
+      };
+      if (Array.isArray(sourceWithTruncation.truncatedFolderList)) {
+        this._model.truncatedFolders = sourceWithTruncation.truncatedFolderList;
+      }
+
+      this._model.size = { storage: 0, file: 0 };
+      this._model.sizeComputedAt = undefined;
+      await this.computeSize();
+      if (isConnected) {
+        await AnonymizedRepositoryModel.updateOne(
+          { _id: this._model._id, treeGeneration: this.model.treeGeneration },
+          {
+            $set: {
+              treeGeneration: this._model.treeGeneration,
+              truncatedFolders: this._model.truncatedFolders,
+              size: this._model.size,
+            },
+          }
+        ).exec();
+      }
+    }
+  }
+
+  private pathKey() {
+    return createHash("sha256").update(JSON.stringify([
+      "paths-v2", config.ANONYMIZATION_MASK, this.options.terms,
+      this.model.treeGeneration, this.model.fileMetadataRevision, this.model.source.commit, this.model.anonymizeDate,
+    ])).digest("hex");
+  }
+
+  private async indexPaths() {
+    await this.ensureFileTree();
+    const metadataRevision = this.model.fileMetadataRevision;
+    const key = this.pathKey();
+    if (this.model.pathIndexKey !== key || !this.model.pathIndexBuiltAt || this.model.pathIndexBuiltAt.getTime() < Date.now() - 24 * 3600_000) {
+      await buildPathIndex(this.repoId, key, this.options.terms || [], this.model.treeGeneration);
+      const builtAt = new Date();
+      const result = await AnonymizedRepositoryModel.updateOne({ _id: this.model._id,
+        treeGeneration: this.model.treeGeneration || { $exists: false },
+        fileMetadataRevision: metadataRevision || { $exists: false },
+        "source.commit": this.model.source.commit || { $exists: false },
+        "options.terms": this.options.terms || [], anonymizeDate: this.model.anonymizeDate,
+      }, { $set: { pathIndexKey: key, pathIndexBuiltAt: builtAt } }).exec();
+      if (!result.matchedCount) throw new AnonymousError("repository_changed", { httpStatus: 409 });
+      this.model.pathIndexKey = key;
+      this.model.pathIndexBuiltAt = builtAt;
+      // TTL retires superseded mappings. An older builder must never delete
+      // mappings activated by a newer settings or metadata generation.
+    }
+    return key;
+  }
+
+  async findAnonymizedPath(path: string): Promise<IFile | null | undefined> {
+    if (!isConnected) return undefined;
+    const key = await this.indexPaths();
+    // Original paths retain priority; collisions between transformed paths
+    // resolve consistently in original path/name order.
+    return AnonymizedPathModel.findOne({ repoId: this.repoId, key, anonymousPath: path })
+      .sort({ path: 1, name: 1 }).lean().exec();
+  }
+
+  async invalidateFileMetadata() {
+    const revision = randomUUID();
+    this.model.pathIndexKey = undefined;
+    this.model.pathIndexBuiltAt = undefined;
+    this.model.sizeComputedAt = undefined;
+    this.model.size = { storage: 0, file: 0 };
+    if (isConnected) await AnonymizedRepositoryModel.updateOne({ _id: this.model._id,
+      treeGeneration: this.model.treeGeneration || { $exists: false },
+    }, { $set: { size: this.model.size, fileMetadataRevision: revision }, $unset: { pathIndexKey: "", pathIndexBuiltAt: "", sizeComputedAt: "" } }).exec();
+    this.model.fileMetadataRevision = revision;
+  }
+
+  async searchFiles(query: string): Promise<Partial<IFile>[]> {
+    const q = query.toLowerCase();
+    if (q.includes("/")) return [];
+    if (isConnected) {
+      const key = await this.indexPaths();
+      const pattern = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+      const rows = await AnonymizedPathModel.find({ repoId: this.repoId, key,
+        $or: [{ searchName: pattern }, { searchDirectory: pattern }] })
+        .select("anonymousName anonymousDirectory size").limit(500).lean().exec();
+      return rows.map(f => ({ name: f.anonymousName, path: f.anonymousDirectory, size: f.size }));
+    }
+    const matches: Partial<IFile>[] = [];
+    for (const f of await this.anonymizedFiles({ includeSha: false, recursive: true })) {
+      if (f.name?.toLowerCase().includes(q) || (f.path || "").split("/").some(segment => segment.toLowerCase().includes(q))) {
+        matches.push({ name: f.name, path: f.path, size: f.size });
+        if (matches.length === 500) break;
+      }
+    }
+    return matches;
   }
 
   /**
@@ -226,7 +352,7 @@ export default class Repository {
       this._model.options.expirationDate
     ) {
       if (this._model.options.expirationDate <= new Date()) {
-        await this.expire();
+        await this.markExpired();
       }
     }
     if (
@@ -280,6 +406,7 @@ export default class Repository {
   generateAnonymizeTransformer(filePath: string) {
     return new AnonymizeTransformer({
       filePath: filePath,
+      cacheGeneration: `${this.model.treeGeneration || "legacy"}:${this.model.anonymizeDate?.toISOString() || ""}`,
       terms: this.options.terms,
       image: this.options.image,
       link: this.options.link,
@@ -291,7 +418,7 @@ export default class Repository {
 
   async isReady() {
     if (this.status !== RepositoryStatus.READY) return false;
-    if (!(await FileModel.exists({ repoId: this.repoId }).exec())) {
+    if (!(await FileModel.exists({ repoId: this.repoId, treeGeneration: this.model.treeGeneration || { $exists: false } }).exec())) {
       this.model.status = RepositoryStatus.PREPARING;
       await this.updateIfNeeded({ force: true });
       return false;
@@ -578,10 +705,61 @@ export default class Repository {
   /**
    * Expire the repository
    */
+  async markExpired(force = false) {
+    const now = new Date();
+    if (isConnected) {
+      const result = await AnonymizedRepositoryModel.updateOne({ _id: this.model._id,
+        status: RepositoryStatus.READY, ...(force ? {} : { "options.expirationMode": { $ne: "never" },
+        "options.expirationDate": { $lte: now } }),
+      }, { $set: { status: RepositoryStatus.EXPIRING, statusDate: now } }).exec();
+      if (!result.matchedCount && force) return;
+    }
+    this.model.status = RepositoryStatus.EXPIRING;
+    this.model.statusDate = now;
+  }
+
   async expire() {
-    await this.updateStatus(RepositoryStatus.EXPIRING);
-    await this.resetSate();
-    await this.updateStatus(RepositoryStatus.EXPIRED);
+    if (!isConnected) {
+      await this.updateStatus(RepositoryStatus.EXPIRING);
+      await this.resetSate();
+      await this.updateStatus(RepositoryStatus.EXPIRED);
+      return;
+    }
+    const now = new Date(), token = randomUUID();
+    const claimed = await AnonymizedRepositoryModel.updateOne({ _id: this.model._id,
+      status: this.model.status, statusDate: this.model.statusDate,
+      anonymizeDate: this.model.anonymizeDate,
+      $or: [{ cleanupUntil: { $exists: false } }, { cleanupUntil: { $lte: now } }],
+    }, { $set: { status: RepositoryStatus.EXPIRING, statusDate: now,
+      cleanupToken: token, cleanupUntil: new Date(now.getTime() + 15 * 60_000) } }).exec();
+    if (!claimed.matchedCount) return;
+    this.model.status = RepositoryStatus.EXPIRING;
+    this.model.statusDate = now;
+    const lease = { _id: this.model._id, status: RepositoryStatus.EXPIRING, cleanupToken: token };
+    const heartbeat = setInterval(() => {
+      void AnonymizedRepositoryModel.updateOne(lease, { $set: { cleanupUntil: new Date(Date.now() + 15 * 60_000) } }).exec().catch(() => {});
+    }, 30_000);
+    heartbeat.unref();
+    try {
+      const generation = this.model.treeGeneration;
+      const query = { repoId: this.repoId, treeGeneration: generation || { $exists: false } };
+      // New GitHub cache objects live under an immutable lifecycle namespace.
+      await storage.rm(this.repoId, contentGenerationPrefix(`${generation || "legacy"}:${this.model.anonymizeDate?.toISOString() || ""}`));
+      if (!generation || this.model.source.type === "Zip") {
+        const cursor = FileModel.find(query).select("path name size").lean().cursor();
+        try { for await (const file of cursor) if (file.size != null) await storage.rm(this.repoId, join(file.path, file.name)); }
+        finally { await cursor.close(); }
+      }
+      await FileModel.deleteMany(query).exec();
+      await AnonymizedPathModel.deleteMany({ repoId: this.repoId, key: this.model.pathIndexKey }).exec();
+      const result = await AnonymizedRepositoryModel.updateOne(lease, { $set: { status: RepositoryStatus.EXPIRED,
+        statusDate: new Date(), isReseted: true, size: { storage: 0, file: 0 } },
+        $unset: { cleanupToken: "", cleanupUntil: "", pathIndexKey: "", pathIndexBuiltAt: "", sizeComputedAt: "" } }).exec();
+      if (result.matchedCount) { this.model.status = RepositoryStatus.EXPIRED; this.model.isReseted = true; this.model.size = { storage: 0, file: 0 }; this.model.sizeComputedAt = undefined; }
+    } finally {
+      clearInterval(heartbeat);
+      await AnonymizedRepositoryModel.updateOne({ _id: this.model._id, cleanupToken: token }, { $unset: { cleanupToken: "", cleanupUntil: "" } }).exec();
+    }
   }
 
   /**
@@ -631,12 +809,13 @@ export default class Repository {
     if (this.status === RepositoryStatus.ARCHIVED) return;
     await storage.rm(this.repoId);
     this.model.isReseted = true;
+    this.model.sizeComputedAt = undefined;
     this.model.size = { storage: 0, file: 0 };
     if (isConnected) {
       try {
         await AnonymizedRepositoryModel.updateOne(
           { _id: this._model._id },
-          { $set: { isReseted: true, size: this._model.size } }
+          { $set: { isReseted: true, size: this._model.size }, $unset: { sizeComputedAt: "" } }
         ).exec();
       } catch (error) {
         logger.error("removeCache save failed", serializeError(error));
@@ -675,11 +854,12 @@ export default class Repository {
   }> {
     if (this.status !== RepositoryStatus.READY)
       return { storage: 0, file: 0 };
-    if (this._model.size.file) return this._model.size;
+    if (this._model.size.file || this._model.sizeComputedAt) return this._model.size;
     const res = await FileModel.aggregate([
       {
         $match: {
           repoId: this.repoId,
+          treeGeneration: this.model.treeGeneration || { $exists: false },
         },
       },
       {
@@ -694,10 +874,12 @@ export default class Repository {
       storage: res[0]?.storage || 0,
       file: res[0]?.file || 0,
     };
+    this._model.sizeComputedAt = new Date();
     if (isConnected) {
       await AnonymizedRepositoryModel.updateOne(
-        { _id: this._model._id },
-        { $set: { size: this._model.size } }
+        { _id: this._model._id, treeGeneration: this.model.treeGeneration || { $exists: false },
+          fileMetadataRevision: this.model.fileMetadataRevision || { $exists: false } },
+        { $set: { size: this._model.size, sizeComputedAt: this._model.sizeComputedAt } }
       ).exec();
     }
     return this._model.size;

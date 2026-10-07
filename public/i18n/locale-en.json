@@ -1,5 +1,9 @@
 {
   "ERRORS": {
+    "cache_busy": "Downloads are busy. Please try again shortly.",
+    "invalid_sort": "The selected sort order is invalid.",
+    "invalid_cursor": "This project page is no longer valid. Reload the list.",
+    "repository_changed": "The repository changed while processing. Please retry.",
     "repository_job_cancelled": "The repository changed or was removed while processing.",
     "storage_delete_failed": "Unable to remove cached files. Please try again later.",
     "unknown_error": "Unknown error, contact the admin.",

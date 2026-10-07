@@ -1,5 +1,5 @@
 import got from "got";
-import { Readable, Transform } from "stream";
+import { Readable, Transform, Writable } from "stream";
 import { Parse } from "unzip-stream";
 import archiver = require("archiver");
 
@@ -67,8 +67,8 @@ function isEntryAllowed(
  * Stream the GitHub source zip for a repository, anonymize each entry on the
  * fly, and pipe the resulting archive into the provided writable response.
  *
- * No data is written to local storage — the zip flows GitHub → unzip → per
- * file anonymizer → archiver → response.
+ * Large text entries spool privately before worker anonymization. The parser
+ * admits the next entry only after the archive output drains to the response.
  */
 export async function streamAnonymizedZip(
   opt: StreamAnonymizedZipOptions,
@@ -118,6 +118,25 @@ export async function streamAnonymizedZip(
   const activeStreams = new Set<Readable>();
   const compiledTerms = compileTerms(opt.anonymizerOptions.terms || []);
   let stopped = false;
+  let entryWaiting = false;
+  const resumeParser = () => {
+    if (!stopped && entryWaiting && archive.readableLength === 0 && output.writableLength === 0) {
+      entryWaiting = false;
+      parser.resume();
+    }
+  };
+  // Wait for response writes to complete before admitting the next entry.
+  const output = new Writable({
+    write(chunk, encoding, callback) {
+      res.write(chunk, encoding, (error?: Error | null) => {
+        callback(error);
+        setImmediate(resumeParser);
+      });
+    },
+    final(callback) { res.end(); callback(); },
+  });
+  output.on("error", error => fail(error));
+  archive.on("data", () => { if (entryWaiting) setImmediate(resumeParser); });
   const stop = () => {
     if (stopped) return;
     stopped = true;
@@ -125,6 +144,7 @@ export async function streamAnonymizedZip(
     parser.destroy();
     for (const stream of activeStreams) stream.destroy();
     activeStreams.clear();
+    output.destroy();
     archive.abort();
   };
   const fail = (error: Error) => {
@@ -145,7 +165,7 @@ export async function streamAnonymizedZip(
   res.on("error", (error) => fail(error as Error));
   res.on("close", stop);
   archive.on("error", fail);
-  archive.pipe(res);
+  archive.pipe(output);
 
   downloadStream
     .on("error", fail)
@@ -172,6 +192,9 @@ export async function streamAnonymizedZip(
           // there to decide whether the entry is text (and therefore should be
           // anonymized) vs binary (passthrough). Assigning afterwards leaves
           // isText=false for every file, so the zip ships unanonymized.
+          parser.pause();
+          const onArchived = () => { entryWaiting = true; setImmediate(resumeParser); };
+          archive.once("entry", onArchived);
           const anonymizer = new AnonymizeTransformer({
             ...opt.anonymizerOptions,
             filePath: entry.path,
@@ -189,7 +212,7 @@ export async function streamAnonymizedZip(
       }
     })
     .on("error", fail)
-    .on("finish", () => {
+    .on("end", () => {
       if (stopped) return;
       void archive.finalize().catch(fail);
     });

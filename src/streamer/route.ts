@@ -79,6 +79,7 @@ router.post("/", async (req: express.Request, res: express.Response) => {
     organization: repoFullName[0],
     repoName: repoFullName[1],
     commit: commit,
+    cacheGeneration: typeof req.body.cacheGeneration === "string" ? req.body.cacheGeneration : undefined,
     getToken: () => token,
   });
   try {
@@ -87,6 +88,7 @@ router.post("/", async (req: express.Request, res: express.Response) => {
       repoId,
       () => ({ sha: fileSha, size: fileSize })
     );
+    if (res.destroyed || res.writableEnded) { content.destroy(); anonymizer.destroy(); return; }
     const mime = lookup(filePath);
     if (mime && !filePath.endsWith(".ts")) {
       res.contentType(mime);
@@ -122,6 +124,7 @@ router.post("/", async (req: express.Request, res: express.Response) => {
       .pipe(res)
       .on("error", handleStreamError)
       .on("close", () => {
+        anonymizer.destroy();
         if (!content.closed && !content.destroyed) {
           content.destroy();
         }

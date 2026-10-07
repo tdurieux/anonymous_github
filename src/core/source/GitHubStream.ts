@@ -1,3 +1,6 @@
+import { contentGenerationPrefix } from "../content-generation";
+import { createHash } from "crypto";
+import { coordinatedFill } from "../cache-coordination";
 import { githubTokenContext } from "../github-token-context";
 import AnonymizedFile from "../AnonymizedFile";
 import GitHubBase, {
@@ -11,7 +14,6 @@ import { basename, dirname } from "path";
 
 import * as stream from "stream";
 import AnonymousError from "../AnonymousError";
-import { FILE_TYPE } from "../storage/Storage";
 import { octokit, waitForTokenGate } from "../GitHubUtils";
 import FileModel from "../model/files/files.model";
 import { IFile } from "../model/files/files.types";
@@ -22,6 +24,7 @@ import config from "../../config";
 const logger = createLogger("gh-stream");
 
 const GH_API_CONCURRENCY = 6;
+const cacheFills = new Map<string, Promise<void>>();
 
 async function pMap<T, R>(
   items: T[],
@@ -238,108 +241,52 @@ export default class GitHubStream extends GitHubBase {
     const meta = await fileMeta();
     const expected: { sha: string; size?: number } =
       typeof meta === "string" ? { sha: meta } : meta;
-    const fileInfo = await storage.exists(repoId, filePath);
-    if (fileInfo == FILE_TYPE.FILE) {
-      // If we know the upstream size, validate the cached entry. A cached
-      // file smaller than the upstream size means a previous fetch was
-      // truncated — likely a network error during the GitHub fetch left a
-      // 0-byte or partial blob behind. Treat it as a miss and re-fetch.
-      // Cached size >= expected is accepted: equal for normal files, and
-      // larger for Git LFS files where FileModel.size is the pointer's
-      // size but the cached bytes are the resolved LFS content.
-      if (expected.size != null && expected.size > 0) {
-        try {
-          const stat = await storage.fileInfo(repoId, filePath);
-          if (stat.size != null && stat.size < expected.size) {
-            await storage.rm(repoId, filePath);
-          } else {
-            return storage.read(repoId, filePath);
-          }
-        } catch {
-          // fall through and re-fetch
+    const generation = createHash("sha256").update(JSON.stringify([
+      this.data.commit, expected.sha, this.data.cacheGeneration,
+    ])).digest("hex");
+    const cachePath = this.data.cacheGeneration ? `${contentGenerationPrefix(this.data.cacheGeneration)}/${generation}/${filePath}` : filePath;
+    const key = `${repoId}:${generation}:${filePath}`;
+    const cached = async () => {
+      try {
+        const info = await storage.fileInfo(repoId, cachePath);
+        if (info.contentType === "application/x-directory") {
+          throw new AnonymousError("folder_not_supported", { httpStatus: 400 });
         }
-      } else {
-        return storage.read(repoId, filePath);
+        if (expected.size != null && expected.size > 0 && (info.size == null || info.size < expected.size)) return undefined;
+        return true;
+      } catch (error) {
+        if (error instanceof AnonymousError && error.message === "folder_not_supported") throw error;
+        return undefined;
       }
-    } else if (fileInfo == FILE_TYPE.FOLDER) {
-      throw new AnonymousError("folder_not_supported", {
-        httpStatus: 400,
-        object: filePath,
-      });
-    }
-
-    // GitHub's blob API rejects blobs larger than 100 MB with HTTP 422.
-    // Skip the download entirely when the tree already tells us the file is
-    // over the cap, so we surface a clean `file_too_big` instead of paying
-    // the round-trip just to translate a 422.
+    };
+    if (await cached()) return storage.read(repoId, cachePath);
     if (expected.size != null && expected.size > config.MAX_FILE_SIZE) {
-      throw new AnonymousError("file_too_big", {
-        httpStatus: 413,
-        object: filePath,
-      });
+      throw new AnonymousError("file_too_big", { httpStatus: 413, object: filePath });
     }
-    const token = await this.data.getToken();
-
-    // Try the blob API first, but fall back to the raw URL on recoverable
-    // blob misses/caps while still preserving LFS pointer handling.
-    const content = await this.downloadWithFallback(
-      token,
-      expected.sha,
-      filePath
-    );
-
-    // duplicate the stream to write it to the storage
-    const stream1 = content.pipe(new stream.PassThrough());
-    const stream2 = content.pipe(new stream.PassThrough());
-
-    // Safety net: guarantee an `error` listener exists on both branches
-    // before any error can be emitted. storage.write attaches its listener
-    // only after an `await mk(...)`, and the route handler attaches its
-    // listener after awaiting this function — both leave a window where
-    // an upstream error would have no listener and escalate to
-    // uncaughtException, crashing the streamer.
-    const noop = () => {};
-    stream1.on("error", noop);
-    stream2.on("error", noop);
-
-    content.on("error", (error) => {
-      const httpStatus =
-        (error as { response?: { statusCode?: number } })?.response
-          ?.statusCode ??
-        (error as { status?: number })?.status ??
-        (error as { httpStatus?: number })?.httpStatus;
-      const errCode = (error as { code?: string })?.code;
-      const isTransient =
-        !httpStatus &&
-        (errCode === "ECONNRESET" ||
-          errCode === "ETIMEDOUT" ||
-          errCode === "ERR_BODY_PARSE_FAILURE" ||
-          error.name === "ReadError");
-      const code =
-        httpStatus === 422
-          ? "file_too_big"
-          : httpStatus === 403
-          ? "file_not_accessible"
-          : isTransient
-          ? "upstream_error"
-          : "file_not_found";
-      const wrapped = new AnonymousError(code, {
-        httpStatus: isTransient ? 502 : httpStatus,
-        cause: error as Error,
-        object: filePath,
-      });
-      stream1.destroy(wrapped);
-      stream2.destroy(wrapped);
-    });
-
-    // Fire-and-forget: storage.write logs its own failures inside FileSystem
-    // (`[fs] write failed`). Swallow the rejection here so an upstream error
-    // (e.g. GitHub 422 on a too-big blob) doesn't surface as an unhandled
-    // promise rejection and crash the streamer process.
-    storage
-      .write(repoId, filePath, stream1, this.type, expected.size)
-      .catch(() => {});
-    return stream2;
+    let filling = cacheFills.get(key);
+    if (!filling) {
+      if (cacheFills.size >= 64) throw new AnonymousError("cache_busy", { httpStatus: 503 });
+      filling = coordinatedFill(key, cached, async () => {
+        const content = await this.downloadWithFallback(await this.data.getToken(), expected.sha, filePath);
+        let count = 0;
+        const limited = new stream.Transform({ transform(chunk, encoding, callback) {
+          count += chunk.length;
+          callback(count > config.MAX_FILE_SIZE ? new AnonymousError("file_too_big", { httpStatus: 413 }) : null, chunk);
+        } });
+        content.on("error", error => limited.destroy(error instanceof AnonymousError ? error : new AnonymousError("upstream_error", { httpStatus: 502, cause: error })));
+        limited.once("close", () => content.destroy());
+        limited.on("error", () => {});
+        content.pipe(limited);
+        const deadline = setTimeout(() => limited.destroy(new AnonymousError("upstream_error", { httpStatus: 502 })), 120_000);
+        try { await storage.write(repoId, cachePath, limited, this.type, expected.size); }
+        finally { clearTimeout(deadline); limited.destroy(); content.destroy(); }
+        return true;
+      }).then(() => {});
+      cacheFills.set(key, filling);
+      void filling.finally(() => { if (cacheFills.get(key) === filling) cacheFills.delete(key); }).catch(() => {});
+    }
+    await filling;
+    return storage.read(repoId, cachePath);
   }
 
   async getFileContent(file: AnonymizedFile): Promise<stream.Readable> {
@@ -444,6 +391,15 @@ export default class GitHubStream extends GitHubBase {
     const output: IFile[] = [];
     let data;
     try {
+      data = await this.getGHTree(oct, token, sha, count, {
+        recursive: true,
+        callback: () => {
+          if (progress) {
+            progress("List file: " + count.file);
+          }
+        },
+      });
+      if (!data.truncated) return this.tree2Tree(data.tree, parentPath);
       data = await this.getGHTree(oct, token, sha, count, {
         recursive: false,
         callback: () => {
