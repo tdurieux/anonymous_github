@@ -1,10 +1,10 @@
 {
   "core.min.js": "core.3b07189932.min.js",
-  "vendor.min.js": "vendor.f9925bc8f9.min.js",
+  "vendor.min.js": "vendor.7107f60347.min.js",
   "mermaid.min.js": "mermaid.f848a72d16.min.js",
   "all.min.css": "all.5fbafcda4e.min.css",
   "markdown.min.js": "markdown.44f2e93820.min.js",
-  "pdf.min.js": "pdf.0175d53d2f.min.js",
+  "pdf.min.js": "pdf.4d9cc6ff49.min.js",
   "notebook.min.js": "notebook.c3144c18ae.min.js",
   "org.min.js": "org.f61f262915.min.js",
   "editor.min.js": "editor.4f142d3adc.min.js"

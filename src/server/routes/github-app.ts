@@ -191,7 +191,7 @@ router.post("/connections/migrate", async (req, res) => {
     const isRepo = type === "repository";
     const model = isRepo ? await RepositoryModel.findOne({ repoId: id, owner: user.id }) : await PullRequestModel.findOne({ pullRequestId: id, owner: user.id });
     if (!model || ["removed", "archived"].includes(model.status || "")) throw appError("repo_not_found", 404);
-    if (["preparing", "removing", "expiring"].includes(model.status || "")) throw appError("repository_busy", 409);
+    if (["preparing", "queue", "download", "removing", "expiring"].includes(model.status || "")) throw appError("repository_busy", 409);
     const source = model.source as { repositoryName?: string; repositoryFullName?: string; commit?: string; pullRequestId?: number };
     const name = source.repositoryName || source.repositoryFullName || "";
     const repositoryId = model.githubAccess?.kind === "github-app" && connection === "github-app"
@@ -201,9 +201,10 @@ router.post("/connections/migrate", async (req, res) => {
     // recreated at the same name. Replacing a source requires its own preview.
     if (model.githubAccess?.kind === "github-app" && selected.binding.kind === "github-app" &&
       model.githubAccess.repositoryId !== selected.binding.repositoryId) throw appError("connection_changed", 409);
-    const parts = name.split("/").map(encodeURIComponent).join("/");
-    const repositoryPath = repositoryId === undefined ? `/repos/${parts}` : `/repositories/${repositoryId}`;
-    await githubRequest(`${repositoryPath}/${isRepo ? `commits/${encodeURIComponent(source.commit || "")}` : `pulls/${source.pullRequestId}`}`, selected.token);
+    const parts = (selected.fullName || name).split("/").map(encodeURIComponent).join("/");
+    const repositoryPath = `/repos/${parts}`;
+    const token = selected.binding.publicRead ? await appUserToken(user.id) : selected.token;
+    await githubRequest(`${repositoryPath}/${isRepo ? `commits/${encodeURIComponent(source.commit || "")}` : `pulls/${source.pullRequestId}`}`, token);
     if (preview === true) return res.json({ eligible: true, connection });
     const filter = { _id: model._id, owner: user.id, status: model.status, source: model.source,
       githubAccess: model.githubAccess ? model.githubAccess : { $exists: false } };

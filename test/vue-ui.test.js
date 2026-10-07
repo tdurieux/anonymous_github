@@ -155,16 +155,19 @@ describe("Vue 3 UI", function () {
     expect(ui.errors).to.deep.equal([]);
   });
 
-  it("hides connection changes on archived resources", async function () {
+  for (const status of ["archived", "preparing", "queue", "download", "removing", "expiring"]) {
+  it(`hides connection changes on ${status} resources`, async function () {
     ui = await browser("/connections", {
       "/github/connections": { appEnabled: true, appConnected: true, oauthConnected: true,
-        resources: [{ type: "repository", id: "archived", connection: "github-app", status: "archived", eligible: true }] },
+        resources: [{ type: "repository", id: "archived", connection: "github-app", status, eligible: true }] },
     });
     const resource = ui.window.document.querySelector(".connection-resource");
     expect(resource).not.to.equal(null);
     expect(resource.querySelectorAll("button")).to.have.length(0);
     expect(ui.errors).to.deep.equal([]);
   });
+
+  }
 
   for (const connection of ["oauth", "github-app"]) {
   it(`previews and saves ${connection} access with CSRF protection`, async function () {

@@ -55,11 +55,18 @@ for (const type of ["repository", "pull-request"]) {
       expect(writes[0].update).to.deep.equal({ $set: { githubAccess: selected.binding } });
       expect(writes[0].filter.githubAccess).to.deep.equal(model.githubAccess);
       expect(writes[0].filter.source).to.deep.equal(model.source);
-      expect(checks).to.deep.equal([{ url: type === "repository" ? "/repositories/42/commits/saved-sha" : "/repositories/42/pulls/7", token: "fresh-token" }]);
+      expect(checks).to.deep.equal([{ url: type === "repository" ? "/repos/owner/private/commits/saved-sha" : "/repos/owner/private/pulls/7", token: "fresh-token" }]);
     });
     it("rejects a replacement repository at the same name", async function () {
       selected.binding.repositoryId = 99; await fails("connection_changed"); expect(checks).to.have.length(0);
     });
+    for (const status of ["preparing", "queue", "download", "removing", "expiring"]) {
+      it("rejects reconnect during " + status, async function () {
+        model.status = status;
+        await fails("repository_busy");
+        expect(checks).to.have.length(0);
+      });
+    }
     it("requires access to the existing snapshot before saving", async function () {
       stub(app, "githubRequest", async () => { throw new Error("github_app_access_required"); });
       await fails("github_app_access_required");
