@@ -102,13 +102,13 @@
   ],
   "tests": {
     "fullSuite": {
-      "passing": 851,
+      "passing": 863,
       "pending": 51,
       "failing": 0,
-      "note": "Clean committed checkout with disposable MongoDB and Redis; unrelated untracked workspace files excluded."
+      "note": "Clean committed checkout after the five PR review fixes, with disposable MongoDB and Redis; unrelated untracked workspace files excluded."
     },
     "performanceSuite": {
-      "passing": 36
+      "passing": 46
     },
     "uiSuite": {
       "passing": 134

@@ -784,10 +784,10 @@ export const unifiedDashboardController = function (state, http, location, promi
         if (legacyDashboard) return;
         if (reloadTimer) timers.timeout.cancel(reloadTimer);
         reloadTimer = timers.timeout(() => loadAll(), 150);
-      });
+      }, false);
       state.watch("filters", () => {
         if (!legacyDashboard) loadAll();
-      }, true);
+      }, true, false);
       state.on("dispose", () => { dashboardGeneration++; });
       loadAll();
 

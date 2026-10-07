@@ -273,7 +273,15 @@ export default class GitHubStream extends GitHubBase {
           count += chunk.length;
           callback(count > config.MAX_FILE_SIZE ? new AnonymousError("file_too_big", { httpStatus: 413 }) : null, chunk);
         } });
-        content.on("error", error => limited.destroy(error instanceof AnonymousError ? error : new AnonymousError("upstream_error", { httpStatus: 502, cause: error })));
+        content.on("error", error => {
+          if (error instanceof AnonymousError) { limited.destroy(error); return; }
+          const status = (error as { response?: { statusCode?: number }; status?: number; httpStatus?: number });
+          const httpStatus = status.response?.statusCode ?? status.status ?? status.httpStatus;
+          const code = httpStatus === 403 ? "file_not_accessible"
+            : httpStatus === 404 ? "file_not_found"
+            : httpStatus === 422 ? "file_too_big" : "upstream_error";
+          limited.destroy(new AnonymousError(code, { httpStatus: httpStatus || 502, cause: error, object: filePath }));
+        });
         limited.once("close", () => content.destroy());
         limited.on("error", () => {});
         content.pipe(limited);

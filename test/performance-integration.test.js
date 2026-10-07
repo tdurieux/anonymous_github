@@ -12,6 +12,8 @@ const File = require("../src/core/model/files/files.model").default;
 const Path = require("../src/core/model/anonymized-path").default;
 const Name = require("../src/core/model/dashboard-name").default;
 const Repository = require("../src/core/Repository").default;
+const Conference = require("../src/core/Conference").default;
+const ConferenceModel = require("../src/core/model/conference/conferences.model").default;
 const AnonymizedFile = require("../src/core/AnonymizedFile").default;
 const { dashboardSummary } = require("../src/server/routes/dashboard-summary");
 const { projectNameKey } = require("../src/server/routes/project-names");
@@ -28,7 +30,7 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
     user = new User(await UserModel.create({ username: "perf-owner", externalIDs: { github: "12345" } }));
   });
   after(async () => { db.isConnected = false; await mongoose.connection.dropDatabase(); await mongoose.disconnect(); });
-  beforeEach(async () => { await Promise.all([Repo, PR, Gist, File, Path, Name].map(model => model.deleteMany({}))); });
+  beforeEach(async () => { await Promise.all([Repo, PR, Gist, File, Path, Name, ConferenceModel].map(model => model.deleteMany({}))); });
 
   it("uses membership indexes for owner, stable GitHub ID, and legacy username", async () => {
     const other = new mongoose.Types.ObjectId();
@@ -46,7 +48,7 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
 
   it("paginates a mixed dashboard globally and excludes megabyte bodies", async () => {
     const date = new Date("2026-01-01");
-    await Repo.create({ repoId: "repo", owner: user.model._id, status: "ready", anonymizeDate: date, source: { repositoryName: "owner/repo" }, options: { expirationMode: "never" } });
+    await Repo.create({ repoId: "repo", owner: user.model._id, status: "ready", anonymizeDate: date, source: { repositoryName: "owner/repo", commit: "abcdef1234567890" }, options: { expirationMode: "never" } });
     await PR.create({ pullRequestId: "pr", owner: user.model._id, status: "error", anonymizeDate: date, source: { repositoryFullName: "owner/repo", pullRequestId: 1 }, pullRequest: { diff: "x".repeat(1024 * 1024), body: "y".repeat(1024 * 1024) } });
     await Gist.create({ gistId: "gist", owner: user.model._id, status: "ready", anonymizeDate: date, source: { gistId: "upstream" }, gist: { files: [{ filename: "private.txt", content: "z".repeat(1024 * 1024) }] } });
     user.model.projectNames = new Map([[projectNameKey("repo", "repo"), "A named package"]]);
@@ -59,6 +61,7 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
     expect(new Set(items.map(item => item._type)).size).to.equal(3);
     expect(JSON.stringify(items).length).to.be.lessThan(10000);
     expect(items.find(item => item.repoId === "repo").projectName).to.equal("A named package");
+    expect(items.find(item => item.repoId === "repo").source).to.deep.equal({ fullName: "owner/repo", commit: "abcdef1234567890" });
     const named = await dashboardSummary(user, { sort: "_label", q: "named" });
     expect(named.items.map(item => item.repoId)).to.deep.equal(["repo"]);
     const filtered = await dashboardSummary(user, { type: "pr", statuses: "error" });
@@ -170,6 +173,82 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
     storage.rm = async () => { throw Error("stale deletion"); };
     try { await stale.expire(); expect((await Repo.findById(model._id)).status).to.equal("ready"); }
     finally { storage.rm = originalRm; }
+  });
+
+  it("expires conference repositories in every active status and drains their cleanup backlog", async () => {
+    const statuses = ["ready", "error", "preparing", "queue", "download"];
+    const models = await Repo.insertMany(statuses.map(status => ({ repoId: `conference-${status}`, owner: user.model._id,
+      status, statusDate: new Date(), treeGeneration: "tree", source: { type: "GitHubStream" }, options: { expirationMode: "never" } })));
+    await File.insertMany(models.map(model => ({ repoId: model.repoId, treeGeneration: "tree", path: "", name: "cached.txt", size: 1 })));
+    const conference = new Conference(await ConferenceModel.create({ conferenceID: "expired", status: "ready",
+      endDate: new Date(0), repositories: models.map(model => ({ id: model._id })) }));
+    await conference.expire();
+    expect(conference.status).to.equal("expired");
+    for (const model of await Repo.find({})) {
+      expect(model.status).to.equal("expiring");
+      try { await new Repository(model).check(); throw Error("expected expiration"); }
+      catch (error) { expect(error.message).to.equal("repository_expired"); }
+    }
+    const storage = require("../src/core/storage").default, rm = storage.rm;
+    const cleaned = [];
+    storage.rm = async repoId => { cleaned.push(repoId); };
+    try { await require("../src/server/schedule").runRepositoryStatusCheck(); }
+    finally { storage.rm = rm; }
+    expect(cleaned.sort()).to.deep.equal(models.map(model => model.repoId).sort());
+    expect(await Repo.countDocuments({ status: "expired" })).to.equal(statuses.length);
+    expect(await File.countDocuments({})).to.equal(0);
+  });
+
+  it("does not overwrite terminal states or an existing cleanup claim on forced expiration", async () => {
+    const date = new Date("2026-01-01");
+    for (const status of ["archived", "removed", "removing", "expired", "expiring"]) {
+      const model = await Repo.create({ repoId: `inactive-${status}`, status, statusDate: date,
+        cleanupToken: "active-claim", cleanupUntil: new Date(Date.now() + 60000) });
+      await new Repository(model).markExpired(true);
+      const fresh = await Repo.findById(model._id).select("+cleanupToken");
+      expect(fresh.status).to.equal(status); expect(fresh.statusDate.getTime()).to.equal(date.getTime());
+      expect(fresh.cleanupToken).to.equal("active-claim");
+    }
+    const model = await Repo.create({ repoId: "concurrent-removal", status: "ready", statusDate: date });
+    const stale = new Repository(model);
+    await Repo.updateOne({ _id: model._id }, { $set: { status: "removing" } });
+    await stale.markExpired(true);
+    expect((await Repo.findById(model._id)).status).to.equal("removing");
+  });
+
+  it("persists an empty tree across listing, search and readiness checks, and invalidates it on replacement", async () => {
+    const model = await Repo.create({ repoId: "empty-tree", owner: user.model._id, status: "ready", statusDate: new Date(),
+      source: { type: "GitHubStream" }, options: { terms: [] } });
+    const repo = new Repository(model);
+    let fetches = 0, files = [];
+    const source = { getFiles: async () => { fetches++; return files; } };
+    Object.defineProperty(repo, "source", { get: () => source });
+    expect(await repo.files()).to.have.length(0);
+    const generation = repo.model.treeGeneration;
+    const fresh = new Repository(await Repo.findById(model._id));
+    Object.defineProperty(fresh, "source", { get: () => source });
+    fresh.updateIfNeeded = async () => { throw Error("unexpected refresh"); };
+    expect(await fresh.files()).to.have.length(0);
+    expect(await fresh.searchFiles("anything")).to.have.length(0);
+    expect(await fresh.isReady()).to.equal(true);
+    expect(fresh.model.treeGeneration).to.equal(generation); expect(fetches).to.equal(1);
+    files = [{ path: "", name: "new.txt", size: 1 }];
+    expect(await fresh.files({ force: true })).to.have.length(1);
+    expect(fresh.model.emptyTreeGeneration).to.equal(undefined);
+    expect((await Repo.findById(model._id)).emptyTreeGeneration).to.equal(undefined);
+    await File.deleteMany({ repoId: model.repoId });
+    let refreshed = false;
+    fresh.updateIfNeeded = async () => { refreshed = true; };
+    expect(await fresh.isReady()).to.equal(false); expect(refreshed).to.equal(true);
+  });
+
+  it("does not accept an empty-tree marker from a different generation", async () => {
+    const repo = new Repository(await Repo.create({ repoId: "stale-empty", status: "ready", statusDate: new Date(),
+      treeGeneration: "new", emptyTreeGeneration: "old", source: { type: "GitHubStream" } }));
+    let fetched = 0;
+    Object.defineProperty(repo, "source", { get: () => ({ getFiles: async () => { fetched++; return []; } }) });
+    expect(await repo.files()).to.have.length(0); expect(fetched).to.equal(1);
+    expect(repo.model.emptyTreeGeneration).to.equal(repo.model.treeGeneration);
   });
 
   it("keeps the active file tree when fetching its replacement fails", async () => {

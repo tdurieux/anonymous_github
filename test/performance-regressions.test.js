@@ -1,5 +1,6 @@
 const { expect } = require("chai");
 const { Readable, PassThrough } = require("node:stream");
+const { setImmediate } = require("node:timers");
 const { setTimeout: delay } = require("node:timers/promises");
 require("ts-node/register/transpile-only");
 const { AsyncCache } = require("../src/core/async-cache");
@@ -84,6 +85,31 @@ describe("performance regressions", function () {
     const files = await source.getTruncatedTree("head");
     expect(files).to.have.length(20); expect(calls).to.deep.equal([{ sha: "head", recursive: true }]);
   });
+
+  for (const [upstream, code, status] of [
+    [Object.assign(new Error("forbidden"), { response: { statusCode: 403 } }), "file_not_accessible", 403],
+    [Object.assign(new Error("missing"), { response: { statusCode: 404 } }), "file_not_found", 404],
+    [Object.assign(new Error("large"), { status: 422 }), "file_too_big", 422],
+    [Object.assign(new Error("missing"), { httpStatus: 404 }), "file_not_found", 404],
+    [Object.assign(new Error("reset"), { code: "ECONNRESET" }), "upstream_error", 502],
+    [new (require("../src/core/AnonymousError").default)("file_not_accessible", { httpStatus: 403 }), "file_not_accessible", 403],
+  ]) {
+    it(`preserves ${code}/${status} for failed downloads (${upstream.message})`, async () => {
+      const source = new GitHubStream({ repoId: "failed-download", organization: "owner", repoName: "repo", getToken: () => "token" });
+      const input = new PassThrough();
+      stub(storage, "fileInfo", async () => { throw Error("cache miss"); });
+      let committed = false;
+      stub(storage, "write", async (_repo, _path, stream) => { for await (const chunk of stream) void chunk; committed = true; });
+      source.downloadWithFallback = async () => { setImmediate(() => input.destroy(upstream)); return input; };
+      try { await source.getFileContentCache("file.txt", "failed-download", () => ({ sha: "blob", size: 1 })); throw Error("expected failure"); }
+      catch (error) {
+        expect(error.message).to.equal(code); expect(error.httpStatus).to.equal(status);
+        if (upstream instanceof require("../src/core/AnonymousError").default) expect(error).to.equal(upstream);
+        else expect(error.cause).to.equal(upstream);
+      }
+      expect(committed).to.equal(false); expect(input.destroyed).to.equal(true);
+    });
+  }
 
   it("falls back to shallow trees when GitHub truncates recursive results", async () => {
     const source = new GitHubStream({ repoId: "tree", organization: "owner", repoName: "repo", commit: "head", getToken: () => "token" });

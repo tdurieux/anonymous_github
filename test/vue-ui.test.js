@@ -935,6 +935,37 @@ describe("Vue 3 UI", function () {
     expect(ui.errors).to.deep.equal([]);
   });
 
+  it("loads dashboard summaries once initially and reloads when search or status changes", async () => {
+    ui = await browser("/dashboard", {
+      "/api/user": { username: "tester" },
+      "/api/user/dashboard": { items: [], total: 0, filtered: 0, attention: 0, cursor: null },
+    });
+    const requests = () => ui.requests.filter(request => request.url.pathname === "/api/user/dashboard");
+    await delay(200);
+    expect(requests()).to.have.length(1);
+    await ui.input('input[type="search"]', "package");
+    await delay(200);
+    expect(requests()).to.have.length(2); expect(requests()[1].url.searchParams.get("q")).to.equal("package");
+    ui.window.document.querySelector("#status-ready").click();
+    await delay(200);
+    expect(requests()).to.have.length(3); expect(requests()[2].url.searchParams.get("statuses")).not.to.include("ready");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("shows repository commit badges and details from dashboard summaries", async () => {
+    const commit = "abcdef1234567890";
+    ui = await browser("/dashboard", {
+      "/api/user": { username: "tester" },
+      "/api/user/dashboard": { items: [{ _type: "repo", repoId: "package", status: "ready",
+        source: { fullName: "owner/package", commit } }], total: 1, filtered: 1, attention: 0, cursor: null },
+    });
+    expect(ui.window.document.querySelector(".commit-hash").textContent).to.equal(commit.slice(0, 8));
+    const state = ui.window.document.querySelector("#search")._field.binding.state;
+    await state.showProjectDetails(state.items[0]);
+    expect(ui.window.document.querySelector(".project-details").textContent).to.include(commit);
+    expect(ui.errors).to.deep.equal([]);
+  });
+
   it("finds errors and stalled downloads without treating fresh queued projects as failures", async () => {
     ui = await browser("/dashboard", {
       "/api/user": { username: "tester" },

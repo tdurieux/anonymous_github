@@ -202,7 +202,7 @@ export default class Repository {
 
   private async ensureFileTree(opt: { force?: boolean; progress?: (status: string) => void } = {}) {
     this.assertNotArchived();
-    let hasFile = await FileModel.exists({ repoId: this.repoId, treeGeneration: this.model.treeGeneration || { $exists: false } }).exec();
+    let hasFile = this.hasEmptyTree() || await FileModel.exists({ repoId: this.repoId, treeGeneration: this.model.treeGeneration || { $exists: false } }).exec();
     // Files created by GitHubDownload don't carry a valid 40-char GitHub
     // blob SHA.  When the source type later switches to GitHubStream the
     // stale entries cause blob-API 404s.  Detect this by sampling a file
@@ -230,13 +230,18 @@ export default class Repository {
           treeGeneration: previousGeneration || { $exists: false }, ...this.refreshFilter(),
           status: this.model.status, statusDate: this.model.statusDate,
           "githubAccess.revision": this.model.githubAccess?.revision || { $exists: false },
-        }, { $set: { treeGeneration: generation, size: { storage: 0, file: 0 } }, $unset: { pathIndexKey: "", pathIndexBuiltAt: "", sizeComputedAt: "" } }).exec();
+        }, { $set: { treeGeneration: generation, size: { storage: 0, file: 0 },
+          ...(!files.length ? { emptyTreeGeneration: generation } : {}),
+        }, $unset: { pathIndexKey: "", pathIndexBuiltAt: "", sizeComputedAt: "",
+          ...(files.length ? { emptyTreeGeneration: "" } : {}),
+        } }).exec();
         if (!activated.matchedCount) {
           await FileModel.deleteMany({ repoId: this.repoId, treeGeneration: generation }).exec();
           this.model.treeGeneration = previousGeneration;
           throw new AnonymousError("repository_changed", { httpStatus: 409 });
         }
       }
+      this.model.emptyTreeGeneration = files.length ? undefined : generation;
       await FileModel.deleteMany({ repoId: this.repoId, treeGeneration: previousGeneration || { $exists: false } }).exec();
 
       const sourceWithTruncation = source as unknown as {
@@ -418,12 +423,16 @@ export default class Repository {
 
   async isReady() {
     if (this.status !== RepositoryStatus.READY) return false;
-    if (!(await FileModel.exists({ repoId: this.repoId, treeGeneration: this.model.treeGeneration || { $exists: false } }).exec())) {
+    if (!this.hasEmptyTree() && !(await FileModel.exists({ repoId: this.repoId, treeGeneration: this.model.treeGeneration || { $exists: false } }).exec())) {
       this.model.status = RepositoryStatus.PREPARING;
       await this.updateIfNeeded({ force: true });
       return false;
     }
     return true;
+  }
+
+  private hasEmptyTree() {
+    return !!this.model.treeGeneration && this.model.emptyTreeGeneration === this.model.treeGeneration;
   }
 
   private refreshToken?: string;
@@ -706,10 +715,13 @@ export default class Repository {
    * Expire the repository
    */
   async markExpired(force = false) {
+    const inactive = [RepositoryStatus.ARCHIVED, RepositoryStatus.REMOVED,
+      RepositoryStatus.REMOVING, RepositoryStatus.EXPIRED, RepositoryStatus.EXPIRING];
+    if (force && this.status && inactive.includes(this.status)) return;
     const now = new Date();
     if (isConnected) {
       const result = await AnonymizedRepositoryModel.updateOne({ _id: this.model._id,
-        status: RepositoryStatus.READY, ...(force ? {} : { "options.expirationMode": { $ne: "never" },
+        status: force ? { $nin: inactive } : RepositoryStatus.READY, ...(force ? {} : { "options.expirationMode": { $ne: "never" },
         "options.expirationDate": { $lte: now } }),
       }, { $set: { status: RepositoryStatus.EXPIRING, statusDate: now } }).exec();
       if (!result.matchedCount && force) return;
@@ -754,8 +766,8 @@ export default class Repository {
       await AnonymizedPathModel.deleteMany({ repoId: this.repoId, key: this.model.pathIndexKey }).exec();
       const result = await AnonymizedRepositoryModel.updateOne(lease, { $set: { status: RepositoryStatus.EXPIRED,
         statusDate: new Date(), isReseted: true, size: { storage: 0, file: 0 } },
-        $unset: { cleanupToken: "", cleanupUntil: "", pathIndexKey: "", pathIndexBuiltAt: "", sizeComputedAt: "" } }).exec();
-      if (result.matchedCount) { this.model.status = RepositoryStatus.EXPIRED; this.model.isReseted = true; this.model.size = { storage: 0, file: 0 }; this.model.sizeComputedAt = undefined; }
+        $unset: { cleanupToken: "", cleanupUntil: "", pathIndexKey: "", pathIndexBuiltAt: "", sizeComputedAt: "", emptyTreeGeneration: "" } }).exec();
+      if (result.matchedCount) { this.model.status = RepositoryStatus.EXPIRED; this.model.isReseted = true; this.model.size = { storage: 0, file: 0 }; this.model.sizeComputedAt = undefined; this.model.emptyTreeGeneration = undefined; }
     } finally {
       clearInterval(heartbeat);
       await AnonymizedRepositoryModel.updateOne({ _id: this.model._id, cleanupToken: token }, { $unset: { cleanupToken: "", cleanupUntil: "" } }).exec();
@@ -787,6 +799,10 @@ export default class Repository {
    */
   async resetSate(status?: RepositoryStatus, statusMessage?: string) {
     this.assertNotArchived();
+    this.model.emptyTreeGeneration = undefined;
+    if (isConnected) await AnonymizedRepositoryModel.updateOne({ _id: this.model._id,
+      treeGeneration: this.model.treeGeneration || { $exists: false },
+    }, { $unset: { emptyTreeGeneration: "" } }).exec();
     // remove attribute
     this._model.size = { storage: 0, file: 0 };
     if (status) {

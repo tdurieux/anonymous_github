@@ -50,6 +50,7 @@ const AnonymizedRepositorySchema = new Schema({
   cleanupToken: { type: String, select: false },
   cleanupUntil: { type: Date, select: false },
   treeGeneration: String,
+  emptyTreeGeneration: String,
   fileMetadataRevision: String,
   pathIndexKey: String,
   pathIndexBuiltAt: Date,

@@ -27,7 +27,7 @@ export function dashboardPipeline(user: User, query: Record<string, unknown>, no
     ];
   }
   const repoProject = project("repo", "repoId", "$source.repositoryName", "$source.repositoryName", {
-    repoId: 1, source: { fullName: "$source.repositoryName" }, coauthors: 1, size: 1,
+    repoId: 1, source: { fullName: "$source.repositoryName", commit: "$source.commit" }, coauthors: 1, size: 1,
     role: { $cond: [{ $eq: ["$owner", owner] }, "owner", "coauthor"] },
   });
   const prProject = project("pr", "pullRequestId", { $concat: [{ $ifNull: ["$source.repositoryFullName", ""] }, "#", { $toString: "$source.pullRequestId" }] },
