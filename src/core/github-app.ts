@@ -253,23 +253,23 @@ export async function boundAppToken(ownerId: string, binding: RepositoryAccess, 
   return token;
 }
 
-export async function selectRepositoryAccess(ownerId: string, fullName: string, choice?: unknown): Promise<{ token: string; binding: RepositoryAccess }> {
+export async function selectRepositoryAccess(ownerId: string, fullName: string, choice?: unknown, repositoryId?: number): Promise<{ token: string; binding: RepositoryAccess; fullName?: string }> {
   if (!/^[^/\s]+\/[^/\s]+$/.test(fullName)) throw appError("repo_not_found", 400);
   if (choice !== undefined && choice !== "oauth" && choice !== "github-app") throw appError("invalid_connection", 400);
   const hasApp = config.GITHUB_APP_ENABLED && await CredentialModel.exists({ ownerId, provider: APP_PROVIDER });
   if (choice === "github-app" || (choice === undefined && hasApp)) {
-    const repo = (await appRepositories(ownerId)).find(r => r.full_name.toLowerCase() === fullName.toLowerCase());
+    const repo = (await appRepositories(ownerId)).find(r => repositoryId === undefined ? r.full_name.toLowerCase() === fullName.toLowerCase() : r.id === repositoryId);
     if (!repo) {
       const userToken = await appUserToken(ownerId);
       const publicRepo = await githubRequest<GitHubRepositoryInfo>(
-        `/repos/${fullName.split("/").map(encodeURIComponent).join("/")}`, userToken);
+        repositoryId === undefined ? `/repos/${fullName.split("/").map(encodeURIComponent).join("/")}` : `/repositories/${repositoryId}`, userToken);
       if (publicRepo.private !== false || publicRepo.visibility !== "public" || !Number.isSafeInteger(publicRepo.id)) throw appError("github_app_access_required");
       const binding: RepositoryAccess = { kind: "github-app", publicRead: true,
         repositoryId: publicRepo.id, revision: randomUUID() };
-      return { binding, token: await boundAppToken(ownerId, binding, fullName) };
+      return { binding, fullName: publicRepo.full_name, token: await boundAppToken(ownerId, binding, publicRepo.full_name) };
     }
     const binding: RepositoryAccess = { kind: "github-app", repositoryId: repo.id, installationId: repo.installationId, revision: randomUUID() };
-    return { binding, token: await boundAppToken(ownerId, binding, fullName) };
+    return { binding, fullName: repo.full_name, token: await boundAppToken(ownerId, binding, repo.full_name) };
   }
   const token = await getCredentialToken(ownerId);
   if (!token) throw appError("github_oauth_required");
