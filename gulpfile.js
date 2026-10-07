@@ -67,7 +67,10 @@ function buildCoreJs(cb) {
 async function buildVendorJs() {
   const lazyAssets = {};
   await Promise.all(Object.entries(lazyGroups).map(async ([name, files]) => {
-    await promisify(pipeline)(orderedSrc(files), concat(`${name}.min.js`), uglify(), dest("public/script"));
+    // PDF.js is already minified upstream. Re-minifying it breaks rendering
+    // for documents such as #857, even though page.render() resolves.
+    const transforms = name === "pdf" ? [] : [uglify()];
+    await promisify(pipeline)(orderedSrc(files), concat(`${name}.min.js`), ...transforms, dest("public/script"));
     lazyAssets[name] = `/script/${name}.${hashFile(`public/script/${name}.min.js`)}.min.js`;
   }));
   const app = await esbuild.build({

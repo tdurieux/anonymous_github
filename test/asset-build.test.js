@@ -66,6 +66,15 @@ describe("asset build", function () {
     }
   });
 
+  it("ships the upstream PDF.js bytes without a second minification pass", function () {
+    const upstream = fs.readFileSync(path.join(path.dirname(gulpfile), groups.pdfFiles[0]));
+    fs.writeFileSync(path.join(directory, groups.pdfFiles[0]), upstream);
+    const result = build();
+    expect(result.status, result.stderr).to.equal(0);
+    const bundled = fs.readFileSync(path.join(directory, "public/script/pdf.min.js"));
+    expect(bundled.equals(upstream)).to.equal(true);
+  });
+
   it("fails on missing input without publishing a manifest", function () {
     fs.unlinkSync(path.join(directory, groups.coreJsFiles[0]));
     const result = build();
@@ -75,7 +84,7 @@ describe("asset build", function () {
   });
 
   it("fails on invalid JavaScript without publishing a manifest", function () {
-    fs.writeFileSync(path.join(directory, groups.pdfFiles[0]), "function {");
+    fs.writeFileSync(path.join(directory, groups.markdownFiles[0]), "function {");
     const result = build();
     expect(result.status).not.to.equal(0);
     expect(result.stderr).to.include("uglify");
