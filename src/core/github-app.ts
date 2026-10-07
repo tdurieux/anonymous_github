@@ -253,12 +253,12 @@ export async function boundAppToken(ownerId: string, binding: RepositoryAccess, 
   return token;
 }
 
-export async function selectRepositoryAccess(ownerId: string, fullName: string, choice?: unknown): Promise<{ token: string; binding: RepositoryAccess }> {
+export async function selectRepositoryAccess(ownerId: string, fullName: string, choice?: unknown, repositoryId?: number): Promise<{ token: string; binding: RepositoryAccess }> {
   if (!/^[^/\s]+\/[^/\s]+$/.test(fullName)) throw appError("repo_not_found", 400);
   if (choice !== undefined && choice !== "oauth" && choice !== "github-app") throw appError("invalid_connection", 400);
   const hasApp = config.GITHUB_APP_ENABLED && await CredentialModel.exists({ ownerId, provider: APP_PROVIDER });
   if (choice === "github-app" || (choice === undefined && hasApp)) {
-    const repo = (await appRepositories(ownerId)).find(r => r.full_name.toLowerCase() === fullName.toLowerCase());
+    const repo = (await appRepositories(ownerId)).find(r => repositoryId === undefined ? r.full_name.toLowerCase() === fullName.toLowerCase() : r.id === repositoryId);
     if (!repo) {
       const userToken = await appUserToken(ownerId);
       const publicRepo = await githubRequest<GitHubRepositoryInfo>(

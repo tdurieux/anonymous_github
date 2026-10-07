@@ -25,7 +25,8 @@ for (const type of ["repository", "pull-request"]) {
       stub(config, "GITHUB_APP_ENABLED", true); stub(config, "GITHUB_APP_NEW_CONNECTIONS", true);
       stub(utils, "getUser", async () => ({ id: owner }));
       stub(utils, "handleError", error => { throw error; });
-      stub(app, "selectRepositoryAccess", async (id, name, connection) => {
+      stub(app, "selectRepositoryAccess", async (id, name, connection, repositoryId) => {
+        expect(repositoryId).to.equal(42);
         expect([id, name, connection]).to.deep.equal(["owner", "owner/private", "github-app"]);
         return selected;
       });
@@ -54,7 +55,7 @@ for (const type of ["repository", "pull-request"]) {
       expect(writes[0].update).to.deep.equal({ $set: { githubAccess: selected.binding } });
       expect(writes[0].filter.githubAccess).to.deep.equal(model.githubAccess);
       expect(writes[0].filter.source).to.deep.equal(model.source);
-      expect(checks).to.deep.equal([{ url: type === "repository" ? "/repos/owner/private/commits/saved-sha" : "/repos/owner/private/pulls/7", token: "fresh-token" }]);
+      expect(checks).to.deep.equal([{ url: type === "repository" ? "/repositories/42/commits/saved-sha" : "/repositories/42/pulls/7", token: "fresh-token" }]);
     });
     it("rejects a replacement repository at the same name", async function () {
       selected.binding.repositoryId = 99; await fails("connection_changed"); expect(checks).to.have.length(0);

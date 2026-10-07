@@ -496,6 +496,34 @@ describeMongo("GitHub App credential and repository integration", function () {
     expect(await Credentials.countDocuments()).to.equal(0);
     expect(await Users.countDocuments()).to.equal(1);
   });
+  it("recovers a renamed private pull request through its stable repository ID", async () => {
+    const PRs = require("../src/core/model/anonymizedPullRequests/anonymizedPullRequests.model").default;
+    await app.saveAppGrant(owner.id, data());
+    const resource = await PRs.create({ pullRequestId: "renamed-pr", owner: owner.id, status: "ready",
+      source: { repositoryFullName: "owner/old-name", pullRequestId: 7 }, options: { terms: ["owner"] },
+      githubAccess: { kind: "github-app", repositoryId: 42, installationId: 3, revision: "old" } });
+    mock(url => {
+      if (url.includes("/user/installations?")) return { installations: [{ id: 4, app_id: 123, account: { id: 10, login: "owner", type: "User" } }] };
+      if (url.includes("/user/installations/4/repositories")) return { repositories: [
+        { id: 99, full_name: "owner/old-name", private: true }, { id: 42, full_name: "owner/new-name", private: true },
+      ] };
+      if (url.endsWith("/repositories/42")) return { id: 42 };
+      if (url.endsWith("/app/installations/4")) return { app_id: 123, permissions: { contents: "read", metadata: "read" } };
+      if (url.endsWith("/access_tokens")) return { token: "ghs_reinstalled", expires_at: new Date(Date.now() + 3600000).toISOString() };
+      if (url.endsWith("/repositories/42/pulls/7")) return { number: 7 };
+      throw new Error("Unexpected request " + url);
+    });
+    const body = { type: "pull-request", id: resource.pullRequestId, connection: "github-app" };
+    expect((await request("/github/connections/migrate", { ...body, preview: true })).status).to.equal(200);
+    expect((await PRs.findById(resource.id)).githubAccess.installationId).to.equal(3);
+    expect((await request("/github/connections/migrate", body)).status).to.equal(200);
+    const repaired = await PRs.findById(resource.id);
+    expect(repaired.githubAccess.repositoryId).to.equal(42);
+    expect(repaired.githubAccess.installationId).to.equal(4);
+    expect(repaired.source.repositoryFullName).to.equal("owner/old-name");
+    expect(repaired.pullRequestId).to.equal("renamed-pr");
+  });
+
   it("migrates only the owner's resource after checking its configured commit", async () => {
     const Repos = require("../src/core/model/anonymizedRepositories/anonymizedRepositories.model").default;
     await app.saveAppGrant(owner.id, data());
