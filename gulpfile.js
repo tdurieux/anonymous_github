@@ -8,6 +8,7 @@ const crypto = require("crypto");
 const fs = require("fs");
 const esbuild = require("esbuild");
 const { compileTemplate } = require("vue/compiler-sfc");
+const { Script } = require("node:vm");
 const { promisify } = require("node:util");
 
 const coreJsFiles = [
@@ -69,6 +70,9 @@ async function buildVendorJs() {
   await Promise.all(Object.entries(lazyGroups).map(async ([name, files]) => {
     // PDF.js is already minified upstream. Re-minifying it breaks rendering
     // for documents such as #857, even though page.render() resolves.
+    if (name === "pdf") {
+      for (const file of files) new Script(fs.readFileSync(file, "utf8"), { filename: file });
+    }
     const transforms = name === "pdf" ? [] : [uglify()];
     await promisify(pipeline)(orderedSrc(files), concat(`${name}.min.js`), ...transforms, dest("public/script"));
     lazyAssets[name] = `/script/${name}.${hashFile(`public/script/${name}.min.js`)}.min.js`;

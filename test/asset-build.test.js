@@ -75,6 +75,14 @@ describe("asset build", function () {
     expect(bundled.equals(upstream)).to.equal(true);
   });
 
+  it("rejects invalid PDF.js without publishing a manifest", function () {
+    fs.writeFileSync(path.join(directory, groups.pdfFiles[0]), "function {");
+    const result = build();
+    expect(result.status).not.to.equal(0);
+    expect(result.stderr).to.include("SyntaxError");
+    expect(fs.existsSync(path.join(directory, "public/asset-manifest.json"))).to.equal(false);
+  });
+
   it("fails on missing input without publishing a manifest", function () {
     fs.unlinkSync(path.join(directory, groups.coreJsFiles[0]));
     const result = build();
