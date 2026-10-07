@@ -6,16 +6,16 @@
   </div>
 
   <nav class="admin-nav">
-    <a href="/admin/" class="active"><i class="fas fa-tachometer-alt"></i> Overview</a>
-    <a href="/admin/repositories"><i class="fas fa-code-branch"></i> Repositories</a>
-    <a href="/admin/users"><i class="fas fa-users"></i> Users</a>
-    <a href="/admin/conferences"><i class="fas fa-chalkboard-teacher"></i> Conferences</a>
-    <a href="/admin/queues"><i class="fas fa-tasks"></i> Queues</a>
-    <a href="/admin/errors"><i class="fas fa-bug"></i> Errors</a>
+    <a href="/admin/" class="active"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-chart"></use></svg> Overview</a>
+    <a href="/admin/repositories"><svg class="ui-icon" aria-hidden="true"><use href="#project-type-repo"></use></svg> Repositories</a>
+    <a href="/admin/users"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-users"></use></svg> Users</a>
+    <a href="/admin/conferences"><svg class="ui-icon" aria-hidden="true"><use href="#project-icon-conference"></use></svg> Conferences</a>
+    <a href="/admin/queues"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-list"></use></svg> Queues</a>
+    <a href="/admin/errors"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-bug"></use></svg> Errors</a>
   </nav>
 
   <div class="admin-empty" v-if="loading">Loading overview&hellip;</div>
-  <div class="alert alert-danger" style="margin:12px 0" v-if="error"><i class="fas fa-exclamation-triangle"></i> {{ error }}</div>
+  <div class="alert alert-danger" style="margin:12px 0" v-if="error"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-warning"></use></svg> {{ error }}</div>
 
   <div v-if="data">
 

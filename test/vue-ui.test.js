@@ -77,6 +77,336 @@ describe("Vue 3 UI", function () {
   let ui;
   afterEach(() => ui?.close());
 
+  const repositorySource = {
+    "/api/user": { username: "owner" },
+    "/api/user/default": { terms: ["Default Author"], options: {} },
+    "/api/repo/owner/repo/": { defaultBranch: "main", repo: "repo", hasPage: false },
+    "/api/repo/owner/repo/branches": [{ name: "main", commit: "abcdef123" }],
+    "/api/repo/owner/repo/readme": "# Private Author",
+    "/api/anonymize-preview": request => ({ content: request.payload.content.replaceAll("Private Author", "MASKED") }),
+  };
+
+  it("keeps the current repository when earlier metadata and README responses arrive late", async () => {
+    let finishMetadata, finishReadme;
+    ui = await browser("/anonymize", {
+      ...repositorySource,
+      "/api/repo/owner/old/": () => new Promise(resolve => { finishMetadata = () => resolve({ repo: "old", id: "old-id", defaultBranch: "old-main", hasPage: true }); }),
+      "/api/repo/owner/old/readme": () => new Promise(resolve => { finishReadme = () => resolve("OLD PRIVATE README"); }),
+      "/api/repo/owner/repo/": { repo: "repo", id: "new-id", defaultBranch: "main", hasPage: false },
+      "/api/anonymize-preview": request => ({ content: request.payload.content }),
+    });
+    const state = ui.window.document.querySelector("#sourceUrl")._field.binding.state;
+    state.sourceUrl = "https://github.com/owner/old";
+    const oldLoad = state.urlSelected();
+    await delay(10);
+    state.sourceUrl = "https://github.com/owner/repo";
+    await state.urlSelected();
+    finishMetadata(); finishReadme(); await oldLoad;
+    await delay(240);
+    expect(state.details.repo).to.equal("repo");
+    expect(state.repositoryID).to.equal("new-id");
+    expect(state.source.branch).to.equal("main");
+    expect(ui.window.document.querySelector(".anonymize-preview-body").textContent).to.include("Private Author");
+    expect(ui.window.document.querySelector(".anonymize-preview-body").textContent).not.to.include("OLD PRIVATE README");
+    expect(state.sourceLoading).to.equal(false);
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("ignores old branches and source errors after changing repositories", async () => {
+    let finishBranches;
+    ui = await browser("/anonymize", {
+      ...repositorySource,
+      "/api/repo/owner/old/": { repo: "old", defaultBranch: "old-main" },
+      "/api/repo/owner/old/readme": "",
+      "/api/repo/owner/old/branches": () => new Promise(resolve => { finishBranches = () => resolve({ __status: 404, body: { error: "repo_not_found" } }); }),
+    });
+    const state = ui.window.document.querySelector("#sourceUrl")._field.binding.state;
+    state.sourceUrl = "https://github.com/owner/old"; const oldLoad = state.urlSelected();
+    await delay(10);
+    state.sourceUrl = "https://github.com/owner/repo"; await state.urlSelected();
+    finishBranches(); await oldLoad;
+    expect(state.branches.map(b => b.name)).to.deep.equal(["main"]);
+    expect(state.anonymize.sourceUrl.invalid).to.equal(false);
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("reloads a source when the default GitHub connection arrives after source loading begins", async () => {
+    let finishConnections, finishOldMetadata;
+    ui = await browser("/anonymize", {
+      ...repositorySource,
+      "/github/connections": () => new Promise(resolve => { finishConnections = () => resolve({ appEnabled: true, appConnected: true }); }),
+      "/api/repo/owner/repo/": request => request.url.searchParams.get("connection") === "github-app"
+        ? { repo: "repo", id: "app-id", defaultBranch: "main" }
+        : new Promise(resolve => { finishOldMetadata = () => resolve({ repo: "old", id: "old-id", defaultBranch: "old-main" }); }),
+    });
+    const state = ui.window.document.querySelector("#sourceUrl")._field.binding.state;
+    state.sourceUrl = "https://github.com/owner/repo";
+    const oldLoad = state.urlSelected();
+    await delay(10);
+    finishConnections();
+    await delay(50);
+    finishOldMetadata(); await oldLoad;
+    expect(state.githubConnection).to.equal("github-app");
+    expect(state.repositoryID).to.equal("app-id");
+    expect(state.source.branch).to.equal("main");
+    expect(state.sourceLoading).to.equal(false);
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  for (const kind of ["pr", "gist"]) {
+    it(`ignores late ${kind} metadata after switching sources`, async () => {
+      let finish;
+      const oldPath = kind === "pr" ? "/api/pr/owner/old/42" : "/api/gist/source/abc123";
+      ui = await browser("/anonymize", { ...repositorySource, [oldPath]: () => new Promise(resolve => { finish = () => resolve(kind === "pr" ? { pullRequest: { title: "OLD PR" } } : { gist: { description: "OLD GIST" } }); }) });
+      const state = ui.window.document.querySelector("#sourceUrl")._field.binding.state;
+      state.sourceUrl = kind === "pr" ? "https://github.com/owner/old/pull/42" : "https://gist.github.com/abc123";
+      const oldLoad = state.urlSelected(); await delay(10);
+      state.sourceUrl = "https://github.com/owner/repo"; await state.urlSelected();
+      finish(); await oldLoad;
+      expect(state.details.repo).to.equal("repo");
+      expect(state.detectedType).to.equal("repo");
+      expect(ui.errors).to.deep.equal([]);
+    });
+  }
+
+  it("preserves and restores edits made while defaults are saving", async () => {
+    let finishSave;
+    ui = await browser("/profile", { ...repositorySource, "/api/user/default": request => request.method === "POST"
+      ? new Promise(resolve => { finishSave = () => resolve({}); })
+      : { terms: ["Original"], options: {} } });
+    await ui.input("#terms", "Submitted terms");
+    ui.window.document.querySelector("#save").click(); await delay(10);
+    await ui.input("#terms", "Newer unsaved terms"); await delay(270);
+    finishSave(); await delay(30);
+    expect(ui.window.document.querySelector("#terms").value).to.equal("Newer unsaved terms");
+    expect(JSON.parse(ui.window.sessionStorage.getItem("form-draft:profile")).values.terms).to.equal("Newer unsaved terms");
+    expect(ui.window.document.querySelector("#save").textContent).not.to.equal("Saved");
+    await ui.go("/dashboard"); await ui.go("/profile");
+    expect(ui.window.document.querySelector("#terms").value).to.equal("Newer unsaved terms");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("discards a restored draft and cancels pending textarea edits", async () => {
+    ui = await browser("/profile", repositorySource, { "form-draft:profile": { account: "owner", savedAt: Date.now(), values: { terms: "Restored draft", options: {} } } });
+    await ui.input("#terms", "Pending edit");
+    ui.window.document.querySelector(".draft-discard").click(); await delay(300);
+    expect(ui.window.document.querySelector("#terms").value).to.equal("Default Author");
+    expect(ui.window.sessionStorage.getItem("form-draft:profile")).to.equal(null);
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("uses a readable fallback for unknown settings errors", async () => {
+    ui = await browser("/profile", { ...repositorySource, "/api/user/default": request => request.method === "POST" ? { __status: 503, body: { error: "untranslated_failure" } } : { terms: [], options: {} } });
+    ui.window.document.querySelector("#save").click(); await delay(30);
+    expect(ui.window.document.querySelector('[role="alert"]').textContent).to.include("Unable to save your defaults");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("shows conference load failures and retries without a false empty state", async () => {
+    let fail = true;
+    ui = await browser("/conferences", { "/api/user": { username: "owner" }, "/api/conferences/": () => fail ? { __status: 503, body: { error: "unavailable" } } : [{ conferenceID: "ICSE26", name: "ICSE 2026", status: "ready" }] });
+    expect(ui.window.document.body.textContent).to.include("Unable to load your conferences");
+    expect(ui.window.document.body.textContent).not.to.include("You have not created a conference yet");
+    fail = false; ui.window.document.querySelector(".conference-feedback button").click(); await delay(30);
+    await ui.input("#search", " icse ");
+    expect(ui.window.document.querySelector(".repo-name").textContent).to.equal("ICSE 2026");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("prevents duplicate conference saves and keeps a visible failure message", async () => {
+    let finishSave;
+    ui = await browser("/conference/new", { "/api/user": { username: "owner" }, "/api/conferences/": () => new Promise(resolve => { finishSave = () => resolve({ __status: 503, body: { error: "unavailable" } }); }) });
+    await ui.input("#name", "Test venue"); await ui.input("#conferenceID", "TEST26");
+    const button = ui.window.document.querySelector("#send"); button.click(); button.click(); await delay(10);
+    expect(button.disabled).to.equal(true);
+    expect(ui.requests.filter(r => r.method === "POST" && r.url.pathname === "/api/conferences/")).to.have.length(1);
+    finishSave(); await delay(30);
+    expect(button.disabled).to.equal(false);
+    expect(ui.window.document.querySelector('[role="alert"]').textContent).to.include("Unable to save the conference");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("keeps an enabled PR preview selected and supports arrow-key navigation", async () => {
+    ui = await browser("/pull-request-anonymize/saved", {
+      ...repositorySource,
+      "/api/pr/saved": { source: { repositoryFullName: "owner/repo", pullRequestId: 42 }, options: { terms: [] } },
+      "/api/pr/owner/repo/42": { pullRequest: { title: "Example", diff: "diff --git a/a b/a\n--- a/a\n+++ b/a\n@@ -1 +1 @@\n-old\n+new", comments: [{ author: "Reviewer", body: "Visible comment" }] } },
+      "/api/anonymize-preview": request => ({ contents: request.payload.contents }),
+    });
+    await delay(250);
+    ui.window.document.querySelector("#diff").click(); await delay(240);
+    expect(ui.window.document.querySelector("#preview-pr-comments-tab").getAttribute("aria-selected")).to.equal("true");
+    expect(ui.window.document.querySelector("#preview-pr-comments-panel").textContent).to.include("Visible comment");
+    ui.window.document.querySelector("#diff").click(); await delay(240);
+    ui.window.document.querySelector("#preview-pr-comments-tab").dispatchEvent(new ui.window.KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true })); await delay(10);
+    expect(ui.window.document.activeElement.id).to.equal("preview-pr-diff-tab");
+    expect(ui.window.document.querySelector("#preview-pr-diff-tab").getAttribute("aria-selected")).to.equal("true");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("keeps focus during partial URL entry and transfers it after a valid URL", async () => {
+    ui = await browser("/anonymize", repositorySource);
+    const landing = ui.window.document.querySelector("#sourceUrl-landing");
+    landing.focus();
+    await ui.input("#sourceUrl-landing", "h");
+    await delay(1050);
+    expect(ui.window.document.activeElement).to.equal(landing);
+    expect(ui.window.document.querySelector(".anonymize-workspace").style.display).to.equal("none");
+    await ui.input("#sourceUrl-landing", "https://github.com/owner/repo");
+    landing.dispatchEvent(new ui.window.Event("blur"));
+    await delay(40);
+    expect(ui.window.document.activeElement.id).to.equal("sourceUrl");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("keeps custom redactions, identifiers and commits when correcting the same source URL", async () => {
+    ui = await browser("/anonymize", repositorySource);
+    const source = await ui.input("#sourceUrl", "https://github.com/owner/repo");
+    source.dispatchEvent(new ui.window.Event("blur"));
+    await delay(40);
+    await ui.input("#terms", "Private Author");
+    await delay(270);
+    const id = await ui.input("#repoId", "chosen-id");
+    id.dispatchEvent(new ui.window.Event("blur"));
+    await ui.input("#commit", "123456abcdef");
+    await ui.input("#sourceUrl", "https://github.com/owner/repo/");
+    source.dispatchEvent(new ui.window.Event("blur"));
+    await delay(50);
+    expect(ui.window.document.querySelector("#terms").value).to.equal("Private Author");
+    expect(ui.window.document.querySelector("#repoId").value).to.equal("chosen-id");
+    expect(ui.window.document.querySelector("#commit").value).to.equal("123456abcdef");
+    expect(ui.window.document.querySelector(".anonymize-form-col").textContent).not.to.include("Switch the branch above");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  for (const kind of ["repo", "pr", "gist"]) {
+    it(`hides original ${kind} content after a preview failure and supports retry`, async () => {
+      let fail = true;
+      const route = { repo: "/anonymize/saved", pr: "/pull-request-anonymize/saved", gist: "/gist-anonymize/saved" }[kind];
+      const fixtures = {
+        ...repositorySource,
+        "/api/repo/saved": { source: { fullName: "owner/repo", branch: "main", commit: "abcdef123" }, options: { terms: ["Private Author"] } },
+        "/api/pr/saved": { source: { repositoryFullName: "owner/repo", pullRequestId: 42 }, options: { terms: ["Private Author"] } },
+        "/api/pr/owner/repo/42": { pullRequest: { title: "Private Author", body: "Private Author body", comments: [] } },
+        "/api/gist/saved": { source: { gistId: "abc123" }, options: { terms: ["Private Author"] } },
+        "/api/gist/source/abc123": { gist: { description: "Private Author", files: [{ filename: "code.txt", content: "Private Author" }], comments: [] } },
+        "/api/anonymize-preview": request => {
+          if (fail) return { __status: 503, body: { error: "unavailable" } };
+          const mask = value => value.replaceAll("Private Author", "MASKED");
+          return request.payload.contents ? { contents: request.payload.contents.map(mask) } : { content: mask(request.payload.content) };
+        },
+      };
+      ui = await browser(route, fixtures);
+      await delay(280);
+      const preview = () => ui.window.document.querySelector(".anonymize-preview-col");
+      expect(preview().textContent).to.include("Unable to generate");
+      expect(preview().textContent).not.to.include("Private Author");
+      expect(preview().textContent).not.to.include("redactions applied");
+      fail = false;
+      [...preview().querySelectorAll("button")].find(b => b.textContent === "Retry preview").click();
+      await delay(260);
+      expect(preview().textContent).to.include("MASKED");
+      expect(preview().textContent).to.include("redactions applied");
+      expect(ui.errors).to.deep.equal([]);
+    });
+  }
+
+  it("ignores an old preview response while new redactions are waiting for the debounce", async () => {
+    let finishOld;
+    let count = 0;
+    ui = await browser("/pull-request-anonymize/saved", {
+      "/api/user": { username: "owner" },
+      "/api/pr/saved": { source: { repositoryFullName: "owner/repo", pullRequestId: 42 }, options: { terms: ["Alice"] } },
+      "/api/pr/owner/repo/42": { pullRequest: { title: "Alice", comments: [] } },
+      "/api/anonymize-preview": () => ++count === 1
+        ? new Promise(resolve => { finishOld = () => resolve({ contents: ["OLD PREVIEW"] }); })
+        : { contents: ["LATEST PREVIEW"] },
+    });
+    await delay(240);
+    await ui.input("#terms", "Bob");
+    await delay(270);
+    finishOld();
+    await delay(20);
+    const preview = () => ui.window.document.querySelector(".anonymize-preview-col").textContent;
+    expect(preview()).not.to.include("OLD PREVIEW");
+    expect(preview()).to.include("Updating");
+    await delay(230);
+    expect(preview()).to.include("LATEST PREVIEW");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("submits billing details for a new paid conference", async () => {
+    ui = await browser("/conference/new", {
+      "/api/user": { username: "owner" },
+      "/api/conferences/plans": [{ id: "free_conference", name: "Free", pricePerRepo: 0 }, { id: "premium_conference", name: "Premium", pricePerRepo: 0.5 }],
+    });
+    await ui.input("#name", "Review venue");
+    await ui.input("#conferenceID", "REVIEW26");
+    ui.window.document.querySelector('input[value="premium_conference"]').click();
+    await delay(20);
+    for (const [id, value] of Object.entries({ billing_name: "Jane Smith", email: "jane@example.org", inputAddress: "12 Main St", city: "Paris", country: "France", zip: "75001" })) await ui.input("#" + id, value);
+    expect(ui.window.document.querySelector("#billing_name").value).to.equal("Jane Smith");
+    ui.window.document.querySelector("#send").click();
+    await delay(30);
+    const request = ui.requests.find(r => r.method === "POST" && r.url.pathname === "/api/conferences/");
+    expect(request?.payload.billing).to.include({ name: "Jane Smith", email: "jane@example.org", city: "Paris" });
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("opens FAQ fragments on direct load and subsequent navigation", async () => {
+    ui = await browser("/faq#formats");
+    await delay(370);
+    expect(ui.window.document.querySelector("#formats").classList.contains("show")).to.equal(true);
+    expect(ui.window.document.activeElement.id).to.equal("headingFormats");
+    await ui.go("/faq#permissions");
+    await delay(370);
+    expect(ui.window.document.querySelector("#permissions").classList.contains("show")).to.equal(true);
+    expect(ui.window.document.activeElement.id).to.equal("headingPermissions");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  for (const page of ["profile", "anonymize"]) {
+    it(`restores unsaved ${page} redactions after navigation`, async () => {
+      ui = await browser("/" + page, repositorySource);
+      await ui.input("#terms", "Unsaved Author");
+      // Leaving must flush the pending textarea debounce into the draft.
+      await ui.go("/dashboard");
+      await ui.go("/" + page);
+      await delay(40);
+      expect(ui.window.document.querySelector("#terms").value).to.equal("Unsaved Author");
+      expect(ui.window.document.querySelector(".draft-status").textContent).to.include("restored");
+      expect(ui.errors).to.deep.equal([]);
+    });
+  }
+
+  it("does not restore another account's draft", async () => {
+    ui = await browser("/profile", { "/api/user": { username: "owner" } }, {
+      "form-draft:profile": { account: "someone-else", savedAt: Date.now(), values: { terms: "Other account", options: {} } },
+    });
+    expect(ui.window.document.querySelector("#terms").value).not.to.equal("Other account");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("copies the anonymous URL and reports a clipboard failure without claiming success", async () => {
+    ui = await browser("/dashboard", {
+      "/api/user": { username: "owner" },
+      "/api/user/anonymized_repositories": [{ repoId: "share-me", status: "ready", source: { fullName: "owner/private" }, options: {} }],
+    });
+    const copied = [];
+    ui.window.navigator.clipboard = { writeText: async value => copied.push(value) };
+    const button = [...ui.window.document.querySelectorAll("button")].find(b => b.textContent.includes("Copy anonymous link"));
+    button.click();
+    await delay(20);
+    expect(copied).to.deep.equal(["http://localhost/r/share-me/"]);
+    expect(ui.app.state.toasts[0].title).to.equal("Link copied");
+    ui.window.navigator.clipboard.writeText = async () => { throw Error("Denied"); };
+    button.click();
+    await delay(20);
+    expect(ui.app.state.toasts.at(-1).title).to.equal("Copy this anonymous link");
+    expect(ui.app.state.toasts.at(-1).body).to.equal("http://localhost/r/share-me/");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
   for (const path of [
     "/r/submission-artifact-604F/",
     "/r/submission-artifact-604F",
@@ -550,6 +880,41 @@ describe("Vue 3 UI", function () {
     expect(ui.errors).to.deep.equal([]);
   });
 
+  it("shows quota limits accessibly and dismisses usage with Escape or an outside click", async () => {
+    ui = await browser("/dashboard", {
+      "/api/user": { username: "tester" },
+      "/api/user/quota": {
+        repository: { used: 21, total: 20 },
+        storage: { used: 0, total: 1024 },
+        file: { used: 1381, total: 0 },
+      },
+    });
+    const doc = ui.window.document;
+    const details = doc.querySelector(".dashboard-quota");
+    const summary = details.querySelector("summary");
+    summary.click();
+    await delay(20);
+    expect(details.open).to.equal(true);
+    const bars = [...details.querySelectorAll('[role="progressbar"]')];
+    expect(bars).to.have.length(2);
+    expect(bars[0].getAttribute("aria-valuenow")).to.equal("20");
+    expect(bars[0].getAttribute("aria-valuemax")).to.equal("20");
+    expect(bars[1].getAttribute("aria-valuenow")).to.equal("0");
+    expect(details.textContent).to.include("Limit exceeded").and.include("Unlimited");
+    doc.querySelector('[aria-label="Close usage"]').focus();
+    doc.activeElement.dispatchEvent(new ui.window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    await delay(20);
+    expect(details.open).to.equal(false);
+    expect(doc.activeElement).to.equal(summary);
+    summary.click();
+    await delay(20);
+    doc.querySelector("#search").click();
+    await delay(20);
+    expect(details.open).to.equal(false);
+    expect(summary.getAttribute("aria-expanded")).to.equal("false");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
   it("filters loaded dashboard rows through search and status controls", async function () {
     ui = await browser("/dashboard", {
       "/api/user": { username: "tester" },
@@ -567,6 +932,93 @@ describe("Vue 3 UI", function () {
     ui.window.document.querySelector("#status-ready").click();
     await delay(10);
     expect(rows()).to.have.length(0);
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("finds errors and stalled downloads without treating fresh queued projects as failures", async () => {
+    ui = await browser("/dashboard", {
+      "/api/user": { username: "tester" },
+      "/api/user/anonymized_repositories": [
+        { repoId: "ready", status: "ready", source: { fullName: "owner/ready" } },
+        { repoId: "error", status: "error", statusMessage: "branch_not_found", source: { fullName: "owner/error" } },
+        { repoId: "fresh", status: "queue", anonymizeDate: new Date().toISOString(), source: { fullName: "owner/fresh" } },
+        { repoId: "stalled", status: "download", anonymizeDate: "2000-01-01T00:00:00Z", source: { fullName: "owner/stalled" } },
+      ],
+    });
+    const state = ui.window.document.querySelector("#search")._field.binding.state;
+    expect(state.attentionCount()).to.equal(2);
+    state.filters.status.error = false;
+    state.setProjectView("attention");
+    await delay(10);
+    expect(state.filteredItems.map(item => item._id).sort()).to.deep.equal(["error", "stalled"]);
+    expect(ui.window.document.querySelector('[href="/anonymize/error"]').textContent).to.equal("Fix source");
+    expect(ui.window.document.querySelector(".filter-chip")?.textContent).not.to.include("Error hidden");
+    await ui.input("#search", "stalled");
+    expect(state.filteredItems).to.have.length(1);
+    state.clearFilters(); await delay(10);
+    expect(state.filteredItems).to.have.length(4);
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("saves private project names and can search them after returning to the dashboard", async () => {
+    const gist = { gistId: "g-demo", status: "ready", source: { gistId: "a1b2c3d4e5" } };
+    let payload;
+    ui = await browser("/dashboard", {
+      "/api/user": { username: "tester" },
+      "/api/user/anonymized_gists": () => [gist],
+      "/api/user/project-name": request => { payload = request.payload; gist.projectName = payload.name; return { name: payload.name }; },
+    });
+    const state = ui.window.document.querySelector("#search")._field.binding.state;
+    expect(state.items[0]._label).to.equal("Gist g-demo");
+    await state.showProjectDetails(state.items[0]);
+    await ui.input("#project-name-gist-g-demo", "Training utilities");
+    ui.window.document.querySelector(".project-name-form").dispatchEvent(new ui.window.Event("submit", { bubbles: true, cancelable: true }));
+    await delay(20);
+    expect(payload).to.deep.equal({ type: "gist", id: "g-demo", name: "Training utilities" });
+    expect(ui.window.document.querySelector(".repo-name").textContent).to.equal("Training utilities");
+    await ui.go("/faq"); await ui.go("/dashboard");
+    await ui.input("#search", " training ");
+    expect(ui.window.document.querySelectorAll(".paper-table-row:not(.paper-table-skeleton)")).to.have.length(1);
+    expect(ui.window.document.querySelector(".repo-name").textContent).to.equal("Training utilities");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("keeps the current project name visible when saving a replacement fails", async () => {
+    let complete;
+    ui = await browser("/dashboard", {
+      "/api/user": { username: "tester" },
+      "/api/user/anonymized_repositories": [{ repoId: "package", status: "ready", projectName: "Saved package", source: { fullName: "owner/package" } }],
+      "/api/user/project-name": () => new Promise(resolve => { complete = () => resolve({ __status: 503, body: { error: "unavailable" } }); }),
+    });
+    const state = ui.window.document.querySelector("#search")._field.binding.state;
+    const item = state.items[0];
+    await state.showProjectDetails(item);
+    state.projectName = "Replacement";
+    const pending = state.saveProjectName(item);
+    await state.saveProjectName(item);
+    expect(ui.requests.filter(r => r.url.pathname === "/api/user/project-name")).to.have.length(1);
+    complete(); await pending; await delay(10);
+    expect(item._label).to.equal("Saved package");
+    expect(ui.window.document.querySelector(".project-name-error").textContent).to.include("could not be saved");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("shows full project details as text and restores keyboard focus when closed", async () => {
+    const source = "owner/" + "very-long-project-name-".repeat(5);
+    ui = await browser("/dashboard", {
+      "/api/user": { username: "tester" },
+      "/api/user/anonymized_repositories": [{ repoId: "package", status: "ready", projectName: '<img src=x onerror="alert(1)">', source: { fullName: source, commit: "abcdef1234567890" }, conference: "A long conference name" }],
+    });
+    const state = ui.window.document.querySelector("#search")._field.binding.state;
+    await state.showProjectDetails(state.items[0]);
+    const panel = ui.window.document.querySelector(".project-details");
+    expect(panel.textContent).to.include(source).and.include("abcdef1234567890").and.include("A long conference name");
+    expect(ui.window.document.querySelector(".repo-name img")).to.equal(null);
+    expect(ui.window.document.activeElement).to.equal(panel);
+    panel.dispatchEvent(new ui.window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    await delay(10);
+    expect(ui.window.document.querySelector(".project-details")).to.equal(null);
+    expect(ui.window.document.activeElement.getAttribute("data-project-actions")).to.equal("repo%3Apackage");
     expect(ui.errors).to.deep.equal([]);
   });
 

@@ -3,31 +3,31 @@
   <h1 class="paper-page-title">{{ userInfo?.username || 'User' }}</h1>
 
   <nav class="admin-nav">
-    <a href="/admin/"><i class="fas fa-tachometer-alt"></i> Overview</a>
-    <a href="/admin/repositories"><i class="fas fa-code-branch"></i> Repositories</a>
-    <a href="/admin/users" class="active"><i class="fas fa-users"></i> Users</a>
-    <a href="/admin/conferences"><i class="fas fa-chalkboard-teacher"></i> Conferences</a>
-    <a href="/admin/queues"><i class="fas fa-tasks"></i> Queues</a>
-    <a href="/admin/errors"><i class="fas fa-bug"></i> Errors</a>
+    <a href="/admin/"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-chart"></use></svg> Overview</a>
+    <a href="/admin/repositories"><svg class="ui-icon" aria-hidden="true"><use href="#project-type-repo"></use></svg> Repositories</a>
+    <a href="/admin/users" class="active"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-users"></use></svg> Users</a>
+    <a href="/admin/conferences"><svg class="ui-icon" aria-hidden="true"><use href="#project-icon-conference"></use></svg> Conferences</a>
+    <a href="/admin/queues"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-list"></use></svg> Queues</a>
+    <a href="/admin/errors"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-bug"></use></svg> Errors</a>
   </nav>
 
   <div class="user-detail-card" v-if="userInfo">
     <div class="user-header">
       <img width="56" height="56" v-if="userInfo?.photo" :src="safeUrl((userInfo?.photo))">
       <div>
-        <h1>
+        <h2>
           {{ userInfo?.username }}
           <span class="status-dot-wrap">
             <span class="status-dot" :class="{&#x27;status-ready&#x27;: userInfo?.status == &#x27;active&#x27;, &#x27;status-removed&#x27;: userInfo?.status != &#x27;active&#x27;}"></span>
             <span v-text="fmt?.title(userInfo?.status)"></span>
           </span>
           <span class="type-badge type-repo" v-if="userInfo?.isAdmin">Admin</span>
-        </h1>
+        </h2>
         <div class="user-actions" style="margin-top: 4px;">
-          <button class="btn btn-sm text-danger" v-if="userInfo?.status !== &#x27;banned&#x27;" @click="banUser()"><i class="fas fa-ban"></i> Ban</button>
-          <button class="btn btn-sm" v-if="userInfo?.status === &#x27;banned&#x27; || userInfo?.status === &#x27;removed&#x27;" @click="activateUser()"><i class="fas fa-check-circle"></i> Activate</button>
-          <button class="btn btn-sm" v-if="!userInfo?.isAdmin" @click="promoteUser()"><i class="fas fa-user-shield"></i> Promote to admin</button>
-          <button class="btn btn-sm text-danger" v-if="userInfo?.isAdmin" @click="demoteUser()"><i class="fas fa-user-minus"></i> Remove admin</button>
+          <button class="btn btn-sm text-danger" v-if="userInfo?.status !== &#x27;banned&#x27;" @click="banUser()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-ban"></use></svg> Ban</button>
+          <button class="btn btn-sm" v-if="userInfo?.status === &#x27;banned&#x27; || userInfo?.status === &#x27;removed&#x27;" @click="activateUser()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-check-circle"></use></svg> Activate</button>
+          <button class="btn btn-sm" v-if="!userInfo?.isAdmin" @click="promoteUser()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-user-shield"></use></svg> Promote to admin</button>
+          <button class="btn btn-sm text-danger" v-if="userInfo?.isAdmin" @click="demoteUser()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-user-minus"></use></svg> Remove admin</button>
         </div>
       </div>
     </div>
@@ -65,7 +65,7 @@
           {{ showRepos ? 'Hide' : 'Show' }}
         </button>
         <button class="btn btn-sm ml-1" @click="getGitHubRepositories()">
-          <i class="fas fa-sync"></i> Refresh
+          <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-refresh"></use></svg> Refresh
         </button>
       </div>
     </div>
@@ -75,13 +75,13 @@
       <div class="paper-table w-100" style="margin-top: 10px;">
         <div class="paper-table-row" style="grid-template-columns: 1fr 160px;" v-for="(repo, index) in userInfo?.repositories">
           <div class="cell-anon" role="cell">
-            <span class="type-badge type-repo">Repo</span>
+            <svg class="ui-icon record-type-icon" role="img" aria-label="Repository"><use href="#project-type-repo"></use></svg>
             <div class="anon-text">
               <span class="repo-name" v-text="repo?.name"></span>
             </div>
           </div>
           <div class="cell-expires" role="cell">
-            <i class="fas fa-database"></i> {{ fmt?.humanFileSize(repo?.size) }}
+            <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-database"></use></svg> {{ fmt?.humanFileSize(repo?.size) }}
           </div>
         </div>
       </div>
@@ -89,7 +89,7 @@
   </div>
 
   <div class="admin-section-header" v-if="userInfo &amp;&amp; userInfo?.isAdmin &amp;&amp; user &amp;&amp; user?.username == userInfo?.username">
-    <h2><i class="fas fa-key"></i> API tokens</h2>
+    <h2><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-key"></use></svg> API tokens</h2>
     <span class="section-count">{{ tokens?.length }}</span>
   </div>
 
@@ -98,7 +98,7 @@
 
     <form class="d-flex" style="gap: 8px; margin-bottom: 12px;" v-form="viewState" @submit.prevent="submitForm($event, () =&gt; { createToken() })">
       <input type="text" class="form-control" placeholder="Token name (e.g. dev-laptop)" required v-field="{ state: viewState, set: value =&gt; { tokenForm.name = value }, value: tokenForm?.name, form: null, options: {} }">
-      <button type="submit" class="btn btn-primary"><i class="fas fa-plus"></i> Generate</button>
+      <button type="submit" class="btn btn-primary"><svg class="ui-icon" aria-hidden="true"><use href="#project-icon-plus"></use></svg> Generate</button>
     </form>
 
     <div class="alert alert-warning" role="alert" v-if="tokenForm?.plaintext">
@@ -119,28 +119,28 @@
         <div role="cell" v-text="fmt?.humanTime(t?.createdAt)"></div>
         <div role="cell"><span v-if="t?.lastUsedAt">{{ fmt?.humanTime(t?.lastUsedAt) }}</span><span class="text-muted" v-if="!t?.lastUsedAt">never</span></div>
         <div role="cell">
-          <button class="btn btn-sm text-danger" title="Revoke" @click="revokeToken(t)"><i class="fas fa-trash-alt"></i></button>
+          <button class="btn btn-sm text-danger btn-icon" title="Revoke" aria-label="Revoke token" @click="revokeToken(t)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-trash"></use></svg></button>
         </div>
       </div>
     </div>
     <div class="paper-table-empty" v-if="!tokens?.length">
-      <i class="fas fa-inbox"></i>
+      <svg class="ui-icon" aria-hidden="true"><use href="#project-icon-inbox"></use></svg>
       <span>No tokens yet.</span>
     </div>
   </div>
 
   <div class="admin-section-header">
-    <h2><i class="fas fa-code-branch"></i> Anonymized repositories</h2>
+    <h2><svg class="ui-icon" aria-hidden="true"><use href="#project-type-repo"></use></svg> Anonymized repositories</h2>
     <span class="section-count">{{ repositories?.length }}</span>
   </div>
 
   <div class="admin-summary">
     <span class="summary-total">{{ fmt?.number(repositories?.length) }}</span>
-    <span class="summary-pill ok" title="Toggle ready filter" :class="{active: filters?.status?.ready === false}" @click="filters.status.ready = !filters.status.ready">Ready <span class="count">{{ fmt?.number(statusCountFor('ready')) }}</span></span>
-    <span class="summary-pill warn" title="Toggle preparing filter" :class="{active: filters?.status?.preparing === false}" @click="filters.status.preparing = !filters.status.preparing">Preparing <span class="count">{{ fmt?.number(statusCountFor('preparing')) }}</span></span>
-    <span class="summary-pill error" title="Toggle errored filter" :class="{active: filters?.status?.error === false}" @click="filters.status.error = !filters.status.error">Errored <span class="count">{{ fmt?.number(statusCountFor('error')) }}</span></span>
-    <span class="summary-pill" title="Toggle expired filter" :class="{active: filters?.status?.expired === false}" @click="filters.status.expired = !filters.status.expired">Expired <span class="count">{{ fmt?.number(statusCountFor('expired')) }}</span></span>
-    <span class="summary-pill" title="Toggle removed filter" :class="{active: filters?.status?.removed === false}" @click="filters.status.removed = !filters.status.removed">Removed <span class="count">{{ fmt?.number(statusCountFor('removed')) }}</span></span>
+    <button type="button" class="summary-pill ok" title="Toggle ready filter" :class="{active: filters?.status?.ready === false}" @click="filters.status.ready = !filters.status.ready" :aria-pressed="!!(filters?.status?.ready === false)">Ready <span class="count">{{ fmt?.number(statusCountFor('ready')) }}</span></button>
+    <button type="button" class="summary-pill warn" title="Toggle preparing filter" :class="{active: filters?.status?.preparing === false}" @click="filters.status.preparing = !filters.status.preparing" :aria-pressed="!!(filters?.status?.preparing === false)">Preparing <span class="count">{{ fmt?.number(statusCountFor('preparing')) }}</span></button>
+    <button type="button" class="summary-pill error" title="Toggle errored filter" :class="{active: filters?.status?.error === false}" @click="filters.status.error = !filters.status.error" :aria-pressed="!!(filters?.status?.error === false)">Errored <span class="count">{{ fmt?.number(statusCountFor('error')) }}</span></button>
+    <button type="button" class="summary-pill" title="Toggle expired filter" :class="{active: filters?.status?.expired === false}" @click="filters.status.expired = !filters.status.expired" :aria-pressed="!!(filters?.status?.expired === false)">Expired <span class="count">{{ fmt?.number(statusCountFor('expired')) }}</span></button>
+    <button type="button" class="summary-pill" title="Toggle removed filter" :class="{active: filters?.status?.removed === false}" @click="filters.status.removed = !filters.status.removed" :aria-pressed="!!(filters?.status?.removed === false)">Removed <span class="count">{{ fmt?.number(statusCountFor('removed')) }}</span></button>
   </div>
 
   <form class="w-100 admin-filter-toolbar" aria-label="Repositories" accept-charset="UTF-8" v-form="viewState">
@@ -149,14 +149,14 @@
         <input type="search" class="form-control" aria-label="Search repositories" placeholder="Search repoId, source repo, error message…" autocomplete="off" v-field="{ state: viewState, set: value =&gt; { search = value }, value: search, form: null, options: {} }">
       </div>
       <span class="admin-filter-spacer"></span>
-      <button class="btn btn-sm" type="button" title="Export current view to CSV" @click="exportCsv()"><i class="fas fa-file-csv"></i> Export</button>
+      <button class="btn btn-sm" type="button" title="Export current view to CSV" @click="exportCsv()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-export"></use></svg> Export</button>
     </div>
   </form>
 
   <div class="bulk-bar" v-if="selectedCount() &gt; 0">
     <span><strong>{{ selectedCount() }}</strong> selected</span>
-    <button class="btn btn-sm" type="button" @click="bulkRefresh()"><i class="fas fa-sync"></i> Force refresh</button>
-    <button class="btn btn-sm text-danger" type="button" @click="bulkRemoveCache()"><i class="fas fa-broom"></i> Remove cache</button>
+    <button class="btn btn-sm" type="button" @click="bulkRefresh()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-refresh"></use></svg> Force refresh</button>
+    <button class="btn btn-sm text-danger" type="button" @click="bulkRemoveCache()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-broom"></use></svg> Remove cache</button>
     <button class="btn btn-sm" type="button" @click="clearSelection()">Clear</button>
   </div>
 
@@ -165,10 +165,10 @@
       <div role="columnheader" style="width: 28px;">
         <input type="checkbox" aria-label="Select all on page" @click="selectAllOnPage()" :checked="allSelected">
       </div>
-      <div role="columnheader"><span class="sortable" :class="{active: query?.sort == &#x27;source.repositoryName&#x27;}" @click="sortBy(&#x27;source.repositoryName&#x27;)">Repository <i class="fas" :class="sortIcon(&#x27;source.repositoryName&#x27;)"></i></span></div>
-      <div role="columnheader"><span class="sortable" :class="{active: query?.sort == &#x27;status&#x27;}" @click="sortBy(&#x27;status&#x27;)">Status <i class="fas" :class="sortIcon(&#x27;status&#x27;)"></i></span></div>
-      <div role="columnheader" class="num"><span class="sortable" :class="{active: query?.sort == &#x27;pageView&#x27;}" @click="sortBy(&#x27;pageView&#x27;)">Views <i class="fas" :class="sortIcon(&#x27;pageView&#x27;)"></i></span></div>
-      <div role="columnheader"><span class="sortable" :class="{active: query?.sort == &#x27;anonymizeDate&#x27;}" @click="sortBy(&#x27;anonymizeDate&#x27;)">Anonymized <i class="fas" :class="sortIcon(&#x27;anonymizeDate&#x27;)"></i></span></div>
+      <div role="columnheader"><button type="button" class="sortable" :class="{active: query?.sort == &#x27;source.repositoryName&#x27;}" @click="sortBy(&#x27;source.repositoryName&#x27;)">Repository <svg class="ui-icon sort-direction" aria-hidden="true" v-if="sortIcon(&#x27;source.repositoryName&#x27;)" :class="{ascending: sortIcon(&#x27;source.repositoryName&#x27;) === 'fa-arrow-up'}"><use href="#project-icon-arrow"></use></svg></button></div>
+      <div role="columnheader"><button type="button" class="sortable" :class="{active: query?.sort == &#x27;status&#x27;}" @click="sortBy(&#x27;status&#x27;)">Status <svg class="ui-icon sort-direction" aria-hidden="true" v-if="sortIcon(&#x27;status&#x27;)" :class="{ascending: sortIcon(&#x27;status&#x27;) === 'fa-arrow-up'}"><use href="#project-icon-arrow"></use></svg></button></div>
+      <div role="columnheader" class="num"><button type="button" class="sortable" :class="{active: query?.sort == &#x27;pageView&#x27;}" @click="sortBy(&#x27;pageView&#x27;)">Views <svg class="ui-icon sort-direction" aria-hidden="true" v-if="sortIcon(&#x27;pageView&#x27;)" :class="{ascending: sortIcon(&#x27;pageView&#x27;) === 'fa-arrow-up'}"><use href="#project-icon-arrow"></use></svg></button></div>
+      <div role="columnheader"><button type="button" class="sortable" :class="{active: query?.sort == &#x27;anonymizeDate&#x27;}" @click="sortBy(&#x27;anonymizeDate&#x27;)">Anonymized <svg class="ui-icon sort-direction" aria-hidden="true" v-if="sortIcon(&#x27;anonymizeDate&#x27;)" :class="{ascending: sortIcon(&#x27;anonymizeDate&#x27;) === 'fa-arrow-up'}"><use href="#project-icon-arrow"></use></svg></button></div>
       <div role="columnheader" aria-label="Actions"></div>
     </div>
     <div class="paper-table-row" role="row" v-for="(repo, index) in filteredRepositories" :class="{&#x27;repo-inactive&#x27;: repo?.status == &#x27;expired&#x27; || repo?.status == &#x27;removed&#x27;, &#x27;repo-error&#x27;: repo?.status == &#x27;error&#x27;, &#x27;row-selected&#x27;: selected[repo?.repoId]}">
@@ -176,11 +176,11 @@
         <input type="checkbox" aria-label="Select repository" v-field="{ state: viewState, set: value =&gt; { selected[repo.repoId] = value }, value: selected[repo?.repoId], form: null, options: {} }">
       </div>
       <div class="cell-anon" role="cell">
-        <span class="type-badge type-repo">Repo</span>
+        <svg class="ui-icon record-type-icon" role="img" aria-label="Repository"><use href="#project-type-repo"></use></svg>
         <div class="anon-text">
           <a class="repo-name" target="_blank" v-text="repo?.repoId" :href="safeUrl(&quot;/r/&quot; + (repo?.repoId))"></a>
           <div class="anon-sub">
-            <a v-text="repo?.source?.fullName" :href="safeUrl(&quot;https://github.com/&quot; + (repo?.source?.fullName) + &quot;/&quot;)"></a><span v-if="repo?.options?.update">&nbsp;&middot;&nbsp;<a v-text="repo?.source?.branch" :href="safeUrl(&quot;https://github.com/&quot; + (repo?.source?.fullName) + &quot;/tree/&quot; + (repo?.source?.branch))"></a></span><span v-if="!repo?.options?.update">&nbsp;&middot;&nbsp;@<a v-text="repo?.source?.commit?.substring(0, 8)" :href="safeUrl(&quot;https://github.com/&quot; + (repo?.source?.fullName) + &quot;/tree/&quot; + (repo?.source?.commit))"></a></span><span v-if="repo?.conference">&nbsp;&middot;&nbsp;<i class="fas fa-chalkboard-teacher"></i> {{ repo?.conference }}</span><span>&nbsp;&middot;&nbsp;{{ fmt?.humanFileSize(repo?.size?.storage) }}</span><span>&nbsp;&middot;&nbsp;{{ fmt?.number(repo?.options?.terms?.length) }} terms</span>
+            <a v-text="repo?.source?.fullName" :href="safeUrl(&quot;https://github.com/&quot; + (repo?.source?.fullName) + &quot;/&quot;)"></a><span v-if="repo?.options?.update">&nbsp;&middot;&nbsp;<a v-text="repo?.source?.branch" :href="safeUrl(&quot;https://github.com/&quot; + (repo?.source?.fullName) + &quot;/tree/&quot; + (repo?.source?.branch))"></a></span><span v-if="!repo?.options?.update">&nbsp;&middot;&nbsp;@<a v-text="repo?.source?.commit?.substring(0, 8)" :href="safeUrl(&quot;https://github.com/&quot; + (repo?.source?.fullName) + &quot;/tree/&quot; + (repo?.source?.commit))"></a></span><span v-if="repo?.conference">&nbsp;&middot;&nbsp;<svg class="ui-icon" aria-hidden="true"><use href="#project-icon-conference"></use></svg> {{ repo?.conference }}</span><span>&nbsp;&middot;&nbsp;{{ fmt?.humanFileSize(repo?.size?.storage) }}</span><span>&nbsp;&middot;&nbsp;{{ fmt?.number(repo?.options?.terms?.length) }} terms</span>
           </div>
         </div>
       </div>
@@ -196,26 +196,26 @@
       <div class="cell-actions" role="cell">
         <div class="dropdown">
           <button class="btn btn-icon-dots" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" aria-label="Actions">
-            <i class="fas fa-ellipsis-h" aria-hidden="true"></i>
+            <svg class="ui-icon" aria-hidden="true"><use href="#project-icon-more"></use></svg>
           </button>
           <div class="dropdown-menu dropdown-menu-right">
-            <a class="dropdown-item" :href="safeUrl(&quot;/anonymize/&quot; + (repo?.repoId))"><i class="far fa-edit"></i> Edit</a>
-            <a class="dropdown-item" :href="safeUrl(&quot;/r/&quot; + (repo?.repoId) + &quot;/&quot;)"><i class="fa fa-eye"></i> View repo</a>
-            <a class="dropdown-item" target="_self" v-if="repo?.options?.page &amp;&amp; repo?.status == &#x27;ready&#x27;" :href="safeUrl(&quot;/w/&quot; + (repo?.repoId) + &quot;/&quot;)"><i class="fas fa-globe"></i> View page</a>
+            <a class="dropdown-item" :href="safeUrl(&quot;/anonymize/&quot; + (repo?.repoId))"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-edit"></use></svg> Edit</a>
+            <a class="dropdown-item" :href="safeUrl(&quot;/r/&quot; + (repo?.repoId) + &quot;/&quot;)"><svg class="ui-icon" aria-hidden="true"><use href="#project-icon-eye"></use></svg> View repo</a>
+            <a class="dropdown-item" target="_self" v-if="repo?.options?.page &amp;&amp; repo?.status == &#x27;ready&#x27;" :href="safeUrl(&quot;/w/&quot; + (repo?.repoId) + &quot;/&quot;)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-globe"></use></svg> View page</a>
             <a class="dropdown-item" href="#" @click.prevent="fetchGithubInfo(repo)"><i class="fab fa-github"></i> Live GitHub info</a>
             <div class="dropdown-divider"></div>
-            <a class="dropdown-item" href="#" v-show="repo?.status == &#x27;ready&#x27; || repo?.status == &#x27;error&#x27;" @click.prevent="updateRepository(repo)"><i class="fas fa-sync"></i> Force update</a>
-            <a class="dropdown-item" href="#" v-show="repo?.status == &#x27;removed&#x27;" @click.prevent="updateRepository(repo)"><i class="fas fa-check-circle"></i> Enable</a>
-            <a class="dropdown-item" href="#" v-show="repo?.statusMessage" @click.prevent="showStatusMessage(repo)"><i class="fas fa-exclamation-triangle"></i> View status message</a>
+            <a class="dropdown-item" href="#" v-show="repo?.status == &#x27;ready&#x27; || repo?.status == &#x27;error&#x27;" @click.prevent="updateRepository(repo)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-refresh"></use></svg> Force update</a>
+            <a class="dropdown-item" href="#" v-show="repo?.status == &#x27;removed&#x27;" @click.prevent="updateRepository(repo)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-check-circle"></use></svg> Enable</a>
+            <a class="dropdown-item" href="#" v-show="repo?.statusMessage" @click.prevent="showStatusMessage(repo)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-warning"></use></svg> View status message</a>
             <div class="dropdown-divider"></div>
-            <a class="dropdown-item" href="#" @click.prevent="removeCache(repo)"><i class="fas fa-broom"></i> Remove cache</a>
-            <a class="dropdown-item text-danger" href="#" v-show="repo?.status == &#x27;ready&#x27;" @click.prevent="removeRepository(repo)"><i class="fas fa-trash-alt"></i> Remove</a>
+            <a class="dropdown-item" href="#" @click.prevent="removeCache(repo)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-broom"></use></svg> Remove cache</a>
+            <a class="dropdown-item text-danger" href="#" v-show="repo?.status == &#x27;ready&#x27;" @click.prevent="removeRepository(repo)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-trash"></use></svg> Remove</a>
           </div>
         </div>
       </div>
     </div>
     <div class="paper-table-empty" v-if="filteredRepositories?.length == 0">
-      <i class="fas fa-inbox"></i>
+      <svg class="ui-icon" aria-hidden="true"><use href="#project-icon-inbox"></use></svg>
       <span>No repositories match the current filters.</span>
     </div>
   </div>

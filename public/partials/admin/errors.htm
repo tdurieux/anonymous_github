@@ -4,18 +4,18 @@
   <header class="errors-header">
     <h1 class="paper-page-title">Errors</h1>
     <div class="errors-actions">
-      <button class="btn btn-sm" type="button" @click="exportCsv()"><i class="fas fa-file-export"></i> Export CSV</button>
-      <button class="btn btn-sm btn-danger" type="button" @click="clearAll()"><i class="fas fa-trash"></i> Clear all</button>
+      <button class="btn btn-sm" type="button" @click="exportCsv()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-export"></use></svg> Export CSV</button>
+      <button class="btn btn-sm btn-danger" type="button" @click="clearAll()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-trash"></use></svg> Clear all</button>
     </div>
   </header>
 
   <nav class="admin-nav">
-    <a href="/admin/"><i class="fas fa-tachometer-alt"></i> Overview</a>
-    <a href="/admin/repositories"><i class="fas fa-code-branch"></i> Repositories</a>
-    <a href="/admin/users"><i class="fas fa-users"></i> Users</a>
-    <a href="/admin/conferences"><i class="fas fa-chalkboard-teacher"></i> Conferences</a>
-    <a href="/admin/queues"><i class="fas fa-tasks"></i> Queues</a>
-    <a href="/admin/errors" class="active"><i class="fas fa-bug"></i> Errors</a>
+    <a href="/admin/"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-chart"></use></svg> Overview</a>
+    <a href="/admin/repositories"><svg class="ui-icon" aria-hidden="true"><use href="#project-type-repo"></use></svg> Repositories</a>
+    <a href="/admin/users"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-users"></use></svg> Users</a>
+    <a href="/admin/conferences"><svg class="ui-icon" aria-hidden="true"><use href="#project-icon-conference"></use></svg> Conferences</a>
+    <a href="/admin/queues"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-list"></use></svg> Queues</a>
+    <a href="/admin/errors" class="active"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-bug"></use></svg> Errors</a>
   </nav>
 
   <section class="kpi-grid">
@@ -78,7 +78,7 @@
       <button type="button" :class="{active: query?.bucket === &#x27;info&#x27;}" @click="setBucket(&#x27;info&#x27;)">Info</button>
     </div>
     <div class="search-wrap">
-      <i class="fas fa-search search-icon"></i>
+      <svg class="ui-icon search-icon" aria-hidden="true"><use href="#ui-icon-search"></use></svg>
       <input type="search" class="form-control" placeholder="code:repo_not_found module:route status:&gt;=400" autocomplete="off" v-field="{ state: viewState, set: value =&gt; { query.search = value }, value: query?.search, form: null, options: {} }">
       <span class="filter-count" v-if="parsedFilterCount">{{ parsedFilterCount }} filter{{ parsedFilterCount > 1 ? 's' : '' }}</span>
     </div>
@@ -101,7 +101,7 @@
       <input type="checkbox" v-field="{ state: viewState, set: value =&gt; { query.autoRefresh = value }, value: query?.autoRefresh, form: null, options: {} }">
       Auto-refresh
     </label>
-    <button class="btn btn-sm btn-icon" type="button" title="Refresh now" @click="refreshNow()"><i class="fas fa-sync"></i></button>
+    <button class="btn btn-sm btn-icon" type="button" title="Refresh now" @click="refreshNow()" aria-label="Refresh"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-refresh"></use></svg></button>
   </form>
 
   <div class="admin-empty" v-if="!visible?.length">No errors captured.</div>
@@ -164,8 +164,8 @@
               </div>
             </div>
             <div class="detail-actions">
-              <button class="btn btn-sm" type="button" title="Copy a curl that reproduces the request" @click="copyCurl(row)"><i class="fas fa-terminal"></i> Copy curl</button>
-              <button class="btn btn-sm" type="button" @click="copyJson(row)"><i class="fas fa-clipboard"></i> Copy JSON</button>
+              <button class="btn btn-sm" type="button" title="Copy a curl that reproduces the request" @click="copyCurl(row)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-code"></use></svg> Copy curl</button>
+              <button class="btn btn-sm" type="button" @click="copyJson(row)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-clipboard"></use></svg> Copy JSON</button>
               <span class="copy-hint" v-if="copyHint">{{ copyHint }}</span>
             </div>
           </div>

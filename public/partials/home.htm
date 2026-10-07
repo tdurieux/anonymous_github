@@ -9,8 +9,8 @@
       </h1>
       <p class="hero-subtitle">
         Anonymous GitHub makes a read-only mirror of your repository, pull
-        request, or gist with every trace of identity removed, so you can
-        attach a link to your submission without breaking anonymity.
+        request, or gist. It redacts the terms you choose in text files,
+        so reviewers can browse your artifact through an anonymous link.
       </p>
 
       <div class="paper-cta-row">
@@ -34,7 +34,7 @@
           <span class="dots"><i></i><i></i><i></i></span>
           <span class="url">anonymous.4open.science/anonymize</span>
         </div>
-        <img src="/imgs/anonymize.png" width="2880" height="1800" alt="The anonymize form with a live README preview showing the redactions">
+        <img src="/imgs/redaction-preview.png" width="1360" height="960" alt="A reviewer preview with the author, affiliation, and email replaced by anonymous terms">
       </div>
     </div>
   </section>
@@ -117,9 +117,9 @@
       <h2>Anonymize, review, <em>manage.</em></h2>
     </div>
     <p>
-      Every mirror is read-only and passes through the same filter, from the
-      README to a PDF's link targets. Monitor it, update it, or remove it the
-      day the decision is out.
+      Terms are redacted in text files. Enabled images and PDFs are served
+      unchanged, so review them for identifying content before sharing.
+      Monitor your mirror, update it, or remove it when the review is over.
     </p>
   </section>
   <section class="paper-features paper-wrap" aria-label="Product features">
@@ -160,19 +160,19 @@
     </div>
     <div>
       <div class="q">
-        <a href="/faq#howWork">Why does GitHub ask for write access at sign-in?</a>
+        <a href="/faq#permissions">What access does GitHub sign-in require?</a>
         <p>
-          GitHub's OAuth scopes have no read-only option for private
-          repositories. Anonymous GitHub only ever reads your repositories; it
-          never pushes, modifies, or deletes anything.
+          The GitHub App has read-only access to the repositories you choose.
+          Legacy OAuth uses broader permissions and is still needed for gists.
+          Anonymous GitHub never writes to your repositories.
         </p>
       </div>
       <div class="q">
         <a href="/faq#formats">Which file formats are supported?</a>
         <p>
           Source code with syntax highlighting, Markdown, Jupyter notebooks,
-          PDFs, images, and GitHub Pages sites. Everything passes through the
-          same redaction filter.
+          PDFs, images, and GitHub Pages sites. Text files are anonymized;
+          enabled images and PDFs are served unchanged.
         </p>
       </div>
       <div class="q">
@@ -191,7 +191,7 @@
         <div class="paper-footer-mark">Anonymous <em>GitHub</em></div>
         <p class="paper-footer-tag">
           A read-only, identity-stripped mirror of your repository, built for
-          double-blind peer review.
+          double-anonymous peer review.
         </p>
       </div>
       <div class="paper-footer-col">
@@ -215,7 +215,7 @@
     </div>
     <div class="paper-footer-rule"></div>
     <div class="paper-footer-foot">
-      <span>&copy; {{ year || 2026 }} Anonymous GitHub &middot; MIT licensed</span>
+      <span>&copy; {{ year || 2026 }} Anonymous GitHub &middot; GPL-3.0 licensed</span>
       <span class="paper-footer-meta">Built for reviewers, by researchers.</span>
     </div>
   </footer>

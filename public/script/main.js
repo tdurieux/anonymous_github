@@ -3,6 +3,7 @@ import { createApp, h, watch, provide, inject, onBeforeUnmount } from "vue";
 import { createRouter, createWebHistory, RouterView } from "vue-router";
 import { pageRoutes } from "./routes.js";
 import { templates } from "./templates.js";
+import { render as iconsTemplate } from "../partials/icons.htm";
 import { initializeTemplate } from "./template-state.js";
 import { createPageState, createTimers } from "./state.js";
 import { createHttp, promises } from "./http.js";
@@ -100,6 +101,7 @@ export function mountApplication(target = "#app", options = {}) {
       document.addEventListener("click", navigate);
       onBeforeUnmount(() => document.removeEventListener("click", navigate));
       return () => [
+        iconsTemplate(root, []),
         h("header", { class: "app-header" }, templates["partials/header.htm"](root, headerCache)),
         h("main", { class: "app-view align-items-stretch w-100" }, h(RouterView, null, {
           default: ({ Component, route }) => Component ? h(Component, { key: route.meta.preserveExplorer ? route.matched[0]?.path : route.path }) : null,

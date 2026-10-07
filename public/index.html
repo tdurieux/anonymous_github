@@ -74,25 +74,5 @@
       };
     </script>
     <script src="/script/__VENDOR_JS__" defer></script>
-    <script>
-      window.addEventListener("load", function () {
-        var s = document.createElement("script");
-        s.src = "https://storage.ko-fi.com/cdn/scripts/overlay-widget.js";
-        s.onload = function () {
-          var isDark = localStorage.getItem("darkMode") === "true";
-          kofiWidgetOverlay.draw("tdurieux", {
-            type: "floating-chat",
-            "floating-chat.donateButton.text": "Support me",
-            "floating-chat.donateButton.background-color": isDark
-              ? "#FAF9F6"
-              : "#1A1815",
-            "floating-chat.donateButton.text-color": isDark
-              ? "#1A1815"
-              : "#FAF9F6",
-          });
-        };
-        document.body.appendChild(s);
-      });
-    </script>
   </body>
 </html>
