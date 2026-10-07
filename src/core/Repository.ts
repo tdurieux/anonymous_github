@@ -1,5 +1,3 @@
-import { contentGenerationPrefix } from "./content-generation";
-import { join } from "path";
 import AnonymizedPathModel from "./model/anonymized-path";
 import storage from "./storage";
 import { createHash, randomUUID } from "crypto";
@@ -63,7 +61,7 @@ async function buildPathIndex(repoId: string, key: string, terms: string[], gene
   pathIndexes.set(cacheKey, task);
   try { await task; } finally { pathIndexes.delete(cacheKey); }
 }
-import { IFile } from "./model/files/files.types";
+import { IFile, IFileDocument } from "./model/files/files.types";
 import AnonymizedFile from "./AnonymizedFile";
 import { FilterQuery } from "mongoose";
 function anonymizeTreeRecursive(
@@ -234,7 +232,7 @@ export default class Repository {
           ...(!files.length ? { emptyTreeGeneration: generation } : {}),
         }, $unset: { pathIndexKey: "", pathIndexBuiltAt: "", sizeComputedAt: "",
           ...(files.length ? { emptyTreeGeneration: "" } : {}),
-        } }).exec();
+        }, $addToSet: { retiredTreeGenerations: previousGeneration || "" } }).exec();
         if (!activated.matchedCount) {
           await FileModel.deleteMany({ repoId: this.repoId, treeGeneration: generation }).exec();
           this.model.treeGeneration = previousGeneration;
@@ -242,7 +240,11 @@ export default class Repository {
         }
       }
       this.model.emptyTreeGeneration = files.length ? undefined : generation;
-      await FileModel.deleteMany({ repoId: this.repoId, treeGeneration: previousGeneration || { $exists: false } }).exec();
+      if (isConnected) {
+        await this.cleanupRetiredFileTrees().catch(error => logger.warn("retired tree cleanup deferred", serializeError(error)));
+      } else {
+        await FileModel.deleteMany({ repoId: this.repoId, treeGeneration: previousGeneration || { $exists: false } }).exec();
+      }
 
       const sourceWithTruncation = source as unknown as {
         truncatedFolderList?: string[];
@@ -267,6 +269,24 @@ export default class Repository {
         ).exec();
       }
     }
+  }
+
+  /** Activation records retirement atomically; maintenance retries interrupted deletion. */
+  async cleanupRetiredFileTrees() {
+    const current = await AnonymizedRepositoryModel.findById(this.model._id)
+      .select("treeGeneration retiredTreeGenerations").lean().exec();
+    if (!current) return;
+    const retired = (current.retiredTreeGenerations || []).filter(generation => generation !== (current.treeGeneration || ""));
+    if (retired.length) {
+      await FileModel.deleteMany({ repoId: this.repoId, $or: [
+        { treeGeneration: { $in: retired.filter(Boolean) } },
+        ...(retired.includes("") ? [{ treeGeneration: { $exists: false } }] : []),
+      ] }).exec();
+      await AnonymizedRepositoryModel.updateOne({ _id: this.model._id },
+        { $pull: { retiredTreeGenerations: { $in: retired } } }).exec();
+    }
+    await AnonymizedRepositoryModel.updateOne({ _id: this.model._id, "retiredTreeGenerations.0": { $exists: false } },
+      { $unset: { retiredTreeGenerations: "" } }).exec();
   }
 
   private pathKey() {
@@ -328,10 +348,22 @@ export default class Repository {
     this.model.pathIndexBuiltAt = undefined;
     this.model.sizeComputedAt = undefined;
     this.model.size = { storage: 0, file: 0 };
-    if (isConnected) await AnonymizedRepositoryModel.updateOne({ _id: this.model._id,
-      treeGeneration: this.model.treeGeneration || { $exists: false },
-    }, { $set: { size: this.model.size, fileMetadataRevision: revision }, $unset: { pathIndexKey: "", pathIndexBuiltAt: "", sizeComputedAt: "" } }).exec();
+    if (isConnected) {
+      const result = await AnonymizedRepositoryModel.updateOne({ _id: this.model._id,
+        treeGeneration: this.model.treeGeneration || { $exists: false },
+        status: this.model.status, statusDate: this.model.statusDate,
+        anonymizeDate: this.model.anonymizeDate,
+      }, { $set: { size: this.model.size, fileMetadataRevision: revision }, $unset: { pathIndexKey: "", pathIndexBuiltAt: "", sizeComputedAt: "" } }).exec();
+      if (!result.matchedCount) throw new AnonymousError("repository_changed", { httpStatus: 409 });
+    }
     this.model.fileMetadataRevision = revision;
+  }
+
+  async completeRecoveredFileMetadata(file: IFileDocument) {
+    await this.invalidateFileMetadata();
+    await FileModel.updateOne({ _id: file._id, metadataPending: true },
+      { $unset: { metadataPending: "" } }).exec();
+    file.metadataPending = undefined;
   }
 
   async searchFiles(query: string): Promise<Partial<IFile>[]> {
@@ -777,26 +809,23 @@ export default class Repository {
     this.model.fileMetadataRevision = revision;
     this.model.pathIndexKey = undefined;
     this.model.pathIndexBuiltAt = undefined;
-    const lease = { _id: this.model._id, status: RepositoryStatus.EXPIRING, cleanupToken: token };
+    const lease = { _id: this.model._id, status: RepositoryStatus.EXPIRING, cleanupToken: token,
+      treeGeneration: this.model.treeGeneration || { $exists: false }, fileMetadataRevision: revision };
     const heartbeat = setInterval(() => {
       void AnonymizedRepositoryModel.updateOne(lease, { $set: { cleanupUntil: new Date(Date.now() + 15 * 60_000) } }).exec().catch(() => {});
     }, 30_000);
     heartbeat.unref();
     try {
-      const generation = this.model.treeGeneration;
-      const query = { repoId: this.repoId, treeGeneration: generation || { $exists: false } };
-      // New GitHub cache objects live under an immutable lifecycle namespace.
-      await storage.rm(this.repoId, contentGenerationPrefix(`${generation || "legacy"}:${this.model.anonymizeDate?.toISOString() || ""}`));
-      if (!generation || this.model.source.type === "Zip") {
-        const cursor = FileModel.find(query).select("path name size").lean().cursor();
-        try { for await (const file of cursor) if (file.size != null) await storage.rm(this.repoId, join(file.path, file.name)); }
-        finally { await cursor.close(); }
-      }
-      await FileModel.deleteMany(query).exec();
+      // The claimed lifecycle blocks restoration until the entire storage
+      // root, including empty directories and older cache generations, is gone.
+      if (!await AnonymizedRepositoryModel.exists(lease).exec()) return;
+      await storage.rm(this.repoId);
+      if (!await AnonymizedRepositoryModel.exists(lease).exec()) return;
+      await FileModel.deleteMany({ repoId: this.repoId }).exec();
       await AnonymizedPathModel.deleteMany({ repoId: this.repoId }).exec();
       const result = await AnonymizedRepositoryModel.updateOne(lease, { $set: { status: RepositoryStatus.EXPIRED,
         statusDate: new Date(), isReseted: true, size: { storage: 0, file: 0 } },
-        $unset: { cleanupToken: "", cleanupUntil: "", pathIndexKey: "", pathIndexBuiltAt: "", sizeComputedAt: "", emptyTreeGeneration: "" } }).exec();
+        $unset: { cleanupToken: "", cleanupUntil: "", pathIndexKey: "", pathIndexBuiltAt: "", sizeComputedAt: "", emptyTreeGeneration: "", retiredTreeGenerations: "" } }).exec();
       if (result.matchedCount) { this.model.status = RepositoryStatus.EXPIRED; this.model.isReseted = true; this.model.size = { storage: 0, file: 0 }; this.model.sizeComputedAt = undefined; this.model.emptyTreeGeneration = undefined; }
     } finally {
       clearInterval(heartbeat);

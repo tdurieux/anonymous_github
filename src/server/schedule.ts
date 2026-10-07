@@ -8,6 +8,7 @@ import Conference from "../core/Conference";
 import AnonymizedRepositoryModel from "../core/model/anonymizedRepositories/anonymizedRepositories.model";
 import ConferenceModel from "../core/model/conference/conferences.model";
 import Repository from "../core/Repository";
+import FileModel from "../core/model/files/files.model";
 import { createLogger, serializeError } from "../core/logger";
 import { RepositoryStatus } from "../core/types";
 import { computeAndStoreDailyStats } from "./dailyStatsSnapshot";
@@ -153,6 +154,34 @@ export async function runRepositoryStatusCheck(now = new Date()) {
   await flushBatch();
   await expireContent(AnonymizedGistModel, data => new Gist(data), now);
   await expireContent(AnonymizedPullRequestModel, data => new PullRequest(data), now);
+
+  const retiredCursor = AnonymizedRepositoryModel.find({ retiredTreeGenerations: { $exists: true } }).cursor();
+  for await (const data of retiredCursor) {
+    batch.push(new Repository(data).cleanupRetiredFileTrees().catch(error => {
+      logger.error("retired tree cleanup failed", { ...serializeError(error), repoId: data.repoId });
+    }));
+    if (batch.length >= 10) await flushBatch();
+  }
+  await flushBatch();
+
+  const pendingCursor = FileModel.find({ metadataPending: true }).cursor();
+  for await (const file of pendingCursor) {
+    batch.push((async () => {
+      try {
+        const data = await AnonymizedRepositoryModel.findOne({ repoId: file.repoId }).exec();
+        if (!data || data.treeGeneration !== file.treeGeneration ||
+          (data.status && [RepositoryStatus.EXPIRING, RepositoryStatus.EXPIRED, RepositoryStatus.REMOVING, RepositoryStatus.REMOVED].includes(data.status))) {
+          await FileModel.deleteOne({ _id: file._id, metadataPending: true }).exec();
+          return;
+        }
+        await new Repository(data).completeRecoveredFileMetadata(file);
+      } catch (error) {
+        logger.error("recovered file invalidation failed", { ...serializeError(error), repoId: file.repoId });
+      }
+    })());
+    if (batch.length >= 10) await flushBatch();
+  }
+  await flushBatch();
 }
 async function expireContent<T extends Document>(model: Model<T>, create: (data: T) => Gist | PullRequest, now: Date) {
     const cursor = model.find(contentMaintenanceQuery(now)).cursor();

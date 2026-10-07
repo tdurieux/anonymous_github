@@ -67,6 +67,8 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
     const { execFile } = require("node:child_process"), { promisify } = require("node:util");
     await Gist.collection.createIndex({ statusMessage: 1 }, { name: "keep_existing_index" });
     for (const model of [Repo, Gist, PR]) await model.collection.dropIndex("status_1_options.expirationDate_1");
+    await Repo.collection.dropIndex("retiredTreeGenerations_1");
+    await File.collection.dropIndex("metadataPending_1_repoId_1_treeGeneration_1");
     for (let i = 0; i < 2; i++) await promisify(execFile)(process.execPath, ["-r", "ts-node/register", "src/scripts/create-performance-indexes.ts"], {
       cwd: require("node:path").join(__dirname, ".."), env: { ...process.env, NODE_ENV: "test", MONGODB_URI: uri }, timeout: 30000,
     });
@@ -74,6 +76,8 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
       expect((await model.collection.indexes()).map(index => index.name)).to.include("status_1_options.expirationDate_1");
     }
     expect((await Gist.collection.indexes()).map(index => index.name)).to.include("keep_existing_index");
+    expect((await Repo.collection.indexes()).find(index => index.name === "retiredTreeGenerations_1").sparse).to.equal(true);
+    expect((await File.collection.indexes()).find(index => index.name === "metadataPending_1_repoId_1_treeGeneration_1").partialFilterExpression).to.deep.equal({ metadataPending: true });
   });
 
   for (const [model, Class, id, contentKey, content] of [
@@ -345,7 +349,7 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
     } finally { storage.rm = rm; }
   });
 
-  it("claims expiration once and preserves files from a later generation", async () => {
+  it("claims expiration once and deletes every file generation", async () => {
     const storage = require("../src/core/storage").default;
     const originalRm = storage.rm;
     let release, started, calls = 0;
@@ -362,7 +366,7 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
       expect(calls).to.equal(1);
       release(); await first;
       expect(await File.countDocuments({ repoId: "cleanup", treeGeneration: "old" })).to.equal(0);
-      expect(await File.countDocuments({ repoId: "cleanup", treeGeneration: "new" })).to.equal(1);
+      expect(await File.countDocuments({ repoId: "cleanup" })).to.equal(0);
       expect((await Repo.findById(model._id)).status).to.equal("expired");
     } finally { release(); storage.rm = originalRm; }
   });
@@ -378,6 +382,56 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
     try { await stale.expire(); expect((await Repo.findById(model._id)).status).to.equal("ready"); }
     finally { storage.rm = originalRm; }
   });
+
+  it("stops metadata cleanup when the claimed lifecycle changes during storage removal", async () => {
+    const storage = require("../src/core/storage").default, rm = storage.rm;
+    const model = await Repo.create({ repoId: "changed-claim", status: "expiring", statusDate: new Date(), treeGeneration: "old" });
+    storage.rm = async () => {
+      await Repo.updateOne({ _id: model._id }, { $set: { status: "ready", treeGeneration: "new", fileMetadataRevision: "new" } });
+      await File.create({ repoId: model.repoId, treeGeneration: "new", path: "", name: "restored.txt", size: 1 });
+      await Path.collection.insertOne({ repoId: model.repoId, key: "new", anonymousPath: "restored.txt" });
+    };
+    try {
+      await new Repository(model).expire();
+      expect((await Repo.findById(model._id)).status).to.equal("ready");
+      expect(await File.countDocuments({ repoId: model.repoId })).to.equal(1);
+      expect(await Path.countDocuments({ repoId: model.repoId })).to.equal(1);
+    } finally { storage.rm = rm; }
+  });
+
+  for (const [sourceType, generation] of [["Zip", "tree"], ["GitHubStream", undefined]]) {
+    it(`removes the complete ${sourceType} storage root including private empty directories`, async () => {
+      const fs = require("node:fs/promises"), os = require("node:os"), path = require("node:path");
+      const config = require("../src/config").default, folder = config.FOLDER;
+      const storage = require("../src/core/storage").default, rm = storage.rm;
+      const backend = new (require("../src/core/storage/FileSystem").default)();
+      const { FILE_TYPE } = require("../src/core/storage/Storage");
+      const temporary = await fs.mkdtemp(path.join(os.tmpdir(), "expire-root-"));
+      config.FOLDER = temporary;
+      const calls = [];
+      storage.rm = async (...args) => { calls.push(args); await backend.rm(...args); };
+      try {
+        const model = await Repo.create({ repoId: "private-archive", status: "expiring", statusDate: new Date(),
+          treeGeneration: generation, source: { type: sourceType } });
+        await backend.mk(model.repoId, "private/empty");
+        await backend.write(model.repoId, "private/nested/secret.txt", "secret");
+        await backend.write("unrelated", "keep.txt", "keep");
+        await File.insertMany([
+          { repoId: model.repoId, treeGeneration: generation, path: "private", name: "empty", size: null },
+          { repoId: model.repoId, treeGeneration: generation, path: "private/nested", name: "secret.txt", size: 6 },
+          { repoId: model.repoId, treeGeneration: "retired", path: "", name: "old.txt", size: 1 },
+          { repoId: "unrelated", name: "keep.txt", path: "", size: 4 },
+        ]);
+        await new Repository(model).expire();
+        expect(calls).to.deep.equal([[model.repoId]]);
+        expect(await backend.exists(model.repoId)).to.equal(FILE_TYPE.NOT_FOUND);
+        expect(await backend.exists("unrelated", "keep.txt")).to.equal(FILE_TYPE.FILE);
+        expect(await File.countDocuments({ repoId: model.repoId })).to.equal(0);
+        expect(await File.countDocuments({ repoId: "unrelated" })).to.equal(1);
+        expect((await Repo.findById(model._id)).status).to.equal("expired");
+      } finally { storage.rm = rm; config.FOLDER = folder; await fs.rm(temporary, { recursive: true, force: true }); }
+    });
+  }
 
   it("expires conference repositories in every active status and drains their cleanup backlog", async () => {
     const statuses = ["ready", "error", "preparing", "queue", "download"];
@@ -479,6 +533,46 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
     expect(await File.countDocuments({ repoId: model.repoId, treeGeneration: "old" })).to.equal(0);
   });
 
+  for (const previousGeneration of ["old", undefined]) {
+    it(`retries interrupted retirement of ${previousGeneration || "legacy"} tree rows during maintenance`, async () => {
+      const model = await Repo.create({ repoId: "retire-tree", status: "ready", statusDate: new Date(), lastView: new Date(),
+        treeGeneration: previousGeneration, source: { type: "GitHubStream" }, options: { expirationMode: "never" } });
+      await File.create({ repoId: model.repoId, treeGeneration: previousGeneration, path: "private", name: "old.txt", size: 1 });
+      await File.create({ repoId: "unrelated", treeGeneration: previousGeneration, path: "", name: "keep.txt", size: 1 });
+      const repo = new Repository(model), deleteMany = File.deleteMany;
+      Object.defineProperty(repo, "source", { get: () => ({ getFiles: async () => [{ path: "", name: "active.txt", size: 2 }] }) });
+      File.deleteMany = function (filter, ...args) {
+        if (filter.repoId === model.repoId && filter.$or) return { exec: async () => { throw Error("cleanup unavailable"); } };
+        return deleteMany.call(this, filter, ...args);
+      };
+      try {
+        expect(await repo.files({ force: true })).to.have.length(1);
+        const activated = await Repo.findById(model._id);
+        expect(activated.retiredTreeGenerations).to.deep.equal([previousGeneration || ""]);
+        expect(activated.treeGeneration).not.to.equal(previousGeneration);
+        await require("../src/server/schedule").runRepositoryStatusCheck();
+        expect((await Repo.findById(model._id)).retiredTreeGenerations).to.have.length(1);
+        expect(await File.countDocuments({ repoId: model.repoId })).to.equal(2);
+      } finally { File.deleteMany = deleteMany; }
+      await require("../src/server/schedule").runRepositoryStatusCheck();
+      expect((await Repo.findById(model._id)).retiredTreeGenerations).to.equal(undefined);
+      expect((await File.find({ repoId: model.repoId })).map(file => file.name)).to.deep.equal(["active.txt"]);
+      expect(await File.countDocuments({ repoId: "unrelated" })).to.equal(1);
+    });
+  }
+
+  it("uses indexes to find interrupted tree cleanup and recovered-file invalidations", async () => {
+    await Repo.insertMany(Array.from({ length: 2000 }, (_, i) => ({ repoId: `clean-${i}` })));
+    await File.insertMany(Array.from({ length: 2000 }, (_, i) => ({ repoId: `clean-${i}`, path: "", name: "file.txt" })));
+    await Repo.create({ repoId: "retired", treeGeneration: "active", retiredTreeGenerations: ["old"] });
+    await File.create({ repoId: "pending", path: "", name: "pending.txt", metadataPending: true });
+    for (const [model, query] of [[Repo, { retiredTreeGenerations: { $exists: true } }], [File, { metadataPending: true }]]) {
+      const plan = await model.find(query).explain("executionStats");
+      expect(JSON.stringify(plan.queryPlanner.winningPlan)).not.to.include("COLLSCAN");
+      expect(plan.executionStats.totalDocsExamined).to.be.lessThan(10);
+    }
+  });
+
   it("cannot retire a newer tree activated while an older builder finishes", async () => {
     const model = await Repo.create({ repoId: "overlapping-trees", owner: user.model._id, status: "ready", statusDate: new Date(),
       treeGeneration: "old", source: { type: "GitHubStream", repositoryName: "owner/repo" } });
@@ -534,6 +628,49 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
     expect(await fresh.searchFiles("found")).to.have.length(1);
     const size = await fresh.computeSize();
     expect({ storage: size.storage, file: size.file }).to.deep.equal({ storage: 3, file: 2 });
+  });
+
+  for (const repair of ["lookup", "maintenance"]) {
+    it(`propagates recovered-file invalidation failures and retries them through ${repair}`, async () => {
+      const model = await Repo.create({ repoId: "recover-failure", status: "ready", statusDate: new Date(), lastView: new Date(),
+        treeGeneration: "tree", truncatedFolders: ["deep"], anonymizeDate: new Date(),
+        source: { type: "GitHubStream", repositoryName: "owner/repo" }, options: { expirationMode: "never" } });
+      await File.create({ repoId: model.repoId, treeGeneration: "tree", path: "", name: "known.txt", size: 1 });
+      const repo = new Repository(model);
+      Object.defineProperty(repo, "source", { get: () => ({ fetchFileInfoFromPath: async () => ({ path: "deep", name: "found.txt", size: 2 }) }) });
+      await repo.searchFiles("found"); await repo.computeSize();
+      repo.invalidateFileMetadata = async () => { throw Error("invalidation unavailable"); };
+      try {
+        await new AnonymizedFile({ repository: repo, anonymizedPath: "deep/found.txt" }).getFileInfo();
+        throw Error("expected required invalidation to fail");
+      } catch (error) { expect(error.message).to.equal("invalidation unavailable"); }
+      expect((await File.findOne({ repoId: model.repoId, name: "found.txt" })).metadataPending).to.equal(true);
+      const fresh = new Repository(await Repo.findById(model._id));
+      if (repair === "lookup") {
+        expect((await new AnonymizedFile({ repository: fresh, anonymizedPath: "deep/found.txt" }).getFileInfo()).name).to.equal("found.txt");
+      } else await require("../src/server/schedule").runRepositoryStatusCheck();
+      expect((await File.findOne({ repoId: model.repoId, name: "found.txt" })).metadataPending).to.equal(undefined);
+      const repaired = new Repository(await Repo.findById(model._id));
+      expect(await repaired.searchFiles("found")).to.have.length(1);
+      const size = await repaired.computeSize();
+      expect({ storage: size.storage, file: size.file }).to.deep.equal({ storage: 3, file: 2 });
+    });
+  }
+
+  it("does not invalidate a replacement lifecycle and removes obsolete pending recoveries", async () => {
+    const model = await Repo.create({ repoId: "obsolete-recovery", status: "ready", statusDate: new Date(), lastView: new Date(),
+      treeGeneration: "old", source: { type: "GitHubStream" }, options: { expirationMode: "never" } });
+    const stale = new Repository(model);
+    await File.create({ repoId: model.repoId, treeGeneration: "old", path: "", name: "old.txt", metadataPending: true });
+    await File.create({ repoId: model.repoId, treeGeneration: "new", path: "", name: "active.txt", size: 1 });
+    await Repo.updateOne({ _id: model._id }, { $set: { treeGeneration: "new", fileMetadataRevision: "new", size: { storage: 1, file: 1 } } });
+    try { await stale.invalidateFileMetadata(); throw Error("expected generation conflict"); }
+    catch (error) { expect(error.message).to.equal("repository_changed"); }
+    await require("../src/server/schedule").runRepositoryStatusCheck();
+    expect(await File.countDocuments({ repoId: model.repoId, treeGeneration: "old" })).to.equal(0);
+    expect(await File.countDocuments({ repoId: model.repoId, treeGeneration: "new" })).to.equal(1);
+    const fresh = await Repo.findById(model._id);
+    expect(fresh.fileMetadataRevision).to.equal("new"); expect(fresh.size.storage).to.equal(1);
   });
 
 });

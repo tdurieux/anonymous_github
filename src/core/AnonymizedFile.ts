@@ -176,6 +176,7 @@ export default class AnonymizedFile {
     if (filename != "") exactQuery.name = filename;
     const exact = await FileModel.findOne(exactQuery);
     if (exact) {
+      if (exact.metadataPending) await this.repository.completeRecoveredFileMetadata(exact);
       this._file = exact;
       return exact;
     }
@@ -232,6 +233,7 @@ export default class AnonymizedFile {
       if (
         anonymizePathCompiled(candidatePath, compiled) == this.anonymizedPath
       ) {
+        if (candidate.metadataPending) await this.repository.completeRecoveredFileMetadata(candidate);
         this._file = candidate;
         return candidate;
       }
@@ -274,16 +276,19 @@ export default class AnonymizedFile {
       repoId: this.repository.repoId,
       path: this.anonymizedPath,
     });
+    let cached;
     try {
       // Cache it so the next request is served from the database.
-      await FileModel.create(recovered);
-      await this.repository.invalidateFileMetadata();
+      cached = await FileModel.create({ ...recovered, metadataPending: true });
     } catch (error) {
       logger.warn(
         "failed to cache recovered file",
         serializeError(error as Error)
       );
     }
+    // Once persisted, invalidation is required. Keep the pending marker on
+    // failure so both a subsequent lookup and maintenance retry the work.
+    if (cached) await this.repository.completeRecoveredFileMetadata(cached);
     return recovered;
   }
 

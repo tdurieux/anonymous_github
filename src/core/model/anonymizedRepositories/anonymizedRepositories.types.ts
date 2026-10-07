@@ -31,6 +31,7 @@ export interface IAnonymizedRepository {
     addedAt?: Date;
   }[];
   treeGeneration?: string;
+  retiredTreeGenerations?: string[];
   emptyTreeGeneration?: string;
   fileMetadataRevision?: string;
   pathIndexKey?: string;

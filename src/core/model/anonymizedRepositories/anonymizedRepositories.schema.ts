@@ -50,6 +50,7 @@ const AnonymizedRepositorySchema = new Schema({
   cleanupToken: { type: String, select: false },
   cleanupUntil: { type: Date, select: false },
   treeGeneration: String,
+  retiredTreeGenerations: { type: [String], default: undefined },
   emptyTreeGeneration: String,
   fileMetadataRevision: String,
   pathIndexKey: String,
@@ -96,6 +97,7 @@ const AnonymizedRepositorySchema = new Schema({
 
 AnonymizedRepositorySchema.index({ "source.repositoryName": 1 });
 AnonymizedRepositorySchema.index({ "coauthors.githubId": 1 });
+AnonymizedRepositorySchema.index({ retiredTreeGenerations: 1 }, { sparse: true });
 AnonymizedRepositorySchema.index({ status: 1, statusDate: 1 });
 AnonymizedRepositorySchema.index({ lastView: 1 });
 AnonymizedRepositorySchema.index({ anonymizeDate: 1 });
