@@ -3,6 +3,8 @@ import { h, ref, watch, onMounted, onBeforeUnmount, nextTick, defineAsyncCompone
 import HtmlDoc from "./html-doc.js";
 import PdfViewer from "./pdf-viewer.js";
 
+const editorModes = new Set(__ACE_MODES__);
+
 const Markdown = {
   props: ["content", "terms", "options"],
   setup(props) {
@@ -97,8 +99,7 @@ export const codeEditor = {
   beforeUnmount(el) { el._editorDisposed = true; el._editor?.destroy(); },
 };
 function applyEditorOptions(el, options = {}) {
-  const modes = window.ace.require("ace/ext/modelist").modesByName;
-  const mode = Object.hasOwn(modes, options.mode) ? options.mode : "text";
+  const mode = editorModes.has(options.mode) ? options.mode : "text";
   el._editor.session.setMode("ace/mode/" + mode);
   if (options.theme) el._editor.setTheme("ace/theme/" + options.theme);
   el._editor.setReadOnly(options.readOnly !== false);

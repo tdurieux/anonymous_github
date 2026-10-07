@@ -33,7 +33,7 @@ const markdownFiles = [
 const pdfFiles = ["public/script/external/pdf.js"];
 const notebookFiles = ["public/script/external/notebook.min.js"];
 const orgFiles = ["public/script/external/org.js"];
-const editorFiles = ["public/script/external/ace/ace.js", "public/script/external/ace/ext-modelist.js"];
+const editorFiles = ["public/script/external/ace/ace.js"];
 const lazyGroups = { markdown: markdownFiles, pdf: pdfFiles, notebook: notebookFiles, org: orgFiles, editor: editorFiles };
 
 const mermaidFiles = [
@@ -80,7 +80,7 @@ async function buildVendorJs() {
   const app = await esbuild.build({
     entryPoints: ["public/script/main.js"], bundle: true, write: false,
     format: "iife", minify: true, target: "es2020",
-    define: { __LAZY_ASSETS__: JSON.stringify(lazyAssets), "process.env.NODE_ENV": JSON.stringify("production"), __VUE_OPTIONS_API__: "true", __VUE_PROD_DEVTOOLS__: "false", __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: "false" },
+    define: { __ACE_MODES__: JSON.stringify(fs.readdirSync("public/script/external/ace").filter(file => /^mode-[a-z0-9_]+\.js$/.test(file)).map(file => file.slice(5, -3))), __LAZY_ASSETS__: JSON.stringify(lazyAssets), "process.env.NODE_ENV": JSON.stringify("production"), __VUE_OPTIONS_API__: "true", __VUE_PROD_DEVTOOLS__: "false", __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: "false" },
     plugins: [{ name: "vue-templates", setup(build) {
       build.onLoad({ filter: /\.htm$/ }, async ({ path }) => {
         const { code, errors } = compileTemplate({

@@ -28,6 +28,8 @@ async function browser(route = "/", overrides = {}, storage = {}) {
     url: "http://localhost" + route, runScripts: "dangerously", pretendToBeVisual: true, virtualConsole,
   });
   const window = dom.window;
+  // Exercise the production bundle on browsers without this ES2022 builtin.
+  window.Object.hasOwn = undefined;
   window.matchMedia = () => ({ matches: false });
   window.HTMLCanvasElement.prototype.getContext = () => null;
   window.fetch = async (url, options = {}) => {
@@ -380,7 +382,7 @@ describe("Vue 3 UI", function () {
     expect(ui.window.document.activeElement.id).to.equal("commit");
   });
 
-  for (const [file, mode] of [["data.csv", "text"], ["LICENSE", "text"], ["model.idp", "text"], ["hello.js", "javascript"]]) {
+  for (const [file, mode] of [["data.csv", "text"], ["LICENSE", "text"], ["model.idp", "text"], ["hello.js", "javascript"], ...["csp", "applescript", "logtalk", "redshift", "sparql", "turtle"].map(mode => ["file." + mode, mode])]) {
     it("uses an available editor mode for " + file, async function () {
       ui = await browser("/r/test/" + file, {
         "/api/repo/test/files/": [{ name: file, path: "", sha: "1", size: 5 }],
