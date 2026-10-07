@@ -97,7 +97,9 @@ export const codeEditor = {
   beforeUnmount(el) { el._editorDisposed = true; el._editor?.destroy(); },
 };
 function applyEditorOptions(el, options = {}) {
-  if (options.mode) el._editor.session.setMode("ace/mode/" + options.mode);
+  const modes = window.ace.require("ace/ext/modelist").modesByName;
+  const mode = Object.hasOwn(modes, options.mode) ? options.mode : "text";
+  el._editor.session.setMode("ace/mode/" + mode);
   if (options.theme) el._editor.setTheme("ace/theme/" + options.theme);
   el._editor.setReadOnly(options.readOnly !== false);
 }

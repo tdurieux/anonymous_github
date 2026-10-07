@@ -33,7 +33,7 @@ const markdownFiles = [
 const pdfFiles = ["public/script/external/pdf.js"];
 const notebookFiles = ["public/script/external/notebook.min.js"];
 const orgFiles = ["public/script/external/org.js"];
-const editorFiles = ["public/script/external/ace/ace.js"];
+const editorFiles = ["public/script/external/ace/ace.js", "public/script/external/ace/ext-modelist.js"];
 const lazyGroups = { markdown: markdownFiles, pdf: pdfFiles, notebook: notebookFiles, org: orgFiles, editor: editorFiles };
 
 const mermaidFiles = [

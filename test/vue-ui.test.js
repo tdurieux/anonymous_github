@@ -380,6 +380,20 @@ describe("Vue 3 UI", function () {
     expect(ui.window.document.activeElement.id).to.equal("commit");
   });
 
+  for (const [file, mode] of [["data.csv", "text"], ["LICENSE", "text"], ["model.idp", "text"], ["hello.js", "javascript"]]) {
+    it("uses an available editor mode for " + file, async function () {
+      ui = await browser("/r/test/" + file, {
+        "/api/repo/test/files/": [{ name: file, path: "", sha: "1", size: 5 }],
+      });
+      await delay(80);
+      const host = ui.window.document.querySelector(".ace_editor");
+      expect(host).not.to.equal(null);
+      expect(ui.window.ace.edit(host).session.getMode().$id).to.equal("ace/mode/" + mode);
+      expect(ui.errors).to.deep.equal([]);
+      expect(ui.assets.some(url => /mode-(csv|license|idp)\.js/.test(url))).to.equal(false);
+    });
+  }
+
   it("loads document libraries on demand and reuses them across navigation", async function () {
     ui = await browser("/dashboard");
     expect(ui.assets.filter(url => url.endsWith(".js"))).to.deep.equal([]);
