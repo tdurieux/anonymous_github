@@ -497,6 +497,13 @@ export const unifiedDashboardController = function (state, http, location, promi
           item.projectName = res.data.name;
           item._label = item.projectName || item._fallbackLabel;
           if (state.selectedProject === item) state.nameMessage = name ? "Project name saved." : "Default project name restored.";
+          if (!legacyDashboard) {
+            state.dashboardCursor = null;
+            await loadAll();
+            if (state.selectedProject === item) {
+              state.selectedProject = state.items.find(current => current._type === item._type && current._id === item._id) || null;
+            }
+          }
         } catch (_) {
           if (state.selectedProject === item) state.nameError = "The project name could not be saved. Try again.";
         } finally { state.nameSaving = false; }

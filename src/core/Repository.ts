@@ -281,17 +281,27 @@ export default class Repository {
     const metadataRevision = this.model.fileMetadataRevision;
     const key = this.pathKey();
     if (this.model.pathIndexKey !== key || !this.model.pathIndexBuiltAt || this.model.pathIndexBuiltAt.getTime() < Date.now() - 24 * 3600_000) {
-      await buildPathIndex(this.repoId, key, this.options.terms || [], this.model.treeGeneration);
-      const builtAt = new Date();
-      const result = await AnonymizedRepositoryModel.updateOne({ _id: this.model._id,
-        treeGeneration: this.model.treeGeneration || { $exists: false },
-        fileMetadataRevision: metadataRevision || { $exists: false },
-        "source.commit": this.model.source.commit || { $exists: false },
-        "options.terms": this.options.terms || [], anonymizeDate: this.model.anonymizeDate,
-      }, { $set: { pathIndexKey: key, pathIndexBuiltAt: builtAt } }).exec();
-      if (!result.matchedCount) throw new AnonymousError("repository_changed", { httpStatus: 409 });
-      this.model.pathIndexKey = key;
-      this.model.pathIndexBuiltAt = builtAt;
+      try {
+        await buildPathIndex(this.repoId, key, this.options.terms || [], this.model.treeGeneration);
+        const builtAt = new Date();
+        const result = await AnonymizedRepositoryModel.updateOne({ _id: this.model._id,
+          treeGeneration: this.model.treeGeneration || { $exists: false },
+          fileMetadataRevision: metadataRevision || { $exists: false },
+          "source.commit": this.model.source.commit || { $exists: false },
+          "options.terms": this.options.terms || [], anonymizeDate: this.model.anonymizeDate,
+        }, { $set: { pathIndexKey: key, pathIndexBuiltAt: builtAt } }).exec();
+        if (!result.matchedCount) throw new AnonymousError("repository_changed", { httpStatus: 409 });
+        this.model.pathIndexKey = key;
+        this.model.pathIndexBuiltAt = builtAt;
+      } catch (error) {
+        // A reset invalidates this revision. Never delete a valid shared key
+        // merely because one of its concurrent builders failed.
+        const current = await AnonymizedRepositoryModel.exists({ _id: this.model._id,
+          fileMetadataRevision: metadataRevision || { $exists: false },
+        }).exec();
+        if (!current) await AnonymizedPathModel.deleteMany({ repoId: this.repoId, key }).exec();
+        throw error;
+      }
       // TTL retires superseded mappings. An older builder must never delete
       // mappings activated by a newer settings or metadata generation.
     }
@@ -799,10 +809,19 @@ export default class Repository {
    */
   async resetSate(status?: RepositoryStatus, statusMessage?: string) {
     this.assertNotArchived();
+    const revision = randomUUID();
     this.model.emptyTreeGeneration = undefined;
-    if (isConnected) await AnonymizedRepositoryModel.updateOne({ _id: this.model._id,
+    if (isConnected) {
+      const result = await AnonymizedRepositoryModel.updateOne({ _id: this.model._id,
       treeGeneration: this.model.treeGeneration || { $exists: false },
-    }, { $unset: { emptyTreeGeneration: "" } }).exec();
+      }, { $set: { fileMetadataRevision: revision },
+        $unset: { emptyTreeGeneration: "", pathIndexKey: "", pathIndexBuiltAt: "" },
+      }).exec();
+      if (!result.matchedCount) throw new AnonymousError("repository_changed", { httpStatus: 409 });
+    }
+    this.model.fileMetadataRevision = revision;
+    this.model.pathIndexKey = undefined;
+    this.model.pathIndexBuiltAt = undefined;
     // remove attribute
     this._model.size = { storage: 0, file: 0 };
     if (status) {
@@ -811,6 +830,7 @@ export default class Repository {
     // remove cache
     await Promise.all([
       FileModel.deleteMany({ repoId: this.repoId }).exec(),
+      AnonymizedPathModel.deleteMany({ repoId: this.repoId }).exec(),
       this.removeCache(),
     ]);
     logger.info("reset", { repoId: this._model.repoId });

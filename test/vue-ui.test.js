@@ -1090,6 +1090,38 @@ describe("Vue 3 UI", function () {
     expect(ui.errors).to.deep.equal([]);
   });
 
+  for (const filtered of [false, true]) {
+    it(`reloads summary pagination after renaming a project${filtered ? " in a search" : " sorted by label"}`, async () => {
+      let name = "Old name", queryCount = 0;
+      const item = () => ({ _type: "repo", repoId: "package", status: "ready", projectName: name, source: { fullName: "owner/package" } });
+      ui = await browser("/dashboard", {
+        "/api/user": { username: "tester" },
+        "/api/user/dashboard": request => {
+          queryCount++;
+          const match = !request.url.searchParams.get("q") || name.includes(request.url.searchParams.get("q"));
+          return { items: match ? [item()] : [], total: 2, filtered: match ? 2 : 0, attention: 0,
+            cursor: match ? name + "-cursor" : null };
+        },
+        "/api/user/project-name": request => { name = request.payload.name; return { name }; },
+      });
+      const state = ui.window.document.querySelector("#search")._field.binding.state;
+      state.orderBy = "_label"; if (filtered) state.search = "Old";
+      await delay(200);
+      await state.showProjectDetails(state.items[0]);
+      state.projectName = "New name";
+      const before = queryCount;
+      await state.saveProjectName(state.items[0]); await delay(10);
+      expect(queryCount).to.equal(before + 1);
+      expect(state.dashboardCursor).to.equal(filtered ? null : "New name-cursor");
+      expect(state.dashboardTotals.filtered).to.equal(filtered ? 0 : 2);
+      expect(state.items).to.have.length(filtered ? 0 : 1);
+      expect(state.selectedProject).to.equal(filtered ? null : state.items[0]);
+      const last = ui.requests.filter(request => request.url.pathname === "/api/user/dashboard").at(-1);
+      expect(last.url.searchParams.has("cursor")).to.equal(false);
+      expect(ui.errors).to.deep.equal([]);
+    });
+  }
+
   it("shows full project details as text and restores keyboard focus when closed", async () => {
     const source = "owner/" + "very-long-project-name-".repeat(5);
     ui = await browser("/dashboard", {

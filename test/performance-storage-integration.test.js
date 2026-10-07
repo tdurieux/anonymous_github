@@ -12,7 +12,8 @@ const config = require("../src/config").default;
 const S3Storage = require("../src/core/storage/S3").default;
 const GitHubStream = require("../src/core/source/GitHubStream").default;
 const storage = require("../src/core/storage").default;
-const { coordinatedFill, closeCacheRedis } = require("../src/core/cache-coordination");
+const { coordinatedFill, closeCacheRedis, cacheRedis } = require("../src/core/cache-coordination");
+const { setTimeout: delay } = require("node:timers/promises");
 
 (process.env.PERFORMANCE_REDIS_PORT ? describe : describe.skip)("disposable Redis cache coordination", function () {
   this.timeout(20000);
@@ -53,6 +54,30 @@ const { coordinatedFill, closeCacheRedis } = require("../src/core/cache-coordina
     expect(result).to.equal("verified"); expect(producers).to.equal(1);
     expect(await redis.get(`perf:lease:${key}`)).to.equal(null);
   });
+  for (const failure of ["restart", "timeout"]) {
+    it(`returns verified output despite a Redis heartbeat ${failure}`, async () => {
+      await closeCacheRedis();
+      const client = await cacheRedis(), originalEval = client.eval;
+      let notify, published;
+      const heartbeat = new Promise(resolve => { notify = resolve; });
+      client.eval = function (script, options) {
+        if (script.includes("pexpire")) {
+          notify();
+          return failure === "timeout" ? new Promise(() => {}) : Promise.reject(Error("Redis restarted"));
+        }
+        return originalEval.call(this, script, options);
+      };
+      const key = `heartbeat-${failure}-${Date.now()}`;
+      try {
+        const result = await coordinatedFill(key, async () => published, async () => {
+          await heartbeat; await delay(failure === "timeout" ? 1100 : 20);
+          published = "verified output"; return published;
+        });
+        expect(result).to.equal("verified output");
+        expect(await coordinatedFill(key, async () => published, async () => published)).to.equal("verified output");
+      } finally { client.eval = originalEval; await closeCacheRedis(); }
+    });
+  }
 });
 
 describe("S3 HTTP protocol integration", function () {

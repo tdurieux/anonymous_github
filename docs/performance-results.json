@@ -108,16 +108,17 @@
   ],
   "tests": {
     "fullSuite": {
-      "passing": 878,
+      "passing": 885,
       "pending": 51,
       "failing": 0,
-      "note": "Clean committed checkout after both PR review follow-ups, with disposable MongoDB and Redis; unrelated untracked workspace files excluded."
+      "note": "Clean committed checkout after three PR review follow-ups, with disposable MongoDB and Redis and temporary memory-backed database/spool storage to avoid local disk I/O stalls; unrelated untracked workspace files excluded."
     },
     "performanceSuite": {
-      "passing": 57
+      "passing": 62
     },
     "uiSuite": {
-      "passing": 134
+      "passing": 134,
+      "note": "Earlier standalone UI run; the latest full suite includes the subsequent UI additions, and both focused rename cases passed."
     },
     "build": "passed",
     "lint": {

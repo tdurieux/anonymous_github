@@ -53,17 +53,16 @@ export async function coordinatedFill<T>(
     try { owned = await cacheCommand(redis.set(lockKey, token, { NX: true, PX: 30_000 }), redis); }
     catch { return produce(); }
     if (owned) {
-      let lost = false;
       const heartbeat = setInterval(() => {
         void cacheCommand(redis.eval("if redis.call('get',KEYS[1]) == ARGV[1] then return redis.call('pexpire',KEYS[1],ARGV[2]) else return 0 end", {
           keys: [lockKey], arguments: [token, "30000"],
-        }), redis).then(result => { if (!result) lost = true; }).catch(() => { lost = true; });
+        }), redis).catch(() => {});
       }, 10_000);
       heartbeat.unref();
       try {
-        const result = await produce();
-        if (lost) throw new Error("cache_lease_lost");
-        return result;
+        // Coordination is optional. A lost heartbeat cannot invalidate output
+        // that the producer has already completed and verified.
+        return await produce();
       } finally {
         clearInterval(heartbeat);
         await cacheCommand(redis.eval("if redis.call('get',KEYS[1]) == ARGV[1] then return redis.call('del',KEYS[1]) else return 0 end", {

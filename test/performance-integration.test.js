@@ -181,6 +181,46 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
     expect(await repo.findAnonymizedPath("hidden/folder999/file.ts")).to.equal(null);
   });
 
+  for (const action of ["resetSate", "remove"]) {
+    it(`deletes all derived private paths during ${action}`, async () => {
+      const row = await Repo.create({ repoId: "private-paths", owner: user.model._id, status: "ready", statusDate: new Date(),
+        treeGeneration: "tree", anonymizeDate: new Date(), source: { type: "GitHubStream", repositoryName: "owner/repo" }, options: { terms: ["private=>hidden"] } });
+      await File.create({ repoId: row.repoId, treeGeneration: "tree", path: "private", name: "secret.txt", sha: "a".repeat(40), size: 1 });
+      const repo = new Repository(row);
+      await repo.findAnonymizedPath("hidden/secret.txt");
+      await Path.create({ repoId: row.repoId, key: "old-generation", name: "older.txt", path: "private", sha: "b".repeat(40) });
+      await Path.create({ repoId: "other-repository", key: "keep", name: "kept.txt", path: "public" });
+      const storage = require("../src/core/storage").default, rm = storage.rm;
+      storage.rm = async () => {};
+      try { await repo[action](); } finally { storage.rm = rm; }
+      expect(await Path.countDocuments({ repoId: row.repoId })).to.equal(0);
+      expect(await File.countDocuments({ repoId: row.repoId })).to.equal(0);
+      expect(await Path.countDocuments({ repoId: "other-repository" })).to.equal(1);
+      expect((await Repo.findById(row._id)).pathIndexKey).to.equal(undefined);
+    });
+  }
+
+  it("cleans a derived path builder that finishes after a repository reset", async () => {
+    const row = await Repo.create({ repoId: "reset-builder", owner: user.model._id, status: "ready", statusDate: new Date(),
+      treeGeneration: "tree", anonymizeDate: new Date(), source: { type: "GitHubStream", repositoryName: "owner/repo" }, options: { terms: [] } });
+    await File.create({ repoId: row.repoId, treeGeneration: "tree", path: "private", name: "secret.txt", sha: "a".repeat(40), size: 1 });
+    const bulkWrite = Path.bulkWrite, storage = require("../src/core/storage").default, rm = storage.rm;
+    let started, release;
+    const began = new Promise(resolve => { started = resolve; }), held = new Promise(resolve => { release = resolve; });
+    Path.bulkWrite = async function (...args) { started(); await held; return bulkWrite.apply(this, args); };
+    storage.rm = async () => {};
+    const building = new Repository(row).findAnonymizedPath("private/secret.txt");
+    try {
+      await Promise.race([began, building.then(() => { throw Error("builder did not pause"); })]);
+      await new Repository(await Repo.findById(row._id)).resetSate();
+      release();
+      try { await building; throw Error("expected stale builder rejection"); }
+      catch (error) { expect(error.message).to.equal("repository_changed"); }
+      expect(await Path.countDocuments({ repoId: row.repoId })).to.equal(0);
+      expect((await Repo.findById(row._id)).pathIndexKey).to.equal(undefined);
+    } finally { release(); await building.catch(() => {}); Path.bulkWrite = bulkWrite; storage.rm = rm; }
+  });
+
   it("keeps exact paths ahead of anonymization collisions and resolves other collisions consistently", async () => {
     const repo = new Repository(await Repo.create({ repoId: "collision", owner: user.model._id, status: "ready", treeGeneration: "tree", anonymizeDate: new Date(),
       source: { type: "GitHubStream", repositoryName: "owner/repo" }, options: { terms: ["alpha=>masked", "beta=>masked"] } }));
