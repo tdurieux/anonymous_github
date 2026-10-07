@@ -830,10 +830,12 @@ export const unifiedDashboardController = function (state, http, location, promi
         });
       };
 
-      function waitRepoToBeReady(repoId, callback, onError) {
-        http.get("/api/repo/" + repoId).then((res) => {
+      function waitRepoToBeReady(repoId, callback, onError, previousStatus) {
+        http.get("/api/repo/" + repoId).then(async (res) => {
+          let statusChanged = previousStatus !== undefined && previousStatus !== res.data.status;
           for (const item of state.items) {
             if (item._type === "repo" && item.repoId == repoId) {
+              statusChanged = statusChanged || item.status !== res.data.status;
               const neededAttention = state.needsAttention(item);
               item.status = res.data.status;
               item.statusMessage = res.data.statusMessage;
@@ -846,6 +848,14 @@ export const unifiedDashboardController = function (state, http, location, promi
               break;
             }
           }
+          if (statusChanged && !legacyDashboard) {
+            state.dashboardCursor = null;
+            const selected = state.selectedProject;
+            await loadAll();
+            if (selected && state.selectedProject === selected) {
+              state.selectedProject = state.items.find(item => item._type === selected._type && item._id === selected._id) || null;
+            }
+          }
           if (
             res.data.status == "ready" ||
             res.data.status == "error" ||
@@ -855,7 +865,7 @@ export const unifiedDashboardController = function (state, http, location, promi
             callback(res.data);
             return;
           }
-          timers.timeout(() => waitRepoToBeReady(repoId, callback, onError), 2500);
+          timers.timeout(() => waitRepoToBeReady(repoId, callback, onError, res.data.status), 2500);
         }, onError);
       }
 
@@ -881,7 +891,7 @@ export const unifiedDashboardController = function (state, http, location, promi
                   toast.title = `${item._id} is removed.`;
                   toast.body = `The ${label} ${item._id} is removed.`;
 
-                });
+                }, undefined, item.status);
               } else {
                 toast.title = `${item._id} is removed.`;
                 toast.body = `The ${label} ${item._id} is removed.`;
@@ -922,7 +932,7 @@ export const unifiedDashboardController = function (state, http, location, promi
                 toast.title = `${item._id} is refreshed.`;
                 toast.body = `The ${label} ${item._id} is refreshed.`;
 
-              }, onError);
+              }, onError, item.status);
             } else {
               toast.title = `${item._id} is refreshed.`;
               toast.body = `The ${label} ${item._id} is refreshed.`;
@@ -949,7 +959,7 @@ export const unifiedDashboardController = function (state, http, location, promi
                 toast.title = `${item._id} is extended.`;
                 toast.body = `The expiration of ${label} ${item._id} is extended by 6 months.`;
 
-              });
+              }, undefined, item.status);
             } else {
               toast.title = `${item._id} is extended.`;
               toast.body = `The expiration of ${label} ${item._id} is extended by 6 months.`;

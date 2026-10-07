@@ -181,10 +181,10 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
     expect(await repo.findAnonymizedPath("hidden/folder999/file.ts")).to.equal(null);
   });
 
-  for (const action of ["resetSate", "remove"]) {
+  for (const action of ["resetSate", "remove", "expire"]) {
     it(`deletes all derived private paths during ${action}`, async () => {
       const row = await Repo.create({ repoId: "private-paths", owner: user.model._id, status: "ready", statusDate: new Date(),
-        treeGeneration: "tree", anonymizeDate: new Date(), source: { type: "GitHubStream", repositoryName: "owner/repo" }, options: { terms: ["private=>hidden"] } });
+        treeGeneration: "tree", anonymizeDate: new Date(), source: { type: "GitHubStream", repositoryName: "owner/repo" }, options: { terms: ["private=>hidden"], expirationMode: "remove", expirationDate: new Date(0) } });
       await File.create({ repoId: row.repoId, treeGeneration: "tree", path: "private", name: "secret.txt", sha: "a".repeat(40), size: 1 });
       const repo = new Repository(row);
       await repo.findAnonymizedPath("hidden/secret.txt");
@@ -200,26 +200,32 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
     });
   }
 
-  it("cleans a derived path builder that finishes after a repository reset", async () => {
-    const row = await Repo.create({ repoId: "reset-builder", owner: user.model._id, status: "ready", statusDate: new Date(),
-      treeGeneration: "tree", anonymizeDate: new Date(), source: { type: "GitHubStream", repositoryName: "owner/repo" }, options: { terms: [] } });
-    await File.create({ repoId: row.repoId, treeGeneration: "tree", path: "private", name: "secret.txt", sha: "a".repeat(40), size: 1 });
-    const bulkWrite = Path.bulkWrite, storage = require("../src/core/storage").default, rm = storage.rm;
-    let started, release;
-    const began = new Promise(resolve => { started = resolve; }), held = new Promise(resolve => { release = resolve; });
-    Path.bulkWrite = async function (...args) { started(); await held; return bulkWrite.apply(this, args); };
-    storage.rm = async () => {};
-    const building = new Repository(row).findAnonymizedPath("private/secret.txt");
-    try {
-      await Promise.race([began, building.then(() => { throw Error("builder did not pause"); })]);
-      await new Repository(await Repo.findById(row._id)).resetSate();
-      release();
-      try { await building; throw Error("expected stale builder rejection"); }
-      catch (error) { expect(error.message).to.equal("repository_changed"); }
-      expect(await Path.countDocuments({ repoId: row.repoId })).to.equal(0);
-      expect((await Repo.findById(row._id)).pathIndexKey).to.equal(undefined);
-    } finally { release(); await building.catch(() => {}); Path.bulkWrite = bulkWrite; storage.rm = rm; }
-  });
+  for (const action of ["resetSate", "expire"]) {
+    it(`cleans a derived path builder that finishes after ${action}`, async () => {
+      const row = await Repo.create({ repoId: "reset-builder", owner: user.model._id, status: "ready", statusDate: new Date(),
+        treeGeneration: "tree", anonymizeDate: new Date(), source: { type: "GitHubStream", repositoryName: "owner/repo" }, options: { terms: [], expirationMode: "remove", expirationDate: new Date(0) } });
+      await File.create({ repoId: row.repoId, treeGeneration: "tree", path: "private", name: "secret.txt", sha: "a".repeat(40), size: 1 });
+      const bulkWrite = Path.bulkWrite, storage = require("../src/core/storage").default, rm = storage.rm;
+      let started, release;
+      const began = new Promise(resolve => { started = resolve; }), held = new Promise(resolve => { release = resolve; });
+      Path.bulkWrite = async function (...args) { started(); await held; return bulkWrite.apply(this, args); };
+      storage.rm = async () => {};
+      const building = new Repository(row).findAnonymizedPath("private/secret.txt");
+      try {
+        await Promise.race([began, building.then(() => { throw Error("builder did not pause"); })]);
+        await new Repository(await Repo.findById(row._id))[action]();
+        if (action === "expire") {
+          try { await new Repository(await Repo.findById(row._id)).findAnonymizedPath("private/secret.txt"); throw Error("expected expiration rejection"); }
+          catch (error) { expect(error.message).to.equal("repository_changed"); }
+        }
+        release();
+        try { await building; throw Error("expected stale builder rejection"); }
+        catch (error) { expect(error.message).to.equal("repository_changed"); }
+        expect(await Path.countDocuments({ repoId: row.repoId })).to.equal(0);
+        expect((await Repo.findById(row._id)).pathIndexKey).to.equal(undefined);
+      } finally { release(); await building.catch(() => {}); Path.bulkWrite = bulkWrite; storage.rm = rm; }
+    });
+  }
 
   it("keeps exact paths ahead of anonymization collisions and resolves other collisions consistently", async () => {
     const repo = new Repository(await Repo.create({ repoId: "collision", owner: user.model._id, status: "ready", treeGeneration: "tree", anonymizeDate: new Date(),
@@ -273,6 +279,72 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
       expect(await repo.isReady()).to.equal(false); expect(refreshed).to.equal(true);
     } finally { utils.getRepo = getRepo; }
   });
+  for (const [name, change] of [
+    ["an expiration extension", { "options.expirationDate": new Date(Date.now() + 86400000) }],
+    ["never-expiring settings", { "options.expirationMode": "never" }],
+    ["a settings revision", { settingsSavedAt: new Date() }],
+  ]) {
+    it(`preserves repository content after ${name} changes before cleanup is claimed`, async () => {
+      const row = await Repo.create({ repoId: "expiration-race", owner: user.model._id, status: "ready", statusDate: new Date(),
+        anonymizeDate: new Date(), treeGeneration: "tree", source: { type: "GitHubStream", repositoryName: "owner/repo" },
+        options: { terms: [], expirationMode: "remove", expirationDate: new Date(0) } });
+      await File.create({ repoId: row.repoId, treeGeneration: "tree", path: "private", name: "secret.txt", sha: "a".repeat(40), size: 1 });
+      const stale = new Repository(row);
+      await stale.findAnonymizedPath("private/secret.txt");
+      const paths = await Path.countDocuments({ repoId: row.repoId });
+      await Repo.updateOne({ _id: row._id }, { $set: change });
+      const storage = require("../src/core/storage").default, rm = storage.rm;
+      storage.rm = async () => { throw Error("stale storage deletion"); };
+      try { await stale.expire(); } finally { storage.rm = rm; }
+      const fresh = await Repo.findById(row._id).select("+cleanupToken");
+      expect(fresh.status).to.equal("ready"); expect(fresh.cleanupToken).to.equal(undefined);
+      expect(await File.countDocuments({ repoId: row.repoId })).to.equal(1);
+      expect(await Path.countDocuments({ repoId: row.repoId })).to.equal(paths);
+      expect(fresh.pathIndexKey).to.equal(stale.model.pathIndexKey);
+      for (const [field, value] of Object.entries(change)) expect(fresh.get(field)).to.deep.equal(value);
+    });
+  }
+
+  it("rejects a stale settings save after repository cleanup claims the lifecycle", async () => {
+    const row = await Repo.create({ repoId: "settings-cleanup-race", owner: user.model._id, status: "ready", statusDate: new Date(),
+      anonymizeDate: new Date(), treeGeneration: "tree", source: { type: "GitHubStream", repositoryName: "owner/repo", branch: "main", commit: "abc123" },
+      options: { terms: [], expirationMode: "remove", expirationDate: new Date(0) } });
+    const stale = new Repository(row);
+    const utils = require("../src/server/routes/route-utils"), storage = require("../src/core/storage").default;
+    const original = { getRepo: utils.getRepo, getUser: utils.getUser, handleError: utils.handleError, rm: storage.rm };
+    utils.getRepo = async () => stale;
+    utils.getUser = async () => {
+      await new Repository(await Repo.findById(row._id)).expire();
+      return { isAdmin: true };
+    };
+    utils.handleError = error => { throw error; };
+    storage.rm = async () => {};
+    const router = require("../src/server/routes/repository-private").default;
+    const handler = router.stack.find(layer => layer.route?.path === "/:repoId/" && layer.route.methods.post).route.stack[0].handle;
+    try {
+      try {
+        await handler({ body: { repoId: row.repoId, fullName: "owner/repo", source: { branch: "main", commit: "abc123" }, terms: [],
+          options: { expirationMode: "remove", expirationDate: new Date(Date.now() + 86400000).toISOString() } } }, {});
+        throw Error("expected settings conflict");
+      } catch (error) { expect(error.message).to.equal("connection_changed"); expect(error.httpStatus).to.equal(409); }
+      const fresh = await Repo.findById(row._id);
+      expect(fresh.status).to.equal("expired"); expect(fresh.options.expirationDate.getTime()).to.equal(0);
+      expect(fresh.settingsSavedAt).to.equal(undefined);
+    } finally { utils.getRepo = original.getRepo; utils.getUser = original.getUser; utils.handleError = original.handleError; storage.rm = original.rm; }
+  });
+
+  it("does not claim a future or never-expiring ready repository", async () => {
+    const storage = require("../src/core/storage").default, rm = storage.rm;
+    storage.rm = async () => { throw Error("unexpected storage deletion"); };
+    try {
+      for (const options of [{ expirationMode: "remove", expirationDate: new Date(Date.now() + 86400000) }, { expirationMode: "never", expirationDate: new Date(0) }]) {
+        const row = await Repo.create({ repoId: `not-due-${options.expirationMode}`, status: "ready", statusDate: new Date(), options });
+        await new Repository(row).expire();
+        expect((await Repo.findById(row._id)).status).to.equal("ready");
+      }
+    } finally { storage.rm = rm; }
+  });
+
   it("claims expiration once and preserves files from a later generation", async () => {
     const storage = require("../src/core/storage").default;
     const originalRm = storage.rm;

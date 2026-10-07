@@ -277,6 +277,10 @@ export default class Repository {
   }
 
   private async indexPaths() {
+    if (this.status && [RepositoryStatus.EXPIRING, RepositoryStatus.EXPIRED,
+      RepositoryStatus.REMOVING, RepositoryStatus.REMOVED].includes(this.status)) {
+      throw new AnonymousError("repository_changed", { httpStatus: 409 });
+    }
     await this.ensureFileTree();
     const metadataRevision = this.model.fileMetadataRevision;
     const key = this.pathKey();
@@ -285,6 +289,7 @@ export default class Repository {
         await buildPathIndex(this.repoId, key, this.options.terms || [], this.model.treeGeneration);
         const builtAt = new Date();
         const result = await AnonymizedRepositoryModel.updateOne({ _id: this.model._id,
+          status: this.model.status, statusDate: this.model.statusDate,
           treeGeneration: this.model.treeGeneration || { $exists: false },
           fileMetadataRevision: metadataRevision || { $exists: false },
           "source.commit": this.model.source.commit || { $exists: false },
@@ -747,16 +752,31 @@ export default class Repository {
       await this.updateStatus(RepositoryStatus.EXPIRED);
       return;
     }
-    const now = new Date(), token = randomUUID();
+    const now = new Date(), token = randomUUID(), revision = randomUUID();
+    const pending = this.status === RepositoryStatus.EXPIRING || this.status === RepositoryStatus.EXPIRED;
+    if (!pending && (this.options.expirationMode === "never" || !this.options.expirationDate
+      || this.options.expirationDate > now)) return;
+    if (this.status && [RepositoryStatus.ARCHIVED, RepositoryStatus.REMOVING, RepositoryStatus.REMOVED].includes(this.status)) return;
     const claimed = await AnonymizedRepositoryModel.updateOne({ _id: this.model._id,
       status: this.model.status, statusDate: this.model.statusDate,
       anonymizeDate: this.model.anonymizeDate,
+      treeGeneration: this.model.treeGeneration || { $exists: false },
+      fileMetadataRevision: this.model.fileMetadataRevision || { $exists: false },
+      settingsSavedAt: this.model.settingsSavedAt || { $exists: false },
+      "options.expirationMode": this.options.expirationMode || { $exists: false },
+      "options.expirationDate": this.options.expirationDate || { $exists: false },
+      "githubAccess.revision": this.model.githubAccess?.revision || { $exists: false },
       $or: [{ cleanupUntil: { $exists: false } }, { cleanupUntil: { $lte: now } }],
     }, { $set: { status: RepositoryStatus.EXPIRING, statusDate: now,
-      cleanupToken: token, cleanupUntil: new Date(now.getTime() + 15 * 60_000) } }).exec();
+      fileMetadataRevision: revision, cleanupToken: token, cleanupUntil: new Date(now.getTime() + 15 * 60_000) },
+      $unset: { pathIndexKey: "", pathIndexBuiltAt: "" },
+    }).exec();
     if (!claimed.matchedCount) return;
     this.model.status = RepositoryStatus.EXPIRING;
     this.model.statusDate = now;
+    this.model.fileMetadataRevision = revision;
+    this.model.pathIndexKey = undefined;
+    this.model.pathIndexBuiltAt = undefined;
     const lease = { _id: this.model._id, status: RepositoryStatus.EXPIRING, cleanupToken: token };
     const heartbeat = setInterval(() => {
       void AnonymizedRepositoryModel.updateOne(lease, { $set: { cleanupUntil: new Date(Date.now() + 15 * 60_000) } }).exec().catch(() => {});
@@ -773,7 +793,7 @@ export default class Repository {
         finally { await cursor.close(); }
       }
       await FileModel.deleteMany(query).exec();
-      await AnonymizedPathModel.deleteMany({ repoId: this.repoId, key: this.model.pathIndexKey }).exec();
+      await AnonymizedPathModel.deleteMany({ repoId: this.repoId }).exec();
       const result = await AnonymizedRepositoryModel.updateOne(lease, { $set: { status: RepositoryStatus.EXPIRED,
         statusDate: new Date(), isReseted: true, size: { storage: 0, file: 0 } },
         $unset: { cleanupToken: "", cleanupUntil: "", pathIndexKey: "", pathIndexBuiltAt: "", sizeComputedAt: "", emptyTreeGeneration: "" } }).exec();

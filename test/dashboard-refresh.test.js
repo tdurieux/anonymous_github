@@ -14,7 +14,7 @@ describe("dashboard refresh feedback", () => {
     const pending = [];
     let reloads = 0;
     vm.runInNewContext(actions, {
-      state, reactive: value => value,
+      state, legacyDashboard: true, reactive: value => value,
       statusKey: status => ["ready", "error", "removed", "expired"].includes(status) ? status : "progress",
       http: {
         post: async () => { if (postError) throw postError; return {}; },

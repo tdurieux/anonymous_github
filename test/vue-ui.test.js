@@ -1002,25 +1002,96 @@ describe("Vue 3 UI", function () {
   for (const status of ["error", "download"]) {
     it(`updates the global attention badge after polling a repository in ${status}`, async () => {
       const item = { _type: "repo", repoId: "package", status, anonymizeDate: "2000-01-01", source: { fullName: "owner/package" } };
+      let ready = false;
       ui = await browser("/dashboard", {
         "/api/user": { username: "tester" },
-        "/api/user/dashboard": { items: [item], total: 20, filtered: 7, attention: 7, cursor: "next" },
-        "/api/repo/package/refresh": {}, "/api/repo/package": { status: "ready" },
+        "/api/user/dashboard": () => ({ items: ready ? [] : [item], total: 20,
+          filtered: ready ? 6 : 7, attention: ready ? 6 : 7, cursor: ready ? "new-next" : "next" }),
+        "/api/repo/package/refresh": {}, "/api/repo/package": () => { ready = true; return { status: "ready" }; },
       });
       const state = ui.window.document.querySelector("#search")._field.binding.state;
       state.setProjectView("attention"); await delay(200);
       expect(state.filteredItems).to.have.length(1); expect(state.attentionCount()).to.equal(7);
       const requests = ui.requests.filter(request => request.url.pathname === "/api/user/dashboard").length;
-      state.refreshItem(state.items[0]); await delay(30);
+      const original = state.items[0];
+      state.refreshItem(original); await delay(30);
       expect(state.filteredItems).to.have.length(0);
       expect(state.attentionCount()).to.equal(6);
       expect(ui.window.document.querySelector(".attention-count").textContent).to.equal("6");
-      state.refreshItem(state.items[0]); await delay(30);
+      state.refreshItem(original); await delay(30);
       expect(state.attentionCount()).to.equal(6);
-      expect(ui.requests.filter(request => request.url.pathname === "/api/user/dashboard")).to.have.length(requests);
+      expect(state.dashboardTotals.filtered).to.equal(6);
+      expect(state.dashboardCursor).to.equal("new-next");
+      expect(ui.requests.filter(request => request.url.pathname === "/api/user/dashboard")).to.have.length(requests + 1);
       expect(ui.errors).to.deep.equal([]);
     });
   }
+
+  for (const filtered of [false, true]) {
+    it(`reloads pagination after a polled status change${filtered ? " under a status filter" : " sorted by status"}`, async () => {
+      const original = { _type: "repo", repoId: "package", status: "error", source: { fullName: "owner/package" } };
+      const other = { _type: "repo", repoId: "z-other", status: "error", source: { fullName: "owner/z-other" } };
+      let ready = false, release;
+      ui = await browser("/dashboard", {
+        "/api/user": { username: "tester" },
+        "/api/user/dashboard": request => {
+          const cursor = request.url.searchParams.get("cursor");
+          if (cursor === "old-next") return new Promise(resolve => { release = () => resolve({ items: [other], total: 2, filtered: 2, attention: 2, cursor: null }); });
+          if (cursor === "new-next") return { items: [{ ...original, status: "ready" }], total: 2, filtered: 2, attention: 1, cursor: null };
+          return { items: [ready ? other : original], total: 2, filtered: ready && filtered ? 1 : 2,
+            attention: ready ? 1 : 2, cursor: ready ? (filtered ? null : "new-next") : "old-next" };
+        },
+        "/api/repo/package/refresh": {}, "/api/repo/package": () => { ready = true; return { status: "ready" }; },
+      });
+      const state = ui.window.document.querySelector("#search")._field.binding.state;
+      state.orderBy = "status";
+      if (filtered) Object.keys(state.filters.status).forEach(key => { state.filters.status[key] = key === "error"; });
+      await delay(200);
+      await state.showProjectDetails(state.items[0]);
+      const selected = state.items[0];
+      const pending = state.loadMoreProjects(); await delay(10);
+      expect(release).to.be.a("function");
+      const count = ui.requests.filter(request => request.url.pathname === "/api/user/dashboard").length;
+      state.refreshItem(selected); await delay(50);
+      const reloads = ui.requests.filter(request => request.url.pathname === "/api/user/dashboard").slice(count);
+      expect(reloads).to.have.length(1); expect(reloads[0].url.searchParams.has("cursor")).to.equal(false);
+      expect(reloads[0].url.searchParams.get("sort")).to.equal("status");
+      if (filtered) expect(reloads[0].url.searchParams.get("statuses")).to.equal("error");
+      expect(state.dashboardTotals.filtered).to.equal(filtered ? 1 : 2);
+      expect(state.dashboardCursor).to.equal(filtered ? null : "new-next");
+      expect(state.selectedProject).to.equal(null);
+      release(); await pending;
+      expect(state.items.map(item => item._id)).to.deep.equal(["z-other"]);
+      if (!filtered) {
+        await state.loadMoreProjects();
+        expect(state.items.map(item => item._id)).to.deep.equal(["z-other", "package"]);
+        expect(state.items[1].status).to.equal("ready");
+      }
+      expect(ui.errors).to.deep.equal([]);
+    });
+  }
+
+  it("reloads later status transitions after a repository leaves the loaded page", async () => {
+    const item = { _type: "repo", repoId: "package", status: "error", source: { fullName: "owner/package" } };
+    let status = "error", polls = 0;
+    ui = await browser("/dashboard", {
+      "/api/user": { username: "tester" },
+      "/api/user/dashboard": () => ({ items: status === "error" ? [{ ...item, status }] : [], total: 1,
+        filtered: status === "error" ? 1 : 0, attention: status === "error" ? 1 : 0, cursor: null }),
+      "/api/repo/package/refresh": {},
+      "/api/repo/package": () => { status = ++polls === 1 ? "download" : "error"; return { status, statusMessage: "failed refresh" }; },
+    });
+    const state = ui.window.document.querySelector("#search")._field.binding.state;
+    Object.keys(state.filters.status).forEach(key => { state.filters.status[key] = key === "error"; });
+    await delay(20);
+    state.refreshItem(state.items[0]); await delay(50);
+    expect(state.items).to.have.length(0); expect(state.dashboardTotals.filtered).to.equal(0);
+    await delay(2600);
+    expect(polls).to.equal(2); expect(state.items.map(item => item._id)).to.deep.equal(["package"]);
+    expect(state.items[0].status).to.equal("error");
+    expect(state.dashboardTotals.filtered).to.equal(1); expect(state.attentionCount()).to.equal(1);
+    expect(ui.errors).to.deep.equal([]);
+  });
 
   it("finds errors and stalled downloads without treating fresh queued projects as failures", async () => {
     ui = await browser("/dashboard", {

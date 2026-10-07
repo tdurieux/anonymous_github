@@ -482,6 +482,10 @@ router.post(
 
       const repoUpdate = req.body;
 
+      if (repo.status === RepositoryStatus.EXPIRING || repo.status === RepositoryStatus.REMOVING) {
+        throw appError("invalid_status", 409);
+      }
+
       validateNewRepo(repoUpdate);
 
       // Only the source repository/commit/branch backs the cached FileModel —
@@ -603,7 +607,8 @@ router.post(
       }
       repo.model.conference = repoUpdate.conference;
       const saved = await AnonymizedRepositoryModel.updateOne(
-        { _id: repo.model._id, "githubAccess.revision": previousAccessRevision || { $exists: false } },
+        { _id: repo.model._id, status: repo.status, statusDate: repo.model.statusDate,
+          "githubAccess.revision": previousAccessRevision || { $exists: false } },
         {
           $set: {
             settingsSavedAt: new Date(),
