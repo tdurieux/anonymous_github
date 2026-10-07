@@ -93,10 +93,11 @@ describe("dashboard UI", function () {
       expect(divider).to.be.greaterThan(-1);
     });
     it("labels hidden statuses as hidden, not as active filters", function () {
-      expect(html).to.match(/Hiding \{\{\s*statusKeyLabels\[f\]\s*\}\}/);
+      expect(html).to.match(/\{\{\s*statusKeyLabels\[f\]\s*\}\} hidden/);
     });
     it("shows an unlimited quota without a full bar", function () {
-      expect(html).to.match(/quota-fill" v-if="!quota\[q\?\.key\]\.unlimited"/);
+      const quota = fs.readFileSync(path.join(__dirname, "../public/partials/quotaUsage.htm"), "utf8");
+      expect(quota).to.match(/quota-fill" v-if="!quota\[q\?\.key\]\.unlimited"/);
       expect(html).to.not.match(/bg-success|bg-warning|bg-danger/);
     });
     it("right-aligns the Views column and marks it sortable", function () {

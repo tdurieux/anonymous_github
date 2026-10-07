@@ -3,25 +3,25 @@
   <h1 class="paper-page-title">Conferences</h1>
 
   <nav class="admin-nav">
-    <a href="/admin/"><i class="fas fa-tachometer-alt"></i> Overview</a>
-    <a href="/admin/repositories"><i class="fas fa-code-branch"></i> Repositories</a>
-    <a href="/admin/users"><i class="fas fa-users"></i> Users</a>
-    <a href="/admin/conferences" class="active"><i class="fas fa-chalkboard-teacher"></i> Conferences</a>
-    <a href="/admin/queues"><i class="fas fa-tasks"></i> Queues</a>
-    <a href="/admin/errors"><i class="fas fa-bug"></i> Errors</a>
+    <a href="/admin/"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-chart"></use></svg> Overview</a>
+    <a href="/admin/repositories"><svg class="ui-icon" aria-hidden="true"><use href="#project-type-repo"></use></svg> Repositories</a>
+    <a href="/admin/users"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-users"></use></svg> Users</a>
+    <a href="/admin/conferences" class="active"><svg class="ui-icon" aria-hidden="true"><use href="#project-icon-conference"></use></svg> Conferences</a>
+    <a href="/admin/queues"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-list"></use></svg> Queues</a>
+    <a href="/admin/errors"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-bug"></use></svg> Errors</a>
   </nav>
 
   <div class="admin-summary">
     <span class="summary-total">{{ total >= 0 ? fmt.number(total) : '…' }}</span>
-    <span class="summary-pill ok" title="Toggle ready filter" :class="{active: query?.ready}" @click="query.ready = !query.ready; query.page = 1">Ready <span class="count">{{ fmt?.number(statusCountFor('ready')) }}</span></span>
-    <span class="summary-pill warn" title="Toggle preparing filter" :class="{active: query?.preparing}" @click="query.preparing = !query.preparing; query.page = 1">Preparing <span class="count">{{ fmt?.number(statusCountFor('preparing')) }}</span></span>
-    <span class="summary-pill error" title="Toggle errored filter" :class="{active: query?.error}" @click="query.error = !query.error; query.page = 1">Errored <span class="count">{{ fmt?.number(statusCountFor('error')) }}</span></span>
-    <span class="summary-pill" title="Toggle expired filter" :class="{active: query?.expired}" @click="query.expired = !query.expired; query.page = 1">Expired <span class="count">{{ fmt?.number(statusCountFor('expired')) }}</span></span>
-    <span class="summary-pill" title="Toggle removed filter" :class="{active: query?.removed}" @click="query.removed = !query.removed; query.page = 1">Removed <span class="count">{{ fmt?.number(statusCountFor('removed')) }}</span></span>
+    <button type="button" class="summary-pill ok" title="Toggle ready filter" :class="{active: query?.ready}" @click="query.ready = !query.ready; query.page = 1" :aria-pressed="!!(query?.ready)">Ready <span class="count">{{ fmt?.number(statusCountFor('ready')) }}</span></button>
+    <button type="button" class="summary-pill warn" title="Toggle preparing filter" :class="{active: query?.preparing}" @click="query.preparing = !query.preparing; query.page = 1" :aria-pressed="!!(query?.preparing)">Preparing <span class="count">{{ fmt?.number(statusCountFor('preparing')) }}</span></button>
+    <button type="button" class="summary-pill error" title="Toggle errored filter" :class="{active: query?.error}" @click="query.error = !query.error; query.page = 1" :aria-pressed="!!(query?.error)">Errored <span class="count">{{ fmt?.number(statusCountFor('error')) }}</span></button>
+    <button type="button" class="summary-pill" title="Toggle expired filter" :class="{active: query?.expired}" @click="query.expired = !query.expired; query.page = 1" :aria-pressed="!!(query?.expired)">Expired <span class="count">{{ fmt?.number(statusCountFor('expired')) }}</span></button>
+    <button type="button" class="summary-pill" title="Toggle removed filter" :class="{active: query?.removed}" @click="query.removed = !query.removed; query.page = 1" :aria-pressed="!!(query?.removed)">Removed <span class="count">{{ fmt?.number(statusCountFor('removed')) }}</span></button>
   </div>
 
   <div class="alert alert-danger" style="margin: 8px 0;" v-if="fetchError">
-    <i class="fas fa-exclamation-triangle"></i> {{ fetchError }}
+    <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-warning"></use></svg> {{ fetchError }}
   </div>
 
   <form class="w-100 admin-filter-toolbar" aria-label="Conferences" accept-charset="UTF-8" v-form="viewState">
@@ -31,11 +31,11 @@
         <span class="admin-search-hint" v-if="!query?.search">/</span>
       </div>
       <span class="admin-filter-spacer"></span>
-      <button class="btn btn-sm" type="button" @click="exportCsv()"><i class="fas fa-file-csv"></i> Export</button>
+      <button class="btn btn-sm" type="button" @click="exportCsv()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-export"></use></svg> Export</button>
       <span class="admin-filter-inline" aria-label="Pagination">
-        <button class="btn btn-sm" type="button" @click="query.page = Math.max(1, query.page - 1)" :disabled="query?.page &lt;= 1"><i class="fas fa-chevron-left"></i></button>
+        <button class="btn btn-sm btn-icon" type="button" @click="query.page = Math.max(1, query.page - 1)" :disabled="query?.page &lt;= 1" aria-label="Previous page"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-chevron-left"></use></svg></button>
         <span style="font-family: var(--font-mono); font-size: 12px; color: var(--ink-muted);">{{ query?.page }}/{{ totalPage || 1 }}</span>
-        <button class="btn btn-sm" type="button" @click="query.page = Math.min(totalPage, query.page + 1)" :disabled="query?.page &gt;= totalPage"><i class="fas fa-chevron-right"></i></button>
+        <button class="btn btn-sm btn-icon" type="button" @click="query.page = Math.min(totalPage, query.page + 1)" :disabled="query?.page &gt;= totalPage" aria-label="Next page"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-chevron-right"></use></svg></button>
       </span>
     </div>
 
@@ -44,7 +44,7 @@
         <span class="admin-active-chip" v-for="(chip, index) in chips" :key="chip?.key">
           <span class="key">{{ chip?.label }}</span>
           <span>{{ chip?.value }}</span>
-          <button type="button" @click="clearFilter(chip.key)"><i class="fas fa-times"></i></button>
+          <button type="button" @click="clearFilter(chip.key)" aria-label="Clear filter"><svg class="ui-icon" aria-hidden="true"><use href="#project-icon-close"></use></svg></button>
         </span>
       </div>
     </div>
@@ -52,15 +52,15 @@
 
   <div class="paper-table paper-table-conferences w-100" role="table" aria-label="Conferences">
     <div class="paper-table-head" role="row">
-      <div role="columnheader"><span class="sortable" :class="{active: query?.sort == &#x27;name&#x27;}" @click="sortBy(&#x27;name&#x27;)">Conference <i class="fas" :class="sortIcon(&#x27;name&#x27;)"></i></span></div>
-      <div role="columnheader"><span class="sortable" :class="{active: query?.sort == &#x27;status&#x27;}" @click="sortBy(&#x27;status&#x27;)">Status <i class="fas" :class="sortIcon(&#x27;status&#x27;)"></i></span></div>
+      <div role="columnheader"><button type="button" class="sortable" :class="{active: query?.sort == &#x27;name&#x27;}" @click="sortBy(&#x27;name&#x27;)">Conference <svg class="ui-icon sort-direction" aria-hidden="true" v-if="sortIcon(&#x27;name&#x27;)" :class="{ascending: sortIcon(&#x27;name&#x27;) === 'fa-arrow-up'}"><use href="#project-icon-arrow"></use></svg></button></div>
+      <div role="columnheader"><button type="button" class="sortable" :class="{active: query?.sort == &#x27;status&#x27;}" @click="sortBy(&#x27;status&#x27;)">Status <svg class="ui-icon sort-direction" aria-hidden="true" v-if="sortIcon(&#x27;status&#x27;)" :class="{ascending: sortIcon(&#x27;status&#x27;) === 'fa-arrow-up'}"><use href="#project-icon-arrow"></use></svg></button></div>
       <div role="columnheader" class="num">Repos</div>
-      <div role="columnheader"><span class="sortable" :class="{active: query?.sort == &#x27;startDate&#x27;}" @click="sortBy(&#x27;startDate&#x27;)">Window <i class="fas" :class="sortIcon(&#x27;startDate&#x27;)"></i></span></div>
+      <div role="columnheader"><button type="button" class="sortable" :class="{active: query?.sort == &#x27;startDate&#x27;}" @click="sortBy(&#x27;startDate&#x27;)">Window <svg class="ui-icon sort-direction" aria-hidden="true" v-if="sortIcon(&#x27;startDate&#x27;)" :class="{ascending: sortIcon(&#x27;startDate&#x27;) === 'fa-arrow-up'}"><use href="#project-icon-arrow"></use></svg></button></div>
       <div role="columnheader" aria-label="Actions"></div>
     </div>
     <div class="paper-table-row" role="row" v-for="(conference, index) in filteredConferences">
       <div class="cell-anon" role="cell">
-        <span class="type-badge type-repo">Conf</span>
+        <svg class="ui-icon record-type-icon" role="img" aria-label="Conference"><use href="#project-icon-conference"></use></svg>
         <div class="anon-text">
           <a class="repo-name" v-text="conference?.name" :href="safeUrl(&quot;/conference/&quot; + (conference?.conferenceID))"></a>
           <div class="anon-sub">
@@ -72,27 +72,27 @@
         <span class="status-dot" :class="{&#x27;status-removed&#x27;: conference?.status == &#x27;removed&#x27; || conference?.status == &#x27;expired&#x27;, &#x27;status-ready&#x27;: conference?.status == &#x27;ready&#x27;, &#x27;status-error&#x27;: conference?.status == &#x27;error&#x27;, &#x27;status-preparing&#x27;: conference?.status == &#x27;preparing&#x27;}"></span>
         <span v-text="fmt?.title(conference?.status)"></span>
       </div>
-      <div class="cell-views num" role="cell">
+      <div class="cell-views num" role="cell"><svg class="ui-icon mobile-meta-icon" aria-hidden="true"><use href="#project-type-repo"></use></svg>
         <a title="Show repositories in this conference" v-text="fmt?.number(conference?.repositories?.length || 0)" :href="safeUrl(&quot;/admin/?conference=&quot; + (conference?.conferenceID))"></a>
       </div>
-      <div class="cell-expires" role="cell">{{ fmt?.date(conference?.startDate) }} &ndash; {{ fmt?.date(conference?.endDate) }}</div>
+      <div class="cell-expires" role="cell"><svg class="ui-icon mobile-meta-icon" aria-hidden="true"><use href="#project-icon-clock"></use></svg> {{ fmt?.date(conference?.startDate) }} &ndash; {{ fmt?.date(conference?.endDate) }}</div>
       <div class="cell-actions" role="cell">
         <div class="dropdown">
           <button class="btn btn-icon-dots" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" aria-label="Actions">
-            <i class="fas fa-ellipsis-h" aria-hidden="true"></i>
+            <svg class="ui-icon" aria-hidden="true"><use href="#project-icon-more"></use></svg>
           </button>
           <div class="dropdown-menu dropdown-menu-right">
-            <a class="dropdown-item" :href="safeUrl(&quot;/conference/&quot; + (conference?.conferenceID) + &quot;/edit&quot;)"><i class="far fa-edit"></i> Edit</a>
-            <a class="dropdown-item" :href="safeUrl(&quot;/conference/&quot; + (conference?.conferenceID) + &quot;/&quot;)"><i class="fa fa-eye"></i> View</a>
-            <a class="dropdown-item" :href="safeUrl(&quot;/admin/?conference=&quot; + (conference?.conferenceID))"><i class="fas fa-code-branch"></i> View repositories</a>
+            <a class="dropdown-item" :href="safeUrl(&quot;/conference/&quot; + (conference?.conferenceID) + &quot;/edit&quot;)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-edit"></use></svg> Edit</a>
+            <a class="dropdown-item" :href="safeUrl(&quot;/conference/&quot; + (conference?.conferenceID) + &quot;/&quot;)"><svg class="ui-icon" aria-hidden="true"><use href="#project-icon-eye"></use></svg> View</a>
+            <a class="dropdown-item" :href="safeUrl(&quot;/admin/?conference=&quot; + (conference?.conferenceID))"><svg class="ui-icon" aria-hidden="true"><use href="#project-type-repo"></use></svg> View repositories</a>
             <div class="dropdown-divider"></div>
-            <a class="dropdown-item text-danger" href="#" v-show="conference?.status != &#x27;removed&#x27;" @click.prevent="removeConference(conference)"><i class="fas fa-trash-alt"></i> Remove</a>
+            <a class="dropdown-item text-danger" href="#" v-show="conference?.status != &#x27;removed&#x27;" @click.prevent="removeConference(conference)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-trash"></use></svg> Remove</a>
           </div>
         </div>
       </div>
     </div>
     <div class="paper-table-empty" v-if="filteredConferences?.length == 0">
-      <i class="fas fa-inbox"></i>
+      <svg class="ui-icon" aria-hidden="true"><use href="#project-icon-inbox"></use></svg>
       <span>No conferences match the current filters.</span>
     </div>
   </div>
@@ -100,10 +100,10 @@
   <div class="admin-toolbar" style="justify-content: space-between; border-bottom: none;">
     <span style="font-size: 12px; color: var(--ink-muted);">{{ fmt?.number(total) }} results</span>
     <div class="pagination-compact" v-if="totalPage &gt; 1">
-      <button class="btn btn-sm" @click="query.page = Math.max(1, query.page - 1)" :disabled="query?.page &lt;= 1"><i class="fas fa-chevron-left"></i> Previous</button>
+      <button class="btn btn-sm" @click="query.page = Math.max(1, query.page - 1)" :disabled="query?.page &lt;= 1"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-chevron-left"></use></svg> Previous</button>
       <input type="number" class="form-control form-control-sm" min="1" style="width: 56px;" v-field="{ state: viewState, set: value =&gt; { query.page = value }, value: query?.page, form: null, options: {} }" :max="(totalPage)">
       <span>of {{ totalPage }}</span>
-      <button class="btn btn-sm" @click="query.page = Math.min(totalPage, query.page + 1)" :disabled="query?.page &gt;= totalPage">Next <i class="fas fa-chevron-right"></i></button>
+      <button class="btn btn-sm" @click="query.page = Math.min(totalPage, query.page + 1)" :disabled="query?.page &gt;= totalPage">Next <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-chevron-right"></use></svg></button>
     </div>
     <span class="admin-filter-inline">
       <label>Per page</label>

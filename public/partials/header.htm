@@ -1,5 +1,9 @@
 <nav class="navbar navbar-expand-lg" :class="{&#x27;navbar-dark&#x27;: isDarkMode}">
   <a class="navbar-brand" href="/">Anonymous <em>GitHub</em></a>
+  <a class="nav-support" href="https://ko-fi.com/tdurieux" target="_blank" rel="noopener" title="Donate on Ko-fi to help cover hosting costs" aria-label="Donate on Ko-fi to help cover hosting costs">
+    <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-heart"></use></svg>
+    <span class="nav-support-label">Support</span>
+  </a>
   <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
     <span class="navbar-toggler-icon"></span>
   </button>
@@ -13,28 +17,28 @@
       </li>
       <li class="nav-item" v-if="user">
         <a class="nav-link" href="/dashboard" :class="{&#x27;active&#x27;: path == &#x27;/dashboard&#x27;}">
-          <i class="fas fa-th-large d-lg-none mr-1"></i>
+          <svg class="ui-icon d-lg-none mr-1" aria-hidden="true"><use href="#ui-icon-grid"></use></svg>
           My work
         </a>
       </li>
       <li class="nav-item" v-if="user">
         <a class="nav-link" href="/anonymize" :class="{&#x27;active&#x27;:path == &#x27;/anonymize&#x27; || path == &#x27;/pull-request-anonymize&#x27;}">
-          <i class="fas fa-user-secret d-lg-none mr-1"></i>
+          <svg class="ui-icon d-lg-none mr-1" aria-hidden="true"><use href="#ui-icon-shield"></use></svg>
           Anonymize
         </a>
       </li>
       <li class="nav-item" v-if="user">
         <a class="nav-link" href="/conferences" :class="{&#x27;active&#x27;:path == &#x27;/conferences&#x27;}">
-          <i class="fas fa-chalkboard-teacher d-lg-none mr-1"></i>
+          <svg class="ui-icon d-lg-none mr-1" aria-hidden="true"><use href="#project-icon-conference"></use></svg>
           Conferences
         </a>
       </li>
       <li class="nav-item">
-        <a class="nav-link" href="/faq" :class="{&#x27;active&#x27;:path == &#x27;/faq&#x27;}"><i class="fas fa-question-circle d-lg-none mr-1"></i>FAQ</a>
+        <a class="nav-link" href="/faq" :class="{&#x27;active&#x27;:path == &#x27;/faq&#x27;}"><svg class="ui-icon d-lg-none mr-1" aria-hidden="true"><use href="#ui-icon-help"></use></svg>FAQ</a>
       </li>
       <li class="nav-item" v-if="user &amp;&amp; user?.isAdmin">
         <a class="nav-link" href="/admin/" :class="{&#x27;active&#x27;:path?.indexOf(&#x27;/admin&#x27;) === 0}">
-          <i class="fas fa-cog d-lg-none mr-1"></i>
+          <svg class="ui-icon d-lg-none mr-1" aria-hidden="true"><use href="#project-icon-filter"></use></svg>
           Admin
         </a>
       </li>
@@ -47,19 +51,19 @@
            anonymized repository often think it is about the paper, so the
            label names the service and the tooltip says who to contact. -->
       <li class="nav-item d-none d-lg-block">
-        <a class="nav-link" target="_blank" rel="noopener" href="https://github.com/tdurieux/anonymous_github/issues/new?template=issue_report.yml" title="Report a problem with the Anonymous GitHub service. Questions about an anonymized repository or paper go to its authors." data-offset="30"><i class="fas fa-bug d-lg-none mr-1" aria-hidden="true"></i>Report a bug
+        <a class="nav-link" target="_blank" rel="noopener" href="https://github.com/tdurieux/anonymous_github/issues/new?template=issue_report.yml" title="Report a problem with the Anonymous GitHub service. Questions about an anonymized repository or paper go to its authors." data-offset="30"><svg class="ui-icon d-lg-none mr-1" aria-hidden="true"><use href="#ui-icon-bug"></use></svg>Report a bug
         </a>
       </li>
 
       <li class="nav-item" v-if="!isDarkMode">
         <a class="nav-link nav-icon" href="#" title="Switch to dark mode" aria-label="Switch to dark mode" role="button" @click.prevent="darkMode(true);">
-          <i class="fas fa-moon" aria-hidden="true"></i>
+          <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-moon"></use></svg>
         </a>
       </li>
 
       <li class="nav-item" v-if="isDarkMode">
         <a class="nav-link nav-icon" href="#" title="Switch to light mode" aria-label="Switch to light mode" role="button" @click.prevent="darkMode(false);">
-          <i class="fas fa-sun" aria-hidden="true"></i>
+          <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-sun"></use></svg>
         </a>
       </li>
 
@@ -76,7 +80,7 @@
         <div class="dropdown-menu dropdown-menu-right user-menu" aria-labelledby="navbarDropdownMenuLink">
           <h6 class="dropdown-header">Signed in as @{{ user?.username }}</h6>
           <a class="dropdown-item" href="/profile">
-            <i class="fas fa-sliders-h" aria-hidden="true"></i>
+            <svg class="ui-icon" aria-hidden="true"><use href="#project-icon-filter"></use></svg>
             <span>Settings<small>Defaults, quotas, account</small></span>
           </a>
           <a class="dropdown-item" href="/connections">
@@ -84,21 +88,25 @@
             <span>GitHub connections<small>Repository access and OAuth</small></span>
           </a>
           <a class="dropdown-item" href="/claim">
-            <i class="fas fa-link" aria-hidden="true"></i>
+            <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-link"></use></svg>
             <span>Claim an anonymization<small>Attach an existing mirror to your account</small></span>
           </a>
           <div class="dropdown-divider"></div>
           <a class="dropdown-item" href="https://github.com/tdurieux/anonymous_github/issues/new?template=issue_report.yml" target="_blank" rel="noopener">
-            <i class="fas fa-bug" aria-hidden="true"></i>
+            <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-bug"></use></svg>
             <span>Report a bug<small>About this service, not a paper</small></span>
           </a>
           <a class="dropdown-item" href="https://github.com/tdurieux/anonymous_github/" target="_blank" rel="noopener">
             <i class="fab fa-github" aria-hidden="true"></i>
             <span>Source code</span>
           </a>
+          <a class="dropdown-item" href="https://ko-fi.com/tdurieux" target="_blank" rel="noopener">
+            <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-heart"></use></svg>
+            <span>Support the project</span>
+          </a>
           <div class="dropdown-divider"></div>
           <a class="dropdown-item" href="/api/user/logout" target="_self">
-            <i class="fas fa-sign-out-alt" aria-hidden="true"></i>
+            <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-logout"></use></svg>
             <span>Sign out</span>
           </a>
         </div>

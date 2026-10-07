@@ -2,6 +2,16 @@ import { loadLibrary, loadEditor } from "./lazy-assets.js";
 import { h, ref, watch, onMounted, onBeforeUnmount, nextTick, defineAsyncComponent } from "vue";
 import HtmlDoc from "./html-doc.js";
 import PdfViewer from "./pdf-viewer.js";
+import { render as quotaUsageTemplate } from "../partials/quotaUsage.htm";
+
+const QuotaUsage = {
+  props: ["quota", "fmt"],
+  setup(props) {
+    return { formatAmount: (value, kind) => kind === "bytes"
+      ? props.fmt.humanFileSize(value).replace(/([a-zA-Z]+)$/, " $1") : props.fmt.number(value) };
+  },
+  render: quotaUsageTemplate,
+};
 
 const editorModes = new Set(__ACE_MODES__);
 
@@ -68,7 +78,7 @@ const Loc = {
     };
   },
 };
-export const components = { Markdown, GistFile, Notebook, Loc, HtmlDoc, Pdfviewer: defineAsyncComponent(async () => {
+export const components = { Markdown, GistFile, Notebook, Loc, HtmlDoc, QuotaUsage, Pdfviewer: defineAsyncComponent(async () => {
   await loadLibrary("pdf");
   pdfjsLib.GlobalWorkerOptions.workerSrc = "/script/external/pdf.worker.js";
   return PdfViewer;

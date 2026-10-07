@@ -1,5 +1,5 @@
 <div class="container paper-page auth-page">
-  <a class="auth-back" href="/"><i class="fas fa-arrow-left" aria-hidden="true"></i> Anonymous GitHub</a>
+  <a class="auth-back" href="/"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-arrow-left"></use></svg> Anonymous GitHub</a>
   <div class="auth-layout">
     <header class="auth-intro">
       <div class="paper-eyebrow">Your research, ready for review</div>
@@ -18,16 +18,16 @@
         <h2>Continue with GitHub</h2>
         <p>Connect through the GitHub App with read-only repository access.</p>
         <ul class="auth-permissions">
-          <li><i class="fas fa-check" aria-hidden="true"></i> You choose which repositories to share</li>
-          <li><i class="fas fa-check" aria-hidden="true"></i> No permission to write to your code</li>
+          <li><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-check"></use></svg> You choose which repositories to share</li>
+          <li><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-check"></use></svg> No permission to write to your code</li>
         </ul>
-        <a class="btn btn-ink auth-continue" target="_self" href="/github/app/login">Sign in with GitHub <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
+        <a class="btn btn-ink auth-continue" target="_self" href="/github/app/login">Sign in with GitHub <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-arrow-right"></use></svg></a>
         <small>Your existing anonymizations and connections stay with your account.</small>
       </section>
       <section class="auth-legacy" v-if="!site_options?.GITHUB_APP_ENABLED &amp;&amp; site_options?.GITHUB_OAUTH_ENABLED &amp;&amp; !accountRecovery">
         <div class="connection-title"><h2>Continue with GitHub</h2></div>
         <p>Sign in to access your account. GitHub OAuth includes write access to private repositories.</p>
-        <a class="connection-link" target="_self" href="/github/login">Sign in with GitHub <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
+        <a class="connection-link" target="_self" href="/github/login">Sign in with GitHub <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-arrow-right"></use></svg></a>
       </section>
       <p role="status" v-if="site_options &amp;&amp; !site_options.GITHUB_APP_ENABLED &amp;&amp; !site_options.GITHUB_OAUTH_ENABLED">GitHub sign-in is currently unavailable. Please try again later.</p>
     </div>

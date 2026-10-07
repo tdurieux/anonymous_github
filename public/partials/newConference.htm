@@ -37,7 +37,7 @@
         <div class="form-group">
           <label class="paper-field-label" for="url">Website</label>
           <input type="url" class="form-control" name="url" id="url" placeholder="https://example.org" v-field="{ state: viewState, set: value =&gt; { options.url = value }, value: options?.url, form: &quot;conference&quot;, options: {} }" :class="{&#x27;is-invalid&#x27;: conference?.url?.invalid &amp;&amp; (conference?.url?.touched || conference?.submitted)}">
-          <div class="invalid-feedback" v-show="conference?.url?.errors?.invalid">
+          <div class="invalid-feedback" v-show="conference?.url?.errors?.url">
             The url of the conference is invalid.
           </div>
         </div>
@@ -189,8 +189,8 @@
       <div class="paper-settings-footer">
         <div class="alert alert-danger" role="alert" v-if="error" v-text="error"></div>
         <div class="alert alert-success" role="alert" v-if="message" v-text="message"></div>
-        <button id="send" type="submit" class="btn btn-ink" @click.prevent="submitForm($event, () =&gt; { submit($event) })">
-          {{ editionMode ? "Update" : "Create" }} conference
+        <button id="send" :disabled="saving" type="submit" class="btn btn-ink" @click.prevent="submitForm($event, () =&gt; { submit($event) })">
+          {{ saving ? (editionMode ? "Updating…" : "Creating…") : (editionMode ? "Update conference" : "Create conference") }}
         </button>
       </div>
     </form>

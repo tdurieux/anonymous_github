@@ -9,6 +9,7 @@ function harness(date) {
   const defs = {}, routes = {}, timers = new Map();
   let timerId = 0;
   const context = { reactive: value => value, console, Map, Set, Date: date || Date,
+    formDraft: state => ({ restore: () => false, clear() {}, discard() {}, checkpoint: () => ({ terms: state.terms, options: state.options }), accept() {} }),
     navigator: { platform: "Linux" }, document: { location: { pathname: "/r/repo" }, addEventListener() {}, querySelector() {} },
     window: {}, Prism: { highlightAll() {} }, encodeURIComponent,
     encodePathForUrl: p => p.split("/").map(encodeURIComponent).join("/"),
@@ -71,6 +72,11 @@ describe("frontend production regressions", function () {
         expect(h.scope.options.expirationDate.toISOString()).to.equal("2026-11-01T00:00:00.000Z");
         expect(h.scope.conference_data).not.to.equal(null);
         if (id === "repoId") {
+          h.requests.find(r => r.url === "/api/repo/owner/repo/").resolve({ data: { repo: "repo", defaultBranch: "main" } });
+          h.requests.find(r => r.url === "/api/repo/owner/repo/readme").resolve({ data: "README" });
+          await h.flush();
+          h.requests.find(r => r.url === "/api/repo/owner/repo/branches").resolve({ data: [{ name: "main", commit: "abcdef", readme: "README" }] });
+          await h.flush();
           h.scope.anonymizeRepo({ target: {} });
           expect(h.requests.at(-1).body.options.update).to.equal(false);
           expect(h.requests.at(-1).url).to.equal("/api/repo/saved");
@@ -163,9 +169,9 @@ describe("frontend production regressions", function () {
   it("translates profile save failures", async function () {
     const h = harness(); expect(h.defs.profileController.toString()).to.include("translate");
     const timeout = Object.assign(() => 0, { cancel() {} });
-    h.defs.profileController(h.scope, h.http, key => Promise.resolve(key), timeout, { load: () => Promise.resolve({}) });
+    h.defs.profileController(h.scope, h.http, key => Promise.resolve(key === "ERRORS.not_connected" ? "Please sign in again." : key), timeout, { load: () => Promise.resolve({}) });
     h.scope.saveDefault(); h.requests.at(-1).reject({ data: { error: "not_connected" } }); await h.flush();
-    expect(h.scope.error).to.equal("ERRORS.not_connected");
+    expect(h.scope.error).to.equal("Please sign in again.");
   });
   describe("landing page features", function () {
     const home = fs.readFileSync(path.join(__dirname, "..", "public", "partials", "home.htm"), "utf8");

@@ -16,17 +16,17 @@
   </div>
 
   <nav class="admin-nav">
-    <a href="/admin/"><i class="fas fa-tachometer-alt"></i> Overview</a>
-    <a href="/admin/repositories"><i class="fas fa-code-branch"></i> Repositories</a>
-    <a href="/admin/users"><i class="fas fa-users"></i> Users</a>
-    <a href="/admin/conferences"><i class="fas fa-chalkboard-teacher"></i> Conferences</a>
-    <a href="/admin/queues" class="active"><i class="fas fa-tasks"></i> Queues</a>
-    <a href="/admin/errors"><i class="fas fa-bug"></i> Errors</a>
+    <a href="/admin/"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-chart"></use></svg> Overview</a>
+    <a href="/admin/repositories"><svg class="ui-icon" aria-hidden="true"><use href="#project-type-repo"></use></svg> Repositories</a>
+    <a href="/admin/users"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-users"></use></svg> Users</a>
+    <a href="/admin/conferences"><svg class="ui-icon" aria-hidden="true"><use href="#project-icon-conference"></use></svg> Conferences</a>
+    <a href="/admin/queues" class="active"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-list"></use></svg> Queues</a>
+    <a href="/admin/errors"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-bug"></use></svg> Errors</a>
   </nav>
 
   <!-- Queue overview cards -->
   <div class="q-cards">
-    <div class="q-card" v-for="(q, index) in queueList" :class="{selected: selectedQueue == q?.key, paused: q?.paused}" @click="selectQueue(q.key)">
+    <div class="q-card" role="button" tabindex="0" :aria-pressed="selectedQueue === q.key" @keydown.enter.prevent="selectQueue(q.key)" @keydown.space.prevent="selectQueue(q.key)" v-for="(q, index) in queueList" :class="{selected: selectedQueue == q?.key, paused: q?.paused}" @click="selectQueue(q.key)">
       <div class="q-card-head">
         <span class="q-dot" :class="{&#x27;q-dot-red&#x27;: q?.paused || q?.counts?.failed &gt; 0}"></span>
         <span class="q-card-name" v-text="q?.label"></span>
@@ -88,7 +88,7 @@
   </div>
 
   <div class="q-toast-error" v-if="actionError" @click="actionError = null">
-    <i class="fas fa-exclamation-circle"></i> {{ actionError }}
+    <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-info"></use></svg> {{ actionError }}
   </div>
 
   <!-- Jobs table -->
@@ -109,7 +109,7 @@
         <input type="checkbox" v-field="{ state: viewState, set: value =&gt; { query.autoRefresh = value }, value: query?.autoRefresh, form: null, options: {} }">
         Auto-refresh
       </label>
-      <button class="btn btn-sm" type="button" title="Refresh now" @click="refreshNow()"><i class="fas fa-sync"></i></button>
+      <button class="btn btn-sm btn-icon" type="button" title="Refresh now" @click="refreshNow()" aria-label="Refresh"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-refresh"></use></svg></button>
     </div>
 
     <table class="q-table" v-if="filteredJobs().length &gt; 0">
@@ -131,7 +131,7 @@
             <span class="q-delay-hint" v-if="job?._state == &#x27;delayed&#x27; &amp;&amp; job?.delayUntil" v-text="delayCountdown(job?.delayUntil)"></span>
           </td>
           <td class="q-cell-id">
-            <i class="fas fa-chevron-right q-chevron" :class="{&#x27;q-chevron-open&#x27;: expanded[job?.id]}"></i>
+            <svg class="ui-icon q-chevron" :class="{&#x27;q-chevron-open&#x27;: expanded[job?.id]}" aria-hidden="true"><use href="#ui-icon-chevron-right"></use></svg>
             <a target="_blank" v-text="&#x27;job:&#x27; + fmt.limitTo(job?.id, 6)" @click="$event.stopPropagation()" :href="safeUrl(&quot;/r/&quot; + (job?.id))"></a>
           </td>
           <td class="q-cell-payload">
@@ -147,8 +147,8 @@
             </div>
           </td>
           <td class="q-cell-actions">
-            <button class="btn btn-sm" title="Retry" v-if="job?._state == &#x27;failed&#x27;" @click="retryJob(job); $event.stopPropagation()"><i class="fas fa-sync"></i></button>
-            <button class="btn btn-sm" title="Remove" @click="removeJob(job); $event.stopPropagation()"><i class="fas fa-trash-alt"></i></button>
+            <button class="btn btn-sm btn-icon" title="Retry" v-if="job?._state == &#x27;failed&#x27;" @click="retryJob(job); $event.stopPropagation()" aria-label="Retry job"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-refresh"></use></svg></button>
+            <button class="btn btn-sm btn-icon" title="Remove" aria-label="Remove job" @click="removeJob(job); $event.stopPropagation()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-trash"></use></svg></button>
           </td>
         </tr>
         <tr class="q-detail-row" v-if="expanded[job?.id]">
@@ -205,9 +205,9 @@
                 <pre class="q-error-stack" v-for="(stack, index) in job?.stacktrace" :key="index"><code v-text="stack"></code></pre>
               </div>
               <div class="q-job-detail-actions">
-                <button class="btn btn-sm" v-if="job?._state == &#x27;failed&#x27;" @click="retryJob(job)"><i class="fas fa-sync"></i> Retry</button>
-                <button class="btn btn-sm" @click="removeJob(job)"><i class="fas fa-trash-alt"></i> Remove</button>
-                <a class="btn btn-sm" target="_blank" :href="safeUrl(&quot;/r/&quot; + (job?.id))"><i class="fas fa-external-link-alt"></i> View repo</a>
+                <button class="btn btn-sm" v-if="job?._state == &#x27;failed&#x27;" @click="retryJob(job)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-refresh"></use></svg> Retry</button>
+                <button class="btn btn-sm" @click="removeJob(job)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-trash"></use></svg> Remove</button>
+                <a class="btn btn-sm" target="_blank" :href="safeUrl(&quot;/r/&quot; + (job?.id))"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-external-link"></use></svg> View repo</a>
               </div>
             </div>
           </td>
@@ -216,7 +216,7 @@
     </table>
 
     <div class="paper-table-empty" style="border:1px solid var(--border-color);border-radius:10px;background:var(--paper-card);" v-if="filteredJobs().length == 0">
-      <i class="fas fa-check-circle"></i>
+      <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-check-circle"></use></svg>
       <span v-if="!query?.search">No jobs in the {{ selectedQueue }} queue.</span>
       <span v-if="query?.search">No jobs match the current filters.</span>
     </div>

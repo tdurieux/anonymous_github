@@ -13,6 +13,7 @@ import FileModel from "../../core/model/files/files.model";
 import { isConnected } from "../database";
 import { octokit } from "../../core/GitHubUtils";
 import { createLogger, serializeError } from "../../core/logger";
+import { projectNameKey, saveProjectName } from "./project-names";
 
 const logger = createLogger("user");
 
@@ -124,6 +125,15 @@ router.get("/quota", async (req, res) => {
   }
 });
 
+router.post("/project-name", async (req, res) => {
+  try {
+    const user = await getUser(req);
+    res.json({ name: await saveProjectName(user, req.body) });
+  } catch (error) {
+    handleError(error, res, req);
+  }
+});
+
 router.get("/default", async (req, res) => {
   try {
     const user = await getUser(req);
@@ -214,6 +224,7 @@ router.delete("/", async (req, res) => {
           externalIDs: "",
           photo: "",
           default: "",
+          projectNames: "",
         },
       }
     ).exec();
@@ -239,6 +250,7 @@ router.get(
         (await user.getRepositories()).map((x) => {
           const json = x.toJSON() as Record<string, unknown>;
           json.role = x.owner.id === user.model.id ? "owner" : "coauthor";
+          json.projectName = user.model.projectNames?.get(projectNameKey("repo", x.repoId));
           return json;
         })
       );
@@ -254,7 +266,7 @@ router.get(
       const user = await getUser(req);
       res.json(
         (await user.getGists()).map((x) => {
-          return x.toJSON();
+          return { ...x.toJSON(), projectName: user.model.projectNames?.get(projectNameKey("gist", x.gistId)) };
         })
       );
     } catch (error) {
@@ -269,7 +281,7 @@ router.get(
       const user = await getUser(req);
       res.json(
         (await user.getPullRequests()).map((x) => {
-          return x.toJSON();
+          return { ...x.toJSON(), projectName: user.model.projectNames?.get(projectNameKey("pr", x.pullRequestId)) };
         })
       );
     } catch (error) {
