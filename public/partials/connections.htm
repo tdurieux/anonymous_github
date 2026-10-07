@@ -44,12 +44,12 @@
       <div class="connection-resource" v-for="resource in connections.resources" :key="resource.type + resource.id">
         <div class="connection-resource-name"><strong>{{ resource.name || resource.id }}</strong><small>{{ resource.type }} · {{ resource.id }}</small></div>
         <span class="connection-badge" :class="{'connection-badge-muted': resource.connection === 'oauth'}">{{ resource.connection === 'github-app' ? 'Read-only App' : 'Legacy OAuth' }}</span>
-        <div class="connection-resource-actions" v-if="!['archived', 'removed', 'preparing', 'queue', 'download', 'removing', 'expiring'].includes(resource.status) &amp;&amp; connections.appEnabled &amp;&amp; connections.appConnected">
+        <div class="connection-resource-actions" v-if="!['archived', 'removed', 'preparing', 'queue', 'removing', 'expiring'].includes(resource.status) &amp;&amp; (resource.status !== 'download' || (resource.type === 'pull-request' &amp;&amp; (!resource.statusDate || new Date(resource.statusDate).getTime() &lt;= Date.now() - 300000))) &amp;&amp; connections.appEnabled &amp;&amp; connections.appConnected">
           <button class="btn btn-outline-ink" :disabled="busy" @click="changeConnection(resource, 'github-app', true)">Check read-only access</button>
           <button v-if="resource.eligible" class="btn btn-ink" :disabled="busy" @click="changeConnection(resource, 'github-app', false)">{{ resource.connection === 'github-app' ? 'Reconnect read-only access' : 'Switch to read-only access' }}</button>
           <span class="connection-help" role="status" v-if="resource.eligible === false">Access unavailable. Allow this repository on GitHub, then check again.</span>
         </div>
-        <button v-if="!['archived', 'removed', 'preparing', 'queue', 'download', 'removing', 'expiring'].includes(resource.status) &amp;&amp; resource.connection === 'github-app' &amp;&amp; connections.oauthConnected" class="connection-link" :disabled="busy" @click="changeConnection(resource, 'oauth', false)">Use OAuth</button>
+        <button v-if="!['archived', 'removed', 'preparing', 'queue', 'removing', 'expiring'].includes(resource.status) &amp;&amp; (resource.status !== 'download' || (resource.type === 'pull-request' &amp;&amp; (!resource.statusDate || new Date(resource.statusDate).getTime() &lt;= Date.now() - 300000))) &amp;&amp; resource.connection === 'github-app' &amp;&amp; connections.oauthConnected" class="connection-link" :disabled="busy" @click="changeConnection(resource, 'oauth', false)">Use OAuth</button>
       </div>
       <p class="connection-footnote"><i class="fas fa-info-circle" aria-hidden="true"></i> Removing access stops new fetches from GitHub. Published content keeps its current expiration and removal settings.</p>
     </section>

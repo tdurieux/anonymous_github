@@ -16,7 +16,7 @@ for (const type of ["repository", "pull-request"]) {
     }
     beforeEach(function () {
       restores = []; writes = []; checks = []; owner = "owner";
-      model = { _id: "saved-resource", owner: "owner", status: "ready",
+      model = { _id: "saved-resource", owner: "owner", status: "ready", statusDate: new Date(),
         repoId: "published-url", pullRequestId: "published-url",
         source: { repositoryName: "owner/private", repositoryFullName: "owner/private", commit: "saved-sha", pullRequestId: 7 },
         githubAccess: { kind: "github-app", repositoryId: 42, installationId: 100, revision: "old" },
@@ -85,6 +85,14 @@ for (const type of ["repository", "pull-request"]) {
       stub(app, "githubRequest", async () => { throw new Error("github_app_access_required"); });
       await fails("github_app_access_required");
     });
+    if (type === "pull-request") {
+      it("allows stale downloads but guards their timestamp against a new refresh", async function () {
+        model.status = "download";
+        model.statusDate = new Date(Date.now() - 6 * 60 * 1000);
+        await run();
+        expect(writes[0].filter.statusDate).to.equal(model.statusDate);
+      });
+    }
     it("does not let another user repair the binding", async function () {
       owner = "other"; await fails("repo_not_found");
     });

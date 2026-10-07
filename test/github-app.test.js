@@ -499,8 +499,10 @@ describeMongo("GitHub App credential and repository integration", function () {
   it("reconnects an uninstalled public repository with a real user token", async () => {
     const Repos = require("../src/core/model/anonymizedRepositories/anonymizedRepositories.model").default;
     await app.saveAppGrant(owner.id, data());
+    const CachedRepos = require("../src/core/model/repositories/repositories.model").default;
+    const cached = await CachedRepos.create({ externalId: "gh_42", name: "other/old-public", url: "https://github.com/other/old-public" });
     const resource = await Repos.create({ repoId: "public-reconnect", owner: owner.id, status: "ready",
-      source: { type: "GitHubStream", repositoryName: "other/public", commit: "abc", branch: "main" },
+      source: { type: "GitHubStream", repositoryName: "other/old-public", repositoryId: cached.id, commit: "abc", branch: "main" },
       githubAccess: { kind: "github-app", repositoryId: 42, publicRead: true, revision: "old" } });
     mock((url, options) => {
       if (url.includes("/user/installations?")) return { installations: [] };
@@ -515,8 +517,11 @@ describeMongo("GitHub App credential and repository integration", function () {
     });
     const body = { type: "repository", id: resource.repoId, connection: "github-app" };
     expect((await request("/github/connections/migrate", { ...body, preview: true })).status).to.equal(200);
+    expect((await CachedRepos.findById(cached.id)).name).to.equal("other/old-public");
     expect((await request("/github/connections/migrate", body)).status).to.equal(200);
     expect((await Repos.findById(resource.id)).githubAccess.publicRead).to.equal(true);
+    expect((await Repos.findById(resource.id)).source.repositoryName).to.equal("other/public");
+    expect((await CachedRepos.findById(cached.id)).name).to.equal("other/public");
   });
 
   it("recovers a renamed private pull request through its stable repository ID", async () => {

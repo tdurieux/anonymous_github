@@ -169,6 +169,17 @@ describe("Vue 3 UI", function () {
 
   }
 
+  for (const age of [0, 6 * 60 * 1000]) {
+    it("allows reconnect only for stale pull-request downloads: " + age, async function () {
+      ui = await browser("/connections", {
+        "/github/connections": { appEnabled: true, appConnected: true, resources: [
+          { type: "pull-request", id: "stale", connection: "github-app", status: "download", statusDate: new Date(Date.now() - age).toISOString() },
+        ] },
+      });
+      expect(ui.window.document.querySelector(".connection-resource-actions") !== null).to.equal(age > 0);
+      expect(ui.errors).to.deep.equal([]);
+    });
+  }
   for (const connection of ["oauth", "github-app"]) {
   it(`previews and saves ${connection} access with CSRF protection`, async function () {
     const action = connection === "github-app" ? "Reconnect read-only access" : "Switch to read-only access";
