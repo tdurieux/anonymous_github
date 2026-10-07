@@ -1,4 +1,5 @@
 import { isConnected } from "../server/database";
+import { expireEmbeddedContent } from "./content-expiration";
 import { boundAppToken } from "./github-app";
 import { getCredentialToken } from "./credentials";
 import { RepositoryStatus } from "./types";
@@ -239,9 +240,11 @@ export default class PullRequest {
   }
 
   async expire() {
-    await this.updateStatus(RepositoryStatus.EXPIRING);
-    await this.resetSate();
-    await this.updateStatus(RepositoryStatus.EXPIRED);
+    await expireEmbeddedContent(AnonymizedPullRequestModel, this.model, {
+      "pullRequest.comments": [], "pullRequest.body": "", "pullRequest.title": "", "pullRequest.diff": "",
+      "pullRequest.baseRepositoryFullName": "", "pullRequest.headRepositoryFullName": "",
+      "pullRequest.merged": false, "pullRequest.state": "closed", "pullRequest.draft": false,
+    }, { "pullRequest.mergedDate": "" });
   }
 
   /**

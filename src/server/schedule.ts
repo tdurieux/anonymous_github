@@ -155,11 +155,15 @@ export async function runRepositoryStatusCheck(now = new Date()) {
   await expireContent(AnonymizedPullRequestModel, data => new PullRequest(data), now);
 }
 async function expireContent<T extends Document>(model: Model<T>, create: (data: T) => Gist | PullRequest, now: Date) {
-    const cursor = model.find({ $or: [{ status: RepositoryStatus.EXPIRING },
-      { status: RepositoryStatus.READY, "options.expirationMode": { $ne: "never" }, "options.expirationDate": { $lte: now } }] }).cursor();
+    const cursor = model.find(contentMaintenanceQuery(now)).cursor();
     for await (const data of cursor) {
       try { await create(data).expire(); } catch (error) { logger.error("content expiration failed", serializeError(error)); }
     }
+}
+
+export function contentMaintenanceQuery(now: Date) {
+  return { $or: [{ status: RepositoryStatus.EXPIRING },
+    { status: RepositoryStatus.READY, "options.expirationMode": { $ne: "never" }, "options.expirationDate": { $lte: now } }] };
 }
 
 export function dailyStatsSnapshot() {

@@ -9,7 +9,8 @@ describe("dashboard refresh feedback", () => {
   async function run({ statuses = [], postError, getError } = {}) {
     let toast;
     const item = { _type: "repo", _id: "restore-me", repoId: "restore-me", status: "removed" };
-    const state = { items: [item], addToast: value => { toast = value; } };
+    const state = { items: [item], addToast: value => { toast = value; },
+      needsAttention: item => item.status === "error" || (item._statusKey === "progress" && item._stale) };
     const pending = [];
     let reloads = 0;
     vm.runInNewContext(actions, {

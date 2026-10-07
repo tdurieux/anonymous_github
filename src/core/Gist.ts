@@ -1,4 +1,5 @@
 import { isConnected } from "../server/database";
+import { expireEmbeddedContent } from "./content-expiration";
 import { APP_PROVIDER, appError } from "./github-app";
 import CredentialModel from "./model/credentials/credentials.model";
 import { getCredentialToken } from "./credentials";
@@ -228,9 +229,9 @@ export default class Gist {
   }
 
   async expire() {
-    await this.updateStatus(RepositoryStatus.EXPIRING);
-    await this.resetSate();
-    await this.updateStatus(RepositoryStatus.EXPIRED);
+    await expireEmbeddedContent(AnonymizedGistModel, this.model, {
+      "gist.comments": [], "gist.description": "", "gist.files": [], "gist.ownerLogin": "",
+    });
   }
 
   async remove() {

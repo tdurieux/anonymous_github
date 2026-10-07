@@ -26,7 +26,7 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
     if (!/\/perf_test_[A-Za-z0-9_-]+(?:\?|$)/.test(uri)) throw Error("An isolated perf_test_ database is required");
     await mongoose.connect(uri);
     db.isConnected = true;
-    await Promise.all([Repo, File, Path, Name].map(model => model.createIndexes()));
+    await Promise.all([Repo, PR, Gist, File, Path, Name].map(model => model.createIndexes()));
     user = new User(await UserModel.create({ username: "perf-owner", externalIDs: { github: "12345" } }));
   });
   after(async () => { db.isConnected = false; await mongoose.connection.dropDatabase(); await mongoose.disconnect(); });
@@ -44,6 +44,98 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
       expect(plan.executionStats.totalDocsExamined).to.be.lessThan(10);
     }
     expect((await user.getRepositories()).map(repo => repo.repoId).sort()).to.deep.equal(["coauthored", "legacy", "owned"]);
+  });
+
+  it("uses indexes for repository, gist and PR maintenance over unrelated records", async () => {
+    const { repositoryMaintenanceQuery, contentMaintenanceQuery } = require("../src/server/schedule");
+    const now = new Date(), future = new Date(Date.now() + 86400000), old = new Date("2020-01-01");
+    for (const [model, id] of [[Repo, "repoId"], [Gist, "gistId"], [PR, "pullRequestId"]]) {
+      await model.insertMany(Array.from({ length: 2000 }, (_, i) => ({ [id]: `unrelated-${i}`, status: "ready",
+        lastView: now, options: { expirationMode: "never", expirationDate: future } })));
+      await model.create({ [id]: "due", status: "ready", lastView: now, options: { expirationMode: "remove", expirationDate: old } });
+      await model.create({ [id]: "backlog", status: "expiring", lastView: now, options: { expirationMode: "remove", expirationDate: old } });
+      const query = model === Repo ? repositoryMaintenanceQuery(now) : contentMaintenanceQuery(now);
+      if (model === Repo) await model.create({ repoId: "unused", status: "ready", lastView: old, options: { expirationMode: "never", expirationDate: future } });
+      const plan = await model.find(query).explain("executionStats");
+      expect(JSON.stringify(plan.queryPlanner.winningPlan)).not.to.include("COLLSCAN");
+      expect(plan.executionStats.totalDocsExamined).to.be.lessThan(10);
+      expect((await model.find(query)).map(row => row[id]).sort()).to.deep.equal(model === Repo ? ["due", "unused"] : ["backlog", "due"]);
+    }
+  });
+
+  it("adds all maintenance indexes through the migration without dropping existing indexes", async () => {
+    const { execFile } = require("node:child_process"), { promisify } = require("node:util");
+    await Gist.collection.createIndex({ statusMessage: 1 }, { name: "keep_existing_index" });
+    for (const model of [Repo, Gist, PR]) await model.collection.dropIndex("status_1_options.expirationDate_1");
+    for (let i = 0; i < 2; i++) await promisify(execFile)(process.execPath, ["-r", "ts-node/register", "src/scripts/create-performance-indexes.ts"], {
+      cwd: require("node:path").join(__dirname, ".."), env: { ...process.env, NODE_ENV: "test", MONGODB_URI: uri }, timeout: 30000,
+    });
+    for (const model of [Repo, Gist, PR]) {
+      expect((await model.collection.indexes()).map(index => index.name)).to.include("status_1_options.expirationDate_1");
+    }
+    expect((await Gist.collection.indexes()).map(index => index.name)).to.include("keep_existing_index");
+  });
+
+  for (const [model, Class, id, contentKey, content] of [
+    [Gist, require("../src/core/Gist").default, "gistId", "gist", { description: "private", files: [{ filename: "private.txt", content: "secret" }] }],
+    [PR, require("../src/core/PullRequest").default, "pullRequestId", "pullRequest", { title: "private", body: "secret", diff: "private diff", mergedDate: new Date() }],
+  ]) {
+    const create = (extra = {}) => model.create({ [id]: `expiry-${id}`, status: "ready", statusDate: new Date("2026-01-01"),
+      anonymizeDate: new Date("2026-01-01"), options: { expirationMode: "remove", expirationDate: new Date(0) }, [contentKey]: content, ...extra });
+
+    it(`atomically clears due and already-expiring ${contentKey} content`, async () => {
+      for (const status of ["ready", "expiring"]) {
+        const row = await create({ [id]: `due-${status}`, status });
+        const instance = new Class(row);
+        await instance.expire();
+        const fresh = await model.findById(row._id);
+        expect(fresh.status).to.equal("expired"); expect(instance.status).to.equal("expired");
+        if (model === Gist) { expect(fresh.gist.files).to.have.length(0); expect(fresh.gist.description).to.equal(""); }
+        else { expect(fresh.pullRequest.diff).to.equal(""); expect(fresh.pullRequest.body).to.equal(""); expect(fresh.pullRequest.mergedDate).to.equal(undefined); }
+      }
+    });
+
+    it(`preserves ${contentKey} content after an expiration extension or mode change`, async () => {
+      for (const [field, value] of [["options.expirationDate", new Date(Date.now() + 86400000)], ["options.expirationMode", "never"]]) {
+        const row = await create({ [id]: field });
+        const stale = new Class(row);
+        await model.updateOne({ _id: row._id }, { $set: { [field]: value } });
+        await stale.expire();
+        const fresh = await model.findById(row._id);
+        expect(fresh.status).to.equal("ready"); expect(JSON.stringify(fresh[contentKey])).to.equal(JSON.stringify(row[contentKey]));
+        expect(fresh.get(field)).to.deep.equal(value);
+      }
+    });
+
+    it(`rejects stale ${contentKey} cleanup after a rebuild or lifecycle transition`, async () => {
+      for (const change of [{ anonymizeDate: new Date() }, { statusDate: new Date() }, { status: "download" }]) {
+        const row = await create({ [id]: Object.keys(change)[0] });
+        const stale = new Class(row);
+        const field = model === Gist ? "gist.description" : "pullRequest.diff";
+        await model.updateOne({ _id: row._id }, { $set: { ...change, [field]: "rebuilt content" } });
+        await stale.expire();
+        const fresh = await model.findById(row._id);
+        expect(fresh.get(field)).to.equal("rebuilt content"); expect(fresh.status).to.equal(change.status || "ready");
+      }
+    });
+
+    it(`does not clean a future or never-expiring ${contentKey}`, async () => {
+      for (const options of [{ expirationMode: "remove", expirationDate: new Date(Date.now() + 86400000) }, { expirationMode: "never", expirationDate: new Date(0) }]) {
+        const row = await create({ [id]: options.expirationMode, options });
+        await new Class(row).expire();
+        const fresh = await model.findById(row._id);
+        expect(fresh.status).to.equal("ready"); expect(JSON.stringify(fresh[contentKey])).to.equal(JSON.stringify(row[contentKey]));
+      }
+    });
+  }
+
+  it("preserves PR content after its GitHub access revision changes", async () => {
+    const row = await PR.create({ pullRequestId: "access-expiry", status: "ready", statusDate: new Date(), anonymizeDate: new Date(),
+      githubAccess: { kind: "github-app", revision: "old" }, options: { expirationMode: "remove", expirationDate: new Date(0) }, pullRequest: { diff: "rebuilt diff" } });
+    await PR.updateOne({ _id: row._id }, { $set: { "githubAccess.revision": "new" } });
+    await new (require("../src/core/PullRequest").default)(row).expire();
+    const fresh = await PR.findById(row._id);
+    expect(fresh.status).to.equal("ready"); expect(fresh.pullRequest.diff).to.equal("rebuilt diff");
   });
 
   it("paginates a mixed dashboard globally and excludes megabyte bodies", async () => {

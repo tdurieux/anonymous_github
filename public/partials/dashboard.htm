@@ -246,11 +246,11 @@
 
       <div class="paper-table-empty" v-if="!loading &amp;&amp; filteredItems?.length == 0">
         <svg class="project-type-svg project-empty-icon" aria-hidden="true"><use href="#project-icon-inbox"></use></svg>
-        <span v-if="items?.length == 0">You have no anonymizations yet.</span>
-        <span v-if="items?.length &gt; 0">Nothing matches the current filters.</span>
+        <span v-if="!hasProjects()">You have no anonymizations yet.</span>
+        <span v-if="hasProjects()">Nothing matches the current filters.</span>
         <div class="paper-table-empty-actions">
           <button type="button" class="btn btn-outline-ink" v-if="hasActiveFilters()" @click="clearFilters()">Clear filters</button>
-          <a href="/anonymize" class="btn btn-ink" v-if="items?.length == 0"><svg class="project-type-svg" aria-hidden="true"><use href="#project-icon-plus"></use></svg> New anonymization</a>
+          <a href="/anonymize" class="btn btn-ink" v-if="!hasProjects()"><svg class="project-type-svg" aria-hidden="true"><use href="#project-icon-plus"></use></svg> New anonymization</a>
         </div>
       </div>
     </div>

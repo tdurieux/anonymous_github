@@ -462,6 +462,7 @@ export const unifiedDashboardController = function (state, http, location, promi
       state.needsAttention = item => item.status === "error" || item._broken
         || (statusKey(item.status) === "progress" && item._stale);
       state.attentionCount = () => state.dashboardTotals?.attention ?? state.items.filter(state.needsAttention).length;
+      state.hasProjects = () => (state.dashboardTotals?.total ?? state.items.length) > 0;
       state.setProjectView = view => {
         state.projectView = view;
         if (view === "attention") {
@@ -826,10 +827,15 @@ export const unifiedDashboardController = function (state, http, location, promi
         http.get("/api/repo/" + repoId).then((res) => {
           for (const item of state.items) {
             if (item._type === "repo" && item.repoId == repoId) {
+              const neededAttention = state.needsAttention(item);
               item.status = res.data.status;
               item.statusMessage = res.data.statusMessage;
               item._statusKey = statusKey(item.status);
               if (item._statusKey !== "progress") item._stale = false;
+              const needsAttention = state.needsAttention(item);
+              if (state.dashboardTotals && neededAttention !== needsAttention) {
+                state.dashboardTotals.attention = Math.max(0, state.dashboardTotals.attention + (needsAttention ? 1 : -1));
+              }
               break;
             }
           }

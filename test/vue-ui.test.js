@@ -966,6 +966,62 @@ describe("Vue 3 UI", function () {
     expect(ui.errors).to.deep.equal([]);
   });
 
+  it("distinguishes empty server-filtered pages from an empty account", async () => {
+    const item = { _type: "repo", repoId: "package", status: "ready", source: { fullName: "owner/package" } };
+    ui = await browser("/dashboard", {
+      "/api/user": { username: "tester" },
+      "/api/user/dashboard": request => {
+        const empty = !!request.url.searchParams.get("q") || !request.url.searchParams.get("statuses").split(",").includes("ready");
+        return { items: empty ? [] : [item], total: 2, filtered: empty ? 0 : 1, attention: 0, cursor: null };
+      },
+    });
+    const check = () => {
+      const empty = ui.window.document.querySelector(".paper-table-empty");
+      expect(empty.textContent).to.include("Nothing matches the current filters.").not.to.include("You have no anonymizations yet.");
+      expect(empty.querySelector('a[href="/anonymize"]')).to.equal(null);
+      expect(empty.querySelector("button").textContent).to.include("Clear filters");
+    };
+    await ui.input('input[type="search"]', "missing"); await delay(200); check();
+    const state = ui.window.document.querySelector("#search")._field.binding.state;
+    state.clearFilters(); await delay(200);
+    ui.window.document.querySelector("#status-ready").click(); await delay(20); check();
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("offers a new anonymization when the server reports an empty account", async () => {
+    ui = await browser("/dashboard", {
+      "/api/user": { username: "tester" },
+      "/api/user/dashboard": { items: [], total: 0, filtered: 0, attention: 0, cursor: null },
+    });
+    const empty = ui.window.document.querySelector(".paper-table-empty");
+    expect(empty.textContent).to.include("You have no anonymizations yet.").not.to.include("Nothing matches");
+    expect(empty.querySelector('a[href="/anonymize"]')).not.to.equal(null);
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  for (const status of ["error", "download"]) {
+    it(`updates the global attention badge after polling a repository in ${status}`, async () => {
+      const item = { _type: "repo", repoId: "package", status, anonymizeDate: "2000-01-01", source: { fullName: "owner/package" } };
+      ui = await browser("/dashboard", {
+        "/api/user": { username: "tester" },
+        "/api/user/dashboard": { items: [item], total: 20, filtered: 7, attention: 7, cursor: "next" },
+        "/api/repo/package/refresh": {}, "/api/repo/package": { status: "ready" },
+      });
+      const state = ui.window.document.querySelector("#search")._field.binding.state;
+      state.setProjectView("attention"); await delay(200);
+      expect(state.filteredItems).to.have.length(1); expect(state.attentionCount()).to.equal(7);
+      const requests = ui.requests.filter(request => request.url.pathname === "/api/user/dashboard").length;
+      state.refreshItem(state.items[0]); await delay(30);
+      expect(state.filteredItems).to.have.length(0);
+      expect(state.attentionCount()).to.equal(6);
+      expect(ui.window.document.querySelector(".attention-count").textContent).to.equal("6");
+      state.refreshItem(state.items[0]); await delay(30);
+      expect(state.attentionCount()).to.equal(6);
+      expect(ui.requests.filter(request => request.url.pathname === "/api/user/dashboard")).to.have.length(requests);
+      expect(ui.errors).to.deep.equal([]);
+    });
+  }
+
   it("finds errors and stalled downloads without treating fresh queued projects as failures", async () => {
     ui = await browser("/dashboard", {
       "/api/user": { username: "tester" },

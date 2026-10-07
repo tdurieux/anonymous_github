@@ -2,6 +2,8 @@ import "dotenv/config";
 import mongoose from "mongoose";
 import config from "../config";
 import Repository from "../core/model/anonymizedRepositories/anonymizedRepositories.model";
+import Gist from "../core/model/anonymizedGists/anonymizedGists.model";
+import PullRequest from "../core/model/anonymizedPullRequests/anonymizedPullRequests.model";
 import File from "../core/model/files/files.model";
 import Path from "../core/model/anonymized-path";
 import Name from "../core/model/dashboard-name";
@@ -12,6 +14,10 @@ async function main() {
   // Additive only. Never use syncIndexes here, which can drop deployed indexes.
   await Repository.collection.createIndex({ "coauthors.githubId": 1 });
   await File.collection.createIndex({ repoId: 1, treeGeneration: 1, path: 1, name: 1 });
+  for (const model of [Repository, Gist, PullRequest]) {
+    await model.collection.createIndex({ status: 1, "options.expirationDate": 1 });
+  }
+  await Repository.collection.createIndex({ status: 1, isReseted: 1, lastView: 1 });
   for (const model of [Path, Name]) await model.createIndexes();
   process.stdout.write("Performance indexes created. Existing indexes retained.\n");
 }

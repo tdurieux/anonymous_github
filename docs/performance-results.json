@@ -79,7 +79,13 @@
   "database": {
     "unrelatedRepositories": 2000,
     "membershipDocsExaminedUpperBoundExclusive": 10,
-    "indexedPathLookupDocsExamined": 1
+    "indexedPathLookupDocsExamined": 1,
+    "maintenanceCollections": [
+      "repositories",
+      "gists",
+      "pullRequests"
+    ],
+    "maintenanceDocsExaminedUpperBoundExclusive": 10
   },
   "cache": {
     "processes": 2,
@@ -102,13 +108,13 @@
   ],
   "tests": {
     "fullSuite": {
-      "passing": 863,
+      "passing": 878,
       "pending": 51,
       "failing": 0,
-      "note": "Clean committed checkout after the five PR review fixes, with disposable MongoDB and Redis; unrelated untracked workspace files excluded."
+      "note": "Clean committed checkout after both PR review follow-ups, with disposable MongoDB and Redis; unrelated untracked workspace files excluded."
     },
     "performanceSuite": {
-      "passing": 46
+      "passing": 57
     },
     "uiSuite": {
       "passing": 134
@@ -118,7 +124,7 @@
       "errors": 0,
       "existingWarnings": 7
     },
-    "indexMigration": "passed on disposable MongoDB",
+    "indexMigration": "passed twice on disposable MongoDB; existing indexes retained",
     "workspaceSuite": {
       "passing": 862,
       "pending": 51,
