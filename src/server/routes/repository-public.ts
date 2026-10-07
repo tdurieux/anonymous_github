@@ -112,7 +112,7 @@ router.get(
               upstreamStatus,
               upstreamBody: upstreamBody?.slice(0, 500),
               url: config.STREAMER_ENTRYPOINT
-                ? join(config.STREAMER_ENTRYPOINT, "api/zip")
+                ? join(config.STREAMER_ENTRYPOINT, "api/download")
                 : undefined,
               err: serializeError(err),
             });
@@ -124,6 +124,10 @@ router.get(
               }),
               res
             );
+            // Once ZIP bytes have been sent, handleError cannot send JSON.
+            // Terminate the truncated response so the client reports failure
+            // instead of waiting forever for the ZIP's central directory.
+            if (res.headersSent && !res.writableEnded) res.destroy();
           });
         reqStream.pipe(res);
         res.on("close", () => {
