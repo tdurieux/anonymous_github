@@ -1,5 +1,7 @@
 const { expect } = require("chai");
 const express = require("express");
+const compression = require("compression");
+const { gunzipSync } = require("node:zlib");
 const http = require("node:http");
 const { PassThrough } = require("node:stream");
 const got = require("got");
@@ -28,7 +30,7 @@ describe("ZIP proxy failures", function () {
     });
     upstream = new PassThrough();
     got.stream = () => upstream;
-    const app = express(); app.use(router);
+    const app = express(); app.use(compression({ filter: () => true })); app.use(router);
     server = await new Promise(resolve => {
       const listening = app.listen(0, "127.0.0.1", () => resolve(listening));
     });
@@ -37,8 +39,8 @@ describe("ZIP proxy failures", function () {
     upstream.destroy(); server.closeAllConnections();
     await new Promise(resolve => server.close(resolve)); restore();
   });
-  function request(onResponse) {
-    return http.get(`http://127.0.0.1:${server.address().port}/test/zip`, onResponse);
+  function request(onResponse, headers = {}) {
+    return http.get(`http://127.0.0.1:${server.address().port}/test/zip`, { headers }, onResponse);
   }
   it("aborts a partial ZIP when the upstream fails after headers", async function () {
     const result = new Promise((resolve, reject) => {
@@ -53,6 +55,26 @@ describe("ZIP proxy failures", function () {
     });
     upstream.write(Buffer.from("PK partial archive"));
     await result;
+  });
+  it("finishes compressed JSON errors before any ZIP bytes are sent", async function () {
+    const error = "unavailable".repeat(300);
+    const result = new Promise((resolve, reject) => {
+      request(response => {
+        const chunks = [];
+        response.on("data", chunk => chunks.push(chunk));
+        response.on("error", reject);
+        response.on("end", () => resolve({
+          status: response.statusCode, encoding: response.headers["content-encoding"],
+          body: JSON.parse(gunzipSync(Buffer.concat(chunks)).toString()),
+        }));
+      }, { "Accept-Encoding": "gzip" }).on("error", reject);
+    });
+    upstream.once("newListener", event => {
+      if (event === "error") globalThis.queueMicrotask(() => upstream.destroy(Object.assign(new Error("unavailable"), {
+        response: { statusCode: 503, body: JSON.stringify({ error }) },
+      })));
+    });
+    expect(await result).to.deep.equal({ status: 502, encoding: "gzip", body: { error } });
   });
   it("keeps JSON errors before any ZIP bytes are sent", async function () {
     const result = new Promise((resolve, reject) => {

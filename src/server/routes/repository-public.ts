@@ -116,6 +116,7 @@ router.get(
                 : undefined,
               err: serializeError(err),
             });
+            const streaming = res.headersSent;
             handleError(
               new AnonymousError(errCode, {
                 url: req.originalUrl,
@@ -127,7 +128,7 @@ router.get(
             // Once ZIP bytes have been sent, handleError cannot send JSON.
             // Terminate the truncated response so the client reports failure
             // instead of waiting forever for the ZIP's central directory.
-            if (res.headersSent && !res.writableEnded) res.destroy();
+            if (streaming && !res.writableEnded) res.destroy();
           });
         reqStream.pipe(res);
         res.on("close", () => {
