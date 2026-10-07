@@ -57,6 +57,20 @@ for (const type of ["repository", "pull-request"]) {
       expect(writes[0].filter.source).to.deep.equal(model.source);
       expect(checks).to.deep.equal([{ url: type === "repository" ? "/repos/owner/private/commits/saved-sha" : "/repos/owner/private/pulls/7", token: "fresh-token" }]);
     });
+    it("saves a resolved rename atomically with the binding after preview", async function () {
+      selected.fullName = "owner/renamed";
+      await run(true);
+      expect(writes).to.have.length(0);
+      await run();
+      expect(writes).to.have.length(1);
+      expect(writes[0].update).to.deep.equal({ $set: {
+        githubAccess: selected.binding,
+        [type === "repository" ? "source.repositoryName" : "source.repositoryFullName"]: "owner/renamed",
+      } });
+      expect(writes[0].filter.source).to.deep.equal(model.source);
+      expect(writes[0].filter.githubAccess).to.deep.equal(model.githubAccess);
+      expect(checks.every(check => check.url.startsWith("/repos/owner/renamed/"))).to.equal(true);
+    });
     it("rejects a replacement repository at the same name", async function () {
       selected.binding.repositoryId = 99; await fails("connection_changed"); expect(checks).to.have.length(0);
     });

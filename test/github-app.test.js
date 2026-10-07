@@ -543,7 +543,8 @@ describeMongo("GitHub App credential and repository integration", function () {
     const repaired = await PRs.findById(resource.id);
     expect(repaired.githubAccess.repositoryId).to.equal(42);
     expect(repaired.githubAccess.installationId).to.equal(4);
-    expect(repaired.source.repositoryFullName).to.equal("owner/old-name");
+    expect(repaired.source.repositoryFullName).to.equal("owner/new-name");
+    expect(repaired.source.pullRequestId).to.equal(7);
     expect(repaired.pullRequestId).to.equal("renamed-pr");
   });
 

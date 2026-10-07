@@ -208,7 +208,10 @@ router.post("/connections/migrate", async (req, res) => {
     if (preview === true) return res.json({ eligible: true, connection });
     const filter = { _id: model._id, owner: user.id, status: model.status, source: model.source,
       githubAccess: model.githubAccess ? model.githubAccess : { $exists: false } };
-    const change = { $set: { githubAccess: selected.binding } };
+    const change = { $set: { githubAccess: selected.binding,
+      ...(selected.fullName && selected.fullName !== name
+        ? { [isRepo ? "source.repositoryName" : "source.repositoryFullName"]: selected.fullName } : {}),
+    } };
     const result = isRepo ? await RepositoryModel.updateOne(filter, change) : await PullRequestModel.updateOne(filter, change);
     if (!result.modifiedCount) throw appError("connection_changed", 409);
     res.json({ connection });
