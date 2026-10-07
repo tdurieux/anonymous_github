@@ -64,6 +64,11 @@ export const mainController = function (state, http, location, timeout) {
           document.head.append(link);
           $(`link[href='${darkPrismLink}']`).remove();
         }
+        const kofiBtn = document.querySelector("[class*='floatingchat-container-wrap'] [class*='floating-chat-kofi-text-container-wrap']");
+        if (kofiBtn) {
+          kofiBtn.style.backgroundColor = on ? "#FAF9F6" : "#1A1815";
+          kofiBtn.style.color = on ? "#1A1815" : "#FAF9F6";
+        }
         state.emit("dark-mode", on);
       };
 

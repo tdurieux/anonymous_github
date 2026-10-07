@@ -350,6 +350,43 @@ a:hover {
   color: var(--canvas-bg-color) !important;
 }
 
+.navbar .nav-support {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  order: 3;
+  gap: 6px;
+  min-height: 36px;
+  margin-left: 12px;
+  padding: 0 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--color);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.navbar .nav-support:hover {
+  background: var(--hover-bg-color);
+  border-color: var(--color);
+  color: var(--color);
+}
+
+@media (max-width: 991px) {
+  .navbar .nav-support {
+    order: 0;
+    width: 44px;
+    min-height: 44px;
+    margin: 0 8px 0 auto;
+    padding: 0;
+  }
+  .navbar .nav-support-label { display: none; }
+  [class*="floatingchat-container-wrap"],
+  iframe.floatingchat-container { display: none !important; }
+}
+
 .navbar .user-chip {
   display: inline-flex !important;
   align-items: center;
