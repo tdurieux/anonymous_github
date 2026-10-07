@@ -6,6 +6,7 @@ import { isBinaryFileSync } from "isbinaryfile";
 import { lookup as lookupMime } from "mime-types";
 
 import config from "../config";
+import { TermPresenceIndex } from "./term-presence";
 import {
   parseTermSpec,
   termVariants,
@@ -211,9 +212,13 @@ const markdownImageRegex =
 interface CompiledTermVariant {
   // RE2 for regular patterns; time-limited native fallback for JS extensions.
   pattern: RE2JS | RegExp;
-  // A boundary-free, fixed-width native search can cheaply rule out literal
-  // terms before RE2 scans a large file. A hit still uses the usual matcher.
+  // A boundary-free native search for fixed-width patterns can rule out
+  // absent terms. Candidate replacement retains RE2's boundary semantics.
   literalPrefilter?: RegExp;
+  asciiPattern?: RegExp;
+  asciiReplacement?: string;
+  asciiBefore?: boolean;
+  asciiAfter?: boolean;
   before: boolean;
   after: boolean;
   mask: string;
@@ -269,11 +274,14 @@ function compileTerms(terms: string[] | undefined): CompiledTermVariant[] {
     if (!useAsRegex || hasCatastrophicBacktracking(term)) {
       term = term.replace(/[-[\]{}()*+?.,\\^$|#]/g, "\\$&");
     }
-    // Only plain literals qualify: expanding their letters produces fixed
-    // character classes, never user-controlled backtracking. Do not apply
-    // this shortcut to regex syntax, including escaped literals.
-    const isLiteral = !/[\\^$.*+?()[\]{}|]/.test(term);
+    // Plain text and unquantified dots have fixed width in code points.
+    // Exclude all other regex syntax so the native search cannot backtrack
+    // exponentially. This includes dotted names, emails and domains.
+    const isFixedWidth = !/[\\^$*+?()[\]{}|]/.test(term);
     for (const variant of termVariants(term)) {
+      // Stripping a combining-mark-only term can produce an empty variant.
+      // Keep zero-width matches on RE2's progress-aware iterator.
+      const fixedWidth = isFixedWidth && variant.pattern.length > 0;
       const bounded = withWordBoundaries(variant.pattern, {
         sniffSource: variant.sniff,
         unicode: variant.unicode,
@@ -286,9 +294,15 @@ function compileTerms(terms: string[] | undefined): CompiledTermVariant[] {
           RE2JS.CASE_INSENSITIVE
         );
         compiled.push({ pattern, before, after, mask,
+          asciiPattern: fixedWidth ? new RegExp(bounded.replace(/\./g, "[^\\n]"), "giu") : undefined,
+          asciiReplacement: fixedWidth ? mask.replace(/\$/g, () => "$$") : undefined,
+          asciiBefore: !variant.unicode && bounded.startsWith("\\b"),
+          asciiAfter: !variant.unicode && bounded.endsWith("\\b"),
           // RE2 uses Unicode case folding even for the non-diacritic pass.
           // Omit boundaries so this search can only rule out absent terms.
-          literalPrefilter: isLiteral ? new RegExp(variant.pattern, "iu") : undefined });
+          literalPrefilter: fixedWidth
+            // RE2's dot excludes only LF; JS dot also excludes CR and U+2028/9.
+            ? new RegExp(variant.pattern.replace(/\./g, "[^\\n]"), "iu") : undefined });
       } catch {
         // Retain JavaScript-only syntax and large repetition counts under
         // the execution deadline; RE2 handles the common case without backtracking.
@@ -303,13 +317,37 @@ function compileTerms(terms: string[] | undefined): CompiledTermVariant[] {
   return compiled;
 }
 
+interface CompiledTermPlan {
+  terms: CompiledTermVariant[];
+  presence: TermPresenceIndex | null;
+}
+
+// Every file in a ZIP uses the same rules. Reuse immutable compiled patterns
+// across transformers, with bounded retention for unrelated repositories.
+const termPlans = new Map<string, CompiledTermPlan>();
+function compiledTermPlan(terms: string[] | undefined): CompiledTermPlan {
+  const key = JSON.stringify([config.ANONYMIZATION_MASK, terms || []]);
+  const cached = termPlans.get(key);
+  if (cached) return cached;
+  const compiled = compileTerms(terms);
+  const plan = {
+    terms: compiled,
+    presence: compiled.length && compiled.length <= 256 && compiled.every(term => term.literalPrefilter)
+      ? new TermPresenceIndex(compiled.map(term => term.literalPrefilter!)) : null,
+  };
+  if (key.length <= 8192 && compiled.length <= 256) {
+    if (termPlans.size >= 64) termPlans.delete(termPlans.keys().next().value!);
+    termPlans.set(key, plan);
+  }
+  return plan;
+}
+
 export class ContentAnonimizer {
   public wasAnonymized = false;
-  // Compiled once per instance and reused for every anonymize() call.
-  // Streamed files invoke anonymize() many times per file (one per chunk),
-  // so caching here avoids rebuilding regexes on every chunk.
+  // Per-instance metadata references the bounded cache of compiled rules.
   private compiledTerms: CompiledTermVariant[];
   private selfLinkRegexes: RegExp[] | null = null;
+  private termPresence: TermPresenceIndex | null = null;
 
   constructor(
     readonly opt: {
@@ -321,7 +359,11 @@ export class ContentAnonimizer {
       repoId?: string;
     }
   ) {
-    this.compiledTerms = compileTerms(opt.terms);
+    const plan = compiledTermPlan(opt.terms);
+    // Keep per-instance metadata independent. Regex matching is synchronous;
+    // native replacement resets lastIndex and RE2 creates a fresh matcher.
+    this.compiledTerms = plan.terms.map(term => ({ ...term }));
+    this.termPresence = plan.presence;
     if (opt.repoName && opt.branchName) {
       const r = escapeRegex(opt.repoName);
       const b = escapeRegex(opt.branchName);
@@ -370,19 +412,36 @@ export class ContentAnonimizer {
   }
 
   private replaceTerms(content: string): string {
-    for (const c of this.compiledTerms) {
-      // remove whole url if it contains the term
+    if (!this.compiledTerms.length) return content;
+    let candidates = this.termPresence?.candidates(content);
+    // On ASCII input both engines have identical fixed-width matching and
+    // word boundaries. Native replacement avoids allocating one JS match
+    // object per CSV value. Non-ASCII input keeps RE2 validation below.
+    let asciiContent = (!candidates || candidates.size > 0) && /^\p{ASCII}*$/u.test(content);
+    for (let index = 0; index < this.compiledTerms.length; index++) {
+      if (candidates && !candidates.has(index)) continue;
+      const c = this.compiledTerms[index];
+      // An absent term cannot occur inside a URL either.
+      if (c.literalPrefilter && !c.literalPrefilter.test(content)) continue;
+      const previous = content;
       content = content.replace(urlRegex, (match) => {
-        if (replaceTerm(match, c) !== match) {
+        if (replaceTerm(match, c, true) !== match) {
           this.wasAnonymized = true;
           return c.mask;
         }
         return match;
       });
-      // remove the term in the text
-      const replaced = replaceTerm(content, c);
+      // URL replacement may already have inserted a non-ASCII custom mask.
+      if (content !== previous) asciiContent = asciiContent && /^\p{ASCII}*$/u.test(c.mask);
+      const replaced = replaceTerm(content, c, asciiContent);
       if (replaced !== content) this.wasAnonymized = true;
       content = replaced;
+      // Masks and changed boundaries can introduce later matches. Re-index
+      // only after a real change, never once per absent term.
+      if (content !== previous) {
+        asciiContent = asciiContent && /^\p{ASCII}*$/u.test(c.mask);
+        candidates = this.termPresence?.candidates(content, index);
+      }
     }
     return content;
   }
@@ -437,38 +496,62 @@ function runWithAnonymizationDeadline(run: () => string): string {
   return anonymizationScript.runInNewContext({ run }, { timeout: 1000 });
 }
 
-function replaceTerm(content: string, term: CompiledTermVariant): string {
-  if (term.literalPrefilter && !term.literalPrefilter.test(content)) return content;
+function replaceTerm(content: string, term: CompiledTermVariant, asciiContent = false): string {
   if (term.pattern instanceof RegExp) {
     return content.replace(term.pattern, () => term.mask);
   }
-  // Fixed-width literal searches run natively. Validate each candidate with
-  // RE2 on a small window to preserve its case folding and boundary semantics
-  // without scanning megabytes of notebook outputs in the JS regex engine.
-  const candidates = term.literalPrefilter
-    ? content.matchAll(new RegExp(term.literalPrefilter.source, "giu"))
-    : null;
-  const matcher = candidates ? null : term.pattern.matcher(content);
+  if (term.literalPrefilter && asciiContent && term.asciiPattern) {
+    return content.replace(term.asciiPattern, term.asciiReplacement!);
+  }
+  if (term.literalPrefilter) {
+    const validated = new Map<string, boolean>();
+    const candidates = new RegExp(term.literalPrefilter.source, "giu");
+    const pieces: string[] = [];
+    let cursor = 0;
+    let match: RegExpExecArray | null;
+    while ((match = candidates.exec(content))) {
+      const candidate = match[0], start = match.index, end = start + candidate.length;
+      let valid = true;
+      if (term.before && /[\p{L}\p{N}_]$/u.test(content.slice(Math.max(0, start - 2), start))) valid = false;
+      if (term.after && /^[\p{L}\p{N}_]/u.test(content.slice(end, end + 2))) valid = false;
+      // On ASCII candidates the fixed-width native and RE2 searches agree.
+      // Check RE2's ASCII word boundaries explicitly: JS /iu\b/ also treats
+      // Kelvin sign and long s as word characters, while RE2 does not.
+      if (valid && /^\p{ASCII}*$/u.test(candidate)) {
+        if (term.asciiBefore && asciiWordAt(content, start - 1) === asciiWordAt(content, start)) valid = false;
+        if (term.asciiAfter && asciiWordAt(content, end - 1) === asciiWordAt(content, end)) valid = false;
+      } else if (valid) {
+        // Keep RE2 authoritative for Unicode case folding. Repeated values in
+        // datasets share small contexts; cap this cache independently of size.
+        const offset = Math.max(0, start - 2);
+        const window = content.slice(offset, end + 2);
+        const key = `${start - offset}:${window}`;
+        const cached = validated.get(key);
+        if (cached === undefined) {
+          const check = (term.pattern as RE2JS).matcher(window);
+          valid = check.find(start - offset) && check.start() === start - offset && check.end() === end - offset;
+          if (validated.size < 256) validated.set(key, valid);
+        } else valid = cached;
+      }
+      if (!valid) {
+        // A boundary-rejected candidate must not hide an overlapping match,
+        // e.g. the second a-a in "xa-a-a". Advance by one Unicode code point.
+        candidates.lastIndex = start + (content.codePointAt(start)! > 0xffff ? 2 : 1);
+        continue;
+      }
+      pieces.push(content.slice(cursor, start), term.mask);
+      cursor = end;
+    }
+    if (!pieces.length) return content;
+    pieces.push(content.slice(cursor));
+    return pieces.join("");
+  }
+
+  const matcher = term.pattern.matcher(content);
   const pieces: string[] = [];
   let cursor = 0;
-  const matches = function* () {
-    if (candidates) {
-      for (const candidate of candidates) {
-        const start = candidate.index!;
-        const end = start + candidate[0].length;
-        const offset = Math.max(0, start - 2);
-        const check = (term.pattern as RE2JS).matcher(content.slice(offset, end + 2));
-        if (check.find(start - offset) && check.start() === start - offset && check.end() === end - offset) {
-          yield { start, end };
-        }
-      }
-    } else {
-      while (matcher!.find()) yield { start: matcher!.start(), end: matcher!.end() };
-    }
-  };
-  for (const { start, end } of matches()) {
-    // RE2 has no lookahead. Check the generated Unicode word boundaries
-    // outside the engine, without executing any user-supplied native regex.
+  while (matcher.find()) {
+    const start = matcher.start(), end = matcher.end();
     if (term.before && /[\p{L}\p{N}_]$/u.test(content.slice(Math.max(0, start - 2), start))) continue;
     if (term.after && /^[\p{L}\p{N}_]/u.test(content.slice(end, end + 2))) continue;
     pieces.push(content.slice(cursor, start), term.mask);
@@ -477,4 +560,9 @@ function replaceTerm(content: string, term: CompiledTermVariant): string {
   if (!pieces.length) return content;
   pieces.push(content.slice(cursor));
   return pieces.join("");
+}
+
+function asciiWordAt(content: string, index: number): boolean {
+  const code = content.charCodeAt(index);
+  return code >= 48 && code <= 57 || code >= 65 && code <= 90 || code >= 97 && code <= 122 || code === 95;
 }
