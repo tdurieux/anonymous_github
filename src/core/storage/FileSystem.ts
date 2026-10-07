@@ -83,6 +83,7 @@ export default class FileSystem extends StorageBase {
     const tmpPath = `${fullPath}.tmp.${process.pid}.${Date.now()}.${Math.random()
       .toString(36)
       .slice(2, 8)}`;
+    let sourceFailed = false;
     try {
       if (typeof data === "string") {
         await fs.promises.writeFile(tmpPath, data);
@@ -100,7 +101,10 @@ export default class FileSystem extends StorageBase {
               resolve();
             }
           };
-          data.on("error", finish);
+          data.on("error", (error) => {
+            if (!settled) sourceFailed = true;
+            finish(error);
+          });
           ws.on("error", finish);
           ws.on("finish", () => finish());
           data.pipe(ws);
@@ -123,7 +127,8 @@ export default class FileSystem extends StorageBase {
       }
       await fs.promises.rename(tmpPath, fullPath);
     } catch (err) {
-      logger.error("write failed", serializeError(err));
+      if (sourceFailed) logger.warn("source stream failed; cache write discarded", serializeError(err));
+      else logger.error("write failed", serializeError(err));
       await fs.promises.rm(tmpPath, { force: true }).catch(() => undefined);
       throw err;
     }
