@@ -195,6 +195,10 @@ router.post("/connections/migrate", async (req, res) => {
     const source = model.source as { repositoryName?: string; repositoryFullName?: string; commit?: string; pullRequestId?: number };
     const name = source.repositoryName || source.repositoryFullName || "";
     const selected = await selectRepositoryAccess(user.id, name, connection);
+    // Repair an installation binding without silently adopting a repository
+    // recreated at the same name. Replacing a source requires its own preview.
+    if (model.githubAccess?.kind === "github-app" && selected.binding.kind === "github-app" &&
+      model.githubAccess.repositoryId !== selected.binding.repositoryId) throw appError("connection_changed", 409);
     const parts = name.split("/").map(encodeURIComponent).join("/");
     await githubRequest(`/repos/${parts}/${isRepo ? `commits/${encodeURIComponent(source.commit || "")}` : `pulls/${source.pullRequestId}`}`, selected.token);
     if (preview === true) return res.json({ eligible: true, connection });

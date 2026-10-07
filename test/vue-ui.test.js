@@ -155,20 +155,22 @@ describe("Vue 3 UI", function () {
     expect(ui.errors).to.deep.equal([]);
   });
 
-  it("previews a connection migration before switching and includes CSRF protection", async function () {
-    const resource = { type: "repository", id: "saved", name: "owner/private", connection: "oauth", status: "ready" };
+  for (const connection of ["oauth", "github-app"]) {
+  it(`previews and saves ${connection} access with CSRF protection`, async function () {
+    const action = connection === "github-app" ? "Reconnect read-only access" : "Switch to read-only access";
+    const resource = { type: "repository", id: "saved", name: "owner/private", connection, status: "ready" };
     ui = await browser("/connections", {
       "/api/user": { username: "owner" },
-      "/github/connections": { csrf: "csrf-value", appEnabled: true, appConnected: true, oauthEnabled: true, oauthConnected: true,
+      "/github/connections": { csrf: "csrf-value", appEnabled: true, appConnected: true, oauthEnabled: true, oauthConnected: connection === "oauth",
         installations: [{ id: 4, account: "owner" }], gistCount: 0, resources: [resource] },
       "/github/connections/migrate": request => request.payload.preview ? { eligible: true } : { connection: "github-app" },
     });
     const button = label => [...ui.window.document.querySelectorAll("button")].find(node => node.textContent.includes(label));
-    expect(button("Switch to read-only access")).to.equal(undefined);
+    expect(button(action)).to.equal(undefined);
     expect(ui.window.document.querySelector('a[href="/github/app/install?installationId=4"]')).not.to.equal(null);
     button("Check read-only access").click();
     await delay(30);
-    button("Switch to read-only access").click();
+    button(action).click();
     await delay(30);
     const changes = ui.requests.filter(r => r.url.pathname === "/github/connections/migrate");
     expect(changes).to.have.length(2);
@@ -178,6 +180,7 @@ describe("Vue 3 UI", function () {
     expect(changes[1].headers["X-CSRF-Token"]).to.equal("csrf-value");
     expect(ui.errors).to.deep.equal([]);
   });
+  }
 
 
   for (const [appConnected, oauthConnected] of [[true, false], [false, true], [false, false], [true, true]]) {

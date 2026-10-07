@@ -39,14 +39,14 @@
     </div>
     <section class="connection-resources">
       <div class="connection-title"><h2>Repository connections</h2><span class="connection-count">{{ connections.resources?.length || 0 }} resources</span></div>
-      <p>Check access, then switch each resource to the GitHub App.</p>
+      <p>Check access, then switch each resource to the GitHub App. After reinstalling the App, reconnect existing resources here to keep their anonymous URLs and published snapshots.</p>
       <div class="connection-empty" v-if="!connections.resources?.length"><i class="fas fa-code-branch" aria-hidden="true"></i><div><h3>No repository connections yet</h3><p>Your repositories and pull requests will appear here once you anonymize them.</p></div><a class="connection-link" href="/anonymize">New anonymization &rarr;</a></div>
       <div class="connection-resource" v-for="resource in connections.resources" :key="resource.type + resource.id">
         <div class="connection-resource-name"><strong>{{ resource.name || resource.id }}</strong><small>{{ resource.type }} · {{ resource.id }}</small></div>
         <span class="connection-badge" :class="{'connection-badge-muted': resource.connection === 'oauth'}">{{ resource.connection === 'github-app' ? 'Read-only App' : 'Legacy OAuth' }}</span>
-        <div class="connection-resource-actions" v-if="resource.connection === 'oauth' &amp;&amp; connections.appEnabled &amp;&amp; connections.appConnected">
+        <div class="connection-resource-actions" v-if="connections.appEnabled &amp;&amp; connections.appConnected">
           <button class="btn btn-outline-ink" :disabled="busy" @click="changeConnection(resource, 'github-app', true)">Check read-only access</button>
-          <button v-if="resource.eligible" class="btn btn-ink" :disabled="busy" @click="changeConnection(resource, 'github-app', false)">Switch to read-only access</button>
+          <button v-if="resource.eligible" class="btn btn-ink" :disabled="busy" @click="changeConnection(resource, 'github-app', false)">{{ resource.connection === 'github-app' ? 'Reconnect read-only access' : 'Switch to read-only access' }}</button>
           <span class="connection-help" role="status" v-if="resource.eligible === false">Access unavailable. Allow this repository on GitHub, then check again.</span>
         </div>
         <button v-if="resource.connection === 'github-app' &amp;&amp; connections.oauthConnected" class="connection-link" :disabled="busy" @click="changeConnection(resource, 'oauth', false)">Use OAuth</button>
