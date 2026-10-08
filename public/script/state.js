@@ -19,14 +19,14 @@ export function createPageState(parent = null, events = new Map()) {
   });
   Object.defineProperty(own, "parent", { value: parent, configurable: true });
   Object.defineProperty(own, "viewState", { get: () => state });
-  state.watch = (source, callback, deep = false) => {
+  state.watch = (source, callback, deep = false, immediate = true) => {
     const read = typeof source === "function" ? () => source(state) : () => getPath(state, source);
     const stop = watch(read, callback, { deep, flush: "post" });
     cleanups.push(stop);
-    nextTick(() => { if (!disposed) callback(read(), read()); });
+    if (immediate) nextTick(() => { if (!disposed) callback(read(), read()); });
     return stop;
   };
-  state.watchGroup = (sources, callback) => state.watch(() => sources.map(s => getPath(state, s)), callback, true);
+  state.watchGroup = (sources, callback, immediate = true) => state.watch(() => sources.map(s => getPath(state, s)), callback, true, immediate);
   state.on = (name, callback) => {
     if (name === "dispose") { cleanups.push(callback); return () => {}; }
     if (!events.has(name)) events.set(name, new Set());
@@ -69,10 +69,15 @@ export function createTimers() {
 }
 
 export function createListeners() {
-  const cleanups = [];
-  onScopeDispose(() => cleanups.forEach(fn => fn()));
+  const cleanups = new Set();
+  onScopeDispose(() => { cleanups.forEach(fn => fn()); cleanups.clear(); });
   return (target, type, callback, options) => {
     target.addEventListener(type, callback, options);
-    cleanups.push(() => target.removeEventListener(type, callback, options));
+    const off = () => {
+      target.removeEventListener(type, callback, options);
+      cleanups.delete(off);
+    };
+    cleanups.add(off);
+    return off;
   };
 }

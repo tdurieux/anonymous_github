@@ -192,10 +192,11 @@ router.post(
         repo.model.anonymizeDate = new Date();
         updates.anonymizeDate = repo.model.anonymizeDate;
       }
-      await AnonymizedRepositoryModel.updateOne(
-        { _id: repo.model._id },
+      const saved = await AnonymizedRepositoryModel.updateOne(
+        { _id: repo.model._id, status: repo.status, statusDate: repo.model.statusDate },
         { $set: updates }
       ).exec();
+      if (saved && saved.matchedCount === 0) throw new AnonymousError("invalid_status", { httpStatus: 409 });
 
       if (reactivating) {
         // Expiration removes the cached files. Rebuild the saved commit
@@ -481,6 +482,10 @@ router.post(
 
       const repoUpdate = req.body;
 
+      if (repo.status === RepositoryStatus.EXPIRING || repo.status === RepositoryStatus.REMOVING) {
+        throw appError("invalid_status", 409);
+      }
+
       validateNewRepo(repoUpdate);
 
       // Only the source repository/commit/branch backs the cached FileModel —
@@ -602,7 +607,8 @@ router.post(
       }
       repo.model.conference = repoUpdate.conference;
       const saved = await AnonymizedRepositoryModel.updateOne(
-        { _id: repo.model._id, "githubAccess.revision": previousAccessRevision || { $exists: false } },
+        { _id: repo.model._id, status: repo.status, statusDate: repo.model.statusDate,
+          "githubAccess.revision": previousAccessRevision || { $exists: false } },
         {
           $set: {
             settingsSavedAt: new Date(),

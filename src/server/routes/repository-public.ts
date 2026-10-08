@@ -202,7 +202,7 @@ router.get(
     try {
       const repoId = repo.repoId;
       const results = await FileModel.aggregate([
-        { $match: { repoId, size: { $ne: null } } },
+        { $match: { repoId, treeGeneration: repo.model.treeGeneration || { $exists: false }, size: { $ne: null } } },
         { $project: { _id: 0, path: 1 } },
         { $group: { _id: "$path", count: { $sum: 1 } } },
       ]).exec();
@@ -256,45 +256,8 @@ router.get(
       if (!query || query.length < 2) {
         return res.json([]);
       }
-      const allFiles = await repo.anonymizedFiles({
-        includeSha: false,
-        recursive: true,
-      });
-      const q = query.toLowerCase();
+      res.json(await repo.searchFiles(query));
 
-      // Collect folder paths whose name segment matches the query
-      const matchingFolders = new Set<string>();
-      for (const f of allFiles) {
-        const segments = (f.path || "").split("/").filter(Boolean);
-        let accumulated = "";
-        for (const seg of segments) {
-          accumulated = accumulated ? `${accumulated}/${seg}` : seg;
-          if (seg.toLowerCase().includes(q)) {
-            matchingFolders.add(accumulated);
-          }
-        }
-      }
-
-      const matches = allFiles.filter((f) => {
-        // File name matches
-        if (f.name?.toLowerCase().includes(q)) return true;
-        // File is inside a matching folder
-        const fullPath = f.path ? `${f.path}/${f.name}` : f.name;
-        let found = false;
-        matchingFolders.forEach((folder) => {
-          if (fullPath?.startsWith(folder + "/") || fullPath === folder) found = true;
-        })
-        if (found) return true;
-        return false;
-      });
-
-      res.json(
-        matches.slice(0, 500).map((f) => ({
-          name: f.name,
-          path: f.path,
-          size: f.size,
-        }))
-      );
     } catch (error) {
       handleError(error, res, req);
     }
@@ -412,6 +375,7 @@ router.get(
         hasSubmodules:
           (await FileModel.exists({
             repoId: repo.repoId,
+            treeGeneration: repo.model.treeGeneration || { $exists: false },
             name: ".gitmodules",
             path: "",
           })) != null,

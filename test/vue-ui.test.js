@@ -935,6 +935,164 @@ describe("Vue 3 UI", function () {
     expect(ui.errors).to.deep.equal([]);
   });
 
+  it("loads dashboard summaries once initially and reloads when search or status changes", async () => {
+    ui = await browser("/dashboard", {
+      "/api/user": { username: "tester" },
+      "/api/user/dashboard": { items: [], total: 0, filtered: 0, attention: 0, cursor: null },
+    });
+    const requests = () => ui.requests.filter(request => request.url.pathname === "/api/user/dashboard");
+    await delay(200);
+    expect(requests()).to.have.length(1);
+    await ui.input('input[type="search"]', "package");
+    await delay(200);
+    expect(requests()).to.have.length(2); expect(requests()[1].url.searchParams.get("q")).to.equal("package");
+    ui.window.document.querySelector("#status-ready").click();
+    await delay(200);
+    expect(requests()).to.have.length(3); expect(requests()[2].url.searchParams.get("statuses")).not.to.include("ready");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("shows repository commit badges and details from dashboard summaries", async () => {
+    const commit = "abcdef1234567890";
+    ui = await browser("/dashboard", {
+      "/api/user": { username: "tester" },
+      "/api/user/dashboard": { items: [{ _type: "repo", repoId: "package", status: "ready",
+        source: { fullName: "owner/package", commit } }], total: 1, filtered: 1, attention: 0, cursor: null },
+    });
+    expect(ui.window.document.querySelector(".commit-hash").textContent).to.equal(commit.slice(0, 8));
+    const state = ui.window.document.querySelector("#search")._field.binding.state;
+    await state.showProjectDetails(state.items[0]);
+    expect(ui.window.document.querySelector(".project-details").textContent).to.include(commit);
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("distinguishes empty server-filtered pages from an empty account", async () => {
+    const item = { _type: "repo", repoId: "package", status: "ready", source: { fullName: "owner/package" } };
+    ui = await browser("/dashboard", {
+      "/api/user": { username: "tester" },
+      "/api/user/dashboard": request => {
+        const empty = !!request.url.searchParams.get("q") || !request.url.searchParams.get("statuses").split(",").includes("ready");
+        return { items: empty ? [] : [item], total: 2, filtered: empty ? 0 : 1, attention: 0, cursor: null };
+      },
+    });
+    const check = () => {
+      const empty = ui.window.document.querySelector(".paper-table-empty");
+      expect(empty.textContent).to.include("Nothing matches the current filters.").not.to.include("You have no anonymizations yet.");
+      expect(empty.querySelector('a[href="/anonymize"]')).to.equal(null);
+      expect(empty.querySelector("button").textContent).to.include("Clear filters");
+    };
+    await ui.input('input[type="search"]', "missing"); await delay(200); check();
+    const state = ui.window.document.querySelector("#search")._field.binding.state;
+    state.clearFilters(); await delay(200);
+    ui.window.document.querySelector("#status-ready").click(); await delay(20); check();
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("offers a new anonymization when the server reports an empty account", async () => {
+    ui = await browser("/dashboard", {
+      "/api/user": { username: "tester" },
+      "/api/user/dashboard": { items: [], total: 0, filtered: 0, attention: 0, cursor: null },
+    });
+    const empty = ui.window.document.querySelector(".paper-table-empty");
+    expect(empty.textContent).to.include("You have no anonymizations yet.").not.to.include("Nothing matches");
+    expect(empty.querySelector('a[href="/anonymize"]')).not.to.equal(null);
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  for (const status of ["error", "download"]) {
+    it(`updates the global attention badge after polling a repository in ${status}`, async () => {
+      const item = { _type: "repo", repoId: "package", status, anonymizeDate: "2000-01-01", source: { fullName: "owner/package" } };
+      let ready = false;
+      ui = await browser("/dashboard", {
+        "/api/user": { username: "tester" },
+        "/api/user/dashboard": () => ({ items: ready ? [] : [item], total: 20,
+          filtered: ready ? 6 : 7, attention: ready ? 6 : 7, cursor: ready ? "new-next" : "next" }),
+        "/api/repo/package/refresh": {}, "/api/repo/package": () => { ready = true; return { status: "ready" }; },
+      });
+      const state = ui.window.document.querySelector("#search")._field.binding.state;
+      state.setProjectView("attention"); await delay(200);
+      expect(state.filteredItems).to.have.length(1); expect(state.attentionCount()).to.equal(7);
+      const requests = ui.requests.filter(request => request.url.pathname === "/api/user/dashboard").length;
+      const original = state.items[0];
+      state.refreshItem(original); await delay(30);
+      expect(state.filteredItems).to.have.length(0);
+      expect(state.attentionCount()).to.equal(6);
+      expect(ui.window.document.querySelector(".attention-count").textContent).to.equal("6");
+      state.refreshItem(original); await delay(30);
+      expect(state.attentionCount()).to.equal(6);
+      expect(state.dashboardTotals.filtered).to.equal(6);
+      expect(state.dashboardCursor).to.equal("new-next");
+      expect(ui.requests.filter(request => request.url.pathname === "/api/user/dashboard")).to.have.length(requests + 1);
+      expect(ui.errors).to.deep.equal([]);
+    });
+  }
+
+  for (const filtered of [false, true]) {
+    it(`reloads pagination after a polled status change${filtered ? " under a status filter" : " sorted by status"}`, async () => {
+      const original = { _type: "repo", repoId: "package", status: "error", source: { fullName: "owner/package" } };
+      const other = { _type: "repo", repoId: "z-other", status: "error", source: { fullName: "owner/z-other" } };
+      let ready = false, release;
+      ui = await browser("/dashboard", {
+        "/api/user": { username: "tester" },
+        "/api/user/dashboard": request => {
+          const cursor = request.url.searchParams.get("cursor");
+          if (cursor === "old-next") return new Promise(resolve => { release = () => resolve({ items: [other], total: 2, filtered: 2, attention: 2, cursor: null }); });
+          if (cursor === "new-next") return { items: [{ ...original, status: "ready" }], total: 2, filtered: 2, attention: 1, cursor: null };
+          return { items: [ready ? other : original], total: 2, filtered: ready && filtered ? 1 : 2,
+            attention: ready ? 1 : 2, cursor: ready ? (filtered ? null : "new-next") : "old-next" };
+        },
+        "/api/repo/package/refresh": {}, "/api/repo/package": () => { ready = true; return { status: "ready" }; },
+      });
+      const state = ui.window.document.querySelector("#search")._field.binding.state;
+      state.orderBy = "status";
+      if (filtered) Object.keys(state.filters.status).forEach(key => { state.filters.status[key] = key === "error"; });
+      await delay(200);
+      await state.showProjectDetails(state.items[0]);
+      const selected = state.items[0];
+      const pending = state.loadMoreProjects(); await delay(10);
+      expect(release).to.be.a("function");
+      const count = ui.requests.filter(request => request.url.pathname === "/api/user/dashboard").length;
+      state.refreshItem(selected); await delay(50);
+      const reloads = ui.requests.filter(request => request.url.pathname === "/api/user/dashboard").slice(count);
+      expect(reloads).to.have.length(1); expect(reloads[0].url.searchParams.has("cursor")).to.equal(false);
+      expect(reloads[0].url.searchParams.get("sort")).to.equal("status");
+      if (filtered) expect(reloads[0].url.searchParams.get("statuses")).to.equal("error");
+      expect(state.dashboardTotals.filtered).to.equal(filtered ? 1 : 2);
+      expect(state.dashboardCursor).to.equal(filtered ? null : "new-next");
+      expect(state.selectedProject).to.equal(null);
+      release(); await pending;
+      expect(state.items.map(item => item._id)).to.deep.equal(["z-other"]);
+      if (!filtered) {
+        await state.loadMoreProjects();
+        expect(state.items.map(item => item._id)).to.deep.equal(["z-other", "package"]);
+        expect(state.items[1].status).to.equal("ready");
+      }
+      expect(ui.errors).to.deep.equal([]);
+    });
+  }
+
+  it("reloads later status transitions after a repository leaves the loaded page", async () => {
+    const item = { _type: "repo", repoId: "package", status: "error", source: { fullName: "owner/package" } };
+    let status = "error", polls = 0;
+    ui = await browser("/dashboard", {
+      "/api/user": { username: "tester" },
+      "/api/user/dashboard": () => ({ items: status === "error" ? [{ ...item, status }] : [], total: 1,
+        filtered: status === "error" ? 1 : 0, attention: status === "error" ? 1 : 0, cursor: null }),
+      "/api/repo/package/refresh": {},
+      "/api/repo/package": () => { status = ++polls === 1 ? "download" : "error"; return { status, statusMessage: "failed refresh" }; },
+    });
+    const state = ui.window.document.querySelector("#search")._field.binding.state;
+    Object.keys(state.filters.status).forEach(key => { state.filters.status[key] = key === "error"; });
+    await delay(20);
+    state.refreshItem(state.items[0]); await delay(50);
+    expect(state.items).to.have.length(0); expect(state.dashboardTotals.filtered).to.equal(0);
+    await delay(2600);
+    expect(polls).to.equal(2); expect(state.items.map(item => item._id)).to.deep.equal(["package"]);
+    expect(state.items[0].status).to.equal("error");
+    expect(state.dashboardTotals.filtered).to.equal(1); expect(state.attentionCount()).to.equal(1);
+    expect(ui.errors).to.deep.equal([]);
+  });
+
   it("finds errors and stalled downloads without treating fresh queued projects as failures", async () => {
     ui = await browser("/dashboard", {
       "/api/user": { username: "tester" },
@@ -1002,6 +1160,38 @@ describe("Vue 3 UI", function () {
     expect(ui.window.document.querySelector(".project-name-error").textContent).to.include("could not be saved");
     expect(ui.errors).to.deep.equal([]);
   });
+
+  for (const filtered of [false, true]) {
+    it(`reloads summary pagination after renaming a project${filtered ? " in a search" : " sorted by label"}`, async () => {
+      let name = "Old name", queryCount = 0;
+      const item = () => ({ _type: "repo", repoId: "package", status: "ready", projectName: name, source: { fullName: "owner/package" } });
+      ui = await browser("/dashboard", {
+        "/api/user": { username: "tester" },
+        "/api/user/dashboard": request => {
+          queryCount++;
+          const match = !request.url.searchParams.get("q") || name.includes(request.url.searchParams.get("q"));
+          return { items: match ? [item()] : [], total: 2, filtered: match ? 2 : 0, attention: 0,
+            cursor: match ? name + "-cursor" : null };
+        },
+        "/api/user/project-name": request => { name = request.payload.name; return { name }; },
+      });
+      const state = ui.window.document.querySelector("#search")._field.binding.state;
+      state.orderBy = "_label"; if (filtered) state.search = "Old";
+      await delay(200);
+      await state.showProjectDetails(state.items[0]);
+      state.projectName = "New name";
+      const before = queryCount;
+      await state.saveProjectName(state.items[0]); await delay(10);
+      expect(queryCount).to.equal(before + 1);
+      expect(state.dashboardCursor).to.equal(filtered ? null : "New name-cursor");
+      expect(state.dashboardTotals.filtered).to.equal(filtered ? 0 : 2);
+      expect(state.items).to.have.length(filtered ? 0 : 1);
+      expect(state.selectedProject).to.equal(filtered ? null : state.items[0]);
+      const last = ui.requests.filter(request => request.url.pathname === "/api/user/dashboard").at(-1);
+      expect(last.url.searchParams.has("cursor")).to.equal(false);
+      expect(ui.errors).to.deep.equal([]);
+    });
+  }
 
   it("shows full project details as text and restores keyboard focus when closed", async () => {
     const source = "owner/" + "very-long-project-name-".repeat(5);

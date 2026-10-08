@@ -12,6 +12,7 @@ import * as express from "express";
 import * as compression from "compression";
 import * as passport from "passport";
 import { connect } from "./database";
+import { startTemporaryStorageMaintenance } from "../core/temporary-storage";
 import { initSession, router as connectionRouter } from "./routes/connection";
 import { bearerTokenAuth } from "./routes/token-auth";
 import router from "./routes";
@@ -27,12 +28,10 @@ import {
   recoverStuckRemoving,
 } from "../queue";
 import {
-  computeStats,
+  getCurrentStats,
+  getStatsHistory,
   ensureTodaySnapshot,
-  HomeStatsHistoryRow,
-  mergeCurrentStatsIntoHistory,
 } from "./dailyStatsSnapshot";
-import DailyStatsModel from "../core/model/dailyStats/dailyStats.model";
 import { getUser } from "./routes/route-utils";
 import config from "../config";
 import { resolveTrustProxy, isCloudflareIP } from "./trustProxy";
@@ -278,53 +277,14 @@ export default async function start() {
     res.sendStatus(404);
   });
 
-  let stat: Record<string, unknown> = {};
-  let history: HomeStatsHistoryRow[] | null = null;
-  let historyKey: number | null = null;
-
-  setInterval(() => {
-    stat = {};
-    history = null;
-    historyKey = null;
-  }, 1000 * 60 * 60);
-
   apiRouter.get("/healthcheck", async (_, res) => {
     res.json({ status: "ok" });
   });
   apiRouter.get("/stat", async (_, res) => {
-    if (stat.nbRepositories) {
-      res.json(stat);
-      return;
-    }
-    stat = { ...(await computeStats()) };
-    res.json(stat);
+    res.json(await getCurrentStats());
   });
-
   apiRouter.get("/stat/history", async (req, res) => {
-    const days = Math.min(
-      Math.max(parseInt(req.query.days as string) || 30, 1),
-      365
-    );
-    if (history && historyKey === days) {
-      res.json(history);
-      return;
-    }
-    const since = new Date();
-    since.setUTCDate(since.getUTCDate() - days + 1);
-    since.setUTCHours(0, 0, 0, 0);
-    const docs = await DailyStatsModel.find({ date: { $gte: since } })
-      .sort({ date: 1 })
-      .lean();
-    const rows = docs.map((d) => ({
-      date: d.date,
-      nbRepositories: d.nbRepositories,
-      nbUsers: d.nbUsers,
-      nbPageViews: d.nbPageViews,
-      nbPullRequests: d.nbPullRequests,
-    }));
-    history = mergeCurrentStatsIntoHistory(rows, await computeStats());
-    historyKey = days;
-    res.json(history);
+    res.json(await getStatsHistory(parseInt(String(req.query.days)) || 30));
   });
 
   // web view
@@ -379,6 +339,7 @@ export default async function start() {
   dailyStatsSnapshot();
 
   await connect();
+  await startTemporaryStorageMaintenance();
   app.listen(config.PORT);
   logger.info("server started", { port: config.PORT });
   ensureTodaySnapshot().catch((err) =>

@@ -1,3 +1,4 @@
+import { streamResponse } from "./response-stream";
 import { join, basename, dirname } from "path";
 import { Response } from "express";
 import { Readable } from "stream";
@@ -9,6 +10,8 @@ import { RepositoryStatus } from "./types";
 import config from "../config";
 import {
   anonymizePath,
+  anonymizePathCompiled,
+  compileTerms,
   hasCustomTermReplacement,
   isTextFile,
 } from "./anonymize-utils";
@@ -168,10 +171,12 @@ export default class AnonymizedFile {
     const exactQuery: FilterQuery<IFile> = {
       repoId: this.repository.repoId,
       path: fileDir,
+      treeGeneration: this.repository.model?.treeGeneration || { $exists: false },
     };
     if (filename != "") exactQuery.name = filename;
     const exact = await FileModel.findOne(exactQuery);
     if (exact) {
+      if (exact.metadataPending) await this.repository.completeRecoveredFileMetadata(exact);
       this._file = exact;
       return exact;
     }
@@ -203,6 +208,18 @@ export default class AnonymizedFile {
     // narrow Mongo query. Fetch the repository's paths and verify them by
     // re-applying anonymization. Default XXXX-N masks retain the optimized,
     // anchored query.
+    const compiled = compileTerms(terms);
+    if (typeof this.repository.findAnonymizedPath === "function") {
+      const indexed = await this.repository.findAnonymizedPath(this.anonymizedPath);
+      if (indexed) { this._file = indexed; return indexed; }
+      if (indexed === null) {
+        if (anonymizePathCompiled(this.anonymizedPath, compiled) === this.anonymizedPath) {
+          const recovered = await this.recoverTruncatedFile(fileDir);
+          if (recovered) { this._file = recovered; return recovered; }
+        }
+        throw new AnonymousError("file_not_found", { httpStatus: 404, object: this });
+      }
+    }
     const candidates = usesCustomReplacement
       ? await FileModel.find({ repoId: this.repository.repoId }).exec()
       : await FileModel.find({
@@ -214,8 +231,9 @@ export default class AnonymizedFile {
     for (const candidate of candidates) {
       const candidatePath = join(candidate.path, candidate.name);
       if (
-        anonymizePath(candidatePath, terms) == this.anonymizedPath
+        anonymizePathCompiled(candidatePath, compiled) == this.anonymizedPath
       ) {
+        if (candidate.metadataPending) await this.repository.completeRecoveredFileMetadata(candidate);
         this._file = candidate;
         return candidate;
       }
@@ -253,19 +271,24 @@ export default class AnonymizedFile {
     const recovered = await source.fetchFileInfoFromPath(this.anonymizedPath);
     if (!recovered) return null;
     recovered.repoId = this.repository.repoId;
+    recovered.treeGeneration = this.repository.model.treeGeneration;
     logger.info("recovered file from truncated tree", {
       repoId: this.repository.repoId,
       path: this.anonymizedPath,
     });
+    let cached;
     try {
       // Cache it so the next request is served from the database.
-      await FileModel.create(recovered);
+      cached = await FileModel.create({ ...recovered, metadataPending: true });
     } catch (error) {
       logger.warn(
         "failed to cache recovered file",
         serializeError(error as Error)
       );
     }
+    // Once persisted, invalidation is required. Keep the pending marker on
+    // failure so both a subsequent lookup and maintenance retry the work.
+    if (cached) await this.repository.completeRecoveredFileMetadata(cached);
     return recovered;
   }
 
@@ -360,6 +383,8 @@ export default class AnonymizedFile {
         token: await githubTokenForStreamer(await this.repository.getToken(), this.repository.model.source.repositoryName),
         repoFullName: this.repository.model.source.repositoryName,
         commit: this.repository.model.source.commit,
+        cacheGeneration: `${this.repository.model.treeGeneration || "legacy"}:${this.repository.model.anonymizeDate?.toISOString() || ""}`,
+        cacheRevision: this.repository.model.contentCacheRevision,
         branch: this.repository.model.source.branch,
         repoId: this.repository.repoId,
         filePath: this.filePath,
@@ -407,24 +432,13 @@ export default class AnonymizedFile {
                 token: await githubTokenForStreamer(token, this.repository.model.source.repositoryName),
                 repoFullName: this.repository.model.source.repositoryName,
                 commit: this.repository.model.source.commit,
+        cacheGeneration: `${this.repository.model.treeGeneration || "legacy"}:${this.repository.model.anonymizeDate?.toISOString() || ""}`,
+                cacheRevision: this.repository.model.contentCacheRevision,
                 branch: this.repository.model.source.branch,
                 repoId: this.repository.repoId,
                 filePath: this.filePath,
                 anonymizerOptions: anonymizer.opt,
               },
-            })
-            .on("error", (err: Error) => {
-              const { error } = streamerErrorToAnonymous(
-                err as Error & {
-                  response?: { statusCode?: number; body?: unknown };
-                },
-                {
-                  repoId: this.repository.repoId,
-                  filePath: this.anonymizedPath,
-                }
-              );
-              error.value = this;
-              handleError(error, res);
             });
           // Forward Content-Type from the streamer's upstream response.
           // got.stream(...).pipe(res) forwards body bytes only — without
@@ -441,20 +455,21 @@ export default class AnonymizedFile {
               else if (isTextFile(this.anonymizedPath)) res.contentType("text/plain");
             }
           });
-          resStream.pipe(res);
-          // Resolve as soon as the response is fully written rather than
-          // waiting for the socket to close — keep-alive sockets stay open
-          // long after the body is delivered, and we don't want to delay
-          // post-send work like countView() that long.
-          res.on("finish", () => {
-            resolve();
+          await streamResponse(resStream, res, (err: Error) => {
+              const { error } = streamerErrorToAnonymous(
+                err as Error & {
+                  response?: { statusCode?: number; body?: unknown };
+                },
+                {
+                  repoId: this.repository.repoId,
+                  filePath: this.anonymizedPath,
+                }
+              );
+              error.value = this;
+              handleError(error, res);
+              if (res.headersSent && !res.writableEnded) res.destroy();
           });
-          res.on("close", () => {
-            resolve();
-          });
-          res.on("error", (err) => {
-            reject(err);
-          });
+          resolve();
           return;
         }
 
@@ -480,6 +495,7 @@ export default class AnonymizedFile {
           }
         });
         const content = await this.content();
+        if (res.destroyed || res.writableEnded) { content.destroy(); anonymizer.destroy(); resolve(); return; }
         function handleStreamError(error: Error) {
           if (!content.closed && !content.destroyed) {
             content.destroy();
@@ -505,6 +521,7 @@ export default class AnonymizedFile {
             if (!content.closed && !content.destroyed) {
               content.destroy();
             }
+            anonymizer.destroy();
             resolve();
           });
       } catch (error) {

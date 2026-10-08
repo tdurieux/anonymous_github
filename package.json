@@ -17,6 +17,9 @@
     "knip": "knip",
     "migrate:credentials": "node -r ts-node/register src/scripts/migrate-credentials.ts",
     "recover:owners": "node -r ts-node/register src/scripts/recover-repository-owners.ts",
+    "migrate:performance": "node -r ts-node/register src/scripts/create-performance-indexes.ts",
+    "test:performance": "mocha test/performance-*.test.js",
+    "benchmark:performance": "node scripts/performance-benchmark.js",
     "build:ui": "gulp",
     "test:ui": "gulp && mocha test/frontend-regressions.test.js test/dashboard-ui.test.js test/vue-ui.test.js"
   },

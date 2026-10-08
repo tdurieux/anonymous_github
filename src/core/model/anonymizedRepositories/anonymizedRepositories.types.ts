@@ -30,6 +30,17 @@ export interface IAnonymizedRepository {
     photo?: string;
     addedAt?: Date;
   }[];
+  treeGeneration?: string;
+  stagedFileTrees?: { generation: string; until: Date }[];
+  retiredTreeGenerations?: string[];
+  retiredContentPrefixes?: string[];
+  legacyContentCleanupPending?: boolean;
+  contentCacheVersion?: number;
+  contentCacheRevision?: string;
+  emptyTreeGeneration?: string;
+  fileMetadataRevision?: string;
+  pathIndexKey?: string;
+  pathIndexBuiltAt?: Date;
   truncatedFolders: string[];
   conference: string;
   options: {
@@ -49,6 +60,7 @@ export interface IAnonymizedRepository {
   };
   pageView: number;
   lastView: Date;
+  sizeComputedAt?: Date;
   size: {
     storage: number;
     file: number;

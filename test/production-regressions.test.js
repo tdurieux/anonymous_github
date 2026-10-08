@@ -282,7 +282,7 @@ describe("production regressions", function () {
     const Conference = require("../src/core/Conference").default;
     const model = { status: "ready", save: async () => {} };
     const conference = new Conference(model);
-    conference.repositories = async () => [{ expire: async () => { throw new Error("storage failed"); } }];
+    conference.repositories = async () => [{ markExpired: async () => { throw new Error("storage failed"); } }];
     try { await conference.expire(); throw new Error("expected rejection"); }
     catch (error) { expect(error.message).to.equal("storage failed"); }
     expect(model.status).to.equal("ready");

@@ -1,3 +1,5 @@
+import { isConnected } from "../server/database";
+import { expireEmbeddedContent } from "./content-expiration";
 import { APP_PROVIDER, appError } from "./github-app";
 import CredentialModel from "./model/credentials/credentials.model";
 import { getCredentialToken } from "./credentials";
@@ -131,7 +133,7 @@ export default class Gist {
       this._model.options.expirationDate
     ) {
       if (this._model.options.expirationDate <= new Date()) {
-        await this.expire();
+        await this.markExpired();
       }
     }
     if (
@@ -217,10 +219,29 @@ export default class Gist {
     ).exec();
   }
 
+  async markExpired() {
+    const now = new Date();
+    if (isConnected) {
+      const result = await AnonymizedGistModel.updateOne({ _id: this.model._id,
+        status: RepositoryStatus.READY, "options.expirationMode": { $ne: "never" },
+        "options.expirationDate": { $lte: now },
+      }, { $set: { status: RepositoryStatus.EXPIRING, statusDate: now } }).exec();
+      if (!result.matchedCount) {
+        const current = await AnonymizedGistModel.findById(this.model._id).exec();
+        if (!current) throw new AnonymousError("gist_expired", { object: this, httpStatus: 410 });
+        this._model = current;
+        this._gistPayload = undefined;
+        return;
+      }
+    }
+    this.model.status = RepositoryStatus.EXPIRING;
+    this.model.statusDate = now;
+  }
+
   async expire() {
-    await this.updateStatus(RepositoryStatus.EXPIRING);
-    await this.resetSate();
-    await this.updateStatus(RepositoryStatus.EXPIRED);
+    await expireEmbeddedContent(AnonymizedGistModel, this.model, {
+      "gist.comments": [], "gist.description": "", "gist.files": [], "gist.ownerLogin": "",
+    });
   }
 
   async remove() {

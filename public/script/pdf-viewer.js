@@ -33,6 +33,21 @@ export default {
         // Bumped on every load so pages still resolving from a previous
         // document are dropped instead of appended to the new one.
         let generation = 0;
+        let loadingTask = null;
+        const renders = new Map();
+        let rendering = 0;
+        function releaseSlot(slot) {
+          const record = renders.get(slot);
+          if (record) {
+            record.cancelled = true;
+            record.task?.cancel?.();
+            renders.delete(slot);
+          }
+          const canvas = slot.querySelector("canvas");
+          if (canvas) { canvas.width = 0; canvas.height = 0; }
+          slot.innerHTML = "";
+          delete slot.dataset.state;
+        }
 
         // ---------------------------------------------------------------
         // Toolbar
@@ -183,6 +198,8 @@ export default {
         // ---------------------------------------------------------------
         function teardown() {
           generation++;
+          slots.forEach(releaseSlot);
+          if (loadingTask) { Promise.resolve(loadingTask.destroy?.()).catch(() => {}); loadingTask = null; }
           if (resizeTimer) {
             clearTimeout(resizeTimer);
             resizeTimer = null;
@@ -214,7 +231,7 @@ export default {
 
         // Match the canvas backing store to the device pixel ratio, else text
         // is visibly soft on HiDPI screens.
-        function renderPage(page, slot) {
+        function renderPage(page, slot, record) {
           const ratio = window.devicePixelRatio || 1;
           const unscaled = page.getViewport({ scale: 1 });
           const cssWidth = parseFloat(slot.style.width);
@@ -231,11 +248,12 @@ export default {
           slot.appendChild(canvas);
           // The placeholder height was an estimate; the canvas is now the
           // authority on how tall this page is.
-          slot.style.height = "";
-          return page.render({
+          slot.style.height = canvas.style.height;
+          record.task = page.render({
             canvasContext: canvas.getContext("2d"),
             viewport: viewport,
-          }).promise;
+          });
+          return record.task.promise;
         }
 
         function renderVisible() {
@@ -249,36 +267,35 @@ export default {
           const view = pages.getBoundingClientRect();
           const top = view.top - PRERENDER_MARGIN;
           const bottom = view.top + pages.clientHeight + PRERENDER_MARGIN;
-          slots.forEach(function (slot, i) {
-            if (slot.dataset.state) return;
-            const rect = slot.getBoundingClientRect();
-            if (rect.top > bottom || rect.bottom < top) return;
+          const visible = slots.map((slot, i) => ({ slot, i, rect: slot.getBoundingClientRect() }))
+            .filter(item => item.rect.top <= bottom && item.rect.bottom >= top)
+            .sort((a, b) => Math.abs(a.rect.top - view.top) - Math.abs(b.rect.top - view.top)).slice(0, 6);
+          const keep = new Set(visible.map(item => item.slot));
+          for (const slot of renders.keys()) if (!keep.has(slot)) releaseSlot(slot);
+          for (const { slot, i } of visible) {
+            if (slot.dataset.state || rendering >= 2) continue;
+            const record = { cancelled: false, task: null };
+            renders.set(slot, record);
+            rendering++;
             slot.dataset.state = "rendering";
-            doc
-              .getPage(i + 1)
-              .then(function (page) {
-                if (myGeneration !== generation) return;
-                return renderPage(page, slot);
-              })
-              .then(function () {
-                if (myGeneration !== generation) return;
-                slot.dataset.state = "done";
-                // A real page height replaces an estimate, moving everything
-                // below it — re-pin the page the reader asked for.
-                if (anchorPage && Date.now() < anchorUntil) {
-                  scrollToPage(anchorPage);
-                }
-                // The shift can also bring further pages into view. Called
-                // directly rather than through schedule() so this doesn't
-                // depend on a frame callback firing.
-                renderVisible();
-              })
-              .catch(function () {
-                // A single unrenderable page shouldn't blank the whole
-                // document — leave the placeholder empty and move on.
-                slot.dataset.state = "failed";
-              });
-          });
+            let page;
+            doc.getPage(i + 1).then(value => {
+              page = value;
+              if (record.cancelled || myGeneration !== generation) return;
+              return renderPage(page, slot, record);
+            }).then(() => {
+              if (record.cancelled || myGeneration !== generation) return;
+              slot.dataset.state = "done";
+              if (anchorPage && Date.now() < anchorUntil) scrollToPage(anchorPage);
+            }).catch(() => {
+              if (!record.cancelled && myGeneration === generation) slot.dataset.state = "failed";
+            }).finally(() => {
+              rendering--;
+              page?.cleanup?.();
+              if (doc) renderVisible();
+            });
+          }
+
         }
 
         function schedule() {
@@ -309,6 +326,8 @@ export default {
         // whatever is on screen. Used for zoom changes and window resizes,
         // both of which invalidate canvases rasterised at the old width.
         function relayout() {
+          generation++;
+          slots.forEach(releaseSlot);
           const width = pageWidth();
           slots.forEach(function (slot) {
             delete slot.dataset.state;
@@ -320,7 +339,7 @@ export default {
         }
 
         function setZoom(value) {
-          if (!doc || value === zoom) return;
+          if (!doc || !slots.length || value === zoom) return;
           const anchor = currentPage;
           zoom = value;
           syncToolbar();
@@ -333,7 +352,7 @@ export default {
           if (resizeTimer) clearTimeout(resizeTimer);
           resizeTimer = setTimeout(function () {
             resizeTimer = null;
-            if (doc) relayout();
+            if (doc && slots.length) relayout();
           }, 250);
         }
 
@@ -342,8 +361,7 @@ export default {
           if (!url) return;
           const myGeneration = generation;
 
-          pdfjsLib
-            .getDocument({
+          loadingTask = pdfjsLib.getDocument({
               url: url,
               isEvalSupported: false,
               // Needed for PDFs that reference the 14 standard fonts without
@@ -352,8 +370,8 @@ export default {
               standardFontDataUrl: "/script/external/pdf-standard-fonts/",
               cMapUrl: "/script/external/pdf-cmaps/",
               cMapPacked: true,
-            })
-            .promise.then(function (_doc) {
+            });
+          loadingTask.promise.then(function (_doc) {
               if (myGeneration !== generation) {
                 _doc.destroy();
                 return;

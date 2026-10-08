@@ -95,7 +95,7 @@ export const codeEditor = {
       el._editor = editor;
       editor.setValue(String(latest.content ?? ""), -1);
       applyEditorOptions(el, latest.options);
-      latest.options?.onLoad?.(editor);
+      el._editorCleanup = latest.options?.onLoad?.(editor);
     } catch (error) {
       if (!el._editorDisposed) el.textContent = error.message;
     }
@@ -106,7 +106,7 @@ export const codeEditor = {
     if (el._editor.getValue() !== String(value.content ?? "")) el._editor.setValue(String(value.content ?? ""), -1);
     applyEditorOptions(el, value.options);
   },
-  beforeUnmount(el) { el._editorDisposed = true; el._editor?.destroy(); },
+  beforeUnmount(el) { el._editorDisposed = true; el._editorCleanup?.(); el._editor?.destroy(); },
 };
 function applyEditorOptions(el, options = {}) {
   const mode = editorModes.has(options.mode) ? options.mode : "text";

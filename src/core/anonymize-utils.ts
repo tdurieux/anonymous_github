@@ -1,3 +1,10 @@
+import { createHash } from "crypto";
+import { transformedFile } from "./transformed-cache";
+import { promises as fs, createReadStream, ReadStream } from "fs";
+import { tmpdir } from "os";
+import { join } from "path";
+import { anonymizeOnWorker, reserveSpool, releaseSpool } from "./anonymization-pool";
+import { maintainTextSpools } from "./temporary-storage";
 import { RE2JS } from "re2js";
 import { Script } from "vm";
 import { basename } from "path";
@@ -136,11 +143,20 @@ export class AnonymizeTransformer extends Transform {
   anonimizer: ContentAnonimizer;
   private wholeChunks: Buffer[] = [];
   private wholeBytes = 0;
+  private digest = createHash("sha256");
+  private spool?: string;
+  private reservedSpool = 0;
+  private output?: ReadStream;
+  private cancelled = new AbortController();
+  private spoolOperation?: Promise<void>;
+  private readonly memoryThreshold = 256 * 1024;
   private readonly bufferWholeStream: boolean;
 
   constructor(
     readonly opt: {
       filePath: string;
+      cacheGeneration?: string;
+      cacheRevision?: string;
     } & ConstructorParameters<typeof ContentAnonimizer>[0]
   ) {
     super();
@@ -171,12 +187,18 @@ export class AnonymizeTransformer extends Transform {
       this.nameVerdict = this.isText;
     }
     if (this.isText && this.bufferWholeStream) {
+      this.digest.update(chunk);
       this.wholeBytes += chunk.length;
       if (this.wholeBytes > config.MAX_FILE_SIZE) {
         this.wholeChunks = [];
         return callback(new Error(`Text file exceeded ${config.MAX_FILE_SIZE} bytes`));
       }
-      this.wholeChunks.push(chunk);
+      if (this.wholeBytes <= this.memoryThreshold) this.wholeChunks.push(Buffer.from(chunk));
+      else {
+        this.spoolOperation = this.spoolChunk(chunk);
+        void this.spoolOperation.then(() => callback(), error => callback(error));
+        return;
+      }
     } else {
       this.emit("transform", { isText: this.isText, wasAnonimized: false, chunk });
       this.push(chunk);
@@ -184,7 +206,54 @@ export class AnonymizeTransformer extends Transform {
     callback();
   }
 
+  private async spoolChunk(chunk: Buffer) {
+    const additional = chunk.length + (this.spool ? 0 : this.wholeBytes - chunk.length);
+    reserveSpool(additional);
+    this.reservedSpool += additional;
+    if (!this.spool) {
+      await maintainTextSpools();
+      this.spool = await fs.mkdtemp(join(tmpdir(), "anonymous-text-"));
+      await fs.writeFile(join(this.spool, "input"), Buffer.concat(this.wholeChunks));
+      this.wholeChunks = [];
+    }
+    if (this.cancelled.signal.aborted) throw new Error("anonymization_cancelled");
+    await fs.appendFile(join(this.spool, "input"), chunk);
+  }
+
+  _read(size: number) {
+    super._read(size);
+    this.output?.resume();
+  }
+
+  _destroy(error: Error | null, callback: (error?: Error | null) => void) {
+    this.cancelled.abort();
+    this.output?.destroy();
+    this.wholeChunks = [];
+    void (async () => {
+      await this.spoolOperation?.catch(() => {});
+      try { if (this.spool) await fs.rm(this.spool, { recursive: true, force: true }); }
+      finally { releaseSpool(this.reservedSpool); this.reservedSpool = 0; }
+    })().then(() => callback(error), () => callback(error));
+  }
+
   _flush(callback: (error?: Error) => void) {
+    if (this.spool) {
+      const output = join(this.spool, "output");
+      void transformedFile(this.digest.digest("hex"), this.opt, output, () => anonymizeOnWorker({ input: join(this.spool!, "input"), output,
+        options: this.opt, maxOutput: config.MAX_FILE_SIZE * 4, context: { mask: config.ANONYMIZATION_MASK, hostname: config.APP_HOSTNAME } }, this.wholeBytes, this.cancelled.signal))
+        .then(changed => {
+          if (this.destroyed) return;
+          this.anonimizer.wasAnonymized = changed;
+          this.output = createReadStream(output);
+          this.output.on("data", chunk => {
+            this.emit("transform", { isText: true, wasAnonimized: changed, chunk });
+            if (!this.push(chunk)) this.output!.pause();
+          });
+          this.output.once("error", callback);
+          this.output.once("end", () => callback());
+        }, error => callback(error));
+      return;
+    }
     try {
       if (this.nameVerdict === null) this.isText = true;
       if (this.wholeBytes) {
