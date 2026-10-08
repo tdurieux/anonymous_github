@@ -229,12 +229,23 @@ const plans = [
 ];
 
 const stat = { nbRepositories: 41230, nbUsers: 9870, nbPageViews: 3120000, nbPullRequests: 1480 };
+// Cumulative totals with uneven daily growth (weekday peaks), so the landing
+// sparklines show real variation instead of identical bars.
+const wave = (i, base) => Math.round(base * (1 + 0.6 * Math.sin(i / 1.3) + 0.3 * Math.cos(i / 4)));
+const cumulative = (start, base) => {
+  let total = start;
+  return Array.from({ length: 60 }, (_, i) => (total += Math.max(0, wave(i, base))));
+};
+const repoSeries = cumulative(40000, 20);
+const userSeries = cumulative(9500, 6);
+const viewSeries = cumulative(3000000, 2000);
+const prSeries = cumulative(1400, 1);
 const history = Array.from({ length: 60 }, (_, i) => ({
   date: ago(59 - i),
-  nbRepositories: 40000 + i * 20,
-  nbUsers: 9500 + i * 6,
-  nbPageViews: 3000000 + i * 2000,
-  nbPullRequests: 1400 + i,
+  nbRepositories: repoSeries[i],
+  nbUsers: userSeries[i],
+  nbPageViews: viewSeries[i],
+  nbPullRequests: prSeries[i],
 }));
 
 // ANON=1 serves the signed-out experience (landing page, FAQ) instead.
@@ -264,6 +275,58 @@ app.get("/api/conferences/:id", (req, res) => {
   const c = conferences.find((x) => x.conferenceID === req.params.id);
   return c ? res.json(c) : res.status(404).json({ error: "conf_not_found" });
 });
+// Explorer fixture: anonymous_github-C72C has a tiny file tree; "missing-repo"
+// returns the same error the live site gives for a deleted repository.
+const explorerFiles = {
+  "": [
+    { name: "src", path: "" },
+    { name: "README.md", path: "", size: 640, sha: "a1" },
+    { name: "LICENSE", path: "", size: 1070, sha: "a2" },
+    { name: "requirements.txt", path: "", size: 40, sha: "a3" },
+  ],
+  src: [
+    { name: "utils", path: "src" },
+    { name: "train.py", path: "src", size: 900, sha: "b1" },
+  ],
+  "src/utils": [{ name: "data.py", path: "src/utils", size: 300, sha: "c1" }],
+};
+const explorerContent = {
+  "README.md": "# DeepLearnUtils\n\nDeveloped by XXXX-1 at XXXX-2.\n\nUtilities for reproducing the paper's experiments. Every script in `src/` reads its configuration from `configs/` and writes results to `out/`, so a full run of the evaluation only needs the two commands below. The long sentence here checks the reading width of rendered Markdown.\n\n## Quick start\n\n```bash\npip install -r requirements.txt\npython src/train.py --config configs/base.yaml\n```\n\n| Model | Accuracy |\n| --- | --- |\n| Baseline | 71.2 |\n| Ours | 78.9 |\n\nContact: XXXX-3\n",
+  LICENSE: "MIT License\n\nCopyright (c) 2026 XXXX-1\n",
+  "requirements.txt": "torch>=2.3\nnumpy\npyyaml\n",
+  "src/train.py": 'import argparse\nimport yaml\n\nfrom utils.data import load_dataset\n\n\ndef main():\n    parser = argparse.ArgumentParser(description="Train the model")\n    parser.add_argument("--config", required=True)\n    args = parser.parse_args()\n    with open(args.config) as f:\n        config = yaml.safe_load(f)\n    dataset = load_dataset(config["data"])\n    print(f"Loaded {len(dataset)} examples")\n\n\nif __name__ == "__main__":\n    main()\n',
+  "src/utils/data.py": "def load_dataset(path):\n    with open(path) as f:\n        return [line.strip() for line in f]\n",
+};
+const EXPLORER_ID = "anonymous_github-C72C";
+app.get("/api/repo/missing-repo/{*rest}", (req, res) =>
+  res.status(404).json({ error: "repo_not_found" })
+);
+app.get(`/api/repo/${EXPLORER_ID}/options`, (req, res) =>
+  res.json({
+    url: null,
+    download: true,
+    lastUpdateDate: ago(3),
+    anonymizedAt: ago(3),
+    sourceCommitDate: ago(4),
+    isAdmin: false,
+    isOwner: true,
+    hasWebsite: false,
+    truncatedFolders: [],
+    hasSubmodules: false,
+  })
+);
+app.get(`/api/repo/${EXPLORER_ID}/files/counts`, (req, res) =>
+  res.json({ "": 6, src: 2, "src/utils": 1 })
+);
+app.get(`/api/repo/${EXPLORER_ID}/files`, (req, res) =>
+  res.json(explorerFiles[req.query.path || ""] || [])
+);
+app.get(`/api/repo/${EXPLORER_ID}/file/{*rest}`, (req, res) => {
+  const file = req.params.rest.join("/");
+  if (!(file in explorerContent)) return res.status(404).json({ error: "file_not_found" });
+  res.type("text/plain").send(explorerContent[file]);
+});
+
 app.get("/api/repo/:id", (req, res) => {
   const r = repositories.find((x) => x.repoId === req.params.id) || repositories[0];
   res.json(r);
