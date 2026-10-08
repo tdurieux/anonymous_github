@@ -108,14 +108,14 @@
   ],
   "tests": {
     "fullSuite": {
-      "passing": 944,
+      "passing": 948,
       "pending": 51,
       "failing": 0,
-      "note": "Clean committed checkout after nine PR review follow-ups, with disposable MongoDB/Redis and memory-backed temporary storage. Streamer startup/lifecycle/idle-cleanup integration uses compiled application code in separate processes; unrelated workspace files excluded. Includes the follow-up regression for TTL cleanup during database lookup failures.",
+      "note": "Clean committed checkout after ten PR review follow-ups, with disposable MongoDB/Redis and memory-backed temporary storage. Streamer startup/lifecycle/idle-cleanup integration uses compiled application code in separate processes; unrelated workspace files excluded. Includes bulk expiration races across repositories, gists and pull requests, and conference removal after multiple storage failures.",
       "validationDate": "2026-10-08"
     },
     "performanceSuite": {
-      "passing": 118,
+      "passing": 122,
       "note": "Included in the latest clean full-suite run with disposable MongoDB and Redis."
     },
     "uiSuite": {

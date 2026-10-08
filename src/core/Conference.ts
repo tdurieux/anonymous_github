@@ -42,7 +42,12 @@ export default class Conference {
    */
   async remove() {
     await this.updateStatus("removed");
-    for (const repo of await this.repositories()) await repo.remove();
+    const failures: unknown[] = [];
+    for (const repo of await this.repositories()) {
+      try { await repo.remove(); }
+      catch (error) { failures.push(error); }
+    }
+    if (failures.length) throw new AggregateError(failures, "Conference repository removal failed");
   }
 
   /**

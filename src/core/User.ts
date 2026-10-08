@@ -15,18 +15,30 @@ import AnonymizedGistModel from "./model/anonymizedGists/anonymizedGists.model";
 import { octokit } from "./GitHubUtils";
 
 import { isConnected } from "../server/database";
-async function markListExpired(model: {
+async function markListExpired<T extends { _id?: unknown; status?: string; statusDate?: Date;
+  options: { expirationMode?: string; expirationDate?: Date } }>(model: {
   updateMany(filter: Record<string, unknown>, update: Record<string, unknown>): { exec(): Promise<unknown> };
-}, rows: { model: { _id?: unknown; status?: string }; status: string | undefined;
-  options: { expirationMode?: string; expirationDate?: Date } }[]) {
+  find(filter: Record<string, unknown>): { exec(): Promise<T[]> };
+}, rows: T[]): Promise<T[]> {
   const now = new Date();
   const expired = rows.filter(row => row.status === "ready" && row.options.expirationMode !== "never"
     && row.options.expirationDate && row.options.expirationDate <= now);
-  if (!expired.length) return;
-  if (isConnected) await model.updateMany({ _id: { $in: expired.map(row => row.model._id) },
-    status: "ready", "options.expirationMode": { $ne: "never" }, "options.expirationDate": { $lte: now },
-  }, { $set: { status: "expiring", statusDate: now } }).exec();
-  for (const row of expired) row.model.status = "expiring";
+  if (!expired.length) return rows;
+  if (isConnected) {
+    const ids = expired.map(row => row._id);
+    await model.updateMany({ _id: { $in: ids }, status: "ready",
+      "options.expirationMode": { $ne: "never" }, "options.expirationDate": { $lte: now },
+    }, { $set: { status: "expiring", statusDate: now } }).exec();
+    const current = new Map((await model.find({ _id: { $in: ids } }).exec()).map(row => [String(row._id), row]));
+    const affected = new Set(ids.map(String));
+    return rows.flatMap(row => {
+      if (!affected.has(String(row._id))) return [row];
+      const fresh = current.get(String(row._id));
+      return fresh ? [fresh] : [];
+    });
+  }
+  for (const row of expired) { row.status = "expiring"; row.statusDate = now; }
+  return rows;
 }
 
 /**
@@ -167,35 +179,26 @@ export default class User {
    */
   async getRepositories() {
     const query = this.repositoryMembership();
-    const repositories = (
-      await AnonymizedRepositoryModel.find(query).exec()
-    ).map((d) => new Repository(d));
-    await markListExpired(AnonymizedRepositoryModel, repositories);
-    return repositories;
+    const repositories = await AnonymizedRepositoryModel.find(query).exec();
+    return (await markListExpired<typeof repositories[number]>(AnonymizedRepositoryModel, repositories)).map(d => new Repository(d));
   }
   /**
    * Get the lost of anonymized repositories
    * @returns the list of anonymized repositories
    */
   async getPullRequests() {
-    const pullRequests = (
-      await AnonymizedPullRequestModel.find({
-        owner: this.id,
-      }).exec()
-    ).map((d) => new PullRequest(d));
-    await markListExpired(AnonymizedPullRequestModel, pullRequests);
-    return pullRequests;
+    const pullRequests = await AnonymizedPullRequestModel.find({
+      owner: this.id,
+    }).exec();
+    return (await markListExpired<typeof pullRequests[number]>(AnonymizedPullRequestModel, pullRequests)).map(d => new PullRequest(d));
   }
 
   /**
    * Get the list of anonymized gists
    */
   async getGists() {
-    const gists = (
-      await AnonymizedGistModel.find({ owner: this.id }).exec()
-    ).map((d) => new Gist(d));
-    await markListExpired(AnonymizedGistModel, gists);
-    return gists;
+    const gists = await AnonymizedGistModel.find({ owner: this.id }).exec();
+    return (await markListExpired<typeof gists[number]>(AnonymizedGistModel, gists)).map(d => new Gist(d));
   }
 
   repositoryMembership() {

@@ -54,6 +54,45 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
     expect((await user.getRepositories()).map(repo => repo.repoId).sort()).to.deep.equal(["coauthored", "legacy", "owned"]);
   });
 
+  for (const [model, id, method] of [[Repo, "repoId", "getRepositories"], [Gist, "gistId", "getGists"], [PR, "pullRequestId", "getPullRequests"]]) {
+    it(`reloads ${id} list candidates after concurrent expiration changes`, async () => {
+      const rows = await model.insertMany(["due", "extended", "never", "removed", "deleted", "unchanged"].map(label => ({
+        [id]: `list-${label}`, owner: user.model._id, status: "ready", statusDate: new Date(0),
+        options: { expirationMode: label === "unchanged" ? "never" : "remove", expirationDate: new Date(0) },
+      })));
+      const updateMany = model.updateMany;
+      let calls = 0;
+      model.updateMany = function (...args) {
+        const query = updateMany.apply(this, args), exec = query.exec;
+        query.exec = async function (...execArgs) {
+          calls++;
+          await model.updateOne({ _id: rows[1]._id }, { $set: { "options.expirationDate": new Date(Date.now() + 86400000), statusMessage: "extended" } });
+          await model.updateOne({ _id: rows[2]._id }, { $set: { "options.expirationMode": "never", statusMessage: "never" } });
+          await model.updateOne({ _id: rows[3]._id }, { $set: { status: "removed", statusMessage: "removed" } });
+          await model.deleteOne({ _id: rows[4]._id });
+          return exec.apply(this, execArgs);
+        };
+        return query;
+      };
+      let projects;
+      try { projects = await user[method](); }
+      finally { model.updateMany = updateMany; }
+      expect(calls).to.equal(1);
+      expect(projects).to.have.length(5);
+      const byId = new Map(projects.map(project => [String(project.model._id), project]));
+      const due = byId.get(String(rows[0]._id));
+      expect(due.status).to.equal("expiring");
+      expect(due.model.statusDate).to.deep.equal((await model.findById(rows[0]._id)).statusDate);
+      for (const index of [1, 2, 3, 5]) {
+        const fresh = await model.findById(rows[index]._id), project = byId.get(String(rows[index]._id));
+        expect(project.status).to.equal(fresh.status);
+        expect(project.options).to.deep.equal(fresh.options);
+        expect(project.model.statusMessage).to.equal(fresh.statusMessage);
+      }
+      expect(byId.has(String(rows[4]._id))).to.equal(false);
+    });
+  }
+
   it("uses indexes for repository, gist and PR maintenance over unrelated records", async () => {
     const { repositoryMaintenanceQuery, contentMaintenanceQuery } = require("../src/server/schedule");
     const now = new Date(), future = new Date(Date.now() + 86400000), old = new Date("2020-01-01");
@@ -592,6 +631,27 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
       } finally { storage.rm = rm; config.FOLDER = folder; await fs.rm(temporary, { recursive: true, force: true }); }
     });
   }
+
+  it("attempts every conference repository removal before reporting storage failures", async () => {
+    const models = await Repo.insertMany(Array.from({ length: 4 }, (_, i) => ({ repoId: `remove-conference-${i}`,
+      owner: user.model._id, status: "ready", statusDate: new Date() })));
+    const conference = new Conference(await ConferenceModel.create({ conferenceID: "remove-failures", status: "ready",
+      repositories: models.map(model => ({ id: model._id })) }));
+    conference._repositories = models.map(model => new Repository(model));
+    const storage = require("../src/core/storage").default, rm = storage.rm, attempts = [], failures = [Error("first storage failure"), Error("later storage failure")];
+    storage.rm = async repoId => {
+      attempts.push(repoId);
+      if (repoId === models[0].repoId) throw failures[0];
+      if (repoId === models[2].repoId) throw failures[1];
+    };
+    try {
+      try { await conference.remove(); throw Error("expected aggregate removal failure"); }
+      catch (error) { expect(error).to.be.instanceOf(AggregateError); expect(error.errors).to.deep.equal(failures); }
+      expect(attempts).to.deep.equal(models.map(model => model.repoId));
+      expect((await ConferenceModel.findById(conference._data._id)).status).to.equal("removed");
+      for (const index of [1, 3]) expect((await Repo.findById(models[index]._id)).status).to.equal("removed");
+    } finally { storage.rm = rm; }
+  });
 
   it("expires conference repositories in every active status and drains their cleanup backlog", async () => {
     const statuses = ["ready", "error", "preparing", "queue", "download"];
