@@ -82,7 +82,8 @@ export function mountApplication(target = "#app", options = {}) {
       root.window = window;
       root.Math = Math;
       root.sanitize = value => DOMPurify.sanitize(value ?? "");
-      root.highlightRedactions = html => highlightRedactions(html, root.site_options?.ANONYMIZATION_MASK);
+      // Reading site_options re-renders Markdown once the configured mask loads.
+      root.highlightRedactions = html => (root.site_options, highlightRedactions(html));
       root.submitForm = submitForm;
       root.safeUrl = safeUrl;
       const context = services();

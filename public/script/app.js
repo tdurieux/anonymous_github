@@ -2,25 +2,34 @@ import { reactive, nextTick } from "vue";
 import { createTimers, createListeners } from "./state.js";
 import { formDraft } from "./drafts.js";
 
+// The mask comes from /api/options; mainController sets it once loaded.
+let redactionMask = "XXXX";
+export const setRedactionMask = (mask) => { redactionMask = mask || "XXXX"; };
+
 // Matches the replacements the anonymizer writes: MASK and MASK-<n>.
-export const redactionPattern = (mask = "XXXX") => {
+export const redactionPattern = (mask = redactionMask) => {
   if (!mask) return null;
   const escaped = mask.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return new RegExp(escaped + "(?:-\\d+)?", "g");
-}
+};
 
-// Wraps redacted terms in rendered HTML with <mark class="redaction">,
-// touching text nodes only so attributes and URLs stay intact.
-export const highlightRedactions = (html, mask = "XXXX") => {
+// Wraps redacted terms under root in <mark class="redaction">, touching text
+// nodes only so attributes and URLs stay intact. Mermaid sources are left
+// alone (Mermaid parses their text), and so are code blocks Prism will
+// rewrite unless root is that highlighted block itself.
+export const markRedactionsIn = (root, mask = redactionMask) => {
   const pattern = redactionPattern(mask);
-  if (!pattern || !html || !html.includes(mask)) return html;
-  const doc = new DOMParser().parseFromString("<body>" + html + "</body>", "text/html");
-  const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
+  if (!pattern || !root || !root.textContent.includes(mask)) return;
+  const doc = root.ownerDocument;
+  const walker = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   const nodes = [];
   while (walker.nextNode()) nodes.push(walker.currentNode);
   for (const node of nodes) {
     const text = node.nodeValue;
-    if (!text.includes(mask) || node.parentElement?.closest("script, style")) continue;
+    const parent = node.parentElement;
+    if (!text.includes(mask) || !parent || parent.closest("script, style, mark.redaction, .mermaid")) continue;
+    const highlighted = parent.closest('code[class*="language-"]');
+    if (highlighted && !highlighted.contains(root)) continue;
     const fragment = doc.createDocumentFragment();
     let last = 0;
     for (const match of text.matchAll(pattern)) {
@@ -35,8 +44,14 @@ export const highlightRedactions = (html, mask = "XXXX") => {
     fragment.append(text.slice(last));
     node.replaceWith(fragment);
   }
+};
+
+export const highlightRedactions = (html, mask = redactionMask) => {
+  if (!html || !mask || !html.includes(mask)) return html;
+  const doc = new DOMParser().parseFromString("<body>" + html + "</body>", "text/html");
+  markRedactionsIn(doc.body, mask);
   return doc.body.innerHTML;
-}
+};
 
 async function copyText(text) {
   if (window.navigator.clipboard?.writeText) {
@@ -147,6 +162,8 @@ export const mainController = function (state, http, location, timeout) {
         http.get("/api/options").then(
           (res) => {
             if (res) state.site_options = res.data;
+            setRedactionMask(res?.data?.ANONYMIZATION_MASK);
+            state.emit("site-options");
           },
           () => {
             state.site_options = null;
@@ -2202,6 +2219,11 @@ export const anonymizeController = function (state, http, html, params, location
 
 export const exploreController = function (state, http, location, params, html, promises) {
       const timers = createTimers();
+      // Prism rewrites fenced code blocks, so mark redactions once it is done.
+      if (window.Prism?.hooks && !window.Prism.redactionHook) {
+        window.Prism.hooks.add("complete", (env) => markRedactionsIn(env.element));
+        window.Prism.redactionHook = true;
+      }
       const listen = createListeners();
         state.on("dark-mode", (event, on) => {
           if (!state.aceOption) return;
@@ -2808,7 +2830,7 @@ export const exploreController = function (state, http, location, params, html, 
             const markRedactions = () => {
               redactionMarkers.forEach((id) => _editor.session.removeMarker(id));
               redactionMarkers = [];
-              const pattern = redactionPattern(state.site_options?.ANONYMIZATION_MASK);
+              const pattern = redactionPattern();
               if (!pattern) return;
               const lines = _editor.session.getDocument().getAllLines();
               lines.forEach((line, row) => {
@@ -2823,8 +2845,11 @@ export const exploreController = function (state, http, location, params, html, 
             };
             markRedactions();
             _editor.session.on("change", () => timers.timeout(markRedactions, 0));
+            // The mask may arrive after the editor mounts.
+            const offOptions = state.on("site-options", markRedactions);
             return () => {
               removeHashListener();
+              offOptions();
               narrow.removeEventListener?.("change", applyWrap);
             };
           },
