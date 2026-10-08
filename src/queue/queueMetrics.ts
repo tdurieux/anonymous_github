@@ -15,12 +15,12 @@ function getClient(): RedisClientType | null {
       socket: {
         host: config.REDIS_HOSTNAME,
         port: config.REDIS_PORT,
-        reconnectStrategy: () => false as any,
+        reconnectStrategy: false,
       },
     }) as RedisClientType;
     client.on("error", () => {
       disabled = true;
-      client?.disconnect().catch(() => {});
+      if (client?.isOpen) client.destroy();
       client = null;
     });
     client.connect().catch(() => {

@@ -74,7 +74,7 @@ function getRedis(): RedisClientType | null {
       const c = redisClient;
       redisClient = null;
       if (c?.isOpen) {
-        c.disconnect().catch(() => {});
+        c.destroy();
       }
     });
     redisClient.connect().catch(() => {

@@ -120,6 +120,9 @@ export default abstract class StorageBase {
    */
   abstract mk(repoId: string, dir: string): Promise<void>;
 
+  /** Remove unversioned stream caches, preserving the managed content namespace. */
+  abstract removeLegacyContent(repoId: string): Promise<void>;
+
   repoPath(repoId: string) {
     return (
       join(repoId, "original") + (process.platform === "win32" ? "\\" : "/")
