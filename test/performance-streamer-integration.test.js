@@ -32,8 +32,8 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
   beforeEach(async () => { await Repo.deleteMany({}); });
 
   const missing = async file => { try { await fs.access(file); return false; } catch (error) { if (error.code === "ENOENT") return true; throw error; } };
-  async function waitFor(check) {
-    const deadline = Date.now() + 5000;
+  async function waitFor(check, timeoutMs = 5000) {
+    const deadline = Date.now() + timeoutMs;
     while (!await check()) { if (Date.now() >= deadline) throw Error("Streamer cleanup did not finish"); await new Promise(resolve => setTimeout(resolve, 20)); }
   }
   async function launch(invalidCredentials = false, holdConnect = false) {
@@ -78,7 +78,9 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
   it("connects before serving and rejects a fill published after expiration in the actual streamer entrypoint", async () => {
     const runtime = await launch(false, true); let pending;
     try {
-      await waitFor(() => runtime.messages.some(message => message.connectionHeld));
+      // Loading TypeScript and the Redis client in a fresh process can take
+      // longer than the cleanup deadline used after the streamer starts.
+      await waitFor(() => runtime.messages.some(message => message.connectionHeld), 10000);
       await fetch(runtime.url + "/healthcheck").then(() => { throw Error("Streamer served before connecting"); }, error => expect(error).to.be.instanceOf(Error));
       runtime.child.send("connect");
       await runtime.ready;

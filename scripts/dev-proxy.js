@@ -31,7 +31,7 @@ const UPSTREAM = process.env.UPSTREAM || "https://anonymous.4open.science";
 const PORT = parseInt(process.env.PORT || "4001", 10);
 const PUBLIC_DIR = path.resolve(__dirname, "..", "public");
 
-// Re-read manifest on each request so gulp rebuilds are picked up instantly.
+// Re-read manifest on each request so asset rebuilds are picked up instantly.
 const manifestPath = path.join(PUBLIC_DIR, "asset-manifest.json");
 function asset(name) {
   try {
@@ -132,49 +132,51 @@ app.use(
     selfHandleResponse: true, // so we can rewrite Set-Cookie + HTML
     cookieDomainRewrite: "",
     cookiePathRewrite: "/",
-    onProxyReq(proxyReq, req) {
-      // Make upstream think the request came in over HTTPS at its domain.
-      proxyReq.setHeader("origin", UPSTREAM);
-      proxyReq.setHeader("referer", UPSTREAM + req.originalUrl);
-    },
-    onProxyRes: responseInterceptor(async (buffer, proxyRes, req, res) => {
-      // Rewrite Set-Cookie so cookies stick on localhost.
-      const setCookie = proxyRes.headers["set-cookie"];
-      if (setCookie) {
-        const rewritten = setCookie.map((c) =>
-          c
-            .replace(/;\s*Secure/gi, "")
-            .replace(/;\s*Domain=[^;]+/gi, "")
-            .replace(/;\s*SameSite=None/gi, "; SameSite=Lax"),
-        );
-        res.setHeader("set-cookie", rewritten);
-      }
-
-      // Rewrite Location headers on 3xx redirects.
-      const location = proxyRes.headers["location"];
-      if (location && typeof location === "string") {
-        try {
-          const u = new URL(location, UPSTREAM);
-          if (u.origin === UPSTREAM) {
-            res.setHeader("location", u.pathname + u.search + u.hash);
-          }
-        } catch {
-          /* leave as-is */
+    on: {
+      proxyReq(proxyReq, req) {
+        // Make upstream think the request came in over HTTPS at its domain.
+        proxyReq.setHeader("origin", UPSTREAM);
+        proxyReq.setHeader("referer", UPSTREAM + req.originalUrl);
+      },
+      proxyRes: responseInterceptor(async (buffer, proxyRes, req, res) => {
+        // Rewrite Set-Cookie so cookies stick on localhost.
+        const setCookie = proxyRes.headers["set-cookie"];
+        if (setCookie) {
+          const rewritten = setCookie.map((c) =>
+            c
+              .replace(/;\s*Secure/gi, "")
+              .replace(/;\s*Domain=[^;]+/gi, "")
+              .replace(/;\s*SameSite=None/gi, "; SameSite=Lax"),
+          );
+          res.setHeader("set-cookie", rewritten);
         }
-      }
 
-      const ct = String(proxyRes.headers["content-type"] || "");
-      if (ct.includes("text/html")) {
-        // Swap upstream domain references in HTML so relative navigation
-        // stays on localhost.
-        const body = buffer
-          .toString("utf8")
-          .replace(new RegExp(UPSTREAM.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"), "");
-        return body;
-      }
-      return buffer;
-    }),
-    logLevel: "warn",
+        // Rewrite Location headers on 3xx redirects.
+        const location = proxyRes.headers["location"];
+        if (location && typeof location === "string") {
+          try {
+            const u = new URL(location, UPSTREAM);
+            if (u.origin === UPSTREAM) {
+              res.setHeader("location", u.pathname + u.search + u.hash);
+            }
+          } catch {
+            /* leave as-is */
+          }
+        }
+
+        const ct = String(proxyRes.headers["content-type"] || "");
+        if (ct.includes("text/html")) {
+          // Swap upstream domain references in HTML so relative navigation
+          // stays on localhost.
+          const body = buffer
+            .toString("utf8")
+            .replace(new RegExp(UPSTREAM.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"), "");
+          return body;
+        }
+        return buffer;
+      }),
+    },
+    logger: { info() {}, warn: console.warn, error: console.error },
   }),
 );
 

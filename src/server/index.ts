@@ -34,7 +34,8 @@ import {
 } from "./dailyStatsSnapshot";
 import { getUser } from "./routes/route-utils";
 import config from "../config";
-import { resolveTrustProxy, isCloudflareIP } from "./trustProxy";
+import { resolveTrustProxy } from "./trustProxy";
+import { requestRateLimitKey } from "./rate-limit-key";
 import { createLogger, serializeError } from "../core/logger";
 import { monitorRequests } from "../core/request-monitoring";
 import { startPerformanceMonitoring } from "../core/performance-monitoring";
@@ -156,37 +157,6 @@ export default async function start() {
 
   await redisClient.connect();
 
-  function keyGenerator(
-    request: express.Request,
-    _response: express.Response
-  ): string {
-    // Use request.ip, which Express resolves from X-Forwarded-For honouring
-    // the configured "trust proxy" setting. Do NOT key off the
-    // cf-connecting-ip header unconditionally: when the server isn't actually
-    // behind Cloudflare a client can set that header to an arbitrary value
-    // per request and trivially bypass the rate limiter (CWE-290).
-    let ip = request.ip;
-    if (!ip && request.socket.remoteAddress) {
-      logger.warn("request.ip is missing");
-      ip = request.socket.remoteAddress;
-    }
-    // If resolution stopped at a Cloudflare edge address (X-Forwarded-For no
-    // longer contains the visitor, e.g. after a Cloudflare-side change), fall
-    // back to cf-connecting-ip. This is safe: request.ip can only be a
-    // Cloudflare address when every hop up to it is trusted, i.e. the request
-    // genuinely traversed Cloudflare. A direct client forging the header is
-    // keyed by its own untrusted address instead, so the CWE-290 bypass above
-    // does not apply.
-    if (ip && isCloudflareIP(ip)) {
-      const cfConnectingIP = request.headers["cf-connecting-ip"];
-      if (typeof cfConnectingIP === "string" && cfConnectingIP) {
-        ip = cfConnectingIP.trim();
-      }
-    }
-    // remove port number from IPv4 addresses
-    return (ip || "").replace(/:\d+[^:]*$/, "");
-  }
-
   const rate = rateLimit({
     store: new RedisStore({
       sendCommand: (...args: string[]) => redisClient.sendCommand(args),
@@ -201,7 +171,7 @@ export default async function start() {
       }
       return false;
     },
-    max: async (request: express.Request, _response: express.Response) => {
+    limit: async (request: express.Request, _response: express.Response) => {
       try {
         const user = await getUser(request);
         if (user) return config.RATE_LIMIT;
@@ -211,8 +181,8 @@ export default async function start() {
       // if not logged in, limit to half the rate
       return config.RATE_LIMIT / 2;
     },
-    keyGenerator,
-    standardHeaders: true,
+    keyGenerator: requestRateLimitKey,
+    standardHeaders: "draft-6",
     legacyHeaders: false,
     message: (_request: express.Request, _response: express.Response) => {
       return `You can only make ${config.RATE_LIMIT} requests every 15min. Please try again later.`;
@@ -223,14 +193,14 @@ export default async function start() {
     delayAfter: 50,
     delayMs: () => 150,
     maxDelayMs: 5000,
-    keyGenerator,
+    keyGenerator: requestRateLimitKey,
   });
   const webViewSpeedLimiter = slowDown({
     windowMs: 15 * 60 * 1000, // 15 minutes
     delayAfter: 200,
     delayMs: () => 150,
     maxDelayMs: 5000,
-    keyGenerator,
+    keyGenerator: requestRateLimitKey,
   });
 
   app.use("/github", rate, speedLimiter, githubAppRouter);

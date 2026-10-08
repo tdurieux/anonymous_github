@@ -1,9 +1,10 @@
 const { expect } = require("chai");
-const { JSDOM, VirtualConsole, ResourceLoader } = require("jsdom");
+const { JSDOM, VirtualConsole, requestInterceptor } = require("jsdom");
 const fs = require("fs");
 const path = require("path");
 const { URL } = require("node:url");
 const { setTimeout: delay } = require("node:timers/promises");
+const { Response } = globalThis;
 
 const publicDir = path.join(__dirname, "../public");
 const bundles = ["core.min.js", "vendor.min.js"].map(name => fs.readFileSync(path.join(publicDir, "script", name), "utf8"));
@@ -12,19 +13,21 @@ async function browser(route = "/", overrides = {}, storage = {}) {
   const errors = [], requests = [], assets = [];
   const virtualConsole = new VirtualConsole();
   virtualConsole.on("jsdomError", error => {
-    if (!error.message.includes("navigation (except hash changes)")) errors.push(error.message);
+    if (error.type === "not-implemented" && error.message === "Not implemented: navigation to another Document") return;
+    errors.push(error.message);
   });
   virtualConsole.on("error", error => errors.push(error?.message || String(error)));
   const dom = new JSDOM('<!doctype html><html><head></head><body><div id="app"></div></body></html>', {
-    resources: new class extends ResourceLoader {
-      fetch(url) {
+    resources: {
+      interceptors: [requestInterceptor(request => {
+        const url = request.url;
         assets.push(new URL(url).pathname);
-        if (/\/pdf\.[a-f0-9]+\.min\.js$/.test(new URL(url).pathname) && dom.window.pdfjsLib) return Promise.resolve(Buffer.from(""));
+        if (/\/pdf\.[a-f0-9]+\.min\.js$/.test(new URL(url).pathname) && dom.window.pdfjsLib) return new Response("");
         const pathname = new URL(url).pathname.replace(/\.[a-f0-9]{10}\.min\.js$/, ".min.js");
-        if (pathname.startsWith("/script/")) return Promise.resolve(fs.readFileSync(path.join(publicDir, pathname)));
-        return null;
-      }
-    }(),
+        if (pathname.startsWith("/script/")) return new Response(fs.readFileSync(path.join(publicDir, pathname)), { headers: { "content-type": "application/javascript" } });
+        return new Response(null, { status: 204 });
+      })],
+    },
     url: "http://localhost" + route, runScripts: "dangerously", pretendToBeVisual: true, virtualConsole,
   });
   const window = dom.window;

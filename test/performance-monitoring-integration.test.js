@@ -18,12 +18,12 @@ const port = Number(process.env.PERFORMANCE_REDIS_PORT);
   });
   beforeEach(async function () {
     const keys = [];
-    for await (const key of redis.scanIterator({ MATCH: "performance:v1:*" })) keys.push(key);
+    for await (const batch of redis.scanIterator({ MATCH: "performance:v1:*" })) keys.push(...batch);
     if (keys.length) await redis.del(keys);
     requestMetrics.drain();
   });
   afterEach(async function () { if (stop) { await stop(); stop = null; } requestMetrics.drain(); });
-  after(async function () { await redis.disconnect(); config.REDIS_HOSTNAME = previous.host; config.REDIS_PORT = previous.port; });
+  after(async function () { await redis.close(); config.REDIS_HOSTNAME = previous.host; config.REDIS_PORT = previous.port; });
   async function start(service) {
     stop = startPerformanceMonitoring(service, () => ({ running: 0, waiting: 0 }));
     const deadline = Date.now() + 4000;

@@ -155,12 +155,12 @@ function ensureRedisGateClient(): Promise<RedisClientType | null> {
         socket: {
           host: config.REDIS_HOSTNAME,
           port: config.REDIS_PORT,
-          reconnectStrategy: () => false as any,
+          reconnectStrategy: false,
         },
       }) as RedisClientType;
       c.on("error", () => {
         redisGateDisabled = true;
-        c.disconnect().catch(() => {});
+        if (c.isOpen) c.destroy();
         redisGateReady = null;
       });
       await c.connect();
