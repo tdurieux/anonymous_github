@@ -8,7 +8,9 @@ import config from "../config";
 import router from "./route";
 import { handleError } from "../server/routes/route-utils";
 import AnonymousError from "../core/AnonymousError";
-import { createLogger } from "../core/logger";
+import { createLogger, serializeError } from "../core/logger";
+import { connect } from "../server/database";
+import { startTemporaryStorageMaintenance } from "../core/temporary-storage";
 
 const logger = createLogger("streamer");
 
@@ -43,7 +45,15 @@ app.all("/{*path}", (req, res) => {
     req
   );
 });
-app.listen(config.PORT, (error?: Error) => {
-  if (error) throw error;
-  logger.info("streamer started", { port: config.PORT });
+async function start() {
+  await connect({ appName: "Anonymous GitHub Streamer", maxPoolSize: 10, minPoolSize: 0 });
+  await startTemporaryStorageMaintenance();
+  app.listen(config.PORT, (error?: Error) => {
+    if (error) throw error;
+    logger.info("streamer started", { port: config.PORT });
+  });
+}
+void start().catch(error => {
+  logger.error("streamer startup failed", serializeError(error));
+  process.exit(1);
 });

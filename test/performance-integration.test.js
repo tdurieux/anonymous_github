@@ -76,6 +76,8 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
     await Gist.collection.createIndex({ statusMessage: 1 }, { name: "keep_existing_index" });
     for (const model of [Repo, Gist, PR]) await model.collection.dropIndex("status_1_options.expirationDate_1");
     await Repo.collection.dropIndex("retiredTreeGenerations_1");
+    await Repo.collection.dropIndex("stagedFileTrees.until_1");
+    await File.collection.dropIndex("treeStaged_1_repoId_1_treeGeneration_1");
     await File.collection.dropIndex("metadataPending_1_repoId_1_treeGeneration_1");
     await Repo.collection.dropIndex("retiredContentPrefixes_1");
     await Repo.collection.dropIndex("legacyContentCleanupPending_1_status_1");
@@ -89,6 +91,8 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
     }
     expect((await Gist.collection.indexes()).map(index => index.name)).to.include("keep_existing_index");
     expect((await Repo.collection.indexes()).find(index => index.name === "retiredTreeGenerations_1").sparse).to.equal(true);
+    expect((await Repo.collection.indexes()).find(index => index.name === "stagedFileTrees.until_1").sparse).to.equal(true);
+    expect((await File.collection.indexes()).find(index => index.name === "treeStaged_1_repoId_1_treeGeneration_1").partialFilterExpression).to.deep.equal({ treeStaged: true });
     expect((await File.collection.indexes()).find(index => index.name === "metadataPending_1_repoId_1_treeGeneration_1").partialFilterExpression).to.deep.equal({ metadataPending: true });
     expect((await Repo.collection.indexes()).find(index => index.name === "retiredContentPrefixes_1").sparse).to.equal(true);
     expect((await Repo.collection.indexes()).find(index => index.name === "legacyContentCleanupPending_1_status_1").partialFilterExpression).to.deep.equal({ legacyContentCleanupPending: true });
@@ -417,55 +421,57 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
   });
 
   for (const adapter of ["filesystem", "S3"]) {
-    for (const phase of ["before writing", "after writing"]) {
-      it(`discards ${adapter} cache fills completing ${phase} across expiration root deletion`, async () => {
-        const { Readable } = require("node:stream"), storage = require("../src/core/storage").default;
-        const config = require("../src/config").default, previous = { ...config };
-        let backend, fixture, started, release, pending, cachePath;
-        const began = new Promise(resolve => { started = resolve; }), held = new Promise(resolve => { release = resolve; });
-        const originals = { fileInfo: storage.fileInfo, read: storage.read, write: storage.write, rm: storage.rm };
-        const row = await Repo.create({ repoId: `late-fill-${adapter}-${phase.replace(/ /g, "-")}`, owner: user.model._id,
-          status: "ready", statusDate: new Date(), treeGeneration: "active", anonymizeDate: new Date(),
-          source: { type: "GitHubStream", repositoryName: "owner/repo", commit: "abc" },
-          options: { expirationMode: "remove", expirationDate: new Date(0) } });
-        try {
-          if (adapter === "S3") {
-            fixture = await require("./fixtures/s3-server")();
-            Object.assign(config, { S3_BUCKET: "performance-test", S3_CLIENT_ID: "perf-test-user", S3_CLIENT_SECRET: "perf-test-password",
-              S3_REGION: "us-east-1", S3_ENDPOINT: fixture.endpoint });
+    for (const action of ["expire", "removeCache"]) {
+      for (const phase of ["before writing", "after writing"]) {
+        it(`discards ${adapter} cache fills completing ${phase} across ${action} root deletion`, async () => {
+          const { Readable } = require("node:stream"), storage = require("../src/core/storage").default;
+          const config = require("../src/config").default, previous = { ...config };
+          let backend, fixture, started, release, pending, cachePath;
+          const began = new Promise(resolve => { started = resolve; }), held = new Promise(resolve => { release = resolve; });
+          const originals = { fileInfo: storage.fileInfo, read: storage.read, write: storage.write, rm: storage.rm };
+          const row = await Repo.create({ repoId: `late-fill-${adapter}-${action}-${phase.replace(/ /g, "-")}`, owner: user.model._id,
+            status: "ready", statusDate: new Date(), treeGeneration: "active", anonymizeDate: new Date(),
+            source: { type: "GitHubStream", repositoryName: "owner/repo", commit: "abc" },
+            options: { expirationMode: "remove", expirationDate: new Date(0) } });
+          try {
+            if (adapter === "S3") {
+              fixture = await require("./fixtures/s3-server")();
+              Object.assign(config, { S3_BUCKET: "performance-test", S3_CLIENT_ID: "perf-test-user", S3_CLIENT_SECRET: "perf-test-password",
+                S3_REGION: "us-east-1", S3_ENDPOINT: fixture.endpoint });
+            }
+            backend = new (require(`../src/core/storage/${adapter === "S3" ? "S3" : "FileSystem"}`).default)();
+            storage.fileInfo = backend.fileInfo.bind(backend); storage.read = backend.read.bind(backend); storage.rm = backend.rm.bind(backend);
+            storage.write = async (...args) => {
+              cachePath = args[1];
+              if (phase === "before writing") { started(); await held; }
+              await backend.write(...args);
+              if (phase === "after writing") { started(); await held; }
+            };
+            const source = new Repository(row).source;
+            source.data.getToken = () => "test-token";
+            source.downloadWithFallback = async () => Readable.from(["private source"]);
+            pending = source.getFileContentCache("private/secret.txt", row.repoId, () => ({ sha: "blob", size: 14 }));
+            // Attach the rejection handler before releasing the held producer.
+            const result = pending.then(() => null, error => error);
+            await began;
+            await new Repository(await Repo.findById(row._id))[action]();
+            expect((await Repo.findById(row._id)).status).to.equal(action === "expire" ? "expired" : "ready");
+            release();
+            const error = await result;
+            expect(error.message).to.equal("repository_changed"); expect(error.httpStatus).to.equal(409);
+            expect(await backend.exists(row.repoId, cachePath)).to.equal("not_found");
+            let downloads = 0;
+            source.downloadWithFallback = async () => { downloads++; return Readable.from(["private source"]); };
+            const retry = await source.getFileContentCache("private/other.txt", row.repoId, () => "blob").then(() => null, error => error);
+            expect(retry.message).to.equal("repository_changed"); expect(downloads).to.equal(0);
+            expect((await Repo.findById(row._id)).isReseted).to.equal(true);
+          } finally {
+            release(); await pending?.catch(() => {}); Object.assign(storage, originals);
+            for (const client of backend?.clients?.values() || []) client.destroy();
+            await fixture?.close(); Object.assign(config, previous);
           }
-          backend = new (require(`../src/core/storage/${adapter === "S3" ? "S3" : "FileSystem"}`).default)();
-          storage.fileInfo = backend.fileInfo.bind(backend); storage.read = backend.read.bind(backend); storage.rm = backend.rm.bind(backend);
-          storage.write = async (...args) => {
-            cachePath = args[1];
-            if (phase === "before writing") { started(); await held; }
-            await backend.write(...args);
-            if (phase === "after writing") { started(); await held; }
-          };
-          const source = new Repository(row).source;
-          source.data.getToken = () => "test-token";
-          source.downloadWithFallback = async () => Readable.from(["private source"]);
-          pending = source.getFileContentCache("private/secret.txt", row.repoId, () => ({ sha: "blob", size: 14 }));
-          // Attach the rejection handler before releasing the held producer.
-          const result = pending.then(() => null, error => error);
-          await began;
-          await new Repository(await Repo.findById(row._id)).expire();
-          expect((await Repo.findById(row._id)).status).to.equal("expired");
-          release();
-          const error = await result;
-          expect(error.message).to.equal("repository_changed"); expect(error.httpStatus).to.equal(409);
-          expect(await backend.exists(row.repoId, cachePath)).to.equal("not_found");
-          let downloads = 0;
-          source.downloadWithFallback = async () => { downloads++; return Readable.from(["private source"]); };
-          const retry = await source.getFileContentCache("private/other.txt", row.repoId, () => "blob").then(() => null, error => error);
-          expect(retry.message).to.equal("repository_changed"); expect(downloads).to.equal(0);
-          expect((await Repo.findById(row._id)).isReseted).to.equal(true);
-        } finally {
-          release(); await pending?.catch(() => {}); Object.assign(storage, originals);
-          for (const client of backend?.clients?.values() || []) client.destroy();
-          await fixture?.close(); Object.assign(config, previous);
-        }
-      });
+        });
+      }
     }
   }
 
@@ -717,6 +723,188 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
     expect(await File.countDocuments({ repoId: model.repoId, treeGeneration: "old" })).to.equal(0);
   });
 
+  for (const action of ["resetSate", "expire", "remove"]) {
+    it(`removes transformed repository cache on ${action} while preserving other repositories`, async () => {
+      const fs = require("node:fs/promises"), path = require("node:path"), { randomUUID } = require("node:crypto");
+      const { transformedFile, pruneTransformedCache } = require("../src/core/transformed-cache");
+      const cacheRoot = path.join(require("node:os").tmpdir(), "anonymous-transformed-v1"), outputs = [];
+      const rows = await Repo.create(["target", "other"].map(id => ({ repoId: `transformed-${action}-${id}`, status: "ready",
+        statusDate: new Date(), treeGeneration: "active", anonymizeDate: new Date(), source: { type: "GitHubStream", repositoryName: "owner/repo" },
+        options: { terms: [], expirationMode: "remove", expirationDate: new Date(0) } })));
+      const entries = async repoId => {
+        const result = [];
+        for (const name of await fs.readdir(cacheRoot)) if (name.endsWith(".json")) {
+          const record = JSON.parse(await fs.readFile(path.join(cacheRoot, name), "utf8"));
+          if (record.scope?.repoId === repoId) result.push({ name, record });
+        }
+        return result;
+      };
+      try {
+        for (const row of rows) {
+          const output = path.join(temporary, randomUUID()); outputs.push(output);
+          const options = new Repository(row).generateAnonymizeTransformer("file.txt").opt;
+          await transformedFile(randomUUID(), options, output, async () => { await fs.writeFile(output, "original private bytes"); return false; });
+          const cached = await entries(row.repoId); expect(cached).to.have.length(1);
+          expect(cached[0].record.scope.generation).to.equal(`active:${row.anonymizeDate.toISOString()}`);
+          expect(await fs.readFile(path.join(cacheRoot, cached[0].name.replace(/\.json$/, ".data")), "utf8")).to.equal("original private bytes");
+        }
+        await new Repository(rows[0])[action]();
+        expect(await entries(rows[0].repoId)).to.have.length(0); expect(await entries(rows[1].repoId)).to.have.length(1);
+        // A separate process's cache observes the persisted lifecycle without any new publication.
+        await Repo.updateOne({ _id: rows[1]._id }, { $set: { status: "expired" } });
+        await pruneTransformedCache(); expect(await entries(rows[1].repoId)).to.have.length(0);
+      } finally { await Promise.all(outputs.map(output => fs.rm(output, { force: true }))); }
+    });
+  }
+
+  it("prunes retired transformed generations while preserving the active generation", async () => {
+    const fs = require("node:fs/promises"), path = require("node:path"), { randomUUID } = require("node:crypto");
+    const { transformedFile, pruneTransformedCache, removeTransformedRepositoryCache } = require("../src/core/transformed-cache");
+    const cacheRoot = path.join(require("node:os").tmpdir(), "anonymous-transformed-v1"), output = path.join(temporary, randomUUID());
+    const row = await Repo.create({ repoId: "transformed-generation", status: "ready", statusDate: new Date(), lastView: new Date(),
+      treeGeneration: "old", anonymizeDate: new Date(), source: { type: "GitHubStream", repositoryName: "owner/repo" } });
+    const repo = new Repository(row);
+    Object.defineProperty(repo, "source", { get: () => ({ getFiles: async () => [{ path: "", name: "file.txt", size: 1 }] }) });
+    const cache = async () => transformedFile("same-content", repo.generateAnonymizeTransformer("file.txt").opt, output,
+      async () => { await fs.writeFile(output, "unchanged original"); return false; });
+    try {
+      await cache(); await repo.files({ force: true }); await cache();
+      await pruneTransformedCache();
+      const records = [];
+      for (const name of await fs.readdir(cacheRoot)) if (name.endsWith(".json")) {
+        const record = JSON.parse(await fs.readFile(path.join(cacheRoot, name), "utf8"));
+        if (record.scope?.repoId === row.repoId) records.push(record);
+      }
+      expect(records).to.have.length(1);
+      expect(records[0].scope.generation).to.equal(`${repo.model.treeGeneration}:${row.anonymizeDate.toISOString()}`);
+    } finally { await fs.rm(output, { force: true }); await removeTransformedRepositoryCache(row.repoId); }
+  });
+
+  for (const phase of ["production", "publication"]) {
+    it(`rejects transformed cache ${phase} completing after repository reset`, async () => {
+      const fs = require("node:fs/promises"), path = require("node:path"), { randomUUID } = require("node:crypto");
+      const { transformedFile, removeTransformedRepositoryCache } = require("../src/core/transformed-cache");
+      const row = await Repo.create({ repoId: `late-transformed-${phase}`, status: "ready", statusDate: new Date(), lastView: new Date(),
+        treeGeneration: "active", anonymizeDate: new Date(), source: { type: "GitHubStream", repositoryName: "owner/repo" } });
+      const repo = new Repository(row), options = repo.generateAnonymizeTransformer("file.txt").opt;
+      const output = path.join(temporary, randomUUID()), rename = fs.rename;
+      let started, release, pending;
+      const began = new Promise(resolve => { started = resolve; }), held = new Promise(resolve => { release = resolve; });
+      if (phase === "publication") fs.rename = async (...args) => {
+        const value = await rename(...args); if (args[1].endsWith(".json")) { started(); await held; } return value;
+      };
+      try {
+        pending = transformedFile(randomUUID(), options, output, async () => {
+          await fs.writeFile(output, "private original"); if (phase === "production") { started(); await held; } return false;
+        });
+        const result = pending.then(() => null, error => error);
+        await began; await repo.resetSate(); release();
+        const error = await result; expect(error.message).to.equal("repository_changed"); expect(error.httpStatus).to.equal(409);
+        await fs.access(output).then(() => { throw Error("late private output survived"); }, error => expect(error.code).to.equal("ENOENT"));
+        // Fresh requests use the reset revision and can cache normally.
+        const fresh = new Repository(await Repo.findById(row._id)).generateAnonymizeTransformer("file.txt").opt;
+        expect(fresh.cacheRevision).not.to.equal(options.cacheRevision);
+        expect(await transformedFile(randomUUID(), fresh, output, async () => { await fs.writeFile(output, "fresh"); return false; })).to.equal(false);
+      } finally { release(); await pending?.catch(() => {}); fs.rename = rename; await fs.rm(output, { force: true }); await removeTransformedRepositoryCache(row.repoId); }
+    });
+  }
+
+  it("registers staged generations before inserting and recovers a crash without losing the replacement tree", async () => {
+    const row = await Repo.create({ repoId: "crashed-tree", status: "ready", statusDate: new Date(), lastView: new Date(),
+      treeGeneration: "old", source: { type: "GitHubStream" }, options: { expirationMode: "never" } });
+    await File.create({ repoId: row.repoId, treeGeneration: "old", path: "", name: "old.txt" });
+    const repo = new Repository(row), insertMany = File.insertMany;
+    Object.defineProperty(repo, "source", { get: () => ({ getFiles: async () => [{ path: "private", name: "staged.txt", size: 1 }] }) });
+    let staged;
+    File.insertMany = async function (files, ...args) {
+      staged = files[0].treeGeneration;
+      const registered = await Repo.findById(row._id);
+      expect(registered.stagedFileTrees.map(stage => stage.generation)).to.include(staged);
+      expect(registered.treeGeneration).to.equal("old");
+      await insertMany.call(this, files, ...args);
+      throw Error("crash after insertion");
+    };
+    try {
+      const error = await repo.files({ force: true }).then(() => null, error => error);
+      expect(error.message).to.equal("crash after insertion"); expect(repo.model.treeGeneration).to.equal("old");
+    } finally { File.insertMany = insertMany; }
+    const replacement = new Repository(await Repo.findById(row._id));
+    Object.defineProperty(replacement, "source", { get: () => ({ getFiles: async () => [{ path: "", name: "active.txt", size: 2 }] }) });
+    await replacement.files({ force: true });
+    await Repo.updateOne({ _id: row._id, "stagedFileTrees.generation": staged }, { $set: { "stagedFileTrees.$.until": new Date(0) } });
+    await require("../src/server/schedule").runRepositoryStatusCheck();
+    expect((await File.find({ repoId: row.repoId })).map(file => file.name)).to.deep.equal(["active.txt"]);
+    const fresh = await Repo.findById(row._id);
+    expect(fresh.treeGeneration).to.equal(replacement.model.treeGeneration);
+    expect(fresh.stagedFileTrees).to.equal(undefined); expect(fresh.retiredTreeGenerations).to.equal(undefined);
+  });
+
+  it("preserves a live staged tree during maintenance and completes its activation", async () => {
+    const row = await Repo.create({ repoId: "live-tree", status: "ready", statusDate: new Date(), lastView: new Date(),
+      treeGeneration: "old", source: { type: "GitHubStream" }, options: { expirationMode: "never" } });
+    await File.create({ repoId: row.repoId, treeGeneration: "old", path: "", name: "old.txt" });
+    const repo = new Repository(row), insertMany = File.insertMany;
+    let started, release, pending;
+    const began = new Promise(resolve => { started = resolve; }), held = new Promise(resolve => { release = resolve; });
+    Object.defineProperty(repo, "source", { get: () => ({ getFiles: async () => [{ path: "", name: "new.txt", size: 1 }] }) });
+    File.insertMany = async function (...args) { const result = await insertMany.apply(this, args); started(); await held; return result; };
+    try {
+      pending = repo.files({ force: true }); pending.catch(() => {});
+      await began; await require("../src/server/schedule").runRepositoryStatusCheck();
+      expect(await File.countDocuments({ repoId: row.repoId })).to.equal(2);
+      expect((await Repo.findById(row._id)).treeGeneration).to.equal("old");
+      release(); await pending;
+      expect((await File.find({ repoId: row.repoId })).map(file => file.name)).to.deep.equal(["new.txt"]);
+      expect(await File.countDocuments({ repoId: row.repoId, treeStaged: true })).to.equal(0);
+    } finally { release(); await pending?.catch(() => {}); File.insertMany = insertMany; }
+  });
+
+  it("discovers late staged inserts after their expired lease has already been cleaned", async () => {
+    const row = await Repo.create({ repoId: "late-tree", status: "ready", statusDate: new Date(), lastView: new Date(),
+      treeGeneration: "active", source: { type: "GitHubStream" }, options: { expirationMode: "never" } });
+    await File.create({ repoId: row.repoId, treeGeneration: "active", path: "", name: "keep.txt" });
+    const repo = new Repository(row), insertMany = File.insertMany;
+    let started, release, pending, generation;
+    const began = new Promise(resolve => { started = resolve; }), held = new Promise(resolve => { release = resolve; });
+    Object.defineProperty(repo, "source", { get: () => ({ getFiles: async () => [{ path: "private", name: "late.txt", size: 1 }] }) });
+    File.insertMany = async function (files, ...args) {
+      generation = files[0].treeGeneration; started(); await held;
+      await insertMany.call(this, files, ...args); throw Error("late process crash");
+    };
+    try {
+      pending = repo.files({ force: true }); const result = pending.then(() => null, error => error);
+      await began;
+      await Repo.updateOne({ _id: row._id, "stagedFileTrees.generation": generation }, { $set: { "stagedFileTrees.$.until": new Date(0) } });
+      await require("../src/server/schedule").runRepositoryStatusCheck();
+      expect((await Repo.findById(row._id)).stagedFileTrees).to.equal(undefined);
+      release(); expect((await result).message).to.equal("late process crash");
+      expect(await File.countDocuments({ repoId: row.repoId, treeStaged: true })).to.equal(1);
+    } finally { release(); await pending?.catch(() => {}); File.insertMany = insertMany; }
+    await File.create({ repoId: "deleted-staged-repo", treeGeneration: "orphan", treeStaged: true, path: "private", name: "orphan.txt" });
+    await Repo.create({ repoId: "expired-staged-repo", status: "expired", isReseted: true, treeGeneration: "expired-active" });
+    await File.create({ repoId: "expired-staged-repo", treeGeneration: "expired-active", treeStaged: true, path: "private", name: "late-expired.txt" });
+    await require("../src/server/schedule").runRepositoryStatusCheck();
+    expect((await File.find({ repoId: row.repoId })).map(file => file.name)).to.deep.equal(["keep.txt"]);
+    expect(await File.countDocuments({ treeStaged: true })).to.equal(0);
+  });
+
+  it("clears staged row markers after interrupted completion without deleting active files", async () => {
+    const row = await Repo.create({ repoId: "active-staged", status: "ready", statusDate: new Date(), lastView: new Date(),
+      treeGeneration: "old", source: { type: "GitHubStream" }, options: { expirationMode: "never" } });
+    await File.create({ repoId: row.repoId, treeGeneration: "old", path: "", name: "old.txt" });
+    const repo = new Repository(row), updateMany = File.updateMany;
+    Object.defineProperty(repo, "source", { get: () => ({ getFiles: async () => [{ path: "", name: "active.txt", size: 1 }] }) });
+    File.updateMany = function (filter, ...args) {
+      if (filter.treeStaged) return { exec: async () => { throw Error("marker cleanup interrupted"); } };
+      return updateMany.call(this, filter, ...args);
+    };
+    try { await repo.files({ force: true }); } finally { File.updateMany = updateMany; }
+    expect(await File.countDocuments({ treeStaged: true })).to.equal(1);
+    await require("../src/server/schedule").runRepositoryStatusCheck();
+    expect((await File.find({ repoId: row.repoId })).map(file => file.name)).to.deep.equal(["active.txt"]);
+    expect(await File.countDocuments({ treeStaged: true })).to.equal(0);
+  });
+
   for (const previousGeneration of ["old", undefined]) {
     it(`retries interrupted retirement of ${previousGeneration || "legacy"} tree rows during maintenance`, async () => {
       const model = await Repo.create({ repoId: "retire-tree", status: "ready", statusDate: new Date(), lastView: new Date(),
@@ -751,11 +939,14 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
     await Repo.create({ repoId: "retired", treeGeneration: "active", retiredTreeGenerations: ["old"] });
     await Repo.create({ repoId: "retired-content", retiredContentPrefixes: ["__content/old"] });
     await Repo.create({ repoId: "legacy-content", legacyContentCleanupPending: true, status: "ready" });
+    await Repo.create({ repoId: "staged", stagedFileTrees: [{ generation: "abandoned", until: new Date(0) }] });
     await File.create({ repoId: "pending", path: "", name: "pending.txt", metadataPending: true });
+    await File.create({ repoId: "staged", treeGeneration: "abandoned", treeStaged: true, path: "private", name: "staged.txt" });
     for (const [model, query] of [[Repo, { $or: [
       { retiredTreeGenerations: { $exists: true } }, { retiredContentPrefixes: { $exists: true } },
       { legacyContentCleanupPending: true, status: "ready" },
-    ] }], [File, { metadataPending: true }]]) {
+      { "stagedFileTrees.until": { $lte: new Date() } },
+    ] }], [File, { metadataPending: true }], [File, { treeStaged: true }]]) {
       const plan = await model.find(query).explain("executionStats");
       expect(JSON.stringify(plan.queryPlanner.winningPlan)).not.to.include("COLLSCAN");
       expect(plan.executionStats.totalDocsExamined).to.be.lessThan(10);

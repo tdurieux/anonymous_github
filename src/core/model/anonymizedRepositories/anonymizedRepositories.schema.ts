@@ -50,10 +50,12 @@ const AnonymizedRepositorySchema = new Schema({
   cleanupToken: { type: String, select: false },
   cleanupUntil: { type: Date, select: false },
   treeGeneration: String,
+  stagedFileTrees: { type: [{ generation: String, until: Date }], default: undefined },
   retiredTreeGenerations: { type: [String], default: undefined },
   retiredContentPrefixes: { type: [String], default: undefined },
   legacyContentCleanupPending: Boolean,
   contentCacheVersion: Number,
+  contentCacheRevision: String,
   emptyTreeGeneration: String,
   fileMetadataRevision: String,
   pathIndexKey: String,
@@ -101,6 +103,7 @@ const AnonymizedRepositorySchema = new Schema({
 AnonymizedRepositorySchema.index({ "source.repositoryName": 1 });
 AnonymizedRepositorySchema.index({ "coauthors.githubId": 1 });
 AnonymizedRepositorySchema.index({ retiredTreeGenerations: 1 }, { sparse: true });
+AnonymizedRepositorySchema.index({ "stagedFileTrees.until": 1 }, { sparse: true });
 AnonymizedRepositorySchema.index({ retiredContentPrefixes: 1 }, { sparse: true });
 AnonymizedRepositorySchema.index({ legacyContentCleanupPending: 1, status: 1 },
   { partialFilterExpression: { legacyContentCleanupPending: true } });

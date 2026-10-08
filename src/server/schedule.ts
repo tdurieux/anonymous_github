@@ -158,10 +158,22 @@ export async function runRepositoryStatusCheck(now = new Date()) {
   const retiredCursor = AnonymizedRepositoryModel.find({ $or: [
     { retiredTreeGenerations: { $exists: true } }, { retiredContentPrefixes: { $exists: true } },
     { legacyContentCleanupPending: true, status: RepositoryStatus.READY },
+    { "stagedFileTrees.until": { $lte: now } },
   ] }).cursor();
   for await (const data of retiredCursor) {
-    batch.push(new Repository(data).cleanupRetiredFileTrees().catch(error => {
+    batch.push(new Repository(data).cleanupRetiredFileTrees(now).catch(error => {
       logger.error("retired tree cleanup failed", { ...serializeError(error), repoId: data.repoId });
+    }));
+    if (batch.length >= 10) await flushBatch();
+  }
+  await flushBatch();
+
+  const stagedCursor = FileModel.aggregate<{ _id: { repoId: string; generation: string } }>([
+    { $match: { treeStaged: true } }, { $group: { _id: { repoId: "$repoId", generation: "$treeGeneration" } } },
+  ]).cursor();
+  for await (const stage of stagedCursor) {
+    batch.push(Repository.cleanupStagedFileTree(stage._id.repoId, stage._id.generation, now).catch(error => {
+      logger.error("staged tree cleanup failed", { ...serializeError(error), repoId: stage._id.repoId });
     }));
     if (batch.length >= 10) await flushBatch();
   }

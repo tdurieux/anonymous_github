@@ -156,6 +156,7 @@ export class AnonymizeTransformer extends Transform {
     readonly opt: {
       filePath: string;
       cacheGeneration?: string;
+      cacheRevision?: string;
     } & ConstructorParameters<typeof ContentAnonimizer>[0]
   ) {
     super();

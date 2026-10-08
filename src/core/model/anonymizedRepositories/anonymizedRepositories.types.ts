@@ -31,10 +31,12 @@ export interface IAnonymizedRepository {
     addedAt?: Date;
   }[];
   treeGeneration?: string;
+  stagedFileTrees?: { generation: string; until: Date }[];
   retiredTreeGenerations?: string[];
   retiredContentPrefixes?: string[];
   legacyContentCleanupPending?: boolean;
   contentCacheVersion?: number;
+  contentCacheRevision?: string;
   emptyTreeGeneration?: string;
   fileMetadataRevision?: string;
   pathIndexKey?: string;

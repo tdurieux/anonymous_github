@@ -5,6 +5,7 @@ export interface IFile {
   path: string;
   repoId: string;
   treeGeneration?: string;
+  treeStaged?: boolean;
   metadataPending?: boolean;
   sha?: string;
   size?: number;

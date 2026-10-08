@@ -4,10 +4,11 @@ const { promises: fs } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { join } = require("node:path");
 const { randomUUID } = require("node:crypto");
+const { setTimeout } = require("node:timers");
 require("ts-node/register/transpile-only");
 const { ContentAnonimizer, AnonymizeTransformer } = require("../src/core/anonymize-utils");
 const pool = require("../src/core/anonymization-pool");
-const { removeStaleTextSpools } = require("../src/core/temporary-storage");
+const { removeStaleTextSpools, startTemporaryStorageMaintenance } = require("../src/core/temporary-storage");
 const { cacheCommand } = require("../src/core/cache-coordination");
 
 describe("large anonymization resources", function () {
@@ -74,5 +75,43 @@ describe("large anonymization resources", function () {
     const client = { isOpen: true, disconnect: async () => { disconnected = true; } };
     try { await cacheCommand(new Promise(() => {}), client, 20); } catch (failure) { error = failure; }
     expect(error.message).to.equal("cache_command_timeout"); expect(disconnected).to.equal(true);
+  });
+
+  it("cleans stale spools and transformed entries at startup and while idle", async () => {
+    const cacheRoot = join(tmpdir(), "anonymous-transformed-v1");
+    const stale = await fs.mkdtemp(join(tmpdir(), "anonymous-text-startup-"));
+    const recent = await fs.mkdtemp(join(tmpdir(), "anonymous-text-idle-"));
+    const unrelated = await fs.mkdtemp(join(tmpdir(), "unrelated-cleanup-"));
+    const keys = [randomUUID(), randomUUID(), randomUUID()], paths = keys.flatMap(key => [join(cacheRoot, key + ".json"), join(cacheRoot, key + ".data")]);
+    let stop;
+    const missing = async path => { try { await fs.access(path); return false; } catch (error) { if (error.code === "ENOENT") return true; throw error; } };
+    const seed = async (key, version, created) => {
+      await fs.writeFile(join(cacheRoot, key + ".data"), "private");
+      await fs.writeFile(join(cacheRoot, key + ".json"), JSON.stringify({ version, created, size: 7, changed: false }));
+    };
+    try {
+      await fs.mkdir(cacheRoot, { recursive: true });
+      await fs.writeFile(join(stale, "input"), "original bytes"); await fs.utimes(stale, new Date(0), new Date(0));
+      await fs.writeFile(join(recent, "input"), "recent original bytes");
+      await fs.writeFile(join(unrelated, "input"), "keep");
+      await seed(keys[0], 1, Date.now()); await seed(keys[1], 2, 0); await seed(keys[2], 2, Date.now());
+      stop = await startTemporaryStorageMaintenance(20);
+      expect(await missing(stale)).to.equal(true);
+      expect(await missing(join(cacheRoot, keys[0] + ".data"))).to.equal(true);
+      expect(await missing(join(cacheRoot, keys[1] + ".data"))).to.equal(true);
+      expect(await missing(join(cacheRoot, keys[2] + ".data"))).to.equal(false);
+      expect(await missing(recent)).to.equal(false); expect(await missing(unrelated)).to.equal(false);
+      await fs.utimes(recent, new Date(0), new Date(0));
+      await seed(keys[2], 2, 0);
+      const deadline = Date.now() + 2000;
+      while ((!await missing(recent) || !await missing(join(cacheRoot, keys[2] + ".data"))) && Date.now() < deadline) {
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
+      expect(await missing(recent)).to.equal(true); expect(await missing(join(cacheRoot, keys[2] + ".json"))).to.equal(true);
+      expect(await fs.readFile(join(unrelated, "input"), "utf8")).to.equal("keep");
+    } finally {
+      stop?.();
+      await Promise.all([...paths, stale, recent, unrelated].map(path => fs.rm(path, { force: true, recursive: true })));
+    }
   });
 });

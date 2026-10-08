@@ -245,22 +245,23 @@ export default class GitHubStream extends GitHubBase {
     const expected: { sha: string; size?: number } =
       typeof meta === "string" ? { sha: meta } : meta;
     const generation = createHash("sha256").update(JSON.stringify([
-      this.data.commit, expected.sha, this.data.cacheGeneration,
+      this.data.commit, expected.sha, this.data.cacheGeneration, this.data.cacheRevision,
     ])).digest("hex");
     const cachePath = this.data.cacheGeneration ? `${contentGenerationPrefix(this.data.cacheGeneration)}/${generation}/${filePath}` : filePath;
     const assertActive = async () => {
-      if (!this.data.cacheGeneration) return;
       // Retirement markers live inside the storage root and disappear when
       // expiration removes it. The persisted lifecycle also fences late fills.
       if (isConnected) {
         const current = await AnonymizedRepositoryModel.findOne({ repoId })
-          .select("status treeGeneration anonymizeDate").lean().exec();
+          .select("status treeGeneration anonymizeDate contentCacheRevision").lean().exec();
         if (!current || !current.status || [RepositoryStatus.EXPIRING, RepositoryStatus.EXPIRED,
           RepositoryStatus.REMOVING, RepositoryStatus.REMOVED, RepositoryStatus.ARCHIVED].includes(current.status)
-          || `${current.treeGeneration || "legacy"}:${current.anonymizeDate?.toISOString() || ""}` !== this.data.cacheGeneration) {
+          || (this.data.cacheGeneration && `${current.treeGeneration || "legacy"}:${current.anonymizeDate?.toISOString() || ""}` !== this.data.cacheGeneration)
+          || this.data.cacheRevision !== current.contentCacheRevision) {
           throw new AnonymousError("repository_changed", { httpStatus: 409 });
         }
       }
+      if (!this.data.cacheGeneration) return;
       try {
         await storage.fileInfo(repoId, contentRetirementMarker(contentGenerationPrefix(this.data.cacheGeneration)));
       } catch (error) {

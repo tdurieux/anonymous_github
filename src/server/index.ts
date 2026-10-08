@@ -12,6 +12,7 @@ import * as express from "express";
 import * as compression from "compression";
 import * as passport from "passport";
 import { connect } from "./database";
+import { startTemporaryStorageMaintenance } from "../core/temporary-storage";
 import { initSession, router as connectionRouter } from "./routes/connection";
 import { bearerTokenAuth } from "./routes/token-auth";
 import router from "./routes";
@@ -338,6 +339,7 @@ export default async function start() {
   dailyStatsSnapshot();
 
   await connect();
+  await startTemporaryStorageMaintenance();
   app.listen(config.PORT);
   logger.info("server started", { port: config.PORT });
   ensureTodaySnapshot().catch((err) =>

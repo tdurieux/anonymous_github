@@ -108,14 +108,14 @@
   ],
   "tests": {
     "fullSuite": {
-      "passing": 925,
+      "passing": 943,
       "pending": 51,
       "failing": 0,
-      "note": "Clean committed checkout after eight PR review follow-ups, with disposable MongoDB and Redis and temporary memory-backed database/spool storage to avoid local disk I/O stalls; unrelated untracked workspace files excluded.",
+      "note": "Clean committed checkout after nine PR review follow-ups, with disposable MongoDB/Redis and memory-backed temporary storage. Streamer startup/lifecycle/idle-cleanup integration uses compiled application code in separate processes; unrelated workspace files excluded.",
       "validationDate": "2026-10-08"
     },
     "performanceSuite": {
-      "passing": 99,
+      "passing": 117,
       "note": "Included in the latest clean full-suite run with disposable MongoDB and Redis."
     },
     "uiSuite": {
@@ -127,7 +127,7 @@
       "errors": 0,
       "existingWarnings": 7
     },
-    "indexMigration": "passed twice on disposable MongoDB; existing indexes retained; retirement and pending-cleanup indexes verified; legacy stream-cache cleanup queued and ZIP sources excluded",
+    "indexMigration": "passed twice on disposable MongoDB; existing indexes retained; staging, retirement and pending-cleanup indexes verified; legacy stream-cache cleanup queued and ZIP sources excluded",
     "workspaceSuite": {
       "passing": 862,
       "pending": 51,
@@ -137,6 +137,16 @@
         "Pre-existing missing export applyNewPullRequestFields"
       ],
       "note": "Earlier working-tree run included unrelated untracked runtime regression tests that are excluded from this PR."
+    },
+    "streamerRuntime": {
+      "compiled": true,
+      "startupWaitsForMongoDB": "passed",
+      "maxPoolSize": 10,
+      "minPoolSize": 0,
+      "expirationLateFillHttpStatus": 409,
+      "idleReplicaCacheAndSpoolCleanup": "passed",
+      "startupFailureExitCode": 1,
+      "scope": "Disposable MongoDB and local filesystem; controlled download/publication fixtures. Pool settings are asserted, not production socket measurements."
     }
   },
   "sockets": {

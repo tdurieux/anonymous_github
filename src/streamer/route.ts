@@ -32,7 +32,7 @@ router.post(
           repoName: repoFullName[1],
           commit,
           getToken: () => token,
-          anonymizerOptions,
+          anonymizerOptions: { ...anonymizerOptions, repoId },
           contentOptions,
         },
         res
@@ -57,7 +57,9 @@ router.post("/", async (req: express.Request, res: express.Response) => {
   const commit = req.body.commit;
   const filePath: string = req.body.filePath;
   const anonymizerOptions = req.body.anonymizerOptions;
-  const anonymizer = new AnonymizeTransformer(anonymizerOptions);
+  const anonymizer = new AnonymizeTransformer({ ...anonymizerOptions, repoId,
+    cacheGeneration: typeof req.body.cacheGeneration === "string" ? req.body.cacheGeneration : anonymizerOptions?.cacheGeneration,
+  });
 
   // Defence in depth: the parent server validates filePath against
   // FileModel before calling us, but the streamer joins this directly
@@ -80,6 +82,7 @@ router.post("/", async (req: express.Request, res: express.Response) => {
     repoName: repoFullName[1],
     commit: commit,
     cacheGeneration: typeof req.body.cacheGeneration === "string" ? req.body.cacheGeneration : undefined,
+    cacheRevision: typeof req.body.cacheRevision === "string" ? req.body.cacheRevision : anonymizerOptions?.cacheRevision,
     getToken: () => token,
   });
   try {
