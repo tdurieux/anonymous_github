@@ -1,6 +1,7 @@
 import { AsyncCache } from "../../core/async-cache";
 import * as os from "os";
-import { execSync } from "child_process";
+import { execFile } from "child_process";
+import { promisify } from "util";
 import { Queue, JobType } from "bullmq";
 import * as express from "express";
 import AnonymousError from "../../core/AnonymousError";
@@ -30,8 +31,11 @@ import {
 } from "../../core/logger";
 import { createClient, RedisClientType } from "redis";
 import config from "../../config";
+import { performanceReport } from "../../core/performance-monitoring";
 
 const logger = createLogger("admin");
+const execFileAsync = promisify(execFile);
+const diskUsageCache = new AsyncCache<string>(30000, 1);
 
 let errorLogClient: RedisClientType | null = null;
 
@@ -77,6 +81,12 @@ router.use(
 );
 
 router.use("/tokens", adminTokensRouter);
+
+router.get("/performance", async (req, res) => {
+  res.set("Cache-Control", "no-store");
+  try { res.json(await performanceReport(Number(req.query.minutes))); }
+  catch { res.json({ available: false, instances: [], routes: [], stages: [] }); }
+});
 
 function dashboardCache(
   _req: express.Request,
@@ -627,7 +637,10 @@ router.get("/overview", async (req, res) => {
     // Disk usage via df (root partition)
     let diskTotal = 0, diskUsed = 0, diskFree = 0, diskPercent = 0, diskMount = "/";
     try {
-      const dfOut = execSync("df -k / 2>/dev/null", { timeout: 3000 }).toString();
+      const dfOut = await diskUsageCache.get("root", async () => {
+        const result = await execFileAsync("df", ["-k", "/"], { timeout: 3000, maxBuffer: 16384 });
+        return result.stdout;
+      });
       const lines = dfOut.trim().split("\n");
       if (lines.length >= 2) {
         const cols = lines[1].split(/\s+/);

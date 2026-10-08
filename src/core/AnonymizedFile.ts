@@ -22,6 +22,7 @@ import { IFile } from "./model/files/files.types";
 import { FilterQuery } from "mongoose";
 import { createLogger, serializeError } from "./logger";
 import { githubTokenForStreamer } from "./github-token-context";
+import { requestHeaders, startStage } from "./request-monitoring";
 
 const logger = createLogger("anonymized-file");
 
@@ -379,6 +380,7 @@ export default class AnonymizedFile {
     // use the streamer service
     return got.stream(join(config.STREAMER_ENTRYPOINT, "api"), {
       method: "POST",
+      headers: requestHeaders(),
       json: {
         token: await githubTokenForStreamer(await this.repository.getToken(), this.repository.model.source.repositoryName),
         repoFullName: this.repository.model.source.repositoryName,
@@ -423,9 +425,11 @@ export default class AnonymizedFile {
             this.size(),
             this.repository.getToken(),
           ]);
+          const headersDone = startStage("streamer_headers");
           const resStream = got
             .stream(join(config.STREAMER_ENTRYPOINT, "api"), {
               method: "POST",
+              headers: requestHeaders(),
               json: {
                 sha,
                 size,
@@ -445,6 +449,7 @@ export default class AnonymizedFile {
           // this, the parent response has no Content-Type and the browser
           // guesses (text renders as download, images as octet-stream).
           resStream.on("response", (upstream: { headers: Record<string, string | string[] | undefined> }) => {
+            headersDone();
             if (res.headersSent) return;
             const ct = upstream.headers["content-type"];
             if (typeof ct === "string") {
@@ -455,6 +460,8 @@ export default class AnonymizedFile {
               else if (isTextFile(this.anonymizedPath)) res.contentType("text/plain");
             }
           });
+          resStream.once("error", () => headersDone(true));
+          resStream.once("close", () => headersDone());
           await streamResponse(resStream, res, (err: Error) => {
               const { error } = streamerErrorToAnonymous(
                 err as Error & {

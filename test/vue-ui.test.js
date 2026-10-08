@@ -446,6 +446,35 @@ describe("Vue 3 UI", function () {
     expect(ui.errors).to.deep.equal([]);
   });
 
+  it("shows latency bounds, interruptions and resource samples on the admin overview", async function () {
+    const sample = { instance: "streamer:fixture", service: "streamer", sampledAt: Date.now(), cpuPercent: 2,
+      memory: { rss: 16 * 1024 * 1024 }, memoryLimitBytes: 128 * 1024 * 1024,
+      eventLoop: { p95Ms: 20 }, activeRequests: 2, sockets: { descriptors: 15, closeWait: 1 },
+      workers: { running: 1, waiting: 2 }, droppedBatches: 0, droppedMetrics: 0 };
+    const row = { service: "api", method: "GET", route: "/api/repo/:repoId/file/:path", count: 10,
+      avgMs: 120, p95UpperMs: 250, p99UpperMs: 500, aborted: 1, errors: 0, slow: 0, firstByteCount: 10, firstByteP95UpperMs: 50 };
+    ui = await browser("/", { "/api/user": { username: "admin", isAdmin: true },
+      "/api/admin/overview": { history: [] },
+      "/api/admin/performance": { available: true, instances: [sample], routes: [row], stages: [],
+        runtimeSeries: [{ instance: sample.instance, rss: 20 * 1024 * 1024 }] } });
+    await ui.go("/admin/");
+    const text = ui.window.document.querySelector(".app-view").textContent;
+    expect(text).to.include("Request performance"); expect(text).to.include("\u2264 250 ms");
+    expect(text).to.include("\u2264 50 ms"); expect(text).to.include("streamer:fixture"); expect(text).to.include("20.0 MB");
+    expect(ui.window.document.querySelector(".table-warning")).not.to.equal(null);
+    await ui.input('select[aria-label="Performance time range"]', "60", "change");
+    expect(ui.requests.filter(request => request.url.pathname === "/api/admin/performance").at(-1).url.searchParams.get("minutes")).to.equal("60");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("shows missing monitoring as unavailable on the admin overview", async function () {
+    ui = await browser("/", { "/api/user": { username: "admin", isAdmin: true },
+      "/api/admin/overview": { history: [] }, "/api/admin/performance": { available: false } });
+    await ui.go("/admin/");
+    expect(ui.window.document.querySelector(".app-view").textContent).to.include("Performance monitoring is unavailable");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
   it("offers one App sign-in for new and existing accounts", async function () {
     ui = await browser("/signin", { "/api/options": { GITHUB_APP_ENABLED: true, GITHUB_OAUTH_ENABLED: true } });
     expect(ui.window.document.querySelector('a[href="/github/app/login"]')).not.to.equal(null);

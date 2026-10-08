@@ -18,6 +18,7 @@ import { octokit, waitForTokenGate } from "../GitHubUtils";
 import FileModel from "../model/files/files.model";
 import { IFile } from "../model/files/files.types";
 import { createLogger, serializeError } from "../logger";
+import { measureStage, recordCacheHit, startStage } from "../request-monitoring";
 import config from "../../config";
 import { isConnected } from "../../server/database";
 import AnonymizedRepositoryModel from "../model/anonymizedRepositories/anonymizedRepositories.model";
@@ -286,7 +287,9 @@ export default class GitHubStream extends GitHubBase {
         return undefined;
       }
     };
-    if (await cached()) return storage.read(repoId, cachePath);
+    const hit = await measureStage("cache_lookup", cached);
+    recordCacheHit("source", !!hit);
+    if (hit) return storage.read(repoId, cachePath);
     if (expected.size != null && expected.size > config.MAX_FILE_SIZE) {
       throw new AnonymousError("file_too_big", { httpStatus: 413, object: filePath });
     }
@@ -296,6 +299,7 @@ export default class GitHubStream extends GitHubBase {
       filling = coordinatedFill(key, cached, async () => {
         await assertActive();
         const content = await this.downloadWithFallback(await this.data.getToken(), expected.sha, filePath);
+        const upstreamDone = startStage("upstream");
         let count = 0;
         const limited = new stream.Transform({ transform(chunk, encoding, callback) {
           count += chunk.length;
@@ -314,18 +318,20 @@ export default class GitHubStream extends GitHubBase {
         limited.on("error", () => {});
         content.pipe(limited);
         const deadline = setTimeout(() => limited.destroy(new AnonymousError("upstream_error", { httpStatus: 502 })), 120_000);
+        let failed = true;
         try {
           await storage.write(repoId, cachePath, limited, this.type, expected.size);
           try { await assertActive(); }
           catch (error) { await storage.rm(repoId, cachePath); throw error; }
+          failed = false;
         }
-        finally { clearTimeout(deadline); limited.destroy(); content.destroy(); }
+        finally { upstreamDone(failed); clearTimeout(deadline); limited.destroy(); content.destroy(); }
         return true;
       }).then(() => {});
       cacheFills.set(key, filling);
       void filling.finally(() => { if (cacheFills.get(key) === filling) cacheFills.delete(key); }).catch(() => {});
     }
-    await filling;
+    await measureStage("cache_fill", () => filling!);
     return storage.read(repoId, cachePath);
   }
 

@@ -36,6 +36,9 @@ import { getUser } from "./routes/route-utils";
 import config from "../config";
 import { resolveTrustProxy, isCloudflareIP } from "./trustProxy";
 import { createLogger, serializeError } from "../core/logger";
+import { monitorRequests } from "../core/request-monitoring";
+import { startPerformanceMonitoring } from "../core/performance-monitoring";
+import { getAnonymizationPoolStats } from "../core/anonymization-pool";
 
 const logger = createLogger("server");
 
@@ -99,6 +102,8 @@ function indexResponse(req: express.Request, res: express.Response) {
 
 export default async function start() {
   const app = express();
+  app.use(monitorRequests("api"));
+  startPerformanceMonitoring("api", getAnonymizationPoolStats);
   app.set("query parser", "extended");
   app.use("/github/app/webhook", githubAppWebhook);
   app.use(express.json());
@@ -226,20 +231,6 @@ export default async function start() {
     delayMs: () => 150,
     maxDelayMs: 5000,
     keyGenerator,
-  });
-
-  app.use(function (req, res, next) {
-    const start = Date.now();
-    res.on("finish", function () {
-      const time = Date.now() - start;
-      logger.info("request", {
-        method: req.method,
-        status: res.statusCode,
-        url: join(req.baseUrl || "", req.url || ""),
-        ms: time,
-      });
-    });
-    next();
   });
 
   app.use("/github", rate, speedLimiter, githubAppRouter);

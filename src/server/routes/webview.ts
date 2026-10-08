@@ -5,8 +5,11 @@ import AnonymizedFile from "../../core/AnonymizedFile";
 import AnonymousError from "../../core/AnonymousError";
 import * as marked from "marked";
 import * as sanitizeHtml from "sanitize-html";
-import { streamToString } from "../../core/anonymize-utils";
+import { streamToString, isTextFile } from "../../core/anonymize-utils";
 import { IFile } from "../../core/model/files/files.types";
+import { fileETag } from "./file-etag";
+import { lookup } from "mime-types";
+import config from "../../config";
 
 function escapeHtml(str: string): string {
   return str
@@ -169,6 +172,18 @@ async function webView(
         httpStatus: 400,
         object: f,
       });
+    }
+    res.set("Cache-Control", "private, no-cache, must-revalidate");
+    res.set("ETag", fileETag(JSON.stringify(["web-v1", repo.model.source.commit, repo.model.treeGeneration, repo.model.contentCacheRevision,
+      await f.sha(), repo.model.source.repositoryName, repo.model.source.branch, config.APP_HOSTNAME, config.ANONYMIZATION_MASK]),
+      requestPath, repo.options));
+    if (req.fresh) { res.status(304).end(); return; }
+    if (req.method === "HEAD") {
+      const size = await f.size();
+      if (size != null && size > config.MAX_FILE_SIZE) throw new AnonymousError("file_too_big", { httpStatus: 413 });
+      const mime = lookup(requestPath);
+      res.type(f.extension() === "md" ? "text/html" : mime && !requestPath.endsWith(".ts") ? mime : isTextFile(requestPath) ? "text/plain" : "application/octet-stream");
+      res.end(); return;
     }
     if (f.extension() == "md") {
       try {

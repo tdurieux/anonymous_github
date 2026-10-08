@@ -217,6 +217,7 @@ describe("production regressions", function () {
 
   function response() {
     return { headers: {}, header(key, value) { this.headers[key] = value; return this; },
+      set(key, value) { return this.header(key, value); },
       contentType() { return this; }, status(value) { this.statusCode = value; return this; }, end() {}, send() {} };
   }
   function fileRoute(originalName) {

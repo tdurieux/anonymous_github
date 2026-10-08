@@ -11,6 +11,7 @@ import Repository from "./Repository";
 import { getCredential, replaceCredential, getCredentialToken } from "./credentials";
 import config from "../config";
 import { createLogger } from "./logger";
+import { measureStage } from "./request-monitoring";
 
 const logger = createLogger("github");
 
@@ -281,6 +282,7 @@ export function octokit(token: string) {
     }
     throw err;
   });
+  oct.hook.wrap("request", (request, options) => measureStage("upstream", async () => request(options)));
   return oct;
 }
 
@@ -308,6 +310,10 @@ export async function checkToken(token: string) {
 const checkedRepositoryTokens = new WeakMap<Repository, string>();
 
 export async function getToken(repository: Repository) {
+  return measureStage("authorization", () => resolveRepositoryToken(repository));
+}
+
+async function resolveRepositoryToken(repository: Repository) {
   repository.assertNotArchived();
   logger.debug("getToken", { repoId: repository.repoId });
   if (isConnected && !repository.model.isNew) {

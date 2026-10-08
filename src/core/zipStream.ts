@@ -12,6 +12,7 @@ import {
   compileTerms,
 } from "./anonymize-utils";
 import { createLogger, serializeError } from "./logger";
+import { startStage } from "./request-monitoring";
 
 const logger = createLogger("zip-stream");
 
@@ -111,7 +112,11 @@ export async function streamAnonymizedZip(
       },
     });
   }
+  const upstreamDone = startStage("upstream");
   const downloadStream = got.stream(response.url);
+  downloadStream.once("end", () => upstreamDone());
+  downloadStream.once("error", () => upstreamDone(true));
+  downloadStream.once("close", () => upstreamDone(!downloadStream.readableEnded));
 
   const archive = archiver("zip", {});
   const parser = Parse() as Transform;
