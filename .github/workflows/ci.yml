@@ -31,3 +31,41 @@ jobs:
       - run: npm run build
       - run: npm audit --omit=dev --audit-level=moderate
       - run: npm test
+
+  review-consent:
+    name: Review consent transactions
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - name: Start disposable MongoDB replica set
+        run: |
+          docker run -d --name review-consent-test --network host --memory=1g --cpus=1 --tmpfs /data/db:rw,noexec,nosuid,size=512m mongo:7.0@sha256:0e145625e78b94224d16222ff2609c4621ff6e2c390300e4e6bf698305596792 mongod --bind_ip 127.0.0.1 --port 28743 --replSet review-consent-test --oplogSize 16
+          for attempt in $(seq 1 40); do
+            if docker exec review-consent-test mongosh --quiet --port 28743 --eval 'db.adminCommand({ping:1})' > /dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          docker exec review-consent-test mongosh --quiet --port 28743 --eval 'rs.initiate({_id:"review-consent-test",members:[{_id:0,host:"127.0.0.1:28743"}]})'
+          for attempt in $(seq 1 40); do
+            if docker exec review-consent-test mongosh --quiet --port 28743 --eval 'if (!db.hello().isWritablePrimary) quit(1)' > /dev/null 2>&1; then exit 0; fi
+            sleep 1
+          done
+          exit 1
+      - name: Verify consent authority, concurrency and replay cost
+        env:
+          TEST_REVIEW_CONSENT_MONGO: mongodb://127.0.0.1:28743/?replicaSet=review-consent-test
+          TEST_REVIEW_CONSENT_PERF_REPORT: review-consent-perf.json
+        run: npx mocha test/review-owner-consent.test.js
+      - uses: actions/upload-artifact@v4
+        with:
+          name: review-consent-performance
+          path: review-consent-perf.json
+      - name: Remove disposable database
+        if: always()
+        run: docker rm -f review-consent-test || true
