@@ -483,6 +483,10 @@ describeMongo("GitHub App credential and repository integration", function () {
     const Model = require("../src/core/model/anonymizedGists/anonymizedGists.model").default;
     const model = await Model.create({ owner: owner.id, gistId: "oauth-revoke-gist", source: { gistId: "example" } });
     mock((url, options, body) => {
+      if (url.includes("/user/installations")) {
+        expect(new globalThis.Headers(options.headers).get("authorization")).to.equal("Bearer ghu_access1");
+        return { installations: [] };
+      }
       if (url.includes("/grant")) {
         expect(options.method).to.equal("DELETE");
         expect(body.access_token).to.equal("legacy-secret");
@@ -499,6 +503,22 @@ describeMongo("GitHub App credential and repository integration", function () {
     await gist.download();
     expect(gist.model.gist.files[0].content).to.equal("still accessible");
   });
+  for (const status of [401, 503]) {
+    it(`preserves OAuth when GitHub cannot verify the App grant (${status})`, async () => {
+      await setCredential(owner.id, "legacy-secret");
+      await app.saveAppGrant(owner.id, data());
+      mock((url, options) => {
+        expect(url).to.include("/user/installations");
+        expect(options.method).not.to.equal("DELETE");
+        return { status, body: { message: "unavailable" } };
+      });
+      const result = await request("/github/connections/disconnect-oauth", {});
+      expect(result.status).to.equal(status === 401 ? 403 : 502);
+      expect(result.data.error).to.equal(status === 401 ? "github_app_reconnect_required" : "github_unavailable");
+      expect(await getCredentialToken(owner.id)).to.equal("legacy-secret");
+      expect(calls).to.have.length(1);
+    });
+  }
   it("links App authorization to the existing OAuth account without replacing its grant", async () => {
     await setCredential(owner.id, "legacy-secret");
     owner.isAdmin = true; await owner.save();

@@ -247,7 +247,8 @@ router.post("/connections/disconnect-oauth", async (req, res) => {
   try {
     const user = await getUser(req);
     if (!(await CredentialModel.exists({ ownerId: user.id, provider: APP_PROVIDER, revoked: { $ne: true } }))) throw appError("another_login_required", 409);
-    await appUserToken(user.id);
+    // Confirm the remaining login still works on GitHub before revoking OAuth.
+    await userInstallations(user.id);
     const active = { owner: user.id, status: { $ne: "removed" }, "githubAccess.kind": { $ne: "github-app" } };
     if (await RepositoryModel.exists(active) || await PullRequestModel.exists(active)) {
       throw appError("oauth_resources_remaining", 409);
