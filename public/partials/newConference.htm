@@ -108,7 +108,8 @@
         </div>
         <div class="form-check">
           <input class="form-check-input" type="checkbox" id="notebook" name="notebook" v-field="{ state: viewState, set: value =&gt; { options.options.notebook = value }, value: options?.options?.notebook, form: &quot;conference&quot;, options: {} }">
-          <label class="form-check-label" for="notebook">Display Notebooks</label>
+          <label class="form-check-label" for="notebook">Display notebooks</label>
+          <small class="form-text text-muted">Render Jupyter notebooks instead of raw JSON.</small>
         </div>
       </section>
 

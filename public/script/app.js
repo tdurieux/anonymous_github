@@ -201,11 +201,13 @@ export const profileController = function (state, http, translate, timeout, quot
           (error) => {
             state.saving = false;
             const code = error && error.data && error.data.error;
-            const key = "ERRORS." + code;
-            translate(key).then((translation) => {
-              state.error = translation && translation !== key ? translation : "Unable to save your defaults. Please try again.";
+            const fallback = "Unable to save your defaults. Please try again.";
+            // Unknown codes translate to the generic unknown_error message;
+            // this page has a more specific one.
+            Promise.all([translate("ERRORS." + code), translate("ERRORS.unknown_error")]).then(([translation, unknown]) => {
+              state.error = code && translation !== unknown ? translation : fallback;
             }, () => {
-              state.error = "Unable to save your defaults. Please try again.";
+              state.error = fallback;
             });
           }
         );
@@ -2629,7 +2631,7 @@ export const exploreController = function (state, http, location, params, html, 
           theme: "chrome",
           useSoftTab: true,
           tabSize: 2,
-          fontSize: 15,
+          fontSize: 13,
           keyBinding: "vscode",
           fullLineSelection: true,
           highlightActiveLine: false,

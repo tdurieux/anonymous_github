@@ -19,7 +19,17 @@
     <p class="paper-error-msg">This repository will be available in <strong>{{ rateLimitCountdown }}</strong>. The page will reload automatically.</p>
   </div>
 </div>
-<div class="file-error container d-flex h-100" v-if="type == &#x27;error&#x27;"><h1 class="paper-empty-title m-auto" v-text="fmt.translate(&quot;ERRORS.&quot; + (content))">Error</h1></div>
+<div class="file-error container d-flex h-100" v-if="type == &#x27;error&#x27;">
+  <div class="paper-error-card file-error-card m-auto" role="alert">
+    <div class="paper-error-eyebrow">Unavailable</div>
+    <div class="paper-error-title">This content can&rsquo;t be shown</div>
+    <p class="file-error-msg" v-text="fmt.translate(&quot;ERRORS.&quot; + (content))"></p>
+    <div class="file-error-actions">
+      <a href="/" class="btn btn-sm">Back to home</a>
+      <a href="/faq" class="btn btn-sm">Read the FAQ</a>
+    </div>
+  </div>
+</div>
 <div class="file-error container d-flex h-100" v-if="type == &#x27;loading&#x27; &amp;&amp; !error"><h1 class="paper-empty-title m-auto">Loading&hellip;</h1></div>
 <div class="file-error container d-flex h-100" v-if="type == &#x27;empty&#x27;"><h1 class="paper-empty-title m-auto">Empty <em>repository</em>.</h1></div>
 <div class="file-error container d-flex h-100" v-if="content == null &amp;&amp; type != &#x27;empty&#x27;"><h1 class="paper-empty-title m-auto">Empty <em>file</em>.</h1></div>

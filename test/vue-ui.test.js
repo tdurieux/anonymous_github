@@ -939,6 +939,18 @@ describe("Vue 3 UI", function () {
     expect(ui.errors).to.deep.equal([]);
   });
 
+  for (const [code, message] of [["repo_not_found", "The repository was not found"], ["untranslated_failure", "Unknown error, contact the admin."]]) {
+    it("shows the " + code + " explorer error in a card without file actions", async function () {
+      ui = await browser("/r/gone/", { "/api/repo/gone/options": { __status: 404, body: { error: code } } });
+      const card = ui.window.document.querySelector(".file-error-card");
+      expect(card.textContent).to.include("This content can").and.include(message);
+      expect(card.textContent).not.to.include("ERRORS.");
+      expect(card.querySelector('a[href="/"]')).to.not.equal(null);
+      expect(ui.window.document.querySelector(".status-bar").style.display).to.equal("none");
+      expect(ui.errors).to.deep.equal([]);
+    });
+  }
+
   it("renders hostile filenames as text and updates the explorer without losing the tree", async function () {
     const filename = '{{constructor.constructor("window.probe=1")()}}.txt';
     ui = await browser("/r/test/hello.txt", {

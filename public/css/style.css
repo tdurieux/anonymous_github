@@ -3888,26 +3888,6 @@ code {
 .paper-support-card:hover .paper-support-cta i { transform: translateX(2px); }
 .paper-support-card .paper-support-cta i { transition: transform 0.15s ease; }
 
-/* Ko-fi embed wrapper */
-.paper-kofi-wrap {
-  border: 1px solid var(--border-color);
-  border-radius: 10px;
-  overflow: hidden;
-  background: var(--paper-card);
-}
-.paper-kofi-wrap iframe {
-  border: 0;
-  width: 100%;
-  height: 650px;
-  display: block;
-}
-.dark-mode .paper-kofi-wrap iframe {
-  filter: invert(0.88) hue-rotate(180deg) sepia(0.15) saturate(1.2) brightness(1.1) contrast(0.85);
-}
-@media (max-width: 700px) {
-  .paper-kofi-wrap iframe { height: 720px; }
-}
-
 /* ===== Pull request page (paper) ===== */
 .pr-page {
   min-height: 100%;
@@ -7772,4 +7752,31 @@ input[type="date"], select { color-scheme: light; }
   .q-cards { flex-direction: row; }
   .q-card { min-width: 130px; }
   .q-header-actions { flex-wrap: wrap; gap: 8px; }
+}
+
+/* ===== UI polish: explorer, errors, page alignment ===== */
+/* One content column for every app page, aligned with settings and the FAQ. */
+.paper-page.container { max-width: 1180px; }
+.paper-page > .row { margin-left: 0; margin-right: 0; }
+.paper-page > .row > .w-100, .paper-page > .row > [class*='col'] { padding-left: 0; padding-right: 0; }
+.anonymize-landing { align-items: flex-start; }
+.status-page .anonymize-submit-bar { display: flex; }
+.status-page .paper-support-grid { margin-bottom: 0; }
+/* Explorer: readable code and Markdown. */
+.explorer-content .ace_editor { font-family: var(--font-mono); line-height: 1.6; }
+.dark-mode .explorer-content .ace-nord-dark, .dark-mode .explorer-content .ace-nord-dark .ace_gutter { background: var(--main-bg-color); }
+.explorer-content .file-content.markdown-body { max-width: 960px; padding: 32px 40px 96px; }
+.leftCol-project-header .project-name { white-space: normal; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+/* Error states inside the explorer use the same card as the status page. */
+.file-error { font-size: inherit; font-weight: inherit; text-align: left; }
+.file-error-card { width: 100%; max-width: 520px; margin-top: 0; }
+.file-error-msg { margin: 12px 0 0; font-size: 14px; line-height: 1.55; color: var(--ink-soft); }
+.file-error-actions { display: flex; gap: 8px; margin-top: 16px; }
+.file-error .paper-empty-title { font-size: 20px; text-align: center; }
+@media (min-width: 992px) {
+  /* Keep the sidebar footer clear of the floating Ko-fi button. */
+  .leftCol-foot { padding-bottom: 72px; }
+}
+@media (max-width: 991px) {
+  .explorer-content .file-content.markdown-body { padding: 20px 16px 96px; }
 }

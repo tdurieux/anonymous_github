@@ -18,7 +18,9 @@ import { fieldDirective, formDirective, submitForm } from "./forms.js";
 const sessionKey = Symbol("session");
 export const serverPaths = /^\/(w|api|github)(\/|$)/;
 function translate(key, params = {}) {
-  const message = key?.split(".").reduce((value, part) => value?.[part], translations);
+  let message = key?.split(".").reduce((value, part) => value?.[part], translations);
+  // Unknown error codes would otherwise surface as the raw "ERRORS.code" key.
+  if (message == null && key?.startsWith("ERRORS.")) message = translations.ERRORS.unknown_error;
   return String(message ?? key ?? "").replace(/{{\s*([^}]+?)\s*}}/g, (_, name) => params[name] ?? "");
 }
 const fmt = { ...formatters, translate };

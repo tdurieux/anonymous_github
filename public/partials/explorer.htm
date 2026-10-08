@@ -20,7 +20,7 @@
       </div>
     </div>
     <div class="leftCol-project-header">
-      <span class="project-name" v-text="repoId"></span>
+      <span class="project-name" v-text="repoId" :title="repoId"></span>
       <span class="project-file-count">{{ fileCounts?.[''] || files?.length }} files</span>
     </div>
     <div class="leftCol-body">
@@ -53,7 +53,7 @@
   <div class="leftCol-backdrop" v-show="files?.length &amp;&amp; !sidebarCollapsed" @click="sidebarCollapsed = true"></div>
 
   <div class="explorer-main">
-    <div class="status-bar">
+    <div class="status-bar" v-show="type != &#x27;error&#x27;">
       <ol class="breadcrumb paths" aria-label="Path">
         <li class="breadcrumb-item" v-for="(p, index) in paths" v-text="p"></li>
       </ol>
@@ -67,8 +67,8 @@
           <svg class="ui-icon" aria-hidden="true"><use :href="showSource ? '#project-icon-eye' : '#ui-icon-code'"></use></svg><span class="d-none d-md-inline">
             {{ showSource ? "Rendered" : "Source" }}</span>
         </button>
-        <a target="_self" class="btn btn-sm" aria-label="View raw current file" title="View the raw content of the current file" v-show="content != null" :href="safeUrl((url))"><svg class="ui-icon" aria-hidden="true"><use href="#project-icon-file"></use></svg><span class="d-none d-md-inline"> Raw</span></a>
-        <a target="_self" class="btn btn-sm" aria-label="Download current file" title="Download the current file" v-show="content != null" :href="safeUrl((url) + &quot;&amp;download=true&quot;)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-download"></use></svg><span class="d-none d-md-inline"> Download</span></a>
+        <a target="_self" class="btn btn-sm" aria-label="View raw current file" title="View the raw content of the current file" v-show="content != null &amp;&amp; type != &#x27;error&#x27; &amp;&amp; type != &#x27;rate_limited&#x27;" :href="safeUrl((url))"><svg class="ui-icon" aria-hidden="true"><use href="#project-icon-file"></use></svg><span class="d-none d-md-inline"> Raw</span></a>
+        <a target="_self" class="btn btn-sm" aria-label="Download current file" title="Download the current file" v-show="content != null &amp;&amp; type != &#x27;error&#x27; &amp;&amp; type != &#x27;rate_limited&#x27;" :href="safeUrl((url) + &quot;&amp;download=true&quot;)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-download"></use></svg><span class="d-none d-md-inline"> Download</span></a>
         <a target="_self" class="btn btn-sm" aria-label="Download full repository as ZIP" title="Download the full repository as a ZIP archive" v-if="options?.download" :href="safeUrl(&quot;/api/repo/&quot; + (repoId) + &quot;/zip&quot;)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-archive"></use></svg><span class="d-none d-md-inline"> Full repo ZIP</span></a>
         <a target="_self" class="btn btn-sm" aria-label="Website" v-if="options?.hasWebsite" :href="safeUrl(&quot;/w/&quot; + (repoId) + &quot;/&quot;)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-globe"></use></svg><span class="d-none d-md-inline"> Website</span></a>
       </div>
