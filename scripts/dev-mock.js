@@ -248,11 +248,12 @@ const history = Array.from({ length: 60 }, (_, i) => ({
   nbPullRequests: prSeries[i],
 }));
 
-// ANON=1 serves the signed-out experience (landing page, FAQ) instead.
+// ANON=1 serves the signed-out experience (landing page, FAQ) instead;
+// ADMIN=1 signs in as an administrator so /admin pages render.
 app.get("/api/user", (req, res) =>
   process.env.ANON
     ? res.status(401).json({ error: "not_connected" })
-    : res.json({ username: "tdurieux", photo: "https://avatars.githubusercontent.com/u/5577568?v=4", isAdmin: false })
+    : res.json({ username: "tdurieux", photo: "https://avatars.githubusercontent.com/u/5577568?v=4", isAdmin: !!process.env.ADMIN })
 );
 // Local connection fixtures keep the account screens usable without GitHub.
 app.get("/github/connections", (req, res) => res.json({

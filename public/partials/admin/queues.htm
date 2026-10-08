@@ -11,7 +11,7 @@
         <button class="btn btn-sm" :class="{active: range == &#x27;7d&#x27;}" @click="setRange(&#x27;7d&#x27;)">7d</button>
       </div>
       <button class="btn btn-sm" @click="pauseAll()">Pause all</button>
-      <button class="btn btn-sm btn-dark" @click="drainSelected()">Drain {{ selectedQueue }}</button>
+      <button class="btn btn-sm btn-danger-soft" @click="drainSelected()">Drain {{ selectedQueue }}</button>
     </div>
   </div>
 
@@ -94,7 +94,7 @@
   <!-- Jobs table -->
   <div class="q-jobs">
     <div class="q-jobs-header">
-      <div class="q-section-label">ALL JOBS &middot; {{ fmt?.uppercase(selectedQueue) }}</div>
+      <div class="q-section-label">All jobs &middot; {{ selectedQueue }}</div>
       <div class="q-state-filters">
         <label class="q-state-toggle" v-for="(s, index) in allStates">
           <input type="checkbox" v-field="{ state: viewState, set: value =&gt; { stateFilter[s] = value }, value: stateFilter[s], form: null, options: {} }">

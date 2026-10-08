@@ -5326,18 +5326,6 @@ textarea::selection {
   background: var(--color);
   color: var(--paper-card);
 }
-.btn-dark {
-  background: var(--color) !important;
-  color: var(--paper-card) !important;
-  border-color: var(--color) !important;
-  border-radius: 999px;
-  padding: 5px 18px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-}
-
 /* Queue overview cards */
 .q-cards {
   display: flex;
@@ -7700,7 +7688,6 @@ input[type="date"], select { color-scheme: light; }
 .q-range-btns { border-radius: var(--radius-control); }
 .q-range-btns .btn, .q-job-detail-actions .btn { font-family: var(--font-sans); font-size: 13px; }
 .q-range-btns .btn.active { background: var(--accent-soft); color: var(--accent); }
-.btn-dark { border-radius: var(--radius-control); font-family: var(--font-sans); font-size: 12px; }
 @media (max-width: 900px) {
   .paper-settings .quota-usage { grid-template-columns: 1fr; gap: 16px; }
   .paper-settings .quota-usage .quota-item + .quota-item { padding-left: 0; border-left: 0; border-top: 1px solid var(--border-color); padding-top: 16px; }
@@ -7840,3 +7827,14 @@ input[type="date"], select { color-scheme: light; }
   .share-link-actions .btn { justify-content: center; }
   .status-page .paper-support-grid { row-gap: 20px; }
 }
+/* Segmented control: one outlined group, borderless segments, tinted selection. */
+.paper-page .q-range-btns { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--border-color); border-radius: var(--radius-control); background: var(--paper-card); overflow: visible; }
+.paper-page .q-range-btns .btn, .paper-page .q-range-btns .btn + .btn { min-height: 0; height: 28px; padding: 0 10px; border: 0; border-radius: 4px; background: transparent; color: var(--ink-muted); font: 500 13px/1 var(--font-sans); }
+.paper-page .q-range-btns .btn:hover { background: var(--hover-bg-color); color: var(--color); }
+.paper-page .q-range-btns .btn.active { background: var(--accent-soft); color: var(--accent); }
+.q-header-actions > .btn { height: 34px; min-height: 34px; }
+/* Destructive actions are outlined in red rather than filled. */
+.paper-page .btn.btn-danger-soft { background: transparent; border-color: var(--status-error); color: var(--status-error); }
+.paper-page .btn.btn-danger-soft:hover { background: var(--status-error-soft-hover); border-color: var(--status-error); color: var(--status-error); }
+.q-section-label, .q-state-chip, .q-auto-refresh { font-family: var(--font-sans); letter-spacing: 0; text-transform: none; }
+.q-state-chip { font-size: 12px; text-transform: capitalize; }
