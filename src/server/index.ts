@@ -41,6 +41,8 @@ import { monitorRequests } from "../core/request-monitoring";
 import { startPerformanceMonitoring } from "../core/performance-monitoring";
 import { getAnonymizationPoolStats } from "../core/anonymization-pool";
 
+import { createReviewCapabilities } from "./service/review-capabilities";
+
 const logger = createLogger("server");
 
 // Lazily build the templated index.html on first request so the server
@@ -106,6 +108,7 @@ export default async function start() {
   app.use(monitorRequests("api"));
   startPerformanceMonitoring("api", getAnonymizationPoolStats);
   app.set("query parser", "extended");
+  app.use("/service", createReviewCapabilities(process.env.REVIEW_SERVICE_KEYS));
   app.use("/github/app/webhook", githubAppWebhook);
   app.use(express.json());
   // Preserve the empty body used by API validation when no JSON was parsed.
