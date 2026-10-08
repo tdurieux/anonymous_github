@@ -1,6 +1,11 @@
 const { expect } = require("chai");
 const { Readable, PassThrough } = require("stream");
 const { once } = require("events");
+const http = require("node:http");
+const express = require("express");
+const compression = require("compression");
+const { randomBytes } = require("node:crypto");
+const { gunzipSync } = require("node:zlib");
 const archiver = require("archiver");
 const { Parse } = require("unzip-stream");
 require("ts-node/register/transpile-only");
@@ -81,16 +86,68 @@ describe("large notebook downloads", function () {
       GitHubDownload.prototype.getZipUrl = async () => ({ url: "https://example.invalid/source.zip" });
       got.stream = () => upstream;
     });
-    afterEach(function () {
+    afterEach(async function () {
       got.stream = originalStream;
       GitHubDownload.prototype.getZipUrl = originalUrl;
       config.MAX_FILE_SIZE = originalLimit;
       upstream?.destroy();
+      await require("../src/core/cache-coordination").closeCacheRedis();
     });
     const options = {
       repoId: "fixture", organization: "owner", repoName: "repo", commit: "HEAD",
       getToken: () => "test", anonymizerOptions: { filePath: "", terms: ["Alice"] },
     };
+
+    for (const compressed of [false, true]) {
+      it(`finishes ZIP responses through Express compression with gzip ${compressed}`, async function () {
+        const text = "Alice Σ 研究\n".repeat(25000), binary = randomBytes(128 * 1024);
+        const input = await zip({ "root/empty.txt": "", "root/large.txt": text, "root/image.png": binary, "root/after.txt": "Alice" });
+        upstream = Readable.from((async function* () {
+          for (let offset = 0; offset < input.length; offset += 1021) {
+            yield input.subarray(offset, offset + 1021);
+          }
+        })());
+        const app = express();
+        app.use(compression({ threshold: 0, highWaterMark: 1024, filter: () => compressed }));
+        const drainEmitters = new Set();
+        let drainSubscriptions = 0;
+        app.get("/archive", async (_req, res) => {
+          const on = res.on;
+          res.on = function (event, listener) {
+            const emitter = on.call(this, event, listener);
+            if (event === "drain") { drainSubscriptions++; drainEmitters.add(emitter); }
+            return emitter;
+          };
+          res.type("application/zip");
+          await streamAnonymizedZip(options, res);
+        });
+        const server = await new Promise(resolve => {
+          const listening = http.createServer({ highWaterMark: 1024 }, app).listen(0, "127.0.0.1", () => resolve(listening));
+        });
+        let client;
+        try {
+          const response = await new Promise((resolve, reject) => {
+            client = http.get(`http://127.0.0.1:${server.address().port}/archive`, { headers: { "Accept-Encoding": "gzip" } }, resolve);
+            client.setTimeout(8000, () => client.destroy(new Error("ZIP response stalled")));
+            client.on("error", reject);
+          });
+          const bytes = await collect(response);
+          expect(response.statusCode).to.equal(200);
+          expect(response.headers["content-encoding"]).to.equal(compressed ? "gzip" : undefined);
+          const entries = await unzip(compressed ? gunzipSync(bytes) : bytes);
+          expect(Object.keys(entries)).to.have.members(["empty.txt", "large.txt", "image.png", "after.txt"]);
+          expect(entries["empty.txt"]).to.have.length(0);
+          expect(entries["large.txt"].toString()).to.equal(new ContentAnonimizer(options.anonymizerOptions).anonymize(text));
+          expect(entries["image.png"]).to.deep.equal(binary);
+          expect(entries["after.txt"].toString()).to.equal("XXXX-1");
+          expect(drainSubscriptions).to.be.greaterThan(0);
+          for (const emitter of drainEmitters) expect(emitter.listenerCount("drain")).to.equal(0);
+        } finally {
+          client?.destroy(); server.closeAllConnections();
+          await new Promise(resolve => server.close(resolve));
+        }
+      });
+    }
 
     it("completes an archive containing a large notebook and subsequent entries", async function () {
       upstream = Readable.from([await zip({ "root/example.ipynb": notebook(), "root/after.txt": "Alice" })]);
