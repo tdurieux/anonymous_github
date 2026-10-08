@@ -1,0 +1,208 @@
+{
+  "date": "2026-10-07",
+  "baselineRevision": "a7e3826",
+  "node": "v24.14.1",
+  "cpu": [
+    {
+      "case": "search",
+      "files": 1000,
+      "medianMs": 0.502400000000307,
+      "baselineMs": 222.9168720000007,
+      "speedup": 443.70396496788305
+    },
+    {
+      "case": "search",
+      "files": 5000,
+      "medianMs": 0.46089800000027026,
+      "baselineMs": 4724.687013999999,
+      "speedup": 10251.04689974187
+    },
+    {
+      "case": "search",
+      "files": 10000,
+      "medianMs": 0.32013899999583373,
+      "baselineMs": 22445.405297999998,
+      "speedup": 70111.43690175861
+    },
+    {
+      "case": "search",
+      "files": 100000,
+      "medianMs": 0.38411400000040885,
+      "baselineMs": null,
+      "speedup": null
+    },
+    {
+      "case": "compile-once paths",
+      "files": 10000,
+      "medianMs": 39.23022500000661,
+      "baselineMs": 2198.6516830000037,
+      "speedup": 56.04483999262388
+    }
+  ],
+  "largeText": [
+    {
+      "case": "large text",
+      "concurrent": 4,
+      "fileMiB": 48,
+      "elapsedMs": 10560.582797,
+      "outputMiB": 192,
+      "peakRssMiB": 555.45703125,
+      "rssIncreaseMiB": 274.4453125,
+      "eventLoopP95Ms": 11.608063,
+      "eventLoopMaxMs": 45.023231
+    },
+    {
+      "case": "large text",
+      "concurrent": 1,
+      "fileMiB": 100,
+      "elapsedMs": 6453.477399,
+      "outputMiB": 100,
+      "peakRssMiB": 640.92578125,
+      "rssIncreaseMiB": 361.0390625,
+      "eventLoopP95Ms": 11.239423,
+      "eventLoopMaxMs": 33.488895
+    }
+  ],
+  "browser": {
+    "pdfPages": 100,
+    "codeNavigations": 10,
+    "activeHashListeners": 1,
+    "hashListenersAfterEditorRemoval": 0,
+    "maxObservedPdfCanvases": 2,
+    "maxObservedCanvasBackingMiB": 33.13,
+    "pdfZoomPercent": 125,
+    "dashboardInitialRows": 50,
+    "dashboardRowsAfterLoadMore": 100,
+    "dashboardFilteredRows": 1,
+    "dashboardTotal": 150
+  },
+  "database": {
+    "unrelatedRepositories": 2000,
+    "membershipDocsExaminedUpperBoundExclusive": 10,
+    "indexedPathLookupDocsExamined": 1,
+    "maintenanceCollections": [
+      "repositories",
+      "gists",
+      "pullRequests"
+    ],
+    "maintenanceDocsExaminedUpperBoundExclusive": 10
+  },
+  "cache": {
+    "processes": 2,
+    "concurrentCallers": 10,
+    "producerDownloads": 1,
+    "warmS3HeadRequests": 1,
+    "warmS3GetRequests": 1
+  },
+  "slowZip": {
+    "entries": 12,
+    "entryMiB": 1,
+    "activeTransformers": 1,
+    "queuedOutputMiB": 0
+  },
+  "limits": [
+    "Search CPU fixture uses pre-anonymized rows and excludes MongoDB and HTTP latency.",
+    "RSS measurements include the source-mode application imports and ts-node workers. Worker memory admission uses estimates; it is not a hard process RSS cap.",
+    "S3 validation uses the AWS SDK against a disposable HTTP protocol fixture. Production service multipart and failure behavior still needs rollout validation.",
+    "Browser results cover the tested navigation sequence and 100-page fixture, not all PDF documents."
+  ],
+  "tests": {
+    "fullSuite": {
+      "passing": 955,
+      "pending": 51,
+      "failing": 0,
+      "note": "Isolated worktree with disposable MongoDB/Redis, memory-backed temporary storage, and PERFORMANCE_STREAMER_COMPILED=1. New coverage verifies safe-regex prefix parity, large worker and ZIP jobs, dense Unicode replacements, one-second native-regex rejection without partial output, and worker recovery.",
+      "validationDate": "2026-10-08"
+    },
+    "performanceSuite": {
+      "passing": 125,
+      "note": "Included in the latest clean full-suite run with disposable MongoDB and Redis."
+    },
+    "uiSuite": {
+      "passing": 134,
+      "note": "Earlier standalone UI run; the latest full suite includes subsequent UI additions. Both focused rename cases and five status-polling cases passed."
+    },
+    "build": "passed",
+    "lint": {
+      "errors": 0,
+      "existingWarnings": 7
+    },
+    "indexMigration": "passed twice on disposable MongoDB; existing indexes retained; staging, retirement and pending-cleanup indexes verified; legacy stream-cache cleanup queued and ZIP sources excluded",
+    "workspaceSuite": {
+      "passing": 862,
+      "pending": 51,
+      "failing": 2,
+      "failures": [
+        "Pre-existing missing export PullRequest.buildPullRequestDiffRequest",
+        "Pre-existing missing export applyNewPullRequestFields"
+      ],
+      "note": "Earlier working-tree run included unrelated untracked runtime regression tests that are excluded from this PR."
+    },
+    "streamerRuntime": {
+      "compiled": true,
+      "startupWaitsForMongoDB": "passed",
+      "maxPoolSize": 10,
+      "minPoolSize": 0,
+      "expirationLateFillHttpStatus": 409,
+      "idleReplicaCacheAndSpoolCleanup": "passed",
+      "startupFailureExitCode": 1,
+      "scope": "Disposable MongoDB and local filesystem; controlled download/publication fixtures. Pool settings are asserted, not production socket measurements."
+    },
+    "zipHttp": {
+      "plain": "passed",
+      "gzip": "passed",
+      "forcedBackpressure": "passed",
+      "drainListenerCleanup": "passed"
+    },
+    "zipAnonymization": {
+      "safeRegexFixtureBytes": 7840011,
+      "denseUnicodeFixtureBytes": 20800000,
+      "workerProcessingDeadlineMs": 10000,
+      "workerJobDeadlineMs": 15000,
+      "nativeRegexDeadlineMs": 1000,
+      "extraPrefixParityCases": 100,
+      "compiledNode22Http": {
+        "plain": "passed",
+        "gzip": "passed",
+        "drainListenerCleanup": "passed"
+      },
+      "compiledNode22Guard": {
+        "partialOutput": false,
+        "workerRecovery": "passed"
+      },
+      "productionRulesReplay": {
+        "scope": "Synthetic numeric input using the affected repository rules, in isolated Node 22 containers limited to one CPU. No original file contents or identifying terms were printed; live application containers were unchanged.",
+        "terms": 9,
+        "inputBytes": 7840032,
+        "baseline": "Script execution timed out after 1000ms",
+        "candidateComplete": true,
+        "candidateElapsedMs": 2401.216523
+      }
+    }
+  },
+  "sockets": {
+    "sequential": {
+      "reads": 100,
+      "httpRequests": 200,
+      "connectionsOpened": 1,
+      "peakConnections": 1,
+      "idleConnections": 1
+    },
+    "parallel": {
+      "concurrentReads": 100,
+      "httpRequests": 200,
+      "totalConnectionsOpened": 50,
+      "peakConnections": 50,
+      "idleConnections": 50
+    },
+    "afterPoolDestroy": 0,
+    "cancellation": {
+      "requests": 20,
+      "connectionsOpened": 20,
+      "peakConnections": 1,
+      "connectionsAfterEachCancellation": 0,
+      "maxObservedReleaseMs": 14.330879000000095
+    },
+    "scope": "Local HTTP probe using the actual S3 SDK/storage adapter and got proxy streams. S3 measurements use one timeout profile and one endpoint; counts are not application-wide or production measurements."
+  }
+}

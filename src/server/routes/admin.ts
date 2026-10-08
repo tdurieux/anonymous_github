@@ -1,5 +1,7 @@
+import { AsyncCache } from "../../core/async-cache";
 import * as os from "os";
-import { execSync } from "child_process";
+import { execFile } from "child_process";
+import { promisify } from "util";
 import { Queue, JobType } from "bullmq";
 import * as express from "express";
 import AnonymousError from "../../core/AnonymousError";
@@ -29,8 +31,11 @@ import {
 } from "../../core/logger";
 import { createClient, RedisClientType } from "redis";
 import config from "../../config";
+import { performanceReport } from "../../core/performance-monitoring";
 
 const logger = createLogger("admin");
+const execFileAsync = promisify(execFile);
+const diskUsageCache = new AsyncCache<string>(30000, 1);
 
 let errorLogClient: RedisClientType | null = null;
 
@@ -76,6 +81,12 @@ router.use(
 );
 
 router.use("/tokens", adminTokensRouter);
+
+router.get("/performance", async (req, res) => {
+  res.set("Cache-Control", "no-store");
+  try { res.json(await performanceReport(Number(req.query.minutes))); }
+  catch { res.json({ available: false, instances: [], routes: [], stages: [] }); }
+});
 
 function dashboardCache(
   _req: express.Request,
@@ -342,18 +353,11 @@ router.get("/queues/metrics", dashboardCache, async (req, res) => {
   }
 });
 
-const queuesCache = new Map<string, { data: unknown; ts: number }>();
-const QUEUES_CACHE_TTL = 10_000;
+const queuesCache = new AsyncCache<{ queues: unknown; selectedQueue: string; jobs: Record<string, unknown>[] }>(10_000, 3);
 
 router.get("/queues", dashboardCache, async (req, res) => {
   const search = req.query.search ? String(req.query.search).toLowerCase() : "";
   const queueName = req.query.queue ? String(req.query.queue) : "";
-  const cacheKey = `${queueName}|${search}`;
-  const cached = queuesCache.get(cacheKey);
-  if (cached && Date.now() - cached.ts < QUEUES_CACHE_TTL) {
-    return res.json(cached.data);
-  }
-
   const allQueues: { key: string; label: string; queue: Queue }[] = [
     { key: "download", label: "Download", queue: downloadQueue },
     { key: "remove", label: "Remove", queue: removeQueue },
@@ -365,6 +369,7 @@ router.get("/queues", dashboardCache, async (req, res) => {
     : allQueues[0];
   const targetQueue = target ? target.queue : downloadQueue;
 
+  const data = await queuesCache.get(target?.key || "download", async () => {
   const [statsResults, ...jobsByState] = await Promise.all([
     Promise.all(
       allQueues.map(async (q) => ({
@@ -376,7 +381,16 @@ router.get("/queues", dashboardCache, async (req, res) => {
     ...QUEUE_STATES.map(async (state) => {
       const jobs = await targetQueue.getJobs([state], 0, 199);
       return jobs.map((j) => {
-        const json: Record<string, unknown> = { ...j.asJSON(), _state: state };
+        // asJSON() serializes these fields to strings; the dashboard needs
+        // the objects (payload repoId, stack lines, failure reason).
+        const json: Record<string, unknown> = {
+          ...j.asJSON(),
+          data: j.data,
+          failedReason: j.failedReason,
+          stacktrace: j.stacktrace,
+          returnvalue: j.returnvalue,
+          _state: state,
+        };
         if (state === "delayed" && j.delay > 0) {
           json.delayUntil = j.timestamp + j.delay;
         }
@@ -385,6 +399,19 @@ router.get("/queues", dashboardCache, async (req, res) => {
     }),
   ]);
 
+  const allJobs = (jobsByState as Record<string, unknown>[][]).flat();
+
+  const stateOrder: Record<string, number> = {
+    active: 0, waiting: 1, delayed: 2, failed: 3, completed: 4,
+  };
+  allJobs.sort((a, b) => (stateOrder[a._state as string] ?? 9) - (stateOrder[b._state as string] ?? 9));
+
+  return {
+    queues: statsResults,
+    selectedQueue: target?.key || "download",
+    jobs: allJobs,
+  };
+  });
   const matches = (job: { id?: string | undefined; name?: string }) => {
     if (!search) return true;
     return (
@@ -392,20 +419,7 @@ router.get("/queues", dashboardCache, async (req, res) => {
       (job.name || "").toLowerCase().includes(search)
     );
   };
-  const allJobs = (jobsByState as Record<string, unknown>[][]).flat().filter(matches);
-
-  const stateOrder: Record<string, number> = {
-    active: 0, waiting: 1, delayed: 2, failed: 3, completed: 4,
-  };
-  allJobs.sort((a, b) => (stateOrder[a._state as string] ?? 9) - (stateOrder[b._state as string] ?? 9));
-
-  const data = {
-    queues: statsResults,
-    selectedQueue: target?.key || "download",
-    jobs: allJobs,
-  };
-  queuesCache.set(cacheKey, { data, ts: Date.now() });
-  res.json(data);
+  res.json({ ...data, jobs: data.jobs.filter(matches) });
 });
 
 // Errors captured by the logger sink. Server-paginated to avoid pulling
@@ -595,15 +609,15 @@ router.delete("/errors", async (req, res) => {
     // SCAN the hourly counter keys and del them along with the list and
     // dropped counter so the admin page comes back to a clean slate.
     const hourlyKeys: string[] = [];
-    let cursor = 0;
+    let cursor = "0";
     do {
       const reply = await client.scan(cursor, {
         MATCH: `${ERROR_LOG_HOURLY_PREFIX}*`,
         COUNT: 100,
       });
-      cursor = Number(reply.cursor);
+      cursor = reply.cursor;
       for (const k of reply.keys) hourlyKeys.push(k);
-    } while (cursor !== 0);
+    } while (cursor !== "0");
     const pipe = client.multi();
     pipe.del(ERROR_LOG_KEY);
     pipe.del(ERROR_LOG_DROPPED_KEY);
@@ -632,7 +646,10 @@ router.get("/overview", async (req, res) => {
     // Disk usage via df (root partition)
     let diskTotal = 0, diskUsed = 0, diskFree = 0, diskPercent = 0, diskMount = "/";
     try {
-      const dfOut = execSync("df -k / 2>/dev/null", { timeout: 3000 }).toString();
+      const dfOut = await diskUsageCache.get("root", async () => {
+        const result = await execFileAsync("df", ["-k", "/"], { timeout: 3000, maxBuffer: 16384 });
+        return result.stdout;
+      });
       const lines = dfOut.trim().split("\n");
       if (lines.length >= 2) {
         const cols = lines[1].split(/\s+/);

@@ -6,11 +6,13 @@
     </div>
 
     <header class="pr-header">
+      <div class="pr-title-row">
       <h1 class="paper-page-title pr-title">
         <span v-if="details?.title" v-text="details?.title"></span>
         <span class="text-muted" v-if="!details?.title">Untitled pull request</span>
-        <a class="btn btn-sm" aria-label="Edit" v-if="options?.isAdmin || options?.isOwner" :href="safeUrl(&quot;/pull-request-anonymize/&quot; + (pullRequestId))"><i class="far fa-edit"></i><span class="d-none d-md-inline"> Edit</span></a>
       </h1>
+        <a class="btn btn-sm" aria-label="Edit" v-if="options?.isAdmin || options?.isOwner" :href="safeUrl(&quot;/pull-request-anonymize/&quot; + (pullRequestId))"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-edit"></use></svg><span class="d-none d-md-inline"> Edit</span></a>
+      </div>
       <div class="pr-header-meta">
         <span class="paper-pill" :class="{&#x27;good&#x27;: details?.merged, &#x27;warn&#x27;: details?.state == &#x27;open&#x27;, &#x27;bad&#x27;: details?.state == &#x27;closed&#x27; &amp;&amp; !details?.merged}">
           <span class="status-dot" :class="{&#x27;status-ready&#x27;: details?.merged, &#x27;status-error&#x27;: details?.state == &#x27;closed&#x27; &amp;&amp; !details?.merged}"></span>
@@ -20,10 +22,10 @@
           <i class="fab fa-github"></i> <span v-text="details?.baseRepositoryFullName"></span>
         </span>
         <span class="pr-meta-item" v-if="details?.updatedDate">
-          <i class="far fa-clock"></i> <span v-text="fmt?.date(details?.updatedDate)"></span>
+          <svg class="ui-icon" aria-hidden="true"><use href="#project-icon-clock"></use></svg> <span v-text="fmt?.date(details?.updatedDate)"></span>
         </span>
         <span class="pr-meta-item" v-if="details?.anonymizeDate">
-          <i class="fas fa-user-secret"></i> Anonymized <span v-text="fmt?.date(details?.anonymizeDate)"></span>
+          <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-shield"></use></svg> Anonymized <span v-text="fmt?.date(details?.anonymizeDate)"></span>
         </span>
       </div>
     </header>
@@ -34,26 +36,26 @@
     </section>
 
     <nav class="paper-tabs" role="tablist" v-if="details?.diff || details?.comments">
-      <button class="paper-tab" type="button" role="tab" v-if="details?.diff" :class="{&#x27;active&#x27;: tabState?.active == &#x27;diff&#x27;}" @click="tabState.active = &#x27;diff&#x27;">
-        <i class="fas fa-code"></i> Diff
+      <button class="paper-tab" type="button" role="tab" v-if="details?.diff" :class="{&#x27;active&#x27;: tabState?.active == &#x27;diff&#x27;}" id="pr-diff-tab" :aria-selected="tabState?.active === 'diff'" aria-controls="pr-diff-panel" :tabindex="tabState?.active === 'diff' ? 0 : -1" @keydown="previewTabKeydown($event)" @click="tabState.active = &#x27;diff&#x27;">
+        <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-code"></use></svg> Diff
       </button>
-      <button class="paper-tab" type="button" role="tab" v-if="details?.comments" :class="{&#x27;active&#x27;: tabState?.active == &#x27;comments&#x27;}" @click="tabState.active = &#x27;comments&#x27;">
-        <i class="far fa-comment-dots"></i>
+      <button class="paper-tab" type="button" role="tab" v-if="details?.comments" :class="{&#x27;active&#x27;: tabState?.active == &#x27;comments&#x27;}" id="pr-comments-tab" :aria-selected="tabState?.active === 'comments'" aria-controls="pr-comments-panel" :tabindex="tabState?.active === 'comments' ? 0 : -1" @keydown="previewTabKeydown($event)" @click="tabState.active = &#x27;comments&#x27;">
+        <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-comment"></use></svg>
         <span v-text="fmt.plural(details?.comments?.length, {&#x27;0&#x27;: &#x27;No comments&#x27;, &#x27;one&#x27;: &#x27;1 comment&#x27;, &#x27;other&#x27;: &#x27;{} comments&#x27;})"></span>
       </button>
     </nav>
 
     <div class="paper-tab-content">
-      <div v-if="details?.diff &amp;&amp; tabState?.active ==&#x27;diff&#x27;">
+      <div role="tabpanel" id="pr-diff-panel" aria-labelledby="pr-diff-tab" v-if="details?.diff &amp;&amp; tabState?.active ==&#x27;diff&#x27;">
         <div class="pr-diff" v-html="sanitize(fmt?.diff(details?.diff))"></div>
       </div>
 
-      <div v-if="details?.comments &amp;&amp; tabState?.active ==&#x27;comments&#x27;">
+      <div role="tabpanel" id="pr-comments-panel" aria-labelledby="pr-comments-tab" v-if="details?.comments &amp;&amp; tabState?.active ==&#x27;comments&#x27;">
         <ul class="pr-comments">
           <li class="pr-comment" v-for="(comment, index) in details?.comments">
             <div class="pr-comment-head">
               <span class="pr-comment-author" v-if="comment?.author">
-                <i class="far fa-user"></i> @<span v-text="comment?.author"></span>
+                <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-user"></use></svg> @<span v-text="comment?.author"></span>
               </span>
               <span class="pr-comment-date" v-if="comment?.updatedDate" v-text="fmt?.date(comment?.updatedDate)"></span>
             </div>
@@ -62,7 +64,7 @@
             </div>
           </li>
           <li class="paper-table-empty" v-if="!details?.comments?.length">
-            <i class="far fa-comment-dots"></i>
+            <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-comment"></use></svg>
             <span>No comments on this pull request.</span>
           </li>
         </ul>

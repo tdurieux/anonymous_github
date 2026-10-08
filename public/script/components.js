@@ -2,6 +2,18 @@ import { loadLibrary, loadEditor } from "./lazy-assets.js";
 import { h, ref, watch, onMounted, onBeforeUnmount, nextTick, defineAsyncComponent } from "vue";
 import HtmlDoc from "./html-doc.js";
 import PdfViewer from "./pdf-viewer.js";
+import { render as quotaUsageTemplate } from "../partials/quotaUsage.htm";
+
+const QuotaUsage = {
+  props: ["quota", "fmt"],
+  setup(props) {
+    return { formatAmount: (value, kind) => kind === "bytes"
+      ? props.fmt.humanFileSize(value).replace(/([a-zA-Z]+)$/, " $1") : props.fmt.number(value) };
+  },
+  render: quotaUsageTemplate,
+};
+
+const editorModes = new Set(__ACE_MODES__);
 
 const Markdown = {
   props: ["content", "terms", "options"],
@@ -66,7 +78,7 @@ const Loc = {
     };
   },
 };
-export const components = { Markdown, GistFile, Notebook, Loc, HtmlDoc, Pdfviewer: defineAsyncComponent(async () => {
+export const components = { Markdown, GistFile, Notebook, Loc, HtmlDoc, QuotaUsage, Pdfviewer: defineAsyncComponent(async () => {
   await loadLibrary("pdf");
   pdfjsLib.GlobalWorkerOptions.workerSrc = "/script/external/pdf.worker.js";
   return PdfViewer;
@@ -83,7 +95,7 @@ export const codeEditor = {
       el._editor = editor;
       editor.setValue(String(latest.content ?? ""), -1);
       applyEditorOptions(el, latest.options);
-      latest.options?.onLoad?.(editor);
+      el._editorCleanup = latest.options?.onLoad?.(editor);
     } catch (error) {
       if (!el._editorDisposed) el.textContent = error.message;
     }
@@ -94,10 +106,11 @@ export const codeEditor = {
     if (el._editor.getValue() !== String(value.content ?? "")) el._editor.setValue(String(value.content ?? ""), -1);
     applyEditorOptions(el, value.options);
   },
-  beforeUnmount(el) { el._editorDisposed = true; el._editor?.destroy(); },
+  beforeUnmount(el) { el._editorDisposed = true; el._editorCleanup?.(); el._editor?.destroy(); },
 };
 function applyEditorOptions(el, options = {}) {
-  if (options.mode) el._editor.session.setMode("ace/mode/" + options.mode);
+  const mode = editorModes.has(options.mode) ? options.mode : "text";
+  el._editor.session.setMode("ace/mode/" + mode);
   if (options.theme) el._editor.setTheme("ace/theme/" + options.theme);
   el._editor.setReadOnly(options.readOnly !== false);
 }

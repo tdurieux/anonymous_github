@@ -5,6 +5,7 @@ import UserModel from "../../core/model/users/users.model";
 import CredentialModel from "../../core/model/credentials/credentials.model";
 import InstallationModel from "../../core/model/github-installation";
 import RepositoryModel from "../../core/model/anonymizedRepositories/anonymizedRepositories.model";
+import CachedRepositoryModel from "../../core/model/repositories/repositories.model";
 import PullRequestModel from "../../core/model/anonymizedPullRequests/anonymizedPullRequests.model";
 import GistModel from "../../core/model/anonymizedGists/anonymizedGists.model";
 import { getCredentialToken } from "../../core/credentials";
@@ -163,14 +164,15 @@ router.get("/connections", async (req, res) => {
       }
       catch (error) { appErrorCode = error instanceof Error ? error.message : "github_app_reconnect_required"; }
     }
-    const repos = await RepositoryModel.find({ owner: user.id, status: { $ne: "removed" } }).select("repoId source.repositoryName githubAccess status").lean();
-    const prs = await PullRequestModel.find({ owner: user.id, status: { $ne: "removed" } }).select("pullRequestId source.repositoryFullName githubAccess status").lean();
+    const repos = await RepositoryModel.find({ owner: user.id, status: { $ne: "removed" } }).select("repoId source.repositoryName githubAccess status statusDate").lean();
+    const prs = await PullRequestModel.find({ owner: user.id, status: { $ne: "removed" } }).select("pullRequestId source.repositoryFullName githubAccess status statusDate").lean();
     const gistCount = await GistModel.countDocuments({ owner: user.id, status: { $ne: "removed" } });
     res.json({ csrf: req.session.githubConnectionCSRF, appEnabled: config.GITHUB_APP_ENABLED && config.GITHUB_APP_NEW_CONNECTIONS,
+      gistConnection: config.GITHUB_APP_ENABLED && credentials.some(c => c.provider === APP_PROVIDER) ? "github-app" : "oauth",
       oauthEnabled: config.GITHUB_OAUTH_ENABLED, oauthConnected: !!(await getCredentialToken(user.id)), appConnected, appError: appErrorCode,
       installations, gistCount, resources: [
-        ...repos.map(r => ({ type: "repository", id: r.repoId, name: r.source.repositoryName, connection: r.githubAccess?.kind || "oauth", status: r.status })),
-        ...prs.map(r => ({ type: "pull-request", id: r.pullRequestId, name: r.source.repositoryFullName, connection: r.githubAccess?.kind || "oauth", status: r.status })),
+        ...repos.map(r => ({ type: "repository", id: r.repoId, name: r.source.repositoryName, connection: r.githubAccess?.kind || "oauth", status: r.status, statusDate: r.statusDate })),
+        ...prs.map(r => ({ type: "pull-request", id: r.pullRequestId, name: r.source.repositoryFullName, connection: r.githubAccess?.kind || "oauth", status: r.status, statusDate: r.statusDate })),
       ] });
   } catch (error) { handleError(error, res, req); }
 });
@@ -191,16 +193,36 @@ router.post("/connections/migrate", async (req, res) => {
     const isRepo = type === "repository";
     const model = isRepo ? await RepositoryModel.findOne({ repoId: id, owner: user.id }) : await PullRequestModel.findOne({ pullRequestId: id, owner: user.id });
     if (!model || ["removed", "archived"].includes(model.status || "")) throw appError("repo_not_found", 404);
-    if (["preparing", "removing", "expiring"].includes(model.status || "")) throw appError("repository_busy", 409);
-    const source = model.source as { repositoryName?: string; repositoryFullName?: string; commit?: string; pullRequestId?: number };
+    const stalePullRequest = !isRepo && model.status === "download" &&
+      (!model.statusDate || model.statusDate.getTime() <= Date.now() - 5 * 60 * 1000);
+    if (!stalePullRequest && ["preparing", "queue", "download", "removing", "expiring"].includes(model.status || "")) throw appError("repository_busy", 409);
+    const source = model.source as { repositoryName?: string; repositoryFullName?: string; repositoryId?: string; commit?: string; pullRequestId?: number };
     const name = source.repositoryName || source.repositoryFullName || "";
-    const selected = await selectRepositoryAccess(user.id, name, connection);
-    const parts = name.split("/").map(encodeURIComponent).join("/");
-    await githubRequest(`/repos/${parts}/${isRepo ? `commits/${encodeURIComponent(source.commit || "")}` : `pulls/${source.pullRequestId}`}`, selected.token);
+    const repositoryId = model.githubAccess?.kind === "github-app" && connection === "github-app"
+      ? model.githubAccess.repositoryId : undefined;
+    const selected = await selectRepositoryAccess(user.id, name, connection, repositoryId);
+    // Repair an installation binding without silently adopting a repository
+    // recreated at the same name. Replacing a source requires its own preview.
+    if (model.githubAccess?.kind === "github-app" && selected.binding.kind === "github-app" &&
+      model.githubAccess.repositoryId !== selected.binding.repositoryId) throw appError("connection_changed", 409);
+    const parts = (selected.fullName || name).split("/").map(encodeURIComponent).join("/");
+    const repositoryPath = `/repos/${parts}`;
+    const token = selected.binding.publicRead ? await appUserToken(user.id) : selected.token;
+    await githubRequest(`${repositoryPath}/${isRepo ? `commits/${encodeURIComponent(source.commit || "")}` : `pulls/${source.pullRequestId}`}`, token);
     if (preview === true) return res.json({ eligible: true, connection });
-    const filter = { _id: model._id, owner: user.id, status: model.status, source: model.source,
+    // This shared cache stores GitHub identity metadata, independently of the
+    // resource binding. Match the numeric ID so a replacement is never renamed.
+    if (isRepo && source.repositoryId && selected.fullName && selected.binding.kind === "github-app") {
+      await CachedRepositoryModel.updateOne({ _id: source.repositoryId, externalId: `gh_${selected.binding.repositoryId}` },
+        { $set: { name: selected.fullName, url: `https://github.com/${selected.fullName}` } });
+    }
+    const filter = { _id: model._id, owner: user.id, status: model.status,
+      ...(stalePullRequest ? { statusDate: model.statusDate ?? null } : {}), source: model.source,
       githubAccess: model.githubAccess ? model.githubAccess : { $exists: false } };
-    const change = { $set: { githubAccess: selected.binding } };
+    const change = { $set: { githubAccess: selected.binding,
+      ...(selected.fullName && selected.fullName !== name
+        ? { [isRepo ? "source.repositoryName" : "source.repositoryFullName"]: selected.fullName } : {}),
+    } };
     const result = isRepo ? await RepositoryModel.updateOne(filter, change) : await PullRequestModel.updateOne(filter, change);
     if (!result.modifiedCount) throw appError("connection_changed", 409);
     res.json({ connection });
@@ -225,9 +247,10 @@ router.post("/connections/disconnect-oauth", async (req, res) => {
   try {
     const user = await getUser(req);
     if (!(await CredentialModel.exists({ ownerId: user.id, provider: APP_PROVIDER, revoked: { $ne: true } }))) throw appError("another_login_required", 409);
-    await appUserToken(user.id);
+    // Confirm the remaining login still works on GitHub before revoking OAuth.
+    await userInstallations(user.id);
     const active = { owner: user.id, status: { $ne: "removed" }, "githubAccess.kind": { $ne: "github-app" } };
-    if (await RepositoryModel.exists(active) || await PullRequestModel.exists(active) || await GistModel.exists({ owner: user.id, status: { $ne: "removed" } })) {
+    if (await RepositoryModel.exists(active) || await PullRequestModel.exists(active)) {
       throw appError("oauth_resources_remaining", 409);
     }
     await revokeGrant(user.id, "github");
