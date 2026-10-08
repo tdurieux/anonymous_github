@@ -1,4 +1,4 @@
-<div class="container page paper-page">
+<div class="container page paper-page conferences-page">
   <div class="row">
     <div class="w-100">
       <div class="paper-crumbs"><a href="/dashboard">My work</a> &nbsp;/&nbsp; <span class="here">Conferences</span></div>
@@ -8,7 +8,7 @@
           <p class="paper-page-lede">Group anonymizations by venue, give chairs a shared dashboard, and set one expiry for every submission.</p>
         </div>
         <a href="/conference/new" class="btn btn-ink">
-          <i class="fa fa-plus-circle mr-1" aria-hidden="true"></i> New conference
+          <svg class="ui-icon mr-1" aria-hidden="true"><use href="#project-icon-plus"></use></svg> New conference
         </a>
       </div>
 
@@ -70,6 +70,8 @@
       </div>
     </div>
 
+    <div class="conference-feedback" role="alert" v-if="error"><span>{{ error }}</span><button type="button" class="btn btn-outline-ink" @click="loadConferences()">Retry</button></div>
+    <div class="conference-feedback" role="status" v-if="loading">Loading conferences…</div>
     <div class="paper-table paper-table-conferences w-100" role="table" aria-label="Conferences">
       <div class="paper-table-head" role="row">
         <div role="columnheader">Conference</div>
@@ -80,7 +82,7 @@
       </div>
       <div class="paper-table-row row-clickable" role="row" v-for="(conference, index) in filteredConferences" :key="conference?.conferenceID" :class="{&#x27;repo-inactive&#x27;: conference?.status == &#x27;expired&#x27; || conference?.status == &#x27;removed&#x27;}">
         <div class="cell-anon" role="cell">
-          <span class="type-badge type-repo">Conf</span>
+          <svg class="ui-icon record-type-icon" role="img" aria-label="Conference"><use href="#project-icon-conference"></use></svg>
           <div class="anon-text">
             <a class="repo-name" v-text="conference?.name" :href="safeUrl(&quot;/conference/&quot; + (conference?.conferenceID))"></a>
             <div class="anon-sub">
@@ -94,40 +96,40 @@
             <span class="status-word" v-text="fmt?.statusLabel(conference?.status)"></span>
           </div>
         </div>
-        <div class="cell-views num" role="cell" v-text="fmt?.number(conference?.nbRepositories || 0)"></div>
-        <div class="cell-expires" role="cell">
+        <div class="cell-views num" role="cell"><svg class="ui-icon mobile-meta-icon" aria-hidden="true"><use href="#project-type-repo"></use></svg> <span v-text="fmt?.number(conference?.nbRepositories || 0)"></span></div>
+        <div class="cell-expires" role="cell"><svg class="ui-icon mobile-meta-icon" aria-hidden="true"><use href="#project-icon-clock"></use></svg>
           <span v-if="conference?.startDate">{{ fmt?.date(conference?.startDate, 'mediumDate') }} &ndash; {{ fmt?.date(conference?.endDate, 'mediumDate') }}</span>
           <span class="empty-dash" aria-label="No review window" v-if="!conference?.startDate">&mdash;</span>
         </div>
         <div class="cell-actions" role="cell">
           <div class="dropdown">
-            <button class="btn btn-icon-dots" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" :aria-label="&quot;Actions for &quot; + (conference?.name)">
-              <i class="fas fa-ellipsis-h" aria-hidden="true"></i>
+            <button class="btn btn-icon-dots" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" :disabled="conference?.removing" :aria-label="&quot;Actions for &quot; + (conference?.name)">
+              <svg class="ui-icon" aria-hidden="true"><use href="#project-icon-more"></use></svg>
             </button>
             <div class="dropdown-menu dropdown-menu-right">
               <a class="dropdown-item" :href="safeUrl(&quot;/conference/&quot; + (conference?.conferenceID) + &quot;/&quot;)">
-                <i class="fa fa-eye" aria-hidden="true"></i> View
+                <svg class="ui-icon" aria-hidden="true"><use href="#project-icon-eye"></use></svg> View
               </a>
               <a class="dropdown-item" :href="safeUrl(&quot;/conference/&quot; + (conference?.conferenceID) + &quot;/edit&quot;)">
-                <i class="far fa-edit" aria-hidden="true"></i> Edit
+                <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-edit"></use></svg> Edit
               </a>
               <div v-if="conference?.status != &#x27;removed&#x27;">
                 <div class="dropdown-divider"></div>
                 <button type="button" class="dropdown-item dropdown-item-danger" @click="removeConference(conference)">
-                  <i class="fas fa-trash-alt" aria-hidden="true"></i> Remove
+                  <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-trash"></use></svg> Remove
                 </button>
               </div>
             </div>
           </div>
         </div>
       </div>
-      <div class="paper-table-empty" v-if="filteredConferences?.length == 0">
-        <i class="fas fa-inbox" aria-hidden="true"></i>
+      <div class="paper-table-empty" v-if="!loading &amp;&amp; !error &amp;&amp; filteredConferences?.length == 0">
+        <svg class="ui-icon" aria-hidden="true"><use href="#project-icon-inbox"></use></svg>
         <span v-if="conferences?.length == 0">You have not created a conference yet.</span>
         <span v-if="conferences?.length &gt; 0">Nothing matches the current filters.</span>
         <div class="paper-table-empty-actions">
           <button type="button" class="btn btn-outline-ink" v-if="conferences?.length &gt; 0" @click="search = &#x27;&#x27;; filters.status.ready = true; filters.status.expired = true; filters.status.removed = true;">Clear filters</button>
-          <a href="/conference/new" class="btn btn-ink" v-if="conferences?.length == 0"><i class="fa fa-plus-circle mr-1" aria-hidden="true"></i> New conference</a>
+          <a href="/conference/new" class="btn btn-ink" v-if="conferences?.length == 0"><svg class="ui-icon mr-1" aria-hidden="true"><use href="#project-icon-plus"></use></svg> New conference</a>
         </div>
       </div>
     </div>

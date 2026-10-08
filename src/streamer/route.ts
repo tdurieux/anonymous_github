@@ -32,7 +32,7 @@ router.post(
           repoName: repoFullName[1],
           commit,
           getToken: () => token,
-          anonymizerOptions,
+          anonymizerOptions: { ...anonymizerOptions, repoId },
           contentOptions,
         },
         res
@@ -57,7 +57,9 @@ router.post("/", async (req: express.Request, res: express.Response) => {
   const commit = req.body.commit;
   const filePath: string = req.body.filePath;
   const anonymizerOptions = req.body.anonymizerOptions;
-  const anonymizer = new AnonymizeTransformer(anonymizerOptions);
+  const anonymizer = new AnonymizeTransformer({ ...anonymizerOptions, repoId,
+    cacheGeneration: typeof req.body.cacheGeneration === "string" ? req.body.cacheGeneration : anonymizerOptions?.cacheGeneration,
+  });
 
   // Defence in depth: the parent server validates filePath against
   // FileModel before calling us, but the streamer joins this directly
@@ -79,6 +81,8 @@ router.post("/", async (req: express.Request, res: express.Response) => {
     organization: repoFullName[0],
     repoName: repoFullName[1],
     commit: commit,
+    cacheGeneration: typeof req.body.cacheGeneration === "string" ? req.body.cacheGeneration : undefined,
+    cacheRevision: typeof req.body.cacheRevision === "string" ? req.body.cacheRevision : anonymizerOptions?.cacheRevision,
     getToken: () => token,
   });
   try {
@@ -87,6 +91,7 @@ router.post("/", async (req: express.Request, res: express.Response) => {
       repoId,
       () => ({ sha: fileSha, size: fileSize })
     );
+    if (res.destroyed || res.writableEnded) { content.destroy(); anonymizer.destroy(); return; }
     const mime = lookup(filePath);
     if (mime && !filePath.endsWith(".ts")) {
       res.contentType(mime);
@@ -122,6 +127,7 @@ router.post("/", async (req: express.Request, res: express.Response) => {
       .pipe(res)
       .on("error", handleStreamError)
       .on("close", () => {
+        anonymizer.destroy();
         if (!content.closed && !content.destroyed) {
           content.destroy();
         }

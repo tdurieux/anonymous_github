@@ -23,7 +23,7 @@
 
           <!-- General -->
           <h4 class="faq-cat">
-            <i class="fas fa-info-circle mr-2"></i>General
+            <svg class="ui-icon mr-2" aria-hidden="true"><use href="#ui-icon-info"></use></svg>General
           </h4>
           <div class="panel-group" id="faq-general" role="tablist" aria-multiselectable="true">
             <div class="panel panel-default mb-3">
@@ -113,7 +113,7 @@
 
           <!-- Features -->
           <h4 class="faq-cat">
-            <i class="fas fa-cogs mr-2"></i>Features
+            <svg class="ui-icon mr-2" aria-hidden="true"><use href="#project-icon-filter"></use></svg>Features
           </h4>
           <div class="panel-group" id="faq-features" role="tablist" aria-multiselectable="true">
             <div class="panel panel-default mb-3">
@@ -285,7 +285,7 @@ anonymous_github</code></pre>
 
           <!-- Limitations -->
           <h4 class="faq-cat">
-            <i class="fas fa-exclamation-triangle mr-2"></i>Limitations
+            <svg class="ui-icon mr-2" aria-hidden="true"><use href="#ui-icon-warning"></use></svg>Limitations
           </h4>
           <div class="panel-group" id="faq-limitations" role="tablist" aria-multiselectable="true">
             <div class="panel panel-default mb-3">
@@ -322,7 +322,7 @@ anonymous_github</code></pre>
 
           <!-- Privacy & Security -->
           <h4 class="faq-cat">
-            <i class="fas fa-shield-alt mr-2"></i>Privacy &amp; Security
+            <svg class="ui-icon mr-2" aria-hidden="true"><use href="#ui-icon-shield"></use></svg>Privacy &amp; Security
           </h4>
           <div class="panel-group" id="faq-privacy" role="tablist" aria-multiselectable="true">
             <div class="panel panel-default mb-3">
@@ -355,28 +355,9 @@ anonymous_github</code></pre>
               </div>
               <div id="permissions" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingPermissions">
                 <div class="panel-body p-3">
-                  <p>
-                    Anonymous GitHub only reads your repositories &mdash; it
-                    never pushes commits, opens issues, modifies settings, or
-                    deletes anything. From your perspective as a user, the
-                    service is read-only.
-                  </p>
-                  <p>
-                    However, GitHub's OAuth scopes do not offer a read-only
-                    option for private repositories: the only scope that grants
-                    access to private repos is <code>repo</code>, which is
-                    documented as full read/write access. To support users who
-                    want to anonymize a private repository, Anonymous GitHub
-                    must request that scope, and GitHub then displays the
-                    broader permission text at sign-in. The application itself
-                    only ever performs read operations against the GitHub API.
-                  </p>
-                  <p>
-                    If you only anonymize public repositories, the source code
-                    is open and can be audited on the
-                    <a href="https://github.com/tdurieux/anonymous_github/" target="_blank">GitHub repository</a>,
-                    or you can self-host your own instance.
-                  </p>
+                  <p>The GitHub App has read-only access to the repositories you choose. You can change repository access on your <a href="/connections">GitHub connections</a> page.</p>
+                  <p>Legacy GitHub OAuth includes write access to private repositories because GitHub's OAuth scopes do not offer a read-only option for them. Existing OAuth anonymizations and gists can still use this connection.</p>
+                  <p>Anonymous GitHub reads repository content. It never pushes, modifies, or deletes files on GitHub.</p>
                 </div>
               </div>
             </div>
@@ -403,7 +384,7 @@ anonymous_github</code></pre>
 
           <!-- Self-Hosting -->
           <h4 class="faq-cat">
-            <i class="fas fa-server mr-2"></i>Self-Hosting
+            <svg class="ui-icon mr-2" aria-hidden="true"><use href="#project-icon-storage"></use></svg>Self-Hosting
           </h4>
           <div class="panel-group" id="faq-hosting" role="tablist" aria-multiselectable="true">
             <div class="panel panel-default mb-3">

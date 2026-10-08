@@ -5,7 +5,12 @@ export function initializeTemplate(name, state) {
   if (name === "partials/explorer.htm") {
     state.sidebarCollapsed = window.matchMedia?.("(max-width: 767px)").matches || false;
   }
-  if (name === "partials/anonymize.htm") state.prTabState = { active: state.options.diff ? "diff" : "comments" };
+  if (name === "partials/anonymize.htm") {
+    state.prTabState = { active: state.options.diff ? "diff" : "comments" };
+    state.watchGroup(["options.diff", "options.comments"], () => {
+      if (!state.options[state.prTabState.active]) state.prTabState.active = state.options.diff ? "diff" : state.options.comments ? "comments" : null;
+    });
+  }
   if (name === "partials/gist.htm") state.tabState = { active: state.details?.files ? "files" : "comments" };
   if (["partials/conferences.htm", "partials/conference.htm"].includes(name)) {
     state.statusLabels = { ready: "Ready", expired: "Expired", removed: "Removed" };

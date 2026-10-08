@@ -3,6 +3,9 @@ import AnonymizedFile from "../../core/AnonymizedFile";
 import AnonymousError from "../../core/AnonymousError";
 import { getRepo, handleError } from "./route-utils";
 import { fileETag } from "./file-etag";
+import config from "../../config";
+import { lookup } from "mime-types";
+import { isTextFile } from "../../core/anonymize-utils";
 
 export const router = express.Router();
 
@@ -142,8 +145,16 @@ router.get(
       // anonymization term list left old anonymizations cached under the
       // same URL.
       res.header("Cache-Control", "private, no-cache, must-revalidate");
-      if (req.headers["if-none-match"] === etag) {
+      if (req.fresh) {
         return res.status(304).end();
+      }
+      if (req.method === "HEAD") {
+        const size = await f.size();
+        if (size != null && size > config.MAX_FILE_SIZE) throw new AnonymousError("file_too_big", { httpStatus: 413 });
+        const mime = lookup(originalPath);
+        if (mime && !originalPath.endsWith(".ts")) res.type(mime);
+        else if (isTextFile(originalPath)) res.type("text/plain");
+        res.end(); return;
       }
       await f.send(res);
       await repo.countView();

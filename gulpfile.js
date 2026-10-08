@@ -1,4 +1,4 @@
-const { src, dest, parallel, series } = require("gulp");
+const { src, dest } = require("vinyl-fs");
 const uglify = require("gulp-uglify");
 const concat = require("gulp-concat");
 const order = require("ordered-read-streams");
@@ -6,8 +6,10 @@ const { pipeline } = require("node:stream");
 const cleanCss = require("gulp-clean-css");
 const crypto = require("crypto");
 const fs = require("fs");
+const path = require("path");
 const esbuild = require("esbuild");
 const { compileTemplate } = require("vue/compiler-sfc");
+const { Script } = require("node:vm");
 const { promisify } = require("node:util");
 
 const coreJsFiles = [
@@ -54,10 +56,14 @@ function hashFile(filePath) {
   return crypto.createHash("md5").update(content).digest("hex").slice(0, 10);
 }
 
-// Gulp 5 does not preserve array order. Read each asset in its declared order
+// Read each asset in its declared order
 // so libraries precede their plugins and application code, and CSS keeps its cascade.
 function orderedSrc(files) {
-  return order(files.map(file => src(file)));
+  return order(files.map(assetSrc));
+}
+
+function assetSrc(file) {
+  return src(path.basename(file), { cwd: path.dirname(file) });
 }
 
 function buildCoreJs(cb) {
@@ -67,13 +73,19 @@ function buildCoreJs(cb) {
 async function buildVendorJs() {
   const lazyAssets = {};
   await Promise.all(Object.entries(lazyGroups).map(async ([name, files]) => {
-    await promisify(pipeline)(orderedSrc(files), concat(`${name}.min.js`), uglify(), dest("public/script"));
+    // PDF.js is already minified upstream. Re-minifying it breaks rendering
+    // for documents such as #857, even though page.render() resolves.
+    if (name === "pdf") {
+      for (const file of files) new Script(fs.readFileSync(file, "utf8"), { filename: file });
+    }
+    const transforms = name === "pdf" ? [] : [uglify()];
+    await promisify(pipeline)(orderedSrc(files), concat(`${name}.min.js`), ...transforms, dest("public/script"));
     lazyAssets[name] = `/script/${name}.${hashFile(`public/script/${name}.min.js`)}.min.js`;
   }));
   const app = await esbuild.build({
     entryPoints: ["public/script/main.js"], bundle: true, write: false,
     format: "iife", minify: true, target: "es2020",
-    define: { __LAZY_ASSETS__: JSON.stringify(lazyAssets), "process.env.NODE_ENV": JSON.stringify("production"), __VUE_OPTIONS_API__: "true", __VUE_PROD_DEVTOOLS__: "false", __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: "false" },
+    define: { __ACE_MODES__: JSON.stringify(fs.readdirSync("public/script/external/ace").filter(file => /^mode-[a-z0-9_]+\.js$/.test(file)).map(file => file.slice(5, -3))), __LAZY_ASSETS__: JSON.stringify(lazyAssets), "process.env.NODE_ENV": JSON.stringify("production"), __VUE_OPTIONS_API__: "true", __VUE_PROD_DEVTOOLS__: "false", __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: "false" },
     plugins: [{ name: "vue-templates", setup(build) {
       build.onLoad({ filter: /\.htm$/ }, async ({ path }) => {
         const { code, errors } = compileTemplate({
@@ -91,7 +103,7 @@ async function buildVendorJs() {
 }
 
 function buildMermaidJs(cb) {
-  pipeline(src(mermaidFiles), concat("mermaid.min.js"), dest("public/script"), cb);
+  pipeline(orderedSrc(mermaidFiles), concat("mermaid.min.js"), dest("public/script"), cb);
 }
 
 function buildCss(cb) {
@@ -122,6 +134,21 @@ function writeManifest(cb) {
   cb();
 }
 
-const buildAssets = parallel(buildCoreJs, buildVendorJs, buildMermaidJs, buildCss);
+async function buildAssets() {
+  await Promise.all([
+    promisify(buildCoreJs)(), buildVendorJs(),
+    promisify(buildMermaidJs)(), promisify(buildCss)(),
+  ]);
+  await promisify(writeManifest)();
+}
 
-exports.default = series(buildAssets, writeManifest);
+exports.default = cb => buildAssets().then(() => cb(), cb);
+
+if (require.main === module) {
+  exports.default(error => {
+    if (error) {
+      console.error(error);
+      process.exitCode = 1;
+    }
+  });
+}

@@ -3,23 +3,23 @@
   <h1 class="paper-page-title">Users</h1>
 
   <nav class="admin-nav">
-    <a href="/admin/"><i class="fas fa-tachometer-alt"></i> Overview</a>
-    <a href="/admin/repositories"><i class="fas fa-code-branch"></i> Repositories</a>
-    <a href="/admin/users" class="active"><i class="fas fa-users"></i> Users</a>
-    <a href="/admin/conferences"><i class="fas fa-chalkboard-teacher"></i> Conferences</a>
-    <a href="/admin/queues"><i class="fas fa-tasks"></i> Queues</a>
-    <a href="/admin/errors"><i class="fas fa-bug"></i> Errors</a>
+    <a href="/admin/"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-chart"></use></svg> Overview</a>
+    <a href="/admin/repositories"><svg class="ui-icon" aria-hidden="true"><use href="#project-type-repo"></use></svg> Repositories</a>
+    <a href="/admin/users" class="active"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-users"></use></svg> Users</a>
+    <a href="/admin/conferences"><svg class="ui-icon" aria-hidden="true"><use href="#project-icon-conference"></use></svg> Conferences</a>
+    <a href="/admin/queues"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-list"></use></svg> Queues</a>
+    <a href="/admin/errors"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-bug"></use></svg> Errors</a>
   </nav>
 
   <div class="admin-summary">
     <span class="summary-total">{{ total >= 0 ? fmt.number(total) : '…' }}</span>
-    <span class="summary-pill ok" :class="{active: query?.status == &#x27;active&#x27;}" @click="query.status = query.status == &#x27;active&#x27; ? &#x27;&#x27; : &#x27;active&#x27;; query.page = 1">Active <span class="count">{{ fmt?.number(statusCountFor('active')) }}</span></span>
-    <span class="summary-pill error" :class="{active: query?.status == &#x27;banned&#x27;}" @click="query.status = query.status == &#x27;banned&#x27; ? &#x27;&#x27; : &#x27;banned&#x27;; query.page = 1">Banned <span class="count">{{ fmt?.number(statusCountFor('banned')) }}</span></span>
-    <span class="summary-pill" :class="{active: query?.status == &#x27;removed&#x27;}" @click="query.status = query.status == &#x27;removed&#x27; ? &#x27;&#x27; : &#x27;removed&#x27;; query.page = 1">Removed <span class="count">{{ fmt?.number(statusCountFor('removed')) }}</span></span>
+    <button type="button" class="summary-pill ok" :class="{active: query?.status == &#x27;active&#x27;}" @click="query.status = query.status == &#x27;active&#x27; ? &#x27;&#x27; : &#x27;active&#x27;; query.page = 1" :aria-pressed="!!(query?.status == &#x27;active&#x27;)">Active <span class="count">{{ fmt?.number(statusCountFor('active')) }}</span></button>
+    <button type="button" class="summary-pill error" :class="{active: query?.status == &#x27;banned&#x27;}" @click="query.status = query.status == &#x27;banned&#x27; ? &#x27;&#x27; : &#x27;banned&#x27;; query.page = 1" :aria-pressed="!!(query?.status == &#x27;banned&#x27;)">Banned <span class="count">{{ fmt?.number(statusCountFor('banned')) }}</span></button>
+    <button type="button" class="summary-pill" :class="{active: query?.status == &#x27;removed&#x27;}" @click="query.status = query.status == &#x27;removed&#x27; ? &#x27;&#x27; : &#x27;removed&#x27;; query.page = 1" :aria-pressed="!!(query?.status == &#x27;removed&#x27;)">Removed <span class="count">{{ fmt?.number(statusCountFor('removed')) }}</span></button>
   </div>
 
   <div class="alert alert-danger" style="margin: 8px 0;" v-if="fetchError">
-    <i class="fas fa-exclamation-triangle"></i> {{ fetchError }}
+    <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-warning"></use></svg> {{ fetchError }}
   </div>
 
   <form class="w-100 admin-filter-toolbar" aria-label="Users" accept-charset="UTF-8" v-form="viewState">
@@ -32,11 +32,11 @@
         <select class="form-control form-control-sm" v-field="{ state: viewState, set: value =&gt; { query.role = value }, value: query?.role, form: null, options: {} }"><option value="">Any</option><option value="admin">Admin</option></select>
       </span>
       <span class="admin-filter-spacer"></span>
-      <button class="btn btn-sm" type="button" @click="exportCsv()"><i class="fas fa-file-csv"></i> Export</button>
+      <button class="btn btn-sm" type="button" @click="exportCsv()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-export"></use></svg> Export</button>
       <span class="admin-filter-inline" aria-label="Pagination">
-        <button class="btn btn-sm" type="button" @click="query.page = Math.max(1, query.page - 1)" :disabled="query?.page &lt;= 1"><i class="fas fa-chevron-left"></i></button>
+        <button class="btn btn-sm btn-icon" type="button" @click="query.page = Math.max(1, query.page - 1)" :disabled="query?.page &lt;= 1" aria-label="Previous page"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-chevron-left"></use></svg></button>
         <span style="font-family: var(--font-mono); font-size: 12px; color: var(--ink-muted);">{{ query?.page }}/{{ totalPage || 1 }}</span>
-        <button class="btn btn-sm" type="button" @click="query.page = Math.min(totalPage, query.page + 1)" :disabled="query?.page &gt;= totalPage"><i class="fas fa-chevron-right"></i></button>
+        <button class="btn btn-sm btn-icon" type="button" @click="query.page = Math.min(totalPage, query.page + 1)" :disabled="query?.page &gt;= totalPage" aria-label="Next page"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-chevron-right"></use></svg></button>
       </span>
     </div>
 
@@ -45,7 +45,7 @@
         <span class="admin-active-chip" v-for="(chip, index) in chips" :key="chip?.key">
           <span class="key">{{ chip?.label }}</span>
           <span>{{ chip?.value }}</span>
-          <button type="button" @click="clearFilter(chip.key)"><i class="fas fa-times"></i></button>
+          <button type="button" @click="clearFilter(chip.key)" aria-label="Clear filter"><svg class="ui-icon" aria-hidden="true"><use href="#project-icon-close"></use></svg></button>
         </span>
       </div>
     </div>
@@ -53,7 +53,7 @@
 
   <div class="bulk-bar" v-if="selectedCount() &gt; 0">
     <span><strong>{{ selectedCount() }}</strong> selected</span>
-    <button class="btn btn-sm text-danger" type="button" @click="bulkBan()"><i class="fas fa-ban"></i> Ban</button>
+    <button class="btn btn-sm text-danger" type="button" @click="bulkBan()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-ban"></use></svg> Ban</button>
     <button class="btn btn-sm" type="button" @click="selected = {}; allSelected = false">Clear</button>
   </div>
 
@@ -62,9 +62,9 @@
       <div role="columnheader" style="width: 28px;">
         <input type="checkbox" aria-label="Select all on page" @click="selectAllOnPage()" :checked="allSelected">
       </div>
-      <div role="columnheader"><span class="sortable" :class="{active: query?.sort == &#x27;username&#x27;}" @click="sortBy(&#x27;username&#x27;)">User <i class="fas" :class="sortIcon(&#x27;username&#x27;)"></i></span></div>
+      <div role="columnheader"><button type="button" class="sortable" :class="{active: query?.sort == &#x27;username&#x27;}" @click="sortBy(&#x27;username&#x27;)">User <svg class="ui-icon sort-direction" aria-hidden="true" v-if="sortIcon(&#x27;username&#x27;)" :class="{ascending: sortIcon(&#x27;username&#x27;) === 'fa-arrow-up'}"><use href="#project-icon-arrow"></use></svg></button></div>
       <div role="columnheader" class="num">Repos</div>
-      <div role="columnheader"><span class="sortable" :class="{active: query?.sort == &#x27;status&#x27;}" @click="sortBy(&#x27;status&#x27;)">Status <i class="fas" :class="sortIcon(&#x27;status&#x27;)"></i></span></div>
+      <div role="columnheader"><button type="button" class="sortable" :class="{active: query?.sort == &#x27;status&#x27;}" @click="sortBy(&#x27;status&#x27;)">Status <svg class="ui-icon sort-direction" aria-hidden="true" v-if="sortIcon(&#x27;status&#x27;)" :class="{ascending: sortIcon(&#x27;status&#x27;) === 'fa-arrow-up'}"><use href="#project-icon-arrow"></use></svg></button></div>
       <div role="columnheader">Role</div>
       <div role="columnheader" aria-label="Actions"></div>
     </div>
@@ -77,12 +77,12 @@
         <div class="anon-text">
           <a class="repo-name" v-text="u?.username" :href="safeUrl(&quot;/admin/users/&quot; + (u?.username))"></a>
           <div class="anon-sub">
-            <span v-if="u?.emails[0].email">{{ u?.emails[0].email }}</span><span v-if="u?.emails[0].email">&nbsp;&middot;&nbsp;</span><a target="_blank" :href="safeUrl(&quot;https://github.com/&quot; + (u?.username))"><i class="fab fa-github"></i> {{ u?.username }}</a><span v-if="u?.dateOfEntry">&nbsp;&middot;&nbsp;Joined {{ fmt?.humanTime(u?.dateOfEntry) }}</span>
+            <span v-if="u?.emails?.[0]?.email">{{ u?.emails?.[0]?.email }} &middot; </span><a target="_blank" :href="safeUrl(&quot;https://github.com/&quot; + (u?.username))"><i class="fab fa-github"></i> {{ u?.username }}</a><span v-if="u?.dateOfEntry">&nbsp;&middot;&nbsp;Joined {{ fmt?.humanTime(u?.dateOfEntry) }}</span>
           </div>
         </div>
       </div>
-      <div class="cell-views num" role="cell">
-        <a title="Show this user&#x27;s repositories" v-text="fmt?.number((u?.repoCount || 0))" :href="safeUrl(&quot;/admin/?owner=&quot; + (u?.username))"></a>
+      <div class="cell-views num" role="cell"><svg class="ui-icon mobile-meta-icon" aria-hidden="true"><use href="#project-type-repo"></use></svg>
+        <a title="Show this user&#x27;s repositories" v-text="fmt?.number((u?.repoCount || 0))" :href="safeUrl(&quot;/admin/repositories?owner=&quot; + (u?.username))"></a>
       </div>
       <div class="cell-status" role="cell">
         <span class="status-dot" :class="{&#x27;status-ready&#x27;: u?.status == &#x27;active&#x27;, &#x27;status-removed&#x27;: u?.status == &#x27;removed&#x27; || u?.status == &#x27;banned&#x27;}"></span>
@@ -95,20 +95,20 @@
       <div class="cell-actions" role="cell">
         <div class="dropdown">
           <button class="btn btn-icon-dots" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" aria-label="Actions">
-            <i class="fas fa-ellipsis-h" aria-hidden="true"></i>
+            <svg class="ui-icon" aria-hidden="true"><use href="#project-icon-more"></use></svg>
           </button>
           <div class="dropdown-menu dropdown-menu-right">
-            <a class="dropdown-item" :href="safeUrl(&quot;/admin/users/&quot; + (u?.username))"><i class="far fa-eye"></i> View details</a>
-            <a class="dropdown-item" :href="safeUrl(&quot;/admin/?owner=&quot; + (u?.username))"><i class="fas fa-code-branch"></i> View repositories</a>
+            <a class="dropdown-item" :href="safeUrl(&quot;/admin/users/&quot; + (u?.username))"><svg class="ui-icon" aria-hidden="true"><use href="#project-icon-eye"></use></svg> View details</a>
+            <a class="dropdown-item" :href="safeUrl(&quot;/admin/repositories?owner=&quot; + (u?.username))"><svg class="ui-icon" aria-hidden="true"><use href="#project-type-repo"></use></svg> View repositories</a>
             <div class="dropdown-divider"></div>
-            <a class="dropdown-item text-danger" href="#" v-show="u?.status == &#x27;active&#x27;" @click.prevent="banUser(u)"><i class="fas fa-ban"></i> Ban</a>
-            <a class="dropdown-item" href="#" v-show="u?.status == &#x27;removed&#x27; || u?.status == &#x27;banned&#x27;" @click.prevent="activateUser(u)"><i class="fas fa-check-circle"></i> Activate</a>
+            <a class="dropdown-item text-danger" href="#" v-show="u?.status == &#x27;active&#x27;" @click.prevent="banUser(u)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-ban"></use></svg> Ban</a>
+            <a class="dropdown-item" href="#" v-show="u?.status == &#x27;removed&#x27; || u?.status == &#x27;banned&#x27;" @click.prevent="activateUser(u)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-check-circle"></use></svg> Activate</a>
           </div>
         </div>
       </div>
     </div>
     <div class="paper-table-empty" v-if="filteredUsers?.length == 0">
-      <i class="fas fa-inbox"></i>
+      <svg class="ui-icon" aria-hidden="true"><use href="#project-icon-inbox"></use></svg>
       <span>No users match the current filters.</span>
     </div>
   </div>
@@ -116,10 +116,10 @@
   <div class="admin-toolbar" style="justify-content: space-between; border-bottom: none;">
     <span style="font-size: 12px; color: var(--ink-muted);">{{ fmt?.number(total) }} results</span>
     <div class="pagination-compact" v-if="totalPage &gt; 1">
-      <button class="btn btn-sm" @click="query.page = Math.max(1, query.page - 1)" :disabled="query?.page &lt;= 1"><i class="fas fa-chevron-left"></i> Previous</button>
+      <button class="btn btn-sm" @click="query.page = Math.max(1, query.page - 1)" :disabled="query?.page &lt;= 1"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-chevron-left"></use></svg> Previous</button>
       <input type="number" class="form-control form-control-sm" min="1" style="width: 56px;" v-field="{ state: viewState, set: value =&gt; { query.page = value }, value: query?.page, form: null, options: {} }" :max="(totalPage)">
       <span>of {{ totalPage }}</span>
-      <button class="btn btn-sm" @click="query.page = Math.min(totalPage, query.page + 1)" :disabled="query?.page &gt;= totalPage">Next <i class="fas fa-chevron-right"></i></button>
+      <button class="btn btn-sm" @click="query.page = Math.min(totalPage, query.page + 1)" :disabled="query?.page &gt;= totalPage">Next <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-chevron-right"></use></svg></button>
     </div>
     <span class="admin-filter-inline">
       <label>Per page</label>

@@ -9,10 +9,10 @@
         </div>
         <div class="d-flex flex-wrap" style="gap: 6px">
           <a href="/anonymize" class="btn btn-ink">
-            <i class="fa fa-plus-circle mr-1" aria-hidden="true"></i> Anonymize Repo
+            <svg class="ui-icon mr-1" aria-hidden="true"><use href="#project-icon-plus"></use></svg> Anonymize Repo
           </a>
           <a href="/pull-request-anonymize" class="btn btn-ink">
-            <i class="fa fa-plus-circle mr-1" aria-hidden="true"></i> Anonymize PR
+            <svg class="ui-icon mr-1" aria-hidden="true"><use href="#project-icon-plus"></use></svg> Anonymize PR
           </a>
           <a title="Claim the ownership of an existing anonymized repository." data-toggle="tooltip" data-placement="bottom" href="/claim" class="btn">
             Claim
@@ -113,19 +113,19 @@
           </div>
           <div class="repo-meta">
             <span title="Conference" v-if="pr?.conference">
-              <i class="fas fa-chalkboard-teacher"></i> {{ pr?.conference }}
+              <svg class="ui-icon" aria-hidden="true"><use href="#project-icon-conference"></use></svg> {{ pr?.conference }}
             </span>
             <span data-toggle="tooltip" data-placement="bottom" :title="&quot;Terms: &quot; + (pr?.options?.terms?.join(&#x27;, &#x27;))">
-              <i class="fas fa-shield-alt"></i> {{ fmt?.number(pr?.options?.terms?.length) }}
+              <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-shield"></use></svg> {{ fmt?.number(pr?.options?.terms?.length) }}
             </span>
             <span data-toggle="tooltip" data-placement="bottom" :title="&quot;Views: &quot; + (fmt?.number(pr?.pageView))">
-              <i class="far fa-eye"></i> {{ fmt?.number(pr?.pageView) }}
+              <svg class="ui-icon" aria-hidden="true"><use href="#project-icon-eye"></use></svg> {{ fmt?.number(pr?.pageView) }}
             </span>
             <span data-toggle="tooltip" data-placement="bottom" :title="&quot;Last view: &quot; + (fmt?.date(pr?.lastView))">
-              <i class="far fa-calendar-alt"></i> {{ fmt?.humanTime(pr?.lastView) }}
+              <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-calendar"></use></svg> {{ fmt?.humanTime(pr?.lastView) }}
             </span>
             <span v-if="pr?.options?.expirationMode!=&#x27;never&#x27; &amp;&amp; pr?.status == &#x27;ready&#x27;">
-              <i class="far fa-clock"></i> Expire: {{ fmt?.humanTime(pr?.options?.expirationDate) }}
+              <svg class="ui-icon" aria-hidden="true"><use href="#project-icon-clock"></use></svg> Expire: {{ fmt?.humanTime(pr?.options?.expirationDate) }}
             </span>
           </div>
         </div>
@@ -136,26 +136,26 @@
             </button>
             <div class="dropdown-menu dropdown-menu-right">
               <a class="dropdown-item" :href="safeUrl(&quot;/pull-request-anonymize/&quot; + (pr?.pullRequestId))">
-                <i class="far fa-edit" aria-hidden="true"></i> Edit
+                <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-edit"></use></svg> Edit
               </a>
               <a class="dropdown-item" href="#" v-show="pr?.status == &#x27;ready&#x27; || pr?.status == &#x27;error&#x27;" @click.prevent="updatePullRequest(pr)">
-                <i class="fas fa-sync"></i> Force update
+                <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-refresh"></use></svg> Force update
               </a>
               <a class="dropdown-item" href="#" v-show="pr?.status == &#x27;removed&#x27;" @click.prevent="updatePullRequest(pr)">
-                <i class="fas fa-check-circle"></i> Enable
+                <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-check-circle"></use></svg> Enable
               </a>
               <a class="dropdown-item" href="#" v-show="pr?.status == &#x27;ready&#x27;" @click.prevent="removePullRequest(pr)">
-                <i class="fas fa-trash-alt"></i> Remove
+                <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-trash"></use></svg> Remove
               </a>
               <a class="dropdown-item" :href="safeUrl(&quot;/pr/&quot; + (pr?.pullRequestId) + &quot;/&quot;)">
-                <i class="fa fa-eye" aria-hidden="true"></i> View PR
+                <svg class="ui-icon" aria-hidden="true"><use href="#project-icon-eye"></use></svg> View PR
               </a>
             </div>
           </div>
         </div>
       </li>
       <li class="repo-list-empty" v-if="filteredPullRequests?.length == 0">
-        <i class="fas fa-inbox"></i>
+        <svg class="ui-icon" aria-hidden="true"><use href="#project-icon-inbox"></use></svg>
         <span>No pull requests to display.</span>
       </li>
     </ul>
