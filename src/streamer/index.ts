@@ -11,10 +11,14 @@ import AnonymousError from "../core/AnonymousError";
 import { createLogger, serializeError } from "../core/logger";
 import { connect } from "../server/database";
 import { startTemporaryStorageMaintenance } from "../core/temporary-storage";
+import { monitorRequests } from "../core/request-monitoring";
+import { startPerformanceMonitoring } from "../core/performance-monitoring";
+import { getAnonymizationPoolStats } from "../core/anonymization-pool";
 
 const logger = createLogger("streamer");
 
 const app = express();
+app.use(monitorRequests("streamer"));
 app.use(express.json());
 
 app.use(
@@ -46,6 +50,7 @@ app.all("/{*path}", (req, res) => {
   );
 });
 async function start() {
+  startPerformanceMonitoring("streamer", getAnonymizationPoolStats);
   await connect({ appName: "Anonymous GitHub Streamer", maxPoolSize: 10, minPoolSize: 0 });
   await startTemporaryStorageMaintenance();
   app.listen(config.PORT, (error?: Error) => {

@@ -14,6 +14,7 @@ import FileModel from "../../core/model/files/files.model";
 import { createLogger, serializeError } from "../../core/logger";
 import { githubTokenForStreamer } from "../../core/github-token-context";
 import gh = require("parse-github-url");
+import { requestHeaders, startStage } from "../../core/request-monitoring";
 
 const logger = createLogger("repository-public");
 
@@ -52,16 +53,20 @@ router.get(
         });
       }
 
+      res.attachment(`${repo.repoId}.zip`);
+      if (req.method === "HEAD") { res.end(); return; }
       await repo.countView();
 
       if (config.STREAMER_ENTRYPOINT) {
         // use the streamer service
         const token = await repo.getToken();
         const anonymizer = repo.generateAnonymizeTransformer("");
+        const headersDone = startStage("streamer_headers");
         res.attachment(`${repo.repoId}.zip`);
         const reqStream = got
           .stream(join(config.STREAMER_ENTRYPOINT, "api/download"), {
             method: "POST",
+            headers: requestHeaders(),
             json: {
               token: await githubTokenForStreamer(token, repo.model.source.repositoryName),
               repoFullName: repo.model.source.repositoryName,
@@ -76,6 +81,7 @@ router.get(
             },
           })
           .on("error", (err: Error & { response?: { statusCode?: number; body?: unknown } }) => {
+            headersDone(true);
             const upstreamStatus = err?.response?.statusCode;
             let upstreamBody: string | undefined;
             let errCode = "zip_not_available";
@@ -130,6 +136,8 @@ router.get(
             // instead of waiting forever for the ZIP's central directory.
             if (streaming && !res.writableEnded) res.destroy();
           });
+        reqStream.once("response", () => headersDone());
+        reqStream.once("close", () => headersDone());
         reqStream.pipe(res);
         res.on("close", () => {
           reqStream.destroy();

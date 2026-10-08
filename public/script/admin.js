@@ -1734,6 +1734,44 @@ export const overviewAdminController = function (state, http, location, interval
       state.data = null;
       state.loading = true;
       state.error = null;
+      state.performance = null;
+      state.performanceMinutes = 15;
+      state.performanceError = null;
+      state.latencyBound = function (row, field) {
+        if (!row.count) return "No samples";
+        return row[field] == null ? "> 60 s" : "\u2264 " + row[field] + " ms";
+      };
+      state.firstByteBound = function (row) {
+        return state.latencyBound({ count: row.firstByteCount, p95UpperMs: row.firstByteP95UpperMs }, "p95UpperMs");
+      };
+      state.sampleAge = function (sample) { return Math.max(0, Math.round((Date.now() - sample.sampledAt) / 1000)); };
+      state.peakRss = function (sample) {
+        return (state.performance.runtimeSeries || []).filter(function (point) { return point.instance === sample.instance; })
+          .reduce(function (peak, point) { return Math.max(peak, point.rss); }, sample.memory.rss);
+      };
+      state.performanceWarning = function (sample) {
+        return state.sampleAge(sample) > 45 || sample.droppedBatches || sample.droppedMetrics ||
+          sample.sockets?.closeWait > 0 || sample.eventLoop.p95Ms > 100 ||
+          sample.memoryLimitBytes && sample.memory.rss > sample.memoryLimitBytes * 0.8;
+      };
+      var performanceLoading = false;
+      state.loadPerformance = function () {
+        var minutes = state.performanceMinutes;
+        if (state.performance?.windowMinutes && state.performance.windowMinutes !== minutes) state.performance = null;
+        if (performanceLoading) return;
+        performanceLoading = true;
+        http.get("/api/admin/performance", { params: { minutes: minutes } }).then(function (r) {
+          if (minutes !== state.performanceMinutes) return;
+          state.performance = r.data;
+          state.performanceError = r.data.available ? null : "Performance monitoring is unavailable. Request history may be incomplete.";
+        }, function () {
+          if (minutes !== state.performanceMinutes) return;
+          state.performanceError = "Could not refresh performance monitoring. Displayed samples may be stale.";
+        }).finally(function () {
+          performanceLoading = false;
+          if (minutes !== state.performanceMinutes) state.loadPerformance();
+        });
+      };
 
       function humanBytes(b) {
         if (b == null) return "—";
@@ -1834,6 +1872,7 @@ export const overviewAdminController = function (state, http, location, interval
       };
 
       function load() {
+        state.loadPerformance();
         http.get("/api/admin/overview").then(function (r) {
           r.data.history = computeDailyHistory(r.data.history);
           r.data.daily = {

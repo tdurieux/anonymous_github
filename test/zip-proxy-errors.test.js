@@ -42,6 +42,29 @@ describe("ZIP proxy failures", function () {
   function request(onResponse, headers = {}) {
     return http.get(`http://127.0.0.1:${server.address().port}/test/zip`, { headers }, onResponse);
   }
+  it("answers HEAD without counting a view, obtaining a token or starting a ZIP stream", async function () {
+    utils.getRepo = async () => ({ repoId: "test", countView: () => { throw Error("view counted"); },
+      getToken: () => { throw Error("token requested"); }, generateAnonymizeTransformer: () => { throw Error("transform requested"); } });
+    got.stream = () => { throw Error("archive requested"); };
+    const result = await new Promise((resolve, reject) => {
+      http.request(`http://127.0.0.1:${server.address().port}/test/zip`, { method: "HEAD" }, res => {
+        const chunks = []; res.on("data", chunk => chunks.push(chunk));
+        res.on("end", () => resolve({ status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks) }));
+      }).on("error", reject).end();
+    });
+    expect(result.status).to.equal(200);
+    expect(result.headers["content-disposition"]).to.include("test.zip");
+    expect(result.body.length).to.equal(0);
+  });
+  it("still denies HEAD when downloads are disabled", async function () {
+    config.ENABLE_DOWNLOAD = false;
+    const status = await new Promise((resolve, reject) => {
+      http.request(`http://127.0.0.1:${server.address().port}/test/zip`, { method: "HEAD" }, res => {
+        res.resume(); res.on("end", () => resolve(res.statusCode));
+      }).on("error", reject).end();
+    });
+    expect(status).to.equal(403);
+  });
   it("aborts a partial ZIP when the upstream fails after headers", async function () {
     const result = new Promise((resolve, reject) => {
       const client = request(response => {

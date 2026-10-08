@@ -18,6 +18,7 @@ import { octokit, waitForTokenGate } from "../GitHubUtils";
 import FileModel from "../model/files/files.model";
 import { IFile } from "../model/files/files.types";
 import { createLogger, serializeError } from "../logger";
+import { measureStage, recordCacheHit } from "../request-monitoring";
 import config from "../../config";
 import { isConnected } from "../../server/database";
 import AnonymizedRepositoryModel from "../model/anonymizedRepositories/anonymizedRepositories.model";
@@ -286,7 +287,9 @@ export default class GitHubStream extends GitHubBase {
         return undefined;
       }
     };
-    if (await cached()) return storage.read(repoId, cachePath);
+    const hit = await measureStage("cache_lookup", cached);
+    recordCacheHit("source", !!hit);
+    if (hit) return storage.read(repoId, cachePath);
     if (expected.size != null && expected.size > config.MAX_FILE_SIZE) {
       throw new AnonymousError("file_too_big", { httpStatus: 413, object: filePath });
     }
@@ -295,37 +298,40 @@ export default class GitHubStream extends GitHubBase {
       if (cacheFills.size >= 64) throw new AnonymousError("cache_busy", { httpStatus: 503 });
       filling = coordinatedFill(key, cached, async () => {
         await assertActive();
-        const content = await this.downloadWithFallback(await this.data.getToken(), expected.sha, filePath);
-        let count = 0;
-        const limited = new stream.Transform({ transform(chunk, encoding, callback) {
-          count += chunk.length;
-          callback(count > config.MAX_FILE_SIZE ? new AnonymousError("file_too_big", { httpStatus: 413 }) : null, chunk);
-        } });
-        content.on("error", error => {
-          if (error instanceof AnonymousError) { limited.destroy(error); return; }
-          const status = (error as { response?: { statusCode?: number }; status?: number; httpStatus?: number });
-          const httpStatus = status.response?.statusCode ?? status.status ?? status.httpStatus;
-          const code = httpStatus === 403 ? "file_not_accessible"
-            : httpStatus === 404 ? "file_not_found"
-            : httpStatus === 422 ? "file_too_big" : "upstream_error";
-          limited.destroy(new AnonymousError(code, { httpStatus: httpStatus || 502, cause: error, object: filePath }));
+        const token = await this.data.getToken();
+        return measureStage("upstream", async () => {
+          const content = await this.downloadWithFallback(token, expected.sha, filePath);
+          let count = 0;
+          const limited = new stream.Transform({ transform(chunk, encoding, callback) {
+            count += chunk.length;
+            callback(count > config.MAX_FILE_SIZE ? new AnonymousError("file_too_big", { httpStatus: 413 }) : null, chunk);
+          } });
+          content.on("error", error => {
+            if (error instanceof AnonymousError) { limited.destroy(error); return; }
+            const status = (error as { response?: { statusCode?: number }; status?: number; httpStatus?: number });
+            const httpStatus = status.response?.statusCode ?? status.status ?? status.httpStatus;
+            const code = httpStatus === 403 ? "file_not_accessible"
+              : httpStatus === 404 ? "file_not_found"
+              : httpStatus === 422 ? "file_too_big" : "upstream_error";
+            limited.destroy(new AnonymousError(code, { httpStatus: httpStatus || 502, cause: error, object: filePath }));
+          });
+          limited.once("close", () => content.destroy());
+          limited.on("error", () => {});
+          content.pipe(limited);
+          const deadline = setTimeout(() => limited.destroy(new AnonymousError("upstream_error", { httpStatus: 502 })), 120_000);
+          try {
+            await storage.write(repoId, cachePath, limited, this.type, expected.size);
+            try { await assertActive(); }
+            catch (error) { await storage.rm(repoId, cachePath); throw error; }
+          }
+          finally { clearTimeout(deadline); limited.destroy(); content.destroy(); }
+          return true;
         });
-        limited.once("close", () => content.destroy());
-        limited.on("error", () => {});
-        content.pipe(limited);
-        const deadline = setTimeout(() => limited.destroy(new AnonymousError("upstream_error", { httpStatus: 502 })), 120_000);
-        try {
-          await storage.write(repoId, cachePath, limited, this.type, expected.size);
-          try { await assertActive(); }
-          catch (error) { await storage.rm(repoId, cachePath); throw error; }
-        }
-        finally { clearTimeout(deadline); limited.destroy(); content.destroy(); }
-        return true;
       }).then(() => {});
       cacheFills.set(key, filling);
       void filling.finally(() => { if (cacheFills.get(key) === filling) cacheFills.delete(key); }).catch(() => {});
     }
-    await filling;
+    await measureStage("cache_fill", () => filling!);
     return storage.read(repoId, cachePath);
   }
 

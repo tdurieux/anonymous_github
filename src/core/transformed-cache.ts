@@ -8,6 +8,7 @@ import { isConnected } from "../server/database";
 import RepositoryModel from "./model/anonymizedRepositories/anonymizedRepositories.model";
 import { RepositoryStatus } from "./types";
 import AnonymousError from "./AnonymousError";
+import { recordCacheHit } from "./request-monitoring";
 const root = join(tmpdir(), "anonymous-transformed-v1");
 const TTL = 3600_000;
 const DISK_BUDGET = 512 * 1024 * 1024;
@@ -62,8 +63,9 @@ export async function transformedFile(digest: string, options: unknown, output: 
   };
   const hit = await read();
   if (hit !== undefined) {
-    try { return await copyCached(hit); } catch { /* eviction: retry the transformation */ }
+    try { const copied = await copyCached(hit); recordCacheHit("transformed", true); return copied; } catch { /* eviction: retry the transformation */ }
   }
+  recordCacheHit("transformed", false);
   const pending = fills.get(key);
   if (pending) {
     await pending.catch(() => {});

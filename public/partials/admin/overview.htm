@@ -17,6 +17,54 @@
   <div class="admin-empty" v-if="loading">Loading overview&hellip;</div>
   <div class="alert alert-danger" style="margin:12px 0" v-if="error"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-warning"></use></svg> {{ error }}</div>
 
+  <section class="ov-panel-card" style="margin:16px 0">
+    <div class="ov-panel-head">
+      <span class="ov-panel-title">Request performance</span>
+      <select v-model.number="performanceMinutes" @change="loadPerformance()" aria-label="Performance time range">
+        <option :value="15">Last 15 minutes</option><option :value="60">Last hour</option>
+      </select>
+    </div>
+    <p v-if="performanceError" class="alert alert-warning">{{ performanceError }}</p>
+    <p v-if="!performance &amp;&amp; !performanceError">Loading performance monitoring&hellip;</p>
+    <div v-if="performance?.available">
+      <p>Latency includes upstream waits and response transfer. Percentiles show histogram bucket upper bounds. Samples refresh every 30 seconds.</p>
+      <div class="table-responsive">
+        <table class="table table-sm">
+          <thead><tr><th>Service</th><th>Route</th><th>Requests</th><th>Average</th><th>First byte p95</th><th>p95</th><th>p99</th><th>Interrupted</th><th>5xx</th><th>Slow</th></tr></thead>
+          <tbody><tr v-for="row in performance.routes" :key="row.service + row.method + row.route">
+            <td>{{ row.service }}</td><td>{{ row.method }} {{ row.route }}</td><td>{{ row.count }}</td><td>{{ row.avgMs }} ms</td>
+            <td>{{ firstByteBound(row) }}</td><td>{{ latencyBound(row, 'p95UpperMs') }}</td><td>{{ latencyBound(row, 'p99UpperMs') }}</td>
+            <td>{{ row.aborted }}</td><td>{{ row.errors }}</td><td>{{ row.slow }}</td>
+          </tr></tbody>
+        </table>
+      </div>
+      <p v-if="!performance.routes?.length">No recorded requests in this window yet.</p>
+      <h3>API and streamer processes</h3>
+      <p v-if="!performance.instances?.length" class="alert alert-warning">No recent process samples. Monitoring coverage is incomplete.</p>
+      <div class="table-responsive">
+        <table class="table table-sm">
+          <thead><tr><th>Process</th><th>RSS / limit</th><th>Peak RSS in window</th><th>CPU</th><th>Event loop p95</th><th>Active requests</th><th>Sockets / CLOSE_WAIT</th><th>Workers / waiting</th><th>Sample age</th><th>Dropped batches / metrics</th></tr></thead>
+          <tbody><tr v-for="sample in performance.instances" :key="sample.instance" :class="{'table-warning': performanceWarning(sample)}">
+            <td>{{ sample.instance }}</td><td>{{ humanBytes(sample.memory.rss) }} / {{ humanBytes(sample.memoryLimitBytes) }}</td>
+            <td>{{ humanBytes(peakRss(sample)) }}</td><td>{{ sample.cpuPercent.toFixed(1) }}%</td><td>{{ sample.eventLoop.p95Ms.toFixed(1) }} ms</td>
+            <td>{{ sample.activeRequests }}</td><td>{{ sample.sockets?.descriptors ?? 'Unavailable' }} / {{ sample.sockets?.closeWait ?? 'Unavailable' }}</td>
+            <td>{{ sample.workers?.running ?? 0 }} / {{ sample.workers?.waiting ?? 0 }}</td><td>{{ sampleAge(sample) }} s</td>
+            <td>{{ sample.droppedBatches }} / {{ sample.droppedMetrics }}</td>
+          </tr></tbody>
+        </table>
+      </div>
+      <h3>Work stages and cache results</h3>
+      <div class="table-responsive">
+        <table class="table table-sm">
+          <thead><tr><th>Service</th><th>Stage</th><th>Samples</th><th>Average</th><th>p95</th></tr></thead>
+          <tbody><tr v-for="row in performance.stages.filter(row =&gt; row.metric !== 'first_byte')" :key="row.service + row.metric">
+            <td>{{ row.service }}</td><td>{{ row.metric }}</td><td>{{ row.count }}</td><td>{{ row.avgMs }} ms</td><td>{{ latencyBound(row, 'p95UpperMs') }}</td>
+          </tr></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
   <div v-if="data">
 
     <!-- ── Top KPI row ──────────────────────────────────────────── -->

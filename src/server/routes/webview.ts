@@ -5,8 +5,11 @@ import AnonymizedFile from "../../core/AnonymizedFile";
 import AnonymousError from "../../core/AnonymousError";
 import * as marked from "marked";
 import * as sanitizeHtml from "sanitize-html";
-import { streamToString } from "../../core/anonymize-utils";
+import { streamToString, isTextFile } from "../../core/anonymize-utils";
 import { IFile } from "../../core/model/files/files.types";
+import { fileETag } from "./file-etag";
+import { lookup } from "mime-types";
+import config from "../../config";
 
 function escapeHtml(str: string): string {
   return str
@@ -170,6 +173,19 @@ async function webView(
         object: f,
       });
     }
+    res.set("Cache-Control", "private, no-cache, must-revalidate");
+    const pageETag = fileETag(JSON.stringify(["web-v1", repo.model.source.commit, repo.model.treeGeneration, repo.model.contentCacheRevision,
+      await f.sha(), repo.model.source.repositoryName, repo.model.source.branch, config.APP_HOSTNAME, config.ANONYMIZATION_MASK]),
+      requestPath, repo.options);
+    res.set("ETag", pageETag);
+    if (req.fresh) { res.status(304).end(); return; }
+    if (req.method === "HEAD") {
+      const size = await f.size();
+      if (size != null && size > config.MAX_FILE_SIZE) throw new AnonymousError("file_too_big", { httpStatus: 413 });
+      const mime = lookup(requestPath);
+      res.type(f.extension() === "md" ? "text/html" : mime && !requestPath.endsWith(".ts") ? mime : isTextFile(requestPath) ? "text/plain" : "application/octet-stream");
+      res.end(); return;
+    }
     if (f.extension() == "md") {
       try {
         const content = await streamToString(await f.anonymizedContent());
@@ -177,6 +193,8 @@ async function webView(
         const html = `<!DOCTYPE html><html><head><title>Content</title></head><link rel="stylesheet" href="/css/all.min.css" /><body><div class="container p-3 file-content markdown-body">${body}</div></body></html>`;
         res.contentType("text/html").send(html);
       } catch {
+        // Raw Markdown must re-enter rendering when a transient failure clears.
+        res.set("ETag", fileETag(`web-raw:${pageETag}`, requestPath, repo.options));
         await f.send(res);
       }
     } else {
