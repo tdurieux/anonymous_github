@@ -34,7 +34,7 @@ const sanitizeOptions = {
  *   sanitizeHtml(marked(content, opts), sanitizeOptions)
  */
 function renderAndSanitize(markdown) {
-  const raw = marked(markdown, { headerIds: false, mangle: false });
+  const raw = marked(markdown, { async: false });
   return sanitizeHtml(raw, sanitizeOptions);
 }
 

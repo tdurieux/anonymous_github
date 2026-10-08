@@ -65,4 +65,6 @@ const AnonymizedPullRequestSchema = new Schema({
   },
 });
 
+AnonymizedPullRequestSchema.index({ status: 1, "options.expirationDate": 1 });
+
 export default AnonymizedPullRequestSchema;

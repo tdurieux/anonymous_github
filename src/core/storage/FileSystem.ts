@@ -1,7 +1,8 @@
+import { appendArchiveEntry } from "../archive-entry";
 import config from "../../config";
 import * as fs from "fs";
 import { Extract } from "unzip-stream";
-import { join, basename, dirname } from "path";
+import { join, dirname } from "path";
 import { Response } from "express";
 import { Readable, pipeline, Transform } from "stream";
 import * as archiver from "archiver";
@@ -83,6 +84,7 @@ export default class FileSystem extends StorageBase {
     const tmpPath = `${fullPath}.tmp.${process.pid}.${Date.now()}.${Math.random()
       .toString(36)
       .slice(2, 8)}`;
+    let sourceFailed = false;
     try {
       if (typeof data === "string") {
         await fs.promises.writeFile(tmpPath, data);
@@ -100,7 +102,10 @@ export default class FileSystem extends StorageBase {
               resolve();
             }
           };
-          data.on("error", finish);
+          data.on("error", (error) => {
+            if (!settled) sourceFailed = true;
+            finish(error);
+          });
           ws.on("error", finish);
           ws.on("finish", () => finish());
           data.pipe(ws);
@@ -123,7 +128,8 @@ export default class FileSystem extends StorageBase {
       }
       await fs.promises.rename(tmpPath, fullPath);
     } catch (err) {
-      logger.error("write failed", serializeError(err));
+      if (sourceFailed) logger.warn("source stream failed; cache write discarded", serializeError(err));
+      else logger.error("write failed", serializeError(err));
       await fs.promises.rm(tmpPath, { force: true }).catch(() => undefined);
       throw err;
     }
@@ -137,6 +143,24 @@ export default class FileSystem extends StorageBase {
       force: true,
       recursive: true,
     });
+  }
+
+  async removeLegacyContent(repoId: string): Promise<void> {
+    let directory: fs.Dir;
+    try { directory = await fs.promises.opendir(join(config.FOLDER, this.repoPath(repoId))); }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
+      throw error;
+    }
+    for await (const entry of directory) {
+      if (entry.name !== "__content" || !entry.isDirectory()) { await this.rm(repoId, entry.name); continue; }
+      const content = await fs.promises.opendir(join(config.FOLDER, this.repoPath(repoId), "__content"));
+      for await (const generation of content) {
+        if (generation.name !== "__retired" && !/^[a-f0-9]{64}$/.test(generation.name)) {
+          await this.rm(repoId, join("__content", generation.name));
+        }
+      }
+    }
   }
 
   /** @override */
@@ -238,26 +262,28 @@ export default class FileSystem extends StorageBase {
   ) {
     this.assertSafePath(dir);
     const archive = archiver(opt?.format || "zip", {});
-    const fullPath = join(config.FOLDER, this.repoPath(repoId), dir);
-
-    await this.listFiles(repoId, dir, {
-      onEntry: async (file) => {
-        let rs: Readable = await this.read(repoId, file.path);
+    let active: Readable | undefined;
+    let stopped = false;
+    archive.once("close", () => { stopped = true; active?.destroy(); });
+    void (async () => {
+      for (const file of await this.listFiles(repoId, dir)) {
+        if (stopped || file.size == null) continue;
+        const filename = join(file.path, file.name);
+        const source = await this.read(repoId, filename);
+        if (stopped) { source.destroy(); return; }
+        active = source;
+        let output = source;
         if (opt?.fileTransformer) {
-          const src = rs;
-          const transformer = opt.fileTransformer(file.path);
-          src.on("error", (err) => transformer.destroy(err));
-          rs = src.pipe(transformer);
+          const transformer = opt.fileTransformer(filename);
+          source.on("error", error => transformer.destroy(error));
+          transformer.once("close", () => source.destroy());
+          output = source.pipe(transformer);
+          active = output;
         }
-        const f = file.path.replace(fullPath, "");
-        archive.append(rs, {
-          name: basename(f),
-          prefix: dirname(f),
-        });
-      },
-    }).then(() => {
-      archive.finalize();
-    });
+        await appendArchiveEntry(archive, output, { name: filename.slice(dir ? dir.length + 1 : 0) });
+      }
+      if (!stopped) await archive.finalize();
+    })().catch(error => archive.destroy(error));
     return archive;
   }
 }

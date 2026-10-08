@@ -5,7 +5,7 @@ export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    ignores: ["build/", "public/", "gulpfile.js", "healthcheck.js", "opentelemetry.js"],
+    ignores: ["db_backups/", "esdata/", "repositories/", "build/", "public/", "gulpfile.js", "healthcheck.js", "opentelemetry.js"],
   },
   {
     rules: {
@@ -33,10 +33,13 @@ export default tseslint.config(
         __dirname: "readonly",
         console: "readonly",
         Buffer: "readonly",
+        process: "readonly",
+        AbortController: "readonly",
       },
     },
     rules: {
       "@typescript-eslint/no-unused-expressions": "off",
+      "no-redeclare": ["error", { builtinGlobals: false }],
     },
   },
   {

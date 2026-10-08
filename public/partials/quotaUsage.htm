@@ -1,0 +1,19 @@
+<div class="quota-row quota-usage" v-if="quota">
+  <div class="quota-item" :class="'quota-' + quota[q.key].level" :key="q.key" v-for="q in [
+      {key: 'repository', label: 'Repositories', kind: 'count', icon: 'project-type-repo'},
+      {key: 'storage', label: 'Storage', kind: 'bytes', icon: 'project-icon-storage'},
+      {key: 'file', label: 'Files', kind: 'count', icon: 'project-icon-file'}
+    ]">
+    <div class="quota-header">
+      <span class="quota-label"><svg class="project-type-svg" aria-hidden="true"><use :href="'#' + q.icon"></use></svg>{{ q.label }}</span>
+      <span class="quota-percent" v-if="!quota[q.key].unlimited">{{ fmt.number(quota[q.key].percent, 0) }}% used</span>
+      <span class="quota-unlimited-tag" v-if="quota[q.key].unlimited">Unlimited</span>
+    </div>
+    <div class="quota-value"><strong>{{ formatAmount(quota[q.key].used, q.kind) }}</strong><span v-if="!quota[q.key].unlimited"> / {{ formatAmount(quota[q.key].total, q.kind) }}</span></div>
+    <div class="quota-track" v-if="!quota[q.key].unlimited" role="progressbar" aria-valuemin="0" :class="'quota-' + quota[q.key].level" :aria-label="q.label + ' quota'" :aria-valuenow="Math.min(quota[q.key].used, quota[q.key].total)" :aria-valuemax="quota[q.key].total" :aria-valuetext="fmt.number(quota[q.key].percent, 0) + '% used'">
+      <div class="quota-fill" v-if="!quota[q?.key].unlimited" :style="{width: quota[q.key].percent + '%'}"></div>
+    </div>
+    <p class="quota-remaining" v-if="!quota[q.key].unlimited &amp;&amp; quota[q.key].used &lt; quota[q.key].total">{{ formatAmount(quota[q.key].total - quota[q.key].used, q.kind) }} {{ q.key === 'repository' ? 'repositories available' : q.key === 'file' ? 'files available' : 'available' }}</p>
+    <p class="quota-remaining quota-limit" v-if="!quota[q.key].unlimited &amp;&amp; quota[q.key].used &gt;= quota[q.key].total">{{ quota[q.key].used &gt; quota[q.key].total ? 'Limit exceeded' : 'Limit reached' }}</p>
+  </div>
+</div>

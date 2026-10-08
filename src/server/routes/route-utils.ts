@@ -8,6 +8,7 @@ import { HTTPError } from "got";
 import { RepositoryStatus } from "../../core/types";
 import { createLogger, serializeError } from "../../core/logger";
 import { isDisabledAccount } from "./auth-utils";
+import { measureStage } from "../../core/request-monitoring";
 
 const logger = createLogger("route");
 
@@ -81,7 +82,8 @@ export async function getRepo(
     if (typeof req.params.repoId !== "string") {
       throw new AnonymousError("invalid_path", { httpStatus: 400 });
     }
-    const repo = await db.getRepository(req.params.repoId);
+    const repoId = req.params.repoId;
+    const repo = await measureStage("repository", () => db.getRepository(repoId));
     if (opt.nocheck !== true) {
       // redirect if the repository is expired
       if (

@@ -11,22 +11,22 @@
         <button class="btn btn-sm" :class="{active: range == &#x27;7d&#x27;}" @click="setRange(&#x27;7d&#x27;)">7d</button>
       </div>
       <button class="btn btn-sm" @click="pauseAll()">Pause all</button>
-      <button class="btn btn-sm btn-dark" @click="drainSelected()">Drain {{ selectedQueue }}</button>
+      <button class="btn btn-sm btn-danger-soft" @click="drainSelected()">Drain {{ selectedQueue }}</button>
     </div>
   </div>
 
   <nav class="admin-nav">
-    <a href="/admin/"><i class="fas fa-tachometer-alt"></i> Overview</a>
-    <a href="/admin/repositories"><i class="fas fa-code-branch"></i> Repositories</a>
-    <a href="/admin/users"><i class="fas fa-users"></i> Users</a>
-    <a href="/admin/conferences"><i class="fas fa-chalkboard-teacher"></i> Conferences</a>
-    <a href="/admin/queues" class="active"><i class="fas fa-tasks"></i> Queues</a>
-    <a href="/admin/errors"><i class="fas fa-bug"></i> Errors</a>
+    <a href="/admin/"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-chart"></use></svg> Overview</a>
+    <a href="/admin/repositories"><svg class="ui-icon" aria-hidden="true"><use href="#project-type-repo"></use></svg> Repositories</a>
+    <a href="/admin/users"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-users"></use></svg> Users</a>
+    <a href="/admin/conferences"><svg class="ui-icon" aria-hidden="true"><use href="#project-icon-conference"></use></svg> Conferences</a>
+    <a href="/admin/queues" class="active"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-list"></use></svg> Queues</a>
+    <a href="/admin/errors"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-bug"></use></svg> Errors</a>
   </nav>
 
   <!-- Queue overview cards -->
   <div class="q-cards">
-    <div class="q-card" v-for="(q, index) in queueList" :class="{selected: selectedQueue == q?.key, paused: q?.paused}" @click="selectQueue(q.key)">
+    <div class="q-card" role="button" tabindex="0" :aria-pressed="selectedQueue === q.key" @keydown.enter.prevent="selectQueue(q.key)" @keydown.space.prevent="selectQueue(q.key)" v-for="(q, index) in queueList" :class="{selected: selectedQueue == q?.key, paused: q?.paused}" @click="selectQueue(q.key)">
       <div class="q-card-head">
         <span class="q-dot" :class="{&#x27;q-dot-red&#x27;: q?.paused || q?.counts?.failed &gt; 0}"></span>
         <span class="q-card-name" v-text="q?.label"></span>
@@ -44,7 +44,7 @@
   <!-- Detail: throughput chart + stats panel -->
   <div class="q-detail" v-if="selectedStats">
     <div class="q-throughput">
-      <div class="q-section-label">{{ selectedQueue }}&middot;throughput <span class="q-section-right"><span class="q-legend-completed">&#9679;</span> completed <span class="q-legend-failed">&#9679;</span> failed <span class="q-legend-exec">- -</span> avg time &middot; {{ fmt?.uppercase(range) }}</span></div>
+      <div class="q-section-label">{{ selectedQueue }} &middot; throughput <span class="q-section-right"><span class="q-legend-completed">&#9679;</span> completed <span class="q-legend-failed">&#9679;</span> failed <span class="q-legend-exec">- -</span> avg time &middot; {{ range }}</span></div>
       <div class="q-chart-wrap">
         <canvas id="q-throughput-chart" height="180"></canvas>
         <div id="q-chart-tooltip" class="q-chart-tooltip" style="display:none;"></div>
@@ -52,30 +52,30 @@
       </div>
     </div>
     <div class="q-stats-panel">
-      <div class="q-section-label">{{ selectedQueue }}&middot;stats</div>
+      <div class="q-section-label">{{ selectedQueue }} &middot; stats</div>
       <div class="q-stats-grid">
         <div class="q-stat">
-          <div class="q-stat-label">WAITING</div>
+          <div class="q-stat-label">Waiting</div>
           <div class="q-stat-value" v-text="selectedStats?.counts?.waiting || 0"></div>
         </div>
         <div class="q-stat">
-          <div class="q-stat-label">ACTIVE</div>
+          <div class="q-stat-label">Active</div>
           <div class="q-stat-value" v-text="selectedStats?.counts?.active || 0"></div>
         </div>
         <div class="q-stat">
-          <div class="q-stat-label">COMPLETED (24H)</div>
+          <div class="q-stat-label">Completed (24h)</div>
           <div class="q-stat-value" v-text="fmt?.number(selectedStats?.completed24h)"></div>
         </div>
         <div class="q-stat">
-          <div class="q-stat-label">FAILED (24H)</div>
+          <div class="q-stat-label">Failed (24h)</div>
           <div class="q-stat-value" v-text="selectedStats?.failed24h || 0"></div>
         </div>
         <div class="q-stat">
-          <div class="q-stat-label">DELAYED</div>
+          <div class="q-stat-label">Delayed</div>
           <div class="q-stat-value" v-text="selectedStats?.counts?.delayed || 0"></div>
         </div>
         <div class="q-stat">
-          <div class="q-stat-label">WORKERS</div>
+          <div class="q-stat-label">Workers</div>
           <div class="q-stat-value" v-text="selectedStats?.workers || 0"></div>
         </div>
       </div>
@@ -88,13 +88,13 @@
   </div>
 
   <div class="q-toast-error" v-if="actionError" @click="actionError = null">
-    <i class="fas fa-exclamation-circle"></i> {{ actionError }}
+    <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-info"></use></svg> {{ actionError }}
   </div>
 
   <!-- Jobs table -->
   <div class="q-jobs">
     <div class="q-jobs-header">
-      <div class="q-section-label">ALL JOBS &middot; {{ fmt?.uppercase(selectedQueue) }}</div>
+      <div class="q-section-label">All jobs &middot; {{ selectedQueue }}</div>
       <div class="q-state-filters">
         <label class="q-state-toggle" v-for="(s, index) in allStates">
           <input type="checkbox" v-field="{ state: viewState, set: value =&gt; { stateFilter[s] = value }, value: stateFilter[s], form: null, options: {} }">
@@ -109,18 +109,18 @@
         <input type="checkbox" v-field="{ state: viewState, set: value =&gt; { query.autoRefresh = value }, value: query?.autoRefresh, form: null, options: {} }">
         Auto-refresh
       </label>
-      <button class="btn btn-sm" type="button" title="Refresh now" @click="refreshNow()"><i class="fas fa-sync"></i></button>
+      <button class="btn btn-sm btn-icon" type="button" title="Refresh now" @click="refreshNow()" aria-label="Refresh"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-refresh"></use></svg></button>
     </div>
 
     <table class="q-table" v-if="filteredJobs().length &gt; 0">
       <thead>
         <tr>
-          <th>STATE</th>
-          <th>JOB ID</th>
-          <th>PAYLOAD</th>
-          <th>ATTEMPTS</th>
-          <th>DURATION</th>
-          <th>PROGRESS</th>
+          <th>State</th>
+          <th>Job id</th>
+          <th>Payload</th>
+          <th>Attempts</th>
+          <th>Duration</th>
+          <th>Progress</th>
           <th></th>
         </tr>
       </thead>
@@ -131,7 +131,7 @@
             <span class="q-delay-hint" v-if="job?._state == &#x27;delayed&#x27; &amp;&amp; job?.delayUntil" v-text="delayCountdown(job?.delayUntil)"></span>
           </td>
           <td class="q-cell-id">
-            <i class="fas fa-chevron-right q-chevron" :class="{&#x27;q-chevron-open&#x27;: expanded[job?.id]}"></i>
+            <svg class="ui-icon q-chevron" :class="{&#x27;q-chevron-open&#x27;: expanded[job?.id]}" aria-hidden="true"><use href="#ui-icon-chevron-right"></use></svg>
             <a target="_blank" v-text="&#x27;job:&#x27; + fmt.limitTo(job?.id, 6)" @click="$event.stopPropagation()" :href="safeUrl(&quot;/r/&quot; + (job?.id))"></a>
           </td>
           <td class="q-cell-payload">
@@ -147,8 +147,8 @@
             </div>
           </td>
           <td class="q-cell-actions">
-            <button class="btn btn-sm" title="Retry" v-if="job?._state == &#x27;failed&#x27;" @click="retryJob(job); $event.stopPropagation()"><i class="fas fa-sync"></i></button>
-            <button class="btn btn-sm" title="Remove" @click="removeJob(job); $event.stopPropagation()"><i class="fas fa-trash-alt"></i></button>
+            <button class="btn btn-sm btn-icon" title="Retry" v-if="job?._state == &#x27;failed&#x27;" @click="retryJob(job); $event.stopPropagation()" aria-label="Retry job"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-refresh"></use></svg></button>
+            <button class="btn btn-sm btn-icon" title="Remove" aria-label="Remove job" @click="removeJob(job); $event.stopPropagation()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-trash"></use></svg></button>
           </td>
         </tr>
         <tr class="q-detail-row" v-if="expanded[job?.id]">
@@ -156,58 +156,58 @@
             <div class="q-job-detail">
               <div class="q-job-detail-grid">
                 <div class="q-job-detail-item">
-                  <span class="q-job-detail-label">JOB ID</span>
+                  <span class="q-job-detail-label">Job id</span>
                   <span class="q-job-detail-value"><a target="_blank" v-text="job?.id" :href="safeUrl(&quot;/r/&quot; + (job?.id))"></a></span>
                 </div>
                 <div class="q-job-detail-item">
-                  <span class="q-job-detail-label">STATE</span>
+                  <span class="q-job-detail-label">State</span>
                   <span class="q-job-detail-value"><span v-text="job?._state" :class="&quot;q-state-badge q-state-&quot; + (job?._state)"></span></span>
                 </div>
                 <div class="q-job-detail-item" v-if="job?.data?.repoId">
-                  <span class="q-job-detail-label">REPO ID</span>
+                  <span class="q-job-detail-label">Repo ID</span>
                   <span class="q-job-detail-value" v-text="job?.data?.repoId"></span>
                 </div>
                 <div class="q-job-detail-item" v-if="job?.timestamp">
-                  <span class="q-job-detail-label">CREATED</span>
+                  <span class="q-job-detail-label">Created</span>
                   <span class="q-job-detail-value" v-text="humanTime(job?.timestamp)"></span>
                 </div>
                 <div class="q-job-detail-item" v-if="job?._state == &#x27;delayed&#x27; &amp;&amp; job?.delayUntil">
-                  <span class="q-job-detail-label">RETRY AT</span>
+                  <span class="q-job-detail-label">Retry at</span>
                   <span class="q-job-detail-value">{{ humanTime(job?.delayUntil) }} ({{ delayCountdown(job?.delayUntil) }})</span>
                 </div>
                 <div class="q-job-detail-item" v-if="job?.processedOn">
-                  <span class="q-job-detail-label">PROCESSED</span>
+                  <span class="q-job-detail-label">Processed</span>
                   <span class="q-job-detail-value" v-text="humanTime(job?.processedOn)"></span>
                 </div>
                 <div class="q-job-detail-item" v-if="job?.finishedOn">
-                  <span class="q-job-detail-label">FINISHED</span>
+                  <span class="q-job-detail-label">Finished</span>
                   <span class="q-job-detail-value" v-text="humanTime(job?.finishedOn)"></span>
                 </div>
                 <div class="q-job-detail-item" v-if="job?.attemptsMade">
-                  <span class="q-job-detail-label">ATTEMPTS</span>
+                  <span class="q-job-detail-label">Attempts</span>
                   <span class="q-job-detail-value" v-text="job?.attemptsMade"></span>
                 </div>
                 <div class="q-job-detail-item" v-if="job?.progress &amp;&amp; job?.progress?.status">
-                  <span class="q-job-detail-label">STATUS</span>
+                  <span class="q-job-detail-label">Status</span>
                   <span class="q-job-detail-value" v-text="job?.progress?.status"></span>
                 </div>
                 <div class="q-job-detail-item" v-if="jobProgressPct(job) !== null">
-                  <span class="q-job-detail-label">PROGRESS</span>
+                  <span class="q-job-detail-label">Progress</span>
                   <span class="q-job-detail-value" v-text="jobProgressPct(job) + &#x27;%&#x27;"></span>
                 </div>
               </div>
               <div class="q-job-detail-error" v-if="job?.failedReason">
-                <span class="q-job-detail-label">ERROR</span>
+                <span class="q-job-detail-label">Error</span>
                 <div class="q-error-reason" v-text="job?.failedReason"></div>
               </div>
               <div v-if="job?.stacktrace?.length">
-                <span class="q-job-detail-label">STACKTRACE</span>
+                <span class="q-job-detail-label">Stacktrace</span>
                 <pre class="q-error-stack" v-for="(stack, index) in job?.stacktrace" :key="index"><code v-text="stack"></code></pre>
               </div>
               <div class="q-job-detail-actions">
-                <button class="btn btn-sm" v-if="job?._state == &#x27;failed&#x27;" @click="retryJob(job)"><i class="fas fa-sync"></i> Retry</button>
-                <button class="btn btn-sm" @click="removeJob(job)"><i class="fas fa-trash-alt"></i> Remove</button>
-                <a class="btn btn-sm" target="_blank" :href="safeUrl(&quot;/r/&quot; + (job?.id))"><i class="fas fa-external-link-alt"></i> View repo</a>
+                <button class="btn btn-sm" v-if="job?._state == &#x27;failed&#x27;" @click="retryJob(job)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-refresh"></use></svg> Retry</button>
+                <button class="btn btn-sm" @click="removeJob(job)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-trash"></use></svg> Remove</button>
+                <a class="btn btn-sm" target="_blank" :href="safeUrl(&quot;/r/&quot; + (job?.id))"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-external-link"></use></svg> View repo</a>
               </div>
             </div>
           </td>
@@ -216,7 +216,7 @@
     </table>
 
     <div class="paper-table-empty" style="border:1px solid var(--border-color);border-radius:10px;background:var(--paper-card);" v-if="filteredJobs().length == 0">
-      <i class="fas fa-check-circle"></i>
+      <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-check-circle"></use></svg>
       <span v-if="!query?.search">No jobs in the {{ selectedQueue }} queue.</span>
       <span v-if="query?.search">No jobs match the current filters.</span>
     </div>
