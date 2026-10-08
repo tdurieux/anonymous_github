@@ -76,6 +76,8 @@
     <script src="/script/__VENDOR_JS__" defer></script>
     <script>
       window.addEventListener("load", function () {
+        // Phones use the always-visible header link instead of an overlay.
+        if (window.matchMedia("(max-width: 991px)").matches) return;
         var s = document.createElement("script");
         s.src = "https://storage.ko-fi.com/cdn/scripts/overlay-widget.js";
         s.onload = function () {
@@ -84,11 +86,9 @@
             type: "floating-chat",
             "floating-chat.donateButton.text": "Support me",
             "floating-chat.donateButton.background-color": isDark
-              ? "#FAF9F6"
+              ? "#34312C"
               : "#1A1815",
-            "floating-chat.donateButton.text-color": isDark
-              ? "#1A1815"
-              : "#FAF9F6",
+            "floating-chat.donateButton.text-color": "#FAF9F6",
           });
         };
         document.body.appendChild(s);

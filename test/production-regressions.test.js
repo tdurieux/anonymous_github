@@ -166,7 +166,7 @@ describe("production regressions", function () {
   it("fetches complete truncated gist content", async function () {
     const Gist = require("../src/core/Gist").default;
     const model = new (require("../src/core/model/anonymizedGists/anonymizedGists.model").default)({ source: { gistId: "123" } });
-    const gist = new Gist(model); gist.getToken = async () => "private-token";
+    const gist = new Gist(model); gist.getAccess = async () => ({ token: "private-token", connection: "github-app" });
     stub(gh, "octokit", token => {
       expect(token).to.equal("private-token");
       return { rest: { gists: { get: async () => ({ data: { files: { file: { filename: "file", content: "prefix", truncated: true, raw_url: "https://gist.githubusercontent.com/raw", size: 20 } } } }) } },
@@ -217,6 +217,7 @@ describe("production regressions", function () {
 
   function response() {
     return { headers: {}, header(key, value) { this.headers[key] = value; return this; },
+      set(key, value) { return this.header(key, value); },
       contentType() { return this; }, status(value) { this.statusCode = value; return this; }, end() {}, send() {} };
   }
   function fileRoute(originalName) {
@@ -282,7 +283,7 @@ describe("production regressions", function () {
     const Conference = require("../src/core/Conference").default;
     const model = { status: "ready", save: async () => {} };
     const conference = new Conference(model);
-    conference.repositories = async () => [{ expire: async () => { throw new Error("storage failed"); } }];
+    conference.repositories = async () => [{ markExpired: async () => { throw new Error("storage failed"); } }];
     try { await conference.expire(); throw new Error("expected rejection"); }
     catch (error) { expect(error.message).to.equal("storage failed"); }
     expect(model.status).to.equal("ready");

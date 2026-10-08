@@ -25,6 +25,7 @@ export interface IUser {
     default: boolean;
   }[];
   photo?: string;
+  projectNames?: Map<string, string>;
 
   repositories?: number[];
   default?: {

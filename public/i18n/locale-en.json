@@ -1,5 +1,9 @@
 {
   "ERRORS": {
+    "cache_busy": "Downloads are busy. Please try again shortly.",
+    "invalid_sort": "The selected sort order is invalid.",
+    "invalid_cursor": "This project page is no longer valid. Reload the list.",
+    "repository_changed": "The repository changed while processing. Please retry.",
     "repository_job_cancelled": "The repository changed or was removed while processing.",
     "storage_delete_failed": "Unable to remove cached files. Please try again later.",
     "unknown_error": "Unknown error, contact the admin.",
@@ -58,6 +62,7 @@
     "path_not_defined": "The file path has not been resolved yet.",
     "invalid_file_path": "The requested file path is not valid.",
     "invalid_request": "The request is missing required fields or is malformed.",
+    "invalid_project_name": "Use a project name of up to 100 characters without line breaks or control characters.",
     "no_file_selected": "Please select a file.",
     "file_not_found": "The requested file is not found.",
     "file_not_accessible": "The requested file is not accessible.",

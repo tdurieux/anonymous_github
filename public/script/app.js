@@ -1,8 +1,90 @@
-import { reactive } from "vue";
+import { reactive, nextTick } from "vue";
 import { createTimers, createListeners } from "./state.js";
+import { formDraft } from "./drafts.js";
+
+// The mask comes from /api/options; mainController sets it once loaded.
+let redactionMask = "XXXX";
+export const setRedactionMask = (mask) => { redactionMask = mask || "XXXX"; };
+
+// Matches the replacements the anonymizer writes: MASK and MASK-<n>.
+export const redactionPattern = (mask = redactionMask) => {
+  if (!mask) return null;
+  const escaped = mask.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(escaped + "(?:-\\d+)?", "g");
+};
+
+// Wraps redacted terms under root in <mark class="redaction">, touching text
+// nodes only so attributes and URLs stay intact. Mermaid sources are left
+// alone (Mermaid parses their text), and so are code blocks Prism will
+// rewrite unless root is that highlighted block itself.
+export const markRedactionsIn = (root, mask = redactionMask) => {
+  const pattern = redactionPattern(mask);
+  if (!pattern || !root || !root.textContent.includes(mask)) return;
+  const doc = root.ownerDocument;
+  const walker = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const nodes = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode);
+  for (const node of nodes) {
+    const text = node.nodeValue;
+    const parent = node.parentElement;
+    if (!text.includes(mask) || !parent || parent.closest("script, style, mark.redaction, .mermaid")) continue;
+    const highlighted = parent.closest('code[class*="language-"]');
+    if (highlighted && !highlighted.contains(root)) continue;
+    const fragment = doc.createDocumentFragment();
+    let last = 0;
+    for (const match of text.matchAll(pattern)) {
+      fragment.append(text.slice(last, match.index));
+      const mark = doc.createElement("mark");
+      mark.className = "redaction";
+      mark.title = "Redacted by Anonymous GitHub";
+      mark.textContent = match[0];
+      fragment.append(mark);
+      last = match.index + match[0].length;
+    }
+    fragment.append(text.slice(last));
+    node.replaceWith(fragment);
+  }
+};
+
+export const highlightRedactions = (html, mask = redactionMask) => {
+  if (!html || !mask || !html.includes(mask)) return html;
+  const doc = new DOMParser().parseFromString("<body>" + html + "</body>", "text/html");
+  markRedactionsIn(doc.body, mask);
+  return doc.body.innerHTML;
+};
+
+async function copyText(text) {
+  if (window.navigator.clipboard?.writeText) {
+    await window.navigator.clipboard.writeText(text);
+    return;
+  }
+  const field = document.createElement("textarea");
+  field.value = text;
+  field.setAttribute("readonly", "");
+  field.style.position = "fixed";
+  field.style.opacity = "0";
+  const focused = document.activeElement;
+  document.body.appendChild(field);
+  try {
+    field.select();
+    if (!document.execCommand?.("copy")) throw Error("Copy unavailable");
+  } finally { field.remove(); focused?.focus(); }
+}
+
+function previewTabKeydown(event) {
+  if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+  const tabs = [...event.currentTarget.closest('[role="tablist"]').querySelectorAll('[role="tab"]')];
+  const index = tabs.indexOf(event.currentTarget);
+  const next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1
+    : (index + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+  event.preventDefault();
+  tabs[next]?.focus();
+  tabs[next]?.click();
+}
 
 // Page setup functions run inside Vue effect scopes.
 export const mainController = function (state, http, location, timeout) {
+      state.previewTabKeydown = previewTabKeydown;
       state.title = "Main";
       state.user = { status: "connection" };
       state.site_options;
@@ -28,8 +110,11 @@ export const mainController = function (state, http, location, timeout) {
         return toast;
       };
 
+      // Anonymized content that signed-out reviewers browse.
+      const reviewerRoutes = /^\/(r|repository|pr|gist)\//;
       state.path = location.url();
       state.paths = location.path().substring(1).split("/");
+      state.isReviewerRoute = reviewerRoutes.test(location.path());
 
       state.darkMode = function (on) {
         localStorage.setItem("darkMode", on);
@@ -51,11 +136,10 @@ export const mainController = function (state, http, location, timeout) {
           document.head.append(link);
           $(`link[href='${darkPrismLink}']`).remove();
         }
-        // Update Ko-fi floating button to match theme
-        var kofiBtn = document.querySelector(".floatingchat-container-wrap-mo498 .floating-chat-kofi-text-container-wrap");
+        const kofiBtn = document.querySelector("[class*='floatingchat-container-wrap'] [class*='floating-chat-kofi-text-container-wrap']");
         if (kofiBtn) {
-          kofiBtn.style.backgroundColor = on ? "#FAF9F6" : "#1A1815";
-          kofiBtn.style.color = on ? "#1A1815" : "#FAF9F6";
+          kofiBtn.style.backgroundColor = on ? "#34312C" : "#1A1815";
+          kofiBtn.style.color = "#FAF9F6";
         }
         state.emit("dark-mode", on);
       };
@@ -78,6 +162,8 @@ export const mainController = function (state, http, location, timeout) {
         http.get("/api/options").then(
           (res) => {
             if (res) state.site_options = res.data;
+            setRedactionMask(res?.data?.ANONYMIZATION_MASK);
+            state.emit("site-options");
           },
           () => {
             state.site_options = null;
@@ -104,6 +190,7 @@ export const mainController = function (state, http, location, timeout) {
         }
         state.path = location.url();
         state.paths = location.path().substring(1).split("/");
+        state.isReviewerRoute = reviewerRoutes.test(location.path());
       }
 
       state.on("routeChange", changedUrl);
@@ -111,7 +198,23 @@ export const mainController = function (state, http, location, timeout) {
     };
 
 export const faqController = function (state, http) {
-      const listen = createListeners();};
+      const listen = createListeners();
+      const timers = createTimers();
+      const revealAnswer = () => {
+        const id = window.location.hash.slice(1);
+        const answer = document.getElementById(id);
+        if (!answer?.classList.contains("panel-collapse")) return;
+        $(answer).collapse("show");
+        const heading = document.getElementById(answer.getAttribute("aria-labelledby"));
+        heading?.setAttribute("tabindex", "-1");
+        heading?.focus({ preventScroll: true });
+        heading?.scrollIntoView?.({ block: "start" });
+      };
+      // Router fragments do not emit hashchange, and answers mount after navigation.
+      state.on("routeUpdate", () => timers.timeout(revealAnswer, 0));
+      listen(window, "hashchange", revealAnswer);
+      timers.timeout(revealAnswer, 0);
+    };
 
 export const profileController = function (state, http, translate, timeout, quotaService) {
       state.terms = "";
@@ -132,6 +235,8 @@ export const profileController = function (state, http, translate, timeout, quot
         state.quota = quota;
       }, console.error);
 
+      const draft = formDraft(state, ["terms", "options"], "profile");
+      state.discardDraft = () => draft.discard();
       function getDefault() {
         http.get("/api/user/default").then((res) => {
           const data = res.data || {};
@@ -139,6 +244,7 @@ export const profileController = function (state, http, translate, timeout, quot
             state.terms = data.terms.join("\n");
           }
           state.options = Object.assign({}, state.options, data.options);
+          draft.restore();
         });
       }
       getDefault();
@@ -146,6 +252,8 @@ export const profileController = function (state, http, translate, timeout, quot
       let savedTimer = null;
       state.saveDefault = ($event) => {
         if ($event && $event.preventDefault) $event.preventDefault();
+        if (state.saving) return;
+        const submitted = draft.checkpoint();
         const params = {
           terms: state.terms
             .split("\n")
@@ -157,9 +265,9 @@ export const profileController = function (state, http, translate, timeout, quot
         state.error = null;
         http.post("/api/user/default", params).then(
           () => {
-            getDefault();
+            draft.accept(submitted);
             state.saving = false;
-            state.message = "Saved";
+            state.message = state.unsavedChanges ? null : "Saved";
             if (savedTimer) timeout.cancel(savedTimer);
             savedTimer = timeout(() => {
               state.message = null;
@@ -168,10 +276,13 @@ export const profileController = function (state, http, translate, timeout, quot
           (error) => {
             state.saving = false;
             const code = error && error.data && error.data.error;
-            translate("ERRORS." + code).then((translation) => {
-              state.error = translation;
+            const fallback = "Unable to save your defaults. Please try again.";
+            // Unknown codes translate to the generic unknown_error message;
+            // this page has a more specific one.
+            Promise.all([translate("ERRORS." + code), translate("ERRORS.unknown_error")]).then(([translation, unknown]) => {
+              state.error = code && translation !== unknown ? translation : fallback;
             }, () => {
-              state.error = "Unable to save your defaults. Please try again.";
+              state.error = fallback;
             });
           }
         );
@@ -410,6 +521,82 @@ export const unifiedDashboardController = function (state, http, location, promi
         $('[data-toggle="tooltip"]').tooltip();
       }, 250);
 
+      state.quotaExpanded = false;
+      state.closeQuota = () => {
+        state.quotaExpanded = false;
+        nextTick(() => document.querySelector(".dashboard-quota > summary")?.focus());
+      };
+      createListeners()(document, "click", event => {
+        if (state.quotaExpanded && !event.target.closest?.(".dashboard-quota")) state.quotaExpanded = false;
+      });
+      state.filtersExpanded = false;
+      state.projectView = "all";
+      state.selectedProject = null;
+      state.projectName = "";
+      state.nameSaving = false;
+      state.nameError = "";
+      state.nameMessage = "";
+      state.needsAttention = item => item.status === "error" || item._broken
+        || (statusKey(item.status) === "progress" && item._stale);
+      state.attentionCount = () => state.dashboardTotals?.attention ?? state.items.filter(state.needsAttention).length;
+      state.hasProjects = () => (state.dashboardTotals?.total ?? state.items.length) > 0;
+      state.setProjectView = view => {
+        state.projectView = view;
+        if (view === "attention") {
+          state.filters.status.error = true;
+          state.filters.status.progress = true;
+        }
+      };
+      state.projectDetailsId = item => "project-details-" + encodeURIComponent(item._type + ":" + (item._id || item._source || "unknown"));
+      state.showProjectDetails = async item => {
+        state.selectedProject = item;
+        state.projectName = item.projectName || "";
+        state.nameError = "";
+        state.nameMessage = "";
+        await nextTick();
+        const panel = document.getElementById(state.projectDetailsId(item));
+        panel?.focus();
+        panel?.scrollIntoView?.({ block: "nearest" });
+      };
+      state.closeProjectDetails = item => {
+        state.selectedProject = null;
+        nextTick(() => document.querySelector(`[data-project-actions="${encodeURIComponent(item._type + ":" + item._id)}"]`)?.focus());
+      };
+      state.saveProjectName = async item => {
+        if (state.nameSaving || !item._id) return;
+        const name = state.projectName.trim();
+        if (name.length > 100) { state.nameError = "Use 100 characters or fewer."; return; }
+        state.nameSaving = true;
+        state.nameError = "";
+        state.nameMessage = "";
+        try {
+          const res = await http.post("/api/user/project-name", { type: item._type, id: item._id, name });
+          item.projectName = res.data.name;
+          item._label = item.projectName || item._fallbackLabel;
+          if (state.selectedProject === item) state.nameMessage = name ? "Project name saved." : "Default project name restored.";
+          if (!legacyDashboard) {
+            state.dashboardCursor = null;
+            await loadAll();
+            if (state.selectedProject === item) {
+              state.selectedProject = state.items.find(current => current._type === item._type && current._id === item._id) || null;
+            }
+          }
+        } catch (_) {
+          if (state.selectedProject === item) state.nameError = "The project name could not be saved. Try again.";
+        } finally { state.nameSaving = false; }
+      };
+      state.copyingId = null;
+      state.copyLink = async (item) => {
+        if (!item._viewUrl || state.copyingId) return;
+        const link = new URL(item._viewUrl, window.location.origin).href;
+        state.copyingId = item._type + ":" + item._id;
+        try {
+          await copyText(link);
+          state.addToast({ title: "Link copied", body: "The anonymous link is ready to share." });
+        } catch {
+          state.addToast({ title: "Copy this anonymous link", body: link });
+        } finally { state.copyingId = null; }
+      };
       state.items = [];
       state.search = "";
       state.loading = true;
@@ -458,7 +645,8 @@ export const unifiedDashboardController = function (state, http, location, promi
       // `orderBy` is kept as the Angular orderBy expression ("-field" for
       // descending) so saved preferences stay compatible.
       const sortFields = {
-        _name: { label: "Name", defaultDesc: false },
+        _name: { label: "Anonymous ID", defaultDesc: false },
+        _label: { label: "Project", defaultDesc: false },
         anonymizeDate: { label: "Anonymize date", defaultDesc: true },
         status: { label: "Status", defaultDesc: false },
         lastView: { label: "Last view", defaultDesc: true },
@@ -525,6 +713,8 @@ export const unifiedDashboardController = function (state, http, location, promi
         item._source = source;
         item._broken = !id;
         item._name = id || source || "(unnamed)";
+        item._fallbackLabel = item._type === "gist" ? "Gist " + (id || source || "without an ID") : source || name || item._name;
+        item._label = item.projectName || item._fallbackLabel;
         item._editUrl = id ? editUrl : null;
         item._viewUrl = id ? viewUrl : null;
         if (item._broken) {
@@ -562,7 +752,7 @@ export const unifiedDashboardController = function (state, http, location, promi
 
       // All three lists load in parallel and are merged once, so the table
       // does not re-sort three times while it fills in.
-      function loadAll() {
+      function loadLegacy() {
         state.loading = true;
         return promises
           .all([
@@ -597,7 +787,7 @@ export const unifiedDashboardController = function (state, http, location, promi
                   pr,
                   pr.pullRequestId,
                   pr.pullRequestId,
-                  src.repositoryFullName + "#" + src.pullRequestId,
+                  src.repositoryFullName ? src.repositoryFullName + "#" + src.pullRequestId : undefined,
                   "/pull-request-anonymize/" + pr.pullRequestId,
                   "/pr/" + pr.pullRequestId + "/"
                 )
@@ -621,6 +811,55 @@ export const unifiedDashboardController = function (state, http, location, promi
             state.loading = false;
           });
       }
+      let dashboardGeneration = 0;
+      let legacyDashboard = false;
+      state.dashboardCursor = null;
+      state.dashboardError = "";
+      function decorateSummary(item) {
+        const src = item.source || {};
+        if (item._type === "repo") return decorateItem(item, item.repoId, item.repoId, src.fullName, "/anonymize/" + item.repoId, "/r/" + item.repoId + "/");
+        if (item._type === "pr") return decorateItem(item, item.pullRequestId, item.pullRequestId,
+          src.repositoryFullName ? src.repositoryFullName + "#" + src.pullRequestId : undefined,
+          "/pull-request-anonymize/" + item.pullRequestId, "/pr/" + item.pullRequestId + "/");
+        return decorateItem(item, item.gistId, item.gistId, src.gistId, "/gist-anonymize/" + item.gistId, "/gist/" + item.gistId + "/");
+      }
+      function loadAll(append = false) {
+        if (legacyDashboard) return loadLegacy();
+        const generation = ++dashboardGeneration;
+        state.loading = !append;
+        state.loadingMore = append;
+        state.dashboardError = "";
+        return http.get("/api/user/dashboard", { params: {
+          q: state.search, type: state.typeFilter, sort: state.orderBy,
+          statuses: Object.keys(state.filters.status).filter(key => state.filters.status[key] !== false).join(",") || "none",
+          attention: String(state.projectView === "attention"),
+          cursor: append ? state.dashboardCursor : undefined,
+        } }).then(response => {
+          if (generation !== dashboardGeneration) return;
+          // Compatibility with servers that have not gained the summary API.
+          if (!Array.isArray(response.data?.items)) { legacyDashboard = true; return loadLegacy(); }
+          state.items = (append ? state.items : []).concat(response.data.items.map(decorateSummary));
+          state.dashboardCursor = response.data.cursor;
+          state.dashboardTotals = response.data;
+        }, error => {
+          if (generation !== dashboardGeneration) return;
+          if (error.status === 404) { legacyDashboard = true; return loadLegacy(); }
+          state.dashboardError = "Projects could not be loaded. Please try again.";
+        }).finally(() => {
+          if (generation === dashboardGeneration) { state.loading = false; state.loadingMore = false; }
+        });
+      }
+      state.loadMoreProjects = () => loadAll(true);
+      let reloadTimer;
+      state.watchGroup(["search", "typeFilter", "orderBy", "projectView"], () => {
+        if (legacyDashboard) return;
+        if (reloadTimer) timers.timeout.cancel(reloadTimer);
+        reloadTimer = timers.timeout(() => loadAll(), 150);
+      }, false);
+      state.watch("filters", () => {
+        if (!legacyDashboard) loadAll();
+      }, true, false);
+      state.on("dispose", () => { dashboardGeneration++; });
       loadAll();
 
       // Whole row opens the anonymized view; clicks on links, buttons and the
@@ -637,11 +876,16 @@ export const unifiedDashboardController = function (state, http, location, promi
       state.hasHiddenStatus = () => state.hiddenStatusCount() > 0;
 
       state.hasActiveFilters = () =>
+        state.projectView !== "all" ||
         state.typeFilter !== "all" ||
         state.search.trim().length > 0 ||
         Object.keys(state.filters.status).some((k) => state.filters.status[k] === false);
 
+      state.showClearFilters = () => state.search.trim().length > 0
+        || state.typeFilter !== "all" || state.hiddenStatusCount() > 1;
+
       state.clearFilters = () => {
+        state.projectView = "all";
         state.typeFilter = "all";
         state.search = "";
         Object.keys(state.filters.status).forEach((k) => {
@@ -649,13 +893,30 @@ export const unifiedDashboardController = function (state, http, location, promi
         });
       };
 
-      function waitRepoToBeReady(repoId, callback, onError) {
-        http.get("/api/repo/" + repoId).then((res) => {
+      function waitRepoToBeReady(repoId, callback, onError, previousStatus) {
+        http.get("/api/repo/" + repoId).then(async (res) => {
+          let statusChanged = previousStatus !== undefined && previousStatus !== res.data.status;
           for (const item of state.items) {
             if (item._type === "repo" && item.repoId == repoId) {
+              statusChanged = statusChanged || item.status !== res.data.status;
+              const neededAttention = state.needsAttention(item);
               item.status = res.data.status;
               item.statusMessage = res.data.statusMessage;
+              item._statusKey = statusKey(item.status);
+              if (item._statusKey !== "progress") item._stale = false;
+              const needsAttention = state.needsAttention(item);
+              if (state.dashboardTotals && neededAttention !== needsAttention) {
+                state.dashboardTotals.attention = Math.max(0, state.dashboardTotals.attention + (needsAttention ? 1 : -1));
+              }
               break;
+            }
+          }
+          if (statusChanged && !legacyDashboard) {
+            state.dashboardCursor = null;
+            const selected = state.selectedProject;
+            await loadAll();
+            if (selected && state.selectedProject === selected) {
+              state.selectedProject = state.items.find(item => item._type === selected._type && item._id === selected._id) || null;
             }
           }
           if (
@@ -667,7 +928,7 @@ export const unifiedDashboardController = function (state, http, location, promi
             callback(res.data);
             return;
           }
-          timers.timeout(() => waitRepoToBeReady(repoId, callback, onError), 2500);
+          timers.timeout(() => waitRepoToBeReady(repoId, callback, onError, res.data.status), 2500);
         }, onError);
       }
 
@@ -693,7 +954,7 @@ export const unifiedDashboardController = function (state, http, location, promi
                   toast.title = `${item._id} is removed.`;
                   toast.body = `The ${label} ${item._id} is removed.`;
 
-                });
+                }, undefined, item.status);
               } else {
                 toast.title = `${item._id} is removed.`;
                 toast.body = `The ${label} ${item._id} is removed.`;
@@ -734,7 +995,7 @@ export const unifiedDashboardController = function (state, http, location, promi
                 toast.title = `${item._id} is refreshed.`;
                 toast.body = `The ${label} ${item._id} is refreshed.`;
 
-              }, onError);
+              }, onError, item.status);
             } else {
               toast.title = `${item._id} is refreshed.`;
               toast.body = `The ${label} ${item._id} is refreshed.`;
@@ -761,7 +1022,7 @@ export const unifiedDashboardController = function (state, http, location, promi
                 toast.title = `${item._id} is extended.`;
                 toast.body = `The expiration of ${label} ${item._id} is extended by 6 months.`;
 
-              });
+              }, undefined, item.status);
             } else {
               toast.title = `${item._id} is extended.`;
               toast.body = `The expiration of ${label} ${item._id} is extended by 6 months.`;
@@ -777,10 +1038,12 @@ export const unifiedDashboardController = function (state, http, location, promi
       };
 
       state.itemFilter = (item) => {
+        if (state.projectView === "attention" && !state.needsAttention(item)) return false;
         if (state.typeFilter !== "all" && item._type !== state.typeFilter) return false;
         if (state.filters.status[item._statusKey] === false) return false;
         const needle = state.search.trim().toLowerCase();
         if (needle.length == 0) return true;
+        if (item._label && String(item._label).toLowerCase().indexOf(needle) > -1) return true;
         if (item._source && String(item._source).toLowerCase().indexOf(needle) > -1) return true;
         if (item._id && String(item._id).toLowerCase().indexOf(needle) > -1) return true;
         if (item.conference && String(item.conference).toLowerCase().indexOf(needle) > -1) return true;
@@ -803,6 +1066,19 @@ export const statusController = function (state, http, params) {
       state.progress = 0;
       state.rateLimitResetAt = 0;
       state.rateLimitCountdown = "";
+      state.shareUrl = (window.location?.origin || "") + "/r/" + encodeURIComponent(state.repoId) + "/";
+      state.copied = false;
+      let copiedTimer = null;
+      state.copyShareUrl = async () => {
+        try {
+          await copyText(state.shareUrl);
+          state.copied = true;
+          if (copiedTimer) timers.timeout.cancel(copiedTimer);
+          copiedTimer = timers.timeout(() => { state.copied = false; }, 2000);
+        } catch {
+          state.addToast?.({ title: "Copy this anonymous link", body: state.shareUrl });
+        }
+      };
 
       var countdownTimer = null;
       let pollTimer = null;
@@ -894,13 +1170,68 @@ export const statusController = function (state, http, params) {
 export const anonymizeController = function (state, http, html, params, location, translate, timeout) {
       // Unified state
       state.sourceUrl = "";
+      state.workspaceOpen = false;
+      state.sourceUrlError = "";
+      state.previewStatus = "idle";
+      state.sourceLoading = false;
+      state.mobilePane = "settings";
+      const workspaceMedia = window.matchMedia?.("(max-width: 767px)");
+      state.mobileWorkspace = !!workspaceMedia?.matches;
+      if (workspaceMedia?.addEventListener) createListeners()(workspaceMedia, "change", event => { state.mobileWorkspace = event.matches; });
+      state.selectMobilePane = (pane) => { state.mobilePane = pane; };
+      let sourceGeneration = 0;
+      let sourceDisposed = false;
+      const sourceRequests = new Set();
+      const isCurrentSource = (request, branch = false) => !sourceDisposed
+        && request.generation === sourceGeneration
+        && request.url === state.sourceUrl.trim()
+        && request.connection === state.githubConnection
+        && (!branch || request.branch === state.source.branch);
+      const beginSourceRequest = () => {
+        const request = { generation: sourceGeneration, url: state.sourceUrl.trim(), connection: state.githubConnection, branch: state.source.branch };
+        sourceRequests.add(request);
+        state.sourceLoading = true;
+        return request;
+      };
+      const finishSourceRequest = (request) => {
+        sourceRequests.delete(request);
+        if (!sourceDisposed) state.sourceLoading = [...sourceRequests].some(request => isCurrentSource(request));
+      };
+      state.on("dispose", () => { sourceDisposed = true; sourceGeneration++; });
+      let selectedSourceKey = null;
+      const sourceKey = (parsed) => parsed.gistId && !parsed.repo
+        ? "gist:" + parsed.gistId.toLowerCase()
+        : (parsed.owner + "/" + parsed.repo).toLowerCase() + (parsed.pullRequestId ? "/pull/" + parsed.pullRequestId : "");
+      const draft = formDraft(state, ["sourceUrl", "terms", "repoId", "pullRequestId", "gistId", "source", "options", "conference", "githubConnection"], "anonymize:" + (location.path?.() || ""));
+      state.discardDraft = async () => {
+        draft.discard();
+        state.workspaceOpen = !!state.sourceUrl;
+        state.error = null;
+        if (state.sourceUrl) await state.urlSelected(true);
+        else {
+          sourceGeneration++;
+          state.sourceLoading = false;
+          state.detectedType = null;
+          state.details = null;
+          state.sourceUrlError = "";
+          scheduleReadmePreview.cancel();
+          refreshPrPreview.cancel();
+          refreshGistPreview.cancel();
+          state.previewStatus = "idle";
+        }
+      };
       state.githubConnection = undefined;
       state.githubConnections = null;
       state.gistOAuthRequired = false;
+      state.gistAppRequired = false;
       const saveGitHubDraft = () => {
         const draft = {};
         for (const key of ["sourceUrl", "terms", "repoId", "pullRequestId", "gistId", "source", "options", "conference", "githubConnection"]) draft[key] = state[key];
         sessionStorage.setItem("github-access-draft", JSON.stringify({ path: location.path(), savedAt: Date.now(), draft }));
+      };
+      state.connectGistApp = () => {
+        saveGitHubDraft();
+        window.location.href = "/github/app/login?returnTo=" + encodeURIComponent(location.path());
       };
       state.connectGistOAuth = () => {
         saveGitHubDraft();
@@ -985,6 +1316,7 @@ export const anonymizeController = function (state, http, html, params, location
             data.options && data.options.expirationDate
               ? new Date(data.options.expirationDate)
               : defaultExpirationDate();
+          if (!params.repoId && !params.pullRequestId && !params.gistId && !state.anonymize?.terms?.dirty) state.terms = state.defaultTerms;
           if (cb) cb();
         });
       }
@@ -1006,7 +1338,22 @@ export const anonymizeController = function (state, http, html, params, location
         return null;
       }
 
+      state.reconnectingSource = false;
+      state.reconnectRepositoryId = undefined;
+      state.reconnectSource = async () => {
+        if (!confirm("Reconnect to the repository currently at this GitHub URL? Review its branch and commit before saving. Saving will replace the published snapshot.")) return;
+        state.reconnectingSource = true;
+        state.reconnectRepositoryId = undefined;
+        state.source.commit = "";
+        state.source.branch = "";
+        state.readme = "";
+        state.branches = [];
+        try { await getRepoDetails(); }
+        catch (_) { /* getRepoDetails displays the access error. */ }
+      };
+
       function sourceRepositoryID() {
+        if (state.reconnectingSource) return undefined;
         if (!state.isUpdate || !state._originalRepositoryID) return undefined;
         const currentFullName = parseRepoFullName(state.sourceUrl);
         return currentFullName === state._originalFullName
@@ -1024,7 +1371,12 @@ export const anonymizeController = function (state, http, html, params, location
         let saved;
         try { saved = JSON.parse(sessionStorage.getItem("github-access-draft") || "null"); }
         catch (_) { return false; }
-        if (!saved || saved.path !== location.path() || Date.now() - saved.savedAt >= 30 * 60000) return false;
+        if (!saved || saved.path !== location.path() || Date.now() - saved.savedAt >= 30 * 60000) {
+          if (!draft.restore()) return false;
+          if (state.sourceUrl) await refreshGitHubAccess();
+          return true;
+        }
+        draft.restore();
         for (const key of ["sourceUrl", "terms", "repoId", "pullRequestId", "gistId", "source", "options", "conference", "githubConnection"]) {
           if (Object.prototype.hasOwnProperty.call(saved.draft, key)) state[key] = saved.draft[key];
         }
@@ -1064,6 +1416,7 @@ export const anonymizeController = function (state, http, html, params, location
               if (res.data.options.expirationDate) {
                 state.options.expirationDate = new Date(res.data.options.expirationDate);
               }
+              selectedSourceKey = sourceKey(parseGithubUrl(state.sourceUrl));
               if (await restoreGitHubDraft()) return;
               await Promise.all([getRepoDetails(), getReadme()]);
               anonymizeReadme();
@@ -1089,19 +1442,10 @@ export const anonymizeController = function (state, http, html, params, location
               if (res.data.options.expirationDate) {
                 state.options.expirationDate = new Date(res.data.options.expirationDate);
               }
+              selectedSourceKey = sourceKey(parseGithubUrl(state.sourceUrl));
               if (await restoreGitHubDraft()) return;
-              try {
-                state.details = (await http.get(`/api/pr/${res.data.source.repositoryFullName}/${res.data.source.pullRequestId}`, { params: { connection: state.githubConnection } })).data;
-              } catch (error) {
-                const code = error && error.data && error.data.error;
-                if (code) {
-                  translate("ERRORS." + code).then((translation) => {
-                    state.addToast({ title: "Error", date: new Date(), body: translation });
-                    state.error = translation;
-                  }, console.error);
-                  displayErrorMessage(code);
-                }
-              }
+              try { await getPrDetails(); }
+              catch (_) { /* The source handler displays the error. */ }
 
             },
             () => { location.url("/404"); }
@@ -1123,6 +1467,7 @@ export const anonymizeController = function (state, http, html, params, location
               if (res.data.options.expirationDate) {
                 state.options.expirationDate = new Date(res.data.options.expirationDate);
               }
+              selectedSourceKey = sourceKey(parseGithubUrl(state.sourceUrl));
               if (await restoreGitHubDraft()) return;
               await getGistDetails();
 
@@ -1138,34 +1483,57 @@ export const anonymizeController = function (state, http, html, params, location
         if (!params.repoId && !params.pullRequestId && !params.gistId && state.githubConnection === undefined
             && res.data.appEnabled && res.data.appConnected) {
           state.githubConnection = "github-app";
+          if (state.sourceUrl && state.workspaceOpen) refreshGitHubAccess();
         }
       }).catch(() => {});
 
-      // URL change handler - auto-detect type
+      // Keep the same input focused until a complete GitHub URL can be loaded.
       state.urlSelected = async (preserveDraft = false) => {
-        if (!preserveDraft) state.terms = state.defaultTerms;
-        if (!preserveDraft && !state.isUpdate) {
+        const generation = ++sourceGeneration;
+        let o;
+        try { o = parseGithubUrl(state.sourceUrl.trim()); }
+        catch (_) {
+          state.sourceLoading = false;
+          scheduleReadmePreview.cancel();
+          refreshPrPreview.cancel();
+          refreshGistPreview.cancel();
+          state.previewStatus = "idle";
+          state.sourceUrlError = state.sourceUrl ? "Please provide a valid GitHub URL." : "";
+          setValidity("sourceUrl", "github", false);
+          return;
+        }
+        const key = sourceKey(o);
+        const preserveSelection = preserveDraft || selectedSourceKey === key;
+        selectedSourceKey = key;
+        state.sourceUrlError = "";
+        setValidity("sourceUrl", "github", true);
+        const transferFocus = document.activeElement?.id === "sourceUrl-landing";
+        state.workspaceOpen = true;
+        if (transferFocus) timeout(() => document.getElementById("sourceUrl")?.focus(), 0);
+        state.reconnectingSource = false;
+        state.reconnectRepositoryId = undefined;
+        if (!preserveSelection && !state.isUpdate) {
           state.repoId = "";
           state.pullRequestId = "";
           state.gistId = "";
         }
         state.details = null;
         state.branches = [];
-        if (!preserveDraft) state.source = { type: "GitHubStream", branch: "", commit: "" };
+        if (!preserveSelection) state.source = { type: "GitHubStream", branch: "", commit: "" };
+        scheduleReadmePreview.cancel();
+        refreshPrPreview.cancel();
+        refreshGistPreview.cancel();
+        _prAnonCache.clear();
+        _gistAnonCache.clear();
+        state.previewStatus = "idle";
         state.anonymize_readme = "";
         state.readme = "";
         state.html_readme = "";
         state.detectedType = null;
         state.gistOAuthRequired = false;
+        state.gistAppRequired = false;
 
-        let o;
-        try {
-          o = parseGithubUrl(state.sourceUrl);
-        } catch (error) {
-          setValidity("sourceUrl", "github", false);
-          return;
-        }
-        setValidity("sourceUrl", "github", true);
+        state._preservingDraft = preserveSelection;
         try {
           if (o.gistId && !o.repo) {
             state.detectedType = "gist";
@@ -1180,10 +1548,8 @@ export const anonymizeController = function (state, http, html, params, location
             await Promise.all([getRepoDetails(), getReadme()]);
             anonymizeReadme();
           }
-        } catch (error) {
-          return;
-        }
-
+        } catch (_) { /* Source errors are displayed by the request handlers. */ }
+        finally { if (generation === sourceGeneration) state._preservingDraft = false; }
         $('[data-toggle="tooltip"]').tooltip();
       };
       $('[data-toggle="tooltip"]').tooltip();
@@ -1199,6 +1565,7 @@ export const anonymizeController = function (state, http, html, params, location
         // auto-update) used to bump the commit to GitHub HEAD because this
         // watcher overwrote it on edit-page load.
         const keepSavedCommit =
+          !state.reconnectingSource &&
           state.isUpdate &&
           state._originalBranch === state.source.branch &&
           !!state.source.commit;
@@ -1213,10 +1580,12 @@ export const anonymizeController = function (state, http, html, params, location
 
       state.getBranches = async (force) => {
         const o = parseGithubUrl(state.sourceUrl);
+        const request = beginSourceRequest();
         try {
           const branches = await http.get(`/api/repo/${o.owner}/${o.repo}/branches`, {
-            params: { anonymizedRepoId: state.isUpdate && params.repoId && parseRepoFullName(state.sourceUrl) === state._originalFullName ? params.repoId : undefined, connection: state.githubConnection, force: force === true ? "1" : "0", repositoryID: sourceRepositoryID() },
+            params: { reconnect: state.reconnectingSource ? "1" : undefined, anonymizedRepoId: state.isUpdate && params.repoId && parseRepoFullName(state.sourceUrl) === state._originalFullName ? params.repoId : undefined, connection: state.githubConnection, force: force === true || state.reconnectingSource ? "1" : "0", repositoryID: sourceRepositoryID() },
           });
+          if (!isCurrentSource(request)) return;
           state.branches = branches.data;
           state.sourceUnreachable = false;
           if (!state.source.branch) {
@@ -1228,6 +1597,7 @@ export const anonymizeController = function (state, http, html, params, location
             // update the commit to the latest on the branch. Only preserve
             // the saved commit on the initial edit-page load (#360).
             const keepSavedCommit =
+              !state.reconnectingSource &&
               !force &&
               state.isUpdate &&
               !state.options.update &&
@@ -1240,6 +1610,7 @@ export const anonymizeController = function (state, http, html, params, location
             await getReadme(force);
           }
         } catch (error) {
+          if (!isCurrentSource(request)) return;
           state.branches = [];
           state.sourceUnreachable = error && (error.status === 404 || (error.data && error.data.error === "repo_not_found"));
           const code = (error && error.data && error.data.error) || (error && error.status === 404 ? "repo_not_found" : "unknown_error");
@@ -1251,29 +1622,33 @@ export const anonymizeController = function (state, http, html, params, location
           if (typeof setValidity === "function") {
             setValidity("sourceUrl", "missing", false);
           }
-        }
+        } finally { finishSourceRequest(request); }
 
       };
 
       async function getRepoDetails() {
         const o = parseGithubUrl(state.sourceUrl);
+        const request = beginSourceRequest();
         try {
           resetValidity();
           // force=1 so newly enabled features (e.g. GitHub Pages — see
           // #364) are reflected without waiting for the cached metadata to
           // expire. The endpoint hits the GitHub API once.
           const res = await http.get(`/api/repo/${o.owner}/${o.repo}/`, {
-            params: { anonymizedRepoId: state.isUpdate && params.repoId && parseRepoFullName(state.sourceUrl) === state._originalFullName ? params.repoId : undefined, connection: state.githubConnection, repositoryID: sourceRepositoryID(), force: "1" },
+            params: { reconnect: state.reconnectingSource ? "1" : undefined, anonymizedRepoId: state.isUpdate && params.repoId && parseRepoFullName(state.sourceUrl) === state._originalFullName ? params.repoId : undefined, connection: state.githubConnection, repositoryID: sourceRepositoryID(), force: "1" },
           });
+          if (!isCurrentSource(request)) return;
           state.details = res.data;
+          if (state.reconnectingSource) state.reconnectRepositoryId = state.details.externalId;
           if (state.details && state.details.id) {
             state.repositoryID = state.details.id;
           }
           if (!state.repoId) {
             state.repoId = state.details.repo + "-" + generateRandomId(4);
           }
-          await state.getBranches();
+          await state.getBranches(state.reconnectingSource);
         } catch (error) {
+          if (!isCurrentSource(request)) return;
           if (error.data) {
             translate("ERRORS." + error.data.error).then((translation) => {
               state.addToast({ title: "Error", date: new Date(), body: translation });
@@ -1283,20 +1658,21 @@ export const anonymizeController = function (state, http, html, params, location
           }
           setValidity("sourceUrl", "missing", false);
           throw error;
-        }
+        } finally { finishSourceRequest(request); }
       }
 
       async function getReadme(force) {
         if (state.readme && !force) return state.readme;
         const o = parseGithubUrl(state.sourceUrl);
+        const request = beginSourceRequest();
         try {
           const res = await http.get(`/api/repo/${o.owner}/${o.repo}/readme`, {
-            params: { anonymizedRepoId: state.isUpdate && params.repoId && parseRepoFullName(state.sourceUrl) === state._originalFullName ? params.repoId : undefined, connection: state.githubConnection, force: force === true ? "1" : "0", branch: state.source.branch, repositoryID: sourceRepositoryID() },
+            params: { reconnect: state.reconnectingSource ? "1" : undefined, anonymizedRepoId: state.isUpdate && params.repoId && parseRepoFullName(state.sourceUrl) === state._originalFullName ? params.repoId : undefined, connection: state.githubConnection, force: force === true ? "1" : "0", branch: state.source.branch, repositoryID: sourceRepositoryID() },
           });
-          state.readme = res.data;
+          if (isCurrentSource(request, true)) state.readme = res.data;
         } catch (error) {
-          state.readme = "";
-        }
+          if (isCurrentSource(request, true)) state.readme = "";
+        } finally { finishSourceRequest(request); }
       }
 
       // Both anonymizeReadme() and anonymizePrContent() used to reimplement
@@ -1324,36 +1700,51 @@ export const anonymizeController = function (state, http, html, params, location
         return opts;
       }
 
-      // Single-flight + debounced wrapper. Returns a promise that resolves
-      // with the latest server result; intermediate calls are coalesced.
-      function makePreviewBatcher(buildBody, applyResult) {
+      // Invalidate as soon as an option changes, before the debounce expires.
+      function makePreviewBatcher(kind, buildBody, applyResult) {
         let pendingTimer = null;
-        let inflightToken = 0;
-        return function schedule() {
+        let generation = 0;
+        const schedule = () => {
+          if (state.detectedType !== kind) return;
           if (pendingTimer) timeout.cancel(pendingTimer);
+          const current = ++generation;
+          state.previewStatus = "loading";
           pendingTimer = timeout(() => {
             pendingTimer = null;
-            const myToken = ++inflightToken;
             const body = buildBody();
-            if (!body) return;
-            http.post("/api/anonymize-preview", body).then(
-              (res) => {
-                if (myToken !== inflightToken) return; // stale
-                applyResult(res.data);
-              },
-              () => { /* ignore preview errors; no UI feedback needed */ }
-            );
+            if (!body) { state.previewStatus = "idle"; return; }
+            http.post("/api/anonymize-preview", body).then(res => {
+              if (current !== generation) return;
+              applyResult(res.data, body);
+              state.previewStatus = "ready";
+            }).catch(() => {
+              if (current === generation) state.previewStatus = "error";
+            });
           }, 200);
         };
+        schedule.cancel = () => {
+          generation++;
+          if (pendingTimer) timeout.cancel(pendingTimer);
+          pendingTimer = null;
+        };
+        state.on("dispose", schedule.cancel);
+        return schedule;
       }
+      state.retryPreview = () => {
+        if (state.detectedType === "repo") scheduleReadmePreview();
+        if (state.detectedType === "pr") refreshPrPreview();
+        if (state.detectedType === "gist") refreshGistPreview();
+      };
 
       const scheduleReadmePreview = makePreviewBatcher(
+        "repo",
         () => {
           if (!state.readme) return null;
           return { content: state.readme, options: previewOptions() };
         },
         (data) => {
-          state.anonymize_readme = data.content || "";
+          if (typeof data?.content !== "string") throw Error("Invalid preview response");
+          state.anonymize_readme = data.content;
           let baseUrl = "";
           try {
             const o = parseGithubUrl(state.sourceUrl);
@@ -1386,14 +1777,17 @@ export const anonymizeController = function (state, http, html, params, location
       // ========== PR LOGIC ==========
       async function getPrDetails() {
         const o = parseGithubUrl(state.sourceUrl);
+        const request = beginSourceRequest();
         try {
           resetValidity();
           const res = await http.get(`/api/pr/${o.owner}/${o.repo}/${o.pullRequestId}`, { params: { connection: state.githubConnection } });
+          if (!isCurrentSource(request)) return;
           state.details = res.data;
           if (!state.pullRequestId) {
             state.pullRequestId = o.repo + "-PR" + o.pullRequestId + "-" + generateRandomId(4);
           }
         } catch (error) {
+          if (!isCurrentSource(request)) return;
           if (error.data) {
             translate("ERRORS." + error.data.error).then((translation) => {
               state.addToast({ title: "Error", date: new Date(), body: translation });
@@ -1403,16 +1797,11 @@ export const anonymizeController = function (state, http, html, params, location
           }
           setValidity("sourceUrl", "missing", false);
           throw error;
-        }
+        } finally { finishSourceRequest(request); }
       }
 
-      // Angular templates evaluate this synchronously, so we keep a
-      // {original -> anonymized} cache populated by a debounced batch call to
-      // /api/anonymize-preview whenever the PR details, terms, or options
-      // change. anonymizePrContent() returns the cached value if known and
-      // falls back to the original until the next cycle resolves.
+      // Original text is never substituted for a pending or failed preview.
       const _prAnonCache = reactive(new Map());
-      let _prSeenContents = new Set();
 
       function collectPrContents() {
         const out = new Set();
@@ -1431,16 +1820,16 @@ export const anonymizeController = function (state, http, html, params, location
       }
 
       const refreshPrPreview = makePreviewBatcher(
+        "pr",
         () => {
           const seen = collectPrContents();
-          _prSeenContents = seen;
           const list = Array.from(seen);
           if (list.length === 0) return null;
           return { contents: list, options: previewOptions() };
         },
-        (data) => {
-          if (!data || !Array.isArray(data.contents)) return;
-          const seen = Array.from(_prSeenContents);
+        (data, body) => {
+          if (!Array.isArray(data?.contents) || data.contents.length !== body.contents.length || data.contents.some(value => typeof value !== "string")) throw Error("Invalid preview response");
+          const seen = body.contents;
           const next = new Map();
           for (let i = 0; i < seen.length && i < data.contents.length; i++) {
             next.set(seen[i], data.contents[i]);
@@ -1453,29 +1842,30 @@ export const anonymizeController = function (state, http, html, params, location
       state.anonymizePrContent = function (content) {
         if (!content) return content;
         if (_prAnonCache.has(content)) return _prAnonCache.get(content);
-        if (!_prSeenContents.has(content)) {
-          refreshPrPreview();
-        }
-        return content;
+        return "";
       };
 
       // ========== GIST LOGIC ==========
       async function getGistDetails() {
         const o = parseGithubUrl(state.sourceUrl);
+        const request = beginSourceRequest();
         try {
           resetValidity();
           state.gistOAuthRequired = false;
-          if (state.githubConnections?.oauthConnected === false) {
-            state.gistOAuthRequired = true;
-            setValidity("sourceUrl", "missing", false);
-            return;
-          }
+          state.gistAppRequired = false;
           const res = await http.get(`/api/gist/source/${o.gistId}`);
+          if (!isCurrentSource(request)) return;
           state.details = res.data;
           if (!state.gistId) {
             state.gistId = "gist-" + o.gistId.substring(0, 6) + "-" + generateRandomId(4);
           }
         } catch (error) {
+          if (!isCurrentSource(request)) return;
+          if (error.data?.error === "github_app_reconnect_required") {
+            state.gistAppRequired = true;
+            setValidity("sourceUrl", "missing", false);
+            return;
+          }
           if (error.data?.error === "github_oauth_required") {
             state.gistOAuthRequired = true;
             setValidity("sourceUrl", "missing", false);
@@ -1490,11 +1880,10 @@ export const anonymizeController = function (state, http, html, params, location
           }
           setValidity("sourceUrl", "missing", false);
           throw error;
-        }
+        } finally { finishSourceRequest(request); }
       }
 
       const _gistAnonCache = reactive(new Map());
-      let _gistSeenContents = new Set();
 
       function collectGistContents() {
         const out = new Set();
@@ -1516,16 +1905,16 @@ export const anonymizeController = function (state, http, html, params, location
       }
 
       const refreshGistPreview = makePreviewBatcher(
+        "gist",
         () => {
           const seen = collectGistContents();
-          _gistSeenContents = seen;
           const list = Array.from(seen);
           if (list.length === 0) return null;
           return { contents: list, options: previewOptions() };
         },
-        (data) => {
-          if (!data || !Array.isArray(data.contents)) return;
-          const seen = Array.from(_gistSeenContents);
+        (data, body) => {
+          if (!Array.isArray(data?.contents) || data.contents.length !== body.contents.length || data.contents.some(value => typeof value !== "string")) throw Error("Invalid preview response");
+          const seen = body.contents;
           const next = new Map();
           for (let i = 0; i < seen.length && i < data.contents.length; i++) {
             next.set(seen[i], data.contents[i]);
@@ -1539,10 +1928,7 @@ export const anonymizeController = function (state, http, html, params, location
       state.anonymizeGistContent = function (content) {
         if (!content) return content;
         if (_gistAnonCache.has(content)) return _gistAnonCache.get(content);
-        if (!_gistSeenContents.has(content)) {
-          refreshGistPreview();
-        }
-        return content;
+        return "";
       };
 
       // Precomputed file objects for the preview pane so <gist-file>'s
@@ -1711,8 +2097,15 @@ export const anonymizeController = function (state, http, html, params, location
 
       // Submit: repo
       state.anonymizeRepo = (event) => {
+        if (state.sourceLoading) { state.error = "Wait for the source to finish loading before saving."; return; }
+        if (state.reconnectingSource && !state.reconnectRepositoryId) return;
         if (expirationDateInvalid()) return;
-        event.target.disabled = true;
+        if (state.anonymize?.invalid || state.sourceUrlError) {
+          state.error = "Please correct the highlighted fields before saving.";
+          return;
+        }
+        const button = event.currentTarget || event.target.closest?.("button") || event.target;
+        button.disabled = true;
         const o = parseGithubUrl(state.sourceUrl);
         const payload = {
           repoId: state.repoId,
@@ -1720,6 +2113,7 @@ export const anonymizeController = function (state, http, html, params, location
           connection: state.githubConnection,
           fullName: `${o.owner}/${o.repo}`,
           repository: state.sourceUrl,
+          reconnectRepositoryId: state.reconnectRepositoryId,
           options: state.options,
           source: state.source,
           conference: state.conference,
@@ -1728,20 +2122,26 @@ export const anonymizeController = function (state, http, html, params, location
         resetValidity();
         const url = state.isUpdate ? "/api/repo/" + state.repoId : "/api/repo/";
         http.post(url, payload, { headers: { "Content-Type": "application/json" } }).then(
-          () => { window.location.href = "/status/" + state.repoId; },
+          () => { draft.clear(); window.location.href = "/status/" + state.repoId; },
           (error) => {
             if (error.data) {
               translate("ERRORS." + error.data.error).then((t) => { state.error = t; }, console.error);
               displayErrorMessage(error.data.error);
             }
           }
-        ).finally(() => { event.target.disabled = false;  });
+        ).finally(() => { button.disabled = false;  });
       };
 
       // Submit: Gist
       state.anonymizeGist = (event) => {
+        if (state.sourceLoading) { state.error = "Wait for the source to finish loading before saving."; return; }
         if (expirationDateInvalid()) return;
-        event.target.disabled = true;
+        if (state.anonymize?.invalid || state.sourceUrlError) {
+          state.error = "Please correct the highlighted fields before saving.";
+          return;
+        }
+        const button = event.currentTarget || event.target.closest?.("button") || event.target;
+        button.disabled = true;
         const o = parseGithubUrl(state.sourceUrl);
         const payload = {
           gistId: state.gistId,
@@ -1753,20 +2153,26 @@ export const anonymizeController = function (state, http, html, params, location
         resetValidity();
         const url = state.isUpdate ? "/api/gist/" + state.gistId : "/api/gist/";
         http.post(url, payload, { headers: { "Content-Type": "application/json" } }).then(
-          () => { window.location.href = "/gist/" + state.gistId; },
+          () => { draft.clear(); window.location.href = "/gist/" + state.gistId; },
           (error) => {
             if (error.data) {
               translate("ERRORS." + error.data.error).then((t) => { state.error = t; }, console.error);
               displayErrorMessage(error.data.error);
             }
           }
-        ).finally(() => { event.target.disabled = false;  });
+        ).finally(() => { button.disabled = false;  });
       };
 
       // Submit: PR
       state.anonymizePullRequest = (event) => {
+        if (state.sourceLoading) { state.error = "Wait for the source to finish loading before saving."; return; }
         if (expirationDateInvalid()) return;
-        event.target.disabled = true;
+        if (state.anonymize?.invalid || state.sourceUrlError) {
+          state.error = "Please correct the highlighted fields before saving.";
+          return;
+        }
+        const button = event.currentTarget || event.target.closest?.("button") || event.target;
+        button.disabled = true;
         const o = parseGithubUrl(state.sourceUrl);
         const payload = {
           pullRequestId: state.pullRequestId,
@@ -1779,14 +2185,14 @@ export const anonymizeController = function (state, http, html, params, location
         resetValidity();
         const url = state.isUpdate ? "/api/pr/" + state.pullRequestId : "/api/pr/";
         http.post(url, payload, { headers: { "Content-Type": "application/json" } }).then(
-          () => { window.location.href = "/pr/" + state.pullRequestId; },
+          () => { draft.clear(); window.location.href = "/pr/" + state.pullRequestId; },
           (error) => {
             if (error.data) {
               translate("ERRORS." + error.data.error).then((t) => { state.error = t; }, console.error);
               displayErrorMessage(error.data.error);
             }
           }
-        ).finally(() => { event.target.disabled = false;  });
+        ).finally(() => { button.disabled = false;  });
       };
 
       state.watch("conference", () => { getConference(); });
@@ -1813,7 +2219,20 @@ export const anonymizeController = function (state, http, html, params, location
 
 export const exploreController = function (state, http, location, params, html, promises) {
       const timers = createTimers();
+      // Prism rewrites fenced code blocks, so mark redactions once it is done.
+      if (window.Prism?.hooks && !window.Prism.redactionHook) {
+        window.Prism.hooks.add("complete", (env) => markRedactionsIn(env.element));
+        window.Prism.redactionHook = true;
+      }
       const listen = createListeners();
+        state.on("dark-mode", (event, on) => {
+          if (!state.aceOption) return;
+          if (on) {
+            state.aceOption.theme = "nord_dark";
+          } else {
+            state.aceOption.theme = "chrome";
+          }
+        });
       let contentGeneration = 0;
       let destroyed = false;
       state.on("dispose", () => {
@@ -2291,7 +2710,7 @@ export const exploreController = function (state, http, location, params, html, 
           theme: "chrome",
           useSoftTab: true,
           tabSize: 2,
-          fontSize: 15,
+          fontSize: 13,
           keyBinding: "vscode",
           fullLineSelection: true,
           highlightActiveLine: false,
@@ -2367,7 +2786,7 @@ export const exploreController = function (state, http, location, params, html, 
               e.stop();
             });
 
-            listen(window, "hashchange", () => applyHashFromUrl(false));
+            const removeHashListener = listen(window, "hashchange", () => applyHashFromUrl(false));
 
             _editor.setFontSize(state.aceOption.fontSize);
             _editor.setReadOnly(state.aceOption.readOnly);
@@ -2396,17 +2815,45 @@ export const exploreController = function (state, http, location, params, html, 
             );
             _editor.session.setUseSoftTabs(state.aceOption.useSoftTab);
             _editor.session.setTabSize(state.aceOption.tabSize);
+            // Phones can't scroll long lines comfortably, so wrap them there,
+            // following the viewport when a tablet rotates or a window resizes.
+            const narrow = window.matchMedia("(max-width: 991px)");
+            const applyWrap = () => _editor.session.setUseWrapMode(state.aceOption.useWrapMode && narrow.matches);
+            applyWrap();
+            narrow.addEventListener?.("change", applyWrap);
             _editor.setBehavioursEnabled(state.aceOption.enableBehaviours);
             _editor.setFadeFoldWidgets(state.aceOption.fadeFoldWidgets);
+
+            // Outline redacted terms (XXXX-1, ...) so reviewers can tell a
+            // replacement from the author's own text.
+            let redactionMarkers = [];
+            const markRedactions = () => {
+              redactionMarkers.forEach((id) => _editor.session.removeMarker(id));
+              redactionMarkers = [];
+              const pattern = redactionPattern();
+              if (!pattern) return;
+              const lines = _editor.session.getDocument().getAllLines();
+              lines.forEach((line, row) => {
+                for (const match of line.matchAll(pattern)) {
+                  redactionMarkers.push(_editor.session.addMarker(
+                    new Range(row, match.index, row, match.index + match[0].length),
+                    "ace_redaction",
+                    "text"
+                  ));
+                }
+              });
+            };
+            markRedactions();
+            _editor.session.on("change", () => timers.timeout(markRedactions, 0));
+            // The mask may arrive after the editor mounts.
+            const offOptions = state.on("site-options", markRedactions);
+            return () => {
+              removeHashListener();
+              offOptions();
+              narrow.removeEventListener?.("change", applyWrap);
+            };
           },
         };
-        state.on("dark-mode", (event, on) => {
-          if (on) {
-            state.aceOption.theme = "nord_dark";
-          } else {
-            state.aceOption.theme = "chrome";
-          }
-        });
         if (state.isDarkMode) {
           state.aceOption.theme = "nord_dark";
         }
@@ -2567,6 +3014,8 @@ export const conferencesController = function (state, http, location) {
       }
 
       state.conferences = [];
+      state.loading = true;
+      state.error = "";
       state.search = "";
 
       const conferencesPrefsKey = "conferences.filterPrefs";
@@ -2602,11 +3051,13 @@ export const conferencesController = function (state, http, location) {
       );
 
       state.removeConference = function (conf) {
+        if (conf.removing) return;
         if (
           confirm(
             `Are you sure that you want to remove the conference ${conf.name}? All the repositories linked to this conference will expire.`
           )
         ) {
+          conf.removing = true;
           const toast = reactive({
             title: `Removing ${conf.name}...`,
             date: new Date(),
@@ -2616,30 +3067,36 @@ export const conferencesController = function (state, http, location) {
           http.delete(`/api/conferences/${conf.conferenceID}`).then(() => {
             toast.title = `${conf.name} is removed.`;
             toast.body = `The conference ${conf.name} is removed.`;
-            getConferences();
-          });
+            state.loadConferences();
+          }).catch(() => {
+            toast.title = "Unable to remove conference";
+            toast.body = "Please try again. The conference has not been removed.";
+          }).finally(() => { conf.removing = false; });
         }
       };
 
-      function getConferences() {
-        http.get("/api/conferences/").then(
+      state.loadConferences = () => {
+        state.loading = true;
+        state.error = "";
+        return http.get("/api/conferences/").then(
           (res) => {
             state.conferences = res.data || [];
           },
           (err) => {
-            console.error(err);
+            state.error = "Unable to load your conferences. Please try again.";
           }
-        );
-      }
-      getConferences();
+        ).finally(() => { state.loading = false; });
+      };
+      state.loadConferences();
 
       state.conferenceFilter = (conference) => {
         if (state.filters.status[conference.status] == false) return false;
 
-        if (state.search.trim().length == 0) return true;
+        const query = state.search.trim().toLowerCase();
+        if (!query) return true;
 
-        if (conference.name.indexOf(state.search) > -1) return true;
-        if (conference.conferenceID.indexOf(state.search) > -1) return true;
+        if ((conference.name || "").toLowerCase().includes(query)) return true;
+        if ((conference.conferenceID || "").toLowerCase().includes(query)) return true;
 
         return false;
       };
@@ -2657,12 +3114,14 @@ export const newConferenceController = function (state, http, location, params) 
 
       state.plans = [];
       state.editionMode = false;
+      state.saving = false;
+      state.error = "";
 
       function getConference() {
         http
           .get("/api/conferences/" + params.conferenceId)
           .then((res) => {
-            state.options = res.data;
+            state.options = { ...state.options, ...res.data, billing: res.data.billing || {} };
             state.options.startDate = new Date(state.options.startDate);
             state.options.endDate = new Date(state.options.endDate);
           });
@@ -2688,6 +3147,7 @@ export const newConferenceController = function (state, http, location, params) 
       const end = new Date(start);
       end.setMonth(start.getMonth() + 7, 0);
       state.options = {
+        billing: {},
         startDate: start,
         endDate: end,
         plan: {
@@ -2755,39 +3215,44 @@ export const newConferenceController = function (state, http, location, params) 
       }
 
       state.submit = function () {
+        if (state.saving) return;
+        state.saving = true;
+        state.error = "";
+        const submitted = JSON.parse(JSON.stringify(state.options));
         const toast = reactive({
-          title: `Creating ${state.options.name}...`,
+          title: `Creating ${submitted.name}...`,
           date: new Date(),
-          body: `The conference ${state.options.conferenceID} is in creation.`,
+          body: `The conference ${submitted.conferenceID} is in creation.`,
         });
         if (state.editionMode) {
-          toast.title = `Updating ${state.options.name}...`;
-          toast.body = `The conference '${state.options.conferenceID}' is updating.`;
+          toast.title = `Updating ${submitted.name}...`;
+          toast.body = `The conference '${submitted.conferenceID}' is updating.`;
         }
         state.addToast(toast);
         resetValidity();
         http
           .post(
             "/api/conferences/" +
-              (state.editionMode ? state.options.conferenceID : ""),
-            state.options
+              (state.editionMode ? submitted.conferenceID : ""),
+            submitted
           )
           .then(
             () => {
               if (!state.editionMode) {
-                toast.title = `${state.options.name} created`;
-                toast.body = `The conference '${state.options.conferenceID}' is created.`;
+                toast.title = `${submitted.name} created`;
+                toast.body = `The conference '${submitted.conferenceID}' is created.`;
               } else {
-                toast.title = `${state.options.name} updated`;
-                toast.body = `The conference '${state.options.conferenceID}' is updated.`;
+                toast.title = `${submitted.name} updated`;
+                toast.body = `The conference '${submitted.conferenceID}' is updated.`;
               }
-              location.url("/conference/" + state.options.conferenceID);
+              location.url("/conference/" + submitted.conferenceID);
             },
             (error) => {
-              displayErrorMessage(error.data.error);
+              displayErrorMessage(error.data?.error);
+              state.error = "Unable to save the conference. Please correct any highlighted fields and try again.";
               state.removeToast(toast);
             }
-          );
+          ).finally(() => { state.saving = false; });
       };
     };
 
@@ -2811,10 +3276,11 @@ export const conferenceController = function (state, http, location, params) {
       state.repoFiler = (repo) => {
         if (state.filters.status[repo.status] == false) return false;
 
-        if (state.search.trim().length == 0) return true;
+        const query = state.search.trim().toLowerCase();
+        if (!query) return true;
 
-        if (repo.source.fullName.indexOf(state.search) > -1) return true;
-        if (repo.repoId.indexOf(state.search) > -1) return true;
+        if ((repo.source?.fullName || "").toLowerCase().includes(query)) return true;
+        if ((repo.repoId || "").toLowerCase().includes(query)) return true;
 
         return false;
       };

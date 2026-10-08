@@ -14,6 +14,8 @@ export interface GitHubBaseData {
   organization: string;
   repoName: string;
   commit: string;
+  cacheGeneration?: string;
+  cacheRevision?: string;
 }
 
 export default abstract class GitHubBase implements SourceBase {
