@@ -446,6 +446,25 @@ describe("Vue 3 UI", function () {
     expect(ui.errors).to.deep.equal([]);
   });
 
+  it("renders admin users with missing email entries and links to their repositories", async function () {
+    const users = [
+      { username: "no-emails" }, { username: "empty-emails", emails: [] },
+      { username: "null-email", emails: [null] }, { username: "missing-email", emails: [{}] },
+      { username: "with-email", emails: [{ email: "owner@example.com" }] },
+    ].map(user => ({ ...user, status: "active", repoCount: 2 }));
+    ui = await browser("/", { "/api/user": { username: "admin", isAdmin: true },
+      "/api/admin/users": { total: users.length, results: users, statusCounts: [] } });
+    await ui.go("/admin/users");
+    const rows = [...ui.window.document.querySelectorAll(".paper-table-row.admin-users-row")];
+    expect(rows).to.have.length(users.length);
+    expect(rows.at(-1).textContent).to.include("owner@example.com");
+    for (const [index, row] of rows.entries()) {
+      expect(row.querySelector(".repo-name").textContent).to.equal(users[index].username);
+      expect(row.querySelector(".cell-views a").getAttribute("href")).to.equal("/admin/repositories?owner=" + users[index].username);
+    }
+    expect(ui.errors).to.deep.equal([]);
+  });
+
   it("shows latency bounds, interruptions and resource samples on the admin overview", async function () {
     const sample = { instance: "streamer:fixture", service: "streamer", sampledAt: Date.now(), cpuPercent: 2,
       memory: { rss: 16 * 1024 * 1024 }, memoryLimitBytes: 128 * 1024 * 1024,
@@ -455,13 +474,28 @@ describe("Vue 3 UI", function () {
       avgMs: 120, p95UpperMs: 250, p99UpperMs: 500, aborted: 1, errors: 0, slow: 0, firstByteCount: 10, firstByteP95UpperMs: 50 };
     ui = await browser("/", { "/api/user": { username: "admin", isAdmin: true },
       "/api/admin/overview": { history: [] },
-      "/api/admin/performance": { available: true, instances: [sample], routes: [row], stages: [],
+      "/api/admin/performance": { available: true, instances: [sample], routes: [row], stages: [
+        { service: "streamer", metric: "cache_hit", count: 3, avgMs: 4, p95UpperMs: 10 },
+        { service: "api", metric: "first_byte", count: 10, avgMs: 20, p95UpperMs: 50 },
+      ],
         runtimeSeries: [{ instance: sample.instance, rss: 20 * 1024 * 1024 }] } });
     await ui.go("/admin/");
     const text = ui.window.document.querySelector(".app-view").textContent;
     expect(text).to.include("Request performance"); expect(text).to.include("\u2264 250 ms");
     expect(text).to.include("\u2264 50 ms"); expect(text).to.include("streamer:fixture"); expect(text).to.include("20.0 MB");
-    expect(ui.window.document.querySelector(".table-warning")).not.to.equal(null);
+    const routesTab = ui.window.document.querySelector("#performance-routes-tab");
+    routesTab.dispatchEvent(new ui.window.KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+    await delay(10);
+    expect(ui.window.document.activeElement.id).to.equal("performance-processes-tab");
+    expect(ui.window.document.activeElement.getAttribute("aria-selected")).to.equal("true");
+    expect(ui.window.document.querySelector("#performance-processes").style.display).not.to.equal("none");
+    expect(ui.window.document.querySelector(".ov-metric-warning-row").textContent).to.include("Needs attention");
+    ui.window.document.activeElement.dispatchEvent(new ui.window.KeyboardEvent("keydown", { key: "End", bubbles: true }));
+    await delay(10);
+    expect(ui.window.document.activeElement.id).to.equal("performance-stages-tab");
+    const stageRows = ui.window.document.querySelectorAll("#performance-stages tbody tr");
+    expect(stageRows).to.have.length(1);
+    expect(stageRows[0].textContent).to.include("cache_hit");
     await ui.input('select[aria-label="Performance time range"]', "60", "change");
     expect(ui.requests.filter(request => request.url.pathname === "/api/admin/performance").at(-1).url.searchParams.get("minutes")).to.equal("60");
     expect(ui.errors).to.deep.equal([]);
@@ -472,6 +506,26 @@ describe("Vue 3 UI", function () {
       "/api/admin/overview": { history: [] }, "/api/admin/performance": { available: false } });
     await ui.go("/admin/");
     expect(ui.window.document.querySelector(".app-view").textContent).to.include("Performance monitoring is unavailable");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("retries a failed performance request and shows explicit empty metrics", async function () {
+    let calls = 0;
+    ui = await browser("/", { "/api/user": { username: "admin", isAdmin: true },
+      "/api/admin/overview": { history: [] },
+      "/api/admin/performance": () => ++calls === 1 ? { __status: 503, body: {} }
+        : { available: true, instances: [], routes: [], stages: [], runtimeSeries: [] } });
+    await ui.go("/admin/");
+    const alert = ui.window.document.querySelector(".ov-performance [role=alert]");
+    expect(alert.textContent).to.include("Could not refresh performance monitoring");
+    alert.querySelector("button").click();
+    await delay(20);
+    expect(calls).to.equal(2);
+    expect(ui.window.document.querySelector(".ov-performance [role=alert]")).to.equal(null);
+    expect(ui.window.document.querySelector("#performance-routes").textContent).to.include("No recorded requests");
+    ui.window.document.querySelector("#performance-stages-tab").click();
+    await delay(10);
+    expect(ui.window.document.querySelector("#performance-stages").textContent).to.include("No recorded work stages");
     expect(ui.errors).to.deep.equal([]);
   });
 

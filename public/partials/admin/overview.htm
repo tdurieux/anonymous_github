@@ -17,53 +17,6 @@
   <div class="admin-empty" v-if="loading">Loading overview&hellip;</div>
   <div class="alert alert-danger" style="margin:12px 0" v-if="error"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-warning"></use></svg> {{ error }}</div>
 
-  <section class="ov-panel-card" style="margin:16px 0">
-    <div class="ov-panel-head">
-      <span class="ov-panel-title">Request performance</span>
-      <select v-model.number="performanceMinutes" @change="loadPerformance()" aria-label="Performance time range">
-        <option :value="15">Last 15 minutes</option><option :value="60">Last hour</option>
-      </select>
-    </div>
-    <p v-if="performanceError" class="alert alert-warning">{{ performanceError }}</p>
-    <p v-if="!performance &amp;&amp; !performanceError">Loading performance monitoring&hellip;</p>
-    <div v-if="performance?.available">
-      <p>Latency includes upstream waits and response transfer. Percentiles show histogram bucket upper bounds. Samples refresh every 30 seconds.</p>
-      <div class="table-responsive">
-        <table class="table table-sm">
-          <thead><tr><th>Service</th><th>Route</th><th>Requests</th><th>Average</th><th>First byte p95</th><th>p95</th><th>p99</th><th>Interrupted</th><th>5xx</th><th>Slow</th></tr></thead>
-          <tbody><tr v-for="row in performance.routes" :key="row.service + row.method + row.route">
-            <td>{{ row.service }}</td><td>{{ row.method }} {{ row.route }}</td><td>{{ row.count }}</td><td>{{ row.avgMs }} ms</td>
-            <td>{{ firstByteBound(row) }}</td><td>{{ latencyBound(row, 'p95UpperMs') }}</td><td>{{ latencyBound(row, 'p99UpperMs') }}</td>
-            <td>{{ row.aborted }}</td><td>{{ row.errors }}</td><td>{{ row.slow }}</td>
-          </tr></tbody>
-        </table>
-      </div>
-      <p v-if="!performance.routes?.length">No recorded requests in this window yet.</p>
-      <h3>API and streamer processes</h3>
-      <p v-if="!performance.instances?.length" class="alert alert-warning">No recent process samples. Monitoring coverage is incomplete.</p>
-      <div class="table-responsive">
-        <table class="table table-sm">
-          <thead><tr><th>Process</th><th>RSS / limit</th><th>Peak RSS in window</th><th>CPU</th><th>Event loop p95</th><th>Active requests</th><th>Sockets / CLOSE_WAIT</th><th>Workers / waiting</th><th>Sample age</th><th>Dropped batches / metrics</th></tr></thead>
-          <tbody><tr v-for="sample in performance.instances" :key="sample.instance" :class="{'table-warning': performanceWarning(sample)}">
-            <td>{{ sample.instance }}</td><td>{{ humanBytes(sample.memory.rss) }} / {{ humanBytes(sample.memoryLimitBytes) }}</td>
-            <td>{{ humanBytes(peakRss(sample)) }}</td><td>{{ sample.cpuPercent.toFixed(1) }}%</td><td>{{ sample.eventLoop.p95Ms.toFixed(1) }} ms</td>
-            <td>{{ sample.activeRequests }}</td><td>{{ sample.sockets?.descriptors ?? 'Unavailable' }} / {{ sample.sockets?.closeWait ?? 'Unavailable' }}</td>
-            <td>{{ sample.workers?.running ?? 0 }} / {{ sample.workers?.waiting ?? 0 }}</td><td>{{ sampleAge(sample) }} s</td>
-            <td>{{ sample.droppedBatches }} / {{ sample.droppedMetrics }}</td>
-          </tr></tbody>
-        </table>
-      </div>
-      <h3>Work stages and cache results</h3>
-      <div class="table-responsive">
-        <table class="table table-sm">
-          <thead><tr><th>Service</th><th>Stage</th><th>Samples</th><th>Average</th><th>p95</th></tr></thead>
-          <tbody><tr v-for="row in performance.stages.filter(row =&gt; row.metric !== 'first_byte')" :key="row.service + row.metric">
-            <td>{{ row.service }}</td><td>{{ row.metric }}</td><td>{{ row.count }}</td><td>{{ row.avgMs }} ms</td><td>{{ latencyBound(row, 'p95UpperMs') }}</td>
-          </tr></tbody>
-        </table>
-      </div>
-    </div>
-  </section>
 
   <div v-if="data">
 
@@ -322,4 +275,81 @@
     </section>
 
   </div>
+
+  <section class="ov-panel-card ov-performance" aria-labelledby="performance-heading">
+    <div class="ov-panel-head ov-performance-head">
+      <div>
+        <h2 class="ov-panel-title" id="performance-heading">Request performance</h2>
+        <p class="ov-performance-note">Request latency and process health &middot; refreshes every 30 seconds</p>
+      </div>
+      <div class="ov-performance-window">
+        <label for="performance-window">Time range</label>
+        <select id="performance-window" class="form-control form-control-sm" v-model.number="performanceMinutes" @change="loadPerformance()" aria-label="Performance time range">
+          <option :value="15">Last 15 minutes</option><option :value="60">Last hour</option>
+        </select>
+      </div>
+    </div>
+    <div v-if="performanceError" class="ov-performance-message ov-performance-warning" role="alert">
+      <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-warning"></use></svg>
+      <span>{{ performanceError }}</span>
+      <button type="button" class="btn btn-sm" @click="loadPerformance()">Retry</button>
+    </div>
+    <p v-if="!performance &amp;&amp; !performanceError" class="ov-performance-empty" role="status">Loading performance monitoring&hellip;</p>
+    <div v-if="performance?.available">
+      <div class="paper-tabs ov-performance-tabs" role="tablist" aria-label="Performance metrics">
+        <button id="performance-routes-tab" type="button" class="paper-tab" role="tab" :class="{active: performanceTab === 'routes'}" :aria-selected="performanceTab === 'routes'" :tabindex="performanceTab === 'routes' ? 0 : -1" aria-controls="performance-routes" @click="performanceTab = 'routes'" @keydown="previewTabKeydown($event)">Routes</button>
+        <button id="performance-processes-tab" type="button" class="paper-tab" role="tab" :class="{active: performanceTab === 'processes'}" :aria-selected="performanceTab === 'processes'" :tabindex="performanceTab === 'processes' ? 0 : -1" aria-controls="performance-processes" @click="performanceTab = 'processes'" @keydown="previewTabKeydown($event)">Processes</button>
+        <button id="performance-stages-tab" type="button" class="paper-tab" role="tab" :class="{active: performanceTab === 'stages'}" :aria-selected="performanceTab === 'stages'" :tabindex="performanceTab === 'stages' ? 0 : -1" aria-controls="performance-stages" @click="performanceTab = 'stages'" @keydown="previewTabKeydown($event)">Work stages</button>
+      </div>
+      <div id="performance-routes" role="tabpanel" aria-labelledby="performance-routes-tab" v-show="performanceTab === 'routes'">
+        <div class="ov-metrics-scroll" tabindex="0" role="region" aria-label="Route latency metrics, scroll for more columns" v-if="performance.routes?.length">
+          <table class="ov-metrics-table">
+            <caption class="sr-only">Route latency for the selected time range</caption>
+            <thead><tr><th scope="col">Route</th><th scope="col" class="num">Requests</th><th scope="col" class="num">Average</th><th scope="col" class="num">First byte p95</th><th scope="col" class="num">p95</th><th scope="col" class="num">p99</th><th scope="col" class="num">Interrupted</th><th scope="col" class="num">5xx</th><th scope="col" class="num">Slow</th></tr></thead>
+            <tbody><tr v-for="row in performance.routes" :key="row.service + row.method + row.route">
+              <th scope="row" class="ov-metric-name"><span>{{ row.route }}</span><small>{{ row.service }} &middot; {{ row.method }}</small></th>
+              <td class="num">{{ fmt.number(row.count) }}</td><td class="num">{{ row.avgMs }} ms</td>
+              <td class="num">{{ firstByteBound(row) }}</td><td class="num">{{ latencyBound(row, 'p95UpperMs') }}</td><td class="num">{{ latencyBound(row, 'p99UpperMs') }}</td>
+              <td class="num" :class="{'ov-metric-warn': row.aborted > 0}">{{ fmt.number(row.aborted) }}</td><td class="num" :class="{'ov-metric-warn': row.errors > 0}">{{ fmt.number(row.errors) }}</td><td class="num" :class="{'ov-metric-warn': row.slow > 0}">{{ fmt.number(row.slow) }}</td>
+            </tr></tbody>
+          </table>
+        </div>
+        <p v-else class="ov-performance-empty">No recorded requests in this time range yet.</p>
+      </div>
+      <div id="performance-processes" role="tabpanel" aria-labelledby="performance-processes-tab" v-show="performanceTab === 'processes'">
+        <p class="ov-performance-note">API and streamer processes &middot; latest sample per instance</p>
+        <div v-if="!performance.instances?.length" class="ov-performance-message ov-performance-warning" role="status">No recent process samples. Monitoring coverage is incomplete.</div>
+        <div v-else class="ov-metrics-scroll" tabindex="0" role="region" aria-label="Process resource metrics, scroll for more columns">
+          <table class="ov-metrics-table">
+            <caption class="sr-only">API and streamer process resource usage</caption>
+            <thead><tr><th scope="col">Process</th><th scope="col" class="num">RSS / limit</th><th scope="col" class="num">CPU</th><th scope="col" class="num">Event loop p95</th><th scope="col" class="num">Active requests</th><th scope="col" class="num">Sockets / CLOSE_WAIT</th><th scope="col" class="num">Workers / waiting</th><th scope="col" class="num">Sample age</th><th scope="col" class="num">Dropped batches / metrics</th></tr></thead>
+            <tbody><tr v-for="sample in performance.instances" :key="sample.instance" :class="{'ov-metric-warning-row': performanceWarning(sample)}">
+              <th scope="row" class="ov-metric-name"><span>{{ sample.instance }}</span><small class="ov-metric-warn" v-if="performanceWarning(sample)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-warning"></use></svg> Needs attention</small></th>
+              <td class="num">{{ humanBytes(sample.memory.rss) }} / {{ humanBytes(sample.memoryLimitBytes) }}<small>Peak {{ humanBytes(peakRss(sample)) }}</small></td>
+              <td class="num">{{ sample.cpuPercent.toFixed(1) }}%</td><td class="num">{{ sample.eventLoop.p95Ms.toFixed(1) }} ms</td>
+              <td class="num">{{ sample.activeRequests }}</td><td class="num">{{ sample.sockets?.descriptors ?? 'Unavailable' }} / {{ sample.sockets?.closeWait ?? 'Unavailable' }}</td>
+              <td class="num">{{ sample.workers?.running ?? 0 }} / {{ sample.workers?.waiting ?? 0 }}</td><td class="num">{{ sampleAge(sample) }} s</td>
+              <td class="num">{{ sample.droppedBatches }} / {{ sample.droppedMetrics }}</td>
+            </tr></tbody>
+          </table>
+        </div>
+      </div>
+      <div id="performance-stages" role="tabpanel" aria-labelledby="performance-stages-tab" v-show="performanceTab === 'stages'">
+        <div v-if="performance.stages?.some(row => row.metric !== 'first_byte')" class="ov-metrics-scroll" tabindex="0" role="region" aria-label="Work stage metrics, scroll for more columns">
+          <table class="ov-metrics-table">
+            <caption class="sr-only">Work stages and cache results</caption>
+            <thead><tr><th scope="col">Work stage</th><th scope="col" class="num">Samples</th><th scope="col" class="num">Average</th><th scope="col" class="num">p95</th></tr></thead>
+            <tbody><tr v-for="row in performance.stages.filter(row => row.metric !== 'first_byte')" :key="row.service + row.metric">
+              <th scope="row" class="ov-metric-name"><span>{{ row.metric }}</span><small>{{ row.service }}</small></th><td class="num">{{ fmt.number(row.count) }}</td><td class="num">{{ row.avgMs }} ms</td><td class="num">{{ latencyBound(row, 'p95UpperMs') }}</td>
+            </tr></tbody>
+          </table>
+        </div>
+        <p v-else class="ov-performance-empty">No recorded work stages or cache results in this time range yet.</p>
+      </div>
+      <details class="ov-performance-help">
+        <summary>How to read these metrics</summary>
+        <p>Latency includes upstream waits and response transfer. Percentiles show histogram bucket upper bounds, not exact timings. Process rows marked &ldquo;Needs attention&rdquo; have stale samples, dropped monitoring data, CLOSE_WAIT sockets, high event loop delay, or high memory usage.</p>
+      </details>
+    </div>
+  </section>
 </div>
