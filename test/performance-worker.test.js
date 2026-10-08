@@ -110,7 +110,7 @@ describe("large anonymization resources", function () {
   });
   it("bounds an unresponsive Redis command and disconnects its socket", async () => {
     let disconnected = false, error;
-    const client = { isOpen: true, disconnect: async () => { disconnected = true; } };
+    const client = { isOpen: true, destroy: () => { disconnected = true; } };
     try { await cacheCommand(new Promise(() => {}), client, 20); } catch (failure) { error = failure; }
     expect(error.message).to.equal("cache_command_timeout"); expect(disconnected).to.equal(true);
   });

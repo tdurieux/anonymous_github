@@ -600,15 +600,15 @@ router.delete("/errors", async (req, res) => {
     // SCAN the hourly counter keys and del them along with the list and
     // dropped counter so the admin page comes back to a clean slate.
     const hourlyKeys: string[] = [];
-    let cursor = 0;
+    let cursor = "0";
     do {
       const reply = await client.scan(cursor, {
         MATCH: `${ERROR_LOG_HOURLY_PREFIX}*`,
         COUNT: 100,
       });
-      cursor = Number(reply.cursor);
+      cursor = reply.cursor;
       for (const k of reply.keys) hourlyKeys.push(k);
-    } while (cursor !== 0);
+    } while (cursor !== "0");
     const pipe = client.multi();
     pipe.del(ERROR_LOG_KEY);
     pipe.del(ERROR_LOG_DROPPED_KEY);

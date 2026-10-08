@@ -13,7 +13,7 @@ export async function cacheCommand<T>(command: Promise<T>, client: ReturnType<ty
       timer = setTimeout(() => {
         retryAt = Date.now() + 30_000;
         if (connection === client) connection = undefined;
-        if (client.isOpen) void client.disconnect().catch(() => {});
+        if (client.isOpen) client.destroy();
         reject(new Error("cache_command_timeout"));
       }, timeoutMs);
     })]);
@@ -30,7 +30,7 @@ export async function cacheRedis() {
     } });
     client.on("error", () => {});
     try { await cacheCommand(client.connect(), client, 500); connection = client; return client; }
-    catch { retryAt = Date.now() + 30_000; if (client.isOpen) await client.disconnect().catch(() => {}); return undefined; }
+    catch { retryAt = Date.now() + 30_000; if (client.isOpen) client.destroy(); return undefined; }
     finally { connecting = undefined; }
   })();
   return connecting;
@@ -79,5 +79,5 @@ export async function closeCacheRedis() {
   const current = connection;
   connection = undefined;
   retryAt = 0;
-  if (current?.isOpen) await current.disconnect();
+  if (current?.isOpen) current.destroy();
 }

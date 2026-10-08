@@ -30,7 +30,10 @@ async function redisDeadline<T>(work: Promise<T>, redis: RedisClientType): Promi
     return await Promise.race([work, new Promise<never>((_resolve, reject) => {
       timer = setTimeout(() => {
         reject(new Error("performance_monitoring_timeout"));
-        if (redis.isOpen) void redis.disconnect().then(() => client === redis ? redis.connect() : undefined).catch(() => {});
+        if (redis.isOpen) {
+          redis.destroy();
+          if (client === redis) void redis.connect().catch(() => {});
+        }
       }, 2000); timer.unref();
     })]);
   } finally { clearTimeout(timer); }
@@ -75,7 +78,7 @@ export async function socketSnapshot() {
 export function startPerformanceMonitoring(service: Service, workers: () => unknown = () => null) {
   if (stop) return stop;
   const redis = createClient({ disableOfflineQueue: true, socket: { host: config.REDIS_HOSTNAME,
-    port: config.REDIS_PORT, connectTimeout: 2000, reconnectStrategy: retries => Math.min(5000, 250 * (retries + 1)) } }) as RedisClientType;
+    port: config.REDIS_PORT, connectTimeout: 2000, reconnectStrategy: (retries: number) => Math.min(5000, 250 * (retries + 1)) } }) as RedisClientType;
   client = redis;
   redis.on("error", () => {});
   void redis.connect().catch(() => {});
@@ -135,7 +138,7 @@ export function startPerformanceMonitoring(service: Service, workers: () => unkn
   void flush();
   stop = async () => {
     stopped = true; clearInterval(timer); loop.disable();
-    if (redis.isOpen) await redis.disconnect();
+    if (redis.isOpen) redis.destroy();
     client = undefined; stop = undefined; flushNow = undefined; reports.clear();
   };
   return stop;

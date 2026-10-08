@@ -26,7 +26,7 @@ const { setTimeout: delay } = require("node:timers/promises");
     redis = createClient({ socket: { host: "127.0.0.1", port: config.REDIS_PORT } });
     await redis.connect();
   });
-  after(async () => { await closeCacheRedis(); await redis.quit(); Object.assign(config, previousRedis); await fs.rm(root, { force: true, recursive: true }); });
+  after(async () => { await closeCacheRedis(); await redis.close(); Object.assign(config, previousRedis); await fs.rm(root, { force: true, recursive: true }); });
   it("downloads and publishes once across two streamer processes and ten callers", async () => {
     let producers = 0;
     const children = Array.from({ length: 2 }, () => fork(path.join(__dirname, "fixtures/performance-cache-worker.js"), [], { stdio: ["ignore", "ignore", "ignore", "ipc"], env: { ...process.env,
