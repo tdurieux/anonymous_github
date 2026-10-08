@@ -108,10 +108,10 @@
   ],
   "tests": {
     "fullSuite": {
-      "passing": 948,
+      "passing": 950,
       "pending": 51,
       "failing": 0,
-      "note": "Clean committed checkout after ten PR review follow-ups, with disposable MongoDB/Redis and memory-backed temporary storage. Streamer startup/lifecycle/idle-cleanup integration uses compiled application code in separate processes; unrelated workspace files excluded. Includes bulk expiration races across repositories, gists and pull requests, and conference removal after multiple storage failures.",
+      "note": "Clean committed checkout after the ZIP HTTP rollout follow-up, with disposable MongoDB/Redis and memory-backed temporary storage. Compiled streamer startup/lifecycle/idle-cleanup integration remains enabled. Two real HTTP tests cover Express compression, plain and gzip output, forced backpressure, listener cleanup and chunked upstream archives.",
       "validationDate": "2026-10-08"
     },
     "performanceSuite": {
@@ -147,6 +147,12 @@
       "idleReplicaCacheAndSpoolCleanup": "passed",
       "startupFailureExitCode": 1,
       "scope": "Disposable MongoDB and local filesystem; controlled download/publication fixtures. Pool settings are asserted, not production socket measurements."
+    },
+    "zipHttp": {
+      "plain": "passed",
+      "gzip": "passed",
+      "forcedBackpressure": "passed",
+      "drainListenerCleanup": "passed"
     }
   },
   "sockets": {

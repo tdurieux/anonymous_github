@@ -119,19 +119,31 @@ export async function streamAnonymizedZip(
   const compiledTerms = compileTerms(opt.anonymizerOptions.terms || []);
   let stopped = false;
   let entryWaiting = false;
+  let cleanupDrain: (() => void) | undefined;
   const resumeParser = () => {
     if (!stopped && entryWaiting && archive.readableLength === 0 && output.writableLength === 0) {
       entryWaiting = false;
       parser.resume();
     }
   };
-  // Wait for response writes to complete before admitting the next entry.
+  // Middleware can omit write callbacks. Honor the writable backpressure
+  // contract instead so queued output stays bounded.
   const output = new Writable({
     write(chunk, encoding, callback) {
-      res.write(chunk, encoding, (error?: Error | null) => {
-        callback(error);
+      const written = () => {
+        cleanupDrain?.();
+        cleanupDrain = undefined;
+        callback();
         setImmediate(resumeParser);
-      });
+      };
+      if (res.write(chunk, encoding)) written();
+      else {
+        // Compression forwards drain subscriptions to its underlying stream.
+        // Remove the listener from the emitter returned by on(), rather than
+        // accumulating wrappers on that stream through response.once().
+        const emitter = res.on("drain", written) as NodeJS.EventEmitter;
+        cleanupDrain = () => emitter.removeListener("drain", written);
+      }
     },
     final(callback) { res.end(); callback(); },
   });
@@ -140,6 +152,8 @@ export async function streamAnonymizedZip(
   const stop = () => {
     if (stopped) return;
     stopped = true;
+    cleanupDrain?.();
+    cleanupDrain = undefined;
     downloadStream.destroy();
     parser.destroy();
     for (const stream of activeStreams) stream.destroy();
