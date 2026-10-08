@@ -17,7 +17,7 @@
               <button type="button" :aria-pressed="githubConnection === 'github-app'" :disabled="githubConnection === 'github-app'" @click="chooseGitHubConnection('github-app')"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-shield"></use></svg> <span class="sr-only">Read-only </span>GitHub App</button>
               <button type="button" :aria-pressed="githubConnection === 'oauth'" :disabled="githubConnection === 'oauth'" @click="chooseGitHubConnection('oauth')">Legacy OAuth</button>
             </div>
-            <span class="connection-badge" v-if="isUpdate || detectedType === 'gist'">{{ detectedType !== 'gist' &amp;&amp; githubConnection === 'github-app' ? 'Read-only GitHub App' : 'Legacy OAuth' }}</span>
+            <span class="connection-badge" v-if="isUpdate || detectedType === 'gist'">{{ (detectedType === 'gist' ? githubConnections?.gistConnection === 'github-app' : githubConnection === 'github-app') ? 'Read-only GitHub App' : 'Legacy OAuth' }}</span>
           </aside>
         </div>
         <input id="sourceUrl-landing" type="text" class="form-control form-control-lg" placeholder="https://github.com/owner/repository" v-field="{ state: viewState, set: value =&gt; { sourceUrl = value }, value: sourceUrl, form: null, options: { debounce: {default: 1000, blur: 0, click: 0}, updateOn: &#x27;default blur click&#x27; }, change: () =&gt; { urlSelected() } }">
@@ -27,12 +27,6 @@
       <small class="form-text" style="color: var(--ink-muted);">
         Repository, pull request (…/pull/42) and gist (gist.github.com/…) URLs are all accepted.
       </small>
-      <aside class="alert alert-info" role="status" v-if="detectedType === 'gist' &amp;&amp; gistOAuthRequired">
-        <p>Connect GitHub OAuth to access gists. Your account and existing anonymizations stay the same, and your draft will be restored when you return.</p>
-        <p>GitHub's legacy OAuth connection includes write access to private repositories.</p>
-        <button type="button" class="btn btn-ink" @click="connectGistOAuth()" v-if="githubConnections?.oauthEnabled">Connect GitHub OAuth to access gists</button>
-        <p v-else>GitHub OAuth is currently unavailable. Please try again later.</p>
-      </aside>
       <aside class="repo-access-details" aria-label="GitHub access" v-if="!sourceUrl &amp;&amp; githubConnections?.appEnabled &amp;&amp; githubConnections.appConnected &amp;&amp; githubConnections.oauthConnected">
         <div class="repo-access-main">
           <div class="repo-access-controls">
@@ -65,6 +59,17 @@
       </div>
     </header>
 
+      <aside class="alert alert-info" role="status" v-if="detectedType === 'gist' &amp;&amp; gistAppRequired">
+        <p>Reconnect your GitHub account to read this gist. Your draft will be restored when you return.</p>
+        <button type="button" class="btn btn-ink" @click="connectGistApp()">Connect GitHub App to access gists</button>
+      </aside>
+      <aside class="alert alert-info" role="status" v-if="detectedType === 'gist' &amp;&amp; gistOAuthRequired">
+        <p>Connect GitHub OAuth to access gists. Your account and existing anonymizations stay the same, and your draft will be restored when you return.</p>
+        <p>GitHub's legacy OAuth connection includes write access to private repositories.</p>
+        <button type="button" class="btn btn-ink" @click="connectGistOAuth()" v-if="githubConnections?.oauthEnabled">Connect GitHub OAuth to access gists</button>
+        <p v-else>GitHub OAuth is currently unavailable. Please try again later.</p>
+      </aside>
+
     <nav class="anonymize-mobile-tabs" role="tablist" aria-label="Anonymization workspace">
       <button id="workspace-settings-tab" role="tab" type="button" :aria-selected="mobilePane === 'settings'" aria-controls="workspace-settings" :tabindex="mobilePane === 'settings' ? 0 : -1" @keydown="previewTabKeydown($event)" @click="selectMobilePane('settings')">Settings</button>
       <button id="workspace-preview-tab" role="tab" type="button" :aria-selected="mobilePane === 'preview'" aria-controls="workspace-preview" :tabindex="mobilePane === 'preview' ? 0 : -1" @keydown="previewTabKeydown($event)" @click="selectMobilePane('preview')">Reviewer preview</button>
@@ -86,7 +91,7 @@
                     <button type="button" :aria-pressed="githubConnection === 'github-app'" :disabled="githubConnection === 'github-app'" @click="chooseGitHubConnection('github-app')"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-shield"></use></svg> <span class="sr-only">Read-only </span>GitHub App</button>
                     <button type="button" :aria-pressed="githubConnection === 'oauth'" :disabled="githubConnection === 'oauth'" @click="chooseGitHubConnection('oauth')">Legacy OAuth</button>
                   </div>
-                  <span class="connection-badge" v-if="isUpdate || detectedType === 'gist'">{{ detectedType !== 'gist' &amp;&amp; githubConnection === 'github-app' ? 'Read-only GitHub App' : 'Legacy OAuth' }}</span>
+                  <span class="connection-badge" v-if="isUpdate || detectedType === 'gist'">{{ (detectedType === 'gist' ? githubConnections?.gistConnection === 'github-app' : githubConnection === 'github-app') ? 'Read-only GitHub App' : 'Legacy OAuth' }}</span>
                 </aside>
               </div>
               <input type="text" class="form-control" name="sourceUrl" id="sourceUrl" :disabled="isUpdate &amp;&amp; detectedType !== &#x27;repo&#x27;" placeholder="Paste a GitHub repo or pull request URL" v-field="{ state: viewState, set: value =&gt; { sourceUrl = value }, value: sourceUrl, form: &quot;anonymize&quot;, options: { debounce: {default: 1000, blur: 0, click: 0}, updateOn: &#x27;default blur click&#x27; }, change: () =&gt; { urlSelected() } }" :class="{&#x27;is-invalid&#x27;: anonymize?.sourceUrl?.invalid}">

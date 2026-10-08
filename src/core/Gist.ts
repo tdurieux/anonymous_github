@@ -1,6 +1,7 @@
+import { registerGitHubToken } from "./github-token-context";
 import { isConnected } from "../server/database";
 import { expireEmbeddedContent } from "./content-expiration";
-import { APP_PROVIDER, appError } from "./github-app";
+import { APP_PROVIDER, appUserToken } from "./github-app";
 import CredentialModel from "./model/credentials/credentials.model";
 import { getCredentialToken } from "./credentials";
 import { RepositoryStatus } from "./types";
@@ -50,16 +51,39 @@ export default class Gist {
     this.owner.model.isNew = false;
   }
 
-  async getToken() {
-    if (config.GITHUB_APP_ENABLED && !(await getCredentialToken(this.owner.id)) && await CredentialModel.exists({ ownerId: this.owner.id, provider: APP_PROVIDER })) {
-      throw appError("github_oauth_required");
+  private async getAccess() {
+    if (config.GITHUB_APP_ENABLED && await CredentialModel.exists({ ownerId: this.owner.id, provider: APP_PROVIDER })) {
+      const ownerId = this.owner.id;
+      const token = await appUserToken(ownerId);
+      registerGitHubToken(token, { quotaKey: `app-user:${ownerId}`, renew: () => appUserToken(ownerId) });
+      return { token, connection: "github-app" };
     }
-    return (await getCredentialToken(this.owner.id, "github", { collection: "anonymizedgists", id: this._model._id })) || config.GITHUB_TOKEN;
+    return { token: (await getCredentialToken(this.owner.id, "github", { collection: "anonymizedgists", id: this._model._id })) || config.GITHUB_TOKEN,
+      connection: "oauth" };
+  }
+
+  async getToken() {
+    return (await this.getAccess()).token;
   }
 
   async download() {
+    const access = await this.getAccess();
+    try {
+      await this.downloadContent(access.token);
+    } catch (error) {
+      // A stored credential can exist but have been revoked on GitHub.
+      // Ask the user to reconnect the provider that rejected the credential.
+      if ((error as { status?: number })?.status === 401) {
+        throw new AnonymousError(access.connection === "github-app" ? "github_app_reconnect_required" : "github_oauth_required",
+          { httpStatus: 403, cause: error as Error });
+      }
+      throw error;
+    }
+  }
+
+  private async downloadContent(token: string) {
     logger.info("downloading gist", { gistId: this._model.source.gistId });
-    const oct = octokit(await this.getToken());
+    const oct = octokit(token);
 
     const gist_id = this._model.source.gistId;
 

@@ -166,7 +166,7 @@ describe("production regressions", function () {
   it("fetches complete truncated gist content", async function () {
     const Gist = require("../src/core/Gist").default;
     const model = new (require("../src/core/model/anonymizedGists/anonymizedGists.model").default)({ source: { gistId: "123" } });
-    const gist = new Gist(model); gist.getToken = async () => "private-token";
+    const gist = new Gist(model); gist.getAccess = async () => ({ token: "private-token", connection: "github-app" });
     stub(gh, "octokit", token => {
       expect(token).to.equal("private-token");
       return { rest: { gists: { get: async () => ({ data: { files: { file: { filename: "file", content: "prefix", truncated: true, raw_url: "https://gist.githubusercontent.com/raw", size: 20 } } } }) } },

@@ -12,7 +12,7 @@
       <section v-if="connections.appEnabled">
         <div class="connection-top"><i class="fab fa-github" aria-hidden="true"></i><span class="connection-badge">Recommended</span></div>
         <div class="connection-title"><h2>GitHub App</h2><span class="connection-status" :class="{'is-connected': connections.appConnected &amp;&amp; !connections.appError}">{{ connections.appError ? 'Needs attention' : connections.appConnected ? 'Connected' : 'Not connected' }}</span></div>
-        <p>Read-only access to the repositories you choose.</p>
+        <p>Read-only access to gists and the repositories you choose.</p>
         <p class="paper-inline-alert paper-inline-alert-error" v-if="connections.appError" role="alert">{{ connections.appError }}. Reconnect to restore access.</p>
         <div class="connection-actions">
           <a class="btn btn-ink" v-if="connections.appConnected &amp;&amp; !connections.appError" target="_self" href="/github/app/install">Manage repository access <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-external-link"></use></svg></a>
@@ -27,13 +27,13 @@
       <section>
         <div class="connection-top"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-key"></use></svg><span class="connection-badge connection-badge-muted">Legacy</span></div>
         <div class="connection-title"><h2>GitHub OAuth</h2><span class="connection-status" :class="{'is-connected': connections.oauthConnected}">{{ connections.oauthConnected ? 'Connected' : 'Not connected' }}</span></div>
-        <p>For existing OAuth anonymizations and gists.</p>
+        <p>For existing OAuth anonymizations.</p>
         <p class="connection-help">This connection uses GitHub's broader repository permissions. Existing work keeps using it until you switch below.</p>
         <a v-if="connections.oauthEnabled" target="_self" href="/github/login" class="btn btn-outline-ink">{{ connections.oauthConnected ? 'Reconnect OAuth' : 'Connect legacy OAuth' }}</a>
         <div class="connection-revoke" v-if="connections.oauthConnected">
-          <p v-if="connections.gistCount">{{ connections.gistCount }} gist(s) still require OAuth.</p>
-          <p>Switch all dependent repositories before revoking access. Gists still require OAuth.</p>
-          <button v-if="connections.appConnected" class="connection-link connection-danger" :disabled="busy || connections.gistCount || connections.resources.some(r => r.connection === 'oauth')" @click="disconnectOAuth()">Revoke OAuth access</button>
+          <p v-if="connections.gistCount">{{ connections.gistCount }} gist(s) use your GitHub App connection when available.</p>
+          <p>Switch all dependent repositories before revoking access. Gists can use your GitHub App connection.</p>
+          <button v-if="connections.appConnected" class="connection-link connection-danger" :disabled="busy || connections.resources.some(r => r.connection === 'oauth')" @click="disconnectOAuth()">Revoke OAuth access</button>
         </div>
       </section>
     </div>
