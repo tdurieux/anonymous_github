@@ -58,6 +58,19 @@ export default class Gist {
   }
 
   async download() {
+    try {
+      await this.downloadContent();
+    } catch (error) {
+      // A stored OAuth credential can exist but have been revoked on GitHub.
+      // Send the same recovery signal as a missing OAuth connection.
+      if ((error as { status?: number })?.status === 401) {
+        throw new AnonymousError("github_oauth_required", { httpStatus: 403, cause: error as Error });
+      }
+      throw error;
+    }
+  }
+
+  private async downloadContent() {
     logger.info("downloading gist", { gistId: this._model.source.gistId });
     const oct = octokit(await this.getToken());
 
