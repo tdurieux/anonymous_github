@@ -59,6 +59,44 @@ describe("large anonymization resources", function () {
     const options = { filePath: `recovery-${randomUUID()}.txt`, terms: ["Alice=>Hidden"] };
     expect(await transform(text, options)).to.equal(new ContentAnonimizer(options).anonymize(text));
   });
+  it("finishes large files containing many safe regex rules", async () => {
+    const payload = "123,456,78.91234,-45.123456\n".repeat(280000);
+    const terms = ["Alice", ...Array.from({ length: 8 }, (_, i) => `Researcher${i}[0-9]+`)];
+    const output = await transform(`Alice\n${payload}Alice`, {
+      filePath: `safe-regex-${randomUUID()}.csv`, terms,
+    });
+    expect(output).to.equal(`XXXX-1\n${payload}XXXX-1`);
+  });
+
+  it("uses the worker budget for dense Unicode replacements", async () => {
+    const input = "Álice,123,45.678,-23.456\n".repeat(800000);
+    expect(await transform(input, { filePath: `dense-unicode-${randomUUID()}.csv`, terms: ["Alice"] }))
+      .to.equal("XXXX-1,123,45.678,-23.456\n".repeat(800000));
+  });
+
+  it("retains the short deadline for backtracking regexes on a worker and recovers", async () => {
+    const root = await fs.mkdtemp(join(tmpdir(), "worker-regex-deadline-"));
+    const input = join(root, "input"), output = join(root, "output");
+    const controller = new AbortController();
+    try {
+      const text = "a".repeat(250);
+      await fs.writeFile(input, text);
+      let failure;
+      const started = Date.now();
+      try {
+        await pool.anonymizeOnWorker({ input, output, options: { terms: ["a+a+a+a+a+a+b(?=x)"] },
+          maxOutput: 1000000, context: { mask: "XXXX", hostname: "localhost" } }, text.length, controller.signal);
+      } catch (error) { failure = error; }
+      expect(failure).to.be.instanceOf(Error);
+      expect(failure.message).to.match(/timed out after 1000ms/);
+      expect(Date.now() - started).to.be.lessThan(8000);
+      let exists = true;
+      try { await fs.access(output); } catch (error) { if (error.code === "ENOENT") exists = false; else throw error; }
+      expect(exists).to.equal(false);
+      expect(await transform("Alice ".repeat(50000), { filePath: `regex-recovery-${randomUUID()}.txt`, terms: ["Alice"] }))
+        .to.equal("XXXX-1 ".repeat(50000));
+    } finally { controller.abort(); await fs.rm(root, { force: true, recursive: true }); }
+  });
   it("cleans crash leftovers while preserving recent spools and unrelated files", async () => {
     const root = await fs.mkdtemp(join(tmpdir(), "anonymous-spool-test-"));
     try {

@@ -108,14 +108,14 @@
   ],
   "tests": {
     "fullSuite": {
-      "passing": 950,
+      "passing": 955,
       "pending": 51,
       "failing": 0,
-      "note": "Clean committed checkout after the ZIP HTTP rollout follow-up, with disposable MongoDB/Redis and memory-backed temporary storage. Compiled streamer startup/lifecycle/idle-cleanup integration remains enabled. Two real HTTP tests cover Express compression, plain and gzip output, forced backpressure, listener cleanup and chunked upstream archives.",
+      "note": "Isolated worktree with disposable MongoDB/Redis, memory-backed temporary storage, and PERFORMANCE_STREAMER_COMPILED=1. New coverage verifies safe-regex prefix parity, large worker and ZIP jobs, dense Unicode replacements, one-second native-regex rejection without partial output, and worker recovery.",
       "validationDate": "2026-10-08"
     },
     "performanceSuite": {
-      "passing": 122,
+      "passing": 125,
       "note": "Included in the latest clean full-suite run with disposable MongoDB and Redis."
     },
     "uiSuite": {
@@ -153,6 +153,31 @@
       "gzip": "passed",
       "forcedBackpressure": "passed",
       "drainListenerCleanup": "passed"
+    },
+    "zipAnonymization": {
+      "safeRegexFixtureBytes": 7840011,
+      "denseUnicodeFixtureBytes": 20800000,
+      "workerProcessingDeadlineMs": 10000,
+      "workerJobDeadlineMs": 15000,
+      "nativeRegexDeadlineMs": 1000,
+      "extraPrefixParityCases": 100,
+      "compiledNode22Http": {
+        "plain": "passed",
+        "gzip": "passed",
+        "drainListenerCleanup": "passed"
+      },
+      "compiledNode22Guard": {
+        "partialOutput": false,
+        "workerRecovery": "passed"
+      },
+      "productionRulesReplay": {
+        "scope": "Synthetic numeric input using the affected repository rules, in isolated Node 22 containers limited to one CPU. No original file contents or identifying terms were printed; live application containers were unchanged.",
+        "terms": 9,
+        "inputBytes": 7840032,
+        "baseline": "Script execution timed out after 1000ms",
+        "candidateComplete": true,
+        "candidateElapsedMs": 2401.216523
+      }
     }
   },
   "sockets": {
