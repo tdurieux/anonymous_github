@@ -7,7 +7,7 @@ import { render as iconsTemplate } from "../partials/icons.htm";
 import { initializeTemplate } from "./template-state.js";
 import { createPageState, createTimers } from "./state.js";
 import { createHttp, promises } from "./http.js";
-import { mainController } from "./app.js";
+import { mainController, highlightRedactions } from "./app.js";
 import { createQuotaService } from "./quota.js";
 import * as formatters from "./formatters.js";
 import translations from "../i18n/locale-en.json";
@@ -18,7 +18,9 @@ import { fieldDirective, formDirective, submitForm } from "./forms.js";
 const sessionKey = Symbol("session");
 export const serverPaths = /^\/(w|api|github)(\/|$)/;
 function translate(key, params = {}) {
-  const message = key?.split(".").reduce((value, part) => value?.[part], translations);
+  let message = key?.split(".").reduce((value, part) => value?.[part], translations);
+  // Unknown error codes would otherwise surface as the raw "ERRORS.code" key.
+  if (message == null && key?.startsWith("ERRORS.")) message = translations.ERRORS.unknown_error;
   return String(message ?? key ?? "").replace(/{{\s*([^}]+?)\s*}}/g, (_, name) => params[name] ?? "");
 }
 const fmt = { ...formatters, translate };
@@ -80,6 +82,8 @@ export function mountApplication(target = "#app", options = {}) {
       root.window = window;
       root.Math = Math;
       root.sanitize = value => DOMPurify.sanitize(value ?? "");
+      // Reading site_options re-renders Markdown once the configured mask loads.
+      root.highlightRedactions = html => (root.site_options, highlightRedactions(html));
       root.submitForm = submitForm;
       root.safeUrl = safeUrl;
       const context = services();

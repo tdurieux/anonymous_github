@@ -939,6 +939,39 @@ describe("Vue 3 UI", function () {
     expect(ui.errors).to.deep.equal([]);
   });
 
+  it("keeps the reviewer header to the essentials and shows when the link expires", async function () {
+    ui = await browser("/r/test/hello.txt", {
+      "/api/repo/test/options": { anonymizedAt: "2026-01-01T00:00:00Z", expirationDate: "2099-01-01T00:00:00Z" },
+    });
+    const header = ui.window.document.querySelector(".navbar");
+    expect(header.querySelector(".btn-signin")).to.equal(null);
+    expect(header.textContent).to.include("Report a bug");
+    expect(ui.window.document.querySelector(".project-expiry").textContent).to.include("Available until");
+    await ui.go("/faq");
+    expect(ui.window.document.querySelector(".navbar .btn-signin")).to.not.equal(null);
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("leads a ready status page with the copyable anonymous link", async function () {
+    ui = await browser("/status/test", { "/api/repo/test": { repoId: "test", status: "ready", options: {} } });
+    const input = ui.window.document.querySelector(".share-link-input");
+    expect(input.value).to.match(/\/r\/test\/$/);
+    expect(ui.window.document.querySelector(".paper-progress")).to.equal(null);
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  for (const [code, message] of [["repo_not_found", "The repository was not found"], ["untranslated_failure", "Unknown error, contact the admin."]]) {
+    it("shows the " + code + " explorer error in a card without file actions", async function () {
+      ui = await browser("/r/gone/", { "/api/repo/gone/options": { __status: 404, body: { error: code } } });
+      const card = ui.window.document.querySelector(".file-error-card");
+      expect(card.textContent).to.include("This content can").and.include(message);
+      expect(card.textContent).not.to.include("ERRORS.");
+      expect(card.querySelector('a[href="/"]')).to.not.equal(null);
+      expect(ui.window.document.querySelector(".status-bar").style.display).to.equal("none");
+      expect(ui.errors).to.deep.equal([]);
+    });
+  }
+
   it("renders hostile filenames as text and updates the explorer without losing the tree", async function () {
     const filename = '{{constructor.constructor("window.probe=1")()}}.txt';
     ui = await browser("/r/test/hello.txt", {

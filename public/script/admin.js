@@ -1738,9 +1738,14 @@ export const overviewAdminController = function (state, http, location, interval
       state.performanceMinutes = 15;
       state.performanceTab = "routes";
       state.performanceError = null;
+      // 18400 ms reads better as 18.4 s once a value passes one second.
+      state.formatMs = function (ms) {
+        if (ms == null) return "";
+        return ms < 1000 ? ms + " ms" : +(ms / 1000).toFixed(1) + " s";
+      };
       state.latencyBound = function (row, field) {
         if (!row.count) return "No samples";
-        return row[field] == null ? "> 60 s" : "\u2264 " + row[field] + " ms";
+        return row[field] == null ? "> 60 s" : "\u2264 " + state.formatMs(row[field]);
       };
       state.firstByteBound = function (row) {
         return state.latencyBound({ count: row.firstByteCount, p95UpperMs: row.firstByteP95UpperMs }, "p95UpperMs");
@@ -1862,9 +1867,21 @@ export const overviewAdminController = function (state, http, location, interval
       }
 
       var historyMaxes = {};
+      var historyMins = {};
       state.historyBarH = function (d, field) {
         if (!d || !historyMaxes[field]) return 0;
         return Math.max(1, Math.round((d[field] / historyMaxes[field]) * 140));
+      };
+      // Cumulative totals barely move against a zero baseline, so they are
+      // drawn between the period's minimum and maximum (shown in the legend).
+      state.historyRangeH = function (d, field) {
+        if (!d || historyMaxes[field] == null) return 0;
+        var span = historyMaxes[field] - historyMins[field];
+        if (!span) return 70;
+        return Math.round(8 + ((d[field] - historyMins[field]) / span) * 132);
+      };
+      state.historyRange = function (field) {
+        return { min: historyMins[field], max: historyMaxes[field] };
       };
       state.historyLabel = function (d) {
         if (!d || !d.date) return "";
@@ -1883,9 +1900,11 @@ export const overviewAdminController = function (state, http, location, interval
           state.loading = false;
           state.error = null;
           historyMaxes = {};
+          historyMins = {};
           (r.data.history || []).forEach(function (d) {
             ["dailyPageViews", "dailyRepositories", "dailyUsers", "nbUsers"].forEach(function (k) {
               if (!historyMaxes[k] || d[k] > historyMaxes[k]) historyMaxes[k] = d[k];
+              if (historyMins[k] == null || d[k] < historyMins[k]) historyMins[k] = d[k];
             });
           });
         }, function (err) {

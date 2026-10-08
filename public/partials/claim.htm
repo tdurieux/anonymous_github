@@ -10,14 +10,14 @@
   <form class="form needs-validation" name="claimForm" novalidate v-form="viewState" @submit.prevent="submitForm($event, () =&gt; { claim() })">
     <div class="form-group">
       <label class="paper-field-label" for="repoUrl">GitHub repository URL</label>
-      <input type="text" class="form-control" name="repoUrl" id="repoUrl" required v-field="{ state: viewState, set: value =&gt; { repoUrl = value }, value: repoUrl, form: &quot;claimForm&quot;, options: {} }" :class="{&#x27;is-invalid&#x27;: claimForm?.repoUrl?.invalid &amp;&amp; (claimForm?.repoUrl?.touched || claimForm?.submitted)}">
+      <input type="text" class="form-control" name="repoUrl" id="repoUrl" placeholder="https://github.com/owner/repository" required v-field="{ state: viewState, set: value =&gt; { repoUrl = value }, value: repoUrl, form: &quot;claimForm&quot;, options: {} }" :class="{&#x27;is-invalid&#x27;: claimForm?.repoUrl?.invalid &amp;&amp; (claimForm?.repoUrl?.touched || claimForm?.submitted)}">
       <div class="invalid-feedback" v-show="claimForm?.repoUrl?.errors?.not_found">
         No anonymization matches this repository and ID. Check both values and that you can access the repository on GitHub.
       </div>
     </div>
     <div class="form-group">
       <label class="paper-field-label" for="repoId">Anonymized repository ID</label>
-      <input type="text" class="form-control" name="repoId" id="repoId" required v-field="{ state: viewState, set: value =&gt; { repoId = value }, value: repoId, form: &quot;claimForm&quot;, options: {} }" :class="{&#x27;is-invalid&#x27;: claimForm?.repoId?.invalid &amp;&amp; (claimForm?.repoId?.touched || claimForm?.submitted)}">
+      <input type="text" class="form-control" name="repoId" id="repoId" placeholder="e.g. my-paper-7F2A" aria-describedby="idHelp" required v-field="{ state: viewState, set: value =&gt; { repoId = value }, value: repoId, form: &quot;claimForm&quot;, options: {} }" :class="{&#x27;is-invalid&#x27;: claimForm?.repoId?.invalid &amp;&amp; (claimForm?.repoId?.touched || claimForm?.submitted)}">
       <small id="idHelp" class="form-text text-muted">The ID is the last part of the anonymized URL: <code>anonymous.4open.science/r/&lt;ID&gt;</code>.</small>
     </div>
 

@@ -1,5 +1,5 @@
 <div class="container paper-page admin-page overview-page">
-  <div class="paper-crumbs">Admin &middot; System Health</div>
+  <div class="paper-crumbs">Admin &nbsp;/&nbsp; <span class="here">Overview</span></div>
 
   <div class="ov-header">
     <h1 class="paper-page-title">Overview</h1>
@@ -105,11 +105,11 @@
       <div class="ov-chart-card">
         <div class="ov-chart-head">
           <span class="ov-chart-title">Users &middot; 30d</span>
-          <span class="ov-chart-legend"><span class="ov-dot-legend ov-dot-user-fill"></span>total users</span>
+          <span class="ov-chart-legend"><span class="ov-dot-legend ov-dot-user-fill"></span>total users &middot; {{ fmt?.number(historyRange(&#x27;nbUsers&#x27;).min) }}&ndash;{{ fmt?.number(historyRange(&#x27;nbUsers&#x27;).max) }}</span>
         </div>
         <div class="ov-spark-bars" v-if="data?.history?.length">
           <div class="ov-spark-col has-tip" v-for="(d, index) in data?.history" :key="index" :data-tip="(historyLabel(d)) + &quot;: &quot; + (fmt?.number(d?.nbUsers)) + &quot; users&quot;" :aria-label="(historyLabel(d)) + &quot;: &quot; + (fmt?.number(d?.nbUsers)) + &quot; users&quot;">
-            <span class="ov-spark-fill ov-spark-fill-user" :style="{height: historyBarH(d, &#x27;nbUsers&#x27;) + &#x27;px&#x27;}"></span>
+            <span class="ov-spark-fill ov-spark-fill-user" :style="{height: historyRangeH(d, &#x27;nbUsers&#x27;) + &#x27;px&#x27;}"></span>
           </div>
         </div>
         <div class="ov-spark-x" v-if="data?.history?.length">
@@ -308,7 +308,7 @@
             <thead><tr><th scope="col">Route</th><th scope="col" class="num">Requests</th><th scope="col" class="num">Average</th><th scope="col" class="num">First byte p95</th><th scope="col" class="num">p95</th><th scope="col" class="num">p99</th><th scope="col" class="num">Interrupted</th><th scope="col" class="num">5xx</th><th scope="col" class="num">Slow</th></tr></thead>
             <tbody><tr v-for="row in performance.routes" :key="row.service + row.method + row.route">
               <th scope="row" class="ov-metric-name"><span>{{ row.route }}</span><small>{{ row.service }} &middot; {{ row.method }}</small></th>
-              <td class="num">{{ fmt.number(row.count) }}</td><td class="num">{{ row.avgMs }} ms</td>
+              <td class="num">{{ fmt.number(row.count) }}</td><td class="num">{{ formatMs(row.avgMs) }}</td>
               <td class="num">{{ firstByteBound(row) }}</td><td class="num">{{ latencyBound(row, 'p95UpperMs') }}</td><td class="num">{{ latencyBound(row, 'p99UpperMs') }}</td>
               <td class="num" :class="{'ov-metric-warn': row.aborted > 0}">{{ fmt.number(row.aborted) }}</td><td class="num" :class="{'ov-metric-warn': row.errors > 0}">{{ fmt.number(row.errors) }}</td><td class="num" :class="{'ov-metric-warn': row.slow > 0}">{{ fmt.number(row.slow) }}</td>
             </tr></tbody>
@@ -340,7 +340,7 @@
             <caption class="sr-only">Work stages and cache results</caption>
             <thead><tr><th scope="col">Work stage</th><th scope="col" class="num">Samples</th><th scope="col" class="num">Average</th><th scope="col" class="num">p95</th></tr></thead>
             <tbody><tr v-for="row in performance.stages.filter(row => row.metric !== 'first_byte')" :key="row.service + row.metric">
-              <th scope="row" class="ov-metric-name"><span>{{ row.metric }}</span><small>{{ row.service }}</small></th><td class="num">{{ fmt.number(row.count) }}</td><td class="num">{{ row.avgMs }} ms</td><td class="num">{{ latencyBound(row, 'p95UpperMs') }}</td>
+              <th scope="row" class="ov-metric-name"><span>{{ row.metric }}</span><small>{{ row.service }}</small></th><td class="num">{{ fmt.number(row.count) }}</td><td class="num">{{ formatMs(row.avgMs) }}</td><td class="num">{{ latencyBound(row, 'p95UpperMs') }}</td>
             </tr></tbody>
           </table>
         </div>
