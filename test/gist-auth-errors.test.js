@@ -10,7 +10,7 @@ describe("gist authentication errors", function () {
   beforeEach(function () {
     original = github.octokit;
     gist = new Gist(new Model({ source: { gistId: "example" }, gist: { files: [{ filename: "saved.txt", content: "saved" }] } }));
-    gist.getToken = async () => "rejected-token";
+    gist.getAccess = async () => ({ token: "rejected-token", connection: "oauth" });
     client = { rest: { gists: { get: async () => ({ data: { files: {} } }) } }, paginate: async () => [], request: async () => ({ data: "raw" }) };
     github.octokit = token => { expect(token).to.equal("rejected-token"); return client; };
   });
@@ -45,6 +45,13 @@ describe("gist authentication errors", function () {
       expect(error).to.equal(failure);
     });
   }
+  it("requests App reconnection when an App user token is rejected", async function () {
+    gist.getAccess = async () => ({ token: "rejected-token", connection: "github-app" });
+    client.rest.gists.get = async () => { throw Object.assign(new Error("Bad credentials"), { status: 401 }); };
+    let error;
+    try { await gist.download(); } catch (caught) { error = caught; }
+    expect(error?.message).to.equal("github_app_reconnect_required");
+  });
   it("still downloads a gist when the credential is accepted", async function () {
     await gist.download();
     expect(gist.model.gist.files).to.have.length(0);

@@ -1147,10 +1147,15 @@ export const anonymizeController = function (state, http, html, params, location
       state.githubConnection = undefined;
       state.githubConnections = null;
       state.gistOAuthRequired = false;
+      state.gistAppRequired = false;
       const saveGitHubDraft = () => {
         const draft = {};
         for (const key of ["sourceUrl", "terms", "repoId", "pullRequestId", "gistId", "source", "options", "conference", "githubConnection"]) draft[key] = state[key];
         sessionStorage.setItem("github-access-draft", JSON.stringify({ path: location.path(), savedAt: Date.now(), draft }));
+      };
+      state.connectGistApp = () => {
+        saveGitHubDraft();
+        window.location.href = "/github/app/login?returnTo=" + encodeURIComponent(location.path());
       };
       state.connectGistOAuth = () => {
         saveGitHubDraft();
@@ -1450,6 +1455,7 @@ export const anonymizeController = function (state, http, html, params, location
         state.html_readme = "";
         state.detectedType = null;
         state.gistOAuthRequired = false;
+        state.gistAppRequired = false;
 
         state._preservingDraft = preserveSelection;
         try {
@@ -1770,11 +1776,7 @@ export const anonymizeController = function (state, http, html, params, location
         try {
           resetValidity();
           state.gistOAuthRequired = false;
-          if (state.githubConnections?.oauthConnected === false) {
-            state.gistOAuthRequired = true;
-            setValidity("sourceUrl", "missing", false);
-            return;
-          }
+          state.gistAppRequired = false;
           const res = await http.get(`/api/gist/source/${o.gistId}`);
           if (!isCurrentSource(request)) return;
           state.details = res.data;
@@ -1783,6 +1785,11 @@ export const anonymizeController = function (state, http, html, params, location
           }
         } catch (error) {
           if (!isCurrentSource(request)) return;
+          if (error.data?.error === "github_app_reconnect_required") {
+            state.gistAppRequired = true;
+            setValidity("sourceUrl", "missing", false);
+            return;
+          }
           if (error.data?.error === "github_oauth_required") {
             state.gistOAuthRequired = true;
             setValidity("sourceUrl", "missing", false);

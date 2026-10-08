@@ -469,19 +469,19 @@ describe("Vue 3 UI", function () {
     expect(ui.window.document.querySelector('a[href="/github/app/login"]')).to.equal(null);
   });
 
-  for (const oauthConnected of [false, true]) {
-  it(`offers OAuth recovery for a gist with stored credentials: ${oauthConnected}`, async function () {
+  for (const provider of ["OAuth", "App"]) {
+  it(`offers ${provider} recovery when gist credentials are rejected`, async function () {
     ui = await browser("/gist-anonymize", {
       "/api/user": { username: "owner" },
-      "/github/connections": { appEnabled: true, appConnected: true, oauthEnabled: true, oauthConnected },
-      "/api/gist/source/311fc9": { __status: 403, body: { error: "github_oauth_required" } },
+      "/github/connections": { appEnabled: true, appConnected: provider === "App", oauthEnabled: true, oauthConnected: provider === "OAuth" },
+      "/api/gist/source/311fc9": { __status: 403, body: { error: provider === "App" ? "github_app_reconnect_required" : "github_oauth_required" } },
     });
     const input = await ui.input("#sourceUrl", "https://gist.github.com/311fc9");
     input.dispatchEvent(new ui.window.Event("blur"));
     await delay(60);
-    const button = [...ui.window.document.querySelectorAll("button")].find(node => node.textContent.includes("Connect GitHub OAuth to access gists"));
+    const button = [...ui.window.document.querySelectorAll("button")].find(node => node.textContent.includes(`Connect GitHub ${provider} to access gists`));
     expect(button).not.to.equal(undefined);
-    expect(ui.requests.some(r => r.url.pathname === "/api/gist/source/311fc9")).to.equal(oauthConnected);
+    expect(ui.requests.some(r => r.url.pathname === "/api/gist/source/311fc9")).to.equal(true);
     button.click();
     const saved = JSON.parse(ui.window.sessionStorage.getItem("github-access-draft"));
     expect(saved.path).to.equal("/gist-anonymize");
@@ -490,6 +490,23 @@ describe("Vue 3 UI", function () {
   });
 
   }
+
+  it("previews a gist with only an App login", async function () {
+    ui = await browser("/gist-anonymize", {
+      "/api/user": { username: "owner" },
+      "/github/connections": { appEnabled: true, appConnected: true, gistConnection: "github-app", oauthEnabled: true, oauthConnected: false },
+      "/api/user/default": { terms: [], options: { content: true } },
+      "/api/anonymize-preview": request => ({ contents: request.payload.contents }),
+      "/api/gist/source/311fc9": { gist: { description: "App gist", files: [{ filename: "example.txt", content: "example" }], comments: [] } },
+    });
+    const input = await ui.input("#sourceUrl", "https://gist.github.com/311fc9");
+    input.dispatchEvent(new ui.window.Event("blur"));
+    await delay(300);
+    expect(ui.requests.some(r => r.url.pathname === "/api/gist/source/311fc9")).to.equal(true);
+    expect(ui.window.document.body.textContent).to.include("example.txt");
+    expect(ui.window.document.body.textContent).not.to.include("Connect GitHub OAuth to access gists");
+    expect(ui.errors).to.deep.equal([]);
+  });
 
   for (const status of ["archived", "preparing", "queue", "download", "removing", "expiring"]) {
   it(`hides connection changes on ${status} resources`, async function () {

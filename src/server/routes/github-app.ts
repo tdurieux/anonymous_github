@@ -168,6 +168,7 @@ router.get("/connections", async (req, res) => {
     const prs = await PullRequestModel.find({ owner: user.id, status: { $ne: "removed" } }).select("pullRequestId source.repositoryFullName githubAccess status statusDate").lean();
     const gistCount = await GistModel.countDocuments({ owner: user.id, status: { $ne: "removed" } });
     res.json({ csrf: req.session.githubConnectionCSRF, appEnabled: config.GITHUB_APP_ENABLED && config.GITHUB_APP_NEW_CONNECTIONS,
+      gistConnection: config.GITHUB_APP_ENABLED && credentials.some(c => c.provider === APP_PROVIDER) ? "github-app" : "oauth",
       oauthEnabled: config.GITHUB_OAUTH_ENABLED, oauthConnected: !!(await getCredentialToken(user.id)), appConnected, appError: appErrorCode,
       installations, gistCount, resources: [
         ...repos.map(r => ({ type: "repository", id: r.repoId, name: r.source.repositoryName, connection: r.githubAccess?.kind || "oauth", status: r.status, statusDate: r.statusDate })),
@@ -248,7 +249,7 @@ router.post("/connections/disconnect-oauth", async (req, res) => {
     if (!(await CredentialModel.exists({ ownerId: user.id, provider: APP_PROVIDER, revoked: { $ne: true } }))) throw appError("another_login_required", 409);
     await appUserToken(user.id);
     const active = { owner: user.id, status: { $ne: "removed" }, "githubAccess.kind": { $ne: "github-app" } };
-    if (await RepositoryModel.exists(active) || await PullRequestModel.exists(active) || await GistModel.exists({ owner: user.id, status: { $ne: "removed" } })) {
+    if (await RepositoryModel.exists(active) || await PullRequestModel.exists(active)) {
       throw appError("oauth_resources_remaining", 409);
     }
     await revokeGrant(user.id, "github");

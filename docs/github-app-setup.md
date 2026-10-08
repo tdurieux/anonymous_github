@@ -121,8 +121,12 @@ commit or PR and conditionally updates the binding; it preserves the anonymous
 URL, settings and existing content. Busy resources must finish before switching.
 Each resource can be switched back to a verified existing OAuth grant.
 
-OAuth can be explicitly revoked once all dependent resources, including gists,
-have been migrated or removed and a working App sign-in remains. Merely connecting
+Gists use the App user token when an App connection exists, including token refresh.
+Reading gist content and comments needs no additional GitHub App permissions or
+repository installation. Legacy OAuth remains available for accounts without an App connection.
+
+OAuth can be explicitly revoked once dependent repositories and pull requests
+have been migrated or removed and a working App sign-in remains. Gists do not block revocation. Merely connecting
 the App does not revoke or narrow the OAuth grant.
 
 ## Access lifecycle and rollback
