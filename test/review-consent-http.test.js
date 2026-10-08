@@ -3,6 +3,7 @@ const { expect } = require("chai");
 const express = require("express");
 const session = require("express-session");
 const http = require("http");
+const { setImmediate } = require("timers");
 const { randomBytes } = require("crypto");
 const {
   createReviewConsentRouter,
@@ -259,6 +260,55 @@ describe("review consent browser HTTP transport", function () {
     ).to.equal(403);
     expect(calls).to.have.length(0);
   });
+  for (const operation of ["preview", "confirm"]) {
+    for (const change of ["logout", "account replacement"]) {
+      it(`rejects ${operation} before backend work after ${change} during upload`, async () => {
+        const original = store.get.bind(store);
+        let reads = 0, ready;
+        const authenticated = new Promise((resolve) => { ready = resolve; });
+        store.get = (id, callback) => original(id, (error, value) => {
+          callback(error, value);
+          // The first read restores the session; the second authenticates
+          // the request before the JSON parser waits for the remaining body.
+          if (++reads === 2) setImmediate(ready);
+        });
+        const body = JSON.stringify(operation === "preview" ? previewInput() : confirmInput());
+        let upload;
+        const response = new Promise((resolve, reject) => {
+          upload = http.request({
+            host: "127.0.0.1", port: server.address().port,
+            path: "/api/review-consent/" + operation, method: "POST",
+            headers: {
+              "X-Forwarded-Proto": "https", Cookie: cookie, Origin: origin,
+              "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body),
+              "X-Review-CSRF": csrf,
+            },
+          }, (res) => {
+            res.resume();
+            res.on("end", () => resolve(res.statusCode));
+          });
+          upload.on("error", reject);
+          upload.write(body.slice(0, 1));
+        });
+        try {
+          await authenticated;
+          if (change === "logout") {
+            await new Promise((resolve) => store.destroy(sid, resolve));
+          } else {
+            const saved = await new Promise((resolve) => original(sid, (_error, value) => resolve(value)));
+            saved.passport.user = "b".repeat(24);
+            await new Promise((resolve) => store.set(sid, saved, resolve));
+          }
+          upload.end(body.slice(1));
+          expect(await response).to.equal(401);
+          expect(calls).to.have.length(0);
+        } finally {
+          upload.destroy();
+          store.get = original;
+        }
+      });
+    }
+  }
   it("reloads session authority before returning a pending policy preview", async () => {
     let arrived, release;
     const ready = new Promise((resolve) => {
