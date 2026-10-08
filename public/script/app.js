@@ -2736,6 +2736,11 @@ export const exploreController = function (state, http, location, params, html, 
             );
             _editor.session.setUseSoftTabs(state.aceOption.useSoftTab);
             _editor.session.setTabSize(state.aceOption.tabSize);
+            // Phones can't scroll long lines comfortably, so wrap them there.
+            _editor.session.setUseWrapMode(
+              state.aceOption.useWrapMode &&
+                window.matchMedia("(max-width: 991px)").matches
+            );
             _editor.setBehavioursEnabled(state.aceOption.enableBehaviours);
             _editor.setFadeFoldWidgets(state.aceOption.fadeFoldWidgets);
             return removeHashListener;

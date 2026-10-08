@@ -7777,6 +7777,21 @@ input[type="date"], select { color-scheme: light; }
   /* Keep the sidebar footer clear of the floating Ko-fi button. */
   .leftCol-foot { padding-bottom: 72px; }
 }
+.explorer-content .ace-chrome, .explorer-content .ace-chrome .ace_gutter { background: var(--main-bg-color); }
 @media (max-width: 991px) {
   .explorer-content .file-content.markdown-body { padding: 20px 16px 96px; }
+  /* Same 18px inset as every other page. */
+  .anonymize-landing { padding: 20px 18px; }
+  .anonymize-landing-inner { padding: 0; }
+  /* Section links scroll in one row instead of wrapping under a lone underline. */
+  .paper-settings-toc nav, .paper-faq-toc nav { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .paper-settings-toc nav a, .paper-faq-toc nav a { flex-shrink: 0; white-space: nowrap; }
+  .paper-settings-body, .paper-faq-body { grid-template-columns: minmax(0, 1fr); }
+  .paper-page .dashboard-filter-controls .dropdown .dropdown-toggle { justify-content: flex-start; gap: 6px; }
+  .paper-page .dashboard-filter-controls .dropdown .dropdown-toggle::after { margin-left: auto; }
+  .status-page .anonymize-submit-bar { position: static; flex-direction: column; margin: 0; padding: 12px 0 0; border-top: 0; }
+  .status-page .anonymize-submit-bar .btn { width: 100%; justify-content: center; }
+}
+@media (max-width: 480px) {
+  .paper-page .paper-page-lede { display: block; -webkit-line-clamp: unset; overflow: visible; }
 }
