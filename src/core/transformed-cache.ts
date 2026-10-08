@@ -103,6 +103,7 @@ export async function transformedFile(digest: string, options: unknown, output: 
 }
 export async function pruneTransformedCache(validateLifecycle = true) {
   const records = [];
+  let lifecycleError: Error | undefined;
   let entries;
   try { entries = await fs.opendir(root); }
   catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return; throw error; }
@@ -118,7 +119,11 @@ export async function pruneTransformedCache(validateLifecycle = true) {
     try { record = JSON.parse(await fs.readFile(path, "utf8")); }
     catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") await removeEntry(path); continue; }
     if (record.version !== 2 || !Number.isFinite(record.created) || !Number.isFinite(record.size)
-      || (validateLifecycle && !await scopeActive(record.scope))) { await removeEntry(path); continue; }
+      || Date.now() - record.created > TTL) { await removeEntry(path); continue; }
+    if (validateLifecycle && !lifecycleError) {
+      try { if (!await scopeActive(record.scope)) { await removeEntry(path); continue; } }
+      catch (error) { lifecycleError = error as Error; }
+    }
     records.push({ path, ...record });
   }
   records.sort((a, b) => b.created - a.created);
@@ -129,6 +134,8 @@ export async function pruneTransformedCache(validateLifecycle = true) {
       await removeEntry(record.path);
     }
   }
+  // Storage age and budget cleanup must finish even when MongoDB is unavailable.
+  if (lifecycleError) throw lifecycleError;
 }
 
 /** Lifecycle changes remove local entries; connected replicas also prune independently. */

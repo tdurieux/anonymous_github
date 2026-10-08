@@ -757,6 +757,35 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
     });
   }
 
+  it("prunes TTL-expired transformed bytes even when lifecycle lookups fail", async () => {
+    const fs = require("node:fs/promises"), path = require("node:path"), { randomUUID } = require("node:crypto");
+    const { transformedFile, pruneTransformedCache, removeTransformedRepositoryCache } = require("../src/core/transformed-cache");
+    const cacheRoot = path.join(require("node:os").tmpdir(), "anonymous-transformed-v1"), output = path.join(temporary, randomUUID());
+    const row = await Repo.create({ repoId: "cache-db-outage", status: "ready", treeGeneration: "active", anonymizeDate: new Date(),
+      source: { type: "GitHubStream", repositoryName: "owner/repo" } });
+    const options = new Repository(row).generateAnonymizeTransformer("file.txt").opt, findOne = Repo.findOne;
+    const failure = Error("MongoDB unavailable");
+    try {
+      for (let i = 0; i < 2; i++) await transformedFile(randomUUID(), options, output,
+        async () => { await fs.writeFile(output, "private original"); return false; });
+      const paths = [];
+      for (const name of await fs.readdir(cacheRoot)) if (name.endsWith(".json")) {
+        const file = path.join(cacheRoot, name), record = JSON.parse(await fs.readFile(file, "utf8"));
+        if (record.scope?.repoId === row.repoId) paths.push({ file, record });
+      }
+      expect(paths).to.have.length(2);
+      await fs.writeFile(paths[0].file, JSON.stringify({ ...paths[0].record, created: 0 }));
+      let lookups = 0;
+      Repo.findOne = () => { lookups++; throw failure; };
+      const error = await pruneTransformedCache().then(() => null, error => error);
+      expect(error).to.equal(failure); expect(lookups).to.equal(1);
+      for (const file of [paths[0].file, paths[0].file.replace(/\.json$/, ".data")]) {
+        await fs.access(file).then(() => { throw Error("expired private cache survived database outage"); }, error => expect(error.code).to.equal("ENOENT"));
+      }
+      await fs.access(paths[1].file);
+    } finally { Repo.findOne = findOne; await fs.rm(output, { force: true }); await removeTransformedRepositoryCache(row.repoId); }
+  });
+
   it("prunes retired transformed generations while preserving the active generation", async () => {
     const fs = require("node:fs/promises"), path = require("node:path"), { randomUUID } = require("node:crypto");
     const { transformedFile, pruneTransformedCache, removeTransformedRepositoryCache } = require("../src/core/transformed-cache");
