@@ -1,3 +1,4 @@
+import { ReviewCallbacks } from "./review-callbacks";
 import { createHmac, timingSafeEqual } from "crypto";
 import * as express from "express";
 import { Request, Response } from "express";
@@ -51,6 +52,7 @@ export function createReviewConsentRouter(
   origin: string,
   backend: ReturnType<typeof createReviewOwnerConsent>,
   csrfKey: Buffer,
+  callbacks?: ReviewCallbacks,
 ) {
   try {
     if (new URL(origin).origin !== origin || !origin.startsWith("https://"))
@@ -77,7 +79,7 @@ export function createReviewConsentRouter(
     res.setHeader("Referrer-Policy", "no-referrer");
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.removeHeader("Access-Control-Allow-Origin");
-    if (!["/csrf", "/preview", "/confirm"].includes(req.url))
+    if (!["/csrf", "/preview", "/confirm", ...(callbacks ? ["/handoff"] : [])].includes(req.url))
       return reject(res, 404, "not-found");
     if (req.method !== (req.url === "/csrf" ? "GET" : "POST"))
       return reject(res, 405, "invalid-request");
@@ -180,7 +182,7 @@ export function createReviewConsentRouter(
         return reject(res, 401, "unauthorized");
       // Derive without saving the session: a late CSRF response must never
       // resurrect a session that a concurrent logout has destroyed.
-      res.json({ csrf: csrf(fresh).toString("hex") });
+      res.json({ csrf: csrf(fresh).toString("hex"), handoffEnabled: !!callbacks });
     } catch {
       reject(res, 503, "unavailable");
     }
@@ -205,11 +207,18 @@ export function createReviewConsentRouter(
       reject(res, 503, "unavailable");
     }
   });
-  router.post(["/preview", "/confirm"], async (req, res) => {
+  router.post(["/preview", "/confirm", "/handoff"], async (req, res) => {
     const actor = res.locals.consentActor as Context;
     try {
       let result: unknown;
-      if (req.url === "/preview") {
+      if (req.url === "/handoff") {
+        if (!callbacks || !fields(req.body, ["ticket"]) || typeof req.body.ticket !== "string" || !req.body.ticket || req.body.ticket.length > 8192) return reject(res, 400, "invalid-request");
+        const result = await backend.handoff(actor, req.body.ticket, callbacks.resolve);
+        if (res.destroyed || res.headersSent) return;
+        const fresh = await current(req);
+        if (!fresh || fresh.accountId !== actor.accountId || fresh.sessionId !== actor.sessionId) return reject(res, 401, "unauthorized");
+        res.json({ completion: { contract: result.completion.contract, clientId: result.completion.clientId, intentId: result.completion.intentId, code: result.completion.code, expiresAt: result.completion.expiresAt }, callbackUrl: result.callbackUrl });
+      } else if (req.url === "/preview") {
         if (
           !fields(req.body, ["repositoryId", "intent"]) ||
           typeof req.body.repositoryId !== "string" ||

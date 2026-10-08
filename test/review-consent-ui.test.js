@@ -127,4 +127,37 @@ describe('review consent browser page', function () {
     expect(b.document.body.textContent).not.include('Consent recorded.');
   });
 
+  it('posts a completion only to the configured callback without placing secrets in URLs or storage', async function () {
+    const completion={contract:'4open.artifacts/1',clientId:'1'.repeat(32),intentId:'2'.repeat(32),code:'9'.repeat(64),expiresAt:new Date(Date.now()+60000).toISOString()};
+    const callbackUrl='https://review.example.test/api/v1/artifacts/callback';
+    b=await browser({'/api/review-consent/csrf':()=>({csrf,handoffEnabled:true}),'/api/review-consent/handoff':()=>({completion,callbackUrl})});
+    const submissions=[];b.w.HTMLFormElement.prototype.submit=function(){submissions.push({action:this.action,method:this.method,completion:JSON.parse(this.elements.namedItem('completion').value)});};
+    await b.preview();await b.accept();await b.click('button[type=button]');
+    expect(b.document.body.textContent).include('Continue to review to finish linking');
+    await b.click('button[type=button]');
+    expect(submissions).deep.equal([{action:callbackUrl,method:'post',completion}]);
+    expect(b.w.location.href).equal('https://anonymous.example.test/review-link');
+    expect(JSON.stringify(b.w.localStorage)).not.include(completion.code);expect(b.w.sessionStorage.length).equal(0);
+    expect(b.document.documentElement.outerHTML).not.include(token).not.include('private-ticket');
+    expect(b.requests.find(r=>r.pathname.endsWith('/handoff')).payload).deep.equal({ticket:'private-ticket'});
+  });
+  it('does not submit a late completion after account change', async function () {
+    let resolve;
+    b=await browser({'/api/review-consent/csrf':()=>({csrf,handoffEnabled:true}),'/api/review-consent/handoff':()=>new Promise(yes=>{resolve=yes;})});
+    const submissions=[];b.w.HTMLFormElement.prototype.submit=function(){submissions.push(this.action);};
+    await b.preview();await b.accept();await b.click('button[type=button]');await b.click('button[type=button]');
+    b.app.state.user={username:'other'};await delay(5);
+    resolve({completion:{contract:'4open.artifacts/1',clientId:'1'.repeat(32),intentId:'2'.repeat(32),code:'9'.repeat(64),expiresAt:new Date(Date.now()+60000).toISOString()},callbackUrl:'https://review.example.test/api/v1/artifacts/callback'});await delay(30);
+    expect(submissions).length(0);expect(b.document.body.textContent).include('Your account changed');
+    expect(b.document.querySelector('#review-repository').value).equal('');
+  });
+  it('rejects a wrong-intent completion or an unsafe callback destination', async function () {
+    let wrongScope=true;
+    b=await browser({'/api/review-consent/csrf':()=>({csrf,handoffEnabled:true}),'/api/review-consent/handoff':()=>({completion:{contract:'4open.artifacts/1',clientId:'1'.repeat(32),intentId:wrongScope?'f'.repeat(32):'2'.repeat(32),code:'9'.repeat(64),expiresAt:new Date(Date.now()+60000).toISOString()},callbackUrl:wrongScope?'https://review.example.test/api/v1/artifacts/callback':'javascript:alert(1)'})});
+    const submissions=[];b.w.HTMLFormElement.prototype.submit=function(){submissions.push(this.action);};
+    await b.preview();await b.accept();await b.click('button[type=button]');await b.click('button[type=button]');
+    expect(submissions).length(0);wrongScope=false;await b.click('button[type=button]');expect(submissions).length(0);
+    expect(b.document.body.textContent).include('return to review could not be prepared');
+  });
+
 });

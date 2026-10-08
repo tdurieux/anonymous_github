@@ -8,6 +8,9 @@ const { randomBytes } = require("crypto");
 const {
   createReviewConsentRouter,
 } = require("../src/server/service/review-consent-http");
+const { createReviewCallbacks } = require("../src/server/service/review-callbacks");
+const callbackURL = "https://review.example.test/api/v1/artifacts/callback";
+const callbacks = createReviewCallbacks(JSON.stringify({version:1,callbacks:[{clientId:"1".repeat(32),callbackId:"6".repeat(32),url:callbackURL}]}));
 const origin = "https://anonymous.example.test";
 const owner = "a".repeat(24);
 const intent = {
@@ -109,6 +112,10 @@ describe("review consent browser HTTP transport", function () {
         };
       },
     };
+    backend.handoff = async (actor, ticket, resolveCallback) => {
+      calls.push({actor,ticket,handoff:true});
+      return { callbackUrl: resolveCallback(intent.clientId,"6".repeat(32)), completion: { contract: intent.contract, clientId: intent.clientId, intentId: intent.intentId, code: "9".repeat(64), expiresAt: new Date(Date.now()+60000).toISOString().replace(/\.\d{3}Z$/, "Z"), privateField: "private-field" }, privateField: "private-field" };
+    };
     const app = express();
     // Model a TLS-terminating trusted loopback proxy, never trust arbitrary peers.
     app.set("trust proxy", "loopback");
@@ -135,8 +142,9 @@ describe("review consent browser HTTP transport", function () {
     });
     app.use(
       "/api/review-consent",
-      createReviewConsentRouter(origin, backend, randomBytes(32)),
+      createReviewConsentRouter(origin, backend, randomBytes(32), callbacks),
     );
+    app.use("/api/review-consent-disabled", createReviewConsentRouter(origin, backend, randomBytes(32)));
     server = http.createServer(app);
     await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
     const login = await request("/test-login");
@@ -260,7 +268,7 @@ describe("review consent browser HTTP transport", function () {
     ).to.equal(403);
     expect(calls).to.have.length(0);
   });
-  for (const operation of ["preview", "confirm"]) {
+  for (const operation of ["preview", "confirm", "handoff"]) {
     for (const change of ["logout", "account replacement"]) {
       it(`rejects ${operation} before backend work after ${change} during upload`, async () => {
         const original = store.get.bind(store);
@@ -272,7 +280,7 @@ describe("review consent browser HTTP transport", function () {
           // the request before the JSON parser waits for the remaining body.
           if (++reads === 2) setImmediate(ready);
         });
-        const body = JSON.stringify(operation === "preview" ? previewInput() : confirmInput());
+        const body = JSON.stringify(operation === "preview" ? previewInput() : operation === "handoff" ? { ticket: "synthetic-signed-ticket" } : confirmInput());
         let upload;
         const response = new Promise((resolve, reject) => {
           upload = http.request({
@@ -550,4 +558,27 @@ describe("review consent browser HTTP transport", function () {
       ) + "\n",
     );
   });
+  it('offers only a configured, current-session completion POST handoff', async function () {
+    expect((await request('/api/review-consent/csrf')).body.handoffEnabled).equal(true);
+    const response=await request('/api/review-consent/handoff',{body:{ticket:'synthetic-signed-ticket'}});
+    expect(response.status).equal(200);expect(response.body.callbackUrl).equal(callbackURL);
+    expect(response.body.completion.code).equal('9'.repeat(64));
+    expect(Object.keys(response.body.completion).sort()).deep.equal(['clientId','code','contract','expiresAt','intentId']);
+    expect(JSON.stringify(response.body)).not.include('private-field');
+    expect(response.headers['cache-control']).equal('no-store');
+    expect((await request('/api/review-consent/handoff',{body:{ticket:'synthetic-signed-ticket',callbackUrl:'https://other.example.test/callback'}})).status).equal(400);
+    expect((await request('/api/review-consent-disabled/csrf')).body.handoffEnabled).equal(false);
+    expect((await request('/api/review-consent-disabled/handoff',{body:{ticket:'synthetic-signed-ticket'}})).status).equal(404);
+  });
+  it('does not disclose a completion code after concurrent logout', async function () {
+    let entered, release;
+    const pending=new Promise(resolve=>{entered=resolve;});
+    const wait=new Promise(resolve=>{release=resolve;});
+    const original=backend.handoff;
+    backend.handoff=async(...args)=>{entered();await wait;return original(...args);};
+    const response=request('/api/review-consent/handoff',{body:{ticket:'synthetic-signed-ticket'}});
+    await pending;await new Promise(resolve=>store.destroy(sid,resolve));release();
+    const result=await response;expect(result.status).equal(401);expect(JSON.stringify(result.body)).not.include('9'.repeat(64));
+  });
+
 });

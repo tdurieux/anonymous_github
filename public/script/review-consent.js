@@ -13,11 +13,12 @@ export function takeReviewFragment(browser) {
 export function reviewConsentController(state, services) {
   const { http, promises, window: browser } = services;
   let handoff = services.takeReviewHandoff();
+  const scope = handoff ? { clientId: handoff.clientId, intentId: handoff.intentId } : null;
   let ticket, csrf, confirmId, consumeId, identity;
   let active = true, expiryTimer;
   const stop = promises.defer();
   const requestId = () => [...browser.crypto.getRandomValues(new Uint8Array(16))].map(byte => byte.toString(16).padStart(2, "0")).join("");
-  Object.assign(state, { repositoryId: "", busy: false, preview: null, acceptAccess: false, acceptRetention: false, uncertain: false, saved: false, expired: false, error: handoff ? "" : "Open a new artifact link from your submission. This link is missing or invalid." });
+  Object.assign(state, { repositoryId: "", handoffEnabled: false, busy: false, preview: null, acceptAccess: false, acceptRetention: false, uncertain: false, saved: false, expired: false, error: handoff ? "" : "Open a new artifact link from your submission. This link is missing or invalid." });
   const current = () => active && state.user?.username === identity;
   function dispose() {
     active = false; handoff = ticket = csrf = undefined;
@@ -28,7 +29,7 @@ export function reviewConsentController(state, services) {
   state.watch(() => state.user?.username, username => {
     if (!identity && username) identity = username;
     else if (identity && username !== identity) {
-      dispose(); state.preview = null; state.busy = false;
+      dispose(); state.preview = null; state.repositoryId = ""; state.busy = false; state.saved = false; state.handoffEnabled = false;
       state.error = "Your account changed. Open a new artifact link from your submission.";
     }
   });
@@ -44,8 +45,10 @@ export function reviewConsentController(state, services) {
     browser.clearTimeout(expiryTimer);
     consumeId ||= requestId();
     try {
-      csrf = (await http.get("/api/review-consent/csrf", { timeout: stop.promise })).data.csrf;
+      const protection = (await http.get("/api/review-consent/csrf", { timeout: stop.promise })).data;
       if (!current()) return;
+      csrf = protection.csrf;
+      state.handoffEnabled = protection.handoffEnabled === true;
       if (!/^[a-f0-9]{64}$/.test(csrf || "")) throw new Error("invalid_csrf");
       const result = (await http.post("/api/review-consent/preview", { repositoryId, intent: { ...handoff, requestId: consumeId } }, options())).data;
       if (!current()) return;
@@ -64,9 +67,36 @@ export function reviewConsentController(state, services) {
       const result = (await http.post("/api/review-consent/confirm", { ticket, requestId: confirmId, acceptAccess: true, acceptRetention: true }, options())).data;
       if (!current()) return;
       if (result?.requestId !== confirmId || !Number.isFinite(Date.parse(result.confirmedAt))) throw new Error("invalid_receipt");
-      state.saved = true; state.uncertain = false; handoff = ticket = undefined;
+      state.saved = true; state.uncertain = false; handoff = undefined; if (!state.handoffEnabled) ticket = undefined;
     } catch (error) {
       if (current()) { state.uncertain = true; state.error = "The confirmation was not verified. Retry with the same approval, or return to your submission to check its status."; }
     } finally { if (current()) state.busy = false; }
   };
+  state.continueReview = async () => {
+    if (!current() || state.busy || !state.saved || !state.handoffEnabled || !ticket || !scope) return;
+    state.busy = true; state.error = "";
+    let form;
+    const cleanup = () => { form?.remove(); browser.removeEventListener("securitypolicyviolation", blocked); };
+    const blocked = event => {
+      if (event.violatedDirective?.startsWith("form-action")) {
+        cleanup(); if (current()) { state.busy = false; state.error = "The return address was blocked. Return to your submission to check the artifact status."; }
+      }
+    };
+    try {
+      const result = (await http.post("/api/review-consent/handoff", { ticket }, options())).data;
+      if (!current()) return;
+      const completion = result?.completion;
+      const target = new URL(result?.callbackUrl);
+      if (!completion || Object.keys(completion).sort().join(",") !== "clientId,code,contract,expiresAt,intentId" || completion.contract !== "4open.artifacts/1" || completion.clientId !== scope.clientId || completion.intentId !== scope.intentId || !/^[a-f0-9]{64}$/.test(completion.code || "") || !Number.isFinite(Date.parse(completion.expiresAt)) || Date.parse(completion.expiresAt) <= Date.now() || Date.parse(completion.expiresAt) > Date.now() + 300000 || target.protocol !== "https:" || target.href !== result.callbackUrl || target.username || target.password || result.callbackUrl.includes("?") || result.callbackUrl.includes("#")) throw new Error("invalid_handoff");
+      form = browser.document.createElement("form"); form.method = "POST"; form.action = target.href;
+      const input = browser.document.createElement("input"); input.type = "hidden"; input.name = "completion"; input.value = JSON.stringify(completion);
+      form.appendChild(input); browser.document.body.appendChild(form);
+      browser.addEventListener("securitypolicyviolation", blocked);
+      state.on("dispose", cleanup);
+      form.submit();
+    } catch {
+      cleanup(); if (current()) { state.busy = false; state.error = "The return to review could not be prepared. Retry from this page, or return to your submission to check its status."; }
+    }
+  };
+
 }
