@@ -19,6 +19,9 @@ import FileModel from "../model/files/files.model";
 import { IFile } from "../model/files/files.types";
 import { createLogger, serializeError } from "../logger";
 import config from "../../config";
+import { isConnected } from "../../server/database";
+import AnonymizedRepositoryModel from "../model/anonymizedRepositories/anonymizedRepositories.model";
+import { RepositoryStatus } from "../types";
 
 
 const logger = createLogger("gh-stream");
@@ -247,6 +250,17 @@ export default class GitHubStream extends GitHubBase {
     const cachePath = this.data.cacheGeneration ? `${contentGenerationPrefix(this.data.cacheGeneration)}/${generation}/${filePath}` : filePath;
     const assertActive = async () => {
       if (!this.data.cacheGeneration) return;
+      // Retirement markers live inside the storage root and disappear when
+      // expiration removes it. The persisted lifecycle also fences late fills.
+      if (isConnected) {
+        const current = await AnonymizedRepositoryModel.findOne({ repoId })
+          .select("status treeGeneration anonymizeDate").lean().exec();
+        if (!current || !current.status || [RepositoryStatus.EXPIRING, RepositoryStatus.EXPIRED,
+          RepositoryStatus.REMOVING, RepositoryStatus.REMOVED, RepositoryStatus.ARCHIVED].includes(current.status)
+          || `${current.treeGeneration || "legacy"}:${current.anonymizeDate?.toISOString() || ""}` !== this.data.cacheGeneration) {
+          throw new AnonymousError("repository_changed", { httpStatus: 409 });
+        }
+      }
       try {
         await storage.fileInfo(repoId, contentRetirementMarker(contentGenerationPrefix(this.data.cacheGeneration)));
       } catch (error) {

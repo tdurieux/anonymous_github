@@ -416,6 +416,93 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
     } finally { storage.rm = rm; }
   });
 
+  for (const adapter of ["filesystem", "S3"]) {
+    for (const phase of ["before writing", "after writing"]) {
+      it(`discards ${adapter} cache fills completing ${phase} across expiration root deletion`, async () => {
+        const { Readable } = require("node:stream"), storage = require("../src/core/storage").default;
+        const config = require("../src/config").default, previous = { ...config };
+        let backend, fixture, started, release, pending, cachePath;
+        const began = new Promise(resolve => { started = resolve; }), held = new Promise(resolve => { release = resolve; });
+        const originals = { fileInfo: storage.fileInfo, read: storage.read, write: storage.write, rm: storage.rm };
+        const row = await Repo.create({ repoId: `late-fill-${adapter}-${phase.replace(/ /g, "-")}`, owner: user.model._id,
+          status: "ready", statusDate: new Date(), treeGeneration: "active", anonymizeDate: new Date(),
+          source: { type: "GitHubStream", repositoryName: "owner/repo", commit: "abc" },
+          options: { expirationMode: "remove", expirationDate: new Date(0) } });
+        try {
+          if (adapter === "S3") {
+            fixture = await require("./fixtures/s3-server")();
+            Object.assign(config, { S3_BUCKET: "performance-test", S3_CLIENT_ID: "perf-test-user", S3_CLIENT_SECRET: "perf-test-password",
+              S3_REGION: "us-east-1", S3_ENDPOINT: fixture.endpoint });
+          }
+          backend = new (require(`../src/core/storage/${adapter === "S3" ? "S3" : "FileSystem"}`).default)();
+          storage.fileInfo = backend.fileInfo.bind(backend); storage.read = backend.read.bind(backend); storage.rm = backend.rm.bind(backend);
+          storage.write = async (...args) => {
+            cachePath = args[1];
+            if (phase === "before writing") { started(); await held; }
+            await backend.write(...args);
+            if (phase === "after writing") { started(); await held; }
+          };
+          const source = new Repository(row).source;
+          source.data.getToken = () => "test-token";
+          source.downloadWithFallback = async () => Readable.from(["private source"]);
+          pending = source.getFileContentCache("private/secret.txt", row.repoId, () => ({ sha: "blob", size: 14 }));
+          // Attach the rejection handler before releasing the held producer.
+          const result = pending.then(() => null, error => error);
+          await began;
+          await new Repository(await Repo.findById(row._id)).expire();
+          expect((await Repo.findById(row._id)).status).to.equal("expired");
+          release();
+          const error = await result;
+          expect(error.message).to.equal("repository_changed"); expect(error.httpStatus).to.equal(409);
+          expect(await backend.exists(row.repoId, cachePath)).to.equal("not_found");
+          let downloads = 0;
+          source.downloadWithFallback = async () => { downloads++; return Readable.from(["private source"]); };
+          const retry = await source.getFileContentCache("private/other.txt", row.repoId, () => "blob").then(() => null, error => error);
+          expect(retry.message).to.equal("repository_changed"); expect(downloads).to.equal(0);
+          expect((await Repo.findById(row._id)).isReseted).to.equal(true);
+        } finally {
+          release(); await pending?.catch(() => {}); Object.assign(storage, originals);
+          for (const client of backend?.clients?.values() || []) client.destroy();
+          await fixture?.close(); Object.assign(config, previous);
+        }
+      });
+    }
+  }
+
+  it("fences cold fills from deleted, inactive and replaced repository snapshots without querying warm hits", async () => {
+    const { Readable } = require("node:stream"), storage = require("../src/core/storage").default;
+    const row = await Repo.create({ repoId: "fill-lifecycle", status: "ready", treeGeneration: "active", anonymizeDate: new Date(),
+      source: { type: "GitHubStream", repositoryName: "owner/repo", commit: "abc" } });
+    const source = new Repository(row).source;
+    source.data.getToken = () => "test-token";
+    let downloads = 0;
+    source.downloadWithFallback = async () => { downloads++; return Readable.from(["valid source"]); };
+    const read = await source.getFileContentCache("file.txt", row.repoId, () => ({ sha: "blob", size: 12 }));
+    let text = ""; for await (const chunk of read) text += chunk;
+    expect(text).to.equal("valid source"); expect(downloads).to.equal(1);
+    const findOne = Repo.findOne, fileInfo = storage.fileInfo;
+    let heads = 0;
+    try {
+      Repo.findOne = () => { throw Error("warm hit queried lifecycle"); };
+      storage.fileInfo = (...args) => { heads++; return fileInfo.apply(storage, args); };
+      const warm = await source.getFileContentCache("file.txt", row.repoId, () => ({ sha: "blob", size: 12 }));
+      warm.destroy(); expect(heads).to.equal(1); expect(downloads).to.equal(1);
+    } finally { Repo.findOne = findOne; storage.fileInfo = fileInfo; }
+    for (const status of ["expiring", "expired", "removing", "removed", "archived"]) {
+      await Repo.updateOne({ _id: row._id }, { $set: { status } });
+      const error = await source.getFileContentCache(`cold-${status}.txt`, row.repoId, () => "blob").then(() => null, error => error);
+      expect(error.message).to.equal("repository_changed"); expect(downloads).to.equal(1);
+    }
+    for (const replacement of [{ treeGeneration: "replacement" }, { treeGeneration: "active", anonymizeDate: new Date(Date.now() + 86400000) }]) {
+      await Repo.updateOne({ _id: row._id }, { $set: { status: "ready", ...replacement } });
+      const error = await source.getFileContentCache("cold-replacement.txt", row.repoId, () => "blob").then(() => null, error => error);
+      expect(error.message).to.equal("repository_changed"); expect(downloads).to.equal(1);
+    }
+    await Repo.deleteOne({ _id: row._id });
+    const error = await source.getFileContentCache("cold-deleted.txt", row.repoId, () => "blob").then(() => null, error => error);
+    expect(error.message).to.equal("repository_changed"); expect(downloads).to.equal(1);
+  });
+
   it("claims expiration once and deletes every file generation", async () => {
     const storage = require("../src/core/storage").default;
     const originalRm = storage.rm;
