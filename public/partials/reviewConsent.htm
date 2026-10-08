@@ -1,0 +1,24 @@
+<section class="container py-4" style="max-width: 48rem; overflow-wrap: anywhere">
+  <a href="/">Anonymous GitHub</a>
+  <h1 class="mt-3">Approve artifact access</h1>
+  <p>This records your approval as the repository owner or an authorized coauthor.</p>
+  <p v-if="!user?.username">Sign in first, then reopen the artifact link from your submission. <a href="/signin">Sign in</a></p>
+  <p v-if="error" role="alert">{{ error }}</p>
+  <p v-if="saved" role="status">Consent recorded. Artifact linking is not complete. Return to your submission to check its status.</p>
+  <form v-if="user?.username && !saved" @submit.prevent="loadPreview">
+    <label for="review-repository">Anonymous repository ID</label>
+    <input id="review-repository" class="form-control" v-model="repositoryId" maxlength="128" autocomplete="off" :disabled="busy || uncertain" aria-describedby="review-repository-help">
+    <p id="review-repository-help">Use the ID after /r/ in the anonymous repository URL.</p>
+    <button type="submit" class="btn btn-primary" :disabled="busy || uncertain">Preview access and retention</button>
+  </form>
+  <section v-if="preview && !saved" class="mt-4" aria-labelledby="review-policy-title">
+    <h2 id="review-policy-title">{{ preview.repositoryName }}</h2>
+    <p>Access: {{ preview.policy.access === 'anonymous-link' ? 'Anyone with the anonymous link' : 'Restricted review access' }}.</p>
+    <p>Retain until {{ preview.policy.retainUntil }}. Policy version {{ preview.policy.version }}.</p>
+    <p v-if="expired" role="alert">This preview expired. Open a new artifact link from your submission.</p>
+    <div><label><input type="checkbox" v-model="acceptAccess" :disabled="busy || uncertain || expired"> I approve the access policy above.</label></div>
+    <div><label><input type="checkbox" v-model="acceptRetention" :disabled="busy || uncertain || expired"> I approve retention until the date above.</label></div>
+    <button class="btn btn-primary" type="button" @click="confirmConsent" :disabled="busy || expired || !acceptAccess || !acceptRetention">{{ uncertain ? 'Retry confirmation' : 'Confirm consent' }}</button>
+  </section>
+  <p v-if="busy" role="status">Waiting for the server…</p>
+</section>
