@@ -31,6 +31,7 @@ const UserSchema = new Schema({
     },
   ],
   photo: String,
+  projectNames: { type: Map, of: String },
   repositories: [
     {
       type: String,

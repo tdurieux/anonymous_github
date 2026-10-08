@@ -188,6 +188,25 @@ export function createReviewConsentRouter(
     }
   });
   router.use(express.json({ limit: 12288, strict: true, inflate: false }));
+  // Uploads can outlive the session checked before body parsing. Revalidate
+  // before any provider call or consent write, not only before the response.
+  router.use(async (req, res, next) => {
+    try {
+      const actor = res.locals.consentActor as Context;
+      const fresh = await current(req);
+      if (res.destroyed || res.headersSent || res.locals.consentSignal.aborted)
+        return;
+      if (
+        !fresh ||
+        fresh.accountId !== actor.accountId ||
+        fresh.sessionId !== actor.sessionId
+      )
+        return reject(res, 401, "unauthorized");
+      next();
+    } catch {
+      reject(res, 503, "unavailable");
+    }
+  });
   router.post(["/preview", "/confirm", "/handoff"], async (req, res) => {
     const actor = res.locals.consentActor as Context;
     try {

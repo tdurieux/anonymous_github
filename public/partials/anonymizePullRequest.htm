@@ -39,7 +39,7 @@
             </div>
 
             <div class="paper-section-eyebrow anonymize-section-title">
-              <i class="fas fa-chalkboard-teacher"></i> Conference ID
+              <svg class="ui-icon" aria-hidden="true"><use href="#project-icon-conference"></use></svg> Conference ID
             </div>
             <!-- Conference -->
             <div class="form-group">
@@ -59,7 +59,7 @@
             </div>
 
             <div class="paper-section-eyebrow anonymize-section-title">
-              <i class="fas fa-shield-alt"></i> Anonymization Options
+              <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-shield"></use></svg> Anonymization Options
             </div>
             <!-- Pull Request ID -->
             <div class="form-group">
@@ -112,7 +112,7 @@
                 <div class="card-header" id="headingOne">
                   <h2 class="mb-0">
                     <button class="btn btn-block text-left" type="button" data-toggle="collapse" data-target="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
-                      <i class="fas fa-cog mr-1"></i> Advanced options
+                      <svg class="ui-icon mr-1" aria-hidden="true"><use href="#project-icon-filter"></use></svg> Advanced options
                     </button>
                   </h2>
                 </div>
@@ -169,10 +169,10 @@
           <div class="alert alert-danger" role="alert" v-if="error" v-text="error"></div>
           <div class="anonymize-submit-bar" v-show="pullRequestUrl">
             <button id="submit" type="submit" class="btn btn-ink btn-block" v-if="!isUpdate" @click.prevent="submitForm($event, () =&gt; { anonymizePullRequest($event) })">
-              <i class="fas fa-user-secret mr-1"></i> Anonymize
+              <svg class="ui-icon mr-1" aria-hidden="true"><use href="#ui-icon-shield"></use></svg> Anonymize
             </button>
             <button id="submit" type="submit" class="btn btn-ink btn-block" v-if="isUpdate" @click.prevent="submitForm($event, () =&gt; { updatePullRequest($event) })">
-              <i class="fas fa-save mr-1"></i> Update
+              <svg class="ui-icon mr-1" aria-hidden="true"><use href="#ui-icon-save"></use></svg> Update
             </button>
           </div>
         </form>

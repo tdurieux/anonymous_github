@@ -52,7 +52,7 @@ Request no repository write permissions. Verify PR issue-comment reads with the 
 
 Pages lookup specifically requires Pages read; lack of Pages access must not make ordinary repository import fail. See [Pages endpoint permissions](https://docs.github.com/en/rest/pages/pages#get-a-github-pages-site).
 
-Gists are a separate capability. Keep existing gist resources on OAuth in the first release, and show that requirement for App-only users. Do not send installation tokens to gist endpoints. Evaluate App user-token support for gist content, comments and raw downloads as a later compatibility step using the [gist API reference](https://docs.github.com/en/rest/gists/gists). OAuth retirement depends on resolving this gap.
+Gists use App user tokens when available, with refresh and provider-specific reconnect handling. Do not send installation tokens to gist endpoints. Reading gist content and comments requires no additional App permissions; see the [gist API reference](https://docs.github.com/en/rest/gists/gists). Accounts without an App connection retain OAuth access.
 
 ### Persistence and credential lifecycle
 
@@ -93,7 +93,7 @@ Keep rate-limit behavior across token renewal by using provider-aware quota iden
 4. Provide a migration preview listing eligible resources and blocked resources, with reasons such as repository not selected, approval pending, missing permission or gist compatibility.
 5. On explicit migration, verify App access and read the resource's configured commit (or PR) before conditionally updating its binding. Preserve all anonymization settings, URLs and caches. A partial batch reports per-resource results and can be rerun; jobs read the latest binding and reject stale results if the binding changes while running.
 6. Display each resource's connection and reconnect action. Connecting the App alone does not migrate resources or revoke OAuth.
-7. Offer OAuth disconnect after listing remaining dependencies, including gists. A new sign-in does not reduce an existing OAuth grant's scope. Complete removal of the broad grant requires explicit revocation; warn about affected resources in that concrete disconnect flow.
+7. Offer OAuth disconnect after listing remaining repository and pull-request dependencies. Gists use the App user connection automatically. A new sign-in does not reduce an existing OAuth grant's scope. Complete removal of the broad grant requires explicit revocation; warn about affected resources in that concrete disconnect flow.
 
 ## Revocation, webhooks and retained content
 

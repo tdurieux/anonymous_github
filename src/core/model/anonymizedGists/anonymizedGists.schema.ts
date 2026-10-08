@@ -68,4 +68,6 @@ const AnonymizedGistSchema = new Schema({
   },
 });
 
+AnonymizedGistSchema.index({ status: 1, "options.expirationDate": 1 });
+
 export default AnonymizedGistSchema;

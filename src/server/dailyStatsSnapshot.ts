@@ -109,3 +109,42 @@ export async function ensureTodaySnapshot(): Promise<void> {
     logger.error("ensureTodaySnapshot failed", serializeError(error));
   }
 }
+
+// Shared by /stat and /stat/history; zero counts are valid cache entries.
+import { AsyncCache } from "../core/async-cache";
+import { cacheRedis, cacheCommand, coordinatedFill } from "../core/cache-coordination";
+const currentStatsCache = new AsyncCache<HomeStats>(60 * 60_000, 1);
+const historyCache = new AsyncCache<HomeStatsHistoryRow[]>(60 * 60_000, 16);
+export function clearStatsCache() { currentStatsCache.clear(); historyCache.clear(); }
+export function getCurrentStats(): Promise<HomeStats> {
+  return currentStatsCache.get("current", async () => {
+    const redis = await cacheRedis();
+    const key = "perf:home-stats:v1";
+    const read = async () => {
+      if (!redis?.isReady) return undefined;
+      const value = await cacheCommand(redis.get(key), redis).catch(() => null);
+      if (!value) return undefined;
+      try { return JSON.parse(value) as HomeStats; } catch { return undefined; }
+    };
+    return coordinatedFill(key, read, async () => {
+      const stats = await computeStats();
+      if (redis?.isReady) await cacheCommand(redis.set(key, JSON.stringify(stats), { PX: 60 * 60_000 }), redis).catch(() => {});
+      return stats;
+    });
+  });
+}
+export function getStatsHistory(days: number, now = new Date()) {
+  const count = Math.min(365, Math.max(1, Math.floor(days) || 30));
+  const today = utcMidnight(now);
+  return historyCache.get(`${today.toISOString()}:${count}`, async () => {
+    const since = new Date(today);
+    since.setUTCDate(since.getUTCDate() - count + 1);
+    const [docs, current] = await Promise.all([
+      DailyStatsModel.find({ date: { $gte: since } }).sort({ date: 1 }).lean(),
+      getCurrentStats(),
+    ]);
+    return mergeCurrentStatsIntoHistory(docs.map(d => ({ date: d.date,
+      nbRepositories: d.nbRepositories, nbUsers: d.nbUsers,
+      nbPageViews: d.nbPageViews, nbPullRequests: d.nbPullRequests })), current, now);
+  });
+}

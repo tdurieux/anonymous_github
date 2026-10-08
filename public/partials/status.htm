@@ -1,6 +1,6 @@
-<div class="container paper-page">
+<div class="container paper-page status-page">
   <div class="paper-crumbs">Anonymization &nbsp;/&nbsp; <span class="here">Status</span></div>
-  <div class="d-flex align-items-end justify-content-between flex-wrap" style="gap: 12px;">
+  <div class="d-flex align-items-center justify-content-between flex-wrap" style="gap: 12px;">
     <div>
       <h1 class="paper-page-title">Status of <em>{{ repoId }}</em></h1>
       <p class="paper-page-lede">Track progress as your anonymization is prepared.</p>
@@ -13,16 +13,16 @@
   </div>
 
   <section class="paper-settings-section">
-    <div class="paper-section-eyebrow">Progress</div>
+    <div class="paper-section-eyebrow" v-text="repo?.status == 'ready' ? 'Your anonymous link' : 'Progress'"></div>
 
-    <p class="paper-section-copy">
+    <p class="paper-section-copy" v-if="repo?.status != 'ready'">
       The repository will take a few minutes to get ready, depending on its
       size. Visit the <a href="/faq">FAQ</a> for more information.
     </p>
 
     <div class="paper-ratelimit-card" role="status" v-if="rateLimitResetAt">
       <div class="paper-ratelimit-head">
-        <i class="fas fa-hourglass-half"></i>
+        <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-hourglass"></use></svg>
         <div>
           <div class="paper-error-eyebrow">Temporarily paused</div>
           <div class="paper-error-title">GitHub API rate limit reached</div>
@@ -31,7 +31,7 @@
       <p class="paper-error-msg">Anonymization will resume automatically in <strong>{{ rateLimitCountdown }}</strong>. No action needed &mdash; the job is queued and will continue where it left off.</p>
     </div>
 
-    <div class="paper-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" v-if="repo?.status != &#x27;error&#x27; &amp;&amp; !rateLimitResetAt" :class="{&#x27;paper-progress-ready&#x27;: repo?.status == &#x27;ready&#x27;}" :aria-valuenow="(progress)">
+    <div class="paper-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" v-if="repo?.status != &#x27;error&#x27; &amp;&amp; repo?.status != &#x27;ready&#x27; &amp;&amp; !rateLimitResetAt" :class="{&#x27;paper-progress-ready&#x27;: repo?.status == &#x27;ready&#x27;}" :aria-valuenow="(progress)">
       <div class="paper-progress-bar" :style="&quot;width: &quot; + (progress) + &quot;%;&quot;"></div>
       <div class="paper-progress-label">
         <span v-text="fmt?.title(repo?.status)"></span><span v-if="repo?.statusMessage">&nbsp;&middot;&nbsp;<span v-text="repo?.statusMessage"></span></span>
@@ -41,7 +41,7 @@
 
     <div class="paper-error-card" role="alert" v-if="repo?.status == &#x27;error&#x27; &amp;&amp; !rateLimitResetAt">
       <div class="paper-error-head">
-        <i class="fas fa-exclamation-triangle"></i>
+        <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-warning"></use></svg>
         <div>
           <div class="paper-error-eyebrow">Anonymization failed</div>
           <div class="paper-error-title">Something went wrong while preparing this repository.</div>
@@ -55,30 +55,29 @@
         <li>If you just signed in, the access token may need a moment to propagate &mdash; try again.</li>
       </ul>
       <div class="paper-error-actions">
-        <a class="btn btn-ink" :href="safeUrl(&quot;/anonymize/&quot; + (repoId))"><i class="far fa-edit mr-1"></i> Edit anonymization</a>
-        <a class="btn" href="/faq"><i class="far fa-question-circle mr-1"></i> Read the FAQ</a>
-        <a class="btn" href="https://github.com/tdurieux/anonymous_github/issues/new?template=issue_report.yml" target="_blank" rel="noopener"><i class="fas fa-bug mr-1" aria-hidden="true"></i> Report a bug in Anonymous GitHub</a>
+        <a class="btn btn-ink" :href="safeUrl(&quot;/anonymize/&quot; + (repoId))"><svg class="ui-icon mr-1" aria-hidden="true"><use href="#ui-icon-edit"></use></svg> Edit anonymization</a>
+        <a class="btn" href="/faq"><svg class="ui-icon mr-1" aria-hidden="true"><use href="#ui-icon-help"></use></svg> Read the FAQ</a>
+        <a class="btn" href="https://github.com/tdurieux/anonymous_github/issues/new?template=issue_report.yml" target="_blank" rel="noopener"><svg class="ui-icon mr-1" aria-hidden="true"><use href="#ui-icon-bug"></use></svg> Report a bug in Anonymous GitHub</a>
       </div>
     </div>
 
-    <div class="paper-detail-grid">
-      <div class="detail-label">Repository</div>
-      <div class="detail-value">
-        <a target="_self" :href="safeUrl(&quot;/r/&quot; + (repoId) + &quot;/&quot;)">/r/{{ repoId }}/</a>
+    <div class="share-link" v-if="repo?.status == &#x27;ready&#x27;">
+      <p class="paper-section-copy">Reviewers can browse the repository at this address without seeing who you are.</p>
+      <div class="share-link-row">
+        <input id="share-url" class="form-control share-link-input" readonly aria-label="Anonymous link" :value="shareUrl" @focus="$event.target.select()">
+        <button type="button" class="btn btn-ink" @click="copyShareUrl()">
+          <svg class="ui-icon" aria-hidden="true"><use :href="copied ? '#ui-icon-check' : '#project-icon-copy'"></use></svg>
+          <span aria-live="polite" v-text="copied ? 'Copied' : 'Copy link'"></span>
+        </button>
       </div>
-      <div class="detail-label" v-if="repo?.options?.page">GitHub Page</div>
-      <div class="detail-value" v-if="repo?.options?.page">
-        <a target="_self" :href="safeUrl(&quot;/w/&quot; + (repoId) + &quot;/&quot;)">/w/{{ repoId }}/</a>
+      <div class="share-link-actions">
+        <a class="btn" target="_self" :href="safeUrl(&quot;/r/&quot; + (repoId) + &quot;/&quot;)">
+          <svg class="ui-icon" aria-hidden="true"><use href="#project-icon-eye"></use></svg> Open repository
+        </a>
+        <a class="btn" target="_self" v-if="repo?.options?.page" :href="safeUrl(&quot;/w/&quot; + (repoId) + &quot;/&quot;)">
+          <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-globe"></use></svg> Open GitHub page
+        </a>
       </div>
-    </div>
-
-    <div class="anonymize-submit-bar" v-if="repo?.status == &#x27;ready&#x27;">
-      <a class="btn btn-ink" target="_self" :href="safeUrl(&quot;/r/&quot; + (repoId) + &quot;/&quot;)">
-        <i class="far fa-eye mr-1"></i> Go to anonymized repository
-      </a>
-      <a class="btn" target="_self" v-if="repo?.options?.page" :href="safeUrl(&quot;/w/&quot; + (repoId) + &quot;/&quot;)">
-        <i class="fas fa-globe mr-1"></i> Go to anonymized GitHub page
-      </a>
     </div>
   </section>
 
@@ -91,24 +90,20 @@
 
     <div class="paper-support-grid">
       <a class="paper-support-card" href="https://github.com/tdurieux/anonymous_github/" target="_blank" rel="noopener">
-        <div class="paper-support-eyebrow"><i class="fas fa-code-branch"></i> Contribute</div>
+        <div class="paper-support-eyebrow"><svg class="ui-icon" aria-hidden="true"><use href="#project-type-repo"></use></svg> Contribute</div>
         <p>Collaborate by implementing new features and fixing bugs. Help with new file formats or deployment is welcome.</p>
-        <span class="paper-support-cta">Open on GitHub <i class="fas fa-arrow-right"></i></span>
+        <span class="paper-support-cta">Open on GitHub <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-arrow-right"></use></svg></span>
       </a>
       <a class="paper-support-card" href="https://github.com/tdurieux/anonymous_github/issues/new?template=issue_report.yml" target="_blank" rel="noopener">
-        <div class="paper-support-eyebrow"><i class="far fa-comment-dots"></i> Feedback</div>
+        <div class="paper-support-eyebrow"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-comment"></use></svg> Feedback</div>
         <p>Tell us about bugs and missing features in Anonymous GitHub itself. Questions about an anonymized repository go to its authors.</p>
-        <span class="paper-support-cta">File an issue <i class="fas fa-arrow-right"></i></span>
+        <span class="paper-support-cta">File an issue <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-arrow-right"></use></svg></span>
       </a>
       <a class="paper-support-card" href="https://github.com/sponsors/tdurieux/" target="_blank" rel="noopener">
-        <div class="paper-support-eyebrow"><i class="fas fa-heart"></i> Sponsor</div>
+        <div class="paper-support-eyebrow"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-heart"></use></svg> Sponsor</div>
         <p>Server costs hover around $25 a month. Any contribution helps keep the lights on.</p>
-        <span class="paper-support-cta">GitHub Sponsors <i class="fas fa-arrow-right"></i></span>
+        <span class="paper-support-cta">GitHub Sponsors <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-arrow-right"></use></svg></span>
       </a>
-    </div>
-
-    <div class="paper-kofi-wrap">
-      <iframe id="kofiframe" src="https://ko-fi.com/tdurieux/?hidefeed=true&amp;widget=true&amp;embed=true&amp;preview=true" title="tdurieux" loading="lazy"></iframe>
     </div>
   </section>
 </div>

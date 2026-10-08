@@ -1,3 +1,5 @@
+import { isConnected } from "../server/database";
+import { expireEmbeddedContent } from "./content-expiration";
 import { boundAppToken } from "./github-app";
 import { getCredentialToken } from "./credentials";
 import { RepositoryStatus } from "./types";
@@ -121,7 +123,7 @@ export default class PullRequest {
       this._model.options.expirationDate
     ) {
       if (this._model.options.expirationDate <= new Date()) {
-        await this.expire();
+        await this.markExpired();
       }
     }
     if (
@@ -228,10 +230,30 @@ export default class PullRequest {
   /**
    * Expire the pullRequest
    */
+  async markExpired() {
+    const now = new Date();
+    if (isConnected) {
+      const result = await AnonymizedPullRequestModel.updateOne({ _id: this.model._id,
+        status: RepositoryStatus.READY, "options.expirationMode": { $ne: "never" },
+        "options.expirationDate": { $lte: now },
+      }, { $set: { status: RepositoryStatus.EXPIRING, statusDate: now } }).exec();
+      if (!result.matchedCount) {
+        const current = await AnonymizedPullRequestModel.findById(this.model._id).exec();
+        if (!current) throw new AnonymousError("pull_request_expired", { object: this, httpStatus: 410 });
+        this._model = current;
+        return;
+      }
+    }
+    this.model.status = RepositoryStatus.EXPIRING;
+    this.model.statusDate = now;
+  }
+
   async expire() {
-    await this.updateStatus(RepositoryStatus.EXPIRING);
-    await this.resetSate();
-    await this.updateStatus(RepositoryStatus.EXPIRED);
+    await expireEmbeddedContent(AnonymizedPullRequestModel, this.model, {
+      "pullRequest.comments": [], "pullRequest.body": "", "pullRequest.title": "", "pullRequest.diff": "",
+      "pullRequest.baseRepositoryFullName": "", "pullRequest.headRepositoryFullName": "",
+      "pullRequest.merged": false, "pullRequest.state": "closed", "pullRequest.draft": false,
+    }, { "pullRequest.mergedDate": "" });
   }
 
   /**
