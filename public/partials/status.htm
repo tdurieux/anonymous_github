@@ -13,9 +13,9 @@
   </div>
 
   <section class="paper-settings-section">
-    <div class="paper-section-eyebrow">Progress</div>
+    <div class="paper-section-eyebrow" v-text="repo?.status == 'ready' ? 'Your anonymous link' : 'Progress'"></div>
 
-    <p class="paper-section-copy">
+    <p class="paper-section-copy" v-if="repo?.status != 'ready'">
       The repository will take a few minutes to get ready, depending on its
       size. Visit the <a href="/faq">FAQ</a> for more information.
     </p>
@@ -31,7 +31,7 @@
       <p class="paper-error-msg">Anonymization will resume automatically in <strong>{{ rateLimitCountdown }}</strong>. No action needed &mdash; the job is queued and will continue where it left off.</p>
     </div>
 
-    <div class="paper-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" v-if="repo?.status != &#x27;error&#x27; &amp;&amp; !rateLimitResetAt" :class="{&#x27;paper-progress-ready&#x27;: repo?.status == &#x27;ready&#x27;}" :aria-valuenow="(progress)">
+    <div class="paper-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" v-if="repo?.status != &#x27;error&#x27; &amp;&amp; repo?.status != &#x27;ready&#x27; &amp;&amp; !rateLimitResetAt" :class="{&#x27;paper-progress-ready&#x27;: repo?.status == &#x27;ready&#x27;}" :aria-valuenow="(progress)">
       <div class="paper-progress-bar" :style="&quot;width: &quot; + (progress) + &quot;%;&quot;"></div>
       <div class="paper-progress-label">
         <span v-text="fmt?.title(repo?.status)"></span><span v-if="repo?.statusMessage">&nbsp;&middot;&nbsp;<span v-text="repo?.statusMessage"></span></span>
@@ -61,24 +61,23 @@
       </div>
     </div>
 
-    <div class="paper-detail-grid">
-      <div class="detail-label">Repository</div>
-      <div class="detail-value">
-        <a target="_self" :href="safeUrl(&quot;/r/&quot; + (repoId) + &quot;/&quot;)">/r/{{ repoId }}/</a>
+    <div class="share-link" v-if="repo?.status == &#x27;ready&#x27;">
+      <p class="paper-section-copy">Reviewers can browse the repository at this address without seeing who you are.</p>
+      <div class="share-link-row">
+        <input id="share-url" class="form-control share-link-input" readonly aria-label="Anonymous link" :value="shareUrl" @focus="$event.target.select()">
+        <button type="button" class="btn btn-ink" @click="copyShareUrl()">
+          <svg class="ui-icon" aria-hidden="true"><use :href="copied ? '#ui-icon-check' : '#project-icon-copy'"></use></svg>
+          <span aria-live="polite" v-text="copied ? 'Copied' : 'Copy link'"></span>
+        </button>
       </div>
-      <div class="detail-label" v-if="repo?.options?.page">GitHub Page</div>
-      <div class="detail-value" v-if="repo?.options?.page">
-        <a target="_self" :href="safeUrl(&quot;/w/&quot; + (repoId) + &quot;/&quot;)">/w/{{ repoId }}/</a>
+      <div class="share-link-actions">
+        <a class="btn" target="_self" :href="safeUrl(&quot;/r/&quot; + (repoId) + &quot;/&quot;)">
+          <svg class="ui-icon" aria-hidden="true"><use href="#project-icon-eye"></use></svg> Open repository
+        </a>
+        <a class="btn" target="_self" v-if="repo?.options?.page" :href="safeUrl(&quot;/w/&quot; + (repoId) + &quot;/&quot;)">
+          <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-globe"></use></svg> Open GitHub page
+        </a>
       </div>
-    </div>
-
-    <div class="anonymize-submit-bar" v-if="repo?.status == &#x27;ready&#x27;">
-      <a class="btn btn-ink" target="_self" :href="safeUrl(&quot;/r/&quot; + (repoId) + &quot;/&quot;)">
-        <svg class="ui-icon mr-1" aria-hidden="true"><use href="#project-icon-eye"></use></svg> Go to anonymized repository
-      </a>
-      <a class="btn" target="_self" v-if="repo?.options?.page" :href="safeUrl(&quot;/w/&quot; + (repoId) + &quot;/&quot;)">
-        <svg class="ui-icon mr-1" aria-hidden="true"><use href="#ui-icon-globe"></use></svg> Go to anonymized GitHub page
-      </a>
     </div>
   </section>
 

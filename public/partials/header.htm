@@ -44,7 +44,7 @@
       </li>
     </ul>
     <ul class="navbar-nav">
-      <li class="nav-item">
+      <li class="nav-item" v-if="user || !isReviewerRoute">
         <a class="nav-link nav-icon" target="_blank" href="https://github.com/tdurieux/anonymous_github/" title="Anonymous GitHub source code" aria-label="Anonymous GitHub source code on GitHub" rel="noopener" data-offset="30"><i class="fab fa-github" aria-hidden="true"></i></a>
       </li>
       <!-- "Report a bug" is about this service. Reviewers who land on an
@@ -67,7 +67,7 @@
         </a>
       </li>
 
-      <li class="nav-item" v-if="!user">
+      <li class="nav-item" v-if="!user &amp;&amp; !isReviewerRoute">
         <a class="nav-link btn-signin" target="_self" href="/signin" data-offset="30"><i class="fab fa-github mr-1"></i>
           Sign in
         </a>

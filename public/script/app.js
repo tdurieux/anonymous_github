@@ -2,6 +2,60 @@ import { reactive, nextTick } from "vue";
 import { createTimers, createListeners } from "./state.js";
 import { formDraft } from "./drafts.js";
 
+// Matches the replacements the anonymizer writes: MASK and MASK-<n>.
+export const redactionPattern = (mask = "XXXX") => {
+  if (!mask) return null;
+  const escaped = mask.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(escaped + "(?:-\\d+)?", "g");
+}
+
+// Wraps redacted terms in rendered HTML with <mark class="redaction">,
+// touching text nodes only so attributes and URLs stay intact.
+export const highlightRedactions = (html, mask = "XXXX") => {
+  const pattern = redactionPattern(mask);
+  if (!pattern || !html || !html.includes(mask)) return html;
+  const doc = new DOMParser().parseFromString("<body>" + html + "</body>", "text/html");
+  const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
+  const nodes = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode);
+  for (const node of nodes) {
+    const text = node.nodeValue;
+    if (!text.includes(mask) || node.parentElement?.closest("script, style")) continue;
+    const fragment = doc.createDocumentFragment();
+    let last = 0;
+    for (const match of text.matchAll(pattern)) {
+      fragment.append(text.slice(last, match.index));
+      const mark = doc.createElement("mark");
+      mark.className = "redaction";
+      mark.title = "Redacted by Anonymous GitHub";
+      mark.textContent = match[0];
+      fragment.append(mark);
+      last = match.index + match[0].length;
+    }
+    fragment.append(text.slice(last));
+    node.replaceWith(fragment);
+  }
+  return doc.body.innerHTML;
+}
+
+async function copyText(text) {
+  if (window.navigator.clipboard?.writeText) {
+    await window.navigator.clipboard.writeText(text);
+    return;
+  }
+  const field = document.createElement("textarea");
+  field.value = text;
+  field.setAttribute("readonly", "");
+  field.style.position = "fixed";
+  field.style.opacity = "0";
+  const focused = document.activeElement;
+  document.body.appendChild(field);
+  try {
+    field.select();
+    if (!document.execCommand?.("copy")) throw Error("Copy unavailable");
+  } finally { field.remove(); focused?.focus(); }
+}
+
 function previewTabKeydown(event) {
   if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
   const tabs = [...event.currentTarget.closest('[role="tablist"]').querySelectorAll('[role="tab"]')];
@@ -41,8 +95,11 @@ export const mainController = function (state, http, location, timeout) {
         return toast;
       };
 
+      // Anonymized content that signed-out reviewers browse.
+      const reviewerRoutes = /^\/(r|repository|pr|gist)\//;
       state.path = location.url();
       state.paths = location.path().substring(1).split("/");
+      state.isReviewerRoute = reviewerRoutes.test(location.path());
 
       state.darkMode = function (on) {
         localStorage.setItem("darkMode", on);
@@ -66,8 +123,8 @@ export const mainController = function (state, http, location, timeout) {
         }
         const kofiBtn = document.querySelector("[class*='floatingchat-container-wrap'] [class*='floating-chat-kofi-text-container-wrap']");
         if (kofiBtn) {
-          kofiBtn.style.backgroundColor = on ? "#FAF9F6" : "#1A1815";
-          kofiBtn.style.color = on ? "#1A1815" : "#FAF9F6";
+          kofiBtn.style.backgroundColor = on ? "#34312C" : "#1A1815";
+          kofiBtn.style.color = "#FAF9F6";
         }
         state.emit("dark-mode", on);
       };
@@ -116,6 +173,7 @@ export const mainController = function (state, http, location, timeout) {
         }
         state.path = location.url();
         state.paths = location.path().substring(1).split("/");
+        state.isReviewerRoute = reviewerRoutes.test(location.path());
       }
 
       state.on("routeChange", changedUrl);
@@ -516,21 +574,7 @@ export const unifiedDashboardController = function (state, http, location, promi
         const link = new URL(item._viewUrl, window.location.origin).href;
         state.copyingId = item._type + ":" + item._id;
         try {
-          if (window.navigator.clipboard?.writeText) {
-            await window.navigator.clipboard.writeText(link);
-          } else {
-            const field = document.createElement("textarea");
-            field.value = link;
-            field.setAttribute("readonly", "");
-            field.style.position = "fixed";
-            field.style.opacity = "0";
-            const focused = document.activeElement;
-            document.body.appendChild(field);
-            try {
-              field.select();
-              if (!document.execCommand?.("copy")) throw Error("Copy unavailable");
-            } finally { field.remove(); focused?.focus(); }
-          }
+          await copyText(link);
           state.addToast({ title: "Link copied", body: "The anonymous link is ready to share." });
         } catch {
           state.addToast({ title: "Copy this anonymous link", body: link });
@@ -1005,6 +1049,19 @@ export const statusController = function (state, http, params) {
       state.progress = 0;
       state.rateLimitResetAt = 0;
       state.rateLimitCountdown = "";
+      state.shareUrl = (window.location?.origin || "") + "/r/" + encodeURIComponent(state.repoId) + "/";
+      state.copied = false;
+      let copiedTimer = null;
+      state.copyShareUrl = async () => {
+        try {
+          await copyText(state.shareUrl);
+          state.copied = true;
+          if (copiedTimer) timers.timeout.cancel(copiedTimer);
+          copiedTimer = timers.timeout(() => { state.copied = false; }, 2000);
+        } catch {
+          state.addToast?.({ title: "Copy this anonymous link", body: state.shareUrl });
+        }
+      };
 
       var countdownTimer = null;
       let pollTimer = null;
@@ -2744,6 +2801,28 @@ export const exploreController = function (state, http, location, params, html, 
             narrow.addEventListener?.("change", applyWrap);
             _editor.setBehavioursEnabled(state.aceOption.enableBehaviours);
             _editor.setFadeFoldWidgets(state.aceOption.fadeFoldWidgets);
+
+            // Outline redacted terms (XXXX-1, ...) so reviewers can tell a
+            // replacement from the author's own text.
+            let redactionMarkers = [];
+            const markRedactions = () => {
+              redactionMarkers.forEach((id) => _editor.session.removeMarker(id));
+              redactionMarkers = [];
+              const pattern = redactionPattern(state.site_options?.ANONYMIZATION_MASK);
+              if (!pattern) return;
+              const lines = _editor.session.getDocument().getAllLines();
+              lines.forEach((line, row) => {
+                for (const match of line.matchAll(pattern)) {
+                  redactionMarkers.push(_editor.session.addMarker(
+                    new Range(row, match.index, row, match.index + match[0].length),
+                    "ace_redaction",
+                    "text"
+                  ));
+                }
+              });
+            };
+            markRedactions();
+            _editor.session.on("change", () => timers.timeout(markRedactions, 0));
             return () => {
               removeHashListener();
               narrow.removeEventListener?.("change", applyWrap);

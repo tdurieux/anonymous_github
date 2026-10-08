@@ -1,5 +1,5 @@
 <div v-code-editor="{ content: content, options: aceOption }" v-if="type == &#x27;text&#x27;"></div>
-<div class="file-content markdown-body" v-if="type == &#x27;html&#x27;" v-html="sanitize(content)"></div>
+<div class="file-content markdown-body" v-if="type == &#x27;html&#x27;" v-html="highlightRedactions(sanitize(content))"></div>
 <html-doc v-if="type == &#x27;html-doc&#x27; &amp;&amp; !showSource &amp;&amp; content != null" :content="content" :base-url="(fileBaseUrl)" :allow-scripts="allowScripts"></html-doc>
 <div v-code-editor="{ content: content, options: aceOption }" v-if="(type == &#x27;code&#x27; || (type == &#x27;html-doc&#x27; &amp;&amp; showSource)) &amp;&amp; content != null"></div>
 <img class="image-content" v-if="type == &#x27;image&#x27;" :src="safeUrl((url))">

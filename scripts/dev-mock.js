@@ -294,7 +294,7 @@ const explorerContent = {
   "README.md": "# DeepLearnUtils\n\nDeveloped by XXXX-1 at XXXX-2.\n\nUtilities for reproducing the paper's experiments. Every script in `src/` reads its configuration from `configs/` and writes results to `out/`, so a full run of the evaluation only needs the two commands below. The long sentence here checks the reading width of rendered Markdown.\n\n## Quick start\n\n```bash\npip install -r requirements.txt\npython src/train.py --config configs/base.yaml\n```\n\n| Model | Accuracy |\n| --- | --- |\n| Baseline | 71.2 |\n| Ours | 78.9 |\n\nContact: XXXX-3\n",
   LICENSE: "MIT License\n\nCopyright (c) 2026 XXXX-1\n",
   "requirements.txt": "torch>=2.3\nnumpy\npyyaml\n",
-  "src/train.py": 'import argparse\nimport yaml\n\nfrom utils.data import load_dataset\n\n\ndef main():\n    parser = argparse.ArgumentParser(description="Train the model")\n    parser.add_argument("--config", required=True)\n    args = parser.parse_args()\n    with open(args.config) as f:\n        config = yaml.safe_load(f)\n    dataset = load_dataset(config["data"])\n    print(f"Loaded {len(dataset)} examples")\n\n\nif __name__ == "__main__":\n    main()\n',
+  "src/train.py": '# Copyright 2026 XXXX-1, XXXX-2\nimport argparse\nimport yaml\n\nfrom utils.data import load_dataset\n\n\ndef main():\n    parser = argparse.ArgumentParser(description="Train the model")\n    parser.add_argument("--config", required=True)\n    args = parser.parse_args()\n    with open(args.config) as f:\n        config = yaml.safe_load(f)\n    dataset = load_dataset(config["data"])\n    print(f"Loaded {len(dataset)} examples")\n\n\nif __name__ == "__main__":\n    main()\n',
   "src/utils/data.py": "def load_dataset(path):\n    with open(path) as f:\n        return [line.strip() for line in f]\n",
 };
 const EXPLORER_ID = "anonymous_github-C72C";
@@ -308,6 +308,7 @@ app.get(`/api/repo/${EXPLORER_ID}/options`, (req, res) =>
     lastUpdateDate: ago(3),
     anonymizedAt: ago(3),
     sourceCommitDate: ago(4),
+    expirationDate: ahead(60),
     isAdmin: false,
     isOwner: true,
     hasWebsite: false,
