@@ -108,11 +108,10 @@ Existing installation bindings retain their installation checks.
 This uses GitHub's documented [public resource access for App user tokens](https://docs.github.com/en/apps/creating-github-apps/registering-a-github-app/choosing-permissions-for-a-github-app).
 
 The explicit **Use existing OAuth access** choice handles repositories not yet
-available through the App. An App error never silently selects OAuth. Gists
-continue using OAuth. An App-only user entering a gist URL is prompted to connect
-OAuth, with the current repository permission scope explained. The form draft
-is saved for 30 minutes and restored after authorization. Users with an existing
-OAuth connection can use it immediately. OAuth remains available on the
+available through the App. An App error never silently selects OAuth. Gists prefer
+an existing App user grant and otherwise retain legacy OAuth access. Rejected
+credentials prompt reconnection to the same provider. The form draft is saved for
+30 minutes and restored after authorization. OAuth remains available on the
 Connections page, separate from sign-in.
 
 **GitHub connections** lists each resource's current connection. First check

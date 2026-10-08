@@ -1,3 +1,4 @@
+import { registerGitHubToken } from "./github-token-context";
 import { isConnected } from "../server/database";
 import { expireEmbeddedContent } from "./content-expiration";
 import { APP_PROVIDER, appUserToken } from "./github-app";
@@ -52,7 +53,10 @@ export default class Gist {
 
   private async getAccess() {
     if (config.GITHUB_APP_ENABLED && await CredentialModel.exists({ ownerId: this.owner.id, provider: APP_PROVIDER })) {
-      return { token: await appUserToken(this.owner.id), connection: "github-app" };
+      const ownerId = this.owner.id;
+      const token = await appUserToken(ownerId);
+      registerGitHubToken(token, { quotaKey: `app-user:${ownerId}`, renew: () => appUserToken(ownerId) });
+      return { token, connection: "github-app" };
     }
     return { token: (await getCredentialToken(this.owner.id, "github", { collection: "anonymizedgists", id: this._model._id })) || config.GITHUB_TOKEN,
       connection: "oauth" };

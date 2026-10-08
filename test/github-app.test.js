@@ -175,7 +175,7 @@ describeMongo("GitHub App credential and repository integration", function () {
       const result = String(url).endsWith("/token/scoped")
         ? scopeHandler ? await scopeHandler(body, options) : { status: 403 }
         : await handler(String(url), options, body);
-      return new globalThis.Response(JSON.stringify(result.body || result), { status: result.status || 200, headers: { "content-type": "application/json" } });
+      return new globalThis.Response(JSON.stringify(result.body || result), { status: result.status || 200, headers: { "content-type": "application/json", ...result.headers } });
     };
   }
   it("keeps OAuth and App grants separate, encrypted and migration-verifiable", async () => {
@@ -212,6 +212,35 @@ describeMongo("GitHub App credential and repository integration", function () {
       expect(gist.model.gist.files[0].content).to.equal("hello");
       expect(gist.model.gist.comments[0].body).to.equal("comment");
       expect(calls).to.have.length(3);
+    });
+  }
+  for (const rejected of [false, true]) {
+    it(`renews App gist access during comment pagination (401: ${rejected})`, async () => {
+      await app.saveAppGrant(owner.id, data("old"));
+      let pages = 0, refreshed = false;
+      mock(async (url, options) => {
+        if (url.includes("/login/oauth/access_token")) { refreshed = true; return data("new"); }
+        const authorization = new globalThis.Headers(options.headers).get("authorization");
+        if (url.includes("/comments")) {
+          pages++;
+          if (pages === 1) {
+            expect(authorization).to.equal("token ghu_accessold");
+            await Credentials.updateOne({ ownerId: owner.id, provider: app.APP_PROVIDER }, { $set: { expiresAt: new Date(0) } });
+            if (rejected) return { status: 401, body: { message: "Bad credentials" } };
+            return { body: [{ body: "first", user: { login: "owner" } }], headers: { link: '<https://api.github.com/gists/example/comments?page=2>; rel="next"' } };
+          }
+          expect(authorization).to.equal("token ghu_accessnew");
+          return [{ body: "last", user: { login: "owner" } }];
+        }
+        return { files: {} };
+      });
+      const Gist = require("../src/core/Gist").default;
+      const Model = require("../src/core/model/anonymizedGists/anonymizedGists.model").default;
+      const gist = new Gist(new Model({ owner: owner.id, source: { gistId: "example" } }));
+      await gist.download();
+      expect(refreshed).to.equal(true);
+      expect(pages).to.equal(2);
+      expect(gist.model.gist.comments.map(c => c.body)).to.deep.equal(rejected ? ["last"] : ["first", "last"]);
     });
   }
   it("keeps legacy gist access but does not bypass revoked App grants", async () => {

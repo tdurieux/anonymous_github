@@ -27,16 +27,6 @@
       <small class="form-text" style="color: var(--ink-muted);">
         Repository, pull request (…/pull/42) and gist (gist.github.com/…) URLs are all accepted.
       </small>
-      <aside class="alert alert-info" role="status" v-if="detectedType === 'gist' &amp;&amp; gistAppRequired">
-        <p>Reconnect your GitHub account to read this gist. Your draft will be restored when you return.</p>
-        <button type="button" class="btn btn-ink" @click="connectGistApp()">Connect GitHub App to access gists</button>
-      </aside>
-      <aside class="alert alert-info" role="status" v-if="detectedType === 'gist' &amp;&amp; gistOAuthRequired">
-        <p>Connect GitHub OAuth to access gists. Your account and existing anonymizations stay the same, and your draft will be restored when you return.</p>
-        <p>GitHub's legacy OAuth connection includes write access to private repositories.</p>
-        <button type="button" class="btn btn-ink" @click="connectGistOAuth()" v-if="githubConnections?.oauthEnabled">Connect GitHub OAuth to access gists</button>
-        <p v-else>GitHub OAuth is currently unavailable. Please try again later.</p>
-      </aside>
       <aside class="repo-access-details" aria-label="GitHub access" v-if="!sourceUrl &amp;&amp; githubConnections?.appEnabled &amp;&amp; githubConnections.appConnected &amp;&amp; githubConnections.oauthConnected">
         <div class="repo-access-main">
           <div class="repo-access-controls">
@@ -68,6 +58,17 @@
         </div>
       </div>
     </header>
+
+      <aside class="alert alert-info" role="status" v-if="detectedType === 'gist' &amp;&amp; gistAppRequired">
+        <p>Reconnect your GitHub account to read this gist. Your draft will be restored when you return.</p>
+        <button type="button" class="btn btn-ink" @click="connectGistApp()">Connect GitHub App to access gists</button>
+      </aside>
+      <aside class="alert alert-info" role="status" v-if="detectedType === 'gist' &amp;&amp; gistOAuthRequired">
+        <p>Connect GitHub OAuth to access gists. Your account and existing anonymizations stay the same, and your draft will be restored when you return.</p>
+        <p>GitHub's legacy OAuth connection includes write access to private repositories.</p>
+        <button type="button" class="btn btn-ink" @click="connectGistOAuth()" v-if="githubConnections?.oauthEnabled">Connect GitHub OAuth to access gists</button>
+        <p v-else>GitHub OAuth is currently unavailable. Please try again later.</p>
+      </aside>
 
     <nav class="anonymize-mobile-tabs" role="tablist" aria-label="Anonymization workspace">
       <button id="workspace-settings-tab" role="tab" type="button" :aria-selected="mobilePane === 'settings'" aria-controls="workspace-settings" :tabindex="mobilePane === 'settings' ? 0 : -1" @keydown="previewTabKeydown($event)" @click="selectMobilePane('settings')">Settings</button>

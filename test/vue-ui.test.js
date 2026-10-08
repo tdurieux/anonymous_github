@@ -481,6 +481,10 @@ describe("Vue 3 UI", function () {
     await delay(60);
     const button = [...ui.window.document.querySelectorAll("button")].find(node => node.textContent.includes(`Connect GitHub ${provider} to access gists`));
     expect(button).not.to.equal(undefined);
+    expect(button.closest(".anonymize-workspace")).not.to.equal(null);
+    for (let node = button; node; node = node.parentElement) {
+      expect(ui.window.getComputedStyle(node).display, node.className).not.to.equal("none");
+    }
     expect(ui.requests.some(r => r.url.pathname === "/api/gist/source/311fc9")).to.equal(true);
     button.click();
     const saved = JSON.parse(ui.window.sessionStorage.getItem("github-access-draft"));
