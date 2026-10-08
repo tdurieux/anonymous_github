@@ -17,32 +17,11 @@
     </aside>
 
     <div class="paper-settings-main">
-      <!-- Quota: same markup as the dashboard, driven by quotaService -->
+      <!-- Account usage shares the dashboard component. -->
       <section id="settings-quota" class="paper-settings-section">
         <div class="paper-section-eyebrow">Quota</div>
         <p class="paper-section-copy">What you are using across all your anonymizations. Conferences can lift these limits during a review window.</p>
-        <div class="quota-row" v-if="quota">
-          <div class="quota-item" v-for="(q, index) in [
-              {key: &#x27;repository&#x27;, label: &#x27;Repositories&#x27;, kind: &#x27;count&#x27;},
-              {key: &#x27;storage&#x27;,    label: &#x27;Storage&#x27;,      kind: &#x27;bytes&#x27;},
-              {key: &#x27;file&#x27;,       label: &#x27;Files&#x27;,        kind: &#x27;count&#x27;}
-            ]">
-            <div class="quota-header">
-              <span class="quota-label">{{ q?.label }}</span>
-              <span class="quota-value" v-if="q?.kind === &#x27;count&#x27;">
-                {{ fmt?.number(quota[q?.key].used) }}<span v-if="!quota[q?.key].unlimited"> / {{ fmt?.number(quota[q?.key].total) }}</span>
-                <span class="quota-unlimited-tag" v-if="quota[q?.key].unlimited">Unlimited</span>
-              </span>
-              <span class="quota-value" v-if="q?.kind === &#x27;bytes&#x27;">
-                {{ fmt?.humanFileSize(quota[q?.key].used) }}<span v-if="!quota[q?.key].unlimited"> / {{ fmt?.humanFileSize(quota[q?.key].total) }}</span>
-                <span class="quota-unlimited-tag" v-if="quota[q?.key].unlimited">Unlimited</span>
-              </span>
-            </div>
-            <div class="quota-track" role="progressbar" aria-valuemin="0" :class="&#x27;quota-&#x27; + quota[q?.key].level" :aria-label="(q?.label) + &quot; quota&quot;" :aria-valuenow="(quota[q?.key].used)" :aria-valuemax="(quota[q?.key].unlimited ? quota[q?.key].used : quota[q?.key].total)" :aria-valuetext="(quota[q?.key].unlimited ? &#x27;unlimited&#x27; : fmt.number(quota[q?.key].percent, 0) + &#x27;% used&#x27;)">
-              <div class="quota-fill" v-if="!quota[q?.key].unlimited" :style="{width: quota[q?.key].percent + &#x27;%&#x27;}"></div>
-            </div>
-          </div>
-        </div>
+        <quota-usage :quota="quota" :fmt="fmt" v-if="quota"></quota-usage>
         <div class="quota-row" aria-hidden="true" v-if="!quota">
           <div class="quota-item" v-for="(i, index) in [1, 2, 3]">
             <div class="quota-header"><span class="skeleton skeleton-line" style="width: 40%"></span><span class="skeleton skeleton-line" style="width: 25%"></span></div>
@@ -143,11 +122,13 @@ jane.smith@example.org" v-field="{ state: viewState, set: value =&gt; { terms = 
           </div>
         </section>
 
+        <div class="draft-status" role="status" v-if="draftRestored">Your unsaved draft was restored. <button type="button" class="draft-discard" @click="discardDraft()">Discard draft</button></div>
+        <div class="draft-status" v-else-if="unsavedChanges">{{ draftSaved ? "Draft saved in this tab for 30 minutes." : "Unsaved changes. Keep this tab open until you save." }} <button type="button" class="draft-discard" @click="discardDraft()">{{ isUpdate ? "Restore saved settings" : "Discard changes" }}</button></div>
         <div class="paper-settings-footer">
-          <div class="paper-inline-alert paper-inline-alert-error" role="alert" v-if="error"><i class="fas fa-exclamation-circle" aria-hidden="true"></i> <span v-text="error"></span></div>
+          <div class="paper-inline-alert paper-inline-alert-error" role="alert" v-if="error"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-info"></use></svg> <span v-text="error"></span></div>
           <div class="paper-settings-actions">
             <button id="save" type="submit" class="btn btn-ink" :disabled="saving">
-              <i class="fas fa-check mr-1" aria-hidden="true" v-if="message"></i>{{ saving ? 'Saving…' : (message ? 'Saved' : 'Save defaults') }}
+              <svg class="ui-icon mr-1" aria-hidden="true" v-if="message"><use href="#ui-icon-check"></use></svg>{{ saving ? 'Saving…' : (message ? 'Saved' : 'Save defaults') }}
             </button>
             <span class="paper-settings-hint">Applies to new anonymizations only. Existing ones keep their settings.</span>
           </div>
@@ -178,9 +159,9 @@ jane.smith@example.org" v-field="{ state: viewState, set: value =&gt; { terms = 
             revokes the application's access to your GitHub account, and erases
             your personal data (username, email, access tokens). This cannot be undone.
           </p>
-          <div class="paper-inline-alert paper-inline-alert-error" role="alert" v-if="deleteError"><i class="fas fa-exclamation-circle" aria-hidden="true"></i> <span v-text="deleteError"></span></div>
+          <div class="paper-inline-alert paper-inline-alert-error" role="alert" v-if="deleteError"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-info"></use></svg> <span v-text="deleteError"></span></div>
           <button type="button" class="btn btn-outline-danger" @click="deleteAccount()" :disabled="deletingAccount">
-            <i class="fas fa-trash-alt mr-1" aria-hidden="true"></i>{{ deletingAccount ? 'Deleting…' : 'Delete my account' }}
+            <svg class="ui-icon mr-1" aria-hidden="true"><use href="#ui-icon-trash"></use></svg>{{ deletingAccount ? 'Deleting…' : 'Delete my account' }}
           </button>
         </div>
       </section>

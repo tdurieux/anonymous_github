@@ -5,6 +5,7 @@ const { ContentAnonimizer, AnonymizeTransformer } = require("../src/core/anonymi
 
 describe("literal term presence checks", function () {
   it("serves a large JavaScript file with absent names within the anonymization deadline", async function () {
+    this.timeout(10000); // Includes worker startup; the matcher retains its one-second deadline.
     const input = Buffer.from('function render(){return "application content";}\n'.repeat(65000));
     const transformer = new AnonymizeTransformer({
       filePath: "main.js",
@@ -35,6 +36,33 @@ describe("literal term presence checks", function () {
       for (const term of reference.compiledTerms) delete term.literalPrefilter;
       const optimized = new ContentAnonimizer({ terms });
       expect(optimized.anonymize(text)).to.equal(reference.anonymize(text));
+      expect(optimized.wasAnonymized).to.equal(reference.wasAnonymized);
+    }
+  });
+
+  it("keeps required-prefix absence checks conservative for arbitrary regex syntax", function () {
+    const cases = [
+      { terms: ["Researcher[0-9]+"], text: "absent name Researcher12 Résearcher42" },
+      { terms: ["foo?bar"], text: "foobar fobar" },
+      { terms: ["foo*bar"], text: "foobar fobar foobarbar" },
+      { terms: ["foo{0,2}bar"], text: "fobar foobar fooobar" },
+      { terms: ["foo+bar"], text: "foobar fooobar" },
+      { terms: ["a?", "[ab]*", "[ab]{0,2}"], text: "x a ab" },
+      { terms: ["foo[a]{0}bar", "[ab]?foo"], text: "foobar foo afoo" },
+      { terms: ["😀?bar"], text: "bar 😀bar" },
+      { terms: ["foo|bar", "foo(bar|baz)"], text: "foo bar foobar foobaz" },
+      { terms: ["foo\\|bar", "foo\\.bar"], text: "foo|bar foo.bar" },
+      { terms: ["^foo", "(?:foo)?bar", "[A-Z]+foo"], text: "foo bar XXfoo" },
+      { terms: ["k[0-9]+", "s[0-9]+"], text: "k12 K12 s34 ſ34 ék12" },
+      { terms: ["😀[0-9]+", "研究[0-9]+"], text: "😀12 研究34" },
+      { terms: ["Alice=>Researcher12", "Researcher[0-9]+=>Hidden"], text: "Alice" },
+      { terms: ["Researcher[0-9]+"], text: "https://host/Researcher12/path" },
+    ];
+    for (const { terms, text } of cases) {
+      const reference = new ContentAnonimizer({ terms });
+      for (const term of reference.compiledTerms) delete term.requiredPrefix;
+      const optimized = new ContentAnonimizer({ terms });
+      expect(optimized.anonymize(text), JSON.stringify(terms)).to.equal(reference.anonymize(text));
       expect(optimized.wasAnonymized).to.equal(reference.wasAnonymized);
     }
   });

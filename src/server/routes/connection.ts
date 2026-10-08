@@ -1,7 +1,7 @@
 import { createClient } from "redis";
 import * as passport from "passport";
 import * as session from "express-session";
-import RedisStore from "connect-redis";
+import { RedisStore } from "connect-redis";
 import * as OAuth2Strategy from "passport-oauth2";
 import { Profile, Strategy } from "passport-github2";
 import * as express from "express";
@@ -166,7 +166,6 @@ passport.deserializeUser(async (id: string, done) => {
 
 export function initSession() {
   const redisClient = createClient({
-    legacyMode: false,
     socket: {
       port: config.REDIS_PORT,
       host: config.REDIS_HOSTNAME,

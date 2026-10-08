@@ -28,7 +28,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run build:ui
+      - run: npm run build
+      - run: npm audit --omit=dev --audit-level=moderate
       - run: npm test
 
   review-consent:

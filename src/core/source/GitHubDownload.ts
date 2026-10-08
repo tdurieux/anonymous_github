@@ -1,6 +1,5 @@
 import got from "got";
 import { Readable } from "stream";
-import { OctokitResponse } from "@octokit/types";
 
 import storage from "../storage";
 import GitHubBase, {
@@ -18,7 +17,7 @@ export default class GitHubDownload extends GitHubBase {
     super(data);
   }
 
-  public async getZipUrl(): Promise<OctokitResponse<unknown, 302>> {
+  public async getZipUrl() {
     const oct = octokit(await this.data.getToken());
     return oct.rest.repos.downloadZipballArchive({
       owner: this.data.organization,
@@ -29,7 +28,7 @@ export default class GitHubDownload extends GitHubBase {
   }
 
   async download(progress?: (status: string) => void) {
-    let response: OctokitResponse<unknown, number>;
+    let response: Awaited<ReturnType<GitHubDownload["getZipUrl"]>>;
     try {
       response = await this.getZipUrl();
     } catch (error) {
