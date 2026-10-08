@@ -7756,7 +7756,8 @@ input[type="date"], select { color-scheme: light; }
 
 /* ===== UI polish: explorer, errors, page alignment ===== */
 /* One content column for every app page, aligned with settings and the FAQ. */
-.paper-page.container { max-width: 1180px; }
+/* The sign-in page keeps its own narrow width. */
+.paper-page.container:not(.auth-page) { max-width: 1180px; }
 .paper-page > .row { margin-left: 0; margin-right: 0; }
 .paper-page > .row > .w-100, .paper-page > .row > [class*='col'] { padding-left: 0; padding-right: 0; }
 .anonymize-landing { align-items: flex-start; }
@@ -7787,6 +7788,11 @@ input[type="date"], select { color-scheme: light; }
   .paper-settings-toc nav, .paper-faq-toc nav { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
   .paper-settings-toc nav a, .paper-faq-toc nav a { flex-shrink: 0; white-space: nowrap; }
   .paper-settings-body, .paper-faq-body { grid-template-columns: minmax(0, 1fr); }
+  /* The TOC stacks above the content at the same breakpoint as the grid. */
+  .paper-settings-toc, .paper-faq-toc { position: static; }
+  .paper-settings-toc nav, .paper-faq-toc nav { display: flex; flex-direction: row; gap: 0 16px; }
+  .paper-settings-toc nav a, .paper-faq-toc nav a { display: inline-flex; align-items: center; padding: 8px 0; margin-left: 0; border-left: 0; border-bottom: 2px solid transparent; }
+  .paper-settings-toc nav a.active, .paper-settings-toc nav a:hover, .paper-faq-toc nav a.active, .paper-faq-toc nav a:hover { border-bottom-color: var(--accent); }
   .paper-page .dashboard-filter-controls .dropdown .dropdown-toggle { justify-content: flex-start; gap: 6px; }
   .paper-page .dashboard-filter-controls .dropdown .dropdown-toggle::after { margin-left: auto; }
   .status-page .anonymize-submit-bar { position: static; flex-direction: column; margin: 0; padding: 12px 0 0; border-top: 0; }

@@ -53,7 +53,7 @@
   <div class="leftCol-backdrop" v-show="files?.length &amp;&amp; !sidebarCollapsed" @click="sidebarCollapsed = true"></div>
 
   <div class="explorer-main">
-    <div class="status-bar" v-show="type != &#x27;error&#x27;">
+    <div class="status-bar" v-show="type != &#x27;error&#x27; || files?.length">
       <ol class="breadcrumb paths" aria-label="Path">
         <li class="breadcrumb-item" v-for="(p, index) in paths" v-text="p"></li>
       </ol>

@@ -2736,14 +2736,18 @@ export const exploreController = function (state, http, location, params, html, 
             );
             _editor.session.setUseSoftTabs(state.aceOption.useSoftTab);
             _editor.session.setTabSize(state.aceOption.tabSize);
-            // Phones can't scroll long lines comfortably, so wrap them there.
-            _editor.session.setUseWrapMode(
-              state.aceOption.useWrapMode &&
-                window.matchMedia("(max-width: 991px)").matches
-            );
+            // Phones can't scroll long lines comfortably, so wrap them there,
+            // following the viewport when a tablet rotates or a window resizes.
+            const narrow = window.matchMedia("(max-width: 991px)");
+            const applyWrap = () => _editor.session.setUseWrapMode(state.aceOption.useWrapMode && narrow.matches);
+            applyWrap();
+            narrow.addEventListener?.("change", applyWrap);
             _editor.setBehavioursEnabled(state.aceOption.enableBehaviours);
             _editor.setFadeFoldWidgets(state.aceOption.fadeFoldWidgets);
-            return removeHashListener;
+            return () => {
+              removeHashListener();
+              narrow.removeEventListener?.("change", applyWrap);
+            };
           },
         };
         if (state.isDarkMode) {
