@@ -1,5 +1,6 @@
 import AnonymizedPathModel from "./model/anonymized-path";
 import storage from "./storage";
+import { contentGenerationPrefix, contentRetirementMarker } from "./content-generation";
 import { createHash, randomUUID } from "crypto";
 import { RepositoryStatus } from "./types";
 import { Readable } from "stream";
@@ -217,6 +218,8 @@ export default class Repository {
     }
     if (!hasFile || opt.force) {
       const previousGeneration = this.model.treeGeneration;
+      const previousPrefix = contentGenerationPrefix(`${previousGeneration || "legacy"}:${this.model.anonymizeDate?.toISOString() || ""}`);
+      const streamed = this.model.source.type !== "Zip";
       const source = this.source;
       const files = await source.getFiles(opt.progress);
       this._model.treeGeneration = randomUUID();
@@ -229,10 +232,13 @@ export default class Repository {
           status: this.model.status, statusDate: this.model.statusDate,
           "githubAccess.revision": this.model.githubAccess?.revision || { $exists: false },
         }, { $set: { treeGeneration: generation, size: { storage: 0, file: 0 },
+          ...(streamed && !this.model.contentCacheVersion ? { contentCacheVersion: 1, legacyContentCleanupPending: true } : {}),
           ...(!files.length ? { emptyTreeGeneration: generation } : {}),
         }, $unset: { pathIndexKey: "", pathIndexBuiltAt: "", sizeComputedAt: "",
           ...(files.length ? { emptyTreeGeneration: "" } : {}),
-        }, $addToSet: { retiredTreeGenerations: previousGeneration || "" } }).exec();
+        }, $addToSet: { retiredTreeGenerations: previousGeneration || "",
+          ...(streamed ? { retiredContentPrefixes: previousPrefix } : {}),
+        } }).exec();
         if (!activated.matchedCount) {
           await FileModel.deleteMany({ repoId: this.repoId, treeGeneration: generation }).exec();
           this.model.treeGeneration = previousGeneration;
@@ -240,6 +246,7 @@ export default class Repository {
         }
       }
       this.model.emptyTreeGeneration = files.length ? undefined : generation;
+      if (streamed) this.model.contentCacheVersion = 1;
       if (isConnected) {
         await this.cleanupRetiredFileTrees().catch(error => logger.warn("retired tree cleanup deferred", serializeError(error)));
       } else {
@@ -274,8 +281,22 @@ export default class Repository {
   /** Activation records retirement atomically; maintenance retries interrupted deletion. */
   async cleanupRetiredFileTrees() {
     const current = await AnonymizedRepositoryModel.findById(this.model._id)
-      .select("treeGeneration retiredTreeGenerations").lean().exec();
+      .select("treeGeneration retiredTreeGenerations retiredContentPrefixes legacyContentCleanupPending source.type status anonymizeDate").lean().exec();
     if (!current) return;
+    const activePrefix = contentGenerationPrefix(`${current.treeGeneration || "legacy"}:${current.anonymizeDate?.toISOString() || ""}`);
+    const prefixes = (current.retiredContentPrefixes || []).filter(prefix => prefix !== activePrefix);
+    for (const prefix of prefixes) {
+      // Fence producers before removal. A late publisher rechecks this marker
+      // and removes its own output instead of recreating a retired cache.
+      await storage.write(this.repoId, contentRetirementMarker(prefix), "retired");
+      await storage.rm(this.repoId, prefix);
+    }
+    if (prefixes.length) await AnonymizedRepositoryModel.updateOne({ _id: current._id },
+      { $pull: { retiredContentPrefixes: { $in: prefixes } } }).exec();
+    if (current.legacyContentCleanupPending && current.status === RepositoryStatus.READY && current.source?.type !== "Zip") {
+      await storage.removeLegacyContent(this.repoId);
+      await AnonymizedRepositoryModel.updateOne({ _id: current._id }, { $unset: { legacyContentCleanupPending: "" } }).exec();
+    }
     const retired = (current.retiredTreeGenerations || []).filter(generation => generation !== (current.treeGeneration || ""));
     if (retired.length) {
       await FileModel.deleteMany({ repoId: this.repoId, $or: [
@@ -287,6 +308,8 @@ export default class Repository {
     }
     await AnonymizedRepositoryModel.updateOne({ _id: this.model._id, "retiredTreeGenerations.0": { $exists: false } },
       { $unset: { retiredTreeGenerations: "" } }).exec();
+    await AnonymizedRepositoryModel.updateOne({ _id: this.model._id, "retiredContentPrefixes.0": { $exists: false } },
+      { $unset: { retiredContentPrefixes: "" } }).exec();
   }
 
   private pathKey() {
@@ -825,7 +848,7 @@ export default class Repository {
       await AnonymizedPathModel.deleteMany({ repoId: this.repoId }).exec();
       const result = await AnonymizedRepositoryModel.updateOne(lease, { $set: { status: RepositoryStatus.EXPIRED,
         statusDate: new Date(), isReseted: true, size: { storage: 0, file: 0 } },
-        $unset: { cleanupToken: "", cleanupUntil: "", pathIndexKey: "", pathIndexBuiltAt: "", sizeComputedAt: "", emptyTreeGeneration: "", retiredTreeGenerations: "" } }).exec();
+        $unset: { cleanupToken: "", cleanupUntil: "", pathIndexKey: "", pathIndexBuiltAt: "", sizeComputedAt: "", emptyTreeGeneration: "", retiredTreeGenerations: "", retiredContentPrefixes: "", legacyContentCleanupPending: "" } }).exec();
       if (result.matchedCount) { this.model.status = RepositoryStatus.EXPIRED; this.model.isReseted = true; this.model.size = { storage: 0, file: 0 }; this.model.sizeComputedAt = undefined; this.model.emptyTreeGeneration = undefined; }
     } finally {
       clearInterval(heartbeat);

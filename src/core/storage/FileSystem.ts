@@ -145,6 +145,24 @@ export default class FileSystem extends StorageBase {
     });
   }
 
+  async removeLegacyContent(repoId: string): Promise<void> {
+    let directory: fs.Dir;
+    try { directory = await fs.promises.opendir(join(config.FOLDER, this.repoPath(repoId))); }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
+      throw error;
+    }
+    for await (const entry of directory) {
+      if (entry.name !== "__content" || !entry.isDirectory()) { await this.rm(repoId, entry.name); continue; }
+      const content = await fs.promises.opendir(join(config.FOLDER, this.repoPath(repoId), "__content"));
+      for await (const generation of content) {
+        if (generation.name !== "__retired" && !/^[a-f0-9]{64}$/.test(generation.name)) {
+          await this.rm(repoId, join("__content", generation.name));
+        }
+      }
+    }
+  }
+
   /** @override */
   async mk(repoId: string, dir: string = ""): Promise<void> {
     this.assertSafePath(dir);

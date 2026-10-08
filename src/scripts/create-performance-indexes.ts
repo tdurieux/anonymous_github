@@ -17,6 +17,12 @@ async function main() {
   await File.collection.createIndex({ metadataPending: 1, repoId: 1, treeGeneration: 1 },
     { partialFilterExpression: { metadataPending: true } });
   await Repository.collection.createIndex({ retiredTreeGenerations: 1 }, { sparse: true });
+  await Repository.collection.createIndex({ retiredContentPrefixes: 1 }, { sparse: true });
+  await Repository.collection.createIndex({ legacyContentCleanupPending: 1, status: 1 },
+    { partialFilterExpression: { legacyContentCleanupPending: true } });
+  // Register legacy cleanup once; ZIP roots remain the source of their files.
+  await Repository.updateMany({ "source.type": { $ne: "Zip" }, contentCacheVersion: { $exists: false } },
+    { $set: { contentCacheVersion: 1, legacyContentCleanupPending: true } }).exec();
   for (const model of [Repository, Gist, PullRequest]) {
     await model.collection.createIndex({ status: 1, "options.expirationDate": 1 });
   }

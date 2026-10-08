@@ -155,7 +155,10 @@ export async function runRepositoryStatusCheck(now = new Date()) {
   await expireContent(AnonymizedGistModel, data => new Gist(data), now);
   await expireContent(AnonymizedPullRequestModel, data => new PullRequest(data), now);
 
-  const retiredCursor = AnonymizedRepositoryModel.find({ retiredTreeGenerations: { $exists: true } }).cursor();
+  const retiredCursor = AnonymizedRepositoryModel.find({ $or: [
+    { retiredTreeGenerations: { $exists: true } }, { retiredContentPrefixes: { $exists: true } },
+    { legacyContentCleanupPending: true, status: RepositoryStatus.READY },
+  ] }).cursor();
   for await (const data of retiredCursor) {
     batch.push(new Repository(data).cleanupRetiredFileTrees().catch(error => {
       logger.error("retired tree cleanup failed", { ...serializeError(error), repoId: data.repoId });

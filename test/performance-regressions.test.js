@@ -75,6 +75,41 @@ describe("performance regressions", function () {
     warm.destroy(); expect(heads).to.equal(1); expect(downloads).to.equal(1);
   });
 
+  for (const phase of ["before download", "during publication"]) {
+    it(`rejects retired cache producers ${phase} and removes late output`, async () => {
+      const { contentGenerationPrefix, contentRetirementMarker } = require("../src/core/content-generation");
+      const cacheGeneration = `retired-${phase}`, prefix = contentGenerationPrefix(cacheGeneration);
+      const marker = contentRetirementMarker(prefix), objects = new Map();
+      const source = new GitHubStream({ repoId: `retirement-${phase}`, organization: "owner", repoName: "repo", commit: "abc",
+        cacheGeneration, getToken: async () => "token" });
+      let downloads = 0, started, release;
+      const began = new Promise(resolve => { started = resolve; }), held = new Promise(resolve => { release = resolve; });
+      stub(storage, "fileInfo", async (_repo, path) => {
+        if (!objects.has(path)) throw Object.assign(Error("missing"), { code: "ENOENT" });
+        return { size: objects.get(path).length };
+      });
+      stub(storage, "write", async (_repo, path, input) => {
+        started(); await held;
+        let content = ""; for await (const chunk of input) content += chunk;
+        objects.set(path, content);
+      });
+      stub(storage, "rm", async (_repo, path) => { objects.delete(path); });
+      stub(storage, "read", async (_repo, path) => Readable.from([objects.get(path)]));
+      source.downloadWithFallback = async () => { downloads++; return Readable.from(["obsolete"]); };
+      if (phase === "before download") { objects.set(marker, "retired"); release(); }
+      const pending = source.getFileContentCache("private/old.txt", source.data.repoId, () => ({ sha: "blob", size: 8 }));
+      try {
+        if (phase === "during publication") {
+          await began; objects.set(marker, "retired"); release();
+        }
+        try { await pending; throw Error("expected retired generation rejection"); }
+        catch (error) { expect(error.message).to.equal("repository_changed"); expect(error.httpStatus).to.equal(409); }
+        expect(downloads).to.equal(phase === "before download" ? 0 : 1);
+        expect([...objects.keys()]).to.deep.equal([marker]);
+      } finally { release(); await pending.catch(() => {}); }
+    });
+  }
+
   it("fetches a complete root tree in one recursive request", async () => {
     const source = new GitHubStream({ repoId: "tree", organization: "owner", repoName: "repo", commit: "head", getToken: () => "token" });
     const calls = [];

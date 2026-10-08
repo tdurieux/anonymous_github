@@ -90,6 +90,18 @@ export default class S3Storage extends StorageBase {
     if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
     this.assertSafePath(dir);
     const prefix = join(this.repoPath(repoId), dir).replace(/\/$/, "");
+    await this.removeMatching(prefix, key => key === prefix || key.startsWith(prefix + "/"));
+  }
+
+  async removeLegacyContent(repoId: string): Promise<void> {
+    if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
+    const prefix = this.repoPath(repoId);
+    await this.removeMatching(prefix, key => key.startsWith(prefix) &&
+      !/^__content\/(?:[a-f0-9]{64}|__retired)(?:\/|$)/.test(key.slice(prefix.length)));
+  }
+
+  private async removeMatching(prefix: string, shouldRemove: (key: string) => boolean) {
+    if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
     const client = this.client(200000);
     let continuationToken: string | undefined;
     do {
@@ -100,7 +112,7 @@ export default class S3Storage extends StorageBase {
         ContinuationToken: continuationToken,
       });
       const objects = (data.Contents || [])
-        .filter(({ Key }) => Key === prefix || Key?.startsWith(prefix + "/"))
+        .filter(({ Key }) => Key && shouldRemove(Key))
         .map(({ Key }) => ({ Key: Key! }));
       if (objects.length) {
         const result = await client.deleteObjects({

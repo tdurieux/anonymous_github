@@ -116,4 +116,21 @@ describe("S3 HTTP protocol integration", function () {
     expect(error).to.be.instanceOf(Error);
     expect(await backend.exists("s3repo", "short.txt")).to.equal("not_found");
   });
+  it("removes legacy S3 keys in bounded batches while retaining managed caches and other repositories", async function () {
+    if (!fixture) this.skip();
+    for (let i = 0; i < 1005; i++) fixture.seed(`legacy-s3/original/private/file-${String(i).padStart(4, "0")}.txt`, "obsolete");
+    const active = require("../src/core/content-generation").contentGenerationPrefix("active");
+    fixture.seed(`legacy-s3/original/${active}/blob/keep.txt`, "active");
+    fixture.seed("legacy-s3-other/original/private/keep.txt", "keep");
+    const before = fixture.requests.deletions.length;
+    await backend.removeLegacyContent("legacy-s3");
+    const batches = fixture.requests.deletions.slice(before);
+    expect(batches).to.have.length(2);
+    expect(batches.flat()).to.have.length(1005);
+    expect(batches.every(batch => batch.length <= 1000)).to.equal(true);
+    expect(await backend.exists("legacy-s3", "private/file-0000.txt")).to.equal("not_found");
+    expect(await backend.exists("legacy-s3", "private/file-1004.txt")).to.equal("not_found");
+    expect(await backend.exists("legacy-s3", `${active}/blob/keep.txt`)).to.equal("file");
+    expect(await backend.exists("legacy-s3-other", "private/keep.txt")).to.equal("file");
+  });
 });

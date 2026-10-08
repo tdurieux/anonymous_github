@@ -21,15 +21,23 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
 
 (uri ? describe : describe.skip)("disposable MongoDB performance integration", function () {
   this.timeout(60000);
-  let user;
+  let user, folder, temporary;
   before(async () => {
     if (!/\/perf_test_[A-Za-z0-9_-]+(?:\?|$)/.test(uri)) throw Error("An isolated perf_test_ database is required");
     await mongoose.connect(uri);
+    const fs = require("node:fs/promises"), path = require("node:path"), config = require("../src/config").default;
+    folder = config.FOLDER;
+    temporary = await fs.mkdtemp(path.join(require("node:os").tmpdir(), "performance-mongo-storage-"));
+    config.FOLDER = temporary;
     db.isConnected = true;
     await Promise.all([Repo, PR, Gist, File, Path, Name].map(model => model.createIndexes()));
     user = new User(await UserModel.create({ username: "perf-owner", externalIDs: { github: "12345" } }));
   });
-  after(async () => { db.isConnected = false; await mongoose.connection.dropDatabase(); await mongoose.disconnect(); });
+  after(async () => {
+    db.isConnected = false; await mongoose.connection.dropDatabase(); await mongoose.disconnect();
+    require("../src/config").default.FOLDER = folder;
+    if (temporary) await require("node:fs/promises").rm(temporary, { force: true, recursive: true });
+  });
   beforeEach(async () => { await Promise.all([Repo, PR, Gist, File, Path, Name, ConferenceModel].map(model => model.deleteMany({}))); });
 
   it("uses membership indexes for owner, stable GitHub ID, and legacy username", async () => {
@@ -69,6 +77,10 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
     for (const model of [Repo, Gist, PR]) await model.collection.dropIndex("status_1_options.expirationDate_1");
     await Repo.collection.dropIndex("retiredTreeGenerations_1");
     await File.collection.dropIndex("metadataPending_1_repoId_1_treeGeneration_1");
+    await Repo.collection.dropIndex("retiredContentPrefixes_1");
+    await Repo.collection.dropIndex("legacyContentCleanupPending_1_status_1");
+    await Repo.create({ repoId: "legacy-cache", source: { type: "GitHubStream" } });
+    await Repo.create({ repoId: "zip-cache", source: { type: "Zip" } });
     for (let i = 0; i < 2; i++) await promisify(execFile)(process.execPath, ["-r", "ts-node/register", "src/scripts/create-performance-indexes.ts"], {
       cwd: require("node:path").join(__dirname, ".."), env: { ...process.env, NODE_ENV: "test", MONGODB_URI: uri }, timeout: 30000,
     });
@@ -78,6 +90,10 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
     expect((await Gist.collection.indexes()).map(index => index.name)).to.include("keep_existing_index");
     expect((await Repo.collection.indexes()).find(index => index.name === "retiredTreeGenerations_1").sparse).to.equal(true);
     expect((await File.collection.indexes()).find(index => index.name === "metadataPending_1_repoId_1_treeGeneration_1").partialFilterExpression).to.deep.equal({ metadataPending: true });
+    expect((await Repo.collection.indexes()).find(index => index.name === "retiredContentPrefixes_1").sparse).to.equal(true);
+    expect((await Repo.collection.indexes()).find(index => index.name === "legacyContentCleanupPending_1_status_1").partialFilterExpression).to.deep.equal({ legacyContentCleanupPending: true });
+    expect((await Repo.findOne({ repoId: "legacy-cache" })).legacyContentCleanupPending).to.equal(true);
+    expect((await Repo.findOne({ repoId: "zip-cache" })).legacyContentCleanupPending).to.equal(undefined);
   });
 
   for (const [model, Class, id, contentKey, content] of [
@@ -565,12 +581,71 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
     await Repo.insertMany(Array.from({ length: 2000 }, (_, i) => ({ repoId: `clean-${i}` })));
     await File.insertMany(Array.from({ length: 2000 }, (_, i) => ({ repoId: `clean-${i}`, path: "", name: "file.txt" })));
     await Repo.create({ repoId: "retired", treeGeneration: "active", retiredTreeGenerations: ["old"] });
+    await Repo.create({ repoId: "retired-content", retiredContentPrefixes: ["__content/old"] });
+    await Repo.create({ repoId: "legacy-content", legacyContentCleanupPending: true, status: "ready" });
     await File.create({ repoId: "pending", path: "", name: "pending.txt", metadataPending: true });
-    for (const [model, query] of [[Repo, { retiredTreeGenerations: { $exists: true } }], [File, { metadataPending: true }]]) {
+    for (const [model, query] of [[Repo, { $or: [
+      { retiredTreeGenerations: { $exists: true } }, { retiredContentPrefixes: { $exists: true } },
+      { legacyContentCleanupPending: true, status: "ready" },
+    ] }], [File, { metadataPending: true }]]) {
       const plan = await model.find(query).explain("executionStats");
       expect(JSON.stringify(plan.queryPlanner.winningPlan)).not.to.include("COLLSCAN");
       expect(plan.executionStats.totalDocsExamined).to.be.lessThan(10);
     }
+  });
+
+  it("durably retries retired content cleanup while preserving the active cache and other repositories", async () => {
+    const backend = new (require("../src/core/storage/FileSystem").default)();
+    const storage = require("../src/core/storage").default, rm = storage.rm;
+    const { contentGenerationPrefix } = require("../src/core/content-generation");
+    const date = new Date("2026-01-01"), oldPrefix = contentGenerationPrefix(`old:${date.toISOString()}`);
+    const model = await Repo.create({ repoId: "retire-content", status: "ready", statusDate: date, lastView: new Date(),
+      anonymizeDate: date, treeGeneration: "old", contentCacheVersion: 1, source: { type: "GitHubStream" }, options: { expirationMode: "never" } });
+    await File.create({ repoId: model.repoId, treeGeneration: "old", path: "", name: "old.txt", size: 1 });
+    await backend.write(model.repoId, `${oldPrefix}/blob/private/old.txt`, "obsolete");
+    await backend.write("unrelated-content", `${oldPrefix}/blob/keep.txt`, "keep");
+    const repo = new Repository(model);
+    Object.defineProperty(repo, "source", { get: () => ({ getFiles: async () => [{ path: "", name: "active.txt", size: 1 }] }) });
+    storage.rm = async () => { throw Error("storage unavailable"); };
+    try {
+      await repo.files({ force: true });
+      expect((await Repo.findById(model._id)).retiredContentPrefixes).to.deep.equal([oldPrefix]);
+      expect(await File.countDocuments({ repoId: model.repoId, treeGeneration: "old" })).to.equal(1);
+    } finally { storage.rm = rm; }
+    const activePrefix = contentGenerationPrefix(`${repo.model.treeGeneration}:${date.toISOString()}`);
+    await backend.write(model.repoId, `${activePrefix}/blob/active.txt`, "active");
+    await require("../src/server/schedule").runRepositoryStatusCheck();
+    expect(await backend.exists(model.repoId, oldPrefix)).to.equal("not_found");
+    expect(await backend.exists(model.repoId, `${activePrefix}/blob/active.txt`)).to.equal("file");
+    expect(await backend.exists("unrelated-content", `${oldPrefix}/blob/keep.txt`)).to.equal("file");
+    expect((await Repo.findById(model._id)).retiredContentPrefixes).to.equal(undefined);
+    expect(await File.countDocuments({ repoId: model.repoId, treeGeneration: "old" })).to.equal(0);
+  });
+
+  it("retries legacy root cleanup, preserves versioned content, and leaves ZIP sources intact", async () => {
+    const backend = new (require("../src/core/storage/FileSystem").default)();
+    const storage = require("../src/core/storage").default, remove = storage.removeLegacyContent;
+    const model = await Repo.create({ repoId: "legacy-root", status: "ready", statusDate: new Date(), lastView: new Date(),
+      legacyContentCleanupPending: true, contentCacheVersion: 1, source: { type: "GitHubStream" }, options: { expirationMode: "never" } });
+    const zip = await Repo.create({ repoId: "zip-root", status: "ready", lastView: new Date(), legacyContentCleanupPending: true,
+      source: { type: "Zip" }, options: { expirationMode: "never" } });
+    await backend.write(model.repoId, "private/legacy.txt", "obsolete");
+    await backend.mk(model.repoId, "private/empty");
+    const active = require("../src/core/content-generation").contentGenerationPrefix("active");
+    await backend.write(model.repoId, `${active}/keep.txt`, "active");
+    await backend.write(model.repoId, "__content/private/legacy.txt", "obsolete");
+    await backend.write(zip.repoId, "private/source.txt", "keep");
+    storage.removeLegacyContent = async () => { throw Error("legacy cleanup unavailable"); };
+    try {
+      await require("../src/server/schedule").runRepositoryStatusCheck();
+      expect((await Repo.findById(model._id)).legacyContentCleanupPending).to.equal(true);
+    } finally { storage.removeLegacyContent = remove; }
+    await require("../src/server/schedule").runRepositoryStatusCheck();
+    expect((await Repo.findById(model._id)).legacyContentCleanupPending).to.equal(undefined);
+    expect(await backend.exists(model.repoId, "private")).to.equal("not_found");
+    expect(await backend.exists(model.repoId, `${active}/keep.txt`)).to.equal("file");
+    expect(await backend.exists(model.repoId, "__content/private")).to.equal("not_found");
+    expect(await backend.exists(zip.repoId, "private/source.txt")).to.equal("file");
   });
 
   it("cannot retire a newer tree activated while an older builder finishes", async () => {

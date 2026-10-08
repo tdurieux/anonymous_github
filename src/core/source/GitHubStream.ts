@@ -1,4 +1,4 @@
-import { contentGenerationPrefix } from "../content-generation";
+import { contentGenerationPrefix, contentRetirementMarker } from "../content-generation";
 import { createHash } from "crypto";
 import { coordinatedFill } from "../cache-coordination";
 import { githubTokenContext } from "../github-token-context";
@@ -245,6 +245,18 @@ export default class GitHubStream extends GitHubBase {
       this.data.commit, expected.sha, this.data.cacheGeneration,
     ])).digest("hex");
     const cachePath = this.data.cacheGeneration ? `${contentGenerationPrefix(this.data.cacheGeneration)}/${generation}/${filePath}` : filePath;
+    const assertActive = async () => {
+      if (!this.data.cacheGeneration) return;
+      try {
+        await storage.fileInfo(repoId, contentRetirementMarker(contentGenerationPrefix(this.data.cacheGeneration)));
+      } catch (error) {
+        const missing = error as { code?: string; name?: string; $metadata?: { httpStatusCode?: number }; httpStatus?: number };
+        if (missing.code === "ENOENT" || missing.name === "NotFound" || missing.name === "NoSuchKey" ||
+          missing.$metadata?.httpStatusCode === 404 || missing.httpStatus === 404) return;
+        throw error;
+      }
+      throw new AnonymousError("repository_changed", { httpStatus: 409 });
+    };
     const key = `${repoId}:${generation}:${filePath}`;
     const cached = async () => {
       try {
@@ -267,6 +279,7 @@ export default class GitHubStream extends GitHubBase {
     if (!filling) {
       if (cacheFills.size >= 64) throw new AnonymousError("cache_busy", { httpStatus: 503 });
       filling = coordinatedFill(key, cached, async () => {
+        await assertActive();
         const content = await this.downloadWithFallback(await this.data.getToken(), expected.sha, filePath);
         let count = 0;
         const limited = new stream.Transform({ transform(chunk, encoding, callback) {
@@ -286,7 +299,11 @@ export default class GitHubStream extends GitHubBase {
         limited.on("error", () => {});
         content.pipe(limited);
         const deadline = setTimeout(() => limited.destroy(new AnonymousError("upstream_error", { httpStatus: 502 })), 120_000);
-        try { await storage.write(repoId, cachePath, limited, this.type, expected.size); }
+        try {
+          await storage.write(repoId, cachePath, limited, this.type, expected.size);
+          try { await assertActive(); }
+          catch (error) { await storage.rm(repoId, cachePath); throw error; }
+        }
         finally { clearTimeout(deadline); limited.destroy(); content.destroy(); }
         return true;
       }).then(() => {});
