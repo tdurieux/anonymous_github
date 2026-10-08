@@ -175,7 +175,7 @@ describeMongo("GitHub App credential and repository integration", function () {
       const result = String(url).endsWith("/token/scoped")
         ? scopeHandler ? await scopeHandler(body, options) : { status: 403 }
         : await handler(String(url), options, body);
-      return new globalThis.Response(JSON.stringify(result.body || result), { status: result.status || 200, headers: { "content-type": "application/json" } });
+      return new globalThis.Response(JSON.stringify(result.body || result), { status: result.status || 200, headers: { "content-type": "application/json", ...result.headers } });
     };
   }
   it("keeps OAuth and App grants separate, encrypted and migration-verifiable", async () => {
@@ -190,6 +190,68 @@ describeMongo("GitHub App credential and repository integration", function () {
     expect(projected.encryptedRefreshToken).to.equal(undefined);
     expect(projected.encryptedToken).to.equal(undefined);
     expect(await verifyCredentials(mongoose.connection.db, createTokenCipher(keys, "test"))).to.deep.equal({ checked: 2, legacy: 0 });
+  });
+  for (const legacy of [false, true]) {
+    it(`reads gist files and comments with an App user grant (legacy: ${legacy})`, async () => {
+      if (legacy) await setCredential(owner.id, "legacy-secret");
+      await app.saveAppGrant(owner.id, data("old", -1));
+      mock((url, options, body) => {
+        if (url.includes("/login/oauth/access_token")) {
+          expect(body.refresh_token).to.equal("ghr_refreshold");
+          return data("new");
+        }
+        expect(new globalThis.Headers(options.headers).get("authorization")).to.equal("token ghu_accessnew");
+        if (url.includes("/comments")) return [{ body: "comment", user: { login: "owner" } }];
+        expect(url).to.include("/gists/example");
+        return { description: "gist", files: { file: { filename: "file.txt", content: "hello" } } };
+      });
+      const Gist = require("../src/core/Gist").default;
+      const Model = require("../src/core/model/anonymizedGists/anonymizedGists.model").default;
+      const gist = new Gist(new Model({ owner: owner.id, source: { gistId: "example" } }));
+      await gist.download();
+      expect(gist.model.gist.files[0].content).to.equal("hello");
+      expect(gist.model.gist.comments[0].body).to.equal("comment");
+      expect(calls).to.have.length(3);
+    });
+  }
+  for (const rejected of [false, true]) {
+    it(`renews App gist access during comment pagination (401: ${rejected})`, async () => {
+      await app.saveAppGrant(owner.id, data("old"));
+      let pages = 0, refreshed = false;
+      mock(async (url, options) => {
+        if (url.includes("/login/oauth/access_token")) { refreshed = true; return data("new"); }
+        const authorization = new globalThis.Headers(options.headers).get("authorization");
+        if (url.includes("/comments")) {
+          pages++;
+          if (pages === 1) {
+            expect(authorization).to.equal("token ghu_accessold");
+            await Credentials.updateOne({ ownerId: owner.id, provider: app.APP_PROVIDER }, { $set: { expiresAt: new Date(0) } });
+            if (rejected) return { status: 401, body: { message: "Bad credentials" } };
+            return { body: [{ body: "first", user: { login: "owner" } }], headers: { link: '<https://api.github.com/gists/example/comments?page=2>; rel="next"' } };
+          }
+          expect(authorization).to.equal("token ghu_accessnew");
+          return [{ body: "last", user: { login: "owner" } }];
+        }
+        return { files: {} };
+      });
+      const Gist = require("../src/core/Gist").default;
+      const Model = require("../src/core/model/anonymizedGists/anonymizedGists.model").default;
+      const gist = new Gist(new Model({ owner: owner.id, source: { gistId: "example" } }));
+      await gist.download();
+      expect(refreshed).to.equal(true);
+      expect(pages).to.equal(2);
+      expect(gist.model.gist.comments.map(c => c.body)).to.deep.equal(rejected ? ["last"] : ["first", "last"]);
+    });
+  }
+  it("keeps legacy gist access but does not bypass revoked App grants", async () => {
+    await setCredential(owner.id, "legacy-secret");
+    const Gist = require("../src/core/Gist").default;
+    const Model = require("../src/core/model/anonymizedGists/anonymizedGists.model").default;
+    const gist = new Gist(new Model({ owner: owner.id, source: { gistId: "example" } }));
+    expect(await gist.getToken()).to.equal("legacy-secret");
+    await app.saveAppGrant(owner.id, data());
+    await Credentials.updateOne({ ownerId: owner.id, provider: app.APP_PROVIDER }, { $set: { revoked: true } });
+    await rejects(gist.download(), "github_app_reconnect_required");
   });
   it("serializes refresh and atomically rotates the token pair", async () => {
     await app.saveAppGrant(owner.id, data("old", -1));
@@ -335,7 +397,7 @@ describeMongo("GitHub App credential and repository integration", function () {
   it("does not require scoped-token minting for an uninstalled public repository", async () => {
     await app.saveAppGrant(owner.id, data());
     mock(url => url.includes("/user/installations") ? { installations: [] } :
-      { id: 7, private: false, visibility: "public" }, () => ({ status: 403 }));
+      { id: 7, full_name: "other/public", private: false, visibility: "public" }, () => ({ status: 403 }));
     const selected = await app.selectRepositoryAccess(owner.id, "other/public", "github-app");
     expect(selected.token).to.match(/^public-read:/);
     expect(calls.some(call => call.url.endsWith("/token/scoped"))).to.equal(false);
@@ -414,6 +476,48 @@ describeMongo("GitHub App credential and repository integration", function () {
     const response = await previousFetch(base + path, { method: body ? "POST" : "GET", redirect: "manual",
       headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf }, body: body ? JSON.stringify(body) : undefined });
     return { status: response.status, location: response.headers.get("location"), data: await response.json().catch(() => null) };
+  }
+  it("allows OAuth revocation with an existing gist and keeps gist access working", async () => {
+    await setCredential(owner.id, "legacy-secret");
+    await app.saveAppGrant(owner.id, data());
+    const Model = require("../src/core/model/anonymizedGists/anonymizedGists.model").default;
+    const model = await Model.create({ owner: owner.id, gistId: "oauth-revoke-gist", source: { gistId: "example" } });
+    mock((url, options, body) => {
+      if (url.includes("/user/installations")) {
+        expect(new globalThis.Headers(options.headers).get("authorization")).to.equal("Bearer ghu_access1");
+        return { installations: [] };
+      }
+      if (url.includes("/grant")) {
+        expect(options.method).to.equal("DELETE");
+        expect(body.access_token).to.equal("legacy-secret");
+        return {};
+      }
+      expect(new globalThis.Headers(options.headers).get("authorization")).to.equal("token ghu_access1");
+      return url.includes("/comments") ? [] : { files: { file: { filename: "file.txt", content: "still accessible" } } };
+    });
+    const result = await request("/github/connections/disconnect-oauth", {});
+    expect(result.status).to.equal(200);
+    expect(await getCredentialToken(owner.id)).not.to.be.ok;
+    const Gist = require("../src/core/Gist").default;
+    const gist = new Gist(model);
+    await gist.download();
+    expect(gist.model.gist.files[0].content).to.equal("still accessible");
+  });
+  for (const status of [401, 503]) {
+    it(`preserves OAuth when GitHub cannot verify the App grant (${status})`, async () => {
+      await setCredential(owner.id, "legacy-secret");
+      await app.saveAppGrant(owner.id, data());
+      mock((url, options) => {
+        expect(url).to.include("/user/installations");
+        expect(options.method).not.to.equal("DELETE");
+        return { status, body: { message: "unavailable" } };
+      });
+      const result = await request("/github/connections/disconnect-oauth", {});
+      expect(result.status).to.equal(status === 401 ? 403 : 502);
+      expect(result.data.error).to.equal(status === 401 ? "github_app_reconnect_required" : "github_unavailable");
+      expect(await getCredentialToken(owner.id)).to.equal("legacy-secret");
+      expect(calls).to.have.length(1);
+    });
   }
   it("links App authorization to the existing OAuth account without replacing its grant", async () => {
     await setCredential(owner.id, "legacy-secret");
@@ -496,6 +600,63 @@ describeMongo("GitHub App credential and repository integration", function () {
     expect(await Credentials.countDocuments()).to.equal(0);
     expect(await Users.countDocuments()).to.equal(1);
   });
+  it("reconnects an uninstalled public repository with a real user token", async () => {
+    const Repos = require("../src/core/model/anonymizedRepositories/anonymizedRepositories.model").default;
+    await app.saveAppGrant(owner.id, data());
+    const CachedRepos = require("../src/core/model/repositories/repositories.model").default;
+    const cached = await CachedRepos.create({ externalId: "gh_42", name: "other/old-public", url: "https://github.com/other/old-public" });
+    const resource = await Repos.create({ repoId: "public-reconnect", owner: owner.id, status: "ready",
+      source: { type: "GitHubStream", repositoryName: "other/old-public", repositoryId: cached.id, commit: "abc", branch: "main" },
+      githubAccess: { kind: "github-app", repositoryId: 42, publicRead: true, revision: "old" } });
+    mock((url, options) => {
+      if (url.includes("/user/installations?")) return { installations: [] };
+      if (url.endsWith("/repositories/42") || url.endsWith("/repos/other/public")) return {
+        id: 42, full_name: "other/public", private: false, visibility: "public",
+      };
+      if (url.endsWith("/repos/other/public/commits/abc")) {
+        expect(new globalThis.Headers(options.headers).get("authorization")).to.equal("Bearer ghu_access1");
+        return { sha: "abc" };
+      }
+      throw new Error("Unexpected request " + url);
+    });
+    const body = { type: "repository", id: resource.repoId, connection: "github-app" };
+    expect((await request("/github/connections/migrate", { ...body, preview: true })).status).to.equal(200);
+    expect((await CachedRepos.findById(cached.id)).name).to.equal("other/old-public");
+    expect((await request("/github/connections/migrate", body)).status).to.equal(200);
+    expect((await Repos.findById(resource.id)).githubAccess.publicRead).to.equal(true);
+    expect((await Repos.findById(resource.id)).source.repositoryName).to.equal("other/public");
+    expect((await CachedRepos.findById(cached.id)).name).to.equal("other/public");
+  });
+
+  it("recovers a renamed private pull request through its stable repository ID", async () => {
+    const PRs = require("../src/core/model/anonymizedPullRequests/anonymizedPullRequests.model").default;
+    await app.saveAppGrant(owner.id, data());
+    const resource = await PRs.create({ pullRequestId: "renamed-pr", owner: owner.id, status: "ready",
+      source: { repositoryFullName: "owner/old-name", pullRequestId: 7 }, options: { terms: ["owner"] },
+      githubAccess: { kind: "github-app", repositoryId: 42, installationId: 3, revision: "old" } });
+    mock(url => {
+      if (url.includes("/user/installations?")) return { installations: [{ id: 4, app_id: 123, account: { id: 10, login: "owner", type: "User" } }] };
+      if (url.includes("/user/installations/4/repositories")) return { repositories: [
+        { id: 99, full_name: "owner/old-name", private: true }, { id: 42, full_name: "owner/new-name", private: true },
+      ] };
+      if (url.endsWith("/repositories/42")) return { id: 42 };
+      if (url.endsWith("/app/installations/4")) return { app_id: 123, permissions: { contents: "read", metadata: "read" } };
+      if (url.endsWith("/access_tokens")) return { token: "ghs_reinstalled", expires_at: new Date(Date.now() + 3600000).toISOString() };
+      if (url.endsWith("/repos/owner/new-name/pulls/7")) return { number: 7 };
+      throw new Error("Unexpected request " + url);
+    });
+    const body = { type: "pull-request", id: resource.pullRequestId, connection: "github-app" };
+    expect((await request("/github/connections/migrate", { ...body, preview: true })).status).to.equal(200);
+    expect((await PRs.findById(resource.id)).githubAccess.installationId).to.equal(3);
+    expect((await request("/github/connections/migrate", body)).status).to.equal(200);
+    const repaired = await PRs.findById(resource.id);
+    expect(repaired.githubAccess.repositoryId).to.equal(42);
+    expect(repaired.githubAccess.installationId).to.equal(4);
+    expect(repaired.source.repositoryFullName).to.equal("owner/new-name");
+    expect(repaired.source.pullRequestId).to.equal(7);
+    expect(repaired.pullRequestId).to.equal("renamed-pr");
+  });
+
   it("migrates only the owner's resource after checking its configured commit", async () => {
     const Repos = require("../src/core/model/anonymizedRepositories/anonymizedRepositories.model").default;
     await app.saveAppGrant(owner.id, data());

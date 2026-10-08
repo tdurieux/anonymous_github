@@ -16,8 +16,9 @@ COPY public ./public
 COPY src ./src
 RUN npm run build
 
-# Stage 3: prod-only deps. Independent of source so it caches well.
-FROM node:22-slim AS prod-deps
+# Stage 3: install production deps on the runtime's libc. Native optional
+# dependencies such as zstd must select musl binaries for the Alpine runtime.
+FROM node:22-alpine AS prod-deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN --mount=type=cache,id=npm-prod,target=/root/.npm,sharing=locked \
@@ -31,6 +32,7 @@ EXPOSE 5000
 WORKDIR /app
 
 COPY --from=prod-deps /app/node_modules ./node_modules
+RUN node -e "const assert = require('node:assert/strict'); const zstd = require('@mongodb-js/zstd'); (async () => { const input = Buffer.from('native compression smoke test'); const compressed = await zstd.compress(input, 3); assert.deepEqual(await zstd.decompress(compressed), input); })().catch(error => { console.error(error); process.exit(1); });"
 COPY --from=build /app/build ./build
 COPY --from=build /app/public ./public
 COPY package.json ./package.json

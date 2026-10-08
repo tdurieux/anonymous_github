@@ -44,6 +44,10 @@ anonymous_github
 
 ## Self-hosting
 
+Local installation requires Node.js 22.15 or newer in the 22.x series,
+24.x, or 26 or newer. Run `npm ci` and `npm run build` to install and build.
+`npm run dev` uses Node's watch mode; `npm run build:ui` rebuilds browser assets.
+
 <details>
 <summary>Run your own instance with Docker</summary>
 

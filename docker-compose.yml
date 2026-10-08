@@ -1,5 +1,10 @@
 services:
   anonymous_github:
+    logging:
+      driver: json-file
+      options:
+        max-size: "25m"
+        max-file: "4"
     build: .
     restart: always
     image: tdurieux/anonymous_github:v2
@@ -36,6 +41,11 @@ services:
         condition: service_healthy
 
   streamer:
+    logging:
+      driver: json-file
+      options:
+        max-size: "25m"
+        max-file: "4"
     build: .
     restart: always
     image: tdurieux/anonymous_github:v2
@@ -54,6 +64,13 @@ services:
     environment:
       - PORT=5000
       - SERVICE_NAME=Streamer
+      - DB_HOSTNAME=mongodb
+      - REDIS_HOSTNAME=redis
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
       test:
         - CMD

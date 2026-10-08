@@ -22,12 +22,13 @@ export const database = mongoose.connection;
 
 export let isConnected = false;
 
-export async function connect() {
+export async function connect(overrides: Pick<ConnectOptions, "appName" | "maxPoolSize" | "minPoolSize"> = {}) {
   credentialCipher(); // Refuse to serve persisted credentials without a valid keyring.
   mongoose.set("strictQuery", false);
   const options: ConnectOptions = {
     appName: "Anonymous GitHub Server",
     compressors: "zstd",
+    ...overrides,
   };
   if (!config.MONGODB_URI) options.authSource = "admin";
   await mongoose.connect(getMongoUrl(), options);

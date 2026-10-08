@@ -92,5 +92,15 @@ describe("repository activity dates", () => {
     expect(body.publishedAt).to.equal(undefined);
     expect(body.settingsSavedAt).to.equal(undefined);
     expect(body.lastUpdateDate).to.deep.equal(repo.model.anonymizeDate);
+    expect(body.expirationDate).to.equal(null);
+  });
+  it("tells reviewers when an expiring repository stops being available", async () => {
+    const repo = repository(); auth(repo);
+    repo.model.options.expirationMode = "remove";
+    repo.model.options.expirationDate = new Date("2099-01-01");
+    stub(Files, "exists", async () => null);
+    let body;
+    await handler("repository-public", "/:repoId/options", "get")({}, { header: () => {}, json: value => { body = value; } });
+    expect(body.expirationDate).to.deep.equal(new Date("2099-01-01"));
   });
 });

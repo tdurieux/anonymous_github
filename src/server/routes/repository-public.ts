@@ -14,6 +14,7 @@ import FileModel from "../../core/model/files/files.model";
 import { createLogger, serializeError } from "../../core/logger";
 import { githubTokenForStreamer } from "../../core/github-token-context";
 import gh = require("parse-github-url");
+import { requestHeaders, startStage } from "../../core/request-monitoring";
 
 const logger = createLogger("repository-public");
 
@@ -52,16 +53,20 @@ router.get(
         });
       }
 
+      res.attachment(`${repo.repoId}.zip`);
+      if (req.method === "HEAD") { res.end(); return; }
       await repo.countView();
 
       if (config.STREAMER_ENTRYPOINT) {
         // use the streamer service
         const token = await repo.getToken();
         const anonymizer = repo.generateAnonymizeTransformer("");
+        const headersDone = startStage("streamer_headers");
         res.attachment(`${repo.repoId}.zip`);
         const reqStream = got
           .stream(join(config.STREAMER_ENTRYPOINT, "api/download"), {
             method: "POST",
+            headers: requestHeaders(),
             json: {
               token: await githubTokenForStreamer(token, repo.model.source.repositoryName),
               repoFullName: repo.model.source.repositoryName,
@@ -76,6 +81,7 @@ router.get(
             },
           })
           .on("error", (err: Error & { response?: { statusCode?: number; body?: unknown } }) => {
+            headersDone(true);
             const upstreamStatus = err?.response?.statusCode;
             let upstreamBody: string | undefined;
             let errCode = "zip_not_available";
@@ -112,10 +118,11 @@ router.get(
               upstreamStatus,
               upstreamBody: upstreamBody?.slice(0, 500),
               url: config.STREAMER_ENTRYPOINT
-                ? join(config.STREAMER_ENTRYPOINT, "api/zip")
+                ? join(config.STREAMER_ENTRYPOINT, "api/download")
                 : undefined,
               err: serializeError(err),
             });
+            const streaming = res.headersSent;
             handleError(
               new AnonymousError(errCode, {
                 url: req.originalUrl,
@@ -124,7 +131,13 @@ router.get(
               }),
               res
             );
+            // Once ZIP bytes have been sent, handleError cannot send JSON.
+            // Terminate the truncated response so the client reports failure
+            // instead of waiting forever for the ZIP's central directory.
+            if (streaming && !res.writableEnded) res.destroy();
           });
+        reqStream.once("response", () => headersDone());
+        reqStream.once("close", () => headersDone());
         reqStream.pipe(res);
         res.on("close", () => {
           reqStream.destroy();
@@ -197,7 +210,7 @@ router.get(
     try {
       const repoId = repo.repoId;
       const results = await FileModel.aggregate([
-        { $match: { repoId, size: { $ne: null } } },
+        { $match: { repoId, treeGeneration: repo.model.treeGeneration || { $exists: false }, size: { $ne: null } } },
         { $project: { _id: 0, path: 1 } },
         { $group: { _id: "$path", count: { $sum: 1 } } },
       ]).exec();
@@ -251,45 +264,8 @@ router.get(
       if (!query || query.length < 2) {
         return res.json([]);
       }
-      const allFiles = await repo.anonymizedFiles({
-        includeSha: false,
-        recursive: true,
-      });
-      const q = query.toLowerCase();
+      res.json(await repo.searchFiles(query));
 
-      // Collect folder paths whose name segment matches the query
-      const matchingFolders = new Set<string>();
-      for (const f of allFiles) {
-        const segments = (f.path || "").split("/").filter(Boolean);
-        let accumulated = "";
-        for (const seg of segments) {
-          accumulated = accumulated ? `${accumulated}/${seg}` : seg;
-          if (seg.toLowerCase().includes(q)) {
-            matchingFolders.add(accumulated);
-          }
-        }
-      }
-
-      const matches = allFiles.filter((f) => {
-        // File name matches
-        if (f.name?.toLowerCase().includes(q)) return true;
-        // File is inside a matching folder
-        const fullPath = f.path ? `${f.path}/${f.name}` : f.name;
-        let found = false;
-        matchingFolders.forEach((folder) => {
-          if (fullPath?.startsWith(folder + "/") || fullPath === folder) found = true;
-        })
-        if (found) return true;
-        return false;
-      });
-
-      res.json(
-        matches.slice(0, 500).map((f) => ({
-          name: f.name,
-          path: f.path,
-          size: f.size,
-        }))
-      );
     } catch (error) {
       handleError(error, res, req);
     }
@@ -395,6 +371,11 @@ router.get(
         sourceCommitDate: repo.model.source.commitDate,
         settingsSavedAt: repo.model.settingsSavedAt,
         publishedAt: repo.model.publishedAt,
+        // Lets reviewers see how long the link stays available.
+        expirationDate:
+          repo.options.expirationMode !== "never"
+            ? repo.options.expirationDate || null
+            : null,
         isAdmin: user?.isAdmin === true,
         isOwner: user?.id == repo.model.owner,
         hasWebsite: !!repo.options.page && !!repo.options.pageSource,
@@ -407,6 +388,7 @@ router.get(
         hasSubmodules:
           (await FileModel.exists({
             repoId: repo.repoId,
+            treeGeneration: repo.model.treeGeneration || { $exists: false },
             name: ".gitmodules",
             path: "",
           })) != null,

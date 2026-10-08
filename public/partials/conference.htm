@@ -1,4 +1,4 @@
-<div class="container page paper-page">
+<div class="container page paper-page conference-page">
   <div>
     <div class="paper-crumbs">
       <a href="/dashboard">My work</a> &nbsp;/&nbsp; <a href="/conferences">Conferences</a> &nbsp;/&nbsp; <span class="here">{{ conference?.conferenceID }}</span>
@@ -15,7 +15,7 @@
           <span class="status-dot" aria-hidden="true" :class="&#x27;status-&#x27; + conference?.status"></span>
           <span v-text="fmt?.statusLabel(conference?.status)"></span>
         </span>
-        <a class="btn btn-outline-ink" :href="safeUrl(&quot;/conference/&quot; + (conference?.conferenceID) + &quot;/edit&quot;)"><i class="far fa-edit mr-1" aria-hidden="true"></i> Edit conference</a>
+        <a class="btn btn-outline-ink" :href="safeUrl(&quot;/conference/&quot; + (conference?.conferenceID) + &quot;/edit&quot;)"><svg class="ui-icon mr-1" aria-hidden="true"><use href="#ui-icon-edit"></use></svg> Edit conference</a>
       </div>
     </div>
     <div class="paper-meta-rule">
@@ -99,7 +99,7 @@
       </div>
       <div class="paper-table-row" role="row" v-for="(repo, index) in filteredRepositories" :key="repo?.repoId" :class="{&#x27;repo-inactive&#x27;: repo?.status == &#x27;expired&#x27; || repo?.status == &#x27;removed&#x27;, &#x27;repo-error&#x27;: repo?.status == &#x27;error&#x27;}">
         <div class="cell-anon" role="cell">
-          <span class="type-badge type-repo">Repo</span>
+          <svg class="ui-icon record-type-icon" role="img" aria-label="Repository"><use href="#project-type-repo"></use></svg>
           <div class="anon-text">
             <a class="repo-name" v-text="repo?.repoId" :href="safeUrl(&quot;/r/&quot; + (repo?.repoId) + &quot;/&quot;)"></a>
             <div class="anon-sub">
@@ -116,8 +116,8 @@
           </div>
           <div class="status-sub" v-if="repo?.anonymizeDate">anonymized {{ fmt?.humanTime(repo?.anonymizeDate) }}</div>
         </div>
-        <div class="cell-views num" role="cell" v-text="fmt?.number(repo?.pageView)"></div>
-        <div class="cell-expires" role="cell">
+        <div class="cell-views num" role="cell"><svg class="ui-icon mobile-meta-icon" aria-hidden="true"><use href="#project-icon-eye"></use></svg> <span v-text="fmt?.number(repo?.pageView)"></span></div>
+        <div class="cell-expires" role="cell"><svg class="ui-icon mobile-meta-icon" aria-hidden="true"><use href="#project-icon-clock"></use></svg>
           <span class="expires-never" v-if="repo?.status == &#x27;ready&#x27; &amp;&amp; (repo?.options?.expirationMode === &#x27;never&#x27; || !repo?.options?.expirationDate)">Never</span>
           <span v-if="repo?.status == &#x27;ready&#x27; &amp;&amp; repo?.options?.expirationMode !== &#x27;never&#x27; &amp;&amp; repo?.options?.expirationDate" v-text="fmt?.humanTime(repo?.options?.expirationDate)"></span>
           <span class="expires-past" v-if="repo?.status == &#x27;expired&#x27;">Expired<span v-if="repo?.options?.expirationDate"> {{ fmt?.humanTime(repo?.options?.expirationDate) }}</span></span>
@@ -126,21 +126,21 @@
         <div class="cell-actions" role="cell">
           <div class="dropdown">
             <button class="btn btn-icon-dots" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" :aria-label="&quot;Actions for &quot; + (repo?.repoId)">
-              <i class="fas fa-ellipsis-h" aria-hidden="true"></i>
+              <svg class="ui-icon" aria-hidden="true"><use href="#project-icon-more"></use></svg>
             </button>
             <div class="dropdown-menu dropdown-menu-right">
               <a class="dropdown-item" :href="safeUrl(&quot;/r/&quot; + (repo?.repoId) + &quot;/&quot;)">
-                <i class="fa fa-eye" aria-hidden="true"></i> View
+                <svg class="ui-icon" aria-hidden="true"><use href="#project-icon-eye"></use></svg> View
               </a>
               <a class="dropdown-item" :href="safeUrl(&quot;/anonymize/&quot; + (repo?.repoId))">
-                <i class="far fa-edit" aria-hidden="true"></i> Edit
+                <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-edit"></use></svg> Edit
               </a>
             </div>
           </div>
         </div>
       </div>
       <div class="paper-table-empty" v-if="filteredRepositories?.length == 0">
-        <i class="fas fa-inbox" aria-hidden="true"></i>
+        <svg class="ui-icon" aria-hidden="true"><use href="#project-icon-inbox"></use></svg>
         <span v-if="!conference?.repositories?.length">No repository has been submitted to this conference yet.</span>
         <span v-if="conference?.repositories?.length">Nothing matches the current filters.</span>
         <div class="paper-table-empty-actions" v-if="conference?.repositories?.length">
