@@ -108,14 +108,14 @@
   ],
   "tests": {
     "fullSuite": {
-      "passing": 909,
+      "passing": 920,
       "pending": 51,
       "failing": 0,
-      "note": "Clean committed checkout after six PR review follow-ups, with disposable MongoDB and Redis and temporary memory-backed database/spool storage to avoid local disk I/O stalls; unrelated untracked workspace files excluded.",
+      "note": "Clean committed checkout after seven PR review follow-ups, with disposable MongoDB and Redis and temporary memory-backed database/spool storage to avoid local disk I/O stalls; unrelated untracked workspace files excluded.",
       "validationDate": "2026-10-08"
     },
     "performanceSuite": {
-      "passing": 83,
+      "passing": 94,
       "note": "Included in the latest clean full-suite run with disposable MongoDB and Redis."
     },
     "uiSuite": {

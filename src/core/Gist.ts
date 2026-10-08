@@ -221,11 +221,21 @@ export default class Gist {
 
   async markExpired() {
     const now = new Date();
-    if (isConnected) await AnonymizedGistModel.updateOne({ _id: this.model._id,
-      status: RepositoryStatus.READY, "options.expirationMode": { $ne: "never" },
-      "options.expirationDate": { $lte: now },
-    }, { $set: { status: RepositoryStatus.EXPIRING, statusDate: now } }).exec();
+    if (isConnected) {
+      const result = await AnonymizedGistModel.updateOne({ _id: this.model._id,
+        status: RepositoryStatus.READY, "options.expirationMode": { $ne: "never" },
+        "options.expirationDate": { $lte: now },
+      }, { $set: { status: RepositoryStatus.EXPIRING, statusDate: now } }).exec();
+      if (!result.matchedCount) {
+        const current = await AnonymizedGistModel.findById(this.model._id).exec();
+        if (!current) throw new AnonymousError("gist_expired", { object: this, httpStatus: 410 });
+        this._model = current;
+        this._gistPayload = undefined;
+        return;
+      }
+    }
     this.model.status = RepositoryStatus.EXPIRING;
+    this.model.statusDate = now;
   }
 
   async expire() {

@@ -222,6 +222,9 @@ export default class Repository {
       const streamed = this.model.source.type !== "Zip";
       const source = this.source;
       const files = await source.getFiles(opt.progress);
+      const sourceWithTruncation = source as unknown as { truncatedFolderList?: string[] };
+      const truncatedFolders = Array.isArray(sourceWithTruncation.truncatedFolderList)
+        ? [...sourceWithTruncation.truncatedFolderList] : [];
       this._model.treeGeneration = randomUUID();
       files.forEach(f => { f.repoId = this.repoId; f.treeGeneration = this.model.treeGeneration; });
       const generation = this.model.treeGeneration;
@@ -231,7 +234,7 @@ export default class Repository {
           treeGeneration: previousGeneration || { $exists: false }, ...this.refreshFilter(),
           status: this.model.status, statusDate: this.model.statusDate,
           "githubAccess.revision": this.model.githubAccess?.revision || { $exists: false },
-        }, { $set: { treeGeneration: generation, size: { storage: 0, file: 0 },
+        }, { $set: { treeGeneration: generation, truncatedFolders, size: { storage: 0, file: 0 },
           ...(streamed && !this.model.contentCacheVersion ? { contentCacheVersion: 1, legacyContentCleanupPending: true } : {}),
           ...(!files.length ? { emptyTreeGeneration: generation } : {}),
         }, $unset: { pathIndexKey: "", pathIndexBuiltAt: "", sizeComputedAt: "",
@@ -246,18 +249,12 @@ export default class Repository {
         }
       }
       this.model.emptyTreeGeneration = files.length ? undefined : generation;
+      this.model.truncatedFolders = truncatedFolders;
       if (streamed) this.model.contentCacheVersion = 1;
       if (isConnected) {
         await this.cleanupRetiredFileTrees().catch(error => logger.warn("retired tree cleanup deferred", serializeError(error)));
       } else {
         await FileModel.deleteMany({ repoId: this.repoId, treeGeneration: previousGeneration || { $exists: false } }).exec();
-      }
-
-      const sourceWithTruncation = source as unknown as {
-        truncatedFolderList?: string[];
-      };
-      if (Array.isArray(sourceWithTruncation.truncatedFolderList)) {
-        this._model.truncatedFolders = sourceWithTruncation.truncatedFolderList;
       }
 
       this._model.size = { storage: 0, file: 0 };
@@ -269,7 +266,6 @@ export default class Repository {
           {
             $set: {
               treeGeneration: this._model.treeGeneration,
-              truncatedFolders: this._model.truncatedFolders,
               size: this._model.size,
             },
           }
@@ -794,7 +790,14 @@ export default class Repository {
         status: force ? { $nin: inactive } : RepositoryStatus.READY, ...(force ? {} : { "options.expirationMode": { $ne: "never" },
         "options.expirationDate": { $lte: now } }),
       }, { $set: { status: RepositoryStatus.EXPIRING, statusDate: now } }).exec();
-      if (!result.matchedCount && force) return;
+      if (!result.matchedCount) {
+        if (force) return;
+        const current = await AnonymizedRepositoryModel.findById(this.model._id).exec();
+        if (!current) throw new AnonymousError("repository_expired", { object: this, httpStatus: 410 });
+        this._model = current;
+        this.assertNotArchived();
+        return;
+      }
     }
     this.model.status = RepositoryStatus.EXPIRING;
     this.model.statusDate = now;

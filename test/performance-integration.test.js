@@ -158,6 +158,57 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
     expect(fresh.status).to.equal("ready"); expect(fresh.pullRequest.diff).to.equal("rebuilt diff");
   });
 
+  for (const [model, Class, id, expiredError] of [
+    [Repo, Repository, "repoId", "repository_expired"],
+    [Gist, require("../src/core/Gist").default, "gistId", "gist_expired"],
+    [PR, require("../src/core/PullRequest").default, "pullRequestId", "pull_request_expired"],
+  ]) {
+    const create = suffix => model.create({ [id]: `read-claim-${suffix}`, status: "ready", statusDate: new Date("2026-01-01"),
+      anonymizeDate: new Date("2026-01-01"), source: { type: "GitHubStream" },
+      options: { expirationMode: "remove", expirationDate: new Date(0), title: true },
+      ...(model === Gist ? { gist: { description: "original", files: [] } } : {}),
+    });
+
+    it(`allows ${id} reads after an expiration extension defeats a stale claim`, async () => {
+      for (const change of [{ "options.expirationDate": new Date(Date.now() + 86400000) }, { "options.expirationMode": "never" }]) {
+        const row = await create(Object.keys(change)[0]), stale = new Class(row);
+        if (model === Gist) stale._gistPayload = { description: "cached view", files: [] };
+        await model.updateOne({ _id: row._id }, { $set: { ...change, statusMessage: "fresh state",
+          ...(model === Gist ? { "gist.description": "fresh content" } : {}),
+        } });
+        await stale.check();
+        expect(stale.status).to.equal("ready"); expect(stale.model.statusMessage).to.equal("fresh state");
+        for (const [field, value] of Object.entries(change)) expect(stale.model.get(field)).to.deep.equal(value);
+        expect((await model.findById(row._id)).status).to.equal("ready");
+        if (model === Gist) expect(stale.content().description).to.equal("fresh content");
+      }
+    });
+
+    it(`rechecks terminal and preparing ${id} lifecycles when a stale expiration claim fails`, async () => {
+      for (const status of ["expired", "expiring", "removing", "removed", "preparing", ...(model === Repo ? ["archived"] : [])]) {
+        const row = await create(status), stale = new Class(row);
+        await model.updateOne({ _id: row._id }, { $set: { status, statusDate: new Date() } });
+        try { await stale.check(); throw Error("expected lifecycle rejection"); }
+        catch (error) { expect(error.httpStatus).to.equal(status === "preparing" ? 425 : 410); }
+        expect(stale.status).to.equal(status); expect((await model.findById(row._id)).status).to.equal(status);
+      }
+      const row = await create("deleted"), stale = new Class(row);
+      await model.deleteOne({ _id: row._id });
+      try { await stale.check(); throw Error("expected deleted artifact rejection"); }
+      catch (error) { expect(error.message).to.equal(expiredError); expect(error.httpStatus).to.equal(410); }
+    });
+
+    it(`reflects a successful ${id} expiration claim and can finish cleanup on the same instance`, async () => {
+      const row = await create("claimed"), instance = new Class(row);
+      try { await instance.check(); throw Error("expected due artifact rejection"); }
+      catch (error) { expect(error.message).to.equal(expiredError); expect(error.httpStatus).to.equal(410); }
+      const fresh = await model.findById(row._id);
+      expect(instance.status).to.equal("expiring"); expect(instance.model.statusDate.getTime()).to.equal(fresh.statusDate.getTime());
+      await instance.expire();
+      expect(instance.status).to.equal("expired"); expect((await model.findById(row._id)).status).to.equal("expired");
+    });
+  }
+
   it("paginates a mixed dashboard globally and excludes megabyte bodies", async () => {
     const date = new Date("2026-01-01");
     await Repo.create({ repoId: "repo", owner: user.model._id, status: "ready", anonymizeDate: date, source: { repositoryName: "owner/repo", commit: "abcdef1234567890" }, options: { expirationMode: "never" } });
@@ -536,6 +587,36 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
     expect((await Repo.findById(model._id)).treeGeneration).to.equal("old");
   });
 
+  for (const truncatedFolderList of [["new-folder"], []]) {
+    it(`atomically activates ${truncatedFolderList.length ? "new" : "cleared"} truncation metadata even when quota computation fails`, async () => {
+      const model = await Repo.create({ repoId: "truncation-activation", status: "ready", statusDate: new Date(), anonymizeDate: new Date(),
+        treeGeneration: "old", truncatedFolders: ["old-folder"], source: { type: "GitHubStream" }, options: { expirationMode: "never" } });
+      await File.create({ repoId: model.repoId, treeGeneration: "old", path: "", name: "old.txt", size: 1 });
+      const repo = new Repository(model);
+      const source = { truncatedFolderList, getFiles: async () => [{ path: "", name: "known.txt", size: 1 }] };
+      Object.defineProperty(repo, "source", { get: () => source });
+      repo.computeSize = async () => { throw Error("quota database failure"); };
+      try { await repo.files({ force: true }); throw Error("expected quota failure"); }
+      catch (error) { expect(error.message).to.equal("quota database failure"); }
+      const current = await Repo.findById(model._id);
+      expect(current.treeGeneration).not.to.equal("old"); expect(current.truncatedFolders).to.deep.equal(truncatedFolderList);
+      const fresh = new Repository(current);
+      let recoveries = 0;
+      Object.defineProperty(fresh, "source", { get: () => ({
+        getFiles: async () => { throw Error("unexpected tree rebuild"); },
+        fetchFileInfoFromPath: async () => { recoveries++; return { path: "new-folder", name: "missing.txt", size: 2 }; },
+      }) });
+      expect(await fresh.files()).to.have.length(1);
+      const file = new AnonymizedFile({ repository: fresh, anonymizedPath: `${truncatedFolderList.length ? "new-folder" : "old-folder"}/missing.txt` });
+      if (truncatedFolderList.length) expect((await file.getFileInfo()).name).to.equal("missing.txt");
+      else {
+        try { await file.getFileInfo(); throw Error("expected untruncated path miss"); }
+        catch (error) { expect(error.message).to.equal("file_not_found"); }
+      }
+      expect(recoveries).to.equal(truncatedFolderList.length ? 1 : 0);
+    });
+  }
+
   it("recomputes a cached quota when activating a replacement tree", async () => {
     const model = await Repo.create({ repoId: "replace-size", owner: user.model._id, status: "ready", statusDate: new Date(),
       treeGeneration: "old", size: { storage: 900, file: 1 }, sizeComputedAt: new Date(), source: { type: "GitHubStream", repositoryName: "owner/repo" } });
@@ -660,7 +741,7 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
       if (update.$set?.treeGeneration && !injected) query.exec = async function () {
         const result = await exec.call(this); injected = true;
         await File.create({ repoId: model.repoId, treeGeneration: "newer", name: "latest.txt", path: "", size: 3 });
-        await updateOne.call(Repo, { _id: model._id }, { $set: { treeGeneration: "newer", size: { storage: 3, file: 1 } } }).exec();
+        await updateOne.call(Repo, { _id: model._id }, { $set: { treeGeneration: "newer", truncatedFolders: ["latest-folder"], size: { storage: 3, file: 1 } } }).exec();
         return result;
       };
       return query;
@@ -669,6 +750,7 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
       await repo.files({ force: true });
       expect(await File.countDocuments({ repoId: model.repoId, treeGeneration: "newer" })).to.equal(1);
       expect((await Repo.findById(model._id).lean()).size).to.deep.equal({ storage: 3, file: 1 });
+      expect((await Repo.findById(model._id)).truncatedFolders).to.deep.equal(["latest-folder"]);
     } finally { Repo.updateOne = updateOne; }
   });
 
