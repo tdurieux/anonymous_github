@@ -69,7 +69,13 @@ describe("review owner consent transactions", function () {
         maxPoolSize: 10,
       })
       .asPromise();
-    await connection.db.createCollection("review_owner_consents");
+    for (const name of [
+      "review_owner_consents",
+      "review_completions",
+      "review_completion_requests",
+      "review_artifact_bindings",
+    ])
+      await connection.db.createCollection(name);
   });
   after(async () => {
     if (connection) {
@@ -79,9 +85,14 @@ describe("review owner consent transactions", function () {
   });
   beforeEach(async () => {
     await Promise.all(
-      ["users", "anonymizedrepositories", "review_owner_consents"].map((name) =>
-        connection.db.collection(name).deleteMany({}),
-      ),
+      [
+        "users",
+        "anonymizedrepositories",
+        "review_owner_consents",
+        "review_completions",
+        "review_completion_requests",
+        "review_artifact_bindings",
+      ].map((name) => connection.db.collection(name).deleteMany({})),
     );
     await connection.db.collection("users").insertMany([
       {
@@ -506,4 +517,270 @@ describe("review owner consent transactions", function () {
       ) + "\n",
     );
   });
+  async function completed() {
+    const quoted = await store.preview(
+      actor(),
+      "synthetic-repository",
+      request(),
+    );
+    await store.confirm(actor(), quoted.ticket, confirmation());
+    const completion = await store.completion(actor(), quoted.ticket);
+    const command = {
+      contract: completion.contract,
+      clientId: completion.clientId,
+      intentId: completion.intentId,
+      code: completion.code,
+      requestId: "9".repeat(32),
+    };
+    return { quoted, completion, command };
+  }
+  it("issues one recoverable completion and atomically creates one pending binding", async function () {
+    const { quoted, completion, command } = await completed();
+    expect(completion.code).match(/^[a-f0-9]{64}$/);
+    expect(Date.parse(completion.expiresAt) - Date.now()).within(1, 300000);
+    expect(await store.completion(actor(), quoted.ticket)).deep.equal(
+      completion,
+    );
+    const receipt = await store.exchange(command.clientId, command);
+    expect(receipt.submissionRef).equal(intent().submissionRef);
+    expect(receipt.entitlementId).equal(intent().entitlementId);
+    expect(receipt.policy).deep.equal(intent().policy);
+    expect(receipt.bindingId).match(/^[a-f0-9]{32}$/);
+    expect(await store.exchange(command.clientId, command)).deep.equal(receipt);
+    expect(await store.receipt(command.clientId, command.intentId)).deep.equal(
+      receipt,
+    );
+    await rejected(
+      store.exchange(command.clientId, { ...command, code: "0".repeat(64) }),
+      "conflict",
+    );
+    expect(
+      await connection.db
+        .collection("review_artifact_bindings")
+        .countDocuments({}),
+    ).equal(1);
+    const saved = await connection.db
+      .collection("review_artifact_bindings")
+      .findOne({});
+    expect(saved.state).equal("pending");
+    for (const name of [
+      "review_owner_consents",
+      "review_completions",
+      "review_completion_requests",
+      "review_artifact_bindings",
+    ]) {
+      const text = JSON.stringify(
+        await connection.db.collection(name).find({}).toArray(),
+      );
+      expect(text)
+        .not.include(completion.code)
+        .not.include(request().token)
+        .not.include(actor().sessionId)
+        .not.include(quoted.ticket);
+    }
+  });
+  it("rejects missing consent, another session, another service client and altered codes", async function () {
+    const quoted = await store.preview(
+      actor(),
+      "synthetic-repository",
+      request(),
+    );
+    await rejected(store.completion(actor(), quoted.ticket), "forbidden");
+    await store.confirm(actor(), quoted.ticket, confirmation());
+    await rejected(
+      store.completion(actor(actorId, "t".repeat(32)), quoted.ticket),
+      "forbidden",
+    );
+    const completion = await store.completion(actor(), quoted.ticket);
+    const command = {
+      contract: completion.contract,
+      clientId: completion.clientId,
+      intentId: completion.intentId,
+      code: completion.code,
+      requestId: "9".repeat(32),
+    };
+    await rejected(store.exchange("f".repeat(32), command), "forbidden");
+    await rejected(
+      store.exchange(command.clientId, { ...command, code: "0".repeat(64) }),
+      "forbidden",
+    );
+    await rejected(
+      store.receipt("f".repeat(32), command.intentId),
+      "forbidden",
+    );
+    expect(
+      await connection.db
+        .collection("review_artifact_bindings")
+        .countDocuments({}),
+    ).equal(0);
+  });
+  it("recovers committed receipts after expiry but rejects first use of expired codes", async function () {
+    const { command } = await completed();
+    const receipt = await store.exchange(command.clientId, command);
+    await connection.db
+      .collection("review_completions")
+      .updateMany({}, { $set: { expiresAt: "2000-01-01T00:00:00Z" } });
+    await connection.db
+      .collection("users")
+      .updateOne({ _id: actorId }, { $set: { status: "disabled" } });
+    expect(await store.exchange(command.clientId, command)).deep.equal(receipt);
+    expect(await store.receipt(command.clientId, command.intentId)).deep.equal(
+      receipt,
+    );
+    await rejected(
+      store.exchange(command.clientId, {
+        ...command,
+        requestId: "a".repeat(32),
+      }),
+      "conflict",
+    );
+    await connection.db
+      .collection("users")
+      .updateOne({ _id: actorId }, { $set: { status: "active" } });
+    await connection.db
+      .collection("review_completions")
+      .updateMany({}, { $unset: { exchange: "" } });
+    await rejected(store.exchange(command.clientId, command), "expired");
+  });
+  it("checks current ownership before a first exchange", async function () {
+    const { command } = await completed();
+    await connection.db
+      .collection("anonymizedrepositories")
+      .updateOne({ _id: repoId }, { $set: { owner: otherId, coauthors: [] } });
+    await rejected(store.exchange(command.clientId, command), "forbidden");
+    expect(
+      await connection.db
+        .collection("review_artifact_bindings")
+        .countDocuments({}),
+    ).equal(0);
+    expect(
+      await connection.db
+        .collection("review_completion_requests")
+        .countDocuments({}),
+    ).equal(0);
+  });
+  it("serializes concurrent exchanges and retains one immutable binding", async function () {
+    const { command } = await completed();
+    const results = await Promise.allSettled([
+      store.exchange(command.clientId, command),
+      store.exchange(command.clientId, command),
+    ]);
+    const successes = results.filter((result) => result.status === "fulfilled");
+    expect(successes.length).greaterThan(0);
+    for (const result of results)
+      if (result.status === "rejected")
+        expect(result.reason.kind).equal("unavailable");
+    const receipt = await store.exchange(command.clientId, command);
+    successes.forEach((result) => expect(result.value).deep.equal(receipt));
+    expect(
+      await connection.db
+        .collection("review_artifact_bindings")
+        .countDocuments({}),
+    ).equal(1);
+  });
+  it("does not reuse an exchange request ID for a different intent", async function () {
+    const first = await completed();
+    await store.exchange(first.command.clientId, first.command);
+    upstream = async () => ({ ...intent(), intentId: "b".repeat(32) });
+    const quoted = await store.preview(actor(), "synthetic-repository", {
+      ...request(),
+      intentId: "b".repeat(32),
+    });
+    await store.confirm(actor(), quoted.ticket, confirmation());
+    const second = await store.completion(actor(), quoted.ticket);
+    await rejected(
+      store.exchange(second.clientId, {
+        ...first.command,
+        intentId: second.intentId,
+        code: second.code,
+      }),
+      "conflict",
+    );
+    expect(
+      await connection.db
+        .collection("review_artifact_bindings")
+        .countDocuments({}),
+    ).equal(1);
+  });
+  it("measures 100 immutable binding receipt replays", async function () {
+    const { command } = await completed();
+    const receipt = await store.exchange(command.clientId, command);
+    const times = [];
+    for (let i = 0; i < 100; i++) {
+      const start = process.hrtime.bigint();
+      expect(await store.exchange(command.clientId, command)).deep.equal(
+        receipt,
+      );
+      times.push(Number(process.hrtime.bigint() - start) / 1e6);
+    }
+    times.sort((a, b) => a - b);
+    if (process.env.TEST_REVIEW_COMPLETION_PERF_REPORT)
+      require("fs").writeFileSync(
+        process.env.TEST_REVIEW_COMPLETION_PERF_REPORT,
+        JSON.stringify(
+          {
+            calls: 100,
+            workload:
+              "MongoDB immutable binding receipt replay, disposable loopback replica set",
+            medianMs: times[49],
+            p95Ms: times[94],
+          },
+          null,
+          2,
+        ) + "\n",
+      );
+  });
+
+  it("rolls back a binding when a later transaction write fails", async function () {
+    const { command } = await completed();
+    const original = connection.db.collection.bind(connection.db);
+    connection.db.collection = (...args) => {
+      const collection = original(...args);
+      if (args[0] === "review_completion_requests")
+        collection.insertOne = async () => {
+          throw new Error("synthetic write failure");
+        };
+      return collection;
+    };
+    try {
+      await rejected(store.exchange(command.clientId, command), "unavailable");
+    } finally {
+      connection.db.collection = original;
+    }
+    expect(
+      await connection.db
+        .collection("review_artifact_bindings")
+        .countDocuments({}),
+    ).equal(0);
+    expect(
+      await connection.db
+        .collection("review_completion_requests")
+        .countDocuments({}),
+    ).equal(0);
+    expect(
+      (await connection.db.collection("review_completions").findOne({}))
+        .exchange,
+    ).equal(undefined);
+    expect((await store.exchange(command.clientId, command)).bindingId).match(
+      /^[a-f0-9]{32}$/,
+    );
+  });
+  it('never extends an issued completion or substitutes a code after key rotation', async function () {
+    const { quoted, completion } = await completed();
+    const rotated = createReviewOwnerConsent(connection, { consume: async () => intent() }, randomBytes(32));
+    await rejected(rotated.completion(actor(), quoted.ticket), 'invalid');
+    const saved = await connection.db.collection('review_completions').findOne({});
+    expect(saved.codeHash).equal(require('crypto').createHash('sha256').update(completion.code).digest('hex'));
+    await connection.db.collection('review_completions').updateMany({}, { $set: { expiresAt: '2000-01-01T00:00:00Z' } });
+    await rejected(store.completion(actor(), quoted.ticket), 'expired');
+    expect((await connection.db.collection('review_completions').findOne({})).expiresAt).equal('2000-01-01T00:00:00Z');
+  });
+  it('rejects legacy consent without its authenticated intent scope', async function () {
+    const quoted = await store.preview(actor(), 'synthetic-repository', request());
+    await store.confirm(actor(), quoted.ticket, confirmation());
+    await connection.db.collection('review_owner_consents').updateMany({}, { $unset: { intent: '' } });
+    await rejected(store.completion(actor(), quoted.ticket), 'forbidden');
+    expect(await connection.db.collection('review_completions').countDocuments({})).equal(0);
+  });
+
 });
