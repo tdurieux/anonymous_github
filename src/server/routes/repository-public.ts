@@ -371,6 +371,11 @@ router.get(
         sourceCommitDate: repo.model.source.commitDate,
         settingsSavedAt: repo.model.settingsSavedAt,
         publishedAt: repo.model.publishedAt,
+        // Lets reviewers see how long the link stays available.
+        expirationDate:
+          repo.options.expirationMode !== "never"
+            ? repo.options.expirationDate || null
+            : null,
         isAdmin: user?.isAdmin === true,
         isOwner: user?.id == repo.model.owner,
         hasWebsite: !!repo.options.page && !!repo.options.pageSource,

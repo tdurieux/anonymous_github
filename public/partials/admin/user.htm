@@ -1,5 +1,5 @@
 <div class="container paper-page admin-page">
-  <div class="paper-crumbs"><a href="/admin/users">Users</a> &nbsp;/&nbsp; <span class="here">{{ userInfo?.username || 'Profile' }}</span></div>
+  <div class="paper-crumbs"><a href="/admin/">Admin</a> &nbsp;/&nbsp; <a href="/admin/users">Users</a> &nbsp;/&nbsp; <span class="here">{{ userInfo?.username || 'Profile' }}</span></div>
   <h1 class="paper-page-title">{{ userInfo?.username || 'User' }}</h1>
 
   <nav class="admin-nav">
@@ -40,7 +40,8 @@
       <div class="detail-value">{{ userInfo?.emails?.[0]?.email }}</div>
 
       <div class="detail-label">Access token</div>
-      <div class="detail-value" style="font-family: var(--font-mono); font-size: 0.85rem;">{{ userInfo?.accessTokens?.github }}</div>
+      <div class="detail-value" style="font-family: var(--font-mono); font-size: 0.85rem;" v-if="userInfo?.accessTokens?.github">{{ userInfo?.accessTokens?.github }}</div>
+      <div class="detail-value text-muted" v-if="!userInfo?.accessTokens?.github">None stored</div>
 
       <div class="detail-label">GitHub</div>
       <div class="detail-value">
@@ -98,7 +99,7 @@
 
     <form class="d-flex" style="gap: 8px; margin-bottom: 12px;" v-form="viewState" @submit.prevent="submitForm($event, () =&gt; { createToken() })">
       <input type="text" class="form-control" placeholder="Token name (e.g. dev-laptop)" required v-field="{ state: viewState, set: value =&gt; { tokenForm.name = value }, value: tokenForm?.name, form: null, options: {} }">
-      <button type="submit" class="btn btn-primary"><svg class="ui-icon" aria-hidden="true"><use href="#project-icon-plus"></use></svg> Generate</button>
+      <button type="submit" class="btn btn-ink"><svg class="ui-icon" aria-hidden="true"><use href="#project-icon-plus"></use></svg> Generate</button>
     </form>
 
     <div class="alert alert-warning" role="alert" v-if="tokenForm?.plaintext">
@@ -180,7 +181,7 @@
         <div class="anon-text">
           <a class="repo-name" target="_blank" v-text="repo?.repoId" :href="safeUrl(&quot;/r/&quot; + (repo?.repoId))"></a>
           <div class="anon-sub">
-            <a v-text="repo?.source?.fullName" :href="safeUrl(&quot;https://github.com/&quot; + (repo?.source?.fullName) + &quot;/&quot;)"></a><span v-if="repo?.options?.update">&nbsp;&middot;&nbsp;<a v-text="repo?.source?.branch" :href="safeUrl(&quot;https://github.com/&quot; + (repo?.source?.fullName) + &quot;/tree/&quot; + (repo?.source?.branch))"></a></span><span v-if="!repo?.options?.update">&nbsp;&middot;&nbsp;@<a v-text="repo?.source?.commit?.substring(0, 8)" :href="safeUrl(&quot;https://github.com/&quot; + (repo?.source?.fullName) + &quot;/tree/&quot; + (repo?.source?.commit))"></a></span><span v-if="repo?.conference">&nbsp;&middot;&nbsp;<svg class="ui-icon" aria-hidden="true"><use href="#project-icon-conference"></use></svg> {{ repo?.conference }}</span><span>&nbsp;&middot;&nbsp;{{ fmt?.humanFileSize(repo?.size?.storage) }}</span><span>&nbsp;&middot;&nbsp;{{ fmt?.number(repo?.options?.terms?.length) }} terms</span>
+            <a v-text="repo?.source?.fullName" :href="safeUrl(&quot;https://github.com/&quot; + (repo?.source?.fullName) + &quot;/&quot;)"></a><span v-if="repo?.options?.update">&nbsp;&middot;&nbsp;<a v-text="repo?.source?.branch" :href="safeUrl(&quot;https://github.com/&quot; + (repo?.source?.fullName) + &quot;/tree/&quot; + (repo?.source?.branch))"></a></span><span v-if="!repo?.options?.update">&nbsp;&middot;&nbsp;@<a v-text="repo?.source?.commit?.substring(0, 8)" :href="safeUrl(&quot;https://github.com/&quot; + (repo?.source?.fullName) + &quot;/tree/&quot; + (repo?.source?.commit))"></a></span><span v-if="repo?.conference">&nbsp;&middot;&nbsp;<svg class="ui-icon" aria-hidden="true"><use href="#project-icon-conference"></use></svg> {{ repo?.conference }}</span><span>&nbsp;&middot;&nbsp;{{ fmt?.humanFileSize(repo?.size?.storage) }}</span><span>&nbsp;&middot;&nbsp;{{ fmt?.number(repo?.options?.terms?.length) }} {{ repo?.options?.terms?.length === 1 ? 'term' : 'terms' }}</span>
           </div>
         </div>
       </div>

@@ -7,7 +7,7 @@ import { render as iconsTemplate } from "../partials/icons.htm";
 import { initializeTemplate } from "./template-state.js";
 import { createPageState, createTimers } from "./state.js";
 import { createHttp, promises } from "./http.js";
-import { mainController } from "./app.js";
+import { mainController, highlightRedactions } from "./app.js";
 import { createQuotaService } from "./quota.js";
 import * as formatters from "./formatters.js";
 import translations from "../i18n/locale-en.json";
@@ -82,6 +82,8 @@ export function mountApplication(target = "#app", options = {}) {
       root.window = window;
       root.Math = Math;
       root.sanitize = value => DOMPurify.sanitize(value ?? "");
+      // Reading site_options re-renders Markdown once the configured mask loads.
+      root.highlightRedactions = html => (root.site_options, highlightRedactions(html));
       root.submitForm = submitForm;
       root.safeUrl = safeUrl;
       const context = services();

@@ -226,3 +226,41 @@ describe("frontend production regressions", function () {
     expect(h.scope.options.endDate.getTime()).to.be.greaterThan(h.scope.options.startDate.getTime());
   });
 });
+
+describe("redaction highlighting", () => {
+  const { JSDOM } = require("jsdom");
+  function helpers() {
+    const { window } = new JSDOM("");
+    const h = harness();
+    Object.assign(h.context, { DOMParser: window.DOMParser, NodeFilter: window.NodeFilter });
+    return h.defs;
+  }
+  it("matches the mask with and without a counter", () => {
+    const { redactionPattern } = helpers();
+    expect("by XXXX-1 and XXXX-12 at XXXX.".match(redactionPattern("XXXX"))).to.deep.equal(["XXXX-1", "XXXX-12", "XXXX"]);
+    expect("a.b-3 axb-3".match(redactionPattern("a.b"))).to.deep.equal(["a.b-3"]);
+  });
+  it("marks redactions in text without touching attributes", () => {
+    const { highlightRedactions } = helpers();
+    const html = highlightRedactions('<p>By XXXX-1 <a href="https://x.test/XXXX-2">link</a></p>', "XXXX");
+    expect(html).to.include('By <mark class="redaction" title="Redacted by Anonymous GitHub">XXXX-1</mark>');
+    expect(html).to.include('href="https://x.test/XXXX-2"');
+    expect(highlightRedactions("<p>nothing here</p>", "XXXX")).to.equal("<p>nothing here</p>");
+  });
+  it("leaves Mermaid sources and Prism code blocks for their renderers", () => {
+    const { highlightRedactions } = helpers();
+    const html = highlightRedactions('<div class="mermaid">graph TD; XXXX-1--&gt;B</div><pre><code class="language-py">print("XXXX-2")</code></pre><code>XXXX-3</code>', "XXXX");
+    expect(html).to.include('<div class="mermaid">graph TD; XXXX-1--&gt;B</div>');
+    expect(html).to.include('<code class="language-py">print("XXXX-2")</code>');
+    expect(html).to.include('<code><mark class="redaction" title="Redacted by Anonymous GitHub">XXXX-3</mark></code>');
+  });
+  it("marks a highlighted code block when Prism hands it over, using the configured mask", () => {
+    const { window } = new (require("jsdom").JSDOM)('<pre><code class="language-py"><span class="token string">"MASK-4"</span></code></pre>');
+    const h = harness();
+    Object.assign(h.context, { DOMParser: window.DOMParser, NodeFilter: window.NodeFilter });
+    h.defs.setRedactionMask("MASK");
+    const code = window.document.querySelector("code");
+    h.defs.markRedactionsIn(code);
+    expect(code.querySelector("mark.redaction").textContent).to.equal("MASK-4");
+  });
+});
