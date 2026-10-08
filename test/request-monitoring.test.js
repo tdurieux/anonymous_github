@@ -5,9 +5,13 @@ const http = require("node:http");
 const net = require("node:net");
 const { setTimeout } = require("node:timers");
 const { gunzipSync } = require("node:zlib");
+const { Readable } = require("node:stream");
+const { setTimeout: delay } = require("node:timers/promises");
 require("ts-node/register/transpile-only");
 const { RequestMetrics, monitorRequests, requestRoute, requestHeaders, startStage, requestMetrics, activeRequestCount } = require("../src/core/request-monitoring");
 const { percentileUpperBound, socketSnapshot, performanceReport } = require("../src/core/performance-monitoring");
+const GitHubStream = require("../src/core/source/GitHubStream").default;
+const storage = require("../src/core/storage").default;
 
 function fetch(server, path, options = {}) {
   return new Promise((resolve, reject) => {
@@ -127,6 +131,36 @@ describe("bounded request monitoring", function () {
     const row = metrics.drain().find(row => row.data.metric === "request").data;
     expect(row.errors).to.equal(1); expect(row.sumMs).to.be.at.least(30);
   });
+
+  for (const failure of [false, true]) {
+    it(`includes GitHub response-header waits in upstream timing${failure ? " on failure" : ""}`, async function () {
+      const originals = { fileInfo: storage.fileInfo, write: storage.write, read: storage.read };
+      const source = new GitHubStream({ repoId: `headers-${failure}`, organization: "owner", repoName: "repo", commit: "abc", getToken: async () => "token" });
+      const upstreamError = Error("headers failed");
+      source.downloadWithFallback = async () => {
+        await delay(120);
+        if (failure) throw upstreamError;
+        return Readable.from([Buffer.from("content")]);
+      };
+      storage.fileInfo = async () => { throw Error("cache miss"); };
+      storage.write = async (_repo, _path, input) => { for await (const chunk of input) void chunk; };
+      storage.read = async () => Readable.from([Buffer.from("content")]);
+      app.get("/", async (_req, res) => {
+        try {
+          const input = await source.getFileContentCache("file.txt", source.data.repoId, () => ({ sha: "blob", size: 7 }));
+          input.destroy(); res.send("ok");
+        } catch (error) { res.status(502).send(error === upstreamError ? "original error" : "unexpected error"); }
+      });
+      try {
+        await listen(); const response = await fetch(server, "/");
+        expect(response.status).to.equal(failure ? 502 : 200);
+        if (failure) expect(response.body.toString()).to.equal("original error");
+        expect(logs[0][1].stages.upstream).to.be.at.least(100);
+        const row = requestMetrics.drain().find(entry => entry.data.metric === "upstream").data;
+        expect(row.count).to.equal(1); expect(row.errors).to.equal(Number(failure));
+      } finally { Object.assign(storage, originals); }
+    });
+  }
 
   it("counts PID-owned network sockets without blocking the event loop", async function () {
     const listener = net.createServer(socket => socket.end()); await new Promise(resolve => listener.listen(0, "127.0.0.1", resolve));

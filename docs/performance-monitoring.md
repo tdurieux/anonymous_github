@@ -36,6 +36,8 @@ query values are absent from these new request records and metric labels.
 Stages include repository lookup, authorization, GitHub requests, source-cache
 lookup and fill, worker admission, worker anonymization and streamer response
 headers. Source and transformed-cache hits and misses are counted separately.
+Source download timing includes waiting for response headers and failures before
+streaming begins.
 Stages can overlap and must not be summed to reconstruct total latency. An archive
 upstream span also includes downstream backpressure; it is not pure network time.
 Work outside HTTP requests, such as background download jobs, stays in the existing
@@ -84,3 +86,5 @@ tree generation, cache revision, file path, rendering version and current option
 Validation follows repository lifecycle, page settings and content checks. Matching
 validators avoid fetching and rendering content again; changed terms or content
 invalidate them.
+Raw Markdown served after a rendering failure has a separate validator, so later
+requests retry rendering when the transient failure clears.

@@ -174,9 +174,10 @@ async function webView(
       });
     }
     res.set("Cache-Control", "private, no-cache, must-revalidate");
-    res.set("ETag", fileETag(JSON.stringify(["web-v1", repo.model.source.commit, repo.model.treeGeneration, repo.model.contentCacheRevision,
+    const pageETag = fileETag(JSON.stringify(["web-v1", repo.model.source.commit, repo.model.treeGeneration, repo.model.contentCacheRevision,
       await f.sha(), repo.model.source.repositoryName, repo.model.source.branch, config.APP_HOSTNAME, config.ANONYMIZATION_MASK]),
-      requestPath, repo.options));
+      requestPath, repo.options);
+    res.set("ETag", pageETag);
     if (req.fresh) { res.status(304).end(); return; }
     if (req.method === "HEAD") {
       const size = await f.size();
@@ -192,6 +193,8 @@ async function webView(
         const html = `<!DOCTYPE html><html><head><title>Content</title></head><link rel="stylesheet" href="/css/all.min.css" /><body><div class="container p-3 file-content markdown-body">${body}</div></body></html>`;
         res.contentType("text/html").send(html);
       } catch {
+        // Raw Markdown must re-enter rendering when a transient failure clears.
+        res.set("ETag", fileETag(`web-raw:${pageETag}`, requestPath, repo.options));
         await f.send(res);
       }
     } else {

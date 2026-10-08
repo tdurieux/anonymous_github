@@ -1756,14 +1756,21 @@ export const overviewAdminController = function (state, http, location, interval
       };
       var performanceLoading = false;
       state.loadPerformance = function () {
+        var minutes = state.performanceMinutes;
+        if (state.performance?.windowMinutes && state.performance.windowMinutes !== minutes) state.performance = null;
         if (performanceLoading) return;
         performanceLoading = true;
-        http.get("/api/admin/performance", { params: { minutes: state.performanceMinutes } }).then(function (r) {
+        http.get("/api/admin/performance", { params: { minutes: minutes } }).then(function (r) {
+          if (minutes !== state.performanceMinutes) return;
           state.performance = r.data;
           state.performanceError = r.data.available ? null : "Performance monitoring is unavailable. Request history may be incomplete.";
         }, function () {
+          if (minutes !== state.performanceMinutes) return;
           state.performanceError = "Could not refresh performance monitoring. Displayed samples may be stale.";
-        }).finally(function () { performanceLoading = false; });
+        }).finally(function () {
+          performanceLoading = false;
+          if (minutes !== state.performanceMinutes) state.loadPerformance();
+        });
       };
 
       function humanBytes(b) {

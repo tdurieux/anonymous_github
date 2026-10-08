@@ -475,6 +475,30 @@ describe("Vue 3 UI", function () {
     expect(ui.errors).to.deep.equal([]);
   });
 
+  for (const failure of [false, true]) {
+    it(`refreshes the selected performance window after an old request ${failure ? "fails" : "completes"}`, async function () {
+      let finishOld, finishNew;
+      const report = minutes => ({ available: true, windowMinutes: minutes, instances: [], stages: [], runtimeSeries: [],
+        routes: [{ service: "api", method: "GET", route: `window-${minutes}`, count: 1, avgMs: 1, p95UpperMs: 10, p99UpperMs: 10 }] });
+      ui = await browser("/", { "/api/user": { username: "admin", isAdmin: true }, "/api/admin/overview": { history: [] },
+        "/api/admin/performance": request => new Promise(resolve => {
+          if (request.url.searchParams.get("minutes") === "15") finishOld = () => resolve(failure ? { __status: 503, body: {} } : report(15));
+          else finishNew = () => resolve(report(60));
+        }) });
+      await ui.go("/admin/");
+      await ui.input('select[aria-label="Performance time range"]', "60", "change");
+      expect(ui.requests.filter(request => request.url.pathname === "/api/admin/performance")).to.have.length(1);
+      finishOld(); await delay(20);
+      const calls = ui.requests.filter(request => request.url.pathname === "/api/admin/performance");
+      expect(calls.map(request => request.url.searchParams.get("minutes"))).to.deep.equal(["15", "60"]);
+      expect(ui.window.document.querySelector(".app-view").textContent).not.to.include("window-15");
+      expect(ui.window.document.querySelector(".app-view").textContent).not.to.include("Could not refresh performance monitoring");
+      finishNew(); await delay(20);
+      expect(ui.window.document.querySelector(".app-view").textContent).to.include("window-60");
+      expect(ui.errors).to.deep.equal([]);
+    });
+  }
+
   it("offers one App sign-in for new and existing accounts", async function () {
     ui = await browser("/signin", { "/api/options": { GITHUB_APP_ENABLED: true, GITHUB_OAUTH_ENABLED: true } });
     expect(ui.window.document.querySelector('a[href="/github/app/login"]')).not.to.equal(null);

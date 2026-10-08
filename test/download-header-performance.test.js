@@ -64,6 +64,20 @@ describe("download headers and website revalidation", function () {
     expect(second.status).to.equal(304); expect(second.body).to.equal(""); expect(transfers).to.equal(1);
     expect(second.headers["content-security-policy"]).to.include("sandbox");
   });
+  it("renders Markdown again after a transient failure served the raw fallback", async function () {
+    const marked = require("marked"), render = marked.marked;
+    let first;
+    try {
+      marked.marked = () => { throw Error("transient rendering failure"); };
+      first = await fetch("/w/fixture/page.md");
+      expect(first.status).to.equal(200); expect(first.body).to.equal("fixture content");
+    } finally { marked.marked = render; }
+    const recovered = await fetch("/w/fixture/page.md", "GET", { "If-None-Match": first.headers.etag });
+    expect(recovered.status).to.equal(200); expect(recovered.body).to.include("Anonymized page");
+    expect(recovered.headers.etag).not.to.equal(first.headers.etag);
+    const revalidated = await fetch("/w/fixture/page.md", "GET", { "If-None-Match": recovered.headers.etag });
+    expect(revalidated.status).to.equal(304); expect(transfers).to.equal(3);
+  });
   it("serves website HEAD without reading or rendering Markdown", async function () {
     const response = await fetch("/w/fixture/page.md", "HEAD");
     expect(response.status).to.equal(200); expect(response.headers["content-type"]).to.include("text/html"); expect(transfers).to.equal(0);
