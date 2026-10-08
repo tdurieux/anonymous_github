@@ -7838,3 +7838,44 @@ input[type="date"], select { color-scheme: light; }
 .paper-page .btn.btn-danger-soft:hover { background: var(--status-error-soft-hover); border-color: var(--status-error); color: var(--status-error); }
 .q-section-label, .q-state-chip, .q-auto-refresh { font-family: var(--font-sans); letter-spacing: 0; text-transform: none; }
 .q-state-chip { font-size: 12px; text-transform: capitalize; }
+
+/* ===== Admin consistency ===== */
+/* The error bar fills are spans: without display:block their width is ignored. */
+.overview-page .ov-ebar-fill { display: block; }
+/* Error rows mark themselves with an inset edge so their content stays aligned. */
+.paper-table .paper-table-row.repo-error { border-left: 0; box-shadow: inset 2px 0 0 var(--status-error); padding-left: 16px; }
+/* Labels, headers and chips use the sans face like the rest of the app. */
+.admin-page th, .admin-page .q-table th, .errors-page .col-when, .errors-page .col-sev, .errors-page .col-mod, .errors-page .col-msg, .errors-page .col-count, .errors-page .col-status,
+.overview-page .ov-ebar-label, .overview-page .ov-route-n, .overview-page .ov-route-name, .overview-page .ov-chart-legend,
+.q-section-right, .q-legend-completed, .q-legend-failed, .q-legend-exec, .q-stat-label, .q-card-sub, .q-delay-hint,
+.admin-page .type-badge, .user-detail-grid .detail-label, .admin-page .user-detail-section h2, .admin-page > h2, .admin-page section > h2 {
+  font-family: var(--font-sans); letter-spacing: 0; text-transform: none;
+}
+.admin-page th, .errors-page [class^="col-"] { font-size: 12px; font-weight: 500; color: var(--ink-muted); }
+.q-stat-label, .q-card-sub, .user-detail-grid .detail-label { font-size: 12px; }
+.q-stat-value { font-family: var(--font-sans); font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.q-state-badge { font-family: var(--font-sans); font-size: 12px; letter-spacing: 0; text-transform: capitalize; }
+.admin-page .type-badge { font-size: 12px; text-transform: none; }
+.errors-page .sev-label, .errors-page .col-sev span { text-transform: capitalize; }
+/* One accent for overview numbers and charts; colour is kept for states. */
+.overview-page .ov-daily-value, .dark-mode .overview-page .ov-daily-value { color: var(--color); }
+.overview-page .ov-spark-fill-alt, .overview-page .ov-spark-fill-user, .overview-page .ov-spark-fill-new-user,
+.dark-mode .overview-page .ov-spark-fill-alt, .dark-mode .overview-page .ov-spark-fill-user, .dark-mode .overview-page .ov-spark-fill-new-user { background: var(--accent); }
+.overview-page .ov-dot-ok-fill, .overview-page .ov-dot-user-fill, .overview-page .ov-dot-new-user-fill,
+.dark-mode .overview-page .ov-dot-ok-fill, .dark-mode .overview-page .ov-dot-user-fill, .dark-mode .overview-page .ov-dot-new-user-fill { background: var(--accent); }
+/* Errors filter uses the same segmented control as the queue range. */
+.errors-page .seg-tabs { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--border-color); border-radius: var(--radius-control); background: var(--paper-card); }
+.errors-page .seg-tabs button, .errors-page .seg-tabs button + button { min-height: 0; height: 30px; padding: 0 10px; border: 0; border-radius: 4px; background: transparent; color: var(--ink-muted); font: 500 13px/1 var(--font-sans); }
+.errors-page .seg-tabs button:hover { background: var(--hover-bg-color); color: var(--color); }
+.errors-page .seg-tabs button.active { background: var(--accent-soft); color: var(--accent); }
+/* User detail: status reads as metadata next to the name; actions are spaced. */
+.user-detail-card .user-header .status-dot-wrap { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 400; color: var(--ink-soft); }
+.user-detail-card .user-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+/* Row metadata wraps instead of truncating every item to a few letters. */
+.admin-page .paper-table .cell-anon .anon-sub { flex-wrap: wrap; row-gap: 2px; }
+.admin-page .paper-table .anon-sub > span, .admin-page .paper-table .anon-sub > a { flex: 0 1 auto; max-width: 100%; white-space: nowrap; }
+.admin-page .paper-table .cell-views .mobile-meta-icon { margin-right: 4px; }
+.q-jobs { overflow-x: auto; }
+.q-job-detail-label { font-family: var(--font-sans); font-size: 12px; letter-spacing: 0; text-transform: none; }
+.admin-section-header h2 { font-family: var(--font-sans); font-size: 16px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--color); }
+.errors-page .sev-label { font-family: var(--font-sans); font-size: 13px; letter-spacing: 0; }

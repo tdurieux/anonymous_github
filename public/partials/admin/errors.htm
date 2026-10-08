@@ -128,7 +128,7 @@
         </div>
         <div class="col-sev">
           <span class="sev-dot" :class="&#x27;sev-&#x27; + row?._bucket"></span>
-          <span class="sev-label">{{ fmt?.uppercase(row?._bucket) }}</span>
+          <span class="sev-label">{{ fmt?.title(row?._bucket) }}</span>
         </div>
         <div class="col-mod"><span class="pill pill-module">{{ row?.module }}</span></div>
         <div class="col-msg">
