@@ -284,6 +284,7 @@ interface CompiledTermVariant {
   // A boundary-free native search for fixed-width patterns can rule out
   // absent terms. Candidate replacement retains RE2's boundary semantics.
   literalPrefilter?: RegExp;
+  requiredPrefix?: RegExp;
   asciiPattern?: RegExp;
   asciiReplacement?: string;
   asciiBefore?: boolean;
@@ -314,6 +315,29 @@ function hasCatastrophicBacktracking(src: string): boolean {
     }
   }
   return false;
+}
+
+// A leading sequence of literal characters and simple letter classes must
+// occur in every match. Stop before unfamiliar syntax, drop a quantified last
+// atom, and reject alternation entirely. This is only an absence check; RE2
+// still decides every replacement and all boundaries.
+function requiredPrefix(pattern: string): RegExp | undefined {
+  if (pattern.includes("|")) return undefined;
+  const atoms: string[] = [];
+  let offset = 0;
+  while (offset < pattern.length) {
+    const char = String.fromCodePoint(pattern.codePointAt(offset)!);
+    if (char === "[") {
+      const end = pattern.indexOf("]", offset + 1);
+      if (end < 0 || !/^[\p{L}\p{N}]+$/u.test(pattern.slice(offset + 1, end))) break;
+      atoms.push(pattern.slice(offset, end + 1)); offset = end + 1;
+    } else {
+      if (/[\\^$.*+?()[\]{}]/.test(char)) break;
+      atoms.push(char); offset += char.length;
+    }
+  }
+  if (/[?*+{]/.test(pattern.charAt(offset)) && offset < pattern.length) atoms.pop();
+  return atoms.length ? new RegExp(atoms.join(""), "iu") : undefined;
 }
 
 
@@ -363,6 +387,7 @@ function compileTerms(terms: string[] | undefined): CompiledTermVariant[] {
           RE2JS.CASE_INSENSITIVE
         );
         compiled.push({ pattern, before, after, mask,
+          requiredPrefix: fixedWidth ? undefined : requiredPrefix(variant.pattern),
           asciiPattern: fixedWidth ? new RegExp(bounded.replace(/\./g, "[^\\n]"), "giu") : undefined,
           asciiReplacement: fixedWidth ? mask.replace(/\$/g, () => "$$") : undefined,
           asciiBefore: !variant.unicode && bounded.startsWith("\\b"),
@@ -492,6 +517,7 @@ export class ContentAnonimizer {
       const c = this.compiledTerms[index];
       // An absent term cannot occur inside a URL either.
       if (c.literalPrefilter && !c.literalPrefilter.test(content)) continue;
+      if (c.requiredPrefix && !c.requiredPrefix.test(content)) continue;
       const previous = content;
       content = content.replace(urlRegex, (match) => {
         if (replaceTerm(match, c, true) !== match) {
@@ -515,14 +541,14 @@ export class ContentAnonimizer {
     return content;
   }
 
-  anonymize(content: string): string {
+  anonymize(content: string, timeoutMs = 1000): string {
     return runWithAnonymizationDeadline(() => {
       content = this.removeImage(content);
       content = this.removeLink(content);
       content = this.replaceGitHubSelfLinks(content);
       content = this.replaceTerms(content);
       return content;
-    });
+    }, timeoutMs);
   }
 }
 
@@ -561,14 +587,18 @@ function escapeRegex(value: string): string {
 // V8 interrupts even a native RegExp that never returns to JavaScript. A
 // timeout aborts the operation instead of returning partially anonymized text.
 const anonymizationScript = new Script("run()");
-function runWithAnonymizationDeadline(run: () => string): string {
-  return anonymizationScript.runInNewContext({ run }, { timeout: 1000 });
+function runWithAnonymizationDeadline(run: () => string, timeoutMs = 1000): string {
+  return anonymizationScript.runInNewContext({ run }, { timeout: timeoutMs });
 }
 
 function replaceTerm(content: string, term: CompiledTermVariant, asciiContent = false): string {
-  if (term.pattern instanceof RegExp) {
-    return content.replace(term.pattern, () => term.mask);
+  const pattern = term.pattern;
+  if (pattern instanceof RegExp) {
+    // JavaScript-only patterns can backtrack even inside an isolated worker.
+    // Keep their short limit independent of the whole-file processing budget.
+    return runWithAnonymizationDeadline(() => content.replace(pattern, () => term.mask));
   }
+  if (term.requiredPrefix && !term.requiredPrefix.test(content)) return content;
   if (term.literalPrefilter && asciiContent && term.asciiPattern) {
     return content.replace(term.asciiPattern, term.asciiReplacement!);
   }
@@ -616,7 +646,7 @@ function replaceTerm(content: string, term: CompiledTermVariant, asciiContent = 
     return pieces.join("");
   }
 
-  const matcher = term.pattern.matcher(content);
+  const matcher = pattern.matcher(content);
   const pieces: string[] = [];
   let cursor = 0;
   while (matcher.find()) {

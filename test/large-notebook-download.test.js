@@ -160,6 +160,19 @@ describe("large notebook downloads", function () {
       expect(JSON.parse(entries["example.ipynb"].toString()).cells[0].source[0]).to.equal("# XXXX-1's experiment");
     });
 
+    it("completes large safe regex entries and continues to the next ZIP entry", async function () {
+      const payload = "123,456,78.91234,-45.123456\n".repeat(280000);
+      upstream = Readable.from([await zip({ "root/large.csv": `Alice\n${payload}Alice`, "root/after.txt": "Alice" })]);
+      const response = new PassThrough(), output = collect(response);
+      await streamAnonymizedZip({ ...options, anonymizerOptions: {
+        terms: ["Alice", ...Array.from({ length: 8 }, (_, i) => `Researcher${i}[0-9]+`)],
+      } }, response);
+      const entries = await unzip(await output);
+      expect(entries["large.csv"].toString()).to.equal(`XXXX-1\n${payload}XXXX-1`);
+      expect(entries["after.txt"].toString()).to.equal("XXXX-1");
+      expect(response.writableFinished).to.equal(true);
+    });
+
     it("aborts the response when an entry cannot be anonymized", async function () {
       upstream = Readable.from([await zip({ "root/large.txt": "Alice".repeat(1000) })]);
       config.MAX_FILE_SIZE = 100;
