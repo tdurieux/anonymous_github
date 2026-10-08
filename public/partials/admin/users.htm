@@ -77,12 +77,12 @@
         <div class="anon-text">
           <a class="repo-name" v-text="u?.username" :href="safeUrl(&quot;/admin/users/&quot; + (u?.username))"></a>
           <div class="anon-sub">
-            <span v-if="u?.emails[0].email">{{ u?.emails[0].email }}</span><span v-if="u?.emails[0].email">&nbsp;&middot;&nbsp;</span><a target="_blank" :href="safeUrl(&quot;https://github.com/&quot; + (u?.username))"><i class="fab fa-github"></i> {{ u?.username }}</a><span v-if="u?.dateOfEntry">&nbsp;&middot;&nbsp;Joined {{ fmt?.humanTime(u?.dateOfEntry) }}</span>
+            <span v-if="u?.emails?.[0]?.email">{{ u?.emails?.[0]?.email }} &middot; </span><a target="_blank" :href="safeUrl(&quot;https://github.com/&quot; + (u?.username))"><i class="fab fa-github"></i> {{ u?.username }}</a><span v-if="u?.dateOfEntry">&nbsp;&middot;&nbsp;Joined {{ fmt?.humanTime(u?.dateOfEntry) }}</span>
           </div>
         </div>
       </div>
       <div class="cell-views num" role="cell"><svg class="ui-icon mobile-meta-icon" aria-hidden="true"><use href="#project-type-repo"></use></svg>
-        <a title="Show this user&#x27;s repositories" v-text="fmt?.number((u?.repoCount || 0))" :href="safeUrl(&quot;/admin/?owner=&quot; + (u?.username))"></a>
+        <a title="Show this user&#x27;s repositories" v-text="fmt?.number((u?.repoCount || 0))" :href="safeUrl(&quot;/admin/repositories?owner=&quot; + (u?.username))"></a>
       </div>
       <div class="cell-status" role="cell">
         <span class="status-dot" :class="{&#x27;status-ready&#x27;: u?.status == &#x27;active&#x27;, &#x27;status-removed&#x27;: u?.status == &#x27;removed&#x27; || u?.status == &#x27;banned&#x27;}"></span>
@@ -99,7 +99,7 @@
           </button>
           <div class="dropdown-menu dropdown-menu-right">
             <a class="dropdown-item" :href="safeUrl(&quot;/admin/users/&quot; + (u?.username))"><svg class="ui-icon" aria-hidden="true"><use href="#project-icon-eye"></use></svg> View details</a>
-            <a class="dropdown-item" :href="safeUrl(&quot;/admin/?owner=&quot; + (u?.username))"><svg class="ui-icon" aria-hidden="true"><use href="#project-type-repo"></use></svg> View repositories</a>
+            <a class="dropdown-item" :href="safeUrl(&quot;/admin/repositories?owner=&quot; + (u?.username))"><svg class="ui-icon" aria-hidden="true"><use href="#project-type-repo"></use></svg> View repositories</a>
             <div class="dropdown-divider"></div>
             <a class="dropdown-item text-danger" href="#" v-show="u?.status == &#x27;active&#x27;" @click.prevent="banUser(u)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-ban"></use></svg> Ban</a>
             <a class="dropdown-item" href="#" v-show="u?.status == &#x27;removed&#x27; || u?.status == &#x27;banned&#x27;" @click.prevent="activateUser(u)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-check-circle"></use></svg> Activate</a>

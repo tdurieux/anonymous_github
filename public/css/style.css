@@ -6887,6 +6887,128 @@ body {
 .overview-page .ov-panel-foot a { color: var(--link-color); text-decoration: none; }
 .overview-page .ov-panel-foot a:hover { text-decoration: underline; }
 
+.overview-page .ov-performance {
+  min-width: 0;
+  margin: 22px 0;
+}
+.overview-page .ov-performance-head {
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+}
+.overview-page .ov-performance-head h2 { margin: 0 0 4px; }
+.overview-page .ov-performance-note {
+  margin: 0 0 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-muted);
+}
+.overview-page .ov-performance-head .ov-performance-note { margin: 0; }
+.overview-page .ov-performance-window {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.overview-page .ov-performance-window label {
+  margin: 0;
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+.overview-page .ov-performance-window select { width: auto; }
+.overview-page .ov-performance-tabs {
+  margin: 0 0 16px;
+  gap: 4px;
+}
+.overview-page .ov-performance-tabs .paper-tab { white-space: nowrap; }
+.overview-page .ov-metrics-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-control, 8px);
+}
+.overview-page .ov-metrics-table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--color);
+  font-size: 13px;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+.overview-page .ov-metrics-table th,
+.overview-page .ov-metrics-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-color);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.overview-page .ov-metrics-table thead th {
+  background: var(--paper-bg-alt);
+  color: var(--ink-muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+.overview-page .ov-metrics-table .num { text-align: right; }
+.overview-page .ov-metrics-table tr:last-child > * { border-bottom: 0; }
+.overview-page .ov-metrics-table thead tr:last-child > * { border-bottom: 1px solid var(--border-color); }
+.overview-page .ov-metrics-table tbody tr:hover { background: var(--hover-bg-color); }
+.overview-page .ov-metrics-table .ov-metric-name {
+  min-width: 190px;
+  max-width: 280px;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  font-weight: 500;
+}
+.overview-page .ov-metrics-table small {
+  display: block;
+  margin-top: 3px;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--ink-muted);
+}
+.overview-page .ov-metrics-table small .ui-icon { width: 12px; height: 12px; }
+.overview-page .ov-metric-warning-row { background: rgba(196, 138, 46, .07); }
+.overview-page .ov-metric-warn,
+.overview-page .ov-metrics-table small.ov-metric-warn { color: #946519; }
+.dark-mode .overview-page .ov-metric-warn,
+.dark-mode .overview-page .ov-metrics-table small.ov-metric-warn { color: #E8B970; }
+.overview-page .ov-performance-message {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 12px;
+  margin: 0 0 16px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-control, 8px);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.overview-page .ov-performance-message span { flex: 1; min-width: 160px; }
+.overview-page .ov-performance-warning { background: rgba(196, 138, 46, .07); }
+.overview-page .ov-performance-empty {
+  margin: 0;
+  padding: 24px 12px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--ink-muted);
+}
+.overview-page .ov-performance-help {
+  margin-top: 16px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--ink-muted);
+}
+.overview-page .ov-performance-help summary { width: fit-content; cursor: pointer; }
+.overview-page .ov-performance-help p { margin: 8px 0 0; max-width: 80ch; }
+@media (max-width: 575px) {
+  .overview-page .ov-performance { padding: 16px 12px; }
+  .overview-page .ov-performance-window { width: 100%; }
+  .overview-page .ov-performance-window select { flex: 1; min-width: 0; }
+  .overview-page .ov-performance-tabs .paper-tab { flex: 1; padding: 10px 8px; }
+}
+
 /* Stacked horizontal bar (repo status) */
 .overview-page .ov-stacked-bar {
   display: flex;

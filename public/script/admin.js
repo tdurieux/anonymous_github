@@ -1736,6 +1736,7 @@ export const overviewAdminController = function (state, http, location, interval
       state.error = null;
       state.performance = null;
       state.performanceMinutes = 15;
+      state.performanceTab = "routes";
       state.performanceError = null;
       state.latencyBound = function (row, field) {
         if (!row.count) return "No samples";
