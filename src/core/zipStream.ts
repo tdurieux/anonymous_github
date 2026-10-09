@@ -13,6 +13,7 @@ import {
 } from "./anonymize-utils";
 import { createLogger, serializeError } from "./logger";
 import { startStage } from "./request-monitoring";
+import { zipEntryOptions } from "./archive-entry";
 
 const logger = createLogger("zip-stream");
 
@@ -222,7 +223,7 @@ export async function streamAnonymizedZip(
           activeStreams.add(anonymizer);
           anonymizer.once("close", () => activeStreams.delete(anonymizer));
           const st = entry.pipe(anonymizer);
-          archive.append(st, { name: fileName });
+          archive.append(st, zipEntryOptions(fileName, entry.path));
         } catch (error) {
           fail(error as Error);
         }

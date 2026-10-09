@@ -320,7 +320,10 @@ export function serializeError(err: unknown): Record<string, unknown> {
 
   // AnonymousError carries an httpStatus and an inner cause.
   if (typeof e.httpStatus === "number") out.httpStatus = e.httpStatus;
-  if (e.code !== undefined && e.code !== e.message) out.code = e.code;
+  // Octokit's deprecated `code` getter emits a stack on every read. Only
+  // inspect data properties so logging never invokes that getter.
+  const code = Object.getOwnPropertyDescriptor(e, "code")?.value;
+  if (code !== undefined && code !== e.message) out.code = code;
   if (typeof e.url === "function") {
     try {
       const u = e.url();

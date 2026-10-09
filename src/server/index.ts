@@ -39,6 +39,7 @@ import config from "../config";
 import { resolveTrustProxy } from "./trustProxy";
 import { requestRateLimitKey } from "./rate-limit-key";
 import { createLogger, serializeError } from "../core/logger";
+import { serverOptions } from "./server-options";
 import { monitorRequests } from "../core/request-monitoring";
 import { startPerformanceMonitoring } from "../core/performance-monitoring";
 import { getAnonymizationPoolStats } from "../core/anonymization-pool";
@@ -113,6 +114,7 @@ function indexResponse(req: express.Request, res: express.Response) {
 export default async function start() {
   const app = express();
   app.use(monitorRequests("api"));
+  app.use(serverOptions);
   startPerformanceMonitoring("api", getAnonymizationPoolStats);
   app.set("query parser", "extended");
   app.use("/service", createReviewCapabilities(process.env.REVIEW_SERVICE_KEYS));

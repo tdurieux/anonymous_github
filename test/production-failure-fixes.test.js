@@ -72,6 +72,7 @@ describe("production failure fixes", function () {
     now = 30; expect(cache.get("b")).to.equal(undefined); expect(cache.get("c")).to.equal(undefined);
   });
   it("caches confirmed file misses by credential and commit, without caching permission failures", async () => {
+    stub(require("../src/core/source/github-content-miss"), "classifyContentMiss", async () => "file_not_found");
     let token = "credential-a", attempts = 0, now = Date.now();
     stub(Date, "now", () => now);
     stub(storage, "fileInfo", async () => { throw Object.assign(Error("missing"), { code: "ENOENT" }); });

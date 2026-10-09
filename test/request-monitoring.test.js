@@ -95,6 +95,19 @@ describe("bounded request monitoring", function () {
     expect(metrics.drain().find(row => row.data.metric === "request").data.bytes).to.equal(0);
   });
 
+  it("reports time after headers and delivery rate without conflating them with startup time", async function () {
+    app.get("/api/repo/:repoId/file/*path", async (_req, res) => {
+      await delay(30); res.flushHeaders(); await delay(40); res.end(Buffer.alloc(4096));
+    });
+    await listen();
+    await fetch(server, "/api/repo/test/file/asset.mp4");
+    const detail = logs[0][1];
+    expect(detail.firstByteMs).to.be.at.least(20);
+    expect(detail.responseMs).to.be.at.least(30);
+    expect(detail.ms).to.be.closeTo(detail.firstByteMs + detail.responseMs, 1);
+    expect(detail.bytesPerSecond).to.be.closeTo(detail.bytes * 1000 / detail.responseMs, detail.bytes * 1000 / detail.responseMs * .05);
+  });
+
   for (const headersSent of [false, true]) {
     it(`records a disconnect ${headersSent ? "after" : "before"} headers exactly once`, async function () {
       let arrived; const ready = new Promise(resolve => { arrived = resolve; });
@@ -107,7 +120,11 @@ describe("bounded request monitoring", function () {
       expect(logs[0][1].outcome).to.equal("interrupted");
       const row = metrics.drain().find(row => row.data.metric === "request").data;
       expect(row.count).to.equal(1); expect(row.aborted).to.equal(1); expect(activeRequestCount()).to.equal(0);
-      if (!headersSent) expect(logs[0][1].firstByteMs).to.equal(null);
+      if (!headersSent) {
+        expect(logs[0][1].firstByteMs).to.equal(null);
+        expect(logs[0][1].responseMs).to.equal(null);
+        expect(logs[0][1].bytesPerSecond).to.equal(null);
+      }
     });
   }
 
