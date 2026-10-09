@@ -225,7 +225,7 @@ export default class Repository {
       const streamed = this.model.source.type !== "Zip";
       const source = this.source;
       const files = await source.getFiles(opt.progress).catch(error => {
-        void notifyOwnerAccessProblem(this.owner.id, error);
+        void notifyOwnerAccessProblem(this.owner.id, error, { kind: "repository", id: String(this.model._id) });
         throw error;
       });
       const sourceWithTruncation = source as unknown as { truncatedFolderList?: string[] };
@@ -630,7 +630,7 @@ export default class Repository {
   async updateIfNeeded(opt?: { force: boolean }): Promise<void> {
     try { await this.refreshIfNeeded(opt); }
     catch (error) {
-      void notifyOwnerAccessProblem(this.owner.id, error);
+      void notifyOwnerAccessProblem(this.owner.id, error, { kind: "repository", id: String(this.model._id) });
       throw error;
     }
   }

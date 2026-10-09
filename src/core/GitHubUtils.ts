@@ -263,7 +263,7 @@ export function octokit(token: string) {
 
 export { waitForTokenGate };
 
-export async function checkToken(token: string, ownerId?: string) {
+export async function checkToken(token: string) {
   const oct = octokit(token);
   try {
     const context = githubTokenContext(token);
@@ -275,7 +275,6 @@ export async function checkToken(token: string, ownerId?: string) {
     // Only a confirmed invalid credential permits fallback. Network failures,
     // permission failures and rate limits must retain their original meaning.
     if ((err as { status?: number })?.status !== 401) throw err;
-    if (ownerId) void notifyOwnerAccessProblem(ownerId, "token_expired");
     return false;
   }
 }
@@ -286,7 +285,7 @@ export async function getToken(repository: Repository) {
   try {
     return await measureStage("authorization", () => resolveRepositoryToken(repository));
   } catch (error) {
-    void notifyOwnerAccessProblem(repository.owner.id, error);
+    void notifyOwnerAccessProblem(repository.owner.id, error, { kind: "repository", id: String(repository.model._id) });
     throw error;
   }
 }
@@ -321,11 +320,12 @@ async function resolveRepositoryToken(repository: Repository) {
         return refreshed;
       }
     }
-    const check = await checkToken(ownerAccessToken, repository.owner.id);
+    const check = await checkToken(ownerAccessToken);
     if (check) {
       checkedRepositoryTokens.set(repository, ownerAccessToken);
       return ownerAccessToken;
     }
+    void notifyOwnerAccessProblem(repository.owner.id, "token_expired", { kind: "repository", id: String(repository.model._id) });
     return config.GITHUB_TOKEN;
   }
   return (await getCredentialToken(repository.owner.id, "github", {

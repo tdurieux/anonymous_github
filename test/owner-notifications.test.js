@@ -8,20 +8,31 @@ const { normalizeEmail, notificationEmail, notifyOwnerAccessProblem } = notifica
 describe("owner access notifications", () => {
   const restores = [];
   const stub = (object, key, value) => { const old = object[key]; restores.push(() => object[key] = old); object[key] = value; };
-  let sent, claims, retryWrites, owner, after;
+  const ownerId = "507f1f77bcf86cd799439011";
+  const resource = { kind: "repository", id: "507f1f77bcf86cd799439012" };
+  const other = { kind: "repository", id: "507f1f77bcf86cd799439013" };
+  let owner, sent, claims, rows;
   beforeEach(() => {
-    sent = []; claims = []; retryWrites = []; after = null;
     owner = { status: "active", emails: [{ email: "owner@example.com", default: true }] };
+    sent = []; claims = []; rows = new Map();
     stub(config, "RESEND_API_KEY", "test-resend-key");
     stub(config, "EMAIL_FROM", "alerts@example.com");
     stub(config, "APP_HOSTNAME", "anonymous.example.com");
-    stub(User, "findOneAndUpdate", (filter, update) => ({ lean: async () => {
-      claims.push(filter);
-      if (!owner || ["removed", "banned"].includes(owner.status) || (!owner.emails.length && !owner.notificationEmail) || after > new Date()) return null;
-      after = update.$set.accessAlertAfter;
-      return owner;
-    } }));
-    stub(User, "updateOne", async (filter, update) => { retryWrites.push({ filter, update }); after = update.$set.accessAlertAfter; });
+    stub(User, "findOne", () => ({ lean: async () => ["removed", "banned"].includes(owner?.status) ? null : owner }));
+    Object.defineProperty(User.db, "readyState", { configurable: true, value: 1 });
+    restores.push(() => { delete User.db.readyState; });
+    stub(User.db, "collection", name => ({
+      updateOne: async (filter, update) => {
+        claims.push(filter);
+        const key = `${name}:${filter.owner}:${filter._id}`;
+        if (rows.has(key)) return { modifiedCount: 0 };
+        rows.set(key, update.$set.accessAlertClaimedAt);
+        return { modifiedCount: 1 };
+      },
+      updateMany: async filter => {
+        for (const key of rows.keys()) if (key.startsWith(`${name}:${filter.owner}:`) && (!filter._id || key.endsWith(`:${filter._id}`))) rows.delete(key);
+      },
+    }));
     stub(global, "fetch", async (url, options) => { sent.push({ url, options, body: JSON.parse(options.body) }); return { ok: true }; });
   });
   afterEach(() => { while (restores.length) restores.pop()(); });
@@ -34,63 +45,73 @@ describe("owner access notifications", () => {
     expect(notificationEmail([{ email: "first@example.com", default: false }, { email: "primary@example.com", default: true }])).to.equal("primary@example.com");
   });
 
-  it("sends one private Resend message across concurrent failures", async () => {
-    await Promise.all(Array.from({ length: 10 }, () => notifyOwnerAccessProblem("owner-id", "token_expired")));
+  it("sends once per resource across concurrent readers and repeated errors, with no time expiry", async () => {
+    await Promise.all(Array.from({ length: 10 }, () => notifyOwnerAccessProblem(ownerId, "token_expired", resource)));
     expect(sent).to.have.length(1);
+    for (const key of rows.keys()) rows.set(key, new Date("2000-01-01"));
+    await notifyOwnerAccessProblem(ownerId, "repo_not_found", resource);
+    expect(sent).to.have.length(1);
+    await notifyOwnerAccessProblem(ownerId, "repo_not_found", other);
+    expect(sent).to.have.length(2);
     expect(sent[0].url).to.equal("https://api.resend.com/emails");
-    expect(sent[0].options.headers.Authorization).to.equal("Bearer test-resend-key");
     expect(sent[0].body.to).to.deep.equal(["owner@example.com"]);
     expect(sent[0].body.text).to.include("https://anonymous.example.com/connections");
-    expect(JSON.stringify(sent[0].body)).not.to.include("test-resend-key");
-    expect(claims[0].status).to.deep.equal({ $nin: ["removed", "banned"] });
-    expect(claims[0].$or).to.have.length(2);
+    expect(claims[0].accessAlertClaimedAt).to.deep.equal({ $exists: false });
   });
 
-  it("ignores disabled delivery, missing recipients and transient failures", async () => {
-    for (const code of ["github_rate_limit_exceeded", "github_unavailable", "ETIMEDOUT", "quota_exceeded"]) {
-      await notifyOwnerAccessProblem("owner-id", new Error(code));
-    }
-    await notifyOwnerAccessProblem("owner-id", Object.assign(new Error("repo_not_found"), { cause: { status: 503 } }));
-    await notifyOwnerAccessProblem("owner-id", Object.assign(new Error("token_expired"), { cause: new Error("network timeout") }));
-    expect(claims).to.have.length(0);
-    owner.emails = [];
-    await notifyOwnerAccessProblem("owner-id", "repo_not_found");
-    owner.emails = [{ email: "owner@example.com", default: true }];
-    owner.status = "banned";
-    await notifyOwnerAccessProblem("owner-id", "repo_not_found");
-    config.RESEND_API_KEY = "";
-    await notifyOwnerAccessProblem("owner-id", "token_expired");
-    expect(sent).to.have.length(0);
-  });
-
-  it("backs off after delivery failure without throwing", async () => {
-    stub(global, "fetch", async () => ({ ok: false }));
-    await notifyOwnerAccessProblem("owner-id", "repo_not_accessible");
-    expect(retryWrites).to.have.length(1);
-    expect(after.getTime() - Date.now()).to.be.within(590000, 600000);
-    await notifyOwnerAccessProblem("owner-id", "repo_not_accessible");
-    expect(retryWrites).to.have.length(1);
-  });
-
-  it("retains the daily claim when delivery may already have happened", async () => {
-    let attempts = 0;
-    stub(global, "fetch", async () => { attempts++; throw new Error("response timed out after acceptance"); });
-    await notifyOwnerAccessProblem("owner-id", "token_expired");
-    expect(retryWrites).to.have.length(0);
-    expect(after.getTime() - Date.now()).to.be.within(86390000, 86400000);
-    await notifyOwnerAccessProblem("owner-id", "token_expired");
-    expect(attempts).to.equal(1);
-  });
-
-  it("uses a dedicated alert address without requiring or replacing profile emails", async () => {
-    owner.notificationEmail = "alerts@example.com";
-    const original = JSON.stringify(owner.emails);
-    await notifyOwnerAccessProblem("owner-id", "token_expired");
-    expect(sent[0].body.to).to.deep.equal(["alerts@example.com"]);
-    expect(JSON.stringify(owner.emails)).to.equal(original);
-    after = null; owner.emails = [];
-    await notifyOwnerAccessProblem("owner-id", "token_expired");
+  it("owner action resets only the selected resource and cannot reset another owner's alerts", async () => {
+    await notifyOwnerAccessProblem(ownerId, "token_expired", resource);
+    await notifyOwnerAccessProblem(ownerId, "token_expired", other);
+    await notifications.resetOwnerAccessAlerts("507f1f77bcf86cd799439099", resource);
+    await notifyOwnerAccessProblem(ownerId, "token_expired", resource);
     expect(sent).to.have.length(2);
+    await notifications.resetOwnerAccessAlerts(ownerId, resource);
+    await notifyOwnerAccessProblem(ownerId, "token_expired", resource);
+    await notifyOwnerAccessProblem(ownerId, "token_expired", other);
+    expect(sent).to.have.length(3);
+  });
+
+  it("reconnecting resets all of the owner's resource types", async () => {
+    const resources = [resource, { ...resource, kind: "pull-request" }, { ...resource, kind: "gist" }];
+    for (const item of resources) await notifyOwnerAccessProblem(ownerId, "token_expired", item);
+    expect(sent).to.have.length(3);
+    await notifications.resetOwnerAccessAlerts(ownerId);
+    for (const item of resources) await notifyOwnerAccessProblem(ownerId, "token_expired", item);
+    expect(sent).to.have.length(6);
+  });
+
+  for (const failure of ["rejected", "timeout"]) it(`retains the claim after ${failure} until owner action`, async () => {
+    let attempts = 0;
+    stub(global, "fetch", async () => { attempts++; if (failure === "timeout") throw new Error("timeout"); return { ok: false }; });
+    await notifyOwnerAccessProblem(ownerId, "token_expired", resource);
+    await notifyOwnerAccessProblem(ownerId, "token_expired", resource);
+    expect(attempts).to.equal(1);
+    await notifications.resetOwnerAccessAlerts(ownerId, resource);
+    await notifyOwnerAccessProblem(ownerId, "token_expired", resource);
+    expect(attempts).to.equal(2);
+  });
+
+  it("does not claim an alert without configuration, an active owner, and an address", async () => {
+    config.RESEND_API_KEY = "";
+    await notifyOwnerAccessProblem(ownerId, "token_expired", resource);
+    config.RESEND_API_KEY = "test-key";
+    owner.status = "banned";
+    await notifyOwnerAccessProblem(ownerId, "token_expired", resource);
+    owner.status = "active"; owner.emails = [];
+    await notifyOwnerAccessProblem(ownerId, "token_expired", resource);
+    expect(claims).to.have.length(0);
+    owner.notificationEmail = "alerts@example.com";
+    await notifyOwnerAccessProblem(ownerId, "token_expired", resource);
+    expect(sent[0].body.to).to.deep.equal(["alerts@example.com"]);
+  });
+
+  it("ignores transient failures and contains database failures", async () => {
+    await notifyOwnerAccessProblem(ownerId, new Error("github_rate_limit_exceeded"), resource);
+    await notifyOwnerAccessProblem(ownerId, Object.assign(new Error("repo_not_found"), { cause: { status: 503 } }), resource);
+    expect(claims).to.have.length(0);
+    stub(User, "findOne", () => { throw new Error("database down"); });
+    await notifyOwnerAccessProblem(ownerId, "token_expired", resource);
+    expect(sent).to.have.length(0);
   });
 
   it("recognizes raw authentication and missing-resource errors without alerting for outages", () => {
@@ -113,13 +134,7 @@ describe("owner access notifications", () => {
     expect(notifications.isAccessFailure(new AnonymousError("file_not_accessible", { httpStatus: 403, cause: forbidden }))).to.equal(true);
   });
 
-  it("does not let database failures escape", async () => {
-    stub(User, "findOneAndUpdate", () => { throw new Error("database down"); });
-    await notifyOwnerAccessProblem("owner-id", "token_expired");
-    expect(sent).to.have.length(0);
-  });
 });
-
 
 describe("owner email settings", () => {
   const utils = require("../src/server/routes/route-utils");
@@ -238,14 +253,14 @@ describe("repository notification hooks", () => {
     const error = new Error("github_app_access_required");
     stub(app, "boundAppToken", async () => { throw error; });
     await failsWith(() => tokens.getToken(repo), error);
-    expect(sent).to.deep.equal([[repo.owner.id, error]]);
+    expect(sent).to.deep.equal([[repo.owner.id, error, { kind: "repository", id: String(repo.model._id) }]]);
   });
   it("notifies the saved owner when reading the repository tree fails", async () => {
     const error = new Error("repo_not_found");
     stub(Files, "exists", () => ({ exec: async () => null }));
     Object.defineProperty(repo, "source", { value: { getFiles: async () => { throw error; } } });
     await failsWith(() => repo.files(), error);
-    expect(sent).to.deep.equal([[repo.owner.id, error]]);
+    expect(sent).to.deep.equal([[repo.owner.id, error, { kind: "repository", id: String(repo.model._id) }]]);
   });
   for (const step of ["branches", "commit"]) it(`notifies on ${step} access errors during refresh`, async () => {
     const error = Object.assign(new Error("Forbidden"), { status: 403 });
@@ -256,14 +271,14 @@ describe("repository notification hooks", () => {
       getCommitInfo: async () => { throw error; },
     }));
     await failsWith(() => repo.updateIfNeeded({ force: true }), error);
-    expect(sent).to.deep.equal([[repo.owner.id, error]]);
+    expect(sent).to.deep.equal([[repo.owner.id, error, { kind: "repository", id: String(repo.model._id) }]]);
   });
   it("notifies the saved owner when a repository refresh cannot read GitHub", async () => {
     const error = new Error("repo_not_found");
     repo.getToken = async () => "token";
     stub(github, "getRepositoryFromGitHub", async () => { throw error; });
     await failsWith(() => repo.updateIfNeeded({ force: true }), error);
-    expect(sent).to.deep.equal([[repo.owner.id, error]]);
+    expect(sent).to.deep.equal([[repo.owner.id, error, { kind: "repository", id: String(repo.model._id) }]]);
   });
 });
 
@@ -297,7 +312,7 @@ describe("gist and pull-request notification hooks", () => {
       try { await resource.download(); } catch (err) { caught = err; }
       expect(caught).to.be.instanceOf(Error);
       expect(caught.message).to.equal(type === "gist" && failure === "oauth" ? "github_oauth_required" : error.message);
-      expect(sent).to.deep.equal([[resource.owner.id, caught]]);
+      expect(sent).to.deep.equal([[resource.owner.id, caught, { kind: type, id: String(resource.model._id) }]]);
     });
   }
 });

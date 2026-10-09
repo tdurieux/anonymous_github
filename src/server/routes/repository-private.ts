@@ -1,3 +1,4 @@
+import { resetOwnerAccessAlerts } from "../../core/owner-notifications";
 import { randomUUID } from "crypto";
 import { githubQuotaKey } from "../../core/github-token-context";
 import { selectRepositoryAccess, boundAppToken, appError } from "../../core/github-app";
@@ -146,6 +147,7 @@ router.post(
         throw new AnonymousError("invalid_status", { httpStatus: 409 });
       }
 
+      if (user.id === repo.owner.id) await resetOwnerAccessAlerts(user.id, { kind: "repository", id: String(repo.model._id) });
       await repo.refresh();
       res.json({ status: repo.status });
     } catch (error) {
@@ -621,6 +623,7 @@ router.post(
         }
       ).exec();
       if (!saved.matchedCount) throw appError("connection_changed", 409);
+      if (user.id === repo.owner.id) await resetOwnerAccessAlerts(user.id, { kind: "repository", id: String(repo.model._id) });
       if (!sourceChanged && !reactivating) {
         return res.json({ status: repo.status });
       }

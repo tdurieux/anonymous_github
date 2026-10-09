@@ -143,7 +143,7 @@ export default async function (job: SandboxedJob<RepoJobData, void>) {
     if (error instanceof DelayedError || (error instanceof Error && error.name === "DelayedError")) {
       throw error;
     }
-    await notifyOwnerAccessProblem(repo.owner.id, error);
+    await notifyOwnerAccessProblem(repo.owner.id, error, { kind: "repository", id: String(repo.model._id) });
     logger.error("finished with error", {
       ...serializeError(error),
       repoId: job.data.repoId,

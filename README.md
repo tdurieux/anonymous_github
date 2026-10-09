@@ -110,11 +110,12 @@ Alerts cover invalid GitHub credentials and repository access errors encountered
 while reading or refreshing content. No periodic access scan is performed.
 Emails contain no repository names, anonymous URLs, or credentials.
 
-An atomic database claim limits alerts to one per owner every 24 hours across
-workers and repositories. Sending is best effort: delivery failures do not block
-repository requests. A definite provider rejection allows a later access error
-to retry after ten minutes; ambiguous timeouts retain the daily limit.
-A process interrupted after claiming an alert may skip that day's email.
+An atomic database claim allows one email attempt per repository, pull request,
+or gist until its owner explicitly refreshes it, saves its settings or connection,
+or reconnects GitHub. Reconnecting GitHub resets alerts for that owner's resources.
+Viewing content, scheduled updates, and automatic token renewal never reset alerts.
+There is no daily reminder. Claims also remain after delivery failures or an
+interrupted process, avoiding duplicate messages until the owner acts.
 Leaving either Resend setting empty disables delivery and the email prompt.
 
 ## Scope of anonymization

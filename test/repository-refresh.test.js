@@ -50,6 +50,22 @@ describe("repository refresh and restoration", () => {
     expect(failure.httpStatus).to.equal(403);
   });
 
+  for (const actingOwner of [true, false]) {
+    it(`${actingOwner ? "rearms" : "does not rearm"} alerts when ${actingOwner ? "the owner" : "an admin"} refreshes`, async () => {
+      const repo = repository("ready");
+      const notifications = require("../src/core/owner-notifications");
+      const resets = [];
+      stub(notifications, "resetOwnerAccessAlerts", async (...args) => { resets.push(args); });
+      const id = actingOwner ? repo.owner.id : "admin";
+      stub(utils, "getUser", async () => ({ id, model: { id }, isAdmin: !actingOwner }));
+      repo.refresh = async () => {
+        expect(resets).to.have.length(actingOwner ? 1 : 0);
+      };
+      await refresh({}, { json: () => {} });
+      expect(resets).to.deep.equal(actingOwner ? [[repo.owner.id, { kind: "repository", id: String(repo.model._id) }]] : []);
+    });
+  }
+
   for (const commit of ["saved-sha", "new-sha"]) {
     it(`rebuilds a removed repository at ${commit} while preserving its ID`, async () => {
       const repo = repository("removed");

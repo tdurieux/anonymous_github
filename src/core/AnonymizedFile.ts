@@ -271,7 +271,7 @@ export default class AnonymizedFile {
     };
     if (typeof source.fetchFileInfoFromPath !== "function") return null;
     const recovered = await source.fetchFileInfoFromPath(this.anonymizedPath).catch(error => {
-      void notifyOwnerAccessProblem(this.repository.owner.id, error);
+      void notifyOwnerAccessProblem(this.repository.owner.id, error, { kind: "repository", id: String(this.repository.model._id) });
       throw error;
     });
     if (!recovered) return null;
@@ -360,10 +360,10 @@ export default class AnonymizedFile {
       });
     }
     const content = await this.repository.source?.getFileContent(this).catch(error => {
-      void notifyOwnerAccessProblem(this.repository.owner.id, error);
+      void notifyOwnerAccessProblem(this.repository.owner.id, error, { kind: "repository", id: String(this.repository.model._id) });
       throw error;
     });
-    content.on("error", error => { void notifyOwnerAccessProblem(this.repository.owner.id, error); });
+    content.on("error", error => { void notifyOwnerAccessProblem(this.repository.owner.id, error, { kind: "repository", id: String(this.repository.model._id) }); });
     const cacheWasReset = this.repository.model.isReseted;
     if (cacheWasReset) {
       await this.repository.markCachePresent();
@@ -405,7 +405,7 @@ export default class AnonymizedFile {
     });
     content.on("error", err => {
       const { error } = streamerErrorToAnonymous(err, { repoId: this.repository.repoId, filePath: this.anonymizedPath });
-      void notifyOwnerAccessProblem(this.repository.owner.id, error);
+      void notifyOwnerAccessProblem(this.repository.owner.id, error, { kind: "repository", id: String(this.repository.model._id) });
     });
     return content;
   }
@@ -485,7 +485,7 @@ export default class AnonymizedFile {
                   filePath: this.anonymizedPath,
                 }
               );
-              void notifyOwnerAccessProblem(this.repository.owner.id, error);
+              void notifyOwnerAccessProblem(this.repository.owner.id, error, { kind: "repository", id: String(this.repository.model._id) });
               error.value = this;
               handleError(error, res);
               if (res.headersSent && !res.writableEnded) res.destroy();

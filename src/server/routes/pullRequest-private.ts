@@ -1,3 +1,4 @@
+import { resetOwnerAccessAlerts } from "../../core/owner-notifications";
 import { selectRepositoryAccess } from "../../core/github-app";
 import * as express from "express";
 import { ensureAuthenticated } from "./connection";
@@ -30,6 +31,7 @@ router.post(
 
       const user = await getUser(req);
       isOwnerOrAdmin([pullRequest.owner.id], user);
+      if (user.id === pullRequest.owner.id) await resetOwnerAccessAlerts(user.id, { kind: "pull-request", id: String(pullRequest.model._id) });
       await pullRequest.updateIfNeeded({ force: true });
       res.json({ status: pullRequest.status });
     } catch (error) {
@@ -71,6 +73,7 @@ router.post(
         { $set: { "options.expirationDate": newExpiration } }
       ).exec();
 
+      if (user.id === pullRequest.owner.id) await resetOwnerAccessAlerts(user.id, { kind: "pull-request", id: String(pullRequest.model._id) });
       await pullRequest.updateIfNeeded({ force: true });
       res.json({ status: pullRequest.status, expirationDate: newExpiration });
     } catch (error) {
@@ -242,6 +245,7 @@ router.post(
         }
       ).exec();
       await pullRequest.updateStatus(RepositoryStatus.PREPARING);
+      if (user.id === pullRequest.owner.id) await resetOwnerAccessAlerts(user.id, { kind: "pull-request", id: String(pullRequest.model._id) });
       await pullRequest.updateIfNeeded({ force: true });
       res.json({ ...pullRequest.toJSON(), connection: pullRequest.model.githubAccess?.kind || "oauth" });
     } catch (error) {

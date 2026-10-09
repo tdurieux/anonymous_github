@@ -1,3 +1,4 @@
+import { resetOwnerAccessAlerts } from "../../core/owner-notifications";
 import { createClient } from "redis";
 import * as passport from "passport";
 import * as session from "express-session";
@@ -120,6 +121,7 @@ export const verify = async (
       return;
     }
     await setCredential(String(user!._id), accessToken);
+    await resetOwnerAccessAlerts(String(user!._id));
     done(null, { username: user!.username, user });
   } catch (error) {
     logger.error("verify failed", serializeError(error));
