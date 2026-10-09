@@ -247,6 +247,17 @@ describe("repository notification hooks", () => {
     await failsWith(() => repo.files(), error);
     expect(sent).to.deep.equal([[repo.owner.id, error]]);
   });
+  for (const step of ["branches", "commit"]) it(`notifies on ${step} access errors during refresh`, async () => {
+    const error = Object.assign(new Error("Forbidden"), { status: 403 });
+    repo.getToken = async () => "token";
+    stub(github, "getRepositoryFromGitHub", async () => ({
+      fullName: repo.model.source.repositoryName, model: { defaultBranch: "main" },
+      branches: async () => { if (step === "branches") throw error; return [{ name: "main", commit: "new-sha" }]; },
+      getCommitInfo: async () => { throw error; },
+    }));
+    await failsWith(() => repo.updateIfNeeded({ force: true }), error);
+    expect(sent).to.deep.equal([[repo.owner.id, error]]);
+  });
   it("notifies the saved owner when a repository refresh cannot read GitHub", async () => {
     const error = new Error("repo_not_found");
     repo.getToken = async () => "token";
@@ -348,5 +359,69 @@ describe("token validation preserves upstream failures", () => {
     const token = "test-token-check-invalid";
     registerGitHubToken(token, { quotaKey: token, publicRepository: "owner/repo", renew: async () => { throw Object.assign(new Error("Bad credentials"), { status: 401 }); } });
     expect(await tokens.checkToken(token)).to.equal(false);
+  });
+});
+
+describe("repository probes and truncated file recovery", () => {
+  const github = require("../src/core/GitHubUtils");
+  const db = require("../src/server/database");
+  const Model = require("../src/core/model/repositories/repositories.model").default;
+  const Files = require("../src/core/model/files/files.model").default;
+  const File = require("../src/core/AnonymizedFile").default;
+  const GitHubStream = require("../src/core/source/GitHubStream").default;
+  const { classifyGitHubMissError } = require("../src/core/source/GitHubBase");
+  const restores = [];
+  const stub = (object, key, value) => { const old = object[key]; restores.push(() => object[key] = old); object[key] = value; };
+  const source = { getToken: async () => "probe-test", repoId: "anon", organization: "owner", repoName: "repo", commit: "sha" };
+  const missing = () => Object.assign(new Error("Not found"), { status: 404 });
+  afterEach(() => { while (restores.length) restores.pop()(); });
+  for (const stage of ["name", "id"]) for (const status of [undefined, 429, 503]) {
+    it(`propagates inconclusive ${stage} probe ${status}`, async () => {
+      const error = Object.assign(new Error("probe failed"), { status });
+      stub(db, "isConnected", true);
+      stub(Model, "findOne", async () => ({ name: "owner/repo", externalId: "gh_123" }));
+      stub(github, "octokit", () => ({ repos: { get: async () => { throw stage === "name" ? error : missing(); } }, request: async () => { throw error; } }));
+      let caught;
+      try { await classifyGitHubMissError(missing(), source); } catch (err) { caught = err; }
+      expect(caught).to.equal(error);
+      expect(notifications.isAccessFailure(caught)).to.equal(false);
+    });
+  }
+  it("preserves an inconclusive repository probe during commit refresh", async () => {
+    const { GitHubRepository } = require("../src/core/source/GitHubRepository");
+    const error = Object.assign(new Error("probe unavailable"), { status: 503 });
+    stub(github, "octokit", () => ({ repos: {
+      getCommit: async () => { throw missing(); }, get: async () => { throw error; },
+    } }));
+    let caught;
+    try { await new GitHubRepository({ name: "owner/repo" }).getCommitInfo("sha", { accessToken: "token" }); } catch (err) { caught = err; }
+    expect(caught).to.equal(error);
+    expect(notifications.isAccessFailure(caught)).to.equal(false);
+  });
+  for (const status of [403, 503]) it(`preserves truncated recovery error ${status} before file content is read`, async () => {
+    const error = Object.assign(new Error("contents lookup failed"), { status });
+    stub(github, "octokit", () => ({ repos: { getContent: async () => { throw error; } } }));
+    stub(Files, "findOne", async () => null);
+    const sent = [];
+    stub(notifications, "notifyOwnerAccessProblem", async (owner, err) => { if (notifications.isAccessFailure(err)) sent.push(owner); });
+    const file = new File({ anonymizedPath: "large/missing.txt", repository: {
+      owner: { id: "saved-owner" }, repoId: "anon", options: { terms: [] },
+      model: { truncatedFolders: ["large"] }, source: new GitHubStream(source),
+    } });
+    let caught;
+    try { await file.originalPath(); } catch (err) { caught = err; }
+    expect(caught).to.equal(error);
+    expect(sent).to.deep.equal(status === 403 ? ["saved-owner"] : []);
+  });
+  for (const repoMissing of [false, true]) it(`distinguishes a missing truncated file from lost repository access: ${repoMissing}`, async () => {
+    stub(db, "isConnected", false);
+    stub(github, "octokit", () => ({ repos: {
+      getContent: async () => { throw missing(); },
+      get: async () => { if (repoMissing) throw missing(); return {}; },
+    } }));
+    let result, caught;
+    try { result = await new GitHubStream(source).fetchFileInfoFromPath("large/missing.txt"); } catch (err) { caught = err; }
+    if (repoMissing) expect(caught.message).to.equal("repo_not_found");
+    else { expect(caught).to.equal(undefined); expect(result).to.equal(null); }
   });
 });

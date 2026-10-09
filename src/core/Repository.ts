@@ -628,6 +628,14 @@ export default class Repository {
 
   /** Update the repository if a new commit exists. */
   async updateIfNeeded(opt?: { force: boolean }): Promise<void> {
+    try { await this.refreshIfNeeded(opt); }
+    catch (error) {
+      void notifyOwnerAccessProblem(this.owner.id, error);
+      throw error;
+    }
+  }
+
+  private async refreshIfNeeded(opt?: { force: boolean }): Promise<void> {
     this.assertNotArchived();
     if (
       this._model.options.expirationMode !== "never" &&
@@ -658,9 +666,6 @@ export default class Repository {
           repo: this.source.data.repoName,
           repositoryID: this.model.source.repositoryId,
           force: true,
-        }).catch(error => {
-          void notifyOwnerAccessProblem(this.owner.id, error);
-          throw error;
         });
 
         // update the repository name if it has changed. Persist it

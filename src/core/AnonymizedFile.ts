@@ -270,7 +270,10 @@ export default class AnonymizedFile {
       fetchFileInfoFromPath?: (filePath: string) => Promise<IFile | null>;
     };
     if (typeof source.fetchFileInfoFromPath !== "function") return null;
-    const recovered = await source.fetchFileInfoFromPath(this.anonymizedPath);
+    const recovered = await source.fetchFileInfoFromPath(this.anonymizedPath).catch(error => {
+      void notifyOwnerAccessProblem(this.repository.owner.id, error);
+      throw error;
+    });
     if (!recovered) return null;
     recovered.repoId = this.repository.repoId;
     recovered.treeGeneration = this.repository.model.treeGeneration;
