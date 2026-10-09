@@ -1,4 +1,5 @@
 import { resetOwnerAccessAlerts } from "../../core/owner-notifications";
+import { saveRegistrationEmail } from "../../core/registration-email";
 import { createClient } from "redis";
 import * as passport from "passport";
 import * as session from "express-session";
@@ -100,12 +101,9 @@ export const verify = async (
           externalIDs: {
             github: profile.id,
           },
-          emails: profile.emails?.map((email) => {
-            return { email: email.value, default: false };
-          }),
+          emails: [],
           photo,
         });
-        if (user.emails?.length) user.emails[0].default = true;
         await user.save();
       }
     }
@@ -121,6 +119,7 @@ export const verify = async (
       return;
     }
     await setCredential(String(user!._id), accessToken);
+    await saveRegistrationEmail(user!, accessToken);
     await resetOwnerAccessAlerts(String(user!._id));
     done(null, { username: user!.username, user });
   } catch (error) {
@@ -208,7 +207,7 @@ router.get(
       returnTo: safeAuthReturnTo(req.query.returnTo, current ? "/connections" : "/dashboard"), expires: Date.now() + 10 * 60000 };
     next();
   },
-  passport.authenticate("github", { scope: ["repo"] }), // Note the scope here
+  passport.authenticate("github", { scope: ["repo", "user:email"] }),
   function (req: express.Request, res: express.Response) {
     res.redirect("/");
   }

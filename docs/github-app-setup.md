@@ -19,7 +19,10 @@ Configure:
 - Repository permissions: **Contents: read-only**, **Metadata: read-only**,
   **Pull requests: read-only**, **Pages: read-only**. Do not grant write permissions.
   Pull requests read also permits [reading PR issue comments](https://docs.github.com/en/rest/issues/comments#list-issue-comments); Issues permission is unnecessary.
-- Keep user access token expiration enabled. Private email permission is unnecessary.
+- User permissions: **Email addresses: read-only** to save a verified address at
+  sign-in, including addresses hidden from the public GitHub profile. If this
+  permission is unavailable, owners can enter an address in the email form.
+- Keep user access token expiration enabled.
 - Leave **Request user authorization (OAuth) during installation** unchecked.
   Anonymous GitHub authorizes the user before opening installation; the setup
   redirect must remain available afterward.

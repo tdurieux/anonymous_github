@@ -538,7 +538,34 @@ describeMongo("GitHub App credential and repository integration", function () {
     expect(session.githubAppFlow).to.equal(undefined);
     const replay = await request("/github/app/callback?state=state&code=code");
     expect(replay.status).to.equal(400);
-    expect(calls).to.have.length(2);
+    expect(calls).to.have.length(3);
+  });
+  it("saves a verified private email during App registration", async () => {
+    authenticated = false;
+    session.githubAppFlow = { state: "state", expires: Date.now() + 60000, returnTo: "/dashboard" };
+    mock(url => url.includes("/login/oauth/access_token") ? data() : url.includes("/user/emails?")
+      ? [{ email: "private@example.com", primary: true, verified: true }]
+      : { id: 20, login: "new-owner" });
+    expect((await request("/github/app/callback?state=state&code=code")).location).to.equal("/dashboard");
+    const created = await Users.findOne({ "externalIDs.github": "20" });
+    expect(created.emails[0].email).to.equal("private@example.com");
+    expect(created.emails[0].default).to.equal(true);
+  });
+  it("preserves an email preference saved while App sign-in retrieves emails", async () => {
+    authenticated = false;
+    session.githubAppFlow = { state: "state", expires: Date.now() + 60000, returnTo: "/dashboard" };
+    mock(async url => {
+      if (url.includes("/login/oauth/access_token")) return data();
+      if (url.includes("/user/emails?")) {
+        await Users.updateOne({ _id: owner._id }, { $set: { notificationEmail: "chosen@example.com" } });
+        return [{ email: "github@example.com", primary: true, verified: true }];
+      }
+      return { id: 10, login: "owner" };
+    });
+    expect((await request("/github/app/callback?state=state&code=code")).location).to.equal("/dashboard");
+    const current = await Users.findById(owner.id);
+    expect(current.notificationEmail).to.equal("chosen@example.com");
+    expect(current.emails).to.have.length(0);
   });
   it("signs an existing user in through the App without changing legacy access", async () => {
     authenticated = false;
