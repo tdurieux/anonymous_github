@@ -15,6 +15,7 @@ import { getCredential, getCredentialToken } from "./credentials";
 import config from "../config";
 import { createLogger } from "./logger";
 import { measureStage } from "./request-monitoring";
+import { setTimeout as delay } from "timers/promises";
 
 const logger = createLogger("github");
 
@@ -85,7 +86,18 @@ export function getTokenGateResetAt(token: string): number {
   return gate.resetAt;
 }
 
-async function waitForTokenGate(token: string): Promise<void> {
+function abortableGateLookup(lookup: Promise<number>, signal: AbortSignal): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const cancelled = () => { signal.removeEventListener("abort", cancelled); reject(signal.reason); };
+    if (signal.aborted) cancelled();
+    else signal.addEventListener("abort", cancelled, { once: true });
+    lookup.then(value => { signal.removeEventListener("abort", cancelled); resolve(value); },
+      error => { signal.removeEventListener("abort", cancelled); reject(error); });
+  });
+}
+
+async function waitForTokenGate(token: string, signal?: AbortSignal): Promise<void> {
+  signal?.throwIfAborted();
   const key = githubQuotaKey(token);
   const localGate = tokenGates.get(key);
   let waitMs = 0;
@@ -96,7 +108,9 @@ async function waitForTokenGate(token: string): Promise<void> {
     waitMs = resetAt - Date.now();
   }
 
-  const redisResetAt = await getRedisGateResetAt(key);
+  const lookup = getRedisGateResetAt(key);
+  const redisResetAt = await (signal ? abortableGateLookup(lookup, signal) : lookup);
+  signal?.throwIfAborted();
   if (redisResetAt > resetAt) {
     resetAt = redisResetAt;
     waitMs = resetAt - Date.now();
@@ -112,7 +126,7 @@ async function waitForTokenGate(token: string): Promise<void> {
     waitMs,
     resetAt: new Date(resetAt).toISOString(),
   });
-  await new Promise((resolve) => setTimeout(resolve, waitMs));
+  await delay(waitMs, undefined, { signal });
   if (localGate) tokenGates.delete(key);
 }
 

@@ -149,7 +149,7 @@ export default class GitHubStream extends GitHubBase {
       } catch (error) {
         if (!token || githubTokenContext(token)?.publicRepository ||
             (error as { response?: { statusCode?: number } }).response?.statusCode !== 404) throw error;
-        await waitForTokenGate(token);
+        await waitForTokenGate(token, cancellation.signal);
         const response = await octokit(token).repos.getContent({
           owner: data.organization, repo: data.repoName,
           path: filePath, ref: data.commit || "HEAD", mediaType: { format: "object" },
@@ -186,7 +186,7 @@ export default class GitHubStream extends GitHubBase {
           if (checked) { yield chunk; continue; }
           probe = Buffer.concat([probe, Buffer.from(chunk)]);
           if (probe.length < 150) continue;
-          if (probe.toString("utf8", 0, 39) === "version https://git-lfs.github.com/spec/") {
+          if (probe.toString("utf8").startsWith("version https://git-lfs.github.com/spec/")) {
             throw new AnonymousError("upstream_error", { httpStatus: 502 });
           }
           checked = true; yield probe;
@@ -294,7 +294,7 @@ export default class GitHubStream extends GitHubBase {
         probe = Buffer.concat([probe, bytes]);
         if (probe.length < 150) continue;
         decided = true;
-        if (probe.toString("utf8", 0, 39) === "version https://git-lfs.github.com/spec/") {
+        if (probe.toString("utf8").startsWith("version https://git-lfs.github.com/spec/")) {
           active = downloadRaw();
           for await (const raw of active) yield raw;
           return;

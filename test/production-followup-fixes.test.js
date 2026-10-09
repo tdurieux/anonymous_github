@@ -7,6 +7,8 @@ const { Readable } = require("node:stream");
 const { once } = require("node:events");
 const { randomBytes } = require("node:crypto");
 const { URL } = require("node:url");
+const { spawnSync } = require("node:child_process");
+const path = require("node:path");
 const archiver = require("archiver");
 const got = require("got");
 require("ts-node/register/transpile-only");
@@ -182,7 +184,7 @@ describe("production follow-up fixes", function () {
     stub(got, "stream", (url, options) => {
       calls.push({ url, options });
       if (calls.length === 1) return new Readable({ read() { this.destroy(Object.assign(Error("private web 404"), { response: { statusCode: 404 } })); } });
-      return Readable.from([content]);
+      return Readable.from(Array.isArray(content) ? content : [content]);
     });
     const s = new GitHubStream({ repoId: "private-fallback", organization: "owner", repoName: "repo", commit: "pinned", getToken: () => "owner-secret" });
     return { stream: s.downloadFileViaRaw("owner-secret", "file.bin"), calls };
@@ -203,11 +205,35 @@ describe("production follow-up fixes", function () {
       expect(error.message).to.equal("upstream_error"); expect(error.httpStatus).to.equal(502); expect(calls).to.have.length(1);
     });
   }
-  it("does not serve an unresolved LFS pointer as file content", async () => {
-    const pointer = Buffer.from("version https://git-lfs.github.com/spec/v1\noid sha256:" + "a".repeat(64) + "\nsize 10\n");
-    const { stream } = rawFallback("https://raw.githubusercontent.com/owner/repo/pinned/file.bin", pointer);
-    const error = await collect(stream).catch(error => error);
-    expect(error.message).to.equal("upstream_error"); expect(error.httpStatus).to.equal(502);
+  for (const mode of ["short", "long", "fragmented"]) {
+    it(`does not serve a ${mode} unresolved LFS pointer as file content`, async () => {
+      const extension = mode === "short" ? "" : "ext-0-test sha256:" + "b".repeat(64) + "\n";
+      const pointer = Buffer.from("version https://git-lfs.github.com/spec/v1\n" + extension + "oid sha256:" + "a".repeat(64) + "\nsize 10\n");
+      const chunks = mode === "fragmented" ? [pointer.subarray(0, 20), pointer.subarray(20, 150), pointer.subarray(150)] : pointer;
+      const { stream } = rawFallback("https://raw.githubusercontent.com/owner/repo/pinned/file.bin", chunks);
+      const error = await collect(stream).catch(error => error);
+      expect(error.message).to.equal("upstream_error"); expect(error.httpStatus).to.equal(502);
+    });
+  }
+  for (const mode of ["single", "fragmented"]) {
+    it(`resolves a long blob LFS pointer with ${mode} delivery instead of forwarding its text`, async () => {
+      const pointer = Buffer.from("version https://git-lfs.github.com/spec/v1\next-0-test sha256:" + "b".repeat(64) + "\noid sha256:" + "a".repeat(64) + "\nsize 10\n");
+      const s = new GitHubStream({ repoId: "long-lfs", organization: "owner", repoName: "repo", commit: "pinned", getToken: () => "token" });
+      let downloads = 0;
+      s.downloadFileViaRaw = () => { downloads++; return Readable.from(["resolved file"]); };
+      const chunks = mode === "fragmented" ? [pointer.subarray(0, 20), pointer.subarray(20, 150), pointer.subarray(150)] : [pointer];
+      expect((await collect(s.resolveLfsPointer(Readable.from(chunks), "token", "file.bin"))).toString()).to.equal("resolved file");
+      expect(downloads).to.equal(1);
+    });
+  }
+  it("releases cancelled gate timers and private streams without retaining process handles", function () {
+    this.timeout(20000);
+    const result = spawnSync(process.execPath, [path.join(__dirname, "fixtures/github-gate-cancellation.js")], {
+      timeout: 15000, encoding: "utf8", env: { ...process.env, NODE_ENV: "test", GITHUB_APP_ENABLED: "false", REDIS_HOSTNAME: "127.0.0.1", REDIS_PORT: "1" },
+    });
+    expect(result.error, result.stderr).to.equal(undefined);
+    expect(result.status, result.stderr + result.stdout).to.equal(0);
+    expect(result.stdout).to.include("gate cancellations released");
   });
   it("keeps public raw misses off the contents API", async () => {
     stub(github, "octokit", () => { throw Error("unexpected anonymous REST request"); });
