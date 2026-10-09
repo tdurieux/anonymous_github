@@ -75,6 +75,22 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
       repoId: row.repoId, repoFullName: "owner/repo", commit: "abc", ...(legacy ? {} : { cacheGeneration: options.cacheGeneration }), sha: "blob", size: 300000, filePath, anonymizerOptions: options }) });
   }
 
+  for (const [filePath, expectedStatus] of [["fail-401.txt", 401], ["fail-reset.txt", 502]]) {
+    it(`contains ${filePath} errors in the actual streamer and serves another request`, async () => {
+      const runtime = await launch();
+      try {
+        await runtime.ready;
+        const row = await createRow(filePath);
+        const failure = await request(runtime, row, filePath);
+        expect(failure.status).to.equal(expectedStatus); await failure.text();
+        expect((await fetch(runtime.url + "/healthcheck")).status).to.equal(200);
+        const recovered = await request(runtime, row, "working.txt");
+        expect(recovered.status).to.equal(200); expect((await recovered.text()).length).to.equal(300000);
+        expect(runtime.child.exitCode).to.equal(null);
+      } finally { await stop(runtime); }
+    });
+  }
+
   it("connects before serving and rejects a fill published after expiration in the actual streamer entrypoint", async () => {
     const runtime = await launch(false, true); let pending;
     try {

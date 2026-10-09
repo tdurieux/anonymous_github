@@ -1,3 +1,4 @@
+import { refreshLegacyToken } from "./legacy-token-refresh";
 import AnonymizedRepositoryModel from "./model/anonymizedRepositories/anonymizedRepositories.model";
 import { isConnected } from "../server/database";
 import { githubQuotaKey, githubTokenContext } from "./github-token-context";
@@ -8,7 +9,7 @@ import { createClient, RedisClientType } from "redis";
 
 import AnonymousError from "./AnonymousError";
 import Repository from "./Repository";
-import { getCredential, replaceCredential, getCredentialToken } from "./credentials";
+import { getCredential, getCredentialToken } from "./credentials";
 import config from "../config";
 import { createLogger } from "./logger";
 import { measureStage } from "./request-monitoring";
@@ -337,56 +338,11 @@ async function resolveRepositoryToken(repository: Repository) {
       credential?.persisted &&
       (!tokenAge || tokenAge < new Date(Date.now() - 1000 * 60 * 60 * 24 * 7))
     ) {
-      const url = `https://api.github.com/applications/${config.CLIENT_ID}/token`;
-      const headers = {
-        Accept: "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-      };
-
-      const res = await fetch(url, {
-        method: "PATCH",
-        body: JSON.stringify({
-          access_token: ownerAccessToken,
-        }),
-        credentials: "include",
-        headers: {
-          ...headers,
-          Authorization:
-            "Basic " +
-            Buffer.from(
-              config.CLIENT_ID + ":" + config.CLIENT_SECRET
-            ).toString("base64"),
-        },
-      });
-      // Only persist a refreshed token if GitHub actually returned a
-      // valid one. Without this guard, a 4xx/5xx error body (revoked
-      // OAuth, rate limit, transient outage) silently overwrites the
-      // user's stored token with `undefined`, which then propagates as
-      // `Authorization: token undefined` to every subsequent API call —
-      // 401 even on public repos, and the config.GITHUB_TOKEN fallback
-      // below is unreachable because the token field is no longer falsy.
-      if (res.ok) {
-        const resBody = (await res.json().catch(() => null)) as
-          | { token?: unknown }
-          | null;
-        const refreshed =
-          resBody && typeof resBody.token === "string" && resBody.token.length > 0
-            ? resBody.token
-            : null;
-        if (refreshed) {
-          if (await replaceCredential(repository.owner.id, ownerAccessToken, refreshed)) {
-            checkedRepositoryTokens.set(repository, refreshed);
-            return refreshed;
-          }
-          return (await getCredentialToken(repository.owner.id)) || config.GITHUB_TOKEN;
-        }
+      const refreshed = await refreshLegacyToken(repository.owner.id, ownerAccessToken);
+      if (refreshed !== null) {
+        checkedRepositoryTokens.set(repository, refreshed);
+        return refreshed;
       }
-      logger.warn("token refresh failed; falling back", {
-        code: "token_refresh_failed",
-        httpStatus: res.status,
-        username: repository.owner.model.username,
-      });
-      // fall through to the checkToken path / config.GITHUB_TOKEN
     }
     const check = await checkToken(ownerAccessToken);
     if (check) {

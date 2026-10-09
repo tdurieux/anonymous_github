@@ -88,3 +88,40 @@ validators avoid fetching and rendering content again; changed terms or content
 invalidate them.
 Raw Markdown served after a rendering failure has a separate validator, so later
 requests retry rendering when the transient failure clears.
+
+## Production failures and restarts
+
+Run `node scripts/check-production-logs.js 15` from a machine with Node and the
+Docker CLI to summarize recent application logs and container states. For a
+remote Docker host, use
+`DOCKER_HOST=ssh://ubuntu@host node scripts/check-production-logs.js 15`.
+The optional
+window is 1–1440 minutes. The report includes completed 5xx responses, interrupted
+requests, token-refresh failures, missing-file warnings, native unhandled stream
+errors, and Docker restart counts. It prints counts and container metadata;
+request URLs, repository IDs, file paths, credentials, and Docker environment
+variables are excluded. Restart counts cover the container's lifetime, while log
+counts cover the selected window. Compare restart counts with the last deployment
+baseline even when every container is currently healthy.
+
+The API and streamers log `process_fatal_error` through Node's
+`uncaughtExceptionMonitor`. This records fatal errors before the default process
+exit; it does not resume execution or swallow uncaught exceptions. Native stderr
+may describe the same crash as well, so fatal log indicators are not a count of
+unique process exits. Use Docker restart counts to confirm exits.
+
+Legacy OAuth reset requests are coalesced by owner, credential, and OAuth app.
+A failed 401/404 reset backs off for 30 minutes; transient failures back off for
+one minute. A replaced credential or changed OAuth configuration gets a new key.
+GitHub App and personal access tokens do not use the OAuth reset endpoint. Refresh
+failure leaves the credential unchanged and continues through normal token
+validation and fallback.
+
+Confirmed GitHub content 404s back off for 30 seconds in a bounded process-local
+cache. The key includes repository, path, commit, blob SHA, cache generation,
+revision, and credential. Permission failures and transport errors are not cached.
+This reduces repeated upstream misses without changing the file tree or treating
+an unavailable file as a successful cache fill. Persistent 404s still require
+checking the repository's source snapshot. Application rate limits remain in
+force; 429 replies now include `rate_limited`, `resetAt`, and `Retry-After` so
+clients can wait for the actual store reset.
