@@ -194,6 +194,15 @@ router.use("/connections", (req, res, next) => {
   next();
 });
 
+router.get("/connections/email", async (req, res) => {
+  try {
+    const user = await getUser(req);
+    const csrf = connectionCSRF(req);
+    await saveSession(req);
+    res.json({ csrf, notificationEmail: notificationEmail(user.model.emails, user.model.notificationEmail) });
+  } catch (error) { handleError(error, res, req); }
+});
+
 router.post("/connections/email", async (req, res) => {
   try {
     const user = await getUser(req);

@@ -166,7 +166,8 @@ describe("owner access notifications", () => {
 describe("owner email settings", () => {
   const utils = require("../src/server/routes/route-utils");
   const router = require("../src/server/routes/github-app").githubAppRouter;
-  const endpoint = router.stack.find(layer => layer.route?.path === "/connections/email").route.stack[0].handle;
+  const endpoint = router.stack.find(layer => layer.route?.path === "/connections/email" && layer.route.methods.post).route.stack[0].handle;
+  const readEmail = router.stack.find(layer => layer.route?.path === "/connections/email" && layer.route.methods.get).route.stack[0].handle;
   const csrf = router.stack.find(layer => !layer.route && layer.handle.toString().includes("x-csrf-token")).handle;
   let oldUser, oldUpdate, writes;
   beforeEach(() => {
@@ -177,6 +178,17 @@ describe("owner email settings", () => {
   });
   afterEach(() => { utils.getUser = oldUser; User.updateOne = oldUpdate; });
   const response = () => ({ statusCode: 200, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; } });
+  for (const email of ["", "primary@example.com"]) it(`loads the account email and persists its save token (${email || "no address"})`, async () => {
+    utils.getUser = async () => ({ id: "signed-in-owner", model: { emails: [], notificationEmail: email } });
+    let saved = false;
+    const req = { sessionID: "profile-session", session: { save: done => { saved = true; done(); } } };
+    const res = response();
+    await readEmail(req, res);
+    expect(saved).to.equal(true);
+    expect(res.body).to.deep.equal({ notificationEmail: email, csrf: req.session.githubConnectionCSRF });
+    expect(res.body.csrf).to.be.a("string").with.length(64);
+    expect(writes).to.have.length(0);
+  });
   it("updates only the signed-in owner's address", async () => {
     const res = response();
     await endpoint({ body: { email: " owner@example.com ", ownerId: "someone-else" } }, res);

@@ -146,6 +146,17 @@ jane.smith@example.org" v-field="{ state: viewState, set: value =&gt; { terms = 
           <a class="btn btn-outline-ink" href="/api/user/logout" target="_self">Sign out</a>
         </div>
 
+        <form class="paper-account-email" @submit.prevent="saveAccountEmail()">
+          <label class="paper-field-label" for="account-email">Email address</label>
+          <p id="account-email-help" class="paper-section-copy">Used for account alerts. Your address is never shown on anonymous pages.</p>
+          <input id="account-email" class="form-control" type="email" autocomplete="email" maxlength="254" required v-model="accountEmail" aria-describedby="account-email-help" :disabled="emailLoading || emailSaving || !emailCSRFReady" @input="emailSaved = false" />
+          <p role="status" v-if="emailLoading">Loading your email address…</p>
+          <p class="paper-inline-alert paper-inline-alert-error" role="alert" v-if="emailError">{{ emailError }}</p>
+          <button class="btn btn-outline-ink mt-2" type="button" v-if="!emailCSRFReady &amp;&amp; !emailLoading" @click="loadAccountEmail()">Try again</button>
+          <button class="btn btn-ink mt-2" type="submit" :disabled="emailLoading || emailSaving || !emailCSRFReady">{{ emailSaving ? 'Saving…' : 'Save email address' }}</button>
+          <p role="status" v-if="emailSaved">Email address saved.</p>
+        </form>
+
         <a class="paper-settings-connection-link" href="/connections">
           <i class="fab fa-github" aria-hidden="true"></i>
           <span>GitHub connections<small>Manage repository access and legacy OAuth.</small></span>

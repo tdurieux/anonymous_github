@@ -17,7 +17,8 @@ async function browser(route = "/", overrides = {}, storage = {}) {
     errors.push(error.message);
   });
   virtualConsole.on("error", error => errors.push(error?.message || String(error)));
-  const dom = new JSDOM('<!doctype html><html><head></head><body><div id="app"></div></body></html>', {
+  const base = fs.readFileSync(path.join(publicDir, "index.html"), "utf8").match(/<base\b[^>]*>/i)?.[0] || "";
+  const dom = new JSDOM(`<!doctype html><html><head>${base}</head><body><div id="app"></div></body></html>`, {
     resources: {
       interceptors: [requestInterceptor(request => {
         const url = request.url;
@@ -79,6 +80,62 @@ describe("Vue 3 UI", function () {
   this.timeout(15000);
   let ui;
   afterEach(() => ui?.close());
+
+  it("keeps native settings section links on the profile page", async () => {
+    ui = await browser("/profile", { "/api/user": { username: "owner" } });
+    const account = ui.window.document.querySelector('.paper-settings-toc a[href="#settings-account"]');
+    expect(account.href).to.equal("http://localhost/profile#settings-account");
+    account.click();
+    await delay(30);
+    expect(ui.window.location.pathname).to.equal("/profile");
+    expect(ui.window.location.hash).to.equal("#settings-account");
+    expect(ui.window.document.querySelector("#settings-account")).not.to.equal(null);
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("loads and saves account email separately from defaults with CSRF", async () => {
+    ui = await browser("/profile", {
+      "/api/user": { username: "owner" },
+      "/github/connections/email": request => request.method === "POST"
+        ? { notificationEmail: request.payload.email.trim() }
+        : { notificationEmail: "old@example.com", csrf: "profile-csrf" },
+    });
+    expect(ui.window.document.querySelector("#account-email").value).to.equal("old@example.com");
+    await ui.input("#account-email", "new@example.com");
+    ui.window.document.querySelector('.paper-account-email button[type="submit"]').click();
+    await delay(30);
+    const save = ui.requests.find(r => r.url.pathname === "/github/connections/email" && r.method === "POST");
+    expect(save.payload).to.deep.equal({ email: "new@example.com" });
+    expect(save.headers["X-CSRF-Token"]).to.equal("profile-csrf");
+    expect(ui.requests.filter(r => r.url.pathname === "/api/user/default" && r.method === "POST")).to.have.length(0);
+    expect(ui.window.document.querySelector(".paper-account-email").textContent).to.include("Email address saved.");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("retries email loading and keeps failed edits while preventing duplicate saves", async () => {
+    let failLoad = true, finishSave;
+    ui = await browser("/profile", {
+      "/api/user": { username: "owner" },
+      "/github/connections/email": request => request.method === "POST"
+        ? new Promise(resolve => { finishSave = () => resolve({ __status: 503, body: {} }); })
+        : failLoad ? { __status: 503, body: {} } : { notificationEmail: "", csrf: "profile-csrf" },
+    });
+    expect(ui.window.document.querySelector("#account-email").disabled).to.equal(true);
+    failLoad = false;
+    ui.window.document.querySelector('.paper-account-email button[type="button"]').click();
+    await delay(30);
+    await ui.input("#account-email", "owner+alerts@example.com");
+    const form = ui.window.document.querySelector(".paper-account-email");
+    form.dispatchEvent(new ui.window.Event("submit", { bubbles: true, cancelable: true }));
+    form.dispatchEvent(new ui.window.Event("submit", { bubbles: true, cancelable: true }));
+    await delay(10);
+    expect(ui.requests.filter(r => r.url.pathname === "/github/connections/email" && r.method === "POST")).to.have.length(1);
+    expect(ui.window.document.querySelector("#account-email").disabled).to.equal(true);
+    finishSave(); await delay(30);
+    expect(ui.window.document.querySelector("#account-email").value).to.equal("owner+alerts@example.com");
+    expect(form.querySelector('[role="alert"]').textContent).to.include("Unable to save");
+    expect(ui.errors).to.deep.equal([]);
+  });
 
   it("prompts owners without email and saves their alert address with CSRF", async () => {
     ui = await browser("/dashboard", {
