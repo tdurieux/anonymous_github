@@ -94,8 +94,23 @@ describe("owner access notifications", () => {
   });
 
   it("recognizes raw authentication and missing-resource errors without alerting for outages", () => {
-    for (const status of [401, 404]) expect(notifications.isAccessFailure(Object.assign(new Error("GitHub rejected access"), { status }))).to.equal(true);
+    for (const status of [401, 403, 404]) expect(notifications.isAccessFailure(Object.assign(new Error("GitHub rejected access"), { status }))).to.equal(true);
     for (const status of [429, 500, 503]) expect(notifications.isAccessFailure(Object.assign(new Error("upstream error"), { status }))).to.equal(false);
+  });
+
+  it("suppresses primary and secondary rate limits including wrapped streaming errors", () => {
+    const AnonymousError = require("../src/core/AnonymousError").default;
+    for (const error of [
+      Object.assign(new Error("API rate limit exceeded"), { status: 403 }),
+      Object.assign(new Error("abuse detection"), { status: 403 }),
+      Object.assign(new Error("Forbidden"), { status: 403, response: { headers: { "x-ratelimit-remaining": "0" } } }),
+      Object.assign(new Error("secondary rate limit"), { response: { statusCode: 403 } }),
+    ]) {
+      expect(notifications.isAccessFailure(error)).to.equal(false);
+      expect(notifications.isAccessFailure(new AnonymousError("file_not_accessible", { httpStatus: 403, cause: error }))).to.equal(false);
+    }
+    const forbidden = Object.assign(new Error("SAML enforcement"), { response: { statusCode: 403 } });
+    expect(notifications.isAccessFailure(new AnonymousError("file_not_accessible", { httpStatus: 403, cause: forbidden }))).to.equal(true);
   });
 
   it("does not let database failures escape", async () => {
@@ -274,4 +289,64 @@ describe("gist and pull-request notification hooks", () => {
       expect(sent).to.deep.equal([[resource.owner.id, caught]]);
     });
   }
+});
+
+describe("streamed file access alerts", () => {
+  const File = require("../src/core/AnonymizedFile").default;
+  const AnonymousError = require("../src/core/AnonymousError").default;
+  const { PassThrough } = require("stream");
+  const got = require("got");
+  const restores = [];
+  const stub = (object, key, value) => { const old = object[key]; restores.push(() => object[key] = old); object[key] = value; };
+  let sent, repository, file;
+  beforeEach(() => {
+    sent = [];
+    stub(notifications, "notifyOwnerAccessProblem", async (owner, error) => { if (notifications.isAccessFailure(error)) sent.push({ owner, error }); });
+    repository = { owner: { id: "saved-owner" }, options: { terms: [] }, model: { source: {} }, repoId: "anon-id", status: "ready", source: {},
+      getToken: async () => "token", generateAnonymizeTransformer: () => new PassThrough() };
+    file = new File({ repository, anonymizedPath: "README.md" });
+  });
+  afterEach(() => { while (restores.length) restores.pop()(); });
+  for (const status of [403, 404, 503]) it(`handles local file download failure ${status}`, async () => {
+    const cause = Object.assign(new Error("upstream"), { response: { statusCode: status } });
+    const error = new AnonymousError(status === 403 ? "file_not_accessible" : status === 404 ? "file_not_found" : "upstream_error", { httpStatus: status, cause });
+    repository.source.getFileContent = async () => { throw error; };
+    let caught;
+    try { await file.content(); } catch (err) { caught = err; }
+    expect(caught).to.equal(error);
+    expect(sent).to.have.length(status === 503 ? 0 : 1);
+    if (sent.length) expect(sent[0].owner).to.equal("saved-owner");
+  });
+  for (const status of [403, 404, 503]) it(`handles remote streamer error ${status}`, async () => {
+    stub(config, "STREAMER_ENTRYPOINT", "http://streamer/");
+    const stream = new PassThrough();
+    stub(got, "stream", () => stream);
+    file.originalPath = async () => "README.md";
+    file.sha = async () => "sha";
+    file.size = async () => 10;
+    const returned = await file.anonymizedContent();
+    expect(returned).to.equal(stream);
+    const error = Object.assign(new Error("streamer failure"), { response: { statusCode: status, body: JSON.stringify({ error: status === 503 ? "upstream_error" : "file_not_accessible" }) } });
+    stream.emit("error", error);
+    expect(sent).to.have.length(status === 503 ? 0 : 1);
+    stream.destroy();
+  });
+});
+
+describe("token validation preserves upstream failures", () => {
+  const tokens = require("../src/core/GitHubUtils");
+  const { registerGitHubToken } = require("../src/core/github-token-context");
+  for (const status of [undefined, 403, 429, 500, 503]) it(`propagates token-check failure ${status}`, async () => {
+    const error = Object.assign(new Error("upstream check failed"), { status });
+    const token = `test-token-check-${status}`;
+    registerGitHubToken(token, { quotaKey: token, publicRepository: "owner/repo", renew: async () => { throw error; } });
+    let caught;
+    try { await tokens.checkToken(token); } catch (err) { caught = err; }
+    expect(caught).to.equal(error);
+  });
+  it("returns false only for a confirmed invalid token", async () => {
+    const token = "test-token-check-invalid";
+    registerGitHubToken(token, { quotaKey: token, publicRepository: "owner/repo", renew: async () => { throw Object.assign(new Error("Bad credentials"), { status: 401 }); } });
+    expect(await tokens.checkToken(token)).to.equal(false);
+  });
 });

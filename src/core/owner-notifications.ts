@@ -1,3 +1,4 @@
+import { isGitHubRateLimitError } from "./github-rate-limit";
 import config from "../config";
 import UserModel from "./model/users/users.model";
 import { createLogger } from "./logger";
@@ -7,7 +8,7 @@ const DAY = 24 * 60 * 60 * 1000;
 const accessErrors = new Set([
   "token_expired", "github_oauth_required", "github_app_reconnect_required",
   "github_app_access_required", "repo_not_found", "repository_not_found",
-  "pull_request_not_found", "gist_not_found", "repo_not_accessible", "repo_access_limited", "repo_saml_enforcement",
+  "file_not_accessible", "file_not_found", "pull_request_not_found", "gist_not_found", "repo_not_accessible", "repo_access_limited", "repo_saml_enforcement",
 ]);
 
 export function normalizeEmail(value: unknown): string | null {
@@ -26,14 +27,16 @@ export function notificationEmail(emails?: { email: string; default: boolean }[]
 }
 
 export function isAccessFailure(error: unknown): boolean {
+  if (isGitHubRateLimitError(error)) return false;
   const code = typeof error === "string" ? error : error instanceof Error ? error.message : "";
   const rawStatus = error instanceof Error ? (error as Error & { status?: number }).status : undefined;
-  if (!accessErrors.has(code) && ![401, 404].includes(rawStatus || 0)) return false;
+  if (!accessErrors.has(code) && ![401, 403, 404].includes(rawStatus || 0)) return false;
   if (error instanceof Error) {
-    const upstream = (error as Error & { cause?: { status?: number; httpStatus?: number } }).cause;
+    const upstream = (error as Error & { cause?: { status?: number; httpStatus?: number; response?: { statusCode?: number } } }).cause;
     // Some legacy paths wrap timeouts or 5xx responses as repo_not_found.
     // Only a confirmed access failure should prompt the owner to reconnect.
-    if (upstream && ![401, 403, 404].includes(upstream.status || upstream.httpStatus || 0)) return false;
+    if (isGitHubRateLimitError(upstream)) return false;
+    if (upstream && ![401, 403, 404].includes(upstream.status || upstream.response?.statusCode || upstream.httpStatus || 0)) return false;
     const status = (error as Error & { httpStatus?: number }).httpStatus;
     if (status && (status === 429 || status >= 500)) return false;
   }

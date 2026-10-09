@@ -1,3 +1,4 @@
+import { notifyOwnerAccessProblem } from "./owner-notifications";
 import { streamResponse } from "./response-stream";
 import { join, basename, dirname } from "path";
 import { Response } from "express";
@@ -355,7 +356,11 @@ export default class AnonymizedFile {
         httpStatus: 413,
       });
     }
-    const content = await this.repository.source?.getFileContent(this);
+    const content = await this.repository.source?.getFileContent(this).catch(error => {
+      void notifyOwnerAccessProblem(this.repository.owner.id, error);
+      throw error;
+    });
+    content.on("error", error => { void notifyOwnerAccessProblem(this.repository.owner.id, error); });
     const cacheWasReset = this.repository.model.isReseted;
     if (cacheWasReset) {
       await this.repository.markCachePresent();
@@ -378,7 +383,7 @@ export default class AnonymizedFile {
     }
 
     // use the streamer service
-    return got.stream(join(config.STREAMER_ENTRYPOINT, "api"), {
+    const content = got.stream(join(config.STREAMER_ENTRYPOINT, "api"), {
       method: "POST",
       headers: requestHeaders(),
       json: {
@@ -395,6 +400,11 @@ export default class AnonymizedFile {
         anonymizerOptions: anonymizer.opt,
       },
     });
+    content.on("error", err => {
+      const { error } = streamerErrorToAnonymous(err, { repoId: this.repository.repoId, filePath: this.anonymizedPath });
+      void notifyOwnerAccessProblem(this.repository.owner.id, error);
+    });
+    return content;
   }
 
   get filePath() {
@@ -472,6 +482,7 @@ export default class AnonymizedFile {
                   filePath: this.anonymizedPath,
                 }
               );
+              void notifyOwnerAccessProblem(this.repository.owner.id, error);
               error.value = this;
               handleError(error, res);
               if (res.headersSent && !res.writableEnded) res.destroy();
