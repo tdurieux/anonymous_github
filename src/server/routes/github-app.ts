@@ -1,4 +1,5 @@
 import { notificationEmail, normalizeEmail, resetOwnerAccessAlerts } from "../../core/owner-notifications";
+import { saveRegistrationEmail } from "../../core/registration-email";
 import * as express from "express";
 import { createHmac, randomBytes, randomUUID, timingSafeEqual } from "crypto";
 import config from "../../config";
@@ -94,6 +95,7 @@ router.get("/app/callback", enabled, async (req, res) => {
     }
     if (isDisabledAccount(user.status)) throw appError("not_connected", 403);
     await saveAppGrant(user.id, tokens);
+    await saveRegistrationEmail(user, tokens.access_token);
     await resetOwnerAccessAlerts(user.id);
     await new Promise<void>((resolve, reject) => req.login({ username: user!.username, user }, err => err ? reject(err) : resolve()));
     res.redirect(flow.install ? `/github/app/install?returnTo=${encodeURIComponent(flow.returnTo)}&repository=${encodeURIComponent(flow.repository || "")}` : flow.returnTo);

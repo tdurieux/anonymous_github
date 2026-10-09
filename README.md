@@ -102,6 +102,12 @@ send access alerts through [Resend](https://resend.com/docs/api-reference/emails
 Use a sender address on a domain verified in Resend. `APP_HOSTNAME` sets the
 host used for the connections link in emails.
 
+Registration saves a verified GitHub email address, preferring the primary address.
+OAuth requests `user:email`; GitHub App sign-in uses the read-only email permission
+described in the setup guide. Later sign-ins also fill missing addresses. Saved
+addresses and custom alert addresses are preserved. GitHub privacy placeholder
+addresses are not imported.
+
 Signed-in owners without an email address see an email form in a popup.
 “Remind me later” dismisses it for the current login session; “Never” saves a
 permanent preference on the account. Existing addresses are reused, and owners
