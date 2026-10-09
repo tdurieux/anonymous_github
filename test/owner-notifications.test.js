@@ -11,10 +11,10 @@ describe("owner access notifications", () => {
   const ownerId = "507f1f77bcf86cd799439011";
   const resource = { kind: "repository", id: "507f1f77bcf86cd799439012" };
   const other = { kind: "repository", id: "507f1f77bcf86cd799439013" };
-  let owner, sent, claims, rows;
+  let owner, sent, claims, rows, generations;
   beforeEach(() => {
     owner = { status: "active", emails: [{ email: "owner@example.com", default: true }] };
-    sent = []; claims = []; rows = new Map();
+    sent = []; claims = []; rows = new Map(); generations = new Map();
     stub(config, "RESEND_API_KEY", "test-resend-key");
     stub(config, "EMAIL_FROM", "alerts@example.com");
     stub(config, "APP_HOSTNAME", "anonymous.example.com");
@@ -22,15 +22,23 @@ describe("owner access notifications", () => {
     Object.defineProperty(User.db, "readyState", { configurable: true, value: 1 });
     restores.push(() => { delete User.db.readyState; });
     stub(User.db, "collection", name => ({
+      findOne: async filter => {
+        const key = `${name}:${filter.owner}:${filter._id}`;
+        if (!generations.has(key)) generations.set(key, undefined);
+        return { accessAlertGeneration: generations.get(key) };
+      },
       updateOne: async (filter, update) => {
         claims.push(filter);
         const key = `${name}:${filter.owner}:${filter._id}`;
-        if (rows.has(key)) return { modifiedCount: 0 };
+        if (rows.has(key) || generations.get(key) !== (typeof filter.accessAlertGeneration === "string" ? filter.accessAlertGeneration : undefined)) return { modifiedCount: 0 };
         rows.set(key, update.$set.accessAlertClaimedAt);
         return { modifiedCount: 1 };
       },
-      updateMany: async filter => {
-        for (const key of rows.keys()) if (key.startsWith(`${name}:${filter.owner}:`) && (!filter._id || key.endsWith(`:${filter._id}`))) rows.delete(key);
+      updateMany: async (filter, update) => {
+        for (const key of generations.keys()) if (key.startsWith(`${name}:${filter.owner}:`) && (!filter._id || key.endsWith(`:${filter._id}`))) {
+          rows.delete(key);
+          generations.set(key, update.$set.accessAlertGeneration);
+        }
       },
     }));
     stub(global, "fetch", async (url, options) => { sent.push({ url, options, body: JSON.parse(options.body) }); return { ok: true }; });
@@ -69,6 +77,25 @@ describe("owner access notifications", () => {
     await notifyOwnerAccessProblem(ownerId, "token_expired", resource);
     await notifyOwnerAccessProblem(ownerId, "token_expired", other);
     expect(sent).to.have.length(3);
+  });
+
+  it("rejects a pre-action failure paused during owner lookup", async () => {
+    let resume, entered;
+    const waiting = new Promise(resolve => { entered = resolve; });
+    stub(User, "findOne", () => ({ lean: async () => {
+      entered();
+      await new Promise(resolve => { resume = resolve; });
+      return owner;
+    } }));
+    const oldFailure = notifyOwnerAccessProblem(ownerId, "token_expired", resource);
+    await waiting;
+    await notifications.resetOwnerAccessAlerts(ownerId, resource);
+    resume();
+    await oldFailure;
+    expect(sent).to.have.length(0);
+    stub(User, "findOne", () => ({ lean: async () => owner }));
+    await notifyOwnerAccessProblem(ownerId, "token_expired", resource);
+    expect(sent).to.have.length(1);
   });
 
   it("reconnecting resets all of the owner's resource types", async () => {

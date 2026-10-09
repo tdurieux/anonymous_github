@@ -149,6 +149,7 @@ router.get("/app/setup", enabled, async (req, res) => {
     if (req.query.setup_action !== "request") {
       const installations = await userInstallations(user.id);
       if (!installations.some(i => String(i.id) === req.query.installation_id)) throw appError("github_app_access_required");
+      await resetOwnerAccessAlerts(user.id);
     }
     await UserModel.updateOne({ _id: user.id }, { $set: { repositories: [] } });
     res.redirect(flow.returnTo);

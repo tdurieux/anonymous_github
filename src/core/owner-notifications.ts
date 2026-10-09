@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { Types } from "mongoose";
 import { isGitHubRateLimitError } from "./github-rate-limit";
 import config from "../config";
@@ -19,7 +20,7 @@ export async function resetOwnerAccessAlerts(ownerId: string, resource?: AlertRe
     const filter = { owner: new Types.ObjectId(ownerId),
       ...(resource ? { _id: new Types.ObjectId(resource.id) } : {}) };
     for (const collection of resource ? [resourceCollections[resource.kind]] : Object.values(resourceCollections)) {
-      await UserModel.db.collection(collection).updateMany(filter, { $unset: { accessAlertClaimedAt: "" } });
+      await UserModel.db.collection(collection).updateMany(filter, { $unset: { accessAlertClaimedAt: "" }, $set: { accessAlertGeneration: randomUUID() } });
     }
   } catch { logger.warn("owner access alert reset unavailable"); }
 }
@@ -66,14 +67,20 @@ export async function notifyOwnerAccessProblem(ownerId: string, error: unknown, 
   if (!config.RESEND_API_KEY || !config.EMAIL_FROM || !isAccessFailure(error)) return;
   try {
     if (!resource || !Types.ObjectId.isValid(resource.id) || !Types.ObjectId.isValid(ownerId)) return;
+    const collection = UserModel.db.collection(resourceCollections[resource.kind]);
+    const identity = { _id: new Types.ObjectId(resource.id), owner: new Types.ObjectId(ownerId) };
+    const snapshot = await collection.findOne(identity, { projection: { accessAlertGeneration: 1 } });
+    if (!snapshot) return;
     const owner = await UserModel.findOne({ _id: ownerId, status: { $nin: ["removed", "banned"] } }).lean();
     if (!owner) return;
     const to = notificationEmail(owner.emails, owner.notificationEmail);
     if (!to) return;
     // Claim the resource atomically before delivery. This has no expiry: neither
     // repeated readers nor workers can send again until the owner acts.
-    const claim = await UserModel.db.collection(resourceCollections[resource.kind]).updateOne({
-      _id: new Types.ObjectId(resource.id), owner: new Types.ObjectId(ownerId),
+    const claim = await collection.updateOne({
+      ...identity,
+      // A reset during the owner lookup invalidates this older failure.
+      accessAlertGeneration: snapshot.accessAlertGeneration ?? { $exists: false },
       accessAlertClaimedAt: { $exists: false },
     }, { $set: { accessAlertClaimedAt: new Date() } });
     if (!claim.modifiedCount) return;

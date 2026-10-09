@@ -1,6 +1,7 @@
 import { Schema } from "mongoose";
 
 const AnonymizedGistSchema = new Schema({
+  accessAlertGeneration: { type: String, select: false },
   accessAlertClaimedAt: { type: Date, select: false },
   gistId: {
     type: String,

@@ -112,7 +112,9 @@ Emails contain no repository names, anonymous URLs, or credentials.
 
 An atomic database claim allows one email attempt per repository, pull request,
 or gist until its owner explicitly refreshes it, saves its settings or connection,
-or reconnects GitHub. Reconnecting GitHub resets alerts for that owner's resources.
+or reconnects GitHub. Claiming ownership also clears the previous owner's alert.
+Reconnecting GitHub or completing a verified App installation update resets alerts
+for that owner's resources. Resets invalidate pending claims from older failures.
 Viewing content, scheduled updates, and automatic token renewal never reset alerts.
 There is no daily reminder. Claims also remain after delivery failures or an
 interrupted process, avoiding duplicate messages until the owner acts.
