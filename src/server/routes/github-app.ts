@@ -1,3 +1,4 @@
+import { notificationEmail, normalizeEmail } from "../../core/owner-notifications";
 import * as express from "express";
 import { createHmac, randomBytes, randomUUID, timingSafeEqual } from "crypto";
 import config from "../../config";
@@ -16,7 +17,7 @@ import { isDisabledAccount, safeAuthReturnTo } from "./auth-utils";
 
 type Flow = { state: string; expires: number; ownerId?: string; returnTo: string; repository?: string; install?: boolean };
 declare module "express-session" {
-  interface SessionData { githubAppFlow?: Flow; githubInstallFlow?: Flow; githubConnectionCSRF?: string; }
+  interface SessionData { githubAppFlow?: Flow; githubInstallFlow?: Flow; githubConnectionCSRF?: string; emailPromptDismissed?: boolean; }
 }
 export function safeReturnTo(value: unknown): string {
   return safeAuthReturnTo(value, "/connections");
@@ -167,7 +168,8 @@ router.get("/connections", async (req, res) => {
     const repos = await RepositoryModel.find({ owner: user.id, status: { $ne: "removed" } }).select("repoId source.repositoryName githubAccess status statusDate").lean();
     const prs = await PullRequestModel.find({ owner: user.id, status: { $ne: "removed" } }).select("pullRequestId source.repositoryFullName githubAccess status statusDate").lean();
     const gistCount = await GistModel.countDocuments({ owner: user.id, status: { $ne: "removed" } });
-    res.json({ csrf: req.session.githubConnectionCSRF, appEnabled: config.GITHUB_APP_ENABLED && config.GITHUB_APP_NEW_CONNECTIONS,
+    res.json({ notificationEmail: notificationEmail(user.model.emails), emailNotificationsEnabled: !!(config.RESEND_API_KEY && config.EMAIL_FROM),
+      csrf: req.session.githubConnectionCSRF, appEnabled: config.GITHUB_APP_ENABLED && config.GITHUB_APP_NEW_CONNECTIONS,
       gistConnection: config.GITHUB_APP_ENABLED && credentials.some(c => c.provider === APP_PROVIDER) ? "github-app" : "oauth",
       oauthEnabled: config.GITHUB_OAUTH_ENABLED, oauthConnected: !!(await getCredentialToken(user.id)), appConnected, appError: appErrorCode,
       installations, gistCount, resources: [
@@ -182,6 +184,24 @@ router.use("/connections", (req, res, next) => {
     return res.status(403).json({ error: "invalid_auth_state" });
   }
   next();
+});
+
+router.post("/connections/email", async (req, res) => {
+  try {
+    const user = await getUser(req);
+    const action = req.body?.action || "save";
+    if (!["save", "later", "never"].includes(action)) return res.status(400).json({ error: "Invalid email preference." });
+    if (action === "later" || action === "never") {
+      if (action === "never") await UserModel.updateOne({ _id: user.id }, { $set: { emailPromptNever: true } });
+      req.session.emailPromptDismissed = true;
+      await saveSession(req);
+      return res.json({ ok: true });
+    }
+    const email = normalizeEmail(req.body?.email);
+    if (!email) return res.status(400).json({ error: "Enter a valid email address." });
+    await UserModel.updateOne({ _id: user.id }, { $set: { emails: [{ email, default: true }] } });
+    res.json({ notificationEmail: email });
+  } catch (error) { handleError(error, res, req); }
 });
 
 router.post("/connections/migrate", async (req, res) => {

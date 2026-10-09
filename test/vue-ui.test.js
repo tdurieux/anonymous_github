@@ -80,6 +80,59 @@ describe("Vue 3 UI", function () {
   let ui;
   afterEach(() => ui?.close());
 
+  it("prompts owners without email and saves their alert address with CSRF", async () => {
+    ui = await browser("/dashboard", {
+      "/api/user": { username: "owner", notificationEmail: "", emailNotificationsEnabled: true, showEmailPrompt: true, emailPromptCSRF: "email-csrf" },
+      "/github/connections": { csrf: "email-csrf", emailNotificationsEnabled: true, notificationEmail: "", resources: [] },
+      "/github/connections/email": request => ({ notificationEmail: request.payload.email }),
+    });
+    expect(ui.window.document.querySelector("#email-prompt").open).to.equal(true);
+    await ui.input("#email-prompt-address", "owner@example.com");
+    ui.window.document.querySelector("#email-prompt-address").closest("form")
+      .dispatchEvent(new ui.window.Event("submit", { bubbles: true, cancelable: true }));
+    await delay(30);
+    const saved = ui.requests.find(r => r.url.pathname === "/github/connections/email");
+    expect(saved.payload).to.deep.equal({ action: "save", email: "owner@example.com" });
+    expect(saved.headers["X-CSRF-Token"]).to.equal("email-csrf");
+    expect(ui.window.document.querySelector("#email-prompt")).to.equal(null);
+    await ui.go("/dashboard");
+    expect(ui.window.document.querySelector("#email-prompt")).to.equal(null);
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  for (const action of ["later", "never"]) it(`dismisses the email popup with ${action} without requiring an address`, async () => {
+    ui = await browser("/dashboard", {
+      "/api/user": { username: "owner", notificationEmail: "", emailNotificationsEnabled: true, showEmailPrompt: true, emailPromptCSRF: "csrf" },
+      "/github/connections/email": { ok: true },
+    });
+    const text = action === "later" ? "Remind me later" : "Never";
+    [...ui.window.document.querySelectorAll("#email-prompt button")].find(b => b.textContent === text).click();
+    await delay(30);
+    expect(ui.requests.find(r => r.url.pathname === "/github/connections/email").payload.action).to.equal(action);
+    expect(ui.window.document.querySelector("#email-prompt")).to.equal(null);
+  });
+
+  for (const user of [
+    { emailNotificationsEnabled: false, showEmailPrompt: true },
+    { emailNotificationsEnabled: true, showEmailPrompt: false },
+    { emailNotificationsEnabled: true, showEmailPrompt: true, notificationEmail: "owner@example.com" },
+  ]) it(`does not show the email popup for ${JSON.stringify(user)}`, async () => {
+    ui = await browser("/dashboard", { "/api/user": { username: "owner", ...user } });
+    expect(ui.window.document.querySelector("#email-prompt")).to.equal(null);
+  });
+
+  it("keeps the popup open and shows an error if saving fails", async () => {
+    ui = await browser("/dashboard", {
+      "/api/user": { username: "owner", emailNotificationsEnabled: true, showEmailPrompt: true, emailPromptCSRF: "csrf" },
+      "/github/connections/email": { __status: 500, body: { error: "Unable to save." } },
+    });
+    await ui.input("#email-prompt-address", "owner@example.com");
+    ui.window.document.querySelector("#email-prompt form").dispatchEvent(new ui.window.Event("submit", { bubbles: true, cancelable: true }));
+    await delay(30);
+    expect(ui.window.document.querySelector("#email-prompt").textContent).to.include("Unable to save.");
+    expect(ui.window.document.querySelector("#email-prompt-address").value).to.equal("owner@example.com");
+  });
+
   const repositorySource = {
     "/api/user": { username: "owner" },
     "/api/user/default": { terms: ["Default Author"], options: {} },

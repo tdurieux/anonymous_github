@@ -1,3 +1,4 @@
+import { notifyOwnerAccessProblem } from "./owner-notifications";
 import { registerGitHubToken } from "./github-token-context";
 import { createSign, randomUUID } from "crypto";
 import { readFileSync } from "fs";
@@ -87,6 +88,14 @@ export async function saveAppGrant(ownerId: string, data: AppTokenResponse) {
 }
 
 export async function appUserToken(ownerId: string): Promise<string> {
+  try { return await resolveAppUserToken(ownerId); }
+  catch (error) {
+    void notifyOwnerAccessProblem(ownerId, error);
+    throw error;
+  }
+}
+
+async function resolveAppUserToken(ownerId: string): Promise<string> {
   if (!config.GITHUB_APP_ENABLED) throw appError("github_app_disabled", 503);
   const user = await UserModel.findById(ownerId).select("status externalIDs").lean();
   if (!user || user.status === "removed" || user.status === "banned") throw appError();

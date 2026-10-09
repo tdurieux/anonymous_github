@@ -20,6 +20,7 @@ export interface IUser {
     createdAt?: Date;
     lastUsedAt?: Date;
   }[];
+  emailPromptNever?: boolean;
   emails: {
     email: string;
     default: boolean;

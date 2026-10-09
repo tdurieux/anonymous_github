@@ -1,3 +1,5 @@
+import { randomBytes } from "crypto";
+import { notificationEmail } from "../../core/owner-notifications";
 import DashboardName from "../../core/model/dashboard-name";
 import { dashboardSummary } from "./dashboard-summary";
 import { revokeGrant } from "./github-app";
@@ -40,7 +42,18 @@ router.get("/logout", async (req, res) => {
 router.get("/", async (req, res) => {
   try {
     const user = await getUser(req);
+    const showEmailPrompt = !!(config.RESEND_API_KEY && config.EMAIL_FROM) &&
+      !notificationEmail(user.model.emails) && !user.model.emailPromptNever && !req.session.emailPromptDismissed;
+    if (showEmailPrompt) {
+      req.session.githubConnectionCSRF ||= randomBytes(32).toString("hex");
+      await new Promise<void>((resolve, reject) => req.session.save(error => error ? reject(error) : resolve()));
+    }
+    res.set("Cache-Control", "no-store");
     res.json({
+      showEmailPrompt,
+      emailPromptCSRF: showEmailPrompt ? req.session.githubConnectionCSRF : undefined,
+      notificationEmail: notificationEmail(user.model.emails),
+      emailNotificationsEnabled: !!(config.RESEND_API_KEY && config.EMAIL_FROM),
       username: user.username,
       photo: user.photo,
       isAdmin: user.isAdmin,

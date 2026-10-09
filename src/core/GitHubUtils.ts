@@ -1,4 +1,5 @@
 import { refreshLegacyToken } from "./legacy-token-refresh";
+import { notifyOwnerAccessProblem } from "./owner-notifications";
 import AnonymizedRepositoryModel from "./model/anonymizedRepositories/anonymizedRepositories.model";
 import { isConnected } from "../server/database";
 import { githubQuotaKey, githubTokenContext } from "./github-token-context";
@@ -289,7 +290,7 @@ export function octokit(token: string) {
 
 export { waitForTokenGate };
 
-export async function checkToken(token: string) {
+export async function checkToken(token: string, ownerId?: string) {
   const oct = octokit(token);
   try {
     const context = githubTokenContext(token);
@@ -304,6 +305,9 @@ export async function checkToken(token: string) {
     ) {
       throw err;
     }
+    if (ownerId && (err as { status?: number }).status === 401) {
+      void notifyOwnerAccessProblem(ownerId, "token_expired");
+    }
     return false;
   }
 }
@@ -311,7 +315,12 @@ export async function checkToken(token: string) {
 const checkedRepositoryTokens = new WeakMap<Repository, string>();
 
 export async function getToken(repository: Repository) {
-  return measureStage("authorization", () => resolveRepositoryToken(repository));
+  try {
+    return await measureStage("authorization", () => resolveRepositoryToken(repository));
+  } catch (error) {
+    void notifyOwnerAccessProblem(repository.owner.id, error);
+    throw error;
+  }
 }
 
 async function resolveRepositoryToken(repository: Repository) {
@@ -344,7 +353,7 @@ async function resolveRepositoryToken(repository: Repository) {
         return refreshed;
       }
     }
-    const check = await checkToken(ownerAccessToken);
+    const check = await checkToken(ownerAccessToken, repository.owner.id);
     if (check) {
       checkedRepositoryTokens.set(repository, ownerAccessToken);
       return ownerAccessToken;

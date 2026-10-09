@@ -115,3 +115,18 @@
   </div>
 </nav>
 <div class="navbar shadow generalMessage" v-if="generalMessage" v-html="sanitize(generalMessage)"></div>
+
+<dialog id="email-prompt" class="email-prompt" v-if="emailPromptOpen" aria-labelledby="email-prompt-title" aria-describedby="email-prompt-reason" @cancel.prevent="respondToEmailPrompt('later')">
+  <form @submit.prevent="respondToEmailPrompt('save')">
+    <h2 id="email-prompt-title">Stay informed about access problems</h2>
+    <p id="email-prompt-reason">Get email alerts when your GitHub token or repository access fails.</p>
+    <label for="email-prompt-address">Email address</label>
+    <input id="email-prompt-address" class="form-control" type="email" autocomplete="email" maxlength="254" required v-model="emailPromptAddress" :disabled="emailPromptBusy" />
+    <p class="paper-inline-alert paper-inline-alert-error" role="alert" v-if="emailPromptError">{{ emailPromptError }}</p>
+    <div class="email-prompt-actions">
+      <button type="button" class="btn btn-outline-ink" :disabled="emailPromptBusy" @click="respondToEmailPrompt('later')">Remind me later</button>
+      <button type="button" class="btn btn-outline-ink" :disabled="emailPromptBusy" @click="respondToEmailPrompt('never')">Never</button>
+      <button type="submit" class="btn btn-ink" :disabled="emailPromptBusy">{{ emailPromptBusy ? 'Saving…' : 'Save' }}</button>
+    </div>
+  </form>
+</dialog>

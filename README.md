@@ -95,6 +95,27 @@ the [MongoDB replication guide](docs/mongodb-replication.md).
 
 </details>
 
+### Owner email alerts
+
+Set `RESEND_API_KEY` and `EMAIL_FROM` on the web server and download workers to
+send access alerts through [Resend](https://resend.com/docs/api-reference/emails/send-email).
+Use a sender address on a domain verified in Resend. `APP_HOSTNAME` sets the
+host used for the connections link in emails.
+
+Signed-in owners without an email address see an email form in a popup.
+“Remind me later” dismisses it for the current login session; “Never” saves a
+permanent preference on the account. Existing addresses are reused, and owners
+can add or change their address on the connections page at any time.
+Alerts cover invalid GitHub credentials and repository access errors encountered
+while reading or refreshing content. No periodic access scan is performed.
+Emails contain no repository names, anonymous URLs, or credentials.
+
+An atomic database claim limits alerts to one per owner every 24 hours across
+workers and repositories. Sending is best effort: delivery failures do not block
+repository requests, and a later access error can retry after ten minutes.
+A process interrupted after claiming an alert may skip that day's email.
+Leaving either Resend setting empty disables delivery and the email prompt.
+
 ## Scope of anonymization
 
 In double-anonymous review, the boundary of anonymization is **the paper plus its online appendix — and only that**. Googling part of the paper or appendix to reveal authorship is considered a deliberate attempt to break anonymity ([explanation](https://www.monperrus.net/martin/open-science-double-blind)).

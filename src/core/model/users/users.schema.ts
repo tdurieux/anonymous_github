@@ -15,6 +15,8 @@ const UserSchema = new Schema({
     type: String,
     index: { unique: true },
   },
+  emailPromptNever: { type: Boolean, default: false },
+  accessAlertAfter: { type: Date, select: false },
   emails: [
     {
       email: { type: String },

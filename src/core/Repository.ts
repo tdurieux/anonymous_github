@@ -1,3 +1,4 @@
+import { notifyOwnerAccessProblem } from "./owner-notifications";
 import AnonymizedPathModel from "./model/anonymized-path";
 import storage from "./storage";
 import { contentGenerationPrefix, contentRetirementMarker } from "./content-generation";
@@ -223,7 +224,10 @@ export default class Repository {
       const previousPrefix = contentGenerationPrefix(`${previousGeneration || "legacy"}:${this.model.anonymizeDate?.toISOString() || ""}`);
       const streamed = this.model.source.type !== "Zip";
       const source = this.source;
-      const files = await source.getFiles(opt.progress);
+      const files = await source.getFiles(opt.progress).catch(error => {
+        void notifyOwnerAccessProblem(this.owner.id, error);
+        throw error;
+      });
       const sourceWithTruncation = source as unknown as { truncatedFolderList?: string[] };
       const truncatedFolders = Array.isArray(sourceWithTruncation.truncatedFolderList)
         ? [...sourceWithTruncation.truncatedFolderList] : [];
@@ -654,6 +658,9 @@ export default class Repository {
           repo: this.source.data.repoName,
           repositoryID: this.model.source.repositoryId,
           force: true,
+        }).catch(error => {
+          void notifyOwnerAccessProblem(this.owner.id, error);
+          throw error;
         });
 
         // update the repository name if it has changed. Persist it
