@@ -20,6 +20,7 @@ export interface IUser {
     createdAt?: Date;
     lastUsedAt?: Date;
   }[];
+  notificationEmail?: string;
   emailPromptNever?: boolean;
   emails: {
     email: string;

@@ -17,7 +17,7 @@ describe("owner access notifications", () => {
     stub(config, "APP_HOSTNAME", "anonymous.example.com");
     stub(User, "findOneAndUpdate", (filter, update) => ({ lean: async () => {
       claims.push(filter);
-      if (!owner || ["removed", "banned"].includes(owner.status) || !owner.emails.length || after > new Date()) return null;
+      if (!owner || ["removed", "banned"].includes(owner.status) || (!owner.emails.length && !owner.notificationEmail) || after > new Date()) return null;
       after = update.$set.accessAlertAfter;
       return owner;
     } }));
@@ -72,6 +72,32 @@ describe("owner access notifications", () => {
     expect(retryWrites).to.have.length(1);
   });
 
+  it("retains the daily claim when delivery may already have happened", async () => {
+    let attempts = 0;
+    stub(global, "fetch", async () => { attempts++; throw new Error("response timed out after acceptance"); });
+    await notifyOwnerAccessProblem("owner-id", "token_expired");
+    expect(retryWrites).to.have.length(0);
+    expect(after.getTime() - Date.now()).to.be.within(86390000, 86400000);
+    await notifyOwnerAccessProblem("owner-id", "token_expired");
+    expect(attempts).to.equal(1);
+  });
+
+  it("uses a dedicated alert address without requiring or replacing profile emails", async () => {
+    owner.notificationEmail = "alerts@example.com";
+    const original = JSON.stringify(owner.emails);
+    await notifyOwnerAccessProblem("owner-id", "token_expired");
+    expect(sent[0].body.to).to.deep.equal(["alerts@example.com"]);
+    expect(JSON.stringify(owner.emails)).to.equal(original);
+    after = null; owner.emails = [];
+    await notifyOwnerAccessProblem("owner-id", "token_expired");
+    expect(sent).to.have.length(2);
+  });
+
+  it("recognizes raw authentication and missing-resource errors without alerting for outages", () => {
+    for (const status of [401, 404]) expect(notifications.isAccessFailure(Object.assign(new Error("GitHub rejected access"), { status }))).to.equal(true);
+    for (const status of [429, 500, 503]) expect(notifications.isAccessFailure(Object.assign(new Error("upstream error"), { status }))).to.equal(false);
+  });
+
   it("does not let database failures escape", async () => {
     stub(User, "findOneAndUpdate", () => { throw new Error("database down"); });
     await notifyOwnerAccessProblem("owner-id", "token_expired");
@@ -97,7 +123,7 @@ describe("owner email settings", () => {
   it("updates only the signed-in owner's address", async () => {
     const res = response();
     await endpoint({ body: { email: " owner@example.com ", ownerId: "someone-else" } }, res);
-    expect(writes).to.deep.equal([[{ _id: "signed-in-owner" }, { $set: { emails: [{ email: "owner@example.com", default: true }] } }]]);
+    expect(writes).to.deep.equal([[{ _id: "signed-in-owner" }, { $set: { notificationEmail: "owner@example.com" } }]]);
     expect(res.body.notificationEmail).to.equal("owner@example.com");
   });
   it("rejects malformed input without a database write", async () => {
@@ -120,6 +146,20 @@ describe("owner email settings", () => {
     expect(res.statusCode).to.equal(400);
     expect(writes).to.have.length(0);
   });
+  it("initializes the same CSRF token for parallel session snapshots", () => {
+    const { connectionCSRF } = require("../src/server/routes/github-app");
+    const userRequest = { sessionID: "same-login-session", session: {} };
+    const connectionsRequest = { sessionID: "same-login-session", session: {} };
+    const popupToken = connectionCSRF(userRequest);
+    const pageToken = connectionCSRF(connectionsRequest);
+    expect(popupToken).to.equal(pageToken);
+    expect(connectionCSRF({ sessionID: "another-login", session: {} })).not.to.equal(pageToken);
+    for (const token of [popupToken, pageToken]) {
+      let accepted = false;
+      csrf({ method: "POST", session: connectionsRequest.session, headers: { "x-csrf-token": token } }, response(), () => { accepted = true; });
+      expect(accepted).to.equal(true);
+    }
+  });
   it("requires the session's CSRF token before changing email", () => {
     const res = response(); let next = false;
     csrf({ method: "POST", session: { githubConnectionCSRF: "secret" }, headers: {} }, res, () => { next = true; });
@@ -139,10 +179,11 @@ describe("email popup eligibility", () => {
     config.RESEND_API_KEY = "test"; config.EMAIL_FROM = "alerts@example.com";
   });
   afterEach(() => { utils.getUser = oldUser; config.RESEND_API_KEY = oldKey; config.EMAIL_FROM = oldFrom; });
-  for (const reason of ["eligible", "email", "never", "later", "no-key", "no-sender"]) {
+  for (const reason of ["eligible", "email", "alert-email", "never", "later", "no-key", "no-sender"]) {
     it(`checks ${reason} before showing the form`, async () => {
       utils.getUser = async () => ({ username: "owner", model: {
         emails: reason === "email" ? [{ email: "owner@example.com", default: true }] : [],
+        notificationEmail: reason === "alert-email" ? "alerts@example.com" : undefined,
         emailPromptNever: reason === "never",
       } });
       if (reason === "no-key") config.RESEND_API_KEY = "";
@@ -198,4 +239,39 @@ describe("repository notification hooks", () => {
     await failsWith(() => repo.updateIfNeeded({ force: true }), error);
     expect(sent).to.deep.equal([[repo.owner.id, error]]);
   });
+});
+
+describe("gist and pull-request notification hooks", () => {
+  const Gist = require("../src/core/Gist").default;
+  const GistModel = require("../src/core/model/anonymizedGists/anonymizedGists.model").default;
+  const PullRequest = require("../src/core/PullRequest").default;
+  const PullRequestModel = require("../src/core/model/anonymizedPullRequests/anonymizedPullRequests.model").default;
+  const github = require("../src/core/GitHubUtils");
+  const restores = [];
+  const stub = (object, key, value) => { const old = object[key]; restores.push(() => object[key] = old); object[key] = value; };
+  let sent;
+  beforeEach(() => { sent = []; stub(notifications, "notifyOwnerAccessProblem", async (...args) => { sent.push(args); }); });
+  afterEach(() => { while (restores.length) restores.pop()(); });
+  for (const type of ["gist", "pull-request"]) for (const failure of ["oauth", "app-access"]) {
+    it(`alerts the owner on ${type} ${failure} failure and preserves the error`, async () => {
+      const data = { owner: "507f1f77bcf86cd799439011", source: { gistId: "gist", repositoryFullName: "private/source", pullRequestId: 1 }, options: { expirationMode: "never" } };
+      const resource = type === "gist" ? new Gist(new GistModel(data)) : new PullRequest(new PullRequestModel(data));
+      const error = failure === "oauth" ? Object.assign(new Error("Bad credentials"), { status: 401 }) : new Error("github_app_access_required");
+      if (type === "gist") {
+        resource.getAccess = async () => {
+          if (failure === "app-access") throw error;
+          return { token: "token", connection: "oauth" };
+        };
+        resource.downloadContent = async () => { throw error; };
+      } else {
+        resource.getToken = async () => { if (failure === "app-access") throw error; return "token"; };
+        stub(github, "octokit", () => ({ rest: { pulls: { get: async () => { throw error; } } } }));
+      }
+      let caught;
+      try { await resource.download(); } catch (err) { caught = err; }
+      expect(caught).to.be.instanceOf(Error);
+      expect(caught.message).to.equal(type === "gist" && failure === "oauth" ? "github_oauth_required" : error.message);
+      expect(sent).to.deep.equal([[resource.owner.id, caught]]);
+    });
+  }
 });

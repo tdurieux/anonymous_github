@@ -112,7 +112,8 @@ Emails contain no repository names, anonymous URLs, or credentials.
 
 An atomic database claim limits alerts to one per owner every 24 hours across
 workers and repositories. Sending is best effort: delivery failures do not block
-repository requests, and a later access error can retry after ten minutes.
+repository requests. A definite provider rejection allows a later access error
+to retry after ten minutes; ambiguous timeouts retain the daily limit.
 A process interrupted after claiming an alert may skip that day's email.
 Leaving either Resend setting empty disables delivery and the email prompt.
 

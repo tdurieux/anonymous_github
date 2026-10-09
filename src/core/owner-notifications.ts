@@ -7,7 +7,7 @@ const DAY = 24 * 60 * 60 * 1000;
 const accessErrors = new Set([
   "token_expired", "github_oauth_required", "github_app_reconnect_required",
   "github_app_access_required", "repo_not_found", "repository_not_found",
-  "repo_not_accessible", "repo_access_limited", "repo_saml_enforcement",
+  "pull_request_not_found", "gist_not_found", "repo_not_accessible", "repo_access_limited", "repo_saml_enforcement",
 ]);
 
 export function normalizeEmail(value: unknown): string | null {
@@ -20,14 +20,15 @@ export function normalizeEmail(value: unknown): string | null {
   return email;
 }
 
-export function notificationEmail(emails?: { email: string; default: boolean }[]): string {
-  return normalizeEmail(emails?.find(e => e.default)?.email) ||
+export function notificationEmail(emails?: { email: string; default: boolean }[], preferred?: string): string {
+  return normalizeEmail(preferred) || normalizeEmail(emails?.find(e => e.default)?.email) ||
     emails?.map(e => normalizeEmail(e.email)).find(Boolean) || "";
 }
 
 export function isAccessFailure(error: unknown): boolean {
   const code = typeof error === "string" ? error : error instanceof Error ? error.message : "";
-  if (!accessErrors.has(code)) return false;
+  const rawStatus = error instanceof Error ? (error as Error & { status?: number }).status : undefined;
+  if (!accessErrors.has(code) && ![401, 404].includes(rawStatus || 0)) return false;
   if (error instanceof Error) {
     const upstream = (error as Error & { cause?: { status?: number; httpStatus?: number } }).cause;
     // Some legacy paths wrap timeouts or 5xx responses as repo_not_found.
@@ -48,14 +49,15 @@ export async function notifyOwnerAccessProblem(ownerId: string, error: unknown):
     // per day. Claim before sending so concurrent requests cannot flood an inbox.
     const owner = await UserModel.findOneAndUpdate({
       _id: ownerId, status: { $nin: ["removed", "banned"] },
-      "emails.0": { $exists: true },
+      $and: [{ $or: [{ "emails.0": { $exists: true } }, { notificationEmail: { $exists: true, $ne: "" } }] }],
       $or: [{ accessAlertAfter: { $exists: false } }, { accessAlertAfter: { $lte: now } }],
     }, { $set: { accessAlertAfter: new Date(now.getTime() + DAY) } }, { new: true }).lean();
     if (!owner) return;
-    const to = notificationEmail(owner.emails);
+    const to = notificationEmail(owner.emails, owner.notificationEmail);
     if (!to) return;
     const base = /^https?:\/\//.test(config.APP_HOSTNAME) ? config.APP_HOSTNAME : `https://${config.APP_HOSTNAME}`;
     const url = new URL("/connections", base).href;
+    let rejected = false;
     try {
       const response = await fetch("https://api.resend.com/emails", {
         method: "POST",
@@ -67,10 +69,12 @@ export async function notifyOwnerAccessProblem(ownerId: string, error: unknown):
           text: `Anonymous GitHub could not access GitHub using your connection, or could not read a repository.\n\nOpen your connections page to reconnect your account or restore repository access:\n${url}\n\nYou are receiving this email because you own content on Anonymous GitHub. You can change your alert address on the connections page.\n`,
         }),
       });
-      if (!response.ok) throw new Error("email_delivery_failed");
+      rejected = !response.ok;
+      if (rejected) throw new Error("email_delivery_failed");
     } catch {
-      // Permit retry on a later access failure, with a short backoff for outages.
-      await UserModel.updateOne({ _id: ownerId, accessAlertAfter: new Date(now.getTime() + DAY) },
+      // Only a definite rejection may retry early. A timeout can occur after
+      // Resend accepted the message, so retain the daily claim in that case.
+      if (rejected) await UserModel.updateOne({ _id: ownerId, accessAlertAfter: new Date(now.getTime() + DAY) },
         { $set: { accessAlertAfter: new Date(now.getTime() + 10 * 60000) } });
       logger.warn("owner access email delivery failed");
     }

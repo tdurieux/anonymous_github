@@ -29,6 +29,12 @@ export function consumeFlow(flow: Flow | undefined, state: unknown): Flow {
 function newFlow(ownerId: string | undefined, returnTo: unknown): Flow {
   return { state: randomBytes(32).toString("hex"), expires: Date.now() + 10 * 60000, ownerId, returnTo: safeReturnTo(returnTo) };
 }
+// Parallel user/connections reads must initialize the same token even when
+// both loaded the session before either request saved it.
+export function connectionCSRF(req: express.Request): string {
+  return req.session.githubConnectionCSRF ||= createHmac("sha256", config.SESSION_SECRET)
+    .update(`github-connections:${req.sessionID}`).digest("hex");
+}
 function saveSession(req: express.Request) { return new Promise<void>((resolve, reject) => req.session.save(err => err ? reject(err) : resolve())); }
 function enabled(req: express.Request, res: express.Response, next: express.NextFunction) {
   if (!config.GITHUB_APP_ENABLED || !config.GITHUB_APP_NEW_CONNECTIONS) return res.status(503).json({ error: "github_app_disabled" });
@@ -151,7 +157,7 @@ router.get("/app/setup", enabled, async (req, res) => {
 router.get("/connections", async (req, res) => {
   try {
     const user = await getUser(req);
-    req.session.githubConnectionCSRF ||= randomBytes(32).toString("hex");
+    connectionCSRF(req);
     await saveSession(req);
     const credentials = await CredentialModel.find({ ownerId: user.id }).select("provider revoked").lean();
     const appConnected = credentials.some(c => c.provider === APP_PROVIDER && !c.revoked);
@@ -168,7 +174,7 @@ router.get("/connections", async (req, res) => {
     const repos = await RepositoryModel.find({ owner: user.id, status: { $ne: "removed" } }).select("repoId source.repositoryName githubAccess status statusDate").lean();
     const prs = await PullRequestModel.find({ owner: user.id, status: { $ne: "removed" } }).select("pullRequestId source.repositoryFullName githubAccess status statusDate").lean();
     const gistCount = await GistModel.countDocuments({ owner: user.id, status: { $ne: "removed" } });
-    res.json({ notificationEmail: notificationEmail(user.model.emails), emailNotificationsEnabled: !!(config.RESEND_API_KEY && config.EMAIL_FROM),
+    res.json({ notificationEmail: notificationEmail(user.model.emails, user.model.notificationEmail), emailNotificationsEnabled: !!(config.RESEND_API_KEY && config.EMAIL_FROM),
       csrf: req.session.githubConnectionCSRF, appEnabled: config.GITHUB_APP_ENABLED && config.GITHUB_APP_NEW_CONNECTIONS,
       gistConnection: config.GITHUB_APP_ENABLED && credentials.some(c => c.provider === APP_PROVIDER) ? "github-app" : "oauth",
       oauthEnabled: config.GITHUB_OAUTH_ENABLED, oauthConnected: !!(await getCredentialToken(user.id)), appConnected, appError: appErrorCode,
@@ -199,7 +205,7 @@ router.post("/connections/email", async (req, res) => {
     }
     const email = normalizeEmail(req.body?.email);
     if (!email) return res.status(400).json({ error: "Enter a valid email address." });
-    await UserModel.updateOne({ _id: user.id }, { $set: { emails: [{ email, default: true }] } });
+    await UserModel.updateOne({ _id: user.id }, { $set: { notificationEmail: email } });
     res.json({ notificationEmail: email });
   } catch (error) { handleError(error, res, req); }
 });
