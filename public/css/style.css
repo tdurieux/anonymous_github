@@ -7344,6 +7344,7 @@ input[type="date"], select { color-scheme: light; }
 .dashboard-page .paper-table-dashboard { width: 100%; }
 .paper-account-email { margin: 20px 0; }
 .paper-account-email .form-control { max-width: 420px; }
+.paper-settings .paper-account-email .btn[type="submit"] { min-height: 36px; padding: 7px 18px; white-space: nowrap; }
 .paper-table .paper-table-head { font-family: var(--font-sans); text-transform: none; letter-spacing: 0; font-size: 12px; background: var(--paper-bg-alt); border-radius: var(--radius-surface) var(--radius-surface) 0 0; }
 .paper-table .paper-table-head, .paper-table .paper-table-row { padding-left: 16px; padding-right: 16px; }
 
@@ -7707,6 +7708,7 @@ input[type="date"], select { color-scheme: light; }
 }
 @media (max-width: 767px) {
   .paper-page, .paper-faq { padding-top: 20px; }
+  .paper-settings .paper-account-email .btn[type="submit"] { min-height: 40px; padding: 9px 18px; }
   .paper-page .paper-page-title, .paper-page.admin-page .paper-page-title, .anonymize-page .paper-page-title, .paper-faq-title { font-size: 24px; }
   .paper-page .form-control, .anonymize-page .form-control { min-height: 44px; }
   .paper-page .btn, .anonymize-page .btn, .paper-settings-toc nav a, .connection-link, .draft-discard, .paper-faq-toc a { min-height: 44px; }
