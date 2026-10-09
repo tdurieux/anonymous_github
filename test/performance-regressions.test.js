@@ -127,6 +127,7 @@ describe("performance regressions", function () {
     [Object.assign(new Error("large"), { status: 422 }), "file_too_big", 422],
     [Object.assign(new Error("missing"), { httpStatus: 404 }), "file_not_found", 404],
     [Object.assign(new Error("reset"), { code: "ECONNRESET" }), "upstream_error", 502],
+    [new (require("../src/core/GitHubUtils").RateLimitDelayError)(Date.now() + 60000, "quota-key"), "github_rate_limit_exceeded", 429],
     [new (require("../src/core/AnonymousError").default)("file_not_accessible", { httpStatus: 403 }), "file_not_accessible", 403],
   ].entries()) {
     it(`preserves ${code}/${status} for failed downloads (${upstream.message})`, async () => {
@@ -136,6 +137,7 @@ describe("performance regressions", function () {
       let committed = false;
       stub(storage, "write", async (_repo, _path, stream) => { for await (const chunk of stream) void chunk; committed = true; });
       source.downloadWithFallback = async () => { setImmediate(() => input.destroy(upstream)); return input; };
+      stub(require("../src/core/source/github-content-miss"), "classifyContentMiss", async () => "file_not_found");
       try { await source.getFileContentCache("file.txt", source.data.repoId, () => ({ sha: "blob", size: 1 })); throw Error("expected failure"); }
       catch (error) {
         expect(error.message).to.equal(code); expect(error.httpStatus).to.equal(status);

@@ -6,6 +6,7 @@ export function repositoryFailureStatus(code?: string): number {
     case "token_expired": case "not_connected": return 401;
     case "github_rate_limit_exceeded": return 429;
     case "github_unavailable": return 502;
+    case "repo_empty": return 409;
     default: return 500;
   }
 }
