@@ -149,7 +149,7 @@ describe("bounded request monitoring", function () {
         try {
           const input = await source.getFileContentCache("file.txt", source.data.repoId, () => ({ sha: "blob", size: 7 }));
           input.destroy(); res.send("ok");
-        } catch (error) { res.status(502).send(error === upstreamError ? "original error" : "unexpected error"); }
+        } catch (error) { res.status(502).send(error.cause === upstreamError ? "original error" : "unexpected error"); }
       });
       try {
         await listen(); const response = await fetch(server, "/");

@@ -1,3 +1,5 @@
+import { sendRequestRateLimit } from "./request-rate-limit";
+import { installFatalErrorLogging } from "../core/process-monitoring";
 import { githubAppRouter, githubAppWebhook } from "./routes/github-app";
 import { config as dotenv } from "dotenv";
 dotenv();
@@ -47,6 +49,7 @@ import { createReviewConsentPage, isReviewConsentPagePath } from "./review-conse
 
 const reviewConsentPage = createReviewConsentPage();
 const logger = createLogger("server");
+installFatalErrorLogging("api");
 
 // Lazily build the templated index.html on first request so the server
 // works even when started before `gulp` finishes.
@@ -191,9 +194,7 @@ export default async function start() {
     keyGenerator: requestRateLimitKey,
     standardHeaders: "draft-6",
     legacyHeaders: false,
-    message: (_request: express.Request, _response: express.Response) => {
-      return `You can only make ${config.RATE_LIMIT} requests every 15min. Please try again later.`;
-    },
+    handler: sendRequestRateLimit,
   });
   const speedLimiter = slowDown({
     windowMs: 15 * 60 * 1000, // 15 minutes

@@ -1,3 +1,4 @@
+import { ExpiringMap } from "../expiring-map";
 import { contentGenerationPrefix, contentRetirementMarker } from "../content-generation";
 import { createHash } from "crypto";
 import { coordinatedFill } from "../cache-coordination";
@@ -29,6 +30,7 @@ const logger = createLogger("gh-stream");
 
 const GH_API_CONCURRENCY = 6;
 const cacheFills = new Map<string, Promise<void>>();
+const missingContent = new ExpiringMap<boolean>(2048);
 
 async function pMap<T, R>(
   items: T[],
@@ -62,6 +64,15 @@ export function githubRawFileUrl(
   return `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(
     repo
   )}/raw/${encodeURIComponent(commit)}/${encodedPath}`;
+}
+
+function downloadError(error: Error, filePath: string): AnonymousError {
+  if (error instanceof AnonymousError) return error;
+  const response = error as Error & { response?: { statusCode?: number }; status?: number; httpStatus?: number };
+  const status = response.response?.statusCode ?? response.status ?? response.httpStatus;
+  const code = status === 401 || status === 403 ? "file_not_accessible"
+    : status === 404 ? "file_not_found" : status === 422 ? "file_too_big" : "upstream_error";
+  return new AnonymousError(code, { httpStatus: Number.isInteger(status) && status! >= 400 && status! < 500 ? status : 502, cause: error, object: filePath });
 }
 
 export default class GitHubStream extends GitHubBase {
@@ -123,6 +134,17 @@ export default class GitHubStream extends GitHubBase {
     });
   }
 
+  private deferredRawDownload(token: string, filePath: string): stream.Readable {
+    let active: stream.Readable | undefined;
+    const download = () => this.downloadFileViaRaw(token, filePath);
+    const output = stream.Readable.from((async function* () {
+      active = download();
+      for await (const chunk of active) yield chunk;
+    })(), { objectMode: false });
+    output.once("close", () => active?.destroy());
+    return output;
+  }
+
   // Try the blob API, then fall back to the raw URL on statuses where the
   // path-based endpoint can still succeed. 422 is the blob endpoint's size
   // cap; 404 can happen with stale/invalid blob SHAs while the path still
@@ -135,9 +157,9 @@ export default class GitHubStream extends GitHubBase {
     // Public raw downloads need no bearer token and do not consume the
     // unauthenticated REST API quota. GitHub also resolves LFS pointers here.
     if (!token || githubTokenContext(token)?.publicRepository) {
-      return Promise.resolve(this.downloadFileViaRaw(token, filePath));
+      return Promise.resolve(this.deferredRawDownload(token, filePath));
     }
-    return new Promise<stream.Readable>((resolve) => {
+    return new Promise<stream.Readable>((resolve, reject) => {
       const blobStream = this.downloadFile(token, sha);
       let settled = false;
 
@@ -148,7 +170,7 @@ export default class GitHubStream extends GitHubBase {
           filePath,
           statusCode,
         });
-        resolve(this.downloadFileViaRaw(token, filePath));
+        resolve(this.deferredRawDownload(token, filePath));
       };
 
       blobStream.on("error", (err) => {
@@ -160,13 +182,10 @@ export default class GitHubStream extends GitHubBase {
           fallbackToRaw(statusCode);
           return;
         }
-        // Other errors: let the normal pipeline handle them.
-        // Defer destroy so callers can attach error listeners before
-        // the error event fires, avoiding an uncaughtException crash.
+        // Reject before handing a stream to the caller. nextTick runs before
+        // await continuations, so emitting on a returned stream here can crash.
         settled = true;
-        const passthrough = new stream.PassThrough();
-        resolve(passthrough);
-        process.nextTick(() => passthrough.destroy(err));
+        reject(err);
       });
 
       blobStream.on("response", (response) => {
@@ -191,9 +210,7 @@ export default class GitHubStream extends GitHubBase {
     token: string,
     filePath: string
   ): stream.Readable {
-    const out = new stream.PassThrough();
     let active = blobStream;
-    out.once("close", () => active.destroy());
     // The generator only reads upstream when the output has capacity.
     const downloadRaw = () => this.downloadFileViaRaw(token, filePath);
     async function* resolve() {
@@ -225,12 +242,10 @@ export default class GitHubStream extends GitHubBase {
         }
       }
     }
-    const resolved = stream.Readable.from(resolve());
-    out.once("close", () => resolved.destroy());
-    resolved.on("error", (error) => out.destroy(error));
-    resolved.pipe(out);
-
-    return out;
+    const resolved = stream.Readable.from(resolve(), { objectMode: false });
+    // Keep the generator lazy until the consumer has installed its handlers.
+    resolved.once("close", () => active.destroy());
+    return resolved;
   }
 
   async getFileContentCache(
@@ -299,34 +314,38 @@ export default class GitHubStream extends GitHubBase {
       filling = coordinatedFill(key, cached, async () => {
         await assertActive();
         const token = await this.data.getToken();
-        return measureStage("upstream", async () => {
-          const content = await this.downloadWithFallback(token, expected.sha, filePath);
-          let count = 0;
-          const limited = new stream.Transform({ transform(chunk, encoding, callback) {
-            count += chunk.length;
-            callback(count > config.MAX_FILE_SIZE ? new AnonymousError("file_too_big", { httpStatus: 413 }) : null, chunk);
-          } });
-          content.on("error", error => {
-            if (error instanceof AnonymousError) { limited.destroy(error); return; }
-            const status = (error as { response?: { statusCode?: number }; status?: number; httpStatus?: number });
-            const httpStatus = status.response?.statusCode ?? status.status ?? status.httpStatus;
-            const code = httpStatus === 403 ? "file_not_accessible"
-              : httpStatus === 404 ? "file_not_found"
-              : httpStatus === 422 ? "file_too_big" : "upstream_error";
-            limited.destroy(new AnonymousError(code, { httpStatus: httpStatus || 502, cause: error, object: filePath }));
+        const missKey = createHash("sha256").update(JSON.stringify([
+          key, this.data.organization, this.data.repoName, token,
+        ])).digest("hex");
+        if (missingContent.get(missKey)) throw new AnonymousError("file_not_found", { httpStatus: 404 });
+        try {
+          return await measureStage("upstream", async () => {
+            const content = await this.downloadWithFallback(token, expected.sha, filePath)
+              .catch(error => { throw downloadError(error, filePath); });
+            let count = 0;
+            const limited = new stream.Transform({ transform(chunk, encoding, callback) {
+              count += chunk.length;
+              callback(count > config.MAX_FILE_SIZE ? new AnonymousError("file_too_big", { httpStatus: 413 }) : null, chunk);
+            } });
+            content.on("error", error => limited.destroy(downloadError(error, filePath)));
+            limited.once("close", () => content.destroy());
+            limited.on("error", () => {});
+            content.pipe(limited);
+            const deadline = setTimeout(() => limited.destroy(new AnonymousError("upstream_error", { httpStatus: 502 })), 120_000);
+            try {
+              await storage.write(repoId, cachePath, limited, this.type, expected.size);
+              try { await assertActive(); }
+              catch (error) { await storage.rm(repoId, cachePath); throw error; }
+            }
+            finally { clearTimeout(deadline); limited.destroy(); content.destroy(); }
+            return true;
           });
-          limited.once("close", () => content.destroy());
-          limited.on("error", () => {});
-          content.pipe(limited);
-          const deadline = setTimeout(() => limited.destroy(new AnonymousError("upstream_error", { httpStatus: 502 })), 120_000);
-          try {
-            await storage.write(repoId, cachePath, limited, this.type, expected.size);
-            try { await assertActive(); }
-            catch (error) { await storage.rm(repoId, cachePath); throw error; }
+        } catch (error) {
+          if (error instanceof AnonymousError && error.message === "file_not_found" && error.httpStatus === 404) {
+            missingContent.set(missKey, true, 30_000);
           }
-          finally { clearTimeout(deadline); limited.destroy(); content.destroy(); }
-          return true;
-        });
+          throw error;
+        }
       }).then(() => {});
       cacheFills.set(key, filling);
       void filling.finally(() => { if (cacheFills.get(key) === filling) cacheFills.delete(key); }).catch(() => {});

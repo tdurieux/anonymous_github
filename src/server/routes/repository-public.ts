@@ -1,3 +1,4 @@
+import { repositoryFailureStatus } from "../../core/repository-failure-status";
 import { anonymizePath } from "../../core/anonymize-utils";
 import * as express from "express";
 import config from "../../config";
@@ -334,7 +335,7 @@ router.get(
                 : "repository_not_accessible",
               {
                 object: repo,
-                httpStatus: 500,
+                httpStatus: repositoryFailureStatus(repo.model.statusMessage),
               }
             );
           }
