@@ -70,7 +70,7 @@ export default class Gist {
   async download() {
     try { await this.downloadWithAccess(); }
     catch (error) {
-      void notifyOwnerAccessProblem(this.owner.id, error);
+      void notifyOwnerAccessProblem(this.owner.id, error, { kind: "gist", id: String(this.model._id) });
       throw error;
     }
   }

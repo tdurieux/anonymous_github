@@ -1,4 +1,4 @@
-import { notificationEmail, normalizeEmail } from "../../core/owner-notifications";
+import { notificationEmail, normalizeEmail, resetOwnerAccessAlerts } from "../../core/owner-notifications";
 import * as express from "express";
 import { createHmac, randomBytes, randomUUID, timingSafeEqual } from "crypto";
 import config from "../../config";
@@ -94,6 +94,7 @@ router.get("/app/callback", enabled, async (req, res) => {
     }
     if (isDisabledAccount(user.status)) throw appError("not_connected", 403);
     await saveAppGrant(user.id, tokens);
+    await resetOwnerAccessAlerts(user.id);
     await new Promise<void>((resolve, reject) => req.login({ username: user!.username, user }, err => err ? reject(err) : resolve()));
     res.redirect(flow.install ? `/github/app/install?returnTo=${encodeURIComponent(flow.returnTo)}&repository=${encodeURIComponent(flow.repository || "")}` : flow.returnTo);
   } catch (error) { handleError(error, res, req); }
@@ -148,6 +149,7 @@ router.get("/app/setup", enabled, async (req, res) => {
     if (req.query.setup_action !== "request") {
       const installations = await userInstallations(user.id);
       if (!installations.some(i => String(i.id) === req.query.installation_id)) throw appError("github_app_access_required");
+      await resetOwnerAccessAlerts(user.id);
     }
     await UserModel.updateOne({ _id: user.id }, { $set: { repositories: [] } });
     res.redirect(flow.returnTo);
@@ -251,6 +253,7 @@ router.post("/connections/migrate", async (req, res) => {
     } };
     const result = isRepo ? await RepositoryModel.updateOne(filter, change) : await PullRequestModel.updateOne(filter, change);
     if (!result.modifiedCount) throw appError("connection_changed", 409);
+    await resetOwnerAccessAlerts(user.id, { kind: isRepo ? "repository" : "pull-request", id: String(model._id) });
     res.json({ connection });
   } catch (error) { handleError(error, res, req); }
 });

@@ -2,6 +2,8 @@ import { repositoryAccessSchema } from "../repository-access.schema";
 import { Schema } from "mongoose";
 
 const AnonymizedPullRequestSchema = new Schema({
+  accessAlertGeneration: { type: String, select: false },
+  accessAlertClaimedAt: { type: Date, select: false },
   pullRequestId: {
     type: String,
     index: { unique: true },

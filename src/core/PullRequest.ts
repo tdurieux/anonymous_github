@@ -36,7 +36,7 @@ export default class PullRequest {
   async download() {
     try { await this.downloadContent(); }
     catch (error) {
-      void notifyOwnerAccessProblem(this.owner.id, error);
+      void notifyOwnerAccessProblem(this.owner.id, error, { kind: "pull-request", id: String(this.model._id) });
       throw error;
     }
   }

@@ -1,3 +1,4 @@
+import { resetOwnerAccessAlerts } from "../../core/owner-notifications";
 import * as express from "express";
 import { ensureAuthenticated } from "./connection";
 
@@ -29,6 +30,7 @@ router.post(
 
       const user = await getUser(req);
       isOwnerOrAdmin([gist.owner.id], user);
+      if (user.id === gist.owner.id) await resetOwnerAccessAlerts(user.id, { kind: "gist", id: String(gist.model._id) });
       await gist.updateIfNeeded({ force: true });
       res.json({ status: gist.status });
     } catch (error) {
@@ -68,6 +70,7 @@ router.post(
         { $set: { "options.expirationDate": newExpiration } }
       ).exec();
 
+      if (user.id === gist.owner.id) await resetOwnerAccessAlerts(user.id, { kind: "gist", id: String(gist.model._id) });
       await gist.updateIfNeeded({ force: true });
       res.json({ status: gist.status, expirationDate: newExpiration });
     } catch (error) {
@@ -222,6 +225,7 @@ router.post(
         }
       ).exec();
       await gist.updateStatus(RepositoryStatus.PREPARING);
+      if (user.id === gist.owner.id) await resetOwnerAccessAlerts(user.id, { kind: "gist", id: String(gist.model._id) });
       await gist.updateIfNeeded({ force: true });
       res.json(gist.toJSON());
     } catch (error) {

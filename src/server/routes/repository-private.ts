@@ -1,3 +1,4 @@
+import { resetOwnerAccessAlerts } from "../../core/owner-notifications";
 import { randomUUID } from "crypto";
 import { githubQuotaKey } from "../../core/github-token-context";
 import { selectRepositoryAccess, boundAppToken, appError } from "../../core/github-app";
@@ -114,7 +115,8 @@ router.post("/claim", async (req, res) => {
 
     await AnonymizedRepositoryModel.updateOne(
       { repoId: repoConfig.repoId },
-      { $set: { owner: user.model.id, githubAccess: selectedAccess.binding } }
+      { $set: { owner: user.model.id, githubAccess: selectedAccess.binding, accessAlertGeneration: randomUUID() },
+        $unset: { accessAlertClaimedAt: "" } }
     ).collation({ locale: "en", strength: 2 });
     return res.send("Ok");
   } catch (error) {
@@ -146,6 +148,7 @@ router.post(
         throw new AnonymousError("invalid_status", { httpStatus: 409 });
       }
 
+      if (user.id === repo.owner.id) await resetOwnerAccessAlerts(user.id, { kind: "repository", id: String(repo.model._id) });
       await repo.refresh();
       res.json({ status: repo.status });
     } catch (error) {
@@ -197,6 +200,7 @@ router.post(
         { $set: updates }
       ).exec();
       if (saved && saved.matchedCount === 0) throw new AnonymousError("invalid_status", { httpStatus: 409 });
+      if (user.id === repo.owner.id) await resetOwnerAccessAlerts(user.id, { kind: "repository", id: String(repo.model._id) });
 
       if (reactivating) {
         // Expiration removes the cached files. Rebuild the saved commit
@@ -621,6 +625,7 @@ router.post(
         }
       ).exec();
       if (!saved.matchedCount) throw appError("connection_changed", 409);
+      if (user.id === repo.owner.id) await resetOwnerAccessAlerts(user.id, { kind: "repository", id: String(repo.model._id) });
       if (!sourceChanged && !reactivating) {
         return res.json({ status: repo.status });
       }
