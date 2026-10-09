@@ -122,6 +122,15 @@ describe("production failure fixes", function () {
     expect(res.statusCode).to.equal(429); expect(res.body).to.deep.equal({ error: "rate_limited", resetAt });
     expect(Number(headers["Retry-After"])).to.be.within(9, 10);
   });
+  it("counts native and structured connection reset lines once each", () => {
+    const summary = logSummary();
+    observeLine(summary, "Error: read ECONNRESET");
+    observeLine(summary, "Error: socket hang up");
+    observeLine(summary, '2026-10-09T00:00:00Z ERROR [process] process fatal error {"code":"process_fatal_error","message":"read ECONNRESET"}');
+    observeLine(summary, "ordinary native output");
+    expect(summary.connectionResets).to.equal(3);
+    expect(summary.fatalErrors).to.equal(1);
+  });
   it("flags native unhandled stream errors and restarts without reporting private log fields", () => {
     const summary = logSummary();
     observeLine(summary, "throw er; // Unhandled 'error' event");

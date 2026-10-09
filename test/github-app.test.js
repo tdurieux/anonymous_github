@@ -95,7 +95,11 @@ describe("GitHub App protocol boundaries", () => {
       const GitHubStream = require("../src/core/source/GitHubStream").default;
       const source = Object.create(GitHubStream.prototype);
       source.data = { organization: "other", repoName: "public", commit: "abc" };
-      await source.downloadWithFallback(handle, "blob", "README.md");
+      const content = await source.downloadWithFallback(handle, "blob", "README.md");
+      expect(captured).to.equal(undefined);
+      let body = "";
+      for await (const chunk of content) body += chunk;
+      expect(body).to.equal("file");
       expect(captured.url).to.include("other/public");
       expect(captured.url).to.include("README.md");
       expect(captured.options.headers.authorization).to.equal(undefined);

@@ -8,6 +8,7 @@ function logSummary() {
 function observeLine(summary, line) {
   // Older releases rely on Node's stderr. New releases also emit a redacted
   // process_fatal_error event before Node terminates.
+  if (/ECONNRESET|socket hang up/i.test(line)) summary.connectionResets++;
   const match = /^\S+ (INFO|WARN|ERROR) \[([^\]]+)\] .*? (\{.*\})$/.exec(line);
   if (!match) {
     if (/Unhandled ['"]error['"] event|unhandled(?:promise)?rejection|FATAL ERROR|heap out of memory/i.test(line)) summary.fatalErrors++;
@@ -26,7 +27,6 @@ function observeLine(summary, line) {
     else summary.interrupted++;
     if (data.status === 429) summary.rateLimited++;
   }
-  if (/ECONNRESET|socket hang up/i.test(line)) summary.connectionResets++;
 }
 async function readLogs(name, since) {
   const summary = logSummary();
