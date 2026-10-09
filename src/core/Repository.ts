@@ -1,3 +1,4 @@
+import { notifyOwnerAccessProblem } from "./owner-notifications";
 import AnonymizedPathModel from "./model/anonymized-path";
 import storage from "./storage";
 import { contentGenerationPrefix, contentRetirementMarker } from "./content-generation";
@@ -223,7 +224,10 @@ export default class Repository {
       const previousPrefix = contentGenerationPrefix(`${previousGeneration || "legacy"}:${this.model.anonymizeDate?.toISOString() || ""}`);
       const streamed = this.model.source.type !== "Zip";
       const source = this.source;
-      const files = await source.getFiles(opt.progress);
+      const files = await source.getFiles(opt.progress).catch(error => {
+        void notifyOwnerAccessProblem(this.owner.id, error);
+        throw error;
+      });
       const sourceWithTruncation = source as unknown as { truncatedFolderList?: string[] };
       const truncatedFolders = Array.isArray(sourceWithTruncation.truncatedFolderList)
         ? [...sourceWithTruncation.truncatedFolderList] : [];
@@ -624,6 +628,14 @@ export default class Repository {
 
   /** Update the repository if a new commit exists. */
   async updateIfNeeded(opt?: { force: boolean }): Promise<void> {
+    try { await this.refreshIfNeeded(opt); }
+    catch (error) {
+      void notifyOwnerAccessProblem(this.owner.id, error);
+      throw error;
+    }
+  }
+
+  private async refreshIfNeeded(opt?: { force: boolean }): Promise<void> {
     this.assertNotArchived();
     if (
       this._model.options.expirationMode !== "never" &&

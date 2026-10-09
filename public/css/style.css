@@ -7879,3 +7879,19 @@ input[type="date"], select { color-scheme: light; }
 .q-job-detail-label { font-family: var(--font-sans); font-size: 12px; letter-spacing: 0; text-transform: none; }
 .admin-section-header h2 { font-family: var(--font-sans); font-size: 16px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--color); }
 .errors-page .sev-label { font-family: var(--font-sans); font-size: 13px; letter-spacing: 0; }
+
+/* Email setup after sign-in. Native dialog traps focus and makes the page inert. */
+.email-prompt {
+  width: min(560px, calc(100vw - 32px));
+  padding: 28px;
+  border: 1px solid var(--paper-border, #e5e1d9);
+  border-radius: 12px;
+  background: var(--paper-bg, #faf9f6);
+  color: inherit;
+  box-shadow: 0 16px 64px #0003;
+}
+.email-prompt::backdrop { background: #0006; }
+.email-prompt h2 { margin: 0 0 12px; font-size: 24px; }
+.email-prompt p { margin-bottom: 20px; }
+.email-prompt-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; margin-top: 24px; }
+body.dark-mode .email-prompt { background: #242320; color: #faf9f6; }

@@ -1,3 +1,4 @@
+import { notifyOwnerAccessProblem } from "./owner-notifications";
 import { isConnected } from "../server/database";
 import { expireEmbeddedContent } from "./content-expiration";
 import { boundAppToken } from "./github-app";
@@ -33,6 +34,14 @@ export default class PullRequest {
   }
 
   async download() {
+    try { await this.downloadContent(); }
+    catch (error) {
+      void notifyOwnerAccessProblem(this.owner.id, error);
+      throw error;
+    }
+  }
+
+  private async downloadContent() {
     logger.info("downloading pull request", {
       pullRequestId: this._model.source.pullRequestId,
     });

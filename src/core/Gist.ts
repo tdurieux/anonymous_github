@@ -1,3 +1,4 @@
+import { notifyOwnerAccessProblem } from "./owner-notifications";
 import { registerGitHubToken } from "./github-token-context";
 import { isConnected } from "../server/database";
 import { expireEmbeddedContent } from "./content-expiration";
@@ -67,6 +68,14 @@ export default class Gist {
   }
 
   async download() {
+    try { await this.downloadWithAccess(); }
+    catch (error) {
+      void notifyOwnerAccessProblem(this.owner.id, error);
+      throw error;
+    }
+  }
+
+  private async downloadWithAccess() {
     const access = await this.getAccess();
     try {
       await this.downloadContent(access.token);

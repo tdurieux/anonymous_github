@@ -1,6 +1,7 @@
+import { notificationEmail } from "../../core/owner-notifications";
 import DashboardName from "../../core/model/dashboard-name";
 import { dashboardSummary } from "./dashboard-summary";
-import { revokeGrant } from "./github-app";
+import { connectionCSRF, revokeGrant } from "./github-app";
 import CredentialModel from "../../core/model/credentials/credentials.model";
 import * as express from "express";
 import config from "../../config";
@@ -40,7 +41,18 @@ router.get("/logout", async (req, res) => {
 router.get("/", async (req, res) => {
   try {
     const user = await getUser(req);
+    const showEmailPrompt = !!(config.RESEND_API_KEY && config.EMAIL_FROM) &&
+      !notificationEmail(user.model.emails, user.model.notificationEmail) && !user.model.emailPromptNever && !req.session.emailPromptDismissed;
+    if (showEmailPrompt) {
+      connectionCSRF(req);
+      await new Promise<void>((resolve, reject) => req.session.save(error => error ? reject(error) : resolve()));
+    }
+    res.set("Cache-Control", "no-store");
     res.json({
+      showEmailPrompt,
+      emailPromptCSRF: showEmailPrompt ? req.session.githubConnectionCSRF : undefined,
+      notificationEmail: notificationEmail(user.model.emails, user.model.notificationEmail),
+      emailNotificationsEnabled: !!(config.RESEND_API_KEY && config.EMAIL_FROM),
       username: user.username,
       photo: user.photo,
       isAdmin: user.isAdmin,
@@ -226,6 +238,9 @@ router.delete("/", async (req, res) => {
           repositories: [],
         },
         $unset: {
+          notificationEmail: "",
+          emailPromptNever: "",
+          accessAlertAfter: "",
           accessTokens: "",
           accessTokenDates: "",
           externalIDs: "",

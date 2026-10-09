@@ -2,6 +2,7 @@ import { githubQuotaKey } from "../../core/github-token-context";
 import { SandboxedJob } from "bullmq";
 import { config } from "dotenv";
 config();
+import { notifyOwnerAccessProblem } from "../../core/owner-notifications";
 import { getRepository as getRepositoryImport } from "../../server/database";
 import { RepositoryStatus } from "../../core/types";
 import { RepoJobData } from "../index";
@@ -142,6 +143,7 @@ export default async function (job: SandboxedJob<RepoJobData, void>) {
     if (error instanceof DelayedError || (error instanceof Error && error.name === "DelayedError")) {
       throw error;
     }
+    await notifyOwnerAccessProblem(repo.owner.id, error);
     logger.error("finished with error", {
       ...serializeError(error),
       repoId: job.data.repoId,

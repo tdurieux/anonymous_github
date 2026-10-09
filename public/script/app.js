@@ -146,10 +146,40 @@ export const mainController = function (state, http, location, timeout) {
 
       state.darkMode(localStorage.getItem("darkMode") == "true");
 
+      state.emailPromptOpen = false;
+      state.emailPromptAddress = "";
+      state.emailPromptBusy = false;
+      state.emailPromptError = "";
+      let emailPromptFocus;
+      state.respondToEmailPrompt = async (action) => {
+        if (state.emailPromptBusy) return;
+        state.emailPromptBusy = true;
+        state.emailPromptError = "";
+        try {
+          const res = await http.post("/github/connections/email", { action, email: state.emailPromptAddress },
+            { headers: { "X-CSRF-Token": state.user.emailPromptCSRF } });
+          if (action === "save") state.user.notificationEmail = res.data.notificationEmail;
+          state.emailPromptOpen = false;
+          state.user.showEmailPrompt = false;
+          emailPromptFocus?.focus();
+        } catch (error) { state.emailPromptError = error.data?.error || "Unable to save your preference. Please try again."; }
+        finally { state.emailPromptBusy = false; }
+      };
+
       function getUser() {
         http.get("/api/user").then(
           (res) => {
             if (res) state.user = res.data;
+            if (state.user?.emailNotificationsEnabled && state.user.showEmailPrompt && !state.user.notificationEmail) {
+              emailPromptFocus = document.activeElement;
+              state.emailPromptOpen = true;
+              timeout(() => {
+                const dialog = document.getElementById("email-prompt");
+                if (dialog?.showModal) dialog.showModal();
+                else dialog?.setAttribute("open", "");
+                document.getElementById("email-prompt-address")?.focus();
+              }, 0);
+            }
           },
           () => {
             state.user = null;
@@ -3297,11 +3327,27 @@ export const conferenceController = function (state, http, location, params) {
 
 
 export const connectionsController = function (state, http) {
+  state.notificationEmail = "";
+  state.emailSaved = false;
+  state.saveNotificationEmail = async () => {
+    state.busy = true;
+    state.emailSaved = false;
+    state.connectionError = "";
+    try {
+      const res = await http.post("/github/connections/email", { email: state.notificationEmail },
+        { headers: { "X-CSRF-Token": state.connections.csrf } });
+      state.notificationEmail = res.data.notificationEmail;
+      if (state.user) state.user.notificationEmail = res.data.notificationEmail;
+      state.emailSaved = true;
+    } catch (error) { state.connectionError = error.data?.error || "Unable to save email address."; }
+    finally { state.busy = false; }
+  };
   state.connections = null;
   state.connectionError = "";
   state.busy = false;
   state.loadConnections = () => http.get("/github/connections").then(res => {
     state.connections = res.data;
+    state.notificationEmail = res.data.notificationEmail || "";
   }).catch(error => { state.connectionError = error.data?.error || "Unable to load connections."; });
   state.changeConnection = async (resource, connection, preview) => {
     state.busy = true;

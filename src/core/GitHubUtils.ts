@@ -1,4 +1,6 @@
+import { isGitHubRateLimitError, OctokitRequestErrorLike } from "./github-rate-limit";
 import { refreshLegacyToken } from "./legacy-token-refresh";
+import { notifyOwnerAccessProblem } from "./owner-notifications";
 import AnonymizedRepositoryModel from "./model/anonymizedRepositories/anonymizedRepositories.model";
 import { isConnected } from "../server/database";
 import { githubQuotaKey, githubTokenContext } from "./github-token-context";
@@ -16,35 +18,7 @@ import { measureStage } from "./request-monitoring";
 
 const logger = createLogger("github");
 
-// Octokit RequestError shape (subset we care about for rate-limit detection).
-interface OctokitRequestErrorLike {
-  status?: number;
-  message?: string;
-  response?: {
-    headers?: Record<string, string | undefined>;
-  };
-}
-
-/**
- * Detect GitHub rate-limit / abuse responses (primary 5k/h or undocumented
- * "secondary" limits) and rewrap them as a translatable AnonymousError so
- * the UI can show a friendly message instead of a raw HttpError stack. The
- * GitHub `x-github-request-id` header is preserved in `detail` so users can
- * cite it if they reach out to GitHub Support.
- */
-export function isGitHubRateLimitError(err: unknown): boolean {
-  if (!err || typeof err !== "object") return false;
-  const e = err as OctokitRequestErrorLike;
-  const msg = (e.message ?? "").toLowerCase();
-  // Primary limits return 403 with "x-ratelimit-remaining: 0"; secondary
-  // limits return 403 (sometimes 429) with "secondary rate limit" in the
-  // body. Match on either signal so we catch both.
-  const status = e.status ?? 0;
-  if (status !== 403 && status !== 429) return false;
-  if (msg.includes("rate limit") || msg.includes("abuse")) return true;
-  const remaining = e.response?.headers?.["x-ratelimit-remaining"];
-  return remaining === "0";
-}
+export { isGitHubRateLimitError } from "./github-rate-limit";
 
 function rateLimitDetail(err: OctokitRequestErrorLike): string {
   const headers = err.response?.headers ?? {};
@@ -289,7 +263,7 @@ export function octokit(token: string) {
 
 export { waitForTokenGate };
 
-export async function checkToken(token: string) {
+export async function checkToken(token: string, ownerId?: string) {
   const oct = octokit(token);
   try {
     const context = githubTokenContext(token);
@@ -298,12 +272,10 @@ export async function checkToken(token: string) {
     else await oct.users.getAuthenticated();
     return true;
   } catch (err) {
-    if (
-      err instanceof AnonymousError &&
-      err.message === "github_rate_limit_exceeded"
-    ) {
-      throw err;
-    }
+    // Only a confirmed invalid credential permits fallback. Network failures,
+    // permission failures and rate limits must retain their original meaning.
+    if ((err as { status?: number })?.status !== 401) throw err;
+    if (ownerId) void notifyOwnerAccessProblem(ownerId, "token_expired");
     return false;
   }
 }
@@ -311,7 +283,12 @@ export async function checkToken(token: string) {
 const checkedRepositoryTokens = new WeakMap<Repository, string>();
 
 export async function getToken(repository: Repository) {
-  return measureStage("authorization", () => resolveRepositoryToken(repository));
+  try {
+    return await measureStage("authorization", () => resolveRepositoryToken(repository));
+  } catch (error) {
+    void notifyOwnerAccessProblem(repository.owner.id, error);
+    throw error;
+  }
 }
 
 async function resolveRepositoryToken(repository: Repository) {
@@ -344,7 +321,7 @@ async function resolveRepositoryToken(repository: Repository) {
         return refreshed;
       }
     }
-    const check = await checkToken(ownerAccessToken);
+    const check = await checkToken(ownerAccessToken, repository.owner.id);
     if (check) {
       checkedRepositoryTokens.set(repository, ownerAccessToken);
       return ownerAccessToken;

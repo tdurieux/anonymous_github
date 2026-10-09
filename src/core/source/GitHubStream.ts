@@ -412,10 +412,13 @@ export default class GitHubStream extends GitHubBase {
         size: data.size,
       };
     } catch (error) {
-      logger.debug("fetchFileInfoFromPath miss", {
-        filePath,
-        error: serializeError(error),
-      });
+      if ((error as { status?: number }).status !== 404) throw error;
+      // A missing file and lost repository access both return 404. Only
+      // report a normal miss after the repository probe remains readable.
+      const code = await classifyGitHubMissError(error, this.data);
+      if (code === "repo_not_found") {
+        throw new AnonymousError(code, { httpStatus: 404, cause: error as Error });
+      }
       return null;
     }
   }

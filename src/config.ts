@@ -2,6 +2,8 @@ import { resolve } from "path";
 import { randomBytes } from "crypto";
 
 interface Config {
+  RESEND_API_KEY: string;
+  EMAIL_FROM: string;
   GITHUB_APP_ENABLED: boolean;
   GITHUB_APP_NEW_CONNECTIONS: boolean;
   GITHUB_OAUTH_ENABLED: boolean;
@@ -67,6 +69,8 @@ interface Config {
   RATE_LIMIT: number;
 }
 const config: Config = {
+  RESEND_API_KEY: "",
+  EMAIL_FROM: "",
   GITHUB_APP_ENABLED: false,
   GITHUB_APP_NEW_CONNECTIONS: true,
   GITHUB_OAUTH_ENABLED: true,
