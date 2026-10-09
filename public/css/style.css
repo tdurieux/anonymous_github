@@ -7341,6 +7341,9 @@ input[type="date"], select { color-scheme: light; }
 .conference-feedback { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px; margin-top: 16px; background: var(--paper-card); border: 1px solid var(--border-color); border-radius: var(--radius-surface); width: 100%; }
 
 .paper-table { background: var(--paper-card); border: 1px solid var(--border-color); border-radius: var(--radius-surface); margin-top: 12px; }
+.dashboard-page .paper-table-dashboard { width: 100%; }
+.paper-account-email { margin: 20px 0; }
+.paper-account-email .form-control { max-width: 420px; }
 .paper-table .paper-table-head { font-family: var(--font-sans); text-transform: none; letter-spacing: 0; font-size: 12px; background: var(--paper-bg-alt); border-radius: var(--radius-surface) var(--radius-surface) 0 0; }
 .paper-table .paper-table-head, .paper-table .paper-table-row { padding-left: 16px; padding-right: 16px; }
 

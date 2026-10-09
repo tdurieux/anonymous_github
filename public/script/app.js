@@ -261,6 +261,42 @@ export const profileController = function (state, http, translate, timeout, quot
       state.message = null;
       state.error = null;
 
+      state.accountEmail = "";
+      state.emailLoading = true;
+      state.emailCSRFReady = false;
+      state.emailSaving = false;
+      state.emailSaved = false;
+      state.emailError = "";
+      let emailCSRF = "";
+      state.loadAccountEmail = async () => {
+        state.emailLoading = true;
+        state.emailError = "";
+        try {
+          const res = await http.get("/github/connections/email");
+          state.accountEmail = res.data.notificationEmail || "";
+          emailCSRF = res.data.csrf;
+          state.emailCSRFReady = !!emailCSRF;
+        } catch {
+          state.emailError = "Unable to load your email address. Please try again.";
+        } finally { state.emailLoading = false; }
+      };
+      state.saveAccountEmail = async () => {
+        if (state.emailSaving || state.emailLoading || !emailCSRF) return;
+        state.emailSaving = true;
+        state.emailSaved = false;
+        state.emailError = "";
+        try {
+          const res = await http.post("/github/connections/email", { email: state.accountEmail },
+            { headers: { "X-CSRF-Token": emailCSRF } });
+          state.accountEmail = res.data.notificationEmail;
+          if (state.user) state.user.notificationEmail = res.data.notificationEmail;
+          state.emailSaved = true;
+        } catch {
+          state.emailError = "Unable to save your email address. Check the address and try again.";
+        } finally { state.emailSaving = false; }
+      };
+      state.loadAccountEmail();
+
       quotaService.load().then((quota) => {
         state.quota = quota;
       }, console.error);
