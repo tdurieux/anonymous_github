@@ -709,7 +709,8 @@ export default class Repository {
         }
         if (
           this.model.source.commit == newCommit &&
-          this.status == RepositoryStatus.READY
+          this.status == RepositoryStatus.READY &&
+          !opt?.force
         ) {
           logger.info("up to date", { repoId: this._model.repoId });
           return;
