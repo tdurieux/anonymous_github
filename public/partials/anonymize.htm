@@ -119,7 +119,7 @@
               <div class="repo-access-note"><span v-if="detectedType !== 'gist' &amp;&amp; githubConnection !== 'oauth'">Select repositories on GitHub, then return here.</span><span><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-info"></use></svg> Selected content will be published, including content from private repositories.</span></div>
             </aside>
 
-            <aside class="repo-access-details" v-if="isUpdate &amp;&amp; detectedType === 'repo' &amp;&amp; role === 'owner' &amp;&amp; githubConnections?.appEnabled &amp;&amp; githubConnection === 'github-app' &amp;&amp; sourceUrl === 'https://github.com/' + _originalFullName">
+            <aside class="repo-access-details" v-if="isUpdate &amp;&amp; detectedType === 'repo' &amp;&amp; role === 'owner' &amp;&amp; accessRepairAllowed &amp;&amp; githubConnections?.appEnabled &amp;&amp; githubConnection === 'github-app' &amp;&amp; sourceUrl === 'https://github.com/' + _originalFullName">
               <p>If this repository became private or its App installation changed, repair its access here. This keeps the same anonymous URL and published commit.</p>
               <button type="button" class="btn btn-outline-ink" :disabled="repairingGitHubAccess" @click="repairGitHubAccess()">Repair GitHub access</button>
               <button type="button" class="btn btn-outline-ink" @click="grantGitHubAccess()">Manage access</button>

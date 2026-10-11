@@ -958,6 +958,18 @@ describe("Vue 3 UI", function () {
     expect([...ui.window.document.querySelectorAll("button")].some(b => b.textContent === "Repair GitHub access" || b.textContent === "Manage access")).to.equal(false);
   });
 
+  for (const status of ["removed", "archived", "preparing", "queue", "download", "removing", "expiring", "ready", "error", "expired"]) {
+    it(`gates App access repair for repository status ${status}`, async function () {
+      ui = await browser("/anonymize/test", {
+        "/github/connections": { appEnabled: true, appConnected: true },
+        "/api/repo/test": { status, connection: "github-app", role: "owner",
+          source: { fullName: "owner/repo", branch: "main", commit: "saved-sha" }, options: { terms: [], update: false } },
+      });
+      const shown = [...ui.window.document.querySelectorAll("button")].some(b => b.textContent === "Repair GitHub access");
+      expect(shown).to.equal(["ready", "error", "expired"].includes(status));
+    });
+  }
+
   it("reconnects a recreated source without saving until the owner submits", async function () {
     const oldCommit = "deadbeef";
     const newCommit = "1a212f1deb74b123804ec90d098c0f843c30da5b";

@@ -1404,10 +1404,11 @@ export const anonymizeController = function (state, http, html, params, location
         return null;
       }
 
+      state.accessRepairAllowed = false;
       state.repairingGitHubAccess = false;
       state.accessRepairMessage = "";
       state.repairGitHubAccess = async () => {
-        if (state.repairingGitHubAccess || !state.githubConnections?.appEnabled || !params.repoId || state.role !== "owner" ||
+        if (!state.accessRepairAllowed || state.repairingGitHubAccess || !state.githubConnections?.appEnabled || !params.repoId || state.role !== "owner" ||
             state.githubConnection !== "github-app" || parseRepoFullName(state.sourceUrl) !== state._originalFullName) return;
         state.repairingGitHubAccess = true;
         state.accessRepairMessage = "";
@@ -1492,6 +1493,7 @@ export const anonymizeController = function (state, http, html, params, location
           state.repoId = params.repoId;
           http.get("/api/repo/" + state.repoId).then(
             async (res) => {
+              state.accessRepairAllowed = !["removed", "archived", "preparing", "queue", "download", "removing", "expiring"].includes(res.data.status);
               state.githubConnection = res.data.connection || "oauth";
               state.sourceUrl = "https://github.com/" + res.data.source.fullName;
               state._originalFullName = res.data.source.fullName;
