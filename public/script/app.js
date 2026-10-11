@@ -1404,6 +1404,38 @@ export const anonymizeController = function (state, http, html, params, location
         return null;
       }
 
+      state.accessRepairAllowed = false;
+      state.repairingGitHubAccess = false;
+      state.accessRepairMessage = "";
+      state.repairGitHubAccess = async () => {
+        if (!state.accessRepairAllowed || state.repairingGitHubAccess || !state.githubConnections?.appEnabled || !params.repoId || state.role !== "owner" ||
+            state.githubConnection !== "github-app" || parseRepoFullName(state.sourceUrl) !== state._originalFullName) return;
+        state.repairingGitHubAccess = true;
+        state.accessRepairMessage = "";
+        const request = beginSourceRequest();
+        try {
+          const connections = await http.get("/github/connections");
+          state.githubConnections = connections.data;
+          if (!connections.data.appEnabled) return;
+          const repaired = await http.post("/github/connections/migrate", { type: "repository", id: params.repoId, connection: "github-app" },
+            { headers: { "X-CSRF-Token": connections.data.csrf } });
+          if (!isCurrentSource(request)) return;
+          state.error = null;
+          if (repaired.data.fullName) {
+            state._originalFullName = repaired.data.fullName;
+            state.source.fullName = repaired.data.fullName;
+            state.sourceUrl = "https://github.com/" + repaired.data.fullName;
+          }
+          state.accessRepairMessage = "GitHub access repaired. Your anonymous URL and published commit are unchanged.";
+          await state.urlSelected(true);
+        } catch (_) {
+          if (isCurrentSource(request)) state.accessRepairMessage = "Unable to repair GitHub access. Check the App's repository permissions in Manage access, then retry. Your published snapshot has not been replaced.";
+        } finally {
+          state.repairingGitHubAccess = false;
+          finishSourceRequest(request);
+        }
+      };
+
       state.reconnectingSource = false;
       state.reconnectRepositoryId = undefined;
       state.reconnectSource = async () => {
@@ -1461,6 +1493,7 @@ export const anonymizeController = function (state, http, html, params, location
           state.repoId = params.repoId;
           http.get("/api/repo/" + state.repoId).then(
             async (res) => {
+              state.accessRepairAllowed = !["removed", "archived", "preparing", "queue", "download", "removing", "expiring"].includes(res.data.status);
               state.githubConnection = res.data.connection || "oauth";
               state.sourceUrl = "https://github.com/" + res.data.source.fullName;
               state._originalFullName = res.data.source.fullName;

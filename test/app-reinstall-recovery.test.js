@@ -50,7 +50,7 @@ for (const type of ["repository", "pull-request"]) {
       expect(writes).to.have.length(0); expect(model.githubAccess.installationId).to.equal(100);
     });
     it("replaces only the binding while preserving the URL, source and snapshot", async function () {
-      expect(await run()).to.deep.equal({ connection: "github-app" });
+      expect(await run()).to.deep.equal({ connection: "github-app", fullName: "owner/private" });
       expect(writes).to.have.length(1);
       expect(writes[0].update).to.deep.equal({ $set: { githubAccess: selected.binding } });
       expect(writes[0].filter.githubAccess).to.deep.equal(model.githubAccess);
