@@ -659,6 +659,46 @@ describeMongo("GitHub App credential and repository integration", function () {
     expect((await CachedRepos.findById(cached.id)).name).to.equal("other/public");
   });
 
+  for (const permission of ["granted", "missing", "replacement", "missing-commit"]) {
+    it(`repairs a public binding after the source becomes private (${permission})`, async () => {
+      const Repos = require("../src/core/model/anonymizedRepositories/anonymizedRepositories.model").default;
+      await app.saveAppGrant(owner.id, data());
+      const resource = await Repos.create({ repoId: "visibility-" + permission, owner: owner.id, status: "ready",
+        source: { type: "GitHubStream", repositoryName: "owner/repo", commit: "pinned", branch: "main" },
+        options: { terms: ["author"], update: false },
+        githubAccess: { kind: "github-app", repositoryId: 42, publicRead: true, revision: "original" } });
+      const before = resource.toObject();
+      mock(url => {
+        if (url.includes("/user/installations?")) return { installations: [{ id: 4, app_id: 123, account: { id: 10, login: "owner", type: "User" } }] };
+        if (url.includes("/user/installations/4/repositories")) return { repositories: permission === "missing" ? [] : [
+          { id: permission === "replacement" ? 99 : 42, full_name: "owner/repo", private: true, visibility: "private" },
+        ] };
+        if (url.endsWith("/repos/owner/repo") || url.endsWith("/repositories/42")) return { id: 42, full_name: "owner/repo", private: true, visibility: "private" };
+        if (url.endsWith("/app/installations/4")) return { app_id: 123, permissions: { contents: "read", metadata: "read" } };
+        if (url.endsWith("/access_tokens")) return { token: "ghs_private", expires_at: new Date(Date.now() + 3600000).toISOString() };
+        if (url.endsWith("/repos/owner/repo/commits/pinned")) return permission === "missing-commit" ? { status: 404 } : { sha: "pinned" };
+        throw new Error("Unexpected request " + url);
+      });
+      await rejects(app.boundAppToken(owner.id, resource.githubAccess, "owner/repo"), "github_app_access_required");
+      const result = await request("/github/connections/migrate", { type: "repository", id: resource.repoId, connection: "github-app" });
+      const after = await Repos.findById(resource.id);
+      expect(after.repoId).to.equal(before.repoId);
+      expect(after.toObject().source).to.deep.equal(before.source);
+      expect(after.toObject().options).to.deep.equal(before.options);
+      expect(after.status).to.equal("ready");
+      if (permission === "granted") {
+        expect(result.status).to.equal(200);
+        expect(after.githubAccess.publicRead).not.to.equal(true);
+        expect(after.githubAccess.installationId).to.equal(4);
+        expect(after.githubAccess.repositoryId).to.equal(42);
+        expect(await app.boundAppToken(owner.id, after.githubAccess, "owner/repo")).to.equal("ghs_private");
+      } else {
+        expect(result.status).to.equal(403);
+        expect(after.toObject().githubAccess).to.deep.equal(before.githubAccess);
+      }
+    });
+  }
+
   it("recovers a renamed private pull request through its stable repository ID", async () => {
     const PRs = require("../src/core/model/anonymizedPullRequests/anonymizedPullRequests.model").default;
     await app.saveAppGrant(owner.id, data());

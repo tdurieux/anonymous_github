@@ -1404,6 +1404,30 @@ export const anonymizeController = function (state, http, html, params, location
         return null;
       }
 
+      state.repairingGitHubAccess = false;
+      state.accessRepairMessage = "";
+      state.repairGitHubAccess = async () => {
+        if (state.repairingGitHubAccess || !params.repoId || state.role !== "owner" ||
+            state.githubConnection !== "github-app" || parseRepoFullName(state.sourceUrl) !== state._originalFullName) return;
+        state.repairingGitHubAccess = true;
+        state.accessRepairMessage = "";
+        const request = beginSourceRequest();
+        try {
+          const connections = await http.get("/github/connections");
+          await http.post("/github/connections/migrate", { type: "repository", id: params.repoId, connection: "github-app" },
+            { headers: { "X-CSRF-Token": connections.data.csrf } });
+          if (!isCurrentSource(request)) return;
+          state.error = null;
+          state.accessRepairMessage = "GitHub access repaired. Your anonymous URL and published commit are unchanged.";
+          await state.urlSelected(true);
+        } catch (_) {
+          if (isCurrentSource(request)) state.accessRepairMessage = "Unable to repair GitHub access. Check the App's repository permissions in Manage access, then retry. Your published snapshot has not been replaced.";
+        } finally {
+          state.repairingGitHubAccess = false;
+          finishSourceRequest(request);
+        }
+      };
+
       state.reconnectingSource = false;
       state.reconnectRepositoryId = undefined;
       state.reconnectSource = async () => {
