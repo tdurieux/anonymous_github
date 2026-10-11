@@ -265,7 +265,7 @@ router.post("/connections/migrate", async (req, res) => {
     const result = isRepo ? await RepositoryModel.updateOne(filter, change) : await PullRequestModel.updateOne(filter, change);
     if (!result.modifiedCount) throw appError("connection_changed", 409);
     await resetOwnerAccessAlerts(user.id, { kind: isRepo ? "repository" : "pull-request", id: String(model._id) });
-    res.json({ connection });
+    res.json({ connection, fullName: selected.fullName || name });
   } catch (error) { handleError(error, res, req); }
 });
 

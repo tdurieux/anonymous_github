@@ -1407,17 +1407,24 @@ export const anonymizeController = function (state, http, html, params, location
       state.repairingGitHubAccess = false;
       state.accessRepairMessage = "";
       state.repairGitHubAccess = async () => {
-        if (state.repairingGitHubAccess || !params.repoId || state.role !== "owner" ||
+        if (state.repairingGitHubAccess || !state.githubConnections?.appEnabled || !params.repoId || state.role !== "owner" ||
             state.githubConnection !== "github-app" || parseRepoFullName(state.sourceUrl) !== state._originalFullName) return;
         state.repairingGitHubAccess = true;
         state.accessRepairMessage = "";
         const request = beginSourceRequest();
         try {
           const connections = await http.get("/github/connections");
-          await http.post("/github/connections/migrate", { type: "repository", id: params.repoId, connection: "github-app" },
+          state.githubConnections = connections.data;
+          if (!connections.data.appEnabled) return;
+          const repaired = await http.post("/github/connections/migrate", { type: "repository", id: params.repoId, connection: "github-app" },
             { headers: { "X-CSRF-Token": connections.data.csrf } });
           if (!isCurrentSource(request)) return;
           state.error = null;
+          if (repaired.data.fullName) {
+            state._originalFullName = repaired.data.fullName;
+            state.source.fullName = repaired.data.fullName;
+            state.sourceUrl = "https://github.com/" + repaired.data.fullName;
+          }
           state.accessRepairMessage = "GitHub access repaired. Your anonymous URL and published commit are unchanged.";
           await state.urlSelected(true);
         } catch (_) {

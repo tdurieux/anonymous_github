@@ -653,7 +653,9 @@ describeMongo("GitHub App credential and repository integration", function () {
     const body = { type: "repository", id: resource.repoId, connection: "github-app" };
     expect((await request("/github/connections/migrate", { ...body, preview: true })).status).to.equal(200);
     expect((await CachedRepos.findById(cached.id)).name).to.equal("other/old-public");
-    expect((await request("/github/connections/migrate", body)).status).to.equal(200);
+    const repaired = await request("/github/connections/migrate", body);
+    expect(repaired.status).to.equal(200);
+    expect(repaired.data.fullName).to.equal("other/public");
     expect((await Repos.findById(resource.id)).githubAccess.publicRead).to.equal(true);
     expect((await Repos.findById(resource.id)).source.repositoryName).to.equal("other/public");
     expect((await CachedRepos.findById(cached.id)).name).to.equal("other/public");

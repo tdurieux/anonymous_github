@@ -903,8 +903,10 @@ describe("Vue 3 UI", function () {
     });
   }
 
-  for (const failed of [false, true]) {
-    it(`repairs App access without replacing the source or snapshot (failure: ${failed})`, async function () {
+  for (const scenario of ["success", "failure", "renamed"]) {
+    it(`repairs App access without replacing the source or snapshot (${scenario})`, async function () {
+      const failed = scenario === "failure";
+      const fullName = scenario === "renamed" ? "owner/renamed" : "owner/repo";
       let repaired = false;
       const available = value => () => repaired ? value : { __status: 403, body: { error: "github_app_access_required" } };
       ui = await browser("/anonymize/test", {
@@ -922,8 +924,11 @@ describe("Vue 3 UI", function () {
           await delay(20);
           if (failed) return { __status: 403, body: { error: "github_app_access_required" } };
           repaired = true;
-          return { connection: "github-app" };
+          return { connection: "github-app", fullName };
         },
+        "/api/repo/owner/renamed/": { id: "saved-record", repo: "renamed", defaultBranch: "main" },
+        "/api/repo/owner/renamed/branches": [{ name: "main", commit: "new-sha" }],
+        "/api/repo/owner/renamed/readme": "readme",
       });
       await delay(60);
       const button = [...ui.window.document.querySelectorAll("button")].find(b => b.textContent === "Repair GitHub access");
@@ -935,8 +940,23 @@ describe("Vue 3 UI", function () {
       expect(ui.window.document.querySelector("#commit").value).to.equal("saved-sha");
       expect(ui.requests.some(r => r.url.searchParams.get("reconnect") === "1")).to.equal(false);
       expect(ui.window.document.body.textContent).to.include(failed ? "Unable to repair GitHub access" : "GitHub access repaired");
+      if (scenario === "renamed") {
+        expect(ui.window.document.querySelector("#sourceUrl").value).to.equal("https://github.com/owner/renamed");
+        const branches = ui.requests.find(r => r.url.pathname === "/api/repo/owner/renamed/branches");
+        expect(branches.url.searchParams.get("anonymizedRepoId")).to.equal("test");
+        expect(ui.window.document.querySelector("#branch").value).to.equal("main");
+      }
     });
   }
+
+  it("hides App repair controls when migrations are disabled", async function () {
+    ui = await browser("/anonymize/test", {
+      "/github/connections": { appEnabled: false, appConnected: true },
+      "/api/repo/test": { connection: "github-app", role: "owner",
+        source: { fullName: "owner/repo", branch: "main", commit: "saved-sha" }, options: { terms: [], update: false } },
+    });
+    expect([...ui.window.document.querySelectorAll("button")].some(b => b.textContent === "Repair GitHub access" || b.textContent === "Manage access")).to.equal(false);
+  });
 
   it("reconnects a recreated source without saving until the owner submits", async function () {
     const oldCommit = "deadbeef";
