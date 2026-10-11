@@ -389,7 +389,7 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
       expect(response).to.deep.equal({ "": 1, src: 1 });
       await File.deleteMany({ repoId: model.repoId, treeGeneration: "active" });
       let refreshed = false;
-      repo.updateIfNeeded = async ({ force }) => { refreshed = force; };
+      repo.refresh = async () => { refreshed = true; };
       expect(await repo.isReady()).to.equal(false); expect(refreshed).to.equal(true);
     } finally { utils.getRepo = getRepo; }
   });
@@ -716,7 +716,7 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
     expect((await Repo.findById(model._id)).emptyTreeGeneration).to.equal(undefined);
     await File.deleteMany({ repoId: model.repoId });
     let refreshed = false;
-    fresh.updateIfNeeded = async () => { refreshed = true; };
+    fresh.refresh = async () => { refreshed = true; };
     expect(await fresh.isReady()).to.equal(false); expect(refreshed).to.equal(true);
   });
 
