@@ -191,6 +191,35 @@ describe("repository refresh and restoration", () => {
     expect(stored).not.to.have.property("refreshToken");
   });
 
+  for (const recoveryFirst of [false, true]) {
+    it(`serializes missing-tree recovery and dashboard refresh (recovery first: ${recoveryFirst})`, async () => {
+      const first = repository("ready");
+      const second = new Repository(new Model(first.model.toObject()));
+      const stored = database(first);
+      const Files = require("../src/core/model/files/files.model").default;
+      stub(Files, "exists", () => ({ exec: async () => null }));
+      let release, started;
+      const entered = new Promise(resolve => { started = resolve; });
+      let updates = 0;
+      first.updateIfNeeded = async () => {
+        updates++;
+        started();
+        await new Promise(resolve => { release = resolve; });
+      };
+      second.updateIfNeeded = async () => { updates++; };
+      const running = recoveryFirst ? first.isReady() : first.refresh();
+      await entered;
+      try {
+        let failure;
+        try { await (recoveryFirst ? second.refresh() : second.isReady()); } catch (error) { failure = error; }
+        expect(failure?.message).to.equal("invalid_status");
+        expect(updates).to.equal(1);
+        expect(stored.status).to.equal("ready");
+      } finally { release(); await running; }
+      expect(stored).not.to.have.property("refreshToken");
+    });
+  }
+
   it("releases a failed lease so reconnecting can be retried", async () => {
     const repo = repository("removed");
     const stored = database(repo);

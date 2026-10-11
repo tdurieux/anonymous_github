@@ -552,8 +552,8 @@ export default class Repository {
   async isReady() {
     if (this.status !== RepositoryStatus.READY) return false;
     if (!this.hasEmptyTree() && !(await FileModel.exists({ repoId: this.repoId, treeGeneration: this.model.treeGeneration || { $exists: false } }).exec())) {
-      this.model.status = RepositoryStatus.PREPARING;
-      await this.updateIfNeeded({ force: true });
+      // Missing-tree recovery competes with owner refreshes for the same job.
+      await this.refresh();
       return false;
     }
     return true;
