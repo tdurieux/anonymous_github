@@ -27,14 +27,14 @@
       <small class="form-text" style="color: var(--ink-muted);">
         Repository, pull request (…/pull/42) and gist (gist.github.com/…) URLs are all accepted.
       </small>
-      <aside class="repo-access-details" aria-label="GitHub access" v-if="!sourceUrl &amp;&amp; githubConnections?.appEnabled &amp;&amp; githubConnections.appConnected &amp;&amp; githubConnections.oauthConnected">
+      <aside class="repo-access-details" aria-label="GitHub access" v-if="!sourceUrl &amp;&amp; githubConnections?.appEnabled &amp;&amp; githubConnections.appConnected">
         <div class="repo-access-main">
           <div class="repo-access-controls">
             <button type="button" class="btn btn-outline-ink" v-if="detectedType !== 'gist' &amp;&amp; githubConnection !== 'oauth'" @click="grantGitHubAccess()">Manage access <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-external-link"></use></svg></button>
             <a class="connection-link" href="/connections" v-if="isUpdate || detectedType === 'gist' || githubConnection === 'oauth'">{{ isUpdate ? 'Change connection' : 'Manage connections' }} &rarr;</a>
           </div>
         </div>
-        <div class="repo-access-note"><span v-if="detectedType !== 'gist' &amp;&amp; githubConnection !== 'oauth'">Select repositories on GitHub, then return here.</span><span><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-info"></use></svg> Selected content will be published, including content from private repositories.</span></div>
+        <div class="repo-access-note"><span v-if="detectedType !== 'gist' &amp;&amp; githubConnection !== 'oauth'">Signing in does not grant access to private repositories. Use Manage access to install or configure the GitHub App, select this repository, then return here. Organization access may require administrator approval.</span><span><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-info"></use></svg> Selected content will be published, including content from private repositories.</span></div>
       </aside>
     </div>
   </div>
@@ -109,14 +109,14 @@
               </div>
             </div>
 
-            <aside class="repo-access-details" aria-label="GitHub access" v-if="sourceUrl &amp;&amp; githubConnections?.appEnabled &amp;&amp; githubConnections.appConnected &amp;&amp; githubConnections.oauthConnected">
+            <aside class="repo-access-details" aria-label="GitHub access" v-if="sourceUrl &amp;&amp; githubConnections?.appEnabled &amp;&amp; githubConnections.appConnected">
               <div class="repo-access-main">
                 <div class="repo-access-controls">
                   <button type="button" class="btn btn-outline-ink" v-if="detectedType !== 'gist' &amp;&amp; githubConnection !== 'oauth'" @click="grantGitHubAccess()">Manage access <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-external-link"></use></svg></button>
                   <a class="connection-link" href="/connections" v-if="isUpdate || detectedType === 'gist' || githubConnection === 'oauth'">{{ isUpdate ? 'Change connection' : 'Manage connections' }} &rarr;</a>
                 </div>
               </div>
-              <div class="repo-access-note"><span v-if="detectedType !== 'gist' &amp;&amp; githubConnection !== 'oauth'">Select repositories on GitHub, then return here.</span><span><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-info"></use></svg> Selected content will be published, including content from private repositories.</span></div>
+              <div class="repo-access-note"><span v-if="detectedType !== 'gist' &amp;&amp; githubConnection !== 'oauth'">Signing in does not grant access to private repositories. Use Manage access to install or configure the GitHub App, select this repository, then return here. Organization access may require administrator approval.</span><span><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-info"></use></svg> Selected content will be published, including content from private repositories.</span></div>
             </aside>
 
             <aside class="repo-access-details" v-if="isUpdate &amp;&amp; detectedType === 'repo' &amp;&amp; role === 'owner' &amp;&amp; accessRepairAllowed &amp;&amp; githubConnections?.appEnabled &amp;&amp; githubConnection === 'github-app' &amp;&amp; sourceUrl === 'https://github.com/' + _originalFullName">
