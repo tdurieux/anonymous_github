@@ -4,6 +4,7 @@
  */
 export class TermPresenceIndex {
   private groups: { indices: number[]; characters: string[] | null }[] = [];
+  private searches: { indices: number[]; pattern: RegExp }[];
 
   constructor(private readonly patterns: RegExp[]) {
     for (let index = 0; index < patterns.length; index++) {
@@ -23,27 +24,20 @@ export class TermPresenceIndex {
       }
       this.groups.push(group);
     }
+    this.searches = this.groups.map(({ indices }) => ({
+      indices,
+      pattern: new RegExp(indices.map(index => `(?:${patterns[index].source})`).join("|"), "iu"),
+    }));
   }
 
   candidates(content: string, after = -1): Set<number> {
     const found = new Set<number>();
-    const remaining = this.groups.map(group => group.indices.filter(index => index > after))
-      .filter(indices => indices.length);
-    let offset = 0;
-    while (remaining.length) {
-      // Fixed-width inputs contain no captures or quantifiers. Removing a
-      // discovered group avoids revisiting millions of identical CSV values.
-      const search = new RegExp(remaining.map(indices =>
-        `(${indices.map(index => this.patterns[index].source).join("|")})`).join("|"), "giu");
-      search.lastIndex = offset;
-      const match = search.exec(content);
-      if (!match) break;
-      const selected = match.slice(1).findIndex(value => value !== undefined);
-      for (const index of remaining[selected]) found.add(index);
-      remaining.splice(selected, 1);
-      // Another group's match may start inside this one. Search from the next
-      // code point, not from the end of the match, to retain nested candidates.
-      offset = match.index + (content.codePointAt(match.index)! > 0xffff ? 2 : 1);
+    // Each immutable group is tested independently, so overlapping matches
+    // cannot hide candidates. Non-global regexes retain no search position.
+    for (const { indices, pattern } of this.searches) {
+      if (indices.some(index => index > after) && pattern.test(content)) {
+        for (const index of indices) if (index > after) found.add(index);
+      }
     }
     return found;
   }
