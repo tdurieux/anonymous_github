@@ -67,6 +67,24 @@ describe("term candidate index", function () {
     expect(new ContentAnonimizer({ terms: ["Alice=>first"] }).anonymize("Alice")).to.equal("first");
   });
 
+  it("handles many matching rules and late cascades within the normal deadline", function () {
+    this.timeout(10000);
+    const names = Array.from({ length: 120 }, (_, i) => `Researcher${i} Laboratory Department`);
+    const terms = names.map((name, i) => `${name}=>Person${i}`);
+    terms.push("Person119=>FinalPerson", "@Person0=>Contact");
+    const input = names.map(name => `@${name} contributed to this research.\n`).join("").repeat(3);
+    const expected = names.map((_, i) => `${i === 0 ? "Contact" : i === 119 ? "@FinalPerson" : `@Person${i}`} contributed to this research.\n`).join("").repeat(3);
+    expect(new ContentAnonimizer({ terms }).anonymize(input)).to.equal(expected);
+  });
+
+  it("can reuse candidate groups after an absent search and with different cutoffs", function () {
+    const index = new TermPresenceIndex([/Alice/iu, /AliceSmith/iu, /Smith/iu, /研究/iu]);
+    expect([...index.candidates("nothing")]).to.deep.equal([]);
+    expect(index.candidates("AliceSmith 研究").has(2)).to.equal(true);
+    expect([...index.candidates("AliceSmith 研究", 2)]).to.deep.equal([3]);
+    expect(index.candidates("AliceSmith", -1).has(0)).to.equal(true);
+  });
+
   it("does not index quantified, capturing, or escaped user patterns", function () {
     for (const term of ["a.*b", "a+b", "(Alice)", "a\\.b", "a(?=b)"]) {
       expect(compileTerms([term]).every(c => !c.literalPrefilter), term).to.equal(true);
