@@ -793,6 +793,30 @@ describe("Vue 3 UI", function () {
     });
   }
 
+  for (const type of ["repo", "pr"]) {
+    it(`offers installation access to App-only users for private ${type} sources`, async function () {
+      const sourceUrl = "https://github.com/owner/private" + (type === "pr" ? "/pull/7" : "");
+      ui = await browser("/anonymize", {
+        "/api/user": { username: "owner" },
+        "/github/connections": { appEnabled: true, appConnected: true, oauthConnected: false },
+        "/api/repo/owner/private/": { __status: 403, body: { error: "github_app_access_required" } },
+        "/api/pr/owner/private/7": { __status: 403, body: { error: "github_app_access_required" } },
+      });
+      const input = await ui.input("#sourceUrl-landing", sourceUrl);
+      input.dispatchEvent(new ui.window.Event("blur"));
+      await delay(60);
+      const workspace = ui.window.document.querySelector(".anonymize-workspace");
+      const button = [...workspace.querySelectorAll("button")].find(b => b.textContent.trim() === "Manage access");
+      expect(button).not.to.equal(undefined);
+      for (let node = button; node; node = node.parentElement) expect(ui.window.getComputedStyle(node).display).not.to.equal("none");
+      expect(workspace.textContent).to.include("Signing in does not grant access to private repositories");
+      button.click();
+      const draft = JSON.parse(ui.window.sessionStorage.getItem("github-access-draft"));
+      expect(draft.draft.sourceUrl).to.equal(sourceUrl);
+      expect(ui.requests.some(r => r.method === "POST")).to.equal(false);
+    });
+  }
+
   it("selects the connected GitHub App by default beside the source URL", async () => {
     ui = await browser("/anonymize", { "/github/connections": { appEnabled: true, appConnected: true, oauthConnected: true } });
     const panel = ui.window.document.querySelector(".anonymize-landing-inner .repo-access");
