@@ -120,7 +120,7 @@ export const verify = async (
     }
     await setCredential(String(user!._id), accessToken);
     await saveRegistrationEmail(user!, accessToken);
-    await resetOwnerAccessAlerts(String(user!._id));
+    if (flow.ownerId) await resetOwnerAccessAlerts(String(user!._id));
     done(null, { username: user!.username, user });
   } catch (error) {
     logger.error("verify failed", serializeError(error));

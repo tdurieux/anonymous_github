@@ -11,37 +11,122 @@ describe("owner access notifications", () => {
   const ownerId = "507f1f77bcf86cd799439011";
   const resource = { kind: "repository", id: "507f1f77bcf86cd799439012" };
   const other = { kind: "repository", id: "507f1f77bcf86cd799439013" };
-  let owner, sent, claims, rows, generations;
+  let owner, ownerState, sent, claims, rows, generations, resourceRevisions, attemptIds, recipients, events;
   beforeEach(() => {
     owner = { status: "active", emails: [{ email: "owner@example.com", default: true }] };
-    sent = []; claims = []; rows = new Map(); generations = new Map();
+    ownerState = {};
+    sent = []; claims = []; rows = new Map(); generations = new Map(); recipients = new Map(); events = [];
+    resourceRevisions = new Map(); attemptIds = new Map();
     stub(config, "RESEND_API_KEY", "test-resend-key");
     stub(config, "EMAIL_FROM", "alerts@example.com");
     stub(config, "APP_HOSTNAME", "anonymous.example.com");
     stub(User, "findOne", () => ({ lean: async () => ["removed", "banned"].includes(owner?.status) ? null : owner }));
+    stub(User, "findById", () => ({ select: () => ({ lean: async () => owner }) }));
     Object.defineProperty(User.db, "readyState", { configurable: true, value: 1 });
     restores.push(() => { delete User.db.readyState; });
-    stub(User.db, "collection", name => ({
-      findOne: async filter => {
-        const key = `${name}:${filter.owner}:${filter._id}`;
-        if (!generations.has(key)) generations.set(key, undefined);
-        return { accessAlertGeneration: generations.get(key) };
-      },
-      updateOne: async (filter, update) => {
-        claims.push(filter);
-        const key = `${name}:${filter.owner}:${filter._id}`;
-        if (rows.has(key) || generations.get(key) !== (typeof filter.accessAlertGeneration === "string" ? filter.accessAlertGeneration : undefined)) return { modifiedCount: 0 };
-        rows.set(key, update.$set.accessAlertClaimedAt);
-        return { modifiedCount: 1 };
-      },
-      updateMany: async (filter, update) => {
-        for (const key of generations.keys()) if (key.startsWith(`${name}:${filter.owner}:`) && (!filter._id || key.endsWith(`:${filter._id}`))) {
-          rows.delete(key);
-          generations.set(key, update.$set.accessAlertGeneration);
-        }
-      },
-    }));
-    stub(global, "fetch", async (url, options) => { sent.push({ url, options, body: JSON.parse(options.body) }); return { ok: true }; });
+    stub(User.db, "collection", name => {
+      if (name === "users") return {
+        findOne: async filter => String(filter._id) === ownerId ? { ...ownerState } : null,
+        findOneAndUpdate: async (filter, update) => {
+          if (String(filter._id) !== ownerId) return { value: null };
+          ownerState.accessAlertResetRevision = (ownerState.accessAlertResetRevision || 0) + update.$inc.accessAlertResetRevision;
+          Object.assign(ownerState, update.$set); return { value: { ...ownerState } };
+        },
+        updateOne: async (filter, update) => {
+          if (String(filter._id) !== ownerId) return { matchedCount: 0 };
+          if ("accessAlertResetRevision" in filter && ownerState.accessAlertResetRevision !== (typeof filter.accessAlertResetRevision === "number" ? filter.accessAlertResetRevision : undefined)) return { matchedCount: 0 };
+          if (filter.$or && ownerState.accessAlertResetUntil?.getTime() > Date.now()) return { matchedCount: 0 };
+          const get = path => path.split(".").reduce((value, key) => value?.[key], ownerState);
+          const set = (path, value) => {
+            const keys = path.split("."), last = keys.pop(); let target = ownerState;
+            for (const key of keys) target = target[key] ||= {};
+            if (value === undefined) delete target[last]; else target[last] = value;
+          };
+          for (const [key, value] of Object.entries(filter)) if (key.startsWith("accessAlertDispatches.") && get(key) !== value) return { matchedCount: 0 };
+          if (Array.isArray(update)) {
+            const cutoff = update[0].$set.accessAlertDispatches.$arrayToObject.$filter.cond.$or[1].$gt[1];
+            ownerState.accessAlertDispatches = Object.fromEntries(Object.entries(ownerState.accessAlertDispatches || {}).filter(([, value]) => value.state === "committed" || value.claimedAt > cutoff));
+            for (const [key, value] of Object.entries(update[1].$set)) set(key, value);
+          } else {
+            if (update.$inc) for (const [key, value] of Object.entries(update.$inc)) set(key, (get(key) || 0) + value);
+            if (update.$set) for (const [key, value] of Object.entries(update.$set)) set(key, value);
+            if (update.$unset) for (const key of Object.keys(update.$unset)) set(key, undefined);
+          }
+          return { matchedCount: 1 };
+        },
+      };
+      if (name === "owner_access_alert_events") return { insertOne: async record => events.push(record), findOne: async filter => events.find(event => event._id === filter._id) };
+      if (name === notifications.RECIPIENT_ALERTS) return {
+        findOne: async filter => recipients.get(filter._id),
+        find: filter => {
+          const matching = () => [...recipients.values()].filter(r => {
+            if (filter.deferredRecoveries) return r.deferredRecoveries?.some(recovery => String(recovery.owner) === String(filter.deferredRecoveries.$elemMatch.owner));
+            const claim = filter.$or[0];
+            return String(r.owner) === String(claim.owner) && r.resourceKind === claim.resourceKind
+              && String(r.resourceId) === String(claim.resourceId) && r.generation !== claim.generation.$ne && filter.state.$in.includes(r.state);
+          }).map(r => ({ ...r }));
+          return { toArray: async () => matching(), async *[Symbol.asyncIterator]() { yield* matching(); } };
+        },
+        updateMany: async filter => { if (filter.legacyClaims?.$elemMatch) return; const claim = filter; for (const r of recipients.values()) if (String(r.owner) === String(claim.owner)
+          && (!claim.resourceId || String(r.resourceId) === String(claim.resourceId))) r.resetRevision = (r.resetRevision || 0) + 1; },
+        insertOne: async record => { if (recipients.has(record._id)) throw Object.assign(new Error("duplicate"), { code: 11000 }); recipients.set(record._id, { ...record }); },
+        updateOne: async (filter, update) => { const record = recipients.get(filter._id);
+          const stateMatches = !filter.state || (typeof filter.state === "string" ? record?.state === filter.state : filter.state.$in.includes(record?.state));
+          const revisionMatches = !("resetRevision" in filter) || record?.resetRevision === (typeof filter.resetRevision === "number" ? filter.resetRevision : undefined);
+          if (!record || record.attemptId !== filter.attemptId || !stateMatches || !revisionMatches) return { matchedCount: 0 };
+          if (Array.isArray(update)) {
+            const recovery = update[0].$set.deferredRecoveries.$concatArrays[1][0];
+            record.deferredRecoveries = [recovery];
+          } else Object.assign(record, update.$set);
+          return { matchedCount: 1 };
+        },
+        deleteOne: async filter => { const r = recipients.get(filter._id);
+          const stateMatches = typeof filter.state === "string" ? r?.state === filter.state : filter.state.$in.includes(r?.state);
+          const revisionMatches = !("resetRevision" in filter) || r?.resetRevision === (typeof filter.resetRevision === "number" ? filter.resetRevision : undefined);
+          if (r?.attemptId === filter.attemptId && stateMatches && revisionMatches) { recipients.delete(filter._id); return { deletedCount: 1 }; }
+          return { deletedCount: 0 };
+        },
+        deleteMany: async filter => { let deletedCount = 0; for (const [key, r] of recipients) {
+          if (String(r.owner) === String(filter.owner) && r.resourceKind === filter.resourceKind && String(r.resourceId) === String(filter.resourceId)
+            && r.generation !== filter.generation.$ne && filter.state.$in.includes(r.state)) { recipients.delete(key); deletedCount++; }
+        } return { deletedCount }; },
+      };
+      return {
+        findOne: async filter => {
+          const key = `${name}:${filter.owner}:${filter._id}`;
+          if (!generations.has(key)) generations.set(key, undefined);
+          if ("accessAlertGeneration" in filter && generations.get(key) !== (typeof filter.accessAlertGeneration === "string" ? filter.accessAlertGeneration : undefined)) return null;
+          if (filter.accessAlertClaimedAt?.$exists && !rows.has(key)) return null;
+          if ("accessAlertClaimRevision" in filter && (resourceRevisions.get(key) || 0) !== (typeof filter.accessAlertClaimRevision === "number" ? filter.accessAlertClaimRevision : 0)) return null;
+          if (filter.accessAlertAttemptId && attemptIds.get(key) !== filter.accessAlertAttemptId) return null;
+          return { accessAlertGeneration: generations.get(key), accessAlertClaimedAt: rows.get(key), accessAlertClaimRevision: resourceRevisions.get(key), status: "ready" };
+        },
+        updateOne: async (filter, update) => {
+          claims.push(filter); const key = `${name}:${filter.owner}:${filter._id}`;
+          if (generations.get(key) !== (typeof filter.accessAlertGeneration === "string" ? filter.accessAlertGeneration : undefined)) return { matchedCount: 0 };
+          const revision = resourceRevisions.get(key) || 0;
+          if (Array.isArray(update)) {
+            const first = filter.$or[0].accessAlertClaimRevision;
+            const expected = typeof first === "number" ? first : 0;
+            const attemptId = update[0].$set.accessAlertAttemptId.$cond[0].$eq[1];
+            if (revision !== expected && !(revision === expected + 1 && attemptIds.get(key) === attemptId)) return { matchedCount: 0 };
+            resourceRevisions.set(key, revision + 1);
+            if (attemptIds.get(key) === attemptId) { rows.delete(key); attemptIds.delete(key); }
+          } else {
+            if ("accessAlertClaimRevision" in filter && revision !== (typeof filter.accessAlertClaimRevision === "number" ? filter.accessAlertClaimRevision : 0)) return { matchedCount: 0 };
+            rows.set(key, update.$set.accessAlertClaimedAt); attemptIds.set(key, update.$set.accessAlertAttemptId);
+            resourceRevisions.set(key, revision + update.$inc.accessAlertClaimRevision);
+          }
+          return { matchedCount: 1 };
+        },
+        updateMany: async (filter, update) => {
+          for (const key of generations.keys()) if (key.startsWith(`${name}:${filter.owner}:`) && (!filter._id || key.endsWith(`:${filter._id}`))) {
+            rows.delete(key); attemptIds.delete(key); generations.set(key, update.$set.accessAlertGeneration);
+          }
+        },
+      };
+    });
+    stub(global, "fetch", async (url, options) => { sent.push({ url, options, body: JSON.parse(options.body) }); return { ok: true, status: 200 }; });
   });
   afterEach(() => { while (restores.length) restores.pop()(); });
 
@@ -53,30 +138,55 @@ describe("owner access notifications", () => {
     expect(notificationEmail([{ email: "first@example.com", default: false }, { email: "primary@example.com", default: true }])).to.equal("primary@example.com");
   });
 
-  it("sends once per resource across concurrent readers and repeated errors, with no time expiry", async () => {
+  it("sends once per recipient across resources and concurrent readers, with no time expiry", async () => {
     await Promise.all(Array.from({ length: 10 }, () => notifyOwnerAccessProblem(ownerId, "token_expired", resource)));
     expect(sent).to.have.length(1);
     for (const key of rows.keys()) rows.set(key, new Date("2000-01-01"));
     await notifyOwnerAccessProblem(ownerId, "repo_not_found", resource);
     expect(sent).to.have.length(1);
     await notifyOwnerAccessProblem(ownerId, "repo_not_found", other);
-    expect(sent).to.have.length(2);
+    expect(sent).to.have.length(1);
     expect(sent[0].url).to.equal("https://api.resend.com/emails");
     expect(sent[0].body.to).to.deep.equal(["owner@example.com"]);
     expect(sent[0].body.text).to.include("https://anonymous.example.com/connections");
-    expect(claims[0].accessAlertClaimedAt).to.deep.equal({ $exists: false });
+    expect(sent[0].options.headers["Idempotency-Key"]).to.match(/^owner-access-alert\//);
+    expect(events[0].state).to.equal("prepared");
+    expect(events[1].state).to.equal("accepted");
   });
 
-  it("owner action resets only the selected resource and cannot reset another owner's alerts", async () => {
+  it("reopens an alert only after owner action and successful access to its triggering resource", async () => {
     await notifyOwnerAccessProblem(ownerId, "token_expired", resource);
     await notifyOwnerAccessProblem(ownerId, "token_expired", other);
-    await notifications.resetOwnerAccessAlerts("507f1f77bcf86cd799439099", resource);
-    await notifyOwnerAccessProblem(ownerId, "token_expired", resource);
-    expect(sent).to.have.length(2);
+    expect(sent).to.have.length(1);
     await notifications.resetOwnerAccessAlerts(ownerId, resource);
     await notifyOwnerAccessProblem(ownerId, "token_expired", resource);
-    await notifyOwnerAccessProblem(ownerId, "token_expired", other);
-    expect(sent).to.have.length(3);
+    expect(sent).to.have.length(1);
+    await notifications.withOwnerAccessRecovery(ownerId, other, async () => {});
+    expect(recipients.size).to.equal(1);
+    await notifications.withOwnerAccessRecovery(ownerId, resource, async () => {});
+    await notifyOwnerAccessProblem(ownerId, "token_expired", resource);
+    expect(sent).to.have.length(2);
+    expect(events).to.have.length(4);
+  });
+
+  it("cannot clear another owner's recipient guard", async () => {
+    await notifyOwnerAccessProblem(ownerId, "token_expired", resource);
+    await notifications.resetOwnerAccessAlerts("507f1f77bcf86cd799439099", resource);
+    await notifications.withOwnerAccessRecovery("507f1f77bcf86cd799439099", resource, async () => {});
+    expect(recipients.size).to.equal(1);
+  });
+
+  it("does not reopen on background success without owner action", async () => {
+    await notifyOwnerAccessProblem(ownerId, "token_expired", resource);
+    await notifications.withOwnerAccessRecovery(ownerId, resource, async () => {});
+    expect(recipients.size).to.equal(1);
+  });
+
+  it("retains the guard when access recovery fails", async () => {
+    await notifyOwnerAccessProblem(ownerId, "token_expired", resource);
+    await notifications.resetOwnerAccessAlerts(ownerId, resource);
+    try { await notifications.withOwnerAccessRecovery(ownerId, resource, async () => { throw new Error("still forbidden"); }); } catch { /* Expected upstream failure. */ }
+    expect(recipients.size).to.equal(1);
   });
 
   it("rejects a pre-action failure paused during owner lookup", async () => {
@@ -98,22 +208,25 @@ describe("owner access notifications", () => {
     expect(sent).to.have.length(1);
   });
 
-  it("reconnecting resets all of the owner's resource types", async () => {
+  it("reconnecting leaves the recipient blocked across all resource types", async () => {
     const resources = [resource, { ...resource, kind: "pull-request" }, { ...resource, kind: "gist" }];
     for (const item of resources) await notifyOwnerAccessProblem(ownerId, "token_expired", item);
-    expect(sent).to.have.length(3);
+    expect(sent).to.have.length(1);
     await notifications.resetOwnerAccessAlerts(ownerId);
     for (const item of resources) await notifyOwnerAccessProblem(ownerId, "token_expired", item);
-    expect(sent).to.have.length(6);
+    expect(sent).to.have.length(1);
   });
 
-  for (const failure of ["rejected", "timeout"]) it(`retains the claim after ${failure} until owner action`, async () => {
+  for (const failure of ["rejected", "timeout"]) it(`retains the claim after ${failure} until confirmed recovery`, async () => {
     let attempts = 0;
     stub(global, "fetch", async () => { attempts++; if (failure === "timeout") throw new Error("timeout"); return { ok: false }; });
     await notifyOwnerAccessProblem(ownerId, "token_expired", resource);
     await notifyOwnerAccessProblem(ownerId, "token_expired", resource);
     expect(attempts).to.equal(1);
     await notifications.resetOwnerAccessAlerts(ownerId, resource);
+    await notifyOwnerAccessProblem(ownerId, "token_expired", resource);
+    expect(attempts).to.equal(1);
+    await notifications.withOwnerAccessRecovery(ownerId, resource, async () => {});
     await notifyOwnerAccessProblem(ownerId, "token_expired", resource);
     expect(attempts).to.equal(2);
   });
@@ -423,12 +536,54 @@ describe("repository probes and truncated file recovery", () => {
   const Files = require("../src/core/model/files/files.model").default;
   const File = require("../src/core/AnonymizedFile").default;
   const GitHubStream = require("../src/core/source/GitHubStream").default;
+  const AnonymizedRepositories = require("../src/core/model/anonymizedRepositories/anonymizedRepositories.model").default;
+  const storage = require("../src/core/storage").default;
+  const { Readable } = require("node:stream");
   const { classifyGitHubMissError } = require("../src/core/source/GitHubBase");
   const restores = [];
   const stub = (object, key, value) => { const old = object[key]; restores.push(() => object[key] = old); object[key] = value; };
   const source = { getToken: async () => "probe-test", repoId: "anon", organization: "owner", repoName: "repo", commit: "sha" };
   const missing = () => Object.assign(new Error("Not found"), { status: 404 });
   afterEach(() => { while (restores.length) restores.pop()(); });
+  for (const failed of [false, true]) it(`continues truncated metadata reads after recovery lookup failure: ${failed ? "upstream failure" : "success"}`, async () => {
+    const upstreamError = Object.assign(new Error("GitHub unavailable"), { status: 503 });
+    let reads = 0;
+    stub(db, "isConnected", true);
+    stub(AnonymizedRepositories, "findOne", () => ({ select: () => ({ lean: () => ({ exec: async () => { throw new Error("recovery database unavailable"); } }) }) }));
+    stub(notifications, "withOwnerAccessRecovery", () => { throw new Error("recovery must be skipped without metadata"); });
+    stub(github, "octokit", () => ({ repos: { getContent: async () => {
+      reads++; if (failed) throw upstreamError;
+      return { data: { type: "file", sha: "blob", size: 11 } };
+    } } }));
+    const result = await new GitHubStream(source).fetchFileInfoFromPath("large/file.txt").then(value => ({ value }), error => ({ error }));
+    expect(reads).to.equal(1);
+    if (failed) expect(result.error).to.equal(upstreamError);
+    else expect(result.value).to.include({ name: "file.txt", path: "large", sha: "blob", size: 11 });
+  });
+  for (const failed of [false, true]) it(`continues uncached file reads after recovery lookup failure: ${failed ? "upstream failure" : "success"}`, async () => {
+    const upstreamError = Object.assign(new Error("GitHub unavailable"), { status: 503 });
+    const data = { ...source, repoId: `lookup-failure-${failed}` };
+    let cached, downloads = 0, recoveryLookups = 0;
+    stub(db, "isConnected", true);
+    stub(AnonymizedRepositories, "findOne", () => ({ select: fields => ({ lean: () => ({ exec: async () => {
+      if (fields === "owner source githubAccess") { recoveryLookups++; throw new Error("recovery database unavailable"); }
+      return { status: "ready" };
+    } }) }) }));
+    stub(notifications, "withOwnerAccessRecovery", () => { throw new Error("recovery must be skipped without metadata"); });
+    stub(storage, "fileInfo", async () => { if (!cached) throw Object.assign(new Error("missing"), { code: "ENOENT" }); return { size: cached.length }; });
+    stub(storage, "write", async (_repo, _path, input) => { const chunks = []; for await (const chunk of input) chunks.push(chunk); cached = Buffer.concat(chunks); });
+    stub(storage, "read", async () => Readable.from([cached]));
+    const stream = new GitHubStream(data);
+    stream.downloadWithFallback = async () => { downloads++; if (failed) throw upstreamError; return Readable.from([Buffer.from("fresh-bytes")]); };
+    const result = await stream.getFileContentCache("file.txt", data.repoId, () => ({ sha: "blob", size: 11 }))
+      .then(value => ({ value }), error => ({ error }));
+    expect(downloads).to.equal(1); expect(recoveryLookups).to.equal(1);
+    if (failed) { expect(result.error.message).to.equal("upstream_error"); expect(result.error.cause).to.equal(upstreamError); }
+    else {
+      const chunks = []; for await (const chunk of result.value) chunks.push(chunk);
+      expect(Buffer.concat(chunks).toString()).to.equal("fresh-bytes");
+    }
+  });
   for (const stage of ["name", "id"]) for (const status of [undefined, 429, 503]) {
     it(`propagates inconclusive ${stage} probe ${status}`, async () => {
       const error = Object.assign(new Error("probe failed"), { status });

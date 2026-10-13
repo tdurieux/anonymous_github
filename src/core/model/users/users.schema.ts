@@ -18,6 +18,10 @@ const UserSchema = new Schema({
   notificationEmail: { type: String },
   emailPromptNever: { type: Boolean, default: false },
   accessAlertAfter: { type: Date, select: false },
+  accessAlertResetRevision: { type: Number, select: false },
+  accessAlertResetUntil: { type: Date, select: false },
+  accessAlertFenceRevision: { type: Number, select: false },
+  accessAlertDispatches: { type: Schema.Types.Mixed, select: false },
   emails: [
     {
       email: { type: String },

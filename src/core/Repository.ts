@@ -1,4 +1,4 @@
-import { notifyOwnerAccessProblem } from "./owner-notifications";
+import { notifyOwnerAccessProblem, withOwnerAccessRecovery } from "./owner-notifications";
 import AnonymizedPathModel from "./model/anonymized-path";
 import storage from "./storage";
 import { contentGenerationPrefix, contentRetirementMarker } from "./content-generation";
@@ -224,7 +224,11 @@ export default class Repository {
       const previousPrefix = contentGenerationPrefix(`${previousGeneration || "legacy"}:${this.model.anonymizeDate?.toISOString() || ""}`);
       const streamed = this.model.source.type !== "Zip";
       const source = this.source;
-      const files = await source.getFiles(opt.progress).catch(error => {
+      const readFiles = () => source.getFiles(opt.progress);
+      const files = await (streamed ? withOwnerAccessRecovery(this.owner.id,
+        { kind: "repository", id: String(this.model._id) }, readFiles,
+        { "source.repositoryName": this.model.source.repositoryName, "source.commit": this.model.source.commit,
+          "githubAccess.revision": this.model.githubAccess?.revision ?? { $exists: false } }) : readFiles()).catch(error => {
         void notifyOwnerAccessProblem(this.owner.id, error, { kind: "repository", id: String(this.model._id) });
         throw error;
       });
@@ -683,12 +687,14 @@ export default class Repository {
             this.checkRefreshWrite(result);
           }
         }
-        const branches = await ghRepo.branches({
-          force: true,
-          accessToken: token,
-        });
-        const branchName =
-          this.model.source.branch || ghRepo.model.defaultBranch;
+        const branchName = this.model.source.branch || ghRepo.model.defaultBranch;
+        const branches = await withOwnerAccessRecovery(this.owner.id,
+          { kind: "repository", id: String(this.model._id) },
+          () => ghRepo.branches({ force: true, accessToken: token }),
+          { "source.repositoryName": this.model.source.repositoryName,
+            "githubAccess.revision": this.model.githubAccess?.revision ?? { $exists: false } },
+          result => !opt?.force && this.status === RepositoryStatus.READY
+            && result.some(branch => branch.name === branchName && branch.commit === this.model.source.commit));
         const newCommit = branches.filter((f) => f.name == branchName)[0]
           ?.commit;
 
@@ -716,9 +722,11 @@ export default class Repository {
           return;
         }
         this._model.source.commit = newCommit;
-        const commitInfo = await ghRepo.getCommitInfo(newCommit, {
-          accessToken: token,
-        });
+        const commitInfo = await withOwnerAccessRecovery(this.owner.id,
+          { kind: "repository", id: String(this.model._id) },
+          () => ghRepo.getCommitInfo(newCommit, { accessToken: token }),
+          { "source.repositoryName": this.model.source.repositoryName,
+            "githubAccess.revision": this.model.githubAccess?.revision ?? { $exists: false } });
         if (
           commitInfo.commit?.author?.date ||
           commitInfo.commit?.committer?.date

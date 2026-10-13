@@ -116,14 +116,69 @@ Alerts cover invalid GitHub credentials and repository access errors encountered
 while reading or refreshing content. No periodic access scan is performed.
 Emails contain no repository names, anonymous URLs, or credentials.
 
-An atomic database claim allows one email attempt per repository, pull request,
-or gist until its owner explicitly refreshes it, saves its settings or connection,
-or reconnects GitHub. Claiming ownership also clears the previous owner's alert.
-Reconnecting GitHub or completing a verified App installation update resets alerts
-for that owner's resources. Resets invalidate pending claims from older failures.
-Viewing content, scheduled updates, and automatic token renewal never reset alerts.
-There is no daily reminder. Claims also remain after delivery failures or an
-interrupted process, avoiding duplicate messages until the owner acts.
+An atomic recipient claim allows one email attempt across repositories, pull
+requests, gists and accounts sharing the same address. Sign-in does not reopen
+alerts. An explicit reconnect or resource change prepares recovery, but the
+recipient stays blocked until a fresh GitHub read confirms access to the resource
+that triggered the alert. A fresh read during an in-flight send is retained and
+applied when that send completes. A newer reset or source change invalidates
+that recovery evidence. Cached reads and successful reads of other resources
+cannot reopen it. Removed or expired resources and disabled owners no longer
+block future alerts after their send has completed.
+
+Dispatched recipient guards have no time expiry, so there are no daily reminders.
+Failed deliveries remain blocked until confirmed recovery. An interrupted send
+whose outcome is unknown stays blocked to avoid duplicate delivery. Unsent claims
+can be cancelled by confirmed recovery before dispatch. Bookkeeping failures
+release claims when no provider request has started. Pending claims interrupted
+before dispatch can be reclaimed after a 60-second lease during startup or a new
+notification attempt. Claim identity and state checks prevent a paused sender
+from dispatching after another instance reclaims its claim. Cancellation is saved
+before cleanup; matching legacy fields are cleared before the guard is released.
+Interrupted cleanup resumes on startup or a later notification. Legacy fields
+carry an attempt ID so unrelated deliveries and newer generations are preserved.
+A resource revision prevents delayed preparation from recreating a reclaimed
+claim. All asynchronous preparation stays pending. A sending reservation is
+reclaimable until dispatch commits atomically on the owner document, against its
+reset revision and lease, immediately before contacting the provider. Cancellation
+competes with that same commitment, so a paused sender cannot dispatch afterward.
+Owner dispatch records distinguish known-unsent reservations from interrupted
+committed sends. Completed records are removed; expired uncommitted records are
+pruned on later attempts. Persistent reset revisions also fence attempts created
+while a reset is in progress, even when no recipient guard existed at its start.
+Recovery recorded during an active reset is retried when reset finishes or its
+lease expires, with the original source and revision checks.
+Provider idempotency keys
+and redacted attempt records support auditing without storing recipient addresses
+or repository names in the audit log. Attempt records are saved before dispatch,
+with completion recorded separately. Existing resource claims are migrated to
+recipient guards before new application instances serve requests using an indexed
+scan with resumable checkpoints. Other instances wait while its lease is healthy,
+and take over if the lease expires.
+Every existing resource claim is retained behind the recipient guard. Recovering
+one resource atomically marks its claim recovered; other claims keep the recipient
+blocked until they recover or are retired. A newer owner reset makes its matching
+claims require another fresh read. Completed provider results are recorded before
+guard updates, with bounded retries and reconciliation on startup or a later
+notification. Retirement also checks the latest owner reset revision.
+
+Use `scripts/deploy.sh` for the first upgrade to recipient alerts. The new image
+has the `science.4open.owner-alert-protocol=recipient-v1` label. When running
+application containers lack that label, the script builds the replacement, stops
+and verifies all old API and streamer containers, then prepares a full claim
+reconciliation and starts the new streamers and API. Stopped legacy containers
+from a rollback also trigger reconciliation, so claims written after an earlier
+migration are included. This path also runs when retrying with an already-built
+image and `FORCE=0`. Once writers are stopped, preparation releases all known
+unsent pending claims and clears their matching legacy fields before backfill.
+This upgrade pauses traffic while claims migrate and allows up to 15
+minutes for startup, configurable with `MIGRATION_HEALTH_TIMEOUT`. Subsequent
+deployments keep the usual rolling streamer replacement. Manual upgrades must
+stop all legacy application writers, run
+`docker compose run --rm --no-deps --entrypoint node anonymous_github ./build/scripts/reconcile-legacy-owner-alerts.js`
+using the new image, and then start the new application instances. Run this
+preparation after legacy writers have operated, even if their containers were
+already removed. Ordinary restarts preserve confirmed recoveries.
 Leaving either Resend setting empty disables delivery and the email prompt.
 
 ## Scope of anonymization
