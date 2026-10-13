@@ -249,6 +249,61 @@ describeMongo("recipient access alerts in MongoDB", function () {
     await reset(owner.id, resource); await recover(owner.id, resource, async () => {});
     await alerts.initializeOwnerAccessAlerts(); expect(await guards().findOne({ _id: recipient() })).to.equal(null);
   });
+  it("preserves every legacy claim for a shared address until each triggering resource recovers", async () => {
+    await coll(resource.kind).updateOne({ _id: new mongoose.Types.ObjectId(resource.id) }, { $set: { accessAlertClaimedAt: new Date(1) } });
+    await coll(other.kind).updateOne({ _id: new mongoose.Types.ObjectId(other.id) }, { $set: { accessAlertClaimedAt: new Date(2) } });
+    await alerts.initializeOwnerAccessAlerts();
+    expect((await guards().findOne({ _id: recipient() })).legacyClaims).to.have.length(2);
+    await reset(owner.id, resource); await recover(owner.id, resource, async () => {});
+    expect((await guards().findOne({ _id: recipient() })).legacyClaims).to.have.length(1);
+    await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(0);
+    await reset(otherOwner.id, other); await recover(otherOwner.id, other, async () => {});
+    expect(await guards().findOne({ _id: recipient() })).to.equal(null);
+    await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(1);
+  });
+  it("does not retire a legacy group when only its first triggering resource is removed", async () => {
+    await coll(resource.kind).updateOne({ _id: new mongoose.Types.ObjectId(resource.id) }, { $set: { accessAlertClaimedAt: new Date(1) } });
+    await coll(other.kind).updateOne({ _id: new mongoose.Types.ObjectId(other.id) }, { $set: { accessAlertClaimedAt: new Date(2) } });
+    await alerts.initializeOwnerAccessAlerts();
+    await coll(resource.kind).updateOne({ _id: new mongoose.Types.ObjectId(resource.id) }, { $set: { status: "removed" } });
+    await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(0);
+    await reset(otherOwner.id, other); await recover(otherOwner.id, other, async () => {});
+    await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(1);
+  });
+  it("atomically removes the final legacy guard during concurrent recoveries", async () => {
+    await coll(resource.kind).updateOne({ _id: new mongoose.Types.ObjectId(resource.id) }, { $set: { accessAlertClaimedAt: new Date(1) } });
+    await coll(other.kind).updateOne({ _id: new mongoose.Types.ObjectId(other.id) }, { $set: { accessAlertClaimedAt: new Date(2) } });
+    await alerts.initializeOwnerAccessAlerts(); await reset(owner.id, resource); await reset(otherOwner.id, other);
+    await Promise.all([recover(owner.id, resource, async () => {}), recover(otherOwner.id, other, async () => {})]);
+    expect(await guards().findOne({ _id: recipient() })).to.equal(null);
+  });
+  it("confirms truncated-file metadata recovery only on a successful fresh matching-source probe", async () => {
+    const database = require("../src/server/database");
+    const GitHubStream = require("../src/core/source/GitHubStream").default;
+    const utils = require("../src/core/GitHubUtils");
+    const originals = { isConnected: database.isConnected, octokit: utils.octokit };
+    await coll(resource.kind).updateOne({ _id: new mongoose.Types.ObjectId(resource.id) }, { $set: { repoId: resource.id, source: { repositoryName: "owner/repo", commit: "pinned" } } });
+    let response = { type: "file", sha: "a".repeat(40), size: 11 };
+    database.isConnected = true;
+    utils.octokit = () => ({ repos: { getContent: async () => { if (response instanceof Error) throw response; return { data: response }; } } });
+    const source = new GitHubStream({ repoId: resource.id, organization: "owner", repoName: "repo", commit: "pinned", getToken: async () => "mock-token" });
+    try {
+      await notify(owner.id, "token_expired", resource); await reset(owner.id, resource);
+      expect((await source.fetchFileInfoFromPath("a.txt")).sha).to.equal("a".repeat(40));
+      expect(await guards().findOne({ _id: recipient() })).to.equal(null);
+      await notify(owner.id, "token_expired", resource); await reset(owner.id, resource);
+      response = { type: "dir" }; expect(await source.fetchFileInfoFromPath("a.txt")).to.equal(null);
+      expect(await guards().findOne({ _id: recipient() })).not.to.equal(null);
+      response = Object.assign(new Error("Forbidden"), { status: 403 });
+      try { await source.fetchFileInfoFromPath("a.txt"); throw new Error("Expected a failed probe"); }
+      catch (error) { expect(error.message).to.equal("Forbidden"); }
+      expect(await guards().findOne({ _id: recipient() })).not.to.equal(null);
+      response = { type: "file", sha: "a".repeat(40), size: 11 };
+      await coll(resource.kind).updateOne({ _id: new mongoose.Types.ObjectId(resource.id) }, { $set: { "source.repositoryName": "different/source" } });
+      await source.fetchFileInfoFromPath("a.txt");
+      expect(await guards().findOne({ _id: recipient() })).not.to.equal(null);
+    } finally { database.isConnected = originals.isConnected; utils.octokit = originals.octokit; }
+  });
   it("resumes a migration after a startup crashed and its lease expired", async () => {
     await guards().insertOne({ _id: "recipient-alerts-v1", state: "new", lease: "crashed", leaseUntil: new Date(0) });
     await alerts.initializeOwnerAccessAlerts(); expect((await guards().findOne({ _id: "recipient-alerts-v1" })).state).to.equal("ready");

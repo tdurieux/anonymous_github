@@ -392,8 +392,6 @@ export default class GitHubStream extends GitHubBase {
         const missed = missingContent.get(missKey);
         if (missed) throw new AnonymousError(missed, { httpStatus: 404 });
         try {
-          const repository = isConnected ? await AnonymizedRepositoryModel.findOne({ repoId })
-            .select("owner source githubAccess").lean().exec() : null;
           const fetchContent = () => measureStage("upstream", async () => {
             const content = await this.downloadWithFallback(token, expected.sha, filePath)
               .catch(error => { throw downloadError(error, filePath); });
@@ -415,10 +413,7 @@ export default class GitHubStream extends GitHubBase {
             finally { clearTimeout(deadline); limited.destroy(); content.destroy(); }
             return true;
           });
-          return repository?.owner ? await withOwnerAccessRecovery(String(repository.owner),
-            { kind: "repository", id: String(repository._id) }, fetchContent,
-            { "source.repositoryName": `${this.data.organization}/${this.data.repoName}`, "source.commit": this.data.commit,
-              "githubAccess.revision": repository.githubAccess?.revision ?? { $exists: false } }) : await fetchContent();
+          return await this.confirmOwnerAccess(repoId, fetchContent);
         } catch (error) {
           if (error instanceof AnonymousError && error.message === "file_not_found" && error.httpStatus === 404) {
             const code = await classifyContentMiss(this.data, token);
@@ -471,6 +466,19 @@ export default class GitHubStream extends GitHubBase {
    * files above the 1MB contents-API inline limit.
    */
   async fetchFileInfoFromPath(filePath: string): Promise<IFile | null> {
+    return this.confirmOwnerAccess(this.data.repoId, () => this.fetchFileMetadata(filePath), result => result !== null);
+  }
+
+  private async confirmOwnerAccess<T>(repoId: string, work: () => Promise<T>, confirmed?: (result: T) => boolean): Promise<T> {
+    const repository = isConnected ? await AnonymizedRepositoryModel.findOne({ repoId })
+      .select("owner source githubAccess").lean().exec() : null;
+    return repository?.owner ? withOwnerAccessRecovery(String(repository.owner),
+      { kind: "repository", id: String(repository._id) }, work,
+      { "source.repositoryName": `${this.data.organization}/${this.data.repoName}`, "source.commit": this.data.commit,
+        "githubAccess.revision": repository.githubAccess?.revision ?? { $exists: false } }, confirmed) : work();
+  }
+
+  private async fetchFileMetadata(filePath: string): Promise<IFile | null> {
     const token = await this.data.getToken();
     const oct = octokit(token);
     try {

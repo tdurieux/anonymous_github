@@ -138,6 +138,18 @@ with completion recorded separately. Existing resource claims are migrated to
 recipient guards before new application instances serve requests using an indexed
 scan with resumable checkpoints. Other instances wait while its lease is healthy,
 and take over if the lease expires.
+Every existing resource claim is retained behind the recipient guard. Recovering
+one resource removes only that claim; other claimed resources keep the recipient
+blocked until they recover or are retired.
+
+Use `scripts/deploy.sh` for the first upgrade to recipient alerts. The new image
+has the `science.4open.owner-alert-protocol=recipient-v1` label. When running
+application containers lack that label, the script builds the replacement, stops
+and verifies all old API and streamer containers, then starts the new streamers
+and API. This upgrade pauses traffic while claims migrate and allows up to 15
+minutes for startup, configurable with `MIGRATION_HEALTH_TIMEOUT`. Subsequent
+deployments keep the usual rolling streamer replacement. Manual upgrades must
+stop all legacy application writers before starting any migration-capable instance.
 Leaving either Resend setting empty disables delivery and the email prompt.
 
 ## Scope of anonymization
