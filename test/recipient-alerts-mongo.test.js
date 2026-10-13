@@ -14,7 +14,7 @@ describeMongo("recipient access alerts in MongoDB", function () {
   const guards = () => mongoose.connection.collection(alerts.RECIPIENT_ALERTS);
   const recipient = () => alerts.recipientAlertKey("owner@example.com");
   async function create(ownerId, kind = "repository") {
-    const id = new mongoose.Types.ObjectId(); await coll(kind).insertOne({ _id: id, owner: ownerId, status: "ready" }); return { kind, id: String(id) };
+    const id = new mongoose.Types.ObjectId(); await coll(kind).insertOne({ _id: id, owner: ownerId, repoId: String(id), status: "ready" }); return { kind, id: String(id) };
   }
   before(async () => {
     nativeFetch = global.fetch; originalConfig = { ...config };
@@ -49,7 +49,7 @@ describeMongo("recipient access alerts in MongoDB", function () {
     expect(await guards().findOne({ _id: recipient() })).to.equal(null);
     await notify(owner.id, "token_expired", resource); expect(sent).to.have.length(2);
     expect(sent[0].headers["Idempotency-Key"]).not.to.equal(sent[1].headers["Idempotency-Key"]);
-    expect(await mongoose.connection.collection("owner_access_alert_events").countDocuments()).to.equal(2);
+    expect(await mongoose.connection.collection("owner_access_alert_events").countDocuments()).to.equal(4);
   });
   it("does not release a pending send when recovery races with provider delivery", async () => {
     let release, entered; const gate = new Promise(resolve => { entered = resolve; });
@@ -102,7 +102,89 @@ describeMongo("recipient access alerts in MongoDB", function () {
     await notify(owner.id, "token_expired", resource);
     await coll(resource.kind).updateOne({ _id: new mongoose.Types.ObjectId(resource.id) }, { $set: { status: "removed" } });
     await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(2);
-    expect(await mongoose.connection.collection("owner_access_alert_events").countDocuments()).to.equal(2);
+    expect(await mongoose.connection.collection("owner_access_alert_events").countDocuments()).to.equal(4);
+  });
+  for (const step of ["resource update", "resource verification", "audit insertion", "dispatch transition"]) it(`releases an unsent guard after ${step} fails`, async () => {
+    const collection = step.startsWith("resource") ? coll(resource.kind) : step === "audit insertion" ? mongoose.connection.collection("owner_access_alert_events") : guards();
+    const method = step === "resource verification" ? "findOne" : step === "audit insertion" ? "insertOne" : "updateOne";
+    const original = collection[method]; let calls = 0;
+    collection[method] = async function (...args) {
+      calls++;
+      if ((step === "resource verification" && calls === 2) || step !== "resource verification") throw new Error("transient database error");
+      return original.apply(this, args);
+    };
+    try { await notify(owner.id, "token_expired", resource); }
+    finally { collection[method] = original; }
+    expect(sent).to.have.length(0); expect(await guards().findOne({ _id: recipient() })).to.equal(null);
+    await notify(owner.id, "token_expired", resource); expect(sent).to.have.length(1);
+  });
+  it("retains audit evidence while provider delivery is still in flight", async () => {
+    let release, entered; const gate = new Promise(resolve => { entered = resolve; });
+    global.fetch = async () => { entered(); await new Promise(resolve => { release = resolve; }); return { ok: true, status: 200 }; };
+    const pending = notify(owner.id, "token_expired", resource); await gate;
+    try {
+      const record = await guards().findOne({ _id: recipient() });
+      const event = await mongoose.connection.collection("owner_access_alert_events").findOne({ _id: record.attemptId });
+      expect(event.state).to.equal("prepared"); expect(record.state).to.equal("sending");
+    } finally { release(); await pending; }
+  });
+  it("allows active accounts to receive alerts when a shared-address guard belongs to a banned owner", async () => {
+    await notify(owner.id, "token_expired", resource);
+    await Users.updateOne({ _id: owner._id }, { $set: { status: "banned" } });
+    await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(2);
+  });
+  it("resumes an indexed migration from its last completed checkpoint", async () => {
+    await Users.updateOne({ _id: otherOwner._id }, { $set: { notificationEmail: "second@example.com" } });
+    const second = await create(otherOwner._id);
+    await coll("repository").updateOne({ _id: new mongoose.Types.ObjectId(resource.id) }, { $set: { accessAlertClaimedAt: new Date(1) } });
+    await coll("repository").updateOne({ _id: new mongoose.Types.ObjectId(second.id) }, { $set: { accessAlertClaimedAt: new Date(2) } });
+    await guards().insertOne({ _id: "recipient-alerts-v1", state: "new", leaseUntil: new Date(0),
+      progress: { repository: { claimedAt: new Date(1), id: new mongoose.Types.ObjectId(resource.id) } } });
+    await alerts.initializeOwnerAccessAlerts();
+    expect(await guards().findOne({ _id: recipient() })).to.equal(null);
+    expect(await guards().findOne({ _id: alerts.recipientAlertKey("second@example.com") })).not.to.equal(null);
+    expect((await guards().findOne({ _id: "recipient-alerts-v1" })).progress.repository.claimedAt.getTime()).to.equal(2);
+    expect((await coll("repository").indexes()).some(i => i.name === "owner_access_alert_backfill" && i.partialFilterExpression)).to.equal(true);
+  });
+  it("confirms recovery on a fresh uncached file read but never on a cache hit", async () => {
+    const database = require("../src/server/database");
+    const GitHubStream = require("../src/core/source/GitHubStream").default;
+    const storage = require("../src/core/storage").default;
+    const { Readable } = require("stream");
+    const originals = { isConnected: database.isConnected, fileInfo: storage.fileInfo, write: storage.write, read: storage.read };
+    await coll("repository").updateOne({ _id: new mongoose.Types.ObjectId(resource.id) }, { $set: { repoId: resource.id, source: { repositoryName: "owner/repo", commit: "pinned" } } });
+    let cached = false;
+    database.isConnected = true;
+    storage.fileInfo = async () => { if (!cached) throw Object.assign(new Error("miss"), { code: "ENOENT" }); return { size: 11, contentType: "text/plain" }; };
+    storage.write = async (_repo, _path, input) => { for await (const _chunk of input) { /* Consume the upstream stream. */ } cached = true; };
+    storage.read = async () => Readable.from(["fresh-bytes"]);
+    try {
+      await notify(owner.id, "token_expired", resource); await reset(owner.id, resource);
+      const source = new GitHubStream({ repoId: resource.id, organization: "owner", repoName: "repo", commit: "pinned", getToken: async () => "mock-token" });
+      source.downloadWithFallback = async () => Readable.from(["fresh-bytes"]);
+      const read = () => source.getFileContentCache("a.txt", resource.id, () => ({ sha: "a".repeat(40), size: 11 }));
+      (await read()).destroy(); expect(await guards().findOne({ _id: recipient() })).to.equal(null);
+      await notify(owner.id, "token_expired", resource); await reset(owner.id, resource);
+      (await read()).destroy(); expect(await guards().findOne({ _id: recipient() })).not.to.equal(null);
+    } finally { database.isConnected = originals.isConnected; storage.fileInfo = originals.fileInfo; storage.write = originals.write; storage.read = originals.read; }
+  });
+  it("confirms recovery when a successful scheduled refresh finds the same commit", async () => {
+    const Repository = require("../src/core/Repository").default;
+    const Model = require("../src/core/model/anonymizedRepositories/anonymizedRepositories.model").default;
+    const github = require("../src/core/source/GitHubRepository");
+    const original = github.getRepositoryFromGitHub;
+    const source = { repositoryName: "owner/repo", commit: "pinned", branch: "main" };
+    await coll("repository").updateOne({ _id: new mongoose.Types.ObjectId(resource.id) }, { $set: { source } });
+    const repo = new Repository(new Model({ _id: resource.id, owner: owner._id, repoId: resource.id, status: "ready",
+      source, lastView: new Date(0), options: { update: true, expirationMode: "never" } }));
+    repo.getToken = async () => "mock-token";
+    github.getRepositoryFromGitHub = async () => ({ fullName: "owner/repo", model: { defaultBranch: "main" },
+      branches: async () => [{ name: "main", commit: "pinned" }], getCommitInfo: async () => { throw new Error("Unexpected commit fetch"); } });
+    try {
+      await notify(owner.id, "token_expired", resource); await reset(owner.id, resource);
+      await repo.updateIfNeeded({ force: false });
+      expect(await guards().findOne({ _id: recipient() })).to.equal(null);
+    } finally { github.getRepositoryFromGitHub = original; }
   });
   it("seeds old claims once while five instances start concurrently", async () => {
     await coll(resource.kind).updateOne({ _id: new mongoose.Types.ObjectId(resource.id) }, { $set: { accessAlertClaimedAt: new Date() } });

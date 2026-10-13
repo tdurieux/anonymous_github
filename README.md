@@ -121,15 +121,19 @@ requests, gists and accounts sharing the same address. Sign-in does not reopen
 alerts. An explicit reconnect or resource change prepares recovery, but the
 recipient stays blocked until a fresh GitHub read confirms access to the resource
 that triggered the alert. Cached reads and successful reads of other resources
-cannot reopen it. Removed or expired resources no longer block future alerts.
+cannot reopen it. Removed or expired resources and disabled owners no longer
+block future alerts after their send has completed.
 
 The recipient guard has no time expiry, so there are no daily reminders.
 Failed deliveries remain blocked until confirmed recovery. An interrupted send
 whose outcome is unknown stays blocked to avoid duplicate delivery. Unsent claims
-can be cancelled by confirmed recovery before dispatch. Provider idempotency keys
+can be cancelled by confirmed recovery before dispatch. Bookkeeping failures
+release claims when no provider request has started. Provider idempotency keys
 and redacted attempt records support auditing without storing recipient addresses
-or repository names in the audit log. Existing resource claims are migrated to
-recipient guards before new application instances serve requests.
+or repository names in the audit log. Attempt records are saved before dispatch,
+with completion recorded separately. Existing resource claims are migrated to
+recipient guards before new application instances serve requests using an indexed
+scan with resumable checkpoints.
 Leaving either Resend setting empty disables delivery and the email prompt.
 
 ## Scope of anonymization

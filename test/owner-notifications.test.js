@@ -19,6 +19,7 @@ describe("owner access notifications", () => {
     stub(config, "EMAIL_FROM", "alerts@example.com");
     stub(config, "APP_HOSTNAME", "anonymous.example.com");
     stub(User, "findOne", () => ({ lean: async () => ["removed", "banned"].includes(owner?.status) ? null : owner }));
+    stub(User, "findById", () => ({ select: () => ({ lean: async () => owner }) }));
     Object.defineProperty(User.db, "readyState", { configurable: true, value: 1 });
     restores.push(() => { delete User.db.readyState; });
     stub(User.db, "collection", name => {
@@ -86,7 +87,8 @@ describe("owner access notifications", () => {
     expect(sent[0].body.to).to.deep.equal(["owner@example.com"]);
     expect(sent[0].body.text).to.include("https://anonymous.example.com/connections");
     expect(sent[0].options.headers["Idempotency-Key"]).to.match(/^owner-access-alert\//);
-    expect(events[0].state).to.equal("accepted");
+    expect(events[0].state).to.equal("prepared");
+    expect(events[1].state).to.equal("accepted");
   });
 
   it("reopens an alert only after owner action and successful access to its triggering resource", async () => {
@@ -101,7 +103,7 @@ describe("owner access notifications", () => {
     await notifications.withOwnerAccessRecovery(ownerId, resource, async () => {});
     await notifyOwnerAccessProblem(ownerId, "token_expired", resource);
     expect(sent).to.have.length(2);
-    expect(events).to.have.length(2);
+    expect(events).to.have.length(4);
   });
 
   it("cannot clear another owner's recipient guard", async () => {

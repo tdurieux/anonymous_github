@@ -1,3 +1,4 @@
+import { withOwnerAccessRecovery } from "../owner-notifications";
 import { ExpiringMap } from "../expiring-map";
 import { contentGenerationPrefix, contentRetirementMarker } from "../content-generation";
 import { createHash } from "crypto";
@@ -391,7 +392,9 @@ export default class GitHubStream extends GitHubBase {
         const missed = missingContent.get(missKey);
         if (missed) throw new AnonymousError(missed, { httpStatus: 404 });
         try {
-          return await measureStage("upstream", async () => {
+          const repository = isConnected ? await AnonymizedRepositoryModel.findOne({ repoId })
+            .select("owner source githubAccess").lean().exec() : null;
+          const fetchContent = () => measureStage("upstream", async () => {
             const content = await this.downloadWithFallback(token, expected.sha, filePath)
               .catch(error => { throw downloadError(error, filePath); });
             let count = 0;
@@ -412,6 +415,10 @@ export default class GitHubStream extends GitHubBase {
             finally { clearTimeout(deadline); limited.destroy(); content.destroy(); }
             return true;
           });
+          return repository?.owner ? await withOwnerAccessRecovery(String(repository.owner),
+            { kind: "repository", id: String(repository._id) }, fetchContent,
+            { "source.repositoryName": `${this.data.organization}/${this.data.repoName}`, "source.commit": this.data.commit,
+              "githubAccess.revision": repository.githubAccess?.revision ?? { $exists: false } }) : await fetchContent();
         } catch (error) {
           if (error instanceof AnonymousError && error.message === "file_not_found" && error.httpStatus === 404) {
             const code = await classifyContentMiss(this.data, token);

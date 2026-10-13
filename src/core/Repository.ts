@@ -687,12 +687,14 @@ export default class Repository {
             this.checkRefreshWrite(result);
           }
         }
-        const branches = await ghRepo.branches({
-          force: true,
-          accessToken: token,
-        });
-        const branchName =
-          this.model.source.branch || ghRepo.model.defaultBranch;
+        const branchName = this.model.source.branch || ghRepo.model.defaultBranch;
+        const branches = await withOwnerAccessRecovery(this.owner.id,
+          { kind: "repository", id: String(this.model._id) },
+          () => ghRepo.branches({ force: true, accessToken: token }),
+          { "source.repositoryName": this.model.source.repositoryName,
+            "githubAccess.revision": this.model.githubAccess?.revision ?? { $exists: false } },
+          result => !opt?.force && this.status === RepositoryStatus.READY
+            && result.some(branch => branch.name === branchName && branch.commit === this.model.source.commit));
         const newCommit = branches.filter((f) => f.name == branchName)[0]
           ?.commit;
 
