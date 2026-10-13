@@ -35,6 +35,8 @@ type AlertRecord = { _id: string; state?: string; lease?: string; leaseUntil?: D
   progress?: Record<string, { claimedAt: Date; id: Types.ObjectId }> };
 const alertCollection = (name = RECIPIENT_ALERTS) => UserModel.db.collection(name) as unknown as mongo.Collection<AlertRecord>;
 const MIGRATION = "recipient-alerts-v1";
+const PENDING_LEASE_MS = 60000;
+const expiredPending = () => ({ state: "pending", claimedAt: { $lte: new Date(Date.now() - PENDING_LEASE_MS) } });
 const generationFilter = (generation: unknown) => generation ?? { $exists: false };
 export const recipientAlertKey = (email: string) => createHash("sha256").update(email.trim().toLowerCase()).digest("hex");
 
@@ -42,11 +44,15 @@ export const recipientAlertKey = (email: string) => createHash("sha256").update(
 export async function initializeOwnerAccessAlerts(): Promise<void> {
   const alerts = alertCollection();
   await alerts.createIndex({ owner: 1, resourceKind: 1, resourceId: 1 });
+  await alerts.createIndex({ claimedAt: 1 }, { name: "owner_access_alert_pending", partialFilterExpression: { state: "pending" } });
   try { await alerts.updateOne({ _id: MIGRATION }, { $setOnInsert: { state: "new" } }, { upsert: true }); }
   catch (error) { if ((error as { code?: number }).code !== 11000) throw error; }
   const lease = randomUUID();
-  for (let attempt = 0; attempt < 300; attempt++) {
-    if ((await alerts.findOne({ _id: MIGRATION }))?.state === "ready") return;
+  for (;;) {
+    if ((await alerts.findOne({ _id: MIGRATION }))?.state === "ready") {
+      await alerts.deleteMany(expiredPending());
+      return;
+    }
     const now = new Date();
     const claim = await alerts.updateOne({ _id: MIGRATION, state: { $ne: "ready" },
       $or: [{ leaseUntil: { $lt: now } }, { leaseUntil: { $exists: false } }],
@@ -96,10 +102,10 @@ export async function initializeOwnerAccessAlerts(): Promise<void> {
       if (heartbeatError) throw heartbeatError;
       const completed = await alerts.updateOne({ _id: MIGRATION, lease }, { $set: { state: "ready" }, $unset: { lease: "", leaseUntil: "" } });
       if (!completed.matchedCount) throw new Error("owner_alert_migration_lease_lost");
+      await alerts.deleteMany(expiredPending());
       return;
     } finally { clearInterval(heartbeat); }
   }
-  throw new Error("owner_alert_migration_unavailable");
 }
 
 /** Only a fresh upstream read after owner action may reopen a recipient alert. */
@@ -202,15 +208,21 @@ export async function notifyOwnerAccessProblem(ownerId: string, error: unknown, 
       if ((error as { code?: number }).code !== 11000) throw error;
       unsent = undefined;
       const previous = await alerts.findOne({ _id: key });
-      if (!previous || ["pending", "sending"].includes(previous.state || "") || !previous.owner || !previous.resourceId
+      if (!previous || previous.state === "sending" || !previous.owner || !previous.resourceId
         || !previous.resourceKind || !(previous.resourceKind in resourceCollections)) return;
-      const resourceName = resourceCollections[previous.resourceKind as keyof typeof resourceCollections];
-      const previousResource = await UserModel.db.collection(resourceName).findOne(
-        { _id: previous.resourceId, owner: previous.owner }, { projection: { status: 1 } });
-      const previousOwner = await UserModel.findById(previous.owner).select("status").lean();
-      if (previousOwner && !["banned", "removed"].includes(previousOwner.status || "")
-        && previousResource && !["removed", "expired"].includes(previousResource.status)) return;
-      const retired = await alerts.deleteOne({ _id: key, attemptId: previous.attemptId, state: previous.state });
+      let retirement: mongo.Filter<AlertRecord> = { _id: key, attemptId: previous.attemptId, state: previous.state };
+      if (previous.state === "pending") {
+        if (!previous.claimedAt || previous.claimedAt.getTime() > Date.now() - PENDING_LEASE_MS) return;
+        retirement = { ...retirement, ...expiredPending() };
+      } else {
+        const resourceName = resourceCollections[previous.resourceKind as keyof typeof resourceCollections];
+        const previousResource = await UserModel.db.collection(resourceName).findOne(
+          { _id: previous.resourceId, owner: previous.owner }, { projection: { status: 1 } });
+        const previousOwner = await UserModel.findById(previous.owner).select("status").lean();
+        if (previousOwner && !["banned", "removed"].includes(previousOwner.status || "")
+          && previousResource && !["removed", "expired"].includes(previousResource.status)) return;
+      }
+      const retired = await alerts.deleteOne(retirement);
       if (!retired.deletedCount) return;
       unsent = { key, attemptId };
       try { await alerts.insertOne(record); }

@@ -124,16 +124,20 @@ that triggered the alert. Cached reads and successful reads of other resources
 cannot reopen it. Removed or expired resources and disabled owners no longer
 block future alerts after their send has completed.
 
-The recipient guard has no time expiry, so there are no daily reminders.
+Dispatched recipient guards have no time expiry, so there are no daily reminders.
 Failed deliveries remain blocked until confirmed recovery. An interrupted send
 whose outcome is unknown stays blocked to avoid duplicate delivery. Unsent claims
 can be cancelled by confirmed recovery before dispatch. Bookkeeping failures
-release claims when no provider request has started. Provider idempotency keys
+release claims when no provider request has started. Pending claims interrupted
+before dispatch can be reclaimed after a 60-second lease during startup or a new
+notification attempt. Claim identity and state checks prevent a paused sender
+from dispatching after another instance reclaims its claim. Provider idempotency keys
 and redacted attempt records support auditing without storing recipient addresses
 or repository names in the audit log. Attempt records are saved before dispatch,
 with completion recorded separately. Existing resource claims are migrated to
 recipient guards before new application instances serve requests using an indexed
-scan with resumable checkpoints.
+scan with resumable checkpoints. Other instances wait while its lease is healthy,
+and take over if the lease expires.
 Leaving either Resend setting empty disables delivery and the email prompt.
 
 ## Scope of anonymization

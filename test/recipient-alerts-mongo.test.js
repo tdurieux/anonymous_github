@@ -128,6 +128,61 @@ describeMongo("recipient access alerts in MongoDB", function () {
       expect(event.state).to.equal("prepared"); expect(record.state).to.equal("sending");
     } finally { release(); await pending; }
   });
+  it("reclaims a crashed pre-dispatch attempt without owner action under concurrent failures", async () => {
+    await guards().insertOne({ _id: recipient(), owner: owner._id, resourceKind: resource.kind,
+      resourceId: new mongoose.Types.ObjectId(resource.id), attemptId: "crashed-pending", state: "pending", claimedAt: new Date(0) });
+    await Promise.all(Array.from({ length: 40 }, (_, i) => notify(i % 2 ? owner.id : otherOwner.id, "token_expired", i % 2 ? resource : other)));
+    expect(sent).to.have.length(1);
+    expect((await guards().findOne({ _id: recipient() })).state).to.equal("accepted");
+  });
+  it("keeps recent pending claims and old sending claims blocked", async () => {
+    await guards().insertOne({ _id: recipient(), owner: owner._id, resourceKind: resource.kind,
+      resourceId: new mongoose.Types.ObjectId(resource.id), attemptId: "active-pending", state: "pending", claimedAt: new Date() });
+    await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(0);
+    await guards().updateOne({ _id: recipient() }, { $set: { state: "sending", claimedAt: new Date(0) } });
+    await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(0);
+    await alerts.initializeOwnerAccessAlerts();
+    expect((await guards().findOne({ _id: recipient() })).state).to.equal("sending");
+  });
+  it("reaps only expired unsent claims during startup and never reseeds them", async () => {
+    await coll(resource.kind).updateOne({ _id: new mongoose.Types.ObjectId(resource.id) }, { $set: { accessAlertClaimedAt: new Date(0) } });
+    for (const [key, state, date] of [[recipient(), "pending", new Date(0)], ["recent", "pending", new Date()],
+      ["sending", "sending", new Date(0)], ["accepted", "accepted", new Date(0)], ["failed", "failed", new Date(0)]]) {
+      await guards().insertOne({ _id: key, owner: owner._id, resourceKind: resource.kind,
+        resourceId: new mongoose.Types.ObjectId(resource.id), attemptId: key, state, claimedAt: date });
+    }
+    await alerts.initializeOwnerAccessAlerts();
+    expect(await guards().findOne({ _id: recipient() })).to.equal(null);
+    for (const key of ["recent", "sending", "accepted", "failed"]) expect(await guards().findOne({ _id: key })).not.to.equal(null);
+    await alerts.initializeOwnerAccessAlerts();
+    expect(await guards().findOne({ _id: recipient() })).to.equal(null);
+    await notify(owner.id, "token_expired", resource); expect(sent).to.have.length(1);
+  });
+  it("fences a paused sender after another reader reclaims its expired pending claim", async () => {
+    const collection = coll(resource.kind), update = collection.updateOne;
+    let entered, release; const gate = new Promise(resolve => { entered = resolve; });
+    collection.updateOne = async function (...args) { entered(); await new Promise(resolve => { release = resolve; }); return update.apply(this, args); };
+    const paused = notify(owner.id, "token_expired", resource);
+    try {
+      await gate;
+      await guards().updateOne({ _id: recipient() }, { $set: { claimedAt: new Date(0) } });
+      await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(1);
+    } finally { collection.updateOne = update; release(); await paused; }
+    expect(sent).to.have.length(1);
+    expect((await guards().findOne({ _id: recipient() })).owner.toString()).to.equal(otherOwner.id);
+  });
+  it("cannot reclaim a pending attempt that starts dispatch before deletion", async () => {
+    await guards().insertOne({ _id: recipient(), owner: owner._id, resourceKind: resource.kind,
+      resourceId: new mongoose.Types.ObjectId(resource.id), attemptId: "racing-dispatch", state: "pending", claimedAt: new Date(0) });
+    const collection = guards(), remove = collection.deleteOne;
+    collection.deleteOne = async function (...args) {
+      await collection.updateOne({ _id: recipient(), attemptId: "racing-dispatch" }, { $set: { state: "sending" } });
+      return remove.apply(this, args);
+    };
+    try { await notify(otherOwner.id, "token_expired", other); }
+    finally { collection.deleteOne = remove; }
+    expect(sent).to.have.length(0); expect((await guards().findOne({ _id: recipient() })).state).to.equal("sending");
+  });
   it("allows active accounts to receive alerts when a shared-address guard belongs to a banned owner", async () => {
     await notify(owner.id, "token_expired", resource);
     await Users.updateOne({ _id: owner._id }, { $set: { status: "banned" } });
@@ -197,5 +252,21 @@ describeMongo("recipient access alerts in MongoDB", function () {
   it("resumes a migration after a startup crashed and its lease expired", async () => {
     await guards().insertOne({ _id: "recipient-alerts-v1", state: "new", lease: "crashed", leaseUntil: new Date(0) });
     await alerts.initializeOwnerAccessAlerts(); expect((await guards().findOne({ _id: "recipient-alerts-v1" })).state).to.equal("ready");
+  });
+  it("continues waiting beyond 300 polls while another migration holds a healthy lease", async () => {
+    await guards().insertOne({ _id: "recipient-alerts-v1", state: "new", lease: "active-migration", leaseUntil: new Date(Date.now() + 600000) });
+    const collection = guards(), update = collection.updateOne, timeout = global.setTimeout;
+    let polls = 0;
+    collection.updateOne = async function (filter, ...args) {
+      if (filter._id === "recipient-alerts-v1" && filter.$or && ++polls === 305) {
+        await update.call(this, { _id: "recipient-alerts-v1" }, { $set: { state: "ready" } });
+      }
+      return update.call(this, filter, ...args);
+    };
+    global.setTimeout = (callback, delay, ...args) => delay === 250 ? timeout(callback, 0, ...args) : timeout(callback, delay, ...args);
+    try { await alerts.initializeOwnerAccessAlerts(); }
+    finally { collection.updateOne = update; global.setTimeout = timeout; }
+    expect(polls).to.equal(305);
+    expect((await guards().findOne({ _id: "recipient-alerts-v1" })).state).to.equal("ready");
   });
 });
