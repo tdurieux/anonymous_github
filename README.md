@@ -139,17 +139,26 @@ recipient guards before new application instances serve requests using an indexe
 scan with resumable checkpoints. Other instances wait while its lease is healthy,
 and take over if the lease expires.
 Every existing resource claim is retained behind the recipient guard. Recovering
-one resource removes only that claim; other claimed resources keep the recipient
-blocked until they recover or are retired.
+one resource atomically marks its claim recovered; other claims keep the recipient
+blocked until they recover or are retired. A newer owner reset makes its matching
+claims require another fresh read. Completed provider results are recorded before
+guard updates, with bounded retries and reconciliation on startup or a later
+notification. Retirement also checks the latest owner reset revision.
 
 Use `scripts/deploy.sh` for the first upgrade to recipient alerts. The new image
 has the `science.4open.owner-alert-protocol=recipient-v1` label. When running
 application containers lack that label, the script builds the replacement, stops
-and verifies all old API and streamer containers, then starts the new streamers
-and API. This upgrade pauses traffic while claims migrate and allows up to 15
+and verifies all old API and streamer containers, then prepares a full claim
+reconciliation and starts the new streamers and API. Stopped legacy containers
+from a rollback also trigger reconciliation, so claims written after an earlier
+migration are included. This upgrade pauses traffic while claims migrate and allows up to 15
 minutes for startup, configurable with `MIGRATION_HEALTH_TIMEOUT`. Subsequent
 deployments keep the usual rolling streamer replacement. Manual upgrades must
-stop all legacy application writers before starting any migration-capable instance.
+stop all legacy application writers, run
+`docker compose run --rm --no-deps --entrypoint node anonymous_github ./build/scripts/reconcile-legacy-owner-alerts.js`
+using the new image, and then start the new application instances. Run this
+preparation after legacy writers have operated, even if their containers were
+already removed. Ordinary restarts preserve confirmed recoveries.
 Leaving either Resend setting empty disables delivery and the email prompt.
 
 ## Scope of anonymization

@@ -23,7 +23,7 @@ describe("owner access notifications", () => {
     Object.defineProperty(User.db, "readyState", { configurable: true, value: 1 });
     restores.push(() => { delete User.db.readyState; });
     stub(User.db, "collection", name => {
-      if (name === "owner_access_alert_events") return { insertOne: async record => events.push(record) };
+      if (name === "owner_access_alert_events") return { insertOne: async record => events.push(record), findOne: async filter => events.find(event => event._id === filter._id) };
       if (name === notifications.RECIPIENT_ALERTS) return {
         findOne: async filter => recipients.get(filter._id),
         find: filter => ({ toArray: async () => [...recipients.values()].filter(r => {
@@ -31,7 +31,7 @@ describe("owner access notifications", () => {
           return String(r.owner) === String(claim.owner) && r.resourceKind === claim.resourceKind
             && String(r.resourceId) === String(claim.resourceId) && r.generation !== claim.generation.$ne && filter.state.$in.includes(r.state);
         }).map(r => ({ ...r })) }),
-        updateMany: async filter => { const claim = filter.$or[0]; for (const r of recipients.values()) if (String(r.owner) === String(claim.owner)
+        updateMany: async filter => { if (filter.legacyClaims?.$elemMatch) return; const claim = filter; for (const r of recipients.values()) if (String(r.owner) === String(claim.owner)
           && (!claim.resourceId || String(r.resourceId) === String(claim.resourceId))) r.resetRevision = (r.resetRevision || 0) + 1; },
         insertOne: async record => { if (recipients.has(record._id)) throw Object.assign(new Error("duplicate"), { code: 11000 }); recipients.set(record._id, { ...record }); },
         updateOne: async (filter, update) => { const record = recipients.get(filter._id); if (!record || record.attemptId !== filter.attemptId || (filter.state && record.state !== filter.state)) return { matchedCount: 0 }; Object.assign(record, update.$set); return { matchedCount: 1 }; },

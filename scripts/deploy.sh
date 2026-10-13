@@ -36,10 +36,10 @@ list_streamers() {
     docker compose ps --status running --format '{{.Name}}' streamer 2>/dev/null
 }
 
-# Capture every running application writer before building the replacement.
+# Capture application writers, including stopped containers from a rollback.
 # Legacy instances do not participate in recipient claims, so they must stop
 # before a new instance marks the one-time claim migration complete.
-application_ids="$(docker compose ps --status running -q anonymous_github streamer)"
+application_ids="$(docker compose ps --all -q anonymous_github streamer)"
 apps=()
 if [[ -n $application_ids ]]; then mapfile -t apps <<<"$application_ids"; fi
 legacy_alerts=0
@@ -64,6 +64,8 @@ if [[ $legacy_alerts == 1 && ( $before != "$after" || $FORCE == 1 ) ]]; then
         running="$(docker inspect -f '{{.State.Running}}' "$app")"
         [[ $running == false ]] || { warn "legacy writer $app is still running; aborting migration"; exit 1; }
     done
+    log "Preparing claim reconciliation, including claims written after rollback"
+    docker compose run --rm --no-deps --entrypoint node anonymous_github ./build/scripts/reconcile-legacy-owner-alerts.js
     log "Starting ${REPLICAS} streamers after legacy writers stopped"
     docker compose up -d --no-deps --force-recreate --scale "streamer=${REPLICAS}" streamer
     mapfile -t news < <(list_streamers)

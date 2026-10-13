@@ -29,6 +29,7 @@ if (args[0] === "inspect") {
 if (args[0] === "compose") {
   if (args[1] === "build") { if (state.buildFails) finish("", 1); state.built = true; finish(); }
   if (args[1] === "stop") { state.stopped = true; finish(); }
+  if (args[1] === "run") { if (state.reconcileFails) finish("", 1); state.reconciled = true; finish(); }
   if (args[1] === "up") { if (args.includes("streamer")) state.streamers = true; else state.api = true; finish(); }
   if (args[1] === "ps") {
     if (args.includes("-q")) finish(args.includes("streamer") ? "old-api\\nold-1\\nold-2\\nold-3\\nold-4\\n" : "new-api");
@@ -54,6 +55,9 @@ finish("unexpected docker call", 2);
     const stop = result.calls.findIndex(args => args[0] === "compose" && args[1] === "stop");
     const up = result.calls.findIndex(args => args[0] === "compose" && args[1] === "up");
     expect(stop).to.be.greaterThan(-1); expect(up).to.be.greaterThan(stop);
+    const reconcile = result.calls.findIndex(args => args[0] === "compose" && args[1] === "run");
+    expect(reconcile).to.be.greaterThan(stop); expect(reconcile).to.be.lessThan(up);
+    expect(result.calls[reconcile]).to.include("./build/scripts/reconcile-legacy-owner-alerts.js");
     const checked = result.calls.slice(stop + 1, up).filter(args => args[0] === "inspect").map(args => args.at(-1));
     expect(checked).to.deep.equal(["old-api", "old-1", "old-2", "old-3", "old-4"]);
     expect(result.calls[stop]).to.include.members(["anonymous_github", "streamer"]);
@@ -80,5 +84,10 @@ finish("unexpected docker call", 2);
     expect(result.status).not.to.equal(0);
     expect(result.stderr).to.include("lacks recipient alert migration support");
     expect(result.calls.some(args => args[0] === "compose" && ["stop", "up"].includes(args[1]))).to.equal(false);
+  });
+  it("starts no application instance if rollback reconciliation cannot be prepared", () => {
+    const result = deploy({ reconcileFails: true });
+    expect(result.status).not.to.equal(0);
+    expect(result.calls.some(args => args[0] === "compose" && args[1] === "up")).to.equal(false);
   });
 });
