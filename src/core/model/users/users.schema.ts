@@ -21,6 +21,7 @@ const UserSchema = new Schema({
   accessAlertResetRevision: { type: Number, select: false },
   accessAlertResetUntil: { type: Date, select: false },
   accessAlertFenceRevision: { type: Number, select: false },
+  accessAlertDispatches: { type: Schema.Types.Mixed, select: false },
   emails: [
     {
       email: { type: String },

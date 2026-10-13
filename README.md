@@ -138,10 +138,16 @@ before cleanup; matching legacy fields are cleared before the guard is released.
 Interrupted cleanup resumes on startup or a later notification. Legacy fields
 carry an attempt ID so unrelated deliveries and newer generations are preserved.
 A resource revision prevents delayed preparation from recreating a reclaimed
-claim. All asynchronous preparation stays pending; the transition to sending
-immediately precedes the provider call. Persistent owner reset revisions and a
-renewable reset lease also fence attempts created while a reset is in progress,
-even when no recipient guard existed when that reset began.
+claim. All asynchronous preparation stays pending. A sending reservation is
+reclaimable until dispatch commits atomically on the owner document, against its
+reset revision and lease, immediately before contacting the provider. Cancellation
+competes with that same commitment, so a paused sender cannot dispatch afterward.
+Owner dispatch records distinguish known-unsent reservations from interrupted
+committed sends. Completed records are removed; expired uncommitted records are
+pruned on later attempts. Persistent reset revisions also fence attempts created
+while a reset is in progress, even when no recipient guard existed at its start.
+Recovery recorded during an active reset is retried when reset finishes or its
+lease expires, with the original source and revision checks.
 Provider idempotency keys
 and redacted attempt records support auditing without storing recipient addresses
 or repository names in the audit log. Attempt records are saved before dispatch,

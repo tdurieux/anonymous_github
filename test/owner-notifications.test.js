@@ -36,20 +36,37 @@ describe("owner access notifications", () => {
           if (String(filter._id) !== ownerId) return { matchedCount: 0 };
           if ("accessAlertResetRevision" in filter && ownerState.accessAlertResetRevision !== (typeof filter.accessAlertResetRevision === "number" ? filter.accessAlertResetRevision : undefined)) return { matchedCount: 0 };
           if (filter.$or && ownerState.accessAlertResetUntil?.getTime() > Date.now()) return { matchedCount: 0 };
-          if (update.$inc) for (const [key, value] of Object.entries(update.$inc)) ownerState[key] = (ownerState[key] || 0) + value;
-          if (update.$set) Object.assign(ownerState, update.$set);
-          if (update.$unset) for (const key of Object.keys(update.$unset)) delete ownerState[key];
+          const get = path => path.split(".").reduce((value, key) => value?.[key], ownerState);
+          const set = (path, value) => {
+            const keys = path.split("."), last = keys.pop(); let target = ownerState;
+            for (const key of keys) target = target[key] ||= {};
+            if (value === undefined) delete target[last]; else target[last] = value;
+          };
+          for (const [key, value] of Object.entries(filter)) if (key.startsWith("accessAlertDispatches.") && get(key) !== value) return { matchedCount: 0 };
+          if (Array.isArray(update)) {
+            const cutoff = update[0].$set.accessAlertDispatches.$arrayToObject.$filter.cond.$or[1].$gt[1];
+            ownerState.accessAlertDispatches = Object.fromEntries(Object.entries(ownerState.accessAlertDispatches || {}).filter(([, value]) => value.state === "committed" || value.claimedAt > cutoff));
+            for (const [key, value] of Object.entries(update[1].$set)) set(key, value);
+          } else {
+            if (update.$inc) for (const [key, value] of Object.entries(update.$inc)) set(key, (get(key) || 0) + value);
+            if (update.$set) for (const [key, value] of Object.entries(update.$set)) set(key, value);
+            if (update.$unset) for (const key of Object.keys(update.$unset)) set(key, undefined);
+          }
           return { matchedCount: 1 };
         },
       };
       if (name === "owner_access_alert_events") return { insertOne: async record => events.push(record), findOne: async filter => events.find(event => event._id === filter._id) };
       if (name === notifications.RECIPIENT_ALERTS) return {
         findOne: async filter => recipients.get(filter._id),
-        find: filter => ({ toArray: async () => [...recipients.values()].filter(r => {
-          const claim = filter.$or[0];
-          return String(r.owner) === String(claim.owner) && r.resourceKind === claim.resourceKind
-            && String(r.resourceId) === String(claim.resourceId) && r.generation !== claim.generation.$ne && filter.state.$in.includes(r.state);
-        }).map(r => ({ ...r })) }),
+        find: filter => {
+          const matching = () => [...recipients.values()].filter(r => {
+            if (filter.deferredRecoveries) return r.deferredRecoveries?.some(recovery => String(recovery.owner) === String(filter.deferredRecoveries.$elemMatch.owner));
+            const claim = filter.$or[0];
+            return String(r.owner) === String(claim.owner) && r.resourceKind === claim.resourceKind
+              && String(r.resourceId) === String(claim.resourceId) && r.generation !== claim.generation.$ne && filter.state.$in.includes(r.state);
+          }).map(r => ({ ...r }));
+          return { toArray: async () => matching(), async *[Symbol.asyncIterator]() { yield* matching(); } };
+        },
         updateMany: async filter => { if (filter.legacyClaims?.$elemMatch) return; const claim = filter; for (const r of recipients.values()) if (String(r.owner) === String(claim.owner)
           && (!claim.resourceId || String(r.resourceId) === String(claim.resourceId))) r.resetRevision = (r.resetRevision || 0) + 1; },
         insertOne: async record => { if (recipients.has(record._id)) throw Object.assign(new Error("duplicate"), { code: 11000 }); recipients.set(record._id, { ...record }); },
