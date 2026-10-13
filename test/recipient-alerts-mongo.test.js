@@ -112,7 +112,8 @@ describeMongo("recipient access alerts in MongoDB", function () {
       calls++;
       if ((step === "resource verification" && calls === 2)
         || (step === "dispatch transition" && args[1].$set?.state === "sending")
-        || (step !== "resource verification" && step !== "dispatch transition")) throw new Error("transient database error");
+        || (step === "resource update" && args[1].$set?.accessAlertClaimedAt)
+        || step === "audit insertion") throw new Error("transient database error");
       return original.apply(this, args);
     };
     try { await notify(owner.id, "token_expired", resource); }
@@ -227,7 +228,7 @@ describeMongo("recipient access alerts in MongoDB", function () {
     let reads = 0;
     collection.findOne = async function (...args) { if (++reads === 2) throw new Error("verification failed"); return read.apply(this, args); };
     collection.updateOne = async function (filter, operation, ...args) {
-      if (operation.$unset?.accessAlertClaimedAt !== undefined) throw new Error("cleanup unavailable");
+      if (Array.isArray(operation)) throw new Error("cleanup unavailable");
       return update.call(this, filter, operation, ...args);
     };
     try { await notify(owner.id, "token_expired", resource); }
@@ -283,6 +284,103 @@ describeMongo("recipient access alerts in MongoDB", function () {
       await pending; if (action) await action;
     }
     await notify(owner.id, "token_expired", resource); expect(sent).to.have.length(1);
+  });
+  it("invalidates an old failure when reset starts before its recipient guard exists", async () => {
+    const lookup = Users.findOne, collection = coll(resource.kind), updateMany = collection.updateMany;
+    let entered, release, resetting, releaseReset;
+    const atLookup = new Promise(resolve => { entered = resolve; });
+    const atReset = new Promise(resolve => { resetting = resolve; });
+    Users.findOne = function (...args) { return { lean: async () => {
+      entered(); await new Promise(resolve => { release = resolve; }); return lookup.apply(Users, args).lean();
+    } }; };
+    collection.updateMany = async function (...args) { resetting(); await new Promise(resolve => { releaseReset = resolve; }); return updateMany.apply(this, args); };
+    const pending = notify(owner.id, "token_expired", resource); let action;
+    try {
+      await atLookup; action = reset(owner.id, resource); await atReset;
+      expect(await guards().findOne({ _id: recipient() })).to.equal(null);
+      release(); await pending; expect(sent).to.have.length(0);
+      expect((await collection.findOne({ _id: new mongoose.Types.ObjectId(resource.id) })).accessAlertClaimedAt).to.equal(undefined);
+    } finally {
+      Users.findOne = lookup; collection.updateMany = updateMany;
+      if (release) release(); if (releaseReset) releaseReset(); await pending; if (action) await action;
+    }
+    await notify(owner.id, "token_expired", resource); expect(sent).to.have.length(1);
+  });
+  it("prevents a cancelled sender from recreating legacy fields after its database write resumes", async () => {
+    const collection = coll(resource.kind), update = collection.updateOne;
+    let entered, release; const gate = new Promise(resolve => { entered = resolve; });
+    collection.updateOne = async function (filter, operation, ...args) {
+      if (operation.$set?.accessAlertClaimedAt) { entered(); await new Promise(resolve => { release = resolve; }); }
+      return update.call(this, filter, operation, ...args);
+    };
+    const pending = notify(owner.id, "token_expired", resource);
+    try {
+      await gate; await guards().updateOne({ _id: recipient() }, { $set: { claimedAt: new Date(0) } });
+      await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(1);
+    } finally { collection.updateOne = update; release(); await pending; }
+    const row = await collection.findOne({ _id: new mongoose.Types.ObjectId(resource.id) });
+    expect(row.accessAlertClaimedAt).to.equal(undefined); expect(row.accessAlertClaimRevision).to.equal(1);
+    expect(sent).to.have.length(1);
+  });
+  it("reaps a crashed pre-provider attempt after legacy preparation completed", async () => {
+    await guards().insertOne({ _id: recipient(), owner: owner._id, resourceKind: resource.kind,
+      resourceId: new mongoose.Types.ObjectId(resource.id), attemptId: "prepared-not-sent", state: "pending", resourceRevision: 0, claimedAt: new Date(0) });
+    await coll(resource.kind).updateOne({ _id: new mongoose.Types.ObjectId(resource.id) }, { $set: {
+      accessAlertClaimedAt: new Date(0), accessAlertAttemptId: "prepared-not-sent", accessAlertClaimRevision: 1,
+    } });
+    await alerts.initializeOwnerAccessAlerts();
+    expect(await guards().findOne({ _id: recipient() })).to.equal(null); expect(sent).to.have.length(0);
+    const row = await coll(resource.kind).findOne({ _id: new mongoose.Types.ObjectId(resource.id) });
+    expect(row.accessAlertClaimedAt).to.equal(undefined); expect(row.accessAlertClaimRevision).to.equal(2);
+    await notify(owner.id, "token_expired", resource); expect(sent).to.have.length(1);
+  });
+  for (const accepted of [true, false]) it(`applies recovery recorded during an in-flight ${accepted ? "accepted" : "rejected"} delivery`, async () => {
+    let entered, release; const gate = new Promise(resolve => { entered = resolve; });
+    global.fetch = async (_url, options) => {
+      sent.push(options); if (sent.length === 1) { entered(); await new Promise(resolve => { release = resolve; }); }
+      return { ok: accepted, status: accepted ? 200 : 403 };
+    };
+    const pending = notify(owner.id, "token_expired", resource);
+    try {
+      await gate; await reset(owner.id, resource); await recover(owner.id, resource, async () => {});
+      const record = await guards().findOne({ _id: recipient() }); expect(record.state).to.equal("sending");
+      expect(record.deferredRecoveries).to.have.length(1);
+      await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(1);
+    } finally { release(); await pending; }
+    expect(await guards().findOne({ _id: recipient() })).to.equal(null);
+    await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(2);
+  });
+  it("invalidates in-flight recovery evidence after a newer reset", async () => {
+    let entered, release; const gate = new Promise(resolve => { entered = resolve; });
+    global.fetch = async (_url, options) => {
+      sent.push(options); if (sent.length === 1) { entered(); await new Promise(resolve => { release = resolve; }); }
+      return { ok: true, status: 200 };
+    };
+    const pending = notify(owner.id, "token_expired", resource);
+    try {
+      await gate; await reset(owner.id, resource); await recover(owner.id, resource, async () => {}); await reset(owner.id, resource);
+    } finally { release(); await pending; }
+    expect((await guards().findOne({ _id: recipient() })).state).to.equal("accepted");
+    await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(1);
+    await recover(owner.id, resource, async () => {});
+    await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(2);
+  });
+  it("invalidates deferred recovery if its source binding changes before delivery completes", async () => {
+    await coll(resource.kind).updateOne({ _id: new mongoose.Types.ObjectId(resource.id) }, { $set: { source: { repositoryName: "owner/repo" } } });
+    let entered, release; const gate = new Promise(resolve => { entered = resolve; });
+    global.fetch = async (_url, options) => {
+      sent.push(options); if (sent.length === 1) { entered(); await new Promise(resolve => { release = resolve; }); }
+      return { ok: true, status: 200 };
+    };
+    const pending = notify(owner.id, "token_expired", resource);
+    try {
+      await gate; await reset(owner.id, resource);
+      await recover(owner.id, resource, async () => {}, { "source.repositoryName": "owner/repo" });
+      await coll(resource.kind).updateOne({ _id: new mongoose.Types.ObjectId(resource.id) }, { $set: { "source.repositoryName": "new/repo" } });
+    } finally { release(); await pending; }
+    expect((await guards().findOne({ _id: recipient() })).state).to.equal("accepted");
+    await recover(owner.id, resource, async () => {}, { "source.repositoryName": "new/repo" });
+    await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(2);
   });
   it("allows active accounts to receive alerts when a shared-address guard belongs to a banned owner", async () => {
     await notify(owner.id, "token_expired", resource);

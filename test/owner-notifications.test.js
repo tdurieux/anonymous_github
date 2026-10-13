@@ -11,10 +11,12 @@ describe("owner access notifications", () => {
   const ownerId = "507f1f77bcf86cd799439011";
   const resource = { kind: "repository", id: "507f1f77bcf86cd799439012" };
   const other = { kind: "repository", id: "507f1f77bcf86cd799439013" };
-  let owner, sent, claims, rows, generations, recipients, events;
+  let owner, ownerState, sent, claims, rows, generations, resourceRevisions, attemptIds, recipients, events;
   beforeEach(() => {
     owner = { status: "active", emails: [{ email: "owner@example.com", default: true }] };
+    ownerState = {};
     sent = []; claims = []; rows = new Map(); generations = new Map(); recipients = new Map(); events = [];
+    resourceRevisions = new Map(); attemptIds = new Map();
     stub(config, "RESEND_API_KEY", "test-resend-key");
     stub(config, "EMAIL_FROM", "alerts@example.com");
     stub(config, "APP_HOSTNAME", "anonymous.example.com");
@@ -23,6 +25,23 @@ describe("owner access notifications", () => {
     Object.defineProperty(User.db, "readyState", { configurable: true, value: 1 });
     restores.push(() => { delete User.db.readyState; });
     stub(User.db, "collection", name => {
+      if (name === "users") return {
+        findOne: async filter => String(filter._id) === ownerId ? { ...ownerState } : null,
+        findOneAndUpdate: async (filter, update) => {
+          if (String(filter._id) !== ownerId) return { value: null };
+          ownerState.accessAlertResetRevision = (ownerState.accessAlertResetRevision || 0) + update.$inc.accessAlertResetRevision;
+          Object.assign(ownerState, update.$set); return { value: { ...ownerState } };
+        },
+        updateOne: async (filter, update) => {
+          if (String(filter._id) !== ownerId) return { matchedCount: 0 };
+          if ("accessAlertResetRevision" in filter && ownerState.accessAlertResetRevision !== (typeof filter.accessAlertResetRevision === "number" ? filter.accessAlertResetRevision : undefined)) return { matchedCount: 0 };
+          if (filter.$or && ownerState.accessAlertResetUntil?.getTime() > Date.now()) return { matchedCount: 0 };
+          if (update.$inc) for (const [key, value] of Object.entries(update.$inc)) ownerState[key] = (ownerState[key] || 0) + value;
+          if (update.$set) Object.assign(ownerState, update.$set);
+          if (update.$unset) for (const key of Object.keys(update.$unset)) delete ownerState[key];
+          return { matchedCount: 1 };
+        },
+      };
       if (name === "owner_access_alert_events") return { insertOne: async record => events.push(record), findOne: async filter => events.find(event => event._id === filter._id) };
       if (name === notifications.RECIPIENT_ALERTS) return {
         findOne: async filter => recipients.get(filter._id),
@@ -38,7 +57,11 @@ describe("owner access notifications", () => {
           const stateMatches = !filter.state || (typeof filter.state === "string" ? record?.state === filter.state : filter.state.$in.includes(record?.state));
           const revisionMatches = !("resetRevision" in filter) || record?.resetRevision === (typeof filter.resetRevision === "number" ? filter.resetRevision : undefined);
           if (!record || record.attemptId !== filter.attemptId || !stateMatches || !revisionMatches) return { matchedCount: 0 };
-          Object.assign(record, update.$set); return { matchedCount: 1 };
+          if (Array.isArray(update)) {
+            const recovery = update[0].$set.deferredRecoveries.$concatArrays[1][0];
+            record.deferredRecoveries = [recovery];
+          } else Object.assign(record, update.$set);
+          return { matchedCount: 1 };
         },
         deleteOne: async filter => { const r = recipients.get(filter._id);
           const stateMatches = typeof filter.state === "string" ? r?.state === filter.state : filter.state.$in.includes(r?.state);
@@ -57,17 +80,31 @@ describe("owner access notifications", () => {
           if (!generations.has(key)) generations.set(key, undefined);
           if ("accessAlertGeneration" in filter && generations.get(key) !== (typeof filter.accessAlertGeneration === "string" ? filter.accessAlertGeneration : undefined)) return null;
           if (filter.accessAlertClaimedAt?.$exists && !rows.has(key)) return null;
-          return { accessAlertGeneration: generations.get(key), accessAlertClaimedAt: rows.get(key), status: "ready" };
+          if ("accessAlertClaimRevision" in filter && (resourceRevisions.get(key) || 0) !== (typeof filter.accessAlertClaimRevision === "number" ? filter.accessAlertClaimRevision : 0)) return null;
+          if (filter.accessAlertAttemptId && attemptIds.get(key) !== filter.accessAlertAttemptId) return null;
+          return { accessAlertGeneration: generations.get(key), accessAlertClaimedAt: rows.get(key), accessAlertClaimRevision: resourceRevisions.get(key), status: "ready" };
         },
         updateOne: async (filter, update) => {
           claims.push(filter); const key = `${name}:${filter.owner}:${filter._id}`;
           if (generations.get(key) !== (typeof filter.accessAlertGeneration === "string" ? filter.accessAlertGeneration : undefined)) return { matchedCount: 0 };
-          if (update.$unset) rows.delete(key); else rows.set(key, update.$set.accessAlertClaimedAt);
+          const revision = resourceRevisions.get(key) || 0;
+          if (Array.isArray(update)) {
+            const first = filter.$or[0].accessAlertClaimRevision;
+            const expected = typeof first === "number" ? first : 0;
+            const attemptId = update[0].$set.accessAlertAttemptId.$cond[0].$eq[1];
+            if (revision !== expected && !(revision === expected + 1 && attemptIds.get(key) === attemptId)) return { matchedCount: 0 };
+            resourceRevisions.set(key, revision + 1);
+            if (attemptIds.get(key) === attemptId) { rows.delete(key); attemptIds.delete(key); }
+          } else {
+            if ("accessAlertClaimRevision" in filter && revision !== (typeof filter.accessAlertClaimRevision === "number" ? filter.accessAlertClaimRevision : 0)) return { matchedCount: 0 };
+            rows.set(key, update.$set.accessAlertClaimedAt); attemptIds.set(key, update.$set.accessAlertAttemptId);
+            resourceRevisions.set(key, revision + update.$inc.accessAlertClaimRevision);
+          }
           return { matchedCount: 1 };
         },
         updateMany: async (filter, update) => {
           for (const key of generations.keys()) if (key.startsWith(`${name}:${filter.owner}:`) && (!filter._id || key.endsWith(`:${filter._id}`))) {
-            rows.delete(key); generations.set(key, update.$set.accessAlertGeneration);
+            rows.delete(key); attemptIds.delete(key); generations.set(key, update.$set.accessAlertGeneration);
           }
         },
       };

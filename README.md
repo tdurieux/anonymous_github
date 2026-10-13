@@ -120,7 +120,9 @@ An atomic recipient claim allows one email attempt across repositories, pull
 requests, gists and accounts sharing the same address. Sign-in does not reopen
 alerts. An explicit reconnect or resource change prepares recovery, but the
 recipient stays blocked until a fresh GitHub read confirms access to the resource
-that triggered the alert. Cached reads and successful reads of other resources
+that triggered the alert. A fresh read during an in-flight send is retained and
+applied when that send completes. A newer reset or source change invalidates
+that recovery evidence. Cached reads and successful reads of other resources
 cannot reopen it. Removed or expired resources and disabled owners no longer
 block future alerts after their send has completed.
 
@@ -135,7 +137,11 @@ from dispatching after another instance reclaims its claim. Cancellation is save
 before cleanup; matching legacy fields are cleared before the guard is released.
 Interrupted cleanup resumes on startup or a later notification. Legacy fields
 carry an attempt ID so unrelated deliveries and newer generations are preserved.
-The pending-to-sending transition also checks the observed owner reset revision.
+A resource revision prevents delayed preparation from recreating a reclaimed
+claim. All asynchronous preparation stays pending; the transition to sending
+immediately precedes the provider call. Persistent owner reset revisions and a
+renewable reset lease also fence attempts created while a reset is in progress,
+even when no recipient guard existed when that reset began.
 Provider idempotency keys
 and redacted attempt records support auditing without storing recipient addresses
 or repository names in the audit log. Attempt records are saved before dispatch,

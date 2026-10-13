@@ -4,6 +4,7 @@ const AnonymizedGistSchema = new Schema({
   accessAlertGeneration: { type: String, select: false },
   accessAlertClaimedAt: { type: Date, select: false },
   accessAlertAttemptId: { type: String, select: false },
+  accessAlertClaimRevision: { type: Number, select: false },
   gistId: {
     type: String,
     index: { unique: true },
