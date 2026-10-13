@@ -116,14 +116,20 @@ Alerts cover invalid GitHub credentials and repository access errors encountered
 while reading or refreshing content. No periodic access scan is performed.
 Emails contain no repository names, anonymous URLs, or credentials.
 
-An atomic database claim allows one email attempt per repository, pull request,
-or gist until its owner explicitly refreshes it, saves its settings or connection,
-or reconnects GitHub. Claiming ownership also clears the previous owner's alert.
-Reconnecting GitHub or completing a verified App installation update resets alerts
-for that owner's resources. Resets invalidate pending claims from older failures.
-Viewing content, scheduled updates, and automatic token renewal never reset alerts.
-There is no daily reminder. Claims also remain after delivery failures or an
-interrupted process, avoiding duplicate messages until the owner acts.
+An atomic recipient claim allows one email attempt across repositories, pull
+requests, gists and accounts sharing the same address. Sign-in does not reopen
+alerts. An explicit reconnect or resource change prepares recovery, but the
+recipient stays blocked until a fresh GitHub read confirms access to the resource
+that triggered the alert. Cached reads and successful reads of other resources
+cannot reopen it. Removed or expired resources no longer block future alerts.
+
+The recipient guard has no time expiry, so there are no daily reminders.
+Failed deliveries remain blocked until confirmed recovery. An interrupted send
+whose outcome is unknown stays blocked to avoid duplicate delivery. Unsent claims
+can be cancelled by confirmed recovery before dispatch. Provider idempotency keys
+and redacted attempt records support auditing without storing recipient addresses
+or repository names in the audit log. Existing resource claims are migrated to
+recipient guards before new application instances serve requests.
 Leaving either Resend setting empty disables delivery and the email prompt.
 
 ## Scope of anonymization

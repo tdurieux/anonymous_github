@@ -1,5 +1,5 @@
-import { randomUUID } from "crypto";
-import { Types } from "mongoose";
+import { createHash, randomUUID } from "crypto";
+import { mongo, Types } from "mongoose";
 import { isGitHubRateLimitError } from "./github-rate-limit";
 import config from "../config";
 import UserModel from "./model/users/users.model";
@@ -19,11 +19,104 @@ export async function resetOwnerAccessAlerts(ownerId: string, resource?: AlertRe
   try {
     const filter = { owner: new Types.ObjectId(ownerId),
       ...(resource ? { _id: new Types.ObjectId(resource.id) } : {}) };
+    await alertCollection().updateMany({ owner: new Types.ObjectId(ownerId),
+      ...(resource ? { resourceKind: resource.kind, resourceId: new Types.ObjectId(resource.id) } : {}),
+    }, { $inc: { resetRevision: 1 } });
     for (const collection of resource ? [resourceCollections[resource.kind]] : Object.values(resourceCollections)) {
       await UserModel.db.collection(collection).updateMany(filter, { $unset: { accessAlertClaimedAt: "" }, $set: { accessAlertGeneration: randomUUID() } });
     }
   } catch { logger.warn("owner access alert reset unavailable"); }
 }
+export const RECIPIENT_ALERTS = "owner_access_alert_recipients";
+type AlertRecord = { _id: string; state?: string; lease?: string; leaseUntil?: Date;
+  owner?: Types.ObjectId; resourceKind?: string; resourceId?: Types.ObjectId;
+  generation?: string | null; attemptId?: string; claimedAt?: Date; completedAt?: Date;
+  recipientKey?: string; resetRevision?: number; httpStatus?: number };
+const alertCollection = (name = RECIPIENT_ALERTS) => UserModel.db.collection(name) as unknown as mongo.Collection<AlertRecord>;
+const MIGRATION = "recipient-alerts-v1";
+const generationFilter = (generation: unknown) => generation ?? { $exists: false };
+export const recipientAlertKey = (email: string) => createHash("sha256").update(email.trim().toLowerCase()).digest("hex");
+
+/** Seed the recipient guard once before any new application instance serves traffic. */
+export async function initializeOwnerAccessAlerts(): Promise<void> {
+  const alerts = alertCollection();
+  await alerts.createIndex({ owner: 1, resourceKind: 1, resourceId: 1 });
+  try { await alerts.updateOne({ _id: MIGRATION }, { $setOnInsert: { state: "new" } }, { upsert: true }); }
+  catch (error) { if ((error as { code?: number }).code !== 11000) throw error; }
+  const lease = randomUUID();
+  for (let attempt = 0; attempt < 300; attempt++) {
+    if ((await alerts.findOne({ _id: MIGRATION }))?.state === "ready") return;
+    const now = new Date();
+    const claim = await alerts.updateOne({ _id: MIGRATION, state: { $ne: "ready" },
+      $or: [{ leaseUntil: { $lt: now } }, { leaseUntil: { $exists: false } }],
+    }, { $set: { lease, leaseUntil: new Date(Date.now() + 60000) } });
+    if (!claim.modifiedCount) { await new Promise(resolve => setTimeout(resolve, 250)); continue; }
+    let heartbeatError: unknown;
+    const heartbeat = setInterval(() => {
+      void alerts.updateOne({ _id: MIGRATION, lease }, { $set: { leaseUntil: new Date(Date.now() + 60000) } })
+        .then(result => { if (!result.matchedCount) heartbeatError = new Error("owner_alert_migration_lease_lost"); })
+        .catch(error => { heartbeatError = error; });
+    }, 5000);
+    try {
+      for (const [kind, name] of Object.entries(resourceCollections)) {
+        const cursor = UserModel.db.collection(name).find({ accessAlertClaimedAt: { $exists: true } },
+          { projection: { owner: 1, accessAlertGeneration: 1, accessAlertClaimedAt: 1 }, maxTimeMS: 30000 });
+        for await (const row of cursor) {
+          if (heartbeatError) throw heartbeatError;
+          const owner = await UserModel.findById(row.owner).select("emails notificationEmail").lean();
+          const email = notificationEmail(owner?.emails, owner?.notificationEmail);
+          if (!email) continue;
+          await alerts.updateOne({ _id: recipientAlertKey(email) }, { $setOnInsert: {
+            owner: row.owner, resourceKind: kind, resourceId: row._id,
+            generation: row.accessAlertGeneration ?? null, attemptId: randomUUID(),
+            claimedAt: row.accessAlertClaimedAt, state: "legacy",
+          } }, { upsert: true });
+        }
+      }
+      if (heartbeatError) throw heartbeatError;
+      const completed = await alerts.updateOne({ _id: MIGRATION, lease }, { $set: { state: "ready" }, $unset: { lease: "", leaseUntil: "" } });
+      if (!completed.matchedCount) throw new Error("owner_alert_migration_lease_lost");
+      return;
+    } finally { clearInterval(heartbeat); }
+  }
+  throw new Error("owner_alert_migration_unavailable");
+}
+
+/** Only a fresh upstream read after owner action may reopen a recipient alert. */
+export async function withOwnerAccessRecovery<T>(ownerId: string, resource: AlertResource, work: () => Promise<T>, expectedSource: Record<string, unknown> = {}): Promise<T> {
+  let snapshot: { accessAlertGeneration?: string } | null = null;
+  let candidates: AlertRecord[] = [];
+  const valid = UserModel.db.readyState === 1 && Types.ObjectId.isValid(ownerId) && Types.ObjectId.isValid(resource.id);
+  const identity = valid ? { _id: new Types.ObjectId(resource.id), owner: new Types.ObjectId(ownerId), ...expectedSource } : null;
+  if (identity) {
+    try {
+      const row = await UserModel.db.collection(resourceCollections[resource.kind]).findOne(identity, { projection: { accessAlertGeneration: 1 } });
+      snapshot = row ? { accessAlertGeneration: row.accessAlertGeneration } : null;
+      if (snapshot) candidates = await alertCollection().find({ owner: identity.owner,
+        resourceKind: resource.kind, resourceId: identity._id,
+        generation: { $ne: snapshot.accessAlertGeneration ?? null }, state: { $in: ["pending", "accepted", "failed", "legacy"] },
+      }).toArray();
+    }
+    catch { /* Email bookkeeping must not change upstream behavior. */ }
+  }
+  const result = await work();
+  if (!identity || !snapshot) return result;
+  try {
+    const current = await UserModel.db.collection(resourceCollections[resource.kind]).findOne({ ...identity,
+      accessAlertGeneration: generationFilter(snapshot.accessAlertGeneration),
+    });
+    if (!current) return result;
+    let cleared = 0;
+    for (const candidate of candidates) {
+      const result = await alertCollection().deleteOne({ _id: candidate._id, attemptId: candidate.attemptId,
+        resetRevision: generationFilter(candidate.resetRevision), state: { $in: ["pending", "accepted", "failed", "legacy"] } });
+      cleared += result.deletedCount;
+    }
+    if (cleared) logger.info("owner access email recovery confirmed", { cleared });
+  } catch { logger.warn("owner access email recovery unavailable"); }
+  return result;
+}
+
 const accessErrors = new Set([
   "token_expired", "github_oauth_required", "github_app_reconnect_required",
   "github_app_access_required", "repo_not_found", "repository_not_found",
@@ -69,27 +162,54 @@ export async function notifyOwnerAccessProblem(ownerId: string, error: unknown, 
     if (!resource || !Types.ObjectId.isValid(resource.id) || !Types.ObjectId.isValid(ownerId)) return;
     const collection = UserModel.db.collection(resourceCollections[resource.kind]);
     const identity = { _id: new Types.ObjectId(resource.id), owner: new Types.ObjectId(ownerId) };
-    const snapshot = await collection.findOne(identity, { projection: { accessAlertGeneration: 1 } });
+    const snapshot = await collection.findOne(identity, { projection: { accessAlertGeneration: 1, accessAlertClaimedAt: 1 } });
     if (!snapshot) return;
     const owner = await UserModel.findOne({ _id: ownerId, status: { $nin: ["removed", "banned"] } }).lean();
     if (!owner) return;
     const to = notificationEmail(owner.emails, owner.notificationEmail);
     if (!to) return;
-    // Claim the resource atomically before delivery. This has no expiry: neither
-    // repeated readers nor workers can send again until the owner acts.
-    const claim = await collection.updateOne({
-      ...identity,
-      // A reset during the owner lookup invalidates this older failure.
-      accessAlertGeneration: snapshot.accessAlertGeneration ?? { $exists: false },
-      accessAlertClaimedAt: { $exists: false },
+    const alerts = alertCollection();
+    const key = recipientAlertKey(to);
+    const attemptId = randomUUID();
+    const record: AlertRecord = { _id: key, owner: identity.owner, resourceKind: resource.kind,
+      resourceId: identity._id, generation: snapshot.accessAlertGeneration ?? null,
+      attemptId, claimedAt: new Date(), state: "pending" };
+    try { await alerts.insertOne(record); }
+    catch (error) {
+      if ((error as { code?: number }).code !== 11000) throw error;
+      const previous = await alerts.findOne({ _id: key });
+      if (!previous || ["pending", "sending"].includes(previous.state || "") || !previous.owner || !previous.resourceId
+        || !previous.resourceKind || !(previous.resourceKind in resourceCollections)) return;
+      const resourceName = resourceCollections[previous.resourceKind as keyof typeof resourceCollections];
+      const previousResource = await UserModel.db.collection(resourceName).findOne(
+        { _id: previous.resourceId, owner: previous.owner }, { projection: { status: 1 } });
+      if (previousResource && !["removed", "expired"].includes(previousResource.status)) return;
+      const retired = await alerts.deleteOne({ _id: key, attemptId: previous.attemptId, state: previous.state });
+      if (!retired.deletedCount) return;
+      try { await alerts.insertOne(record); }
+      catch (replacementError) { if ((replacementError as { code?: number }).code === 11000) return; throw replacementError; }
+    }
+    const claim = await collection.updateOne({ ...identity,
+      accessAlertGeneration: generationFilter(snapshot.accessAlertGeneration),
     }, { $set: { accessAlertClaimedAt: new Date() } });
-    if (!claim.modifiedCount) return;
+    if (!claim.matchedCount || !await collection.findOne({ ...identity,
+      accessAlertGeneration: generationFilter(snapshot.accessAlertGeneration),
+    })) {
+      await alerts.deleteOne({ _id: key, attemptId, state: "pending" });
+      return;
+    }
     const base = /^https?:\/\//.test(config.APP_HOSTNAME) ? config.APP_HOSTNAME : `https://${config.APP_HOSTNAME}`;
     const url = new URL("/connections", base).href;
+    // Recovery can cancel an unsent claim; only its owner may begin dispatch.
+    const dispatch = await alerts.updateOne({ _id: key, attemptId, state: "pending" }, { $set: { state: "sending" } });
+    if (!dispatch.matchedCount) return;
+    let accepted = false;
+    let httpStatus: number | undefined;
     try {
       const response = await fetch("https://api.resend.com/emails", {
         method: "POST",
-        headers: { Authorization: `Bearer ${config.RESEND_API_KEY}`, "Content-Type": "application/json" },
+        headers: { Authorization: `Bearer ${config.RESEND_API_KEY}`, "Content-Type": "application/json",
+          "Idempotency-Key": `owner-access-alert/${attemptId}` },
         signal: AbortSignal.timeout(15000),
         body: JSON.stringify({
           from: config.EMAIL_FROM, to: [to],
@@ -97,14 +217,18 @@ export async function notifyOwnerAccessProblem(ownerId: string, error: unknown, 
           text: `Anonymous GitHub could not access GitHub using your connection, or could not read a repository.\n\nOpen your connections page to reconnect your account or restore repository access:\n${url}\n\nYou are receiving this email because you own content on Anonymous GitHub. You can change your alert address on the connections page.\n`,
         }),
       });
-      if (!response.ok) throw new Error("email_delivery_failed");
-    } catch {
-      // Keep the claim even on failure: delivery can be ambiguous and no
-      // automatic retry may send another email before owner action.
-      logger.warn("owner access email delivery failed");
-    }
+      httpStatus = response.status;
+      accepted = response.ok;
+    } catch { /* Delivery can be ambiguous; retain the recipient guard. */ }
+    const state = accepted ? "accepted" : "failed";
+    if (accepted) logger.info("owner access email accepted", { attemptId, httpStatus });
+    else logger.warn("owner access email delivery failed", { attemptId, httpStatus });
+    try {
+      await alerts.updateOne({ _id: key, attemptId }, { $set: { state, completedAt: new Date(), httpStatus } });
+      await alertCollection("owner_access_alert_events").insertOne({ _id: attemptId,
+        recipientKey: key, state, httpStatus, completedAt: new Date() });
+    } catch { logger.warn("owner access email audit unavailable", { attemptId }); }
   } catch {
-    // Do not log provider errors, which can contain credentials or addresses.
     logger.warn("owner access email unavailable");
   }
 }

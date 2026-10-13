@@ -11,37 +11,58 @@ describe("owner access notifications", () => {
   const ownerId = "507f1f77bcf86cd799439011";
   const resource = { kind: "repository", id: "507f1f77bcf86cd799439012" };
   const other = { kind: "repository", id: "507f1f77bcf86cd799439013" };
-  let owner, sent, claims, rows, generations;
+  let owner, sent, claims, rows, generations, recipients, events;
   beforeEach(() => {
     owner = { status: "active", emails: [{ email: "owner@example.com", default: true }] };
-    sent = []; claims = []; rows = new Map(); generations = new Map();
+    sent = []; claims = []; rows = new Map(); generations = new Map(); recipients = new Map(); events = [];
     stub(config, "RESEND_API_KEY", "test-resend-key");
     stub(config, "EMAIL_FROM", "alerts@example.com");
     stub(config, "APP_HOSTNAME", "anonymous.example.com");
     stub(User, "findOne", () => ({ lean: async () => ["removed", "banned"].includes(owner?.status) ? null : owner }));
     Object.defineProperty(User.db, "readyState", { configurable: true, value: 1 });
     restores.push(() => { delete User.db.readyState; });
-    stub(User.db, "collection", name => ({
-      findOne: async filter => {
-        const key = `${name}:${filter.owner}:${filter._id}`;
-        if (!generations.has(key)) generations.set(key, undefined);
-        return { accessAlertGeneration: generations.get(key) };
-      },
-      updateOne: async (filter, update) => {
-        claims.push(filter);
-        const key = `${name}:${filter.owner}:${filter._id}`;
-        if (rows.has(key) || generations.get(key) !== (typeof filter.accessAlertGeneration === "string" ? filter.accessAlertGeneration : undefined)) return { modifiedCount: 0 };
-        rows.set(key, update.$set.accessAlertClaimedAt);
-        return { modifiedCount: 1 };
-      },
-      updateMany: async (filter, update) => {
-        for (const key of generations.keys()) if (key.startsWith(`${name}:${filter.owner}:`) && (!filter._id || key.endsWith(`:${filter._id}`))) {
-          rows.delete(key);
-          generations.set(key, update.$set.accessAlertGeneration);
-        }
-      },
-    }));
-    stub(global, "fetch", async (url, options) => { sent.push({ url, options, body: JSON.parse(options.body) }); return { ok: true }; });
+    stub(User.db, "collection", name => {
+      if (name === "owner_access_alert_events") return { insertOne: async record => events.push(record) };
+      if (name === notifications.RECIPIENT_ALERTS) return {
+        findOne: async filter => recipients.get(filter._id),
+        find: filter => ({ toArray: async () => [...recipients.values()].filter(r => String(r.owner) === String(filter.owner)
+          && r.resourceKind === filter.resourceKind && String(r.resourceId) === String(filter.resourceId)
+          && r.generation !== filter.generation.$ne && filter.state.$in.includes(r.state)).map(r => ({ ...r })) }),
+        updateMany: async filter => { for (const r of recipients.values()) if (String(r.owner) === String(filter.owner)
+          && (!filter.resourceId || String(r.resourceId) === String(filter.resourceId))) r.resetRevision = (r.resetRevision || 0) + 1; },
+        insertOne: async record => { if (recipients.has(record._id)) throw Object.assign(new Error("duplicate"), { code: 11000 }); recipients.set(record._id, { ...record }); },
+        updateOne: async (filter, update) => { const record = recipients.get(filter._id); if (!record || record.attemptId !== filter.attemptId || (filter.state && record.state !== filter.state)) return { matchedCount: 0 }; Object.assign(record, update.$set); return { matchedCount: 1 }; },
+        deleteOne: async filter => { const r = recipients.get(filter._id);
+          const stateMatches = typeof filter.state === "string" ? r?.state === filter.state : filter.state.$in.includes(r?.state);
+          const revisionMatches = !("resetRevision" in filter) || r?.resetRevision === (typeof filter.resetRevision === "number" ? filter.resetRevision : undefined);
+          if (r?.attemptId === filter.attemptId && stateMatches && revisionMatches) { recipients.delete(filter._id); return { deletedCount: 1 }; }
+          return { deletedCount: 0 };
+        },
+        deleteMany: async filter => { let deletedCount = 0; for (const [key, r] of recipients) {
+          if (String(r.owner) === String(filter.owner) && r.resourceKind === filter.resourceKind && String(r.resourceId) === String(filter.resourceId)
+            && r.generation !== filter.generation.$ne && filter.state.$in.includes(r.state)) { recipients.delete(key); deletedCount++; }
+        } return { deletedCount }; },
+      };
+      return {
+        findOne: async filter => {
+          const key = `${name}:${filter.owner}:${filter._id}`;
+          if (!generations.has(key)) generations.set(key, undefined);
+          if ("accessAlertGeneration" in filter && generations.get(key) !== (typeof filter.accessAlertGeneration === "string" ? filter.accessAlertGeneration : undefined)) return null;
+          return { accessAlertGeneration: generations.get(key), accessAlertClaimedAt: rows.get(key), status: "ready" };
+        },
+        updateOne: async (filter, update) => {
+          claims.push(filter); const key = `${name}:${filter.owner}:${filter._id}`;
+          if (generations.get(key) !== (typeof filter.accessAlertGeneration === "string" ? filter.accessAlertGeneration : undefined)) return { matchedCount: 0 };
+          rows.set(key, update.$set.accessAlertClaimedAt); return { matchedCount: 1 };
+        },
+        updateMany: async (filter, update) => {
+          for (const key of generations.keys()) if (key.startsWith(`${name}:${filter.owner}:`) && (!filter._id || key.endsWith(`:${filter._id}`))) {
+            rows.delete(key); generations.set(key, update.$set.accessAlertGeneration);
+          }
+        },
+      };
+    });
+    stub(global, "fetch", async (url, options) => { sent.push({ url, options, body: JSON.parse(options.body) }); return { ok: true, status: 200 }; });
   });
   afterEach(() => { while (restores.length) restores.pop()(); });
 
@@ -53,30 +74,54 @@ describe("owner access notifications", () => {
     expect(notificationEmail([{ email: "first@example.com", default: false }, { email: "primary@example.com", default: true }])).to.equal("primary@example.com");
   });
 
-  it("sends once per resource across concurrent readers and repeated errors, with no time expiry", async () => {
+  it("sends once per recipient across resources and concurrent readers, with no time expiry", async () => {
     await Promise.all(Array.from({ length: 10 }, () => notifyOwnerAccessProblem(ownerId, "token_expired", resource)));
     expect(sent).to.have.length(1);
     for (const key of rows.keys()) rows.set(key, new Date("2000-01-01"));
     await notifyOwnerAccessProblem(ownerId, "repo_not_found", resource);
     expect(sent).to.have.length(1);
     await notifyOwnerAccessProblem(ownerId, "repo_not_found", other);
-    expect(sent).to.have.length(2);
+    expect(sent).to.have.length(1);
     expect(sent[0].url).to.equal("https://api.resend.com/emails");
     expect(sent[0].body.to).to.deep.equal(["owner@example.com"]);
     expect(sent[0].body.text).to.include("https://anonymous.example.com/connections");
-    expect(claims[0].accessAlertClaimedAt).to.deep.equal({ $exists: false });
+    expect(sent[0].options.headers["Idempotency-Key"]).to.match(/^owner-access-alert\//);
+    expect(events[0].state).to.equal("accepted");
   });
 
-  it("owner action resets only the selected resource and cannot reset another owner's alerts", async () => {
+  it("reopens an alert only after owner action and successful access to its triggering resource", async () => {
     await notifyOwnerAccessProblem(ownerId, "token_expired", resource);
     await notifyOwnerAccessProblem(ownerId, "token_expired", other);
-    await notifications.resetOwnerAccessAlerts("507f1f77bcf86cd799439099", resource);
-    await notifyOwnerAccessProblem(ownerId, "token_expired", resource);
-    expect(sent).to.have.length(2);
+    expect(sent).to.have.length(1);
     await notifications.resetOwnerAccessAlerts(ownerId, resource);
     await notifyOwnerAccessProblem(ownerId, "token_expired", resource);
-    await notifyOwnerAccessProblem(ownerId, "token_expired", other);
-    expect(sent).to.have.length(3);
+    expect(sent).to.have.length(1);
+    await notifications.withOwnerAccessRecovery(ownerId, other, async () => {});
+    expect(recipients.size).to.equal(1);
+    await notifications.withOwnerAccessRecovery(ownerId, resource, async () => {});
+    await notifyOwnerAccessProblem(ownerId, "token_expired", resource);
+    expect(sent).to.have.length(2);
+    expect(events).to.have.length(2);
+  });
+
+  it("cannot clear another owner's recipient guard", async () => {
+    await notifyOwnerAccessProblem(ownerId, "token_expired", resource);
+    await notifications.resetOwnerAccessAlerts("507f1f77bcf86cd799439099", resource);
+    await notifications.withOwnerAccessRecovery("507f1f77bcf86cd799439099", resource, async () => {});
+    expect(recipients.size).to.equal(1);
+  });
+
+  it("does not reopen on background success without owner action", async () => {
+    await notifyOwnerAccessProblem(ownerId, "token_expired", resource);
+    await notifications.withOwnerAccessRecovery(ownerId, resource, async () => {});
+    expect(recipients.size).to.equal(1);
+  });
+
+  it("retains the guard when access recovery fails", async () => {
+    await notifyOwnerAccessProblem(ownerId, "token_expired", resource);
+    await notifications.resetOwnerAccessAlerts(ownerId, resource);
+    try { await notifications.withOwnerAccessRecovery(ownerId, resource, async () => { throw new Error("still forbidden"); }); } catch { /* Expected upstream failure. */ }
+    expect(recipients.size).to.equal(1);
   });
 
   it("rejects a pre-action failure paused during owner lookup", async () => {
@@ -98,22 +143,25 @@ describe("owner access notifications", () => {
     expect(sent).to.have.length(1);
   });
 
-  it("reconnecting resets all of the owner's resource types", async () => {
+  it("reconnecting leaves the recipient blocked across all resource types", async () => {
     const resources = [resource, { ...resource, kind: "pull-request" }, { ...resource, kind: "gist" }];
     for (const item of resources) await notifyOwnerAccessProblem(ownerId, "token_expired", item);
-    expect(sent).to.have.length(3);
+    expect(sent).to.have.length(1);
     await notifications.resetOwnerAccessAlerts(ownerId);
     for (const item of resources) await notifyOwnerAccessProblem(ownerId, "token_expired", item);
-    expect(sent).to.have.length(6);
+    expect(sent).to.have.length(1);
   });
 
-  for (const failure of ["rejected", "timeout"]) it(`retains the claim after ${failure} until owner action`, async () => {
+  for (const failure of ["rejected", "timeout"]) it(`retains the claim after ${failure} until confirmed recovery`, async () => {
     let attempts = 0;
     stub(global, "fetch", async () => { attempts++; if (failure === "timeout") throw new Error("timeout"); return { ok: false }; });
     await notifyOwnerAccessProblem(ownerId, "token_expired", resource);
     await notifyOwnerAccessProblem(ownerId, "token_expired", resource);
     expect(attempts).to.equal(1);
     await notifications.resetOwnerAccessAlerts(ownerId, resource);
+    await notifyOwnerAccessProblem(ownerId, "token_expired", resource);
+    expect(attempts).to.equal(1);
+    await notifications.withOwnerAccessRecovery(ownerId, resource, async () => {});
     await notifyOwnerAccessProblem(ownerId, "token_expired", resource);
     expect(attempts).to.equal(2);
   });

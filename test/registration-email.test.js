@@ -17,9 +17,9 @@ const verified = (email, primary = true) => ({ email, primary, verified: true })
 describe("registration email collection", function () {
   const restores = [];
   const stub = (object, key, value) => { const old = object[key]; restores.push(() => object[key] = old); object[key] = value; };
-  let response, calls, writes, user, saved, login;
+  let response, calls, writes, user, saved, login, resetCalls;
   beforeEach(() => {
-    response = [verified("primary@example.com")]; calls = []; writes = []; saved = [];
+    response = [verified("primary@example.com")]; calls = []; writes = []; saved = []; resetCalls = [];
     user = new Users({ username: "owner", externalIDs: { github: "10" }, emails: [] });
     stub(global, "fetch", async (url, options) => {
       calls.push({ url, options });
@@ -29,7 +29,7 @@ describe("registration email collection", function () {
     stub(Users, "findOne", async () => user);
     stub(Users.prototype, "save", async function () { saved.push(this); return this; });
     stub(credentials, "setCredential", async () => {});
-    stub(notifications, "resetOwnerAccessAlerts", async () => {});
+    stub(notifications, "resetOwnerAccessAlerts", async id => { resetCalls.push(id); });
     stub(github, "saveAppGrant", async () => {});
     stub(github, "exchangeAppToken", async () => ({ access_token: "fresh-app-token" }));
     stub(github, "githubRequest", async path => {
@@ -97,6 +97,9 @@ describe("registration email collection", function () {
       expect(saved).to.have.length(1); expect(writes).to.have.length(1);
       expect(identity.emails[0].email).to.equal("primary@example.com");
     });
+    it(`does not reset access alerts during ordinary ${provider} sign-in`, async () => {
+      await callback(); expect(resetCalls).to.have.length(0);
+    });
     it(`fills missing email on existing ${provider} sign-in`, async () => {
       expect((await callback()).emails[0].email).to.equal("primary@example.com");
       expect(saved).to.have.length(0);
@@ -109,6 +112,12 @@ describe("registration email collection", function () {
       expect(user.emails).to.have.length(0);
     });
   }
+
+  it("prepares recovery for an explicit OAuth reconnect", async () => {
+    await new Promise((resolve, reject) => verify({ githubOAuthContext: { ownerId: user.id, githubId: "10", expires: Date.now() + 60000 } },
+      "token", "", { id: "10", username: "owner" }, error => error ? reject(error) : resolve()));
+    expect(resetCalls).to.deep.equal([user.id]);
+  });
 
   it("rejects an identity mismatch before requesting or saving email", async () => {
     const error = await new Promise(resolve => verify({ githubOAuthContext: { githubId: "different", expires: Date.now() + 60000 } },
