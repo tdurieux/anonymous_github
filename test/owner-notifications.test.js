@@ -536,12 +536,54 @@ describe("repository probes and truncated file recovery", () => {
   const Files = require("../src/core/model/files/files.model").default;
   const File = require("../src/core/AnonymizedFile").default;
   const GitHubStream = require("../src/core/source/GitHubStream").default;
+  const AnonymizedRepositories = require("../src/core/model/anonymizedRepositories/anonymizedRepositories.model").default;
+  const storage = require("../src/core/storage").default;
+  const { Readable } = require("node:stream");
   const { classifyGitHubMissError } = require("../src/core/source/GitHubBase");
   const restores = [];
   const stub = (object, key, value) => { const old = object[key]; restores.push(() => object[key] = old); object[key] = value; };
   const source = { getToken: async () => "probe-test", repoId: "anon", organization: "owner", repoName: "repo", commit: "sha" };
   const missing = () => Object.assign(new Error("Not found"), { status: 404 });
   afterEach(() => { while (restores.length) restores.pop()(); });
+  for (const failed of [false, true]) it(`continues truncated metadata reads after recovery lookup failure: ${failed ? "upstream failure" : "success"}`, async () => {
+    const upstreamError = Object.assign(new Error("GitHub unavailable"), { status: 503 });
+    let reads = 0;
+    stub(db, "isConnected", true);
+    stub(AnonymizedRepositories, "findOne", () => ({ select: () => ({ lean: () => ({ exec: async () => { throw new Error("recovery database unavailable"); } }) }) }));
+    stub(notifications, "withOwnerAccessRecovery", () => { throw new Error("recovery must be skipped without metadata"); });
+    stub(github, "octokit", () => ({ repos: { getContent: async () => {
+      reads++; if (failed) throw upstreamError;
+      return { data: { type: "file", sha: "blob", size: 11 } };
+    } } }));
+    const result = await new GitHubStream(source).fetchFileInfoFromPath("large/file.txt").then(value => ({ value }), error => ({ error }));
+    expect(reads).to.equal(1);
+    if (failed) expect(result.error).to.equal(upstreamError);
+    else expect(result.value).to.include({ name: "file.txt", path: "large", sha: "blob", size: 11 });
+  });
+  for (const failed of [false, true]) it(`continues uncached file reads after recovery lookup failure: ${failed ? "upstream failure" : "success"}`, async () => {
+    const upstreamError = Object.assign(new Error("GitHub unavailable"), { status: 503 });
+    const data = { ...source, repoId: `lookup-failure-${failed}` };
+    let cached, downloads = 0, recoveryLookups = 0;
+    stub(db, "isConnected", true);
+    stub(AnonymizedRepositories, "findOne", () => ({ select: fields => ({ lean: () => ({ exec: async () => {
+      if (fields === "owner source githubAccess") { recoveryLookups++; throw new Error("recovery database unavailable"); }
+      return { status: "ready" };
+    } }) }) }));
+    stub(notifications, "withOwnerAccessRecovery", () => { throw new Error("recovery must be skipped without metadata"); });
+    stub(storage, "fileInfo", async () => { if (!cached) throw Object.assign(new Error("missing"), { code: "ENOENT" }); return { size: cached.length }; });
+    stub(storage, "write", async (_repo, _path, input) => { const chunks = []; for await (const chunk of input) chunks.push(chunk); cached = Buffer.concat(chunks); });
+    stub(storage, "read", async () => Readable.from([cached]));
+    const stream = new GitHubStream(data);
+    stream.downloadWithFallback = async () => { downloads++; if (failed) throw upstreamError; return Readable.from([Buffer.from("fresh-bytes")]); };
+    const result = await stream.getFileContentCache("file.txt", data.repoId, () => ({ sha: "blob", size: 11 }))
+      .then(value => ({ value }), error => ({ error }));
+    expect(downloads).to.equal(1); expect(recoveryLookups).to.equal(1);
+    if (failed) { expect(result.error.message).to.equal("upstream_error"); expect(result.error.cause).to.equal(upstreamError); }
+    else {
+      const chunks = []; for await (const chunk of result.value) chunks.push(chunk);
+      expect(Buffer.concat(chunks).toString()).to.equal("fresh-bytes");
+    }
+  });
   for (const stage of ["name", "id"]) for (const status of [undefined, 429, 503]) {
     it(`propagates inconclusive ${stage} probe ${status}`, async () => {
       const error = Object.assign(new Error("probe failed"), { status });

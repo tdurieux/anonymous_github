@@ -470,8 +470,14 @@ export default class GitHubStream extends GitHubBase {
   }
 
   private async confirmOwnerAccess<T>(repoId: string, work: () => Promise<T>, confirmed?: (result: T) => boolean): Promise<T> {
-    const repository = isConnected ? await AnonymizedRepositoryModel.findOne({ repoId })
-      .select("owner source githubAccess").lean().exec() : null;
+    let repository;
+    try {
+      repository = isConnected ? await AnonymizedRepositoryModel.findOne({ repoId })
+        .select("owner source githubAccess").lean().exec() : null;
+    } catch {
+      // Email recovery bookkeeping must not prevent the upstream read.
+      return work();
+    }
     return repository?.owner ? withOwnerAccessRecovery(String(repository.owner),
       { kind: "repository", id: String(repository._id) }, work,
       { "source.repositoryName": `${this.data.organization}/${this.data.repoName}`, "source.commit": this.data.commit,
