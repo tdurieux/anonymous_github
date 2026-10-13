@@ -131,7 +131,12 @@ can be cancelled by confirmed recovery before dispatch. Bookkeeping failures
 release claims when no provider request has started. Pending claims interrupted
 before dispatch can be reclaimed after a 60-second lease during startup or a new
 notification attempt. Claim identity and state checks prevent a paused sender
-from dispatching after another instance reclaims its claim. Provider idempotency keys
+from dispatching after another instance reclaims its claim. Cancellation is saved
+before cleanup; matching legacy fields are cleared before the guard is released.
+Interrupted cleanup resumes on startup or a later notification. Legacy fields
+carry an attempt ID so unrelated deliveries and newer generations are preserved.
+The pending-to-sending transition also checks the observed owner reset revision.
+Provider idempotency keys
 and redacted attempt records support auditing without storing recipient addresses
 or repository names in the audit log. Attempt records are saved before dispatch,
 with completion recorded separately. Existing resource claims are migrated to
@@ -151,7 +156,10 @@ application containers lack that label, the script builds the replacement, stops
 and verifies all old API and streamer containers, then prepares a full claim
 reconciliation and starts the new streamers and API. Stopped legacy containers
 from a rollback also trigger reconciliation, so claims written after an earlier
-migration are included. This upgrade pauses traffic while claims migrate and allows up to 15
+migration are included. This path also runs when retrying with an already-built
+image and `FORCE=0`. Once writers are stopped, preparation releases all known
+unsent pending claims and clears their matching legacy fields before backfill.
+This upgrade pauses traffic while claims migrate and allows up to 15
 minutes for startup, configurable with `MIGRATION_HEALTH_TIMEOUT`. Subsequent
 deployments keep the usual rolling streamer replacement. Manual upgrades must
 stop all legacy application writers, run

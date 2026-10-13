@@ -43,7 +43,7 @@ finish("unexpected docker call", 2);
       const result = spawnSync("bash", [path.join(directory, "scripts/deploy.sh")], {
         encoding: "utf8", timeout: 8000,
         env: { ...process.env, PATH: directory + path.delimiter + process.env.PATH,
-          FORCE: "1", STREAMER_REPLICAS: "4", TASK_DOCKER_STATE: statePath, TASK_DOCKER_LOG: logPath },
+          FORCE: String(options.force ?? 1), STREAMER_REPLICAS: "4", TASK_DOCKER_STATE: statePath, TASK_DOCKER_LOG: logPath },
       });
       return { ...result, calls: fs.readFileSync(logPath, "utf8").trim().split("\n").map(line => JSON.parse(line)) };
     } finally { fs.rmSync(directory, { recursive: true, force: true }); }
@@ -89,5 +89,13 @@ finish("unexpected docker call", 2);
     const result = deploy({ reconcileFails: true });
     expect(result.status).not.to.equal(0);
     expect(result.calls.some(args => args[0] === "compose" && args[1] === "up")).to.equal(false);
+  });
+  for (const stopped of [true, false]) it(`reconciles legacy ${stopped ? "stopped" : "running"} containers when the replacement was already built`, () => {
+    const result = deploy({ built: true, stopped, force: 0 });
+    expect(result.status, result.stderr).to.equal(0);
+    const reconcile = result.calls.findIndex(args => args[0] === "compose" && args[1] === "run");
+    const up = result.calls.findIndex(args => args[0] === "compose" && args[1] === "up");
+    expect(reconcile).to.be.greaterThan(-1); expect(up).to.be.greaterThan(reconcile);
+    expect(result.stdout).not.to.include("nothing to deploy");
   });
 });

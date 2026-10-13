@@ -4,6 +4,7 @@ import { Schema } from "mongoose";
 const AnonymizedRepositorySchema = new Schema({
   accessAlertGeneration: { type: String, select: false },
   accessAlertClaimedAt: { type: Date, select: false },
+  accessAlertAttemptId: { type: String, select: false },
   reviewConsentRevision: { type: Number, select: false },
   repoId: {
     type: String,

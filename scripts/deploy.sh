@@ -54,7 +54,7 @@ before="$(image_id "$IMAGE")"
 docker compose build anonymous_github
 after="$(image_id "$IMAGE")"
 
-if [[ $legacy_alerts == 1 && ( $before != "$after" || $FORCE == 1 ) ]]; then
+if [[ $legacy_alerts == 1 ]]; then
     protocol="$(docker image inspect -f '{{index .Config.Labels "science.4open.owner-alert-protocol"}}' "$IMAGE")"
     [[ $protocol == recipient-v1 ]] || { warn "replacement image lacks recipient alert migration support"; exit 1; }
     TIMEOUT="${MIGRATION_HEALTH_TIMEOUT:-900}"

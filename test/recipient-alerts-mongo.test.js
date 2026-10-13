@@ -65,15 +65,15 @@ describeMongo("recipient access alerts in MongoDB", function () {
     expect(await guards().findOne({ _id: recipient() })).not.to.equal(null);
   });
   it("cancels an unsent claim before a paused sender can start dispatch", async () => {
-    const collection = coll(resource.kind), update = collection.updateOne;
+    const collection = mongoose.connection.collection("owner_access_alert_events"), insert = collection.insertOne;
     let entered, release; const gate = new Promise(resolve => { entered = resolve; });
-    collection.updateOne = async function (...args) { entered(); await new Promise(resolve => { release = resolve; }); return update.apply(this, args); };
+    collection.insertOne = async function (...args) { entered(); await new Promise(resolve => { release = resolve; }); return insert.apply(this, args); };
     try {
       const pending = notify(owner.id, "token_expired", resource); await gate;
       await reset(owner.id, resource); await recover(owner.id, resource, async () => {});
       release(); await pending; expect(sent).to.have.length(0);
       expect(await guards().findOne({ _id: recipient() })).to.equal(null);
-    } finally { collection.updateOne = update; }
+    } finally { collection.insertOne = insert; }
   });
   it("fences a second owner action that races after recovery's final resource check", async () => {
     await notify(owner.id, "token_expired", resource); await reset(owner.id, resource);
@@ -110,12 +110,15 @@ describeMongo("recipient access alerts in MongoDB", function () {
     const original = collection[method]; let calls = 0;
     collection[method] = async function (...args) {
       calls++;
-      if ((step === "resource verification" && calls === 2) || step !== "resource verification") throw new Error("transient database error");
+      if ((step === "resource verification" && calls === 2)
+        || (step === "dispatch transition" && args[1].$set?.state === "sending")
+        || (step !== "resource verification" && step !== "dispatch transition")) throw new Error("transient database error");
       return original.apply(this, args);
     };
     try { await notify(owner.id, "token_expired", resource); }
     finally { collection[method] = original; }
     expect(sent).to.have.length(0); expect(await guards().findOne({ _id: recipient() })).to.equal(null);
+    expect((await coll(resource.kind).findOne({ _id: new mongoose.Types.ObjectId(resource.id) })).accessAlertClaimedAt).to.equal(undefined);
     await notify(owner.id, "token_expired", resource); expect(sent).to.have.length(1);
   });
   it("retains audit evidence while provider delivery is still in flight", async () => {
@@ -146,7 +149,7 @@ describeMongo("recipient access alerts in MongoDB", function () {
   });
   it("reaps only expired unsent claims during startup and never reseeds them", async () => {
     await guards().insertOne({ _id: "recipient-alerts-v1", state: "ready" });
-    await coll(resource.kind).updateOne({ _id: new mongoose.Types.ObjectId(resource.id) }, { $set: { accessAlertClaimedAt: new Date(0) } });
+    await coll(resource.kind).updateOne({ _id: new mongoose.Types.ObjectId(resource.id) }, { $set: { accessAlertClaimedAt: new Date(0), accessAlertAttemptId: recipient() } });
     for (const [key, state, date] of [[recipient(), "pending", new Date(0)], ["recent", "pending", new Date()],
       ["sending", "sending", new Date(0)], ["accepted", "accepted", new Date(0)], ["failed", "failed", new Date(0)]]) {
       await guards().insertOne({ _id: key, owner: owner._id, resourceKind: resource.kind,
@@ -160,29 +163,126 @@ describeMongo("recipient access alerts in MongoDB", function () {
     await notify(owner.id, "token_expired", resource); expect(sent).to.have.length(1);
   });
   it("fences a paused sender after another reader reclaims its expired pending claim", async () => {
-    const collection = coll(resource.kind), update = collection.updateOne;
+    const collection = mongoose.connection.collection("owner_access_alert_events"), insert = collection.insertOne;
     let entered, release; const gate = new Promise(resolve => { entered = resolve; });
-    collection.updateOne = async function (...args) { entered(); await new Promise(resolve => { release = resolve; }); return update.apply(this, args); };
+    let pausedOnce = false;
+    collection.insertOne = async function (...args) {
+      if (!pausedOnce) { pausedOnce = true; entered(); await new Promise(resolve => { release = resolve; }); }
+      return insert.apply(this, args);
+    };
     const paused = notify(owner.id, "token_expired", resource);
     try {
       await gate;
       await guards().updateOne({ _id: recipient() }, { $set: { claimedAt: new Date(0) } });
       await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(1);
-    } finally { collection.updateOne = update; release(); await paused; }
+    } finally { collection.insertOne = insert; release(); await paused; }
     expect(sent).to.have.length(1);
     expect((await guards().findOne({ _id: recipient() })).owner.toString()).to.equal(otherOwner.id);
   });
-  it("cannot reclaim a pending attempt that starts dispatch before deletion", async () => {
+  it("cannot reclaim a pending attempt that starts dispatch before cancellation", async () => {
     await guards().insertOne({ _id: recipient(), owner: owner._id, resourceKind: resource.kind,
       resourceId: new mongoose.Types.ObjectId(resource.id), attemptId: "racing-dispatch", state: "pending", claimedAt: new Date(0) });
-    const collection = guards(), remove = collection.deleteOne;
-    collection.deleteOne = async function (...args) {
-      await collection.updateOne({ _id: recipient(), attemptId: "racing-dispatch" }, { $set: { state: "sending" } });
-      return remove.apply(this, args);
+    await coll(resource.kind).updateOne({ _id: new mongoose.Types.ObjectId(resource.id) }, { $set: { accessAlertClaimedAt: new Date(0), accessAlertAttemptId: "racing-dispatch" } });
+    const collection = guards(), update = collection.updateOne;
+    collection.updateOne = async function (filter, operation, ...args) {
+      if (operation.$set?.state === "cancelled") await update.call(this, { _id: recipient(), state: "pending", attemptId: "racing-dispatch" }, { $set: { state: "sending" } });
+      return update.call(this, filter, operation, ...args);
     };
     try { await notify(otherOwner.id, "token_expired", other); }
-    finally { collection.deleteOne = remove; }
+    finally { collection.updateOne = update; }
     expect(sent).to.have.length(0); expect((await guards().findOne({ _id: recipient() })).state).to.equal("sending");
+    expect((await coll(resource.kind).findOne({ _id: new mongoose.Types.ObjectId(resource.id) })).accessAlertAttemptId).to.equal("racing-dispatch");
+  });
+  for (const state of ["pending", "cancelled"]) it(`clears a crashed unsent ${state} attempt's legacy fields before migration`, async () => {
+    const attemptId = `crashed-${state}`;
+    await guards().insertOne({ _id: recipient(), owner: owner._id, resourceKind: resource.kind,
+      resourceId: new mongoose.Types.ObjectId(resource.id), generation: "old-generation", attemptId, state,
+      claimedAt: state === "pending" ? new Date(0) : new Date() });
+    await coll(resource.kind).updateOne({ _id: new mongoose.Types.ObjectId(resource.id) }, { $set: {
+      accessAlertGeneration: "old-generation", accessAlertClaimedAt: new Date(0), accessAlertAttemptId: attemptId,
+    } });
+    await alerts.initializeOwnerAccessAlerts();
+    expect(await guards().findOne({ _id: recipient() })).to.equal(null);
+    const row = await coll(resource.kind).findOne({ _id: new mongoose.Types.ObjectId(resource.id) });
+    expect(row.accessAlertClaimedAt).to.equal(undefined); expect(row.accessAlertAttemptId).to.equal(undefined);
+    expect(sent).to.have.length(0);
+    await notify(owner.id, "token_expired", resource); expect(sent).to.have.length(1);
+  });
+  for (const changed of ["generation", "attempt"]) it(`preserves newer legacy fields when the ${changed} no longer matches the cancelled attempt`, async () => {
+    await guards().insertOne({ _id: "recipient-alerts-v1", state: "ready" });
+    await guards().insertOne({ _id: recipient(), owner: owner._id, resourceKind: resource.kind,
+      resourceId: new mongoose.Types.ObjectId(resource.id), generation: "old-generation", attemptId: "old-attempt", state: "pending", claimedAt: new Date(0) });
+    const generation = changed === "generation" ? "new-generation" : "old-generation";
+    const attemptId = changed === "attempt" ? "new-attempt" : "old-attempt";
+    await coll(resource.kind).updateOne({ _id: new mongoose.Types.ObjectId(resource.id) }, { $set: {
+      accessAlertGeneration: generation, accessAlertClaimedAt: new Date(1234), accessAlertAttemptId: attemptId,
+    } });
+    await alerts.initializeOwnerAccessAlerts();
+    expect(await guards().findOne({ _id: recipient() })).to.equal(null);
+    const row = await coll(resource.kind).findOne({ _id: new mongoose.Types.ObjectId(resource.id) });
+    expect(row.accessAlertClaimedAt.getTime()).to.equal(1234); expect(row.accessAlertAttemptId).to.equal(attemptId);
+  });
+  it("resumes cancelled metadata cleanup after a database failure without creating false legacy evidence", async () => {
+    const collection = coll(resource.kind), update = collection.updateOne, read = collection.findOne;
+    let reads = 0;
+    collection.findOne = async function (...args) { if (++reads === 2) throw new Error("verification failed"); return read.apply(this, args); };
+    collection.updateOne = async function (filter, operation, ...args) {
+      if (operation.$unset?.accessAlertClaimedAt !== undefined) throw new Error("cleanup unavailable");
+      return update.call(this, filter, operation, ...args);
+    };
+    try { await notify(owner.id, "token_expired", resource); }
+    finally { collection.findOne = read; collection.updateOne = update; }
+    expect(sent).to.have.length(0); expect((await guards().findOne({ _id: recipient() })).state).to.equal("cancelled");
+    await alerts.initializeOwnerAccessAlerts();
+    expect(await guards().findOne({ _id: recipient() })).to.equal(null);
+    expect((await collection.findOne({ _id: new mongoose.Types.ObjectId(resource.id) })).accessAlertClaimedAt).to.equal(undefined);
+    await notify(owner.id, "token_expired", resource); expect(sent).to.have.length(1);
+  });
+  it("cleans recent pending legacy fields once deployment has stopped every writer", async () => {
+    await guards().insertOne({ _id: "recipient-alerts-v1", state: "ready" });
+    await guards().insertOne({ _id: recipient(), owner: owner._id, resourceKind: resource.kind,
+      resourceId: new mongoose.Types.ObjectId(resource.id), attemptId: "recent-unsent", state: "pending", claimedAt: new Date() });
+    await coll(resource.kind).updateOne({ _id: new mongoose.Types.ObjectId(resource.id) }, { $set: {
+      accessAlertClaimedAt: new Date(), accessAlertAttemptId: "recent-unsent",
+    } });
+    await alerts.prepareLegacyOwnerAlertMigration(); await alerts.initializeOwnerAccessAlerts();
+    expect(await guards().findOne({ _id: recipient() })).to.equal(null);
+    expect((await coll(resource.kind).findOne({ _id: new mongoose.Types.ObjectId(resource.id) })).accessAlertClaimedAt).to.equal(undefined);
+  });
+  it("preserves an untagged legacy delivery written during rollback while cancelling a native pending attempt", async () => {
+    await guards().insertOne({ _id: "recipient-alerts-v1", state: "ready" });
+    await guards().insertOne({ _id: recipient(), owner: owner._id, resourceKind: resource.kind,
+      resourceId: new mongoose.Types.ObjectId(resource.id), attemptId: "native-unsent", state: "pending", claimedAt: new Date() });
+    await coll(resource.kind).updateOne({ _id: new mongoose.Types.ObjectId(resource.id) }, { $set: { accessAlertClaimedAt: new Date() } });
+    await alerts.prepareLegacyOwnerAlertMigration(); await alerts.initializeOwnerAccessAlerts();
+    expect((await guards().findOne({ _id: recipient() })).state).to.equal("legacy");
+    await notify(owner.id, "token_expired", resource); expect(sent).to.have.length(0);
+    await reset(owner.id, resource); await recover(owner.id, resource, async () => {});
+    await notify(owner.id, "token_expired", resource); expect(sent).to.have.length(1);
+  });
+  it("blocks dispatch while an owner reset has advanced the guard revision but not the resource generation", async () => {
+    const events = mongoose.connection.collection("owner_access_alert_events"), insert = events.insertOne;
+    const collection = coll(resource.kind), updateMany = collection.updateMany;
+    let prepared, releasePrepared, resetting, releaseReset;
+    const atPrepared = new Promise(resolve => { prepared = resolve; });
+    const atReset = new Promise(resolve => { resetting = resolve; });
+    events.insertOne = async function (...args) { prepared(); await new Promise(resolve => { releasePrepared = resolve; }); return insert.apply(this, args); };
+    collection.updateMany = async function (...args) { resetting(); await new Promise(resolve => { releaseReset = resolve; }); return updateMany.apply(this, args); };
+    const pending = notify(owner.id, "token_expired", resource);
+    let action;
+    try {
+      await atPrepared; action = reset(owner.id, resource); await atReset;
+      expect((await guards().findOne({ _id: recipient() })).resetRevision).to.equal(1);
+      releasePrepared(); await pending;
+      expect(sent).to.have.length(0);
+      const row = await collection.findOne({ _id: new mongoose.Types.ObjectId(resource.id) });
+      expect(row.accessAlertGeneration).to.equal(undefined); expect(row.accessAlertClaimedAt).to.equal(undefined);
+    } finally {
+      events.insertOne = insert; collection.updateMany = updateMany;
+      if (releasePrepared) releasePrepared(); if (releaseReset) releaseReset();
+      await pending; if (action) await action;
+    }
+    await notify(owner.id, "token_expired", resource); expect(sent).to.have.length(1);
   });
   it("allows active accounts to receive alerts when a shared-address guard belongs to a banned owner", async () => {
     await notify(owner.id, "token_expired", resource);

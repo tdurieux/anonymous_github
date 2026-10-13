@@ -4,6 +4,7 @@ import { Schema } from "mongoose";
 const AnonymizedPullRequestSchema = new Schema({
   accessAlertGeneration: { type: String, select: false },
   accessAlertClaimedAt: { type: Date, select: false },
+  accessAlertAttemptId: { type: String, select: false },
   pullRequestId: {
     type: String,
     index: { unique: true },

@@ -31,7 +31,7 @@ export async function resetOwnerAccessAlerts(ownerId: string, resource?: AlertRe
       state: { $cond: [{ $eq: ["$state", "recovered"] }, "legacy", "$state"] },
     } }]);
     for (const collection of resource ? [resourceCollections[resource.kind]] : Object.values(resourceCollections)) {
-      await UserModel.db.collection(collection).updateMany(filter, { $unset: { accessAlertClaimedAt: "" }, $set: { accessAlertGeneration: randomUUID() } });
+      await UserModel.db.collection(collection).updateMany(filter, { $unset: { accessAlertClaimedAt: "", accessAlertAttemptId: "" }, $set: { accessAlertGeneration: randomUUID() } });
     }
   } catch { logger.warn("owner access alert reset unavailable"); }
 }
@@ -49,8 +49,36 @@ const expiredPending = () => ({ state: "pending", claimedAt: { $lte: new Date(Da
 const generationFilter = (generation: unknown) => generation ?? { $exists: false };
 export const recipientAlertKey = (email: string) => createHash("sha256").update(email.trim().toLowerCase()).digest("hex");
 
+async function releaseUnsentAlert(record: AlertRecord, expected: mongo.Filter<AlertRecord>): Promise<boolean> {
+  if (!record.attemptId) return false;
+  const alerts = alertCollection();
+  // A durable cancellation prevents a paused sender from starting dispatch.
+  const cancelled = await alerts.updateOne({ _id: record._id, attemptId: record.attemptId, ...expected }, { $set: { state: "cancelled" } });
+  if (!cancelled.matchedCount) return false;
+  if (record.owner && record.resourceKind && record.resourceKind in resourceCollections && record.resourceId) {
+    const resource = UserModel.db.collection(resourceCollections[record.resourceKind as AlertResource["kind"]]);
+    const matching = {
+      _id: record.resourceId, owner: record.owner, accessAlertGeneration: generationFilter(record.generation),
+      accessAlertAttemptId: record.attemptId, accessAlertClaimedAt: { $exists: true },
+    };
+    if (await resource.findOne(matching, { projection: { _id: 1 } })) {
+      await retryAlertWrite(() => resource.updateOne(matching, { $unset: { accessAlertClaimedAt: "", accessAlertAttemptId: "" } }));
+    }
+  }
+  const removed = await alerts.deleteOne({ _id: record._id, attemptId: record.attemptId, state: "cancelled" });
+  return Boolean(removed.deletedCount);
+}
+
+async function reconcileUnsentAlerts(writersStopped = false): Promise<void> {
+  const pending = writersStopped ? { state: "pending" } : expiredPending();
+  for await (const record of alertCollection().find({ $or: [pending, { state: "cancelled" }] })) {
+    await releaseUnsentAlert(record, record.state === "cancelled" ? { state: "cancelled" } : pending);
+  }
+}
+
 /** Call only after all legacy application writers have stopped. */
 export async function prepareLegacyOwnerAlertMigration(): Promise<void> {
+  await reconcileUnsentAlerts(true);
   await alertCollection().updateOne({ _id: MIGRATION }, { $set: { state: "new" },
     $unset: { progress: "", lease: "", leaseUntil: "" } }, { upsert: true });
 }
@@ -84,13 +112,15 @@ export async function initializeOwnerAccessAlerts(): Promise<void> {
   await alerts.createIndex({ "legacyClaims.owner": 1, "legacyClaims.resourceKind": 1, "legacyClaims.resourceId": 1 });
   await alerts.createIndex({ claimedAt: 1 }, { name: "owner_access_alert_pending", partialFilterExpression: { state: "pending" } });
   await alerts.createIndex({ state: 1 });
+  // Clear known-unsent legacy fields before they can be mistaken for deliveries.
+  await reconcileUnsentAlerts();
   try { await alerts.updateOne({ _id: MIGRATION }, { $setOnInsert: { state: "new" } }, { upsert: true }); }
   catch (error) { if ((error as { code?: number }).code !== 11000) throw error; }
   const lease = randomUUID();
   for (;;) {
     if ((await alerts.findOne({ _id: MIGRATION }))?.state === "ready") {
       await reconcileCompletedSends();
-      await alerts.deleteMany(expiredPending());
+      await reconcileUnsentAlerts();
       return;
     }
     const now = new Date();
@@ -157,7 +187,7 @@ export async function initializeOwnerAccessAlerts(): Promise<void> {
       const completed = await alerts.updateOne({ _id: MIGRATION, lease }, { $set: { state: "ready" }, $unset: { lease: "", leaseUntil: "" } });
       if (!completed.matchedCount) throw new Error("owner_alert_migration_lease_lost");
       await reconcileCompletedSends();
-      await alerts.deleteMany(expiredPending());
+      await reconcileUnsentAlerts();
       return;
     } finally { clearInterval(heartbeat); }
   }
@@ -205,8 +235,12 @@ export async function withOwnerAccessRecovery<T>(ownerId: string, resource: Aler
         } }] }, "recovered", "$state"] } } }]);
         recovered += updated.modifiedCount;
       } else {
-        const removed = await alertCollection().deleteOne(fence);
-        recovered += removed.deletedCount;
+        if (candidate.state === "pending") {
+          recovered += Number(await releaseUnsentAlert(candidate, { ...fence, state: "pending" }));
+        } else {
+          const removed = await alertCollection().deleteOne(fence);
+          recovered += removed.deletedCount;
+        }
       }
     }
     if (recovered) logger.info("owner access email recovery confirmed", { recovered });
@@ -255,7 +289,7 @@ export function isAccessFailure(error: unknown): boolean {
 /** Best effort; mail and database failures must not change repository behavior. */
 export async function notifyOwnerAccessProblem(ownerId: string, error: unknown, resource: AlertResource): Promise<void> {
   if (!config.RESEND_API_KEY || !config.EMAIL_FROM || !isAccessFailure(error)) return;
-  let unsent: { key: string; attemptId: string } | undefined;
+  let unsent: AlertRecord | undefined;
   let providerStarted = false;
   try {
     if (!resource || !Types.ObjectId.isValid(resource.id) || !Types.ObjectId.isValid(ownerId)) return;
@@ -273,7 +307,7 @@ export async function notifyOwnerAccessProblem(ownerId: string, error: unknown, 
     const record: AlertRecord = { _id: key, owner: identity.owner, resourceKind: resource.kind,
       resourceId: identity._id, generation: snapshot.accessAlertGeneration ?? null,
       attemptId, claimedAt: new Date(), state: "pending" };
-    unsent = { key, attemptId };
+    unsent = record;
     try { await alerts.insertOne(record); }
     catch (error) {
       if ((error as { code?: number }).code !== 11000) throw error;
@@ -285,11 +319,14 @@ export async function notifyOwnerAccessProblem(ownerId: string, error: unknown, 
       }
       if (!previous || previous.state === "sending" || !previous.owner || !previous.resourceId
         || !previous.resourceKind || !(previous.resourceKind in resourceCollections)) return;
-      let retirement: mongo.Filter<AlertRecord> = { _id: key, attemptId: previous.attemptId, state: previous.state,
+      const retirement: mongo.Filter<AlertRecord> = { _id: key, attemptId: previous.attemptId, state: previous.state,
         resetRevision: generationFilter(previous.resetRevision) };
-      if (previous.state === "pending") {
-        if (!previous.claimedAt || previous.claimedAt.getTime() > Date.now() - PENDING_LEASE_MS) return;
-        retirement = { ...retirement, ...expiredPending() };
+      let retired: boolean;
+      if (previous.state === "pending" || previous.state === "cancelled") {
+        if (previous.state === "pending") {
+          if (!previous.claimedAt || previous.claimedAt.getTime() > Date.now() - PENDING_LEASE_MS) return;
+        }
+        retired = await releaseUnsentAlert(previous, previous.state === "cancelled" ? retirement : { ...retirement, ...expiredPending() });
       } else {
         const claims = previous.legacyClaims?.filter(claim => !claim.recovered) ?? [previous as LegacyClaim];
         for (const claim of claims) {
@@ -300,29 +337,27 @@ export async function notifyOwnerAccessProblem(ownerId: string, error: unknown, 
             && previousResource && !["removed", "expired"].includes(previousResource.status)) return;
         }
         if (previous.legacyClaims) retirement.legacyClaims = previous.legacyClaims;
+        retired = Boolean((await alerts.deleteOne(retirement)).deletedCount);
       }
-      const retired = await alerts.deleteOne(retirement);
-      if (!retired.deletedCount) return;
-      unsent = { key, attemptId };
+      if (!retired) return;
+      unsent = record;
       try { await alerts.insertOne(record); }
       catch (replacementError) { if ((replacementError as { code?: number }).code === 11000) { unsent = undefined; return; } throw replacementError; }
-    }
-    const claim = await collection.updateOne({ ...identity,
-      accessAlertGeneration: generationFilter(snapshot.accessAlertGeneration),
-    }, { $set: { accessAlertClaimedAt: new Date() } });
-    if (!claim.matchedCount || !await collection.findOne({ ...identity,
-      accessAlertGeneration: generationFilter(snapshot.accessAlertGeneration),
-    })) {
-      await alerts.deleteOne({ _id: key, attemptId, state: "pending" });
-      return;
     }
     const base = /^https?:\/\//.test(config.APP_HOSTNAME) ? config.APP_HOSTNAME : `https://${config.APP_HOSTNAME}`;
     const url = new URL("/connections", base).href;
     await alertCollection("owner_access_alert_events").insertOne({ _id: attemptId, attemptId,
       recipientKey: key, state: "prepared", startedAt: new Date() });
     // Recovery can cancel an unsent claim; only its owner may begin dispatch.
-    const dispatch = await alerts.updateOne({ _id: key, attemptId, state: "pending" }, { $set: { state: "sending" } });
+    const dispatch = await alerts.updateOne({ _id: key, attemptId, state: "pending",
+      resetRevision: generationFilter(record.resetRevision) }, { $set: { state: "sending" } });
     if (!dispatch.matchedCount) return;
+    const claim = await collection.updateOne({ ...identity,
+      accessAlertGeneration: generationFilter(snapshot.accessAlertGeneration),
+    }, { $set: { accessAlertClaimedAt: new Date(), accessAlertAttemptId: attemptId } });
+    if (!claim.matchedCount || !await collection.findOne({ ...identity,
+      accessAlertGeneration: generationFilter(snapshot.accessAlertGeneration),
+    })) return;
     let accepted = false;
     let httpStatus: number | undefined;
     try {
@@ -359,8 +394,8 @@ export async function notifyOwnerAccessProblem(ownerId: string, error: unknown, 
     logger.warn("owner access email unavailable");
   } finally {
     if (unsent && !providerStarted) {
-      await alertCollection().deleteOne({ _id: unsent.key, attemptId: unsent.attemptId,
-        state: { $in: ["pending", "sending"] } }).catch(() => logger.warn("owner access email claim cleanup unavailable"));
+      await releaseUnsentAlert(unsent, { state: { $in: ["pending", "sending", "cancelled"] } })
+        .catch(() => logger.warn("owner access email claim cleanup unavailable"));
     }
   }
 }

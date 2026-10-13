@@ -34,7 +34,12 @@ describe("owner access notifications", () => {
         updateMany: async filter => { if (filter.legacyClaims?.$elemMatch) return; const claim = filter; for (const r of recipients.values()) if (String(r.owner) === String(claim.owner)
           && (!claim.resourceId || String(r.resourceId) === String(claim.resourceId))) r.resetRevision = (r.resetRevision || 0) + 1; },
         insertOne: async record => { if (recipients.has(record._id)) throw Object.assign(new Error("duplicate"), { code: 11000 }); recipients.set(record._id, { ...record }); },
-        updateOne: async (filter, update) => { const record = recipients.get(filter._id); if (!record || record.attemptId !== filter.attemptId || (filter.state && record.state !== filter.state)) return { matchedCount: 0 }; Object.assign(record, update.$set); return { matchedCount: 1 }; },
+        updateOne: async (filter, update) => { const record = recipients.get(filter._id);
+          const stateMatches = !filter.state || (typeof filter.state === "string" ? record?.state === filter.state : filter.state.$in.includes(record?.state));
+          const revisionMatches = !("resetRevision" in filter) || record?.resetRevision === (typeof filter.resetRevision === "number" ? filter.resetRevision : undefined);
+          if (!record || record.attemptId !== filter.attemptId || !stateMatches || !revisionMatches) return { matchedCount: 0 };
+          Object.assign(record, update.$set); return { matchedCount: 1 };
+        },
         deleteOne: async filter => { const r = recipients.get(filter._id);
           const stateMatches = typeof filter.state === "string" ? r?.state === filter.state : filter.state.$in.includes(r?.state);
           const revisionMatches = !("resetRevision" in filter) || r?.resetRevision === (typeof filter.resetRevision === "number" ? filter.resetRevision : undefined);
@@ -51,12 +56,14 @@ describe("owner access notifications", () => {
           const key = `${name}:${filter.owner}:${filter._id}`;
           if (!generations.has(key)) generations.set(key, undefined);
           if ("accessAlertGeneration" in filter && generations.get(key) !== (typeof filter.accessAlertGeneration === "string" ? filter.accessAlertGeneration : undefined)) return null;
+          if (filter.accessAlertClaimedAt?.$exists && !rows.has(key)) return null;
           return { accessAlertGeneration: generations.get(key), accessAlertClaimedAt: rows.get(key), status: "ready" };
         },
         updateOne: async (filter, update) => {
           claims.push(filter); const key = `${name}:${filter.owner}:${filter._id}`;
           if (generations.get(key) !== (typeof filter.accessAlertGeneration === "string" ? filter.accessAlertGeneration : undefined)) return { matchedCount: 0 };
-          rows.set(key, update.$set.accessAlertClaimedAt); return { matchedCount: 1 };
+          if (update.$unset) rows.delete(key); else rows.set(key, update.$set.accessAlertClaimedAt);
+          return { matchedCount: 1 };
         },
         updateMany: async (filter, update) => {
           for (const key of generations.keys()) if (key.startsWith(`${name}:${filter.owner}:`) && (!filter._id || key.endsWith(`:${filter._id}`))) {
