@@ -35,6 +35,75 @@ describeMongo("recipient access alerts in MongoDB", function () {
     expect(sent).to.have.length(1); expect(await guards().countDocuments({ _id: recipient() })).to.equal(1);
     expect(await mongoose.connection.collection("owner_access_alert_events").countDocuments({ state: "accepted" })).to.equal(1);
   });
+  for (const kind of ["repository", "gist", "pull-request"]) {
+    for (const status of ["archived", "expired", "expiring", "removed", "removing"]) it(`does not notify for ${status} ${kind}`, async () => {
+      const inactive = await create(owner._id, kind);
+      await coll(kind).updateOne({ _id: new mongoose.Types.ObjectId(inactive.id) }, { $set: { status } });
+      await notify(owner.id, "token_expired", inactive);
+      expect(sent).to.have.length(0); expect(await guards().findOne({ _id: recipient() })).to.equal(null);
+      expect(await mongoose.connection.collection("owner_access_alert_events").countDocuments()).to.equal(0);
+    });
+  }
+  it("cancels a send when the source is removed during audit preparation", async () => {
+    const events = mongoose.connection.collection("owner_access_alert_events"), insert = events.insertOne;
+    let entered, release; const gate = new Promise(resolve => { entered = resolve; });
+    events.insertOne = async function (...args) { entered(); await new Promise(resolve => { release = resolve; }); return insert.apply(this, args); };
+    const pending = notify(owner.id, "token_expired", resource);
+    try {
+      await gate;
+      await coll(resource.kind).updateOne({ _id: new mongoose.Types.ObjectId(resource.id) }, { $set: { status: "removed" } });
+    } finally { events.insertOne = insert; release(); await pending; }
+    expect(sent).to.have.length(0); expect(await guards().findOne({ _id: recipient() })).to.equal(null);
+    expect((await coll(resource.kind).findOne({ _id: new mongoose.Types.ObjectId(resource.id) })).accessAlertClaimedAt).to.equal(undefined);
+    await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(1);
+  });
+  it("records the triggering resource and categorized failure without its address or source name", async () => {
+    await notify(owner.id, "token_expired", resource);
+    const records = await mongoose.connection.collection("owner_access_alert_events").find().toArray();
+    expect(records).to.have.length(2);
+    for (const record of records) {
+      expect(String(record.owner)).to.equal(owner.id); expect(String(record.resourceId)).to.equal(resource.id);
+      expect(record.resourceKind).to.equal(resource.kind); expect(record.generation).to.equal(null);
+      expect(JSON.stringify(record)).not.to.include("owner@example.com");
+    }
+    expect(records.find(record => record.state === "prepared").failureCode).to.equal("token_expired");
+  });
+  for (const state of ["accepted", "failed"]) it(`restores a missing guard from ${state} provider history before serving traffic`, async () => {
+    await mongoose.connection.collection("owner_access_alert_events").insertOne({ _id: "old/completion", attemptId: "old",
+      recipientKey: recipient(), state, completedAt: new Date(1) });
+    await Promise.all(Array.from({ length: 5 }, () => alerts.initializeOwnerAccessAlerts()));
+    expect((await guards().findOne({ _id: recipient() })).state).to.equal("recipient_notified");
+    await notify(owner.id, "token_expired", resource); await notify(otherOwner.id, "token_expired", other);
+    await reset(owner.id, resource); await recover(owner.id, resource, async () => {});
+    await notify(owner.id, "token_expired", resource); expect(sent).to.have.length(0);
+    await alerts.initializeOwnerAccessAlerts(); expect(sent).to.have.length(0);
+  });
+  it("does not restore a delivery guard from an uncompleted preparation event", async () => {
+    await mongoose.connection.collection("owner_access_alert_events").insertOne({ _id: "prepared", recipientKey: recipient(), state: "prepared", startedAt: new Date(1) });
+    await alerts.initializeOwnerAccessAlerts(); expect(await guards().findOne({ _id: recipient() })).to.equal(null);
+    await notify(owner.id, "token_expired", resource); expect(sent).to.have.length(1);
+  });
+  it("resumes provider history restoration after a checkpointed startup failure", async () => {
+    const events = mongoose.connection.collection("owner_access_alert_events");
+    const keys = Array.from({ length: 105 }, (_, i) => alerts.recipientAlertKey(`old${i}@example.com`));
+    await events.insertMany(keys.map((recipientKey, i) => ({ _id: String(i).padStart(3, "0") + "/completion",
+      recipientKey, attemptId: String(i), state: "accepted", completedAt: new Date(1) })));
+    const collection = guards(), update = collection.updateOne; let restored = 0;
+    collection.updateOne = async function (filter, operation, ...args) {
+      if (operation.$setOnInsert?.state === "recipient_notified" && ++restored === 103) throw new Error("interrupted history backfill");
+      return update.call(this, filter, operation, ...args);
+    };
+    try { await alerts.initializeOwnerAccessAlerts(); throw new Error("Expected migration failure"); }
+    catch (error) { expect(error.message).to.equal("interrupted history backfill"); }
+    finally { collection.updateOne = update; }
+    expect((await guards().findOne({ _id: "recipient-alerts-v1" })).deliveryProgress.id).to.equal("099/completion");
+    await guards().updateOne({ _id: "recipient-alerts-v1" }, { $set: { leaseUntil: new Date(0) } });
+    await alerts.initializeOwnerAccessAlerts();
+    expect(await guards().countDocuments({ state: "recipient_notified" })).to.equal(105);
+    expect((await guards().findOne({ _id: "recipient-alerts-v1" })).deliveryProgress.id).to.equal("104/completion");
+    expect((await events.indexes()).some(index => index.name === "owner_access_alert_delivery_history" && index.partialFilterExpression)).to.equal(true);
+    expect(sent).to.have.length(0);
+  });
   it("does not reopen after reconnect alone, unrelated resource success, or failed recovery", async () => {
     await notify(owner.id, "token_expired", resource); await reset(owner.id);
     await recover(otherOwner.id, other, async () => {});
@@ -42,14 +111,17 @@ describeMongo("recipient access alerts in MongoDB", function () {
     await notify(owner.id, "token_expired", resource); await notify(otherOwner.id, "token_expired", other);
     expect(sent).to.have.length(1);
   });
-  it("requires owner action before a successful upstream read can reopen the recipient", async () => {
+  it("keeps suppression after recovery but allows a first alert to a new address", async () => {
     await notify(owner.id, "token_expired", resource);
-    await recover(owner.id, resource, async () => {}); expect(await guards().findOne({ _id: recipient() })).not.to.equal(null);
     await reset(owner.id, resource); await recover(owner.id, resource, async () => {});
-    expect(await guards().findOne({ _id: recipient() })).to.equal(null);
+    expect((await guards().findOne({ _id: recipient() })).state).to.equal("recovered");
+    await notify(owner.id, "token_expired", resource); expect(sent).to.have.length(1);
+    await Users.updateOne({ _id: owner._id }, { $set: { notificationEmail: "new@example.com" } });
     await notify(owner.id, "token_expired", resource); expect(sent).to.have.length(2);
     expect(sent[0].headers["Idempotency-Key"]).not.to.equal(sent[1].headers["Idempotency-Key"]);
     expect(await mongoose.connection.collection("owner_access_alert_events").countDocuments()).to.equal(4);
+    await Users.updateOne({ _id: owner._id }, { $set: { notificationEmail: "OWNER@example.com" } });
+    await notify(owner.id, "token_expired", resource); expect(sent).to.have.length(2);
   });
   it("does not release a pending send when recovery races with provider delivery", async () => {
     let release, entered; const gate = new Promise(resolve => { entered = resolve; });
@@ -77,14 +149,17 @@ describeMongo("recipient access alerts in MongoDB", function () {
   });
   it("fences a second owner action that races after recovery's final resource check", async () => {
     await notify(owner.id, "token_expired", resource); await reset(owner.id, resource);
-    const collection = guards(), remove = collection.deleteOne;
+    const collection = guards(), update = collection.updateOne;
     let entered, release; const gate = new Promise(resolve => { entered = resolve; });
-    collection.deleteOne = async function (...args) { entered(); await new Promise(resolve => { release = resolve; }); return remove.apply(this, args); };
+    collection.updateOne = async function (filter, operation, ...args) {
+      if (operation.$set?.state === "recovered") { entered(); await new Promise(resolve => { release = resolve; }); }
+      return update.call(this, filter, operation, ...args);
+    };
     try {
       const pending = recover(owner.id, resource, async () => {}); await gate;
       await reset(owner.id, resource); release(); await pending;
-      expect(await guards().findOne({ _id: recipient() })).not.to.equal(null);
-    } finally { collection.deleteOne = remove; }
+      expect((await guards().findOne({ _id: recipient() })).state).to.equal("accepted");
+    } finally { collection.updateOne = update; }
   });
   it("does not accept a successful read of a stale source binding", async () => {
     await notify(owner.id, "token_expired", resource); await reset(owner.id, resource);
@@ -98,11 +173,11 @@ describeMongo("recipient access alerts in MongoDB", function () {
     await notify(otherOwner.id, "repo_not_found", other); expect(sent).to.have.length(1);
     expect((await guards().findOne({ _id: recipient() })).state).to.equal("failed");
   });
-  it("releases a guard for a removed resource without erasing delivery history", async () => {
+  it("keeps a removed resource's recipient guard and delivery history", async () => {
     await notify(owner.id, "token_expired", resource);
     await coll(resource.kind).updateOne({ _id: new mongoose.Types.ObjectId(resource.id) }, { $set: { status: "removed" } });
-    await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(2);
-    expect(await mongoose.connection.collection("owner_access_alert_events").countDocuments()).to.equal(4);
+    await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(1);
+    expect(await mongoose.connection.collection("owner_access_alert_events").countDocuments()).to.equal(2);
   });
   for (const step of ["resource update", "resource verification", "audit insertion", "dispatch transition"]) it(`releases an unsent guard after ${step} fails`, async () => {
     const collection = step.startsWith("resource") ? coll(resource.kind) : step === "audit insertion" ? mongoose.connection.collection("owner_access_alert_events") : guards();
@@ -275,7 +350,7 @@ describeMongo("recipient access alerts in MongoDB", function () {
     expect((await guards().findOne({ _id: recipient() })).state).to.equal("legacy");
     await notify(owner.id, "token_expired", resource); expect(sent).to.have.length(0);
     await reset(owner.id, resource); await recover(owner.id, resource, async () => {});
-    await notify(owner.id, "token_expired", resource); expect(sent).to.have.length(1);
+    await notify(owner.id, "token_expired", resource); expect(sent).to.have.length(0);
   });
   it("blocks dispatch while an owner reset has advanced the guard revision but not the resource generation", async () => {
     const events = mongoose.connection.collection("owner_access_alert_events"), insert = events.insertOne;
@@ -363,8 +438,8 @@ describeMongo("recipient access alerts in MongoDB", function () {
       expect(record.deferredRecoveries).to.have.length(1);
       await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(1);
     } finally { release(); await pending; }
-    expect(await guards().findOne({ _id: recipient() })).to.equal(null);
-    await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(2);
+    expect((await guards().findOne({ _id: recipient() })).state).to.equal("recovered");
+    await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(1);
   });
   it("invalidates in-flight recovery evidence after a newer reset", async () => {
     let entered, release; const gate = new Promise(resolve => { entered = resolve; });
@@ -379,7 +454,7 @@ describeMongo("recipient access alerts in MongoDB", function () {
     expect((await guards().findOne({ _id: recipient() })).state).to.equal("accepted");
     await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(1);
     await recover(owner.id, resource, async () => {});
-    await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(2);
+    await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(1);
   });
   it("invalidates deferred recovery if its source binding changes before delivery completes", async () => {
     await coll(resource.kind).updateOne({ _id: new mongoose.Types.ObjectId(resource.id) }, { $set: { source: { repositoryName: "owner/repo" } } });
@@ -396,7 +471,7 @@ describeMongo("recipient access alerts in MongoDB", function () {
     } finally { release(); await pending; }
     expect((await guards().findOne({ _id: recipient() })).state).to.equal("accepted");
     await recover(owner.id, resource, async () => {}, { "source.repositoryName": "new/repo" });
-    await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(2);
+    await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(1);
   });
   it("rejects dispatch when reset starts after the guard reservation but before the owner commitment", async () => {
     const collection = guards(), update = collection.updateOne, updateMany = collection.updateMany;
@@ -433,17 +508,17 @@ describeMongo("recipient access alerts in MongoDB", function () {
       await gate; await recover(owner.id, resource, async () => {});
       expect((await guards().findOne({ _id: recipient() })).deferredRecoveries).to.have.length(1);
     } finally { users.updateOne = update; release(); await action; }
-    expect(await guards().findOne({ _id: recipient() })).to.equal(null);
-    await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(2);
+    expect((await guards().findOne({ _id: recipient() })).state).to.equal("recovered");
+    await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(1);
   });
   it("retries saved recovery after a crashed reset lease expires", async () => {
     await notify(owner.id, "token_expired", resource); await reset(owner.id, resource);
     await mongoose.connection.collection("users").updateOne({ _id: owner._id }, { $set: { accessAlertResetUntil: new Date(Date.now() + 150) } });
     await recover(owner.id, resource, async () => {});
     expect(await guards().findOne({ _id: recipient() })).not.to.equal(null);
-    for (let i = 0; i < 100 && await guards().findOne({ _id: recipient() }); i++) await new Promise(resolve => global.setTimeout(resolve, 20));
-    expect(await guards().findOne({ _id: recipient() })).to.equal(null);
-    await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(2);
+    for (let i = 0; i < 100 && (await guards().findOne({ _id: recipient() }))?.state !== "recovered"; i++) await new Promise(resolve => global.setTimeout(resolve, 20));
+    expect((await guards().findOne({ _id: recipient() })).state).to.equal("recovered");
+    await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(1);
   });
   for (const state of ["prepared", "cancelled", "committed"]) it(`reconciles interrupted guard reservation with a ${state} owner dispatch record`, async () => {
     const attemptId = `interrupted-${state}`;
@@ -477,10 +552,10 @@ describeMongo("recipient access alerts in MongoDB", function () {
     const account = await mongoose.connection.collection("users").findOne({ _id: owner._id });
     expect(Object.keys(account.accessAlertDispatches)).to.deep.equal(["unknown"]);
   });
-  it("allows active accounts to receive alerts when a shared-address guard belongs to a banned owner", async () => {
+  it("keeps shared-address suppression when the original owner is banned", async () => {
     await notify(owner.id, "token_expired", resource);
     await Users.updateOne({ _id: owner._id }, { $set: { status: "banned" } });
-    await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(2);
+    await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(1);
   });
   it("resumes an indexed migration from its last completed checkpoint", async () => {
     await Users.updateOne({ _id: otherOwner._id }, { $set: { notificationEmail: "second@example.com" } });
@@ -512,9 +587,11 @@ describeMongo("recipient access alerts in MongoDB", function () {
       const source = new GitHubStream({ repoId: resource.id, organization: "owner", repoName: "repo", commit: "pinned", getToken: async () => "mock-token" });
       source.downloadWithFallback = async () => Readable.from(["fresh-bytes"]);
       const read = () => source.getFileContentCache("a.txt", resource.id, () => ({ sha: "a".repeat(40), size: 11 }));
-      (await read()).destroy(); expect(await guards().findOne({ _id: recipient() })).to.equal(null);
+      (await read()).destroy(); expect((await guards().findOne({ _id: recipient() })).state).to.equal("recovered");
+      const secondKey = alerts.recipientAlertKey("second@example.com");
+      await Users.updateOne({ _id: owner._id }, { $set: { notificationEmail: "second@example.com" } });
       await notify(owner.id, "token_expired", resource); await reset(owner.id, resource);
-      (await read()).destroy(); expect(await guards().findOne({ _id: recipient() })).not.to.equal(null);
+      (await read()).destroy(); expect((await guards().findOne({ _id: secondKey })).state).to.equal("accepted");
     } finally { database.isConnected = originals.isConnected; storage.fileInfo = originals.fileInfo; storage.write = originals.write; storage.read = originals.read; }
   });
   it("confirms recovery when a successful scheduled refresh finds the same commit", async () => {
@@ -532,7 +609,7 @@ describeMongo("recipient access alerts in MongoDB", function () {
     try {
       await notify(owner.id, "token_expired", resource); await reset(owner.id, resource);
       await repo.updateIfNeeded({ force: false });
-      expect(await guards().findOne({ _id: recipient() })).to.equal(null);
+      expect((await guards().findOne({ _id: recipient() })).state).to.equal("recovered");
     } finally { github.getRepositoryFromGitHub = original; }
   });
   it("seeds old claims once while five instances start concurrently", async () => {
@@ -553,7 +630,7 @@ describeMongo("recipient access alerts in MongoDB", function () {
     await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(0);
     await reset(otherOwner.id, other); await recover(otherOwner.id, other, async () => {});
     expect((await guards().findOne({ _id: recipient() })).state).to.equal("recovered");
-    await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(1);
+    await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(0);
   });
   it("does not retire a legacy group when only its first triggering resource is removed", async () => {
     await coll(resource.kind).updateOne({ _id: new mongoose.Types.ObjectId(resource.id) }, { $set: { accessAlertClaimedAt: new Date(1) } });
@@ -562,9 +639,9 @@ describeMongo("recipient access alerts in MongoDB", function () {
     await coll(resource.kind).updateOne({ _id: new mongoose.Types.ObjectId(resource.id) }, { $set: { status: "removed" } });
     await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(0);
     await reset(otherOwner.id, other); await recover(otherOwner.id, other, async () => {});
-    await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(1);
+    await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(0);
   });
-  it("atomically releases the final legacy guard during concurrent recoveries", async () => {
+  it("atomically marks concurrent legacy recoveries without releasing suppression", async () => {
     await coll(resource.kind).updateOne({ _id: new mongoose.Types.ObjectId(resource.id) }, { $set: { accessAlertClaimedAt: new Date(1) } });
     await coll(other.kind).updateOne({ _id: new mongoose.Types.ObjectId(other.id) }, { $set: { accessAlertClaimedAt: new Date(2) } });
     await alerts.initializeOwnerAccessAlerts(); await reset(owner.id, resource); await reset(otherOwner.id, other);
@@ -580,7 +657,7 @@ describeMongo("recipient access alerts in MongoDB", function () {
     await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(0);
     expect((await guards().findOne({ _id: recipient() })).state).to.equal("legacy");
     await recover(owner.id, resource, async () => {});
-    await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(1);
+    await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(0);
   });
   it("fences legacy claim mutation when reset races after the final resource check", async () => {
     await coll(resource.kind).updateOne({ _id: new mongoose.Types.ObjectId(resource.id) }, { $set: { accessAlertClaimedAt: new Date(1) } });
@@ -607,7 +684,7 @@ describeMongo("recipient access alerts in MongoDB", function () {
     await alerts.initializeOwnerAccessAlerts(); await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(0);
     expect((await guards().findOne({ _id: recipient() })).legacyClaims.filter(claim => !claim.recovered)).to.have.length(1);
     await reset(otherOwner.id, other); await recover(otherOwner.id, other, async () => {});
-    await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(1);
+    await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(0);
   });
   it("preserves a native guard's origin when rollback reconciliation adds another legacy claim", async () => {
     await alerts.initializeOwnerAccessAlerts(); await notify(owner.id, "token_expired", resource); await reset(owner.id, resource);
@@ -617,22 +694,17 @@ describeMongo("recipient access alerts in MongoDB", function () {
     await reset(otherOwner.id, other); await recover(otherOwner.id, other, async () => {});
     await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(1);
     await recover(owner.id, resource, async () => {});
-    await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(2);
+    await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(1);
   });
-  it("fences completed-guard retirement against a concurrent reactivation and reset", async () => {
+  it("keeps suppression through removal, reactivation, reset and recovery", async () => {
     await notify(owner.id, "token_expired", resource);
+    const original = await guards().findOne({ _id: recipient() });
     await coll(resource.kind).updateOne({ _id: new mongoose.Types.ObjectId(resource.id) }, { $set: { status: "removed" } });
-    const collection = guards(), remove = collection.deleteOne;
-    let entered, release; const gate = new Promise(resolve => { entered = resolve; });
-    collection.deleteOne = async function (...args) { entered(); await new Promise(resolve => { release = resolve; }); return remove.apply(this, args); };
-    const pending = notify(otherOwner.id, "token_expired", other);
-    try {
-      await gate;
-      await coll(resource.kind).updateOne({ _id: new mongoose.Types.ObjectId(resource.id) }, { $set: { status: "ready" } });
-      await reset(owner.id, resource);
-    } finally { collection.deleteOne = remove; release(); await pending; }
-    expect(sent).to.have.length(1); expect(await guards().findOne({ _id: recipient() })).not.to.equal(null);
-    await recover(owner.id, resource, async () => {}); await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(2);
+    await notify(otherOwner.id, "token_expired", other);
+    await coll(resource.kind).updateOne({ _id: new mongoose.Types.ObjectId(resource.id) }, { $set: { status: "ready" } });
+    await reset(owner.id, resource); await recover(owner.id, resource, async () => {});
+    await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(1);
+    expect((await guards().findOne({ _id: recipient() })).attemptId).to.equal(original.attemptId);
   });
   for (const accepted of [true, false]) it(`retries the guard update after a definite ${accepted ? "accepted" : "rejected"} provider response`, async () => {
     const collection = guards(), update = collection.updateOne; let writes = 0;
@@ -662,7 +734,7 @@ describeMongo("recipient access alerts in MongoDB", function () {
     if (startup) await alerts.initializeOwnerAccessAlerts(); else await notify(otherOwner.id, "token_expired", other);
     expect((await guards().findOne({ _id: recipient() })).state).to.equal("accepted"); expect(sent).to.have.length(1);
     await reset(owner.id, resource); await recover(owner.id, resource, async () => {});
-    await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(2);
+    await notify(otherOwner.id, "token_expired", other); expect(sent).to.have.length(1);
   });
   it("records a provider completion once after its insertion acknowledgement is lost", async () => {
     const collection = mongoose.connection.collection("owner_access_alert_events"), insert = collection.insertOne;
@@ -690,7 +762,7 @@ describeMongo("recipient access alerts in MongoDB", function () {
       await gate; await notify(otherOwner.id, "token_expired", other);
       await reset(owner.id, resource); await recover(owner.id, resource, async () => {});
     } finally { collection.updateOne = update; release(); await pending; }
-    expect(sent).to.have.length(1); expect(await guards().findOne({ _id: recipient() })).to.equal(null);
+    expect(sent).to.have.length(1); expect((await guards().findOne({ _id: recipient() })).state).to.equal("recovered");
   });
   it("confirms truncated-file metadata recovery only on a successful fresh matching-source probe", async () => {
     const database = require("../src/server/database");
@@ -705,18 +777,20 @@ describeMongo("recipient access alerts in MongoDB", function () {
     try {
       await notify(owner.id, "token_expired", resource); await reset(owner.id, resource);
       expect((await source.fetchFileInfoFromPath("a.txt")).sha).to.equal("a".repeat(40));
-      expect(await guards().findOne({ _id: recipient() })).to.equal(null);
+      expect((await guards().findOne({ _id: recipient() })).state).to.equal("recovered");
+      const secondKey = alerts.recipientAlertKey("second@example.com");
+      await Users.updateOne({ _id: owner._id }, { $set: { notificationEmail: "second@example.com" } });
       await notify(owner.id, "token_expired", resource); await reset(owner.id, resource);
       response = { type: "dir" }; expect(await source.fetchFileInfoFromPath("a.txt")).to.equal(null);
-      expect(await guards().findOne({ _id: recipient() })).not.to.equal(null);
+      expect((await guards().findOne({ _id: secondKey })).state).to.equal("accepted");
       response = Object.assign(new Error("Forbidden"), { status: 403 });
       try { await source.fetchFileInfoFromPath("a.txt"); throw new Error("Expected a failed probe"); }
       catch (error) { expect(error.message).to.equal("Forbidden"); }
-      expect(await guards().findOne({ _id: recipient() })).not.to.equal(null);
+      expect((await guards().findOne({ _id: secondKey })).state).to.equal("accepted");
       response = { type: "file", sha: "a".repeat(40), size: 11 };
       await coll(resource.kind).updateOne({ _id: new mongoose.Types.ObjectId(resource.id) }, { $set: { "source.repositoryName": "different/source" } });
       await source.fetchFileInfoFromPath("a.txt");
-      expect(await guards().findOne({ _id: recipient() })).not.to.equal(null);
+      expect((await guards().findOne({ _id: secondKey })).state).to.equal("accepted");
     } finally { database.isConnected = originals.isConnected; utils.octokit = originals.octokit; }
   });
   it("resumes a migration after a startup crashed and its lease expired", async () => {

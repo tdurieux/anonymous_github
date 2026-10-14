@@ -26,7 +26,7 @@ RUN --mount=type=cache,id=npm-prod,target=/root/.npm,sharing=locked \
 
 # Stage 4: minimal runtime
 FROM node:22-alpine AS runtime
-LABEL science.4open.owner-alert-protocol="recipient-v1"
+LABEL science.4open.owner-alert-protocol="recipient-v2"
 ENV NODE_ENV=production
 ENV PORT=5000
 EXPOSE 5000
