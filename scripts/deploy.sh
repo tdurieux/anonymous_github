@@ -37,8 +37,8 @@ list_streamers() {
 }
 
 # Capture application writers, including stopped containers from a rollback.
-# Legacy instances do not participate in recipient claims, so they must stop
-# before a new instance marks the one-time claim migration complete.
+# Older instances can release recipient guards, so they must stop before
+# a new instance marks permanent-suppression migration complete.
 application_ids="$(docker compose ps --all -q anonymous_github streamer)"
 apps=()
 if [[ -n $application_ids ]]; then mapfile -t apps <<<"$application_ids"; fi

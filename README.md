@@ -178,7 +178,7 @@ unsent pending claims and clears their matching legacy fields before backfill.
 This upgrade pauses traffic while claims migrate and allows up to 15
 minutes for startup, configurable with `MIGRATION_HEALTH_TIMEOUT`. Subsequent
 deployments keep the usual rolling streamer replacement. Manual upgrades must
-stop all legacy application writers, run
+stop all application writers, run
 `docker compose run --rm --no-deps --entrypoint node anonymous_github ./build/scripts/reconcile-legacy-owner-alerts.js`
 using the new image, and then start the new application instances. Run this
 preparation after legacy writers have operated, even if their containers were

@@ -155,7 +155,7 @@ async function reconcileUnsentAlerts(writersStopped = false): Promise<void> {
   }
 }
 
-/** Call only after all legacy application writers have stopped. */
+/** Call only after all application writers have stopped. */
 export async function prepareLegacyOwnerAlertMigration(): Promise<void> {
   await reconcileUnsentAlerts(true);
   // Interrupted lifecycle mutations cannot resume once every writer is stopped.
