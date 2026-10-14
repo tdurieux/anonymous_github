@@ -154,7 +154,7 @@ describe("owner access notifications", () => {
     expect(events[1].state).to.equal("accepted");
   });
 
-  it("reopens an alert only after owner action and successful access to its triggering resource", async () => {
+  it("keeps the recipient suppressed after owner action and successful access", async () => {
     await notifyOwnerAccessProblem(ownerId, "token_expired", resource);
     await notifyOwnerAccessProblem(ownerId, "token_expired", other);
     expect(sent).to.have.length(1);
@@ -165,8 +165,9 @@ describe("owner access notifications", () => {
     expect(recipients.size).to.equal(1);
     await notifications.withOwnerAccessRecovery(ownerId, resource, async () => {});
     await notifyOwnerAccessProblem(ownerId, "token_expired", resource);
-    expect(sent).to.have.length(2);
-    expect(events).to.have.length(4);
+    expect(sent).to.have.length(1);
+    expect([...recipients.values()][0].state).to.equal("recovered");
+    expect(events).to.have.length(2);
   });
 
   it("cannot clear another owner's recipient guard", async () => {
@@ -217,7 +218,7 @@ describe("owner access notifications", () => {
     expect(sent).to.have.length(1);
   });
 
-  for (const failure of ["rejected", "timeout"]) it(`retains the claim after ${failure} until confirmed recovery`, async () => {
+  for (const failure of ["rejected", "timeout"]) it(`retains the claim after ${failure} including confirmed recovery`, async () => {
     let attempts = 0;
     stub(global, "fetch", async () => { attempts++; if (failure === "timeout") throw new Error("timeout"); return { ok: false }; });
     await notifyOwnerAccessProblem(ownerId, "token_expired", resource);
@@ -228,7 +229,7 @@ describe("owner access notifications", () => {
     expect(attempts).to.equal(1);
     await notifications.withOwnerAccessRecovery(ownerId, resource, async () => {});
     await notifyOwnerAccessProblem(ownerId, "token_expired", resource);
-    expect(attempts).to.equal(2);
+    expect(attempts).to.equal(1);
   });
 
   it("does not claim an alert without configuration, an active owner, and an address", async () => {

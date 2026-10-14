@@ -18,11 +18,11 @@ const args = process.argv.slice(2), state = JSON.parse(fs.readFileSync(process.e
 fs.appendFileSync(process.env.TASK_DOCKER_LOG, JSON.stringify(args) + "\\n");
 const finish = (output = "", code = 0) => { fs.writeFileSync(process.env.TASK_DOCKER_STATE, JSON.stringify(state)); process.stdout.write(output); process.exit(code); };
 if (args[0] === "image" && args[1] === "inspect") {
-  if (args.some(a => a.includes("Labels"))) finish(state.badProtocol ? "<no value>" : "recipient-v1");
+  if (args.some(a => a.includes("Labels"))) finish(state.badProtocol ? "<no value>" : "recipient-v2");
   finish(state.built ? "sha:new" : "sha:old");
 }
 if (args[0] === "inspect") {
-  if (args.some(a => a.includes("Labels"))) finish("<no value>");
+  if (args.some(a => a.includes("Labels"))) finish(state.oldProtocol || "<no value>");
   if (args.includes("{{.State.Running}}")) finish(state.stopped && !state.refuseStop ? "false" : "true");
   finish("healthy");
 }
@@ -67,6 +67,14 @@ finish("unexpected docker call", 2);
     for (const name of ["new-1", "new-2", "new-3", "new-4"]) {
       expect(result.calls.slice(up + 1, api).some(args => args[0] === "inspect" && args.at(-1) === name)).to.equal(true);
     }
+  });
+  it("stops recipient-v1 writers before restoring permanent recipient suppression", () => {
+    const result = deploy({ oldProtocol: "recipient-v1" });
+    expect(result.status, result.stderr).to.equal(0);
+    const stop = result.calls.findIndex(args => args[0] === "compose" && args[1] === "stop");
+    const reconcile = result.calls.findIndex(args => args[0] === "compose" && args[1] === "run");
+    const up = result.calls.findIndex(args => args[0] === "compose" && args[1] === "up");
+    expect(stop).to.be.greaterThan(-1); expect(reconcile).to.be.greaterThan(stop); expect(up).to.be.greaterThan(reconcile);
   });
   it("aborts before migration starts if a legacy writer remains running", () => {
     const result = deploy({ refuseStop: true });

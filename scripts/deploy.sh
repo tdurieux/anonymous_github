@@ -37,15 +37,15 @@ list_streamers() {
 }
 
 # Capture application writers, including stopped containers from a rollback.
-# Legacy instances do not participate in recipient claims, so they must stop
-# before a new instance marks the one-time claim migration complete.
+# Older instances can release recipient guards, so they must stop before
+# a new instance marks permanent-suppression migration complete.
 application_ids="$(docker compose ps --all -q anonymous_github streamer)"
 apps=()
 if [[ -n $application_ids ]]; then mapfile -t apps <<<"$application_ids"; fi
 legacy_alerts=0
 for app in "${apps[@]}"; do
     protocol="$(docker inspect -f '{{index .Config.Labels "science.4open.owner-alert-protocol"}}' "$app")"
-    [[ $protocol == recipient-v1 ]] || legacy_alerts=1
+    [[ $protocol == recipient-v2 ]] || legacy_alerts=1
 done
 
 # 1. Build
@@ -56,7 +56,7 @@ after="$(image_id "$IMAGE")"
 
 if [[ $legacy_alerts == 1 ]]; then
     protocol="$(docker image inspect -f '{{index .Config.Labels "science.4open.owner-alert-protocol"}}' "$IMAGE")"
-    [[ $protocol == recipient-v1 ]] || { warn "replacement image lacks recipient alert migration support"; exit 1; }
+    [[ $protocol == recipient-v2 ]] || { warn "replacement image lacks recipient alert migration support"; exit 1; }
     TIMEOUT="${MIGRATION_HEALTH_TIMEOUT:-900}"
     log "Pausing legacy application writers before recipient alert migration"
     docker compose stop -t 30 anonymous_github streamer

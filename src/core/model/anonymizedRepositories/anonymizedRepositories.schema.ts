@@ -1,3 +1,4 @@
+import { ownerAlertLifecycle } from "../owner-alert-lifecycle.schema";
 import { repositoryAccessSchema } from "../repository-access.schema";
 import { Schema } from "mongoose";
 
@@ -122,5 +123,7 @@ AnonymizedRepositorySchema.index({
   isReseted: 1,
   "options.expirationDate": 1,
 });
+
+AnonymizedRepositorySchema.plugin(ownerAlertLifecycle);
 
 export default AnonymizedRepositorySchema;

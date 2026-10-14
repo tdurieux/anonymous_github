@@ -1,3 +1,4 @@
+import { ownerAlertLifecycle } from "../owner-alert-lifecycle.schema";
 import { Schema } from "mongoose";
 
 const AnonymizedGistSchema = new Schema({
@@ -73,5 +74,7 @@ const AnonymizedGistSchema = new Schema({
 });
 
 AnonymizedGistSchema.index({ status: 1, "options.expirationDate": 1 });
+
+AnonymizedGistSchema.plugin(ownerAlertLifecycle);
 
 export default AnonymizedGistSchema;
