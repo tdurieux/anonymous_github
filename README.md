@@ -158,7 +158,13 @@ results are recorded before guard updates, with bounded retries and reconciliati
 on startup or a later notification. The upgrade restores missing recipient guards
 from immutable provider completion records, including guards previously released
 by recovery or resource removal. This history scan uses an index and resumable
-checkpoints and does not send email.
+checkpoints and does not send email. Its `recipient-alerts-v2` database marker is
+independent of the v1 marker, so cold starts also restore missing suppression.
+Resource lifecycle mutations advance the owner dispatch fence and block new
+attempts until the status write completes. Concurrent mutations keep separate
+reservations. Failed or ambiguous status writes retain suppression for that
+owner; run the offline reconciliation command below after stopping all writers
+to clear interrupted reservations safely.
 
 Use `scripts/deploy.sh` when upgrading recipient alert suppression. The new image
 has the `science.4open.owner-alert-protocol=recipient-v2` label. When running

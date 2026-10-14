@@ -67,7 +67,7 @@ type AlertRecord = { _id: string; state?: string; lease?: string; leaseUntil?: D
   resourceRevision?: number; deferredRecoveries?: DeferredRecovery[]; dispatchPrepared?: boolean;
   deliveryProgress?: { completedAt: Date; id: string }; failureCode?: string };
 const alertCollection = (name = RECIPIENT_ALERTS) => UserModel.db.collection(name) as unknown as mongo.Collection<AlertRecord>;
-const MIGRATION = "recipient-alerts-v1";
+const MIGRATION = "recipient-alerts-v2";
 const PENDING_LEASE_MS = 60000;
 const expiredPending = () => ({ state: "pending", claimedAt: { $lte: new Date(Date.now() - PENDING_LEASE_MS) } });
 const expiredPreparation = () => ({ state: { $in: ["pending", "sending"] }, claimedAt: { $lte: new Date(Date.now() - PENDING_LEASE_MS) } });
@@ -83,6 +83,7 @@ async function prepareOwnerDispatch(record: AlertRecord, revision: number | null
   const path = `accessAlertDispatches.${record.attemptId}`;
   const prepared = await UserModel.db.collection("users").updateOne({ _id: record.owner,
     accessAlertResetRevision: generationFilter(revision),
+    "accessAlertDeactivations.0": { $exists: false },
     $or: [{ accessAlertResetUntil: { $exists: false } }, { accessAlertResetUntil: { $lte: new Date() } }],
   }, [{ $set: { accessAlertDispatches: { $arrayToObject: { $filter: {
     input: { $objectToArray: { $ifNull: ["$accessAlertDispatches", {}] } }, as: "dispatch",
@@ -102,6 +103,7 @@ async function commitOwnerRevision(owner: Types.ObjectId, revision: number | nul
   const path = `accessAlertDispatches.${record?.attemptId}`;
   const committed = await UserModel.db.collection("users").updateOne({ _id: owner,
     accessAlertResetRevision: generationFilter(revision),
+    "accessAlertDeactivations.0": { $exists: false },
     ...(record ? { [`${path}.state`]: "prepared" } : {}),
     $or: [{ accessAlertResetUntil: { $exists: false } }, { accessAlertResetUntil: { $lte: new Date() } }],
   }, record ? { $set: { [`${path}.state`]: "committed" } } : { $inc: { accessAlertFenceRevision: 1 } });
@@ -156,6 +158,9 @@ async function reconcileUnsentAlerts(writersStopped = false): Promise<void> {
 /** Call only after all legacy application writers have stopped. */
 export async function prepareLegacyOwnerAlertMigration(): Promise<void> {
   await reconcileUnsentAlerts(true);
+  // Interrupted lifecycle mutations cannot resume once every writer is stopped.
+  await UserModel.db.collection("users").updateMany({ accessAlertDeactivations: { $exists: true } },
+    { $unset: { accessAlertDeactivations: "" }, $inc: { accessAlertResetRevision: 1 } });
   await alertCollection().updateOne({ _id: MIGRATION }, { $set: { state: "new" },
     $unset: { progress: "", deliveryProgress: "", lease: "", leaseUntil: "" } }, { upsert: true });
 }
@@ -240,6 +245,14 @@ export async function initializeOwnerAccessAlerts(): Promise<void> {
       for await (const event of events.find(filter).sort({ completedAt: 1, _id: 1 }).hint(index).batchSize(100)) {
         if (heartbeatError) throw heartbeatError;
         if (event.recipientKey && /^[0-9a-f]{64}$/.test(event.recipientKey)) {
+          const previous = await alerts.findOne({ _id: event.recipientKey });
+          if (previous && (["pending", "cancelled"].includes(previous.state || "")
+            || (previous.state === "sending" && previous.dispatchPrepared))) {
+            // A v1 repeat may still be preparing after its earlier guard was
+            // released. Cancel known-unsent work even while its lease is fresh;
+            // committed or ambiguous dispatches remain blocked instead.
+            await releaseUnsentAlert(previous, { state: previous.state });
+          }
           await alerts.updateOne({ _id: event.recipientKey }, { $setOnInsert: {
             state: "recipient_notified", attemptId: event.attemptId ?? randomUUID(),
             claimedAt: event.completedAt, completedAt: event.completedAt, httpStatus: event.httpStatus,
@@ -470,8 +483,8 @@ export async function notifyOwnerAccessProblem(ownerId: string, error: unknown, 
     const identity = { _id: new Types.ObjectId(resource.id), owner: new Types.ObjectId(ownerId),
       status: { $nin: ["archived", "expired", "expiring", "removed", "removing"] } };
     const ownerState = await UserModel.db.collection("users").findOne({ _id: identity.owner },
-      { projection: { accessAlertResetRevision: 1, accessAlertResetUntil: 1 } });
-    if (!ownerState || ownerState.accessAlertResetUntil?.getTime() > Date.now()) return;
+      { projection: { accessAlertResetRevision: 1, accessAlertResetUntil: 1, accessAlertDeactivations: 1 } });
+    if (!ownerState || ownerState.accessAlertDeactivations?.length || ownerState.accessAlertResetUntil?.getTime() > Date.now()) return;
     const ownerRevision = ownerState.accessAlertResetRevision ?? null;
     const snapshot = await collection.findOne(identity, { projection: { accessAlertGeneration: 1, accessAlertClaimedAt: 1, accessAlertClaimRevision: 1 } });
     if (!snapshot) return;
