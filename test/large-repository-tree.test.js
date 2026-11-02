@@ -293,6 +293,47 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
     expect(await File.countDocuments({ repoId: row.repoId })).to.equal(0);
   });
 
+  for (const reconnecting of [false, true]) it(`saves a ${reconnecting ? "reconnected repository" : "changed source"} through real removal`, async () => {
+    const row = await repository({ status: "ready", treeGeneration: "old", pathIndexKey: "old-key",
+      githubAccess: { kind: "oauth", revision: "old-access" }, anonymizeDate: new Date(1),
+      options: { terms: ["before"], expirationMode: "never" } }), repo = new Repository(row);
+    await rows(2); await Path.collection.insertOne({ repoId: row.repoId, key: "old-key", anonymousPath: "old.txt" });
+    const utils = require("../src/server/routes/route-utils"), app = require("../src/core/github-app");
+    const source = require("../src/core/source/GitHubRepository"), queue = require("../src/queue");
+    const router = require("../src/server/routes/repository-private").default;
+    const handler = router.stack.find(layer => layer.route?.path === "/:repoId/" && layer.route.methods.post).route.stack[0].handle;
+    const restores = [], jobs = []; let response, cleanupSnapshot, removals = 0;
+    const stub = (object, key, value) => { const original = object[key]; restores.push(() => { object[key] = original; }); object[key] = value; };
+    stub(utils, "getRepo", async () => repo);
+    stub(utils, "getUser", async () => ({ id: repo.owner.id, model: { id: repo.owner.id } }));
+    stub(utils, "handleError", error => { throw error; });
+    stub(app, "selectRepositoryAccess", async () => ({ token: "fixture", binding: { kind: "oauth" } }));
+    stub(source, "getRepositoryFromGitHub", async () => ({ id: "gh_123", model: { id: "new-source" }, fullName: "fixture/repo",
+      branches: async () => [{ name: "replacement" }], getCommitInfo: async () => ({ commit: { committer: { date: "2026-11-01" } } }) }));
+    stub(queue, "downloadQueue", { add: async (...args) => { jobs.push(args); } });
+    const remove = repo.remove;
+    stub(repo, "remove", async function (...args) {
+      removals++;
+      cleanupSnapshot = { commit: this.model.source.commit, accessRevision: this.model.githubAccess.revision,
+        anonymizeDate: this.model.anonymizeDate };
+      return remove.apply(this, args);
+    });
+    try {
+      await handler({ body: { repoId: row.repoId, fullName: "fixture/repo", terms: ["after"],
+        source: { branch: "replacement", commit: "b".repeat(40) }, options: { expirationMode: "never" },
+        ...(reconnecting ? { reconnectRepositoryId: "gh_123" } : {}) } }, { json: value => { response = value; } });
+    } finally { while (restores.length) restores.pop()(); }
+    expect(removals).to.equal(1); expect(response).to.deep.equal({ status: "preparing" });
+    expect(cleanupSnapshot).to.deep.equal({ commit: "a".repeat(40), accessRevision: "old-access", anonymizeDate: new Date(1) });
+    const saved = await Repo.findById(row._id);
+    expect(saved.status).to.equal("preparing"); expect(saved.source.commit).to.equal("b".repeat(40));
+    expect(saved.source.branch).to.equal("replacement"); expect(saved.source.repositoryId).to.equal("new-source");
+    expect(saved.githubAccess.revision).not.to.equal("old-access"); expect(saved.anonymizeDate.getTime()).to.be.greaterThan(1);
+    expect(saved.options.terms).to.deep.equal(["after"]);
+    expect(await File.countDocuments({ repoId: row.repoId })).to.equal(0); expect(await Path.countDocuments({ repoId: row.repoId })).to.equal(0);
+    expect(jobs).to.have.length(1); expect(jobs[0][1]).to.deep.equal({ repoId: row.repoId });
+  });
+
   it("retains retirement markers when foreground cleanup reaches its batch budget", async () => {
     const row = await repository({ treeGeneration: "active", retiredTreeGenerations: ["old"] }), repo = new Repository(row);
     await rows(501);
