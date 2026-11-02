@@ -7900,3 +7900,15 @@ input[type="date"], select { color-scheme: light; }
 .email-prompt p { margin-bottom: 20px; }
 .email-prompt-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; margin-top: 24px; }
 body.dark-mode .email-prompt { background: #242320; color: #faf9f6; }
+.file-error .viewer-error {
+  width: 100%;
+  max-width: 65ch;
+  padding: 2rem 1rem;
+  overflow-wrap: anywhere;
+  font-size: 1rem;
+  font-weight: 400;
+  text-align: left;
+}
+.viewer-error .paper-empty-title { margin-bottom: 1rem; }
+.viewer-error p { line-height: 1.6; }
+.viewer-error .paper-error-actions { display: flex; flex-wrap: wrap; gap: .75rem; }

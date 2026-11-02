@@ -48,6 +48,23 @@ Local installation requires Node.js 22.15 or newer in the 22.x series,
 24.x, or 26 or newer. Run `npm ci` and `npm run build` to install and build.
 `npm run dev` uses Node's watch mode; `npm run build:ui` rebuilds browser assets.
 
+For the November 2026 dependency update, install from the committed lockfile
+with `npm ci`, rebuild with `npm run build`, and restart the API and streamer
+services together. Docker installations should rebuild the application image.
+This dependency update does not change MongoDB documents, Redis keys, or queue
+formats, so it requires no production data migration. Existing credential
+migration requirements still apply when upgrading from an older release.
+
+The [`glob`](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4) and
+[`minimatch`](https://github.com/advisories/GHSA-g3hv-75wg-m249) overrides select security fixes unavailable through
+the dependency ranges of archive and development tools. Keep them until those
+packages accept patched versions. CI checks the full dependency audit and runs
+MongoDB migration, Redis session, and archive compatibility tests on Node 22
+and 24. To run the database tests locally, point `TEST_MONGODB_URI` and
+`PERFORMANCE_MONGO_URI` at disposable MongoDB databases and set
+`PERFORMANCE_REDIS_PORT` to a disposable Redis instance. The performance database
+name must begin with `perf_test_`; these tests delete their test data.
+
 <details>
 <summary>Run your own instance with Docker</summary>
 

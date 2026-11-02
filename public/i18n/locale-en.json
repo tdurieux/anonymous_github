@@ -1,4 +1,12 @@
 {
+  "VIEWER_ERRORS": {
+    "title": "Content could not be loaded",
+    "access_title": "GitHub access needs attention",
+    "reader_help": "Reading this repository? You do not need to sign in. Try again after the owner restores access, or let them know this anonymous link is unavailable.",
+    "owner_help": "Own this repository? If your GitHub account was suspended or recently recovered, sign in to Anonymous GitHub again and check the GitHub connection and repository permissions in your dashboard. Then retry this page. Keep the existing anonymous URL; do not delete the repository to restore access.",
+    "retry": "Try again",
+    "dashboard": "Open owner dashboard"
+},
   "ERRORS": {
     "cache_busy": "Downloads are busy. Please try again shortly.",
     "invalid_sort": "The selected sort order is invalid.",
@@ -6,9 +14,9 @@
     "repository_changed": "The repository changed while processing. Please retry.",
     "repository_job_cancelled": "The repository changed or was removed while processing.",
     "storage_delete_failed": "Unable to remove cached files. Please try again later.",
-    "unknown_error": "Unknown error, contact the admin.",
-    "unreachable": "Anonymous GitHub is unreachable, contact the admin.",
-    "request_error": "Unable to download the file, check your connection or contact the admin.",
+    "unknown_error": "We could not load this content. Try again. If it still fails, contact support with the anonymous URL and the time of the error.",
+    "unreachable": "The service could not complete this request. Wait a moment and try again.",
+    "request_error": "The connection was interrupted. Check your internet connection and try again.",
     "not_found": "The requested resource could not be found.",
     "not_connected": "You must be logged in to perform this action.",
     "not_authorized": "You do not have permission to perform this action.",
@@ -17,7 +25,7 @@
     "user_banned": "Your account has been banned. Contact the admin for more information.",
     "repo_access_limited": "GitHub blocked access because the repository's organization restricts third-party OAuth apps. Ask an org owner to approve Anonymous GitHub under Settings → Third-party Access → OAuth app policy, or anonymize a personal fork instead.",
     "repo_saml_enforcement": "The repository's organization enforces SAML single sign-on. Authorize your token for that organization (GitHub → Settings → Applications, or re-run the org's SSO sign-in), then retry. Alternatively, anonymize a personal fork.",
-    "repo_not_found": "The repository was not found on GitHub. Check the URL and spelling, make sure you are signed in to the account that can see it, and confirm the repo isn't hidden under an org that restricts third-party app access.",
+    "repo_not_found": "Anonymous GitHub cannot access the source repository on GitHub. It may be private, unavailable, or require the owner to reconnect GitHub.",
     "repo_empty": "The selected branch has no commits on GitHub. Push at least one commit, or pick a different branch, then retry.",
     "repo_not_accessible": "Anonymous GitHub cannot access this repository. Verify the repository exists and that Anonymous GitHub has been authorized for the owning organization.",
     "repository_archived": "This repository has been archived and its files are no longer available.",
@@ -118,7 +126,7 @@
     "storage_write_size_mismatch": "The downloaded file was smaller than expected. The upstream source may have returned an incomplete response — please try again.",
     "storage_read_error": "An error occurred while reading the file from storage — please try again.",
     "upstream_error": "A temporary error occurred while fetching from GitHub — please try again.",
-    "token_expired": "Your GitHub access token has expired. Please log out and log in again to refresh it.",
+    "token_expired": "The repository owner needs to renew their GitHub connection before this content can be loaded.",
     "job_is_active": "This job is currently running — wait for it to finish or remove it first.",
     "github_app_access_required": "Allow this repository on GitHub using the read-only access button, then retry. Organization access may require administrator approval.",
     "github_app_reconnect_required": "Reconnect your GitHub App account to restore read-only access.",

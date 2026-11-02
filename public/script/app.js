@@ -1,6 +1,18 @@
 import { reactive, nextTick } from "vue";
 import { createTimers, createListeners } from "./state.js";
 import { formDraft } from "./drafts.js";
+import translations from "../i18n/locale-en.json";
+
+function viewerErrorCode(error) {
+  let data = error?.data;
+  if (typeof data === "string") {
+    try { data = JSON.parse(data); } catch (_) { data = null; }
+  }
+  if (typeof data?.error === "string" && Object.prototype.hasOwnProperty.call(translations.ERRORS, data.error)) return data.error;
+  if (error?.status === -1 || error?.status === 0) return "request_error";
+  if ([502, 503, 504].includes(error?.status)) return "unreachable";
+  return "unknown_error";
+}
 
 // The mask comes from /api/options; mainController sets it once loaded.
 let redactionMask = "XXXX";
@@ -2554,7 +2566,7 @@ export const exploreController = function (state, http, location, params, html, 
         }, function (err) {
           if (destroyed || repoId !== state.repoId) return [];
           state.type = "error";
-          state.content = (err && err.data && err.data.error) || "unknown_error";
+          state.content = viewerErrorCode(err);
           state.files = [];
         });
       };
@@ -2624,7 +2636,7 @@ export const exploreController = function (state, http, location, params, html, 
               timers.timeout(function () { getOptions(callback); }, 3000);
             } else {
               state.type = "error";
-              state.content = data.error;
+              state.content = viewerErrorCode(err);
             }
           }
         );
@@ -2749,23 +2761,7 @@ export const exploreController = function (state, http, location, params, html, 
             (err) => {
               if (destroyed || generation !== contentGeneration) return;
               state.type = "error";
-              state.content = "unknown_error";
-              try {
-                err.data = JSON.parse(err.data);
-                if (err.data.error) {
-                  state.content = err.data.error;
-                } else {
-                  state.content = err.data;
-                }
-              } catch (ignore) {
-                console.log(err);
-                if (err.status == -1) {
-                  state.content = "request_error";
-                } else if (err.status == 502) {
-                  // cloudflare error
-                  state.content = "unreachable";
-                }
-              }
+              state.content = viewerErrorCode(err);
             }
           );
       }
@@ -2969,6 +2965,10 @@ export const exploreController = function (state, http, location, params, html, 
 
         getContent(state.filePath, state.file);
       }
+
+      state.isSourceAccessError = () => ["repo_not_found", "token_expired", "github_app_access_required",
+        "github_app_reconnect_required", "repo_saml_enforcement", "repo_access_limited"].includes(state.content);
+      state.retryContent = () => init();
 
       function init() {
         contentGeneration++;

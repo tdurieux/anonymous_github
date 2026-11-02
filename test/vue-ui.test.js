@@ -190,6 +190,43 @@ describe("Vue 3 UI", function () {
     expect(ui.window.document.querySelector("#email-prompt-address").value).to.equal("owner@example.com");
   });
 
+  for (const code of ["repo_not_found", "token_expired", "github_app_reconnect_required"]) {
+    it(`explains ${code} without exposing the source and retries after access recovers`, async () => {
+      let recovered = false;
+      ui = await browser("/r/access-test/hello.js", {
+        "/api/repo/access-test/file/hello.js": () => recovered ? "recovered content" : {
+          __status: 404, body: { error: code, detail: "private-owner/private-source", token: "secret" },
+        },
+      });
+      await delay(100);
+      const panel = ui.window.document.querySelector(".viewer-error");
+      expect(panel?.textContent).to.include("GitHub access needs attention");
+      expect(panel.textContent).to.include("You do not need to sign in");
+      expect(panel.textContent).to.include("Keep the existing anonymous URL");
+      expect(panel.textContent).not.to.include("private-owner");
+      expect(panel.textContent).not.to.include("secret");
+      recovered = true;
+      panel.querySelector("button").click();
+      await delay(150);
+      expect(ui.window.document.querySelector(".viewer-error")).to.equal(null);
+      expect(ui.requests.filter(request => request.url.pathname.endsWith("/file/hello.js"))).to.have.length(2);
+      expect(ui.errors).to.deep.equal([]);
+    });
+  }
+
+  it("offers a safe retry for an unrecognized gateway response", async () => {
+    ui = await browser("/r/access-test/hello.js", {
+      "/api/repo/access-test/options": { __status: 403, body: "<html>private diagnostic</html>" },
+    });
+    await delay(100);
+    const panel = ui.window.document.querySelector(".viewer-error");
+    expect(panel?.textContent).to.include("We could not load this content");
+    expect(panel.textContent).not.to.include("private diagnostic");
+    expect(panel.textContent).not.to.include("GitHub access needs attention");
+    expect(panel.querySelector("button").textContent).to.equal("Try again");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
   const repositorySource = {
     "/api/user": { username: "owner" },
     "/api/user/default": { terms: ["Default Author"], options: {} },
@@ -1161,13 +1198,13 @@ describe("Vue 3 UI", function () {
     expect(ui.errors).to.deep.equal([]);
   });
 
-  for (const [code, message] of [["repo_not_found", "The repository was not found"], ["untranslated_failure", "Unknown error, contact the admin."]]) {
+  for (const [code, message] of [["repo_not_found", "GitHub access needs attention"], ["untranslated_failure", "We could not load this content"]]) {
     it("shows the " + code + " explorer error in a card without file actions", async function () {
       ui = await browser("/r/gone/", { "/api/repo/gone/options": { __status: 404, body: { error: code } } });
       const card = ui.window.document.querySelector(".file-error-card");
-      expect(card.textContent).to.include("This content can").and.include(message);
+      expect(card.textContent).to.include(message);
       expect(card.textContent).not.to.include("ERRORS.");
-      expect(card.querySelector('a[href="/"]')).to.not.equal(null);
+      expect(card.querySelector(code === "repo_not_found" ? 'a[href="/dashboard"]' : 'a[href="/"]')).to.not.equal(null);
       expect(ui.window.document.querySelector(".status-bar").style.display).to.equal("none");
       expect(ui.errors).to.deep.equal([]);
     });

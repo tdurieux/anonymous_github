@@ -63,7 +63,7 @@
           window._mermaidLoaded = true;
           window._mermaidLoading = false;
           if (typeof mermaid !== "undefined") {
-            mermaid.initialize({ startOnLoad: false, theme: "default", securityLevel: "loose" });
+            mermaid.initialize({ startOnLoad: false, theme: "default", securityLevel: "strict" });
             window.mermaidInitialized = true;
             var els = document.querySelectorAll(".mermaid:not([data-processed])");
             if (els.length) mermaid.init(undefined, els);
