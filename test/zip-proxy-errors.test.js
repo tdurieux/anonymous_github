@@ -25,7 +25,7 @@ describe("ZIP proxy failures", function () {
     utils.getUser = async () => { throw new Error("anonymous"); };
     utils.getRepo = async () => ({ repoId: "test", options: {},
       model: { source: { repositoryName: "owner/repo", commit: "abc" } },
-      countView: async () => {}, getToken: async () => "",
+      countView: async () => {}, submoduleMounts: async () => [], getToken: async () => "",
       generateAnonymizeTransformer: () => ({ opt: {} }),
     });
     upstream = new PassThrough();

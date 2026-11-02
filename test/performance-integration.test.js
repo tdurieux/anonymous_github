@@ -40,6 +40,19 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
   });
   beforeEach(async () => { await Promise.all([Repo, PR, Gist, File, Path, Name, ConferenceModel].map(model => model.deleteMany({}))); });
 
+  it("preserves submodule origin through the persisted anonymized path index", async () => {
+    const row = await Repo.create({ repoId: "submodule-index", owner: user.model._id, status: "ready", treeGeneration: "generation",
+      source: { repositoryName: "parent/repo", commit: "a".repeat(40) }, options: { terms: ["Alice"] } });
+    const upstream = { organization: "child", repoName: "public", commit: "b".repeat(40), path: "Alice.txt" };
+    await File.create({ repoId: row.repoId, treeGeneration: "generation", name: "Alice.txt", path: "vendor/lib", sha: "c".repeat(40), size: 5, upstream });
+    const repository = new Repository(row);
+    const file = new AnonymizedFile({ repository, anonymizedPath: "vendor/lib/XXXX-1.txt" });
+    expect((await file.getFileInfo()).upstream).to.deep.equal(upstream);
+    const publicTree = await repository.anonymizedFiles({ includeSha: false });
+    expect(publicTree[0]).not.to.have.property("upstream");
+    expect(JSON.stringify(publicTree)).not.to.include("child");
+  });
+
   it("uses membership indexes for owner, stable GitHub ID, and legacy username", async () => {
     const other = new mongoose.Types.ObjectId();
     await Repo.insertMany(Array.from({ length: 2000 }, (_, i) => ({ repoId: `filler-${i}`, owner: other, coauthors: [{ username: `other-${i}`, githubId: String(i + 50000) }] })));

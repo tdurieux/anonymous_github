@@ -244,7 +244,7 @@ export function octokit(token: string) {
         const prefix = `/repos/${context.publicRepository.split("/").map(encodeURIComponent).join("/")}`.toLowerCase();
         const path = url.pathname.toLowerCase();
         const suffix = path.slice(prefix.length);
-        const readable = /^(?:\/?|\/branches(?:\/[^/]+)?|\/commits(?:\/[^/]+)?|\/readme|\/pages|\/zipball\/[^/]+|\/git\/(?:trees|blobs)\/[^/]+|\/pulls\/\d+|\/issues\/\d+\/comments)$/.test(suffix);
+        const readable = /^(?:\/?|\/branches(?:\/[^/]+)?|\/commits(?:\/[^/]+)?|\/contents(?:\/[^/]+)*|\/readme|\/pages|\/zipball\/[^/]+|\/git\/(?:trees|blobs)\/[^/]+|\/pulls\/\d+|\/issues\/\d+\/comments)$/.test(suffix);
         if (!readable || (options.method !== "GET" && !(options.method === "HEAD" && suffix.startsWith("/zipball/"))) || url.origin !== "https://api.github.com" ||
             (path !== prefix && !path.startsWith(prefix + "/"))) {
           throw new AnonymousError("github_app_access_required", { httpStatus: 403 });

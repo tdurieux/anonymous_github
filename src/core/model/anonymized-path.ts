@@ -1,7 +1,9 @@
+import { UpstreamFileSchema } from "./files/files.schema";
 import { IFile } from "./files/files.types";
 import { model, Schema } from "mongoose";
 const schema = new Schema({ repoId: { type: String, required: true }, key: { type: String, required: true }, originalId: Schema.Types.ObjectId,
   name: { type: String, required: true }, path: { type: String, default: "", required: true }, sha: String, size: Number,
+  upstream: { type: UpstreamFileSchema, default: undefined },
   anonymousName: String, anonymousDirectory: String, anonymousPath: String,
   searchName: String, searchDirectory: String,
   createdAt: { type: Date, default: Date.now } });

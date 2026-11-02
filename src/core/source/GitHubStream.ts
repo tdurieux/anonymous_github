@@ -18,7 +18,8 @@ import * as stream from "stream";
 import AnonymousError from "../AnonymousError";
 import { octokit, waitForTokenGate, RateLimitDelayError } from "../GitHubUtils";
 import FileModel from "../model/files/files.model";
-import { IFile } from "../model/files/files.types";
+import { expandSubmodules, validUpstream } from "./github-submodules";
+import { IFile, UpstreamFile } from "../model/files/files.types";
 import { createLogger, serializeError } from "../logger";
 import { measureStage, recordCacheHit } from "../request-monitoring";
 import config from "../../config";
@@ -322,16 +323,27 @@ export default class GitHubStream extends GitHubBase {
     filePath: string,
     repoId: string,
     fileMeta: () =>
-      | Promise<{ sha: string; size?: number }>
-      | { sha: string; size?: number }
+      | Promise<{ sha: string; size?: number; upstream?: UpstreamFile }>
+      | { sha: string; size?: number; upstream?: UpstreamFile }
       | Promise<string>
       | string
   ) {
     const meta = await fileMeta();
-    const expected: { sha: string; size?: number } =
+    const expected: { sha: string; size?: number; upstream?: UpstreamFile } =
       typeof meta === "string" ? { sha: meta } : meta;
+    if (expected.upstream && !validUpstream(expected.upstream)) throw new AnonymousError("invalid_request", { httpStatus: 400 });
+    // Hydrated Mongoose subdocuments expose source fields through getters,
+    // so spreading them would retain the parent's repository coordinates.
+    const origin = expected.upstream ? new GitHubStream({
+      ...this.data,
+      organization: expected.upstream.organization,
+      repoName: expected.upstream.repoName,
+      commit: expected.upstream.commit,
+      getToken: () => "",
+    }) : this;
+    const sourcePath = expected.upstream?.path || filePath;
     const generation = createHash("sha256").update(JSON.stringify([
-      this.data.commit, expected.sha, this.data.cacheGeneration, this.data.cacheRevision,
+      this.data.commit, expected.sha, this.data.cacheGeneration, this.data.cacheRevision, ...(expected.upstream ? [expected.upstream] : []),
     ])).digest("hex");
     const cachePath = this.data.cacheGeneration ? `${contentGenerationPrefix(this.data.cacheGeneration)}/${generation}/${filePath}` : filePath;
     const assertActive = async () => {
@@ -383,8 +395,9 @@ export default class GitHubStream extends GitHubBase {
       if (cacheFills.size >= 64) throw new AnonymousError("cache_busy", { httpStatus: 503 });
       filling = coordinatedFill(key, cached, async () => {
         await assertActive();
-        const token = await this.data.getToken();
-        const sourceMiss = cachedContentMiss(this.data, token);
+        const parentToken = await this.data.getToken();
+        const token = expected.upstream ? "" : parentToken;
+        const sourceMiss = cachedContentMiss(this.data, parentToken);
         if (sourceMiss && sourceMiss !== "file_not_found") throw new AnonymousError(sourceMiss, { httpStatus: 404 });
         const missKey = createHash("sha256").update(JSON.stringify([
           key, this.data.organization, this.data.repoName, token,
@@ -393,7 +406,7 @@ export default class GitHubStream extends GitHubBase {
         if (missed) throw new AnonymousError(missed, { httpStatus: 404 });
         try {
           const fetchContent = () => measureStage("upstream", async () => {
-            const content = await this.downloadWithFallback(token, expected.sha, filePath)
+            const content = await origin.downloadWithFallback(token, expected.sha, sourcePath)
               .catch(error => { throw downloadError(error, filePath); });
             let count = 0;
             const limited = new stream.Transform({ transform(chunk, encoding, callback) {
@@ -413,9 +426,14 @@ export default class GitHubStream extends GitHubBase {
             finally { clearTimeout(deadline); limited.destroy(); content.destroy(); }
             return true;
           });
-          return await this.confirmOwnerAccess(repoId, fetchContent);
+          return expected.upstream ? await fetchContent() : await this.confirmOwnerAccess(repoId, fetchContent);
         } catch (error) {
-          if (error instanceof AnonymousError && error.message === "file_not_found" && error.httpStatus === 404) {
+          if (expected.upstream && error instanceof AnonymousError &&
+              ["file_not_found", "file_not_accessible"].includes(error.message)) {
+            // A removed public dependency is not a lost parent credential.
+            throw new AnonymousError("submodule_not_available", { httpStatus: 404, cause: error });
+          }
+          if (!expected.upstream && error instanceof AnonymousError && error.message === "file_not_found" && error.httpStatus === 404) {
             const code = await classifyContentMiss(this.data, token);
             missingContent.set(missKey, code, 30_000);
             if (code !== "file_not_found") throw new AnonymousError(code, { httpStatus: 404, cause: error });
@@ -448,14 +466,14 @@ export default class GitHubStream extends GitHubBase {
             object: file,
           });
         }
-        return { sha: fileSha, size: await file.size() };
+        return { sha: fileSha, size: await file.size(), upstream: (await file.getFileInfo()).upstream };
       }
     );
   }
 
   async getFiles(progress?: (status: string) => void) {
     this._truncatedFolders = [];
-    return this.getTruncatedTree(this.data.commit, progress);
+    return expandSubmodules(await this.getTruncatedTree(this.data.commit, progress), this.data);
   }
 
   /**
@@ -485,6 +503,7 @@ export default class GitHubStream extends GitHubBase {
   }
 
   private async fetchFileMetadata(filePath: string): Promise<IFile | null> {
+    if (basename(filePath) === ".gitmodules") return null;
     const token = await this.data.getToken();
     const oct = octokit(token);
     try {
@@ -665,6 +684,7 @@ export default class GitHubStream extends GitHubBase {
         path: pathFile,
         repoId: this.data.repoId,
         size: elem.size,
+        ...(elem.type === "commit" ? { submodule: "unsupported" } : {}),
         sha: elem.sha,
       });
     });
