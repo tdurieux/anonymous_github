@@ -146,7 +146,8 @@ router.get(
         anonymizedPath,
         repo.model.options
       );
-      res.header("ETag", etag);
+      if (config.SHARED_CACHE_ENABLED) res.vary("Accept-Encoding");
+      res.header("ETag", config.SHARED_CACHE_ENABLED ? `W/${etag}` : etag);
       // Force the browser to revalidate every time. The previous 210-day
       // max-age was keyed only on the upstream sha, so editing the
       // anonymization term list left old anonymizations cached under the

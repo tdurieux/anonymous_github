@@ -1,0 +1,301 @@
+{
+  "measuredAt": "2026-11-02T10:48:24.664Z",
+  "runtime": {
+    "execution": "compiled JavaScript",
+    "node": "v24.14.1",
+    "platform": "linux",
+    "arch": "x64",
+    "cpu": "Intel Xeon E312xx (Sandy Bridge, IBRS update)",
+    "logicalCpus": 12,
+    "totalMemoryGiB": 35.22977066040039,
+    "loadAverage": [
+      2.19,
+      3.52,
+      3.52
+    ]
+  },
+  "scope": "Compiled local loopback HTTP; changed text; 32 serial and 64 concurrency-8 warm samples per scenario. Percentiles pooled across two batches. CPU/RSS include client and server. Experimental NORMAL affects disposable benchmark databases only.",
+  "verifiedHttpResponses": 2700,
+  "rows": [
+    {
+      "sizeBytes": 16384,
+      "label": "16 KiB",
+      "baseline": "raw source cache",
+      "baselineMetrics": {
+        "coldMs": 145.9149209999996,
+        "serial": {
+          "p50Ms": 8.318075000000135,
+          "p95Ms": 10.736985999999888,
+          "requestsPerSecond": 117.44442918645578,
+          "cpuMsPerRequest": 11.06740625,
+          "peakRssMiB": 146.50390625
+        },
+        "concurrent8": {
+          "p50Ms": 50.20099499999969,
+          "p95Ms": 71.84271200000012,
+          "requestsPerSecond": 142.73942902734086,
+          "cpuMsPerRequest": 9.620406249999998,
+          "peakRssMiB": 170.53125
+        }
+      },
+      "currentMetrics": {
+        "coldMs": 709.8329450000001,
+        "serial": {
+          "p50Ms": 44.88915300000008,
+          "p95Ms": 68.10151200000018,
+          "requestsPerSecond": 20.710932531095363,
+          "cpuMsPerRequest": 13.53253125,
+          "peakRssMiB": 147.47265625
+        },
+        "concurrent8": {
+          "p50Ms": 362.3927130000002,
+          "p95Ms": 462.1094459999995,
+          "requestsPerSecond": 20.755357071571403,
+          "cpuMsPerRequest": 11.042078125,
+          "peakRssMiB": 154.1328125
+        }
+      },
+      "experimentalNormalMetrics": {
+        "coldMs": 211.99763500000017,
+        "serial": {
+          "p50Ms": 6.900600000000395,
+          "p95Ms": 9.86466399999972,
+          "requestsPerSecond": 134.73985687410286,
+          "cpuMsPerRequest": 8.7118125,
+          "peakRssMiB": 141.24609375
+        },
+        "concurrent8": {
+          "p50Ms": 38.635037999999895,
+          "p95Ms": 46.82847199999969,
+          "requestsPerSecond": 197.41218048206238,
+          "cpuMsPerRequest": 6.15025,
+          "peakRssMiB": 147.6875
+        }
+      },
+      "gzipSavingPercent": 61.97907215871288
+    },
+    {
+      "sizeBytes": 262144,
+      "label": "256 KiB",
+      "baseline": "raw source cache",
+      "baselineMetrics": {
+        "coldMs": 100.41967600000021,
+        "serial": {
+          "p50Ms": 36.49021599999992,
+          "p95Ms": 53.95963900000015,
+          "requestsPerSecond": 26.236596142201567,
+          "cpuMsPerRequest": 42.746187500000005,
+          "peakRssMiB": 215.1875
+        },
+        "concurrent8": {
+          "p50Ms": 120.57758600000034,
+          "p95Ms": 250.78685799999994,
+          "requestsPerSecond": 53.7503475211922,
+          "cpuMsPerRequest": 37.485390625,
+          "peakRssMiB": 268.109375
+        }
+      },
+      "currentMetrics": {
+        "coldMs": 726.5002400000001,
+        "serial": {
+          "p50Ms": 45.89932399999998,
+          "p95Ms": 73.79595599999993,
+          "requestsPerSecond": 20.372770202529612,
+          "cpuMsPerRequest": 16.253875,
+          "peakRssMiB": 160.78515625
+        },
+        "concurrent8": {
+          "p50Ms": 326.38565800000015,
+          "p95Ms": 444.0948499999995,
+          "requestsPerSecond": 23.057422718927143,
+          "cpuMsPerRequest": 12.072328124999999,
+          "peakRssMiB": 185.7578125
+        }
+      },
+      "experimentalNormalMetrics": {
+        "coldMs": 293.5069330000001,
+        "serial": {
+          "p50Ms": 11.702889000000141,
+          "p95Ms": 16.41937599999983,
+          "requestsPerSecond": 80.13277379588973,
+          "cpuMsPerRequest": 14.18359375,
+          "peakRssMiB": 160.62890625
+        },
+        "concurrent8": {
+          "p50Ms": 72.28398599999946,
+          "p95Ms": 89.62643300000036,
+          "requestsPerSecond": 105.43423551997391,
+          "cpuMsPerRequest": 11.027765625,
+          "peakRssMiB": 185.6328125
+        }
+      },
+      "gzipSavingPercent": 61.890196641851716
+    },
+    {
+      "sizeBytes": 2097152,
+      "label": "2 MiB",
+      "baseline": "existing transformed cache",
+      "baselineMetrics": {
+        "coldMs": 2903.1252619999996,
+        "serial": {
+          "p50Ms": 236.22282199999972,
+          "p95Ms": 288.4866490000004,
+          "requestsPerSecond": 4.133831174669408,
+          "cpuMsPerRequest": 362.9403125,
+          "peakRssMiB": 336.703125
+        },
+        "concurrent8": {
+          "p50Ms": 690.5366940000022,
+          "p95Ms": 929.2231830000001,
+          "requestsPerSecond": 10.958910900736049,
+          "cpuMsPerRequest": 253.19115625,
+          "peakRssMiB": 308.02734375
+        }
+      },
+      "currentMetrics": {
+        "coldMs": 4133.51807,
+        "serial": {
+          "p50Ms": 60.49789199999941,
+          "p95Ms": 100.03485599999931,
+          "requestsPerSecond": 15.358397676800456,
+          "cpuMsPerRequest": 50.210843749999995,
+          "peakRssMiB": 298.671875
+        },
+        "concurrent8": {
+          "p50Ms": 478.30868799999917,
+          "p95Ms": 528.2149260000006,
+          "requestsPerSecond": 16.483621344424616,
+          "cpuMsPerRequest": 55.64621875,
+          "peakRssMiB": 296.6875
+        }
+      },
+      "experimentalNormalMetrics": {
+        "coldMs": 3895.830503,
+        "serial": {
+          "p50Ms": 25.95565600000009,
+          "p95Ms": 32.11927700000069,
+          "requestsPerSecond": 40.429950182644916,
+          "cpuMsPerRequest": 43.713375,
+          "peakRssMiB": 307.65625
+        },
+        "concurrent8": {
+          "p50Ms": 161.56209900000067,
+          "p95Ms": 324.75534399999924,
+          "requestsPerSecond": 43.95237969807028,
+          "cpuMsPerRequest": 39.839515625000004,
+          "peakRssMiB": 307.93359375
+        }
+      },
+      "gzipSavingPercent": 62.199088089151175
+    }
+  ],
+  "indexProbe": {
+    "measuredAt": "2026-11-02T10:42:36.314Z",
+    "scope": "Synthetic metadata-only scale probe. Dummy blob rows have no payload files; excludes directory scanning and disk reads for those rows. Real reads use one verified blob. Eviction probe uses real 64 KiB files.",
+    "node": "v24.14.1",
+    "cardinality": [
+      {
+        "seedBlobs": 0,
+        "seedAliases": 0,
+        "seedDecisions": 0,
+        "seedHistory": 0,
+        "adminStats": {
+          "p50Ms": 0.5495260000002418,
+          "p95Ms": 0.8194220000000314,
+          "maxMs": 0.8764419999997699
+        },
+        "warmSourceHit": {
+          "p50Ms": 22.106009000000086,
+          "p95Ms": 32.67359299999998,
+          "maxMs": 38.92065599999978
+        },
+        "decisionWrite": {
+          "p50Ms": 6.600801999999931,
+          "p95Ms": 12.472383000000264,
+          "maxMs": 15.8033989999999
+        },
+        "smallFill": {
+          "p50Ms": 71.12627699999939,
+          "p95Ms": 98.24754799999982,
+          "maxMs": 100.35789100000011
+        }
+      },
+      {
+        "seedBlobs": 10000,
+        "seedAliases": 20000,
+        "seedDecisions": 10000,
+        "seedHistory": 10000,
+        "adminStats": {
+          "p50Ms": 6.904306000000361,
+          "p95Ms": 9.677666999999929,
+          "maxMs": 12.638716999999815
+        },
+        "warmSourceHit": {
+          "p50Ms": 22.83701199999996,
+          "p95Ms": 47.79449499999828,
+          "maxMs": 102.36107600000014
+        },
+        "decisionWrite": {
+          "p50Ms": 8.062501999999768,
+          "p95Ms": 13.995523999999932,
+          "maxMs": 14.909832000001188
+        },
+        "smallFill": {
+          "p50Ms": 75.03789299999971,
+          "p95Ms": 117.16210499999943,
+          "maxMs": 143.80038499999955
+        }
+      },
+      {
+        "seedBlobs": 100000,
+        "seedAliases": 200000,
+        "seedDecisions": 100000,
+        "seedHistory": 100000,
+        "adminStats": {
+          "p50Ms": 66.83604900000137,
+          "p95Ms": 78.69937500000015,
+          "maxMs": 87.98320400000011
+        },
+        "warmSourceHit": {
+          "p50Ms": 26.310491000000184,
+          "p95Ms": 82.98941600000035,
+          "maxMs": 112.1549300000006
+        },
+        "decisionWrite": {
+          "p50Ms": 22.948387000000366,
+          "p95Ms": 45.47333599999911,
+          "maxMs": 56.50094800000079
+        },
+        "smallFill": {
+          "p50Ms": 136.3280279999999,
+          "p95Ms": 214.8330500000011,
+          "maxMs": 312.4176129999978
+        }
+      }
+    ],
+    "eviction": {
+      "requests": 300,
+      "distinctObjects": 100,
+      "upstreamFills": 300,
+      "hitRate": 0,
+      "elapsedMs": 24658.882357999995,
+      "p50Ms": 74.17433299999539,
+      "p95Ms": 107.83662400000321,
+      "peakAllocated": 3997696,
+      "final": {
+        "blobs": 60,
+        "originalBytes": 3932160,
+        "storedBytes": 3932160,
+        "allocatedBytes": 3932160,
+        "oldestAccess": 1793616151486,
+        "budgetBytes": 4194304,
+        "reservedBytes": 0,
+        "maxObjectBytes": 65536,
+        "activeReaders": 0,
+        "decisions": 0
+      }
+    },
+    "assertions": "passed"
+  },
+  "recommendation": "Keep production disabled pending reduction of synchronous metadata commits and retesting. No application settings changed."
+}

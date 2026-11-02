@@ -1,0 +1,108 @@
+{
+  "measuredAt": "2026-11-02T10:42:36.314Z",
+  "scope": "Synthetic metadata-only scale probe. Dummy blob rows have no payload files; excludes directory scanning and disk reads for those rows. Real reads use one verified blob. Eviction probe uses real 64 KiB files.",
+  "node": "v24.14.1",
+  "cardinality": [
+    {
+      "seedBlobs": 0,
+      "seedAliases": 0,
+      "seedDecisions": 0,
+      "seedHistory": 0,
+      "adminStats": {
+        "p50Ms": 0.5495260000002418,
+        "p95Ms": 0.8194220000000314,
+        "maxMs": 0.8764419999997699
+      },
+      "warmSourceHit": {
+        "p50Ms": 22.106009000000086,
+        "p95Ms": 32.67359299999998,
+        "maxMs": 38.92065599999978
+      },
+      "decisionWrite": {
+        "p50Ms": 6.600801999999931,
+        "p95Ms": 12.472383000000264,
+        "maxMs": 15.8033989999999
+      },
+      "smallFill": {
+        "p50Ms": 71.12627699999939,
+        "p95Ms": 98.24754799999982,
+        "maxMs": 100.35789100000011
+      }
+    },
+    {
+      "seedBlobs": 10000,
+      "seedAliases": 20000,
+      "seedDecisions": 10000,
+      "seedHistory": 10000,
+      "adminStats": {
+        "p50Ms": 6.904306000000361,
+        "p95Ms": 9.677666999999929,
+        "maxMs": 12.638716999999815
+      },
+      "warmSourceHit": {
+        "p50Ms": 22.83701199999996,
+        "p95Ms": 47.79449499999828,
+        "maxMs": 102.36107600000014
+      },
+      "decisionWrite": {
+        "p50Ms": 8.062501999999768,
+        "p95Ms": 13.995523999999932,
+        "maxMs": 14.909832000001188
+      },
+      "smallFill": {
+        "p50Ms": 75.03789299999971,
+        "p95Ms": 117.16210499999943,
+        "maxMs": 143.80038499999955
+      }
+    },
+    {
+      "seedBlobs": 100000,
+      "seedAliases": 200000,
+      "seedDecisions": 100000,
+      "seedHistory": 100000,
+      "adminStats": {
+        "p50Ms": 66.83604900000137,
+        "p95Ms": 78.69937500000015,
+        "maxMs": 87.98320400000011
+      },
+      "warmSourceHit": {
+        "p50Ms": 26.310491000000184,
+        "p95Ms": 82.98941600000035,
+        "maxMs": 112.1549300000006
+      },
+      "decisionWrite": {
+        "p50Ms": 22.948387000000366,
+        "p95Ms": 45.47333599999911,
+        "maxMs": 56.50094800000079
+      },
+      "smallFill": {
+        "p50Ms": 136.3280279999999,
+        "p95Ms": 214.8330500000011,
+        "maxMs": 312.4176129999978
+      }
+    }
+  ],
+  "eviction": {
+    "requests": 300,
+    "distinctObjects": 100,
+    "upstreamFills": 300,
+    "hitRate": 0,
+    "elapsedMs": 24658.882357999995,
+    "p50Ms": 74.17433299999539,
+    "p95Ms": 107.83662400000321,
+    "peakAllocated": 3997696,
+    "final": {
+      "blobs": 60,
+      "originalBytes": 3932160,
+      "storedBytes": 3932160,
+      "allocatedBytes": 3932160,
+      "oldestAccess": 1793616151486,
+      "budgetBytes": 4194304,
+      "reservedBytes": 0,
+      "maxObjectBytes": 65536,
+      "activeReaders": 0,
+      "decisions": 0
+    }
+  },
+  "assertions": "passed"
+}
