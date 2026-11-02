@@ -142,6 +142,7 @@
     "oauth_resources_remaining": "Some resources still require OAuth. Migrate or remove them before disconnecting.",
     "invalid_github_path": "The GitHub repository path is invalid.",
     "repository_tree_incomplete": "The repository file tree is incomplete. Reduce its size and refresh before downloading.",
+    "billing_environment_mismatch": "The payment event does not match this billing environment.",
     "billing_unavailable": "Payments are not available. Please try again later.",
     "invalid_billing_signature": "The payment notification could not be verified.",
     "billing_webhook_failed": "The payment notification could not be processed.",
