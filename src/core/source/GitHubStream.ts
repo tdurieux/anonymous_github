@@ -1,3 +1,4 @@
+import { reserveFileExpansion } from "../billing/quotas";
 import { withOwnerAccessRecovery } from "../owner-notifications";
 import { ExpiringMap } from "../expiring-map";
 import { contentGenerationPrefix, contentRetirementMarker } from "../content-generation";
@@ -409,9 +410,16 @@ export default class GitHubStream extends GitHubBase {
             const content = await origin.downloadWithFallback(token, expected.sha, sourcePath)
               .catch(error => { throw downloadError(error, filePath); });
             let count = 0;
+            let admitted = expected.size || 0;
+            const expansionKey = createHash("sha256").update(filePath).digest("hex");
             const limited = new stream.Transform({ transform(chunk, encoding, callback) {
               count += chunk.length;
-              callback(count > config.MAX_FILE_SIZE ? new AnonymousError("file_too_big", { httpStatus: 413 }) : null, chunk);
+              if (count > config.MAX_FILE_SIZE) return callback(new AnonymousError("file_too_big", { httpStatus: 413 }));
+              if (!config.BILLING_ENABLED || count <= admitted) return callback(null, chunk);
+              // Reserve in bounded blocks to avoid a database write for every stream chunk.
+              admitted = Math.min(config.MAX_FILE_SIZE, Math.ceil(count / (1024 ** 2)) * 1024 ** 2);
+              reserveFileExpansion(repoId, expansionKey, admitted - (expected.size || 0))
+                .then(() => callback(null, chunk), error => callback(error));
             } });
             content.on("error", error => limited.destroy(downloadError(error, filePath)));
             limited.once("close", () => content.destroy());

@@ -73,7 +73,15 @@ router.get("/dashboard", async (req, res) => {
 router.get("/quota", async (req, res) => {
   try {
     const user = await getUser(req);
-    const ready = await user.quotaRepositories();
+    let ready = await user.quotaRepositories();
+    const limits = config.BILLING_ENABLED ? await allowance(user.id) : null;
+    if (limits) {
+      const funded = [];
+      for (const repository of ready) {
+        if ((await allowance(user.id, repository.repoId, repository.conference)).scope === limits.scope) funded.push(repository);
+      }
+      ready = funded;
+    }
 
     let totalStorage = 0;
     let totalFiles = 0;
@@ -127,7 +135,6 @@ router.get("/quota", async (req, res) => {
       }
     }
 
-    const limits = config.BILLING_ENABLED ? await allowance(user.id) : null;
     const reserved = limits ? await BillingQuota.findById(limits.scope).lean() : null;
     res.json({
       storage: {

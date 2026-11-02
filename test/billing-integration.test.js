@@ -54,6 +54,37 @@ async function rejects(promise, message) {
     const ledger = await BillingQuota.findById(`user:${owner}`);
     expect(ledger.allocations.map(a => a.repoId)).to.deep.equal(["personal"]);
   });
+  it("accounts for concurrent resolved-file growth without double charging retries", async () => {
+    const { reserveFileExpansion } = require("../src/core/billing/quotas");
+    await Repo.create({ repoId: "lfs", owner, billingManaged: true, status: "ready", size: { storage: 10 } });
+    await reserveRepository(owner, "lfs", 10);
+    await Promise.all(Array.from({ length: 8 }, () => reserveFileExpansion("lfs", "file-a", 40)));
+    expect((await BillingQuota.findById(`user:${owner}`)).allocations[0].bytes).to.equal(50);
+    await reserveFileExpansion("lfs", "file-b", 40);
+    await rejects(reserveFileExpansion("lfs", "file-c", 20), "quota_exceeded");
+    await reserveRepository(owner, "lfs", 15);
+    expect((await BillingQuota.findById(`user:${owner}`)).allocations[0].bytes).to.equal(95);
+    await reserveFileExpansion("lfs", "file-a", 1);
+    expect((await BillingQuota.findById(`user:${owner}`)).allocations[0].bytes).to.equal(95);
+  });
+  it("shows only personally funded repositories before a user ledger exists", async () => {
+    const utils = require("../src/server/routes/route-utils");
+    const originalUser = utils.getUser;
+    await BillingGrant.create({ _id: "conf-usage", owner, scope: "conference:funded", status: "paid", until: future(), planId: "conference" });
+    utils.getUser = async () => ({ id: owner, quotaRepositories: async () => [
+      { repoId: "conference-work", conference: "funded", size: { storage: 90, file: 1 } },
+      { repoId: "personal-work", size: { storage: 10, file: 1 } },
+    ] });
+    try {
+      const router = require("../src/server/routes/user").default;
+      const handler = router.stack.find(layer => layer.route?.path === "/quota").route.stack[0].handle;
+      let body;
+      await handler({}, { json: value => { body = value; } });
+      expect(body.repository.used).to.equal(1);
+      expect(body.storage.used).to.equal(10);
+      expect(body.file.used).to.equal(1);
+    } finally { utils.getUser = originalUser; }
+  });
   it("counts legacy repositories and releases removed repositories", async () => {
     await Repo.create(["one", "two", "three"].map(repoId => ({ repoId, owner, status: "ready", size: { storage: 10 } })));
     await rejects(reserveRepository(owner, "four", 1), "quota_exceeded");

@@ -218,7 +218,7 @@ export default class User {
     return AnonymizedRepositoryModel.find({ owner: this.id, status: "ready",
       $or: [{ "options.expirationMode": "never" }, { "options.expirationDate": { $exists: false } },
         { "options.expirationDate": null }, { "options.expirationDate": { $gt: new Date() } }] })
-      .select("repoId size sizeComputedAt treeGeneration fileMetadataRevision").lean().exec();
+      .select("repoId conference size sizeComputedAt treeGeneration fileMetadataRevision").lean().exec();
   }
 
   get model() {

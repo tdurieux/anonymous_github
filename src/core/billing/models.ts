@@ -16,7 +16,8 @@ export const BillingGrant = model("billingGrant", new Schema({
 }));
 export const BillingQuota = model("billingQuota", new Schema({
   _id: String,
-  allocations: [{ _id: false, repoId: String, bytes: Number, createdAt: Date }],
+  allocations: [{ _id: false, repoId: String, bytes: Number, baseBytes: Number,
+    expansions: [{ _id: false, key: String, bytes: Number }], createdAt: Date }],
 }));
 // A short lease serializes Stripe checkout creation across API instances.
 export const BillingLock = model("billingLock", new Schema({ _id: String, token: String, until: Date }));

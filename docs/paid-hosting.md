@@ -253,3 +253,13 @@ The donation entry remains available.
 Local browser checks used simulated payment responses for the final layout. The real
 Stripe sandbox checks and their limitations are documented in
 [stripe-sandbox-validation.md](stripe-sandbox-validation.md).
+
+### Resolved source-file storage
+
+Git LFS pointer sizes do not represent cached object sizes. Source-cache fills reserve
+bytes beyond the tree size before writing them, in blocks of at most 1 MiB. The ledger
+keeps per-path high-water marks so retries and concurrent fills do not charge twice.
+Reservations remain conservative across generations and failed fills and require
+operator reconciliation to release unused capacity. This also covers public raw
+downloads and expanded submodule content. Existing cached content is not retroactively
+measured by this write-time guard.

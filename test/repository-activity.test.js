@@ -66,6 +66,43 @@ describe("repository activity dates", () => {
     expect(saved.source.commit).to.equal("abc123");
     expect(saved).not.to.have.property("publishedAt");
   });
+  it("allows privacy-only saves after hosting capacity or conference admission ends", async () => {
+    const repo = repository(); auth(repo);
+    stub(require("../src/config").default, "BILLING_ENABLED", true);
+    const quotas = require("../src/core/billing/quotas");
+    repo.model.billingManaged = true;
+    repo.model.conference = "ended-conf";
+    repo.model.options.expirationMode = "remove";
+    stub(quotas, "assertConferenceAdmission", async () => { throw Error("must not check conference"); });
+    stub(quotas, "reserveRepository", async () => { throw Error("must not reserve"); });
+    let saved;
+    stub(Model, "updateOne", (_filter, update) => ({ exec: async () => { saved = update.$set; return { matchedCount: 1 }; } }));
+    await handler("repository-private", "/:repoId/", "post")({ body: {
+      repoId: repo.repoId, fullName: "owner/repo", conference: "ended-conf", source: { commit: "abc123", branch: "main" },
+      terms: ["private"], options: { expirationMode: "remove", expirationDate: "2027-01-01", image: false, pdf: false, update: false },
+    } }, { json: () => {} });
+    expect(saved.options).to.include({ image: false, pdf: false, update: false });
+  });
+  it("rejects an oversized edited source before removing the published files", async () => {
+    const repo = repository(); auth(repo); repo.model.billingManaged = true;
+    stub(require("../src/config").default, "BILLING_ENABLED", true);
+    const quotas = require("../src/core/billing/quotas");
+    const access = require("../src/core/github-app");
+    const github = require("../src/core/source/GitHubRepository");
+    const Stream = require("../src/core/source/GitHubStream").default;
+    stub(quotas, "assertConferenceAdmission", async () => {});
+    stub(access, "selectRepositoryAccess", async () => ({ token: "test", binding: { kind: "oauth" } }));
+    stub(github, "getRepositoryFromGitHub", async () => ({ model: { id: "gh_1" }, fullName: "owner/repo", getCommitInfo: async () => ({ commit: {} }) }));
+    stub(Stream.prototype, "getFiles", async function () { expect(this.data.commit).to.equal("abcdef456"); return [{ size: 500 }]; });
+    stub(quotas, "reserveRepository", async (_owner, _repo, bytes) => { expect(bytes).to.equal(500); throw Error("quota_exceeded"); });
+    repo.remove = async () => { throw Error("must preserve snapshot"); };
+    let error;
+    try { await handler("repository-private", "/:repoId/", "post")({ body: {
+      repoId: repo.repoId, fullName: "owner/repo", source: { commit: "abcdef456", branch: "main" },
+      terms: [], options: { expirationMode: "never" },
+    } }, { json: () => {} }); } catch (caught) { error = caught; }
+    expect(error?.message).to.equal("quota_exceeded");
+  });
   for (const mode of ["never", "remove"]) {
     it(`persists the billing deadline when settings change to ${mode}`, async () => {
       const config = require("../src/config").default;

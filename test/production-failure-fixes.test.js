@@ -88,6 +88,23 @@ describe("production failure fixes", function () {
     source.downloadWithFallback = async () => { attempts++; throw Object.assign(Error("forbidden"), { response: { statusCode: 403 } }); };
     now += 30001; await read().catch(() => {}); await read().catch(() => {}); expect(attempts).to.equal(6);
   });
+  it("blocks resolved LFS bytes before they reach the source cache when capacity is full", async () => {
+    const config = require("../src/config").default;
+    const quotas = require("../src/core/billing/quotas");
+    stub(config, "BILLING_ENABLED", true);
+    stub(storage, "fileInfo", async () => { throw Object.assign(Error("missing"), { code: "ENOENT" }); });
+    let written = 0, requested;
+    stub(storage, "write", async (_repo, _path, input) => { for await (const chunk of input) written += chunk.length; });
+    stub(quotas, "reserveFileExpansion", async (_id, _key, bytes) => { requested = bytes; throw Error("quota_exceeded"); });
+    const source = new GitHubStream({ repoId: "lfs-quota", organization: "owner", repoName: "repo", commit: "first", getToken: () => "token" });
+    source.downloadWithFallback = async () => require("node:stream").Readable.from([Buffer.alloc(1024)]);
+    let error;
+    try { await source.getFileContentCache("large.bin", source.data.repoId, () => ({ sha: "sha", size: 130 })); }
+    catch (caught) { error = caught; }
+    expect(error?.message).to.equal("quota_exceeded");
+    expect(requested).to.equal(1024 ** 2 - 130);
+    expect(written).to.equal(0);
+  });
   it("does not cache a storage 404 as a missing upstream file", async () => {
     let attempts = 0;
     stub(storage, "fileInfo", async () => { throw Object.assign(Error("missing"), { code: "ENOENT" }); });

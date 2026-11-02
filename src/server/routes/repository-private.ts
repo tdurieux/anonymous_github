@@ -547,8 +547,11 @@ router.post(
         repo.model.anonymizeDate = new Date();
       }
 
-      await assertConferenceAdmission(String(repo.model.owner), repo.repoId, repoUpdate.conference);
-      if (repo.model.billingManaged) await reserveRepository(String(repo.model.owner), repo.repoId, repo.model.size?.storage || 0, repoUpdate.conference);
+      const needsAdmission = sourceChanged || reactivating || repoUpdate.conference !== repo.model.conference;
+      if (needsAdmission) {
+        await assertConferenceAdmission(String(repo.model.owner), repo.repoId, repoUpdate.conference);
+        if (repo.model.billingManaged && !sourceChanged) await reserveRepository(String(repo.model.owner), repo.repoId, repo.model.size?.storage || 0, repoUpdate.conference);
+      }
 
       if (sourceChanged) {
         const parsedRepository = gh(repoUpdate.fullName);
@@ -591,6 +594,11 @@ router.post(
         repo.model.source.repositoryName =
           repository.fullName || repoUpdate.fullName;
         repo.model.anonymizeDate = new Date();
+        if (repo.model.billingManaged) {
+          const files = await repo.source.getFiles();
+          await reserveRepository(String(repo.model.owner), repo.repoId,
+            files.reduce((sum, file) => sum + (file.size || 0), 0), repoUpdate.conference);
+        }
         await repo.remove({ accessRevision: previousAccessRevision });
       }
 
