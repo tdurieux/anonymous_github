@@ -287,9 +287,11 @@ export class BlobCache {
         if (this.usage() + reserved + reservation > this.options.budget) {
           this.evictTo(Math.max(0, Math.min(this.options.budget * (this.options.lowWater ?? 0.9), this.options.budget - reserved - reservation)));
         }
-        if (this.usage() + reserved + reservation > this.options.budget) throw new CacheAdmissionError("cache_budget_busy");
+        // Eviction unlinks files: commit its metadata even if admission still fails.
+        if (this.usage() + reserved + reservation > this.options.budget) return null;
         this.db.prepare("INSERT INTO fills VALUES(?,?,?,?)").run(key, token, Date.now() + 120000, reservation); return true;
       }, true);
+      if (owned === null) throw new CacheAdmissionError("cache_budget_busy");
       if (owned) break;
       this.metric("fill_wait");
       if (Date.now() >= deadline) throw new CacheAdmissionError("fill_timeout");

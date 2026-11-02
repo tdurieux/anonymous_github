@@ -65,6 +65,11 @@ Publication installs a reader lease before releasing its transaction, including
 duplicate blobs. Decisions retain sniffed text classification for consistent MIME
 headers on repeat reads; binary responses omit the range-denial header.
 
+Shared result production and delivery use the same repository lifecycle checks as
+the legacy transformed cache. Client disconnects cancel the active transformer and
+its worker signal, releasing spool reservations. Completed evictions are committed
+even when pinned readers still prevent a new admission.
+
 The HTTP fast path applies to individual file responses backed by the shared source
 pool, including small text files. Decisions include content identity, path, project
 context, all transformation options, generation/revision, mask, hostname and engine

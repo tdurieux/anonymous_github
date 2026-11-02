@@ -3,6 +3,7 @@ const { promises: fs } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { join } = require("node:path");
 const http = require("node:http");
+const { setTimeout } = require("node:timers");
 const { Readable } = require("node:stream");
 const { createHash } = require("node:crypto");
 const { gunzipSync } = require("node:zlib");
@@ -47,7 +48,7 @@ describe("shared cache HTTP and telemetry integration", function () {
         const handled = await sendSharedContent(input, res, { filePath, repoId: req.params.project,
           terms: req.params.mode === "changed" ? ["Public=>Private"] : ["Alice"] });
         if (!handled) res.send(await consume(input));
-      } catch (e) { if (!res.headersSent) res.status(500).end(e.message); else res.destroy(e); }
+      } catch (e) { if (!res.headersSent) res.status(e.httpStatus || 500).end(e.message); else res.destroy(e); }
     });
     await new Promise(resolve => { server = app.listen(0, "127.0.0.1", resolve); }); port = server.address().port;
   });
@@ -84,6 +85,62 @@ describe("shared cache HTTP and telemetry integration", function () {
       assert.deepEqual(await consume(await source.getFileContentCache("vendor/src/data.txt", "parent", meta)), body);
       assert.equal(calls, 1);
     } finally { GitHubStream.prototype.downloadWithFallback = original; }
+  });
+  for (const change of ["expired", "removed", "revision"]) it("rejects a large rewrite retired during worker execution: " + change, async () => {
+    const db = require("../src/server/database"), model = require("../src/core/model/anonymizedRepositories/anonymizedRepositories.model").default;
+    const pool = require("../src/core/anonymization-pool"), worker = pool.anonymizeOnWorker, find = model.findOne, connected = db.isConnected;
+    const current = { status: "ready" }; let release, started;
+    const began = new Promise(resolve => { started = resolve; }), held = new Promise(resolve => { release = resolve; });
+    body = Buffer.from("Public documentation.\n".repeat(20000));
+    db.isConnected = true;
+    model.findOne = () => ({ select() { return this; }, lean() { return this; }, exec: async () => current });
+    pool.anonymizeOnWorker = async message => {
+      started(); await held;
+      await fs.writeFile(message.output, (await fs.readFile(message.input, "utf8")).replaceAll("Public", "Private"));
+      return true;
+    };
+    let pending;
+    try {
+      pending = request(port, "/a/changed", "identity", headers); await began;
+      if (change === "revision") current.contentCacheRevision = "new"; else current.status = change;
+      release(); const r = await pending;
+      assert.equal(r.status, 409); assert.equal(r.body.toString(), "repository_changed");
+      assert.equal(resultBlobCache().stats().blobs, 0); assert.equal(resultBlobCache().stats().decisions, 0);
+    } finally { release(); await pending?.catch(() => {}); pool.anonymizeOnWorker = worker; model.findOne = find; db.isConnected = connected; }
+  });
+  it("rechecks repository lifecycle on a decision hit before sending bytes", async () => {
+    await request(port, "/a/changed", "identity", headers);
+    const db = require("../src/server/database"), model = require("../src/core/model/anonymizedRepositories/anonymizedRepositories.model").default;
+    const results = resultBlobCache(), open = results.open.bind(results), find = model.findOne, connected = db.isConnected;
+    const current = { status: "ready" }; db.isConnected = true;
+    model.findOne = () => ({ select() { return this; }, lean() { return this; }, exec: async () => current });
+    results.open = async (...args) => { const stream = await open(...args); current.status = "removed"; return stream; };
+    try {
+      const r = await request(port, "/a/changed", "identity", headers);
+      assert.equal(r.status, 409); assert.equal(r.body.toString(), "repository_changed");
+    } finally { results.open = open; model.findOne = find; db.isConnected = connected; }
+  });
+  it("cancels an active worker and releases spools when the client disconnects", async () => {
+    const pool = require("../src/core/anonymization-pool"), worker = pool.anonymizeOnWorker;
+    const baseline = pool.getAnonymizationPoolStats().spoolBytes;
+    let started, aborted, rejectWork, client;
+    const began = new Promise(resolve => { started = resolve; }), cancelled = new Promise(resolve => { aborted = resolve; });
+    body = Buffer.from("Public documentation.\n".repeat(20000));
+    pool.anonymizeOnWorker = (_message, _size, signal) => new Promise((_resolve, reject) => {
+      rejectWork = reject; started();
+      signal.addEventListener("abort", () => { aborted(); reject(Error("anonymization_cancelled")); }, { once: true });
+    });
+    try {
+      client = http.get({ host: "127.0.0.1", port, path: "/a/changed", headers }); client.on("error", () => {});
+      await began; assert.ok(pool.getAnonymizationPoolStats().spoolBytes > baseline);
+      client.destroy();
+      await Promise.race([cancelled, new Promise((_, reject) => setTimeout(() => reject(Error("worker was not cancelled")), 2000))]);
+      for (let i = 0; i < 100 && (pool.getAnonymizationPoolStats().spoolBytes !== baseline || resultBlobCache().stats().reservedBytes); i++)
+        await new Promise(resolve => setTimeout(resolve, 10));
+      assert.equal(pool.getAnonymizationPoolStats().spoolBytes, baseline);
+      assert.equal(resultBlobCache().stats().reservedBytes, 0);
+      assert.equal(resultBlobCache().stats().blobs, 0);
+    } finally { client?.destroy(); rejectWork?.(Error("test cleanup")); pool.anonymizeOnWorker = worker; }
   });
   for (const changed of [false, true]) it("preserves sniffed text MIME on initial and cached responses: " + changed, async () => {
     for (const encoding of ["gzip", "identity"]) {

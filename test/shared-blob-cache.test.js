@@ -262,6 +262,25 @@ describe("shared content-addressed blob pool", function () {
       assert.equal(cache.disk.prepare("SELECT COUNT(*) n FROM reservations").get().n, 0);
     } finally { workers.forEach(w => w.kill()); }
   });
+  it("commits completed evictions when pinned readers still prevent admission", async () => {
+    for (let i = 0; i < 11; i++) await read(await cache.getOrFill("evict-" + i, async () => Readable.from("content-" + i)));
+    const pinned = await Promise.all(Array.from({ length: 10 }, (_, i) => cache.lookup("evict-" + i)));
+    let release, started;
+    const began = new Promise(resolve => { started = resolve; });
+    const pending = cache.getOrFill("pending", async () => {
+      started(); await new Promise(resolve => { release = resolve; }); return Readable.from("pending content");
+    });
+    try {
+      await began;
+      await assert.rejects(cache.getOrFill("denied", async () => Readable.from("new")),
+        error => error instanceof CacheAdmissionError && error.message === "cache_budget_busy");
+      assert.equal(cache.stats().blobs, 10); assert.equal(cache.stats().allocatedBytes, 10 * 4096);
+      assert.equal(cache.db.prepare("SELECT 1 FROM aliases WHERE key='evict-10'").get(), undefined);
+      for (const row of cache.db.prepare("SELECT * FROM blobs").all())
+        await fs.access(join(root, "blobs", row.digest.split("-")[1].slice(0, 2), row.digest, row.file));
+      release(); await read(await pending);
+    } finally { release?.(); await pending.catch(() => {}); pinned.forEach(stream => stream.destroy()); }
+  });
   it("does not publish failed or hash-invalid fills and releases reservations", async () => {
     await assert.rejects(cache.getOrFill("invalid", async () => Readable.from("bad"), async () => { throw Error("invalid_hash"); }), /invalid_hash/);
     assert.equal(cache.stats().blobs, 0); assert.equal(cache.stats().reservedBytes, 0);
