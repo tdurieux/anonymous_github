@@ -66,6 +66,27 @@ describe("repository activity dates", () => {
     expect(saved.source.commit).to.equal("abc123");
     expect(saved).not.to.have.property("publishedAt");
   });
+  for (const mode of ["never", "remove"]) {
+    it(`persists the billing deadline when settings change to ${mode}`, async () => {
+      const config = require("../src/config").default;
+      const expiration = require("../src/core/billing/expiration");
+      const quotas = require("../src/core/billing/quotas");
+      const repo = repository(); auth(repo); let saved;
+      const deadline = new Date("2027-06-01");
+      repo.model.options.expirationMode = "remove";
+      repo.model.billingNeverExpiresUntil = deadline;
+      stub(config, "BILLING_ENABLED", true);
+      stub(expiration, "neverExpirationDeadline", async () => deadline);
+      stub(quotas, "assertConferenceAdmission", async () => {});
+      stub(Model, "updateOne", (_filter, update) => ({ exec: async () => { saved = update; return { matchedCount: 1 }; } }));
+      await handler("repository-private", "/:repoId/", "post")({ body: {
+        repoId: repo.repoId, fullName: "owner/repo", source: { commit: "abc123", branch: "main" },
+        terms: [], options: { expirationMode: mode, expirationDate: "2027-01-01" },
+      } }, { json: () => {} });
+      if (mode === "never") expect(saved.$set.billingNeverExpiresUntil).to.deep.equal(deadline);
+      else expect(saved.$unset).to.have.property("billingNeverExpiresUntil", 1);
+    });
+  }
   it("dates a dashboard expiration extension", async () => {
     const repo = repository(); auth(repo); let saved;
     stub(Model, "updateOne", (_filter, update) => ({ exec: async () => { saved = update.$set; } }));

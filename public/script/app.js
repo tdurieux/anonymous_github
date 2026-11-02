@@ -1158,6 +1158,7 @@ export const anonymizeController = function (state, http, html, params, location
         ? "gist:" + parsed.gistId.toLowerCase()
         : (parsed.owner + "/" + parsed.repo).toLowerCase() + (parsed.pullRequestId ? "/pull/" + parsed.pullRequestId : "");
       const draft = formDraft(state, ["sourceUrl", "terms", "repoId", "pullRequestId", "gistId", "source", "options", "conference", "githubConnection"], "anonymize:" + (location.path?.() || ""));
+      let restoredCheckoutConference = null;
       let checkoutDraftId = null;
       let checkoutDraftSnapshot = null;
       state.hostingReview = false;
@@ -1395,6 +1396,7 @@ export const anonymizeController = function (state, http, html, params, location
           try {
             const saved = (await http.get("/api/billing/draft/" + encodeURIComponent(billingDraft))).data;
             if (saved.path !== location.path()) throw new Error("Wrong task");
+            restoredCheckoutConference = saved.values.conference || null;
             for (const key of ["sourceUrl", "terms", "repoId", "source", "options", "conference", "githubConnection"]) {
               if (Object.prototype.hasOwnProperty.call(saved.values, key)) state[key] = saved.values[key];
             }
@@ -1998,7 +2000,9 @@ export const anonymizeController = function (state, http, html, params, location
         state.conference_data = null;
         if (!conference) return;
         const preserveSavedOptions =
-          state.isUpdate && conference === state._originalConference;
+          conference === restoredCheckoutConference ||
+          (state.isUpdate && conference === state._originalConference);
+        if (conference !== restoredCheckoutConference) restoredCheckoutConference = null;
         http.get("/api/conferences/" + conference).then(
           (res) => {
             if (state.conference !== conference) return;

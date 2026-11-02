@@ -72,6 +72,37 @@ describe("repository refresh and restoration", () => {
     });
   }
 
+  for (const force of [true, false]) {
+    it(`preserves the published snapshot when a ${force ? "manual" : "automatic"} refresh exceeds capacity`, async () => {
+      const config = require("../src/config").default;
+      const quotas = require("../src/core/billing/quotas");
+      const Stream = require("../src/core/source/GitHubStream").default;
+      const repo = repository("ready");
+      repo.model.billingManaged = true;
+      repo.model.options.update = true;
+      repo.model.lastView = new Date("2020-01-01");
+      stub(config, "BILLING_ENABLED", true);
+      stub(db, "isConnected", false);
+      stub(quotas, "allowance", async () => ({ plan: "author_monthly" }));
+      stub(quotas, "reserveRepository", async (_owner, _id, bytes) => {
+        expect(bytes).to.equal(999);
+        throw new Error("quota_exceeded");
+      });
+      stub(Stream.prototype, "getFiles", async function () {
+        expect(this.data.commit).to.equal("new-sha"); return [{ size: 999 }];
+      });
+      repo.getToken = async () => "test-token";
+      stub(github, "getRepositoryFromGitHub", async () => ({ fullName: "owner/repo", model: {},
+        branches: async () => [{ name: "main", commit: "new-sha" }],
+      }));
+      repo.resetSate = async () => { throw new Error("must preserve files"); };
+      let error;
+      try { await repo.updateIfNeeded({ force }); } catch (caught) { error = caught; }
+      expect(error?.message).to.equal(force ? "quota_exceeded" : undefined);
+      expect(repo.model.source.commit).to.equal("saved-sha");
+      expect(repo.status).to.equal("ready");
+    });
+  }
   it("preserves a removed repository and reports a GitHub access failure", async () => {
     const repo = repository("removed");
     const failure = new Error("token_expired");

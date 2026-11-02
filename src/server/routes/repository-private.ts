@@ -625,6 +625,7 @@ router.post(
           "githubAccess.revision": previousAccessRevision || { $exists: false } },
         {
           $set: {
+            ...(repo.model.billingNeverExpiresUntil ? { billingNeverExpiresUntil: repo.model.billingNeverExpiresUntil } : {}),
             settingsSavedAt: new Date(),
             options: repo.model.options,
             source: repo.model.source,
@@ -632,6 +633,7 @@ router.post(
             conference: repo.model.conference,
             anonymizeDate: repo.model.anonymizeDate,
           },
+          ...(!repo.model.billingNeverExpiresUntil ? { $unset: { billingNeverExpiresUntil: 1 } } : {}),
         }
       ).exec();
       if (!saved.matchedCount) throw appError("connection_changed", 409);

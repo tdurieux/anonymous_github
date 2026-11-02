@@ -237,11 +237,13 @@ describe("Vue 3 UI", function () {
     ui = await browser("/anonymize?billingDraft=saved-task&billing=success", { ...repositorySource,
       "/api/billing/": { ...taskBilling, allowance: { plan: "author_monthly", repositories: 20 } },
       "/api/billing/refresh": { ok: true, pending: false },
-      "/api/billing/draft/saved-task": { id: "saved-task", path: "/anonymize", values: { sourceUrl: "https://github.com/owner/repo", terms: "Restored Author", repoId: "saved-repo", source: { branch: "main" }, options: { expirationMode: "never" } } },
+      "/api/billing/draft/saved-task": { id: "saved-task", path: "/anonymize", values: { sourceUrl: "https://github.com/owner/repo", terms: "Restored Author", repoId: "saved-repo", source: { branch: "main" }, options: { expirationMode: "never", image: false, pdf: false }, conference: "paid-conf" } },
+      "/api/conferences/paid-conf": { endDate: "2027-05-01", options: { image: true, pdf: true } },
     });
     await delay(150);
     expect(ui.window.document.querySelector("#sourceUrl")._field.binding.state.terms).to.equal("Restored Author");
     expect(ui.window.document.querySelector("#sourceUrl")._field.binding.state.repoId).to.equal("saved-repo");
+    expect(ui.window.document.querySelector("#sourceUrl")._field.binding.state.options).to.include({ expirationMode: "never", image: false, pdf: false });
     expect(ui.app.router.currentRoute.value.query).to.deep.equal({});
     expect(ui.window.document.querySelector("#sourceUrl")._field.binding.state.hostingNeedsPayment()).to.equal(false);
     expect(ui.window.document.querySelector("#repository-hosting").textContent).to.include("subscription is active");

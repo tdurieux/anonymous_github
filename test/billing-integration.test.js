@@ -43,6 +43,17 @@ async function rejects(promise, message) {
     await Promise.all([reserveRepository(owner, id, 90), reserveRepository(owner, id, 1)]);
     expect((await BillingQuota.findById(`user:${owner}`)).allocations[0].bytes).to.equal(90);
   });
+  it("does not seed personal capacity with conference-funded or pass-funded repositories", async () => {
+    await BillingGrant.create([
+      { _id: "conf-grant", owner, scope: "conference:funded", status: "paid", until: future(), planId: "conference" },
+      { _id: "pass-grant", owner, scope: "repo:pass", status: "paid", until: future(), planId: "author_pass" },
+    ]);
+    await Repo.create([...["a", "b", "c"].map(repoId => ({ repoId, owner, conference: "funded", status: "ready", size: { storage: 80 } })),
+      { repoId: "pass", owner, status: "ready", size: { storage: 80 } }]);
+    await reserveRepository(owner, "personal", 10);
+    const ledger = await BillingQuota.findById(`user:${owner}`);
+    expect(ledger.allocations.map(a => a.repoId)).to.deep.equal(["personal"]);
+  });
   it("counts legacy repositories and releases removed repositories", async () => {
     await Repo.create(["one", "two", "three"].map(repoId => ({ repoId, owner, status: "ready", size: { storage: 10 } })));
     await rejects(reserveRepository(owner, "four", 1), "quota_exceeded");

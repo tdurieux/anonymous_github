@@ -708,6 +708,20 @@ export default class Repository {
           logger.info("up to date", { repoId: this._model.repoId });
           return;
         }
+        // Admit the pinned replacement before changing or deleting the published snapshot.
+        if (config.BILLING_ENABLED && this.model.billingManaged) {
+          const candidateModel = new AnonymizedRepositoryModel(this.model.toObject());
+          candidateModel.source.commit = newCommit;
+          const candidate = new Repository(candidateModel);
+          const files = await candidate.source.getFiles();
+          try {
+            await reserveRepository(String(this.model.owner), this.repoId,
+              files.reduce((sum, file) => sum + (file.size || 0), 0), this.model.conference);
+          } catch (error) {
+            if (!opt?.force && error instanceof Error && error.message === "quota_exceeded") return;
+            throw error;
+          }
+        }
         this._model.source.commit = newCommit;
         const commitInfo = await ghRepo.getCommitInfo(newCommit, {
           accessToken: token,

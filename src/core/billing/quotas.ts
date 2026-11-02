@@ -30,8 +30,12 @@ export async function reserveRepository(owner: string, repoId: string, bytes: nu
   if (!await BillingQuota.exists({ _id: limits.scope })) {
     const existing = await RepositoryModel.find(limits.scope.startsWith("user:") ? { owner, status: { $nin: ["removed", "expired"] } }
       : limits.scope.startsWith("conference:") ? { conference, status: { $nin: ["removed", "expired"] } } : { repoId, status: { $nin: ["removed", "expired"] } })
-      .select("repoId size").lean();
-    try { await BillingQuota.create({ _id: limits.scope, allocations: existing.map(r => ({ repoId: r.repoId, bytes: r.size?.storage || 0, createdAt: new Date() })) }); }
+      .select("repoId size owner conference").lean();
+    const funded = [];
+    for (const repository of existing) {
+      if ((await allowance(String(repository.owner), repository.repoId, repository.conference)).scope === limits.scope) funded.push(repository);
+    }
+    try { await BillingQuota.create({ _id: limits.scope, allocations: funded.map(r => ({ repoId: r.repoId, bytes: r.size?.storage || 0, createdAt: new Date() })) }); }
     catch (error) { if ((error as { code?: number }).code !== 11000) throw error; }
   }
   // Only confirmed terminal repositories release capacity. Unknown reservations
