@@ -132,6 +132,13 @@ describe("shared cache HTTP and telemetry integration", function () {
         error => error.message === "file_not_accessible" && error.httpStatus === 403);
     });
   }
+  it("rejects truncated admission-bypass downloads before successful completion", async () => {
+    sharedBlobCache().options.budget = 1;
+    const source = new GitHubStream({ repoId: "short", organization: "org", repoName: "repo", commit: "commit", getToken: async () => "" });
+    source.downloadWithFallback = async () => Readable.from("short");
+    await assert.rejects(async () => consume(await source.getFileContentCache("data.txt", "short", () => ({ sha: sha(body), size: 20 }))),
+      error => error.message === "storage_write_size_mismatch" && error.httpStatus === 502);
+  });
   it("classifies parent repository misses before returning a shared-download error", async () => {
     const misses = require("../src/core/source/github-content-miss"), original = misses.classifyContentMiss;
     let classified = 0;

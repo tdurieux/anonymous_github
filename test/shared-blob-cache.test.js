@@ -143,6 +143,7 @@ describe("shared content-addressed blob pool", function () {
       const exited = new Promise(resolve => worker.once("exit", resolve));
       worker.kill("SIGKILL"); await exited;
       assert.ok(cache.stats().reservedBytes > 0);
+      assert.equal(cache.disk.prepare("SELECT COUNT(*) n FROM reservations").get().n, 1);
       assert.equal(cache.stats().blobs, 0);
       assert.equal(cache.db.prepare("SELECT COUNT(*) n FROM publications").get().n, 1);
       await fs.access(renamed);
@@ -150,6 +151,7 @@ describe("shared content-addressed blob pool", function () {
       await cache.maintain();
       await assert.rejects(fs.access(renamed), { code: "ENOENT" });
       assert.equal(cache.stats().reservedBytes, 0);
+      assert.equal(cache.disk.prepare("SELECT COUNT(*) n FROM reservations").get().n, 0);
       assert.equal(cache.db.prepare("SELECT COUNT(*) n FROM publications").get().n, 0);
       assert.equal((await read(await cache.getOrFill("multiprocess", async () => Readable.from("recovered")))).toString(), "recovered");
     } finally { worker.kill(); }
@@ -181,6 +183,84 @@ describe("shared content-addressed blob pool", function () {
     } finally { other.db.exec("ROLLBACK"); other.close(); }
     assert.equal((await read(await cache.lookup("locked"))).toString(), "available");
     await delay(20); assert.equal(cache.stats().activeReaders, 0);
+  });
+  it("retries a contended reader heartbeat while its confirmed lease is valid", async () => {
+    await read(await cache.getOrFill("heartbeat", async () => Readable.from("still readable")));
+    const other = new BlobCache(cache.options);
+    const interval = global.setInterval, now = Date.now; let tick, reader;
+    global.setInterval = fn => { tick = fn; return interval(fn, 10000000); };
+    try { reader = await cache.lookup("heartbeat"); } finally { global.setInterval = interval; }
+    const base = now();
+    try {
+      other.db.exec("BEGIN IMMEDIATE"); Date.now = () => base + 31000; tick();
+      assert.equal(reader.destroyed, false);
+      other.db.exec("ROLLBACK"); Date.now = () => base + 32000; tick();
+      assert.ok(Number(cache.db.prepare("SELECT MAX(expires) n FROM readers").get().n) >= base + 152000);
+      Date.now = now;
+      assert.equal((await read(reader)).toString(), "still readable");
+    } finally { Date.now = now; reader.destroy(); if (other.db.isTransaction) other.db.exec("ROLLBACK"); other.close(); }
+  });
+  it("ends a contended reader once its confirmed lease expires", async () => {
+    await read(await cache.getOrFill("expiry", async () => Readable.from("data")));
+    const other = new BlobCache(cache.options), interval = global.setInterval, now = Date.now;
+    let tick, reader;
+    global.setInterval = fn => { tick = fn; return interval(fn, 10000000); };
+    try { reader = await cache.lookup("expiry"); } finally { global.setInterval = interval; }
+    const error = new Promise(resolve => reader.once("error", resolve)), base = now();
+    try {
+      other.db.exec("BEGIN IMMEDIATE"); Date.now = () => base + 121000; tick();
+      assert.equal((await error).message, "cache_reader_lease_lost");
+    } finally { Date.now = now; other.db.exec("ROLLBACK"); reader.destroy(); other.close(); }
+  });
+  it("coordinates physical headroom between source and result pools", async () => {
+    const native = require("node:fs"), statfs = native.statfsSync;
+    const other = new BlobCache({ ...cache.options, root: join(root, "results"), reservationRoot: root, freeBytes: 1000 });
+    cache.options.freeBytes = 1000;
+    native.statfsSync = () => ({ bavail: 18000, bsize: 1 });
+    let release, started;
+    const pending = new Promise(resolve => { started = resolve; });
+    const fill = cache.getOrFill("source-pending", async () => {
+      started(); await new Promise(resolve => { release = resolve; }); return Readable.from("source");
+    });
+    try {
+      await pending;
+      await assert.rejects(other.getOrFill("result-pending", async () => Readable.from("result")),
+        error => error instanceof CacheAdmissionError && error.message === "disk_headroom");
+      release(); await read(await fill);
+      assert.equal((await read(await other.getOrFill("result-pending", async () => Readable.from("result")))).toString(), "result");
+      assert.equal(cache.disk.prepare("SELECT COUNT(*) n FROM reservations").get().n, 0);
+    } finally { release?.(); await fill.catch(() => {}); native.statfsSync = statfs; other.close(); }
+  });
+  it("shares physical headroom reservations across separate producer processes", async function () {
+    this.timeout(45000);
+    const { fork } = require("node:child_process");
+    const workers = ["source-process", "result-process"].map(name => fork(join(__dirname, "fixtures/shared-cache-worker.js"), [], {
+      env: { ...process.env, NODE_ENV: "test", BLOB_TEST_DISK_BYTES: "18000", BLOB_TEST_HOLD_FILL: "1",
+        BLOB_TEST_OPTIONS: JSON.stringify({ ...cache.options, root: join(root, name), reservationRoot: root, freeBytes: 1000 }) },
+      stdio: ["ignore", "ignore", "pipe", "ipc"]
+    }));
+    try {
+      const ready = [], outcomes = [], bodies = [];
+      for (const worker of workers) {
+        let stderr = ""; worker.stderr.on("data", b => { stderr = (stderr + b).slice(-4000); });
+        ready.push(new Promise((resolve, reject) => {
+          worker.on("message", m => { if (m === "ready") resolve(); });
+          worker.on("error", reject); worker.on("exit", code => reject(Error("worker exited " + code + ": " + stderr)));
+        }));
+        outcomes.push(new Promise((resolve, reject) => {
+          worker.on("message", m => { if (m === "fill" || m.error) resolve(m); }); worker.on("error", reject);
+        }));
+        bodies.push(new Promise(resolve => worker.on("message", m => { if (m.body || m.error) resolve(m); })));
+      }
+      await Promise.all(ready); workers.forEach(w => w.send("start"));
+      const values = await Promise.all(outcomes);
+      assert.equal(values.filter(v => v === "fill").length, 1);
+      assert.equal(values.find(v => v.error)?.error, "disk_headroom");
+      workers[values.indexOf("fill")].send("release");
+      const completed = await Promise.all(bodies);
+      assert.equal(completed.find(v => v.body)?.body, "shared across processes");
+      assert.equal(cache.disk.prepare("SELECT COUNT(*) n FROM reservations").get().n, 0);
+    } finally { workers.forEach(w => w.kill()); }
   });
   it("does not publish failed or hash-invalid fills and releases reservations", async () => {
     await assert.rejects(cache.getOrFill("invalid", async () => Readable.from("bad"), async () => { throw Error("invalid_hash"); }), /invalid_hash/);

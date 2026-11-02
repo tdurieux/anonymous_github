@@ -391,7 +391,7 @@ export default class GitHubStream extends GitHubBase {
       await assertActive();
       if (expected.size != null && expected.size > config.MAX_FILE_SIZE) throw new AnonymousError("file_too_big", { httpStatus: 413 });
       let legacy = false, allowLegacy = true;
-      const download = async () => {
+      const download = async (checkMinimum = false) => {
         const parentToken = await this.data.getToken();
         const token = expected.upstream ? "" : parentToken;
         const sourceMiss = cachedContentMiss(this.data, parentToken);
@@ -425,6 +425,8 @@ export default class GitHubStream extends GitHubBase {
               if (bytes > config.MAX_FILE_SIZE) throw new AnonymousError("file_too_big", { httpStatus: 413 });
               yield chunk;
             }
+            if (checkMinimum && expected.size != null && expected.size > 0 && bytes < expected.size)
+              throw new AnonymousError("storage_write_size_mismatch", { httpStatus: 502 });
           } catch (error) { throw await normalize(error as Error); }
           finally { clearTimeout(deadline); input.destroy(); }
         })());
@@ -464,7 +466,7 @@ export default class GitHubStream extends GitHubBase {
         return content;
       } catch (error) {
         if (!(error instanceof CacheAdmissionError)) throw error;
-        observeCache("source_bypass"); await assertActive(); return download();
+        observeCache("source_bypass"); await assertActive(); return download(true);
       }
     }
     const hit = await measureStage("cache_lookup", cached);

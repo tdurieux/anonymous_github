@@ -12,12 +12,14 @@ if (process.env.BLOB_TEST_CRASH_AFTER_RENAME) {
     await new Promise(() => {}); // Parent kills the process before index publication.
   };
 }
+if (process.env.BLOB_TEST_DISK_BYTES) require("node:fs").statfsSync = () => ({ bavail: Number(process.env.BLOB_TEST_DISK_BYTES), bsize: 1 });
 process.send("ready");
 process.once("message", async () => {
   try {
     const stream = await cache.getOrFill("multiprocess", async () => {
       process.send("fill");
-      await new Promise(resolve => setTimeout(resolve, 100));
+      if (process.env.BLOB_TEST_HOLD_FILL) await new Promise(resolve => process.once("message", resolve));
+      else await new Promise(resolve => setTimeout(resolve, 100));
       return Readable.from("shared across processes");
     });
     let body = ""; for await (const chunk of stream) body += chunk;

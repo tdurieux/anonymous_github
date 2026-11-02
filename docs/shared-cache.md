@@ -31,6 +31,11 @@ Restart processes together when changing pool limits. Reserve headroom for SQLit
 filesystem directories, existing caches and other application temporary files.
 The budget accounts for blob allocation with a conservative 4 KiB minimum plus
 in-flight reservations of three times the maximum object size and a small overhead.
+A shared SQLite ledger reserves physical headroom across source and result pools
+before producers write bytes. Its check uses a fresh free-space sample under a
+cross-process lock and includes all outstanding reservations. Reservations remain
+until cleanup or crash recovery completes. This is conservative while fills have
+already written some bytes, and cannot reserve space against unrelated applications.
 Keep each pool budget larger than this reservation. Admission can bypass the cache
 while other fills/readers occupy the budget. Oversized source objects are streamed
 without admission, still subject to the application's file-size limit.
@@ -53,6 +58,9 @@ other durable source material are untouched. Repository removal invalidates acce
 and project mappings, while shared blobs remain subject to global eviction.
 
 Transient SQLite write contention bypasses caching instead of failing file requests.
+Reader heartbeats retry contention within their last confirmed lease window and
+terminate only if renewal cannot succeed before expiry or the lease is removed.
+Admission-bypass streams retain the minimum expected-size check.
 Publication installs a reader lease before releasing its transaction, including
 duplicate blobs. Decisions retain sniffed text classification for consistent MIME
 headers on repeat reads; binary responses omit the range-denial header.
