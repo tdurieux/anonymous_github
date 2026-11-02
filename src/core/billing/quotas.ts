@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import ConferenceModel from "../model/conference/conferences.model";
 import config from "../../config";
 import { BillingGrant, BillingQuota } from "./models";
@@ -35,14 +36,16 @@ export async function reserveRepository(owner: string, repoId: string, bytes: nu
     for (const repository of existing) {
       if ((await allowance(String(repository.owner), repository.repoId, repository.conference)).scope === limits.scope) funded.push(repository);
     }
-    try { await BillingQuota.create({ _id: limits.scope, allocations: funded.map(r => ({ repoId: r.repoId, bytes: r.size?.storage || 0, createdAt: new Date() })) }); }
+    try { await BillingQuota.create({ _id: limits.scope, allocations: funded.map(r => ({ repoId: r.repoId, reservationId: randomUUID(), bytes: r.size?.storage || 0, createdAt: new Date() })) }); }
     catch (error) { if ((error as { code?: number }).code !== 11000) throw error; }
   }
   // Only confirmed terminal repositories release capacity. Unknown reservations
   // remain until reconciled by an operator, so a crash cannot oversell capacity.
   const ledger = await BillingQuota.findById(limits.scope).lean();
   const terminal = await RepositoryModel.find({ repoId: { $in: ledger?.allocations.map(a => a.repoId) || [] }, status: "removed" }).select("repoId").lean();
-  if (terminal.length) await BillingQuota.updateOne({ _id: limits.scope }, { $pull: { allocations: { repoId: { $in: terminal.map(r => r.repoId) } } } });
+  if (terminal.length) await BillingQuota.updateOne({ _id: limits.scope }, { $pull: { allocations: { $or: terminal.map(r => ({
+    repoId: r.repoId, reservationId: ledger?.allocations.find(a => a.repoId === r.repoId)?.reservationId || { $exists: false },
+  })) } } });
   const others = allocationExpression(repoId);
   // Never shrink a reservation during refresh. Concurrent generations and
   // failed builds cannot free bytes still needed by the published generation.
@@ -61,7 +64,7 @@ export async function reserveRepository(owner: string, repoId: string, bytes: nu
   const result = await BillingQuota.updateOne({ _id: limits.scope, $expr: { $and: [
     { $lt: [{ $size: others }, limits.repositories] },
     { $lte: [{ $add: [{ $sum: { $map: { input: others, as: "a", in: "$$a.bytes" } } }, reservedBytes] }, limits.storage] },
-  ] } }, [{ $set: { allocations: { $concatArrays: [others, [{ repoId: { $literal: repoId }, bytes: reservedBytes, baseBytes, expansions, createdAt: new Date() }]] } } }]);
+  ] } }, [{ $set: { allocations: { $concatArrays: [others, [{ repoId: { $literal: repoId }, reservationId: randomUUID(), bytes: reservedBytes, baseBytes, expansions, createdAt: new Date() }]] } } }]);
   if (!result.matchedCount) throw billingError("quota_exceeded", 402);
 }
 

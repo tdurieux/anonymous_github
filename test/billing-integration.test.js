@@ -4,7 +4,7 @@ const { expect } = require("chai");
 require("ts-node/register/transpile-only");
 const mongoose = require("mongoose");
 const config = require("../src/config").default;
-const { BillingAccount, BillingGrant, BillingQuota, BillingLock, BillingEvent, BillingRevocation, BillingDraft } = require("../src/core/billing/models");
+const { BillingPrice, BillingAccount, BillingGrant, BillingQuota, BillingLock, BillingEvent, BillingRevocation, BillingDraft } = require("../src/core/billing/models");
 const Repo = require("../src/core/model/anonymizedRepositories/anonymizedRepositories.model").default;
 const Conference = require("../src/core/model/conference/conferences.model").default;
 const { reserveRepository, allowance, assertConferenceAdmission } = require("../src/core/billing/quotas");
@@ -21,12 +21,12 @@ async function rejects(promise, message) {
   before(async () => {
     if (!/^billing_test_/.test(new URL(uri).pathname.slice(1))) throw new Error("Use a disposable billing_test_ database");
     await mongoose.connect(uri);
-    await Promise.all([BillingAccount, BillingGrant, BillingQuota, BillingLock, BillingEvent, BillingRevocation, BillingDraft, Repo, Conference].map(m => m.init()));
+    await Promise.all([BillingPrice, BillingAccount, BillingGrant, BillingQuota, BillingLock, BillingEvent, BillingRevocation, BillingDraft, Repo, Conference].map(m => m.init()));
   });
   beforeEach(async () => {
     Object.assign(config, { BILLING_ENABLED: true, FREE_AUTHOR_REPOSITORIES: 3, FREE_AUTHOR_STORAGE: 100,
       PAID_AUTHOR_STORAGE: 1000, PAID_AUTHOR_REPOSITORIES: 20, STRIPE_AUTHOR_MONTHLY_PRICE: "price_monthly", STRIPE_AUTHOR_PASS_PRICE: "price_pass", STRIPE_CONFERENCE_PRICE: "price_conf" });
-    await Promise.all([BillingAccount, BillingGrant, BillingQuota, BillingLock, BillingEvent, BillingRevocation, BillingDraft, Repo, Conference].map(m => m.deleteMany({})));
+    await Promise.all([BillingPrice, BillingAccount, BillingGrant, BillingQuota, BillingLock, BillingEvent, BillingRevocation, BillingDraft, Repo, Conference].map(m => m.deleteMany({})));
     await BillingAccount.create({ _id: owner, customerId: "cus_owner" });
   });
   after(async () => { Object.assign(config, original); await mongoose.disconnect(); });
@@ -108,6 +108,61 @@ async function rejects(promise, message) {
       } else await reserveRepository(owner, "competitor", 1);
     });
   }
+  for (const fails of [false, true]) {
+    it(`claims removed restoration before admission and ${fails ? "recovers a failed admission" : "protects it from a competitor"}`, async () => {
+      const Repository = require("../src/core/Repository").default;
+      const utils = require("../src/server/routes/route-utils");
+      const quotas = require("../src/core/billing/quotas");
+      const queue = require("../src/queue");
+      const saved = { getRepo: utils.getRepo, getUser: utils.getUser, handleError: utils.handleError, reserve: quotas.reserveRepository, queue: queue.downloadQueue };
+      config.FREE_AUTHOR_REPOSITORIES = 1;
+      const model = await Repo.create({ repoId: "restore", owner, billingManaged: true, status: "removed", statusDate: new Date(0),
+        source: { type: "GitHubStream", repositoryName: "owner/repo", commit: "abc123", branch: "main" }, size: { storage: 10 } });
+      utils.getRepo = async () => new Repository(model);
+      utils.getUser = async () => ({ isAdmin: true });
+      utils.handleError = error => { throw error; };
+      let queued = false;
+      queue.downloadQueue = { add: async () => { queued = true; } };
+      quotas.reserveRepository = async (...args) => {
+        expect((await Repo.findById(model._id)).status).to.equal("preparing");
+        if (fails) throw Error("quota_exceeded");
+        await saved.reserve(...args);
+        await rejects(saved.reserve(owner, "competitor", 1), "quota_exceeded");
+      };
+      try {
+        const router = require("../src/server/routes/repository-private").default;
+        const handler = router.stack.find(layer => layer.route?.path === "/:repoId/" && layer.route.methods.post).route.stack[0].handle;
+        const work = handler({ body: { repoId: "restore", fullName: "owner/repo", source: { commit: "abc123", branch: "main" }, terms: [],
+          options: { expirationMode: "remove", expirationDate: future() } } }, { json() {} });
+        if (fails) await rejects(work, "quota_exceeded"); else await work;
+        expect(queued).to.equal(!fails);
+        expect((await Repo.findById(model._id)).status).to.equal(fails ? "removed" : "preparing");
+      } finally {
+        utils.getRepo = saved.getRepo; utils.getUser = saved.getUser; utils.handleError = saved.handleError;
+        quotas.reserveRepository = saved.reserve; queue.downloadQueue = saved.queue;
+      }
+    });
+  }
+  it("does not let stale removal cleanup delete a fresh reservation", async () => {
+    config.FREE_AUTHOR_REPOSITORIES = 1;
+    await Repo.create({ repoId: "restoring", owner, status: "ready", size: { storage: 10 } });
+    await reserveRepository(owner, "restoring", 10);
+    await Repo.updateOne({ repoId: "restoring" }, { $set: { status: "removed" } });
+    const update = BillingQuota.updateOne;
+    let interleaved = false;
+    BillingQuota.updateOne = async function (...args) {
+      if (args[1].$pull && !interleaved) {
+        interleaved = true;
+        await Repo.updateOne({ repoId: "restoring" }, { $set: { status: "preparing" } });
+        await reserveRepository(owner, "restoring", 20);
+      }
+      return update.apply(this, args);
+    };
+    try { await rejects(reserveRepository(owner, "competitor", 1), "quota_exceeded"); }
+    finally { BillingQuota.updateOne = update; }
+    expect(interleaved).to.equal(true);
+    expect((await BillingQuota.findById(`user:${owner}`)).allocations[0].bytes).to.equal(20);
+  });
   it("counts legacy repositories and releases removed repositories", async () => {
     await Repo.create(["one", "two", "three"].map(repoId => ({ repoId, owner, status: "ready", size: { storage: 10 } })));
     await rejects(reserveRepository(owner, "four", 1), "quota_exceeded");
@@ -198,6 +253,29 @@ async function rejects(promise, message) {
     await processBillingEvent({ type: "charge.refunded", data: { object: { payment_intent: "pi_pass" } } }, { ...stripe, invoicePayments: { list: async () => ({ data: [] }) } });
     await fulfillCheckout("cs_pass", stripe);
     expect((await BillingGrant.findById("cs_pass")).revoked).to.equal(true);
+  });
+  it("reconciles retired one-time prices and continues refund recovery", async () => {
+    const { reconcileBillingAccount } = require("../src/core/billing/reconciliation");
+    const iterable = values => ({ async *[Symbol.asyncIterator]() { yield* values; } });
+    const value = session();
+    const stripe = { checkout: { sessions: { retrieve: async () => value, list: () => iterable([value]) } },
+      subscriptions: { list: () => iterable([]) }, charges: { list: () => iterable([{ payment_intent: "pi_pass", refunded: true }]) },
+      invoicePayments: { list: async () => ({ data: [] }) } };
+    await fulfillCheckout(value.id, stripe);
+    config.STRIPE_AUTHOR_PASS_PRICE = "";
+    await BillingGrant.deleteMany({});
+    await reconcileBillingAccount(owner, stripe);
+    expect((await BillingGrant.findById(value.id)).revoked).to.equal(true);
+    expect((await BillingAccount.findById(owner)).reconciledAt).to.be.instanceOf(Date);
+    value.line_items.data[0].price.id = "price_unrecognized";
+    await rejects(fulfillCheckout(value.id, stripe), "billing_invalid_purchase");
+  });
+  it("preserves previously accepted grants without historical price fields", async () => {
+    const value = session();
+    await BillingGrant.create({ _id: value.id, owner, customerId: "cus_owner", scope: "repo:repo", planId: "author_pass", status: "paid" });
+    config.STRIPE_AUTHOR_PASS_PRICE = "";
+    await fulfillCheckout(value.id, { checkout: { sessions: { retrieve: async () => value } } });
+    expect((await BillingPrice.findById("price_pass")).planId).to.equal("author_pass");
   });
   it("rejects a checkout for a different Stripe customer", async () => {
     const value = session(); value.customer = "cus_other";

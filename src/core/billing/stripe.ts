@@ -1,7 +1,7 @@
 import Stripe = require("stripe");
 import { randomUUID } from "crypto";
 import config from "../../config";
-import { BillingAccount, BillingGrant, BillingLock, BillingRevocation } from "./models";
+import { BillingAccount, BillingGrant, BillingLock, BillingRevocation, BillingPrice } from "./models";
 import { billingError, billingOrigin, billingPlans, requireBilling } from "./config";
 import ConferenceModel from "../model/conference/conferences.model";
 import RepositoryModel from "../model/anonymizedRepositories/anonymizedRepositories.model";
@@ -68,7 +68,16 @@ export async function fulfillCheckout(id: string, stripe = stripeClient()) {
   if (session.status !== "complete") return;
   if (session.subscription) { await syncSubscription(objectId(session.subscription)!, stripe); return; }
   const plan = billingPlans().find(p => p.id === planId && !p.recurring);
-  if (!plan || session.line_items?.data.length !== 1 || session.line_items.data[0].price?.id !== plan.priceId || session.line_items.data[0].quantity !== 1) throw billingError("billing_invalid_purchase");
+  const priceId = session.line_items?.data[0]?.price?.id;
+  const previousGrant = await BillingGrant.findById(id).lean();
+  const historicalPrice = priceId ? await BillingPrice.findById(priceId).lean() : null;
+  const previousScope = planId === "conference" ? `conference:${target}` : `repo:${target}`;
+  const acceptedGrant = previousGrant?.owner === owner && previousGrant?.customerId === account.customerId
+    && previousGrant?.planId === planId && previousGrant?.scope === previousScope
+    && (!previousGrant.priceId || previousGrant.priceId === priceId);
+  if (!plan || !priceId || session.line_items?.data.length !== 1 || session.line_items.data[0].quantity !== 1 ||
+    !(priceId === plan.priceId || historicalPrice?.planId === planId || acceptedGrant)) throw billingError("billing_invalid_purchase");
+  await BillingPrice.updateOne({ _id: priceId }, { $setOnInsert: { planId } }, { upsert: true });
   if (session.payment_status !== "paid" || session.status !== "complete") return;
   const intent = session.payment_intent as Stripe.PaymentIntent | null;
   const charge = intent?.latest_charge as Stripe.Charge | null;
@@ -82,7 +91,7 @@ export async function fulfillCheckout(id: string, stripe = stripeClient()) {
     until = conference.endDate;
   }
   await BillingGrant.updateOne({ _id: id }, { $setOnInsert: { owner, scope, planId, customerId: account.customerId,
-    paymentIntentId: objectId(session.payment_intent), status: "paid", until }, ...(revoked ? { $set: { revoked: true } } : {}) }, { upsert: true });
+    paymentIntentId: objectId(session.payment_intent), priceId, status: "paid", until }, ...(revoked ? { $set: { revoked: true } } : {}) }, { upsert: true });
   const reversal = intent && await BillingRevocation.findById(intent.id).lean();
   if (reversal?.reviewed) await BillingGrant.updateOne({ _id: id }, { $set: { revoked: false } });
   else if (reversal) await BillingGrant.updateOne({ _id: id }, { $set: { revoked: true, revocationReason: reversal.reason } });
@@ -222,6 +231,10 @@ export async function createCheckout(owner: string, planId: string, target = "",
     if (!account.checkout.params) {
       account.checkout.params = params;
       await account.save();
+    }
+    if (!plan.recurring) {
+      const acceptedPrice = (account.checkout.params as Stripe.Checkout.SessionCreateParams).line_items?.[0]?.price;
+      if (acceptedPrice) await BillingPrice.updateOne({ _id: acceptedPrice }, { $setOnInsert: { planId } }, { upsert: true });
     }
     const session = await stripe.checkout.sessions.create(account.checkout.params as Stripe.Checkout.SessionCreateParams, { idempotencyKey: account.checkout.key });
     account.checkout.id = session.id;

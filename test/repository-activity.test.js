@@ -141,6 +141,19 @@ describe("repository activity dates", () => {
     expect(writes).to.equal(2);
     expect(repo.model.options.expirationDate).to.deep.equal(savedDate);
   });
+  it("does not extend an expired submission in a conference that no longer admits it", async () => {
+    const repo = repository("expired"); auth(repo);
+    repo.model.conference = "ended";
+    const quotas = require("../src/core/billing/quotas");
+    stub(quotas, "assertConferenceAdmission", async (_owner, _id, conference) => {
+      expect(conference).to.equal("ended"); throw Error("conf_not_activated");
+    });
+    stub(Model, "updateOne", () => { throw Error("must not persist extension"); });
+    let error;
+    try { await handler("repository-private", "/:repoId/extend", "post")({}, {}); } catch (caught) { error = caught; }
+    expect(error?.message).to.equal("conf_not_activated");
+    expect(repo.status).to.equal("expired");
+  });
   it("dates a dashboard expiration extension", async () => {
     const repo = repository(); auth(repo); let saved;
     stub(Model, "updateOne", (_filter, update) => ({ exec: async () => { saved = update.$set; } }));

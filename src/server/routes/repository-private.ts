@@ -207,6 +207,7 @@ router.post(
       );
       validateBillingExpiration({ ...repo.model.options, expirationDate: newExpiration });
       const reactivating = repo.status === RepositoryStatus.EXPIRED;
+      if (reactivating) await assertConferenceAdmission(String(repo.model.owner), repo.repoId, repo.model.conference);
       const updates: Record<string, Date | string | null> = {
         "options.expirationDate": newExpiration,
         settingsSavedAt: new Date(),
@@ -498,6 +499,7 @@ export function shouldReactivateInactiveRepository(
 router.post(
   "/:repoId/",
   async (req, res) => {
+    let recoverReactivation: (() => Promise<void>) | undefined;
     try {
       const repo = await getRepo(req, res, {
         nocheck: true,
@@ -551,6 +553,22 @@ router.post(
       const needsAdmission = sourceChanged || reactivating || repoUpdate.conference !== repo.model.conference;
       if (needsAdmission) {
         await assertConferenceAdmission(String(repo.model.owner), repo.repoId, repoUpdate.conference);
+        if (reactivating && config.BILLING_ENABLED && repo.model.billingManaged) {
+          const previousStatus = repo.status;
+          const previousStatusDate = repo.model.statusDate;
+          const claimedAt = new Date();
+          const claim = await AnonymizedRepositoryModel.updateOne({ _id: repo.model._id,
+            status: previousStatus, statusDate: previousStatusDate,
+          }, { $set: { status: RepositoryStatus.PREPARING, statusDate: claimedAt } }).exec();
+          if (!claim.matchedCount) throw appError("invalid_status", 409);
+          repo.model.status = RepositoryStatus.PREPARING;
+          repo.model.statusDate = claimedAt;
+          recoverReactivation = async () => {
+            await AnonymizedRepositoryModel.updateOne({ _id: repo.model._id,
+              status: RepositoryStatus.PREPARING, statusDate: claimedAt,
+            }, { $set: { status: previousStatus, statusDate: previousStatusDate || new Date() } }).exec();
+          };
+        }
         if (repo.model.billingManaged && !sourceChanged) await reserveRepository(String(repo.model.owner), repo.repoId, repo.model.size?.storage || 0, repoUpdate.conference);
       }
 
@@ -673,6 +691,7 @@ router.post(
         }
       ).exec();
       if (!saved.matchedCount) throw appError("connection_changed", 409);
+      recoverReactivation = undefined;
       if (user.id === repo.owner.id) await resetOwnerAccessAlerts(user.id, { kind: "repository", id: String(repo.model._id) });
       if (!sourceChanged && !reactivating) {
         return res.json({ status: repo.status });
@@ -684,6 +703,7 @@ router.post(
       await enqueueSavedSnapshot(repo.model);
       res.json({ status: repo.status });
     } catch (error) {
+      if (recoverReactivation) await recoverReactivation();
       return handleError(error, res, req);
     }
   }

@@ -3,7 +3,7 @@ const { expect } = require("chai");
 require("ts-node/register/transpile-only");
 const mongoose = require("mongoose");
 const config = require("../src/config").default;
-const { BillingAccount, BillingGrant, BillingEvent, BillingRevocation, BillingLock, BillingDraft } = require("../src/core/billing/models");
+const { BillingPrice, BillingAccount, BillingGrant, BillingEvent, BillingRevocation, BillingLock, BillingDraft } = require("../src/core/billing/models");
 const { receiveBillingEvent, processBillingInbox, billingHealth } = require("../src/core/billing/events");
 const { reconcileBillingAccount } = require("../src/core/billing/reconciliation");
 const { createCheckout, processBillingEvent } = require("../src/core/billing/stripe");
@@ -12,7 +12,7 @@ const Repo = require("../src/core/model/anonymizedRepositories/anonymizedReposit
 const uri = process.env.BILLING_TEST_MONGODB_URI;
 const owner = "507f1f77bcf86cd799439011";
 const { saveBillingDraft, getBillingDraft } = require("../src/core/billing/drafts");
-const models = [BillingDraft, BillingAccount, BillingGrant, BillingEvent, BillingRevocation, BillingLock, Repo];
+const models = [BillingDraft, BillingPrice, BillingAccount, BillingGrant, BillingEvent, BillingRevocation, BillingLock, Repo];
 const iterable = values => ({ async *[Symbol.asyncIterator]() { yield* values; } });
 const event = id => ({ id, livemode: false, type: "customer.created", data: { object: { id: "cus_test", email: "private@example.org" } } });
 (uri ? describe : describe.skip)("billing failure recovery", function () {
@@ -158,6 +158,22 @@ const event = id => ({ id, livemode: false, type: "customer.created", data: { ob
         retrieve: async () => ({ status: "open", url: "https://checkout.stripe.com/recovered" }),
       } } };
   }
+  it("records an accepted one-time price before an uncertain checkout response", async () => {
+    config.STRIPE_AUTHOR_PASS_PRICE = "price_retiring";
+    await Repo.create({ repoId: "pass-target", owner, status: "ready" });
+    const stripe = checkoutStripe();
+    stripe.prices.retrieve = async () => ({ active: true, currency: "eur", unit_amount: 1500 });
+    try { await createCheckout(owner, "author_pass", "pass-target", stripe); throw Error("expected network failure"); }
+    catch (error) { expect(error.message).to.equal("connection lost"); }
+    expect((await BillingPrice.findById("price_retiring")).planId).to.equal("author_pass");
+    config.STRIPE_AUTHOR_PASS_PRICE = "";
+    const { fulfillCheckout } = require("../src/core/billing/stripe");
+    stripe.checkout.sessions.retrieve = async () => ({ id: "cs_retired", status: "complete", payment_status: "paid", customer: "cus_owner",
+      created: Math.floor(Date.now() / 1000), metadata: { application: "anonymous-github", owner, planId: "author_pass", target: "pass-target" },
+      line_items: { data: [{ price: { id: "price_retiring" }, quantity: 1 }] }, payment_intent: null });
+    await fulfillCheckout("cs_retired", stripe);
+    expect((await BillingGrant.findById("cs_retired")).status).to.equal("paid");
+  });
   it("keeps checkout drafts private, bounded and expired even before the TTL sweep", async () => {
     const draft = await saveBillingDraft(owner, "/anonymize", { terms: "Private Author", options: { expirationMode: "never" }, customerId: "untrusted" });
     expect((await getBillingDraft(owner, draft.id)).values).not.to.have.property("customerId");

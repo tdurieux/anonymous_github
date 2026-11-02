@@ -189,7 +189,7 @@ HTTP endpoints.
 ### Restore and launch checks
 
 Back up `billingaccounts`, `billinggrants`, `billingquotas`, `billinglocks`, `billingevents`,
-`billingrevocations`, and `billingaudits` with repository data. Test a restore into an
+`billingrevocations`, `billingprices`, and `billingaudits` with repository data. Test a restore into an
 isolated environment with sandbox credentials. Keep destructive repository maintenance
 stopped during restore, discover customer mappings, reconcile restored owners, drain
 queued events, and inspect health before re-enabling normal scheduling. Never connect a
@@ -263,3 +263,8 @@ Reservations remain conservative across generations and failed fills and require
 operator reconciliation to release unused capacity. This also covers public raw
 downloads and expanded submodule content. Existing cached content is not retroactively
 measured by this write-time guard.
+
+Accepted one-time prices are stored in `billingprices` when checkout starts and when
+existing purchases are fulfilled. Hiding an offer by removing its configured price
+does not remove this mapping or invalidate paid grants. Include the mapping in backups
+so reconciliation can reconstruct grants for retired offers and process their refunds.

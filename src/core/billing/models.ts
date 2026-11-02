@@ -11,12 +11,13 @@ export const BillingGrant = model("billingGrant", new Schema({
   _id: String, owner: { type: String, index: true }, scope: { type: String, index: true },
   planId: String, customerId: String, subscriptionId: String, paymentIntentId: { type: String, index: true },
   status: String, until: Date, cancelAtPeriodEnd: Boolean,
+  priceId: String,
   revision: { type: Number, default: 0 }, revoked: { type: Boolean, default: false },
   revocationReason: String, revokedAt: Date,
 }));
 export const BillingQuota = model("billingQuota", new Schema({
   _id: String,
-  allocations: [{ _id: false, repoId: String, bytes: Number, baseBytes: Number,
+  allocations: [{ _id: false, repoId: String, reservationId: String, bytes: Number, baseBytes: Number,
     expansions: [{ _id: false, key: String, bytes: Number }], createdAt: Date }],
 }));
 // A short lease serializes Stripe checkout creation across API instances.
@@ -45,3 +46,6 @@ export const BillingDraft = model("billingDraft", new Schema({
   _id: String, owner: { type: String, required: true, index: true }, path: String, values: Schema.Types.Mixed,
   expiresAt: { type: Date, required: true, expires: 0 },
 }));
+
+// Accepted prices survive removal from the advertised catalog.
+export const BillingPrice = model("billingPrice", new Schema({ _id: String, planId: String }));
