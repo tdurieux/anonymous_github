@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "broken-image",
+        "value": "*",
+        "files": [
+          "public/partials/anonymize.htm"
+        ],
+        "createdAt": "2026-11-02T06:04:45.274Z",
+        "reason": "Agent reviewed: existing avatar images use Vue :src bindings to safeUrl, not missing image sources."
+      }
+    ]
+  }
+}

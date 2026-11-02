@@ -1380,6 +1380,33 @@ export const anonymizeController = function (state, http, html, params, location
       state.html_readme = "";
       state.isUpdate = false;
 
+      state.previousConfigurations = [];
+      state.previousConfigurationId = "";
+      let previousRepositories;
+      const normalizedRepositoryName = name => String(name || "").replace(/\/$/, "").replace(/\.git$/i, "").toLowerCase();
+      async function findPreviousConfigurations() {
+        if (state.isUpdate || params.repoId || params.pullRequestId || params.gistId) return;
+        const request = { generation: sourceGeneration, url: state.sourceUrl.trim(), connection: state.githubConnection };
+        try {
+          // This endpoint only returns repositories the signed-in user can manage.
+          previousRepositories ||= http.get("/api/user/anonymized_repositories").then(res => res.data);
+          const repositories = await previousRepositories;
+          if (!isCurrentSource(request)) return;
+          const name = normalizedRepositoryName(parseRepoFullName(request.url));
+          state.previousConfigurations = repositories.filter(repo => repo.repoId && repo.options
+            && normalizedRepositoryName(repo.source?.fullName) === name)
+            .sort((a, b) => (Date.parse(b.anonymizeDate) || 0) - (Date.parse(a.anonymizeDate) || 0));
+          state.previousConfigurationId = state.previousConfigurations[0]?.repoId || "";
+        } catch (_) {
+          // A suggestion failure must not prevent creating a repository. Retry on the next URL selection.
+          previousRepositories = undefined;
+        }
+      }
+      state.existingConfigurationUrl = () => {
+        const previous = state.previousConfigurations.find(repo => repo.repoId === state.previousConfigurationId);
+        return previous ? "/anonymize/" + encodeURIComponent(previous.repoId) : null;
+      };
+
       function getDefault(cb) {
         http.get("/api/user/default").then((res) => {
           const data = res.data;
@@ -1601,6 +1628,8 @@ export const anonymizeController = function (state, http, html, params, location
       // Keep the same input focused until a complete GitHub URL can be loaded.
       state.urlSelected = async (preserveDraft = false) => {
         const generation = ++sourceGeneration;
+        state.previousConfigurations = [];
+        state.previousConfigurationId = "";
         let o;
         try { o = parseGithubUrl(state.sourceUrl.trim()); }
         catch (_) {
@@ -1656,6 +1685,7 @@ export const anonymizeController = function (state, http, html, params, location
             await getPrDetails();
           } else {
             state.detectedType = "repo";
+            void findPreviousConfigurations();
             await Promise.all([getRepoDetails(), getReadme()]);
             anonymizeReadme();
           }
