@@ -57,6 +57,15 @@ describe("shared content-addressed blob pool", function () {
     cache.db.exec("DROP TABLE summary");
     cache.close(); cache = new BlobCache(cache.options); check(cache);
   });
+  it("upgrades old decisions without inventing a sniffed content classification", () => {
+    cache.saveDecision("old", "git-" + "a".repeat(40), false);
+    cache.db.exec("ALTER TABLE decisions DROP COLUMN isText");
+    cache.close(); cache = new BlobCache(cache.options);
+    assert.equal(cache.decision("old").isText, undefined);
+    cache.saveDecision("old", "git-" + "a".repeat(40), false, true);
+    assert.equal(cache.decision("old").isText, true);
+    assert.equal(cache.stats().decisions, 1);
+  });
   it("uses durable commits for reservations and publication while keeping hit bookkeeping disposable", async () => {
     assert.equal(cache.db.prepare("PRAGMA synchronous").get().synchronous, 1);
     const original = cache.db.exec.bind(cache.db), commits = [];
@@ -144,6 +153,34 @@ describe("shared content-addressed blob pool", function () {
       assert.equal(cache.db.prepare("SELECT COUNT(*) n FROM publications").get().n, 0);
       assert.equal((await read(await cache.getOrFill("multiprocess", async () => Readable.from("recovered")))).toString(), "recovered");
     } finally { worker.kill(); }
+  });
+  it("pins a duplicate publication while another connection tries to evict it", async () => {
+    await read(await cache.getOrFill("original", async () => Readable.from("identical")));
+    const other = new BlobCache({ ...cache.options, budget: 8192, maxObject: 1024 });
+    const unlink = fs.unlink.bind(fs); let competed = false;
+    fs.unlink = async path => {
+      if (!competed && path.includes("/blobs/") && !cache.db.prepare("SELECT 1 FROM blobs WHERE file=?").get(require("node:path").basename(path))) {
+        competed = true;
+        await assert.rejects(other.getOrFill("competitor", async () => Readable.from("different")), CacheAdmissionError);
+      }
+      return unlink(path);
+    };
+    try {
+      assert.equal((await read(await cache.getOrFill("duplicate", async () => Readable.from("identical")))).toString(), "identical");
+      assert.ok(competed);
+      await delay(20); assert.equal(cache.stats().activeReaders, 0);
+    } finally { fs.unlink = unlink; other.close(); }
+  });
+  it("turns SQLite write contention into a cache bypass and preserves existing data", async () => {
+    await read(await cache.getOrFill("locked", async () => Readable.from("available")));
+    const other = new BlobCache(cache.options);
+    other.db.exec("BEGIN IMMEDIATE");
+    try {
+      await assert.rejects(cache.getOrFill("locked", async () => { throw Error("unexpected fill"); }),
+        error => error instanceof CacheAdmissionError && error.message === "cache_index_busy");
+    } finally { other.db.exec("ROLLBACK"); other.close(); }
+    assert.equal((await read(await cache.lookup("locked"))).toString(), "available");
+    await delay(20); assert.equal(cache.stats().activeReaders, 0);
   });
   it("does not publish failed or hash-invalid fills and releases reservations", async () => {
     await assert.rejects(cache.getOrFill("invalid", async () => Readable.from("bad"), async () => { throw Error("invalid_hash"); }), /invalid_hash/);

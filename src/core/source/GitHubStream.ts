@@ -394,16 +394,42 @@ export default class GitHubStream extends GitHubBase {
       const download = async () => {
         const parentToken = await this.data.getToken();
         const token = expected.upstream ? "" : parentToken;
-        const input = await origin.downloadWithFallback(token, expected.sha, sourcePath);
-        let bytes = 0;
-        const limited = new stream.Transform({ transform(chunk, _encoding, done) {
-          bytes += chunk.length;
-          done(bytes > config.MAX_FILE_SIZE ? new AnonymousError("file_too_big", { httpStatus: 413 }) : null, chunk);
-        } });
-        input.on("error", error => limited.destroy(error));
-        const deadline = setTimeout(() => limited.destroy(new Error("source_download_timeout")), 120000);
-        deadline.unref(); limited.once("close", () => { clearTimeout(deadline); input.destroy(); });
-        input.pipe(limited); return limited;
+        const sourceMiss = cachedContentMiss(this.data, parentToken);
+        if (sourceMiss && sourceMiss !== "file_not_found") throw new AnonymousError(sourceMiss, { httpStatus: 404 });
+        const missKey = createHash("sha256").update(JSON.stringify([
+          key, this.data.organization, this.data.repoName, token,
+        ])).digest("hex");
+        const missed = missingContent.get(missKey);
+        if (missed) throw new AnonymousError(missed, { httpStatus: 404 });
+        const normalize = async (error: Error) => {
+          const normalized = downloadError(error, filePath);
+          if (expected.upstream && ["file_not_found", "file_not_accessible"].includes(normalized.message))
+            return new AnonymousError("submodule_not_available", { httpStatus: 404, cause: normalized });
+          if (!expected.upstream && normalized.message === "file_not_found" && normalized.httpStatus === 404) {
+            const code = await classifyContentMiss(this.data, token);
+            missingContent.set(missKey, code, 30_000);
+            if (code !== "file_not_found") return new AnonymousError(code, { httpStatus: 404, cause: normalized });
+          }
+          return normalized;
+        };
+        const input = await origin.downloadWithFallback(token, expected.sha, sourcePath)
+          .catch(async error => { throw await normalize(error); });
+        input.on("error", () => {}); // The iterator below propagates normalized failures.
+        const deadline = setTimeout(() => input.destroy(new AnonymousError("upstream_error", { httpStatus: 502 })), 120000);
+        deadline.unref();
+        const limited = stream.Readable.from((async function* () {
+          let bytes = 0;
+          try {
+            for await (const chunk of input) {
+              bytes += chunk.length;
+              if (bytes > config.MAX_FILE_SIZE) throw new AnonymousError("file_too_big", { httpStatus: 413 });
+              yield chunk;
+            }
+          } catch (error) { throw await normalize(error as Error); }
+          finally { clearTimeout(deadline); input.destroy(); }
+        })());
+        stopSourceOnDestroy(limited, () => { clearTimeout(deadline); input.destroy(); });
+        return limited;
       };
       const produce = async () => {
         if (allowLegacy && await cached()) { legacy = true; observeCache("source_legacy_promotion"); return storage.read(repoId, cachePath); }

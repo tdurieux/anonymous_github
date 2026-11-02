@@ -20,7 +20,7 @@ async function main(){
       const now=Date.now();cache.db.exec('BEGIN');
       const blob=cache.db.prepare('INSERT INTO blobs VALUES(?,?,?,?,?,?,?)');
       const alias=cache.db.prepare('INSERT INTO aliases VALUES(?,?)');
-      const decision=cache.db.prepare('INSERT INTO decisions VALUES(?,?,?,?,?)');
+      const decision=cache.db.prepare('INSERT INTO decisions(key,digest,changed,accessed,expires) VALUES(?,?,?,?,?)');
       const history=cache.db.prepare('INSERT INTO history VALUES(?,?,0)');
       for(let i=0;i<cardinality;i++){
         // Metadata-only dummy rows, never opened. Real lookups/fills use the separate verified content above.

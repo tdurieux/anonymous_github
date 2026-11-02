@@ -39,12 +39,14 @@ describe("shared cache HTTP and telemetry integration", function () {
       const source = new GitHubStream({ repoId: req.params.project, organization: "org", repoName: "repo", commit: "commit", getToken: async () => "" });
       source.downloadWithFallback = async () => { fills++; return Readable.from(body); };
       source.downloadFile = () => Readable.from("invalid pointer");
-      res.type("text/plain");
+      const filePath = String(req.query.name || "README.md");
+      const mime = require("mime-types").lookup(filePath);
+      if (mime) res.type(mime);
       try {
-        const input = await source.getFileContentCache("README.md", req.params.project, () => ({ sha: sha(body), size: body.length }));
-        const handled = await sendSharedContent(input, res, { filePath: "README.md", repoId: req.params.project,
+        const input = await source.getFileContentCache(filePath, req.params.project, () => ({ sha: sha(body), size: body.length }));
+        const handled = await sendSharedContent(input, res, { filePath, repoId: req.params.project,
           terms: req.params.mode === "changed" ? ["Public=>Private"] : ["Alice"] });
-        if (!handled) { input.destroy(); res.status(500).end("unexpected bypass"); }
+        if (!handled) res.send(await consume(input));
       } catch (e) { if (!res.headersSent) res.status(500).end(e.message); else res.destroy(e); }
     });
     await new Promise(resolve => { server = app.listen(0, "127.0.0.1", resolve); }); port = server.address().port;
@@ -81,6 +83,79 @@ describe("shared cache HTTP and telemetry integration", function () {
       assert.deepEqual(await consume(await source.getFileContentCache("vendor/src/data.txt", "parent", meta)), body);
       assert.deepEqual(await consume(await source.getFileContentCache("vendor/src/data.txt", "parent", meta)), body);
       assert.equal(calls, 1);
+    } finally { GitHubStream.prototype.downloadWithFallback = original; }
+  });
+  for (const changed of [false, true]) it("preserves sniffed text MIME on initial and cached responses: " + changed, async () => {
+    for (const encoding of ["gzip", "identity"]) {
+      const r = await request(port, "/a/" + (changed ? "changed" : "plain") + "?name=data.unknownext", encoding, headers);
+      assert.equal(r.status, 200); assert.match(r.headers["content-type"], /^text\/plain/);
+      const decoded = r.headers["content-encoding"] === "gzip" ? gunzipSync(r.body) : r.body;
+      assert.equal(decoded.toString(), changed ? body.toString().replaceAll("Public", "Private") : body.toString());
+    }
+  });
+  for (const name of ["video.mp4", "audio.mp3", "binary.unknownext"]) it("omits the range-denial header for binary " + name, async () => {
+    body = Buffer.from([0, 1, 2, 0, 255]);
+    for (let i = 0; i < 2; i++) {
+      const r = await request(port, "/a/plain?name=" + name, "identity", headers);
+      assert.equal(r.status, 200); assert.equal(r.headers["accept-ranges"], undefined);
+      assert.notEqual(r.headers["content-type"], "text/plain; charset=utf-8"); assert.deepEqual(r.body, body);
+    }
+  });
+  it("bypasses a contended source index without failing a download", async () => {
+    await request(port, "/a/plain", "identity", headers);
+    const { BlobCache } = require("../src/core/blob-cache");
+    const other = new BlobCache(sharedBlobCache().options); other.db.exec("BEGIN IMMEDIATE");
+    try {
+      const r = await request(port, "/a/plain", "identity", headers);
+      assert.equal(r.status, 200); assert.deepEqual(r.body, body); assert.equal(fills, 2);
+    } finally { other.db.exec("ROLLBACK"); other.close(); }
+  });
+  it("bypasses a contended result index while retaining the source fallback", async () => {
+    await request(port, "/a/plain", "identity", headers);
+    const { BlobCache } = require("../src/core/blob-cache");
+    const other = new BlobCache(resultBlobCache().options); other.db.exec("BEGIN IMMEDIATE");
+    try {
+      const r = await request(port, "/a/plain", "identity", headers);
+      assert.equal(r.status, 200); assert.deepEqual(r.body, body); assert.equal(fills, 1);
+    } finally { other.db.exec("ROLLBACK"); other.close(); }
+  });
+  for (const bypass of [false, true]) for (const streamed of [false, true]) {
+    it("normalizes upstream permission errors for " + JSON.stringify({ bypass, streamed }), async () => {
+      if (bypass) sharedBlobCache().options.budget = 1;
+      const source = new GitHubStream({ repoId: "errors", organization: "org", repoName: "repo", commit: "commit", getToken: async () => "" });
+      source.downloadWithFallback = async () => {
+        const error = Object.assign(Error("forbidden"), { response: { statusCode: 403 } });
+        if (!streamed) throw error;
+        return Readable.from((async function* () { yield Buffer.alloc(0); throw error; })());
+      };
+      await assert.rejects(async () => consume(await source.getFileContentCache("data.txt", "errors", () => ({ sha: sha(body), size: body.length }))),
+        error => error.message === "file_not_accessible" && error.httpStatus === 403);
+    });
+  }
+  it("classifies parent repository misses before returning a shared-download error", async () => {
+    const misses = require("../src/core/source/github-content-miss"), original = misses.classifyContentMiss;
+    let classified = 0;
+    misses.classifyContentMiss = async () => { classified++; return "repo_not_found"; };
+    try {
+      const source = new GitHubStream({ repoId: "missing-parent", organization: "org", repoName: "repo", commit: "missing-parent", getToken: async () => "" });
+      source.downloadWithFallback = async () => { throw Object.assign(Error("missing"), { status: 404 }); };
+      await assert.rejects(source.getFileContentCache("data.txt", "missing-parent", () => ({ sha: sha(body), size: body.length })),
+        error => error.message === "repo_not_found" && error.httpStatus === 404);
+      assert.equal(classified, 1);
+    } finally { misses.classifyContentMiss = original; }
+  });
+  it("classifies unavailable submodule streams on cache bypass", async () => {
+    sharedBlobCache().options.budget = 1;
+    const original = GitHubStream.prototype.downloadWithFallback;
+    GitHubStream.prototype.downloadWithFallback = async () => Readable.from((async function* () {
+      yield Buffer.alloc(0);
+      throw Object.assign(Error("missing"), { response: { statusCode: 404 } });
+    })());
+    try {
+      const source = new GitHubStream({ repoId: "errors", organization: "org", repoName: "repo", commit: "commit", getToken: async () => "" });
+      await assert.rejects(async () => consume(await source.getFileContentCache("vendor/data.txt", "errors", () => ({ sha: sha(body), size: body.length,
+        upstream: { organization: "public", repoName: "dependency", commit: "a".repeat(40), path: "data.txt" } }))),
+      error => error.message === "submodule_not_available" && error.httpStatus === 404);
     } finally { GitHubStream.prototype.downloadWithFallback = original; }
   });
   it("reuses unchanged decisions, separates changed rules, and caches small changed output", async () => {

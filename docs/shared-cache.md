@@ -52,6 +52,11 @@ and retire legacy data only after validating rollout. Uploaded ZIP originals and
 other durable source material are untouched. Repository removal invalidates access
 and project mappings, while shared blobs remain subject to global eviction.
 
+Transient SQLite write contention bypasses caching instead of failing file requests.
+Publication installs a reader lease before releasing its transaction, including
+duplicate blobs. Decisions retain sniffed text classification for consistent MIME
+headers on repeat reads; binary responses omit the range-denial header.
+
 The HTTP fast path applies to individual file responses backed by the shared source
 pool, including small text files. Decisions include content identity, path, project
 context, all transformation options, generation/revision, mask, hostname and engine
