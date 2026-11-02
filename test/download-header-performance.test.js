@@ -94,13 +94,13 @@ describe("download headers and website revalidation", function () {
     expect(second.headers["content-security-policy"]).to.include("sandbox");
   });
   it("renders Markdown again after a transient failure served the raw fallback", async function () {
-    const marked = require("marked").marked, render = marked.parse;
+    const markdown = require("../src/markdown"), render = markdown.renderMarkdown;
     let first;
     try {
-      marked.parse = () => { throw Error("transient rendering failure"); };
+      markdown.renderMarkdown = () => { throw Error("transient rendering failure"); };
       first = await fetch("/w/fixture/page.md");
       expect(first.status).to.equal(200); expect(first.body).to.equal("fixture content");
-    } finally { marked.parse = render; }
+    } finally { markdown.renderMarkdown = render; }
     const recovered = await fetch("/w/fixture/page.md", "GET", { "If-None-Match": first.headers.etag });
     expect(recovered.status).to.equal(200); expect(recovered.body).to.include("Anonymized page");
     expect(recovered.headers.etag).not.to.equal(first.headers.etag);

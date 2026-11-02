@@ -3,8 +3,7 @@ import { getRepo, handleError } from "./route-utils";
 import * as path from "path";
 import AnonymizedFile from "../../core/AnonymizedFile";
 import AnonymousError from "../../core/AnonymousError";
-import * as marked from "marked";
-import * as sanitizeHtml from "sanitize-html";
+import { renderMarkdown } from "../../markdown";
 import { streamToString, isTextFile } from "../../core/anonymize-utils";
 import { IFile } from "../../core/model/files/files.types";
 import { fileETag } from "./file-etag";
@@ -19,33 +18,6 @@ function escapeHtml(str: string): string {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
 }
-
-const sanitizeOptions: sanitizeHtml.IOptions = {
-  allowedTags: sanitizeHtml.defaults.allowedTags.concat([
-    "img",
-    "video",
-    "input",
-    "details",
-    "summary",
-    "del",
-    "ins",
-    "sup",
-    "sub",
-  ]),
-  allowedAttributes: {
-    ...sanitizeHtml.defaults.allowedAttributes,
-    img: ["src", "srcset", "alt", "title", "width", "height", "loading"],
-    video: ["src", "controls", "title"],
-    input: ["type", "checked", "disabled"],
-    code: ["class"],
-    span: ["class"],
-    div: ["class"],
-    pre: ["class"],
-    td: ["align"],
-    th: ["align"],
-  },
-  allowedSchemes: ["http", "https", "mailto"],
-};
 
 const router = express.Router();
 
@@ -161,7 +133,7 @@ async function webView(
               }">${escapeHtml(c.name) + (c.size == null ? "/" : "")}</a>`
           )
           .join("")}</div></div>`;
-        const html = `<!DOCTYPE html><html><head><title>Content</title></head><link rel="stylesheet" href="/css/all.min.css" /><body>${body}</body></html>`;
+        const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Content</title></head><link rel="stylesheet" href="/css/all.min.css" /><body>${body}</body></html>`;
         return res.contentType("text/html").send(html);
       }
     }
@@ -174,7 +146,7 @@ async function webView(
       });
     }
     res.set("Cache-Control", "private, no-cache, must-revalidate");
-    const pageETag = fileETag(JSON.stringify(["web-v1", repo.model.source.commit, repo.model.treeGeneration, repo.model.contentCacheRevision,
+    const pageETag = fileETag(JSON.stringify(["web-v2", repo.model.source.commit, repo.model.treeGeneration, repo.model.contentCacheRevision,
       await f.sha(), repo.model.source.repositoryName, repo.model.source.branch, config.APP_HOSTNAME, config.ANONYMIZATION_MASK]),
       requestPath, repo.options);
     res.set("ETag", pageETag);
@@ -189,8 +161,8 @@ async function webView(
     if (f.extension() == "md") {
       try {
         const content = await streamToString(await f.anonymizedContent());
-        const body = sanitizeHtml(marked.marked.parse(content, { async: false }), sanitizeOptions);
-        const html = `<!DOCTYPE html><html><head><title>Content</title></head><link rel="stylesheet" href="/css/all.min.css" /><body><div class="container p-3 file-content markdown-body">${body}</div></body></html>`;
+        const body = renderMarkdown(content);
+        const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Content</title></head><link rel="stylesheet" href="/css/all.min.css" /><body><div class="container p-3 file-content markdown-body">${body}</div><script defer src="/script/markdown.min.js"></script></body></html>`;
         res.contentType("text/html").send(html);
       } catch {
         // Raw Markdown must re-enter rendering when a transient failure clears.

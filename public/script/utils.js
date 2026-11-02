@@ -190,67 +190,6 @@ function parseGithubUrl(url) {
   }
 }
 
-// GitHub-style heading slug: lowercase, drop punctuation other than `-_`,
-// collapse runs of whitespace into a single dash. Used so anchor links like
-// `[Releases](#releases-and-contributing)` actually jump to the heading
-// (marked v12 dropped `headerIds`, so headings now have no id by default).
-function slugifyHeading(text) {
-  return String(text)
-    .toLowerCase()
-    .replace(/<[^>]+>/g, "")
-    .replace(/[^\p{L}\p{N}\s_-]/gu, "")
-    .trim()
-    .replace(/\s+/g, "-");
-}
-
 function renderMD(md, baseUrlValue) {
-  marked.use(
-    markedEmoji({
-      emojis: githubEmojis,
-      unicode: false,
-    })
-  );
-  md = contentAbs2Relative(md, baseUrlValue);
-  const renderer = new marked.Renderer();
-
-  const rendererLink = renderer.link;
-  renderer.link = function (href, title, text) {
-    // wrap videos links (mp4 and mov) with media https://github.blog/2021-05-13-video-uploads-available-github/
-    if (href.match(/\.mp4$|\.mov$/)) {
-      return `<div class="media"><video controls title="${title}" src="${href}">${text}</video></div>`;
-    }
-    return rendererLink.call(this, href, title, text);
-  };
-
-  const slugCounts = {};
-  renderer.heading = function (text, level, raw) {
-    const base = slugifyHeading(raw || text);
-    const n = slugCounts[base] || 0;
-    slugCounts[base] = n + 1;
-    const id = n === 0 ? base : `${base}-${n}`;
-    return `<h${level} id="${id}">${text}</h${level}>\n`;
-  };
-
-  marked.setOptions({
-    renderer: renderer,
-    pedantic: false,
-    gfm: true,
-    breaks: false,
-    sanitize: false,
-    smartLists: true,
-    smartypants: false,
-    xhtml: false,
-    headerIds: false,
-    katex: katex,
-  });
-  if (baseUrlValue) {
-    marked.use(baseUrl(baseUrlValue));
-  }
-  marked.use(
-    markedKatex({
-      throwOnError: false,
-    })
-  );
-  marked.use(markedMermaid());
-  return DOMPurify.sanitize(marked.parse(md, { renderer }));
+  return window.MarkdownRenderer.render(md || "", baseUrlValue);
 }

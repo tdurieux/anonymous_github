@@ -7912,3 +7912,44 @@ body.dark-mode .email-prompt { background: #242320; color: #faf9f6; }
 .viewer-error .paper-empty-title { margin-bottom: 1rem; }
 .viewer-error p { line-height: 1.6; }
 .viewer-error .paper-error-actions { display: flex; flex-wrap: wrap; gap: .75rem; }
+
+/* GitHub Markdown extensions share the document viewer's type and theme. */
+.markdown-body .markdown-alert {
+  margin: 1rem 0;
+  padding: .5rem 1rem;
+  border-left: 4px solid var(--alert-color, #0969da);
+}
+.markdown-body .markdown-alert-note { --alert-color: #0969da; }
+.markdown-body .markdown-alert-tip { --alert-color: #1a7f37; }
+.markdown-body .markdown-alert-important { --alert-color: #8250df; }
+.markdown-body .markdown-alert-warning { --alert-color: #9a6700; }
+.markdown-body .markdown-alert-caution { --alert-color: #cf222e; }
+.markdown-body .markdown-alert-title { color: var(--alert-color); font-weight: 600; display: flex; align-items: center; gap: .5rem; }
+.markdown-body .markdown-alert-title svg { fill: currentColor; flex-shrink: 0; }
+.markdown-body .markdown-alert > :last-child { margin-bottom: 0; }
+body.dark-mode .markdown-alert-note { --alert-color: #79c0ff; }
+body.dark-mode .markdown-alert-tip { --alert-color: #7ee787; }
+body.dark-mode .markdown-alert-important { --alert-color: #d2a8ff; }
+body.dark-mode .markdown-alert-warning { --alert-color: #e3b341; }
+body.dark-mode .markdown-alert-caution { --alert-color: #ff7b72; }
+.markdown-body .emoji { display: inline; vertical-align: text-bottom; }
+.markdown-body .footnotes { margin-top: 2rem; border-top: 1px solid var(--border-color, #d0d7de); padding-top: 1rem; font-size: .875em; }
+.markdown-body .katex-display { overflow-x: auto; overflow-y: hidden; padding: .25rem 0; }
+.markdown-body .markdown-diagram { margin: 1rem 0; border: 1px solid var(--border-color, #d0d7de); padding: .75rem; }
+.markdown-body .markdown-diagram svg { display: block; width: 100%; max-height: 360px; }
+.markdown-body .markdown-diagram path { fill: #a7b2ff; fill-opacity: .5; stroke: var(--link-color, #3b4ad6); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.markdown-body .diagram-controls { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .5rem; }
+.markdown-body .diagram-controls button { min-width: 44px; min-height: 44px; padding: .25rem .75rem; border: 1px solid var(--border-color, #d0d7de); background: var(--main-bg-color, white); color: inherit; border-radius: 4px; }
+.markdown-body .diagram-controls button:hover { background: var(--hover-bg-color, #f6f8fa); }
+.markdown-body .diagram-controls button:focus-visible { outline: 2px solid var(--link-color, #0969da); outline-offset: 2px; }
+.markdown-body .hljs-keyword, .markdown-body .hljs-selector-tag { color: #cf222e; }
+.markdown-body .hljs-string, .markdown-body .hljs-attr { color: #0a3069; }
+.markdown-body .hljs-number, .markdown-body .hljs-literal, .markdown-body .hljs-title { color: #8250df; }
+.markdown-body .hljs-comment { color: #57606a; }
+body.dark-mode .markdown-body .hljs-keyword { color: #ff7b72; }
+body.dark-mode .markdown-body .hljs-string, body.dark-mode .markdown-body .hljs-attr { color: #a5d6ff; }
+body.dark-mode .markdown-body .hljs-number, body.dark-mode .markdown-body .hljs-literal, body.dark-mode .markdown-body .hljs-title { color: #d2a8ff; }
+body.dark-mode .markdown-body .hljs-comment { color: #b1bac4; }
+
+body:not(.dark-mode) .markdown-body .gh-dark-mode-only,
+body.dark-mode .markdown-body .gh-light-mode-only { display: none; }

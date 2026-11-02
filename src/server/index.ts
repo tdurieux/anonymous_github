@@ -289,6 +289,13 @@ export default async function start() {
   app.use(
     express.static(join("public"), {
       etag: true,
+      setHeaders(res, filePath) {
+        // Sandboxed Markdown pages have an opaque origin; public math fonts
+        // must permit anonymous cross-origin requests without relaxing CSP.
+        if (/[/\\]css[/\\]fonts[/\\]KaTeX_[^/\\]+\.(?:woff2?|ttf)$/.test(filePath)) {
+          res.setHeader("Access-Control-Allow-Origin", "*");
+        }
+      },
       lastModified: true,
       maxAge: 86400000, // 1 day (fonts, images, partials)
       index: false, // don't serve index.html for "/" — indexResponse handles it
