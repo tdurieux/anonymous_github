@@ -7,6 +7,7 @@ export interface IAnonymizedRepository {
   status?: RepositoryStatus;
   statusMessage?: string;
   statusDate: Date;
+  progressDate?: Date;
   archivedAt?: Date;
   archiveReason?: string;
   archiveCachePending?: boolean;
