@@ -227,7 +227,6 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
     ["source branch", { "source.branch": "replacement" }],
     ["source type", { "source.type": "Zip" }],
     ["anonymization snapshot", { anonymizeDate: new Date(1) }],
-    ["settings revision", { settingsSavedAt: new Date(1) }],
     ["metadata revision", { fileMetadataRevision: "replacement" }],
     ["access revision", { "githubAccess.revision": "replacement" }],
   ];
@@ -332,6 +331,56 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
     expect(saved.options.terms).to.deep.equal(["after"]);
     expect(await File.countDocuments({ repoId: row.repoId })).to.equal(0); expect(await Path.countDocuments({ repoId: row.repoId })).to.equal(0);
     expect(jobs).to.have.length(1); expect(jobs[0][1]).to.deep.equal({ repoId: row.repoId });
+  });
+
+  for (const [label, change] of [...changedSnapshots, ["settings revision", { settingsSavedAt: new Date(1) }]] ) {
+    it(`rejects removal before claiming the lifecycle after a changed ${label}`, async () => {
+      const row = await repository({ status: "ready", treeGeneration: "old", pathIndexKey: "old-key" }), stale = new Repository(row);
+      await rows(1); await Repo.updateOne({ _id: row._id }, { $set: change });
+      const before = await Repo.findById(row._id).lean();
+      stale.removeCache = () => { throw Error("stale removal touched storage"); };
+      const error = await stale.remove({}).then(() => null, error => error);
+      expect(error.message).to.equal("connection_changed");
+      expect(await Repo.findById(row._id).lean()).to.deep.equal(before);
+      expect(await File.countDocuments({ repoId: row.repoId })).to.equal(1);
+    });
+  }
+
+  it("finishes preparation after an accepted options-only save with the same source", async () => {
+    const row = await repository({ status: "preparing", treeGeneration: "old", anonymizeDate: new Date(1),
+      source: { type: "GitHubStream", repositoryName: "fixture/repo", branch: "main", commit: "a".repeat(40) },
+      options: { terms: ["before"], expirationMode: "never" } });
+    const worker = new Repository(row), editor = new Repository(await Repo.findById(row._id));
+    await rows(1);
+    Object.defineProperty(worker, "source", { get: () => ({ async *iterateFiles() {
+      yield { name: "replacement.txt", path: "", size: 2, sha: "b".repeat(40) };
+    } }) });
+    const utils = require("../src/server/routes/route-utils"), queue = require("../src/queue");
+    const router = require("../src/server/routes/repository-private").default;
+    const handler = router.stack.find(layer => layer.route?.path === "/:repoId/" && layer.route.methods.post).route.stack[0].handle;
+    const restores = [], jobs = []; let savedSettingsAt;
+    const stub = (object, key, value) => { const original = object[key]; restores.push(() => { object[key] = original; }); object[key] = value; };
+    stub(utils, "getRepo", async () => editor);
+    stub(utils, "getUser", async () => ({ id: editor.owner.id, model: { id: editor.owner.id } }));
+    stub(utils, "handleError", error => { throw error; });
+    stub(queue, "downloadQueue", { add: async (...args) => { jobs.push(args); } });
+    stub(db, "connect", async () => {});
+    stub(db, "getRepository", async () => {
+      // The worker snapshot was loaded before this accepted owner edit.
+      await handler({ body: { repoId: row.repoId, fullName: "fixture/repo", terms: ["after"],
+        source: { branch: "main", commit: "a".repeat(40) }, options: { expirationMode: "never" } } }, { json() {} });
+      savedSettingsAt = (await Repo.findById(row._id)).settingsSavedAt;
+      return worker;
+    });
+    stub(github, "getToken", async () => "fixture"); stub(github, "getRedisGateResetAt", async () => 0);
+    try {
+      await require("../src/queue/processes/downloadRepository").default({ data: { repoId: row.repoId }, updateProgress: async () => {} });
+    } finally { while (restores.length) restores.pop()(); }
+    const saved = await Repo.findById(row._id);
+    expect(saved.status).to.equal("ready"); expect(saved.options.terms).to.deep.equal(["after"]);
+    expect(saved.settingsSavedAt).to.deep.equal(savedSettingsAt); expect(savedSettingsAt).to.be.instanceOf(Date);
+    expect(jobs).to.have.length(0);
+    expect((await File.find({ repoId: row.repoId })).map(file => file.name)).to.deep.equal(["replacement.txt"]);
   });
 
   it("retains retirement markers when foreground cleanup reaches its batch budget", async () => {

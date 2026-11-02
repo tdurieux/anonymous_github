@@ -38,6 +38,7 @@ import AnonymizedRepositoryModel from "./model/anonymizedRepositories/anonymized
 import { createLogger, serializeError } from "./logger";
 
 const logger = createLogger("repository");
+const snapshotValue = <T>(value: T | undefined) => value === undefined ? { $exists: false } : value;
 /** Capture and retire the stored key while clearing it, including concurrent index publication. */
 async function updateRetiringPathIndex(
   filter: () => FilterQuery<IAnonymizedRepositoryDocument>,
@@ -1027,6 +1028,19 @@ export default class Repository {
     }
   }
 
+  /** Fields that identify the cached source and its current lifecycle owner. */
+  private fileSnapshotFilter() {
+    return {
+      treeGeneration: snapshotValue(this.model.treeGeneration),
+      status: snapshotValue(this.model.status), statusDate: snapshotValue(this.model.statusDate),
+      anonymizeDate: snapshotValue(this.model.anonymizeDate),
+      fileMetadataRevision: snapshotValue(this.model.fileMetadataRevision),
+      "source.type": snapshotValue(this.model.source.type), "source.repositoryName": snapshotValue(this.model.source.repositoryName),
+      "source.commit": snapshotValue(this.model.source.commit), "source.branch": snapshotValue(this.model.source.branch),
+      "githubAccess.revision": snapshotValue(this.model.githubAccess?.revision),
+    };
+  }
+
   /**
    * Remove the repository
    */
@@ -1036,8 +1050,9 @@ export default class Repository {
       this.assertNotArchived();
       const statusDate = new Date();
       const result = await AnonymizedRepositoryModel.updateOne({ _id: this.model._id,
-        status: this.model.status,
-        "githubAccess.revision": expected.accessRevision || { $exists: false },
+        ...this.fileSnapshotFilter(), ...this.refreshFilter(),
+        settingsSavedAt: snapshotValue(this.model.settingsSavedAt),
+        "githubAccess.revision": snapshotValue(expected.accessRevision),
       }, { $set: { status: RepositoryStatus.REMOVING, statusDate } });
       if (!result.matchedCount) throw new AnonymousError("connection_changed", { httpStatus: 409 });
       this.model.status = RepositoryStatus.REMOVING;
@@ -1058,19 +1073,13 @@ export default class Repository {
     const defer = isConnected && (status || this.status) === RepositoryStatus.PREPARING;
     const previousGeneration = this.model.treeGeneration;
     const generation = defer ? randomUUID() : previousGeneration;
-    const expected = <T>(value: T | undefined) => value === undefined ? { $exists: false } : value;
     const refreshToken = this.refreshToken;
-    const snapshot = {
-      status: expected(this.model.status), statusDate: expected(this.model.statusDate),
-      anonymizeDate: expected(this.model.anonymizeDate), settingsSavedAt: expected(this.model.settingsSavedAt),
-      fileMetadataRevision: expected(this.model.fileMetadataRevision),
-      "source.type": expected(this.model.source.type), "source.repositoryName": expected(this.model.source.repositoryName),
-      "source.commit": expected(this.model.source.commit), "source.branch": expected(this.model.source.branch),
-      "githubAccess.revision": expected(this.model.githubAccess?.revision),
-    };
+    // Options-only saves apply at read time and leave this source snapshot valid.
+    // They must not cancel a queued worker without scheduling replacement work.
+    const snapshot = this.fileSnapshotFilter();
     if (isConnected) {
       const result = await updateRetiringPathIndex(() => ({ _id: this.model._id,
-        treeGeneration: expected(previousGeneration), ...snapshot,
+        ...snapshot,
         ...(refreshToken ? { refreshToken, refreshUntil: { $gt: new Date() } } : {}),
       }), { $set: { fileMetadataRevision: revision, ...(defer ? { treeGeneration: generation } : {}) },
         ...(defer ? { $addToSet: { retiredTreeGenerations: previousGeneration || "",
