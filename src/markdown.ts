@@ -32,7 +32,17 @@ export function renderMarkdown(source: string, base?: string): string {
     displayMode, throwOnError: false, trust: false, maxExpand: 1000, maxSize: 20,
   }));
   const parser = new Marked({ gfm: true, breaks: false, async: false });
-  parser.use(markedFootnote(), gfmHeadingId());
+  const footnotes = markedFootnote({ prefixId: `footnote-${nonce}-` });
+  for (const extension of footnotes.extensions || []) {
+    if ("renderer" in extension && extension.renderer) {
+      const render = extension.renderer;
+      extension.renderer = function (token) {
+        const html = render.call(this, token);
+        return typeof html === "string" ? html.replaceAll(`data-footnote-${nonce}-`, "data-footnote-") : html;
+      };
+    }
+  }
+  parser.use(footnotes, gfmHeadingId());
   const alerts = markedAlert();
   const topLevelQuotes = new WeakSet();
   const alertWalk = alerts.walkTokens!;
@@ -55,7 +65,7 @@ export function renderMarkdown(source: string, base?: string): string {
     }
   }
   parser.use(alerts);
-  const mathExtension = markedKatex({ throwOnError: false, nonStandard: true });
+  const mathExtension = markedKatex({ throwOnError: false, nonStandard: false });
   for (const extension of mathExtension.extensions || []) {
     if ("renderer" in extension) extension.renderer = token => math(token.text, token.displayMode);
   }

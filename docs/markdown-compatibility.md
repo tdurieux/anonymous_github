@@ -17,6 +17,10 @@ GitHub service features such as user mentions, issue-status badges, commit refer
 
 The sanitizer runs on all Markdown-produced HTML. Math and diagram renderers insert their own generated markup through unpredictable, per-document markers after sanitization. TeX runs with `trust: false`; Mermaid runs with `securityLevel: strict`. Source HTML cannot opt into this bypass. Task inputs are always disabled checkboxes.
 
-Run `npm run build:ui` before `npx mocha test/markdown-compatibility.test.js test/markdown-sanitization.test.js test/mermaid-security.test.js test/asset-build.test.js`. The browser tests exercise the built bundle, not a copy of the renderer.
+Run `npm run build:ui` before `npx mocha test/markdown-compatibility.test.js test/markdown-sanitization.test.js test/markdown-security.test.js test/mermaid-security.test.js test/asset-build.test.js`. The browser tests exercise the built bundle, not a copy of the renderer.
 
 References: [GitHub basic syntax](https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax), [math](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/writing-mathematical-expressions), [diagrams](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/creating-diagrams), and the [GFM specification](https://github.github.com/gfm/).
+
+Diagram inputs are limited to one million characters and 60,000 coordinates. Maps also enforce nesting and TopoJSON expansion limits before conversion. Rejected diagrams display as code.
+
+Mermaid, DOMPurify and KaTeX are npm dependencies so dependency audits cover their versions. After upgrading them, run `npm run vendor:markdown` followed by `npm run build:ui` and commit the refreshed assets. Security tests require the vendored files to match the installed packages.

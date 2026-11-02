@@ -42,7 +42,7 @@ async function enhance() {
   if (!diagrams.length) return;
   pending = true;
   try {
-    if (!window.mermaid) {
+    if (typeof window.mermaid?.initialize !== "function" || typeof window.mermaid?.run !== "function") {
       await new Promise((resolve, reject) => {
         const script = document.createElement("script");
         script.src = "/script/mermaid.min.js";
@@ -51,10 +51,10 @@ async function enhance() {
         document.head.appendChild(script);
       });
     }
-    if (!window.mermaidInitialized) {
-      window.mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: "default" });
-      window.mermaidInitialized = true;
-    }
+    // A raw HTML id can create a named window property. Do not trust a global
+    // initialization flag supplied by document content.
+    window.mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: "default" });
+    window.mermaidInitialized = true;
     for (const element of diagrams) {
       const source = element.textContent;
       try { await window.mermaid.run({ nodes: [element] }); }
