@@ -236,6 +236,95 @@ describe("Vue 3 UI", function () {
     "/api/anonymize-preview": request => ({ content: request.payload.content.replaceAll("Private Author", "MASKED") }),
   };
 
+  it("suggests opening existing configurations for the same repository URL without copying settings", async () => {
+    ui = await browser("/anonymize", {
+      ...repositorySource,
+      "/api/user/anonymized_repositories": [
+        { repoId: "older", source: { fullName: "Owner/Repo" }, options: { terms: ["Old Author"] }, anonymizeDate: "2025-01-01" },
+        { repoId: "newer", source: { fullName: "owner/repo" }, options: { terms: ["New Author"] }, anonymizeDate: "2026-01-01" },
+        { repoId: "unrelated", source: { fullName: "owner/other" }, options: {} },
+      ],
+    });
+    const state = ui.window.document.querySelector("#sourceUrl")._field.binding.state;
+    state.sourceUrl = "https://github.com/owner/repo.git/";
+    await state.urlSelected();
+    await delay(30);
+    const suggestion = ui.window.document.querySelector('[aria-label="Previous repository configuration"]');
+    expect(suggestion.textContent).to.include("avoid creating another repository");
+    expect([...suggestion.querySelectorAll("option")].map(option => option.value)).to.deep.equal(["newer", "older"]);
+    expect(suggestion.querySelector("a").getAttribute("href")).to.equal("/anonymize/newer");
+    await ui.input("#previousConfiguration", "older", "change");
+    expect(suggestion.querySelector("a").getAttribute("href")).to.equal("/anonymize/older");
+    expect(state.terms).to.equal("Default Author");
+    expect(state.isUpdate).to.equal(false);
+    suggestion.querySelector("button").click();
+    await delay(10);
+    expect(ui.window.document.querySelector('[aria-label="Previous repository configuration"]')).to.equal(null);
+    expect(ui.requests.filter(request => request.method === "POST" && request.url.pathname === "/api/repo/")).to.have.length(0);
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("opens the existing configuration from the suggestion without creating a repository", async () => {
+    const existing = { repoId: "existing-review", status: "ready", role: "owner",
+      source: { fullName: "owner/repo", branch: "main", commit: "abcdef123" },
+      options: { terms: ["Existing Author"], expirationMode: "never" } };
+    ui = await browser("/anonymize", {
+      ...repositorySource,
+      "/api/user/anonymized_repositories": [existing],
+      "/api/repo/existing-review": existing,
+    });
+    const sourceInput = await ui.input("#sourceUrl-landing", "https://github.com/owner/repo");
+    sourceInput.dispatchEvent(new ui.window.Event("blur"));
+    await delay(250);
+    const link = ui.window.document.querySelector('[aria-label="Previous repository configuration"] a');
+    expect(link).not.to.equal(null);
+    link.click();
+    await delay(250);
+    const state = ui.window.document.querySelector("#sourceUrl")._field.binding.state;
+    expect(ui.window.location.pathname).to.equal("/anonymize/existing-review");
+    expect(state.isUpdate).to.equal(true);
+    expect(state.repoId).to.equal("existing-review");
+    expect(state.terms).to.equal("Existing Author");
+    expect(state.source.commit).to.equal("abcdef123");
+    expect(ui.window.document.querySelector('[aria-label="Previous repository configuration"]')).to.equal(null);
+    expect(ui.requests.filter(request => request.method === "POST" && request.url.pathname.startsWith("/api/repo"))).to.have.length(0);
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("ignores delayed duplicate suggestions after switching to an invalid URL", async () => {
+    let finishLookup;
+    ui = await browser("/anonymize", {
+      ...repositorySource,
+      "/api/user/anonymized_repositories": () => new Promise(resolve => {
+        finishLookup = () => resolve([{ repoId: "existing", source: { fullName: "owner/repo" }, options: {} }]);
+      }),
+    });
+    const state = ui.window.document.querySelector("#sourceUrl")._field.binding.state;
+    state.sourceUrl = "https://github.com/owner/repo";
+    await state.urlSelected();
+    state.sourceUrl = "invalid";
+    await state.urlSelected();
+    finishLookup();
+    await delay(30);
+    expect(state.previousConfigurations).to.have.length(0);
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("allows creation when duplicate lookup fails", async () => {
+    ui = await browser("/anonymize", {
+      ...repositorySource,
+      "/api/user/anonymized_repositories": { __status: 503, body: { error: "unavailable" } },
+    });
+    const state = ui.window.document.querySelector("#sourceUrl")._field.binding.state;
+    state.sourceUrl = "https://github.com/owner/repo";
+    await state.urlSelected();
+    await delay(30);
+    expect(state.previousConfigurations).to.have.length(0);
+    expect(state.details.repo).to.equal("repo");
+    expect(state.sourceLoading).to.equal(false);
+    expect(ui.errors).to.deep.equal([]);
+  });
+
   it("keeps the current repository when earlier metadata and README responses arrive late", async () => {
     let finishMetadata, finishReadme;
     ui = await browser("/anonymize", {

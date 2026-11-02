@@ -109,6 +109,22 @@
               </div>
             </div>
 
+            <aside class="repo-access-details" aria-label="Previous repository configuration" v-if="!isUpdate &amp;&amp; previousConfigurations.length">
+              <p role="status">You have already anonymized this repository. Use the existing configuration to keep its anonymous link and avoid creating another repository.</p>
+              <div class="form-group" v-if="previousConfigurations.length > 1">
+                <label class="paper-field-label" for="previousConfiguration">Previous anonymization</label>
+                <select id="previousConfiguration" class="form-control" v-model="previousConfigurationId">
+                  <option v-for="previous in previousConfigurations" :key="previous.repoId" :value="previous.repoId">{{ previous.repoId }}</option>
+                </select>
+              </div>
+              <p v-else>{{ previousConfigurationId }}</p>
+              <p>You can review and update its settings before saving.</p>
+              <div class="repo-access-controls">
+                <a class="btn btn-ink" :href="existingConfigurationUrl()">Use existing configuration</a>
+                <button type="button" class="btn btn-link" @click="previousConfigurations = []">Create a separate anonymization</button>
+              </div>
+            </aside>
+
             <aside class="repo-access-details" aria-label="GitHub access" v-if="sourceUrl &amp;&amp; githubConnections?.appEnabled &amp;&amp; githubConnections.appConnected">
               <div class="repo-access-main">
                 <div class="repo-access-controls">
