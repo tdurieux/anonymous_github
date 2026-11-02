@@ -978,7 +978,7 @@ export default class Repository {
   /**
    * Remove the repository
    */
-  async remove(expected?: { accessRevision?: string }) {
+  async remove(expected?: { accessRevision?: string; replacement?: boolean }) {
     if (expected) {
       // Claim the lifecycle before deleting files; migration rejects REMOVING.
       this.assertNotArchived();
@@ -992,7 +992,8 @@ export default class Repository {
       await this.updateStatus(RepositoryStatus.REMOVING);
     }
     await this.resetSate();
-    await this.updateStatus(RepositoryStatus.REMOVED);
+    // A source replacement retains its reservation throughout cache retirement.
+    await this.updateStatus(expected?.replacement ? RepositoryStatus.PREPARING : RepositoryStatus.REMOVED);
   }
 
   /**

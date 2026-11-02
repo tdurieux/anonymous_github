@@ -85,6 +85,29 @@ async function rejects(promise, message) {
       expect(body.file.used).to.equal(1);
     } finally { utils.getUser = originalUser; }
   });
+  for (const replacement of [true, false]) {
+    it(`retains a reservation during retirement and ${replacement ? "replacement" : "releases it after permanent removal"}`, async () => {
+      const Repository = require("../src/core/Repository").default;
+      const db = require("../src/server/database");
+      const wasConnected = db.isConnected;
+      config.FREE_AUTHOR_REPOSITORIES = 1;
+      const model = await Repo.create({ repoId: "published", owner, billingManaged: true, status: "ready", size: { storage: 10 } });
+      await reserveRepository(owner, "published", 20);
+      const repo = new Repository(model);
+      repo.resetSate = async () => {
+        expect((await Repo.findOne({ repoId: "published" })).status).to.equal("removing");
+        await rejects(reserveRepository(owner, "competitor", 1), "quota_exceeded");
+      };
+      db.isConnected = true;
+      try { await repo.remove({ replacement }); }
+      finally { db.isConnected = wasConnected; }
+      expect((await Repo.findOne({ repoId: "published" })).status).to.equal(replacement ? "preparing" : "removed");
+      if (replacement) {
+        await rejects(reserveRepository(owner, "competitor", 1), "quota_exceeded");
+        expect((await BillingQuota.findById(`user:${owner}`)).allocations[0].bytes).to.equal(20);
+      } else await reserveRepository(owner, "competitor", 1);
+    });
+  }
   it("counts legacy repositories and releases removed repositories", async () => {
     await Repo.create(["one", "two", "three"].map(repoId => ({ repoId, owner, status: "ready", size: { storage: 10 } })));
     await rejects(reserveRepository(owner, "four", 1), "quota_exceeded");

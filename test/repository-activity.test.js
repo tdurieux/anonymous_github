@@ -124,6 +124,23 @@ describe("repository activity dates", () => {
       else expect(saved.$unset).to.have.property("billingNeverExpiresUntil", 1);
     });
   }
+  it("rejects repeated extensions beyond one year before changing stored settings", async () => {
+    const repo = repository(); auth(repo);
+    stub(require("../src/config").default, "BILLING_ENABLED", true);
+    repo.model.options.expirationMode = "remove";
+    repo.model.options.expirationDate = new Date();
+    let writes = 0;
+    stub(Model, "updateOne", () => ({ exec: async () => { writes++; return { matchedCount: 1 }; } }));
+    const extend = handler("repository-private", "/:repoId/extend", "post");
+    await extend({}, { json: () => {} });
+    await extend({}, { json: () => {} });
+    const savedDate = repo.model.options.expirationDate;
+    let error;
+    try { await extend({}, { json: () => {} }); } catch (caught) { error = caught; }
+    expect(error?.message).to.equal("invalid_billing_expiration");
+    expect(writes).to.equal(2);
+    expect(repo.model.options.expirationDate).to.deep.equal(savedDate);
+  });
   it("dates a dashboard expiration extension", async () => {
     const repo = repository(); auth(repo); let saved;
     stub(Model, "updateOne", (_filter, update) => ({ exec: async () => { saved = update.$set; } }));

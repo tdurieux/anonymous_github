@@ -205,6 +205,7 @@ router.post(
       const newExpiration = extendExpirationDate(
         repo.model.options.expirationDate
       );
+      validateBillingExpiration({ ...repo.model.options, expirationDate: newExpiration });
       const reactivating = repo.status === RepositoryStatus.EXPIRED;
       const updates: Record<string, Date | string | null> = {
         "options.expirationDate": newExpiration,
@@ -599,7 +600,7 @@ router.post(
           await reserveRepository(String(repo.model.owner), repo.repoId,
             files.reduce((sum, file) => sum + (file.size || 0), 0), repoUpdate.conference);
         }
-        await repo.remove({ accessRevision: previousAccessRevision });
+        await repo.remove({ accessRevision: previousAccessRevision, replacement: true });
       }
 
       const removeRepoFromConference = async (conferenceID: string) => {
