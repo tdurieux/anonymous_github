@@ -1,6 +1,7 @@
 import { neverExpirationDeadline, validateBillingExpiration } from "../../core/billing/expiration";
 import config from "../../config";
 import { assertConferenceAdmission, reserveRepository } from "../../core/billing/quotas";
+import { resetOwnerAccessAlerts } from "../../core/owner-notifications";
 import { randomUUID } from "crypto";
 import { githubQuotaKey } from "../../core/github-token-context";
 import { selectRepositoryAccess, boundAppToken, appError } from "../../core/github-app";
@@ -34,6 +35,24 @@ const router = express.Router();
 
 // user needs to be connected for all user API
 router.use(ensureAuthenticated);
+
+async function enqueueSavedSnapshot(model: IAnonymizedRepositoryDocument) {
+  try {
+    await downloadQueue.add(model.repoId, { repoId: model.repoId }, {
+      jobId: `repo-${model.repoId}`, attempts: 3,
+    });
+  } catch (error) {
+    // Leave a failed enqueue retryable without overwriting a worker or a
+    // lifecycle change that happened after this save.
+    await AnonymizedRepositoryModel.updateOne({
+      _id: model._id, status: RepositoryStatus.PREPARING,
+      statusDate: model.statusDate, anonymizeDate: model.anonymizeDate,
+      "githubAccess.revision": model.githubAccess?.revision || { $exists: false },
+    }, { $set: { status: RepositoryStatus.ERROR, statusDate: new Date(),
+      statusMessage: "preparation_interrupted" } }).exec();
+    throw error;
+  }
+}
 
 async function previewToken(req: express.Request) {
   const user = await getUser(req);
@@ -117,7 +136,8 @@ router.post("/claim", async (req, res) => {
 
     await AnonymizedRepositoryModel.updateOne(
       { repoId: repoConfig.repoId },
-      { $set: { owner: user.model.id, githubAccess: selectedAccess.binding } }
+      { $set: { owner: user.model.id, githubAccess: selectedAccess.binding, accessAlertGeneration: randomUUID() },
+        $unset: { accessAlertClaimedAt: "" } }
     ).collation({ locale: "en", strength: 2 });
     return res.send("Ok");
   } catch (error) {
@@ -149,6 +169,7 @@ router.post(
         throw new AnonymousError("invalid_status", { httpStatus: 409 });
       }
 
+      if (user.id === repo.owner.id) await resetOwnerAccessAlerts(user.id, { kind: "repository", id: String(repo.model._id) });
       await repo.refresh();
       res.json({ status: repo.status });
     } catch (error) {
@@ -185,33 +206,35 @@ router.post(
         repo.model.options.expirationDate
       );
       const reactivating = repo.status === RepositoryStatus.EXPIRED;
-      const updates: Record<string, Date> = {
+      const updates: Record<string, Date | string | null> = {
         "options.expirationDate": newExpiration,
         settingsSavedAt: new Date(),
       };
       repo.model.options.expirationDate = newExpiration;
-      repo.model.settingsSavedAt = updates.settingsSavedAt;
+      repo.model.settingsSavedAt = updates.settingsSavedAt as Date;
       if (reactivating) {
         repo.model.anonymizeDate = new Date();
         updates.anonymizeDate = repo.model.anonymizeDate;
+        updates.status = RepositoryStatus.PREPARING;
+        updates.statusDate = new Date();
+        updates.statusMessage = null;
       }
       const saved = await AnonymizedRepositoryModel.updateOne(
         { _id: repo.model._id, status: repo.status, statusDate: repo.model.statusDate },
         { $set: updates }
       ).exec();
       if (saved && saved.matchedCount === 0) throw new AnonymousError("invalid_status", { httpStatus: 409 });
+      if (user.id === repo.owner.id) await resetOwnerAccessAlerts(user.id, { kind: "repository", id: String(repo.model._id) });
 
       if (reactivating) {
         // Expiration removes the cached files. Rebuild the saved commit
         // directly instead of asking GitHub for the latest branch head first;
         // that lookup can fail after the new date has already been persisted
         // and leave the repository stuck in the expired state.
-        await repo.updateStatus(RepositoryStatus.PREPARING);
-        await downloadQueue.add(
-          repo.repoId,
-          { repoId: repo.repoId },
-          { jobId: `repo-${repo.repoId}`, attempts: 3 }
-        );
+        repo.model.status = RepositoryStatus.PREPARING;
+        repo.model.statusDate = updates.statusDate as Date;
+        repo.model.statusMessage = undefined;
+        await enqueueSavedSnapshot(repo.model);
       }
       res.json({ status: repo.status, expirationDate: newExpiration });
     } catch (error) {
@@ -620,6 +643,9 @@ router.post(
         }
       }
       repo.model.conference = repoUpdate.conference;
+      const preparation = sourceChanged || reactivating ? {
+        status: RepositoryStatus.PREPARING, statusDate: new Date(), statusMessage: null,
+      } : undefined;
       const saved = await AnonymizedRepositoryModel.updateOne(
         { _id: repo.model._id, status: repo.status, statusDate: repo.model.statusDate,
           "githubAccess.revision": previousAccessRevision || { $exists: false } },
@@ -632,22 +658,22 @@ router.post(
             githubAccess: repo.model.githubAccess,
             conference: repo.model.conference,
             anonymizeDate: repo.model.anonymizeDate,
+            ...preparation,
           },
           ...(!repo.model.billingNeverExpiresUntil ? { $unset: { billingNeverExpiresUntil: 1 } } : {}),
         }
       ).exec();
       if (!saved.matchedCount) throw appError("connection_changed", 409);
+      if (user.id === repo.owner.id) await resetOwnerAccessAlerts(user.id, { kind: "repository", id: String(repo.model._id) });
       if (!sourceChanged && !reactivating) {
         return res.json({ status: repo.status });
       }
 
-      await repo.updateStatus(RepositoryStatus.PREPARING);
+      repo.model.status = preparation!.status;
+      repo.model.statusDate = preparation!.statusDate;
+      repo.model.statusMessage = undefined;
+      await enqueueSavedSnapshot(repo.model);
       res.json({ status: repo.status });
-      await downloadQueue.add(
-        repo.repoId,
-        { repoId: repo.repoId },
-        { jobId: `repo-${repo.repoId}` }
-      );
     } catch (error) {
       return handleError(error, res, req);
     }

@@ -4,6 +4,7 @@ import CredentialModel from "../core/model/credentials/credentials.model";
 import mongoose, { ConnectOptions } from "mongoose";
 import Repository from "../core/Repository";
 import config from "../config";
+import { initializeOwnerAccessAlerts } from "../core/owner-notifications";
 import AnonymizedRepositoryModel from "../core/model/anonymizedRepositories/anonymizedRepositories.model";
 import AnonymousError from "../core/AnonymousError";
 import AnonymizedPullRequestModel from "../core/model/anonymizedPullRequests/anonymizedPullRequests.model";
@@ -34,6 +35,7 @@ export async function connect(overrides: Pick<ConnectOptions, "appName" | "maxPo
   await mongoose.connect(getMongoUrl(), options);
   await CredentialModel.createIndexes();
   if (config.GITHUB_APP_ENABLED) await InstallationModel.createIndexes();
+  await initializeOwnerAccessAlerts();
   isConnected = true;
 
   return database;

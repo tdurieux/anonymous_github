@@ -1,7 +1,12 @@
+import { ownerAlertLifecycle } from "../owner-alert-lifecycle.schema";
 import { repositoryAccessSchema } from "../repository-access.schema";
 import { Schema } from "mongoose";
 
 const AnonymizedPullRequestSchema = new Schema({
+  accessAlertGeneration: { type: String, select: false },
+  accessAlertClaimedAt: { type: Date, select: false },
+  accessAlertAttemptId: { type: String, select: false },
+  accessAlertClaimRevision: { type: Number, select: false },
   pullRequestId: {
     type: String,
     index: { unique: true },
@@ -66,5 +71,7 @@ const AnonymizedPullRequestSchema = new Schema({
 });
 
 AnonymizedPullRequestSchema.index({ status: 1, "options.expirationDate": 1 });
+
+AnonymizedPullRequestSchema.plugin(ownerAlertLifecycle);
 
 export default AnonymizedPullRequestSchema;

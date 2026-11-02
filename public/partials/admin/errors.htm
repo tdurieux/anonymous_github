@@ -5,7 +5,7 @@
     <h1 class="paper-page-title">Errors</h1>
     <div class="errors-actions">
       <button class="btn btn-sm" type="button" @click="exportCsv()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-export"></use></svg> Export CSV</button>
-      <button class="btn btn-sm btn-danger" type="button" @click="clearAll()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-trash"></use></svg> Clear all</button>
+      <button class="btn btn-sm btn-danger-soft" type="button" @click="clearAll()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-trash"></use></svg> Clear all</button>
     </div>
   </header>
 
@@ -128,7 +128,7 @@
         </div>
         <div class="col-sev">
           <span class="sev-dot" :class="&#x27;sev-&#x27; + row?._bucket"></span>
-          <span class="sev-label">{{ fmt?.uppercase(row?._bucket) }}</span>
+          <span class="sev-label">{{ fmt?.title(row?._bucket) }}</span>
         </div>
         <div class="col-mod"><span class="pill pill-module">{{ row?.module }}</span></div>
         <div class="col-msg">

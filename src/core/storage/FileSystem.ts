@@ -1,4 +1,4 @@
-import { appendArchiveEntry } from "../archive-entry";
+import { appendArchiveEntry, zipEntryOptions } from "../archive-entry";
 import config from "../../config";
 import * as fs from "fs";
 import { Extract } from "unzip-stream";
@@ -280,7 +280,7 @@ export default class FileSystem extends StorageBase {
           output = source.pipe(transformer);
           active = output;
         }
-        await appendArchiveEntry(archive, output, { name: filename.slice(dir ? dir.length + 1 : 0) });
+        await appendArchiveEntry(archive, output, zipEntryOptions(filename.slice(dir ? dir.length + 1 : 0), filename));
       }
       if (!stopped) await archive.finalize();
     })().catch(error => archive.destroy(error));

@@ -1,3 +1,5 @@
+import { withOwnerAccessRecovery } from "../owner-notifications";
+import { ExpiringMap } from "../expiring-map";
 import { contentGenerationPrefix, contentRetirementMarker } from "../content-generation";
 import { createHash } from "crypto";
 import { coordinatedFill } from "../cache-coordination";
@@ -14,21 +16,30 @@ import { basename, dirname } from "path";
 
 import * as stream from "stream";
 import AnonymousError from "../AnonymousError";
-import { octokit, waitForTokenGate } from "../GitHubUtils";
+import { octokit, waitForTokenGate, RateLimitDelayError } from "../GitHubUtils";
 import FileModel from "../model/files/files.model";
-import { IFile } from "../model/files/files.types";
+import { expandSubmodules, validUpstream } from "./github-submodules";
+import { IFile, UpstreamFile } from "../model/files/files.types";
 import { createLogger, serializeError } from "../logger";
 import { measureStage, recordCacheHit } from "../request-monitoring";
 import config from "../../config";
 import { isConnected } from "../../server/database";
 import AnonymizedRepositoryModel from "../model/anonymizedRepositories/anonymizedRepositories.model";
 import { RepositoryStatus } from "../types";
+import { cachedContentMiss, classifyContentMiss } from "./github-content-miss";
 
 
 const logger = createLogger("gh-stream");
 
 const GH_API_CONCURRENCY = 6;
 const cacheFills = new Map<string, Promise<void>>();
+const missingContent = new ExpiringMap<string>(2048);
+
+/** Stop upstream before Readable.from waits for the pending iterator to finish. */
+function stopSourceOnDestroy(output: stream.Readable, stop: () => void): void {
+  const destroy = output._destroy;
+  output._destroy = (error, callback) => { stop(); destroy.call(output, error, callback); };
+}
 
 async function pMap<T, R>(
   items: T[],
@@ -62,6 +73,16 @@ export function githubRawFileUrl(
   return `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(
     repo
   )}/raw/${encodeURIComponent(commit)}/${encodedPath}`;
+}
+
+function downloadError(error: Error, filePath: string): AnonymousError {
+  if (error instanceof AnonymousError) return error;
+  if (error instanceof RateLimitDelayError) return new AnonymousError("github_rate_limit_exceeded", { httpStatus: 429, cause: error });
+  const response = error as Error & { response?: { statusCode?: number }; status?: number; httpStatus?: number };
+  const status = response.response?.statusCode ?? response.status ?? response.httpStatus;
+  const code = status === 401 || status === 403 ? "file_not_accessible"
+    : status === 404 ? "file_not_found" : status === 422 ? "file_too_big" : "upstream_error";
+  return new AnonymousError(code, { httpStatus: Number.isInteger(status) && status! >= 400 && status! < 500 ? status : 502, cause: error, object: filePath });
 }
 
 export default class GitHubStream extends GitHubBase {
@@ -104,10 +125,9 @@ export default class GitHubStream extends GitHubBase {
     }
   }
 
-  // GitHub's web raw URL auto-resolves Git LFS pointers via redirect to
-  // media.githubusercontent.com, with the auth header carried through. The
-  // blob endpoint above returns the raw pointer text instead, so we use this
-  // as the fallback for LFS files (#95).
+  // The web URL resolves public LFS pointers. Private web URLs can return
+  // 404 even when the REST API can read the file, so use the scoped contents
+  // API to obtain a short-lived download URL in that case.
   private downloadFileViaRaw(token: string, filePath: string) {
     const url = githubRawFileUrl(
       this.data.organization,
@@ -116,11 +136,84 @@ export default class GitHubStream extends GitHubBase {
       filePath
     );
     logger.debug("downloading via raw URL (LFS)", { url });
-    return got.stream(url, {
-      hooks: { beforeRequest: [async () => { await githubTokenContext(token)?.renew(); }] },
-      headers: !token || githubTokenContext(token)?.publicRepository ? {} : { authorization: `token ${token}` },
-      followRedirect: true,
-    });
+    const data = this.data;
+    const cancellation = new AbortController();
+    let active: stream.Readable | undefined;
+    const output = stream.Readable.from((async function* () {
+      try {
+        active = got.stream(url, {
+          hooks: { beforeRequest: [async () => { await githubTokenContext(token)?.renew(); }] },
+          headers: !token || githubTokenContext(token)?.publicRepository ? {} : { authorization: `token ${token}` },
+          followRedirect: true,
+        });
+        for await (const chunk of active) yield chunk;
+        return;
+      } catch (error) {
+        if (!token || githubTokenContext(token)?.publicRepository ||
+            (error as { response?: { statusCode?: number } }).response?.statusCode !== 404) throw error;
+        await waitForTokenGate(token, cancellation.signal);
+        const response = await octokit(token).repos.getContent({
+          owner: data.organization, repo: data.repoName,
+          path: filePath, ref: data.commit || "HEAD", mediaType: { format: "object" },
+          request: { signal: cancellation.signal, timeout: 30_000 },
+        }).catch(apiError => {
+          if (apiError instanceof AnonymousError) throw apiError;
+          const upstream = apiError as { status?: number; response?: { data?: { message?: string } } };
+          if (upstream.status === 422) {
+            const missingCommit = /^No commit found for SHA\b/.test(upstream.response?.data?.message || "");
+            throw new AnonymousError(missingCommit ? "commit_not_found" : "upstream_error", {
+              httpStatus: missingCommit ? 404 : 502, cause: apiError as Error,
+            });
+          }
+          throw apiError;
+        });
+        if (cancellation.signal.aborted) return;
+        const metadata = response.data as { type?: string; download_url?: string };
+        if (metadata.type !== "file" || !metadata.download_url) throw error;
+        const assertDownloadUrl = (value: URL) => {
+          if (value.protocol !== "https:" || value.username || value.password || value.port ||
+              !["raw.githubusercontent.com", "media.githubusercontent.com"].includes(value.hostname)) {
+            throw new AnonymousError("upstream_error", { httpStatus: 502 });
+          }
+        };
+        assertDownloadUrl(new URL(metadata.download_url));
+        // The API URL supplies its own authorization. Never forward the
+        // owner's token to the download host or a redirect destination.
+        active = got.stream(metadata.download_url, {
+          hooks: { beforeRedirect: [options => { assertDownloadUrl(options.url); }] },
+        });
+        let probe = Buffer.alloc(0);
+        let checked = false;
+        for await (const chunk of active) {
+          if (checked) { yield chunk; continue; }
+          probe = Buffer.concat([probe, Buffer.from(chunk)]);
+          if (probe.length < 150) continue;
+          if (probe.toString("utf8").startsWith("version https://git-lfs.github.com/spec/")) {
+            throw new AnonymousError("upstream_error", { httpStatus: 502 });
+          }
+          checked = true; yield probe;
+        }
+        if (!checked && probe.length) {
+          if (probe.toString("utf8").startsWith("version https://git-lfs.github.com/spec/")) {
+            throw new AnonymousError("upstream_error", { httpStatus: 502 });
+          }
+          yield probe;
+        }
+      }
+    })(), { objectMode: false });
+    stopSourceOnDestroy(output, () => { cancellation.abort(); active?.destroy(); });
+    return output;
+  }
+
+  private deferredRawDownload(token: string, filePath: string): stream.Readable {
+    let active: stream.Readable | undefined;
+    const download = () => this.downloadFileViaRaw(token, filePath);
+    const output = stream.Readable.from((async function* () {
+      active = download();
+      for await (const chunk of active) yield chunk;
+    })(), { objectMode: false });
+    stopSourceOnDestroy(output, () => active?.destroy());
+    return output;
   }
 
   // Try the blob API, then fall back to the raw URL on statuses where the
@@ -135,9 +228,9 @@ export default class GitHubStream extends GitHubBase {
     // Public raw downloads need no bearer token and do not consume the
     // unauthenticated REST API quota. GitHub also resolves LFS pointers here.
     if (!token || githubTokenContext(token)?.publicRepository) {
-      return Promise.resolve(this.downloadFileViaRaw(token, filePath));
+      return Promise.resolve(this.deferredRawDownload(token, filePath));
     }
-    return new Promise<stream.Readable>((resolve) => {
+    return new Promise<stream.Readable>((resolve, reject) => {
       const blobStream = this.downloadFile(token, sha);
       let settled = false;
 
@@ -148,7 +241,7 @@ export default class GitHubStream extends GitHubBase {
           filePath,
           statusCode,
         });
-        resolve(this.downloadFileViaRaw(token, filePath));
+        resolve(this.deferredRawDownload(token, filePath));
       };
 
       blobStream.on("error", (err) => {
@@ -160,13 +253,10 @@ export default class GitHubStream extends GitHubBase {
           fallbackToRaw(statusCode);
           return;
         }
-        // Other errors: let the normal pipeline handle them.
-        // Defer destroy so callers can attach error listeners before
-        // the error event fires, avoiding an uncaughtException crash.
+        // Reject before handing a stream to the caller. nextTick runs before
+        // await continuations, so emitting on a returned stream here can crash.
         settled = true;
-        const passthrough = new stream.PassThrough();
-        resolve(passthrough);
-        process.nextTick(() => passthrough.destroy(err));
+        reject(err);
       });
 
       blobStream.on("response", (response) => {
@@ -191,9 +281,7 @@ export default class GitHubStream extends GitHubBase {
     token: string,
     filePath: string
   ): stream.Readable {
-    const out = new stream.PassThrough();
     let active = blobStream;
-    out.once("close", () => active.destroy());
     // The generator only reads upstream when the output has capacity.
     const downloadRaw = () => this.downloadFileViaRaw(token, filePath);
     async function* resolve() {
@@ -208,7 +296,7 @@ export default class GitHubStream extends GitHubBase {
         probe = Buffer.concat([probe, bytes]);
         if (probe.length < 150) continue;
         decided = true;
-        if (probe.toString("utf8", 0, 39) === "version https://git-lfs.github.com/spec/") {
+        if (probe.toString("utf8").startsWith("version https://git-lfs.github.com/spec/")) {
           active = downloadRaw();
           for await (const raw of active) yield raw;
           return;
@@ -225,28 +313,37 @@ export default class GitHubStream extends GitHubBase {
         }
       }
     }
-    const resolved = stream.Readable.from(resolve());
-    out.once("close", () => resolved.destroy());
-    resolved.on("error", (error) => out.destroy(error));
-    resolved.pipe(out);
-
-    return out;
+    const resolved = stream.Readable.from(resolve(), { objectMode: false });
+    // Keep the generator lazy until the consumer has installed its handlers.
+    stopSourceOnDestroy(resolved, () => active.destroy());
+    return resolved;
   }
 
   async getFileContentCache(
     filePath: string,
     repoId: string,
     fileMeta: () =>
-      | Promise<{ sha: string; size?: number }>
-      | { sha: string; size?: number }
+      | Promise<{ sha: string; size?: number; upstream?: UpstreamFile }>
+      | { sha: string; size?: number; upstream?: UpstreamFile }
       | Promise<string>
       | string
   ) {
     const meta = await fileMeta();
-    const expected: { sha: string; size?: number } =
+    const expected: { sha: string; size?: number; upstream?: UpstreamFile } =
       typeof meta === "string" ? { sha: meta } : meta;
+    if (expected.upstream && !validUpstream(expected.upstream)) throw new AnonymousError("invalid_request", { httpStatus: 400 });
+    // Hydrated Mongoose subdocuments expose source fields through getters,
+    // so spreading them would retain the parent's repository coordinates.
+    const origin = expected.upstream ? new GitHubStream({
+      ...this.data,
+      organization: expected.upstream.organization,
+      repoName: expected.upstream.repoName,
+      commit: expected.upstream.commit,
+      getToken: () => "",
+    }) : this;
+    const sourcePath = expected.upstream?.path || filePath;
     const generation = createHash("sha256").update(JSON.stringify([
-      this.data.commit, expected.sha, this.data.cacheGeneration, this.data.cacheRevision,
+      this.data.commit, expected.sha, this.data.cacheGeneration, this.data.cacheRevision, ...(expected.upstream ? [expected.upstream] : []),
     ])).digest("hex");
     const cachePath = this.data.cacheGeneration ? `${contentGenerationPrefix(this.data.cacheGeneration)}/${generation}/${filePath}` : filePath;
     const assertActive = async () => {
@@ -298,35 +395,51 @@ export default class GitHubStream extends GitHubBase {
       if (cacheFills.size >= 64) throw new AnonymousError("cache_busy", { httpStatus: 503 });
       filling = coordinatedFill(key, cached, async () => {
         await assertActive();
-        const token = await this.data.getToken();
-        return measureStage("upstream", async () => {
-          const content = await this.downloadWithFallback(token, expected.sha, filePath);
-          let count = 0;
-          const limited = new stream.Transform({ transform(chunk, encoding, callback) {
-            count += chunk.length;
-            callback(count > config.MAX_FILE_SIZE ? new AnonymousError("file_too_big", { httpStatus: 413 }) : null, chunk);
-          } });
-          content.on("error", error => {
-            if (error instanceof AnonymousError) { limited.destroy(error); return; }
-            const status = (error as { response?: { statusCode?: number }; status?: number; httpStatus?: number });
-            const httpStatus = status.response?.statusCode ?? status.status ?? status.httpStatus;
-            const code = httpStatus === 403 ? "file_not_accessible"
-              : httpStatus === 404 ? "file_not_found"
-              : httpStatus === 422 ? "file_too_big" : "upstream_error";
-            limited.destroy(new AnonymousError(code, { httpStatus: httpStatus || 502, cause: error, object: filePath }));
+        const parentToken = await this.data.getToken();
+        const token = expected.upstream ? "" : parentToken;
+        const sourceMiss = cachedContentMiss(this.data, parentToken);
+        if (sourceMiss && sourceMiss !== "file_not_found") throw new AnonymousError(sourceMiss, { httpStatus: 404 });
+        const missKey = createHash("sha256").update(JSON.stringify([
+          key, this.data.organization, this.data.repoName, token,
+        ])).digest("hex");
+        const missed = missingContent.get(missKey);
+        if (missed) throw new AnonymousError(missed, { httpStatus: 404 });
+        try {
+          const fetchContent = () => measureStage("upstream", async () => {
+            const content = await origin.downloadWithFallback(token, expected.sha, sourcePath)
+              .catch(error => { throw downloadError(error, filePath); });
+            let count = 0;
+            const limited = new stream.Transform({ transform(chunk, encoding, callback) {
+              count += chunk.length;
+              callback(count > config.MAX_FILE_SIZE ? new AnonymousError("file_too_big", { httpStatus: 413 }) : null, chunk);
+            } });
+            content.on("error", error => limited.destroy(downloadError(error, filePath)));
+            limited.once("close", () => content.destroy());
+            limited.on("error", () => {});
+            content.pipe(limited);
+            const deadline = setTimeout(() => limited.destroy(new AnonymousError("upstream_error", { httpStatus: 502 })), 120_000);
+            try {
+              await storage.write(repoId, cachePath, limited, this.type, expected.size);
+              try { await assertActive(); }
+              catch (error) { await storage.rm(repoId, cachePath); throw error; }
+            }
+            finally { clearTimeout(deadline); limited.destroy(); content.destroy(); }
+            return true;
           });
-          limited.once("close", () => content.destroy());
-          limited.on("error", () => {});
-          content.pipe(limited);
-          const deadline = setTimeout(() => limited.destroy(new AnonymousError("upstream_error", { httpStatus: 502 })), 120_000);
-          try {
-            await storage.write(repoId, cachePath, limited, this.type, expected.size);
-            try { await assertActive(); }
-            catch (error) { await storage.rm(repoId, cachePath); throw error; }
+          return expected.upstream ? await fetchContent() : await this.confirmOwnerAccess(repoId, fetchContent);
+        } catch (error) {
+          if (expected.upstream && error instanceof AnonymousError &&
+              ["file_not_found", "file_not_accessible"].includes(error.message)) {
+            // A removed public dependency is not a lost parent credential.
+            throw new AnonymousError("submodule_not_available", { httpStatus: 404, cause: error });
           }
-          finally { clearTimeout(deadline); limited.destroy(); content.destroy(); }
-          return true;
-        });
+          if (!expected.upstream && error instanceof AnonymousError && error.message === "file_not_found" && error.httpStatus === 404) {
+            const code = await classifyContentMiss(this.data, token);
+            missingContent.set(missKey, code, 30_000);
+            if (code !== "file_not_found") throw new AnonymousError(code, { httpStatus: 404, cause: error });
+          }
+          throw error;
+        }
       }).then(() => {});
       cacheFills.set(key, filling);
       void filling.finally(() => { if (cacheFills.get(key) === filling) cacheFills.delete(key); }).catch(() => {});
@@ -353,14 +466,14 @@ export default class GitHubStream extends GitHubBase {
             object: file,
           });
         }
-        return { sha: fileSha, size: await file.size() };
+        return { sha: fileSha, size: await file.size(), upstream: (await file.getFileInfo()).upstream };
       }
     );
   }
 
   async getFiles(progress?: (status: string) => void) {
     this._truncatedFolders = [];
-    return this.getTruncatedTree(this.data.commit, progress);
+    return expandSubmodules(await this.getTruncatedTree(this.data.commit, progress), this.data);
   }
 
   /**
@@ -371,6 +484,26 @@ export default class GitHubStream extends GitHubBase {
    * files above the 1MB contents-API inline limit.
    */
   async fetchFileInfoFromPath(filePath: string): Promise<IFile | null> {
+    return this.confirmOwnerAccess(this.data.repoId, () => this.fetchFileMetadata(filePath), result => result !== null);
+  }
+
+  private async confirmOwnerAccess<T>(repoId: string, work: () => Promise<T>, confirmed?: (result: T) => boolean): Promise<T> {
+    let repository;
+    try {
+      repository = isConnected ? await AnonymizedRepositoryModel.findOne({ repoId })
+        .select("owner source githubAccess").lean().exec() : null;
+    } catch {
+      // Email recovery bookkeeping must not prevent the upstream read.
+      return work();
+    }
+    return repository?.owner ? withOwnerAccessRecovery(String(repository.owner),
+      { kind: "repository", id: String(repository._id) }, work,
+      { "source.repositoryName": `${this.data.organization}/${this.data.repoName}`, "source.commit": this.data.commit,
+        "githubAccess.revision": repository.githubAccess?.revision ?? { $exists: false } }, confirmed) : work();
+  }
+
+  private async fetchFileMetadata(filePath: string): Promise<IFile | null> {
+    if (basename(filePath) === ".gitmodules") return null;
     const token = await this.data.getToken();
     const oct = octokit(token);
     try {
@@ -393,10 +526,13 @@ export default class GitHubStream extends GitHubBase {
         size: data.size,
       };
     } catch (error) {
-      logger.debug("fetchFileInfoFromPath miss", {
-        filePath,
-        error: serializeError(error),
-      });
+      if ((error as { status?: number }).status !== 404) throw error;
+      // A missing file and lost repository access both return 404. Only
+      // report a normal miss after the repository probe remains readable.
+      const code = await classifyGitHubMissError(error, this.data);
+      if (code === "repo_not_found") {
+        throw new AnonymousError(code, { httpStatus: 404, cause: error as Error });
+      }
       return null;
     }
   }
@@ -408,19 +544,37 @@ export default class GitHubStream extends GitHubBase {
     count = { request: 0, file: 0 },
     opt = { recursive: true, callback: () => {} }
   ) {
-    await waitForTokenGate(token);
-    const ghRes = await oct.git.getTree({
-      owner: this.data.organization,
-      repo: this.data.repoName,
-      tree_sha: sha,
-      recursive: opt.recursive === true ? "1" : undefined,
-    });
-    count.request++;
-    count.file += ghRes.data.tree.length;
-    if (opt.callback) {
-      opt.callback();
+    try {
+      await waitForTokenGate(token);
+      const ghRes = await oct.git.getTree({
+        owner: this.data.organization,
+        repo: this.data.repoName,
+        tree_sha: sha,
+        recursive: opt.recursive === true ? "1" : undefined,
+      });
+      count.request++;
+      count.file += ghRes.data.tree.length;
+      if (opt.callback) opt.callback();
+      return ghRes.data;
+    } catch (error) {
+      // Keep quota, credential and lifecycle errors intact. A failed tree
+      // request does not imply that the repository has disappeared.
+      if (error instanceof AnonymousError || error instanceof RateLimitDelayError) throw error;
+      const upstream = error as { status?: number; response?: { data?: { message?: string } } };
+      const status = upstream.status;
+      const invalidObject = status === 422 && /^Invalid object requested\. SHA must identify a commit or a tree\b/.test(upstream.response?.data?.message || "");
+      const code = status === 409 ? "repo_empty"
+        : status === 404 ? await classifyGitHubMissError(error, this.data)
+        : invalidObject ? "commit_not_found"
+        : status === 401 ? "token_expired"
+        : status === 403 ? "repo_not_accessible" : "github_unavailable";
+      throw new AnonymousError(code, {
+        httpStatus: status === 409 ? 409 : status === 404 || invalidObject ? 404
+          : status === 401 || status === 403 ? status : 502,
+        object: this.data,
+        cause: error as Error,
+      });
     }
-    return ghRes.data;
   }
 
   private async getTruncatedTree(
@@ -435,55 +589,17 @@ export default class GitHubStream extends GitHubBase {
       file: 0,
     };
     const output: IFile[] = [];
-    let data;
-    try {
-      data = await this.getGHTree(oct, token, sha, count, {
-        recursive: true,
-        callback: () => {
-          if (progress) {
-            progress("List file: " + count.file);
-          }
-        },
-      });
-      if (!data.truncated) return this.tree2Tree(data.tree, parentPath);
-      data = await this.getGHTree(oct, token, sha, count, {
-        recursive: false,
-        callback: () => {
-          if (progress) {
-            progress("List file: " + count.file);
-          }
-        },
-      });
-      if (data.truncated) {
-        this._truncatedFolders.push(parentPath);
-      }
-      output.push(...this.tree2Tree(data.tree, parentPath));
-    } catch (error) {
-      const status = (error as { status?: number }).status;
-      if (status === 409) {
-        logger.debug("getTree empty repo", serializeError(error));
-        throw new AnonymousError("repo_empty", {
-          httpStatus: 409,
-          object: this.data,
-          cause: error as Error,
-        });
-      }
-      if (status === 404) {
-        logger.debug("getTree miss", serializeError(error));
-        const code = await classifyGitHubMissError(error, this.data);
-        throw new AnonymousError(code, {
-          httpStatus: 404,
-          object: this.data,
-          cause: error as Error,
-        });
-      }
-      logger.warn("getTree failed", serializeError(error));
-      throw new AnonymousError("repo_not_found", {
-        httpStatus: status || 404,
-        object: this.data,
-        cause: error as Error,
-      });
-    }
+    let data = await this.getGHTree(oct, token, sha, count, {
+      recursive: true,
+      callback: () => { progress?.("List file: " + count.file); },
+    });
+    if (!data.truncated) return this.tree2Tree(data.tree, parentPath);
+    data = await this.getGHTree(oct, token, sha, count, {
+      recursive: false,
+      callback: () => { progress?.("List file: " + count.file); },
+    });
+    if (data.truncated) this._truncatedFolders.push(parentPath);
+    output.push(...this.tree2Tree(data.tree, parentPath));
     const subtrees: { sha: string; parentPath: string }[] = [];
     for (const file of data.tree) {
       if (file.type == "tree" && file.path && file.sha) {
@@ -568,6 +684,7 @@ export default class GitHubStream extends GitHubBase {
         path: pathFile,
         repoId: this.data.repoId,
         size: elem.size,
+        ...(elem.type === "commit" ? { submodule: "unsupported" } : {}),
         sha: elem.sha,
       });
     });

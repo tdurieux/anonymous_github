@@ -1,3 +1,4 @@
+import { notifyOwnerAccessProblem, withOwnerAccessRecovery } from "./owner-notifications";
 import { registerGitHubToken } from "./github-token-context";
 import { isConnected } from "../server/database";
 import { expireEmbeddedContent } from "./content-expiration";
@@ -67,6 +68,16 @@ export default class Gist {
   }
 
   async download() {
+    try { await withOwnerAccessRecovery(this.owner.id,
+      { kind: "gist", id: String(this.model._id) }, () => this.downloadWithAccess(),
+      { "source.gistId": this.model.source.gistId }); }
+    catch (error) {
+      void notifyOwnerAccessProblem(this.owner.id, error, { kind: "gist", id: String(this.model._id) });
+      throw error;
+    }
+  }
+
+  private async downloadWithAccess() {
     const access = await this.getAccess();
     try {
       await this.downloadContent(access.token);

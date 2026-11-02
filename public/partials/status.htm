@@ -57,25 +57,25 @@
       </div>
     </div>
 
-    <div class="task-result" v-if="repo?.status === 'ready'">
-      <div class="detail-label">Repository</div>
-      <div class="detail-value">
-        <a target="_self" :href="safeUrl(&quot;/r/&quot; + (repoId) + &quot;/&quot;)">{{ reviewUrl }}</a>
+    <div class="share-link" v-if="repo?.status == &#x27;ready&#x27;">
+      <p class="paper-section-copy">Reviewers can browse the repository at this address without seeing who you are.</p>
+      <div class="share-link-row">
+        <input id="share-url" class="form-control share-link-input" readonly aria-label="Anonymous link" :value="shareUrl" @focus="$event.target.select()">
+        <button type="button" class="btn btn-ink" @click="copyShareUrl()">
+          <svg class="ui-icon" aria-hidden="true"><use :href="copied ? '#ui-icon-check' : '#project-icon-copy'"></use></svg>
+          <span aria-live="polite" v-text="copied ? 'Copied' : 'Copy link'"></span>
+        </button>
       </div>
-      <div class="detail-label" v-if="repo?.options?.page">GitHub Page</div>
-      <div class="detail-value" v-if="repo?.options?.page">
-        <a target="_self" :href="safeUrl(&quot;/w/&quot; + (repoId) + &quot;/&quot;)">/w/{{ repoId }}/</a>
+      <div class="share-link-actions">
+        <a class="btn" target="_self" :href="safeUrl(&quot;/r/&quot; + (repoId) + &quot;/&quot;)">
+          <svg class="ui-icon" aria-hidden="true"><use href="#project-icon-eye"></use></svg> Open repository
+        </a>
+        <a class="btn" target="_self" v-if="repo?.options?.page" :href="safeUrl(&quot;/w/&quot; + (repoId) + &quot;/&quot;)">
+          <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-globe"></use></svg> Open GitHub page
+        </a>
       </div>
     </div>
 
-    <div class="task-actions" v-if="repo?.status == &#x27;ready&#x27;">
-      <a class="btn btn-ink" target="_self" :href="safeUrl(&quot;/r/&quot; + (repoId) + &quot;/&quot;)">
-        <svg class="ui-icon mr-1" aria-hidden="true"><use href="#project-icon-eye"></use></svg> Go to anonymized repository
-      </a>
-      <a class="btn" target="_self" v-if="repo?.options?.page" :href="safeUrl(&quot;/w/&quot; + (repoId) + &quot;/&quot;)">
-        <svg class="ui-icon mr-1" aria-hidden="true"><use href="#ui-icon-globe"></use></svg> Go to anonymized GitHub page
-      </a>
-    </div>
   </section>
 
     <aside class="task-summary" aria-label="Repository summary">

@@ -94,6 +94,45 @@ describe("repository activity dates", () => {
     expect(saved.settingsSavedAt).to.be.instanceOf(Date);
     expect(saved["options.expirationDate"]).to.be.instanceOf(Date);
   });
+  for (const action of ["save", "extend"]) {
+    for (const outcome of ["success", "failure", "concurrent removal"]) {
+      it(`${action} restores atomically and handles enqueue ${outcome}`, async () => {
+        const repo = repository(action === "save" ? "removed" : "expired");
+        auth(repo);
+        const stored = repo.model.toObject();
+        let writes = 0, responded = false, queued = false;
+        stub(Model, "updateOne", (filter, update) => ({ exec: async () => {
+          if (!require("sift").default(filter)(stored)) return { matchedCount: 0 };
+          // Mongoose omits undefined values from $set before sending it.
+          for (const [key, value] of Object.entries(update.$set)) {
+            if (value !== undefined) stored[key] = value;
+          }
+          writes++;
+          return { matchedCount: 1 };
+        } }));
+        const failure = new Error("queue unavailable");
+        stub(queue, "downloadQueue", { add: async () => {
+          expect(responded).to.equal(false);
+          expect(writes).to.equal(1);
+          expect(stored.status).to.equal("preparing");
+          expect(stored.anonymizeDate.getTime()).to.be.greaterThan(new Date("2026-01-02").getTime());
+          if (outcome === "concurrent removal") stored.status = "removing";
+          if (outcome !== "success") throw failure;
+          queued = true;
+        } });
+        let caught;
+        try {
+          await handler("repository-private", action === "save" ? "/:repoId/" : "/:repoId/extend", "post")({ body: {
+            repoId: repo.repoId, fullName: "owner/repo", source: { commit: "abc123", branch: "main" },
+            terms: [], options: { expirationMode: "never" },
+          } }, { json: () => { expect(queued).to.equal(true); responded = true; } });
+        } catch (error) { caught = error; }
+        expect(caught).to.equal(outcome === "success" ? undefined : failure);
+        expect(responded).to.equal(outcome === "success");
+        expect(stored.status).to.equal(outcome === "success" ? "preparing" : outcome === "failure" ? "error" : "removing");
+      });
+    }
+  }
   it("returns publication and settings dates independently of the older source commit", async () => {
     const repo = repository(); auth(repo);
     repo.model.settingsSavedAt = new Date("2026-03-01");
@@ -113,5 +152,15 @@ describe("repository activity dates", () => {
     expect(body.publishedAt).to.equal(undefined);
     expect(body.settingsSavedAt).to.equal(undefined);
     expect(body.lastUpdateDate).to.deep.equal(repo.model.anonymizeDate);
+    expect(body.expirationDate).to.equal(null);
+  });
+  it("tells reviewers when an expiring repository stops being available", async () => {
+    const repo = repository(); auth(repo);
+    repo.model.options.expirationMode = "remove";
+    repo.model.options.expirationDate = new Date("2099-01-01");
+    stub(Files, "exists", async () => null);
+    let body;
+    await handler("repository-public", "/:repoId/options", "get")({}, { header: () => {}, json: value => { body = value; } });
+    expect(body.expirationDate).to.deep.equal(new Date("2099-01-01"));
   });
 });

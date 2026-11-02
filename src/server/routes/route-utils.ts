@@ -233,10 +233,10 @@ export function handleError(
     errorCode = String(error);
   }
   let status = 500;
-  if (error.httpStatus) {
-    status = error.httpStatus;
-  } else if (error.$metadata?.httpStatusCode) {
-    status = error.$metadata.httpStatusCode;
+  const explicitStatus = [error?.httpStatus, error?.status, error?.response?.statusCode,
+    error?.$metadata?.httpStatusCode].find(value => Number.isInteger(value) && value >= 400 && value <= 599);
+  if (explicitStatus !== undefined) {
+    status = explicitStatus;
   } else if (
     errorCode &&
     (errorCode.indexOf("not_found") > -1 ||

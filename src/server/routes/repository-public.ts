@@ -1,3 +1,4 @@
+import { repositoryFailureStatus } from "../../core/repository-failure-status";
 import { anonymizePath } from "../../core/anonymize-utils";
 import * as express from "express";
 import config from "../../config";
@@ -57,6 +58,7 @@ router.get(
       res.attachment(`${repo.repoId}.zip`);
       if (req.method === "HEAD") { res.end(); return; }
       await repo.countView();
+      const submodules = await repo.submoduleMounts();
 
       if (config.STREAMER_ENTRYPOINT) {
         // use the streamer service
@@ -75,6 +77,7 @@ router.get(
               branch: repo.model.source.branch,
               repoId: repo.repoId,
               anonymizerOptions: anonymizer.opt,
+              submodules,
               contentOptions: {
                 image: repo.options.image,
                 pdf: repo.options.pdf,
@@ -169,6 +172,7 @@ router.get(
           commit: repo.model.source.commit || "HEAD",
           getToken: () => repo.getToken(),
           anonymizerOptions: anonymizer.opt,
+          submodules,
           contentOptions: {
             image: repo.options.image,
             pdf: repo.options.pdf,
@@ -335,7 +339,7 @@ router.get(
                 : "repository_not_accessible",
               {
                 object: repo,
-                httpStatus: 500,
+                httpStatus: repositoryFailureStatus(repo.model.statusMessage),
               }
             );
           }
@@ -372,21 +376,26 @@ router.get(
         sourceCommitDate: repo.model.source.commitDate,
         settingsSavedAt: repo.model.settingsSavedAt,
         publishedAt: repo.model.publishedAt,
+        // Lets reviewers see how long the link stays available.
+        expirationDate:
+          repo.options.expirationMode !== "never"
+            ? repo.options.expirationDate || null
+            : null,
         isAdmin: user?.isAdmin === true,
         isOwner: user?.id == repo.model.owner,
         hasWebsite: !!repo.options.page && !!repo.options.pageSource,
         truncatedFolders: (repo.model.truncatedFolders || []).map((path) =>
           anonymizePath(path, repo.options.terms || [])
         ),
-        // Submodule contents are not included in GitHub archives/trees, so
-        // they end up as empty folders in the anonymized repository. Surface
-        // a warning in the explorer when the repository uses submodules (#737).
+        // Legacy trees retain .gitmodules until their next tree refresh.
         hasSubmodules:
           (await FileModel.exists({
             repoId: repo.repoId,
             treeGeneration: repo.model.treeGeneration || { $exists: false },
-            name: ".gitmodules",
-            path: "",
+            $or: [
+              { submodule: { $exists: true, $ne: "included" } },
+              { name: ".gitmodules", path: "" },
+            ],
           })) != null,
       });
     } catch (error) {

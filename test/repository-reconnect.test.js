@@ -103,6 +103,8 @@ describe("reconnecting a recreated repository", () => {
     expect(saved.update.$set.githubAccess.revision).not.to.equal("old");
     expect(saved.update.$set.source.repositoryId).to.equal("new-record");
     expect(saved.update.$set.source.commit).to.equal("abcdef");
+    expect(saved.update.$set.status).to.equal("preparing");
+    expect(saved.update.$set.statusDate).to.be.instanceOf(Date);
     expect(saved.update.$set.source.commitDate).to.deep.equal(new Date("2026-09-29T00:00:00Z"));
     expect(removals).to.deep.equal([{ accessRevision: "old" }]);
     expect(jobs[0][1]).to.deep.equal({ repoId: "recreated" });

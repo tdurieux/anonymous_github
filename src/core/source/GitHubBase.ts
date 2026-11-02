@@ -52,7 +52,9 @@ export async function classifyGitHubMissError(
       repo: data.repoName,
     });
     return "commit_not_found";
-  } catch {
+  } catch (probeError) {
+    if ((probeError as { status?: number; httpStatus?: number }).status !== 404 &&
+        (probeError as { httpStatus?: number }).httpStatus !== 404) throw probeError;
     // Repo no longer exists at owner/repo. Try to recover via the cached
     // numeric GitHub id — if the repo was renamed, GET /repositories/{id}
     // resolves to its new full_name. See #409.
@@ -87,7 +89,9 @@ export async function classifyGitHubMissError(
         return "repo_renamed";
       }
       return "repo_not_found";
-    } catch {
+    } catch (probeError) {
+      if ((probeError as { status?: number; httpStatus?: number }).status !== 404 &&
+          (probeError as { httpStatus?: number }).httpStatus !== 404) throw probeError;
       return "repo_not_found";
     }
   }

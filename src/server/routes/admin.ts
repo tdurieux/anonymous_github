@@ -381,7 +381,16 @@ router.get("/queues", dashboardCache, async (req, res) => {
     ...QUEUE_STATES.map(async (state) => {
       const jobs = await targetQueue.getJobs([state], 0, 199);
       return jobs.map((j) => {
-        const json: Record<string, unknown> = { ...j.asJSON(), _state: state };
+        // asJSON() serializes these fields to strings; the dashboard needs
+        // the objects (payload repoId, stack lines, failure reason).
+        const json: Record<string, unknown> = {
+          ...j.asJSON(),
+          data: j.data,
+          failedReason: j.failedReason,
+          stacktrace: j.stacktrace,
+          returnvalue: j.returnvalue,
+          _state: state,
+        };
         if (state === "delayed" && j.delay > 0) {
           json.delayUntil = j.timestamp + j.delay;
         }

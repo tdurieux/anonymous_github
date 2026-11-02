@@ -1,5 +1,7 @@
 import { startBillingMaintenance } from "../core/billing/maintenance";
 import billing, { billingWebhook } from "./routes/billing";
+import { sendRequestRateLimit } from "./request-rate-limit";
+import { installFatalErrorLogging } from "../core/process-monitoring";
 import { githubAppRouter, githubAppWebhook } from "./routes/github-app";
 import { config as dotenv } from "dotenv";
 dotenv();
@@ -16,7 +18,10 @@ import * as passport from "passport";
 import { connect } from "./database";
 import { startTemporaryStorageMaintenance } from "../core/temporary-storage";
 import { initSession, router as connectionRouter } from "./routes/connection";
+import maintenanceRouter from "./routes/maintenance";
+import maintenanceTokens from "./routes/maintenance-tokens";
 import { bearerTokenAuth } from "./routes/token-auth";
+import { tokenAttemptLimitOptions, maintenanceRefreshLimitOptions } from "./routes/maintenance-limits";
 import router from "./routes";
 import {
   conferenceStatusCheck,
@@ -39,11 +44,18 @@ import config from "../config";
 import { resolveTrustProxy } from "./trustProxy";
 import { requestRateLimitKey } from "./rate-limit-key";
 import { createLogger, serializeError } from "../core/logger";
+import { serverOptions } from "./server-options";
 import { monitorRequests } from "../core/request-monitoring";
 import { startPerformanceMonitoring } from "../core/performance-monitoring";
 import { getAnonymizationPoolStats } from "../core/anonymization-pool";
 
+import { createReviewCapabilities } from "./service/review-capabilities";
+
+import { createReviewConsentPage, isReviewConsentPagePath } from "./review-consent-page";
+
+const reviewConsentPage = createReviewConsentPage();
 const logger = createLogger("server");
+installFatalErrorLogging("api");
 
 // Lazily build the templated index.html on first request so the server
 // works even when started before `gulp` finishes.
@@ -80,6 +92,7 @@ function getIndexHtml(): string {
 }
 
 function indexResponse(req: express.Request, res: express.Response) {
+  if (isReviewConsentPagePath(req.path)) return reviewConsentPage(req, res);
   if (
     req.path.startsWith("/script") ||
     req.path.startsWith("/css") ||
@@ -106,8 +119,10 @@ function indexResponse(req: express.Request, res: express.Response) {
 export default async function start() {
   const app = express();
   app.use(monitorRequests("api"));
+  app.use(serverOptions);
   startPerformanceMonitoring("api", getAnonymizationPoolStats);
   app.set("query parser", "extended");
+  app.use("/service", createReviewCapabilities(process.env.REVIEW_SERVICE_KEYS));
   app.use("/github/app/webhook", githubAppWebhook);
   app.use("/api/billing/webhook", billingWebhook);
   app.use(express.json());
@@ -140,12 +155,6 @@ export default async function start() {
   // client-spoofable header.
   app.set("trust proxy", resolveTrustProxy(config.TRUST_PROXY));
 
-  // handle session and connection
-  app.use(initSession());
-  app.use(passport.initialize());
-  app.use(passport.session());
-  app.use(bearerTokenAuth);
-
   startWorker();
 
   const redisClient = createClient({
@@ -160,6 +169,32 @@ export default async function start() {
 
   await redisClient.connect();
 
+  // Charge failed and forbidden bearer requests before their database lookup.
+  app.use(rateLimit({
+    ...tokenAttemptLimitOptions,
+    store: new RedisStore({
+      prefix: "token-attempt:",
+      sendCommand: (...args: string[]) => redisClient.sendCommand(args),
+    }),
+  }));
+  // Bearer attempts are limited before session deserialization as well.
+  app.use(initSession());
+  app.use(passport.initialize());
+  app.use(passport.session());
+  app.use(bearerTokenAuth);
+  app.use(rateLimit({
+    ...maintenanceRefreshLimitOptions,
+    store: new RedisStore({
+      prefix: "maintenance-refresh:",
+      sendCommand: (...args: string[]) => redisClient.sendCommand(args),
+    }),
+  }));
+
+  // All maintenance tokens for an account share a budget across client IPs.
+  const apiRateKey = (req: express.Request, res: express.Response) =>
+    res.locals.maintenanceOwnerId
+      ? `maintenance:${res.locals.maintenanceOwnerId}`
+      : requestRateLimitKey(req);
   const rate = rateLimit({
     store: new RedisStore({
       sendCommand: (...args: string[]) => redisClient.sendCommand(args),
@@ -168,7 +203,7 @@ export default async function start() {
     skip: async (request: express.Request, _response: express.Response) => {
       try {
         const user = await getUser(request);
-        if (user && user.isAdmin) return true;
+        if (user && user.isAdmin && !_response.locals.maintenanceToken) return true;
       } catch {
         // ignore: user not connected
       }
@@ -184,26 +219,24 @@ export default async function start() {
       // if not logged in, limit to half the rate
       return config.RATE_LIMIT / 2;
     },
-    keyGenerator: requestRateLimitKey,
+    keyGenerator: apiRateKey,
     standardHeaders: "draft-6",
     legacyHeaders: false,
-    message: (_request: express.Request, _response: express.Response) => {
-      return `You can only make ${config.RATE_LIMIT} requests every 15min. Please try again later.`;
-    },
+    handler: sendRequestRateLimit,
   });
   const speedLimiter = slowDown({
     windowMs: 15 * 60 * 1000, // 15 minutes
     delayAfter: 50,
     delayMs: () => 150,
     maxDelayMs: 5000,
-    keyGenerator: requestRateLimitKey,
+    keyGenerator: apiRateKey,
   });
   const webViewSpeedLimiter = slowDown({
     windowMs: 15 * 60 * 1000, // 15 minutes
     delayAfter: 200,
     delayMs: () => 150,
     maxDelayMs: 5000,
-    keyGenerator: requestRateLimitKey,
+    keyGenerator: apiRateKey,
   });
 
   app.use("/github", rate, speedLimiter, githubAppRouter);
@@ -214,6 +247,8 @@ export default async function start() {
   app.use("/api", rate, apiRouter);
 
   apiRouter.use("/billing", billing);
+  apiRouter.use("/maintenance", speedLimiter, maintenanceRouter);
+  apiRouter.use("/user/maintenance-tokens", maintenanceTokens);
   apiRouter.use("/admin", router.admin);
   apiRouter.use("/options", router.option);
   apiRouter.use("/conferences", router.conference);
@@ -283,6 +318,13 @@ export default async function start() {
   app.use(
     express.static(join("public"), {
       etag: true,
+      setHeaders(res, filePath) {
+        // Sandboxed Markdown pages have an opaque origin; public math fonts
+        // must permit anonymous cross-origin requests without relaxing CSP.
+        if (/[/\\]css[/\\]fonts[/\\]KaTeX_[^/\\]+\.(?:woff2?|ttf)$/.test(filePath)) {
+          res.setHeader("Access-Control-Allow-Origin", "*");
+        }
+      },
       lastModified: true,
       maxAge: 86400000, // 1 day (fonts, images, partials)
       index: false, // don't serve index.html for "/" — indexResponse handles it

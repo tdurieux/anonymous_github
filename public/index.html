@@ -9,7 +9,6 @@
     />
 
     <title>Anonymous Github</title>
-    <base href="/" />
 
     <link
       rel="apple-touch-icon"
@@ -64,7 +63,7 @@
           window._mermaidLoaded = true;
           window._mermaidLoading = false;
           if (typeof mermaid !== "undefined") {
-            mermaid.initialize({ startOnLoad: false, theme: "default", securityLevel: "loose" });
+            mermaid.initialize({ startOnLoad: false, theme: "default", securityLevel: "strict" });
             window.mermaidInitialized = true;
             var els = document.querySelectorAll(".mermaid:not([data-processed])");
             if (els.length) mermaid.init(undefined, els);
@@ -86,11 +85,9 @@
             type: "floating-chat",
             "floating-chat.donateButton.text": "Support me",
             "floating-chat.donateButton.background-color": isDark
-              ? "#FAF9F6"
+              ? "#34312C"
               : "#1A1815",
-            "floating-chat.donateButton.text-color": isDark
-              ? "#1A1815"
-              : "#FAF9F6",
+            "floating-chat.donateButton.text-color": "#FAF9F6",
           });
         };
         document.body.appendChild(s);

@@ -1,4 +1,4 @@
-import { appendArchiveEntry } from "../archive-entry";
+import { appendArchiveEntry, zipEntryOptions } from "../archive-entry";
 import {
   GetObjectCommand,
   ListObjectsV2CommandOutput,
@@ -398,7 +398,7 @@ export default class S3Storage extends StorageBase {
             output = source.pipe(transformer);
             active = output;
           }
-          await appendArchiveEntry(archive, output, { name: filename.slice(dir.length) });
+          await appendArchiveEntry(archive, output, zipEntryOptions(filename.slice(dir.length), filename));
         }
         if (listing.IsTruncated && !next) throw new Error("Invalid S3 continuation token");
       } while (next && !stopped);

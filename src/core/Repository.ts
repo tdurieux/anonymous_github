@@ -1,4 +1,5 @@
 import { allowance, reserveRepository } from "./billing/quotas";
+import { notifyOwnerAccessProblem, withOwnerAccessRecovery } from "./owner-notifications";
 import AnonymizedPathModel from "./model/anonymized-path";
 import storage from "./storage";
 import { contentGenerationPrefix, contentRetirementMarker } from "./content-generation";
@@ -8,6 +9,7 @@ import { RepositoryStatus } from "./types";
 import { Readable } from "stream";
 import * as sha1 from "crypto-js/sha1";
 import User from "./User";
+import { SubmoduleMount } from "./source/github-submodules";
 import GitHubStream from "./source/GitHubStream";
 import Zip from "./source/Zip";
 import {
@@ -43,14 +45,14 @@ async function buildPathIndex(repoId: string, key: string, terms: string[], gene
   const task = (async () => {
     const compiled = compileTerms(terms);
     const cursor = FileModel.find({ repoId, treeGeneration: generation || { $exists: false } })
-      .select("name path sha size").sort({ path: 1, name: 1 }).lean().cursor();
+      .select("name path sha size upstream").sort({ path: 1, name: 1 }).lean().cursor();
     let batch: Parameters<typeof AnonymizedPathModel.bulkWrite>[0] = [];
     try {
       for await (const file of cursor) {
         const name = anonymizePathCompiled(file.name, compiled);
         const directory = anonymizePathCompiled(file.path, compiled);
         batch.push({ updateOne: { filter: { repoId, key, originalId: file._id }, update: { $set: {
-          repoId, key, originalId: file._id, name: file.name, path: file.path, sha: file.sha, size: file.size,
+          repoId, key, originalId: file._id, name: file.name, path: file.path, sha: file.sha, size: file.size, upstream: file.upstream,
           anonymousName: name, anonymousDirectory: directory, createdAt: new Date(),
           searchName: name.toLowerCase(), searchDirectory: directory.toLowerCase(),
           anonymousPath: anonymizePathCompiled(file.path ? `${file.path}/${file.name}` : file.name, compiled),
@@ -202,6 +204,17 @@ export default class Repository {
     return await FileModel.find(query).exec();
   }
 
+  async submoduleMounts(): Promise<SubmoduleMount[]> {
+    if (this.model.source.type === "Zip") return [];
+    await this.ensureFileTree();
+    const mounts = await FileModel.find({ repoId: this.repoId,
+      treeGeneration: this.model.treeGeneration || { $exists: false }, submodule: "included",
+    }).select("name path upstream").lean().exec();
+    return mounts.filter(file => file.upstream).map(file => ({
+      ...file.upstream!, path: [file.path, file.name].filter(Boolean).join("/"),
+    }));
+  }
+
   private async ensureFileTree(opt: { force?: boolean; progress?: (status: string) => void } = {}) {
     this.assertNotArchived();
     let hasFile = this.hasEmptyTree() || await FileModel.exists({ repoId: this.repoId, treeGeneration: this.model.treeGeneration || { $exists: false } }).exec();
@@ -219,12 +232,22 @@ export default class Repository {
         hasFile = null;
       }
     }
+    if (hasFile && this.source instanceof GitHubStream && await FileModel.exists({
+      repoId: this.repoId, treeGeneration: this.model.treeGeneration || { $exists: false }, name: ".gitmodules",
+    }).exec()) hasFile = null;
     if (!hasFile || opt.force) {
       const previousGeneration = this.model.treeGeneration;
       const previousPrefix = contentGenerationPrefix(`${previousGeneration || "legacy"}:${this.model.anonymizeDate?.toISOString() || ""}`);
       const streamed = this.model.source.type !== "Zip";
       const source = this.source;
-      const files = await source.getFiles(opt.progress);
+      const readFiles = () => source.getFiles(opt.progress);
+      const files = await (streamed ? withOwnerAccessRecovery(this.owner.id,
+        { kind: "repository", id: String(this.model._id) }, readFiles,
+        { "source.repositoryName": this.model.source.repositoryName, "source.commit": this.model.source.commit,
+          "githubAccess.revision": this.model.githubAccess?.revision ?? { $exists: false } }) : readFiles()).catch(error => {
+        void notifyOwnerAccessProblem(this.owner.id, error, { kind: "repository", id: String(this.model._id) });
+        throw error;
+      });
       if (this.model.billingManaged) await reserveRepository(String(this.model.owner), this.repoId, files.reduce((sum, file) => sum + (file.size || 0), 0), this.model.conference);
       const sourceWithTruncation = source as unknown as { truncatedFolderList?: string[] };
       const truncatedFolders = Array.isArray(sourceWithTruncation.truncatedFolderList)
@@ -550,8 +573,8 @@ export default class Repository {
   async isReady() {
     if (this.status !== RepositoryStatus.READY) return false;
     if (!this.hasEmptyTree() && !(await FileModel.exists({ repoId: this.repoId, treeGeneration: this.model.treeGeneration || { $exists: false } }).exec())) {
-      this.model.status = RepositoryStatus.PREPARING;
-      await this.updateIfNeeded({ force: true });
+      // Missing-tree recovery competes with owner refreshes for the same job.
+      await this.refresh();
       return false;
     }
     return true;
@@ -626,6 +649,14 @@ export default class Repository {
 
   /** Update the repository if a new commit exists. */
   async updateIfNeeded(opt?: { force: boolean }): Promise<void> {
+    try { await this.refreshIfNeeded(opt); }
+    catch (error) {
+      void notifyOwnerAccessProblem(this.owner.id, error, { kind: "repository", id: String(this.model._id) });
+      throw error;
+    }
+  }
+
+  private async refreshIfNeeded(opt?: { force: boolean }): Promise<void> {
     this.assertNotArchived();
     if (
       this._model.options.expirationMode !== "never" &&
@@ -677,12 +708,14 @@ export default class Repository {
             this.checkRefreshWrite(result);
           }
         }
-        const branches = await ghRepo.branches({
-          force: true,
-          accessToken: token,
-        });
-        const branchName =
-          this.model.source.branch || ghRepo.model.defaultBranch;
+        const branchName = this.model.source.branch || ghRepo.model.defaultBranch;
+        const branches = await withOwnerAccessRecovery(this.owner.id,
+          { kind: "repository", id: String(this.model._id) },
+          () => ghRepo.branches({ force: true, accessToken: token }),
+          { "source.repositoryName": this.model.source.repositoryName,
+            "githubAccess.revision": this.model.githubAccess?.revision ?? { $exists: false } },
+          result => !opt?.force && this.status === RepositoryStatus.READY
+            && result.some(branch => branch.name === branchName && branch.commit === this.model.source.commit));
         const newCommit = branches.filter((f) => f.name == branchName)[0]
           ?.commit;
 
@@ -703,7 +736,8 @@ export default class Repository {
         }
         if (
           this.model.source.commit == newCommit &&
-          this.status == RepositoryStatus.READY
+          this.status == RepositoryStatus.READY &&
+          !opt?.force
         ) {
           logger.info("up to date", { repoId: this._model.repoId });
           return;
@@ -723,9 +757,11 @@ export default class Repository {
           }
         }
         this._model.source.commit = newCommit;
-        const commitInfo = await ghRepo.getCommitInfo(newCommit, {
-          accessToken: token,
-        });
+        const commitInfo = await withOwnerAccessRecovery(this.owner.id,
+          { kind: "repository", id: String(this.model._id) },
+          () => ghRepo.getCommitInfo(newCommit, { accessToken: token }),
+          { "source.repositoryName": this.model.source.repositoryName,
+            "githubAccess.revision": this.model.githubAccess?.revision ?? { $exists: false } });
         if (
           commitInfo.commit?.author?.date ||
           commitInfo.commit?.committer?.date

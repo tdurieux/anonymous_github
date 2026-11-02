@@ -531,11 +531,12 @@ export class ContentAnonimizer {
       const replaced = replaceTerm(content, c, asciiContent);
       if (replaced !== content) this.wasAnonymized = true;
       content = replaced;
-      // Masks and changed boundaries can introduce later matches. Re-index
-      // only after a real change, never once per absent term.
+      // Masks and changed boundaries can introduce later matches. Invalidate
+      // the original-text index and check remaining rules directly; rebuilding
+      // the index after every change costs more than those presence checks.
       if (content !== previous) {
         asciiContent = asciiContent && /^\p{ASCII}*$/u.test(c.mask);
-        candidates = this.termPresence?.candidates(content, index);
+        candidates = undefined;
       }
     }
     return content;

@@ -8,6 +8,16 @@
   <p role="status" v-if="!connections &amp;&amp; !connectionError">Loading your connections…</p>
   <button class="btn btn-outline-ink" v-if="!connections &amp;&amp; connectionError" :disabled="busy" @click="loadConnections()">Try again</button>
   <div v-if="connections">
+    <section class="connection-resources" v-if="connections.emailNotificationsEnabled">
+      <h2>Email alerts</h2>
+      <p>We will email you if your GitHub connection stops working or a repository becomes inaccessible. Your address is never shown on anonymous pages.</p>
+      <form @submit.prevent="saveNotificationEmail()">
+        <label for="notification-email">Email address</label>
+        <input id="notification-email" class="form-control" type="email" autocomplete="email" maxlength="254" required v-model="notificationEmail" :disabled="busy" />
+        <button class="btn btn-ink mt-2" type="submit" :disabled="busy">Save email address</button>
+        <p v-if="emailSaved" role="status">Email address saved.</p>
+      </form>
+    </section>
     <div class="connections-grid">
       <section v-if="connections.appEnabled">
         <div class="connection-top"><i class="fab fa-github" aria-hidden="true"></i><span class="connection-badge">Recommended</span></div>

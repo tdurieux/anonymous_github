@@ -1,6 +1,7 @@
 import { Schema } from "mongoose";
 
 const UserSchema = new Schema({
+  reviewConsentRevision: { type: Number, select: false },
   accessTokens: {
     github: { type: String, select: false },
   },
@@ -14,6 +15,14 @@ const UserSchema = new Schema({
     type: String,
     index: { unique: true },
   },
+  notificationEmail: { type: String },
+  emailPromptNever: { type: Boolean, default: false },
+  accessAlertAfter: { type: Date, select: false },
+  accessAlertResetRevision: { type: Number, select: false },
+  accessAlertResetUntil: { type: Date, select: false },
+  accessAlertFenceRevision: { type: Number, select: false },
+  accessAlertDeactivations: { type: [String], default: undefined, select: false },
+  accessAlertDispatches: { type: Schema.Types.Mixed, select: false },
   emails: [
     {
       email: { type: String },
@@ -27,6 +36,9 @@ const UserSchema = new Schema({
       name: { type: String },
       createdAt: { type: Date, default: Date.now },
       lastUsedAt: { type: Date },
+      scope: { type: String, enum: ["repository-maintenance"] },
+      repoIds: { type: [String], default: undefined },
+      expiresAt: { type: Date },
     },
   ],
   photo: String,

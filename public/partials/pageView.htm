@@ -1,5 +1,5 @@
 <div v-code-editor="{ content: content, options: aceOption }" v-if="type == &#x27;text&#x27;"></div>
-<div class="file-content markdown-body" v-if="type == &#x27;html&#x27;" v-html="sanitize(content)"></div>
+<div class="file-content markdown-body" v-if="type == &#x27;html&#x27;" v-html="highlightRedactions(sanitize(content))"></div>
 <html-doc v-if="type == &#x27;html-doc&#x27; &amp;&amp; !showSource &amp;&amp; content != null" :content="content" :base-url="(fileBaseUrl)" :allow-scripts="allowScripts"></html-doc>
 <div v-code-editor="{ content: content, options: aceOption }" v-if="(type == &#x27;code&#x27; || (type == &#x27;html-doc&#x27; &amp;&amp; showSource)) &amp;&amp; content != null"></div>
 <img class="image-content" v-if="type == &#x27;image&#x27;" :src="safeUrl((url))">
@@ -19,7 +19,22 @@
     <p class="paper-error-msg">This repository will be available in <strong>{{ rateLimitCountdown }}</strong>. The page will reload automatically.</p>
   </div>
 </div>
-<div class="file-error container d-flex h-100" v-if="type == &#x27;error&#x27;"><h1 class="paper-empty-title m-auto" v-text="fmt.translate(&quot;ERRORS.&quot; + (content))">Error</h1></div>
+<div class="file-error container d-flex h-100" v-if="type == 'error'">
+  <section class="viewer-error paper-error-card file-error-card m-auto" role="alert" aria-labelledby="viewer-error-title">
+    <h1 id="viewer-error-title" class="paper-empty-title">{{ fmt.translate(isSourceAccessError() ? 'VIEWER_ERRORS.access_title' : 'VIEWER_ERRORS.title') }}</h1>
+    <p>{{ fmt.translate('ERRORS.' + content) }}</p>
+    <template v-if="isSourceAccessError()">
+      <p>{{ fmt.translate('VIEWER_ERRORS.reader_help') }}</p>
+      <p>{{ fmt.translate('VIEWER_ERRORS.owner_help') }}</p>
+    </template>
+    <div class="paper-error-actions">
+      <a v-if="!isSourceAccessError()" href="/" class="btn btn-sm">Back to home</a>
+      <a v-if="!isSourceAccessError()" href="/faq" class="btn btn-sm">Read the FAQ</a>
+      <button type="button" class="btn btn-primary" @click="retryContent()">{{ fmt.translate('VIEWER_ERRORS.retry') }}</button>
+      <a v-if="isSourceAccessError()" class="btn btn-outline-ink" href="/dashboard">{{ fmt.translate('VIEWER_ERRORS.dashboard') }}</a>
+    </div>
+  </section>
+</div>
 <div class="file-error container d-flex h-100" v-if="type == &#x27;loading&#x27; &amp;&amp; !error"><h1 class="paper-empty-title m-auto">Loading&hellip;</h1></div>
 <div class="file-error container d-flex h-100" v-if="type == &#x27;empty&#x27;"><h1 class="paper-empty-title m-auto">Empty <em>repository</em>.</h1></div>
 <div class="file-error container d-flex h-100" v-if="content == null &amp;&amp; type != &#x27;empty&#x27;"><h1 class="paper-empty-title m-auto">Empty <em>file</em>.</h1></div>

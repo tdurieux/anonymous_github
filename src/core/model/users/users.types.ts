@@ -19,7 +19,12 @@ export interface IUser {
     name?: string;
     createdAt?: Date;
     lastUsedAt?: Date;
+    scope?: "repository-maintenance";
+    repoIds?: string[];
+    expiresAt?: Date;
   }[];
+  notificationEmail?: string;
+  emailPromptNever?: boolean;
   emails: {
     email: string;
     default: boolean;

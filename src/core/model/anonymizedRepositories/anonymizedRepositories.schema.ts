@@ -1,9 +1,15 @@
+import { ownerAlertLifecycle } from "../owner-alert-lifecycle.schema";
 import { repositoryAccessSchema } from "../repository-access.schema";
 import { Schema } from "mongoose";
 
 const AnonymizedRepositorySchema = new Schema({
   billingManaged: Boolean,
   billingNeverExpiresUntil: Date,
+  accessAlertGeneration: { type: String, select: false },
+  accessAlertClaimedAt: { type: Date, select: false },
+  accessAlertAttemptId: { type: String, select: false },
+  accessAlertClaimRevision: { type: Number, select: false },
+  reviewConsentRevision: { type: Number, select: false },
   repoId: {
     type: String,
     index: { unique: true, collation: { locale: "en", strength: 2 } },
@@ -119,5 +125,7 @@ AnonymizedRepositorySchema.index({
   isReseted: 1,
   "options.expirationDate": 1,
 });
+
+AnonymizedRepositorySchema.plugin(ownerAlertLifecycle);
 
 export default AnonymizedRepositorySchema;

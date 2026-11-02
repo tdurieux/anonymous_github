@@ -1,3 +1,4 @@
+import { installFatalErrorLogging } from "../core/process-monitoring";
 import { config as dotenv } from "dotenv";
 dotenv();
 
@@ -16,6 +17,7 @@ import { startPerformanceMonitoring } from "../core/performance-monitoring";
 import { getAnonymizationPoolStats } from "../core/anonymization-pool";
 
 const logger = createLogger("streamer");
+installFatalErrorLogging("streamer");
 
 const app = express();
 app.use(monitorRequests("streamer"));

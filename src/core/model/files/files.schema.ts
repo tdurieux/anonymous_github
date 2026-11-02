@@ -1,5 +1,7 @@
 import { Schema } from "mongoose";
 
+export const UpstreamFileSchema = new Schema({ organization: String, repoName: String, commit: String, path: String }, { _id: false });
+
 const FileSchema = new Schema({
   name: { type: String, index: true },
   path: { type: String, index: true },
@@ -7,6 +9,8 @@ const FileSchema = new Schema({
   treeGeneration: String,
   treeStaged: Boolean,
   metadataPending: Boolean,
+  upstream: { type: UpstreamFileSchema, default: undefined },
+  submodule: { type: String, enum: ["included", "unsupported", "unavailable", "limit", "nested"] },
   sha: {
     type: String,
   },

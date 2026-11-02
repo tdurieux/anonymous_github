@@ -1,3 +1,4 @@
+import { notifyOwnerAccessProblem, withOwnerAccessRecovery } from "./owner-notifications";
 import { isConnected } from "../server/database";
 import { expireEmbeddedContent } from "./content-expiration";
 import { boundAppToken } from "./github-app";
@@ -33,6 +34,17 @@ export default class PullRequest {
   }
 
   async download() {
+    try { await withOwnerAccessRecovery(this.owner.id,
+      { kind: "pull-request", id: String(this.model._id) }, () => this.downloadContent(),
+      { "source.repositoryFullName": this.model.source.repositoryFullName, "source.pullRequestId": this.model.source.pullRequestId,
+        "githubAccess.revision": this.model.githubAccess?.revision ?? { $exists: false } }); }
+    catch (error) {
+      void notifyOwnerAccessProblem(this.owner.id, error, { kind: "pull-request", id: String(this.model._id) });
+      throw error;
+    }
+  }
+
+  private async downloadContent() {
     logger.info("downloading pull request", {
       pullRequestId: this._model.source.pullRequestId,
     });

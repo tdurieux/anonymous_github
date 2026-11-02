@@ -38,6 +38,24 @@ after(function () {
 });
 
 describe("route-utils.handleError", function () {
+  for (const status of [401, 403, 406, 429, 502]) {
+    it(`preserves Octokit status ${status} without exposing upstream messages`, function () {
+      const res = makeRes();
+      handleError(Object.assign(new Error("private upstream details"), { status }), res);
+      expect(res.statusCode).to.equal(status);
+      expect(res.body).to.deep.equal({ error: "internal_error" });
+    });
+  }
+  it("ignores non-error HTTP statuses and rejects invalid status values", function () {
+    for (const status of [200, "406", 999]) {
+      const res = makeRes(); handleError(Object.assign(new Error("unknown"), { status }), res);
+      expect(res.statusCode).to.equal(500);
+    }
+  });
+  it("preserves got response statusCode", function () {
+    const res = makeRes(); handleError(Object.assign(new Error("upstream"), { response: { statusCode: 403 } }), res);
+    expect(res.statusCode).to.equal(403);
+  });
   it("uses error.httpStatus when present", function () {
     const res = makeRes();
     const err = new AnonymousError("boom", { httpStatus: 418 });

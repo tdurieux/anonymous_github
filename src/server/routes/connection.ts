@@ -1,3 +1,5 @@
+import { resetOwnerAccessAlerts } from "../../core/owner-notifications";
+import { saveRegistrationEmail } from "../../core/registration-email";
 import { createClient } from "redis";
 import * as passport from "passport";
 import * as session from "express-session";
@@ -99,12 +101,9 @@ export const verify = async (
           externalIDs: {
             github: profile.id,
           },
-          emails: profile.emails?.map((email) => {
-            return { email: email.value, default: false };
-          }),
+          emails: [],
           photo,
         });
-        if (user.emails?.length) user.emails[0].default = true;
         await user.save();
       }
     }
@@ -120,6 +119,8 @@ export const verify = async (
       return;
     }
     await setCredential(String(user!._id), accessToken);
+    await saveRegistrationEmail(user!, accessToken);
+    if (flow.ownerId) await resetOwnerAccessAlerts(String(user!._id));
     done(null, { username: user!.username, user });
   } catch (error) {
     logger.error("verify failed", serializeError(error));
@@ -206,7 +207,7 @@ router.get(
       returnTo: safeAuthReturnTo(req.query.returnTo, current ? "/connections" : "/dashboard"), expires: Date.now() + 10 * 60000 };
     next();
   },
-  passport.authenticate("github", { scope: ["repo"] }), // Note the scope here
+  passport.authenticate("github", { scope: ["repo", "user:email"] }),
   function (req: express.Request, res: express.Response) {
     res.redirect("/");
   }
@@ -251,7 +252,11 @@ router.post(
       const model = await UserModel.findOne({
         "apiTokens.tokenHash": hashToken(token),
       });
-      if (!model) return res.status(401).json({ error: "invalid_token" });
+      const entry = model?.apiTokens?.find(t => t.tokenHash === hashToken(token));
+      if (!model || !entry || entry.scope ||
+        (entry.expiresAt && entry.expiresAt.getTime() <= Date.now())) {
+        return res.status(401).json({ error: "invalid_token" });
+      }
       if (isDisabledAccount(model.status)) {
         return res.status(model.status === "banned" ? 403 : 401).json({
           error: model.status === "banned" ? "user_banned" : "not_connected",

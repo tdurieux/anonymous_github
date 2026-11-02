@@ -68,7 +68,9 @@ function extractBackendErrorCodes(files) {
     // Multi-line matching for AnonymousError calls that span lines
     // (e.g. ternary expressions where the string is on the next line)
     const multiLinePattern =
-      /AnonymousError\([\s\S]*?["']([a-zA-Z][a-zA-Z0-9]*(?:_[a-zA-Z0-9]+)+)["']/g;
+      // Stop at a closing parenthesis so a dynamic code cannot consume an
+      // unrelated string in a later statement, such as a monitoring label.
+      /AnonymousError\([^)]*?["']([a-zA-Z][a-zA-Z0-9]*(?:_[a-zA-Z0-9]+)+)["']/g;
     let m;
     while ((m = multiLinePattern.exec(content)) !== null) {
       const code = m[1];

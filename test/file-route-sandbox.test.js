@@ -17,6 +17,12 @@ describe("file route scriptable-document detection", function () {
       "style.xsl",
       "transform.xslt",
       "archive.mhtml",
+      "archive.mht",
+      "page.shtml",
+      "figures/plot.svgz",
+      "schema.xsd",
+      "schema.rng",
+      "feed.atom",
     ];
     scriptable.forEach((path) => {
       expect(isScriptableDocument(path), path).to.equal(true);
@@ -26,6 +32,8 @@ describe("file route scriptable-document detection", function () {
   it("is case insensitive on the extension", function () {
     expect(isScriptableDocument("README.HTML")).to.equal(true);
     expect(isScriptableDocument("logo.SVG")).to.equal(true);
+    expect(isScriptableDocument("logo.SVGZ")).to.equal(true);
+    expect(isScriptableDocument("page.SHTML")).to.equal(true);
   });
 
   it("leaves everything else alone", function () {

@@ -44,7 +44,7 @@
       </li>
     </ul>
     <ul class="navbar-nav">
-      <li class="nav-item">
+      <li class="nav-item" v-if="user || !isReviewerRoute">
         <a class="nav-link nav-icon" target="_blank" href="https://github.com/tdurieux/anonymous_github/" title="Anonymous GitHub source code" aria-label="Anonymous GitHub source code on GitHub" rel="noopener" data-offset="30"><i class="fab fa-github" aria-hidden="true"></i></a>
       </li>
       <!-- "Report a bug" is about this service. Reviewers who land on an
@@ -67,7 +67,7 @@
         </a>
       </li>
 
-      <li class="nav-item" v-if="!user">
+      <li class="nav-item" v-if="!user &amp;&amp; !isReviewerRoute">
         <a class="nav-link btn-signin" target="_self" href="/signin" data-offset="30"><i class="fab fa-github mr-1"></i>
           Sign in
         </a>
@@ -118,3 +118,18 @@
   </div>
 </nav>
 <div class="navbar shadow generalMessage" v-if="generalMessage" v-html="sanitize(generalMessage)"></div>
+
+<dialog id="email-prompt" class="email-prompt" v-if="emailPromptOpen" aria-labelledby="email-prompt-title" aria-describedby="email-prompt-reason" @cancel.prevent="respondToEmailPrompt('later')">
+  <form @submit.prevent="respondToEmailPrompt('save')">
+    <h2 id="email-prompt-title">Stay informed about access problems</h2>
+    <p id="email-prompt-reason">Get email alerts when your GitHub token or repository access fails.</p>
+    <label for="email-prompt-address">Email address</label>
+    <input id="email-prompt-address" class="form-control" type="email" autocomplete="email" maxlength="254" required v-model="emailPromptAddress" :disabled="emailPromptBusy" />
+    <p class="paper-inline-alert paper-inline-alert-error" role="alert" v-if="emailPromptError">{{ emailPromptError }}</p>
+    <div class="email-prompt-actions">
+      <button type="button" class="btn btn-outline-ink" :disabled="emailPromptBusy" @click="respondToEmailPrompt('later')">Remind me later</button>
+      <button type="button" class="btn btn-outline-ink" :disabled="emailPromptBusy" @click="respondToEmailPrompt('never')">Never</button>
+      <button type="submit" class="btn btn-ink" :disabled="emailPromptBusy">{{ emailPromptBusy ? 'Saving…' : 'Save' }}</button>
+    </div>
+  </form>
+</dialog>

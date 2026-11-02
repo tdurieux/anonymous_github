@@ -43,6 +43,35 @@ describe("download headers and website revalidation", function () {
     expect(response.headers["etag"]).to.match(/^"f-/); expect(response.headers["content-type"]).to.include("text/plain");
     expect(transfers).to.equal(0);
   });
+  for (const name of ["page.shtml", "drawing.svgz", "schema.xsd"]) {
+    it(`sandboxes ${name} on GET, HEAD, and revalidation`, async function () {
+      const path = `/api/repo/fixture/file/${name}`;
+      const first = await fetch(path);
+      const head = await fetch(path, "HEAD");
+      const cached = await fetch(path, "GET", { "If-None-Match": first.headers.etag });
+      expect(first.status).to.equal(200);
+      expect(head.status).to.equal(200);
+      expect(cached.status).to.equal(304);
+      for (const response of [first, head, cached]) {
+        expect(response.headers["content-security-policy"]).to.include("sandbox");
+        expect(response.headers["content-security-policy"]).not.to.include("allow-scripts");
+        expect(response.headers["content-security-policy"]).not.to.include("allow-same-origin");
+        expect(response.headers["x-content-type-options"]).to.equal("nosniff");
+      }
+    });
+  }
+  it("sandboxes MIME aliases even when anonymization changes their extension", async function () {
+    AnonymizedFile.prototype.originalPath = async () => "original.shtml";
+    const response = await fetch("/api/repo/fixture/file/page.txt");
+    expect(response.status).to.equal(200);
+    expect(response.headers["content-security-policy"]).to.include("sandbox");
+  });
+  it("keeps explicit downloads as attachments", async function () {
+    const response = await fetch("/api/repo/fixture/file/page.shtml?download=1");
+    expect(response.status).to.equal(200);
+    expect(response.headers["content-disposition"]).to.include("attachment");
+    expect(response.headers["x-content-type-options"]).to.equal("nosniff");
+  });
   it("preserves content gates for HEAD", async function () {
     repo.options.pdf = false;
     expect((await fetch("/api/repo/fixture/file/private.pdf", "HEAD")).status).to.equal(403);
@@ -65,13 +94,13 @@ describe("download headers and website revalidation", function () {
     expect(second.headers["content-security-policy"]).to.include("sandbox");
   });
   it("renders Markdown again after a transient failure served the raw fallback", async function () {
-    const marked = require("marked").marked, render = marked.parse;
+    const markdown = require("../src/markdown"), render = markdown.renderMarkdown;
     let first;
     try {
-      marked.parse = () => { throw Error("transient rendering failure"); };
+      markdown.renderMarkdown = () => { throw Error("transient rendering failure"); };
       first = await fetch("/w/fixture/page.md");
       expect(first.status).to.equal(200); expect(first.body).to.equal("fixture content");
-    } finally { marked.parse = render; }
+    } finally { markdown.renderMarkdown = render; }
     const recovered = await fetch("/w/fixture/page.md", "GET", { "If-None-Match": first.headers.etag });
     expect(recovered.status).to.equal(200); expect(recovered.body).to.include("Anonymized page");
     expect(recovered.headers.etag).not.to.equal(first.headers.etag);

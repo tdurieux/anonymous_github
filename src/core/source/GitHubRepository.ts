@@ -77,7 +77,8 @@ export class GitHubRepository {
         try {
           await oct.repos.get({ owner: this.owner, repo: this.repo });
           repoExists = true;
-        } catch {
+        } catch (probeError) {
+          if ((probeError as { status?: number }).status !== 404) throw probeError;
           repoExists = false;
         }
         throw new AnonymousError(

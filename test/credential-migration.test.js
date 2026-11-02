@@ -179,26 +179,34 @@ describeMongo("credential access (MongoDB)", function () {
     await setCredential(owner.id, "old-token");
     await Credential.updateOne({ ownerId: owner._id }, { $set: { updatedAt: new Date(0) } });
     const originalFetch = global.fetch;
+    const oauthConfig = [config.GITHUB_OAUTH_ENABLED, config.CLIENT_ID, config.CLIENT_SECRET];
+    config.GITHUB_OAUTH_ENABLED = true; config.CLIENT_ID = "fixture-client"; config.CLIENT_SECRET = "fixture-secret";
     global.fetch = async (url, options) => {
       expect(url).to.include("api.github.com/applications/");
       expect(JSON.parse(options.body).access_token).to.equal("old-token");
       return { ok: true, json: async () => ({ token: "refreshed-token" }) };
     };
     try { expect(await repo.getToken()).to.equal("refreshed-token"); }
-    finally { global.fetch = originalFetch; }
+    finally { global.fetch = originalFetch; [config.GITHUB_OAUTH_ENABLED, config.CLIENT_ID, config.CLIENT_SECRET] = oauthConfig; }
     expect(await getCredentialToken(owner.id)).to.equal("refreshed-token");
     expect((await RepoModel.collection.findOne({ _id: repo.model._id })).source.accessToken).to.equal(undefined);
   });
   it("OAuth login writes a credential and returns a token-free session user", async () => {
     const passport = require("passport");
     require("../src/server/routes/connection");
-    const result = await new Promise((resolve, reject) => passport._strategy("github")._verify({ githubOAuthContext: { expires: Date.now() + 60000 } }, "oauth-secret", "refresh-secret", {
-      id: "external-test", username: owner.username, emails: [], photos: [],
-    }, (error, user) => error ? reject(error) : resolve(user)));
+    const originalFetch = global.fetch;
+    global.fetch = async () => ({ ok: true, json: async () => [{ email: "private@example.com", primary: true, verified: true }] });
+    let result;
+    try {
+      result = await new Promise((resolve, reject) => passport._strategy("github")._verify({ githubOAuthContext: { expires: Date.now() + 60000 } }, "oauth-secret", "refresh-secret", {
+        id: "external-test", username: owner.username, emails: [], photos: [],
+      }, (error, user) => error ? reject(error) : resolve(user)));
+    } finally { global.fetch = originalFetch; }
     expect(JSON.stringify(result)).not.to.include("oauth-secret");
     expect(JSON.stringify(result)).not.to.include("refresh-secret");
     expect(await getCredentialToken(owner.id)).to.equal("oauth-secret");
     expect((await UserModel.collection.findOne({ _id: owner._id })).accessTokens).to.equal(undefined);
+    expect((await UserModel.findById(owner.id)).emails[0].email).to.equal("private@example.com");
   });
   it("reads hidden legacy resource tokens only during compatibility mode", async () => {
     const resource = await GistModel.collection.insertOne({ gistId: "legacy-gist", owner: owner._id, source: { accessToken: "legacy-resource" } });
