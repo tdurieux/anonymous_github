@@ -42,6 +42,16 @@ npm install -g @tdurieux/anonymous_github
 anonymous_github
 ```
 
+### LLM and automation clients
+
+Use expiring, repository-scoped maintenance tokens to inspect saved status,
+edit anonymization settings, refresh snapshots, and extend expiration.
+A signed-in owner or coauthor can issue and revoke tokens through
+`/api/user/maintenance-tokens`. See the [client guide](public/llms.txt) and
+[OpenAPI description](public/maintenance-openapi.json), also served at
+`/llms.txt` and `/maintenance-openapi.json` on each instance.
+These tokens cannot access GitHub previews, file downloads, or admin routes.
+
 ## Self-hosting
 
 Local installation requires Node.js 22.15 or newer in the 22.x series,
