@@ -378,6 +378,25 @@ describe("Vue 3 UI", function () {
     expect(ui.requests.some(r => r.method === "POST" && r.url.pathname === "/api/repo/")).to.equal(false);
     expect(ui.errors).to.deep.equal([]);
   });
+  for (const rejected of [false, true]) {
+    it(`attempts server admission with reported full quota (${rejected ? "rejected" : "accepted"})`, async () => {
+      ui = await browser("/anonymize", { ...repositorySource,
+        "/api/billing/": taskBilling, "/api/user/quota": { repository: { used: 5, total: 5 } },
+        "/api/repo/": rejected ? { __status: 403, body: { error: "quota_exceeded" } } : {},
+      });
+      const doc = ui.window.document;
+      const state = doc.querySelector("#sourceUrl")._field.binding.state;
+      state.sourceUrl = "https://github.com/owner/repo";
+      await state.urlSelected(); await delay(60);
+      await ui.input("#terms", "Private Author");
+      expect(state.hostingNeedsPayment()).to.equal(false);
+      doc.querySelector(".anonymize-submit-bar button").click(); await delay(80);
+      expect(ui.requests.filter(r => r.method === "POST" && r.url.pathname === "/api/repo/")).to.have.length(1);
+      expect(ui.requests.some(r => r.url.pathname === "/api/billing/checkout" || r.url.pathname === "/api/billing/draft")).to.equal(false);
+      expect(state.hostingNeedsPayment()).to.equal(rejected);
+      if (rejected) expect(doc.querySelector(".anonymize-submit-bar").textContent).to.include("Continue to checkout");
+    });
+  }
   it("restores a paid checkout task without submitting it and rechecks the allowance", async () => {
     ui = await browser("/anonymize?billingDraft=saved-task&billing=success", { ...repositorySource,
       "/api/billing/": { ...taskBilling, allowance: { plan: "author_monthly", repositories: 20 } },
@@ -410,6 +429,7 @@ describe("Vue 3 UI", function () {
     await delay(450);
     expect(doc.querySelector('.anonymize-preview-body').textContent).to.include("MASKED");
     expect(doc.querySelector('.anonymize-preview-body').textContent).not.to.include("Private Author");
+    state.options.expirationMode = "never"; await delay(20);
     expect(doc.querySelector('.subscription-choice').textContent).to.include("20 repositories");
     expect(doc.querySelector('.anonymize-submit-bar').textContent).to.include("Continue to checkout");
     doc.querySelector('.preview-expand').click(); await delay(10);
@@ -430,6 +450,7 @@ describe("Vue 3 UI", function () {
     state.sourceUrl = "https://github.com/owner/repo";
     await state.urlSelected(); await delay(60);
     expect(doc.querySelector("#expirationDate").value).to.match(/^\d{4}-\d{2}-\d{2}$/);
+    state.options.expirationMode = "never"; await delay(20);
     await ui.input("#terms", "Preserved Author");
     doc.querySelector(".anonymize-submit-bar button").click(); await delay(80);
     expect(doc.querySelector("#repository-hosting").textContent).to.include("Payments are not available");
@@ -464,6 +485,8 @@ describe("Vue 3 UI", function () {
     state.hostingQuota = { repository: { used: 1, total: 5 } };
     expect(state.hostingNeedsPayment()).to.equal(false);
     state.hostingQuota.repository.used = 5;
+    expect(state.hostingNeedsPayment()).to.equal(false);
+    state.hostingQuotaBlocked = true;
     expect(state.hostingNeedsPayment()).to.equal(true);
     state.conference = "CONF";
     expect(state.hostingNeedsPayment()).to.equal(false);

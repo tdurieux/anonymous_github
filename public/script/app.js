@@ -1356,9 +1356,8 @@ export const anonymizeController = function (state, http, html, params, location
         if (!state.billing?.enabled || state.detectedType !== "repo" || state.hasAuthorHosting() ||
             (state.isUpdate && state.role !== "owner")) return false;
         const needsLifetime = state.options?.expirationMode === "never" && !state._existingNever;
-        const quota = state.hostingQuota?.repository;
-        const full = !state.isUpdate && !state.conference && quota && quota.used >= quota.total;
-        return !!(needsLifetime || (!state.conference && (full || state.hostingQuotaBlocked)));
+        // Reported usage may include removed reservations; admission reclaims them.
+        return !!(needsLifetime || (!state.conference && state.hostingQuotaBlocked));
       };
       state.checkoutRepository = async (pass = false) => {
         if (state.hostingSaving || state.billingBusy || !state.billing?.csrf || state.sourceLoading) return;

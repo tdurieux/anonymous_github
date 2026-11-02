@@ -47,7 +47,7 @@ router.get("/", async (req: express.Request, res: express.Response) => {
 });
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function validateConferenceForm(conf: any) {
+function validateConferenceForm(conf: any, isNew: boolean) {
   if (!conf.name)
     throw new AnonymousError("conf_name_missing", {
       object: conf,
@@ -84,7 +84,7 @@ function validateConferenceForm(conf: any) {
       httpStatus: 400,
     });
   if (!Number.isFinite(new Date(conf.startDate).getTime()) || !Number.isFinite(new Date(conf.endDate).getTime())) throw billingError("conf_start_date_invalid");
-  if (conf.plan.planID === "conference" && (!config.BILLING_ENABLED || !config.STRIPE_CONFERENCE_PRICE || new Date(conf.endDate).getTime() - new Date(conf.startDate).getTime() > 180 * 86400_000)) throw billingError("billing_invalid_review_window");
+  if (conf.plan.planID === "conference" && ((isNew && (!config.BILLING_ENABLED || !config.STRIPE_CONFERENCE_PRICE)) || new Date(conf.endDate).getTime() - new Date(conf.startDate).getTime() > 180 * 86400_000)) throw billingError("billing_invalid_review_window");
   const plan = plans.filter((p) => p.id == conf.plan.planID)[0];
   if (plan.pricePerRepo > 0) {
     const billing = conf.billing;
@@ -165,7 +165,7 @@ router.post(
       }
       // Historical conference plans remain editable without being offered for purchase.
       const legacyPlan = req.params.conferenceID && !plans.some(p => p.id === model.plan.planID);
-      validateConferenceForm(legacyPlan ? { ...req.body, plan: { planID: "free_conference" } } : req.body);
+      validateConferenceForm(legacyPlan ? { ...req.body, plan: { planID: "free_conference" } } : req.body, !req.params.conferenceID);
       applyConferenceForm(model, req.body, !req.params.conferenceID);
 
       if (!req.params.conferenceID) {

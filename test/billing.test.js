@@ -49,3 +49,54 @@ describe("paid access policy", () => {
     } finally { config.BILLING_ORIGIN = original; }
   });
 });
+
+describe("retired conference offers", () => {
+  const Model = require("../src/core/model/conference/conferences.model").default;
+  const utils = require("../src/server/routes/route-utils");
+  const router = require("../src/server/routes/conference").default;
+  const save = router.stack.find(layer => layer.route?.path === "/{:conferenceID}" && layer.route.methods.post).route.stack[0].handle;
+  const originals = {};
+  let model, saves, body;
+  beforeEach(() => {
+    originals.enabled = config.BILLING_ENABLED; originals.price = config.STRIPE_CONFERENCE_PRICE;
+    originals.find = Model.findOne; originals.user = utils.getUser;
+    originals.auth = utils.isOwnerOrAdmin; originals.error = utils.handleError;
+    config.BILLING_ENABLED = true; config.STRIPE_CONFERENCE_PRICE = "";
+    const start = new Date(Date.now() + 86400000), end = new Date(Date.now() + 30 * 86400000);
+    saves = 0;
+    model = { conferenceID: "CONF", name: "Old", owners: [], status: "ready",
+      plan: { planID: "conference" }, startDate: start, endDate: end,
+      save: async () => { saves++; } };
+    body = { conferenceID: "CONF", name: "New", plan: { planID: "conference" },
+      startDate: start.toISOString(), endDate: end.toISOString(), options: { terms: ["Author"] } };
+    Model.findOne = async () => model;
+    utils.getUser = async () => ({ model: { id: "owner" } });
+    utils.isOwnerOrAdmin = () => {};
+    utils.handleError = error => { throw error; };
+  });
+  afterEach(() => {
+    config.BILLING_ENABLED = originals.enabled; config.STRIPE_CONFERENCE_PRICE = originals.price;
+    Model.findOne = originals.find; utils.getUser = originals.user;
+    utils.isOwnerOrAdmin = originals.auth; utils.handleError = originals.error;
+  });
+  it("saves existing settings without an advertised price", async () => {
+    await save({ params: { conferenceID: "CONF" }, body }, { send: () => {} });
+    expect(saves).to.equal(1);
+    expect(model.name).to.equal("New");
+    expect(model.options.terms).to.deep.equal(["Author"]);
+    expect(model.status).to.equal("ready");
+    expect(model.plan.planID).to.equal("conference");
+  });
+  for (const change of ["new", "plan", "dates"]) {
+    it(`still rejects ${change} purchases or locked changes`, async () => {
+      const params = change === "new" ? {} : { conferenceID: "CONF" };
+      if (change === "plan") body.plan.planID = "free_conference";
+      if (change === "dates") body.endDate = new Date(Date.now() + 60 * 86400000).toISOString();
+      let error;
+      try { await save({ params, body }, { send: () => {} }); } catch (e) { error = e; }
+      expect(error?.message).to.equal(change === "new" ? "billing_invalid_review_window" :
+        change === "plan" ? "billing_plan_change_not_supported" : "billing_review_window_locked");
+      expect(saves).to.equal(0);
+    });
+  }
+});
