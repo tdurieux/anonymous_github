@@ -212,6 +212,42 @@ describe("shared content-addressed blob pool", function () {
       assert.equal((await error).message, "cache_reader_lease_lost");
     } finally { Date.now = now; other.db.exec("ROLLBACK"); reader.destroy(); other.close(); }
   });
+  for (const outcome of ["recover", "expire", "replaced"]) {
+    it(`handles fill heartbeat contention and ${outcome}`, async () => {
+      const other = new BlobCache(cache.options), interval = global.setInterval, now = Date.now;
+      let tick, started;
+      const ready = new Promise(resolve => { started = resolve; });
+      const input = new Readable({ read() {} });
+      global.setInterval = fn => { tick = fn; return interval(fn, 10000000); };
+      const fill = cache.getOrFill("fill-heartbeat", async () => { started(); return input; });
+      // Attach rejection handling before deliberately terminating the producer.
+      const result = fill.then(read);
+      const checked = outcome === "recover" ? result : assert.rejects(result, /cache_fill_lease_lost/);
+      try {
+        await ready; global.setInterval = interval; await delay(10);
+        const base = now();
+        other.db.exec("BEGIN IMMEDIATE"); Date.now = () => base + 31000; tick();
+        assert.equal(input.destroyed, false);
+        other.db.exec("ROLLBACK");
+        if (outcome === "recover") {
+          Date.now = () => base + 32000; tick();
+          assert.ok(Number(cache.db.prepare("SELECT expires FROM fills WHERE key=?").get("fill-heartbeat").expires) >= base + 152000);
+          Date.now = now; input.push("completed after contention"); input.push(null);
+          assert.equal((await checked).toString(), "completed after contention");
+        } else {
+          if (outcome === "replaced") other.db.prepare("UPDATE fills SET token=? WHERE key=?").run("replacement", "fill-heartbeat");
+          Date.now = () => base + (outcome === "expire" ? 121000 : 32000); tick();
+          assert.equal(input.destroyed, true);
+          Date.now = now; await checked;
+          assert.equal(cache.stats().blobs, 0);
+        }
+      } finally {
+        global.setInterval = interval; Date.now = now;
+        if (other.db.isTransaction) other.db.exec("ROLLBACK");
+        input.destroy(); await checked.catch(() => {}); other.close();
+      }
+    });
+  }
   it("coordinates physical headroom between source and result pools", async () => {
     const native = require("node:fs"), statfs = native.statfsSync;
     const other = new BlobCache({ ...cache.options, root: join(root, "results"), reservationRoot: root, freeBytes: 1000 });

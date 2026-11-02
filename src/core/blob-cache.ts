@@ -279,6 +279,7 @@ export class BlobCache {
     if (sizeHint != null && sizeHint > this.options.maxObject) { this.metric("bypass", sizeHint); throw new CacheAdmissionError("object_too_large"); }
     const token = randomUUID(), reservation = this.options.maxObject * 3 + 1024;
     const deadline = Date.now() + 120000;
+    let leaseUntil = 0;
     for (;;) {
       const owned = this.transaction(() => {
         this.expire();
@@ -289,7 +290,8 @@ export class BlobCache {
         }
         // Eviction unlinks files: commit its metadata even if admission still fails.
         if (this.usage() + reserved + reservation > this.options.budget) return null;
-        this.db.prepare("INSERT INTO fills VALUES(?,?,?,?)").run(key, token, Date.now() + 120000, reservation); return true;
+        leaseUntil = Date.now() + 120000;
+        this.db.prepare("INSERT INTO fills VALUES(?,?,?,?)").run(key, token, leaseUntil, reservation); return true;
       }, true);
       if (owned === null) throw new CacheAdmissionError("cache_budget_busy");
       if (owned) break;
@@ -300,10 +302,23 @@ export class BlobCache {
     }
     const raw = join(this.options.root, "tmp", `${token}.raw`), gz = join(this.options.root, "tmp", `${token}.gz`);
     let input: Readable | undefined, file: string | undefined;
+    let renewAt = Date.now() + 30000, leaseLost = false;
+    const loseLease = () => { leaseLost = true; input?.destroy(new Error("cache_fill_lease_lost")); };
     const heartbeat = setInterval(() => {
-      try { if (!this.db.prepare("UPDATE fills SET expires=? WHERE key=? AND token=?").run(Date.now() + 120000, key, token).changes) input?.destroy(new Error("cache_fill_lease_lost")); }
-      catch { input?.destroy(new Error("cache_fill_lease_lost")); }
-    }, 30000); heartbeat.unref();
+      const now = Date.now();
+      if (leaseLost || now < renewAt) return;
+      if (now >= leaseUntil) { loseLease(); return; }
+      try {
+        const renewedUntil = now + 120000;
+        if (!this.db.prepare("UPDATE fills SET expires=? WHERE key=? AND token=? AND expires>?").run(renewedUntil, key, token, now).changes) {
+          loseLease(); return;
+        }
+        leaseUntil = renewedUntil; renewAt = now + 30000;
+      } catch (error) {
+        if (!isCacheContention(error)) loseLease();
+        // Retry contention on the next tick within the last confirmed lease.
+      }
+    }, 1000); heartbeat.unref();
     const timeout = setTimeout(() => input?.destroy(new Error("cache_fill_timeout")), 120000); timeout.unref();
     try {
       // The pool reservation is already durable before acquiring physical headroom.
@@ -314,6 +329,7 @@ export class BlobCache {
       // Recheck after ownership; another producer may have published between the initial lookup and lease acquisition.
       hit = await this.lookup(key); if (hit) return hit;
       input = await produce();
+      if (leaseLost || Date.now() >= leaseUntil) throw new Error("cache_fill_lease_lost");
       let size = 0; const sha256 = createHash("sha256");
       await pipeline(input, new Transform({ transform: (chunk, _encoding, done) => {
         size += chunk.length; sha256.update(chunk);
