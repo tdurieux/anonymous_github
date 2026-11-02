@@ -1,0 +1,70 @@
+# Anonymous GitHub repository maintenance
+
+Anonymous GitHub publishes anonymized snapshots for peer review. Use the
+maintenance API to manage existing snapshots you own or coauthor. It is not a
+GitHub API proxy and does not edit the upstream GitHub repository.
+
+Machine-readable API description: /maintenance-openapi.json
+All paths below are relative to this instance. Send JSON request bodies and
+Authorization: Bearer <maintenance-token>. Keep tokens in a secret store;
+never put them in URLs, prompts, source control, or logs.
+
+## Connect a client
+
+A person signs in with GitHub and creates the anonymized repository first.
+In their signed-in browser session, POST /api/user/maintenance-tokens with:
+{"name":"Paper maintenance","repoIds":["paper-123"],"expiresInDays":30}
+
+The response contains the token once, its id, selected repoIds and expiresAt.
+Expiry is 1 to 90 days, default 30. Select 1 to 20 existing repository IDs.
+There is a limit of 50 stored API tokens per account. A person can inspect
+GET /api/user/maintenance-tokens and revoke one with
+DELETE /api/user/maintenance-tokens/{id} using the same browser session.
+These endpoints require a session, not a bearer token. Do not hand the client
+an admin token or browser cookie. Maintenance tokens cannot log into the UI.
+
+## Maintain a repository
+
+1. GET /api/maintenance/repositories/{repoId} reads saved status, branch,
+   commit and options without querying GitHub or downloading content.
+2. PATCH the same URL with only the settings to change, for example:
+   {"terms":["Alice Smith","Example University"],"image":false,"update":false}
+   Omitted settings stay unchanged. terms replaces the whole term list;
+   [] clears it. Supported boolean fields: update, image, pdf, notebook, link.
+   update controls automatic snapshot updates. Settings edits work in ready
+   or error state, and cannot change the upstream source or connection.
+3. POST /api/repo/{repoId}/refresh with {} requests the latest snapshot of the
+   saved branch using the repository's existing connection. Poll the saved
+   status endpoint every 30 seconds until ready or error. Do not repeat
+   refresh while work is in progress.
+4. POST /api/repo/{repoId}/extend with {} adds six months to the current
+   expiration, or to today if already expired. An expired snapshot is queued
+   for restoration. This operation is NOT idempotent. Read the expiration
+   date after an ambiguous network failure before deciding whether to retry.
+
+Refresh completion is asynchronous. A successful response does not mean the
+snapshot is ready. Refresh uses the existing GitHub quota and preparation
+limits. All maintenance tokens for an account share an API rate budget,
+even across different client IPs. Each account can request one refresh per
+repository per minute, shared across its tokens. Bearer authentication attempts
+also have a limit of 120 per minute per IP, including invalid tokens. Both limits
+return HTTP 429 with Retry-After. Do not use maintenance calls to crawl GitHub or retrieve source files.
+
+## Errors and access limits
+
+Errors normally contain {"error":"code"}. The instance rate limiter may
+return text for HTTP 429; always check status and Retry-After first.
+401: token expired, revoked or invalid. Ask the owner to replace it.
+403: token_scope_forbidden or not_authorized. The token must name this
+repository and its account must still be an owner, coauthor or administrator.
+404: repository does not exist.
+409: state changed or operation is unavailable. Read status before retrying.
+429: back off until Retry-After or resetAt, when supplied. Never retry in a loop.
+5xx: retry reads with backoff. Inspect state before retrying a write.
+
+Scoped tokens cannot create repositories, change source repositories, delete
+snapshots, manage coauthors, search GitHub, preview arbitrary branches or files,
+download archives, read file contents, access admin routes, or mint tokens.
+Use the signed-in UI for those management tasks. Existing public review links
+keep their usual access rules. Revocation and membership checks apply on each
+maintenance request. Never publish private maintenance responses as review links.
