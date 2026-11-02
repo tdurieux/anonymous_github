@@ -26,11 +26,8 @@ const coreJsFiles = [
 ];
 
 const markdownFiles = [
-  "public/script/external/katex.min.js",
-  "public/script/external/katex-auto-render.min.js",
-  "public/script/external/marked-katex-extension.umd.min.js",
-  "public/script/external/marked-mermaid.js",
- ];
+  "public/script/markdown-entry.js",
+];
 const pdfFiles = ["public/script/external/pdf.js"];
 const notebookFiles = ["public/script/external/notebook.min.js"];
 const orgFiles = ["public/script/external/org.js"];
@@ -73,6 +70,12 @@ function buildCoreJs(cb) {
 async function buildVendorJs() {
   const lazyAssets = {};
   await Promise.all(Object.entries(lazyGroups).map(async ([name, files]) => {
+    if (name === "markdown") {
+      await esbuild.build({ entryPoints: files, bundle: true, format: "iife", minify: true,
+        target: "es2020", supported: { "template-literal": false }, outfile: "public/script/markdown.min.js" });
+      lazyAssets[name] = `/script/${name}.${hashFile(`public/script/${name}.min.js`)}.min.js`;
+      return;
+    }
     // PDF.js is already minified upstream. Re-minifying it breaks rendering
     // for documents such as #857, even though page.render() resolves.
     if (name === "pdf") {

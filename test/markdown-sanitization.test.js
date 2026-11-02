@@ -1,42 +1,6 @@
 const { expect } = require("chai");
-const { marked } = require("marked");
-const sanitizeHtml = require("sanitize-html");
-
-const sanitizeOptions = {
-  allowedTags: sanitizeHtml.defaults.allowedTags.concat([
-    "img",
-    "video",
-    "input",
-    "details",
-    "summary",
-    "del",
-    "ins",
-    "sup",
-    "sub",
-  ]),
-  allowedAttributes: {
-    ...sanitizeHtml.defaults.allowedAttributes,
-    img: ["src", "srcset", "alt", "title", "width", "height", "loading"],
-    video: ["src", "controls", "title"],
-    input: ["type", "checked", "disabled"],
-    code: ["class"],
-    span: ["class"],
-    div: ["class"],
-    pre: ["class"],
-    td: ["align"],
-    th: ["align"],
-  },
-  allowedSchemes: ["http", "https", "mailto"],
-};
-
-/**
- * Mirrors the server-side rendering pipeline in webview.ts:
- *   sanitizeHtml(marked(content, opts), sanitizeOptions)
- */
-function renderAndSanitize(markdown) {
-  const raw = marked(markdown, { async: false });
-  return sanitizeHtml(raw, sanitizeOptions);
-}
+require("ts-node/register/transpile-only");
+const { renderMarkdown: renderAndSanitize } = require("../src/markdown");
 
 describe("Markdown sanitization", function () {
   // ---------------------------------------------------------------
@@ -192,9 +156,9 @@ describe("Markdown sanitization", function () {
   describe("preserves safe markdown content", function () {
     it("preserves headings", function () {
       const html = renderAndSanitize("# Heading 1\n## Heading 2");
-      expect(html).to.include("<h1>");
+      expect(html).to.match(/<h1 id="[^"]*">/);
       expect(html).to.include("Heading 1");
-      expect(html).to.include("<h2>");
+      expect(html).to.match(/<h2 id="[^"]*">/);
     });
 
     it("preserves paragraphs", function () {
@@ -226,7 +190,7 @@ describe("Markdown sanitization", function () {
     it("preserves code blocks", function () {
       const html = renderAndSanitize("```js\nconsole.log('hi')\n```");
       expect(html).to.include("<code");
-      expect(html).to.include("console.log");
+      expect(require("jsdom").JSDOM.fragment(html).textContent).to.include("console.log");
     });
 
     it("preserves inline code", function () {

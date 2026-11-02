@@ -95,7 +95,7 @@ describe("asset build", function () {
     fs.writeFileSync(path.join(directory, groups.markdownFiles[0]), "function {");
     const result = build();
     expect(result.status).not.to.equal(0);
-    expect(result.stderr).to.include("uglify");
+    expect(result.stderr).to.match(/uglify|ERROR/);
     expect(fs.existsSync(path.join(directory, "public/asset-manifest.json"))).to.equal(false);
   });
 });
