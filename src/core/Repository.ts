@@ -1034,12 +1034,14 @@ export default class Repository {
     if (expected) {
       // Claim the lifecycle before deleting files; migration rejects REMOVING.
       this.assertNotArchived();
+      const statusDate = new Date();
       const result = await AnonymizedRepositoryModel.updateOne({ _id: this.model._id,
         status: this.model.status,
         "githubAccess.revision": expected.accessRevision || { $exists: false },
-      }, { $set: { status: RepositoryStatus.REMOVING, statusDate: new Date() } });
+      }, { $set: { status: RepositoryStatus.REMOVING, statusDate } });
       if (!result.matchedCount) throw new AnonymousError("connection_changed", { httpStatus: 409 });
       this.model.status = RepositoryStatus.REMOVING;
+      this.model.statusDate = statusDate;
     } else {
       await this.updateStatus(RepositoryStatus.REMOVING);
     }
@@ -1056,17 +1058,30 @@ export default class Repository {
     const defer = isConnected && (status || this.status) === RepositoryStatus.PREPARING;
     const previousGeneration = this.model.treeGeneration;
     const generation = defer ? randomUUID() : previousGeneration;
-    this.model.emptyTreeGeneration = undefined;
+    const expected = <T>(value: T | undefined) => value === undefined ? { $exists: false } : value;
+    const refreshToken = this.refreshToken;
+    const snapshot = {
+      status: expected(this.model.status), statusDate: expected(this.model.statusDate),
+      anonymizeDate: expected(this.model.anonymizeDate), settingsSavedAt: expected(this.model.settingsSavedAt),
+      fileMetadataRevision: expected(this.model.fileMetadataRevision),
+      "source.type": expected(this.model.source.type), "source.repositoryName": expected(this.model.source.repositoryName),
+      "source.commit": expected(this.model.source.commit), "source.branch": expected(this.model.source.branch),
+      "githubAccess.revision": expected(this.model.githubAccess?.revision),
+    };
     if (isConnected) {
       const result = await updateRetiringPathIndex(() => ({ _id: this.model._id,
-      treeGeneration: this.model.treeGeneration || { $exists: false },
+        treeGeneration: expected(previousGeneration), ...snapshot,
+        ...(refreshToken ? { refreshToken, refreshUntil: { $gt: new Date() } } : {}),
       }), { $set: { fileMetadataRevision: revision, ...(defer ? { treeGeneration: generation } : {}) },
         ...(defer ? { $addToSet: { retiredTreeGenerations: previousGeneration || "",
         } } : {}),
         $unset: { emptyTreeGeneration: "", pathIndexKey: "", pathIndexBuiltAt: "" },
       });
-      if (!result.matchedCount) throw new AnonymousError("repository_changed", { httpStatus: 409 });
+      this.checkRefreshWrite(result);
+      if (!result.matchedCount) throw new AnonymousError(this.protectLifecycle ? "repository_job_cancelled" : "repository_changed",
+        { httpStatus: this.protectLifecycle ? 410 : 409 });
     }
+    this.model.emptyTreeGeneration = undefined;
     this.model.treeGeneration = generation;
     this.model.fileMetadataRevision = revision;
     this.model.pathIndexKey = undefined;

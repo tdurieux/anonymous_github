@@ -219,6 +219,80 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
     expect((await File.find({ repoId: row.repoId })).map(file => file.name)).to.deep.equal(["replacement.txt"]);
   });
 
+  const changedSnapshots = [
+    ...["archived", "removing", "removed", "expiring", "expired", "ready"].map(status => [status, { status, statusDate: new Date(1) }]),
+    ["status timestamp", { statusDate: new Date(1) }],
+    ["source commit", { "source.commit": "c".repeat(40) }],
+    ["source repository", { "source.repositoryName": "other/repo" }],
+    ["source branch", { "source.branch": "replacement" }],
+    ["source type", { "source.type": "Zip" }],
+    ["anonymization snapshot", { anonymizeDate: new Date(1) }],
+    ["settings revision", { settingsSavedAt: new Date(1) }],
+    ["metadata revision", { fileMetadataRevision: "replacement" }],
+    ["access revision", { "githubAccess.revision": "replacement" }],
+  ];
+  for (const [label, replacement] of changedSnapshots) it(`cancels preparation before retiring metadata after a changed ${label}`, async () => {
+    const row = await repository({ status: "download", treeGeneration: "old", emptyTreeGeneration: "old", pathIndexKey: "old-key", fileMetadataRevision: "before" });
+    const worker = new Repository(row); worker.protectLifecycle = true;
+    worker.removeCache = () => { throw Error("cancelled reset touched storage"); };
+    await rows(1); await Path.collection.insertOne({ repoId: row.repoId, key: "old-key", anonymousPath: "keep.txt" });
+    await Repo.updateOne({ _id: row._id }, { $set: replacement });
+    const before = await Repo.findById(row._id).lean();
+    const error = await worker.resetSate("preparing").then(() => null, error => error);
+    expect(error.message).to.equal("repository_job_cancelled");
+    const after = await Repo.findById(row._id).lean();
+    for (const field of ["status", "statusDate", "treeGeneration", "emptyTreeGeneration", "fileMetadataRevision", "pathIndexKey", "retiredTreeGenerations", "retiredPathIndexKeys"]) {
+      expect(after[field], field).to.deep.equal(before[field]);
+    }
+    expect(worker.model.treeGeneration).to.equal("old"); expect(worker.model.emptyTreeGeneration).to.equal("old");
+    await new Repository(await Repo.findById(row._id)).cleanupRetiredFileTrees();
+    expect(await File.countDocuments({ repoId: row.repoId, treeGeneration: "old" })).to.equal(1);
+    expect(await Path.countDocuments({ repoId: row.repoId, key: "old-key" })).to.equal(1);
+  });
+
+  for (const replaced of [false, true]) it(`rejects an ${replaced ? "replaced" : "expired"} refresh lease before retirement`, async () => {
+    const row = await repository({ status: "download", treeGeneration: "old" }), worker = new Repository(row);
+    worker.protectLifecycle = true; worker.refreshToken = "original-lease";
+    await Repo.updateOne({ _id: row._id }, { $set: { refreshToken: replaced ? "new-lease" : "original-lease",
+      refreshUntil: new Date(Date.now() + (replaced ? 60000 : -60000)) } });
+    const error = await worker.resetSate("preparing").then(() => null, error => error);
+    expect(error.message).to.equal("invalid_status");
+    const current = await Repo.findById(row._id);
+    expect(current.treeGeneration).to.equal("old"); expect(current.retiredTreeGenerations).to.equal(undefined);
+  });
+
+  it("rejects archival between reading the path-index key and committing retirement", async () => {
+    const row = await repository({ status: "download", treeGeneration: "old", pathIndexKey: "preserved" }), worker = new Repository(row);
+    worker.protectLifecycle = true;
+    const updateOne = Repo.updateOne; let attempted = false;
+    Repo.updateOne = function (filter, update, ...args) {
+      const query = updateOne.call(this, filter, update, ...args);
+      if (update.$unset && Object.hasOwn(update.$unset, "pathIndexKey")) {
+        const exec = query.exec;
+        query.exec = async function (...execArgs) {
+          attempted = true;
+          await updateOne.call(Repo, { _id: row._id }, { $set: { status: "archived" } }).exec();
+          return exec.apply(this, execArgs);
+        };
+      }
+      return query;
+    };
+    let error;
+    try { error = await worker.resetSate("preparing").then(() => null, error => error); } finally { Repo.updateOne = updateOne; }
+    expect(attempted).to.equal(true); expect(error.message).to.equal("repository_job_cancelled");
+    const current = await Repo.findById(row._id);
+    expect(current.status).to.equal("archived"); expect(current.treeGeneration).to.equal("old");
+    expect(current.pathIndexKey).to.equal("preserved"); expect(current.retiredTreeGenerations).to.equal(undefined);
+  });
+
+  it("can remove a repository using the timestamp from its guarded access claim", async () => {
+    const row = await repository({ status: "ready", treeGeneration: "old" }), repo = new Repository(row);
+    await rows(1);
+    await repo.remove({});
+    expect((await Repo.findById(row._id)).status).to.equal("removed");
+    expect(await File.countDocuments({ repoId: row.repoId })).to.equal(0);
+  });
+
   it("retains retirement markers when foreground cleanup reaches its batch budget", async () => {
     const row = await repository({ treeGeneration: "active", retiredTreeGenerations: ["old"] }), repo = new Repository(row);
     await rows(501);
