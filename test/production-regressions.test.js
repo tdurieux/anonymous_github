@@ -206,7 +206,8 @@ describe("production regressions", function () {
   it("retains truncation warnings from the source instance that fetched the tree", async function () {
     const FileModel = require("../src/core/model/files/files.model").default;
     stub(db, "isConnected", false);
-    for (const method of ["exists", "deleteMany", "find"]) stub(FileModel, method, () => ({ exec: async () => method === "find" ? [] : null }));
+    for (const method of ["exists", "deleteMany"]) stub(FileModel, method, () => ({ exec: async () => null }));
+    stub(FileModel, "find", () => ({ select() { return this; }, limit() { return this; }, lean() { return this; }, exec: async () => [] }));
     stub(FileModel, "insertMany", async () => []);
     const repo = new Repository(new RepoModel({ repoId: "repo", options: {} }));
     repo.computeSize = async () => {};

@@ -179,6 +179,46 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
     expect(await File.countDocuments({ repoId: row.repoId, treeStaged: true })).to.equal(500);
   });
 
+  it("retires an index published between reading and clearing the persisted key", async () => {
+    const row = await repository({ status: "ready", treeGeneration: "old" }), resetter = new Repository(row);
+    await rows(2);
+    const searcher = new Repository(await Repo.findById(row._id)), updateOne = Repo.updateOne;
+    let attempts = 0, publishedKey;
+    Repo.updateOne = function (filter, update, ...args) {
+      const query = updateOne.call(this, filter, update, ...args);
+      if (update.$unset && Object.hasOwn(update.$unset, "pathIndexKey") && Object.hasOwn(filter, "pathIndexKey")) {
+        const exec = query.exec;
+        query.exec = async function (...execArgs) {
+          if (++attempts === 1) {
+            expect(await searcher.searchFiles("file")).to.have.length(2);
+            publishedKey = (await Repo.findById(row._id)).pathIndexKey;
+          }
+          return exec.apply(this, execArgs);
+        };
+      }
+      return query;
+    };
+    try { await resetter.resetSate("preparing"); } finally { Repo.updateOne = updateOne; }
+    expect(attempts).to.equal(2);
+    expect((await Repo.findById(row._id)).retiredPathIndexKeys).to.deep.equal([publishedKey]);
+    await resetter.cleanupRetiredFileTrees();
+    expect(await Path.countDocuments({ repoId: row.repoId })).to.equal(0);
+  });
+
+  it("retires a path index published after the activating worker loaded its model", async () => {
+    const row = await repository({ status: "ready", treeGeneration: "old" }), worker = new Repository(row);
+    await rows(2);
+    const searcher = new Repository(await Repo.findById(row._id));
+    Object.defineProperty(worker, "source", { get: () => ({ getFiles: async () => {
+      expect(await searcher.searchFiles("file")).to.have.length(2);
+      expect((await Repo.findById(row._id)).pathIndexKey).to.be.a("string");
+      return [{ name: "replacement.txt", path: "", size: 1, sha: "c".repeat(40) }];
+    } }) });
+    await worker.files({ force: true });
+    expect(await Path.countDocuments({ repoId: row.repoId })).to.equal(0);
+    expect((await File.find({ repoId: row.repoId })).map(file => file.name)).to.deep.equal(["replacement.txt"]);
+  });
+
   it("retains retirement markers when foreground cleanup reaches its batch budget", async () => {
     const row = await repository({ treeGeneration: "active", retiredTreeGenerations: ["old"] }), repo = new Repository(row);
     await rows(501);
@@ -218,8 +258,12 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
 
   it("preserves rows that stop matching the deletion filter after selection", async () => {
     await rows(2);
+    let checks = 0;
     const complete = await deleteRowsInBatches(File.collection, { repoId: "large", treeGeneration: "old" }, {
-      current: async () => { await File.updateMany({ repoId: "large" }, { $set: { treeGeneration: "replacement" } }); return true; },
+      current: async () => {
+        if (++checks === 2) await File.updateMany({ repoId: "large" }, { $set: { treeGeneration: "replacement" } });
+        return true;
+      },
     });
     expect(complete).to.equal(true); expect(await File.countDocuments({ repoId: "large" })).to.equal(2);
   });

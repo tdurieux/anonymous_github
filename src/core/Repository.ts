@@ -38,6 +38,23 @@ import AnonymizedRepositoryModel from "./model/anonymizedRepositories/anonymized
 import { createLogger, serializeError } from "./logger";
 
 const logger = createLogger("repository");
+/** Capture and retire the stored key while clearing it, including concurrent index publication. */
+async function updateRetiringPathIndex(
+  filter: () => FilterQuery<IAnonymizedRepositoryDocument>,
+  update: UpdateQuery<IAnonymizedRepositoryDocument>
+): Promise<{ matchedCount: number }> {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const current = await AnonymizedRepositoryModel.findOne(filter()).select("pathIndexKey").lean().exec();
+    if (!current) return { matchedCount: 0 };
+    const result = await AnonymizedRepositoryModel.updateOne({ ...filter(),
+      pathIndexKey: current.pathIndexKey === undefined ? { $exists: false } : current.pathIndexKey,
+    }, { ...update, ...(current.pathIndexKey ? { $addToSet: {
+      ...update.$addToSet, retiredPathIndexKeys: current.pathIndexKey,
+    } } : {}) }).exec();
+    if (result.matchedCount) return result;
+  }
+  return { matchedCount: 0 };
+}
 const pathIndexes = new Map<string, Promise<void>>();
 async function buildPathIndex(repoId: string, key: string, terms: string[], generation?: string) {
   const cacheKey = `${repoId}:${key}`;
@@ -69,7 +86,7 @@ async function buildPathIndex(repoId: string, key: string, terms: string[], gene
 }
 import { IFile, IFileDocument } from "./model/files/files.types";
 import AnonymizedFile from "./AnonymizedFile";
-import { FilterQuery } from "mongoose";
+import { FilterQuery, UpdateQuery } from "mongoose";
 function anonymizeTreeRecursive(
   tree: IFile[],
   terms: string[],
@@ -296,20 +313,19 @@ export default class Repository {
           throw error;
         });
         if (isConnected) {
-          const activated = await AnonymizedRepositoryModel.updateOne({ _id: this.model._id,
+          const activated = await updateRetiringPathIndex(() => ({ _id: this.model._id,
             treeGeneration: previousGeneration || { $exists: false }, ...this.refreshFilter(),
             status: this.model.status, statusDate: this.model.statusDate,
             "githubAccess.revision": this.model.githubAccess?.revision || { $exists: false },
             stagedFileTrees: { $elemMatch: { generation, until: { $gt: new Date() } } },
-          }, { $set: { treeGeneration: generation, truncatedFolders, size: { storage: 0, file: 0 },
+          }), { $set: { treeGeneration: generation, truncatedFolders, size: { storage: 0, file: 0 },
             ...(streamed && !this.model.contentCacheVersion ? { contentCacheVersion: 1, legacyContentCleanupPending: true } : {}),
             ...(!fileCount ? { emptyTreeGeneration: generation } : {}),
           }, $unset: { pathIndexKey: "", pathIndexBuiltAt: "", sizeComputedAt: "",
             ...(fileCount ? { emptyTreeGeneration: "" } : {}),
           }, $addToSet: { retiredTreeGenerations: previousGeneration || "",
             ...(streamed ? { retiredContentPrefixes: previousPrefix } : {}),
-            ...(this.model.pathIndexKey ? { retiredPathIndexKeys: this.model.pathIndexKey } : {}),
-          }, $pull: { stagedFileTrees: { generation } } }).exec();
+          }, $pull: { stagedFileTrees: { generation } } });
           if (!activated.matchedCount) {
             await deleteRowsInBatches(FileModel.collection, { repoId: this.repoId, treeGeneration: generation });
             throw new AnonymousError("repository_changed", { httpStatus: 409 });
@@ -1042,14 +1058,13 @@ export default class Repository {
     const generation = defer ? randomUUID() : previousGeneration;
     this.model.emptyTreeGeneration = undefined;
     if (isConnected) {
-      const result = await AnonymizedRepositoryModel.updateOne({ _id: this.model._id,
+      const result = await updateRetiringPathIndex(() => ({ _id: this.model._id,
       treeGeneration: this.model.treeGeneration || { $exists: false },
-      }, { $set: { fileMetadataRevision: revision, ...(defer ? { treeGeneration: generation } : {}) },
+      }), { $set: { fileMetadataRevision: revision, ...(defer ? { treeGeneration: generation } : {}) },
         ...(defer ? { $addToSet: { retiredTreeGenerations: previousGeneration || "",
-          ...(this.model.pathIndexKey ? { retiredPathIndexKeys: this.model.pathIndexKey } : {}),
         } } : {}),
         $unset: { emptyTreeGeneration: "", pathIndexKey: "", pathIndexBuiltAt: "" },
-      }).exec();
+      });
       if (!result.matchedCount) throw new AnonymousError("repository_changed", { httpStatus: 409 });
     }
     this.model.treeGeneration = generation;
