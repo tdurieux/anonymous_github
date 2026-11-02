@@ -76,6 +76,8 @@
     "file_not_found": "The requested file is not found.",
     "file_not_accessible": "The requested file is not accessible.",
     "file_not_supported": "The file type is not supported. Anonymous GitHub cannot handle it.",
+    "repository_tree_too_large": "The repository has too many pending folders to process safely. Share a smaller repository.",
+    "file_listing_too_large": "This folder has too many entries to list. Open a more specific folder or use file search.",
     "file_too_big": "The file size exceeds the limit of Anonymous GitHub.",
     "is_folder": "The path points to a folder.",
     "folder_not_supported": "The path points to a folder. Please select a file.",

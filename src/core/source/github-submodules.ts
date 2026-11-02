@@ -36,12 +36,12 @@ export function submoduleRepository(url: unknown, parent: GitHubBaseData): { org
 }
 
 /** Resolve only direct public GitHub dependencies. Never send the parent token to a child. */
-export async function expandSubmodules(files: IFile[], data: GitHubBaseData): Promise<IFile[]> {
+export async function expandSubmodules(files: IFile[], data: GitHubBaseData,
+  budget = { modules: 0, remaining: MAX_SUBMODULE_ENTRIES }): Promise<IFile[]> {
   const output = files.filter(file => file.name !== ".gitmodules");
   const modules = output.filter(file => file.submodule);
-  let remaining = MAX_SUBMODULE_ENTRIES;
-  for (const [index, mount] of modules.entries()) {
-    if (index >= MAX_SUBMODULES) { mount.submodule = "limit"; continue; }
+  for (const mount of modules) {
+    if (budget.modules++ >= MAX_SUBMODULES) { mount.submodule = "limit"; continue; }
     const mountPath = [mount.path, mount.name].filter(Boolean).join("/");
     if (!safeRepositoryPath(mountPath) || !mount.sha || !/^[a-f0-9]{40}$/.test(mount.sha)) continue;
     const token = await data.getToken();
@@ -59,10 +59,10 @@ export async function expandSubmodules(files: IFile[], data: GitHubBaseData): Pr
       const child = await octokit("").git.getTree({
         owner: repository.organization, repo: repository.repoName, tree_sha: mount.sha, recursive: "1",
       });
-      if (child.data.truncated || child.data.tree.length > remaining) { mount.submodule = "limit"; continue; }
+      if (child.data.truncated || child.data.tree.length > budget.remaining) { mount.submodule = "limit"; continue; }
       const entries = child.data.tree;
       if (entries.some(entry => !safeRepositoryPath(entry.path))) { mount.submodule = "unsupported"; continue; }
-      remaining -= entries.length;
+      budget.remaining -= entries.length;
       mount.submodule = "included";
       mount.upstream = { ...repository, commit: mount.sha, path: "" };
       for (const entry of entries) {

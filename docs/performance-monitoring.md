@@ -125,3 +125,29 @@ an unavailable file as a successful cache fill. Persistent 404s still require
 checking the repository's source snapshot. Application rate limits remain in
 force; 429 replies now include `rate_limited`, `resetAt`, and `Retry-After` so
 clients can wait for the actual store reset.
+
+## Large repository metadata
+
+GitHub tree preparation consumes pages of plain metadata and persists at most
+500 entries per insert. Preparation does not read the finished tree back into
+memory. Traversal rejects more than 100,000 queued folders with
+`repository_tree_too_large` and HTTP 413. Folder listings and folder-count responses reject results above 10,000
+entries with `file_listing_too_large` and HTTP 413. Narrower folder reads and
+the bounded filename search remain available. This limit also applies to
+recursive internal listing calls.
+
+A preparation reset switches tree generation and retires the old file rows and
+active path-index key atomically. It does not wait for metadata deletion before
+enqueueing the replacement. Maintenance discovers these retirement markers and
+retries interrupted deletion. Activation performs at most ten batches per
+retired metadata collection before deferring the remainder to maintenance.
+
+Each metadata delete selects at most 500 IDs, rechecks its filter during the
+write, and yields between batches. Expiration and removal also check lifecycle
+ownership between batches. `file-tree` logs report deleted rows and elapsed
+time as `metadata cleanup complete` or `metadata cleanup deferred`.
+
+Run `npm run migrate:performance` when upgrading to add the sparse
+`retiredPathIndexKeys` maintenance index without dropping existing indexes.
+The constrained-heap regression fixture can be run without network or MongoDB:
+`node --max-old-space-size=256 test/fixtures/large-repository-tree.js`.

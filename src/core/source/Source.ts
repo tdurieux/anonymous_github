@@ -21,4 +21,7 @@ export interface SourceBase {
    * Get all the files from a specific source
    */
   getFiles(progress?: (status: string) => void): Promise<IFile[]>;
+
+  /** Read large trees without retaining every entry. */
+  iterateFiles?(progress?: (status: string) => void): AsyncIterable<IFile>;
 }
