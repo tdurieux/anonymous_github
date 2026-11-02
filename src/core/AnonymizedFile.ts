@@ -153,8 +153,18 @@ export default class AnonymizedFile {
     return this._file.size;
   }
 
+  private visibleFile(file: IFile): IFile {
+    if (this.repository.model?.source?.type !== "Zip" && file.name === ".gitmodules") {
+      throw new AnonymousError("file_not_found", { httpStatus: 404 });
+    }
+    return file;
+  }
+
   async getFileInfo(): Promise<IFile> {
-    if (this._file) return this._file;
+    if (this.repository.model?.source?.type !== "Zip" && basename(this.anonymizedPath) === ".gitmodules") {
+      throw new AnonymousError("file_not_found", { httpStatus: 404 });
+    }
+    if (this._file) return this.visibleFile(this._file);
     let fileDir = dirname(this.anonymizedPath);
     if (fileDir == ".") fileDir = "";
     if (fileDir.endsWith("/")) fileDir = fileDir.slice(0, -1);
@@ -180,7 +190,7 @@ export default class AnonymizedFile {
     if (exact) {
       if (exact.metadataPending) await this.repository.completeRecoveredFileMetadata(exact);
       this._file = exact;
-      return exact;
+      return this.visibleFile(exact);
     }
 
     const terms = this.repository.options.terms || [];
@@ -213,7 +223,7 @@ export default class AnonymizedFile {
     const compiled = compileTerms(terms);
     if (typeof this.repository.findAnonymizedPath === "function") {
       const indexed = await this.repository.findAnonymizedPath(this.anonymizedPath);
-      if (indexed) { this._file = indexed; return indexed; }
+      if (indexed) { this._file = indexed; return this.visibleFile(indexed); }
       if (indexed === null) {
         if (anonymizePathCompiled(this.anonymizedPath, compiled) === this.anonymizedPath) {
           const recovered = await this.recoverTruncatedFile(fileDir);
@@ -237,7 +247,7 @@ export default class AnonymizedFile {
       ) {
         if (candidate.metadataPending) await this.repository.completeRecoveredFileMetadata(candidate);
         this._file = candidate;
-        return candidate;
+        return this.visibleFile(candidate);
       }
     }
 
@@ -312,6 +322,7 @@ export default class AnonymizedFile {
     if (!this._file) {
       this._file = await this.getFileInfo();
     }
+    this.visibleFile(this._file);
     return join(this._file.path, this._file.name);
   }
   extension() {
@@ -398,6 +409,7 @@ export default class AnonymizedFile {
         branch: this.repository.model.source.branch,
         repoId: this.repository.repoId,
         filePath: this.filePath,
+        upstream: (await this.getFileInfo()).upstream,
         sha: await this.sha(),
         size: await this.size(),
         anonymizerOptions: anonymizer.opt,
@@ -446,6 +458,7 @@ export default class AnonymizedFile {
               json: {
                 sha,
                 size,
+                upstream: (await this.getFileInfo()).upstream,
                 token: await githubTokenForStreamer(token, this.repository.model.source.repositoryName),
                 repoFullName: this.repository.model.source.repositoryName,
                 commit: this.repository.model.source.commit,

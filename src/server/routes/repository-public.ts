@@ -57,6 +57,7 @@ router.get(
       res.attachment(`${repo.repoId}.zip`);
       if (req.method === "HEAD") { res.end(); return; }
       await repo.countView();
+      const submodules = await repo.submoduleMounts();
 
       if (config.STREAMER_ENTRYPOINT) {
         // use the streamer service
@@ -75,6 +76,7 @@ router.get(
               branch: repo.model.source.branch,
               repoId: repo.repoId,
               anonymizerOptions: anonymizer.opt,
+              submodules,
               contentOptions: {
                 image: repo.options.image,
                 pdf: repo.options.pdf,
@@ -169,6 +171,7 @@ router.get(
           commit: repo.model.source.commit || "HEAD",
           getToken: () => repo.getToken(),
           anonymizerOptions: anonymizer.opt,
+          submodules,
           contentOptions: {
             image: repo.options.image,
             pdf: repo.options.pdf,
@@ -383,15 +386,15 @@ router.get(
         truncatedFolders: (repo.model.truncatedFolders || []).map((path) =>
           anonymizePath(path, repo.options.terms || [])
         ),
-        // Submodule contents are not included in GitHub archives/trees, so
-        // they end up as empty folders in the anonymized repository. Surface
-        // a warning in the explorer when the repository uses submodules (#737).
+        // Legacy trees retain .gitmodules until their next tree refresh.
         hasSubmodules:
           (await FileModel.exists({
             repoId: repo.repoId,
             treeGeneration: repo.model.treeGeneration || { $exists: false },
-            name: ".gitmodules",
-            path: "",
+            $or: [
+              { submodule: { $exists: true, $ne: "included" } },
+              { name: ".gitmodules", path: "" },
+            ],
           })) != null,
       });
     } catch (error) {

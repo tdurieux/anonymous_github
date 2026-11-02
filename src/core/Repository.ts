@@ -8,6 +8,7 @@ import { RepositoryStatus } from "./types";
 import { Readable } from "stream";
 import * as sha1 from "crypto-js/sha1";
 import User from "./User";
+import { SubmoduleMount } from "./source/github-submodules";
 import GitHubStream from "./source/GitHubStream";
 import Zip from "./source/Zip";
 import {
@@ -43,14 +44,14 @@ async function buildPathIndex(repoId: string, key: string, terms: string[], gene
   const task = (async () => {
     const compiled = compileTerms(terms);
     const cursor = FileModel.find({ repoId, treeGeneration: generation || { $exists: false } })
-      .select("name path sha size").sort({ path: 1, name: 1 }).lean().cursor();
+      .select("name path sha size upstream").sort({ path: 1, name: 1 }).lean().cursor();
     let batch: Parameters<typeof AnonymizedPathModel.bulkWrite>[0] = [];
     try {
       for await (const file of cursor) {
         const name = anonymizePathCompiled(file.name, compiled);
         const directory = anonymizePathCompiled(file.path, compiled);
         batch.push({ updateOne: { filter: { repoId, key, originalId: file._id }, update: { $set: {
-          repoId, key, originalId: file._id, name: file.name, path: file.path, sha: file.sha, size: file.size,
+          repoId, key, originalId: file._id, name: file.name, path: file.path, sha: file.sha, size: file.size, upstream: file.upstream,
           anonymousName: name, anonymousDirectory: directory, createdAt: new Date(),
           searchName: name.toLowerCase(), searchDirectory: directory.toLowerCase(),
           anonymousPath: anonymizePathCompiled(file.path ? `${file.path}/${file.name}` : file.name, compiled),
@@ -202,6 +203,17 @@ export default class Repository {
     return await FileModel.find(query).exec();
   }
 
+  async submoduleMounts(): Promise<SubmoduleMount[]> {
+    if (this.model.source.type === "Zip") return [];
+    await this.ensureFileTree();
+    const mounts = await FileModel.find({ repoId: this.repoId,
+      treeGeneration: this.model.treeGeneration || { $exists: false }, submodule: "included",
+    }).select("name path upstream").lean().exec();
+    return mounts.filter(file => file.upstream).map(file => ({
+      ...file.upstream!, path: [file.path, file.name].filter(Boolean).join("/"),
+    }));
+  }
+
   private async ensureFileTree(opt: { force?: boolean; progress?: (status: string) => void } = {}) {
     this.assertNotArchived();
     let hasFile = this.hasEmptyTree() || await FileModel.exists({ repoId: this.repoId, treeGeneration: this.model.treeGeneration || { $exists: false } }).exec();
@@ -219,6 +231,9 @@ export default class Repository {
         hasFile = null;
       }
     }
+    if (hasFile && this.source instanceof GitHubStream && await FileModel.exists({
+      repoId: this.repoId, treeGeneration: this.model.treeGeneration || { $exists: false }, name: ".gitmodules",
+    }).exec()) hasFile = null;
     if (!hasFile || opt.force) {
       const previousGeneration = this.model.treeGeneration;
       const previousPrefix = contentGenerationPrefix(`${previousGeneration || "legacy"}:${this.model.anonymizeDate?.toISOString() || ""}`);

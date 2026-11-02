@@ -500,9 +500,7 @@ describe("streamed file access alerts", () => {
     stub(config, "STREAMER_ENTRYPOINT", "http://streamer/");
     const stream = new PassThrough();
     stub(got, "stream", () => stream);
-    file.originalPath = async () => "README.md";
-    file.sha = async () => "sha";
-    file.size = async () => 10;
+    file._file = { name: "README.md", path: "", sha: "sha", size: 10 };
     const returned = await file.anonymizedContent();
     expect(returned).to.equal(stream);
     const error = Object.assign(new Error("streamer failure"), { response: { statusCode: status, body: JSON.stringify({ error: status === 503 ? "upstream_error" : "file_not_accessible" }) } });

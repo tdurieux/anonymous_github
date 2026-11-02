@@ -33,6 +33,20 @@ A free public instance is available at **[anonymous.4open.science](https://anony
 
 Just open **[anonymous.4open.science](https://anonymous.4open.science/)**, paste your repository URL, add the terms to hide, and share the generated link.
 
+### Git submodules
+
+Direct public GitHub submodules are included in the file browser and ZIP downloads
+at the commit recorded by the parent repository. Their paths and contents use the
+parent's anonymization settings. `.gitmodules` files are omitted from shared GitHub
+content because they contain source repository URLs.
+
+The service expands up to 20 direct submodules and 10,000 combined child tree entries.
+Private, non-GitHub, nested, missing, oversized, and truncated submodules remain empty
+folders with a warning. Child files are fetched anonymously on demand; child tree
+lookups use GitHub's unauthenticated API quota. ZIP downloads fetch public child archives.
+Existing cached repositories with `.gitmodules` rebuild their file trees on the next
+listing or ZIP download. No manual database migration is required.
+
 ### CLI
 
 Anonymize a repository locally and produce an anonymized zip:
