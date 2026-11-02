@@ -1,4 +1,4 @@
-<div class="anonymize-page h-100" :class="{'mobile-preview-active': mobilePane === 'preview'}">
+<div class="anonymize-page h-100" :class="{'mobile-preview-active': mobilePane === 'preview', 'preview-expanded': previewExpanded}">
   <!-- ===== STATE 1: No URL — centered input ===== -->
   <div class="anonymize-landing" v-show="!workspaceOpen &amp;&amp; !isUpdate">
     <div class="anonymize-landing-inner">
@@ -34,7 +34,7 @@
             <a class="connection-link" href="/connections" v-if="isUpdate || detectedType === 'gist' || githubConnection === 'oauth'">{{ isUpdate ? 'Change connection' : 'Manage connections' }} &rarr;</a>
           </div>
         </div>
-        <div class="repo-access-note"><span v-if="detectedType !== 'gist' &amp;&amp; githubConnection !== 'oauth'">Select repositories on GitHub, then return here.</span><span><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-info"></use></svg> Selected content will be published, including content from private repositories.</span></div>
+        <div class="repo-access-note"><span><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-info"></use></svg> Anonymized content is public, even from private repositories.</span></div>
       </aside>
     </div>
   </div>
@@ -43,14 +43,10 @@
   <div class="anonymize-workspace" v-show="workspaceOpen || isUpdate">
     <header class="anonymize-topbar">
       <div class="anonymize-topbar-inner">
-        <div class="paper-crumbs">
-          <a href="/dashboard">My work</a> &nbsp;/&nbsp;
-          <span class="here">{{ isUpdate ? 'Edit anonymization' : 'New anonymization' }}</span>
-        </div>
         <div class="anonymize-topbar-head">
           <h1 class="paper-page-title anonymize-topbar-title">
-            <span v-if="!isUpdate">New <em>anonymization</em></span>
-            <span v-if="isUpdate">Edit <em>anonymization</em></span>
+            <span v-if="!isUpdate">New anonymization</span>
+            <span v-if="isUpdate">Edit anonymization</span>
           </h1>
           <span class="type-badge" v-show="detectedType" :class="{&#x27;type-repo&#x27;: detectedType === &#x27;repo&#x27;, &#x27;type-pr&#x27;: detectedType === &#x27;pr&#x27;, &#x27;type-gist&#x27;: detectedType === &#x27;gist&#x27;}">
             {{ detectedType === 'repo' ? 'Repo' : detectedType === 'pr' ? 'PR' : 'Gist' }}
@@ -78,10 +74,10 @@
     <div class="anonymize-split">
       <!-- Form column (left) -->
       <div id="workspace-settings" :role="mobileWorkspace ? 'tabpanel' : null" :aria-labelledby="mobileWorkspace ? 'workspace-settings-tab' : null" class="anonymize-form-col overflow-auto">
-        <form class="form needs-validation paper-settings-main" name="anonymize" novalidate v-form="viewState">
+        <form class="form needs-validation paper-settings-main" name="anonymize" novalidate v-form="viewState"><div class="anonymize-fields">
 
           <section class="paper-settings-section">
-            <div class="paper-section-eyebrow">Source</div>
+            <h2 class="paper-section-eyebrow">Source &amp; access</h2>
 
             <div class="form-group">
               <div class="source-url-label-row">
@@ -116,7 +112,7 @@
                   <a class="connection-link" href="/connections" v-if="isUpdate || detectedType === 'gist' || githubConnection === 'oauth'">{{ isUpdate ? 'Change connection' : 'Manage connections' }} &rarr;</a>
                 </div>
               </div>
-              <div class="repo-access-note"><span v-if="detectedType !== 'gist' &amp;&amp; githubConnection !== 'oauth'">Select repositories on GitHub, then return here.</span><span><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-info"></use></svg> Selected content will be published, including content from private repositories.</span></div>
+              <div class="repo-access-note"><span><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-info"></use></svg> Anonymized content is public, even from private repositories.</span></div>
             </aside>
 
             <aside class="repo-access-details" v-if="isUpdate &amp;&amp; detectedType === 'repo' &amp;&amp; role === 'owner' &amp;&amp; sourceUrl === 'https://github.com/' + _originalFullName">
@@ -132,8 +128,9 @@
                   <select class="form-control" id="branch" name="branch" v-field="{ state: viewState, set: value =&gt; { source.branch = value }, value: source?.branch, form: &quot;anonymize&quot;, options: {} }">
                     <option v-for="(b, index) in branches" v-text="b?.name" :value="(b?.name)"></option>
                   </select>
+
                   <div class="input-group-append">
-                    <button class="btn btn-icon" type="button" title="Refresh" data-toggle="tooltip" data-placement="bottom" @click="getBranches(true)" aria-label="Refresh">
+                    <button class="btn btn-icon refresh-branches" type="button" title="Refresh branches" @click="getBranches(true)" aria-label="Refresh branches">
                       <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-refresh"></use></svg>
                     </button>
                   </div>
@@ -155,17 +152,17 @@
             <div class="form-check" v-show="detectedType">
               <input class="form-check-input" type="checkbox" id="update" name="update" v-field="{ state: viewState, set: value =&gt; { options.update = value }, value: options?.update, form: &quot;anonymize&quot;, options: {} }">
               <label class="form-check-label" for="update">Auto-update from GitHub</label>
-              <small class="form-text text-muted">Follow the branch and pull the latest commit automatically, at most once an hour.</small>
+              <small class="form-text text-muted">Follows the latest version, at most once an hour.</small>
             </div>
           </section>
 
           <section class="paper-settings-section" v-show="detectedType">
-            <div class="paper-section-eyebrow">Identity</div>
+            <h2 class="paper-section-eyebrow">Anonymization</h2>
 
             <div class="form-group" v-show="detectedType === &#x27;repo&#x27;">
               <label class="paper-field-label" for="repoId">Anonymized repository ID</label>
               <input type="text" class="form-control" name="repoId" id="repoId" :disabled="isUpdate" v-field="{ state: viewState, set: value =&gt; { repoId = value }, value: repoId, form: &quot;anonymize&quot;, options: { debounce: {default: 1000, blur: 0, click: 0}, updateOn: &#x27;default blur click&#x27; } }" :class="{&#x27;is-invalid&#x27;: anonymize?.repoId?.invalid}">
-              <small class="form-text text-muted">Your share link will be <code>anonymous.4open.science/r/{{ repoId }}</code>.</small>
+              <small class="form-text text-muted">anonymous.4open.science/r/{{ repoId }}</small>
               <div class="invalid-feedback" v-show="anonymize?.repoId?.errors?.format">ID can only contain letters and numbers.</div>
               <div class="invalid-feedback" v-show="anonymize?.repoId?.errors?.used">{{ repoId }} is already used.</div>
             </div>
@@ -186,31 +183,20 @@
               <div class="invalid-feedback" v-show="anonymize?.gistId?.errors?.used">{{ gistId }} is already used.</div>
             </div>
 
-            <div class="form-group">
-              <label class="paper-field-label" for="conference">Conference <span class="paper-optional">(optional)</span></label>
-              <input class="form-control" id="conference" name="conference" v-field="{ state: viewState, set: value =&gt; { conference = value }, value: conference, form: &quot;anonymize&quot;, options: { debounce: { default: 800, blur: 0 }, updateOn: &#x27;default blur&#x27; } }" :class="{&#x27;is-invalid&#x27;: anonymize?.conference?.invalid}">
-              <small class="form-text text-muted" v-show="conference_data">
-                <a target="_blank" :href="safeUrl((conference_data?.url))">{{ conference_data?.name }}</a> expires {{ fmt?.date(conference_data?.endDate) }}.
-              </small>
-              <div class="invalid-feedback" v-show="anonymize?.conference?.errors?.activated">The conference is not activated.</div>
-              <small class="form-text text-muted" v-show="!conference_data">Link to a conference to apply its shared defaults.</small>
-            </div>
-          </section>
 
-          <section class="paper-settings-section" v-show="detectedType">
-            <div class="paper-section-eyebrow">Anonymization</div>
+
 
             <div class="form-group">
               <label class="paper-field-label" for="terms">Terms to redact</label>
-              <textarea class="form-control" id="terms" name="terms" rows="4" v-field="{ state: viewState, set: value =&gt; { terms = value }, value: terms, form: &quot;anonymize&quot;, options: { debounce: 250 } }" :class="{&#x27;is-invalid&#x27;: anonymize?.terms?.invalid}"></textarea>
-              <small class="form-text text-muted">One term per line (regex allowed). Replaced by <code>{{ site_options?.ANONYMIZATION_MASK }}-[N]</code>, or use <code>term=&gt;replacement</code> to pick your own (e.g. <code>Anonymous=&gt;ABC</code>).</small>
+              <textarea class="form-control" id="terms" name="terms" rows="3" v-field="{ state: viewState, set: value =&gt; { terms = value }, value: terms, form: &quot;anonymize&quot;, options: { debounce: 250 } }" :class="{&#x27;is-invalid&#x27;: anonymize?.terms?.invalid}"></textarea>
+              <small class="form-text text-muted">One term per line.</small><details class="redaction-syntax"><summary>Regex &amp; replacement syntax</summary>              <small class="form-text text-muted">Regex is supported. Replaced by <code>{{ site_options?.ANONYMIZATION_MASK }}-[N]</code>, or use <code>term=&gt;replacement</code> to pick your own (e.g. <code>Anonymous=&gt;ABC</code>).</small></details>
               <div class="warning-feedback" v-show="termsRegexWarning">Regex characters detected. Escape them if unintentional.</div>
               <div class="invalid-feedback" v-show="anonymize?.terms?.errors?.format">Terms are in an invalid format.</div>
             </div>
           </section>
 
           <section class="paper-settings-section" v-show="detectedType">
-            <div class="paper-section-eyebrow">Display</div>
+            <h2 class="paper-section-eyebrow">Display</h2>
 
             <div v-show="detectedType === &#x27;repo&#x27;">
               <div class="form-check">
@@ -220,12 +206,12 @@
               <div class="form-check">
                 <input class="form-check-input" type="checkbox" id="image" name="image" v-field="{ state: viewState, set: value =&gt; { options.image = value }, value: options?.image, form: &quot;anonymize&quot;, options: {} }">
                 <label class="form-check-label" for="image">Display images</label>
-                <small class="form-text text-muted">Images are served unchanged and may contain names or affiliations.</small>
+
               </div>
               <div class="form-check">
                 <input class="form-check-input" type="checkbox" id="pdf" name="pdf" v-field="{ state: viewState, set: value =&gt; { options.pdf = value }, value: options?.pdf, form: &quot;anonymize&quot;, options: {} }">
                 <label class="form-check-label" for="pdf">Display PDFs</label>
-                <small class="form-text text-muted">PDF contents and metadata are served unchanged. <a href="/faq#formats">About supported formats</a></small>
+
               </div>
               <div class="form-check">
                 <input class="form-check-input" type="checkbox" id="notebook" name="notebook" v-field="{ state: viewState, set: value =&gt; { options.notebook = value }, value: options?.notebook, form: &quot;anonymize&quot;, options: {} }">
@@ -243,6 +229,7 @@
               </div>
             </div>
 
+            <p class="form-text text-muted" v-if="detectedType === 'repo' &amp;&amp; (options.image || options.pdf)">Images and PDFs are served unchanged. Review their contents and metadata before sharing. <a href="/faq#formats">Supported formats</a></p>
             <div v-show="detectedType === &#x27;gist&#x27;">
               <div class="form-check">
                 <input class="form-check-input" type="checkbox" id="title-gist" name="title-gist" v-field="{ state: viewState, set: value =&gt; { options.title = value }, value: options?.title, form: &quot;anonymize&quot;, options: {} }">
@@ -302,31 +289,64 @@
             </div>
           </section>
 
-          <section class="paper-settings-section" v-show="detectedType">
-            <div class="paper-section-eyebrow">Expiration</div>
-
-            <div class="form-grid-2">
-              <div class="form-group">
-                <label class="paper-field-label" for="expiration">Strategy</label>
-                <select class="form-control" id="expiration" name="expiration" v-field="{ state: viewState, set: value =&gt; { options.expirationMode = value }, value: options?.expirationMode, form: &quot;anonymize&quot;, options: {} }">
-                  <option value="redirect">Redirect to GitHub when expired</option>
-                  <option value="remove" selected>Remove when expired</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label class="paper-field-label" for="expirationDate">Expiration date</label>
+          <section class="paper-settings-section hosting-settings" id="repository-hosting" v-show="detectedType" aria-labelledby="hosting-heading">
+            <h2 class="paper-section-eyebrow" id="hosting-heading">Hosting &amp; expiration</h2>
+            <p class="hosting-usage" v-if="detectedType === 'repo' &amp;&amp; billing?.enabled">
+              <span v-if="isUpdate &amp;&amp; role !== 'owner'">Uses the owner's hosting</span>
+              <span v-else-if="hasAuthorHosting()">Your author subscription is active.</span>
+              <span v-else-if="conference">Conference hosting is checked on submission.</span>
+              <span v-else-if="hostingQuota?.repository">{{ hostingQuota.repository.used }} of {{ hostingQuota.repository.total }} active repositories · Free</span>
+            </p>
+            <fieldset class="expiration-choices">
+              <legend class="sr-only">Expiration</legend>
+              <label class="expiration-choice"><input type="radio" name="expiration-choice" :checked="options.expirationMode !== 'never'" @change="useDatedHosting()" :disabled="billingPending"><span>Expire on a date</span></label>
+              <div class="dated-options" v-if="options.expirationMode !== 'never'">
+                  <div class="hosting-date" v-if="options?.expirationMode !== 'never'">
+                <label class="paper-field-label" for="expirationDate">Expires</label>
                 <input class="form-control" type="date" name="expirationDate" id="expirationDate" required v-field="{ state: viewState, set: value =&gt; { options.expirationDate = value }, value: options?.expirationDate, form: &quot;anonymize&quot;, options: {} }" :class="{&#x27;is-invalid&#x27;: anonymize?.expirationDate?.invalid}" :min="(minExpirationDate)" :max="(maxExpirationDate)">
                 <div class="invalid-feedback" v-show="anonymize?.expirationDate?.errors?.min">Pick a date in the future.</div>
                 <div class="invalid-feedback" v-show="anonymize?.expirationDate?.errors?.max">Pick a date on or before {{ fmt?.date(maxExpirationDate) }}.</div>
                 <div class="invalid-feedback" v-show="anonymize?.expirationDate?.errors?.required || anonymize?.expirationDate?.errors?.date">Enter a valid expiration date.</div>
               </div>
+                <div class="hosting-property"><label for="expiration">Then</label><select id="expiration" class="form-control" v-model="options.expirationMode"><option value="remove">Remove content</option><option value="redirect">Redirect to GitHub</option></select></div>
+              </div>
+              <label class="expiration-choice" v-if="detectedType === 'repo'"><input type="radio" name="expiration-choice" :checked="options.expirationMode === 'never'" @change="options.expirationMode = 'never'" :disabled="billingPending"><span>Never expire<small v-if="options.expirationMode !== 'never' || hasAuthorHosting()">{{ hasAuthorHosting() ? 'Included in your subscription' : 'Author subscription' }}</small></span></label>
+            </fieldset>
+            <p class="form-text text-muted" v-if="options.expirationMode === 'redirect'">Visitors will be redirected to the original GitHub source on this date, revealing its identity.</p>
+            <div class="form-group conference-field">
+              <label class="paper-field-label" for="conference">Conference code <span class="paper-optional">(optional)</span></label>
+              <input class="form-control" id="conference" name="conference" v-field="{ state: viewState, set: value =&gt; { conference = value }, value: conference, form: &quot;anonymize&quot;, options: { debounce: { default: 800, blur: 0 }, updateOn: &#x27;default blur&#x27; } }" :class="{&#x27;is-invalid&#x27;: anonymize?.conference?.invalid}">
+              <small class="form-text text-muted" v-show="conference_data">
+                <a target="_blank" :href="safeUrl((conference_data?.url))">{{ conference_data?.name }}</a> expires {{ fmt?.date(conference_data?.endDate) }}.
+              </small>
+              <div class="invalid-feedback" v-show="anonymize?.conference?.errors?.activated">The conference is not activated.</div>
+              <small class="form-text text-muted" v-show="!conference_data">Link to a conference to apply its shared defaults.</small>
             </div>
-            <small class="form-text text-muted" v-show="options?.expirationMode==&#x27;remove&#x27; &amp;&amp; options?.expirationDate">After {{ fmt?.date(options?.expirationDate) }}, the content will be removed.</small>
-            <small class="form-text text-muted" v-show="options?.expirationMode==&#x27;redirect&#x27; &amp;&amp; options?.expirationDate">After {{ fmt?.date(options?.expirationDate) }}, visitors will be redirected to GitHub.</small>
+            <div v-if="detectedType === 'repo' &amp;&amp; billing?.enabled" class="inline-hosting">
+              <p v-if="taskValidationError" role="alert" class="text-danger">{{ taskValidationError }}</p>
+              <p v-if="billingError" role="alert" class="text-danger">{{ billingError }} <button type="button" class="task-text-button" @click="loadBilling()" :disabled="billingBusy">Reload billing</button></p>
+              <div v-if="billingPending" role="status"><p><strong>Confirming your payment…</strong></p><p class="form-text text-muted">Your draft is saved. Please do not pay again.</p></div>
+              <p v-else-if="billingNotice" role="status" class="form-text text-muted">{{ billingNotice }}</p>
+              <template v-if="hostingNeedsPayment() &amp;&amp; !billingPending">
+                <p v-if="options.expirationMode !== 'never'" class="capacity-reason">{{ options.update &amp;&amp; !hostingQuotaBlocked &amp;&amp; hostingQuota?.repository?.used < hostingQuota?.repository?.total ? 'Automatic updates require Author hosting.' : 'Your free hosting allowance is full.' }}</p>
+                <div class="subscription-choice" v-if="authorPlans().length &amp;&amp; billing.checkoutEnabled !== false">
+                  <h3>Author subscription</h3>
+                  <fieldset class="billing-cycle"><legend class="sr-only">Billing frequency</legend><label class="cycle-option" v-for="plan in authorPlans()" :key="plan.id" :class="{'selected': selectedHostingPlan()?.id === plan.id}"><input type="radio" name="hosting-plan" :value="plan.id" :checked="selectedHostingPlan()?.id === plan.id" @change="hostingPlan = plan.id"><span>{{ billingPrice(plan) }}</span></label></fieldset>
+                  <p>{{ selectedHostingPlan()?.repositories }} repositories, {{ billingBytes(selectedHostingPlan()?.storage) }}. Coauthors included.</p>
+                  <p class="hosting-terms">Renews {{ selectedHostingPlan()?.interval === 'year' ? 'annually' : 'monthly' }} until cancelled. Tax shown at checkout.</p>
+                  <p class="hosting-terms">If paid access ends, never-expiring repositories expire after 90 days.</p>
+                </div>
+                <p v-else role="status">New purchases are temporarily unavailable. Your draft is kept.</p>
+                <details class="capacity-options" v-if="options.expirationMode !== 'never'"><summary>Keep using free hosting</summary><p>Remove a repository you no longer need, or use conference hosting. Removing a repository affects its review link.</p><a href="/dashboard">Review my repositories</a><button type="button" class="task-text-button" @click="anonymizeRepo($event)" :disabled="sourceLoading || billingBusy">Recheck capacity and submit</button></details>
+              </template>
+              <p class="hosting-terms" v-else-if="options.expirationMode === 'never' &amp;&amp; !billingPending">No scheduled expiration while subscribed. A 90-day grace period applies if paid access ends.</p>
+              <details class="repository-pass" v-if="isUpdate &amp;&amp; role === 'owner' &amp;&amp; !hasAuthorHosting()"><summary>Hosting just this repository?</summary><div v-for="plan in (billing?.plans || []).filter(p =&gt; p.id === 'author_pass')" :key="plan.id"><p>{{ billingPrice(plan) }} · {{ billingBytes(plan.storage) }} for 180 days. No renewal. Does not include Never expire.</p><button type="button" class="btn btn-outline-ink" :disabled="billingBusy || hostingSaving || sourceLoading || billing.checkoutEnabled === false || billingPending" @click="checkoutRepository(true)">Review repository pass</button></div></details>
+            </div>
           </section>
 
+
           <section class="paper-settings-section" v-show="isUpdate &amp;&amp; detectedType === &#x27;repo&#x27;">
-            <div class="paper-section-eyebrow">Co-authors</div>
+            <h2 class="paper-section-eyebrow">Coauthors</h2>
             <p class="form-text text-muted" style="margin-bottom: 8px;">
               Co-authors can view and edit these settings. They cannot delete the anonymization or manage co-authors.
             </p>
@@ -364,15 +384,14 @@
 
           <div class="draft-status" role="status" v-if="draftRestored">Your unsaved draft was restored. <button type="button" class="draft-discard" @click="discardDraft()">Discard draft</button></div>
           <div class="draft-status" v-else-if="unsavedChanges">{{ draftSaved ? "Draft saved in this tab for 30 minutes." : "Unsaved changes. Keep this tab open until you save." }} <button type="button" class="draft-discard" @click="discardDraft()">{{ isUpdate ? "Restore saved settings" : "Discard changes" }}</button></div>
-          <p class="anonymize-review-note" v-if="detectedType === 'repo' &amp;&amp; (options.image || options.pdf)">Review enabled images and PDFs before sharing. Their contents are not anonymized.</p>
-          <button type="button" class="btn btn-outline-ink mobile-preview-jump" @click="selectMobilePane('preview')">Review preview <span aria-hidden="true">→</span></button>
+
+          </div>
           <div class="anonymize-submit-bar" v-show="detectedType">
-            <button type="submit" :disabled="sourceLoading" class="btn btn-ink" v-if="detectedType === &#x27;repo&#x27; &amp;&amp; !isUpdate" @click.prevent="submitForm($event, () =&gt; { anonymizeRepo($event) })">
-              <svg class="ui-icon mr-1" aria-hidden="true"><use href="#ui-icon-shield"></use></svg> Anonymize Repository
-            </button>
-            <button type="submit" :disabled="sourceLoading" class="btn btn-ink" v-if="detectedType === &#x27;repo&#x27; &amp;&amp; isUpdate" @click.prevent="submitForm($event, () =&gt; { anonymizeRepo($event) })">
-              <svg class="ui-icon mr-1" aria-hidden="true"><use href="#ui-icon-save"></use></svg> Update Repository
-            </button>
+            <template v-if="detectedType === 'repo'">
+              <button type="button" class="btn btn-ink" v-if="billingPending" @click="refreshBilling()" :disabled="billingBusy">Check payment status</button>
+              <button type="submit" class="btn btn-ink" v-else :disabled="sourceLoading || billingBusy || hostingSaving || billingLoading || (hostingNeedsPayment() &amp;&amp; (!authorPlans().length || billing?.checkoutEnabled === false))" @click.prevent="submitForm($event, () =&gt; { submitRepository($event) })">{{ hostingSaving ? 'Saving draft…' : hostingNeedsPayment() ? 'Continue to checkout' : isUpdate ? 'Save changes' : 'Create anonymous link' }}</button>
+              <p class="checkout-return-note" v-if="hostingNeedsPayment() &amp;&amp; !billingPending">Review payment in Stripe, then return to finish.</p>
+            </template>
             <button type="submit" :disabled="sourceLoading" class="btn btn-ink" v-if="detectedType === &#x27;pr&#x27; &amp;&amp; !isUpdate" @click.prevent="submitForm($event, () =&gt; { anonymizePullRequest($event) })">
               <svg class="ui-icon mr-1" aria-hidden="true"><use href="#ui-icon-shield"></use></svg> Anonymize Pull Request
             </button>
@@ -392,8 +411,7 @@
       <!-- Preview column (right) -->
       <div id="workspace-preview" :role="mobileWorkspace ? 'tabpanel' : null" :aria-labelledby="mobileWorkspace ? 'workspace-preview-tab' : null" class="anonymize-preview-col" v-if="detectedType === &#x27;repo&#x27;">
         <div class="anonymize-preview-head">
-          <span class="paper-eyebrow">Live preview</span>
-          <span class="anonymize-preview-sub">{{ previewStatus === 'ready' ? 'README with redactions applied' : 'README preview' }}</span>
+          <strong>README.md</strong><button type="button" class="task-text-button preview-expand" @click="previewExpanded = !previewExpanded">{{ previewExpanded ? 'Restore split view' : 'Expand preview' }}</button>
         </div>
         <div class="anonymize-preview-status" role="status" v-if="sourceLoading &amp;&amp; previewStatus === 'idle'">Loading source…</div>
         <div class="anonymize-preview-status" role="status" v-if="previewStatus === 'loading'">Updating the anonymized preview…</div>
@@ -407,8 +425,7 @@
 
       <div id="workspace-preview" :role="mobileWorkspace ? 'tabpanel' : null" :aria-labelledby="mobileWorkspace ? 'workspace-preview-tab' : null" class="anonymize-preview-col" v-if="detectedType === &#x27;gist&#x27; &amp;&amp; details">
         <div class="anonymize-preview-head">
-          <span class="paper-eyebrow">Live preview</span>
-          <span class="anonymize-preview-sub">{{ previewStatus === 'ready' ? 'Gist with redactions applied' : 'Gist preview' }}</span>
+          <strong>Gist preview</strong><button type="button" class="task-text-button preview-expand" @click="previewExpanded = !previewExpanded">{{ previewExpanded ? 'Restore split view' : 'Expand preview' }}</button>
         </div>
         <div class="anonymize-preview-status" role="status" v-if="sourceLoading &amp;&amp; previewStatus === 'idle'">Loading source…</div>
         <div class="anonymize-preview-status" role="status" v-if="previewStatus === 'loading'">Updating the anonymized preview…</div>
@@ -460,8 +477,7 @@
 
       <div id="workspace-preview" :role="mobileWorkspace ? 'tabpanel' : null" :aria-labelledby="mobileWorkspace ? 'workspace-preview-tab' : null" class="anonymize-preview-col" v-if="detectedType === &#x27;pr&#x27; &amp;&amp; details">
         <div class="anonymize-preview-head">
-          <span class="paper-eyebrow">Live preview</span>
-          <span class="anonymize-preview-sub">{{ previewStatus === 'ready' ? 'Pull request with redactions applied' : 'Pull request preview' }}</span>
+          <strong>Pull request preview</strong><button type="button" class="task-text-button preview-expand" @click="previewExpanded = !previewExpanded">{{ previewExpanded ? 'Restore split view' : 'Expand preview' }}</button>
         </div>
         <div class="anonymize-preview-status" role="status" v-if="sourceLoading &amp;&amp; previewStatus === 'idle'">Loading source…</div>
         <div class="anonymize-preview-status" role="status" v-if="previewStatus === 'loading'">Updating the anonymized preview…</div>

@@ -1,3 +1,6 @@
+import { neverExpirationDeadline, validateBillingExpiration } from "../../core/billing/expiration";
+import config from "../../config";
+import { assertConferenceAdmission, reserveRepository } from "../../core/billing/quotas";
 import { randomUUID } from "crypto";
 import { githubQuotaKey } from "../../core/github-token-context";
 import { selectRepositoryAccess, boundAppToken, appError } from "../../core/github-app";
@@ -506,12 +509,23 @@ router.post(
       const sourceChanged = reconnecting || hasRepositorySourceChanged(repo.model, repoUpdate);
       const previousAccessRevision = repo.model.githubAccess?.revision;
 
+      if (repo.model.billingManaged) validateBillingExpiration(repoUpdate.options);
+      if (config.BILLING_ENABLED && repoUpdate.options.expirationMode === "never" &&
+          (repo.model.options.expirationMode !== "never" || repo.model.billingNeverExpiresUntil)) {
+        repo.model.billingNeverExpiresUntil = await neverExpirationDeadline(String(repo.model.owner),
+          repo.model.options.expirationMode === "never" ? repo.model.billingNeverExpiresUntil : undefined);
+      } else if (repoUpdate.options.expirationMode !== "never") {
+        repo.model.billingNeverExpiresUntil = undefined;
+      }
       updateRepoModel(repo.model, repoUpdate);
       const reactivating = shouldReactivateInactiveRepository(repo.model);
 
       if (reactivating) {
         repo.model.anonymizeDate = new Date();
       }
+
+      await assertConferenceAdmission(String(repo.model.owner), repo.repoId, repoUpdate.conference);
+      if (repo.model.billingManaged) await reserveRepository(String(repo.model.owner), repo.repoId, repo.model.size?.storage || 0, repoUpdate.conference);
 
       if (sourceChanged) {
         const parsedRepository = gh(repoUpdate.fullName);
@@ -691,6 +705,10 @@ router.post("/", async (req, res) => {
     repo.owner = user.id;
     repo.githubAccess = selectedAccess.binding;
 
+    validateBillingExpiration(repoUpdate.options);
+    if (repoUpdate.options.expirationMode === "never") {
+      repo.billingNeverExpiresUntil = await neverExpirationDeadline(user.id);
+    }
     updateRepoModel(repo, repoUpdate);
     repo.source.type = "GitHubStream";
     repo.source.repositoryId = repository.model.id;
@@ -698,6 +716,9 @@ router.post("/", async (req, res) => {
 
     repo.conference = repoUpdate.conference;
 
+    await assertConferenceAdmission(user.id, repo.repoId, repo.conference);
+    repo.billingManaged = config.BILLING_ENABLED;
+    await reserveRepository(user.id, repo.repoId, 0, repo.conference);
     await repo.save();
 
     if (repoUpdate.conference) {

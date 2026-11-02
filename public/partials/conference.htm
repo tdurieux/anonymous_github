@@ -26,6 +26,22 @@
       <span v-if="conference?.price">Cost so far <b>{{ fmt?.number(conference?.price, 2) }} &euro;</b></span>
     </div>
 
+    <div class="conference-payment-status" v-if="billingNotice" role="status">
+      <p>{{ billingNotice }}</p>
+      <button type="button" class="btn btn-outline-ink" @click="refreshBilling()" :disabled="billingBusy">Check payment status</button>
+    </div>
+    <p v-if="billingError &amp;&amp; conference?.status !== 'pending_payment'" role="alert">{{ billingError }}</p>
+    <section class="paper-settings-section" v-if="conference?.status === 'pending_payment'" aria-labelledby="conference-payment-heading">
+      <h2 id="conference-payment-heading">Activate your review package</h2>
+      <p>This conference is waiting for payment. Authors can join after payment is confirmed. Checkout returns to this conference. Authors within the package do not pay separately.</p>
+      <p v-if="billingLoading" role="status">Loading payment options…</p>
+      <p v-if="billingError" role="alert">{{ billingError }}</p>
+      <div v-for="plan in (billing?.plans || []).filter(p =&gt; p.id === 'conference')" :key="plan.id">
+        <p>{{ billingPrice(plan) }} for up to {{ plan.repositories }} repositories and {{ billingBytes(plan.storage) }} of source files during the review window. Taxes, if applicable, appear at checkout.</p>
+        <button type="button" class="btn btn-primary" @click="checkout('conference', conference.conferenceID)" :disabled="billingBusy || billingPending || billing?.checkoutEnabled === false">{{ billingBusy ? 'Please wait…' : 'Pay for review package' }}</button>
+      </div>
+      <p><a href="/profile#settings-billing">Manage invoices</a></p>
+    </section>
     <div class="paper-section-eyebrow">Repositories</div>
 
     <form class="w-100 dashboard-filter-row" aria-label="Filter repositories" accept-charset="UTF-8" v-form="viewState" @submit.prevent="submitForm($event, () =&gt; { $event.preventDefault() })">

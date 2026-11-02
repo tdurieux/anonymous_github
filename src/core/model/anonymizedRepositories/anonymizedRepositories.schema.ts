@@ -2,6 +2,8 @@ import { repositoryAccessSchema } from "../repository-access.schema";
 import { Schema } from "mongoose";
 
 const AnonymizedRepositorySchema = new Schema({
+  billingManaged: Boolean,
+  billingNeverExpiresUntil: Date,
   repoId: {
     type: String,
     index: { unique: true, collation: { locale: "en", strength: 2 } },

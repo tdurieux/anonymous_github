@@ -1,3 +1,6 @@
+import { BillingQuota, BillingDraft } from "../../core/billing/models";
+import { cancelAccountBilling } from "../../core/billing/stripe";
+import { allowance } from "../../core/billing/quotas";
 import DashboardName from "../../core/model/dashboard-name";
 import { dashboardSummary } from "./dashboard-summary";
 import { revokeGrant } from "./github-app";
@@ -112,18 +115,21 @@ router.get("/quota", async (req, res) => {
       }
     }
 
+    const limits = config.BILLING_ENABLED ? await allowance(user.id) : null;
+    const reserved = limits ? await BillingQuota.findById(limits.scope).lean() : null;
     res.json({
       storage: {
-        used: totalStorage,
-        total: config.DEFAULT_QUOTA,
+        unit: limits ? "bytes" : "legacy",
+        used: reserved ? reserved.allocations.reduce((sum, entry) => sum + (entry.bytes || 0), 0) : totalStorage,
+        total: limits?.storage ?? config.DEFAULT_QUOTA,
       },
       file: {
         used: totalFiles,
         total: 0,
       },
       repository: {
-        used: ready.length,
-        total: 20,
+        used: reserved ? reserved.allocations.length : ready.length,
+        total: limits?.repositories ?? 20,
       },
     });
   } catch (error) {
@@ -175,6 +181,8 @@ router.post("/default", async (req, res) => {
 router.delete("/", async (req, res) => {
   try {
     const user = await getUser(req);
+    if (config.BILLING_ENABLED) await cancelAccountBilling(user.id);
+    if (isConnected) await BillingDraft.deleteMany({ owner: user.id });
 
     const repositories = (await user.getRepositories()).filter(
       (r) => r.owner.id === user.model.id && r.status !== "removed"

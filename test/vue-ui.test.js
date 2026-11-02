@@ -80,6 +80,126 @@ describe("Vue 3 UI", function () {
   let ui;
   afterEach(() => ui?.close());
 
+  it("keeps defaults across settings tabs and preserves the hidden fetch preference", async () => {
+    ui = await browser("/profile", {
+      "/api/user": { username: "owner" },
+      "/api/user/default": { terms: ["Original"], options: { mode: "GitHubDownload", link: true } },
+    });
+    expect(ui.window.document.querySelector("#mode")).to.equal(null);
+    await ui.input("#terms", "Changed Author");
+    ui.window.document.querySelectorAll(".settings-nav button")[1].click();
+    await delay(300);
+    ui.window.document.querySelectorAll(".settings-nav button")[0].click();
+    await delay(10);
+    expect(ui.window.document.querySelector("#terms").value).to.equal("Changed Author");
+    ui.window.document.querySelector("#save").click(); await delay(30);
+    const saved = ui.requests.find(r => r.method === "POST" && r.url.pathname === "/api/user/default");
+    expect(saved.payload.options.mode).to.equal("GitHubDownload");
+    expect(saved.payload.terms).to.deep.equal(["Changed Author"]);
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("shows paid-through access and billing management without offering a duplicate subscription", async () => {
+    ui = await browser("/profile", {
+      "/api/user": { username: "owner" },
+      "/api/billing/": { enabled: true, csrf: "token", portal: true, allowance: { repositories: 20, storage: 10737418240 },
+        grants: [{ planId: "author_monthly", scope: "user:owner", status: "active", until: "2099-12-01", cancelAtPeriodEnd: true }],
+        plans: [{ id: "author_monthly", amount: 500, currency: "eur", interval: "month" }] },
+    });
+    const panel = ui.window.document.querySelector("#settings-billing");
+    expect(panel.textContent).to.include("Renewal cancelled");
+    expect(panel.textContent).to.include("Manage billing");
+    expect(panel.textContent).not.to.include("View Author plan");
+    expect(panel.querySelector(".billing-plan")).to.equal(null);
+    expect(ui.window.document.querySelector(".nav-upgrade")).to.equal(null);
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("requires the account name before submitting account deletion", async () => {
+    ui = await browser("/profile", { "/api/user": { username: "owner" }, "/api/user/": {} });
+    ui.window.document.querySelectorAll(".settings-nav button")[2].click(); await delay(10);
+    ui.window.document.querySelector(".paper-danger-zone button").click(); await delay(10);
+    const confirmation = ui.window.document.querySelector("#delete-username");
+    const button = ui.window.document.querySelector(".settings-delete-confirm .btn-outline-danger");
+    expect(button.disabled).to.equal(true);
+    confirmation.value = "wrong"; confirmation.dispatchEvent(new ui.window.Event("input", { bubbles: true })); await delay(10);
+    expect(button.disabled).to.equal(true);
+    confirmation.value = "owner"; confirmation.dispatchEvent(new ui.window.Event("input", { bubbles: true })); await delay(10);
+    expect(button.disabled).to.equal(false);
+    expect(ui.requests.some(r => r.method === "DELETE")).to.equal(false);
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("opens the plan comparison from the global header on another page", async () => {
+    ui = await browser("/dashboard", {
+      "/api/user": { username: "author" },
+      "/api/billing/": { enabled: true, csrf: "token", grants: [], allowance: { repositories: 5, storage: 2147483648 }, plans: [{ id: "author_monthly", amount: 500, currency: "eur", interval: "month", repositories: 20, storage: 10737418240 }] },
+    });
+    const upgrade = ui.window.document.querySelector(".app-header .nav-upgrade");
+    expect(upgrade).not.to.equal(null);
+    expect(ui.window.document.querySelector(".nav-support")).not.to.equal(null);
+    upgrade.click(); await delay(100);
+    expect(ui.window.document.querySelector(".settings-comparison")).not.to.equal(null);
+    expect(ui.window.document.querySelectorAll(".settings-nav button")[1].getAttribute("aria-current")).to.equal("page");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("shows subscription cadence and sends a protected checkout request", async () => {
+    ui = await browser("/profile", {
+      "/api/user": { username: "author" },
+      "/api/billing/": { enabled: true, csrf: "billing-token", portal: true, grants: [], allowance: { repositories: 3, storage: 512 }, plans: [
+        { id: "author_monthly", name: "Author monthly", description: "Renews monthly. Cancel renewal at any time.", amount: 500, currency: "eur", interval: "month", intervalCount: 1, repositories: 20, storage: 10737418240 },
+      ] },
+      "/api/billing/checkout": { __status: 409, body: { error: "billing_subscription_exists" } },
+    });
+    ui.window.document.querySelector(".nav-upgrade").click();
+    await delay(10);
+    expect(ui.window.document.activeElement.id).to.equal("settings-plan-comparison");
+    expect(ui.window.document.querySelector(".settings-comparison").textContent).to.include("Scheduled or never");
+    expect(ui.window.document.querySelectorAll(".settings-nav button")[1].getAttribute("aria-current")).to.equal("page");
+    expect(ui.window.document.querySelector("#settings-billing").textContent).to.include("/ month");
+    expect(ui.window.document.querySelector("#settings-billing").textContent).to.include("10 GiB");
+    ui.window.document.querySelector(".billing-plan button").click();
+    await delay(30);
+    const request = ui.requests.find(r => r.url.pathname === "/api/billing/checkout");
+    expect(request.payload).to.deep.equal({ planId: "author_monthly", target: "" });
+    expect(request.headers["x-csrf-token"]).to.equal("billing-token");
+    expect(ui.window.document.querySelector("#settings-billing [role=alert]").textContent).to.include("already have a subscription");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("refreshes the quota panel when checkout confirmation changes the allowance", async () => {
+    let confirmed = false;
+    let quotaReads = 0;
+    ui = await browser("/profile?billing=success", {
+      "/api/user": { username: "author" },
+      "/api/billing/": () => ({ enabled: true, csrf: "billing-token", grants: [], plans: [], allowance: { repositories: confirmed ? 20 : 5, storage: confirmed ? 10737418240 : 2147483648 } }),
+      "/api/user/quota": () => { quotaReads++; return { repository: { used: 1, total: confirmed ? 20 : 5 }, storage: { used: 128, total: confirmed ? 10737418240 : 2147483648 } }; },
+      "/api/billing/refresh": async () => { await delay(60); confirmed = true; return { ok: true, pending: false }; },
+    });
+    await delay(150);
+    expect(quotaReads).to.equal(2);
+    expect(ui.window.document.querySelector("#settings-billing").textContent).to.include("20 repositories");
+    expect(ui.window.document.querySelector("#settings-quota").textContent).to.match(/\/\s*20/);
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("offers payment for a pending conference without activating it in the browser", async () => {
+    ui = await browser("/conference/CONF", {
+      "/api/user": { username: "chair" },
+      "/api/conferences/CONF": { conferenceID: "CONF", name: "Research conference", status: "pending_payment", repositories: [], plan: { planID: "conference" } },
+      "/api/billing/": { enabled: true, csrf: "billing-token", grants: [], plans: [{ id: "conference", amount: 19900, currency: "eur", repositories: 100, storage: 1000 }] },
+      "/api/billing/checkout": { __status: 400, body: { error: "billing_invalid_conference" } },
+    });
+    const section = ui.window.document.querySelector('[aria-labelledby="conference-payment-heading"]');
+    expect(section.textContent).to.include("waiting for payment");
+    section.querySelector("button").click();
+    await delay(30);
+    expect(ui.requests.find(r => r.url.pathname === "/api/billing/checkout").payload).to.deep.equal({ planId: "conference", target: "CONF" });
+    expect(section.textContent).to.include("Only a conference owner");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
   const repositorySource = {
     "/api/user": { username: "owner" },
     "/api/user/default": { terms: ["Default Author"], options: {} },
@@ -88,6 +208,135 @@ describe("Vue 3 UI", function () {
     "/api/repo/owner/repo/readme": "# Private Author",
     "/api/anonymize-preview": request => ({ content: request.payload.content.replaceAll("Private Author", "MASKED") }),
   };
+
+  const taskBilling = { enabled: true, csrf: "token", allowance: { plan: "free", repositories: 5 }, plans: [
+    { id: "author_monthly", amount: 500, currency: "eur", interval: "month", repositories: 20, storage: 10737418240, description: "Renews monthly." },
+  ] };
+  it("saves the repository draft before contextual checkout and preserves a failed checkout", async () => {
+    ui = await browser("/anonymize", { ...repositorySource,
+      "/api/billing/": taskBilling, "/api/user/quota": { repository: { used: 5, total: 5 } },
+      "/api/billing/draft": { id: "saved-task" },
+      "/api/billing/checkout": { __status: 503, body: { error: "billing_unavailable" } },
+    });
+    const state = ui.window.document.querySelector("#sourceUrl")._field.binding.state;
+    state.sourceUrl = "https://github.com/owner/repo";
+    await state.urlSelected(); await delay(60);
+    await ui.input("#terms", "Uncommitted redaction");
+    await state.checkoutRepository();
+    const saved = ui.requests.find(r => r.method === "POST" && r.url.pathname === "/api/billing/draft");
+    expect(saved.payload.path).to.equal("/anonymize");
+    expect(saved.payload.values.terms).to.equal("Uncommitted redaction");
+    const checkout = ui.requests.find(r => r.url.pathname === "/api/billing/checkout");
+    expect(checkout.payload.draftId).to.equal("saved-task");
+    expect(state.terms).to.equal("Uncommitted redaction");
+    expect(state.billingError).to.include("not available");
+    expect(ui.requests.some(r => r.method === "POST" && r.url.pathname === "/api/repo/")).to.equal(false);
+    expect(ui.errors).to.deep.equal([]);
+  });
+  it("restores a paid checkout task without submitting it and rechecks the allowance", async () => {
+    ui = await browser("/anonymize?billingDraft=saved-task&billing=success", { ...repositorySource,
+      "/api/billing/": { ...taskBilling, allowance: { plan: "author_monthly", repositories: 20 } },
+      "/api/billing/refresh": { ok: true, pending: false },
+      "/api/billing/draft/saved-task": { id: "saved-task", path: "/anonymize", values: { sourceUrl: "https://github.com/owner/repo", terms: "Restored Author", repoId: "saved-repo", source: { branch: "main" }, options: { expirationMode: "never" } } },
+    });
+    await delay(150);
+    expect(ui.window.document.querySelector("#sourceUrl")._field.binding.state.terms).to.equal("Restored Author");
+    expect(ui.window.document.querySelector("#sourceUrl")._field.binding.state.repoId).to.equal("saved-repo");
+    expect(ui.app.router.currentRoute.value.query).to.deep.equal({});
+    expect(ui.window.document.querySelector("#sourceUrl")._field.binding.state.hostingNeedsPayment()).to.equal(false);
+    expect(ui.window.document.querySelector("#repository-hosting").textContent).to.include("subscription is active");
+    expect(ui.requests.some(r => r.method === "POST" && r.url.pathname === "/api/repo/")).to.equal(false);
+    expect(ui.errors).to.deep.equal([]);
+  });
+  it("keeps all settings and the live preview visible in the split workspace", async () => {
+    ui = await browser("/anonymize", { ...repositorySource, "/api/billing/": taskBilling,
+      "/api/user/quota": { repository: { used: 5, total: 5 } } });
+    const doc = ui.window.document;
+    const state = doc.querySelector("#sourceUrl")._field.binding.state;
+    state.sourceUrl = "https://github.com/owner/repo";
+    await state.urlSelected(); await delay(60);
+    expect(doc.querySelector('.repository-task')).to.equal(null);
+    for (const selector of ['#sourceUrl', '#terms', '#image', '#conference', '#expirationDate']) {
+      expect(doc.querySelector(selector).closest('details')).to.equal(null);
+    }
+    state.terms = "Private Author";
+    await delay(450);
+    expect(doc.querySelector('.anonymize-preview-body').textContent).to.include("MASKED");
+    expect(doc.querySelector('.anonymize-preview-body').textContent).not.to.include("Private Author");
+    expect(doc.querySelector('.subscription-choice').textContent).to.include("20 repositories");
+    expect(doc.querySelector('.anonymize-submit-bar').textContent).to.include("Continue to checkout");
+    doc.querySelector('.preview-expand').click(); await delay(10);
+    expect(doc.querySelector('.anonymize-page').classList.contains('preview-expanded')).to.equal(true);
+    doc.querySelector('.preview-expand').click(); await delay(10);
+    expect(state.terms).to.equal("Private Author");
+    expect(ui.requests.some(r => r.method === "POST" && r.url.pathname === "/api/repo/")).to.equal(false);
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("keeps checkout failures and pending payment in the editor without losing input", async () => {
+    ui = await browser("/anonymize", { ...repositorySource, "/api/billing/": taskBilling,
+      "/api/user/quota": { repository: { used: 5, total: 5 } },
+      "/api/billing/draft": { id: "saved-task" },
+      "/api/billing/checkout": { __status: 503, body: { error: "billing_unavailable" } } });
+    const doc = ui.window.document;
+    const state = doc.querySelector("#sourceUrl")._field.binding.state;
+    state.sourceUrl = "https://github.com/owner/repo";
+    await state.urlSelected(); await delay(60);
+    expect(doc.querySelector("#expirationDate").value).to.match(/^\d{4}-\d{2}-\d{2}$/);
+    await ui.input("#terms", "Preserved Author");
+    doc.querySelector(".anonymize-submit-bar button").click(); await delay(80);
+    expect(doc.querySelector("#repository-hosting").textContent).to.include("Payments are not available");
+    expect(state.terms).to.equal("Preserved Author");
+    expect(ui.requests.find(r => r.url.pathname === "/api/billing/draft").payload.values.terms).to.equal("Preserved Author");
+    state.billingPending = true; await delay(20);
+    expect(doc.querySelector("#repository-hosting").textContent).to.include("Confirming your payment");
+    expect(doc.querySelector(".subscription-choice")).to.equal(null);
+    expect(doc.querySelector(".anonymize-submit-bar button").textContent).to.equal("Check payment status");
+    const checkoutCount = ui.requests.filter(r => r.url.pathname === "/api/billing/checkout").length;
+    await state.submitRepository({});
+    expect(ui.requests.filter(r => r.url.pathname === "/api/billing/checkout")).to.have.length(checkoutCount);
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  for (const status of ["preparing", "ready", "error"]) {
+    it(`keeps the task summary through repository ${status} without a premature ready link`, async () => {
+      ui = await browser("/status/saved", { "/api/repo/saved": { repoId: "saved", status,
+        source: { fullName: "owner/repo" }, options: { expirationMode: "never" } } });
+      const doc = ui.window.document;
+      expect(doc.querySelector('.task-trail [aria-current="step"]').textContent).to.include("Review link");
+      expect(doc.querySelector(".task-summary").textContent).to.include("owner/repo");
+      expect(!!doc.querySelector(".task-ready")).to.equal(status === "ready");
+      expect(!!doc.querySelector('.task-preparation a[href="/r/saved/"]')).to.equal(status === "ready");
+      expect(ui.errors).to.deep.equal([]);
+    });
+  }
+
+  it("keeps free, conference and coauthor work out of author checkout", async () => {
+    ui = await browser("/anonymize", { ...repositorySource, "/api/billing/": taskBilling });
+    const state = ui.window.document.querySelector("#sourceUrl")._field.binding.state; state.detectedType = "repo";
+    state.hostingQuota = { repository: { used: 1, total: 5 } };
+    expect(state.hostingNeedsPayment()).to.equal(false);
+    state.hostingQuota.repository.used = 5;
+    expect(state.hostingNeedsPayment()).to.equal(true);
+    state.conference = "CONF";
+    expect(state.hostingNeedsPayment()).to.equal(false);
+    state.options.expirationMode = "never";
+    expect(state.hostingNeedsPayment()).to.equal(true);
+    state.isUpdate = true; state.role = "coauthor";
+    expect(state.hostingNeedsPayment()).to.equal(false);
+  });
+  it("refreshes the conference in place after checkout confirmation", async () => {
+    let confirmed = false;
+    ui = await browser("/conference/CONF?billing=success", { "/api/user": { username: "chair" },
+      "/api/billing/": taskBilling,
+      "/api/billing/refresh": () => { confirmed = true; return { ok: true, pending: false }; },
+      "/api/conferences/CONF": () => ({ conferenceID: "CONF", name: "Conference", status: confirmed ? "ready" : "pending_payment", repositories: [] }),
+    });
+    await delay(80);
+    expect(ui.window.document.body.textContent).to.include("Ready");
+    expect(ui.window.document.querySelector('[aria-labelledby="conference-payment-heading"]')).to.equal(null);
+    expect(ui.errors).to.deep.equal([]);
+  });
 
   it("keeps the current repository when earlier metadata and README responses arrive late", async () => {
     let finishMetadata, finishReadme;
@@ -309,7 +558,7 @@ describe("Vue 3 UI", function () {
       [...preview().querySelectorAll("button")].find(b => b.textContent === "Retry preview").click();
       await delay(260);
       expect(preview().textContent).to.include("MASKED");
-      expect(preview().textContent).to.include("redactions applied");
+      expect(preview().querySelector(".anonymize-preview-body")).not.to.equal(null);
       expect(ui.errors).to.deep.equal([]);
     });
   }
@@ -756,7 +1005,7 @@ describe("Vue 3 UI", function () {
           "/api/repo/owner/repo/branches": [{ name: "main", commit: "abcdef123" }],
           "/api/repo/owner/repo/readme": "",
         });
-        const button = [...ui.window.document.querySelectorAll("button")].find(b => b.textContent.includes("Update "));
+        const button = [...ui.window.document.querySelectorAll("button")].find(b => b.textContent.includes(type === "repo" ? "Save changes" : "Update "));
         const posts = () => ui.requests.filter(r => r.method === "POST" && r.url.pathname === endpoint);
         button.click();
         await delay(10);

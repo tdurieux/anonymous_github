@@ -3,6 +3,7 @@ const fs = require("fs");
 const vm = require("vm");
 const path = require("path");
 const { setImmediate } = require("timers");
+const { URLSearchParams } = require("node:url");
 const source = fs.readFileSync(path.join(__dirname, "../public/script/app.js"), "utf8");
 
 function harness(date) {
@@ -11,7 +12,7 @@ function harness(date) {
   const context = { reactive: value => value, console, Map, Set, Date: date || Date,
     formDraft: state => ({ restore: () => false, clear() {}, discard() {}, checkpoint: () => ({ terms: state.terms, options: state.options }), accept() {} }),
     navigator: { platform: "Linux" }, document: { location: { pathname: "/r/repo" }, addEventListener() {}, querySelector() {} },
-    window: {}, Prism: { highlightAll() {} }, encodeURIComponent,
+    URLSearchParams, window: { location: { search: "" } }, Prism: { highlightAll() {} }, encodeURIComponent,
     encodePathForUrl: p => p.split("/").map(encodeURIComponent).join("/"),
     humanFileSize: x => String(x), parseGithubUrl: () => ({ owner: "owner", repo: "repo" }),
     $: () => ({ on() {}, tooltip() {} }),
@@ -20,6 +21,7 @@ function harness(date) {
   };
   context.createTimers = () => ({ timeout: Object.assign(context.setTimeout, { cancel: context.clearTimeout }), interval: Object.assign(context.setInterval, { cancel: context.clearInterval }) });
   context.createListeners = () => (target, name, callback) => target.addEventListener(name, callback);
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, "../public/script/billing.js"), "utf8").replaceAll("export function", "function"), context);
   const names = [...source.matchAll(/export const (\w+)/g)].map(match => match[1]);
   vm.runInNewContext(source.replace(/^import .*;$/gm, "").replace(/export const/g, "var") + "\nthis.pageSetups = {" + names.join(",") + "};", context);
   Object.assign(defs, context.pageSetups);
@@ -59,7 +61,7 @@ describe("frontend production regressions", function () {
     for (const id of ["repoId", "pullRequestId", "gistId"]) {
       it(`preserves saved options when reopening a conference-linked ${id}`, async function () {
         const h = anonymize({ [id]: "saved" });
-        h.requests[0].resolve({ data: { options: { update: true } } }); await h.flush();
+        h.requests.find(r => r.url === "/api/user/default").resolve({ data: { options: { update: true } } }); await h.flush();
         h.requests.at(-1).resolve({ data: {
           source: { fullName: "owner/repo", repositoryFullName: "owner/repo", branch: "main", commit: "abcdef", gistId: "123", pullRequestId: 1 },
           conference: "conf",

@@ -140,7 +140,15 @@
     "github_grant_revocation_failed": "Unable to revoke the GitHub grant. Please retry.",
     "another_login_required": "Connect and verify another sign-in method before disconnecting OAuth.",
     "oauth_resources_remaining": "Some resources still require OAuth. Migrate or remove them before disconnecting.",
-    "invalid_github_path": "The GitHub repository path is invalid."
+    "invalid_github_path": "The GitHub repository path is invalid.",
+    "repository_tree_incomplete": "The repository file tree is incomplete. Reduce its size and refresh before downloading.",
+    "billing_unavailable": "Payments are not available. Please try again later.",
+    "invalid_billing_signature": "The payment notification could not be verified.",
+    "billing_webhook_failed": "The payment notification could not be processed.",
+    "billing_customer_not_found": "No billing account was found.",
+    "subscription_required_for_never_expiration": "Never-expiring repositories require the owner’s active monthly or annual author subscription. Choose a dated expiration or upgrade in Plans and billing.",
+    "invalid_billing_expiration": "Choose an expiration date within the next year, or select Never expire with an author subscription.",
+    "pending_payment": "Awaiting payment"
   },
   "WARNINGS": {
     "page_not_enabled_on_repo": "GitHub Pages is not enabled on this repository. Enable it in the repository's Settings → Pages on GitHub, then refresh.",

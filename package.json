@@ -73,6 +73,7 @@
     "re2js": "^2.8.6",
     "redis": "^5.12.1",
     "sanitize-html": "^2.18.0",
+    "stripe": "^23.1.0",
     "ts-custom-error": "^3.3.1",
     "unzip-stream": "^0.3.4"
   },
@@ -106,9 +107,9 @@
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.71.1",
+    "vinyl-fs": "^4.0.2",
     "vue": "^3.5.43",
-    "vue-router": "^4.6.4",
-    "vinyl-fs": "^4.0.2"
+    "vue-router": "^4.6.4"
   },
   "engines": {
     "node": "^22.15.0 || ^24.0.0 || >=26.0.0"

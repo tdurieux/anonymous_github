@@ -1,3 +1,5 @@
+import { startBillingMaintenance } from "../core/billing/maintenance";
+import billing, { billingWebhook } from "./routes/billing";
 import { githubAppRouter, githubAppWebhook } from "./routes/github-app";
 import { config as dotenv } from "dotenv";
 dotenv();
@@ -107,6 +109,7 @@ export default async function start() {
   startPerformanceMonitoring("api", getAnonymizationPoolStats);
   app.set("query parser", "extended");
   app.use("/github/app/webhook", githubAppWebhook);
+  app.use("/api/billing/webhook", billingWebhook);
   app.use(express.json());
   // Preserve the empty body used by API validation when no JSON was parsed.
   app.use((req, _res, next) => {
@@ -210,6 +213,7 @@ export default async function start() {
   const apiRouter = express.Router();
   app.use("/api", rate, apiRouter);
 
+  apiRouter.use("/billing", billing);
   apiRouter.use("/admin", router.admin);
   apiRouter.use("/options", router.option);
   apiRouter.use("/conferences", router.conference);
@@ -300,6 +304,7 @@ export default async function start() {
   dailyStatsSnapshot();
 
   await connect();
+  await startBillingMaintenance();
   await startTemporaryStorageMaintenance();
   app.listen(config.PORT);
   logger.info("server started", { port: config.PORT });

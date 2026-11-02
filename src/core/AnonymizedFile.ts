@@ -265,6 +265,7 @@ export default class AnonymizedFile {
         folder === "" || fileDir === folder || fileDir.startsWith(folder + "/")
     );
     if (!isAffected) return null;
+    if (this.repository.model.billingManaged) throw new AnonymousError("repository_tree_incomplete", { httpStatus: 409 });
     const source = this.repository.source as {
       fetchFileInfoFromPath?: (filePath: string) => Promise<IFile | null>;
     };

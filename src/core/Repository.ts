@@ -1,3 +1,4 @@
+import { allowance, reserveRepository } from "./billing/quotas";
 import AnonymizedPathModel from "./model/anonymized-path";
 import storage from "./storage";
 import { contentGenerationPrefix, contentRetirementMarker } from "./content-generation";
@@ -224,6 +225,7 @@ export default class Repository {
       const streamed = this.model.source.type !== "Zip";
       const source = this.source;
       const files = await source.getFiles(opt.progress);
+      if (this.model.billingManaged) await reserveRepository(String(this.model.owner), this.repoId, files.reduce((sum, file) => sum + (file.size || 0), 0), this.model.conference);
       const sourceWithTruncation = source as unknown as { truncatedFolderList?: string[] };
       const truncatedFolders = Array.isArray(sourceWithTruncation.truncatedFolderList)
         ? [...sourceWithTruncation.truncatedFolderList] : [];
@@ -638,6 +640,10 @@ export default class Repository {
         });
       }
     }
+    // Reviewer visits must not trigger an unaffordable refresh after paid access ends.
+    // Free managed repositories can still be refreshed explicitly by their owner.
+    if (config.BILLING_ENABLED && this.model.billingManaged && !opt?.force &&
+      (await allowance(String(this.model.owner), this.repoId, this.model.conference)).plan === "free") return;
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     if (

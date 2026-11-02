@@ -1,3 +1,5 @@
+import config from "../../config";
+import { billingError } from "../../core/billing/config";
 import * as express from "express";
 import AnonymousError from "../../core/AnonymousError";
 import Conference from "../../core/Conference";
@@ -12,37 +14,14 @@ const router = express.Router();
 router.use(ensureAuthenticated);
 
 const plans = [
-  {
-    id: "free_conference",
-    name: "Free",
-    pricePerRepo: 0,
-    storagePerRepo: -1,
-    description: `<li><strong>Quota is deducted from user account</strong></li>
-    <li>No-download</li>
-    <li>Conference dashboard</li>`,
-  },
-  {
-    id: "premium_conference",
-    name: "Premium",
-    pricePerRepo: 0.5,
-    storagePerRepo: 500 * 8 * 1024,
-    description: `<li>500Mo / repository</li>
-    <li>Repository download</li>
-    <li>Conference dashboard</li>`,
-  },
-  {
-    id: "unlimited_conference",
-    name: "Unlimited",
-    pricePerRepo: 3,
-    storagePerRepo: 0,
-    description: `<li><strong>Unlimited</strong> repository size</li>
-    <li>Repository download</li>
-    <li>Conference dashboard</li>`,
-  },
+  { id: "free_conference", name: "Free", pricePerRepo: 0, storagePerRepo: -1,
+    description: "<li>Uses each author's allowance</li><li>Conference dashboard</li>" },
+  { id: "conference", name: "Review package", pricePerRepo: 0, storagePerRepo: config.PAID_CONFERENCE_STORAGE,
+    description: `<li>Up to ${config.PAID_CONFERENCE_REPOSITORIES} repositories</li><li>Up to 180 days</li><li>Prepaid at checkout</li>` },
 ];
 
 router.get("/plans", async (req: express.Request, res: express.Response) => {
-  res.json(plans);
+  res.json(config.BILLING_ENABLED && config.STRIPE_CONFERENCE_PRICE ? plans : plans.filter(p => p.id === "free_conference"));
 });
 
 router.get("/", async (req: express.Request, res: express.Response) => {
@@ -99,11 +78,13 @@ function validateConferenceForm(conf: any) {
       object: conf,
       httpStatus: 400,
     });
-  if (plans.filter((p) => p.id == conf.plan.planID).length != 1)
+  if (!conf.plan || plans.filter((p) => p.id == conf.plan.planID).length != 1)
     throw new AnonymousError("invalid_plan", {
       object: conf,
       httpStatus: 400,
     });
+  if (!Number.isFinite(new Date(conf.startDate).getTime()) || !Number.isFinite(new Date(conf.endDate).getTime())) throw billingError("conf_start_date_invalid");
+  if (conf.plan.planID === "conference" && (!config.BILLING_ENABLED || !config.STRIPE_CONFERENCE_PRICE || new Date(conf.endDate).getTime() - new Date(conf.startDate).getTime() > 180 * 86400_000)) throw billingError("billing_invalid_review_window");
   const plan = plans.filter((p) => p.id == conf.plan.planID)[0];
   if (plan.pricePerRepo > 0) {
     const billing = conf.billing;
@@ -145,16 +126,16 @@ function validateConferenceForm(conf: any) {
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function applyConferenceForm(
   model: IConferenceDocument,
-  body: any,
+  body: { name: string; startDate: string | Date; endDate: string | Date; url: string;
+    options: IConferenceDocument["options"]; plan?: { planID: string } },
   isNew: boolean
 ) {
   model.name = body.name;
   model.startDate = new Date(body.startDate);
   model.endDate = new Date(body.endDate);
-  model.status = "ready";
+  if (isNew) model.status = body.plan?.planID === "conference" ? "pending_payment" : "ready";
   model.url = body.url;
   model.options = body.options;
   if (isNew) model.repositories = [];
@@ -178,7 +159,13 @@ router.post(
         model = queryModel;
         isOwnerOrAdmin(model.owners, user);
       }
-      validateConferenceForm(req.body);
+      if (req.params.conferenceID) {
+        if (req.body.plan?.planID !== model.plan.planID) throw billingError("billing_plan_change_not_supported");
+        if (model.plan.planID === "conference" && (new Date(req.body.startDate).getTime() !== model.startDate.getTime() || new Date(req.body.endDate).getTime() !== model.endDate.getTime())) throw billingError("billing_review_window_locked");
+      }
+      // Historical conference plans remain editable without being offered for purchase.
+      const legacyPlan = req.params.conferenceID && !plans.some(p => p.id === model.plan.planID);
+      validateConferenceForm(legacyPlan ? { ...req.body, plan: { planID: "free_conference" } } : req.body);
       applyConferenceForm(model, req.body, !req.params.conferenceID);
 
       if (!req.params.conferenceID) {
@@ -194,7 +181,7 @@ router.post(
             size: plans.filter((p) => p.id == req.body.plan.planID)[0]
               .storagePerRepo,
             file: 0,
-            repository: 0,
+            repository: req.body.plan.planID === "conference" ? config.PAID_CONFERENCE_REPOSITORIES : 0,
           },
         };
 
