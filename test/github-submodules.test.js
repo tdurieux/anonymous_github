@@ -82,6 +82,35 @@ describe("public GitHub submodules", function () {
     expect(new FileModel(files[2]).toObject().upstream).to.deep.equal(upstream);
   });
 
+  it("discovers submodules through scoped public-read contexts without authorizing child or write requests", async () => {
+    const { registerGitHubToken } = require("../src/core/github-token-context");
+    const token = "public-read:submodule-discovery";
+    registerGitHubToken(token, { publicRepository: "parent/repo", quotaKey: "submodule-test",
+      renew: async () => "parent-user-token" });
+    const calls = [];
+    stub(globalThis, "fetch", async (url, options) => {
+      calls.push({ url: String(url), authorization: new globalThis.Headers(options.headers).get("authorization") });
+      const result = String(url).includes("/contents/")
+        ? { submodule_git_url: "https://github.com/child/public.git", sha }
+        : { tree: [{ path: "src/Alice.txt", type: "blob", sha: blob, size: 5 }], truncated: false };
+      return new globalThis.Response(JSON.stringify(result), { headers: { "content-type": "application/json" } });
+    });
+    const files = await expandSubmodules([mount()], { ...parent, getToken: () => token });
+    expect(files[0].submodule).to.equal("included");
+    expect(calls).to.deep.equal([
+      { url: `https://api.github.com/repos/parent/repo/contents/vendor%2Fdependency?ref=${parent.commit}`, authorization: "token parent-user-token" },
+      { url: `https://api.github.com/repos/child/public/git/trees/${sha}?recursive=1`, authorization: null },
+    ]);
+    for (const request of [
+      "GET /repos/child/public/contents/file.txt", "GET /repos/parent/repo-other/contents/file.txt",
+      "PUT /repos/parent/repo/contents/file.txt", "DELETE /repos/parent/repo/contents/file.txt",
+    ]) {
+      let caught; try { await utils.octokit(token).request(request); } catch (error) { caught = error; }
+      expect(caught?.message).to.equal("github_app_access_required");
+    }
+    expect(calls).to.have.length(2);
+  });
+
   it("recognizes gitlinks from the parent tree and leaves ordinary repositories at one request", async () => {
     const source = new GitHubStream(parent); let calls = 0;
     source.getGHTree = async () => { calls++; return { tree: [{ path: "README.md", type: "blob", sha: blob, size: 5 }] }; };
@@ -125,14 +154,15 @@ describe("public GitHub submodules", function () {
     api([], { truncated: true }); expect((await expandSubmodules([mount()], parent))[0].submodule).to.equal("limit");
   });
 
-  it("fetches child content anonymously at its upstream path and caches under its parent mount", async () => {
+  for (const hydrated of [false, true]) it(`fetches child content from ${hydrated ? "hydrated" : "plain"} metadata and caches under its parent mount`, async () => {
+    const fileOrigin = hydrated ? new FileModel({ upstream }).upstream : upstream;
     const source = new GitHubStream({ ...parent, cacheGeneration: "tree:date" }); const cache = new Map(), requests = [];
     stub(storage, "fileInfo", async (_id, path) => { if (!cache.has(path)) throw Object.assign(Error("missing"), { code: "ENOENT" }); return { size: cache.get(path).length }; });
     stub(storage, "write", async (id, path, input) => { expect(id).to.equal(parent.repoId); const chunks = []; for await (const chunk of input) chunks.push(Buffer.from(chunk)); cache.set(path, Buffer.concat(chunks)); });
     stub(storage, "read", async (_id, path) => Readable.from([cache.get(path)]));
     stub(got, "stream", (url, options) => { requests.push({ url, options }); return Readable.from([Buffer.from("Alice")]); });
     for (let i = 0; i < 2; i++) {
-      const stream = await source.getFileContentCache("vendor/dependency/src/Alice.txt", parent.repoId, () => ({ sha: blob, size: 5, upstream }));
+      const stream = await source.getFileContentCache("vendor/dependency/src/Alice.txt", parent.repoId, () => ({ sha: blob, size: 5, upstream: fileOrigin }));
       for await (const chunk of stream) expect(chunk.toString()).to.equal("Alice");
     }
     expect(requests).to.have.length(1);

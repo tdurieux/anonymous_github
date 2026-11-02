@@ -332,7 +332,15 @@ export default class GitHubStream extends GitHubBase {
     const expected: { sha: string; size?: number; upstream?: UpstreamFile } =
       typeof meta === "string" ? { sha: meta } : meta;
     if (expected.upstream && !validUpstream(expected.upstream)) throw new AnonymousError("invalid_request", { httpStatus: 400 });
-    const origin = expected.upstream ? new GitHubStream({ ...this.data, ...expected.upstream, getToken: () => "" }) : this;
+    // Hydrated Mongoose subdocuments expose source fields through getters,
+    // so spreading them would retain the parent's repository coordinates.
+    const origin = expected.upstream ? new GitHubStream({
+      ...this.data,
+      organization: expected.upstream.organization,
+      repoName: expected.upstream.repoName,
+      commit: expected.upstream.commit,
+      getToken: () => "",
+    }) : this;
     const sourcePath = expected.upstream?.path || filePath;
     const generation = createHash("sha256").update(JSON.stringify([
       this.data.commit, expected.sha, this.data.cacheGeneration, this.data.cacheRevision, ...(expected.upstream ? [expected.upstream] : []),
