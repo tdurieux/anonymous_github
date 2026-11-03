@@ -153,7 +153,7 @@ describe("Runtime regression fixes", function () {
     });
   });
 
-  describe("GitHubStream.getTruncatedTree()", function () {
+  describe("GitHubStream.iterateFiles()", function () {
     it("recursively refetches truncated subtrees", async function () {
       const source = new GitHubStream({
         repoId: "repo-1",
@@ -164,11 +164,6 @@ describe("Runtime regression fixes", function () {
       });
 
       const calls = [];
-      source.tree2Tree = function (tree, parentPath = "") {
-        return tree.map((entry) =>
-          path.posix.join(parentPath, entry.path || "")
-        );
-      };
       source.getGHTree = async function (_oct, _token, sha, _count, opt) {
         calls.push({ sha, recursive: opt.recursive === true });
         if (sha === "head" && opt.recursive) return { tree: [], truncated: true };
@@ -199,7 +194,10 @@ describe("Runtime regression fixes", function () {
         throw new Error(`unexpected request: ${sha}:${opt.recursive}`);
       };
 
-      const files = await source.getTruncatedTree("head");
+      const files = [];
+      for await (const file of source.iterateFiles()) {
+        files.push(path.posix.join(file.path, file.name));
+      }
 
       expect(files).to.deep.equal(["src", "src/deep", "src/deep/file.ts"]);
       expect(calls).to.deep.equal([
