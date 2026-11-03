@@ -1,3 +1,5 @@
+import { cacheMetricsReport } from "../../core/cache-observability";
+import { sharedBlobCache, resultBlobCache } from "../../core/blob-cache";
 import { AsyncCache } from "../../core/async-cache";
 import * as os from "os";
 import { execFile } from "child_process";
@@ -86,6 +88,15 @@ router.get("/performance", async (req, res) => {
   res.set("Cache-Control", "no-store");
   try { res.json(await performanceReport(Number(req.query.minutes))); }
   catch { res.json({ available: false, instances: [], routes: [], stages: [] }); }
+});
+
+router.get("/cache", async (req, res) => {
+  res.set("Cache-Control", "no-store");
+  try {
+    res.json({ ...cacheMetricsReport(Number(req.query.minutes)), enabled: config.SHARED_CACHE_ENABLED,
+      filesystemSupported: config.STORAGE === "filesystem", source: sharedBlobCache()?.stats() || null,
+      results: resultBlobCache()?.stats() || null });
+  } catch { res.json({ available: false, reason: "The cache index is unavailable", rows: [] }); }
 });
 
 function dashboardCache(

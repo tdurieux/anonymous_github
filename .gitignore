@@ -124,3 +124,6 @@ temp/
 
 # GitHub App signing key
 /secrets/github-app.pem
+
+# Generated local benchmark reports
+/benchmark-results/

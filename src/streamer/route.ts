@@ -1,3 +1,4 @@
+import { sendSharedContent } from "../core/cached-response";
 import * as express from "express";
 import GitHubStream from "../core/source/GitHubStream";
 import {
@@ -99,6 +100,7 @@ router.post("/", async (req: express.Request, res: express.Response) => {
     } else if (isTextFile(filePath)) {
       res.contentType("text/plain");
     }
+    if (await sendSharedContent(content, res, anonymizer.opt)) { anonymizer.destroy(); return; }
     // Only declare Accept-Ranges: none for text files — they get rewritten on
     // the fly so byte ranges aren't meaningful. For binary entries the
     // transformer is a passthrough; let <video>/<audio> fall back to a full
