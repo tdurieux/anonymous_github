@@ -151,3 +151,8 @@ Run `npm run migrate:performance` when upgrading to add the sparse
 `retiredPathIndexKeys` maintenance index without dropping existing indexes.
 The constrained-heap regression fixture can be run without network or MongoDB:
 `node --max-old-space-size=256 test/fixtures/large-repository-tree.js`.
+
+## Shared blob cache
+
+See [Shared blob cache](shared-cache.md) for configuration, storage and quota
+accounting, admin metrics, production observations, rollout and benchmark commands.

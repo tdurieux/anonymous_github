@@ -1,5 +1,7 @@
 import { withOwnerAccessRecovery } from "../owner-notifications";
 import { ExpiringMap } from "../expiring-map";
+import { sharedBlobCache, CacheAdmissionError, BlobProof } from "../blob-cache";
+import { observeCache } from "../cache-observability";
 import { contentGenerationPrefix, contentRetirementMarker } from "../content-generation";
 import { createHash } from "crypto";
 import { coordinatedFill } from "../cache-coordination";
@@ -384,8 +386,92 @@ export default class GitHubStream extends GitHubBase {
         return undefined;
       }
     };
+    const shared = sharedBlobCache();
+    if (shared && /^[a-f0-9]{40}$/.test(expected.sha)) {
+      await assertActive();
+      if (expected.size != null && expected.size > config.MAX_FILE_SIZE) throw new AnonymousError("file_too_big", { httpStatus: 413 });
+      let legacy = false, allowLegacy = true;
+      const download = async (checkMinimum = false) => {
+        const parentToken = await this.data.getToken();
+        const token = expected.upstream ? "" : parentToken;
+        const sourceMiss = cachedContentMiss(this.data, parentToken);
+        if (sourceMiss && sourceMiss !== "file_not_found") throw new AnonymousError(sourceMiss, { httpStatus: 404 });
+        const missKey = createHash("sha256").update(JSON.stringify([
+          key, this.data.organization, this.data.repoName, token,
+        ])).digest("hex");
+        const missed = missingContent.get(missKey);
+        if (missed) throw new AnonymousError(missed, { httpStatus: 404 });
+        const normalize = async (error: Error) => {
+          const normalized = downloadError(error, filePath);
+          if (expected.upstream && ["file_not_found", "file_not_accessible"].includes(normalized.message))
+            return new AnonymousError("submodule_not_available", { httpStatus: 404, cause: normalized });
+          if (!expected.upstream && normalized.message === "file_not_found" && normalized.httpStatus === 404) {
+            const code = await classifyContentMiss(this.data, token);
+            missingContent.set(missKey, code, 30_000);
+            if (code !== "file_not_found") return new AnonymousError(code, { httpStatus: 404, cause: normalized });
+          }
+          return normalized;
+        };
+        const input = await origin.downloadWithFallback(token, expected.sha, sourcePath)
+          .catch(async error => { throw await normalize(error); });
+        input.on("error", () => {}); // The iterator below propagates normalized failures.
+        const deadline = setTimeout(() => input.destroy(new AnonymousError("upstream_error", { httpStatus: 502 })), 120000);
+        deadline.unref();
+        const limited = stream.Readable.from((async function* () {
+          let bytes = 0;
+          try {
+            for await (const chunk of input) {
+              bytes += chunk.length;
+              if (bytes > config.MAX_FILE_SIZE) throw new AnonymousError("file_too_big", { httpStatus: 413 });
+              yield chunk;
+            }
+            if (checkMinimum && expected.size != null && expected.size > 0 && bytes < expected.size)
+              throw new AnonymousError("storage_write_size_mismatch", { httpStatus: 502 });
+          } catch (error) { throw await normalize(error as Error); }
+          finally { clearTimeout(deadline); input.destroy(); }
+        })());
+        stopSourceOnDestroy(limited, () => { clearTimeout(deadline); input.destroy(); });
+        return limited;
+      };
+      const produce = async () => {
+        if (allowLegacy && await cached()) { legacy = true; observeCache("source_legacy_promotion"); return storage.read(repoId, cachePath); }
+        legacy = false; return download();
+      };
+      const verify = async (proof: BlobProof) => {
+        if (proof.gitSha === expected.sha) return `git-${proof.gitSha}`;
+        // Resolved LFS bytes do not hash to the Git pointer SHA. Verify both the pointer and its payload.
+        const parentToken = await this.data.getToken();
+        const pointer = origin.downloadFile(expected.upstream ? "" : parentToken, expected.sha);
+        const timer = setTimeout(() => pointer.destroy(new Error("lfs_pointer_timeout")), 30000); timer.unref();
+        let bytes = 0; const chunks: Buffer[] = [];
+        try {
+          for await (const chunk of pointer) { bytes += chunk.length; if (bytes > 1024) throw new Error("invalid_lfs_pointer"); chunks.push(Buffer.from(chunk)); }
+          const raw = Buffer.concat(chunks), text = raw.toString("utf8");
+          const sha = createHash("sha1").update(`blob ${raw.length}\0`).update(raw).digest("hex");
+          if (sha !== expected.sha || !text.startsWith("version https://git-lfs.github.com/spec/v1\n") ||
+            text.match(/^oid sha256:([a-f0-9]{64})$/m)?.[1] !== proof.sha256 ||
+            Number(text.match(/^size (\d+)$/m)?.[1]) !== proof.size) throw new Error("invalid_blob_hash");
+          return `sha256-${proof.sha256}`;
+        } finally { clearTimeout(timer); pointer.destroy(); }
+      };
+      try {
+        let content;
+        try { content = await shared.getOrFill(`git-${expected.sha}`, produce, verify, expected.size); }
+        catch (error) {
+          if (!legacy || error instanceof CacheAdmissionError) throw error;
+          allowLegacy = false;
+          content = await shared.getOrFill(`git-${expected.sha}`, produce, verify, expected.size);
+        }
+        try { await assertActive(); } catch (error) { content.destroy(); throw error; }
+        return content;
+      } catch (error) {
+        if (!(error instanceof CacheAdmissionError)) throw error;
+        observeCache("source_bypass"); await assertActive(); return download(true);
+      }
+    }
     const hit = await measureStage("cache_lookup", cached);
     recordCacheHit("source", !!hit);
+    observeCache(hit ? "legacy_source_hit" : "legacy_source_miss", expected.size || 0);
     if (hit) return storage.read(repoId, cachePath);
     if (expected.size != null && expected.size > config.MAX_FILE_SIZE) {
       throw new AnonymousError("file_too_big", { httpStatus: 413, object: filePath });

@@ -1737,6 +1737,48 @@ export const overviewAdminController = function (state, http, location, interval
       state.performance = null;
       state.performanceMinutes = 15;
       state.performanceTab = "routes";
+      state.cacheReport = null;
+      state.cacheError = null;
+      state.cacheMinutes = 60;
+      state.cacheTraffic = "all";
+      var cacheLoading = false;
+      state.loadCache = function () {
+        if (cacheLoading) return;
+        cacheLoading = true;
+        var minutes = state.cacheMinutes;
+        http.get("/api/admin/cache", { params: { minutes: minutes } }).then(function (r) {
+          if (minutes !== state.cacheMinutes) return;
+          state.cacheReport = r.data;
+          state.cacheError = r.data.available ? null : (r.data.reason || "Cache monitoring is unavailable.");
+        }, function () {
+          state.cacheError = "Could not refresh cache monitoring. Displayed values may be stale.";
+        }).finally(function () {
+          cacheLoading = false;
+          if (minutes !== state.cacheMinutes) state.loadCache();
+        });
+      };
+      state.cacheRows = function () {
+        return (state.cacheReport?.rows || []).filter(function (row) {
+          return state.cacheTraffic === "all" || row.traffic === state.cacheTraffic;
+        });
+      };
+      state.cacheRate = function (prefix, field) {
+        var rows = state.cacheRows();
+        var sum = function (name) { return rows.filter(function (r) { return r.name === name; }).reduce(function (n, r) { return n + r[field]; }, 0); };
+        var hits = sum(prefix + "_hit"), misses = sum(prefix + "_miss");
+        return hits + misses ? (100 * hits / (hits + misses)).toFixed(1) + "%" : "No samples";
+      };
+      state.cacheEventName = function (name) { return name.replaceAll("_", " "); };
+      state.cacheP95 = function (row) {
+        var count = 0, bounds = state.cacheReport?.latencyBucketsMs || [];
+        if (!row.count) return "No samples";
+        if (!row.ms) return "Not timed";
+        for (var i = 0; i <= bounds.length; i++) {
+          count += row["b" + i] || 0;
+          if (count >= Math.ceil(row.count * 0.95)) return i < bounds.length ? "≤ " + bounds[i] + " ms" : "> 10 s";
+        }
+        return "No samples";
+      };
       state.performanceError = null;
       // 18400 ms reads better as 18.4 s once a value passes one second.
       state.formatMs = function (ms) {
@@ -1891,6 +1933,7 @@ export const overviewAdminController = function (state, http, location, interval
 
       function load() {
         state.loadPerformance();
+        state.loadCache();
         http.get("/api/admin/overview").then(function (r) {
           r.data.history = computeDailyHistory(r.data.history);
           r.data.daily = {

@@ -7953,3 +7953,12 @@ body.dark-mode .markdown-body .hljs-comment { color: #b1bac4; }
 
 body:not(.dark-mode) .markdown-body .gh-dark-mode-only,
 body.dark-mode .markdown-body .gh-light-mode-only { display: none; }
+
+@media (max-width: 600px) {
+  .ov-cache .ov-performance-window {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    width: 100%;
+  }
+  .ov-cache .ov-performance-window select { width: 100%; min-width: 0; }
+}
