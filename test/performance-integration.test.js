@@ -128,6 +128,7 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
     await Gist.collection.createIndex({ statusMessage: 1 }, { name: "keep_existing_index" });
     for (const model of [Repo, Gist, PR]) await model.collection.dropIndex("status_1_options.expirationDate_1");
     await Repo.collection.dropIndex("retiredTreeGenerations_1");
+    await Repo.collection.dropIndex("retiredPathIndexKeys_1");
     await Repo.collection.dropIndex("stagedFileTrees.until_1");
     await File.collection.dropIndex("treeStaged_1_repoId_1_treeGeneration_1");
     await File.collection.dropIndex("metadataPending_1_repoId_1_treeGeneration_1");
@@ -143,6 +144,7 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
     }
     expect((await Gist.collection.indexes()).map(index => index.name)).to.include("keep_existing_index");
     expect((await Repo.collection.indexes()).find(index => index.name === "retiredTreeGenerations_1").sparse).to.equal(true);
+    expect((await Repo.collection.indexes()).find(index => index.name === "retiredPathIndexKeys_1").sparse).to.equal(true);
     expect((await Repo.collection.indexes()).find(index => index.name === "stagedFileTrees.until_1").sparse).to.equal(true);
     expect((await File.collection.indexes()).find(index => index.name === "treeStaged_1_repoId_1_treeGeneration_1").partialFilterExpression).to.deep.equal({ treeStaged: true });
     expect((await File.collection.indexes()).find(index => index.name === "metadataPending_1_repoId_1_treeGeneration_1").partialFilterExpression).to.deep.equal({ metadataPending: true });
@@ -1013,10 +1015,10 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
         treeGeneration: previousGeneration, source: { type: "GitHubStream" }, options: { expirationMode: "never" } });
       await File.create({ repoId: model.repoId, treeGeneration: previousGeneration, path: "private", name: "old.txt", size: 1 });
       await File.create({ repoId: "unrelated", treeGeneration: previousGeneration, path: "", name: "keep.txt", size: 1 });
-      const repo = new Repository(model), deleteMany = File.deleteMany;
+      const repo = new Repository(model), deleteMany = File.collection.deleteMany;
       Object.defineProperty(repo, "source", { get: () => ({ getFiles: async () => [{ path: "", name: "active.txt", size: 2 }] }) });
-      File.deleteMany = function (filter, ...args) {
-        if (filter.repoId === model.repoId && filter.$or) return { exec: async () => { throw Error("cleanup unavailable"); } };
+      File.collection.deleteMany = async function (filter, ...args) {
+        if (filter.repoId === model.repoId && filter.$or) throw Error("cleanup unavailable");
         return deleteMany.call(this, filter, ...args);
       };
       try {
@@ -1027,7 +1029,7 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
         await require("../src/server/schedule").runRepositoryStatusCheck();
         expect((await Repo.findById(model._id)).retiredTreeGenerations).to.have.length(1);
         expect(await File.countDocuments({ repoId: model.repoId })).to.equal(2);
-      } finally { File.deleteMany = deleteMany; }
+      } finally { File.collection.deleteMany = deleteMany; }
       await require("../src/server/schedule").runRepositoryStatusCheck();
       expect((await Repo.findById(model._id)).retiredTreeGenerations).to.equal(undefined);
       expect((await File.find({ repoId: model.repoId })).map(file => file.name)).to.deep.equal(["active.txt"]);
@@ -1039,13 +1041,14 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
     await Repo.insertMany(Array.from({ length: 2000 }, (_, i) => ({ repoId: `clean-${i}` })));
     await File.insertMany(Array.from({ length: 2000 }, (_, i) => ({ repoId: `clean-${i}`, path: "", name: "file.txt" })));
     await Repo.create({ repoId: "retired", treeGeneration: "active", retiredTreeGenerations: ["old"] });
+    await Repo.create({ repoId: "retired-paths", retiredPathIndexKeys: ["old-key"] });
     await Repo.create({ repoId: "retired-content", retiredContentPrefixes: ["__content/old"] });
     await Repo.create({ repoId: "legacy-content", legacyContentCleanupPending: true, status: "ready" });
     await Repo.create({ repoId: "staged", stagedFileTrees: [{ generation: "abandoned", until: new Date(0) }] });
     await File.create({ repoId: "pending", path: "", name: "pending.txt", metadataPending: true });
     await File.create({ repoId: "staged", treeGeneration: "abandoned", treeStaged: true, path: "private", name: "staged.txt" });
     for (const [model, query] of [[Repo, { $or: [
-      { retiredTreeGenerations: { $exists: true } }, { retiredContentPrefixes: { $exists: true } },
+      { retiredTreeGenerations: { $exists: true } }, { retiredPathIndexKeys: { $exists: true } }, { retiredContentPrefixes: { $exists: true } },
       { legacyContentCleanupPending: true, status: "ready" },
       { "stagedFileTrees.until": { $lte: new Date() } },
     ] }], [File, { metadataPending: true }], [File, { treeStaged: true }]]) {

@@ -156,7 +156,7 @@ export async function runRepositoryStatusCheck(now = new Date()) {
   await expireContent(AnonymizedPullRequestModel, data => new PullRequest(data), now);
 
   const retiredCursor = AnonymizedRepositoryModel.find({ $or: [
-    { retiredTreeGenerations: { $exists: true } }, { retiredContentPrefixes: { $exists: true } },
+    { retiredTreeGenerations: { $exists: true } }, { retiredPathIndexKeys: { $exists: true } }, { retiredContentPrefixes: { $exists: true } },
     { legacyContentCleanupPending: true, status: RepositoryStatus.READY },
     { "stagedFileTrees.until": { $lte: now } },
   ] }).cursor();

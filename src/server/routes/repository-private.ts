@@ -529,11 +529,14 @@ router.post(
       const sourceChanged = reconnecting || hasRepositorySourceChanged(repo.model, repoUpdate);
       const previousAccessRevision = repo.model.githubAccess?.revision;
 
-      updateRepoModel(repo.model, repoUpdate);
-      const reactivating = shouldReactivateInactiveRepository(repo.model);
+      // Cleanup must use the persisted snapshot. Keep proposed settings separate
+      // until removal has finished under the original source and access fences.
+      const proposed = new AnonymizedRepositoryModel(repo.model.toObject());
+      updateRepoModel(proposed, repoUpdate);
+      const reactivating = shouldReactivateInactiveRepository(proposed);
 
       if (reactivating) {
-        repo.model.anonymizeDate = new Date();
+        proposed.anonymizeDate = new Date();
       }
 
       if (sourceChanged) {
@@ -570,15 +573,17 @@ router.post(
         const commit = await repository.getCommitInfo(repoUpdate.source.commit, {
           accessToken: sourceAccess.token,
         });
-        if (reconnecting) repo.model.source.commitDate = commit.commit.committer?.date
+        if (reconnecting) proposed.source.commitDate = commit.commit.committer?.date
           ? new Date(commit.commit.committer.date) : undefined;
-        repo.model.githubAccess = { ...sourceAccess.binding, revision: randomUUID() };
-        repo.model.source.repositoryId = repository.model.id;
-        repo.model.source.repositoryName =
+        proposed.githubAccess = { ...sourceAccess.binding, revision: randomUUID() };
+        proposed.source.repositoryId = repository.model.id;
+        proposed.source.repositoryName =
           repository.fullName || repoUpdate.fullName;
-        repo.model.anonymizeDate = new Date();
+        proposed.anonymizeDate = new Date();
         await repo.remove({ accessRevision: previousAccessRevision });
       }
+      repo.model.set({ options: proposed.options, source: proposed.source,
+        githubAccess: proposed.githubAccess, anonymizeDate: proposed.anonymizeDate });
 
       const removeRepoFromConference = async (conferenceID: string) => {
         const conf = await ConferenceModel.findOne({
