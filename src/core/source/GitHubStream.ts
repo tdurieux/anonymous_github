@@ -392,6 +392,14 @@ export default class GitHubStream extends GitHubBase {
       await assertActive();
       if (expected.size != null && expected.size > config.MAX_FILE_SIZE) throw new AnonymousError("file_too_big", { httpStatus: 413 });
       let legacy = false, allowLegacy = true;
+      let admitted = expected.size || 0;
+      const expansionKey = createHash("sha256").update(filePath).digest("hex");
+      const admitResolvedBytes = async (bytes: number) => {
+        if (!config.BILLING_ENABLED || bytes <= admitted) return;
+        const next = Math.min(config.MAX_FILE_SIZE, Math.ceil(bytes / (1024 ** 2)) * 1024 ** 2);
+        await reserveFileExpansion(repoId, expansionKey, next - (expected.size || 0));
+        admitted = next;
+      };
       const download = async (checkMinimum = false) => {
         const parentToken = await this.data.getToken();
         const token = expected.upstream ? "" : parentToken;
@@ -424,6 +432,7 @@ export default class GitHubStream extends GitHubBase {
             for await (const chunk of input) {
               bytes += chunk.length;
               if (bytes > config.MAX_FILE_SIZE) throw new AnonymousError("file_too_big", { httpStatus: 413 });
+              await admitResolvedBytes(bytes);
               yield chunk;
             }
             if (checkMinimum && expected.size != null && expected.size > 0 && bytes < expected.size)
@@ -435,7 +444,12 @@ export default class GitHubStream extends GitHubBase {
         return limited;
       };
       const produce = async () => {
-        if (allowLegacy && await cached()) { legacy = true; observeCache("source_legacy_promotion"); return storage.read(repoId, cachePath); }
+        if (allowLegacy && await cached()) {
+          legacy = true;
+          const info = await storage.fileInfo(repoId, cachePath);
+          await admitResolvedBytes(info.size || 0);
+          observeCache("source_legacy_promotion"); return storage.read(repoId, cachePath);
+        }
         legacy = false; return download();
       };
       const verify = async (proof: BlobProof) => {
@@ -463,7 +477,10 @@ export default class GitHubStream extends GitHubBase {
           allowLegacy = false;
           content = await shared.getOrFill(`git-${expected.sha}`, produce, verify, expected.size);
         }
-        try { await assertActive(); } catch (error) { content.destroy(); throw error; }
+        try {
+          await assertActive();
+          await admitResolvedBytes(content.cachedBlob?.record.size || 0);
+        } catch (error) { content.destroy(); throw error; }
         return content;
       } catch (error) {
         if (!(error instanceof CacheAdmissionError)) throw error;

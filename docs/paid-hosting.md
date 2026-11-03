@@ -261,8 +261,9 @@ bytes beyond the tree size before writing them, in blocks of at most 1 MiB. The 
 keeps per-path high-water marks so retries and concurrent fills do not charge twice.
 Reservations remain conservative across generations and failed fills and require
 operator reconciliation to release unused capacity. This also covers public raw
-downloads and expanded submodule content. Existing cached content is not retroactively
-measured by this write-time guard.
+downloads and expanded submodule content. Shared-cache hits and legacy content promoted
+to the shared cache also reserve their resolved size before serving. Legacy cache hits
+outside the shared cache are not retroactively measured by this write-time guard.
 
 Accepted one-time prices are stored in `billingprices` when checkout starts and when
 existing purchases are fulfilled. Hiding an offer by removing its configured price
