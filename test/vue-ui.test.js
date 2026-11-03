@@ -1618,6 +1618,56 @@ describe("Vue 3 UI", function () {
     expect(ui.errors).to.deep.equal([]);
   });
 
+  it("loads scoped folder counts lazily without delaying content and does not refetch on reopen", async function () {
+    let finishRootCounts;
+    ui = await browser("/r/test/hello.txt", {
+      "/api/repo/test/files/": request => request.url.searchParams.get("path") === "src"
+        ? [{ name: "a.txt", path: "src", size: 3 }, { name: "b.txt", path: "src", size: 3 }]
+        : [{ name: "hello.txt", path: "", size: 3 }, { name: "src", path: "" }],
+      "/api/repo/test/files/counts": request => request.url.searchParams.get("path") === "src"
+        ? { src: 2 } : new Promise(resolve => { finishRootCounts = resolve; }),
+    });
+    expect(ui.window.document.querySelector(".project-file-count")).to.equal(null);
+    expect(ui.requests.filter(r => /files\/counts$/.test(r.url.pathname)).map(r => r.url.searchParams.get("path"))).to.deep.equal([""]);
+    finishRootCounts({ "": 3, src: 2 });
+    await delay(30);
+    expect(ui.window.document.querySelector(".project-file-count").textContent).to.equal("3 files");
+    const folder = () => ui.window.document.querySelector('tree a[data-path="/src"]');
+    folder().click(); await delay(90);
+    expect(ui.window.document.querySelector('tree a[data-path="/src/a.txt"]')).not.to.equal(null);
+    folder().click(); await delay(10); folder().click(); await delay(10);
+    expect(ui.requests.filter(r => /files\/counts$/.test(r.url.pathname)).map(r => r.url.searchParams.get("path"))).to.deep.equal(["", "src"]);
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  for (const status of [413, 429, 503]) it(`keeps browsing without count badges or retries after counts return ${status}`, async function () {
+    ui = await browser("/r/test/hello.txt", {
+      "/api/repo/test/files/": request => request.url.searchParams.get("path") === "src"
+        ? [{ name: "a.txt", path: "src", size: 3 }]
+        : [{ name: "hello.txt", path: "", size: 3 }, { name: "src", path: "" }],
+      "/api/repo/test/files/counts": { __status: status, body: { error: "file_listing_too_large" } },
+    });
+    await delay(20);
+    expect(ui.window.document.querySelector(".project-file-count")).to.equal(null);
+    ui.window.document.querySelector('tree a[data-path="/src"]').click(); await delay(30);
+    expect(ui.window.document.querySelector('tree a[data-path="/src/a.txt"]')).not.to.equal(null);
+    expect(ui.requests.filter(r => /files\/counts$/.test(r.url.pathname))).to.have.length(1);
+    expect(ui.window.document.querySelector(".tree-count")).to.equal(null);
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("ignores a previous repository's delayed counts after navigation", async function () {
+    let finish;
+    ui = await browser("/r/test/hello.txt", {
+      "/api/repo/test/files/counts": () => new Promise(resolve => { finish = resolve; }),
+      "/api/repo/other/files/counts": { "": 9 },
+    });
+    await ui.go("/r/other/hello.txt");
+    finish({ "": 999 }); await delay(30);
+    expect(ui.window.document.querySelector(".project-file-count").textContent).to.equal("9 files");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
   it("starts folders collapsed and opens the selected file's ancestors", async function () {
     ui = await browser("/r/test/hello.txt", {
       "/api/repo/test/files/": [

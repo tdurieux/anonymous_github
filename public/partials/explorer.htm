@@ -21,7 +21,7 @@
     </div>
     <div class="leftCol-project-header">
       <span class="project-name" v-text="repoId" :title="repoId"></span>
-      <span class="project-file-count">{{ fileCounts?.[''] || files?.length }} files</span>
+      <span class="project-file-count" v-if="fileCounts?.[''] != null">{{ fileCounts[''] }} files</span>
       <span class="project-expiry" v-if="options?.expirationDate" :title="options.expirationDate">
         <svg class="ui-icon" aria-hidden="true"><use href="#project-icon-clock"></use></svg>
         Available until {{ fmt?.date(options.expirationDate) }}

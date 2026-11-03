@@ -1,4 +1,5 @@
 import { FILE_LISTING_LIMIT } from "../../core/file-tree";
+import { folderCounts as scopedFolderCounts } from "../../core/folder-counts";
 import { repositoryFailureStatus } from "../../core/repository-failure-status";
 import { anonymizePath } from "../../core/anonymize-utils";
 import * as express from "express";
@@ -214,6 +215,8 @@ router.get(
     const repo = await getRepo(req, res);
     if (!repo) return;
     try {
+      if (req.query?.path !== undefined) return res.json(await scopedFolderCounts(repo, req.query.path));
+      // Retain the guarded legacy response for clients requesting all counts.
       const repoId = repo.repoId;
       const results = await FileModel.aggregate([
         { $match: { repoId, treeGeneration: repo.model.treeGeneration || { $exists: false }, size: { $ne: null } } },
