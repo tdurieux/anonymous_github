@@ -22,6 +22,7 @@ if (args[0] === "image" && args[1] === "inspect") {
   finish(state.built ? "sha:new" : "sha:old");
 }
 if (args[0] === "inspect") {
+  if (args.some(a => a.includes("Config.Env"))) finish(state.sharedCache ? "SHARED_CACHE_ENABLED=true\\n" : "");
   if (args.some(a => a.includes("Labels"))) finish(state.oldProtocol || "<no value>");
   if (args.includes("{{.State.Running}}")) finish(state.stopped && !state.refuseStop ? "false" : "true");
   finish("healthy");
@@ -43,12 +44,26 @@ finish("unexpected docker call", 2);
       const result = spawnSync("bash", [path.join(directory, "scripts/deploy.sh")], {
         encoding: "utf8", timeout: 8000,
         env: { ...process.env, PATH: directory + path.delimiter + process.env.PATH,
-          FORCE: String(options.force ?? 1), STREAMER_REPLICAS: "4", TASK_DOCKER_STATE: statePath, TASK_DOCKER_LOG: logPath },
+          COORDINATED_RESTART: String(options.coordinated ?? 0), FORCE: String(options.force ?? 1), STREAMER_REPLICAS: "4", TASK_DOCKER_STATE: statePath, TASK_DOCKER_LOG: logPath },
       });
       return { ...result, calls: fs.readFileSync(logPath, "utf8").trim().split("\n").map(line => JSON.parse(line)) };
     } finally { fs.rmSync(directory, { recursive: true, force: true }); }
   }
 
+  for (const sharedCache of [true, false]) it(`coordinates cache rollout with ${sharedCache ? "existing" : "new"} caching`, () => {
+    const result = deploy({ oldProtocol: "recipient-v2", sharedCache, coordinated: sharedCache ? 0 : 1 });
+    expect(result.status, result.stderr).to.equal(0);
+    const stop = result.calls.findIndex(args => args[0] === "compose" && args[1] === "stop");
+    const up = result.calls.findIndex(args => args[0] === "compose" && args[1] === "up");
+    expect(stop).to.be.greaterThan(-1); expect(up).to.be.greaterThan(stop);
+    expect(result.calls[up]).to.include.members(["--force-recreate", "streamer=4"]);
+    expect(result.calls.some(args => args.includes("streamer=8"))).to.equal(false);
+  });
+  it("does not start new cache writers when an old writer fails to stop", () => {
+    const result = deploy({ oldProtocol: "recipient-v2", coordinated: 1, refuseStop: true });
+    expect(result.status).not.to.equal(0);
+    expect(result.calls.some(args => args[0] === "compose" && args[1] === "up")).to.equal(false);
+  });
   it("stops and verifies every legacy writer before starting any migration-capable instance", () => {
     const result = deploy();
     expect(result.status, result.stderr).to.equal(0);
