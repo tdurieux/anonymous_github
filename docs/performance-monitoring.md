@@ -125,3 +125,8 @@ an unavailable file as a successful cache fill. Persistent 404s still require
 checking the repository's source snapshot. Application rate limits remain in
 force; 429 replies now include `rate_limited`, `resetAt`, and `Retry-After` so
 clients can wait for the actual store reset.
+
+## Shared blob cache
+
+See [Shared blob cache](shared-cache.md) for configuration, storage and quota
+accounting, admin metrics, production observations, rollout and benchmark commands.

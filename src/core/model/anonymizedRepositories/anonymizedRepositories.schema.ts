@@ -19,6 +19,7 @@ const AnonymizedRepositorySchema = new Schema({
     default: "preparing",
   },
   statusDate: Date,
+  progressDate: Date,
   refreshToken: { type: String, select: false },
   refreshUntil: { type: Date, select: false },
   archivedAt: Date,

@@ -526,7 +526,7 @@ export default class Repository {
       this.status == RepositoryStatus.PREPARING ||
       this.status == RepositoryStatus.QUEUE ||
       (this.status == RepositoryStatus.DOWNLOAD &&
-        this._model.statusDate > fiveMinuteAgo)
+        this.statusActivityDate > fiveMinuteAgo)
     ) {
       const rlMatch = (this._model.statusMessage || "").match(/^rate_limited:(\d+)$/);
       if (rlMatch) {
@@ -859,6 +859,35 @@ export default class Repository {
    * @param errorMessage a potential error message to display
    */
   public protectLifecycle = false;
+
+  get statusActivityDate(): Date {
+    const { statusDate, progressDate } = this.model;
+    return this.status === RepositoryStatus.DOWNLOAD && progressDate &&
+      (!statusDate || progressDate > statusDate) ? progressDate : statusDate;
+  }
+
+  /** Progress is activity, not a lifecycle transition or a new publication fence. */
+  async updateProgressMessage(statusMessage: string) {
+    const status = this.status;
+    if (status !== RepositoryStatus.DOWNLOAD) return;
+    const statusDate = this.model.statusDate;
+    const progressDate = new Date();
+    if (isConnected) {
+      const result = await AnonymizedRepositoryModel.updateOne({
+        _id: this.model._id, ...this.refreshFilter(), status,
+        statusDate: statusDate || { $exists: false },
+        anonymizeDate: this.model.anonymizeDate,
+        "source.commit": this.model.source.commit || { $exists: false },
+        "githubAccess.revision": this.model.githubAccess?.revision || { $exists: false },
+      }, { $set: { statusMessage, progressDate } }).exec();
+      if (!result.matchedCount) return;
+    }
+    // An awaited write can finish after this instance has moved to READY.
+    if (this.status === status && this.model.statusDate?.getTime() === statusDate?.getTime()) {
+      this.model.statusMessage = statusMessage;
+      this.model.progressDate = progressDate;
+    }
+  }
 
   async updateStatus(status: RepositoryStatus, statusMessage?: string) {
     if (status !== RepositoryStatus.ARCHIVED) this.assertNotArchived();

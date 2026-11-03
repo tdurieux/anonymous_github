@@ -75,7 +75,7 @@ export default async function (job: SandboxedJob<RepoJobData, void>) {
               repoId: job.data.repoId,
               status: progress.status,
             });
-            await repo.updateStatus(repo.status, progress?.status || "");
+            await repo.updateProgressMessage(progress?.status || "");
           }
         } catch {
           // ignore error

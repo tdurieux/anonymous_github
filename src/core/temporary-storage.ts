@@ -1,3 +1,4 @@
+import { sharedBlobCache, resultBlobCache } from "./blob-cache";
 import { promises as fs } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
@@ -34,7 +35,7 @@ export async function startTemporaryStorageMaintenance(intervalMs = 60_000) {
     if (running) return;
     running = true;
     try {
-      const results = await Promise.allSettled([maintainTextSpools(true), pruneTransformedCache()]);
+      const results = await Promise.allSettled([maintainTextSpools(true), pruneTransformedCache(), sharedBlobCache()?.maintain(), resultBlobCache()?.maintain()]);
       for (const result of results) if (result.status === "rejected") {
         logger.warn("temporary storage cleanup deferred", { message: (result.reason as Error).message });
       }

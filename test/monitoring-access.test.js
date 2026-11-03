@@ -16,9 +16,9 @@ describe("performance report access", function () {
     server = await new Promise(resolve => { const s = app.listen(0, "127.0.0.1", () => resolve(s)); });
   });
   after(async function () { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); utils.getUser = original; });
-  async function request(user) {
+  async function request(user, path = "/api/admin/performance") {
     return new Promise((resolve, reject) => {
-      http.get({ host: "127.0.0.1", port: server.address().port, path: "/api/admin/performance", headers: user ? { "x-fixture-user": user } : {} }, res => {
+      http.get({ host: "127.0.0.1", port: server.address().port, path, headers: user ? { "x-fixture-user": user } : {} }, res => {
         let body = ""; res.on("data", chunk => { body += chunk; }); res.on("end", () => resolve({ status: res.statusCode, body, headers: res.headers }));
       }).on("error", reject);
     });
@@ -29,4 +29,12 @@ describe("performance report access", function () {
     const result = await request("admin"); expect(result.status).to.equal(200);
     expect(JSON.parse(result.body).available).to.equal(false); expect(result.headers["cache-control"]).to.equal("no-store");
   });
+  it("restricts cache telemetry to admins and disables response caching", async function () {
+    expect((await request(undefined, "/api/admin/cache")).status).to.equal(401);
+    expect((await request("regular", "/api/admin/cache")).status).to.equal(401);
+    const result = await request("admin", "/api/admin/cache");
+    expect(result.status).to.equal(200); expect(result.headers["cache-control"]).to.equal("no-store");
+    expect(JSON.parse(result.body)).to.have.property("available");
+  });
+
 });

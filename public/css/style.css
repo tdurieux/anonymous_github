@@ -8248,3 +8248,13 @@ body:not(.dark-mode) .anonymize-page { --paper-card: #fff; --canvas-bg-color: #f
 .navbar .nav-link.nav-upgrade { border: 1px solid var(--accent); border-radius: 5px; color: var(--accent) !important; padding: 7px 12px !important; margin-right: 12px; font-size: 12px; line-height: 1.5; }
 .navbar .nav-link.nav-upgrade:hover { background: var(--accent-soft); }
 @media(max-width:991px) { .navbar .nav-link.nav-upgrade { display: inline-block; min-height: 44px; padding: 11px 14px !important; margin: 8px 0; } }
+
+
+@media (max-width: 600px) {
+  .ov-cache .ov-performance-window {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    width: 100%;
+  }
+  .ov-cache .ov-performance-window select { width: 100%; min-width: 0; }
+}

@@ -976,6 +976,37 @@ describe("Vue 3 UI", function () {
     expect(ui.errors).to.deep.equal([]);
   });
 
+  it("shows cache budgets and filters monitoring traffic without confusing unavailable data with zero", async function () {
+    ui = await browser("/", { "/api/user": { username: "admin", isAdmin: true },
+      "/api/admin/overview": { history: [] },
+      "/api/admin/cache": { available: true, enabled: true, filesystemSupported: true, sampledAt: Date.now(),
+        source: { allocatedBytes: 4096, budgetBytes: 65536, reservedBytes: 0, originalBytes: 19000, blobs: 1, activeReaders: 0 },
+        latencyBucketsMs: [0.1, 1, 10, 100, 1000, 10000],
+        rows: [{ name: "source_hit", traffic: "file", count: 4, bytes: 400, ms: 0 },
+          { name: "source_miss", traffic: "file", count: 1, bytes: 100, ms: 0 },
+          { name: "source_hit", traffic: "monitor", count: 10, bytes: 1000, ms: 0 }] } });
+    await ui.go("/admin/");
+    const panel = ui.window.document.querySelector(".ov-cache");
+    expect(panel.textContent).to.include("4.0 KB / 64.0 KB");
+    await ui.input("#cache-traffic", "file", "change");
+    expect(panel.textContent).to.include("80.0%");
+    await ui.input("#cache-traffic", "zip", "change");
+    expect(panel.textContent).to.include("No cache events");
+    await ui.input("#cache-window", "1440", "change");
+    expect(ui.requests.filter(r => r.url.pathname === "/api/admin/cache").at(-1).url.searchParams.get("minutes")).to.equal("1440");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("shows unavailable cache telemetry with a retry action", async function () {
+    ui = await browser("/", { "/api/user": { username: "admin", isAdmin: true },
+      "/api/admin/overview": { history: [] }, "/api/admin/cache": { available: false, reason: "Cache index unavailable" } });
+    await ui.go("/admin/");
+    const panel = ui.window.document.querySelector(".ov-cache");
+    expect(panel.querySelector('[role="alert"]').textContent).to.include("Cache index unavailable");
+    expect(panel.querySelector("button").textContent).to.equal("Retry");
+    expect(panel.textContent).not.to.include("Source request hit rate"); expect(ui.errors).to.deep.equal([]);
+  });
+
   it("shows latency bounds, interruptions and resource samples on the admin overview", async function () {
     const sample = { instance: "streamer:fixture", service: "streamer", sampledAt: Date.now(), cpuPercent: 2,
       memory: { rss: 16 * 1024 * 1024 }, memoryLimitBytes: 128 * 1024 * 1024,

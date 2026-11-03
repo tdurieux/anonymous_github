@@ -162,7 +162,7 @@ router.post(
         repo.status == RepositoryStatus.PREPARING ||
         repo.status == RepositoryStatus.QUEUE ||
         (repo.status == RepositoryStatus.DOWNLOAD &&
-          repo.model.statusDate > new Date(Date.now() - 5 * 60_000)) ||
+          repo.statusActivityDate > new Date(Date.now() - 5 * 60_000)) ||
         repo.status == RepositoryStatus.REMOVING ||
         repo.status == RepositoryStatus.EXPIRING
       ) {

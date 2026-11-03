@@ -324,7 +324,7 @@ router.get(
         if (repo.status != "ready") {
           if (
             repo.status != RepositoryStatus.QUEUE &&
-            repo.model.statusDate < fiveMinuteAgo
+            repo.statusActivityDate < fiveMinuteAgo
           ) {
             await repo.updateStatus(RepositoryStatus.PREPARING);
             await downloadQueue.add(repo.repoId, { repoId: repo.repoId }, {
