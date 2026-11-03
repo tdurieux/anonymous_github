@@ -43,6 +43,7 @@ import { getUser } from "./routes/route-utils";
 import config from "../config";
 import { resolveTrustProxy } from "./trustProxy";
 import { requestRateLimitKey } from "./rate-limit-key";
+import { createWebsiteRateLimiter } from "./website-rate-limit";
 import { createLogger, serializeError } from "../core/logger";
 import { serverOptions } from "./server-options";
 import { monitorRequests } from "../core/request-monitoring";
@@ -238,6 +239,10 @@ export default async function start() {
     maxDelayMs: 5000,
     keyGenerator: apiRateKey,
   });
+  const websiteRate = createWebsiteRateLimiter(new RedisStore({
+    prefix: "website-rate:",
+    sendCommand: (...args: string[]) => redisClient.sendCommand(args),
+  }));
 
   app.use("/github", rate, speedLimiter, githubAppRouter);
   app.use("/github", rate, speedLimiter, connectionRouter);
@@ -288,7 +293,7 @@ export default async function start() {
   });
 
   // web view
-  app.use("/w/", rate, webViewSpeedLimiter, router.webview);
+  app.use("/w/", websiteRate, webViewSpeedLimiter, router.webview);
 
   // Hashed assets (e.g. core.a1b2c3d4e5.min.js) — immutable, cache for 1 year.
   // Strip the hash from the filename and serve the underlying file.

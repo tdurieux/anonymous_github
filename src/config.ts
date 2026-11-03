@@ -98,6 +98,8 @@ interface Config {
    */
   TRUST_PROXY: string;
   RATE_LIMIT: number;
+  /** Website requests per visitor per 15 minutes, independent of the API. */
+  WEBSITE_RATE_LIMIT: number;
 }
 const config: Config = {
   BILLING_ENABLED: false,
@@ -171,6 +173,7 @@ const config: Config = {
   // entries. Set a plain number to restore the legacy hop-count behavior.
   TRUST_PROXY: "loopback,uniquelocal,cloudflare",
   RATE_LIMIT: 350,
+  WEBSITE_RATE_LIMIT: 2000,
   APP_HOSTNAME: "anonymous.4open.science",
   DB_USERNAME: "admin",
   DB_PASSWORD: "password",

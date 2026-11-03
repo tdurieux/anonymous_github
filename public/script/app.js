@@ -2718,32 +2718,42 @@ export const exploreController = function (state, http, location, params, html, 
         }
       }
       state.fileCounts = null;
+      let listingGeneration = 0;
+      let countRequests = new Set();
+      let countsUnavailable = false;
       state.getFiles = function (path) {
         const repoId = state.repoId;
+        const generation = listingGeneration;
         return http.get(
           `/api/repo/${state.repoId}/files/?path=${encodeURIComponent(path)}&v=${state.options.lastUpdateDate}`
         ).then(function (res) {
-          if (destroyed || repoId !== state.repoId) return [];
+          if (destroyed || repoId !== state.repoId || generation !== listingGeneration) return [];
           const normalized = path || "";
           state.files = state.files.filter((f) => f.path !== normalized);
           state.files.push(...res.data);
+          fetchFileCounts(normalized, generation);
           return res.data;
         }, function (err) {
-          if (destroyed || repoId !== state.repoId) return [];
+          if (destroyed || repoId !== state.repoId || generation !== listingGeneration) return [];
           state.type = "error";
           state.content = viewerErrorCode(err);
           state.files = [];
         });
       };
-      function fetchFileCounts() {
+      function fetchFileCounts(path, generation) {
+        if (countsUnavailable || countRequests.has(path)) return;
+        countRequests.add(path);
         const repoId = state.repoId;
         http.get(
-          `/api/repo/${state.repoId}/files/counts`
+          `/api/repo/${state.repoId}/files/counts?path=${encodeURIComponent(path)}`
         ).then(function (res) {
-          if (destroyed || repoId !== state.repoId) return;
-          state.fileCounts = res.data;
+          if (destroyed || repoId !== state.repoId || generation !== listingGeneration) return;
+          state.fileCounts = { ...state.fileCounts, ...res.data };
         }, function () {
-          state.fileCounts = {};
+          if (destroyed || repoId !== state.repoId || generation !== listingGeneration) return;
+          // Counts are optional. Do not retry a guarded or rate-limited query
+          // every time a visitor opens another directory.
+          countsUnavailable = true;
         });
       }
 
@@ -3140,6 +3150,9 @@ export const exploreController = function (state, http, location, params, html, 
         state.files = [];
         state.content = null;
         state.fileCounts = null;
+        listingGeneration++;
+        countRequests = new Set();
+        countsUnavailable = false;
         state.fileSearchQuery = "";
         state.onFileSearchChange();
         state.repoId = params.repoId;
@@ -3149,7 +3162,6 @@ export const exploreController = function (state, http, location, params, html, 
 
         const repoId = state.repoId;
         getOptions(function (options) {
-          fetchFileCounts();
           var chain = promises.resolve();
           for (let i = 0; i < state.paths.length; i++) {
             const path = i > 0 ? state.paths.slice(0, i).join("/") : "";
