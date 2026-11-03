@@ -104,8 +104,8 @@ describe("repository refresh and restoration", () => {
         expect(bytes).to.equal(999);
         throw new Error("quota_exceeded");
       });
-      stub(Stream.prototype, "getFiles", async function () {
-        expect(this.data.commit).to.equal("new-sha"); return [{ size: 999 }];
+      stub(Stream.prototype, "iterateFiles", async function* () {
+        expect(this.data.commit).to.equal("new-sha"); yield { size: 999 };
       });
       repo.getToken = async () => "test-token";
       stub(github, "getRepositoryFromGitHub", async () => ({ fullName: "owner/repo", model: {},

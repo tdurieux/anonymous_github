@@ -93,7 +93,7 @@ describe("repository activity dates", () => {
     stub(quotas, "assertConferenceAdmission", async () => {});
     stub(access, "selectRepositoryAccess", async () => ({ token: "test", binding: { kind: "oauth" } }));
     stub(github, "getRepositoryFromGitHub", async () => ({ model: { id: "gh_1" }, fullName: "owner/repo", getCommitInfo: async () => ({ commit: {} }) }));
-    stub(Stream.prototype, "getFiles", async function () { expect(this.data.commit).to.equal("abcdef456"); return [{ size: 500 }]; });
+    stub(Stream.prototype, "iterateFiles", async function* () { expect(this.data.commit).to.equal("abcdef456"); yield { size: 500 }; });
     stub(quotas, "reserveRepository", async (_owner, _repo, bytes) => { expect(bytes).to.equal(500); throw Error("quota_exceeded"); });
     repo.remove = async () => { throw Error("must preserve snapshot"); };
     let error;

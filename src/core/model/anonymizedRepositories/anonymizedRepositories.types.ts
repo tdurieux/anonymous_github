@@ -36,6 +36,7 @@ export interface IAnonymizedRepository {
   treeGeneration?: string;
   stagedFileTrees?: { generation: string; until: Date }[];
   retiredTreeGenerations?: string[];
+  retiredPathIndexKeys?: string[];
   retiredContentPrefixes?: string[];
   legacyContentCleanupPending?: boolean;
   contentCacheVersion?: number;

@@ -17,6 +17,7 @@ async function main() {
   await File.collection.createIndex({ metadataPending: 1, repoId: 1, treeGeneration: 1 },
     { partialFilterExpression: { metadataPending: true } });
   await Repository.collection.createIndex({ retiredTreeGenerations: 1 }, { sparse: true });
+  await Repository.collection.createIndex({ retiredPathIndexKeys: 1 }, { sparse: true });
   await Repository.collection.createIndex({ "stagedFileTrees.until": 1 }, { sparse: true });
   await File.collection.createIndex({ treeStaged: 1, repoId: 1, treeGeneration: 1 },
     { partialFilterExpression: { treeStaged: true } });

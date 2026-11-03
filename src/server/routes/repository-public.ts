@@ -1,3 +1,4 @@
+import { FILE_LISTING_LIMIT } from "../../core/file-tree";
 import { repositoryFailureStatus } from "../../core/repository-failure-status";
 import { anonymizePath } from "../../core/anonymize-utils";
 import * as express from "express";
@@ -218,21 +219,30 @@ router.get(
         { $match: { repoId, treeGeneration: repo.model.treeGeneration || { $exists: false }, size: { $ne: null } } },
         { $project: { _id: 0, path: 1 } },
         { $group: { _id: "$path", count: { $sum: 1 } } },
+        { $limit: FILE_LISTING_LIMIT + 1 },
       ]).exec();
+      if (results.length > FILE_LISTING_LIMIT) throw new AnonymousError("file_listing_too_large", { httpStatus: 413 });
 
-      const directCounts: Record<string, number> = {};
+      const directCounts: Record<string, number> = Object.create(null);
       for (const r of results) {
         directCounts[r._id ?? ""] = r.count;
       }
 
-      const folderCounts: Record<string, number> = {};
+      const folderCounts: Record<string, number> = Object.create(null);
+      let folders = 0;
+      const addCount = (folder: string, count: number) => {
+        if (!Object.hasOwn(folderCounts, folder) && ++folders > FILE_LISTING_LIMIT) {
+          throw new AnonymousError("file_listing_too_large", { httpStatus: 413 });
+        }
+        folderCounts[folder] = (folderCounts[folder] || 0) + count;
+      };
       for (const [folder, count] of Object.entries(directCounts)) {
         let p = folder;
-        folderCounts[p] = (folderCounts[p] || 0) + count;
+        addCount(p, count);
         while (p) {
           const idx = p.lastIndexOf("/");
           p = idx >= 0 ? p.substring(0, idx) : "";
-          folderCounts[p] = (folderCounts[p] || 0) + count;
+          addCount(p, count);
           if (!p) break;
         }
       }
@@ -243,7 +253,7 @@ router.get(
           "../../core/anonymize-utils"
         );
         const compiled = compileTerms(terms);
-        const anonymized: Record<string, number> = {};
+        const anonymized: Record<string, number> = Object.create(null);
         for (const [folder, count] of Object.entries(folderCounts)) {
           const anonFolder = anonymizePathCompiled(folder, compiled);
           anonymized[anonFolder] = (anonymized[anonFolder] || 0) + count;

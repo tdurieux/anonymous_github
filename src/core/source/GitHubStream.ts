@@ -20,8 +20,7 @@ import { basename, dirname } from "path";
 import * as stream from "stream";
 import AnonymousError from "../AnonymousError";
 import { octokit, waitForTokenGate, RateLimitDelayError } from "../GitHubUtils";
-import FileModel from "../model/files/files.model";
-import { expandSubmodules, validUpstream } from "./github-submodules";
+import { expandSubmodules, validUpstream, MAX_SUBMODULE_ENTRIES } from "./github-submodules";
 import { IFile, UpstreamFile } from "../model/files/files.types";
 import { createLogger, serializeError } from "../logger";
 import { measureStage, recordCacheHit } from "../request-monitoring";
@@ -35,6 +34,7 @@ import { cachedContentMiss, classifyContentMiss } from "./github-content-miss";
 const logger = createLogger("gh-stream");
 
 const GH_API_CONCURRENCY = 6;
+const MAX_PENDING_TREE_FOLDERS = 100000;
 const cacheFills = new Map<string, Promise<void>>();
 const missingContent = new ExpiringMap<string>(2048);
 
@@ -583,8 +583,17 @@ export default class GitHubStream extends GitHubBase {
   }
 
   async getFiles(progress?: (status: string) => void) {
+    const files: IFile[] = [];
+    for await (const file of this.iterateFiles(progress)) files.push(file);
+    return files;
+  }
+
+  async *iterateFiles(progress?: (status: string) => void): AsyncGenerator<IFile> {
     this._truncatedFolders = [];
-    return expandSubmodules(await this.getTruncatedTree(this.data.commit, progress), this.data);
+    const budget = { modules: 0, remaining: MAX_SUBMODULE_ENTRIES };
+    for await (const batch of this.iterateTreeBatches(this.data.commit, progress)) {
+      yield* await expandSubmodules(batch, this.data, budget);
+    }
   }
 
   /**
@@ -688,7 +697,7 @@ export default class GitHubStream extends GitHubBase {
     }
   }
 
-  private async getTruncatedTree(
+  private async *iterateTreeBatches(
     sha: string,
     progress?: (status: string) => void,
     parentPath: string = ""
@@ -699,21 +708,23 @@ export default class GitHubStream extends GitHubBase {
       request: 0,
       file: 0,
     };
-    const output: IFile[] = [];
     let data = await this.getGHTree(oct, token, sha, count, {
       recursive: true,
       callback: () => { progress?.("List file: " + count.file); },
     });
-    if (!data.truncated) return this.tree2Tree(data.tree, parentPath);
+    if (!data.truncated) { yield this.tree2Tree(data.tree, parentPath); return; }
     data = await this.getGHTree(oct, token, sha, count, {
       recursive: false,
       callback: () => { progress?.("List file: " + count.file); },
     });
     if (data.truncated) this._truncatedFolders.push(parentPath);
-    output.push(...this.tree2Tree(data.tree, parentPath));
+    yield this.tree2Tree(data.tree, parentPath);
     const subtrees: { sha: string; parentPath: string }[] = [];
     for (const file of data.tree) {
       if (file.type == "tree" && file.path && file.sha) {
+        if (subtrees.length >= MAX_PENDING_TREE_FOLDERS) {
+          throw new AnonymousError("repository_tree_too_large", { httpStatus: 413 });
+        }
         subtrees.push({
           sha: file.sha,
           parentPath: path.join(parentPath, file.path),
@@ -766,11 +777,15 @@ export default class GitHubStream extends GitHubBase {
         GH_API_CONCURRENCY
       );
       for (const result of batchResults) {
-        output.push(...result.files);
-        queue.push(...result.children);
+        yield result.files;
+        for (const child of result.children) {
+          if (queue.length >= MAX_PENDING_TREE_FOLDERS) {
+            throw new AnonymousError("repository_tree_too_large", { httpStatus: 413 });
+          }
+          queue.push(child);
+        }
       }
     }
-    return output;
   }
 
   private tree2Tree(
@@ -790,14 +805,14 @@ export default class GitHubStream extends GitHubBase {
       if (pathFile === ".") {
         pathFile = "";
       }
-      return new FileModel({
+      return {
         name: basename(fullPath),
         path: pathFile,
         repoId: this.data.repoId,
         size: elem.size,
-        ...(elem.type === "commit" ? { submodule: "unsupported" } : {}),
+        ...(elem.type === "commit" ? { submodule: "unsupported" as const } : {}),
         sha: elem.sha,
-      });
+      };
     });
   }
 }

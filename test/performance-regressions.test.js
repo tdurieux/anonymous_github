@@ -117,7 +117,7 @@ describe("performance regressions", function () {
       calls.push({ sha, recursive: options.recursive });
       return { truncated: false, tree: Array.from({ length: 20 }, (_, i) => ({ path: `folder${i}/file.ts`, type: "blob", sha: "abc" })) };
     };
-    const files = await source.getTruncatedTree("head");
+    const files = await source.getFiles();
     expect(files).to.have.length(20); expect(calls).to.deep.equal([{ sha: "head", recursive: true }]);
   });
 
@@ -157,7 +157,7 @@ describe("performance regressions", function () {
       if (sha === "head") return { truncated: false, tree: [{ path: "src", type: "tree", sha: "src" }] };
       return { truncated: false, tree: [{ path: "file.ts", type: "blob", sha: "abc" }] };
     };
-    const files = await source.getTruncatedTree("head");
+    const files = await source.getFiles();
     expect(files.map(file => `${file.path}/${file.name}`)).to.deep.equal(["/src", "src/file.ts"]);
     expect(calls).to.deep.equal(["head:true", "head:false", "src:true"]);
   });

@@ -61,6 +61,7 @@ const AnonymizedRepositorySchema = new Schema({
   treeGeneration: String,
   stagedFileTrees: { type: [{ generation: String, until: Date }], default: undefined },
   retiredTreeGenerations: { type: [String], default: undefined },
+  retiredPathIndexKeys: { type: [String], default: undefined },
   retiredContentPrefixes: { type: [String], default: undefined },
   legacyContentCleanupPending: Boolean,
   contentCacheVersion: Number,
@@ -112,6 +113,7 @@ const AnonymizedRepositorySchema = new Schema({
 AnonymizedRepositorySchema.index({ "source.repositoryName": 1 });
 AnonymizedRepositorySchema.index({ "coauthors.githubId": 1 });
 AnonymizedRepositorySchema.index({ retiredTreeGenerations: 1 }, { sparse: true });
+AnonymizedRepositorySchema.index({ retiredPathIndexKeys: 1 }, { sparse: true });
 AnonymizedRepositorySchema.index({ "stagedFileTrees.until": 1 }, { sparse: true });
 AnonymizedRepositorySchema.index({ retiredContentPrefixes: 1 }, { sparse: true });
 AnonymizedRepositorySchema.index({ legacyContentCleanupPending: 1, status: 1 },
