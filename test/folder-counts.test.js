@@ -66,6 +66,13 @@ describe("folder count request validation", () => {
     expect(JSON.stringify(scoped)).not.to.match(/Alice|Bob/);
   });
 
+  for (const name of ["$data", "$$ROOT", "$$CURRENT"]) it(`treats directory ${name} as a literal in aggregation expressions`, async () => {
+    await insert([{ name, path: "" }, { name: "direct.txt", path: name, size: 1 },
+      { name: "$nested", path: name }, { name: "child.txt", path: `${name}/$nested`, size: 1 }]);
+    expect(await folderCounts(repo, name)).to.deep.equal({ [name]: 2, [`${name}/$nested`]: 1 });
+    expect(await folderCounts(repo, `${name}/$nested`)).to.deep.equal({ [`${name}/$nested`]: 1 });
+  });
+
   it("uses the active generation on each request without reusing obsolete counts", async () => {
     await insert([{ path: "old", name: "a", size: 1 }]);
     expect(await folderCounts(repo, "")).to.deep.equal({ "": 1, old: 1 });

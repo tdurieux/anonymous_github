@@ -30,7 +30,7 @@ export async function folderCounts(repo: Repository, requestedPath: unknown): Pr
       ...(originalPath ? { $or: [{ path: originalPath }, { path: { $regex: "^" + escapedPrefix } }] } : {}),
     } },
     { $project: { child: { $cond: [
-      { $eq: ["$path", originalPath] }, "",
+      { $eq: ["$path", { $literal: originalPath }] }, "",
       { $arrayElemAt: [{ $split: [{ $substrCP: ["$path", prefixLength,
         { $subtract: [{ $strLenCP: "$path" }, prefixLength] }] }, "/"] }, 0] },
     ] } } },
