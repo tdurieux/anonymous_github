@@ -1,3 +1,8 @@
+import Repository from "../../core/Repository";
+import { sourceStorageSize } from "../../core/source/Source";
+import { neverExpirationDeadline, validateBillingExpiration } from "../../core/billing/expiration";
+import config from "../../config";
+import { assertConferenceAdmission, reserveRepository } from "../../core/billing/quotas";
 import { resetOwnerAccessAlerts } from "../../core/owner-notifications";
 import { randomUUID } from "crypto";
 import { githubQuotaKey } from "../../core/github-token-context";
@@ -202,7 +207,9 @@ router.post(
       const newExpiration = extendExpirationDate(
         repo.model.options.expirationDate
       );
+      validateBillingExpiration({ ...repo.model.options, expirationDate: newExpiration });
       const reactivating = repo.status === RepositoryStatus.EXPIRED;
+      if (reactivating) await assertConferenceAdmission(String(repo.model.owner), repo.repoId, repo.model.conference);
       const updates: Record<string, Date | string | null> = {
         "options.expirationDate": newExpiration,
         settingsSavedAt: new Date(),
@@ -494,6 +501,7 @@ export function shouldReactivateInactiveRepository(
 router.post(
   "/:repoId/",
   async (req, res) => {
+    let recoverReactivation: (() => Promise<void>) | undefined;
     try {
       const repo = await getRepo(req, res, {
         nocheck: true,
@@ -529,14 +537,44 @@ router.post(
       const sourceChanged = reconnecting || hasRepositorySourceChanged(repo.model, repoUpdate);
       const previousAccessRevision = repo.model.githubAccess?.revision;
 
-      // Cleanup must use the persisted snapshot. Keep proposed settings separate
-      // until removal has finished under the original source and access fences.
+      // Keep proposed settings separate until cleanup passes the persisted fences.
       const proposed = new AnonymizedRepositoryModel(repo.model.toObject());
+      if (repo.model.billingManaged) validateBillingExpiration(repoUpdate.options);
+      if (config.BILLING_ENABLED && repoUpdate.options.expirationMode === "never" &&
+          (repo.model.options.expirationMode !== "never" || repo.model.billingNeverExpiresUntil)) {
+        proposed.billingNeverExpiresUntil = await neverExpirationDeadline(String(repo.model.owner),
+          repo.model.options.expirationMode === "never" ? repo.model.billingNeverExpiresUntil : undefined);
+      } else if (repoUpdate.options.expirationMode !== "never") {
+        proposed.billingNeverExpiresUntil = undefined;
+      }
       updateRepoModel(proposed, repoUpdate);
       const reactivating = shouldReactivateInactiveRepository(proposed);
 
+
       if (reactivating) {
         proposed.anonymizeDate = new Date();
+      }
+
+      const needsAdmission = sourceChanged || reactivating || repoUpdate.conference !== repo.model.conference;
+      if (needsAdmission) {
+        await assertConferenceAdmission(String(repo.model.owner), repo.repoId, repoUpdate.conference);
+        if (reactivating && config.BILLING_ENABLED && repo.model.billingManaged) {
+          const previousStatus = repo.status;
+          const previousStatusDate = repo.model.statusDate;
+          const claimedAt = new Date();
+          const claim = await AnonymizedRepositoryModel.updateOne({ _id: repo.model._id,
+            status: previousStatus, statusDate: previousStatusDate,
+          }, { $set: { status: RepositoryStatus.PREPARING, statusDate: claimedAt } }).exec();
+          if (!claim.matchedCount) throw appError("invalid_status", 409);
+          repo.model.status = RepositoryStatus.PREPARING;
+          repo.model.statusDate = claimedAt;
+          recoverReactivation = async () => {
+            await AnonymizedRepositoryModel.updateOne({ _id: repo.model._id,
+              status: RepositoryStatus.PREPARING, statusDate: claimedAt,
+            }, { $set: { status: previousStatus, statusDate: previousStatusDate || new Date() } }).exec();
+          };
+        }
+        if (repo.model.billingManaged && !sourceChanged) await reserveRepository(String(repo.model.owner), repo.repoId, repo.model.size?.storage || 0, repoUpdate.conference);
       }
 
       if (sourceChanged) {
@@ -580,10 +618,15 @@ router.post(
         proposed.source.repositoryName =
           repository.fullName || repoUpdate.fullName;
         proposed.anonymizeDate = new Date();
-        await repo.remove({ accessRevision: previousAccessRevision });
+        if (repo.model.billingManaged) {
+          const storageBytes = await sourceStorageSize(new Repository(proposed).source);
+          await reserveRepository(String(repo.model.owner), repo.repoId, storageBytes, repoUpdate.conference);
+        }
+        await repo.remove({ accessRevision: previousAccessRevision, replacement: true });
       }
       repo.model.set({ options: proposed.options, source: proposed.source,
-        githubAccess: proposed.githubAccess, anonymizeDate: proposed.anonymizeDate });
+        githubAccess: proposed.githubAccess, anonymizeDate: proposed.anonymizeDate,
+        billingNeverExpiresUntil: proposed.billingNeverExpiresUntil });
 
       const removeRepoFromConference = async (conferenceID: string) => {
         const conf = await ConferenceModel.findOne({
@@ -642,6 +685,7 @@ router.post(
           "githubAccess.revision": previousAccessRevision || { $exists: false } },
         {
           $set: {
+            ...(repo.model.billingNeverExpiresUntil ? { billingNeverExpiresUntil: repo.model.billingNeverExpiresUntil } : {}),
             settingsSavedAt: new Date(),
             options: repo.model.options,
             source: repo.model.source,
@@ -650,9 +694,11 @@ router.post(
             anonymizeDate: repo.model.anonymizeDate,
             ...preparation,
           },
+          ...(!repo.model.billingNeverExpiresUntil ? { $unset: { billingNeverExpiresUntil: 1 } } : {}),
         }
       ).exec();
       if (!saved.matchedCount) throw appError("connection_changed", 409);
+      recoverReactivation = undefined;
       if (user.id === repo.owner.id) await resetOwnerAccessAlerts(user.id, { kind: "repository", id: String(repo.model._id) });
       if (!sourceChanged && !reactivating) {
         return res.json({ status: repo.status });
@@ -664,6 +710,7 @@ router.post(
       await enqueueSavedSnapshot(repo.model);
       res.json({ status: repo.status });
     } catch (error) {
+      if (recoverReactivation) await recoverReactivation();
       return handleError(error, res, req);
     }
   }
@@ -722,6 +769,10 @@ router.post("/", async (req, res) => {
     repo.owner = user.id;
     repo.githubAccess = selectedAccess.binding;
 
+    validateBillingExpiration(repoUpdate.options);
+    if (repoUpdate.options.expirationMode === "never") {
+      repo.billingNeverExpiresUntil = await neverExpirationDeadline(user.id);
+    }
     updateRepoModel(repo, repoUpdate);
     repo.source.type = "GitHubStream";
     repo.source.repositoryId = repository.model.id;
@@ -729,6 +780,9 @@ router.post("/", async (req, res) => {
 
     repo.conference = repoUpdate.conference;
 
+    await assertConferenceAdmission(user.id, repo.repoId, repo.conference);
+    repo.billingManaged = config.BILLING_ENABLED;
+    await reserveRepository(user.id, repo.repoId, 0, repo.conference);
     await repo.save();
 
     if (repoUpdate.conference) {

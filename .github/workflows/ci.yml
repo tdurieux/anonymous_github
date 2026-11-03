@@ -40,6 +40,7 @@ jobs:
           --health-cmd "redis-cli ping"
           --health-interval 5s --health-timeout 3s --health-retries 10
     env:
+      BILLING_TEST_MONGODB_URI: mongodb://127.0.0.1:27017/billing_test_ci
       TEST_MONGODB_URI: mongodb://127.0.0.1:27017/dependency_test
       PERFORMANCE_MONGO_URI: mongodb://127.0.0.1:27017/perf_test_ci
       PERFORMANCE_REDIS_PORT: 6379

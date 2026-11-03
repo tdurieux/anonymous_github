@@ -43,7 +43,7 @@ describe("ZIP proxy failures", function () {
     return http.get(`http://127.0.0.1:${server.address().port}/test/zip`, { headers }, onResponse);
   }
   it("answers HEAD without counting a view, obtaining a token or starting a ZIP stream", async function () {
-    utils.getRepo = async () => ({ repoId: "test", countView: () => { throw Error("view counted"); },
+    utils.getRepo = async () => ({ repoId: "test", model: {}, countView: () => { throw Error("view counted"); },
       getToken: () => { throw Error("token requested"); }, generateAnonymizeTransformer: () => { throw Error("transform requested"); } });
     got.stream = () => { throw Error("archive requested"); };
     const result = await new Promise((resolve, reject) => {

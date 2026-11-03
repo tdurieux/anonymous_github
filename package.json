@@ -84,6 +84,7 @@
     "redis": "^5.12.1",
     "sanitize-html": "^2.18.1",
     "topojson-client": "^3.1.0",
+    "stripe": "^23.1.0",
     "ts-custom-error": "^3.3.1",
     "unzip-stream": "^0.3.4"
   },

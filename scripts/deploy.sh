@@ -13,6 +13,7 @@ IMAGE="${IMAGE:-tdurieux/anonymous_github:v2}"
 REPLICAS="${STREAMER_REPLICAS:-4}"
 TIMEOUT="${HEALTH_TIMEOUT:-90}"
 FORCE="${FORCE:-0}"
+COORDINATED_RESTART="${COORDINATED_RESTART:-0}"
 
 log()  { printf '==> %s\n' "$*"; }
 warn() { printf '!!  %s\n' "$*" >&2; }
@@ -74,6 +75,31 @@ if [[ $legacy_alerts == 1 ]]; then
     docker compose up -d --no-deps --force-recreate anonymous_github
     api="$(docker compose ps -q anonymous_github)"
     [[ -n $api ]] || { warn "API container missing after migration"; exit 1; }
+    wait_healthy "$api"
+    docker compose ps
+    exit 0
+fi
+
+# Cache index upgrades and budget changes must not overlap old/new writers.
+# Set this explicitly when enabling shared caching for the first time.
+for app in "${apps[@]}"; do
+    if docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$app" | grep -qx 'SHARED_CACHE_ENABLED=true'; then
+        COORDINATED_RESTART=1
+    fi
+done
+if [[ $COORDINATED_RESTART == 1 ]]; then
+    log "Coordinated application restart for shared cache compatibility"
+    docker compose stop -t 30 anonymous_github streamer
+    for app in "${apps[@]}"; do
+        [[ $(docker inspect -f '{{.State.Running}}' "$app") == false ]] || { warn "cache writer $app is still running"; exit 1; }
+    done
+    docker compose up -d --no-deps --force-recreate --scale "streamer=${REPLICAS}" streamer
+    mapfile -t news < <(list_streamers)
+    [[ ${#news[@]} == "$REPLICAS" ]] || { warn "streamer replica count does not match ${REPLICAS}"; exit 1; }
+    for app in "${news[@]}"; do wait_healthy "$app"; done
+    docker compose up -d --no-deps --force-recreate anonymous_github
+    api="$(docker compose ps -q anonymous_github)"
+    [[ -n $api ]] || { warn "API container missing after coordinated restart"; exit 1; }
     wait_healthy "$api"
     docker compose ps
     exit 0

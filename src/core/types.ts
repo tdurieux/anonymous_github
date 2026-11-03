@@ -17,6 +17,6 @@ export enum RepositoryStatus {
   ERROR = "error",
 }
 
-export type ConferenceStatus = "ready" | "expired" | "removed";
+export type ConferenceStatus = "ready" | "expired" | "removed" | "pending_payment";
 
 export type SourceStatus = "available" | "unavailable";

@@ -171,6 +171,10 @@ History and decisions are capped at 100,000 rows each, aliases at 200,000. Expir
 history/decision cleanup removes at most 256 rows per pass. Access history has
 30-second resolution. Stop all cache processes before upgrading an existing index
 and restart them on the same version; do not mix old and new writers.
+`scripts/deploy.sh` coordinates restarts when existing containers have shared caching
+enabled. For first activation or an explicit budget/configuration change, run
+`COORDINATED_RESTART=1 bash scripts/deploy.sh`. It stops and verifies every old
+application writer before starting replacements. This briefly interrupts service.
 
 ### Performance and validation
 

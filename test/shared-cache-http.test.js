@@ -56,6 +56,34 @@ describe("shared cache HTTP and telemetry integration", function () {
     await new Promise(resolve => server.close(resolve)); closeBlobCaches(); closeCacheMetrics(); Object.assign(config, old);
     await fs.rm(root, { recursive: true, force: true });
   });
+  for (const mode of ["fill", "hit", "bypass"]) {
+    it(`enforces resolved-byte billing admission on shared source ${mode}`, async () => {
+      const quotas = require("../src/core/billing/quotas");
+      const { billingError } = require("../src/core/billing/config");
+      const reserve = quotas.reserveFileExpansion;
+      const payload = Buffer.alloc(2048, 65);
+      const source = new GitHubStream({ repoId: "billed-project", organization: "org", repoName: "repo", commit: "commit", getToken: async () => "" });
+      let downloads = 0, reservations = 0;
+      source.downloadWithFallback = async () => { downloads++; return Readable.from(payload); };
+      let cache = sharedBlobCache();
+      if (mode === "hit") await consume(await cache.getOrFill(`git-${sha(payload)}`, async () => Readable.from(payload)));
+      if (mode === "bypass") { closeBlobCaches(); config.SHARED_CACHE_MAX_FILE_BYTES = 1; cache = sharedBlobCache(); }
+      config.BILLING_ENABLED = true;
+      quotas.reserveFileExpansion = async (repoId, key, bytes) => {
+        reservations++;
+        assert.equal(repoId, "billed-project");
+        assert.equal(key, createHash("sha256").update("large.bin").digest("hex"));
+        assert.equal(bytes, 1024 ** 2 - 130);
+        throw billingError("quota_exceeded", 402);
+      };
+      try {
+        await assert.rejects(async () => consume(await source.getFileContentCache("large.bin", "billed-project", () => ({ sha: sha(payload), size: 130 }))), /quota_exceeded/);
+        assert.equal(reservations, 1);
+        assert.equal(downloads, mode === "hit" ? 0 : 1);
+        if (mode !== "hit") assert.equal(await cache.lookup(`git-${sha(payload)}`), undefined);
+      } finally { quotas.reserveFileExpansion = reserve; }
+    });
+  }
   const headers = { authorization: "test-access" };
   it("shares source content across projects without bypassing authorization", async () => {
     assert.equal((await request(port, "/a/plain")).status, 403); assert.equal(fills, 0);

@@ -269,3 +269,7 @@ diagram is encountered. These libraries use hashed URLs and load once per tab.
 The Docker build compiles the same bundles and copies them, the asset manifest,
 and document-worker assets into the runtime image. The Compose app serves these
 assets directly; no frontend development server is needed.
+
+### Paid hosting
+
+Optional Stripe billing supports monthly and annual author subscriptions, repository review passes, and prepaid conference packages. Billing is disabled by default. See the [setup and rollout guide](docs/paid-hosting.md) for prices, capacities, webhooks, migration behavior, and test-mode verification.

@@ -72,6 +72,9 @@
           Sign in
         </a>
       </li>
+      <li class="nav-item" v-if="user?.username && headerCanUpgrade && !headerBillingPending">
+        <a class="nav-link nav-upgrade" href="/profile?upgrade=1" @click.prevent="openHeaderUpgrade()">Upgrade</a>
+      </li>
       <li class="nav-item dropdown user-chip-wrap" v-if="user">
         <a class="nav-link user-chip dropdown-toggle" href="#" id="navbarDropdownMenuLink" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
           <img width="22" height="22" class="rounded-circle" v-if="user?.photo" :src="safeUrl((user?.photo))">

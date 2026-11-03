@@ -34,6 +34,7 @@ router.get(
       }
       const repo = await getRepo(req, res);
       if (!repo) return;
+      if (repo.model.billingManaged && repo.model.truncatedFolders?.length) throw new AnonymousError("repository_tree_incomplete", { httpStatus: 409 });
 
       let user: User | undefined = undefined;
       try {

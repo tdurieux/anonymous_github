@@ -24,6 +24,16 @@ describe("large repository tree allocation", function () {
     expect(JSON.parse(stdout).count).to.equal(2000200);
   });
 
+  it("sums billing admission sizes using the streaming interface", async () => {
+    const { sourceStorageSize } = require("../src/core/source/Source");
+    const size = await sourceStorageSize({
+      getFiles: () => { throw Error("unbounded admission read"); },
+      async *iterateFiles() { for (let i = 0; i < 10001; i++) yield { size: 3 }; },
+    });
+    expect(size).to.equal(30003);
+    expect(await sourceStorageSize({ getFiles: async () => [{ size: 2 }, {}] })).to.equal(2);
+  });
+
   it("does not fetch child trees before the consumer advances past the parent page", async () => {
     const source = new GitHubStream({ repoId: "backpressure", organization: "fixture", repoName: "repo", commit: "head", getToken: () => "fixture" });
     let calls = 0;
@@ -122,6 +132,27 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
     expect(await File.countDocuments({ repoId: row.repoId, treeGeneration: repo.model.treeGeneration })).to.equal(1503);
     expect((await Repo.findById(row._id)).status).to.equal("ready");
     expect(await File.countDocuments({ treeStaged: true })).to.equal(0);
+  });
+
+  it("rejects billed streamed trees before publishing their generation", async () => {
+    const quotas = require("../src/core/billing/quotas");
+    const reserve = quotas.reserveRepository;
+    const row = await repository({ treeGeneration: "old", billingManaged: true });
+    const repo = new Repository(row);
+    await rows(1);
+    Object.defineProperty(repo, "source", { get: () => ({
+      getFiles: () => { throw Error("unbounded source read"); },
+      async *iterateFiles() { yield { name: "replacement", path: "", size: 100, sha: "b".repeat(40) }; },
+    }) });
+    quotas.reserveRepository = async (_owner, _repoId, bytes) => {
+      expect(bytes).to.equal(100); throw Error("quota_exceeded");
+    };
+    try {
+      const error = await repo.ensureFileTree({ force: true }).then(() => null, error => error);
+      expect(error?.message).to.equal("quota_exceeded");
+      expect((await Repo.findById(row._id)).treeGeneration).to.equal("old");
+      expect(await File.countDocuments({ treeGeneration: "old" })).to.equal(1);
+    } finally { quotas.reserveRepository = reserve; }
   });
 
   it("retires preparation metadata without deleting it in the request, and resumes interrupted cleanup", async () => {

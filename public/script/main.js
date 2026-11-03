@@ -50,6 +50,7 @@ export function mountApplication(target = "#app", options = {}) {
     const timers = createTimers();
     const location = {
       url(value) { if (value === undefined) return router.currentRoute.value.fullPath; router.push(value); return location; },
+      replace(value) { return router.replace(value); },
       path() { return router.currentRoute.value.path; },
       search() { return router.currentRoute.value.query; },
     };

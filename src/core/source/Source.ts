@@ -25,3 +25,11 @@ export interface SourceBase {
   /** Read large trees without retaining every entry. */
   iterateFiles?(progress?: (status: string) => void): AsyncIterable<IFile>;
 }
+
+/** Sum admission size without materializing a large source tree. */
+export async function sourceStorageSize(source: SourceBase): Promise<number> {
+  let bytes = 0;
+  const files = source.iterateFiles ? source.iterateFiles() : await source.getFiles();
+  for await (const file of files) bytes += file.size || 0;
+  return bytes;
+}

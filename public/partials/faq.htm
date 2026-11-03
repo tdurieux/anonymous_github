@@ -12,6 +12,7 @@
       <div class="paper-faq-toc-head">Contents</div>
       <nav>
         <a href="#faq-general">General</a>
+        <a href="#faq-plans">Plans and billing</a>
         <a href="#faq-features">Features</a>
         <a href="#faq-limitations">Limitations</a>
         <a href="#faq-privacy">Privacy &amp; Security</a>
@@ -37,7 +38,7 @@
               <div id="whatIs" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingWhatIs">
                 <div class="panel-body p-3">
                   <p>
-                    Anonymous GitHub is a free, open-source tool that anonymizes GitHub repositories and pull requests
+                    Anonymous GitHub is an open-source tool with free hosting and optional paid plans that anonymizes GitHub repositories and pull requests
                     for double-anonymous (double-blind) peer review. It replaces identifying information &mdash; such as
                     the repository owner, organization name, and custom terms &mdash; so that reviewers cannot determine
                     the identity of the authors through the code repository.
@@ -99,13 +100,148 @@
               <div id="cost" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingCost">
                 <div class="panel-body p-3">
                   <p>
-                    Anonymous GitHub is completely free to use. However, the server costs hundreds of dollars per year
-                    to maintain. If you find the service useful, a small donation would be greatly appreciated. You can
-                    support the project by
-                    <a href="https://github.com/sponsors/tdurieux/" target="_blank">sponsoring on GitHub</a>,
-                    donating through <a href="https://ko-fi.com/tdurieux" target="_blank">Ko-fi</a>, or by clicking
-                    the "Support me" button on the site.
+                    A free account includes 5 owned repositories and 2 GiB of source files. Optional paid plans
+                    offer more capacity, automatic refresh, and, with an author subscription, never-expiring repositories.
+                    Reviewers can read shared repositories without an account or payment.
                   </p>
+                  <p>
+                    See <a href="/profile#settings-billing">Plans and billing</a> for available plans and current prices.
+                    Offers depend on whether payments are enabled on this instance; the checkout shows the amount before
+                    you pay. Subscriptions help fund hosting, storage, backups, and continued maintenance.
+                  </p>
+                  <p>
+                    You can also support development through
+                    <a href="https://github.com/sponsors/tdurieux/" target="_blank" rel="noopener">GitHub Sponsors</a>
+                    or <a href="https://ko-fi.com/tdurieux" target="_blank" rel="noopener">Ko-fi</a>.
+                    Donations are separate from subscriptions and do not automatically unlock paid features.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Plans and billing -->
+          <h4 class="faq-cat" id="faq-plans-title">Plans and billing</h4>
+          <div class="panel-group" id="faq-plans" role="tablist" aria-label="Plans and billing" aria-multiselectable="true">
+            <div class="panel panel-default mb-3">
+              <div class="panel-heading p-3" role="tab" id="headingFreePlan">
+                <h3 class="panel-title">
+                  <a class="collapsed" role="button" data-toggle="collapse" data-parent="#faq-plans" href="#freePlan" aria-expanded="false" aria-controls="freePlan">What is included in a free account?</a>
+                </h3>
+              </div>
+              <div id="freePlan" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingFreePlan">
+                <div class="panel-body p-3">
+                  <p>The default free allowance is 5 repositories you own and 2 GiB of source files in total. Core anonymization and reviewer access remain free. You can manually refresh a repository within your allowance and choose a dated expiration up to one year ahead.</p>
+<p>Repositories shared with you as a coauthor do not use your own slots. Gists and pull requests are not included in these repository quotas. The usage shown in your account is the allowance available on this instance.</p>
+                </div>
+              </div>
+            </div>
+            <div class="panel panel-default mb-3">
+              <div class="panel-heading p-3" role="tab" id="headingAuthorPlans">
+                <h3 class="panel-title">
+                  <a class="collapsed" role="button" data-toggle="collapse" data-parent="#faq-plans" href="#authorPlans" aria-expanded="false" aria-controls="authorPlans">What do monthly and annual author subscriptions include?</a>
+                </h3>
+              </div>
+              <div id="authorPlans" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingAuthorPlans">
+                <div class="panel-body p-3">
+                  <p>Both include 20 owned repositories and 10 GiB of source files in total. They also allow automatic refresh when enabled in repository settings and let the owner choose <strong>Never expire</strong>.</p>
+<p>Monthly and annual plans offer the same features with different billing periods. They renew automatically until you cancel renewal. Current prices are shown in <a href="/profile#settings-billing">Plans and billing</a>.</p>
+<p>Paid plans do not change how anonymization works. File-size limits and other service safeguards still apply. Review your anonymized content before sharing it.</p>
+                </div>
+              </div>
+            </div>
+            <div class="panel panel-default mb-3">
+              <div class="panel-heading p-3" role="tab" id="headingReviewPass">
+                <h3 class="panel-title">
+                  <a class="collapsed" role="button" data-toggle="collapse" data-parent="#faq-plans" href="#reviewPass" aria-expanded="false" aria-controls="reviewPass">Can I pay for one repository without subscribing?</a>
+                </h3>
+              </div>
+              <div id="reviewPass" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingReviewPass">
+                <div class="panel-body p-3">
+                  <p>The author review pass covers one selected repository for 180 days, with a separate 2 GiB allowance and automatic refresh when enabled. It is a one-time purchase and does not renew automatically.</p>
+<p>Enter the anonymized ID of an existing repository you own in <a href="/profile#settings-billing">Plans and billing</a>. A pass does not unlock Never expire and does not override the repository's chosen expiration date.</p>
+                </div>
+              </div>
+            </div>
+            <div class="panel panel-default mb-3">
+              <div class="panel-heading p-3" role="tab" id="headingConferencePlans">
+                <h3 class="panel-title">
+                  <a class="collapsed" role="button" data-toggle="collapse" data-parent="#faq-plans" href="#conferencePlans" aria-expanded="false" aria-controls="conferencePlans">Can a conference or lab pay for a group?</a>
+                </h3>
+              </div>
+              <div id="conferencePlans" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingConferencePlans">
+                <div class="panel-body p-3">
+                  <p>A conference review package provides a shared allowance of 100 repositories and 50 GiB for a review window of up to 180 days. The organizer pays once; the package does not renew automatically. A lab organizing a review can use this shared package too.</p>
+<p>The paid conference must be activated by payment before authors can submit under its Conference ID. Eligible repositories use the conference allowance before an author's personal allowance, so authors do not each need a subscription for that capacity.</p>
+<p>The package has a fixed review window. Never expire still requires the repository owner's monthly or annual author subscription. See the available offer when creating a conference.</p>
+                </div>
+              </div>
+            </div>
+            <div class="panel panel-default mb-3">
+              <div class="panel-heading p-3" role="tab" id="headingPaidCoauthors">
+                <h3 class="panel-title">
+                  <a class="collapsed" role="button" data-toggle="collapse" data-parent="#faq-plans" href="#paidCoauthors" aria-expanded="false" aria-controls="paidCoauthors">Does every coauthor need to pay?</a>
+                </h3>
+              </div>
+              <div id="paidCoauthors" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingPaidCoauthors">
+                <div class="panel-body p-3">
+                  <p>No. Coauthors can collaborate without buying a subscription. A shared repository uses its owner's allowance, unless a repository pass or paid conference covers it. It does not consume each coauthor's personal allowance.</p>
+<p>A coauthor's subscription does not increase the owner's allowance. If the owner's available capacity is exhausted, a coauthor's refresh or edit may also be blocked. Reviewers never need a paid account.</p>
+                </div>
+              </div>
+            </div>
+            <div class="panel panel-default mb-3">
+              <div class="panel-heading p-3" role="tab" id="headingCapacity">
+                <h3 class="panel-title">
+                  <a class="collapsed" role="button" data-toggle="collapse" data-parent="#faq-plans" href="#capacity" aria-expanded="false" aria-controls="capacity">What counts toward my allowance, and what happens at the limit?</a>
+                </h3>
+              </div>
+              <div id="capacity" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingCapacity">
+                <div class="panel-body p-3">
+                  <p>The repository limit counts work you own. Storage counts the source-file sizes reserved for those repositories, not just files a reviewer opens. Archived or failed repositories can still reserve capacity, and a refresh does not automatically reduce a previous storage reservation.</p>
+<p>At the repository limit you cannot add another repository to that allowance. An edit or refresh must also fit the available storage. Remove work you no longer need, choose a paid plan, or use an eligible conference allowance.</p>
+<p>Removing a repository releases its reservation when capacity is next checked. Expired repositories may continue to reserve capacity until cleanup. Reaching a limit does not itself delete existing review links.</p>
+                </div>
+              </div>
+            </div>
+            <div class="panel panel-default mb-3">
+              <div class="panel-heading p-3" role="tab" id="headingNeverExpire">
+                <h3 class="panel-title">
+                  <a class="collapsed" role="button" data-toggle="collapse" data-parent="#faq-plans" href="#neverExpire" aria-expanded="false" aria-controls="neverExpire">What happens to Never expire repositories if I stop subscribing?</a>
+                </h3>
+              </div>
+              <div id="neverExpire" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingNeverExpire">
+                <div class="panel-body p-3">
+                  <p>Never expire is available to monthly and annual author subscribers. If paid access ends, these repositories remain available for a <strong>90-day grace period</strong>, then expire and their hosted content is removed.</p>
+<p>Renewing during the grace period keeps them active. After expiration, you must renew and explicitly reactivate the repository; restoring content also requires access to its GitHub source. A repository does not become public on GitHub when it expires.</p>
+<p>Existing never-expiring repositories created before this billing policy retain their settings. Never expire is not a guarantee of perpetual service availability.</p>
+                </div>
+              </div>
+            </div>
+            <div class="panel panel-default mb-3">
+              <div class="panel-heading p-3" role="tab" id="headingCancelPlan">
+                <h3 class="panel-title">
+                  <a class="collapsed" role="button" data-toggle="collapse" data-parent="#faq-plans" href="#cancelPlan" aria-expanded="false" aria-controls="cancelPlan">How do I cancel, and what happens after paid access ends?</a>
+                </h3>
+              </div>
+              <div id="cancelPlan" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingCancelPlan">
+                <div class="panel-body p-3">
+                  <p>Open <a href="/profile#settings-billing">Plans and billing</a> and choose <strong>Manage billing and invoices</strong> to manage renewal. Cancelling renewal keeps subscription benefits until the end of the paid period.</p>
+<p>After paid access ends, repositories fall back to another eligible allowance or the free allowance. Automatic refresh pauses on the free allowance; manual refresh remains available within its limits. Existing review links keep their configured expiration dates, except paid Never expire repositories, which follow the 90-day grace period described above.</p>
+<p>A repository pass or conference package ends after its paid window without automatic renewal.</p>
+                </div>
+              </div>
+            </div>
+            <div class="panel panel-default mb-3">
+              <div class="panel-heading p-3" role="tab" id="headingPaymentHandling">
+                <h3 class="panel-title">
+                  <a class="collapsed" role="button" data-toggle="collapse" data-parent="#faq-plans" href="#paymentHandling" aria-expanded="false" aria-controls="paymentHandling">How are payments handled?</a>
+                </h3>
+              </div>
+              <div id="paymentHandling" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingPaymentHandling">
+                <div class="panel-body p-3">
+                  <p>Stripe processes checkout and billing management. Anonymous GitHub does not store your card details. You can access billing management and invoices from <a href="/profile#settings-billing">Plans and billing</a>.</p>
+<p>Paid access is activated after payment is confirmed. If checkout succeeds but your account has not updated, choose <strong>Refresh payment status</strong> before trying another purchase. If paid plans are unavailable on this instance, no checkout is offered.</p>
                 </div>
               </div>
             </div>
@@ -197,7 +333,7 @@
                     You can configure one of three expiration strategies when creating your anonymized repository:
                   </p>
                   <ul>
-                    <li><strong>Never expire</strong> &mdash; the anonymized repository remains accessible indefinitely.</li>
+                    <li><strong>Never expire</strong>: with a monthly or annual author subscription, no scheduled expiration while subscribed. A 90-day grace period applies after paid access ends. See <a href="#neverExpire">the subscription expiration policy</a>.</li>
                     <li><strong>Redirect to GitHub</strong> &mdash; after expiration, visitors are redirected to the original GitHub repository.</li>
                     <li><strong>Remove content</strong> &mdash; after expiration, the anonymized content is deleted from the server.</li>
                   </ul>
@@ -235,29 +371,15 @@
               <div id="updates" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingUpdates">
                 <div class="panel-body p-3">
                   <p>
-                    Yes. The anonymized repository tracks the source on GitHub: when you push new commits to the
-                    original repository, the anonymized view picks up those changes (cached files are refreshed
-                    against GitHub). This means you can keep iterating on the code while reviewers have the link,
-                    and you do not need to recreate the anonymized repository every time you update the source.
+                    You can refresh the anonymized repository from GitHub without creating a new share link.
+                    Free accounts can request a manual refresh within their allowance. Automatic refresh requires an
+                    eligible paid allowance and must be enabled in repository settings. It pauses when the repository
+                    falls back to the free allowance.
                   </p>
                   <p>
-                    A few practical implications worth keeping in mind:
+                    After changing files or contributor names, review your anonymization terms before sharing the
+                    updated content. If GitHub access is revoked or the source is deleted, the service cannot fetch updates.
                   </p>
-                  <ul>
-                    <li>
-                      You can safely create the anonymized repository early in the writing process &mdash; later
-                      commits will be visible to reviewers without any additional action.
-                    </li>
-                    <li>
-                      If you rename files, add new identifiers, or introduce new contributor names after creation,
-                      revisit the anonymization options (custom terms, file filters) to make sure the new content
-                      is still properly anonymized.
-                    </li>
-                    <li>
-                      If the original repository is made private or deleted, the anonymized repository will no
-                      longer be able to fetch updated content.
-                    </li>
-                  </ul>
                 </div>
               </div>
             </div>
@@ -336,8 +458,8 @@ anonymous_github</code></pre>
               <div id="data" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingData">
                 <div class="panel-body p-3">
                   <p>
-                    Data stored on Anonymous GitHub is never shared or used for any purpose beyond providing the
-                    anonymization service. When a repository is removed or expires, only its configuration is
+                    Repository data is used to provide the anonymization service. If you purchase a plan, Stripe
+                    processes payment and billing information. When a repository is removed or expires, only its configuration is
                     retained &mdash; this makes it easy to restore the repository if needed and ensures that no
                     future repository reuses the same ID.
                   </p>
@@ -399,6 +521,8 @@ anonymous_github</code></pre>
                 <div class="panel-body p-3">
                   <p>
                     Yes. Anonymous GitHub is fully open source (GPL-3.0) and supports Docker-based deployment.
+                    Billing is optional and disabled by default for self-hosted instances; paid hosted plans are not
+                    required to run your own server.
                     You will need to configure a GitHub OAuth app and provide a GitHub token. Detailed setup
                     instructions are available on the
                     <a href="https://github.com/tdurieux/anonymous_github/" target="_blank">GitHub repository</a>.

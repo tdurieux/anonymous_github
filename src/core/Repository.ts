@@ -1,5 +1,6 @@
+import { allowance, reserveRepository } from "./billing/quotas";
 import { FILE_TREE_BATCH_SIZE, FILE_LISTING_LIMIT, deleteRowsInBatches } from "./file-tree";
-import { SourceBase } from "./source/Source";
+import { SourceBase, sourceStorageSize } from "./source/Source";
 import { notifyOwnerAccessProblem, withOwnerAccessRecovery } from "./owner-notifications";
 import AnonymizedPathModel from "./model/anonymized-path";
 import storage from "./storage";
@@ -264,7 +265,7 @@ export default class Repository {
       const previousPrefix = contentGenerationPrefix(`${previousGeneration || "legacy"}:${this.model.anonymizeDate?.toISOString() || ""}`);
       const streamed = this.model.source.type !== "Zip";
       const source: SourceBase & { truncatedFolderList?: string[] } = this.source;
-      let fileCount = 0;
+      let fileCount = 0, storageBytes = 0;
       let truncatedFolders: string[] = [];
       const generation = randomUUID();
       const buildFilter = { _id: this.model._id,
@@ -300,6 +301,7 @@ export default class Repository {
           const row = file instanceof FileModel ? file.toObject() : file;
           batch.push({ ...row, repoId: this.repoId, treeGeneration: generation, ...(isConnected ? { treeStaged: true } : {}) });
           fileCount++;
+          storageBytes += file.size || 0;
           if (batch.length === FILE_TREE_BATCH_SIZE) await insertBatch();
         }
         if (batch.length) await insertBatch();
@@ -313,6 +315,7 @@ export default class Repository {
           void notifyOwnerAccessProblem(this.owner.id, error, { kind: "repository", id: String(this.model._id) });
           throw error;
         });
+        if (this.model.billingManaged) await reserveRepository(String(this.model.owner), this.repoId, storageBytes, this.model.conference);
         if (isConnected) {
           const activated = await updateRetiringPathIndex(() => ({ _id: this.model._id,
             treeGeneration: previousGeneration || { $exists: false }, ...this.refreshFilter(),
@@ -716,6 +719,10 @@ export default class Repository {
         });
       }
     }
+    // Reviewer visits must not trigger an unaffordable refresh after paid access ends.
+    // Free managed repositories can still be refreshed explicitly by their owner.
+    if (config.BILLING_ENABLED && this.model.billingManaged && !opt?.force &&
+      (await allowance(String(this.model.owner), this.repoId, this.model.conference)).plan === "free") return;
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     if (
@@ -782,6 +789,20 @@ export default class Repository {
         ) {
           logger.info("up to date", { repoId: this._model.repoId });
           return;
+        }
+        // Admit the pinned replacement before changing or deleting the published snapshot.
+        if (config.BILLING_ENABLED && this.model.billingManaged) {
+          const candidateModel = new AnonymizedRepositoryModel(this.model.toObject());
+          candidateModel.source.commit = newCommit;
+          const candidate = new Repository(candidateModel);
+          const storageBytes = await sourceStorageSize(candidate.source);
+          try {
+            await reserveRepository(String(this.model.owner), this.repoId,
+              storageBytes, this.model.conference);
+          } catch (error) {
+            if (!opt?.force && error instanceof Error && error.message === "quota_exceeded") return;
+            throw error;
+          }
         }
         this._model.source.commit = newCommit;
         const commitInfo = await withOwnerAccessRecovery(this.owner.id,
@@ -1044,7 +1065,7 @@ export default class Repository {
   /**
    * Remove the repository
    */
-  async remove(expected?: { accessRevision?: string }) {
+  async remove(expected?: { accessRevision?: string; replacement?: boolean }) {
     if (expected) {
       // Claim the lifecycle before deleting files; migration rejects REMOVING.
       this.assertNotArchived();
@@ -1061,7 +1082,8 @@ export default class Repository {
       await this.updateStatus(RepositoryStatus.REMOVING);
     }
     await this.resetSate();
-    await this.updateStatus(RepositoryStatus.REMOVED);
+    // A source replacement retains its reservation throughout cache retirement.
+    await this.updateStatus(expected?.replacement ? RepositoryStatus.PREPARING : RepositoryStatus.REMOVED);
   }
 
   /**

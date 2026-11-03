@@ -3,6 +3,8 @@ import { Document, Model } from "mongoose";
 import { RepositoryStatus } from "../../types";
 
 export interface IAnonymizedRepository {
+  billingManaged?: boolean;
+  billingNeverExpiresUntil?: Date;
   repoId: string;
   status?: RepositoryStatus;
   statusMessage?: string;

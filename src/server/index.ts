@@ -1,3 +1,5 @@
+import { startBillingMaintenance } from "../core/billing/maintenance";
+import billing, { billingWebhook } from "./routes/billing";
 import { sendRequestRateLimit } from "./request-rate-limit";
 import { installFatalErrorLogging } from "../core/process-monitoring";
 import { githubAppRouter, githubAppWebhook } from "./routes/github-app";
@@ -122,6 +124,7 @@ export default async function start() {
   app.set("query parser", "extended");
   app.use("/service", createReviewCapabilities(process.env.REVIEW_SERVICE_KEYS));
   app.use("/github/app/webhook", githubAppWebhook);
+  app.use("/api/billing/webhook", billingWebhook);
   app.use(express.json());
   // Preserve the empty body used by API validation when no JSON was parsed.
   app.use((req, _res, next) => {
@@ -243,6 +246,7 @@ export default async function start() {
   const apiRouter = express.Router();
   app.use("/api", rate, apiRouter);
 
+  apiRouter.use("/billing", billing);
   apiRouter.use("/maintenance", speedLimiter, maintenanceRouter);
   apiRouter.use("/user/maintenance-tokens", maintenanceTokens);
   apiRouter.use("/admin", router.admin);
@@ -342,6 +346,7 @@ export default async function start() {
   dailyStatsSnapshot();
 
   await connect();
+  await startBillingMaintenance();
   await startTemporaryStorageMaintenance();
   app.listen(config.PORT);
   logger.info("server started", { port: config.PORT });

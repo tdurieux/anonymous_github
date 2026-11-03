@@ -279,7 +279,7 @@ router.post("/", async (req, res) => {
     pullRequest.source.repositoryFullName =
       pullRequestUpdate.source.repositoryFullName;
 
-    pullRequest.conference = pullRequestUpdate.conference;
+    pullRequest.model.conference = pullRequestUpdate.conference;
 
     await pullRequest.model.save();
     await pullRequest.anonymize();

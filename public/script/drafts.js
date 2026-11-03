@@ -49,7 +49,12 @@ export function formDraft(state, fields, key) {
       state.unsavedChanges = serialize() !== baseline;
       return !!restored;
     },
-    checkpoint() { return JSON.parse(serialize()); },
+    checkpoint() {
+      document.querySelectorAll("input, select, textarea").forEach(el => {
+        if (el._field?.binding.state === state && el._field.timer) el._field.commit();
+      });
+      return JSON.parse(serialize());
+    },
     accept(saved) {
       baseline = JSON.stringify(saved);
       state.draftRestored = false;

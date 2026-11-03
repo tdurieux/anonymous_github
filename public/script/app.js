@@ -1,3 +1,4 @@
+import { setupBilling, readBilling } from "./billing.js";
 import { reactive, nextTick } from "vue";
 import { createTimers, createListeners } from "./state.js";
 import { formDraft } from "./drafts.js";
@@ -97,6 +98,19 @@ function previewTabKeydown(event) {
 // Page setup functions run inside Vue effect scopes.
 export const mainController = function (state, http, location, timeout) {
       state.previewTabKeydown = previewTabKeydown;
+      state.headerCanUpgrade = false;
+      state.headerBillingPending = ["success", "portal"].includes(new URLSearchParams(window.location.search).get("billing"));
+      const updateHeaderBilling = billing => {
+        const subscribed = (billing?.grants || []).some(g => ["author_monthly", "author_annual"].includes(g.planId) && ["active", "paid", "past_due"].includes(g.status) && new Date(g.until).getTime() > Date.now());
+        state.headerCanUpgrade = !!billing?.enabled && billing.checkoutEnabled !== false && !subscribed && (billing.plans || []).some(p => ["author_monthly", "author_annual"].includes(p.id));
+      };
+      state.on("billing:updated", (_, billing) => updateHeaderBilling(billing));
+      state.on("billing:pending", (_, pending) => { state.headerBillingPending = pending; });
+      state.openHeaderUpgrade = () => {
+        if (location.path() === "/profile") state.emit("settings:upgrade");
+        else location.url("/profile?upgrade=1");
+      };
+
       state.title = "Main";
       state.user = { status: "connection" };
       state.site_options;
@@ -182,6 +196,7 @@ export const mainController = function (state, http, location, timeout) {
         http.get("/api/user").then(
           (res) => {
             if (res) state.user = res.data;
+            if (state.user?.username) readBilling(http).then(res => updateHeaderBilling(res.data)).catch(() => {});
             if (state.user?.emailNotificationsEnabled && state.user.showEmailPrompt && !state.user.notificationEmail) {
               emailPromptFocus = document.activeElement;
               state.emailPromptOpen = true;
@@ -259,6 +274,26 @@ export const faqController = function (state, http) {
     };
 
 export const profileController = function (state, http, translate, timeout, quotaService) {
+      state.settingsTab = /(?:billing|upgrade)=/.test(window.location.search) ? "billing" : "defaults";
+      state.confirmDeleteAccount = false;
+      state.deleteUsername = "";
+      state.profilePastSubscription = () => !state.profileAuthorGrant() && (state.billing?.grants || []).some(g => ["author_monthly", "author_annual"].includes(g.planId));
+      state.showAuthorPlans = new URLSearchParams(window.location.search).get("upgrade") === "1";
+      state.showRepositoryPass = false;
+      state.profilePlan = "author_monthly";
+      state.openProfileUpgrade = () => {
+        state.settingsTab = "billing";
+        state.showAuthorPlans = true;
+        nextTick(() => document.getElementById("settings-plan-comparison")?.focus());
+      };
+      state.on("settings:upgrade", () => state.openProfileUpgrade());
+      state.profileAuthorPlans = () => (state.billing?.plans || []).filter(p => ["author_monthly", "author_annual"].includes(p.id));
+      state.profileSelectedPlan = () => state.profileAuthorPlans().find(p => p.id === state.profilePlan) || state.profileAuthorPlans()[0];
+      state.profilePassPlan = () => (state.billing?.plans || []).find(p => p.id === "author_pass");
+      state.profileAuthorGrant = () => (state.billing?.grants || []).find(g => ["author_monthly", "author_annual"].includes(g.planId) && ["active", "paid", "past_due"].includes(g.status) && new Date(g.until).getTime() > Date.now());
+      state.profileGrantName = grant => ({ author_monthly: "Author monthly", author_annual: "Author annual", author_pass: "Repository pass", conference: "Conference hosting" }[grant.planId] || grant.planId);
+
+      setupBilling(state, http, () => quotaService.load().then(quota => { state.quota = quota; }, console.error));
       state.terms = "";
       state.options = {
         expirationMode: "remove",
@@ -367,12 +402,7 @@ export const profileController = function (state, http, translate, timeout, quot
       };
 
       state.deleteAccount = () => {
-        if (
-          !confirm(
-            "Delete your account? All your anonymized repositories, gists, and pull requests will be removed, and your personal data will be erased. This cannot be undone."
-          )
-        )
-          return;
+        if (state.deletingAccount || !state.confirmDeleteAccount || state.deleteUsername !== state.user?.username) return;
         state.deletingAccount = true;
         http.delete("/api/user").then(
           () => {
@@ -1140,6 +1170,7 @@ export const prDashboardController = function (state, location) {
 export const statusController = function (state, http, params) {
       const timers = createTimers();
       state.repoId = params.repoId;
+      state.reviewUrl = window.location.origin + "/r/" + encodeURIComponent(params.repoId) + "/";
       state.repo = null;
       state.progress = 0;
       state.rateLimitResetAt = 0;
@@ -1281,6 +1312,72 @@ export const anonymizeController = function (state, http, html, params, location
         ? "gist:" + parsed.gistId.toLowerCase()
         : (parsed.owner + "/" + parsed.repo).toLowerCase() + (parsed.pullRequestId ? "/pull/" + parsed.pullRequestId : "");
       const draft = formDraft(state, ["sourceUrl", "terms", "repoId", "pullRequestId", "gistId", "source", "options", "conference", "githubConnection"], "anonymize:" + (location.path?.() || ""));
+      let restoredCheckoutConference = null;
+      let checkoutDraftId = null;
+      let checkoutDraftSnapshot = null;
+      state.hostingReview = false;
+      state.previewExpanded = false;
+      state.taskValidationError = "";
+      state.editRepository = () => {
+        state.mobilePane = "settings";
+        state.previewExpanded = false;
+        nextTick(() => document.querySelector(".anonymize-fields .is-invalid")?.focus());
+      };
+      state.submitRepository = (event) => {
+        state.taskValidationError = "";
+        if (state.sourceLoading || state.billingBusy || state.hostingSaving || state.billingPending) return;
+        if (expirationDateInvalid() || state.anonymize?.invalid || state.sourceUrlError) {
+          state.taskValidationError = "Check the highlighted fields before continuing.";
+          state.editRepository();
+          return;
+        }
+        if (state.hostingNeedsPayment()) return state.checkoutRepository();
+        return state.anonymizeRepo(event);
+      };
+      state.hostingPayment = false;
+      state.hostingAlternatives = false;
+      state.hostingPrice = plan => {
+        if (plan.amount == null) return "Price shown at checkout";
+        const amount = new Intl.NumberFormat(undefined, { style: "currency", currency: plan.currency, minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(plan.amount / 100);
+        return amount + (plan.interval === "year" ? " billed annually" : " billed monthly");
+      };
+      state.hostingPlan = "author_monthly";
+      state.hostingSaving = false;
+      state.selectedHostingPlan = () => state.authorPlans().find(p => p.id === state.hostingPlan) || state.authorPlans()[0];
+      const loadHostingQuota = () => http.get("/api/user/quota").then(res => { state.hostingQuota = res.data; });
+      setupBilling(state, http, async () => {
+        await loadHostingQuota();
+        state.hostingQuotaBlocked = false;
+      }, { confirmedMessage: "Hosting status refreshed. Your draft is ready to continue." });
+      loadHostingQuota().catch(() => {});
+      state.authorPlans = () => (state.billing?.plans || []).filter(p => ["author_monthly", "author_annual"].includes(p.id));
+      state.hasAuthorHosting = () => ["author_monthly", "author_annual"].includes(state.billing?.allowance?.plan);
+      state.hostingNeedsPayment = () => {
+        if (!state.billing?.enabled || state.detectedType !== "repo" || state.hasAuthorHosting() ||
+            (state.isUpdate && state.role !== "owner")) return false;
+        const needsLifetime = state.options?.expirationMode === "never" && !state._existingNever;
+        // Reported usage may include removed reservations; admission reclaims them.
+        return !!(needsLifetime || (!state.conference && state.hostingQuotaBlocked));
+      };
+      state.checkoutRepository = async (pass = false) => {
+        if (state.hostingSaving || state.billingBusy || !state.billing?.csrf || state.sourceLoading) return;
+        state.hostingSaving = true;
+        state.billingError = "";
+        try {
+          const values = draft.checkpoint();
+          const serialized = JSON.stringify(values);
+          if (!checkoutDraftId || serialized !== checkoutDraftSnapshot) {
+            const saved = await http.post("/api/billing/draft", { path: location.path(), values }, { headers: { "x-csrf-token": state.billing.csrf } });
+            checkoutDraftId = saved.data.id;
+            checkoutDraftSnapshot = serialized;
+          }
+          const plan = state.authorPlans().find(p => p.id === state.hostingPlan) || state.authorPlans()[0];
+          if (!pass && !plan) throw new Error("No author plan available");
+          await state.checkout(pass ? "author_pass" : plan.id, pass ? state.repoId : "", { draftId: checkoutDraftId });
+        } catch { state.billingError = "Your draft could not be saved for checkout. Your form is unchanged. Please try again."; }
+        finally { state.hostingSaving = false; }
+      };
+      state.useDatedHosting = () => { state.options.expirationMode = "remove"; };
       state.discardDraft = async () => {
         draft.discard();
         state.workspaceOpen = !!state.sourceUrl;
@@ -1505,6 +1602,27 @@ export const anonymizeController = function (state, http, html, params, location
       }
 
       async function restoreGitHubDraft() {
+        const billingDraft = new URLSearchParams(window.location.search).get("billingDraft");
+        if (billingDraft) {
+          draft.restore();
+          try {
+            const saved = (await http.get("/api/billing/draft/" + encodeURIComponent(billingDraft))).data;
+            if (saved.path !== location.path()) throw new Error("Wrong task");
+            restoredCheckoutConference = saved.values.conference || null;
+            for (const key of ["sourceUrl", "terms", "repoId", "source", "options", "conference", "githubConnection"]) {
+              if (Object.prototype.hasOwnProperty.call(saved.values, key)) state[key] = saved.values[key];
+            }
+            if (state.options?.expirationDate) state.options.expirationDate = new Date(state.options.expirationDate);
+            checkoutDraftId = saved.id;
+            checkoutDraftSnapshot = JSON.stringify(draft.checkpoint());
+            state.draftRestored = true;
+            state.hostingReview = true;
+            if (state.sourceUrl) await refreshGitHubAccess();
+            // Consume the return token so revisiting the form cannot overwrite newer edits.
+            location.replace?.(location.path());
+            return true;
+          } catch { state.billingError = "The checkout draft could not be restored. Retry by reloading this page; any local draft is still available."; }
+        }
         let saved;
         try { saved = JSON.parse(sessionStorage.getItem("github-access-draft") || "null"); }
         catch (_) { return false; }
@@ -1539,6 +1657,7 @@ export const anonymizeController = function (state, http, html, params, location
               state.terms = res.data.options.terms.filter((f) => f).join("\n");
               state.source = res.data.source;
               state.role = res.data.role || "owner";
+              state._existingNever = res.data.options.expirationMode === "never";
               state.coauthors = res.data.coauthors || [];
               // Remember the saved branch so the source.branch watcher knows
               // not to bump source.commit to GitHub HEAD on edit-page load
@@ -2097,7 +2216,9 @@ export const anonymizeController = function (state, http, html, params, location
         state.conference_data = null;
         if (!conference) return;
         const preserveSavedOptions =
-          state.isUpdate && conference === state._originalConference;
+          conference === restoredCheckoutConference ||
+          (state.isUpdate && conference === state._originalConference);
+        if (conference !== restoredCheckoutConference) restoredCheckoutConference = null;
         http.get("/api/conferences/" + conference).then(
           (res) => {
             if (state.conference !== conference) return;
@@ -2142,6 +2263,7 @@ export const anonymizeController = function (state, http, html, params, location
       // When the picked date fails min/max validation AngularJS sets the model
       // to undefined, so we check both the field validity and the model value.
       function expirationDateInvalid() {
+        if (state.detectedType === "repo" && state.options.expirationMode === "never") return false;
         const field = state.anonymize && state.anonymize.expirationDate;
         if (!state.options.expirationDate || (field && field.invalid)) {
           if (field && field.setDirty) field.setDirty();
@@ -2240,9 +2362,16 @@ export const anonymizeController = function (state, http, html, params, location
       state.anonymizeRepo = (event) => {
         if (state.sourceLoading) { state.error = "Wait for the source to finish loading before saving."; return; }
         if (state.reconnectingSource && !state.reconnectRepositoryId) return;
-        if (expirationDateInvalid()) return;
+        if (expirationDateInvalid()) { state.editRepository(); return; }
         if (state.anonymize?.invalid || state.sourceUrlError) {
+          state.editRepository();
           state.error = "Please correct the highlighted fields before saving.";
+          return;
+        }
+        // Capacity is enforced on the server, which can release removed reservations.
+        if (state.hostingNeedsPayment() && state.options.expirationMode === "never") {
+          state.hostingReview = true;
+          nextTick(() => document.getElementById("repository-hosting")?.scrollIntoView({ block: "center" }));
           return;
         }
         const button = event.currentTarget || event.target.closest?.("button") || event.target;
@@ -2268,6 +2397,12 @@ export const anonymizeController = function (state, http, html, params, location
             if (error.data) {
               translate("ERRORS." + error.data.error).then((t) => { state.error = t; }, console.error);
               displayErrorMessage(error.data.error);
+              if (["quota_exceeded", "subscription_required_for_never_expiration"].includes(error.data.error)) {
+                if (error.data.error === "subscription_required_for_never_expiration") state._existingNever = false;
+                state.hostingQuotaBlocked = true;
+                state.hostingReview = true;
+                nextTick(() => document.getElementById("repository-hosting")?.scrollIntoView({ block: "center" }));
+              }
             }
           }
         ).finally(() => { button.disabled = false;  });
@@ -3247,7 +3382,7 @@ export const newConferenceController = function (state, http, location, params) 
       state.error = "";
 
       function getConference() {
-        http
+        return http
           .get("/api/conferences/" + params.conferenceId)
           .then((res) => {
             state.options = { ...state.options, ...res.data, billing: res.data.billing || {} };
@@ -3274,7 +3409,7 @@ export const newConferenceController = function (state, http, location, params) 
       start.setDate(1);
       start.setMonth(start.getMonth() + 1);
       const end = new Date(start);
-      end.setMonth(start.getMonth() + 7, 0);
+      end.setTime(start.getTime() + 179 * 86400000);
       state.options = {
         billing: {},
         startDate: start,
@@ -3386,6 +3521,7 @@ export const newConferenceController = function (state, http, location, params) 
     };
 
 export const conferenceController = function (state, http, location, params) {
+      setupBilling(state, http, () => getConference(), { confirmedMessage: "Payment status checked. Your conference is ready for submissions once payment is confirmed." });
       state.watch("user.status", () => {
         if (state.user == null) {
           location.url("/");
