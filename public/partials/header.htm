@@ -1,6 +1,6 @@
 <nav class="navbar navbar-expand-lg" :class="{&#x27;navbar-dark&#x27;: isDarkMode}">
   <a class="navbar-brand" href="/">Anonymous <em>GitHub</em></a>
-  <a class="nav-support" href="https://ko-fi.com/tdurieux" target="_blank" rel="noopener" title="Donate on Ko-fi to help cover hosting costs" aria-label="Donate on Ko-fi to help cover hosting costs">
+  <a v-if="headerShowSupport" class="nav-support" href="https://ko-fi.com/tdurieux" target="_blank" rel="noopener" title="Donate on Ko-fi to help cover hosting costs" aria-label="Donate on Ko-fi to help cover hosting costs">
     <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-heart"></use></svg>
     <span class="nav-support-label">Support</span>
   </a>
@@ -103,7 +103,7 @@
             <i class="fab fa-github" aria-hidden="true"></i>
             <span>Source code</span>
           </a>
-          <a class="dropdown-item" href="https://ko-fi.com/tdurieux" target="_blank" rel="noopener">
+          <a v-if="headerShowSupport" class="dropdown-item" href="https://ko-fi.com/tdurieux" target="_blank" rel="noopener">
             <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-heart"></use></svg>
             <span>Support the project</span>
           </a>
