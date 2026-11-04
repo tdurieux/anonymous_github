@@ -131,6 +131,52 @@ describe("Vue 3 UI", function () {
     expect(ui.errors).to.deep.equal([]);
   });
 
+  for (const scenario of [
+    { name: "signed-out visitors", user: null, enabled: true, grants: [], visible: true },
+    { name: "free accounts with billing enabled", enabled: true, grants: [], visible: true },
+    { name: "free accounts with billing disabled", enabled: false, grants: [], visible: true },
+    ...["author_monthly", "author_annual", "author_pass", "conference"].map(planId => ({
+      name: planId + " customers", enabled: true, grants: [{ planId, status: "paid", until: "2099-01-01" }], visible: false,
+    })),
+    { name: "canceled subscriptions with remaining access", enabled: true, grants: [{ status: "active", cancelAtPeriodEnd: true, until: "2099-01-01" }], visible: false },
+    { name: "past-due subscriptions with remaining access", enabled: true, grants: [{ status: "past_due", until: "2099-01-01" }], visible: false },
+    { name: "expired customers", enabled: true, grants: [{ status: "paid", until: "2000-01-01" }], visible: true },
+    { name: "revoked customers", enabled: true, grants: [{ status: "revoked", until: "2099-01-01" }], visible: true },
+  ]) {
+    it("sets header donation visibility for " + scenario.name, async () => {
+      ui = await browser("/faq", {
+        "/api/user": scenario.user === null ? null : { username: "owner" },
+        "/api/billing/": { enabled: scenario.enabled, grants: scenario.grants, plans: [] },
+      });
+      await delay(100);
+      expect(!!ui.window.document.querySelector(".nav-support")).to.equal(scenario.visible);
+      const menuLink = ui.window.document.querySelector('.user-menu a[href="https://ko-fi.com/tdurieux"]');
+      expect(!!menuLink).to.equal(scenario.visible && scenario.user !== null);
+      expect(ui.errors).to.deep.equal([]);
+    });
+  }
+
+  it("waits for billing before showing donation links and reacts to paid access changes", async () => {
+    let resolveBilling;
+    const billing = new Promise(resolve => { resolveBilling = resolve; });
+    ui = await browser("/faq", {
+      "/api/user": { username: "owner" },
+      "/api/billing/": () => billing,
+    });
+    expect(ui.window.document.querySelector(".nav-support")).to.equal(null);
+    resolveBilling({ enabled: true, grants: [], plans: [] });
+    await delay(100);
+    expect(ui.window.document.querySelector(".nav-support")).not.to.equal(null);
+    ui.app.state.emit("billing:updated", { enabled: true, grants: [{ status: "paid", until: "2099-01-01" }] });
+    await delay(30);
+    expect(ui.window.document.querySelector(".nav-support")).to.equal(null);
+    expect(ui.window.document.querySelector('.user-menu a[href="https://ko-fi.com/tdurieux"]')).to.equal(null);
+    ui.app.state.emit("billing:updated", { enabled: true, grants: [] });
+    await delay(30);
+    expect(ui.window.document.querySelector(".nav-support")).not.to.equal(null);
+    expect(ui.errors).to.deep.equal([]);
+  });
+
   it("opens the plan comparison from the global header on another page", async () => {
     ui = await browser("/dashboard", {
       "/api/user": { username: "author" },

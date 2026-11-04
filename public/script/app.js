@@ -99,8 +99,10 @@ function previewTabKeydown(event) {
 export const mainController = function (state, http, location, timeout) {
       state.previewTabKeydown = previewTabKeydown;
       state.headerCanUpgrade = false;
+      state.headerShowSupport = false;
       state.headerBillingPending = ["success", "portal"].includes(new URLSearchParams(window.location.search).get("billing"));
       const updateHeaderBilling = billing => {
+        state.headerShowSupport = !(billing?.grants || []).some(g => ["active", "paid", "past_due"].includes(g.status) && new Date(g.until).getTime() > Date.now());
         const subscribed = (billing?.grants || []).some(g => ["author_monthly", "author_annual"].includes(g.planId) && ["active", "paid", "past_due"].includes(g.status) && new Date(g.until).getTime() > Date.now());
         state.headerCanUpgrade = !!billing?.enabled && billing.checkoutEnabled !== false && !subscribed && (billing.plans || []).some(p => ["author_monthly", "author_annual"].includes(p.id));
       };
@@ -192,6 +194,7 @@ export const mainController = function (state, http, location, timeout) {
           (res) => {
             if (res) state.user = res.data;
             if (state.user?.username) readBilling(http).then(res => updateHeaderBilling(res.data)).catch(() => {});
+            else state.headerShowSupport = true;
             if (state.user?.emailNotificationsEnabled && state.user.showEmailPrompt && !state.user.notificationEmail) {
               emailPromptFocus = document.activeElement;
               state.emailPromptOpen = true;
@@ -205,6 +208,7 @@ export const mainController = function (state, http, location, timeout) {
           },
           () => {
             state.user = null;
+            state.headerShowSupport = true;
           }
         );
       }
