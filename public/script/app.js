@@ -162,11 +162,6 @@ export const mainController = function (state, http, location, timeout) {
           document.head.append(link);
           $(`link[href='${darkPrismLink}']`).remove();
         }
-        const kofiBtn = document.querySelector("[class*='floatingchat-container-wrap'] [class*='floating-chat-kofi-text-container-wrap']");
-        if (kofiBtn) {
-          kofiBtn.style.backgroundColor = on ? "#34312C" : "#1A1815";
-          kofiBtn.style.color = "#FAF9F6";
-        }
         state.emit("dark-mode", on);
       };
 
