@@ -124,3 +124,10 @@ temp/
 
 # GitHub App signing key
 /secrets/github-app.pem
+/secrets/github-app-beta.pem
+
+# Local beta deployment credentials
+/.env.beta
+
+# Isolated Go shadow secrets
+/.env.go-shadow

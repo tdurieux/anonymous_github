@@ -80,6 +80,85 @@ describe("Vue 3 UI", function () {
   let ui;
   afterEach(() => ui?.close());
 
+  it("starts a deep-linked file and editor before directory listings finish", async () => {
+    const pendingDirectories = [];
+    let releaseFile;
+    ui = await browser("/r/access-test/src/nested/hello.js", {
+      "/api/repo/access-test/files/": () => new Promise(resolve => pendingDirectories.push(resolve)),
+      "/api/repo/access-test/file/src/nested/hello.js": () => new Promise(resolve => { releaseFile = resolve; }),
+    });
+    await delay(100);
+    expect(releaseFile, JSON.stringify({requests:ui.requests.map(r=>r.url.pathname),errors:ui.errors})).to.be.a("function");
+    expect(pendingDirectories).to.have.length(3);
+    expect(ui.assets.some(asset => /editor\.[a-f0-9]+\.min\.js$/.test(asset))).to.equal(true);
+    releaseFile("hello without waiting for the tree");
+    await delay(150);
+    expect(ui.window.document.querySelector(".viewer-loading")).to.equal(null);
+    // Navigation metadata failure must not replace a successful file preview.
+    pendingDirectories.forEach(resolve => resolve({__status:503,body:{error:"unreachable"}}));
+    await delay(80);
+    expect(ui.window.document.querySelector(".viewer-error")).to.equal(null);
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("shows file context immediately and cancels a superseded load", async () => {
+    let release;
+    ui = await browser("/r/access-test/hello.js", {
+      "/api/repo/access-test/file/hello.js": () => new Promise(resolve => { release = resolve; }),
+    });
+    const loading = ui.window.document.querySelector(".viewer-loading");
+    expect(loading?.textContent).to.include("Loading file");
+    expect(loading.textContent).to.include("hello.js");
+    expect(loading.getAttribute("aria-busy")).to.equal("true");
+    await delay(1550);
+    expect(loading.textContent).to.include("You can select another file");
+    const pending = ui.requests.find(r => r.url.pathname.endsWith("/file/hello.js"));
+    await ui.go("/r/access-test/other.txt");
+    expect(pending.signal.aborted).to.equal(true);
+    release("outdated file content");
+    await delay(100);
+    expect(ui.window.document.querySelector(".viewer-loading")).to.equal(null);
+    expect(ui.window.document.body.textContent).not.to.include("outdated file content");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  for (const code of ["repo_not_found", "token_expired", "github_app_reconnect_required"]) {
+    it(`explains ${code} without exposing the source and retries after access recovers`, async () => {
+      let recovered = false;
+      ui = await browser("/r/access-test/hello.js", {
+        "/api/repo/access-test/file/hello.js": () => recovered ? "recovered content" : {
+          __status: 404, body: { error: code, detail: "private-owner/private-source", token: "secret" },
+        },
+      });
+      await delay(100);
+      const panel = ui.window.document.querySelector(".viewer-error");
+      expect(panel?.textContent).to.include("GitHub access needs attention");
+      expect(panel.textContent).to.include("You do not need to sign in");
+      expect(panel.textContent).to.include("Keep the existing anonymous URL");
+      expect(panel.textContent).not.to.include("private-owner");
+      expect(panel.textContent).not.to.include("secret");
+      recovered = true;
+      panel.querySelector("button").click();
+      await delay(150);
+      expect(ui.window.document.querySelector(".viewer-error")).to.equal(null);
+      expect(ui.requests.filter(request => request.url.pathname.endsWith("/file/hello.js"))).to.have.length(2);
+      expect(ui.errors).to.deep.equal([]);
+    });
+  }
+
+  it("offers a safe retry for an unrecognized gateway response", async () => {
+    ui = await browser("/r/access-test/hello.js", {
+      "/api/repo/access-test/options": { __status: 403, body: "<html>private diagnostic</html>" },
+    });
+    await delay(100);
+    const panel = ui.window.document.querySelector(".viewer-error");
+    expect(panel?.textContent).to.include("We could not load this content");
+    expect(panel.textContent).not.to.include("private diagnostic");
+    expect(panel.textContent).not.to.include("GitHub access needs attention");
+    expect(panel.querySelector("button").textContent).to.equal("Try again");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
   const repositorySource = {
     "/api/user": { username: "owner" },
     "/api/user/default": { terms: ["Default Author"], options: {} },
@@ -468,6 +547,37 @@ describe("Vue 3 UI", function () {
     expect(ui.errors).to.deep.equal([]);
   });
 
+  it("shows cache budgets and filters monitoring traffic without confusing unavailable data with zero", async function () {
+    ui = await browser("/", { "/api/user": { username: "admin", isAdmin: true },
+      "/api/admin/overview": { history: [] },
+      "/api/admin/cache": { available: true, enabled: true, filesystemSupported: true, sampledAt: Date.now(),
+        source: { allocatedBytes: 4096, budgetBytes: 65536, reservedBytes: 0, originalBytes: 19000, blobs: 1, activeReaders: 0 },
+        latencyBucketsMs: [0.1, 1, 10, 100, 1000, 10000],
+        rows: [{ name: "source_hit", traffic: "file", count: 4, bytes: 400, ms: 0 },
+          { name: "source_miss", traffic: "file", count: 1, bytes: 100, ms: 0 },
+          { name: "source_hit", traffic: "monitor", count: 10, bytes: 1000, ms: 0 }] } });
+    await ui.go("/admin/");
+    const panel = ui.window.document.querySelector(".ov-cache");
+    expect(panel.textContent).to.include("4.0 KB / 64.0 KB");
+    await ui.input("#cache-traffic", "file", "change");
+    expect(panel.textContent).to.include("80.0%");
+    await ui.input("#cache-traffic", "zip", "change");
+    expect(panel.textContent).to.include("No cache events");
+    await ui.input("#cache-window", "1440", "change");
+    expect(ui.requests.filter(r => r.url.pathname === "/api/admin/cache").at(-1).url.searchParams.get("minutes")).to.equal("1440");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("shows unavailable cache telemetry with a retry action", async function () {
+    ui = await browser("/", { "/api/user": { username: "admin", isAdmin: true },
+      "/api/admin/overview": { history: [] }, "/api/admin/cache": { available: false, reason: "Cache index unavailable" } });
+    await ui.go("/admin/");
+    const panel = ui.window.document.querySelector(".ov-cache");
+    expect(panel.querySelector('[role="alert"]').textContent).to.include("Cache index unavailable");
+    expect(panel.querySelector("button").textContent).to.equal("Retry");
+    expect(panel.textContent).not.to.include("Source request hit rate"); expect(ui.errors).to.deep.equal([]);
+  });
+
   it("shows latency bounds, interruptions and resource samples on the admin overview", async function () {
     const sample = { instance: "streamer:fixture", service: "streamer", sampledAt: Date.now(), cpuPercent: 2,
       memory: { rss: 16 * 1024 * 1024 }, memoryLimitBytes: 128 * 1024 * 1024,
@@ -501,6 +611,23 @@ describe("Vue 3 UI", function () {
     expect(stageRows[0].textContent).to.include("cache_hit");
     await ui.input('select[aria-label="Performance time range"]', "60", "change");
     expect(ui.requests.filter(request => request.url.pathname === "/api/admin/performance").at(-1).url.searchParams.get("minutes")).to.equal("60");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("renders Go process samples without inventing event-loop or initial CPU measurements", async function () {
+    const sample = { instance: "api:go-fixture", runtime: "go", service: "api", sampledAt: Date.now(),
+      cpuPercent: null, memory: { rss: 16 * 1024 * 1024 }, memoryLimitBytes: null,
+      eventLoop: { available: false, p95Ms: null }, activeRequests: 1, sockets: null,
+      workers: { running: 1, waiting: 0 }, droppedBatches: 0, droppedMetrics: 0 };
+    ui = await browser("/", { "/api/user": { username: "admin", isAdmin: true },
+      "/api/admin/overview": { history: [] },
+      "/api/admin/performance": { available: true, instances: [sample], routes: [], stages: [], runtimeSeries: [] } });
+    await ui.go("/admin/");
+    const row = ui.window.document.querySelector("#performance-processes tbody tr");
+    expect(row.textContent).to.include("api:go-fixture");
+    expect(row.textContent).to.include("Unavailable");
+    expect(row.textContent).to.include("Not applicable");
+    expect(row.textContent).not.to.include("NaN");
     expect(ui.errors).to.deep.equal([]);
   });
 

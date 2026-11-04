@@ -1,0 +1,14 @@
+[
+  {
+    "name": "cache",
+    "concurrency": 5
+  },
+  {
+    "name": "download",
+    "concurrency": 3
+  },
+  {
+    "name": "remove",
+    "concurrency": 5
+  }
+]

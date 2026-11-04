@@ -42,11 +42,42 @@ npm install -g @tdurieux/anonymous_github
 anonymous_github
 ```
 
+### LLM and automation clients
+
+Use expiring, repository-scoped maintenance tokens to inspect saved status,
+edit anonymization settings, refresh snapshots, and extend expiration.
+A signed-in owner or coauthor can issue and revoke tokens through
+`/api/user/maintenance-tokens`. See the [client guide](public/llms.txt) and
+[OpenAPI description](public/maintenance-openapi.json), also served at
+`/llms.txt` and `/maintenance-openapi.json` on each instance.
+These tokens cannot access GitHub previews, file downloads, or admin routes.
+
 ## Self-hosting
+
+Docker now runs the Go backend, including streaming and background workers. See the [Go deployment and cutover guide](backend/README.md#default-deployment) before upgrading an existing installation. It covers queue handoff, storage permissions, staging checks and the preserved Node rollback stack. A full production staging rehearsal is still required before cutover.
+
+The following Node instructions also support the CLI, asset build and rollback backend.
 
 Local installation requires Node.js 22.15 or newer in the 22.x series,
 24.x, or 26 or newer. Run `npm ci` and `npm run build` to install and build.
 `npm run dev` uses Node's watch mode; `npm run build:ui` rebuilds browser assets.
+
+For the November 2026 dependency update, install from the committed lockfile
+with `npm ci`, rebuild with `npm run build`, and restart the API and streamer
+services together. Docker installations should rebuild the application image.
+The Node dependency update alone does not change MongoDB documents, Redis keys,
+or queue formats. Switching to Go requires the separate cutover procedure linked above. Existing credential
+migration requirements still apply when upgrading from an older release.
+
+The [`glob`](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4) and
+[`minimatch`](https://github.com/advisories/GHSA-g3hv-75wg-m249) overrides select security fixes unavailable through
+the dependency ranges of archive and development tools. Keep them until those
+packages accept patched versions. CI checks the full dependency audit and runs
+MongoDB migration, Redis session, and archive compatibility tests on Node 22
+and 24. To run the database tests locally, point `TEST_MONGODB_URI` and
+`PERFORMANCE_MONGO_URI` at disposable MongoDB databases and set
+`PERFORMANCE_REDIS_PORT` to a disposable Redis instance. The performance database
+name must begin with `perf_test_`; these tests delete their test data.
 
 <details>
 <summary>Run your own instance with Docker</summary>
@@ -72,6 +103,8 @@ PORT=5000
 DB_USERNAME=
 DB_PASSWORD=
 AUTH_CALLBACK=http://localhost:5000/github/auth
+SESSION_SECRET=<random-session-secret>
+COOKIE_SECURE=false
 ```
 
 - `GITHUB_TOKEN` — create one at <https://github.com/settings/tokens/new> with the `repo` scope.
@@ -85,8 +118,11 @@ the [GitHub App setup guide](docs/github-app-setup.md).
 **3. Start the server**
 
 ```bash
-docker-compose up -d
+install -d -m 0750 -o 10001 -g 10001 repositories
+docker compose up -d --build
 ```
+
+The storage command requires permission to set ownership. For an existing storage directory, apply your ownership or ACL policy without replacing its contents. Use `COOKIE_SECURE=true` with HTTPS in production.
 
 **4. Open** <http://localhost:5000>. The port can be changed in `docker-compose.yml`; putting Anonymous GitHub behind nginx is recommended for HTTPS.
 

@@ -1,6 +1,19 @@
 import { reactive, nextTick } from "vue";
+import { loadEditor } from "./lazy-assets.js";
 import { createTimers, createListeners } from "./state.js";
 import { formDraft } from "./drafts.js";
+import translations from "../i18n/locale-en.json";
+
+function viewerErrorCode(error) {
+  let data = error?.data;
+  if (typeof data === "string") {
+    try { data = JSON.parse(data); } catch (_) { data = null; }
+  }
+  if (typeof data?.error === "string" && Object.prototype.hasOwnProperty.call(translations.ERRORS, data.error)) return data.error;
+  if (error?.status === -1 || error?.status === 0) return "request_error";
+  if ([502, 503, 504].includes(error?.status)) return "unreachable";
+  return "unknown_error";
+}
 
 function previewTabKeydown(event) {
   if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
@@ -2153,10 +2166,19 @@ export const exploreController = function (state, http, location, params, html, 
           }
         });
       let contentGeneration = 0;
+      let contentCanceller = null;
+      let loadingNoticeTimer = null;
+      state.fileLoadingSlow = false;
+      state.fileReceivedBytes = 0;
+      function cancelContentLoad() {
+        if (contentCanceller) { contentCanceller.resolve(); contentCanceller = null; }
+        if (loadingNoticeTimer) { timers.timeout.cancel(loadingNoticeTimer); loadingNoticeTimer = null; }
+      }
       let destroyed = false;
       state.on("dispose", () => {
         destroyed = true;
         contentGeneration++;
+        cancelContentLoad();
         if (searchCanceller) searchCanceller.resolve();
       });
       state.files = [];
@@ -2361,7 +2383,7 @@ export const exploreController = function (state, http, location, params, html, 
         }
       }
       state.fileCounts = null;
-      state.getFiles = function (path) {
+      state.getFiles = function (path, background = false) {
         const repoId = state.repoId;
         return http.get(
           `/api/repo/${state.repoId}/files/?path=${encodeURIComponent(path)}&v=${state.options.lastUpdateDate}`
@@ -2373,9 +2395,11 @@ export const exploreController = function (state, http, location, params, html, 
           return res.data;
         }, function (err) {
           if (destroyed || repoId !== state.repoId) return [];
-          state.type = "error";
-          state.content = (err && err.data && err.data.error) || "unknown_error";
-          state.files = [];
+          if (!background) {
+            state.type = "error";
+            state.content = viewerErrorCode(err);
+            state.files = [];
+          }
         });
       };
       function fetchFileCounts() {
@@ -2444,7 +2468,7 @@ export const exploreController = function (state, http, location, params, html, 
               timers.timeout(function () { getOptions(callback); }, 3000);
             } else {
               state.type = "error";
-              state.content = data.error;
+              state.content = viewerErrorCode(err);
             }
           }
         );
@@ -2511,8 +2535,18 @@ export const exploreController = function (state, http, location, params, html, 
           return;
         }
         const originalType = state.type;
+        // Load the editor alongside content, not after the response finishes.
+        // Its mounting path still reports errors and can retry a failed load.
+        if (originalType === "code" || originalType === "text") loadEditor().catch(() => {});
         state.type = "loading";
         state.content = "loading";
+        state.fileLoadingSlow = false;
+        state.fileReceivedBytes = 0;
+        const canceller = promises.defer();
+        contentCanceller = canceller;
+        loadingNoticeTimer = timers.timeout(() => {
+          if (!destroyed && generation === contentGeneration && state.type === "loading") state.fileLoadingSlow = true;
+        }, 1500);
         // fileInfo can be undefined when the user navigates (e.g. clicks a
         // markdown link into a subdir whose file list hasn't loaded yet) —
         // see #510. Fall back to "0" so the request still goes through; the
@@ -2523,6 +2557,10 @@ export const exploreController = function (state, http, location, params, html, 
             `/api/repo/${state.repoId}/file/${encodePathForUrl(path)}?v=` +
               sha,
             {
+              timeout: canceller.promise,
+              onDownloadProgress: bytes => {
+                if (!destroyed && generation === contentGeneration) state.fileReceivedBytes = bytes;
+              },
               transformResponse: (data) => {
                 return data;
               },
@@ -2531,6 +2569,7 @@ export const exploreController = function (state, http, location, params, html, 
           .then(
             (res) => {
               if (destroyed || generation !== contentGeneration) return;
+              cancelContentLoad();
               state.type = originalType;
               state.content = res.data;
               if (state.content == "") {
@@ -2568,30 +2607,16 @@ export const exploreController = function (state, http, location, params, html, 
             },
             (err) => {
               if (destroyed || generation !== contentGeneration) return;
+              cancelContentLoad();
               state.type = "error";
-              state.content = "unknown_error";
-              try {
-                err.data = JSON.parse(err.data);
-                if (err.data.error) {
-                  state.content = err.data.error;
-                } else {
-                  state.content = err.data;
-                }
-              } catch (ignore) {
-                console.log(err);
-                if (err.status == -1) {
-                  state.content = "request_error";
-                } else if (err.status == 502) {
-                  // cloudflare error
-                  state.content = "unreachable";
-                }
-              }
+              state.content = viewerErrorCode(err);
             }
           );
       }
 
       function updateContent() {
         contentGeneration++;
+        cancelContentLoad();
         state.content = "";
         state.file = getSelectedFile();
         let fileVersion = "0";
@@ -2756,8 +2781,13 @@ export const exploreController = function (state, http, location, params, html, 
         getContent(state.filePath, state.file);
       }
 
+      state.isSourceAccessError = () => ["repo_not_found", "token_expired", "github_app_access_required",
+        "github_app_reconnect_required", "repo_saml_enforcement", "repo_access_limited"].includes(state.content);
+      state.retryContent = () => init();
+
       function init() {
         contentGeneration++;
+        cancelContentLoad();
         state.files = [];
         state.content = null;
         state.fileCounts = null;
@@ -2771,6 +2801,14 @@ export const exploreController = function (state, http, location, params, html, 
         const repoId = state.repoId;
         getOptions(function (options) {
           fetchFileCounts();
+          if (state.filePath) {
+            // File URLs are independently authorized by the content endpoint.
+            // The tree is navigation metadata, not a prerequisite for reading.
+            updateContent();
+            const directories = [...new Set(state.paths.map((_, i) => state.paths.slice(0, i).join("/")))];
+            promises.all(directories.map(path => state.getFiles(path, true)));
+            return;
+          }
           var chain = promises.resolve();
           for (let i = 0; i < state.paths.length; i++) {
             const path = i > 0 ? state.paths.slice(0, i).join("/") : "";

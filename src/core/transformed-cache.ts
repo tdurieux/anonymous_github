@@ -1,3 +1,4 @@
+import { observeCache } from "./cache-observability";
 import { promises as fs } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
@@ -63,9 +64,9 @@ export async function transformedFile(digest: string, options: unknown, output: 
   };
   const hit = await read();
   if (hit !== undefined) {
-    try { const copied = await copyCached(hit); recordCacheHit("transformed", true); return copied; } catch { /* eviction: retry the transformation */ }
+    try { const copied = await copyCached(hit); recordCacheHit("transformed", true); observeCache("legacy_result_hit"); return copied; } catch { /* eviction: retry the transformation */ }
   }
-  recordCacheHit("transformed", false);
+  recordCacheHit("transformed", false); observeCache("legacy_result_miss");
   const pending = fills.get(key);
   if (pending) {
     await pending.catch(() => {});

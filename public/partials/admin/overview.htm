@@ -276,6 +276,57 @@
 
   </div>
 
+  <section class="ov-panel-card ov-cache" aria-labelledby="cache-heading">
+    <div class="ov-panel-head ov-performance-head">
+      <div><h2 class="ov-panel-title" id="cache-heading">Cache</h2>
+        <p class="ov-performance-note">Shared storage, repeated reads and anonymization work · refreshes every 30 seconds</p></div>
+      <div class="ov-performance-window">
+        <label for="cache-window">Time range</label>
+        <select id="cache-window" class="form-control form-control-sm" v-model.number="cacheMinutes" @change="loadCache()">
+          <option :value="15">Last 15 minutes</option><option :value="60">Last hour</option>
+          <option :value="1440">Last 24 hours</option><option :value="10080">Last 7 days</option>
+        </select>
+        <label for="cache-traffic">Traffic</label>
+        <select id="cache-traffic" class="form-control form-control-sm" v-model="cacheTraffic">
+          <option value="all">All traffic</option><option value="file">File reads</option><option value="website">Website rendering</option>
+          <option value="zip">ZIP downloads</option><option value="monitor">Known monitors</option><option value="background">Background work</option>
+        </select>
+      </div>
+    </div>
+    <div v-if="cacheError" class="ov-performance-message ov-performance-warning" role="alert">
+      <span>{{ cacheError }}</span><button type="button" class="btn btn-sm" @click="loadCache()">Retry</button>
+    </div>
+    <p v-if="!cacheReport &amp;&amp; !cacheError" class="ov-performance-empty" role="status">Loading cache monitoring…</p>
+    <template v-if="cacheReport?.available">
+      <p v-if="!cacheReport.enabled" class="ov-performance-note">Shared blob storage is disabled. Inspection and legacy-cache activity are still measured.</p>
+      <p v-if="!cacheReport.filesystemSupported" class="ov-performance-note">Shared blobs require a local filesystem. The configured storage continues to use its existing cache.</p>
+      <p v-if="cacheReport.dropped" class="ov-performance-message ov-performance-warning" role="status">{{ cacheReport.dropped }} telemetry events were dropped. Totals may be incomplete.</p>
+      <div class="ov-metrics-scroll" tabindex="0" role="region" aria-label="Cache storage budgets" v-if="cacheReport.source">
+        <table class="ov-metrics-table">
+          <caption class="sr-only">Current shared-cache storage and byte budgets</caption>
+          <thead><tr><th scope="col">Pool</th><th scope="col">Allocated / budget</th><th scope="col">Reserved for fills</th><th scope="col">Original bytes</th><th scope="col">Blobs</th><th scope="col">Active readers</th></tr></thead>
+          <tbody><tr v-for="pool in [{name: 'Source blobs', data: cacheReport.source}, {name: 'Transformed output', data: cacheReport.results}]" :key="pool.name" v-show="pool.data">
+            <th scope="row">{{ pool.name }}</th><td>{{ humanBytes(pool.data?.allocatedBytes) }} / {{ humanBytes(pool.data?.budgetBytes) }}</td>
+            <td>{{ humanBytes(pool.data?.reservedBytes) }}</td><td>{{ humanBytes(pool.data?.originalBytes) }}</td>
+            <td>{{ pool.data?.blobs }}</td><td>{{ pool.data?.activeReaders }}</td></tr></tbody>
+        </table>
+      </div>
+      <p class="ov-performance-note" v-if="cacheReport.source">Source request hit rate: {{ cacheRate('source', 'count') }} · Source byte hit rate: {{ cacheRate('source', 'bytes') }} · Decision hit rate: {{ cacheRate('decision', 'count') }}</p>
+      <p class="ov-performance-note">Reuse counts measure consecutive reads of the same blob within each interval. Codec timings are elapsed stream time, not CPU time; eviction times measure how long a blob was idle. Known monitors are identified by request metadata; other automation may remain in file reads.</p>
+      <div v-if="cacheRows().length" class="ov-metrics-scroll" tabindex="0" role="region" aria-label="Cache events and processing durations">
+        <table class="ov-metrics-table">
+          <caption class="sr-only">Cache events for the selected time range and traffic</caption>
+          <thead><tr><th scope="col">Event</th><th scope="col">Traffic</th><th scope="col">Count</th><th scope="col">Bytes</th><th scope="col">Mean measured time</th><th scope="col">p95 bound</th></tr></thead>
+          <tbody><tr v-for="row in cacheRows()" :key="row.name + ':' + row.traffic">
+            <th scope="row">{{ cacheEventName(row.name) }}</th><td>{{ row.traffic }}</td><td>{{ row.count }}</td><td>{{ humanBytes(row.bytes) }}</td>
+            <td>{{ row.ms ? (row.ms / row.count).toFixed(2) + " ms" : "Not timed" }}</td><td>{{ cacheP95(row) }}</td></tr></tbody>
+        </table>
+      </div>
+      <p v-else class="ov-performance-empty" role="status">No cache events in this time range for the selected traffic.</p>
+      <p class="ov-performance-note">Updated {{ sampleAge(cacheReport) }} seconds ago. Minute history is retained for 48 hours; hourly history for 30 days.</p>
+    </template>
+  </section>
+
   <section class="ov-panel-card ov-performance" aria-labelledby="performance-heading">
     <div class="ov-panel-head ov-performance-head">
       <div>
@@ -326,7 +377,7 @@
             <tbody><tr v-for="sample in performance.instances" :key="sample.instance" :class="{'ov-metric-warning-row': performanceWarning(sample)}">
               <th scope="row" class="ov-metric-name"><span>{{ sample.instance }}</span><small class="ov-metric-warn" v-if="performanceWarning(sample)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-warning"></use></svg> Needs attention</small></th>
               <td class="num">{{ humanBytes(sample.memory.rss) }} / {{ humanBytes(sample.memoryLimitBytes) }}<small>Peak {{ humanBytes(peakRss(sample)) }}</small></td>
-              <td class="num">{{ sample.cpuPercent.toFixed(1) }}%</td><td class="num">{{ sample.eventLoop.p95Ms.toFixed(1) }} ms</td>
+              <td class="num">{{ sample.cpuPercent == null ? 'Unavailable' : sample.cpuPercent.toFixed(1) + '%' }}</td><td class="num">{{ sample.eventLoop?.p95Ms == null ? 'Not applicable' : sample.eventLoop.p95Ms.toFixed(1) + ' ms' }}</td>
               <td class="num">{{ sample.activeRequests }}</td><td class="num">{{ sample.sockets?.descriptors ?? 'Unavailable' }} / {{ sample.sockets?.closeWait ?? 'Unavailable' }}</td>
               <td class="num">{{ sample.workers?.running ?? 0 }} / {{ sample.workers?.waiting ?? 0 }}</td><td class="num">{{ sampleAge(sample) }} s</td>
               <td class="num">{{ sample.droppedBatches }} / {{ sample.droppedMetrics }}</td>

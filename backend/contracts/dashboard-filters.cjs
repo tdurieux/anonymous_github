@@ -1,0 +1,9 @@
+const fs=require('node:fs'),assert=require('node:assert/strict'),ts=require('typescript'),{Types}=require('mongoose'),{BSON}=require('bson');
+const source=fs.readFileSync('src/server/routes/dashboard-summary.ts','utf8');
+const body=source.slice(source.indexOf('const fields:'),source.indexOf('export async function dashboardSummary'));
+class AnonymousError extends Error{}
+const exportsObject={};new Function('exports','Types','PullRequest','Gist','DashboardName','AnonymousError',ts.transpile(body,{target:ts.ScriptTarget.ES2020,module:ts.ModuleKind.CommonJS}))(exportsObject,Types,{collection:{name:'prs'}},{collection:{name:'gists'}},{collection:{name:'names'}},AnonymousError);
+const user={id:'111111111111111111111111',repositoryMembership:()=>({$or:[{owner:'111111111111111111111111'}]})};
+const queries=[{}, {type:'repo'}, {type:'pr'}, {type:'gist'}, {type:'unknown'}, {type:['repo','gist']},{attention:'true'},{attention:'false'},{attention:['true','true']},...['','ready','ready,removed','invalid','ready,,error,ready'].map(statuses=>({statuses})),{statuses:['ready','removed']},{statuses:['','']},...['plain','  text  ','[a].*+?^${}()|\\','\ufefftext\ufeff','\u0085text\u0085','é'.repeat(256)+'tail','😀'.repeat(128)+'tail','a'.repeat(255)+'😀','a'.repeat(254)+'😀tail'].map(q=>({q})),{q:['first','second']},{q:['','']},{q:['  first','second  ']}];
+const cases=queries.map(query=>{const pipeline=exportsObject.dashboardPipeline(user,query);const filter=pipeline.at(-1).$facet.filtered[0].$match;return {query,expected:BSON.deserialize(BSON.serialize(filter))};});
+const path='backend/internal/server/testdata/dashboard-filters.json',output=JSON.stringify(cases,null,2)+'\n';if(process.argv.includes('--check'))assert.equal(fs.readFileSync(path,'utf8'),output);else fs.writeFileSync(path,output);console.log(`${cases.length} TypeScript dashboard filter contracts verified`);

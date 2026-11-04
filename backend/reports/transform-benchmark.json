@@ -1,0 +1,312 @@
+{
+  "measuredAt": "2026-11-02T07:33:36.343Z",
+  "method": "Three fresh processes per runtime, alternating order; transform only, excludes compilation, I/O, child startup and fixture generation. Synthetic data, not production load.",
+  "comparison": [
+    {
+      "name": "2 MB CSV, 47 absent terms",
+      "nodeMedianMs": 7.438604999999825,
+      "goMedianMs": 2.247,
+      "speedup": 3.310460614152125,
+      "sha256": "b3882940c0ad7a4f8e1385dcd3e32122c721f26b90144bb820b542e394f379cd"
+    },
+    {
+      "name": "100 MB CSV, 47 absent terms",
+      "nodeMedianMs": 234.2948919999999,
+      "goMedianMs": 117.23,
+      "speedup": 1.998591589183655,
+      "sha256": "fcccff214b1f6838f5d9345237f5252cd57e2263fc95640b2a3a5278156eec48"
+    },
+    {
+      "name": "50 MB CSV, sparse matches",
+      "nodeMedianMs": 509.48461799999995,
+      "goMedianMs": 593.558,
+      "speedup": 0.8583569221541955,
+      "sha256": "153ce777c4473651a70f3f2f830cac5930214f6b998c08094939646193b0f9f0"
+    },
+    {
+      "name": "22 MB text, 1.2 million replacements",
+      "nodeMedianMs": 373.11418800000047,
+      "goMedianMs": 503.779,
+      "speedup": 0.7406306892506446,
+      "sha256": "4e649aee83a6f15cb7178f725991ff5405affe013b0bba0b6eda18689c5c0249"
+    }
+  ],
+  "samples": [
+    {
+      "run": 0,
+      "implementation": "node",
+      "runtime": "v24.14.1",
+      "name": "2 MB CSV, 47 absent terms",
+      "inputBytes": 1960000,
+      "outputBytes": 1960000,
+      "compileMs": 157.8505640000003,
+      "matchMs": 14.796227999999246,
+      "sha256": "b3882940c0ad7a4f8e1385dcd3e32122c721f26b90144bb820b542e394f379cd"
+    },
+    {
+      "run": 0,
+      "implementation": "node",
+      "runtime": "v24.14.1",
+      "name": "100 MB CSV, 47 absent terms",
+      "inputBytes": 100800000,
+      "outputBytes": 100800000,
+      "compileMs": 0.09445300000061252,
+      "matchMs": 385.5493370000004,
+      "sha256": "fcccff214b1f6838f5d9345237f5252cd57e2263fc95640b2a3a5278156eec48"
+    },
+    {
+      "run": 0,
+      "implementation": "node",
+      "runtime": "v24.14.1",
+      "name": "50 MB CSV, sparse matches",
+      "inputBytes": 50400041,
+      "outputBytes": 50400014,
+      "compileMs": 0.07295400000020891,
+      "matchMs": 550.3266210000002,
+      "sha256": "153ce777c4473651a70f3f2f830cac5930214f6b998c08094939646193b0f9f0"
+    },
+    {
+      "run": 0,
+      "implementation": "node",
+      "runtime": "v24.14.1",
+      "name": "22 MB text, 1.2 million replacements",
+      "inputBytes": 21600000,
+      "outputBytes": 19800000,
+      "compileMs": 13.61435900000015,
+      "matchMs": 373.11418800000047,
+      "sha256": "4e649aee83a6f15cb7178f725991ff5405affe013b0bba0b6eda18689c5c0249"
+    },
+    {
+      "run": 0,
+      "implementation": "go",
+      "allocatedBytes": 288,
+      "compileMs": 7.598,
+      "inputBytes": 1960000,
+      "matchMs": 2.305,
+      "name": "2 MB CSV, 47 absent terms",
+      "outputBytes": 1960000,
+      "runtime": "go1.27.3",
+      "sha256": "b3882940c0ad7a4f8e1385dcd3e32122c721f26b90144bb820b542e394f379cd"
+    },
+    {
+      "run": 0,
+      "implementation": "go",
+      "allocatedBytes": 288,
+      "compileMs": 5.31,
+      "inputBytes": 100800000,
+      "matchMs": 117.23,
+      "name": "100 MB CSV, 47 absent terms",
+      "outputBytes": 100800000,
+      "runtime": "go1.27.3",
+      "sha256": "fcccff214b1f6838f5d9345237f5252cd57e2263fc95640b2a3a5278156eec48"
+    },
+    {
+      "run": 0,
+      "implementation": "go",
+      "allocatedBytes": 201666368,
+      "compileMs": 3.38,
+      "inputBytes": 50400041,
+      "matchMs": 549.325,
+      "name": "50 MB CSV, sparse matches",
+      "outputBytes": 50400014,
+      "runtime": "go1.27.3",
+      "sha256": "153ce777c4473651a70f3f2f830cac5930214f6b998c08094939646193b0f9f0"
+    },
+    {
+      "run": 0,
+      "implementation": "go",
+      "allocatedBytes": 114614864,
+      "compileMs": 4.315,
+      "inputBytes": 21600000,
+      "matchMs": 486.411,
+      "name": "22 MB text, 1.2 million replacements",
+      "outputBytes": 19800000,
+      "runtime": "go1.27.3",
+      "sha256": "4e649aee83a6f15cb7178f725991ff5405affe013b0bba0b6eda18689c5c0249"
+    },
+    {
+      "run": 1,
+      "implementation": "go",
+      "allocatedBytes": 288,
+      "compileMs": 5.263,
+      "inputBytes": 1960000,
+      "matchMs": 1.576,
+      "name": "2 MB CSV, 47 absent terms",
+      "outputBytes": 1960000,
+      "runtime": "go1.27.3",
+      "sha256": "b3882940c0ad7a4f8e1385dcd3e32122c721f26b90144bb820b542e394f379cd"
+    },
+    {
+      "run": 1,
+      "implementation": "go",
+      "allocatedBytes": 288,
+      "compileMs": 6.292,
+      "inputBytes": 100800000,
+      "matchMs": 115.855,
+      "name": "100 MB CSV, 47 absent terms",
+      "outputBytes": 100800000,
+      "runtime": "go1.27.3",
+      "sha256": "fcccff214b1f6838f5d9345237f5252cd57e2263fc95640b2a3a5278156eec48"
+    },
+    {
+      "run": 1,
+      "implementation": "go",
+      "allocatedBytes": 201624088,
+      "compileMs": 5.409,
+      "inputBytes": 50400041,
+      "matchMs": 657.892,
+      "name": "50 MB CSV, sparse matches",
+      "outputBytes": 50400014,
+      "runtime": "go1.27.3",
+      "sha256": "153ce777c4473651a70f3f2f830cac5930214f6b998c08094939646193b0f9f0"
+    },
+    {
+      "run": 1,
+      "implementation": "go",
+      "allocatedBytes": 114614912,
+      "compileMs": 7.727,
+      "inputBytes": 21600000,
+      "matchMs": 520.535,
+      "name": "22 MB text, 1.2 million replacements",
+      "outputBytes": 19800000,
+      "runtime": "go1.27.3",
+      "sha256": "4e649aee83a6f15cb7178f725991ff5405affe013b0bba0b6eda18689c5c0249"
+    },
+    {
+      "run": 1,
+      "implementation": "node",
+      "runtime": "v24.14.1",
+      "name": "2 MB CSV, 47 absent terms",
+      "inputBytes": 1960000,
+      "outputBytes": 1960000,
+      "compileMs": 81.97248799999988,
+      "matchMs": 7.438604999999825,
+      "sha256": "b3882940c0ad7a4f8e1385dcd3e32122c721f26b90144bb820b542e394f379cd"
+    },
+    {
+      "run": 1,
+      "implementation": "node",
+      "runtime": "v24.14.1",
+      "name": "100 MB CSV, 47 absent terms",
+      "inputBytes": 100800000,
+      "outputBytes": 100800000,
+      "compileMs": 0.049205999999685446,
+      "matchMs": 228.0686410000003,
+      "sha256": "fcccff214b1f6838f5d9345237f5252cd57e2263fc95640b2a3a5278156eec48"
+    },
+    {
+      "run": 1,
+      "implementation": "node",
+      "runtime": "v24.14.1",
+      "name": "50 MB CSV, sparse matches",
+      "inputBytes": 50400041,
+      "outputBytes": 50400014,
+      "compileMs": 0.06957400000010239,
+      "matchMs": 489.20430399999987,
+      "sha256": "153ce777c4473651a70f3f2f830cac5930214f6b998c08094939646193b0f9f0"
+    },
+    {
+      "run": 1,
+      "implementation": "node",
+      "runtime": "v24.14.1",
+      "name": "22 MB text, 1.2 million replacements",
+      "inputBytes": 21600000,
+      "outputBytes": 19800000,
+      "compileMs": 12.034295000000384,
+      "matchMs": 362.4566530000002,
+      "sha256": "4e649aee83a6f15cb7178f725991ff5405affe013b0bba0b6eda18689c5c0249"
+    },
+    {
+      "run": 2,
+      "implementation": "node",
+      "runtime": "v24.14.1",
+      "name": "2 MB CSV, 47 absent terms",
+      "inputBytes": 1960000,
+      "outputBytes": 1960000,
+      "compileMs": 62.2435889999997,
+      "matchMs": 7.031358999999611,
+      "sha256": "b3882940c0ad7a4f8e1385dcd3e32122c721f26b90144bb820b542e394f379cd"
+    },
+    {
+      "run": 2,
+      "implementation": "node",
+      "runtime": "v24.14.1",
+      "name": "100 MB CSV, 47 absent terms",
+      "inputBytes": 100800000,
+      "outputBytes": 100800000,
+      "compileMs": 0.06787899999972069,
+      "matchMs": 234.2948919999999,
+      "sha256": "fcccff214b1f6838f5d9345237f5252cd57e2263fc95640b2a3a5278156eec48"
+    },
+    {
+      "run": 2,
+      "implementation": "node",
+      "runtime": "v24.14.1",
+      "name": "50 MB CSV, sparse matches",
+      "inputBytes": 50400041,
+      "outputBytes": 50400014,
+      "compileMs": 0.06817700000010518,
+      "matchMs": 509.48461799999995,
+      "sha256": "153ce777c4473651a70f3f2f830cac5930214f6b998c08094939646193b0f9f0"
+    },
+    {
+      "run": 2,
+      "implementation": "node",
+      "runtime": "v24.14.1",
+      "name": "22 MB text, 1.2 million replacements",
+      "inputBytes": 21600000,
+      "outputBytes": 19800000,
+      "compileMs": 13.108901000000515,
+      "matchMs": 389.08548900000005,
+      "sha256": "4e649aee83a6f15cb7178f725991ff5405affe013b0bba0b6eda18689c5c0249"
+    },
+    {
+      "run": 2,
+      "implementation": "go",
+      "allocatedBytes": 288,
+      "compileMs": 7.56,
+      "inputBytes": 1960000,
+      "matchMs": 2.247,
+      "name": "2 MB CSV, 47 absent terms",
+      "outputBytes": 1960000,
+      "runtime": "go1.27.3",
+      "sha256": "b3882940c0ad7a4f8e1385dcd3e32122c721f26b90144bb820b542e394f379cd"
+    },
+    {
+      "run": 2,
+      "implementation": "go",
+      "allocatedBytes": 272,
+      "compileMs": 5.386,
+      "inputBytes": 100800000,
+      "matchMs": 117.329,
+      "name": "100 MB CSV, 47 absent terms",
+      "outputBytes": 100800000,
+      "runtime": "go1.27.3",
+      "sha256": "fcccff214b1f6838f5d9345237f5252cd57e2263fc95640b2a3a5278156eec48"
+    },
+    {
+      "run": 2,
+      "implementation": "go",
+      "allocatedBytes": 201666384,
+      "compileMs": 6.097,
+      "inputBytes": 50400041,
+      "matchMs": 593.558,
+      "name": "50 MB CSV, sparse matches",
+      "outputBytes": 50400014,
+      "runtime": "go1.27.3",
+      "sha256": "153ce777c4473651a70f3f2f830cac5930214f6b998c08094939646193b0f9f0"
+    },
+    {
+      "run": 2,
+      "implementation": "go",
+      "allocatedBytes": 114614880,
+      "compileMs": 3.222,
+      "inputBytes": 21600000,
+      "matchMs": 503.779,
+      "name": "22 MB text, 1.2 million replacements",
+      "outputBytes": 19800000,
+      "runtime": "go1.27.3",
+      "sha256": "4e649aee83a6f15cb7178f725991ff5405affe013b0bba0b6eda18689c5c0249"
+    }
+  ]
+}

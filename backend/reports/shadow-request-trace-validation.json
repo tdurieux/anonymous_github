@@ -1,0 +1,9 @@
+{
+  "verifiedAt": "2026-11-03T13:00:13.177Z",
+  "deployment": "beta",
+  "generatedV4RequestID": true,
+  "incomingIDIgnored": true,
+  "responseLogCorrelation": true,
+  "queryExcludedFromLogs": true,
+  "productionChanged": false
+}

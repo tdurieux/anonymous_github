@@ -1,0 +1,2183 @@
+[
+  {
+    "field": "username",
+    "query": "",
+    "present": false
+  },
+  {
+    "field": "username",
+    "query": "username=",
+    "present": false
+  },
+  {
+    "field": "username",
+    "query": "username=active",
+    "present": true,
+    "raw": {
+      "username": "active"
+    },
+    "casted": {
+      "username": "active"
+    },
+    "rawAfter": {
+      "username": "active"
+    }
+  },
+  {
+    "field": "username",
+    "query": "username[]=active",
+    "present": true,
+    "raw": {
+      "username": [
+        "active"
+      ]
+    },
+    "casted": {
+      "username": {
+        "$in": [
+          "active"
+        ]
+      }
+    },
+    "rawAfter": {
+      "username": [
+        "active"
+      ]
+    }
+  },
+  {
+    "field": "username",
+    "query": "username=active&username=banned",
+    "present": true,
+    "raw": {
+      "username": [
+        "active",
+        "banned"
+      ]
+    },
+    "casted": {
+      "username": {
+        "$in": [
+          "active",
+          "banned"
+        ]
+      }
+    },
+    "rawAfter": {
+      "username": [
+        "active",
+        "banned"
+      ]
+    }
+  },
+  {
+    "field": "username",
+    "query": "username[1]=active",
+    "present": true,
+    "raw": {
+      "username": [
+        "active"
+      ]
+    },
+    "casted": {
+      "username": {
+        "$in": [
+          "active"
+        ]
+      }
+    },
+    "rawAfter": {
+      "username": [
+        "active"
+      ]
+    }
+  },
+  {
+    "field": "username",
+    "query": "username[0][0]=active",
+    "present": true,
+    "raw": {
+      "username": [
+        [
+          "active"
+        ]
+      ]
+    },
+    "error": true
+  },
+  {
+    "field": "username",
+    "query": "username[_id]=active",
+    "present": true,
+    "raw": {
+      "username": {
+        "_id": "active"
+      }
+    },
+    "casted": {
+      "username": "active"
+    },
+    "rawAfter": {
+      "username": {
+        "_id": "active"
+      }
+    }
+  },
+  {
+    "field": "username",
+    "query": "username[a]=active",
+    "present": true,
+    "raw": {
+      "username": {
+        "a": "active"
+      }
+    },
+    "error": true
+  },
+  {
+    "field": "username",
+    "query": "username[toString]=active",
+    "present": true,
+    "raw": {
+      "username": {
+        "toString": "active"
+      }
+    },
+    "error": true
+  },
+  {
+    "field": "username",
+    "query": "username[$eq]=active",
+    "present": true,
+    "raw": {
+      "username": {
+        "$eq": "active"
+      }
+    },
+    "casted": {
+      "username": {
+        "$eq": "active"
+      }
+    },
+    "rawAfter": {
+      "username": {
+        "$eq": "active"
+      }
+    }
+  },
+  {
+    "field": "username",
+    "query": "username[$ne]=banned",
+    "present": true,
+    "raw": {
+      "username": {
+        "$ne": "banned"
+      }
+    },
+    "casted": {
+      "username": {
+        "$ne": "banned"
+      }
+    },
+    "rawAfter": {
+      "username": {
+        "$ne": "banned"
+      }
+    }
+  },
+  {
+    "field": "username",
+    "query": "username[$in][]=active&username[$in][]=banned",
+    "present": true,
+    "raw": {
+      "username": {
+        "$in": [
+          "active",
+          "banned"
+        ]
+      }
+    },
+    "casted": {
+      "username": {
+        "$in": [
+          "active",
+          "banned"
+        ]
+      }
+    },
+    "rawAfter": {
+      "username": {
+        "$in": [
+          "active",
+          "banned"
+        ]
+      }
+    }
+  },
+  {
+    "field": "username",
+    "query": "username[$in]=active",
+    "present": true,
+    "raw": {
+      "username": {
+        "$in": "active"
+      }
+    },
+    "casted": {
+      "username": {
+        "$in": [
+          "active"
+        ]
+      }
+    },
+    "rawAfter": {
+      "username": {
+        "$in": [
+          "active"
+        ]
+      }
+    }
+  },
+  {
+    "field": "username",
+    "query": "username[$nin][]=banned",
+    "present": true,
+    "raw": {
+      "username": {
+        "$nin": [
+          "banned"
+        ]
+      }
+    },
+    "casted": {
+      "username": {
+        "$nin": [
+          "banned"
+        ]
+      }
+    },
+    "rawAfter": {
+      "username": {
+        "$nin": [
+          "banned"
+        ]
+      }
+    }
+  },
+  {
+    "field": "username",
+    "query": "username[$all][]=active",
+    "present": true,
+    "raw": {
+      "username": {
+        "$all": [
+          "active"
+        ]
+      }
+    },
+    "casted": {
+      "username": {
+        "$all": [
+          "active"
+        ]
+      }
+    },
+    "rawAfter": {
+      "username": {
+        "$all": [
+          "active"
+        ]
+      }
+    }
+  },
+  {
+    "field": "username",
+    "query": "username[$gt]=a",
+    "present": true,
+    "raw": {
+      "username": {
+        "$gt": "a"
+      }
+    },
+    "casted": {
+      "username": {
+        "$gt": "a"
+      }
+    },
+    "rawAfter": {
+      "username": {
+        "$gt": "a"
+      }
+    }
+  },
+  {
+    "field": "username",
+    "query": "username[$gte]=a",
+    "present": true,
+    "raw": {
+      "username": {
+        "$gte": "a"
+      }
+    },
+    "casted": {
+      "username": {
+        "$gte": "a"
+      }
+    },
+    "rawAfter": {
+      "username": {
+        "$gte": "a"
+      }
+    }
+  },
+  {
+    "field": "username",
+    "query": "username[$lt]=z",
+    "present": true,
+    "raw": {
+      "username": {
+        "$lt": "z"
+      }
+    },
+    "casted": {
+      "username": {
+        "$lt": "z"
+      }
+    },
+    "rawAfter": {
+      "username": {
+        "$lt": "z"
+      }
+    }
+  },
+  {
+    "field": "username",
+    "query": "username[$lte]=z",
+    "present": true,
+    "raw": {
+      "username": {
+        "$lte": "z"
+      }
+    },
+    "casted": {
+      "username": {
+        "$lte": "z"
+      }
+    },
+    "rawAfter": {
+      "username": {
+        "$lte": "z"
+      }
+    }
+  },
+  {
+    "field": "username",
+    "query": "username[$exists]=true",
+    "present": true,
+    "raw": {
+      "username": {
+        "$exists": "true"
+      }
+    },
+    "casted": {
+      "username": {
+        "$exists": true
+      }
+    },
+    "rawAfter": {
+      "username": {
+        "$exists": true
+      }
+    }
+  },
+  {
+    "field": "username",
+    "query": "username[$exists]=false",
+    "present": true,
+    "raw": {
+      "username": {
+        "$exists": "false"
+      }
+    },
+    "casted": {
+      "username": {
+        "$exists": false
+      }
+    },
+    "rawAfter": {
+      "username": {
+        "$exists": false
+      }
+    }
+  },
+  {
+    "field": "username",
+    "query": "username[$exists]=1",
+    "present": true,
+    "raw": {
+      "username": {
+        "$exists": "1"
+      }
+    },
+    "casted": {
+      "username": {
+        "$exists": true
+      }
+    },
+    "rawAfter": {
+      "username": {
+        "$exists": true
+      }
+    }
+  },
+  {
+    "field": "username",
+    "query": "username[$exists]=yes",
+    "present": true,
+    "raw": {
+      "username": {
+        "$exists": "yes"
+      }
+    },
+    "casted": {
+      "username": {
+        "$exists": true
+      }
+    },
+    "rawAfter": {
+      "username": {
+        "$exists": true
+      }
+    }
+  },
+  {
+    "field": "username",
+    "query": "username[$exists]=no",
+    "present": true,
+    "raw": {
+      "username": {
+        "$exists": "no"
+      }
+    },
+    "casted": {
+      "username": {
+        "$exists": false
+      }
+    },
+    "rawAfter": {
+      "username": {
+        "$exists": false
+      }
+    }
+  },
+  {
+    "field": "username",
+    "query": "username[$exists]=bad",
+    "present": true,
+    "raw": {
+      "username": {
+        "$exists": "bad"
+      }
+    },
+    "error": true
+  },
+  {
+    "field": "username",
+    "query": "username[$exists][]=true",
+    "present": true,
+    "raw": {
+      "username": {
+        "$exists": [
+          "true"
+        ]
+      }
+    },
+    "error": true
+  },
+  {
+    "field": "username",
+    "query": "username[$type]=string",
+    "present": true,
+    "raw": {
+      "username": {
+        "$type": "string"
+      }
+    },
+    "casted": {
+      "username": {
+        "$type": "string"
+      }
+    },
+    "rawAfter": {
+      "username": {
+        "$type": "string"
+      }
+    }
+  },
+  {
+    "field": "username",
+    "query": "username[$type][]=string&username[$type][]=2",
+    "present": true,
+    "raw": {
+      "username": {
+        "$type": [
+          "string",
+          "2"
+        ]
+      }
+    },
+    "casted": {
+      "username": {
+        "$type": [
+          "string",
+          "2"
+        ]
+      }
+    },
+    "rawAfter": {
+      "username": {
+        "$type": [
+          "string",
+          "2"
+        ]
+      }
+    }
+  },
+  {
+    "field": "username",
+    "query": "username[$type][a]=x",
+    "present": true,
+    "raw": {
+      "username": {
+        "$type": {
+          "a": "x"
+        }
+      }
+    },
+    "error": true
+  },
+  {
+    "field": "username",
+    "query": "username[$regex]=act.*&username[$options]=i",
+    "present": true,
+    "raw": {
+      "username": {
+        "$regex": "act.*",
+        "$options": "i"
+      }
+    },
+    "casted": {
+      "username": {
+        "$regex": "act.*",
+        "$options": "i"
+      }
+    },
+    "rawAfter": {
+      "username": {
+        "$regex": "act.*",
+        "$options": "i"
+      }
+    }
+  },
+  {
+    "field": "username",
+    "query": "username[$not][$eq]=active",
+    "present": true,
+    "raw": {
+      "username": {
+        "$not": {
+          "$eq": "active"
+        }
+      }
+    },
+    "casted": {
+      "username": {
+        "$not": {
+          "$eq": "active"
+        }
+      }
+    },
+    "rawAfter": {
+      "username": {
+        "$not": {
+          "$eq": "active"
+        }
+      }
+    }
+  },
+  {
+    "field": "username",
+    "query": "username[$not]=active",
+    "present": true,
+    "raw": {
+      "username": {
+        "$not": "active"
+      }
+    },
+    "casted": {
+      "username": {
+        "$not": "active"
+      }
+    },
+    "rawAfter": {
+      "username": {
+        "$not": "active"
+      }
+    }
+  },
+  {
+    "field": "username",
+    "query": "username[$not][$not][$eq]=active",
+    "present": true,
+    "raw": {
+      "username": {
+        "$not": {
+          "$not": {
+            "$eq": "active"
+          }
+        }
+      }
+    },
+    "error": true
+  },
+  {
+    "field": "username",
+    "query": "username[$unknown]=x",
+    "present": true,
+    "raw": {
+      "username": {
+        "$unknown": "x"
+      }
+    },
+    "error": true
+  },
+  {
+    "field": "username",
+    "query": "username[$eq][]=active",
+    "present": true,
+    "raw": {
+      "username": {
+        "$eq": [
+          "active"
+        ]
+      }
+    },
+    "error": true
+  },
+  {
+    "field": "username",
+    "query": "username[$eq][_id]=active",
+    "present": true,
+    "raw": {
+      "username": {
+        "$eq": {
+          "_id": "active"
+        }
+      }
+    },
+    "casted": {
+      "username": {
+        "$eq": "active"
+      }
+    },
+    "rawAfter": {
+      "username": {
+        "$eq": "active"
+      }
+    }
+  },
+  {
+    "field": "username",
+    "query": "username[$in][0][_id]=active",
+    "present": true,
+    "raw": {
+      "username": {
+        "$in": [
+          {
+            "_id": "active"
+          }
+        ]
+      }
+    },
+    "casted": {
+      "username": {
+        "$in": [
+          "active"
+        ]
+      }
+    },
+    "rawAfter": {
+      "username": {
+        "$in": [
+          "active"
+        ]
+      }
+    }
+  },
+  {
+    "field": "username",
+    "query": "username[a]=active&username[$eq]=active",
+    "present": true,
+    "raw": {
+      "username": {
+        "a": "active",
+        "$eq": "active"
+      }
+    },
+    "error": true
+  },
+  {
+    "field": "status",
+    "query": "",
+    "present": false
+  },
+  {
+    "field": "status",
+    "query": "status=",
+    "present": false
+  },
+  {
+    "field": "status",
+    "query": "status=active",
+    "present": true,
+    "raw": {
+      "status": "active"
+    },
+    "casted": {
+      "status": "active"
+    },
+    "rawAfter": {
+      "status": "active"
+    }
+  },
+  {
+    "field": "status",
+    "query": "status[]=active",
+    "present": true,
+    "raw": {
+      "status": [
+        "active"
+      ]
+    },
+    "casted": {
+      "status": {
+        "$in": [
+          "active"
+        ]
+      }
+    },
+    "rawAfter": {
+      "status": [
+        "active"
+      ]
+    }
+  },
+  {
+    "field": "status",
+    "query": "status=active&status=banned",
+    "present": true,
+    "raw": {
+      "status": [
+        "active",
+        "banned"
+      ]
+    },
+    "casted": {
+      "status": {
+        "$in": [
+          "active",
+          "banned"
+        ]
+      }
+    },
+    "rawAfter": {
+      "status": [
+        "active",
+        "banned"
+      ]
+    }
+  },
+  {
+    "field": "status",
+    "query": "status[1]=active",
+    "present": true,
+    "raw": {
+      "status": [
+        "active"
+      ]
+    },
+    "casted": {
+      "status": {
+        "$in": [
+          "active"
+        ]
+      }
+    },
+    "rawAfter": {
+      "status": [
+        "active"
+      ]
+    }
+  },
+  {
+    "field": "status",
+    "query": "status[0][0]=active",
+    "present": true,
+    "raw": {
+      "status": [
+        [
+          "active"
+        ]
+      ]
+    },
+    "error": true
+  },
+  {
+    "field": "status",
+    "query": "status[_id]=active",
+    "present": true,
+    "raw": {
+      "status": {
+        "_id": "active"
+      }
+    },
+    "casted": {
+      "status": "active"
+    },
+    "rawAfter": {
+      "status": {
+        "_id": "active"
+      }
+    }
+  },
+  {
+    "field": "status",
+    "query": "status[a]=active",
+    "present": true,
+    "raw": {
+      "status": {
+        "a": "active"
+      }
+    },
+    "error": true
+  },
+  {
+    "field": "status",
+    "query": "status[toString]=active",
+    "present": true,
+    "raw": {
+      "status": {
+        "toString": "active"
+      }
+    },
+    "error": true
+  },
+  {
+    "field": "status",
+    "query": "status[$eq]=active",
+    "present": true,
+    "raw": {
+      "status": {
+        "$eq": "active"
+      }
+    },
+    "casted": {
+      "status": {
+        "$eq": "active"
+      }
+    },
+    "rawAfter": {
+      "status": {
+        "$eq": "active"
+      }
+    }
+  },
+  {
+    "field": "status",
+    "query": "status[$ne]=banned",
+    "present": true,
+    "raw": {
+      "status": {
+        "$ne": "banned"
+      }
+    },
+    "casted": {
+      "status": {
+        "$ne": "banned"
+      }
+    },
+    "rawAfter": {
+      "status": {
+        "$ne": "banned"
+      }
+    }
+  },
+  {
+    "field": "status",
+    "query": "status[$in][]=active&status[$in][]=banned",
+    "present": true,
+    "raw": {
+      "status": {
+        "$in": [
+          "active",
+          "banned"
+        ]
+      }
+    },
+    "casted": {
+      "status": {
+        "$in": [
+          "active",
+          "banned"
+        ]
+      }
+    },
+    "rawAfter": {
+      "status": {
+        "$in": [
+          "active",
+          "banned"
+        ]
+      }
+    }
+  },
+  {
+    "field": "status",
+    "query": "status[$in]=active",
+    "present": true,
+    "raw": {
+      "status": {
+        "$in": "active"
+      }
+    },
+    "casted": {
+      "status": {
+        "$in": [
+          "active"
+        ]
+      }
+    },
+    "rawAfter": {
+      "status": {
+        "$in": [
+          "active"
+        ]
+      }
+    }
+  },
+  {
+    "field": "status",
+    "query": "status[$nin][]=banned",
+    "present": true,
+    "raw": {
+      "status": {
+        "$nin": [
+          "banned"
+        ]
+      }
+    },
+    "casted": {
+      "status": {
+        "$nin": [
+          "banned"
+        ]
+      }
+    },
+    "rawAfter": {
+      "status": {
+        "$nin": [
+          "banned"
+        ]
+      }
+    }
+  },
+  {
+    "field": "status",
+    "query": "status[$all][]=active",
+    "present": true,
+    "raw": {
+      "status": {
+        "$all": [
+          "active"
+        ]
+      }
+    },
+    "casted": {
+      "status": {
+        "$all": [
+          "active"
+        ]
+      }
+    },
+    "rawAfter": {
+      "status": {
+        "$all": [
+          "active"
+        ]
+      }
+    }
+  },
+  {
+    "field": "status",
+    "query": "status[$gt]=a",
+    "present": true,
+    "raw": {
+      "status": {
+        "$gt": "a"
+      }
+    },
+    "casted": {
+      "status": {
+        "$gt": "a"
+      }
+    },
+    "rawAfter": {
+      "status": {
+        "$gt": "a"
+      }
+    }
+  },
+  {
+    "field": "status",
+    "query": "status[$gte]=a",
+    "present": true,
+    "raw": {
+      "status": {
+        "$gte": "a"
+      }
+    },
+    "casted": {
+      "status": {
+        "$gte": "a"
+      }
+    },
+    "rawAfter": {
+      "status": {
+        "$gte": "a"
+      }
+    }
+  },
+  {
+    "field": "status",
+    "query": "status[$lt]=z",
+    "present": true,
+    "raw": {
+      "status": {
+        "$lt": "z"
+      }
+    },
+    "casted": {
+      "status": {
+        "$lt": "z"
+      }
+    },
+    "rawAfter": {
+      "status": {
+        "$lt": "z"
+      }
+    }
+  },
+  {
+    "field": "status",
+    "query": "status[$lte]=z",
+    "present": true,
+    "raw": {
+      "status": {
+        "$lte": "z"
+      }
+    },
+    "casted": {
+      "status": {
+        "$lte": "z"
+      }
+    },
+    "rawAfter": {
+      "status": {
+        "$lte": "z"
+      }
+    }
+  },
+  {
+    "field": "status",
+    "query": "status[$exists]=true",
+    "present": true,
+    "raw": {
+      "status": {
+        "$exists": "true"
+      }
+    },
+    "casted": {
+      "status": {
+        "$exists": true
+      }
+    },
+    "rawAfter": {
+      "status": {
+        "$exists": true
+      }
+    }
+  },
+  {
+    "field": "status",
+    "query": "status[$exists]=false",
+    "present": true,
+    "raw": {
+      "status": {
+        "$exists": "false"
+      }
+    },
+    "casted": {
+      "status": {
+        "$exists": false
+      }
+    },
+    "rawAfter": {
+      "status": {
+        "$exists": false
+      }
+    }
+  },
+  {
+    "field": "status",
+    "query": "status[$exists]=1",
+    "present": true,
+    "raw": {
+      "status": {
+        "$exists": "1"
+      }
+    },
+    "casted": {
+      "status": {
+        "$exists": true
+      }
+    },
+    "rawAfter": {
+      "status": {
+        "$exists": true
+      }
+    }
+  },
+  {
+    "field": "status",
+    "query": "status[$exists]=yes",
+    "present": true,
+    "raw": {
+      "status": {
+        "$exists": "yes"
+      }
+    },
+    "casted": {
+      "status": {
+        "$exists": true
+      }
+    },
+    "rawAfter": {
+      "status": {
+        "$exists": true
+      }
+    }
+  },
+  {
+    "field": "status",
+    "query": "status[$exists]=no",
+    "present": true,
+    "raw": {
+      "status": {
+        "$exists": "no"
+      }
+    },
+    "casted": {
+      "status": {
+        "$exists": false
+      }
+    },
+    "rawAfter": {
+      "status": {
+        "$exists": false
+      }
+    }
+  },
+  {
+    "field": "status",
+    "query": "status[$exists]=bad",
+    "present": true,
+    "raw": {
+      "status": {
+        "$exists": "bad"
+      }
+    },
+    "error": true
+  },
+  {
+    "field": "status",
+    "query": "status[$exists][]=true",
+    "present": true,
+    "raw": {
+      "status": {
+        "$exists": [
+          "true"
+        ]
+      }
+    },
+    "error": true
+  },
+  {
+    "field": "status",
+    "query": "status[$type]=string",
+    "present": true,
+    "raw": {
+      "status": {
+        "$type": "string"
+      }
+    },
+    "casted": {
+      "status": {
+        "$type": "string"
+      }
+    },
+    "rawAfter": {
+      "status": {
+        "$type": "string"
+      }
+    }
+  },
+  {
+    "field": "status",
+    "query": "status[$type][]=string&status[$type][]=2",
+    "present": true,
+    "raw": {
+      "status": {
+        "$type": [
+          "string",
+          "2"
+        ]
+      }
+    },
+    "casted": {
+      "status": {
+        "$type": [
+          "string",
+          "2"
+        ]
+      }
+    },
+    "rawAfter": {
+      "status": {
+        "$type": [
+          "string",
+          "2"
+        ]
+      }
+    }
+  },
+  {
+    "field": "status",
+    "query": "status[$type][a]=x",
+    "present": true,
+    "raw": {
+      "status": {
+        "$type": {
+          "a": "x"
+        }
+      }
+    },
+    "error": true
+  },
+  {
+    "field": "status",
+    "query": "status[$regex]=act.*&status[$options]=i",
+    "present": true,
+    "raw": {
+      "status": {
+        "$regex": "act.*",
+        "$options": "i"
+      }
+    },
+    "casted": {
+      "status": {
+        "$regex": "act.*",
+        "$options": "i"
+      }
+    },
+    "rawAfter": {
+      "status": {
+        "$regex": "act.*",
+        "$options": "i"
+      }
+    }
+  },
+  {
+    "field": "status",
+    "query": "status[$not][$eq]=active",
+    "present": true,
+    "raw": {
+      "status": {
+        "$not": {
+          "$eq": "active"
+        }
+      }
+    },
+    "casted": {
+      "status": {
+        "$not": {
+          "$eq": "active"
+        }
+      }
+    },
+    "rawAfter": {
+      "status": {
+        "$not": {
+          "$eq": "active"
+        }
+      }
+    }
+  },
+  {
+    "field": "status",
+    "query": "status[$not]=active",
+    "present": true,
+    "raw": {
+      "status": {
+        "$not": "active"
+      }
+    },
+    "casted": {
+      "status": {
+        "$not": "active"
+      }
+    },
+    "rawAfter": {
+      "status": {
+        "$not": "active"
+      }
+    }
+  },
+  {
+    "field": "status",
+    "query": "status[$not][$not][$eq]=active",
+    "present": true,
+    "raw": {
+      "status": {
+        "$not": {
+          "$not": {
+            "$eq": "active"
+          }
+        }
+      }
+    },
+    "error": true
+  },
+  {
+    "field": "status",
+    "query": "status[$unknown]=x",
+    "present": true,
+    "raw": {
+      "status": {
+        "$unknown": "x"
+      }
+    },
+    "error": true
+  },
+  {
+    "field": "status",
+    "query": "status[$eq][]=active",
+    "present": true,
+    "raw": {
+      "status": {
+        "$eq": [
+          "active"
+        ]
+      }
+    },
+    "error": true
+  },
+  {
+    "field": "status",
+    "query": "status[$eq][_id]=active",
+    "present": true,
+    "raw": {
+      "status": {
+        "$eq": {
+          "_id": "active"
+        }
+      }
+    },
+    "casted": {
+      "status": {
+        "$eq": "active"
+      }
+    },
+    "rawAfter": {
+      "status": {
+        "$eq": "active"
+      }
+    }
+  },
+  {
+    "field": "status",
+    "query": "status[$in][0][_id]=active",
+    "present": true,
+    "raw": {
+      "status": {
+        "$in": [
+          {
+            "_id": "active"
+          }
+        ]
+      }
+    },
+    "casted": {
+      "status": {
+        "$in": [
+          "active"
+        ]
+      }
+    },
+    "rawAfter": {
+      "status": {
+        "$in": [
+          "active"
+        ]
+      }
+    }
+  },
+  {
+    "field": "status",
+    "query": "status[a]=active&status[$eq]=active",
+    "present": true,
+    "raw": {
+      "status": {
+        "a": "active",
+        "$eq": "active"
+      }
+    },
+    "error": true
+  },
+  {
+    "field": "conference",
+    "query": "",
+    "present": false
+  },
+  {
+    "field": "conference",
+    "query": "conference=",
+    "present": false
+  },
+  {
+    "field": "conference",
+    "query": "conference=active",
+    "present": true,
+    "raw": {
+      "conference": "active"
+    },
+    "casted": {
+      "conference": "active"
+    },
+    "rawAfter": {
+      "conference": "active"
+    }
+  },
+  {
+    "field": "conference",
+    "query": "conference[]=active",
+    "present": true,
+    "raw": {
+      "conference": [
+        "active"
+      ]
+    },
+    "casted": {
+      "conference": {
+        "$in": [
+          "active"
+        ]
+      }
+    },
+    "rawAfter": {
+      "conference": [
+        "active"
+      ]
+    }
+  },
+  {
+    "field": "conference",
+    "query": "conference=active&conference=banned",
+    "present": true,
+    "raw": {
+      "conference": [
+        "active",
+        "banned"
+      ]
+    },
+    "casted": {
+      "conference": {
+        "$in": [
+          "active",
+          "banned"
+        ]
+      }
+    },
+    "rawAfter": {
+      "conference": [
+        "active",
+        "banned"
+      ]
+    }
+  },
+  {
+    "field": "conference",
+    "query": "conference[1]=active",
+    "present": true,
+    "raw": {
+      "conference": [
+        "active"
+      ]
+    },
+    "casted": {
+      "conference": {
+        "$in": [
+          "active"
+        ]
+      }
+    },
+    "rawAfter": {
+      "conference": [
+        "active"
+      ]
+    }
+  },
+  {
+    "field": "conference",
+    "query": "conference[0][0]=active",
+    "present": true,
+    "raw": {
+      "conference": [
+        [
+          "active"
+        ]
+      ]
+    },
+    "error": true
+  },
+  {
+    "field": "conference",
+    "query": "conference[_id]=active",
+    "present": true,
+    "raw": {
+      "conference": {
+        "_id": "active"
+      }
+    },
+    "casted": {
+      "conference": "active"
+    },
+    "rawAfter": {
+      "conference": {
+        "_id": "active"
+      }
+    }
+  },
+  {
+    "field": "conference",
+    "query": "conference[a]=active",
+    "present": true,
+    "raw": {
+      "conference": {
+        "a": "active"
+      }
+    },
+    "error": true
+  },
+  {
+    "field": "conference",
+    "query": "conference[toString]=active",
+    "present": true,
+    "raw": {
+      "conference": {
+        "toString": "active"
+      }
+    },
+    "error": true
+  },
+  {
+    "field": "conference",
+    "query": "conference[$eq]=active",
+    "present": true,
+    "raw": {
+      "conference": {
+        "$eq": "active"
+      }
+    },
+    "casted": {
+      "conference": {
+        "$eq": "active"
+      }
+    },
+    "rawAfter": {
+      "conference": {
+        "$eq": "active"
+      }
+    }
+  },
+  {
+    "field": "conference",
+    "query": "conference[$ne]=banned",
+    "present": true,
+    "raw": {
+      "conference": {
+        "$ne": "banned"
+      }
+    },
+    "casted": {
+      "conference": {
+        "$ne": "banned"
+      }
+    },
+    "rawAfter": {
+      "conference": {
+        "$ne": "banned"
+      }
+    }
+  },
+  {
+    "field": "conference",
+    "query": "conference[$in][]=active&conference[$in][]=banned",
+    "present": true,
+    "raw": {
+      "conference": {
+        "$in": [
+          "active",
+          "banned"
+        ]
+      }
+    },
+    "casted": {
+      "conference": {
+        "$in": [
+          "active",
+          "banned"
+        ]
+      }
+    },
+    "rawAfter": {
+      "conference": {
+        "$in": [
+          "active",
+          "banned"
+        ]
+      }
+    }
+  },
+  {
+    "field": "conference",
+    "query": "conference[$in]=active",
+    "present": true,
+    "raw": {
+      "conference": {
+        "$in": "active"
+      }
+    },
+    "casted": {
+      "conference": {
+        "$in": [
+          "active"
+        ]
+      }
+    },
+    "rawAfter": {
+      "conference": {
+        "$in": [
+          "active"
+        ]
+      }
+    }
+  },
+  {
+    "field": "conference",
+    "query": "conference[$nin][]=banned",
+    "present": true,
+    "raw": {
+      "conference": {
+        "$nin": [
+          "banned"
+        ]
+      }
+    },
+    "casted": {
+      "conference": {
+        "$nin": [
+          "banned"
+        ]
+      }
+    },
+    "rawAfter": {
+      "conference": {
+        "$nin": [
+          "banned"
+        ]
+      }
+    }
+  },
+  {
+    "field": "conference",
+    "query": "conference[$all][]=active",
+    "present": true,
+    "raw": {
+      "conference": {
+        "$all": [
+          "active"
+        ]
+      }
+    },
+    "casted": {
+      "conference": {
+        "$all": [
+          "active"
+        ]
+      }
+    },
+    "rawAfter": {
+      "conference": {
+        "$all": [
+          "active"
+        ]
+      }
+    }
+  },
+  {
+    "field": "conference",
+    "query": "conference[$gt]=a",
+    "present": true,
+    "raw": {
+      "conference": {
+        "$gt": "a"
+      }
+    },
+    "casted": {
+      "conference": {
+        "$gt": "a"
+      }
+    },
+    "rawAfter": {
+      "conference": {
+        "$gt": "a"
+      }
+    }
+  },
+  {
+    "field": "conference",
+    "query": "conference[$gte]=a",
+    "present": true,
+    "raw": {
+      "conference": {
+        "$gte": "a"
+      }
+    },
+    "casted": {
+      "conference": {
+        "$gte": "a"
+      }
+    },
+    "rawAfter": {
+      "conference": {
+        "$gte": "a"
+      }
+    }
+  },
+  {
+    "field": "conference",
+    "query": "conference[$lt]=z",
+    "present": true,
+    "raw": {
+      "conference": {
+        "$lt": "z"
+      }
+    },
+    "casted": {
+      "conference": {
+        "$lt": "z"
+      }
+    },
+    "rawAfter": {
+      "conference": {
+        "$lt": "z"
+      }
+    }
+  },
+  {
+    "field": "conference",
+    "query": "conference[$lte]=z",
+    "present": true,
+    "raw": {
+      "conference": {
+        "$lte": "z"
+      }
+    },
+    "casted": {
+      "conference": {
+        "$lte": "z"
+      }
+    },
+    "rawAfter": {
+      "conference": {
+        "$lte": "z"
+      }
+    }
+  },
+  {
+    "field": "conference",
+    "query": "conference[$exists]=true",
+    "present": true,
+    "raw": {
+      "conference": {
+        "$exists": "true"
+      }
+    },
+    "casted": {
+      "conference": {
+        "$exists": true
+      }
+    },
+    "rawAfter": {
+      "conference": {
+        "$exists": true
+      }
+    }
+  },
+  {
+    "field": "conference",
+    "query": "conference[$exists]=false",
+    "present": true,
+    "raw": {
+      "conference": {
+        "$exists": "false"
+      }
+    },
+    "casted": {
+      "conference": {
+        "$exists": false
+      }
+    },
+    "rawAfter": {
+      "conference": {
+        "$exists": false
+      }
+    }
+  },
+  {
+    "field": "conference",
+    "query": "conference[$exists]=1",
+    "present": true,
+    "raw": {
+      "conference": {
+        "$exists": "1"
+      }
+    },
+    "casted": {
+      "conference": {
+        "$exists": true
+      }
+    },
+    "rawAfter": {
+      "conference": {
+        "$exists": true
+      }
+    }
+  },
+  {
+    "field": "conference",
+    "query": "conference[$exists]=yes",
+    "present": true,
+    "raw": {
+      "conference": {
+        "$exists": "yes"
+      }
+    },
+    "casted": {
+      "conference": {
+        "$exists": true
+      }
+    },
+    "rawAfter": {
+      "conference": {
+        "$exists": true
+      }
+    }
+  },
+  {
+    "field": "conference",
+    "query": "conference[$exists]=no",
+    "present": true,
+    "raw": {
+      "conference": {
+        "$exists": "no"
+      }
+    },
+    "casted": {
+      "conference": {
+        "$exists": false
+      }
+    },
+    "rawAfter": {
+      "conference": {
+        "$exists": false
+      }
+    }
+  },
+  {
+    "field": "conference",
+    "query": "conference[$exists]=bad",
+    "present": true,
+    "raw": {
+      "conference": {
+        "$exists": "bad"
+      }
+    },
+    "error": true
+  },
+  {
+    "field": "conference",
+    "query": "conference[$exists][]=true",
+    "present": true,
+    "raw": {
+      "conference": {
+        "$exists": [
+          "true"
+        ]
+      }
+    },
+    "error": true
+  },
+  {
+    "field": "conference",
+    "query": "conference[$type]=string",
+    "present": true,
+    "raw": {
+      "conference": {
+        "$type": "string"
+      }
+    },
+    "casted": {
+      "conference": {
+        "$type": "string"
+      }
+    },
+    "rawAfter": {
+      "conference": {
+        "$type": "string"
+      }
+    }
+  },
+  {
+    "field": "conference",
+    "query": "conference[$type][]=string&conference[$type][]=2",
+    "present": true,
+    "raw": {
+      "conference": {
+        "$type": [
+          "string",
+          "2"
+        ]
+      }
+    },
+    "casted": {
+      "conference": {
+        "$type": [
+          "string",
+          "2"
+        ]
+      }
+    },
+    "rawAfter": {
+      "conference": {
+        "$type": [
+          "string",
+          "2"
+        ]
+      }
+    }
+  },
+  {
+    "field": "conference",
+    "query": "conference[$type][a]=x",
+    "present": true,
+    "raw": {
+      "conference": {
+        "$type": {
+          "a": "x"
+        }
+      }
+    },
+    "error": true
+  },
+  {
+    "field": "conference",
+    "query": "conference[$regex]=act.*&conference[$options]=i",
+    "present": true,
+    "raw": {
+      "conference": {
+        "$regex": "act.*",
+        "$options": "i"
+      }
+    },
+    "casted": {
+      "conference": {
+        "$regex": "act.*",
+        "$options": "i"
+      }
+    },
+    "rawAfter": {
+      "conference": {
+        "$regex": "act.*",
+        "$options": "i"
+      }
+    }
+  },
+  {
+    "field": "conference",
+    "query": "conference[$not][$eq]=active",
+    "present": true,
+    "raw": {
+      "conference": {
+        "$not": {
+          "$eq": "active"
+        }
+      }
+    },
+    "casted": {
+      "conference": {
+        "$not": {
+          "$eq": "active"
+        }
+      }
+    },
+    "rawAfter": {
+      "conference": {
+        "$not": {
+          "$eq": "active"
+        }
+      }
+    }
+  },
+  {
+    "field": "conference",
+    "query": "conference[$not]=active",
+    "present": true,
+    "raw": {
+      "conference": {
+        "$not": "active"
+      }
+    },
+    "casted": {
+      "conference": {
+        "$not": "active"
+      }
+    },
+    "rawAfter": {
+      "conference": {
+        "$not": "active"
+      }
+    }
+  },
+  {
+    "field": "conference",
+    "query": "conference[$not][$not][$eq]=active",
+    "present": true,
+    "raw": {
+      "conference": {
+        "$not": {
+          "$not": {
+            "$eq": "active"
+          }
+        }
+      }
+    },
+    "error": true
+  },
+  {
+    "field": "conference",
+    "query": "conference[$unknown]=x",
+    "present": true,
+    "raw": {
+      "conference": {
+        "$unknown": "x"
+      }
+    },
+    "error": true
+  },
+  {
+    "field": "conference",
+    "query": "conference[$eq][]=active",
+    "present": true,
+    "raw": {
+      "conference": {
+        "$eq": [
+          "active"
+        ]
+      }
+    },
+    "error": true
+  },
+  {
+    "field": "conference",
+    "query": "conference[$eq][_id]=active",
+    "present": true,
+    "raw": {
+      "conference": {
+        "$eq": {
+          "_id": "active"
+        }
+      }
+    },
+    "casted": {
+      "conference": {
+        "$eq": "active"
+      }
+    },
+    "rawAfter": {
+      "conference": {
+        "$eq": "active"
+      }
+    }
+  },
+  {
+    "field": "conference",
+    "query": "conference[$in][0][_id]=active",
+    "present": true,
+    "raw": {
+      "conference": {
+        "$in": [
+          {
+            "_id": "active"
+          }
+        ]
+      }
+    },
+    "casted": {
+      "conference": {
+        "$in": [
+          "active"
+        ]
+      }
+    },
+    "rawAfter": {
+      "conference": {
+        "$in": [
+          "active"
+        ]
+      }
+    }
+  },
+  {
+    "field": "conference",
+    "query": "conference[a]=active&conference[$eq]=active",
+    "present": true,
+    "raw": {
+      "conference": {
+        "a": "active",
+        "$eq": "active"
+      }
+    },
+    "error": true
+  }
+]

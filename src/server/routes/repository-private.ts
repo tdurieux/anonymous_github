@@ -32,6 +32,24 @@ const router = express.Router();
 // user needs to be connected for all user API
 router.use(ensureAuthenticated);
 
+async function enqueueSavedSnapshot(model: IAnonymizedRepositoryDocument) {
+  try {
+    await downloadQueue.add(model.repoId, { repoId: model.repoId }, {
+      jobId: `repo-${model.repoId}`, attempts: 3,
+    });
+  } catch (error) {
+    // Leave a failed enqueue retryable without overwriting a worker or a
+    // lifecycle change that happened after this save.
+    await AnonymizedRepositoryModel.updateOne({
+      _id: model._id, status: RepositoryStatus.PREPARING,
+      statusDate: model.statusDate, anonymizeDate: model.anonymizeDate,
+      "githubAccess.revision": model.githubAccess?.revision || { $exists: false },
+    }, { $set: { status: RepositoryStatus.ERROR, statusDate: new Date(),
+      statusMessage: "preparation_interrupted" } }).exec();
+    throw error;
+  }
+}
+
 async function previewToken(req: express.Request) {
   const user = await getUser(req);
   if (typeof req.query.anonymizedRepoId === "string") {
@@ -182,15 +200,18 @@ router.post(
         repo.model.options.expirationDate
       );
       const reactivating = repo.status === RepositoryStatus.EXPIRED;
-      const updates: Record<string, Date> = {
+      const updates: Record<string, Date | string | null> = {
         "options.expirationDate": newExpiration,
         settingsSavedAt: new Date(),
       };
       repo.model.options.expirationDate = newExpiration;
-      repo.model.settingsSavedAt = updates.settingsSavedAt;
+      repo.model.settingsSavedAt = updates.settingsSavedAt as Date;
       if (reactivating) {
         repo.model.anonymizeDate = new Date();
         updates.anonymizeDate = repo.model.anonymizeDate;
+        updates.status = RepositoryStatus.PREPARING;
+        updates.statusDate = new Date();
+        updates.statusMessage = null;
       }
       const saved = await AnonymizedRepositoryModel.updateOne(
         { _id: repo.model._id, status: repo.status, statusDate: repo.model.statusDate },
@@ -203,12 +224,10 @@ router.post(
         // directly instead of asking GitHub for the latest branch head first;
         // that lookup can fail after the new date has already been persisted
         // and leave the repository stuck in the expired state.
-        await repo.updateStatus(RepositoryStatus.PREPARING);
-        await downloadQueue.add(
-          repo.repoId,
-          { repoId: repo.repoId },
-          { jobId: `repo-${repo.repoId}`, attempts: 3 }
-        );
+        repo.model.status = RepositoryStatus.PREPARING;
+        repo.model.statusDate = updates.statusDate as Date;
+        repo.model.statusMessage = undefined;
+        await enqueueSavedSnapshot(repo.model);
       }
       res.json({ status: repo.status, expirationDate: newExpiration });
     } catch (error) {
@@ -606,6 +625,9 @@ router.post(
         }
       }
       repo.model.conference = repoUpdate.conference;
+      const preparation = sourceChanged || reactivating ? {
+        status: RepositoryStatus.PREPARING, statusDate: new Date(), statusMessage: null,
+      } : undefined;
       const saved = await AnonymizedRepositoryModel.updateOne(
         { _id: repo.model._id, status: repo.status, statusDate: repo.model.statusDate,
           "githubAccess.revision": previousAccessRevision || { $exists: false } },
@@ -617,6 +639,7 @@ router.post(
             githubAccess: repo.model.githubAccess,
             conference: repo.model.conference,
             anonymizeDate: repo.model.anonymizeDate,
+            ...preparation,
           },
         }
       ).exec();
@@ -625,13 +648,11 @@ router.post(
         return res.json({ status: repo.status });
       }
 
-      await repo.updateStatus(RepositoryStatus.PREPARING);
+      repo.model.status = preparation!.status;
+      repo.model.statusDate = preparation!.statusDate;
+      repo.model.statusMessage = undefined;
+      await enqueueSavedSnapshot(repo.model);
       res.json({ status: repo.status });
-      await downloadQueue.add(
-        repo.repoId,
-        { repoId: repo.repoId },
-        { jobId: `repo-${repo.repoId}` }
-      );
     } catch (error) {
       return handleError(error, res, req);
     }

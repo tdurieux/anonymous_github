@@ -23,3 +23,9 @@ Dockerfile*
 docker-compose*.yml
 
 /tmp
+
+/esdata
+/secrets
+/.impeccable
+/backend/reports
+/backend/bin

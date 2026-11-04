@@ -1,3 +1,4 @@
+import { sendSharedContent } from "./cached-response";
 import { streamResponse } from "./response-stream";
 import { join, basename, dirname } from "path";
 import { Response } from "express";
@@ -429,7 +430,8 @@ export default class AnonymizedFile {
           const resStream = got
             .stream(join(config.STREAMER_ENTRYPOINT, "api"), {
               method: "POST",
-              headers: requestHeaders(),
+              headers: { ...requestHeaders(), "accept-encoding": res.req?.get?.("accept-encoding") || "identity" },
+              decompress: false,
               json: {
                 sha,
                 size,
@@ -451,6 +453,10 @@ export default class AnonymizedFile {
           resStream.on("response", (upstream: { headers: Record<string, string | string[] | undefined> }) => {
             headersDone();
             if (res.headersSent) return;
+            for (const header of ["content-encoding", "content-length", "vary", "accept-ranges"]) {
+              const value = upstream.headers[header];
+              if (typeof value === "string") res.setHeader(header, value);
+            }
             const ct = upstream.headers["content-type"];
             if (typeof ct === "string") {
               res.contentType(ct);
@@ -503,6 +509,7 @@ export default class AnonymizedFile {
         });
         const content = await this.content();
         if (res.destroyed || res.writableEnded) { content.destroy(); anonymizer.destroy(); resolve(); return; }
+        if (await sendSharedContent(content, res, anonymizer.opt)) { anonymizer.destroy(); resolve(); return; }
         function handleStreamError(error: Error) {
           if (!content.closed && !content.destroyed) {
             content.destroy();

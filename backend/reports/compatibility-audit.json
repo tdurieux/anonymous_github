@@ -1,0 +1,2280 @@
+{
+  "verifiedAt": "2026-11-03T15:57:43.150713+00:00",
+  "source": {
+    "sha256": "d7650120d6f420d1f9eece666e2dcc309214858ccef4902cd591859813101558",
+    "fileCount": 1309,
+    "roots": [
+      "backend/cmd",
+      "backend/internal",
+      "backend/contracts",
+      "backend/scripts",
+      "src",
+      "public"
+    ],
+    "additionalFiles": [
+      "backend/go.mod",
+      "backend/go.sum",
+      "package.json",
+      "package-lock.json",
+      "Dockerfile",
+      "docker-compose.yml",
+      ".github/workflows/go-backend.yml"
+    ],
+    "algorithm": "SHA-256 over sorted relative UTF-8 path, NUL, file bytes, NUL"
+  },
+  "status": "implementation_verified_production_cutover_unverified",
+  "checks": {
+    "typescriptContracts": {
+      "commands": [
+        "node backend/contracts/routes.cjs --check",
+        "node backend/contracts/cache-metrics.cjs --check",
+        "node backend/contracts/cache-report-state.cjs --check",
+        "node backend/contracts/readme-decoding.cjs --check",
+        "node backend/contracts/compression.cjs --check",
+        "node backend/contracts/json-http.cjs --check",
+        "node backend/contracts/differential.cjs",
+        "node backend/contracts/file-types.cjs",
+        "node backend/contracts/resources.cjs --check",
+        "node backend/contracts/validation.cjs --check",
+        "node backend/contracts/options.cjs --check",
+        "node backend/contracts/dates.cjs --check",
+        "node backend/contracts/reactivation.cjs --check",
+        "node backend/contracts/oauth-tokens.cjs --check",
+        "node backend/contracts/oauth-profile.cjs --check",
+        "node backend/contracts/github-responses.cjs --check",
+        "node backend/contracts/github-quota.cjs --check",
+        "node backend/contracts/worker-queues.cjs --check",
+        "node backend/contracts/blob-index.cjs --check",
+        "node backend/contracts/content-verification.cjs --check",
+        "node backend/contracts/legacy-source-paths.cjs --check",
+        "node backend/contracts/shared-result-key.cjs --check",
+        "node backend/contracts/shared-http.cjs --check",
+        "node backend/contracts/file-metadata.cjs --check",
+        "node backend/contracts/download-headers.cjs --check",
+        "node backend/contracts/github-pagination.cjs --check",
+        "node backend/contracts/conferences.cjs --check",
+        "node backend/contracts/conference-output.cjs --check",
+        "node backend/contracts/conference-options.cjs --check",
+        "node backend/contracts/admin-filters.cjs --check",
+        "node backend/contracts/admin-pagination.cjs --check",
+        "node backend/contracts/admin-csv.cjs --check",
+        "node backend/contracts/user-membership.cjs --check",
+        "node backend/contracts/admin-user.cjs --check",
+        "node backend/contracts/user-defaults.cjs --check",
+        "node backend/contracts/quota.cjs --check",
+        "node backend/contracts/token-names.cjs --check",
+        "node backend/contracts/project-names.cjs --check",
+        "node backend/contracts/dashboard-cursors.cjs --check",
+        "node backend/contracts/dashboard-limits.cjs --check",
+        "node backend/contracts/dashboard-cursor-output.cjs --check",
+        "node backend/contracts/dashboard-filters.cjs --check",
+        "node backend/contracts/dashboard-pipeline.cjs --check",
+        "node backend/contracts/document-cleanup.cjs --check",
+        "node backend/contracts/webhook-http.cjs --check"
+      ],
+      "passed": 45,
+      "logSHA256": "06f5784b52489785eff604d3e194cf6748e1f68273671cdac1399f7c1113d65e"
+    },
+    "raceIntegration": {
+      "command": "GO_BINARY=/tmp/anonymous-go-investigation/go/bin/go backend/scripts/test-integration.sh",
+      "packages": [
+        "ok  \tgithub.com/tdurieux/anonymous_github/backend/cmd/server\t2.865s",
+        "ok  \tgithub.com/tdurieux/anonymous_github/backend/internal/anonymize\t2.343s",
+        "ok  \tgithub.com/tdurieux/anonymous_github/backend/internal/blobcache\t97.351s",
+        "ok  \tgithub.com/tdurieux/anonymous_github/backend/internal/provider\t1.047s",
+        "ok  \tgithub.com/tdurieux/anonymous_github/backend/internal/quotagate\t1.330s",
+        "ok  \tgithub.com/tdurieux/anonymous_github/backend/internal/security\t1.053s",
+        "ok  \tgithub.com/tdurieux/anonymous_github/backend/internal/server\t238.256s",
+        "ok  \tgithub.com/tdurieux/anonymous_github/backend/internal/storage\t1.301s"
+      ],
+      "logSHA256": "55df09ea956bec92b423b9f6ea4fc3c8f8176a1968915f20b8c80285e54a380d",
+      "disposableInfrastructureCleanedUp": true
+    },
+    "staticChecks": {
+      "goVet": "passed",
+      "gofmt": "no unformatted files"
+    },
+    "vulnerabilities": {
+      "reachable": 0,
+      "importedPackages": 0,
+      "requiredModulesOnly": 4,
+      "tool": "golang.org/x/vuln/cmd/govulncheck@v1.9.0"
+    },
+    "nodeRollback": {
+      "image": "anonymous-github-node:rollback-test",
+      "imageID": "sha256:2a2a5e0bd3db936d00c797590c1aef9554e798c23ad59dfdb7ad074ed3bbe0f8",
+      "result": "passed",
+      "command": "docker run --rm --network none -i --entrypoint node anonymous-github-node:rollback-test < backend/scripts/test-node-rollback.cjs",
+      "coverage": [
+        "image builds with current TypeScript and asset sources",
+        "native Zstandard compression/decompression",
+        "native SQLite insert/query"
+      ],
+      "fix": "Use Debian Node 22 runtime to match the native dependencies installed on Debian; Alpine failed to load the musl Zstandard module.",
+      "filesSHA256": {
+        "Dockerfile.node": "ca89aa8065e6f97060c9e015465ce0d6f987af2b0faf1aa50a767ae4a08aa01f",
+        "backend/scripts/test-node-rollback.cjs": "376cdbf9cf6d2f7b71a63a1a22863a346a34f01d30fbfaa6fbc7e0a3b40b8e40",
+        ".github/workflows/go-backend.yml": "68b198f524cf284e9bbf7b59ccb85f7108beb42969190a0357ab20073394c94b"
+      },
+      "fullApplicationCutoverRehearsed": false
+    }
+  },
+  "providerEvidence": {
+    "interface": "internal/provider/provider.go",
+    "nonGitHubFixture": "internal/server/provider_integration_test.go",
+    "coverage": [
+      "nested namespaces and opaque identities/revisions",
+      "repository and document lifecycle",
+      "authorization and revocation",
+      "cache isolation and publication",
+      "source previews and reconnect",
+      "wrapped error categories and rate-limit reset",
+      "file output and provider self-link anonymization",
+      "optional per-file metadata recovery with revision-safe retry",
+      "optional partial-tree metadata, large imports and truncated-folder output"
+    ],
+    "liveThirdPartyAdapterTested": false
+  },
+  "limits": [
+    "Contracts check the enumerated fixtures, not all possible inputs.",
+    "GitHub App protocol tests mock upstream HTTP; S3 tests use a protocol fixture.",
+    "Legacy OAuth and GitHub App beta authorization, live public repository imports, API-key/session lifecycle, exact selected file and ZIP entry content, removal and installation webhook reconciliation are verified. Private repository access, live revocation/suspension transitions and full browser workflows remain unverified.",
+    "Restore, offline queue handoff and rollback must be rehearsed with the target deployment data. The beta database is isolated and contains no production snapshot.",
+    "Performance results cover the recorded workloads and hardware, not production traffic."
+  ],
+  "sourceSnapshotNote": "The original source fingerprint identifies the complete TypeScript-contract and race run. postAuditFixes records subsequent admin overview fixes; postAuditFullIntegration identifies the complete race/integration rerun after those fixes. Staging evidence references current live-check reports. Production-data cutover remains unverified. requestTraceParity identifies the later full race/integration run and live request-ID/log-correlation checks. errorMonitoringParity identifies the subsequent full race run, extracted TypeScript error contracts and live beta error-report checks. queueMetricParity identifies the queue-only correction, targeted race/integration tests and live chart checks. queueOverviewParity identifies worker/overview field fixes, targeted race tests and live checks. adminHistoryParity identifies fresh admin-history and UTC merge fixes with extracted contracts and live checks. publicStatisticsCacheParity records the subsequent complete 49-command contract and full backend race run, beta image and live public-statistics checks. statisticsQueryParity records subsequent public-history query parsing and row-limit corrections, focused race tests and live beta checks. dashboardQueryParity records the subsequent dashboard type-preserving query correction, 186 complete pipeline fixtures, focused race tests and live beta checks. oauthQueryParity records strict authorization query-shape checks, focused race tests and live rejection/replay validation. oauthPendingFlowParity records atomic session/provider flow replacement and consumption, a complete 50-command contract run, full backend race suite and eight beta lifecycle checks through the local TLS proxy. gatesAndMonitoringQueryParity records disabled callback gating and monitoring numeric query corrections with focused race/integration and public-DNS beta checks. queueAndErrorQueryParity records queue/error-log query corrections, 29 extracted TypeScript fixtures, focused race/integration tests and live beta checks. fileAndRefreshQueryParity records file download and provider refresh flag semantics, 53 query fixtures, 115 actual TypeScript header fixtures, focused race tests and read-only beta HEAD checks. previewBindingQueryParity records typed saved-resource/connection selection, 17 extracted fixtures, provider binding race tests and live malformed-choice rejection.",
+  "stagingEvidence": {
+    "reviewedAt": "2026-11-03T12:15:18.010Z",
+    "reports": [
+      {
+        "file": "backend/reports/shadow-beta-deployment.json",
+        "sha256": "786f02b10d77fbf64df8b5a1c7bcdc12b95d54aeb05dedc8f1c54ece10cb3a9b"
+      },
+      {
+        "file": "backend/reports/shadow-authenticated-deployment.json",
+        "sha256": "34fde1545979e81623387ea86707482d52aee4a3d5931804084ed4e62cf9f282"
+      },
+      {
+        "file": "backend/reports/shadow-app-authenticated-deployment.json",
+        "sha256": "cc0b4e1a23dcf7b2abedb2d0239ee412a085947032753645902ebbbcd78c9349"
+      },
+      {
+        "file": "backend/reports/shadow-app-deployment.json",
+        "sha256": "b2ecc5c2bac07f00af0a658d10e9f70bb0c416aae9541114f18385f786142112"
+      },
+      {
+        "file": "backend/reports/shadow-browser-validation.json",
+        "sha256": "fece078daf7400db9450a6aa1eb097aeca9ba61855aa909b7cc2d03d7aef11b5"
+      }
+    ],
+    "legacyOAuth": {
+      "userReportedAuthorization": true,
+      "activeGitHubAccountObserved": true,
+      "liveGitHubImport": true
+    },
+    "authenticatedRequests": 37,
+    "apiKeyLifecycle": "passed",
+    "sessionLoginLogout": "passed",
+    "exactZipContents": "passed",
+    "isolatedDatabase": true,
+    "productionDataImported": false,
+    "productionChanged": false,
+    "githubApp": {
+      "callback": true,
+      "explicitAppRepositoryLifecycle": true,
+      "installationWebhookReconciled": true
+    }
+  },
+  "postAuditFixes": [
+    {
+      "date": "2026-11-03T12:19:49.222Z",
+      "issue": "Admin browser CPU, memory and disk cards had missing system fields",
+      "fix": "Linux host measurements and process RSS supplied using existing browser contract",
+      "validation": "Focused unit and race test, rebuilt beta, authenticated browser rendering",
+      "evidence": "backend/reports/shadow-browser-validation.json"
+    },
+    {
+      "date": "2026-11-03T12:26:25.521Z",
+      "issue": "Admin overview omitted activeRepos24h, newRepos24h and newUsers24h",
+      "fix": "Rolling 24-hour counts match TypeScript timestamp filters across statuses",
+      "validation": "Disposable database regression, complete race/integration suite and live beta overview contract"
+    }
+  ],
+  "postAuditFullIntegration": {
+    "verifiedAt": "2026-11-03T12:26:25.522Z",
+    "command": "GO_BINARY=/tmp/anonymous-go-investigation/go/bin/go backend/scripts/test-integration.sh",
+    "packages": [
+      "ok  \tgithub.com/tdurieux/anonymous_github/backend/cmd/server\t2.828s",
+      "ok  \tgithub.com/tdurieux/anonymous_github/backend/internal/anonymize\t2.337s",
+      "ok  \tgithub.com/tdurieux/anonymous_github/backend/internal/blobcache\t97.724s",
+      "ok  \tgithub.com/tdurieux/anonymous_github/backend/internal/provider\t1.042s",
+      "ok  \tgithub.com/tdurieux/anonymous_github/backend/internal/quotagate\t1.276s",
+      "ok  \tgithub.com/tdurieux/anonymous_github/backend/internal/security\t1.045s",
+      "ok  \tgithub.com/tdurieux/anonymous_github/backend/internal/server\t239.478s",
+      "ok  \tgithub.com/tdurieux/anonymous_github/backend/internal/storage\t1.315s"
+    ],
+    "logSHA256": "ae341e61b1fc54959bc80e5fef802b261e853bd6b9334320fb117c5c93a04282",
+    "goSourceSHA256": "69859db3f805e7b8604e4ab148c37b6d73759e00dd57c69b28c6dbf3d757fe13",
+    "goSourceFileCount": 335,
+    "sourceRoots": [
+      "backend/cmd",
+      "backend/internal",
+      "backend/go.mod",
+      "backend/go.sum"
+    ],
+    "disposableInfrastructureCleanedUp": true
+  },
+  "performanceMonitoringWork": {
+    "status": "verified_and_deployed_to_beta",
+    "deployed": true,
+    "focusedRaceIntegration": {
+      "command": "GO_BINARY=/tmp/anonymous-go-investigation/go/bin/go backend/scripts/test-integration.sh -run 'TestRequestMetric|TestBackendIntegration/request_performance_history'",
+      "result": "passed",
+      "logSHA256": "47977fb1c128e90c7ca19a60f35ce09f2ad2b9b997bd969aa278d7769feac29c"
+    },
+    "limits": [
+      "Stages measure elapsed time and can overlap; they are not additive CPU measurements.",
+      "Worker slot and memory admission waits are separate samples.",
+      "Go has no event-loop or separate streamer-header measurement.",
+      "Live workload was a smoke test, not a production load benchmark."
+    ],
+    "processSamples": {
+      "verifiedAt": "2026-11-03T12:38:33.902Z",
+      "focusedRaceIntegration": {
+        "file": "/tmp/go-process-metrics-tests.log",
+        "sha256": "74e70eb5b5c23d90c998bc7cddb6352e4c0675b081f6ac322ecacc322a1c368c"
+      },
+      "existingUI": {
+        "passed": 159,
+        "log": {
+          "file": "/tmp/go-process-metrics-ui-tests.log",
+          "sha256": "b95bf254c267b41deea2fa38b662dfa30c6e678f9eb7b74012839b1560defe45"
+        }
+      },
+      "focusedUI": {
+        "passed": 3,
+        "includesNewGoNullMetricsCase": true,
+        "log": {
+          "file": "/tmp/go-process-metrics-ui-focused.log",
+          "sha256": "be828ab189603a0704d15c3a432b4ac13f08dec4f470fbf5860ada876c2cafc9"
+        }
+      }
+    },
+    "verifiedAt": "2026-11-03T12:52:06.493343+00:00",
+    "fullRaceIntegration": {
+      "result": "passed",
+      "command": "GO_BINARY=/tmp/anonymous-go-investigation/go/bin/go backend/scripts/test-integration.sh",
+      "log": {
+        "file": "/tmp/go-performance-parity-integration.log",
+        "sha256": "dc51770e32920f855065cfa224e8df323638695008363edd1b03bb1035a6ed87"
+      }
+    },
+    "cacheStageTest": {
+      "result": "passed",
+      "log": {
+        "file": "/tmp/go-stage-cache-tests.log",
+        "sha256": "f78538b319072f158958556fc096e43c99b6601f5e7cc87d5c2a89618e1b47de"
+      }
+    },
+    "ui": {
+      "passed": 160,
+      "log": {
+        "file": "/tmp/go-performance-parity-ui.log",
+        "sha256": "f3e1fc34deedeceb65964ea8b4cfc9ae32082dec8d23d7da7cf4e3faac14a495"
+      }
+    },
+    "liveReports": [
+      {
+        "file": "backend/reports/shadow-app-authenticated-deployment.json",
+        "sha256": "e5737ffa01f1e6be553f1bf485b0fb8ac62e3027be5b3f22caa8b53258a4ec37"
+      },
+      {
+        "file": "backend/reports/shadow-authenticated-deployment.json",
+        "sha256": "3b4fdbbb995b0b4d5d8152bf0e72243f529d6391ca12d554d2bd66d122912693"
+      },
+      {
+        "file": "backend/reports/shadow-performance-browser-validation.json",
+        "sha256": "540f8208e16b71fda947d2a8c53e8b911ae7b36a0aa8c23a570cf96d1d36b5df"
+      }
+    ],
+    "goSourceSHA256": "69163d8df201ca688f2a88b54e480aa13285041172fc3e5ac4b8aa14c66f38ed"
+  },
+  "remainingCodeParityFindings": [
+    {
+      "area": "admin error monitoring",
+      "observedAt": "2026-11-03T12:56:23.308614+00:00",
+      "status": "resolved",
+      "evidence": [
+        "src/core/logger.ts: ERROR_LOG_MAX=5000; Go adminErrors advertises 2000 and recordError retains 2000",
+        "TypeScript persists warning entries and hourly level/module counters; Go recordError only persists server errors",
+        "Go completion warnings currently go to the process logger, not the admin Redis error ring"
+      ],
+      "resolutionEvidence": "errorMonitoringParity"
+    },
+    {
+      "area": "queue metric history",
+      "status": "resolved",
+      "evidence": [
+        "TypeScript selects named ranges and echoes a string; Go previously parsed the range as an integer."
+      ],
+      "resolutionEvidence": "queueMetricParity"
+    },
+    {
+      "area": "queue overview",
+      "status": "resolved",
+      "evidence": [
+        "Go omitted workers, concurrency, completed24h, failed24h and delayed job availability."
+      ],
+      "resolutionEvidence": "queueOverviewParity"
+    },
+    {
+      "area": "admin activity history",
+      "status": "resolved",
+      "resolutionEvidence": "adminHistoryParity"
+    },
+    {
+      "area": "public statistics cache and history window",
+      "status": "resolved",
+      "evidence": [
+        "backend/internal/server/stats.go returns Redis SET failures to callers; TypeScript getCurrentStats catches cache-write failures.",
+        "TypeScript has a one-entry current-statistics cache and a bounded 16-entry history cache; Go currently relies on Redis for current totals and rebuilds history on each request.",
+        "Go public history uses pageInt; TypeScript parses integer prefixes and clamps negative day counts to one."
+      ],
+      "resolutionEvidence": [
+        "publicStatisticsCacheParity",
+        "statisticsQueryParity"
+      ]
+    },
+    {
+      "area": "Express extended query parameters",
+      "status": "resolved",
+      "resolutionEvidence": [
+        "statisticsQueryParity",
+        "dashboardQueryParity",
+        "oauthQueryParity",
+        "gatesAndMonitoringQueryParity",
+        "queueAndErrorQueryParity",
+        "fileAndRefreshQueryParity",
+        "previewBindingQueryParity",
+        "fileSearchQueryParity",
+        "folderListingParity",
+        "previewCacheIDQueryParity",
+        "previewBranchQueryParity",
+        "legacyUserSearchQueryParity",
+        "adminListPaginationQueryParity",
+        "adminFilterQueryParity",
+        "previewBranchDiscoveryOrderParity",
+        "adminMongooseCastingParity",
+        "adminDateRangeParity",
+        "dashboardDateCursorParity",
+        "documentPreviewConnectionQuery"
+      ],
+      "historicalEvidence": [
+        "TypeScript configures Express extended query parsing; Go uses net/url.Values. Bracket arrays, indexed arrays and mixed scalar/object parameters differ.",
+        "backend/reports/statistics-query-parser-gaps.json records eleven actual Express examples.",
+        "src/server/routes/github-app.ts validates typeof state/code === string; backend/internal/server/auth.go and installation_target.go currently inspect only plain query keys."
+      ],
+      "currentEvidence": [
+        "The recorded admin and dashboard date-query gaps are covered by adminDateRangeParity and dashboardDateCursorParity. The cache-ID operator-object rejection remains an intentional stricter boundary.",
+        "Final direct URL.Query audit found document connection choice bypass; now fixed. Remaining incoming plain reads are provider-specific name extensions. Outgoing reads construct redirects or validate upstream pagination."
+      ],
+      "clarifications": [
+        "TypeScript preview names are path parameters. Go generic provider name queries are extensions, not missing TypeScript query behavior."
+      ]
+    },
+    {
+      "area": "Statistics history row truncation",
+      "status": "resolved",
+      "evidence": [
+        "Go statsHistory caps MongoDB results at 366 rows; TypeScript getStatsHistory returns every matching row. Duplicate or future-dated snapshots can exceed the Go cap."
+      ],
+      "resolutionEvidence": "statisticsQueryParity"
+    },
+    {
+      "area": "OAuth pending-flow lifecycle",
+      "status": "resolved",
+      "evidence": [
+        "TypeScript stores one githubAppFlow per session and deletes it before validating callback state.",
+        "Go stores each OAuth flow in Redis under its state and consumes the plain state query key."
+      ],
+      "resolutionEvidence": [
+        "oauthPendingFlowParity",
+        "gatesAndMonitoringQueryParity"
+      ]
+    },
+    {
+      "area": "large file tree row truncation",
+      "status": "resolved",
+      "evidence": [
+        "Go files handler previously read at most 100000 rows; TypeScript file queries have no equivalent cap."
+      ],
+      "resolutionEvidence": "largeFileTreeScanParity"
+    },
+    {
+      "area": "file-content path index",
+      "status": "resolved",
+      "resolutionEvidence": [
+        "contentPathLookupParity",
+        "pathSnapshotParity",
+        "truncatedFileRecoveryParity",
+        "pendingMetadataMaintenanceParity",
+        "partialTreeImportParity",
+        "folderPathEdgeParity",
+        "streamingPathIndex",
+        "pathIndexEvictionRecovery",
+        "pendingMetadataPathIndex"
+      ],
+      "historicalEvidence": [
+        "backend/internal/server/pathindex.go buildPathIndex still limits file rows to 100000 and excludes directory rows.",
+        "Go indexedFile rejects transformed path collisions with 409; TypeScript AnonymizedFile first tries original paths, then selects a transformed match ordered by original path/name.",
+        "Go path index key and retirement behavior must be checked against TypeScript fileMetadataRevision and pathIndexKey lifecycle."
+      ],
+      "currentEvidence": [
+        "Go now streams the path index to Redis in ownership-checked HSETNX batches; the total 32 MiB map guard and fixed 45-second deadline are removed.",
+        "Staging sequence checks reject a missing temporary hash, request cancellation cleans up staging, and publication still validates repository revisions and lock ownership.",
+        "Redis storage and 10-minute cache expiry remain architectural differences, not requirements to copy TypeScript internals.",
+        "Published index eviction is now distinguished atomically from an absent file; one rebuild is allowed, with 503 on repeated eviction and revision checks before genuine misses.",
+        "Writer review: jobs.go publishes a new treeGeneration under treePublicationFilter; refresh.go changes generation/commit; completeRecoveredMetadata updates fileMetadataRevision under pathSnapshotFilter; removal deletes captured row IDs while inactive status prevents index reads.",
+        "Pending recovery rows now validate provenance before indexing; valid recovery rebuilds under a new revision, while stale snapshots return 409. Regression cases failed before the fix and pass afterward."
+      ]
+    },
+    {
+      "area": "Date coercion and presence in remaining consumers",
+      "status": "resolved",
+      "currentEvidence": [
+        "Conference form and option casting are covered by 121 validation, 54 persistence and 58 option contracts.",
+        "Conference billing now passes 288 actual TypeScript output cases, including year 0001 end/removal dates; targeted race HTTP/database tests pass for expiry/removal with year 0001 and epoch closed memberships.",
+        "API token validity now distinguishes an absent expiry from a stored zero-time date; the full race suite and beta deployment checks passed.",
+        "Repository/gist/PR valid expiration inputs now use shared JavaScript Date construction, covered by 126 actual TypeScript/Mongoose option contracts and second-provider HTTP/database tests.",
+        "Shared resource access and list expiration enforce stored year-0001 and epoch dates for all three kinds.",
+        "TypeScript invalid-option create/edit divergence was confirmed with actual route helpers, Mongoose writes and handleError. Per user clarification, Go intentionally rejects invalid options atomically rather than reproducing partial writes or 500 responses.",
+        "storedDatePresence addresses the recorded persisted IsZero consumers and latest timestamp selection; targeted race tests and beta checks pass. Remaining zero checks are classified in query-consumer-audit.json.",
+        "Final full backend race suite and all 64 CI contract commands passed. Remaining sentinel uses are classified in query-consumer-audit.json."
+      ],
+      "resolutionEvidence": [
+        "conferenceBoundaryDateParity",
+        "resourceOptionAtomicity",
+        "storedDatePresence",
+        "completionAudit"
+      ]
+    }
+  ],
+  "requestTraceParity": {
+    "verifiedAt": "2026-11-03T13:00:55.723448+00:00",
+    "status": "verified_and_deployed_to_beta",
+    "sourceSHA256": "8f531fe1499460bef2ddc0ab0fc3dea3c0105ba78fb2fbd2fad63021f8416836",
+    "checks": {
+      "focusedRace": {
+        "file": "/tmp/go-request-trace-tests.log",
+        "sha256": "6a39631f8768f754a36bcfea612dff4a1da5cd39095ab9d3ce8915b1c2f9512a"
+      },
+      "fullRaceIntegration": {
+        "file": "/tmp/go-request-trace-integration.log",
+        "sha256": "e604ac68610b6d3360d0a4e0550a946e54eac4ada9cd37366b9cba744fbd10be"
+      },
+      "goVet": "passed",
+      "liveCorrelation": {
+        "file": "backend/reports/shadow-request-trace-validation.json",
+        "sha256": "fa579fff18d879bb2a229cb64f2909dc0b19d2e07f61f7f9b6cee8671ca07566"
+      },
+      "liveAppFlow": {
+        "file": "backend/reports/shadow-app-authenticated-deployment.json",
+        "sha256": "dd34ce4ff719d267be4dc10568c403d584b1d55db8548bb7aea7f9d01824f46b"
+      },
+      "uniqueRequestIDsVerified": 38
+    },
+    "coverage": [
+      "Generated v4 UUID response IDs even without Redis; incoming IDs ignored",
+      "Structured logs with fixed route labels, no raw paths, query strings or credentials",
+      "Concurrent request-stage accumulation and interrupted-request warnings",
+      "Legacy source/transformed hit/miss counters independent of detailed cache monitoring"
+    ],
+    "limits": [
+      "Completion warnings now persist to the admin error ring; see errorMonitoringParity.",
+      "Third-party provider HTTP credential flows remain provider-specific."
+    ]
+  },
+  "errorMonitoringParity": {
+    "verifiedAt": "2026-11-03T13:17:44.265870+00:00",
+    "status": "verified_and_deployed_to_beta",
+    "sourceSHA256": "921cd51aa6447064e4e13a68cf76606066a7f3f1421208f93794b273ee5a732f",
+    "contracts": {
+      "command": "node backend/contracts/error-log.cjs --check",
+      "fixtures": 40,
+      "result": "passed",
+      "ciEnabled": true
+    },
+    "checks": {
+      "targetedRace": {
+        "file": "/tmp/go-error-monitoring-tests.log",
+        "sha256": "2a3eb36bc7d13ac28006c0bc4f62a4badf0bf15f8e7c90d50713fc734b6611ef"
+      },
+      "fullRaceIntegration": {
+        "file": "/tmp/go-error-monitoring-full.log",
+        "sha256": "dc27010741bcf5a2ad1ff797d61f80d61c3771cf439adffc0ebf7e69c19ce155"
+      },
+      "goVet": "passed",
+      "liveAppFlow": {
+        "file": "backend/reports/shadow-app-authenticated-deployment.json",
+        "sha256": "acabbf8beb7c6e572363b181ef28255f09429f82d7734dda86442f6be81fe06d"
+      }
+    },
+    "coverage": [
+      "5000-entry ring and TypeScript decimal pagination",
+      "Severity classification, noisy-code exclusions, hourly level/module/code counters and TTL",
+      "Bounded asynchronous error buffer and failed-batch accounting",
+      "Interrupted and slow request warning persistence",
+      "Clear ring/hourly hashes/Redis dropped counter while preserving unrelated data",
+      "LOG_LEVEL thresholds and production/development defaults"
+    ],
+    "liveValidationNotes": [
+      {
+        "result": "initial check failed",
+        "reason": "The smoke test incorrectly required an upstream timing sample on a shared-cache hit; corrected the assertion.",
+        "log": {
+          "file": "/tmp/go-error-monitoring-app.log",
+          "sha256": "4fa278c00b7bfa959145e0a9af3d431c62112953b0e0dd45b81ed9a4f9dffadd"
+        }
+      },
+      {
+        "result": "retry failed",
+        "reason": "GitHub README request returned 502; public response lacked request-ID header. Temporary key was revoked.",
+        "log": {
+          "file": "/tmp/go-error-monitoring-app-rerun.log",
+          "sha256": "6c420a15ce8bb6d7cacd8fdbb29bd8d4bcef6532f3e350c11ede2a0004afc2de"
+        }
+      },
+      {
+        "result": "final retry passed",
+        "log": {
+          "file": "/tmp/go-error-monitoring-app-final.log",
+          "sha256": "acabbf8beb7c6e572363b181ef28255f09429f82d7734dda86442f6be81fe06d"
+        }
+      }
+    ],
+    "intentionalBounds": [
+      "128 buffered entries; overflow/failed transactions count as dropped and are not replayed",
+      "No raw upstream errors, URLs or credentials in stored error records",
+      "Clear refuses more than 10000 hourly keys; offsets saturate at Number.MAX_SAFE_INTEGER"
+    ],
+    "productionChanged": false
+  },
+  "queueMetricParity": {
+    "verifiedAt": "2026-11-03T13:25:09.246371+00:00",
+    "status": "verified_and_deployed_to_beta",
+    "sourceSHA256": "a4dc61278b40e02969e1c227753e22f98ad676760169fd6eabc6ae98b0847b4b",
+    "imageID": "sha256:44ac2d10a899f361f700f30816b0f47281b3a157a3e3ffb76ca35ed47a26cc1b",
+    "fixes": [
+      "Named ranges and string range response match TypeScript",
+      "One point per minute across up to seven days",
+      "30-second successful-read cache bounded to 12 queue/window pairs",
+      "Redis failures return an uncached empty chart",
+      "Worker duration rounding and nonnegative clamp"
+    ],
+    "checks": {
+      "contracts": {
+        "command": "node backend/contracts/queue-metrics.cjs --check",
+        "fixtures": 17,
+        "result": "passed",
+        "ciEnabled": true
+      },
+      "targetedRaceIntegration": {
+        "command": "GO_BINARY=/tmp/anonymous-go-investigation/go/bin/go backend/scripts/test-integration.sh -run 'TestQueueMetric|TestBackendIntegration/queue_metric_history'",
+        "log": {
+          "file": "/tmp/go-queue-metric-tests.log",
+          "sha256": "2a8854d37dd48b4eedb3e63ac834da42d86ee3ad9b2a29cae25b63f04f918f99"
+        },
+        "result": "passed"
+      },
+      "goVet": "passed",
+      "liveMonitoring": {
+        "file": "backend/reports/shadow-monitoring-authenticated-deployment.json",
+        "sha256": "5e12b38543f991d455a4a73f58f3f689cacb3876388bf2787c94c4fcc4c4bf96"
+      }
+    },
+    "limits": [
+      "The prior full backend race suite predates this queue-only correction; the changed queue path has targeted race/integration and live validation.",
+      "This deployment check did not rerun GitHub imports or mutate queue jobs."
+    ],
+    "productionChanged": false
+  },
+  "queueOverviewParity": {
+    "verifiedAt": "2026-11-03T13:31:37.053654+00:00",
+    "status": "verified_and_deployed_to_beta",
+    "sourceSHA256": "73667d2630e4e2b1e9b12954305dd7649f3774fb375a4ac8f82017624601aba7",
+    "imageID": "sha256:1a700e5aa2e4467cc82b591ee3d6e2ae418dea0165ea5fadd328bc52c4a8cfd5",
+    "fixes": [
+      "24-hour completion/failure totals in queue overview cards",
+      "Live Go worker instance count and actual per-instance concurrency",
+      "Stale/stopped worker exclusion and graceful process sample removal",
+      "delayUntil, processedOn and finishedOn job timestamps"
+    ],
+    "checks": {
+      "targetedRaceIntegration": {
+        "command": "GO_BINARY=/tmp/anonymous-go-investigation/go/bin/go backend/scripts/test-integration.sh -run 'TestProcessSample|TestTypeScriptWorkerQueue|TestIndependentWorkerQueuesIntegration|TestBackendIntegration/(queue_overview|process_performance_history|queue_metric_history)'",
+        "result": "passed",
+        "log": {
+          "file": "/tmp/go-queue-overview-tests.log",
+          "sha256": "97d796a1b619a1bd038a6765082094109eee29eb999eb30b44d15dc340d53f57"
+        }
+      },
+      "goVet": "passed",
+      "liveMonitoring": {
+        "file": "backend/reports/shadow-monitoring-authenticated-deployment.json",
+        "sha256": "6db1ad8811ec4d50a804b0c470d6212717d1d57d29f665df90c83bcb10291dab"
+      }
+    },
+    "limits": [
+      "The earlier full backend race run predates the queue monitoring changes; targeted worker, queue and process-history suites verify this correction.",
+      "Unclean shutdowns and unavailable Redis during shutdown can leave a worker sample visible until its 90-second expiry.",
+      "Worker presence uses the existing bounded process sample registry."
+    ],
+    "productionChanged": false
+  },
+  "adminHistoryParity": {
+    "verifiedAt": "2026-11-03T13:38:55.397071+00:00",
+    "status": "verified_and_deployed_to_beta",
+    "sourceSHA256": "aa7d7681f7e05a938429bf9baf8ca209027ea97474374f78fcd3d53c3b14886f",
+    "imageID": "sha256:7f7ddd48efdbb9b69f81ab67d5979c6dca8343f6f657d335a7fcd7f3bcc7db1e",
+    "fixes": [
+      "Fresh admin activity totals independent of public statistics cache",
+      "Fixed 30-day admin history independent of days query parameter",
+      "TypeScript UTC-day replacement, stable ordering and non-mutating history merge",
+      "Optional error telemetry fallback and matching overview error-summary fields"
+    ],
+    "checks": {
+      "contracts": {
+        "command": "node backend/contracts/stats-history.cjs --check",
+        "fixtures": 20,
+        "result": "passed",
+        "ciEnabled": true
+      },
+      "targetedRaceIntegration": {
+        "command": "GO_BINARY=/tmp/anonymous-go-investigation/go/bin/go backend/scripts/test-integration.sh -run 'TestStatsHistory|TestBackendIntegration/overview_rolling_activity_counts'",
+        "result": "passed",
+        "log": {
+          "file": "/tmp/go-stats-history-final-tests.log",
+          "sha256": "8f482a04d62b2b7e4cbeddbdc3a0808d1d85084f24af61036c58ec2b50088ba2"
+        }
+      },
+      "goVet": "passed",
+      "liveMonitoring": {
+        "file": "backend/reports/shadow-monitoring-authenticated-deployment.json",
+        "sha256": "ec1965d483e296077bba54f679c56e8ec9059be2462c476f784b9fab84addbdc"
+      }
+    },
+    "limits": [
+      "The previous full backend race run predates these focused statistics changes.",
+      "Public statistics caching and day-window parsing have separate unresolved parity findings."
+    ],
+    "productionChanged": false
+  },
+  "publicStatisticsCacheParity": {
+    "verifiedAt": "2026-11-03T13:56:55.913113+00:00",
+    "status": "verified_and_deployed_to_beta",
+    "sourceSHA256": "d33c71c99afb21aa708cd50e649d4be15bf2a3da81dbbdb83015165147fa3a91",
+    "imageID": "sha256:ecf493af414758c3be4a141664b6237f30556bb026962366460f64f4ab8dfe01",
+    "fixes": [
+      "One-entry current totals and 16-entry UTC-day/window history caches with one-hour success TTL and concurrent fill coalescing",
+      "Shared TypeScript Redis key and renewable ownership-checked fill lease",
+      "Optional Redis read/write fallback with bounded timeouts",
+      "Plain/repeated days integer-prefix parsing and bounds",
+      "Returned totals/history cannot mutate local caches"
+    ],
+    "checks": {
+      "contracts": {
+        "commands": 49,
+        "result": "passed",
+        "log": {
+          "file": "/tmp/go-public-stats-contracts-final.log",
+          "sha256": "4389a4769278306b3bb6a3640c6edceaf472f9cc020c45a10c3a641fe07e3889"
+        },
+        "statisticsWindowFixtures": 28
+      },
+      "fullRaceIntegration": {
+        "result": "passed",
+        "log": {
+          "file": "/tmp/go-public-stats-full.log",
+          "sha256": "f76b5aa5ee74dbb04be62b6e574ec99f86d087a1c970f70c56ebca511d280239"
+        },
+        "serverSeconds": 236.214
+      },
+      "goVet": "passed",
+      "formatting": "passed",
+      "liveMonitoring": {
+        "file": "backend/reports/shadow-monitoring-authenticated-deployment.json",
+        "sha256": "c19fd086b50697f94837f0cded5ac4310f0d76a75c225cdb471587ab2e5cb029"
+      },
+      "livePublicStatistics": {
+        "anonymousAccess": true,
+        "windows": [
+          {
+            "query": "-2",
+            "days": 1,
+            "rows": 1
+          },
+          {
+            "query": "0",
+            "days": 30,
+            "rows": 1
+          },
+          {
+            "query": "0x10",
+            "days": 16,
+            "rows": 1
+          },
+          {
+            "query": "7suffix",
+            "days": 7,
+            "rows": 1
+          },
+          {
+            "query": "999",
+            "days": 365,
+            "rows": 1
+          }
+        ]
+      }
+    },
+    "limits": [
+      "Express bracketed arrays and objects remain a separate query-parser implementation gap.",
+      "History queries still cap results at 366 rows; duplicate/future snapshots exceeding that count remain a separate output gap.",
+      "Live checks use beta data; optional-cache faults are tested with isolated MongoDB/Redis infrastructure.",
+      "Production-data cutover and rollback remain unverified."
+    ],
+    "productionChanged": false
+  },
+  "statisticsQueryParity": {
+    "verifiedAt": "2026-11-03T14:03:33.627979+00:00",
+    "status": "verified_and_deployed_to_beta",
+    "sourceSHA256": "6818063db39812369f67c5bddcc6a12df93c98d31f11d1e1cf5d8fed611b1667",
+    "imageID": "sha256:9a3be3c45ada85e60099cf927578b048c08f9e9c17832febf28f4e4a88cec16e",
+    "fixes": [
+      "History returns all matching snapshots, including multiple timestamps per day and future imports, without the unintended 366-row cap.",
+      "Public history uses a reusable bounded extended-query parser matching Express scalar string conversion.",
+      "Parser handles mixed arrays/objects, depth and array limits, malformed escaping and prototype-like names without object prototype state."
+    ],
+    "checks": {
+      "expressContracts": {
+        "fixtures": 1274,
+        "command": "node backend/contracts/query-values.cjs --check",
+        "result": "passed",
+        "ciEnabled": true
+      },
+      "historyContracts": 20,
+      "windowContracts": 28,
+      "focusedRaceIntegration": {
+        "result": "passed",
+        "log": {
+          "file": "/tmp/go-stats-query-parity-tests.log",
+          "sha256": "6b7f7838f1fb38fd6e6f8a07c15860e8c79270a72c43e30f925835baa705322f"
+        },
+        "coverage": [
+          "402-row history output",
+          "route-level bracketed date-window queries",
+          "existing cache failure, coordination and admin overview tests"
+        ]
+      },
+      "expandedQueryRace": {
+        "result": "passed",
+        "log": {
+          "file": "/tmp/go-query-expanded-race.log",
+          "sha256": "aa98752488744a50969bcdb0bd0896069324006a637079a2e0a3fa5e73a47385"
+        }
+      },
+      "goVet": "passed",
+      "liveMonitoring": {
+        "file": "backend/reports/shadow-monitoring-authenticated-deployment.json",
+        "sha256": "60ca63873e93061af9d17339419584eacda958a1bb8ee092d5e42ca14f823b3e"
+      },
+      "livePublicStatistics": {
+        "anonymousAccess": true,
+        "windows": [
+          {
+            "query": "days=-2",
+            "days": 1,
+            "rows": 1
+          },
+          {
+            "query": "days=0",
+            "days": 30,
+            "rows": 1
+          },
+          {
+            "query": "days=0x10",
+            "days": 16,
+            "rows": 1
+          },
+          {
+            "query": "days=7suffix",
+            "days": 7,
+            "rows": 1
+          },
+          {
+            "query": "days=999",
+            "days": 365,
+            "rows": 1
+          },
+          {
+            "query": "days[]=7&days[]=30",
+            "days": 7,
+            "rows": 1
+          },
+          {
+            "query": "days[1]=7&days[0]=1",
+            "days": 1,
+            "rows": 1
+          },
+          {
+            "query": "days[x]=7",
+            "days": 30,
+            "rows": 1
+          }
+        ]
+      }
+    },
+    "limits": [
+      "Other query consumers still use net/url.Values and need per-route coercion/validation audits.",
+      "The preceding full race suite predates these changes; focused race/integration tests cover these corrections.",
+      "Production-data cutover and rollback remain unverified."
+    ],
+    "productionChanged": false
+  },
+  "dashboardQueryParity": {
+    "verifiedAt": "2026-11-03T14:08:44.069156+00:00",
+    "status": "verified_and_deployed_to_beta",
+    "sourceSHA256": "4bfb222c04ab4bb968e6a4c40a3c6fc75a1175bbb0453e64dd44fc985b13ee19",
+    "imageID": "sha256:9620895e7a38dfadf41074217582fe83b749f2ebd360ac3609480aa83d94c261",
+    "fixes": [
+      "Parse the raw dashboard query once with the bounded Express-compatible parser.",
+      "Preserve JavaScript array/object truthiness for defaults and cursor presence.",
+      "Preserve native array type filters and strict scalar attention comparisons.",
+      "Handle indexed search/status arrays, numeric limit coercion and cursor conversion errors."
+    ],
+    "checks": {
+      "pipelineContracts": 186,
+      "sharedParserContracts": 1274,
+      "filterContracts": 28,
+      "contractsAndRace": {
+        "file": "/tmp/go-dashboard-query-contracts.log",
+        "sha256": "3bcc41031b6b307cb7382c443aadc9ef585afdc1d848d078c019b28427a602e1"
+      },
+      "databaseHTTPRace": {
+        "file": "/tmp/go-dashboard-query-integration.log",
+        "sha256": "eac1562952733f67da29369cb5a4454eb4aa0ccf940ce9f89e672f80f307c666"
+      },
+      "goVet": "passed",
+      "liveMonitoring": {
+        "file": "backend/reports/shadow-monitoring-authenticated-deployment.json",
+        "sha256": "4fe5d9340cbb270fe2c41334a446646c48bf7d7bca19e60524dbf3bd9213d620"
+      },
+      "liveDashboardExtendedQueries": "passed"
+    },
+    "limits": [
+      "Full backend race evidence predates this focused dashboard change.",
+      "Other query consumers still require auditing.",
+      "Production-data cutover and rollback remain unverified."
+    ],
+    "productionChanged": false
+  },
+  "oauthQueryParity": {
+    "verifiedAt": "2026-11-03T14:14:06.157476+00:00",
+    "status": "verified_and_deployed_to_beta",
+    "sourceSHA256": "580e6116202c12392afbc674ae5da961c9d00771fb0c95c640ee1d74d9d03503",
+    "imageID": "sha256:3101a8b8afda2e590d79fa4fcaf21d85d9521918948c600bd00fd1e544193ffe",
+    "fixes": [
+      "App login and installation suggestions retain only scalar intent and return destinations.",
+      "OAuth callbacks reject mixed scalar/bracketed state and code values; truthy array/object error values cancel authorization.",
+      "Installation setup distinguishes absent/empty scalar state from truthy arrays and applies strict scalar action/id checks."
+    ],
+    "checks": {
+      "raceIntegration": {
+        "file": "/tmp/go-oauth-query-final-tests.log",
+        "sha256": "e9207ef3f08287178ff4c7a7d0477b442937c0fc14a8bd2a38f26c3738b47a4b"
+      },
+      "queryShapeRace": {
+        "file": "/tmp/go-query-shape-race.log",
+        "sha256": "795aa3240b1c91491f7f01b06d6e5a9c4e145473ef44ac60f26a29963d8c3f55"
+      },
+      "expressQueryFixtures": 1274,
+      "goVet": "passed",
+      "liveBeta": {
+        "file": "backend/reports/shadow-oauth-query-deployment.json",
+        "sha256": "d4fd8c1401a02674ef8e72a9bd42d484fd2f78184b82abd047561680ddfc0bf7"
+      },
+      "liveCases": [
+        "mixed state rejected and cannot replay",
+        "mixed code rejected and cannot replay",
+        "empty array error rejected and cannot replay",
+        "anonymous sessions remain unauthenticated"
+      ]
+    },
+    "limits": [
+      "Mocked integration tests assert zero upstream requests on invalid callbacks; live checks assert HTTP errors and rejection of consumed-state replay.",
+      "An initial live-script cleanup assertion incorrectly expected anonymous logout to succeed; corrected to verify /api/user returns 401.",
+      "Full backend race evidence predates this focused callback correction.",
+      "Pending OAuth flow lifecycle still needs comparison for multiple starts and callbacks without a scalar state.",
+      "Other query consumers and production cutover remain unverified."
+    ],
+    "productionChanged": false
+  },
+  "oauthPendingFlowParity": {
+    "verifiedAt": "2026-11-03T14:24:11.830749+00:00",
+    "status": "verified_and_deployed_to_beta",
+    "sourceSHA256": "62351871c63bf099543b89138472766910892e615a5b3605dc72668705fa30b1",
+    "imageID": "sha256:91bd139c5d4c21b0fb99dfe95c25c92ded64e812b06eb085d0110c7d7665f7a8",
+    "fixes": [
+      "One pending OAuth attempt per session and authorization provider.",
+      "Redis scripts atomically replace prior attempts and consume the pending attempt before state validation.",
+      "Missing, malformed and superseded callback state consume the pending attempt.",
+      "A foreign session cannot consume another session's pending flow.",
+      "App and legacy flows remain independent; concurrent callbacks consume at most once."
+    ],
+    "checks": {
+      "fullRaceIntegration": {
+        "result": "passed",
+        "serverSeconds": 240.992,
+        "log": {
+          "file": "/tmp/go-oauth-lifecycle-full.log",
+          "sha256": "07e1a38ec6fd7c8d8042de3ed721741eb9223ce85c7961eccb3cda2882a6e37b"
+        }
+      },
+      "contracts": {
+        "result": "passed",
+        "commands": 50,
+        "log": {
+          "file": "/tmp/go-oauth-lifecycle-contracts.log",
+          "sha256": "081a2f2688f7a597342a13f17e3ea96b792a953cc07e0f9484b1af9260fcecbd"
+        }
+      },
+      "goVet": "passed",
+      "liveBeta": {
+        "file": "backend/reports/shadow-oauth-query-deployment.json",
+        "sha256": "67f70ec24c207f3eb50c5489fe3f2cb55df59345731bcb14f2d21c79930b12e1"
+      },
+      "liveAccessMode": "local TLS proxy with hostname verification",
+      "liveCases": 8
+    },
+    "limits": [
+      "Public DNS lookup timed out before receiving an HTTP response; local TLS checks retained certificate hostname verification and the beta proxy route.",
+      "In-flight logins created before this deployment have no pending index and must restart. Existing authenticated sessions use separate storage.",
+      "Disabled App route middleware ordering remains different: Go currently consumes pending state before its configuration gate; TypeScript gates first.",
+      "Other query consumers and production cutover remain unverified."
+    ],
+    "productionChanged": false
+  },
+  "gatesAndMonitoringQueryParity": {
+    "verifiedAt": "2026-11-03T14:31:21.284235+00:00",
+    "status": "verified_and_deployed_to_beta",
+    "sourceSHA256": "dffa4ee4f1ac913553f37ab648b33530e90c17a3bf5bb75fdc64cb9bdfc56317",
+    "imageID": "sha256:c38d315da3a9c300f689b161241ae3d2f1463bc860407e9708004c566a3f9ac3",
+    "fixes": [
+      "Disabled App, new-connection and legacy OAuth callbacks return 503 before consuming pending state.",
+      "Pending login remains valid after provider re-enabling; subsequent consumption remains one-time.",
+      "Performance and cache monitoring windows use Express-compatible query conversion and JavaScript numeric window forms.",
+      "Malformed object conversion errors precede telemetry availability checks."
+    ],
+    "checks": {
+      "monitoringWindowContracts": 35,
+      "queryFixtures": 1274,
+      "windowRace": {
+        "file": "/tmp/go-monitoring-query-tests.log",
+        "sha256": "045d009ec39f5b2daa3b6e6db13fb60529475873d9513d307e445630802aa2d3"
+      },
+      "focusedHTTPDatabaseRace": {
+        "file": "/tmp/go-gates-monitoring-focused.log",
+        "sha256": "ef5bba694d0491eb44052c8017550c56fc201ed73869d23585618e345a2f7a39"
+      },
+      "goVet": "passed",
+      "liveMonitoring": {
+        "file": "backend/reports/shadow-monitoring-authenticated-deployment.json",
+        "sha256": "33f41cbb54172a78a21e1b1322f38e6444ccf1f27c75f8e41e0eb652966c0e33"
+      },
+      "liveOAuth": {
+        "file": "backend/reports/shadow-oauth-query-deployment.json",
+        "sha256": "7e513a18730f00c7f47f22852c3f62782a0f0cd2f35203181306b1d77a2e18a8"
+      },
+      "publicDNS": "reachable; both live scripts passed without local override"
+    },
+    "limits": [
+      "Provider disable/re-enable behavior is tested in isolated integration fixtures; beta configuration was not toggled.",
+      "The earlier complete 50-command and full backend race run predates these focused fixes; current CI has 51 contract commands.",
+      "Queue/admin list, source preview and file query consumers remain to audit.",
+      "Production-data cutover and rollback remain unverified."
+    ],
+    "productionChanged": false
+  },
+  "queueAndErrorQueryParity": {
+    "verifiedAt": "2026-11-03T14:36:09.267225+00:00",
+    "status": "verified_and_deployed_to_beta",
+    "sourceSHA256": "4f130473f20f54540d6a48e2905e70c7dacc95b34212e399d8b74c440295b61b",
+    "imageID": "sha256:991f4d341450e7f82bddee81dfee0d7e555d9df785efb4705f1b7df2763b88b4",
+    "fixes": [
+      "Queue metric selection preserves empty-array truthiness and bracketed/repeated values.",
+      "Invalid queue selection takes precedence over range conversion, matching TypeScript.",
+      "Inherited range-object names preserve empty-series output without introducing prototype state.",
+      "Queue overview selection/search converts parsed values rather than taking the first plain value.",
+      "Error-log pagination parses extended values and retains numeric bounds."
+    ],
+    "checks": {
+      "extractedContracts": 29,
+      "ciEnabled": true,
+      "raceIntegration": {
+        "file": "/tmp/go-admin-query-tests.log",
+        "sha256": "feaf80d5d4cd6209b6dcda822c0d51c142144c7daf7990fe896d27e098038980"
+      },
+      "goVet": "passed",
+      "liveMonitoring": {
+        "file": "backend/reports/shadow-monitoring-authenticated-deployment.json",
+        "sha256": "b3f0a2bbf63783ab5f3e570e531b175983186ead868b9d5295a787406cc0ce53"
+      },
+      "liveAdminExtendedQueries": "passed",
+      "temporaryKeyRevoked": true
+    },
+    "limits": [
+      "The last full backend race run predates these focused query changes.",
+      "Admin resource/user lists, source previews, file and legacy user-list query consumers still require auditing.",
+      "Production-data cutover and rollback remain unverified."
+    ],
+    "productionChanged": false
+  },
+  "fileAndRefreshQueryParity": {
+    "verifiedAt": "2026-11-03T14:41:47.277937+00:00",
+    "status": "verified_and_deployed_to_beta",
+    "sourceSHA256": "cfdb43a6724fbad86c7fa754bda835af0e34db11b07b8c0f1f3f5059a5aa9e3f",
+    "imageID": "sha256:4e2a24652d56033d064221b7a899528842756216f5cc5b05f43a76be464773f0",
+    "fixes": [
+      "Download attachment selection uses parsed-value truthiness, including empty arrays and objects.",
+      "Preview and repository-list refresh flags follow TypeScript loose equality for force.",
+      "Reconnect flags remain strict scalar comparisons and short-circuit force conversion.",
+      "Actual file-route contract harness uses the same extended query parser as the application."
+    ],
+    "checks": {
+      "queryContracts": 53,
+      "actualFileRouteContracts": 115,
+      "fileMetadataAndPreviewRace": {
+        "file": "/tmp/go-file-query-tests.log",
+        "sha256": "e925c5d1d40bb9ed62abf1c3dfe65531bf5d3716f67eacd01ebc74baac0cd4de"
+      },
+      "discoveryAuthorizationRace": {
+        "file": "/tmp/go-preview-query-tests.log",
+        "sha256": "328106e8dcc7f14e15fb63387fa422e1bddace1de06154d03d5fe3a38c715398"
+      },
+      "goVet": "passed",
+      "liveReadOnlyHeaders": {
+        "file": "backend/reports/shadow-file-query-deployment.json",
+        "sha256": "de4f0c1aac8b308cf7c0e26185921c0bb682fa9c2e2130fec4bd62565fee0c8e"
+      }
+    },
+    "limits": [
+      "Live HEAD checks use the existing synthetic shadow-demo archive; preview refresh and authorization checks use isolated upstream fixtures.",
+      "The preceding full backend race run predates this focused correction.",
+      "Source-preview binding/hint/branch queries, file search and admin/user search/list queries still need auditing.",
+      "Production-data cutover and rollback remain unverified."
+    ],
+    "productionChanged": false
+  },
+  "previewBindingQueryParity": {
+    "verifiedAt": "2026-11-03T14:47:56.564832+00:00",
+    "status": "verified_and_deployed_to_beta",
+    "sourceSHA256": "40d0ace337421a307366ac3b79380a9ab061772cd2bb2420ac9e2d7beb0e25da",
+    "imageID": "sha256:d6ef3842bde8880b6b903cc815dc15e1cc336cf27305aa45a2e6bbeef50b7666",
+    "fixes": [
+      "Only scalar anonymizedRepoId selects a saved resource; mixed arrays use the caller's connection flow.",
+      "Non-scalar connection choices are rejected before provider Connect.",
+      "GitHub explicit connection choices match its TypeScript allowlist, including rejection of an empty scalar.",
+      "Saved previews ignore untrusted connection queries and retain the authorized owner binding.",
+      "Other providers retain opaque connection names; GitHub name validation precedence is preserved."
+    ],
+    "checks": {
+      "typescriptQueryContracts": 17,
+      "raceIntegration": {
+        "file": "/tmp/go-preview-binding-final.log",
+        "sha256": "8588318e14bb4a5ffa6ed5222557ac101097893ade9cb1d85752630d0dbccd31"
+      },
+      "goVet": "passed",
+      "liveMonitoring": {
+        "file": "backend/reports/shadow-monitoring-authenticated-deployment.json",
+        "sha256": "3997da98a88aab32786f01122c75902844f2fc82a38c00b85528b8137e95382a"
+      },
+      "livePreviewConnectionQueries": "passed",
+      "temporaryKeyRevoked": true
+    },
+    "limits": [
+      "Live checks exercise malformed GitHub choices; owner/caller isolation and other-provider names use isolated provider fixtures.",
+      "Full backend race evidence predates this focused correction.",
+      "Preview repositoryID/branch/name inputs, file search and admin/user list/search inputs remain to audit.",
+      "Production-data cutover and rollback remain unverified."
+    ],
+    "productionChanged": false
+  },
+  "fileSearchQueryParity": {
+    "verifiedAt": "2026-11-03T14:56:38.315079+00:00",
+    "status": "verified_and_deployed_to_beta",
+    "sourceSHA256": "3799c57ee1928fe692744a5552b84c42b40f624e8be56327bbdfe6a893b0760e",
+    "imageID": "sha256:eb851c71d7ea99f9d4e19044f952a34f68ba9606c59225cb0207ee505c885a18",
+    "fixes": [
+      "Extended query shapes match TypeScript scalar .trim() behavior.",
+      "Trimmed UTF-16 query length and Unicode lowercasing match covered JavaScript cases.",
+      "Short queries return before scanning files, after repository status checks."
+    ],
+    "checks": {
+      "typescriptContracts": 22,
+      "raceIntegration": {
+        "file": "/tmp/go-file-search-tests.log",
+        "sha256": "3b9493fedd8bf387ca2f1df8904eed51eff206ce48650f0a37be2aa445d7f5c4"
+      },
+      "goVet": "passed",
+      "liveQueries": {
+        "file": "backend/reports/shadow-file-query-deployment.json",
+        "sha256": "be182e349596fb49fa15d9a0a6d04e1465d4c8fb82ef00937206b7922ca78e58"
+      },
+      "containerHealth": "healthy"
+    },
+    "limits": [
+      "Errors retain Go no-store instead of TypeScript no-cache.",
+      "Search metadata checks repository status, without per-request provider grant revalidation, as in TypeScript.",
+      "Go 100000-row scan cap and connected TypeScript index ordering require large-tree parity validation.",
+      "The full backend race suite predates this focused change.",
+      "Preview repositoryID/branch/name, file listing path and admin/user list queries remain in the query audit.",
+      "Production-data cutover and rollback remain unverified."
+    ],
+    "productionChanged": false
+  },
+  "largeFileTreeScanParity": {
+    "verifiedAt": "2026-11-03T15:02:02.543905+00:00",
+    "status": "verified_and_deployed_to_beta",
+    "sourceSHA256": "d1ef96a2ab2e5b9c1c1a6f895bc5e706fbd5b84e88ab7c68f5bbe23580a9784b",
+    "imageID": "sha256:e7112c17508e42a6b8ae9e0d9641ced09eefbba1420e2dcbb3d04dcf86210986",
+    "fixes": [
+      "Removed the 100000-row scan cap from file listings, search and counts.",
+      "Read projected fields through a 256-row MongoDB cursor batch instead of materializing all input rows.",
+      "Stop search at 500 matches and close cursors on all return paths.",
+      "Counts avoid unnecessary filename anonymization."
+    ],
+    "checks": {
+      "raceIntegration": {
+        "file": "/tmp/go-large-tree-final.log",
+        "sha256": "77f3757e049a108e13d4b377e00b09fd5d321d650d9c8194071d2d0ba21ddd05"
+      },
+      "fixtureRows": 100001,
+      "verified": [
+        "last-row listing",
+        "last-row search",
+        "complete folder counts",
+        "500-match limit",
+        "Unicode and query contracts"
+      ],
+      "goVet": "passed",
+      "typescriptSearchContracts": 22,
+      "liveBeta": {
+        "file": "backend/reports/shadow-file-query-deployment.json",
+        "sha256": "0de0ce3a0ed9280ecd055cf4041fa539abaf8a672e649845e9cb538725ac4a45"
+      },
+      "containerHealth": "healthy"
+    },
+    "limits": [
+      "Sparse searches still scan/anonymize paths; no throughput improvement claimed.",
+      "TypeScript persisted index and query ordering still require parity review.",
+      "File listing path types and original/anonymized path resolution remain in the audit.",
+      "Focused race coverage does not replace a full final cutover suite.",
+      "Production-data cutover and rollback remain unverified."
+    ],
+    "productionChanged": false
+  },
+  "folderListingParity": {
+    "verifiedAt": "2026-11-03T15:10:38.660035+00:00",
+    "status": "verified_and_deployed_to_beta",
+    "sourceSHA256": "2b0bdc985b29d0f0199f8d3246804851b4668594002a5bd1f34ea2a88fe37b7f",
+    "imageID": "sha256:82ba40c21e8699f98c0ab0894c3f31999319cf17a30146eb047e4be815cc85f5",
+    "fixes": [
+      "Scalar path query enforcement; arrays/objects fail with internal_error like TypeScript.",
+      "Original path priority and single-folder transformed collision resolution.",
+      "Default masks and custom replacements resolve to original directories before MongoDB filtering.",
+      "Eight-character hash of stored SHA in non-empty-file listings, omitted for empty files and directories."
+    ],
+    "checks": {
+      "typescriptListingContracts": 4,
+      "secondProviderRaceSuite": {
+        "file": "/tmp/go-folder-path-final.log",
+        "sha256": "e0d174e8ab38935e0766f3d86338bb60c31fd476e6d600cf9fc96d0cac96c8b4"
+      },
+      "goVet": "passed",
+      "liveBeta": {
+        "file": "backend/reports/shadow-file-query-deployment.json",
+        "sha256": "e089dae87ef61d18d15ba2a95fff311c279286a4f46850015eeb14f1e2ed7992"
+      },
+      "containerHealth": "healthy"
+    },
+    "limits": [
+      "Trailing-separator and truncated-tree recovery parity remains unverified.",
+      "File-content Redis index differences remain separately recorded.",
+      "Remaining preview/admin/user query inputs still need audit.",
+      "Production-data cutover and rollback remain unverified."
+    ],
+    "productionChanged": false
+  },
+  "contentPathLookupParity": {
+    "verifiedAt": "2026-11-03T15:15:16.888691+00:00",
+    "status": "verified_and_deployed_to_beta",
+    "sourceSHA256": "c60c3020614dd6013bfbf55a1fdc853d42f41992a4119200617092c279f9993e",
+    "imageID": "sha256:dfdea6c0352b5d9d5e64ca7b590b0df8912fc45dcea70d3a44ad26d78dc0a46d",
+    "fixes": [
+      "Original path lookup precedes transformed index lookup.",
+      "Transformed collisions select the first row in original path/name order.",
+      "Index cursor removes silent 100000-row truncation and includes directory entries.",
+      "Cache key adds fileMetadataRevision, source commit, anonymizeDate and a new version.",
+      "Atomic publication rejects a builder that no longer owns its lock."
+    ],
+    "checks": {
+      "raceLookupAndLargeTree": {
+        "file": "/tmp/go-content-index-tests.log",
+        "sha256": "35c6342e2770d428ee62d6d7a2a08bb204ca0ee095e0208419b770a0f4edd8cb"
+      },
+      "raceMetadataAndRevocation": {
+        "file": "/tmp/go-content-index-metadata.log",
+        "sha256": "7bf3071d5f05f8f6c8f9ec9f1b6988fc87ec326ecbe318c3db07891c945bc2fb"
+      },
+      "goVet": "passed",
+      "liveBeta": {
+        "file": "backend/reports/shadow-file-query-deployment.json",
+        "sha256": "f98349c7962e516c0879ddbe0a815c84d23bf1a7e83e6e45ba2c2e7167013794"
+      },
+      "containerHealth": "healthy"
+    },
+    "limits": [
+      "32 MiB encoded-size guard and 45-second index build deadline remain.",
+      "Truncated-tree recovery and full lifecycle publication fencing remain to verify.",
+      "Redis cache expiry and storage differ from TypeScript MongoDB index mechanics.",
+      "Focused race evidence does not replace the final full migration suite.",
+      "Production-data cutover and rollback remain unverified."
+    ],
+    "productionChanged": false
+  },
+  "pathSnapshotParity": {
+    "verifiedAt": "2026-11-03T15:19:18.454359+00:00",
+    "status": "verified_and_deployed_to_beta",
+    "sourceSHA256": "8e5c8c129af0f6004a573759aeddd5db7c8a66869414129743ff78e9494540f0",
+    "imageID": "sha256:48e42ed04dfe4d546e5d64e90a5cff676b6198247c4f1ae5517ea847fff5349d",
+    "fixes": [
+      "Check the database snapshot before returning original or cached transformed file metadata.",
+      "Check metadata, generation, terms, commit, settings, anonymize date, content-cache and provider-grant revisions, and terminal status.",
+      "Check the snapshot before and after publishing a built Redis index.",
+      "Include contentCacheRevision in the versioned path cache key."
+    ],
+    "checks": {
+      "raceSnapshotLargeTreeAndMetadata": {
+        "file": "/tmp/go-path-snapshot-tests.log",
+        "sha256": "931dd9aa93cda2e8ac222dd1dc885ddf3c7dec52d1ab6af61481c6fd01098132"
+      },
+      "goVet": "passed",
+      "liveBeta": {
+        "file": "backend/reports/shadow-file-query-deployment.json",
+        "sha256": "5835f2e6928f7b58b5f8b6003cca851f78eb40618f2f0384360f7f53c57ed342"
+      },
+      "containerHealth": "healthy"
+    },
+    "limits": [
+      "MongoDB and Redis are not atomically committed; stale versioned keys can remain briefly, but successful lookups revalidate the database snapshot.",
+      "StatusDate-only cache bookkeeping intentionally does not invalidate file metadata.",
+      "32 MiB encoded-size guard, 45-second build deadline and truncated-tree recovery remain to audit.",
+      "Focused checks do not replace a final full migration suite or production-data cutover rehearsal."
+    ],
+    "productionChanged": false
+  },
+  "truncatedFileRecoveryParity": {
+    "verifiedAt": "2026-11-03T15:26:51.382184+00:00",
+    "status": "implemented_tested_and_deployed_to_beta",
+    "sourceSHA256": "606f325355752bb20f27f5edb80dab54a69acd4f9a53e9f2dc3e9477ea26d3b7",
+    "imageID": "sha256:9eb0d712ea5abf6dc71d867a448e6f8b972956cf826d73d87f451211b87c96a9",
+    "fixes": [
+      "Optional provider.FileMetadata capability with GitHub commit-pinned Contents implementation.",
+      "Recover only unchanged paths within recorded truncated folders.",
+      "Authorize before/after upstream lookup and verify current repository snapshot before persistence.",
+      "Persist metadataPending rows and invalidate path/size metadata with revision-checked updates.",
+      "Retry interrupted invalidation on exact lookup; reject and discard new pending rows from retired source snapshots."
+    ],
+    "checks": {
+      "raceRecoveryGitHubAdapterSnapshotAndFileMetadata": {
+        "file": "/tmp/go-file-recovery-verified.log",
+        "sha256": "4781ecb26c74f009091acf269a8224e3ecfbe658b14f014853b62f9af93955f5"
+      },
+      "goVet": "passed",
+      "liveBetaSmoke": {
+        "file": "backend/reports/shadow-file-query-deployment.json",
+        "sha256": "a3eae21c156285538075664e97e2bbc54afd399de99bf8c9ad6d9dc4feba7078"
+      },
+      "containerHealth": "healthy"
+    },
+    "limits": [
+      "Live beta smoke covers existing files; recovery tests use isolated upstream fixtures.",
+      "Scheduled pending-row repair, folder recovery and still-truncated directory imports remain to audit.",
+      "Imported pending rows without provenance use legacy retry behavior.",
+      "Go preserves upstream permission errors rather than converting all recovery failures to missing-file responses.",
+      "Index resource limits and final migration/cutover validation remain open."
+    ],
+    "productionChanged": false
+  },
+  "pendingMetadataMaintenanceParity": {
+    "verifiedAt": "2026-11-03T15:31:48.918135+00:00",
+    "status": "verified_and_deployed_to_beta",
+    "sourceSHA256": "cdc59049e9adb3b8c2c4bb03a78806369829d2385c2222ccccb4a4c02e32a7f2",
+    "imageID": "sha256:62a42569634ee35475cfe9f34c41e4b500b892e127ac90d613f0cb32fa47f08e",
+    "fixes": [
+      "Minute maintenance streams pending metadata with a partial MongoDB index.",
+      "Repair current and legacy-generation rows; remove pending orphaned, retired-generation and terminal-state rows.",
+      "Continue after per-row failures and retain retryable work.",
+      "Maintenance invalidates archived metadata without allowing public file lookup.",
+      "Deletion requires metadataPending=true, protecting rows completed after the scan."
+    ],
+    "checks": {
+      "raceRepairRecoveryAndFileMetadata": {
+        "file": "/tmp/go-pending-metadata-final.log",
+        "sha256": "bbbaa2d4e95d93f8b0ab19f42c4854437122b159e5902714206915902b522963"
+      },
+      "goVet": "passed",
+      "liveBetaSmoke": {
+        "file": "backend/reports/shadow-file-query-deployment.json",
+        "sha256": "cf59a2e26bb8d2843e99f85d7fce503a2113e8d4774556b6838137ce33308564"
+      },
+      "livePartialIndex": {
+        "file": "/tmp/go-pending-metadata-index.log",
+        "sha256": "e5fdd001467e333ebe060b185dc661885a62660339adf7d1308b81c56f60d035"
+      },
+      "containerHealth": "healthy"
+    },
+    "limits": [
+      "Live beta check verifies deployment and index; repair state transitions use isolated database fixtures.",
+      "Folder recovery, still-truncated directory imports and index resource limits remain open.",
+      "Final full migration suite and production-data cutover rehearsal remain outstanding."
+    ],
+    "productionChanged": false
+  },
+  "partialTreeImportParity": {
+    "verifiedAt": "2026-11-03T15:38:57.117210+00:00",
+    "status": "verified_and_deployed_to_beta",
+    "sourceSHA256": "97d48d7227d48a23a29bd9adf0de17ac3aaea33785b1362fb8571c2f7d9f0ec5",
+    "imageID": "sha256:b035d3c4e5cf741d4cd70d915f3053500e00816d46d72f11e3ddb612587da417",
+    "fixes": [
+      "Optional provider.PartialTrees reports entries and incomplete folders without changing existing adapter requirements.",
+      "Shared preparation validates and publishes truncatedFolders with its tree generation.",
+      "GitHub retains available entries from truncated shallow trees and records incomplete root/child folders.",
+      "Remove 100000-entry rejection from shared preparation and GitHub traversal.",
+      "Preserve submodule commit entries without file sizes, matching TypeScript listing metadata."
+    ],
+    "checks": {
+      "raceImportGitHubAndRecovery": {
+        "file": "/tmp/go-partial-tree-verified.log",
+        "sha256": "a91ef0fe9eaf4da2dadf769b1555ba0ef7c929b6667302d4edd2d482aef9babc"
+      },
+      "importedFiles": 100001,
+      "publicTruncationMarkers": "anonymized",
+      "goVet": "passed",
+      "liveBetaSmoke": {
+        "file": "backend/reports/shadow-file-query-deployment.json",
+        "sha256": "76df321f6f3bbd5e904abc5ed23adbb52a3dd0d9ac4329c012a7107df135d8ec"
+      },
+      "containerHealth": "healthy"
+    },
+    "limits": [
+      "Imports still materialize snapshots in memory; no bounded-memory or throughput claim.",
+      "Live beta smoke checks existing content; partial upstream responses use isolated fixtures.",
+      "Folder-path recovery edge cases, Redis index limits and remaining query inputs remain in the audit.",
+      "Final full migration suite and production-data cutover rehearsal remain outstanding."
+    ],
+    "productionChanged": false
+  },
+  "folderPathEdgeParity": {
+    "verifiedAt": "2026-11-03T15:42:22.757995+00:00",
+    "status": "verified_and_deployed_to_beta",
+    "sourceSHA256": "1ffcccb4fe7d987438bd7d3abc01f4f142847697a0b294c70620e05021df0805",
+    "imageID": "sha256:cf5280aaa514e9b63a7fbbb7d7a9497c0bc7a3cfc714620c99197ee125f7f8b7",
+    "fixes": [
+      "Node-compatible dirname/basename for exact folder resolution, including trailing and repeated separators.",
+      "Keep unresolved scalar directory queries literal.",
+      "Complete pending invalidation for resolved original/transformed folder-lookup rows.",
+      "Use guarded per-file recovery after folder-resolution misses, matching TypeScript AnonymizedFile behavior.",
+      "Validate relative recovery paths before provider calls."
+    ],
+    "checks": {
+      "nodePathContracts": 18,
+      "raceFolderRecoveryAndMaintenance": {
+        "file": "/tmp/go-folder-edge-tests.log",
+        "sha256": "631acca39b922f166be0d4ec190f6f57e6536baeb763b661f6cad891612ffba8"
+      },
+      "goVet": "passed",
+      "liveBetaSmoke": {
+        "file": "backend/reports/shadow-file-query-deployment.json",
+        "sha256": "a10f69765b89081d5134d71c73d09739551c077d4c41a652fca6fce1d51f5774"
+      },
+      "containerHealth": "healthy"
+    },
+    "limits": [
+      "Recovery is regular-file metadata lookup, not upstream directory discovery, matching the inspected TypeScript capability.",
+      "Live beta smoke uses existing files; edge and recovery checks use isolated fixtures.",
+      "Redis path-index resource limits, remaining query inputs, full-suite verification and cutover rehearsal remain outstanding."
+    ],
+    "productionChanged": false
+  },
+  "fullValidationAfterPathAndTreeParity": {
+    "verifiedAt": "2026-11-03T15:57:43.150713+00:00",
+    "status": "passed_with_known_remaining_parity_gaps",
+    "sourceSHA256": "adea79844ac525347a75eb05f373ebda52f517d3defb44190f3882fd8bb55d63",
+    "runningBetaImageID": "sha256:cf5280aaa514e9b63a7fbbb7d7a9497c0bc7a3cfc714620c99197ee125f7f8b7",
+    "runtimeChangedThisBatch": false,
+    "testFix": "Moved optional PartialTrees from the common fixture to a dedicated adapter, preventing promoted methods from bypassing wrapper Tree overrides.",
+    "checks": {
+      "fullBackendRace": {
+        "file": "/tmp/go-parity-full-race-final.log",
+        "sha256": "f049e34dac8dcbc5c60618e16e8395283ab466d7aa5377320a232685877643ba"
+      },
+      "serverRaceSeconds": 321.751,
+      "initialFailure": {
+        "file": "/tmp/go-parity-full-race.log",
+        "sha256": "44f91bd0283248ea6b82239321de3146906a27d2ed7e803594b641b7f1217430"
+      },
+      "focusedWorkerRegressions": {
+        "file": "/tmp/go-parity-worker-regressions.log",
+        "sha256": "1c0762c7045cad2e547dfdb38e9e5903bec2be18516cc756864c106d33ab3727"
+      },
+      "fixtureContractCommands": 55,
+      "fixtureContracts": {
+        "file": "/tmp/go-parity-full-contracts.log",
+        "sha256": "3e56ae084cd671273bfa0f39fde945d7f25d56685b550cdd6c4dcc6ef117cf1f"
+      },
+      "additionalDifferentialCommands": 2,
+      "anonymizationCases": 499,
+      "credentialCrossLanguageCases": 3,
+      "differential": {
+        "file": "/tmp/go-parity-differential.log",
+        "sha256": "3d12d5e9b2a0281db7774ea53317d4fbc0d5a002b05b1f97c5f157221194e948"
+      },
+      "fileTypeCases": 7876,
+      "fileTypes": {
+        "file": "/tmp/go-parity-file-types.log",
+        "sha256": "bd0dd2fe8d2ffe277615fa257a2e2c3a228f47b15d55f551c7479e2b71514666"
+      },
+      "formatting": "passed",
+      "goVet": "passed",
+      "vulnerabilityScan": {
+        "file": "/tmp/go-parity-vulnerabilities-verbose.log",
+        "sha256": "1c2c1877e6b7f1202818521ba7830d486a3ca892aa316aa3f40d085fa812ddb0"
+      }
+    },
+    "security": {
+      "reachableVulnerabilities": 0,
+      "affectedImportedPackages": 0,
+      "moduleOnlyAdvisories": [
+        "GO-2026-6355",
+        "GO-2026-6354",
+        "GO-2026-6303",
+        "GO-2026-5932"
+      ],
+      "module": "golang.org/x/crypto@v0.53.0",
+      "affectedUnusedPackages": [
+        "golang.org/x/crypto/ssh",
+        "golang.org/x/crypto/openpgp"
+      ]
+    },
+    "remaining": [
+      "Admin list query shapes, preview cache IDs/branch/name and legacy user search inputs.",
+      "Redis path-index size/deadline behavior versus TypeScript MongoDB indexing.",
+      "Full browser/private-App scenarios and target-data cutover/rollback rehearsal remain unverified deployment-readiness work."
+    ],
+    "productionChanged": false
+  },
+  "previewCacheIDQueryParity": {
+    "verifiedAt": "2026-11-03T16:03:16.335926+00:00",
+    "status": "verified_and_deployed_to_beta",
+    "sourceSHA256": "c3c0e69c67cd73ad38c34f34a541508b93c540ccdc29415b9584ec0d259a6a02",
+    "imageID": "sha256:3c406e5cd6c9d2fff6376b4ea6f2415ee9586f232efc12b965bfb45841ee6345",
+    "fixes": [
+      "Parse extended cache-ID query shapes.",
+      "Support explicit ID lists, wrapped _id values and Mongoose-compatible hexadecimal/legacy ASCII casts.",
+      "Return generic internal_error for invalid casts and preserve strict scalar reconnect bypass.",
+      "Retain provider-binding, saved-identity and upstream authorization checks."
+    ],
+    "checks": {
+      "mongooseContracts": 16,
+      "raceProviderHints": {
+        "file": "/tmp/go-preview-hint-tests.log",
+        "sha256": "c2a3a7cc9256e7fd49f771a03fddbbdad0f3c18ff55a454b7c9f4becb57024fa"
+      },
+      "goVet": "passed",
+      "liveAuthenticated": {
+        "file": "backend/reports/shadow-monitoring-authenticated-deployment.json",
+        "sha256": "71622113dc02f8139e092bb9a509237de8dd5cd1d552e02c287ff8caf8a90e4c"
+      },
+      "temporaryKeyRevoked": true,
+      "uniqueRequestIDsVerified": 48,
+      "containerHealth": "healthy"
+    },
+    "limits": [
+      "Operator-shaped query objects are rejected rather than forwarding arbitrary Mongo selectors; this is intentionally stricter than Mongoose casting.",
+      "Valid cache-ID lists and provider identity/revocation checks use isolated fixtures; beta checks malformed-input rejection.",
+      "Full-suite evidence predates this focused change.",
+      "Admin/user search queries, preview name/branch inputs and Redis index limits remain open."
+    ],
+    "productionChanged": false
+  },
+  "previewBranchQueryParity": {
+    "verifiedAt": "2026-11-03T16:09:34.089550+00:00",
+    "status": "superseded_by_preview_branch_discovery_order_parity",
+    "sourceSHA256": "4114547f63e7ce4a8fb6331ff85595eacc1b568ef624657db6a642af5314abc2",
+    "imageID": "sha256:b6d85c2c7f68ba1faadf6df3505c7bb065c5260a296d7a9df44345c422f34dc5",
+    "fixes": [
+      "Normalize README branch query arrays and objects through the extended parser and JavaScript string coercion.",
+      "Preserve missing/empty scalar defaults without defaulting truthy empty arrays.",
+      "Keep upstream access checks before branch normalization and provider interfaces unchanged."
+    ],
+    "checks": {
+      "typescriptContracts": 12,
+      "racePreviewIntegration": {
+        "file": "/tmp/go-preview-branch-tests.log",
+        "sha256": "7ac00624b7ab2b9a5e848b2ce4317e29f75964cdbcc5b5c93928c9064a5386da"
+      },
+      "goVet": "passed",
+      "gofmt": "passed",
+      "liveAuthenticated": {
+        "file": "backend/reports/shadow-monitoring-authenticated-deployment.json",
+        "sha256": "44f6d717befd8fb491ef3ed78d2c2d722eb616412e3a3f1b6f6e781d2d9c30bb"
+      },
+      "containerHealth": "healthy"
+    },
+    "limits": [
+      "Malformed coercions and truthy empty arrays fail before branch discovery; TypeScript discovers branches before comparison. Upstream call/error ordering is not identical.",
+      "Branch selection and revoked access checks use isolated provider fixtures; the beta smoke covers authenticated deployment behavior.",
+      "The full race suite predates the focused preview cache-ID and branch changes.",
+      "Admin/user search queries, preview name inputs and Redis index limits remain open."
+    ],
+    "productionChanged": false
+  },
+  "legacyUserSearchQueryParity": {
+    "verifiedAt": "2026-11-03T16:13:29.610666+00:00",
+    "status": "verified_and_deployed_to_beta",
+    "sourceSHA256": "41c9feed75362c3141517630106a70a2b4436c5beea28d360804e0f33f46d32d",
+    "imageID": "sha256:be9970d1584654eae005995a8da228fdd3423f87336148cf6d1a89c3153f1ded",
+    "fixes": [
+      "Preserve scalar UTF-16 length, compacted array length and object length-property numeric gating.",
+      "Reject non-string searches after credential lookup, matching the installed Octokit endpoint.",
+      "Preserve Octokit literal-plus search separator behavior.",
+      "Correct the earlier preview-name finding: TypeScript uses path parameters, while Go generic name queries are provider extensions."
+    ],
+    "checks": {
+      "actualTypeScriptAndOctokitContracts": 24,
+      "raceIntegration": {
+        "file": "/tmp/go-user-search-tests.log",
+        "sha256": "cc4e5cbfc6c4a07de9fc36054e88ed64719a86cd2a6a3f373fb0c6a90bbc2e79"
+      },
+      "goVet": "passed",
+      "gofmt": "passed",
+      "liveAuthenticated": {
+        "file": "backend/reports/shadow-monitoring-authenticated-deployment.json",
+        "sha256": "735e3e81db113a4acafe54edbe9c4ce1c123183f5c6226e930df262796297b26"
+      },
+      "temporaryKeyRevoked": true,
+      "uniqueRequestIDsVerified": 53,
+      "containerHealth": "healthy"
+    },
+    "limits": [
+      "The route remains a GitHub-specific legacy endpoint; provider interfaces are unchanged.",
+      "Successful searches and upstream parameter/output checks use isolated fixtures; beta checks exercise empty-result and malformed-query responses.",
+      "Full race-suite evidence predates the focused preview and user-search changes.",
+      "Admin-list queries, README branch upstream error ordering and Redis path-index resource limits remain open."
+    ],
+    "productionChanged": false
+  },
+  "adminListPaginationQueryParity": {
+    "verifiedAt": "2026-11-03T16:17:37.394386+00:00",
+    "status": "superseded_by_admin_filter_query_correction",
+    "sourceSHA256": "bfcb65a437860d832f2053eb778b77156e0137ff406f3201f0616c0c9478ff22",
+    "imageID": "sha256:4cbb188d001c5f03cc9265d6c94ece0a0b8e08a9ad1108f6715df512f0b8cfa9",
+    "fixes": [
+      "Preserve extended-query parsing and JavaScript integer-prefix/Number semantics for admin page and limit.",
+      "Remove the artificial one-million-page cap and negative-value defaults; MongoDB rejects invalid pagination as in TypeScript.",
+      "Require scalar sort/direction/CSV values and retain safe sort-field validation.",
+      "Replace contract expectations that previously masked the page cap; correct the README claim about JavaScript trailing-newline sort validation."
+    ],
+    "checks": {
+      "actualTypeScriptPaginationContracts": 138,
+      "raceIntegration": {
+        "file": "/tmp/go-admin-pagination-tests.log",
+        "sha256": "f0dfe5220383578a6d97b12125f1b2ed77b4ba3bc973414c3793ec45dc8b3102"
+      },
+      "statisticsWindowRegression": "passed",
+      "goVet": "passed",
+      "gofmt": "passed",
+      "liveAuthenticated": {
+        "file": "backend/reports/shadow-monitoring-authenticated-deployment.json",
+        "sha256": "3b299bfc4025a626f3f4873ae87da4679b4f6e96016ece87dfb05c4f21b46ccb"
+      },
+      "temporaryKeyRevoked": true,
+      "uniqueRequestIDsVerified": 68,
+      "containerHealth": "healthy"
+    },
+    "limits": [
+      "Admin filter values, owner casting and JavaScript date parsing remain to audit.",
+      "Full backend race-suite evidence predates this focused change.",
+      "README branch error ordering and Redis path-index resource limits remain open."
+    ],
+    "productionChanged": false,
+    "correction": "The prior checks incorrectly expected negative repository/conference limits to fail. TypeScript uses find for those lists; negative limits request a single batch. adminFilterQueryParity restores find behavior and replaces those expectations."
+  },
+  "adminFilterQueryParity": {
+    "verifiedAt": "2026-11-03T16:21:50.687838+00:00",
+    "status": "verified_and_deployed_to_beta",
+    "sourceSHA256": "b0f207dcda295ea8a057f4bf2153babf9c881ccc81c0872dd322049a7de31c23",
+    "imageID": "sha256:ffd1c0ef6bfa7e08f27c8308638f8290bfa5aa433e127cedb351d1e80a666127",
+    "fixes": [
+      "Use extended-query loose equality for status flags, reject non-string search values, and require scalar role=admin.",
+      "Preserve malformed-search failure before repository owner lookup.",
+      "Correct prior pagination regression: repository/conference results use MongoDB Find, including negative-limit single-batch behavior; users retain aggregation.",
+      "Retain admin authorization and credential-excluding projections."
+    ],
+    "checks": {
+      "actualTypeScriptFilterContracts": 111,
+      "actualTypeScriptPaginationContracts": 138,
+      "installedNodeDriverNegativeLimitContracts": 3,
+      "raceIntegration": {
+        "file": "/tmp/go-admin-filter-query-tests.log",
+        "sha256": "1b03b4d9bb31c7bdd77c6b734c56a18d2145da3982d6d9259880c46070c97fbd"
+      },
+      "goVet": "passed",
+      "gofmt": "passed",
+      "liveAuthenticated": {
+        "file": "backend/reports/shadow-monitoring-authenticated-deployment.json",
+        "sha256": "73d22f1815460ad1c4adf2fe43ed1178e5e49bc5f1e4a05c286e0d9e963c412a"
+      },
+      "temporaryKeyRevoked": true,
+      "uniqueRequestIDsVerified": 73,
+      "containerHealth": "healthy"
+    },
+    "limits": [
+      "Owner/conference/status filter casting and JavaScript date parsing remain open. TypeScript find/count casts differ from aggregate matching; this needs explicit coverage.",
+      "Full backend race-suite evidence predates these focused changes.",
+      "README branch error ordering and Redis path-index resource limits remain open."
+    ],
+    "productionChanged": false
+  },
+  "previewBranchDiscoveryOrderParity": {
+    "verifiedAt": "2026-11-03T16:26:43.733825+00:00",
+    "status": "verified_and_deployed_to_beta",
+    "sourceSHA256": "7d56aa5f82072a8be47239f45a9f5582875bc82251ee2fa46ad22a1b330be1c3",
+    "imageID": "sha256:6ca7883d30b57c9b6138a9500fd51c3f72fd139dea9dc3f650a50b77f8d9be92",
+    "fixes": [
+      "Defer GitHub branch matching until discovery succeeds, preserving discovery errors before query-coercion errors.",
+      "Skip coercion for empty discovered branch lists and return readme_not_available.",
+      "Add optional provider.SelectedReadmePreviews with BranchMatch callback; existing provider interfaces remain supported and query parsing stays in shared routing.",
+      "Retain access checks before selection, commit-pinned reads and revision-checked cache writes."
+    ],
+    "checks": {
+      "actualTypeScriptDiscoveryOrderContracts": 9,
+      "actualTypeScriptSelectionContracts": 12,
+      "racePreviewIntegration": {
+        "file": "/tmp/go-preview-branch-order-tests.log",
+        "sha256": "fa99e33a135e226f1b1f6cd68f5f2d4f17515ef4266551c01ffaffe4d67ba718"
+      },
+      "raceSecondProvider": {
+        "file": "/tmp/go-preview-selected-provider-tests.log",
+        "sha256": "9bcdd89bdfc01907c7f3526d6d838dc62928538f426eae4737ccce8b617a6771"
+      },
+      "goVet": "passed",
+      "gofmt": "passed",
+      "liveAuthenticated": {
+        "file": "backend/reports/shadow-monitoring-authenticated-deployment.json",
+        "sha256": "c9f2888bdbedf330e0f59cd4760c08522471e764cb87577509e2add667360532"
+      },
+      "temporaryKeyRevoked": true,
+      "uniqueRequestIDsVerified": 73,
+      "containerHealth": "healthy"
+    },
+    "limits": [
+      "Discovery/error ordering uses isolated provider fixtures; beta smoke checks authenticated deployment behavior.",
+      "Adapters opting into deferred selection must discover branches before invoking BranchMatch. Existing direct-read adapters retain their own protocol behavior.",
+      "Full backend race-suite evidence predates these focused changes.",
+      "Admin owner/conference/status casting, JavaScript date parsing and Redis path-index resource limits remain open."
+    ],
+    "productionChanged": false
+  },
+  "adminMongooseCastingParity": {
+    "verifiedAt": "2026-11-03T16:35:57.840226+00:00",
+    "status": "verified_and_deployed_to_beta",
+    "sourceSHA256": "9e6b1a458559a52775adef69bb595e0bce88cada0bc2926726a3209f81234ffd",
+    "imageID": "sha256:0558041e9a196d8c58e49cdfbfad2e052666dcc4f77057df0faae8829f9490ce",
+    "fixes": [
+      "Cast owner, status and conference predicates against installed Mongoose string-field semantics, including arrays, wrapped IDs and supported field operators.",
+      "Separate original aggregation snapshots, cast find/count/CSV predicates and echoed filters with nested operator mutations.",
+      "Preserve missing-owner short circuit before conference casting and reject unsupported operators/invalid casts.",
+      "Keep predicates scoped to fixed fields in administrator-only routes and retain credential-excluding projections."
+    ],
+    "checks": {
+      "actualMongooseCastingContracts": 117,
+      "actualTypeScriptDatabaseDifferentialCases": 27,
+      "databaseOracle": {
+        "file": "backend/contracts/admin-casting-database.cjs",
+        "sha256": "94f17dc3b020b7b06883218de6444690eed578c5102aa2ac79977fc5ad2b6478"
+      },
+      "raceIntegration": {
+        "file": "/tmp/go-admin-casting-tests-final.log",
+        "sha256": "af645d3f03ce0009b2877810e0401f031ffbc96cb882ee5591bf9d758078c747"
+      },
+      "goVet": "passed",
+      "gofmt": "passed",
+      "liveAuthenticated": {
+        "file": "backend/reports/shadow-monitoring-authenticated-deployment.json",
+        "sha256": "864971fc1ade5d95f5c3c9c5685f1fcb923e985de00354d0499aec74d49811d0"
+      },
+      "temporaryKeyRevoked": true,
+      "uniqueRequestIDsVerified": 79,
+      "containerHealth": "healthy"
+    },
+    "investigation": {
+      "initialDatabaseMismatch": "Scalar $in was cast for aggregation too early; the real TypeScript handler preserves the pre-cast snapshot and rejects that JSON request.",
+      "initialFailureLog": {
+        "file": "/tmp/go-admin-casting-tests.log",
+        "sha256": "f5c0ae2956d0577258692ae4d1b2277929ac153ec3dd23eb6638569bfa8e7d1e"
+      },
+      "resolution": "Separate filter snapshots; all 27 database cases pass."
+    },
+    "limits": [
+      "JavaScript date parsing and extended date query coercion remain open.",
+      "Full backend race-suite evidence predates these focused changes.",
+      "Redis path-index resource-limit/storage parity remains open."
+    ],
+    "productionChanged": false
+  },
+  "adminDateRangeParity": {
+    "verifiedAt": "2026-11-03T16:46:35.384623+00:00",
+    "status": "verified_and_deployed_to_beta",
+    "sourceSHA256": "abf849ef549ecfd91e92b37d0de70f61f7f44f0f7937bf3a70ad36953edb9543",
+    "imageID": "sha256:0e29ca8becc8c9d6fc370e2326278558ec05fd77df3e40627eed7a31850c61da",
+    "fixes": [
+      "Use extended-query truthiness and string coercion for admin date ranges, preserving missing-owner short circuit.",
+      "Parse ISO dates with day normalization, end-of-day time, extended years, offsets, milliseconds and time clipping.",
+      "Parse legacy numeric and named dates, comments, AM/PM, timezone names and offsets according to V8 rules, in Go.",
+      "Retain V8 BSD license in the repository and runtime image."
+    ],
+    "checks": {
+      "actualTypeScriptDateContracts": 632,
+      "actualTypeScriptDatabaseDifferentialCases": 44,
+      "raceIntegration": {
+        "file": "/tmp/go-admin-dates-tests-final.log",
+        "sha256": "6261d0570d0eef742faf198dbf0a4cca7f849a84b3751a3b00b37bc06ae2c7a5"
+      },
+      "goVet": "passed",
+      "gofmt": "passed",
+      "liveAuthenticated": {
+        "file": "backend/reports/shadow-monitoring-authenticated-deployment.json",
+        "sha256": "f6836b4c2a7ebae51ff23605e35540f137965707dd5e3d45fa3ac95a565d3515"
+      },
+      "temporaryKeyRevoked": true,
+      "uniqueRequestIDsVerified": 88,
+      "containerHealth": "healthy",
+      "runtimeLicensePresent": true,
+      "license": {
+        "file": "backend/licenses/V8-LICENSE",
+        "sha256": "6ab33af8774a0f396ee3aeeb761e3229057682d6f9fa7f572e390c2cb3a6e509"
+      }
+    },
+    "sourceReferences": [
+      "https://github.com/v8/v8/blob/main/src/date/dateparser-inl.h",
+      "https://github.com/v8/v8/blob/main/src/date/dateparser.cc",
+      "https://github.com/v8/v8/blob/main/src/date/dateparser.h"
+    ],
+    "limits": [
+      "Parsing is verified for the current UTC deployment; alternate local timezones are not covered.",
+      "The database oracle covers repository/user records; beta checks query output for all three admin list kinds.",
+      "Dashboard cursors still use their earlier date parser; other Date-constructor consumers require review.",
+      "Full backend race-suite evidence predates these focused changes.",
+      "Redis path-index resource-limit/storage parity remains open."
+    ],
+    "productionChanged": false
+  },
+  "dashboardDateCursorParity": {
+    "verifiedAt": "2026-11-03T16:52:07.675007+00:00",
+    "status": "verified_and_deployed_to_beta",
+    "sourceSHA256": "149428c09b810782734e3ec63f1d4f15f05afba5f55f0faff4fdcab3ace1ce4b",
+    "imageID": "sha256:f50b78644067b1b5113a7549949ff2de007acbf2bea59680aaa9cd978b37c92b",
+    "fixes": [
+      "Extract shared javascriptDateString and use it in admin filters and dashboard cursor dates.",
+      "Preserve existing numeric/null/boolean cursor conversions and invalid-cursor rejection.",
+      "Expand actual TypeScript pipeline contracts for three date sort fields and verify equivalent date representations select the same next repository."
+    ],
+    "checks": {
+      "actualTypeScriptCursorContracts": 1968,
+      "cursorHTTPContracts": 75,
+      "adminDateRegressionContracts": 632,
+      "raceIntegration": {
+        "file": "/tmp/go-dashboard-dates-tests-final.log",
+        "sha256": "27d0b4a0afaa85198828a0978e4142fef7dce174f2bde36c0b37cf653e9b8bdb"
+      },
+      "goVet": "passed",
+      "gofmt": "passed",
+      "liveAuthenticated": {
+        "file": "backend/reports/shadow-monitoring-authenticated-deployment.json",
+        "sha256": "37733da146baed3c120e4fed13218f68e47903f8581cbb3cf0dc68fb1eb2c9ba"
+      },
+      "temporaryKeyRevoked": true,
+      "uniqueRequestIDsVerified": 94,
+      "containerHealth": "healthy"
+    },
+    "investigation": {
+      "initialFailure": "Expanded cursor cases exhausted the per-IP authentication-attempt budget in the test.",
+      "resolution": "Use isolated test IP batches; production throttling is unchanged."
+    },
+    "limits": [
+      "Parsing is verified for the current UTC deployment; alternate local timezones are not covered.",
+      "Conference form Date coercion still uses the older date helper and remains open.",
+      "Full backend race-suite evidence predates these focused changes.",
+      "Redis path-index resource-limit/storage parity remains open."
+    ],
+    "productionChanged": false
+  },
+  "conferenceDateCastingParity": {
+    "verifiedAtUTC": "2026-11-03T17:02:12.961431+00:00",
+    "status": "verified_in_worktree_and_subsequently_deployed_see_conferenceBoundaryDateParity",
+    "sourceSHA256": "fab56a773a187593a74cde7fe1c3bce5f34020fc56b5bd1dc1d31941fc6b5ffc",
+    "fixes": [
+      "Shared Date value conversion preserves invalid-date versus throwing-coercion validation ordering.",
+      "Conference start/end persistence accepts JavaScript legacy formats, overflow, arrays and numeric milliseconds.",
+      "Expiration option dates use Mongoose numeric-string and boolean behavior; invalid casts return 500 internal_error without mutation.",
+      "HTTP/database tests preserve ownership, public output and existing history, including second-provider lifecycle coverage."
+    ],
+    "checks": {
+      "raceIntegration": {
+        "file": "/tmp/go-conference-dates-options-tests.log",
+        "sha256": "3517669c8e6c5dba5c1c25eab6b598596176c8050196912bd88b20330d78b078",
+        "result": "passed",
+        "serverSeconds": 67.987
+      },
+      "contracts": {
+        "conferenceForms": 121,
+        "conferenceDates": 54,
+        "conferenceOptions": 58,
+        "dashboardCursors": 1968
+      },
+      "goVet": "passed ./internal/server"
+    },
+    "limits": [
+      "UTC deployment semantics; alternate local timezones not verified.",
+      "Downstream zero-time sentinel consumers remain to audit.",
+      "Full backend suite and beta deployment have not been revalidated for this revision."
+    ],
+    "productionChanged": false
+  },
+  "conferenceBoundaryDateParity": {
+    "verifiedAtUTC": "2026-11-03T17:12:43.540304+00:00",
+    "status": "verified_and_deployed_to_beta",
+    "fixes": [
+      "Conference billing caps year-0001 end dates and counts year-0001 removal dates as closed.",
+      "Conference expiry/removal preserve repositories with closed memberships at year 0001 and the Unix epoch.",
+      "API-token expiry presence is independent of Go zero time; expired scoped and unscoped tokens are rejected.",
+      "Dashboard pipeline fixture regenerated after cursor-date corpus expansion."
+    ],
+    "checks": {
+      "conferenceOutputContracts": 288,
+      "conferenceRaceIntegration": {
+        "file": "/tmp/go-conference-boundary-tests.log",
+        "sha256": "fb29be1671cb6938b0706663841fc9fa6f919b740ffe22705ba376aa47aeb30b"
+      },
+      "dashboardPipelineContracts": 2103,
+      "dashboardPipelineRace": {
+        "file": "/tmp/go-date-parity-dashboard-pipeline.log",
+        "sha256": "6a83d08fa1f9a82394b706dd0205a0824b81d355f449656677b12dd9fbb6869c"
+      },
+      "allContractCommands": 64,
+      "contractExecutionNote": "First 22 commands passed. Resumed with compiled GO_CONTRACT_BINARY; regenerated stale dashboard-pipeline fixture and verified it plus the final document-cleanup/webhook commands.",
+      "goVet": "passed ./...",
+      "gofmt": "passed",
+      "fullRaceIntegration": {
+        "file": "/tmp/go-date-parity-full-race.log",
+        "sha256": "5c4ee72c03097da6e51bf55741987d9cf46dfee566e3bac78f512eb68b373d6b",
+        "result": "passed",
+        "serverSeconds": 328.269
+      },
+      "betaBuild": {
+        "file": "/tmp/go-date-parity-build.log",
+        "sha256": "f8626f0e971c6695e1f6bae06a320c01dbc3bd0a2960e223fcdefdd7653af641"
+      },
+      "betaDeployment": {
+        "file": "/tmp/go-date-parity-deploy.log",
+        "sha256": "71f5121263628e93c93dcaf0e7e6e6c197ae253bd1c2af6cbeadac9f28b3aa47"
+      },
+      "betaAuthenticatedChecks": {
+        "file": "/tmp/go-date-parity-live.log",
+        "sha256": "68d8ee8ecfad59bc5d646649ed29a3b23d8641172c40a4f4efd224c6e62457dc",
+        "result": "passed",
+        "uniqueRequestIDs": 94,
+        "temporaryKeyRevoked": true
+      }
+    },
+    "productionChanged": false,
+    "sourceSHA256": "056880142d52087644019a049937273be09bb0d8dc21389b4a2bb6e603990bf3",
+    "imageID": "sha256:f53e072c1165dba7951d178cf4488ef414b90987eff1da684af4250def9b1de2",
+    "limits": [
+      "UTC deployment semantics; alternate local timezone parsing remains unverified.",
+      "Remaining repository/gist/PR date casts and missing-date sentinel checks are listed in remainingCodeParityFindings.",
+      "Path-index storage/size/lifecycle parity remains open; this validation does not prove production cutover readiness."
+    ]
+  },
+  "resourceExpirationParity": {
+    "verifiedAtUTC": "2026-11-03T17:16:21.015670+00:00",
+    "status": "verified_and_deployed_to_beta",
+    "sourceSHA256": "008298657bc3de304440e95ef00e3dec604370d737b3e28ffdd62e33815887c4",
+    "imageID": "sha256:2ec5ffbac77b8130d14ba5b17dd4a560c427eaef9887110c7a56cf25fe23eeb0",
+    "fixes": [
+      "Shared repository/gist/PR option conversion accepts JavaScript Date constructor inputs, including year 0001, legacy formats, arrays and numeric milliseconds; falsy inputs remain omitted.",
+      "Resource access and user/admin lists enforce stored expiration dates at year 0001 and the Unix epoch.",
+      "Expanded second-provider HTTP/database persistence coverage; authentication budgets remain unchanged."
+    ],
+    "checks": {
+      "optionContracts": 126,
+      "reactivationContracts": 60,
+      "resourceOutputContracts": 1048,
+      "raceIntegration": {
+        "file": "/tmp/go-resource-expiration-tests.log",
+        "sha256": "1d29b433f4043a0e2b466585da0dd006cd0fde3d9d1342afa5affe3a4944bf9b",
+        "result": "passed",
+        "serverSeconds": 8.348
+      },
+      "vet": "passed ./internal/server",
+      "formatting": "passed",
+      "build": {
+        "file": "/tmp/go-resource-expiration-build.log",
+        "sha256": "96186b3e4015217553ad6f53ac45a35e47a8aead229119cfc81dbcf4db813819"
+      },
+      "deploy": {
+        "file": "/tmp/go-resource-expiration-deploy.log",
+        "sha256": "71f5121263628e93c93dcaf0e7e6e6c197ae253bd1c2af6cbeadac9f28b3aa47"
+      },
+      "live": {
+        "file": "/tmp/go-resource-expiration-live.log",
+        "sha256": "f426bacdbd16a3c0ec593728faa4866d027736fd5550b32060e9f54c8a6e3b5a",
+        "result": "passed",
+        "temporaryKeyRevoked": true,
+        "uniqueRequestIDs": 94
+      }
+    },
+    "limits": [
+      "Invalid-option create/edit coercion and error responses remain open.",
+      "Full backend race suite passed on the preceding revision; this revision has targeted race validation.",
+      "UTC deployment semantics and remaining date/path-index parity findings still apply."
+    ],
+    "productionChanged": false
+  },
+  "compatibilityPolicy": {
+    "scope": "Preserve useful TypeScript behavior and provider-independent capabilities; do not reproduce TypeScript bugs.",
+    "source": "User clarification: we dont need to reproduce ts bugs in go.",
+    "intentionalDifferences": [
+      "Invalid resource option casts return 400 for both creates and edits, without partial writes; TypeScript/Mongoose may return 500 or silently omit invalid fields.",
+      "Empty pageSource objects are omitted consistently instead of retaining different representations on create and edit."
+    ],
+    "verification": "150 actual Mongoose write cases plus Go second-provider HTTP assertions for valid persistence, 400 rejection, non-owner denial and no mutation; targeted race tests and beta deployment checks passed."
+  },
+  "resourceOptionAtomicity": {
+    "verifiedAtUTC": "2026-11-03T17:24:58.764861+00:00",
+    "status": "verified_and_deployed_to_beta",
+    "sourceSHA256": "f1d65d162d0153b79efd387cdad1d42ec10526ea58021df81d50fae2f43c7b6f",
+    "imageID": "sha256:21aea381aafb7c9856d0df7cbbf3c0d6596af207f39c8b99a08ed66781b241c6",
+    "policy": "Valid behavior compatibility; TypeScript bugs are not parity requirements, per explicit user clarification.",
+    "changes": [
+      "Invalid option fields consistently return 400 and do not mutate data on creates or edits.",
+      "Valid expirationMode and pageSource string casts accept scalar and string-_id document values.",
+      "Empty pageSource objects are consistently omitted.",
+      "No provider-specific logic was added; HTTP comparisons use the second-provider fixture."
+    ],
+    "checks": {
+      "actualMongooseCreateEditCases": 150,
+      "oracle": "backend/contracts/resource-options-database.cjs",
+      "raceIntegration": {
+        "file": "/tmp/go-resource-options-atomic-tests.log",
+        "sha256": "3ca2e1f379b407437fa52a1b659346c890dde8bfbceac2d0c38a0f3aabbbcc2b",
+        "result": "passed",
+        "serverSeconds": 22.446
+      },
+      "optionContracts": 126,
+      "goVet": "passed ./internal/server",
+      "betaBuild": {
+        "file": "/tmp/go-resource-options-atomic-build.log",
+        "sha256": "47505bcdcd90490bb56e5790c918414a6883c4101c4d3f8086a68eac106d67d7"
+      },
+      "betaDeploy": {
+        "file": "/tmp/go-resource-options-atomic-deploy.log",
+        "sha256": "71f5121263628e93c93dcaf0e7e6e6c197ae253bd1c2af6cbeadac9f28b3aa47"
+      },
+      "betaLive": {
+        "file": "/tmp/go-resource-options-atomic-live.log",
+        "sha256": "3c9a2c51787b2b206a0646e92eb83ff53e9279c551bf8d6ef9a32bca29a78bc5",
+        "result": "passed",
+        "uniqueRequestIDs": 94,
+        "temporaryKeyRevoked": true
+      }
+    },
+    "intentionalDifferences": [
+      "Do not reproduce Mongoose edit-time silent field omission for invalid casts.",
+      "Do not reproduce 500 responses for invalid client option casts.",
+      "Normalize empty pageSource consistently across creates and edits."
+    ],
+    "limits": [
+      "Tests cover the extracted route option helpers and actual Mongoose writes, not every upstream failure ordering.",
+      "Remaining date consumers and path-index limits still require audit.",
+      "This revision has targeted race validation, not a new full-suite run."
+    ],
+    "productionChanged": false
+  },
+  "streamingPathIndex": {
+    "verifiedAtUTC": "2026-11-03T17:36:23.820406+00:00",
+    "status": "verified_and_deployed_to_beta",
+    "sourceSHA256": "1127a3ec1df82fa0f8c2a15e26f70bfcac0741622ecd944e10d220bdb35a2e7e",
+    "imageID": "sha256:c7b26a414bdf60c274c6e2806865897c1b8d7bc77d65a7eb22bfd9c5788a077f",
+    "changes": [
+      "Stream sorted MongoDB cursor rows to Redis in 500-row/1-MiB-target batches; remove whole-index Go map and 32-MiB total rejection.",
+      "Use ownership-checked HSETNX to retain first collision across batches.",
+      "Renew the 60-second lock and staging TTL on each batch instead of imposing a 45-second total deadline.",
+      "Check staging sequence to reject lost temporary hashes; request cancellation and revision retirement prevent publication; bound cleanup to five seconds."
+    ],
+    "checks": {
+      "raceIntegration": {
+        "file": "/tmp/go-path-index-streaming-verified-tests.log",
+        "sha256": "bb60ea2680e89241a9d1ff425bfdcda83a111dbc7eefad32ef313d0cb09bdf7c",
+        "result": "passed",
+        "serverSeconds": 88.443,
+        "coverage": [
+          "10001-row encoded index above 32 MiB",
+          "byte and row batching",
+          "first collision across batches",
+          "original path precedence",
+          "ownership renewal and stale owners",
+          "lost staging and cancellation",
+          "metadata/commit/access/status revision guards",
+          "large file tree scan beyond 100000 rows",
+          "metadata contracts, folder paths and truncated-file recovery"
+        ]
+      },
+      "vet": "passed ./internal/server",
+      "formatting": "passed",
+      "betaBuild": {
+        "file": "/tmp/go-path-index-streaming-final-build.log",
+        "sha256": "b25dba18216eac765d40dec0beb810c9d63d4fdacc602f2f46852a0868d34893"
+      },
+      "betaDeploy": {
+        "file": "/tmp/go-path-index-streaming-deploy.log",
+        "sha256": "71f5121263628e93c93dcaf0e7e6e6c197ae253bd1c2af6cbeadac9f28b3aa47"
+      },
+      "betaLive": {
+        "file": "/tmp/go-path-index-streaming-live.log",
+        "sha256": "cc1f46e58abcfd4f2ab537cca2df1c2cad65d35c36a2c5af5c93fcfcf1cd5a23",
+        "result": "passed",
+        "temporaryKeyRevoked": true,
+        "uniqueRequestIDs": 94
+      }
+    },
+    "limits": [
+      "Redis still holds the complete published index; this change bounds application build buffering, not total cache storage.",
+      "Competing builders wait up to ten seconds; ownership loss fails closed.",
+      "Published-cache eviction between readiness and lookup, and remaining invalidation writers, still need audit.",
+      "No end-to-end speedup claim or fresh full-backend race run for this revision."
+    ],
+    "productionChanged": false
+  },
+  "pathIndexEvictionRecovery": {
+    "verifiedAtUTC": "2026-11-03T17:41:15.831160+00:00",
+    "status": "verified_and_deployed_to_beta",
+    "sourceSHA256": "3ccff46126d77442b9e25dc723f82fa2fa4c9853904f1fa3671bbba6dfbd68ac",
+    "imageID": "sha256:744e65be99adcc006c4f7c9ec8e26d0af74d17bc447a85a6717c9375d3b4e203",
+    "changes": [
+      "Read ready marker and entry atomically with HMGET.",
+      "Release build ownership before lookup and retry one evicted index; repeated eviction returns 503 instead of false 404.",
+      "Validate repository snapshot before missing-file recovery and after successful lookup.",
+      "Bound lock-release cleanup to five seconds."
+    ],
+    "checks": {
+      "raceIntegration": {
+        "file": "/tmp/go-path-index-eviction-tests.log",
+        "sha256": "63838c98e7b5ebb99db002e6a1e64bc65720362eb61ea5801f7ad34329ebac67",
+        "result": "passed",
+        "serverSeconds": 24.934,
+        "cases": [
+          "one eviction rebuilds existing file",
+          "repeated eviction returns 503",
+          "genuine missing file returns 404",
+          "retired revision during retry returns 409",
+          "existing path-index capacity/collision/revision/cancellation and truncated-file recovery tests"
+        ]
+      },
+      "goVet": "passed ./internal/server",
+      "formatting": "passed",
+      "betaBuild": {
+        "file": "/tmp/go-path-index-eviction-build.log",
+        "sha256": "cf20ebdb54d50756c34bc69b1ef873656e0f4d9a340b55e4d78eb648a1cd2799"
+      },
+      "betaDeploy": {
+        "file": "/tmp/go-path-index-eviction-deploy.log",
+        "sha256": "71f5121263628e93c93dcaf0e7e6e6c197ae253bd1c2af6cbeadac9f28b3aa47"
+      },
+      "betaLive": {
+        "file": "/tmp/go-path-index-eviction-live.log",
+        "sha256": "fb1cf1537b742abc5719c106552856d878a4789a8ef05f90821d22d425f388b0",
+        "result": "passed",
+        "uniqueRequestIDs": 94,
+        "temporaryKeyRevoked": true
+      }
+    },
+    "limits": [
+      "Pending recovery rows through transformed-path indexing require a focused regression; this is recorded in remainingCodeParityFindings.",
+      "Targeted race validation only on this revision; no new full backend suite."
+    ],
+    "productionChanged": false
+  },
+  "pendingMetadataPathIndex": {
+    "verifiedAtUTC": "2026-11-03T17:48:44.725004+00:00",
+    "status": "verified_and_deployed_to_beta",
+    "sourceSHA256": "80fb3c27b4e052a7a1f60f69cebcd2ca721007f74bab759336174a63fffa4dbc",
+    "imageID": "sha256:68e7b26c066054c73e3a4f63329607b358fc2826aff0ebb81711c8b6f9d5716d",
+    "changes": [
+      "Validate pending recovery snapshots before transformed-path indexing.",
+      "Complete valid recovery, then rebuild under the updated metadata revision; reject stale rows.",
+      "Version cache namespace to invalidate previously unchecked indexes."
+    ],
+    "checks": {
+      "raceIntegration": {
+        "file": "/tmp/go-pending-index-after.log",
+        "sha256": "6a246228dac6f20235571daf3056521388b5784e62a9746972e4972aa82e6976",
+        "result": "passed"
+      },
+      "betaBuild": {
+        "file": "/tmp/go-pending-index-build.log",
+        "sha256": "8e66f81aff84cf4d9fb8c7d213e604403dfe276932180cfe65a133753a5dd82f",
+        "result": "passed"
+      },
+      "betaDeploy": {
+        "file": "/tmp/go-pending-index-deploy.log",
+        "sha256": "c849fba097d234d35f61a7619ebcacf71853659975af643e8bf3c8f9fae8f78e",
+        "result": "passed"
+      },
+      "betaLive": {
+        "file": "/tmp/go-pending-index-live.log",
+        "sha256": "d04e7b4ab073d2abf014d0836ade2936852c3b1d31c4e1204ba705386ce0bcc2",
+        "result": "passed",
+        "uniqueRequestIDs": 94,
+        "temporaryKeyRevoked": true
+      },
+      "goVet": "passed ./internal/server",
+      "formatting": "passed"
+    },
+    "limits": [
+      "Targeted race suite on this revision; production cutover remains unverified."
+    ],
+    "productionChanged": false
+  },
+  "documentPreviewConnectionQuery": {
+    "verifiedAtUTC": "2026-11-03T17:52:21.757946+00:00",
+    "status": "verified_and_deployed_to_beta",
+    "sourceSHA256": "8d93f2e1ae0f173c11fc201290f057ebda5334ae57fb081bfb0938d54c18610f",
+    "imageID": "sha256:bffb4018684376b4ab47e995d438f51b2adc11f99d641dce74c1bb41218ed947",
+    "changes": [
+      "Document previews share repository preview connection validation.",
+      "Reject ambiguous choices before provider access; preserve custom provider connection names."
+    ],
+    "checks": {
+      "targetedRaceTests": {
+        "file": "/tmp/go-document-query-after.log",
+        "sha256": "66100034347ccd0023b216b6451a3555eaafd6ac66906628cb232da9a353efca",
+        "result": "passed"
+      },
+      "betaBuild": {
+        "file": "/tmp/go-document-query-build.log",
+        "sha256": "b48cff62a22392f85e6a8dfb16b2896635c562684b4e7a9cda272080cd467b55",
+        "result": "passed"
+      },
+      "betaDeploy": {
+        "file": "/tmp/go-document-query-deploy.log",
+        "sha256": "c849fba097d234d35f61a7619ebcacf71853659975af643e8bf3c8f9fae8f78e",
+        "result": "passed"
+      },
+      "betaLive": {
+        "file": "/tmp/go-document-query-live.log",
+        "sha256": "4675ebdedfb89187f882e1ee62d9b1ccd65851609763485a0e7ddf5753d1c72b",
+        "result": "passed",
+        "uniqueRequestIDs": 94,
+        "temporaryKeyRevoked": true
+      },
+      "goVet": "passed ./internal/server",
+      "formatting": "passed"
+    },
+    "audit": "backend/reports/query-consumer-audit.json",
+    "limits": [
+      "Targeted race tests only on this revision.",
+      "Persisted date-consumer review and final full-scope validation remain."
+    ],
+    "productionChanged": false
+  },
+  "storedDatePresence": {
+    "verifiedAtUTC": "2026-11-03T17:57:32.297099+00:00",
+    "status": "verified_and_deployed_to_beta",
+    "sourceSHA256": "5fa7b8ad51e3b924f83ae57b2a64216a58acf1143b12f489be59c194429f883a",
+    "imageID": "sha256:350675a547af188bce3e01061364ffa859a33d47a80353ad8f16dba21f6a91e5",
+    "changes": [
+      "Separate stored-date validity from Go zero-time value.",
+      "Preserve valid old dates in recovery, refresh, cache identity, membership replay, admin jobs and commit timestamps.",
+      "Select latest valid repository update date without a zero-time lower bound."
+    ],
+    "checks": {
+      "targetedRace": {
+        "file": "/tmp/go-stored-date-tests.log",
+        "sha256": "bf0dcc4f3fdce4ce2463ac6fb169d3df55512e550178bb84deb3f5e7a479f897",
+        "result": "passed"
+      },
+      "lifecycleRace": {
+        "file": "/tmp/go-stored-date-lifecycle-tests.log",
+        "sha256": "93f5526b3053c6cbb84cbb3414ccfda128f3b363b13f870790d43be08f0a16ca",
+        "result": "passed"
+      },
+      "betaBuild": {
+        "file": "/tmp/go-stored-date-build.log",
+        "sha256": "1b5fa294016c15d54c6500ae7edcf61a42afeac16296ec12e8ef8bbeac4be48e",
+        "result": "passed"
+      },
+      "betaDeploy": {
+        "file": "/tmp/go-stored-date-deploy.log",
+        "sha256": "c849fba097d234d35f61a7619ebcacf71853659975af643e8bf3c8f9fae8f78e",
+        "result": "passed"
+      },
+      "betaLive": {
+        "file": "/tmp/go-stored-date-live.log",
+        "sha256": "d9853b1ecc0b7fc21bb7c2c1af493fa30c82aae6f5a09cecec8664064974dcd8",
+        "result": "passed",
+        "uniqueRequestIDs": 94,
+        "temporaryKeyRevoked": true
+      },
+      "goVet": "passed ./internal/server",
+      "formatting": "passed"
+    },
+    "audit": "backend/reports/query-consumer-audit.json",
+    "limits": [
+      "Full backend race suite now passed; see completionAudit.",
+      "Production cutover remains unverified."
+    ],
+    "productionChanged": false
+  },
+  "completionAudit": {
+    "file": "backend/reports/implementation-completion-audit.json",
+    "status": "implementation_verified",
+    "contractsPassed": 64,
+    "routeContracts": 112,
+    "goVet": "passed ./...",
+    "formatting": "passed",
+    "vulnerabilities": "zero reachable and imported-package findings; four unused-module advisories",
+    "deploymentSmoke": "passed",
+    "fullRace": "Passed all packages after aligning the integration test context with the Go runner deadline.",
+    "verifiedAtUTC": "2026-11-03T18:13:34.084892+00:00",
+    "goSourceSHA256": "800d00337ffc0eba9983b59489a525da86e4a880f0525b63c0ce9c0b8d1dafac",
+    "fullRaceLogSHA256": "0ce54b362a54110feb9551427e8c65fb27738cd9f9299425574498161dab42ef"
+  },
+  "replacementPathOptimization": {
+    "status": "verified_and_deployed_to_beta",
+    "evidence": "backend/reports/replacement-path-validation.json",
+    "changes": "Avoid lowercase copies and repeated output scans in replacement-heavy ASCII matching. Preserve ordered replacement and output hashes.",
+    "validation": "499 TypeScript differential cases, randomized matcher/reference tests, anonymizer race tests, targeted HTTP path race tests, vet, formatting, beta build and 94 authenticated checks. Full suite in completionAudit predates this optimization."
+  }
+}

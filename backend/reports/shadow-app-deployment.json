@@ -1,0 +1,59 @@
+{
+  "verifiedAt": "2026-11-03T12:14:58.433Z",
+  "appId": 5594414,
+  "clientId": "Iv23liBTMkyVIOs59hNF",
+  "slug": "anonymous-github-beta",
+  "appJWTAuthentication": "passed",
+  "installationsObserved": 1,
+  "permissionsReadOnly": true,
+  "webhookAdmission": [
+    {
+      "signed": false,
+      "status": 401
+    },
+    {
+      "signed": true,
+      "status": 204
+    }
+  ],
+  "appAndLegacyLoginRedirects": "passed",
+  "isolationAndPublicOutput": "passed",
+  "liveOAuthCallback": "App user grant observed in beta; authenticated App repository access verified",
+  "liveInstallation": "verified through GitHub App API",
+  "githubWebhookDelivery": {
+    "result": "passed",
+    "configurationFix": "Configured missing GitHub-side signing secret to match beta",
+    "event": "installation",
+    "redeliveryStatus": 204,
+    "installationBlocked": false,
+    "reconciliationPending": false
+  },
+  "productionChanged": false,
+  "installationTokenCheck": {
+    "installationId": 178175103,
+    "tokenIssued": true,
+    "repositoryAccessStatus": 200,
+    "repositoryCount": 183,
+    "permissions": {
+      "contents": "read",
+      "metadata": "read"
+    },
+    "temporaryTokenRevoked": true
+  },
+  "legacyOAuthRegression": {
+    "result": "passed",
+    "requests": 38,
+    "report": "shadow-authenticated-deployment.json"
+  },
+  "authenticatedAppLifecycle": {
+    "report": "backend/reports/shadow-app-authenticated-deployment.json",
+    "requests": 37,
+    "result": "passed",
+    "explicitAppBinding": true,
+    "checkedFile": "LICENSE",
+    "zipCRC": true,
+    "exactAnonymizedFileAndZipEntry": true,
+    "testRepositoryRemoved": true,
+    "temporaryKeyRevoked": true
+  }
+}

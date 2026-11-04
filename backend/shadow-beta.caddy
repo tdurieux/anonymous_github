@@ -1,0 +1,5 @@
+# Isolated Go rehearsal; production runs on a different origin.
+beta.durieux.me {
+    header X-Anonymous-Deployment go-shadow-beta
+    reverse_proxy 127.0.0.1:5001
+}

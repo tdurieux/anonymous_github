@@ -19,8 +19,28 @@
     <p class="paper-error-msg">This repository will be available in <strong>{{ rateLimitCountdown }}</strong>. The page will reload automatically.</p>
   </div>
 </div>
-<div class="file-error container d-flex h-100" v-if="type == &#x27;error&#x27;"><h1 class="paper-empty-title m-auto" v-text="fmt.translate(&quot;ERRORS.&quot; + (content))">Error</h1></div>
-<div class="file-error container d-flex h-100" v-if="type == &#x27;loading&#x27; &amp;&amp; !error"><h1 class="paper-empty-title m-auto">Loading&hellip;</h1></div>
+<div class="file-error container d-flex h-100" v-if="type == 'error'">
+  <section class="viewer-error m-auto" role="alert" aria-labelledby="viewer-error-title">
+    <h1 id="viewer-error-title" class="paper-empty-title">{{ fmt.translate(isSourceAccessError() ? 'VIEWER_ERRORS.access_title' : 'VIEWER_ERRORS.title') }}</h1>
+    <p>{{ fmt.translate('ERRORS.' + content) }}</p>
+    <template v-if="isSourceAccessError()">
+      <p>{{ fmt.translate('VIEWER_ERRORS.reader_help') }}</p>
+      <p>{{ fmt.translate('VIEWER_ERRORS.owner_help') }}</p>
+    </template>
+    <div class="paper-error-actions">
+      <button type="button" class="btn btn-primary" @click="retryContent()">{{ fmt.translate('VIEWER_ERRORS.retry') }}</button>
+      <a v-if="isSourceAccessError()" class="btn btn-outline-ink" href="/dashboard">{{ fmt.translate('VIEWER_ERRORS.dashboard') }}</a>
+    </div>
+  </section>
+</div>
+<section class="viewer-loading" v-if="type == 'loading' &amp;&amp; !error" aria-busy="true">
+  <div class="viewer-loading-status" role="status" aria-live="polite">
+    <strong>{{ fmt.translate(fileReceivedBytes ? 'VIEWER_LOADING.receiving' : 'VIEWER_LOADING.loading') }}</strong>
+    <span class="viewer-loading-name">{{ filePath }}</span>
+    <p v-if="fileLoadingSlow">{{ fmt.translate('VIEWER_LOADING.slow') }}</p>
+  </div>
+  <div class="viewer-loading-lines" aria-hidden="true"><span v-for="line in 10" :key="line"></span></div>
+</section>
 <div class="file-error container d-flex h-100" v-if="type == &#x27;empty&#x27;"><h1 class="paper-empty-title m-auto">Empty <em>repository</em>.</h1></div>
 <div class="file-error container d-flex h-100" v-if="content == null &amp;&amp; type != &#x27;empty&#x27;"><h1 class="paper-empty-title m-auto">Empty <em>file</em>.</h1></div>
 <div class="file-error container d-flex h-100" v-if="type == &#x27;binary&#x27;"><h1 class="paper-empty-title m-auto">Unsupported <em>binary file</em>. You can <a target="_blank" :href="safeUrl((url) + &quot;&amp;download=true&quot;)">download it</a>.</h1></div>

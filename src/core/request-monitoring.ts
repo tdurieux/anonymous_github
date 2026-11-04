@@ -12,7 +12,7 @@ export interface Metric {
   bytes: number; aborted: number; errors: number; slow: number; buckets: number[];
 }
 const logger = createLogger("requests");
-const context = new AsyncLocalStorage<{ id: string; service: Service; stages: Partial<Record<Stage, number>> }>();
+const context = new AsyncLocalStorage<{ id: string; service: Service; traffic?: string; stages: Partial<Record<Stage, number>> }>();
 const methods = new Set(["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]);
 const staticRoutes = new Set([
   "/", "/dashboard", "/anonymize", "/healthcheck", "/api/healthcheck", "/api/stat", "/api/stat/history",
@@ -77,8 +77,9 @@ let activeRequests = 0;
 export function activeRequestCount() { return activeRequests; }
 export function requestHeaders(): Record<string, string> {
   const id = context.getStore()?.id;
-  return id ? { "x-request-id": id } : {};
+  return id ? { "x-request-id": id, "x-cache-traffic": cacheTraffic() } : {};
 }
+export function cacheTraffic() { return context.getStore()?.traffic || "background"; }
 export function recordCacheHit(cache: "source" | "transformed", hit: boolean) {
   if (context.getStore()) requestMetrics.observe(`${cache}_${hit ? "hit" : "miss"}`, "all", "all", 0);
 }
@@ -107,7 +108,12 @@ export function monitorRequests(service: Service, metrics = requestMetrics,
   return (req, res, next) => {
     const forwarded = service === "streamer" ? req.get("x-request-id") : undefined;
     const id = forwarded && /^[a-f0-9-]{36}$/.test(forwarded) ? forwarded : randomUUID();
-    const trace = { id, service, stages: {} };
+    const forwardedTraffic = service === "streamer" ? req.get("x-cache-traffic") : undefined;
+    const traffic = forwardedTraffic && ["file", "website", "zip", "monitor", "background"].includes(forwardedTraffic)
+      ? forwardedTraffic : /uptime|healthcheck|monitor/i.test(req.get("user-agent") || "") ? "monitor"
+      : /\/zip(?:[/?]|$)|\/download(?:[/?]|$)/.test(req.originalUrl) ? "zip"
+      : req.originalUrl.startsWith("/w/") ? "website" : "file";
+    const trace = { id, service, traffic, stages: {} };
     const route = requestRoute(req.originalUrl, service);
     const method = methods.has(req.method) ? req.method : "OTHER";
     const started = performance.now();

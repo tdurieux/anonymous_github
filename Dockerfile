@@ -1,39 +1,28 @@
 # syntax=docker/dockerfile:1.7
-
-# Stage 1: install all deps (with cache mount so npm cache survives across builds)
-FROM node:22-slim AS deps
+FROM node:24-slim AS assets
 WORKDIR /app
-COPY package.json package-lock.json ./
-RUN --mount=type=cache,id=npm-all,target=/root/.npm,sharing=locked \
-    npm ci --prefer-offline --no-audit --fund=false
-
-# Stage 2: build TypeScript + gulp assets. Source changes only invalidate from here.
-FROM node:22-slim AS build
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY package.json package-lock.json tsconfig.json gulpfile.js ./
+COPY package.json package-lock.json gulpfile.js ./
+RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --fund=false
 COPY public ./public
 COPY src ./src
-RUN npm run build
+RUN npm run build:ui
 
-# Stage 3: prod-only deps. Independent of source so it caches well.
-FROM node:22-slim AS prod-deps
+FROM golang:1.27.3-bookworm AS build
+WORKDIR /src
+COPY backend/go.mod backend/go.sum ./
+RUN --mount=type=cache,target=/go/pkg/mod go mod download
+COPY backend ./
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o /anonymous-server ./cmd/server
+
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/* && useradd --uid 10001 --create-home anonymous
 WORKDIR /app
-COPY package.json package-lock.json ./
-RUN --mount=type=cache,id=npm-prod,target=/root/.npm,sharing=locked \
-    npm ci --omit=dev --prefer-offline --no-audit --fund=false
-
-# Stage 4: minimal runtime
-FROM node:22-alpine AS runtime
-ENV NODE_ENV=production
-ENV PORT=5000
+COPY --from=build /anonymous-server /usr/local/bin/anonymous-server
+COPY --from=build /src/licenses /usr/share/licenses/anonymous-github
+COPY --from=assets --chown=10001:10001 /app/public ./public
+RUN mkdir /app/repositories && chown 10001:10001 /app/repositories
+USER 10001:10001
+ENV PORT=5000 PUBLIC_DIR=/app/public FOLDER=/app/repositories COOKIE_SECURE=true GOMEMLIMIT=768MiB
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s CMD ["/usr/local/bin/anonymous-server", "healthcheck"]
 EXPOSE 5000
-WORKDIR /app
-
-COPY --from=prod-deps /app/node_modules ./node_modules
-COPY --from=build /app/build ./build
-COPY --from=build /app/public ./public
-COPY package.json ./package.json
-COPY healthcheck.js ./healthcheck.js
-
-CMD ["node", "--max-old-space-size=2048", "./build/server/index.js"]
+ENTRYPOINT ["/usr/local/bin/anonymous-server"]

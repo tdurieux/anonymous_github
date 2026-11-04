@@ -1,0 +1,1110 @@
+[
+  {
+    "name": "report.txt",
+    "expected": "attachment; filename=report.txt"
+  },
+  {
+    "name": "report with spaces.txt",
+    "expected": "attachment; filename=\"report with spaces.txt\""
+  },
+  {
+    "name": "résumé.pdf",
+    "expected": "attachment; filename=\"r?sum?.pdf\"; filename*=UTF-8''r%C3%A9sum%C3%A9.pdf"
+  },
+  {
+    "name": "研究.txt",
+    "expected": "attachment; filename=\"??.txt\"; filename*=UTF-8''%E7%A0%94%E7%A9%B6.txt"
+  },
+  {
+    "name": "😀.txt",
+    "expected": "attachment; filename=\"??.txt\"; filename*=UTF-8''%F0%9F%98%80.txt"
+  },
+  {
+    "name": "a%20b.txt",
+    "expected": "attachment; filename=a%20b.txt; filename*=UTF-8''a%2520b.txt"
+  },
+  {
+    "name": "a%2Gb.txt",
+    "expected": "attachment; filename=a%2Gb.txt"
+  },
+  {
+    "name": "a%ab.txt",
+    "expected": "attachment; filename=a%ab.txt; filename*=UTF-8''a%25ab.txt"
+  },
+  {
+    "name": "a%FF.txt",
+    "expected": "attachment; filename=a%FF.txt; filename*=UTF-8''a%25FF.txt"
+  },
+  {
+    "name": "a%.txt",
+    "expected": "attachment; filename=a%.txt"
+  },
+  {
+    "name": "a\"b.txt",
+    "expected": "attachment; filename=\"a\\\"b.txt\""
+  },
+  {
+    "name": "a\\b.txt",
+    "expected": "attachment; filename=\"a\\\\b.txt\""
+  },
+  {
+    "name": "a;b.txt",
+    "expected": "attachment; filename=\"a;b.txt\""
+  },
+  {
+    "name": "a\r\nb.txt",
+    "expected": "attachment; filename=\"a??b.txt\"; filename*=UTF-8''a%0D%0Ab.txt"
+  },
+  {
+    "name": "a\u0000b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%00b.txt"
+  },
+  {
+    "name": "a\tb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%09b.txt"
+  },
+  {
+    "name": "!#$&+-.^_`|~.txt",
+    "expected": "attachment; filename=!#$&+-.^_`|~.txt"
+  },
+  {
+    "name": "quote'paren().txt",
+    "expected": "attachment; filename=\"quote'paren().txt\""
+  },
+  {
+    "name": "é.txt",
+    "expected": "attachment; filename=\"e?.txt\"; filename*=UTF-8''e%CC%81.txt"
+  },
+  {
+    "name": "repo-name.zip",
+    "expected": "attachment; filename=repo-name.zip"
+  },
+  {
+    "name": "",
+    "expected": "attachment; filename=\"\""
+  },
+  {
+    "name": "a\u0000b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%00b.txt"
+  },
+  {
+    "name": "a\u0001b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%01b.txt"
+  },
+  {
+    "name": "a\u0002b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%02b.txt"
+  },
+  {
+    "name": "a\u0003b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%03b.txt"
+  },
+  {
+    "name": "a\u0004b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%04b.txt"
+  },
+  {
+    "name": "a\u0005b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%05b.txt"
+  },
+  {
+    "name": "a\u0006b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%06b.txt"
+  },
+  {
+    "name": "a\u0007b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%07b.txt"
+  },
+  {
+    "name": "a\bb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%08b.txt"
+  },
+  {
+    "name": "a\tb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%09b.txt"
+  },
+  {
+    "name": "a\nb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%0Ab.txt"
+  },
+  {
+    "name": "a\u000bb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%0Bb.txt"
+  },
+  {
+    "name": "a\fb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%0Cb.txt"
+  },
+  {
+    "name": "a\rb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%0Db.txt"
+  },
+  {
+    "name": "a\u000eb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%0Eb.txt"
+  },
+  {
+    "name": "a\u000fb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%0Fb.txt"
+  },
+  {
+    "name": "a\u0010b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%10b.txt"
+  },
+  {
+    "name": "a\u0011b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%11b.txt"
+  },
+  {
+    "name": "a\u0012b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%12b.txt"
+  },
+  {
+    "name": "a\u0013b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%13b.txt"
+  },
+  {
+    "name": "a\u0014b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%14b.txt"
+  },
+  {
+    "name": "a\u0015b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%15b.txt"
+  },
+  {
+    "name": "a\u0016b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%16b.txt"
+  },
+  {
+    "name": "a\u0017b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%17b.txt"
+  },
+  {
+    "name": "a\u0018b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%18b.txt"
+  },
+  {
+    "name": "a\u0019b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%19b.txt"
+  },
+  {
+    "name": "a\u001ab.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%1Ab.txt"
+  },
+  {
+    "name": "a\u001bb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%1Bb.txt"
+  },
+  {
+    "name": "a\u001cb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%1Cb.txt"
+  },
+  {
+    "name": "a\u001db.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%1Db.txt"
+  },
+  {
+    "name": "a\u001eb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%1Eb.txt"
+  },
+  {
+    "name": "a\u001fb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%1Fb.txt"
+  },
+  {
+    "name": "a b.txt",
+    "expected": "attachment; filename=\"a b.txt\""
+  },
+  {
+    "name": "a!b.txt",
+    "expected": "attachment; filename=a!b.txt"
+  },
+  {
+    "name": "a\"b.txt",
+    "expected": "attachment; filename=\"a\\\"b.txt\""
+  },
+  {
+    "name": "a#b.txt",
+    "expected": "attachment; filename=a#b.txt"
+  },
+  {
+    "name": "a$b.txt",
+    "expected": "attachment; filename=a$b.txt"
+  },
+  {
+    "name": "a%b.txt",
+    "expected": "attachment; filename=a%b.txt"
+  },
+  {
+    "name": "a&b.txt",
+    "expected": "attachment; filename=a&b.txt"
+  },
+  {
+    "name": "a'b.txt",
+    "expected": "attachment; filename=a'b.txt"
+  },
+  {
+    "name": "a(b.txt",
+    "expected": "attachment; filename=\"a(b.txt\""
+  },
+  {
+    "name": "a)b.txt",
+    "expected": "attachment; filename=\"a)b.txt\""
+  },
+  {
+    "name": "a*b.txt",
+    "expected": "attachment; filename=a*b.txt"
+  },
+  {
+    "name": "a+b.txt",
+    "expected": "attachment; filename=a+b.txt"
+  },
+  {
+    "name": "a,b.txt",
+    "expected": "attachment; filename=\"a,b.txt\""
+  },
+  {
+    "name": "a-b.txt",
+    "expected": "attachment; filename=a-b.txt"
+  },
+  {
+    "name": "a.b.txt",
+    "expected": "attachment; filename=a.b.txt"
+  },
+  {
+    "name": "a/b.txt",
+    "expected": "attachment; filename=b.txt"
+  },
+  {
+    "name": "a0b.txt",
+    "expected": "attachment; filename=a0b.txt"
+  },
+  {
+    "name": "a1b.txt",
+    "expected": "attachment; filename=a1b.txt"
+  },
+  {
+    "name": "a2b.txt",
+    "expected": "attachment; filename=a2b.txt"
+  },
+  {
+    "name": "a3b.txt",
+    "expected": "attachment; filename=a3b.txt"
+  },
+  {
+    "name": "a4b.txt",
+    "expected": "attachment; filename=a4b.txt"
+  },
+  {
+    "name": "a5b.txt",
+    "expected": "attachment; filename=a5b.txt"
+  },
+  {
+    "name": "a6b.txt",
+    "expected": "attachment; filename=a6b.txt"
+  },
+  {
+    "name": "a7b.txt",
+    "expected": "attachment; filename=a7b.txt"
+  },
+  {
+    "name": "a8b.txt",
+    "expected": "attachment; filename=a8b.txt"
+  },
+  {
+    "name": "a9b.txt",
+    "expected": "attachment; filename=a9b.txt"
+  },
+  {
+    "name": "a:b.txt",
+    "expected": "attachment; filename=\"a:b.txt\""
+  },
+  {
+    "name": "a;b.txt",
+    "expected": "attachment; filename=\"a;b.txt\""
+  },
+  {
+    "name": "a<b.txt",
+    "expected": "attachment; filename=\"a<b.txt\""
+  },
+  {
+    "name": "a=b.txt",
+    "expected": "attachment; filename=\"a=b.txt\""
+  },
+  {
+    "name": "a>b.txt",
+    "expected": "attachment; filename=\"a>b.txt\""
+  },
+  {
+    "name": "a?b.txt",
+    "expected": "attachment; filename=\"a?b.txt\""
+  },
+  {
+    "name": "a@b.txt",
+    "expected": "attachment; filename=\"a@b.txt\""
+  },
+  {
+    "name": "aAb.txt",
+    "expected": "attachment; filename=aAb.txt"
+  },
+  {
+    "name": "aBb.txt",
+    "expected": "attachment; filename=aBb.txt"
+  },
+  {
+    "name": "aCb.txt",
+    "expected": "attachment; filename=aCb.txt"
+  },
+  {
+    "name": "aDb.txt",
+    "expected": "attachment; filename=aDb.txt"
+  },
+  {
+    "name": "aEb.txt",
+    "expected": "attachment; filename=aEb.txt"
+  },
+  {
+    "name": "aFb.txt",
+    "expected": "attachment; filename=aFb.txt"
+  },
+  {
+    "name": "aGb.txt",
+    "expected": "attachment; filename=aGb.txt"
+  },
+  {
+    "name": "aHb.txt",
+    "expected": "attachment; filename=aHb.txt"
+  },
+  {
+    "name": "aIb.txt",
+    "expected": "attachment; filename=aIb.txt"
+  },
+  {
+    "name": "aJb.txt",
+    "expected": "attachment; filename=aJb.txt"
+  },
+  {
+    "name": "aKb.txt",
+    "expected": "attachment; filename=aKb.txt"
+  },
+  {
+    "name": "aLb.txt",
+    "expected": "attachment; filename=aLb.txt"
+  },
+  {
+    "name": "aMb.txt",
+    "expected": "attachment; filename=aMb.txt"
+  },
+  {
+    "name": "aNb.txt",
+    "expected": "attachment; filename=aNb.txt"
+  },
+  {
+    "name": "aOb.txt",
+    "expected": "attachment; filename=aOb.txt"
+  },
+  {
+    "name": "aPb.txt",
+    "expected": "attachment; filename=aPb.txt"
+  },
+  {
+    "name": "aQb.txt",
+    "expected": "attachment; filename=aQb.txt"
+  },
+  {
+    "name": "aRb.txt",
+    "expected": "attachment; filename=aRb.txt"
+  },
+  {
+    "name": "aSb.txt",
+    "expected": "attachment; filename=aSb.txt"
+  },
+  {
+    "name": "aTb.txt",
+    "expected": "attachment; filename=aTb.txt"
+  },
+  {
+    "name": "aUb.txt",
+    "expected": "attachment; filename=aUb.txt"
+  },
+  {
+    "name": "aVb.txt",
+    "expected": "attachment; filename=aVb.txt"
+  },
+  {
+    "name": "aWb.txt",
+    "expected": "attachment; filename=aWb.txt"
+  },
+  {
+    "name": "aXb.txt",
+    "expected": "attachment; filename=aXb.txt"
+  },
+  {
+    "name": "aYb.txt",
+    "expected": "attachment; filename=aYb.txt"
+  },
+  {
+    "name": "aZb.txt",
+    "expected": "attachment; filename=aZb.txt"
+  },
+  {
+    "name": "a[b.txt",
+    "expected": "attachment; filename=\"a[b.txt\""
+  },
+  {
+    "name": "a\\b.txt",
+    "expected": "attachment; filename=\"a\\\\b.txt\""
+  },
+  {
+    "name": "a]b.txt",
+    "expected": "attachment; filename=\"a]b.txt\""
+  },
+  {
+    "name": "a^b.txt",
+    "expected": "attachment; filename=a^b.txt"
+  },
+  {
+    "name": "a_b.txt",
+    "expected": "attachment; filename=a_b.txt"
+  },
+  {
+    "name": "a`b.txt",
+    "expected": "attachment; filename=a`b.txt"
+  },
+  {
+    "name": "aab.txt",
+    "expected": "attachment; filename=aab.txt"
+  },
+  {
+    "name": "abb.txt",
+    "expected": "attachment; filename=abb.txt"
+  },
+  {
+    "name": "acb.txt",
+    "expected": "attachment; filename=acb.txt"
+  },
+  {
+    "name": "adb.txt",
+    "expected": "attachment; filename=adb.txt"
+  },
+  {
+    "name": "aeb.txt",
+    "expected": "attachment; filename=aeb.txt"
+  },
+  {
+    "name": "afb.txt",
+    "expected": "attachment; filename=afb.txt"
+  },
+  {
+    "name": "agb.txt",
+    "expected": "attachment; filename=agb.txt"
+  },
+  {
+    "name": "ahb.txt",
+    "expected": "attachment; filename=ahb.txt"
+  },
+  {
+    "name": "aib.txt",
+    "expected": "attachment; filename=aib.txt"
+  },
+  {
+    "name": "ajb.txt",
+    "expected": "attachment; filename=ajb.txt"
+  },
+  {
+    "name": "akb.txt",
+    "expected": "attachment; filename=akb.txt"
+  },
+  {
+    "name": "alb.txt",
+    "expected": "attachment; filename=alb.txt"
+  },
+  {
+    "name": "amb.txt",
+    "expected": "attachment; filename=amb.txt"
+  },
+  {
+    "name": "anb.txt",
+    "expected": "attachment; filename=anb.txt"
+  },
+  {
+    "name": "aob.txt",
+    "expected": "attachment; filename=aob.txt"
+  },
+  {
+    "name": "apb.txt",
+    "expected": "attachment; filename=apb.txt"
+  },
+  {
+    "name": "aqb.txt",
+    "expected": "attachment; filename=aqb.txt"
+  },
+  {
+    "name": "arb.txt",
+    "expected": "attachment; filename=arb.txt"
+  },
+  {
+    "name": "asb.txt",
+    "expected": "attachment; filename=asb.txt"
+  },
+  {
+    "name": "atb.txt",
+    "expected": "attachment; filename=atb.txt"
+  },
+  {
+    "name": "aub.txt",
+    "expected": "attachment; filename=aub.txt"
+  },
+  {
+    "name": "avb.txt",
+    "expected": "attachment; filename=avb.txt"
+  },
+  {
+    "name": "awb.txt",
+    "expected": "attachment; filename=awb.txt"
+  },
+  {
+    "name": "axb.txt",
+    "expected": "attachment; filename=axb.txt"
+  },
+  {
+    "name": "ayb.txt",
+    "expected": "attachment; filename=ayb.txt"
+  },
+  {
+    "name": "azb.txt",
+    "expected": "attachment; filename=azb.txt"
+  },
+  {
+    "name": "a{b.txt",
+    "expected": "attachment; filename=\"a{b.txt\""
+  },
+  {
+    "name": "a|b.txt",
+    "expected": "attachment; filename=a|b.txt"
+  },
+  {
+    "name": "a}b.txt",
+    "expected": "attachment; filename=\"a}b.txt\""
+  },
+  {
+    "name": "a~b.txt",
+    "expected": "attachment; filename=a~b.txt"
+  },
+  {
+    "name": "ab.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%7Fb.txt"
+  },
+  {
+    "name": "ab.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%80b.txt"
+  },
+  {
+    "name": "ab.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%81b.txt"
+  },
+  {
+    "name": "ab.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%82b.txt"
+  },
+  {
+    "name": "ab.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%83b.txt"
+  },
+  {
+    "name": "ab.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%84b.txt"
+  },
+  {
+    "name": "ab.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%85b.txt"
+  },
+  {
+    "name": "ab.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%86b.txt"
+  },
+  {
+    "name": "ab.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%87b.txt"
+  },
+  {
+    "name": "ab.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%88b.txt"
+  },
+  {
+    "name": "ab.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%89b.txt"
+  },
+  {
+    "name": "ab.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%8Ab.txt"
+  },
+  {
+    "name": "ab.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%8Bb.txt"
+  },
+  {
+    "name": "ab.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%8Cb.txt"
+  },
+  {
+    "name": "ab.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%8Db.txt"
+  },
+  {
+    "name": "ab.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%8Eb.txt"
+  },
+  {
+    "name": "ab.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%8Fb.txt"
+  },
+  {
+    "name": "ab.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%90b.txt"
+  },
+  {
+    "name": "ab.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%91b.txt"
+  },
+  {
+    "name": "ab.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%92b.txt"
+  },
+  {
+    "name": "ab.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%93b.txt"
+  },
+  {
+    "name": "ab.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%94b.txt"
+  },
+  {
+    "name": "ab.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%95b.txt"
+  },
+  {
+    "name": "ab.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%96b.txt"
+  },
+  {
+    "name": "ab.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%97b.txt"
+  },
+  {
+    "name": "ab.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%98b.txt"
+  },
+  {
+    "name": "ab.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%99b.txt"
+  },
+  {
+    "name": "ab.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%9Ab.txt"
+  },
+  {
+    "name": "ab.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%9Bb.txt"
+  },
+  {
+    "name": "ab.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%9Cb.txt"
+  },
+  {
+    "name": "ab.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%9Db.txt"
+  },
+  {
+    "name": "ab.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%9Eb.txt"
+  },
+  {
+    "name": "ab.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%9Fb.txt"
+  },
+  {
+    "name": "a b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%A0b.txt"
+  },
+  {
+    "name": "a¡b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%A1b.txt"
+  },
+  {
+    "name": "a¢b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%A2b.txt"
+  },
+  {
+    "name": "a£b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%A3b.txt"
+  },
+  {
+    "name": "a¤b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%A4b.txt"
+  },
+  {
+    "name": "a¥b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%A5b.txt"
+  },
+  {
+    "name": "a¦b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%A6b.txt"
+  },
+  {
+    "name": "a§b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%A7b.txt"
+  },
+  {
+    "name": "a¨b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%A8b.txt"
+  },
+  {
+    "name": "a©b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%A9b.txt"
+  },
+  {
+    "name": "aªb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%AAb.txt"
+  },
+  {
+    "name": "a«b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%ABb.txt"
+  },
+  {
+    "name": "a¬b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%ACb.txt"
+  },
+  {
+    "name": "a­b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%ADb.txt"
+  },
+  {
+    "name": "a®b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%AEb.txt"
+  },
+  {
+    "name": "a¯b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%AFb.txt"
+  },
+  {
+    "name": "a°b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%B0b.txt"
+  },
+  {
+    "name": "a±b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%B1b.txt"
+  },
+  {
+    "name": "a²b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%B2b.txt"
+  },
+  {
+    "name": "a³b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%B3b.txt"
+  },
+  {
+    "name": "a´b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%B4b.txt"
+  },
+  {
+    "name": "aµb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%B5b.txt"
+  },
+  {
+    "name": "a¶b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%B6b.txt"
+  },
+  {
+    "name": "a·b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%B7b.txt"
+  },
+  {
+    "name": "a¸b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%B8b.txt"
+  },
+  {
+    "name": "a¹b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%B9b.txt"
+  },
+  {
+    "name": "aºb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%BAb.txt"
+  },
+  {
+    "name": "a»b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%BBb.txt"
+  },
+  {
+    "name": "a¼b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%BCb.txt"
+  },
+  {
+    "name": "a½b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%BDb.txt"
+  },
+  {
+    "name": "a¾b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%BEb.txt"
+  },
+  {
+    "name": "a¿b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C2%BFb.txt"
+  },
+  {
+    "name": "aÀb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%80b.txt"
+  },
+  {
+    "name": "aÁb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%81b.txt"
+  },
+  {
+    "name": "aÂb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%82b.txt"
+  },
+  {
+    "name": "aÃb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%83b.txt"
+  },
+  {
+    "name": "aÄb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%84b.txt"
+  },
+  {
+    "name": "aÅb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%85b.txt"
+  },
+  {
+    "name": "aÆb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%86b.txt"
+  },
+  {
+    "name": "aÇb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%87b.txt"
+  },
+  {
+    "name": "aÈb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%88b.txt"
+  },
+  {
+    "name": "aÉb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%89b.txt"
+  },
+  {
+    "name": "aÊb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%8Ab.txt"
+  },
+  {
+    "name": "aËb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%8Bb.txt"
+  },
+  {
+    "name": "aÌb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%8Cb.txt"
+  },
+  {
+    "name": "aÍb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%8Db.txt"
+  },
+  {
+    "name": "aÎb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%8Eb.txt"
+  },
+  {
+    "name": "aÏb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%8Fb.txt"
+  },
+  {
+    "name": "aÐb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%90b.txt"
+  },
+  {
+    "name": "aÑb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%91b.txt"
+  },
+  {
+    "name": "aÒb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%92b.txt"
+  },
+  {
+    "name": "aÓb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%93b.txt"
+  },
+  {
+    "name": "aÔb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%94b.txt"
+  },
+  {
+    "name": "aÕb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%95b.txt"
+  },
+  {
+    "name": "aÖb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%96b.txt"
+  },
+  {
+    "name": "a×b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%97b.txt"
+  },
+  {
+    "name": "aØb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%98b.txt"
+  },
+  {
+    "name": "aÙb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%99b.txt"
+  },
+  {
+    "name": "aÚb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%9Ab.txt"
+  },
+  {
+    "name": "aÛb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%9Bb.txt"
+  },
+  {
+    "name": "aÜb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%9Cb.txt"
+  },
+  {
+    "name": "aÝb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%9Db.txt"
+  },
+  {
+    "name": "aÞb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%9Eb.txt"
+  },
+  {
+    "name": "aßb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%9Fb.txt"
+  },
+  {
+    "name": "aàb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%A0b.txt"
+  },
+  {
+    "name": "aáb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%A1b.txt"
+  },
+  {
+    "name": "aâb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%A2b.txt"
+  },
+  {
+    "name": "aãb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%A3b.txt"
+  },
+  {
+    "name": "aäb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%A4b.txt"
+  },
+  {
+    "name": "aåb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%A5b.txt"
+  },
+  {
+    "name": "aæb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%A6b.txt"
+  },
+  {
+    "name": "açb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%A7b.txt"
+  },
+  {
+    "name": "aèb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%A8b.txt"
+  },
+  {
+    "name": "aéb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%A9b.txt"
+  },
+  {
+    "name": "aêb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%AAb.txt"
+  },
+  {
+    "name": "aëb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%ABb.txt"
+  },
+  {
+    "name": "aìb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%ACb.txt"
+  },
+  {
+    "name": "aíb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%ADb.txt"
+  },
+  {
+    "name": "aîb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%AEb.txt"
+  },
+  {
+    "name": "aïb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%AFb.txt"
+  },
+  {
+    "name": "aðb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%B0b.txt"
+  },
+  {
+    "name": "añb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%B1b.txt"
+  },
+  {
+    "name": "aòb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%B2b.txt"
+  },
+  {
+    "name": "aób.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%B3b.txt"
+  },
+  {
+    "name": "aôb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%B4b.txt"
+  },
+  {
+    "name": "aõb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%B5b.txt"
+  },
+  {
+    "name": "aöb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%B6b.txt"
+  },
+  {
+    "name": "a÷b.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%B7b.txt"
+  },
+  {
+    "name": "aøb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%B8b.txt"
+  },
+  {
+    "name": "aùb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%B9b.txt"
+  },
+  {
+    "name": "aúb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%BAb.txt"
+  },
+  {
+    "name": "aûb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%BBb.txt"
+  },
+  {
+    "name": "aüb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%BCb.txt"
+  },
+  {
+    "name": "aýb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%BDb.txt"
+  },
+  {
+    "name": "aþb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%BEb.txt"
+  },
+  {
+    "name": "aÿb.txt",
+    "expected": "attachment; filename=\"a?b.txt\"; filename*=UTF-8''a%C3%BFb.txt"
+  }
+]

@@ -1,0 +1,2340 @@
+{
+  "now": "2030-01-01T00:00:00.000Z",
+  "cases": [
+    {
+      "name": "valid",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "name/null",
+      "body": {
+        "name": null,
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": {
+        "code": "conf_name_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "name/\"\"",
+      "body": {
+        "name": "",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": {
+        "code": "conf_name_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "name/false",
+      "body": {
+        "name": false,
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": {
+        "code": "conf_name_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "name/0",
+      "body": {
+        "name": 0,
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": {
+        "code": "conf_name_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "name/missing",
+      "body": {
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": {
+        "code": "conf_name_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "conferenceID/null",
+      "body": {
+        "name": "Conference",
+        "conferenceID": null,
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": {
+        "code": "conf_id_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "conferenceID/\"\"",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": {
+        "code": "conf_id_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "conferenceID/false",
+      "body": {
+        "name": "Conference",
+        "conferenceID": false,
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": {
+        "code": "conf_id_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "conferenceID/0",
+      "body": {
+        "name": "Conference",
+        "conferenceID": 0,
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": {
+        "code": "conf_id_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "conferenceID/missing",
+      "body": {
+        "name": "Conference",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": {
+        "code": "conf_id_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "startDate/null",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": null,
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": {
+        "code": "conf_start_date_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "startDate/\"\"",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": {
+        "code": "conf_start_date_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "startDate/false",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": false,
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": {
+        "code": "conf_start_date_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "startDate/0",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": 0,
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": {
+        "code": "conf_start_date_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "startDate/missing",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": {
+        "code": "conf_start_date_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "endDate/null",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": null,
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": {
+        "code": "conf_end_date_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "endDate/\"\"",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "",
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": {
+        "code": "conf_end_date_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "endDate/false",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": false,
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": {
+        "code": "conf_end_date_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "endDate/0",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": 0,
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": {
+        "code": "conf_end_date_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "endDate/missing",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": {
+        "code": "conf_end_date_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "precedence/all",
+      "body": {
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": {
+        "code": "conf_name_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "start after end",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2032-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": {
+        "code": "conf_start_date_invalid",
+        "status": 400
+      }
+    },
+    {
+      "name": "end in past",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2020-01-01",
+        "endDate": "2021-01-01",
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": {
+        "code": "conf_end_date_invalid",
+        "status": 400
+      }
+    },
+    {
+      "name": "end equals now",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2029-01-01",
+        "endDate": "2030-01-01T00:00:00.000Z",
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "unknown plan",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "unknown"
+        }
+      },
+      "expected": {
+        "code": "invalid_plan",
+        "status": 400
+      }
+    },
+    {
+      "name": "premium_conference/valid",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "premium_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": "chair@example.test",
+          "address": "Address",
+          "city": "City",
+          "zip": "000",
+          "country": "Country"
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "premium_conference/missing billing",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "premium_conference"
+        }
+      },
+      "expected": {
+        "code": "billing_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "premium_conference/empty billing",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "premium_conference"
+        },
+        "billing": {}
+      },
+      "expected": {
+        "code": "billing_name_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "premium_conference/name/null",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "premium_conference"
+        },
+        "billing": {
+          "name": null,
+          "email": "chair@example.test",
+          "address": "Address",
+          "city": "City",
+          "zip": "000",
+          "country": "Country"
+        }
+      },
+      "expected": {
+        "code": "billing_name_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "premium_conference/name/\"\"",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "premium_conference"
+        },
+        "billing": {
+          "name": "",
+          "email": "chair@example.test",
+          "address": "Address",
+          "city": "City",
+          "zip": "000",
+          "country": "Country"
+        }
+      },
+      "expected": {
+        "code": "billing_name_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "premium_conference/name/false",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "premium_conference"
+        },
+        "billing": {
+          "name": false,
+          "email": "chair@example.test",
+          "address": "Address",
+          "city": "City",
+          "zip": "000",
+          "country": "Country"
+        }
+      },
+      "expected": {
+        "code": "billing_name_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "premium_conference/name/0",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "premium_conference"
+        },
+        "billing": {
+          "name": 0,
+          "email": "chair@example.test",
+          "address": "Address",
+          "city": "City",
+          "zip": "000",
+          "country": "Country"
+        }
+      },
+      "expected": {
+        "code": "billing_name_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "premium_conference/name/\" \"",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "premium_conference"
+        },
+        "billing": {
+          "name": " ",
+          "email": "chair@example.test",
+          "address": "Address",
+          "city": "City",
+          "zip": "000",
+          "country": "Country"
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "premium_conference/email/null",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "premium_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": null,
+          "address": "Address",
+          "city": "City",
+          "zip": "000",
+          "country": "Country"
+        }
+      },
+      "expected": {
+        "code": "billing_email_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "premium_conference/email/\"\"",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "premium_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": "",
+          "address": "Address",
+          "city": "City",
+          "zip": "000",
+          "country": "Country"
+        }
+      },
+      "expected": {
+        "code": "billing_email_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "premium_conference/email/false",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "premium_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": false,
+          "address": "Address",
+          "city": "City",
+          "zip": "000",
+          "country": "Country"
+        }
+      },
+      "expected": {
+        "code": "billing_email_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "premium_conference/email/0",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "premium_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": 0,
+          "address": "Address",
+          "city": "City",
+          "zip": "000",
+          "country": "Country"
+        }
+      },
+      "expected": {
+        "code": "billing_email_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "premium_conference/email/\" \"",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "premium_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": " ",
+          "address": "Address",
+          "city": "City",
+          "zip": "000",
+          "country": "Country"
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "premium_conference/address/null",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "premium_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": "chair@example.test",
+          "address": null,
+          "city": "City",
+          "zip": "000",
+          "country": "Country"
+        }
+      },
+      "expected": {
+        "code": "billing_address_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "premium_conference/address/\"\"",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "premium_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": "chair@example.test",
+          "address": "",
+          "city": "City",
+          "zip": "000",
+          "country": "Country"
+        }
+      },
+      "expected": {
+        "code": "billing_address_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "premium_conference/address/false",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "premium_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": "chair@example.test",
+          "address": false,
+          "city": "City",
+          "zip": "000",
+          "country": "Country"
+        }
+      },
+      "expected": {
+        "code": "billing_address_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "premium_conference/address/0",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "premium_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": "chair@example.test",
+          "address": 0,
+          "city": "City",
+          "zip": "000",
+          "country": "Country"
+        }
+      },
+      "expected": {
+        "code": "billing_address_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "premium_conference/address/\" \"",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "premium_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": "chair@example.test",
+          "address": " ",
+          "city": "City",
+          "zip": "000",
+          "country": "Country"
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "premium_conference/city/null",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "premium_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": "chair@example.test",
+          "address": "Address",
+          "city": null,
+          "zip": "000",
+          "country": "Country"
+        }
+      },
+      "expected": {
+        "code": "billing_city_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "premium_conference/city/\"\"",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "premium_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": "chair@example.test",
+          "address": "Address",
+          "city": "",
+          "zip": "000",
+          "country": "Country"
+        }
+      },
+      "expected": {
+        "code": "billing_city_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "premium_conference/city/false",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "premium_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": "chair@example.test",
+          "address": "Address",
+          "city": false,
+          "zip": "000",
+          "country": "Country"
+        }
+      },
+      "expected": {
+        "code": "billing_city_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "premium_conference/city/0",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "premium_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": "chair@example.test",
+          "address": "Address",
+          "city": 0,
+          "zip": "000",
+          "country": "Country"
+        }
+      },
+      "expected": {
+        "code": "billing_city_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "premium_conference/city/\" \"",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "premium_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": "chair@example.test",
+          "address": "Address",
+          "city": " ",
+          "zip": "000",
+          "country": "Country"
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "premium_conference/zip/null",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "premium_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": "chair@example.test",
+          "address": "Address",
+          "city": "City",
+          "zip": null,
+          "country": "Country"
+        }
+      },
+      "expected": {
+        "code": "billing_zip_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "premium_conference/zip/\"\"",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "premium_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": "chair@example.test",
+          "address": "Address",
+          "city": "City",
+          "zip": "",
+          "country": "Country"
+        }
+      },
+      "expected": {
+        "code": "billing_zip_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "premium_conference/zip/false",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "premium_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": "chair@example.test",
+          "address": "Address",
+          "city": "City",
+          "zip": false,
+          "country": "Country"
+        }
+      },
+      "expected": {
+        "code": "billing_zip_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "premium_conference/zip/0",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "premium_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": "chair@example.test",
+          "address": "Address",
+          "city": "City",
+          "zip": 0,
+          "country": "Country"
+        }
+      },
+      "expected": {
+        "code": "billing_zip_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "premium_conference/zip/\" \"",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "premium_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": "chair@example.test",
+          "address": "Address",
+          "city": "City",
+          "zip": " ",
+          "country": "Country"
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "premium_conference/country/null",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "premium_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": "chair@example.test",
+          "address": "Address",
+          "city": "City",
+          "zip": "000",
+          "country": null
+        }
+      },
+      "expected": {
+        "code": "billing_country_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "premium_conference/country/\"\"",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "premium_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": "chair@example.test",
+          "address": "Address",
+          "city": "City",
+          "zip": "000",
+          "country": ""
+        }
+      },
+      "expected": {
+        "code": "billing_country_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "premium_conference/country/false",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "premium_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": "chair@example.test",
+          "address": "Address",
+          "city": "City",
+          "zip": "000",
+          "country": false
+        }
+      },
+      "expected": {
+        "code": "billing_country_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "premium_conference/country/0",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "premium_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": "chair@example.test",
+          "address": "Address",
+          "city": "City",
+          "zip": "000",
+          "country": 0
+        }
+      },
+      "expected": {
+        "code": "billing_country_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "premium_conference/country/\" \"",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "premium_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": "chair@example.test",
+          "address": "Address",
+          "city": "City",
+          "zip": "000",
+          "country": " "
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "unlimited_conference/valid",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "unlimited_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": "chair@example.test",
+          "address": "Address",
+          "city": "City",
+          "zip": "000",
+          "country": "Country"
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "unlimited_conference/missing billing",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "unlimited_conference"
+        }
+      },
+      "expected": {
+        "code": "billing_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "unlimited_conference/empty billing",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "unlimited_conference"
+        },
+        "billing": {}
+      },
+      "expected": {
+        "code": "billing_name_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "unlimited_conference/name/null",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "unlimited_conference"
+        },
+        "billing": {
+          "name": null,
+          "email": "chair@example.test",
+          "address": "Address",
+          "city": "City",
+          "zip": "000",
+          "country": "Country"
+        }
+      },
+      "expected": {
+        "code": "billing_name_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "unlimited_conference/name/\"\"",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "unlimited_conference"
+        },
+        "billing": {
+          "name": "",
+          "email": "chair@example.test",
+          "address": "Address",
+          "city": "City",
+          "zip": "000",
+          "country": "Country"
+        }
+      },
+      "expected": {
+        "code": "billing_name_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "unlimited_conference/name/false",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "unlimited_conference"
+        },
+        "billing": {
+          "name": false,
+          "email": "chair@example.test",
+          "address": "Address",
+          "city": "City",
+          "zip": "000",
+          "country": "Country"
+        }
+      },
+      "expected": {
+        "code": "billing_name_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "unlimited_conference/name/0",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "unlimited_conference"
+        },
+        "billing": {
+          "name": 0,
+          "email": "chair@example.test",
+          "address": "Address",
+          "city": "City",
+          "zip": "000",
+          "country": "Country"
+        }
+      },
+      "expected": {
+        "code": "billing_name_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "unlimited_conference/name/\" \"",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "unlimited_conference"
+        },
+        "billing": {
+          "name": " ",
+          "email": "chair@example.test",
+          "address": "Address",
+          "city": "City",
+          "zip": "000",
+          "country": "Country"
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "unlimited_conference/email/null",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "unlimited_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": null,
+          "address": "Address",
+          "city": "City",
+          "zip": "000",
+          "country": "Country"
+        }
+      },
+      "expected": {
+        "code": "billing_email_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "unlimited_conference/email/\"\"",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "unlimited_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": "",
+          "address": "Address",
+          "city": "City",
+          "zip": "000",
+          "country": "Country"
+        }
+      },
+      "expected": {
+        "code": "billing_email_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "unlimited_conference/email/false",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "unlimited_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": false,
+          "address": "Address",
+          "city": "City",
+          "zip": "000",
+          "country": "Country"
+        }
+      },
+      "expected": {
+        "code": "billing_email_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "unlimited_conference/email/0",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "unlimited_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": 0,
+          "address": "Address",
+          "city": "City",
+          "zip": "000",
+          "country": "Country"
+        }
+      },
+      "expected": {
+        "code": "billing_email_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "unlimited_conference/email/\" \"",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "unlimited_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": " ",
+          "address": "Address",
+          "city": "City",
+          "zip": "000",
+          "country": "Country"
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "unlimited_conference/address/null",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "unlimited_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": "chair@example.test",
+          "address": null,
+          "city": "City",
+          "zip": "000",
+          "country": "Country"
+        }
+      },
+      "expected": {
+        "code": "billing_address_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "unlimited_conference/address/\"\"",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "unlimited_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": "chair@example.test",
+          "address": "",
+          "city": "City",
+          "zip": "000",
+          "country": "Country"
+        }
+      },
+      "expected": {
+        "code": "billing_address_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "unlimited_conference/address/false",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "unlimited_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": "chair@example.test",
+          "address": false,
+          "city": "City",
+          "zip": "000",
+          "country": "Country"
+        }
+      },
+      "expected": {
+        "code": "billing_address_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "unlimited_conference/address/0",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "unlimited_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": "chair@example.test",
+          "address": 0,
+          "city": "City",
+          "zip": "000",
+          "country": "Country"
+        }
+      },
+      "expected": {
+        "code": "billing_address_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "unlimited_conference/address/\" \"",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "unlimited_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": "chair@example.test",
+          "address": " ",
+          "city": "City",
+          "zip": "000",
+          "country": "Country"
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "unlimited_conference/city/null",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "unlimited_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": "chair@example.test",
+          "address": "Address",
+          "city": null,
+          "zip": "000",
+          "country": "Country"
+        }
+      },
+      "expected": {
+        "code": "billing_city_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "unlimited_conference/city/\"\"",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "unlimited_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": "chair@example.test",
+          "address": "Address",
+          "city": "",
+          "zip": "000",
+          "country": "Country"
+        }
+      },
+      "expected": {
+        "code": "billing_city_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "unlimited_conference/city/false",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "unlimited_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": "chair@example.test",
+          "address": "Address",
+          "city": false,
+          "zip": "000",
+          "country": "Country"
+        }
+      },
+      "expected": {
+        "code": "billing_city_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "unlimited_conference/city/0",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "unlimited_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": "chair@example.test",
+          "address": "Address",
+          "city": 0,
+          "zip": "000",
+          "country": "Country"
+        }
+      },
+      "expected": {
+        "code": "billing_city_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "unlimited_conference/city/\" \"",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "unlimited_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": "chair@example.test",
+          "address": "Address",
+          "city": " ",
+          "zip": "000",
+          "country": "Country"
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "unlimited_conference/zip/null",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "unlimited_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": "chair@example.test",
+          "address": "Address",
+          "city": "City",
+          "zip": null,
+          "country": "Country"
+        }
+      },
+      "expected": {
+        "code": "billing_zip_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "unlimited_conference/zip/\"\"",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "unlimited_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": "chair@example.test",
+          "address": "Address",
+          "city": "City",
+          "zip": "",
+          "country": "Country"
+        }
+      },
+      "expected": {
+        "code": "billing_zip_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "unlimited_conference/zip/false",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "unlimited_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": "chair@example.test",
+          "address": "Address",
+          "city": "City",
+          "zip": false,
+          "country": "Country"
+        }
+      },
+      "expected": {
+        "code": "billing_zip_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "unlimited_conference/zip/0",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "unlimited_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": "chair@example.test",
+          "address": "Address",
+          "city": "City",
+          "zip": 0,
+          "country": "Country"
+        }
+      },
+      "expected": {
+        "code": "billing_zip_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "unlimited_conference/zip/\" \"",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "unlimited_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": "chair@example.test",
+          "address": "Address",
+          "city": "City",
+          "zip": " ",
+          "country": "Country"
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "unlimited_conference/country/null",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "unlimited_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": "chair@example.test",
+          "address": "Address",
+          "city": "City",
+          "zip": "000",
+          "country": null
+        }
+      },
+      "expected": {
+        "code": "billing_country_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "unlimited_conference/country/\"\"",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "unlimited_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": "chair@example.test",
+          "address": "Address",
+          "city": "City",
+          "zip": "000",
+          "country": ""
+        }
+      },
+      "expected": {
+        "code": "billing_country_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "unlimited_conference/country/false",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "unlimited_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": "chair@example.test",
+          "address": "Address",
+          "city": "City",
+          "zip": "000",
+          "country": false
+        }
+      },
+      "expected": {
+        "code": "billing_country_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "unlimited_conference/country/0",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "unlimited_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": "chair@example.test",
+          "address": "Address",
+          "city": "City",
+          "zip": "000",
+          "country": 0
+        }
+      },
+      "expected": {
+        "code": "billing_country_missing",
+        "status": 400
+      }
+    },
+    {
+      "name": "unlimited_conference/country/\" \"",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "unlimited_conference"
+        },
+        "billing": {
+          "name": "Chair",
+          "email": "chair@example.test",
+          "address": "Address",
+          "city": "City",
+          "zip": "000",
+          "country": " "
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "startDate/date/\"March 1 2031\"",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "March 1 2031",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": {
+        "code": "conf_start_date_invalid",
+        "status": 400
+      }
+    },
+    {
+      "name": "startDate/date/\"2031-02-30\"",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-02-30",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": {
+        "code": "conf_start_date_invalid",
+        "status": 400
+      }
+    },
+    {
+      "name": "startDate/date/\"0001-01-01\"",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "0001-01-01",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "startDate/date/\"2031-01-01T24:00:00Z\"",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01T24:00:00Z",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "startDate/date/\"invalid\"",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "invalid",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "startDate/date/{}",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": {},
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "startDate/date/{\"toString\":\"bad\"}",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": {
+          "toString": "bad"
+        },
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": {
+        "code": "internal_error",
+        "status": 500
+      }
+    },
+    {
+      "name": "startDate/date/[]",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": [],
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "startDate/date/[\"2031\",\"1\",\"1\"]",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": [
+          "2031",
+          "1",
+          "1"
+        ],
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "startDate/date/1",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": 1,
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "startDate/date/1924992000000",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": 1924992000000,
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "startDate/date/true",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": true,
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "startDate/date/8640000000000001",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": 8640000000000001,
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "endDate/date/\"March 1 2031\"",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "March 1 2031",
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "endDate/date/\"2031-02-30\"",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-02-30",
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "endDate/date/\"0001-01-01\"",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "0001-01-01",
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": {
+        "code": "conf_start_date_invalid",
+        "status": 400
+      }
+    },
+    {
+      "name": "endDate/date/\"2031-01-01T24:00:00Z\"",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "2031-01-01T24:00:00Z",
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "endDate/date/\"invalid\"",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": "invalid",
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "endDate/date/{}",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": {},
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "endDate/date/{\"toString\":\"bad\"}",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": {
+          "toString": "bad"
+        },
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": {
+        "code": "internal_error",
+        "status": 500
+      }
+    },
+    {
+      "name": "endDate/date/[]",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": [],
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "endDate/date/[\"2031\",\"1\",\"1\"]",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": [
+          "2031",
+          "1",
+          "1"
+        ],
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "endDate/date/1",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": 1,
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": {
+        "code": "conf_start_date_invalid",
+        "status": 400
+      }
+    },
+    {
+      "name": "endDate/date/1924992000000",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": 1924992000000,
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "endDate/date/true",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": true,
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": {
+        "code": "conf_start_date_invalid",
+        "status": 400
+      }
+    },
+    {
+      "name": "endDate/date/8640000000000001",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "2031-01-01",
+        "endDate": 8640000000000001,
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "invalid start before expired end",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "invalid",
+        "endDate": "2020-01-01",
+        "plan": {
+          "planID": "free_conference"
+        }
+      },
+      "expected": {
+        "code": "conf_end_date_invalid",
+        "status": 400
+      }
+    },
+    {
+      "name": "coercion before plan",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": {
+          "toString": "bad"
+        },
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "invalid"
+        }
+      },
+      "expected": {
+        "code": "internal_error",
+        "status": 500
+      }
+    },
+    {
+      "name": "invalid date after plan",
+      "body": {
+        "name": "Conference",
+        "conferenceID": "conference-test",
+        "startDate": "invalid",
+        "endDate": "2031-02-01",
+        "plan": {
+          "planID": "invalid"
+        }
+      },
+      "expected": {
+        "code": "invalid_plan",
+        "status": 400
+      }
+    }
+  ]
+}

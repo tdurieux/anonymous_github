@@ -1,0 +1,6 @@
+{
+  "resourceOutputContracts": {"cases":1048,"publicDocumentOptionCombinations":1024,"privateResourceCases":24,"oracle":"actual TypeScript Gist, PullRequest and Repository classes"},
+  "anonymizationContracts": {"cases":499,"passed":499},
+  "fileTypeContracts": {"cases":7876,"passed":7876},
+  "scope": "Synthetic compatibility checks; not proof of complete production parity or a live third-party provider integration"
+}

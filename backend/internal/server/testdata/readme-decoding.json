@@ -1,0 +1,1039 @@
+[
+  {
+    "name": "base64:\"\"",
+    "data": {
+      "encoding": "base64",
+      "content": ""
+    },
+    "expected": ""
+  },
+  {
+    "name": "base64:\"a\"",
+    "data": {
+      "encoding": "base64",
+      "content": "a"
+    },
+    "expected": ""
+  },
+  {
+    "name": "base64:\"ab\"",
+    "data": {
+      "encoding": "base64",
+      "content": "ab"
+    },
+    "expected": "i"
+  },
+  {
+    "name": "base64:\"abc\"",
+    "data": {
+      "encoding": "base64",
+      "content": "abc"
+    },
+    "expected": "i�"
+  },
+  {
+    "name": "base64:\"abcd\"",
+    "data": {
+      "encoding": "base64",
+      "content": "abcd"
+    },
+    "expected": "i�\u001d"
+  },
+  {
+    "name": "base64:\"SGVsbG8=\"",
+    "data": {
+      "encoding": "base64",
+      "content": "SGVsbG8="
+    },
+    "expected": "Hello"
+  },
+  {
+    "name": "base64:\"SG Vs\\nbG8\\r\\t=\"",
+    "data": {
+      "encoding": "base64",
+      "content": "SG Vs\nbG8\r\t="
+    },
+    "expected": "Hello"
+  },
+  {
+    "name": "base64:\"SG!V@sb#G8=\"",
+    "data": {
+      "encoding": "base64",
+      "content": "SG!V@sb#G8="
+    },
+    "expected": "Hello"
+  },
+  {
+    "name": "base64:\"SGVsbG8====junk\"",
+    "data": {
+      "encoding": "base64",
+      "content": "SGVsbG8====junk"
+    },
+    "expected": "Hello"
+  },
+  {
+    "name": "base64:\"=SGVsbG8\"",
+    "data": {
+      "encoding": "base64",
+      "content": "=SGVsbG8"
+    },
+    "expected": ""
+  },
+  {
+    "name": "base64:\"SGV=sbG8\"",
+    "data": {
+      "encoding": "base64",
+      "content": "SGV=sbG8"
+    },
+    "expected": "He"
+  },
+  {
+    "name": "base64:\"-_8\"",
+    "data": {
+      "encoding": "base64",
+      "content": "-_8"
+    },
+    "expected": "��"
+  },
+  {
+    "name": "base64:\"////\"",
+    "data": {
+      "encoding": "base64",
+      "content": "////"
+    },
+    "expected": "���"
+  },
+  {
+    "name": "base64:\"YWJjZA\"",
+    "data": {
+      "encoding": "base64",
+      "content": "YWJjZA"
+    },
+    "expected": "abcd"
+  },
+  {
+    "name": "base64:\"YWJjZAŁ\"",
+    "data": {
+      "encoding": "base64",
+      "content": "YWJjZAŁ"
+    },
+    "expected": "abcd\u0000"
+  },
+  {
+    "name": "base64:\"YWJjZA💡\"",
+    "data": {
+      "encoding": "base64",
+      "content": "YWJjZA💡"
+    },
+    "expected": "abcd"
+  },
+  {
+    "name": "BASE64:\"\"",
+    "data": {
+      "encoding": "BASE64",
+      "content": ""
+    },
+    "expected": ""
+  },
+  {
+    "name": "BASE64:\"a\"",
+    "data": {
+      "encoding": "BASE64",
+      "content": "a"
+    },
+    "expected": ""
+  },
+  {
+    "name": "BASE64:\"ab\"",
+    "data": {
+      "encoding": "BASE64",
+      "content": "ab"
+    },
+    "expected": "i"
+  },
+  {
+    "name": "BASE64:\"abc\"",
+    "data": {
+      "encoding": "BASE64",
+      "content": "abc"
+    },
+    "expected": "i�"
+  },
+  {
+    "name": "BASE64:\"abcd\"",
+    "data": {
+      "encoding": "BASE64",
+      "content": "abcd"
+    },
+    "expected": "i�\u001d"
+  },
+  {
+    "name": "BASE64:\"SGVsbG8=\"",
+    "data": {
+      "encoding": "BASE64",
+      "content": "SGVsbG8="
+    },
+    "expected": "Hello"
+  },
+  {
+    "name": "BASE64:\"SG Vs\\nbG8\\r\\t=\"",
+    "data": {
+      "encoding": "BASE64",
+      "content": "SG Vs\nbG8\r\t="
+    },
+    "expected": "Hello"
+  },
+  {
+    "name": "BASE64:\"SG!V@sb#G8=\"",
+    "data": {
+      "encoding": "BASE64",
+      "content": "SG!V@sb#G8="
+    },
+    "expected": "Hello"
+  },
+  {
+    "name": "BASE64:\"SGVsbG8====junk\"",
+    "data": {
+      "encoding": "BASE64",
+      "content": "SGVsbG8====junk"
+    },
+    "expected": "Hello"
+  },
+  {
+    "name": "BASE64:\"=SGVsbG8\"",
+    "data": {
+      "encoding": "BASE64",
+      "content": "=SGVsbG8"
+    },
+    "expected": ""
+  },
+  {
+    "name": "BASE64:\"SGV=sbG8\"",
+    "data": {
+      "encoding": "BASE64",
+      "content": "SGV=sbG8"
+    },
+    "expected": "He"
+  },
+  {
+    "name": "BASE64:\"-_8\"",
+    "data": {
+      "encoding": "BASE64",
+      "content": "-_8"
+    },
+    "expected": "��"
+  },
+  {
+    "name": "BASE64:\"////\"",
+    "data": {
+      "encoding": "BASE64",
+      "content": "////"
+    },
+    "expected": "���"
+  },
+  {
+    "name": "BASE64:\"YWJjZA\"",
+    "data": {
+      "encoding": "BASE64",
+      "content": "YWJjZA"
+    },
+    "expected": "abcd"
+  },
+  {
+    "name": "BASE64:\"YWJjZAŁ\"",
+    "data": {
+      "encoding": "BASE64",
+      "content": "YWJjZAŁ"
+    },
+    "expected": "abcd\u0000"
+  },
+  {
+    "name": "BASE64:\"YWJjZA💡\"",
+    "data": {
+      "encoding": "BASE64",
+      "content": "YWJjZA💡"
+    },
+    "expected": "abcd"
+  },
+  {
+    "name": "base64url:\"\"",
+    "data": {
+      "encoding": "base64url",
+      "content": ""
+    },
+    "expected": ""
+  },
+  {
+    "name": "base64url:\"a\"",
+    "data": {
+      "encoding": "base64url",
+      "content": "a"
+    },
+    "expected": ""
+  },
+  {
+    "name": "base64url:\"ab\"",
+    "data": {
+      "encoding": "base64url",
+      "content": "ab"
+    },
+    "expected": "i"
+  },
+  {
+    "name": "base64url:\"abc\"",
+    "data": {
+      "encoding": "base64url",
+      "content": "abc"
+    },
+    "expected": "i�"
+  },
+  {
+    "name": "base64url:\"abcd\"",
+    "data": {
+      "encoding": "base64url",
+      "content": "abcd"
+    },
+    "expected": "i�\u001d"
+  },
+  {
+    "name": "base64url:\"SGVsbG8=\"",
+    "data": {
+      "encoding": "base64url",
+      "content": "SGVsbG8="
+    },
+    "expected": "Hello"
+  },
+  {
+    "name": "base64url:\"SG Vs\\nbG8\\r\\t=\"",
+    "data": {
+      "encoding": "base64url",
+      "content": "SG Vs\nbG8\r\t="
+    },
+    "expected": "Hello"
+  },
+  {
+    "name": "base64url:\"SG!V@sb#G8=\"",
+    "data": {
+      "encoding": "base64url",
+      "content": "SG!V@sb#G8="
+    },
+    "expected": "Hello"
+  },
+  {
+    "name": "base64url:\"SGVsbG8====junk\"",
+    "data": {
+      "encoding": "base64url",
+      "content": "SGVsbG8====junk"
+    },
+    "expected": "Hello"
+  },
+  {
+    "name": "base64url:\"=SGVsbG8\"",
+    "data": {
+      "encoding": "base64url",
+      "content": "=SGVsbG8"
+    },
+    "expected": ""
+  },
+  {
+    "name": "base64url:\"SGV=sbG8\"",
+    "data": {
+      "encoding": "base64url",
+      "content": "SGV=sbG8"
+    },
+    "expected": "He"
+  },
+  {
+    "name": "base64url:\"-_8\"",
+    "data": {
+      "encoding": "base64url",
+      "content": "-_8"
+    },
+    "expected": "��"
+  },
+  {
+    "name": "base64url:\"////\"",
+    "data": {
+      "encoding": "base64url",
+      "content": "////"
+    },
+    "expected": "���"
+  },
+  {
+    "name": "base64url:\"YWJjZA\"",
+    "data": {
+      "encoding": "base64url",
+      "content": "YWJjZA"
+    },
+    "expected": "abcd"
+  },
+  {
+    "name": "base64url:\"YWJjZAŁ\"",
+    "data": {
+      "encoding": "base64url",
+      "content": "YWJjZAŁ"
+    },
+    "expected": "abcd\u0000"
+  },
+  {
+    "name": "base64url:\"YWJjZA💡\"",
+    "data": {
+      "encoding": "base64url",
+      "content": "YWJjZA💡"
+    },
+    "expected": "abcd"
+  },
+  {
+    "name": "utf8:128",
+    "data": {
+      "encoding": "base64",
+      "content": "gA=="
+    },
+    "expected": "�"
+  },
+  {
+    "name": "utf8:192,175",
+    "data": {
+      "encoding": "base64",
+      "content": "wK8="
+    },
+    "expected": "��"
+  },
+  {
+    "name": "utf8:226,130",
+    "data": {
+      "encoding": "base64",
+      "content": "4oI="
+    },
+    "expected": "�"
+  },
+  {
+    "name": "utf8:226,40,161",
+    "data": {
+      "encoding": "base64",
+      "content": "4iih"
+    },
+    "expected": "�(�"
+  },
+  {
+    "name": "utf8:240,159,146",
+    "data": {
+      "encoding": "base64",
+      "content": "8J+S"
+    },
+    "expected": "�"
+  },
+  {
+    "name": "utf8:237,160,128",
+    "data": {
+      "encoding": "base64",
+      "content": "7aCA"
+    },
+    "expected": "���"
+  },
+  {
+    "name": "utf8:244,144,128,128",
+    "data": {
+      "encoding": "base64",
+      "content": "9JCAgA=="
+    },
+    "expected": "����"
+  },
+  {
+    "name": "utf8:239,187,191,65",
+    "data": {
+      "encoding": "base64",
+      "content": "77u/QQ=="
+    },
+    "expected": "﻿A"
+  },
+  {
+    "name": "utf8:255,254,97,0",
+    "data": {
+      "encoding": "base64",
+      "content": "//5hAA=="
+    },
+    "expected": "��a\u0000"
+  },
+  {
+    "name": "utf8:0,65,255",
+    "data": {
+      "encoding": "base64",
+      "content": "AEH/"
+    },
+    "expected": "\u0000A�"
+  },
+  {
+    "name": "utf8:Hello é😀",
+    "data": {
+      "encoding": "utf8",
+      "content": "Hello é😀"
+    },
+    "expected": "Hello é😀"
+  },
+  {
+    "name": "utf8:61ff62",
+    "data": {
+      "encoding": "utf8",
+      "content": "61ff62"
+    },
+    "expected": "61ff62"
+  },
+  {
+    "name": "utf8:616",
+    "data": {
+      "encoding": "utf8",
+      "content": "616"
+    },
+    "expected": "616"
+  },
+  {
+    "name": "utf-8:Hello é😀",
+    "data": {
+      "encoding": "utf-8",
+      "content": "Hello é😀"
+    },
+    "expected": "Hello é😀"
+  },
+  {
+    "name": "utf-8:61ff62",
+    "data": {
+      "encoding": "utf-8",
+      "content": "61ff62"
+    },
+    "expected": "61ff62"
+  },
+  {
+    "name": "utf-8:616",
+    "data": {
+      "encoding": "utf-8",
+      "content": "616"
+    },
+    "expected": "616"
+  },
+  {
+    "name": "UTF8:Hello é😀",
+    "data": {
+      "encoding": "UTF8",
+      "content": "Hello é😀"
+    },
+    "expected": "Hello é😀"
+  },
+  {
+    "name": "UTF8:61ff62",
+    "data": {
+      "encoding": "UTF8",
+      "content": "61ff62"
+    },
+    "expected": "61ff62"
+  },
+  {
+    "name": "UTF8:616",
+    "data": {
+      "encoding": "UTF8",
+      "content": "616"
+    },
+    "expected": "616"
+  },
+  {
+    "name": "ascii:Hello é😀",
+    "data": {
+      "encoding": "ascii",
+      "content": "Hello é😀"
+    },
+    "expected": "Hello �=\u0000"
+  },
+  {
+    "name": "ascii:61ff62",
+    "data": {
+      "encoding": "ascii",
+      "content": "61ff62"
+    },
+    "expected": "61ff62"
+  },
+  {
+    "name": "ascii:616",
+    "data": {
+      "encoding": "ascii",
+      "content": "616"
+    },
+    "expected": "616"
+  },
+  {
+    "name": "latin1:Hello é😀",
+    "data": {
+      "encoding": "latin1",
+      "content": "Hello é😀"
+    },
+    "expected": "Hello �=\u0000"
+  },
+  {
+    "name": "latin1:61ff62",
+    "data": {
+      "encoding": "latin1",
+      "content": "61ff62"
+    },
+    "expected": "61ff62"
+  },
+  {
+    "name": "latin1:616",
+    "data": {
+      "encoding": "latin1",
+      "content": "616"
+    },
+    "expected": "616"
+  },
+  {
+    "name": "binary:Hello é😀",
+    "data": {
+      "encoding": "binary",
+      "content": "Hello é😀"
+    },
+    "expected": "Hello �=\u0000"
+  },
+  {
+    "name": "binary:61ff62",
+    "data": {
+      "encoding": "binary",
+      "content": "61ff62"
+    },
+    "expected": "61ff62"
+  },
+  {
+    "name": "binary:616",
+    "data": {
+      "encoding": "binary",
+      "content": "616"
+    },
+    "expected": "616"
+  },
+  {
+    "name": "ucs2:Hello é😀",
+    "data": {
+      "encoding": "ucs2",
+      "content": "Hello é😀"
+    },
+    "expected": "H\u0000e\u0000l\u0000l\u0000o\u0000 \u0000�\u0000=�\u0000�"
+  },
+  {
+    "name": "ucs2:61ff62",
+    "data": {
+      "encoding": "ucs2",
+      "content": "61ff62"
+    },
+    "expected": "6\u00001\u0000f\u0000f\u00006\u00002\u0000"
+  },
+  {
+    "name": "ucs2:616",
+    "data": {
+      "encoding": "ucs2",
+      "content": "616"
+    },
+    "expected": "6\u00001\u00006\u0000"
+  },
+  {
+    "name": "ucs-2:Hello é😀",
+    "data": {
+      "encoding": "ucs-2",
+      "content": "Hello é😀"
+    },
+    "expected": "H\u0000e\u0000l\u0000l\u0000o\u0000 \u0000�\u0000=�\u0000�"
+  },
+  {
+    "name": "ucs-2:61ff62",
+    "data": {
+      "encoding": "ucs-2",
+      "content": "61ff62"
+    },
+    "expected": "6\u00001\u0000f\u0000f\u00006\u00002\u0000"
+  },
+  {
+    "name": "ucs-2:616",
+    "data": {
+      "encoding": "ucs-2",
+      "content": "616"
+    },
+    "expected": "6\u00001\u00006\u0000"
+  },
+  {
+    "name": "utf16le:Hello é😀",
+    "data": {
+      "encoding": "utf16le",
+      "content": "Hello é😀"
+    },
+    "expected": "H\u0000e\u0000l\u0000l\u0000o\u0000 \u0000�\u0000=�\u0000�"
+  },
+  {
+    "name": "utf16le:61ff62",
+    "data": {
+      "encoding": "utf16le",
+      "content": "61ff62"
+    },
+    "expected": "6\u00001\u0000f\u0000f\u00006\u00002\u0000"
+  },
+  {
+    "name": "utf16le:616",
+    "data": {
+      "encoding": "utf16le",
+      "content": "616"
+    },
+    "expected": "6\u00001\u00006\u0000"
+  },
+  {
+    "name": "utf-16le:Hello é😀",
+    "data": {
+      "encoding": "utf-16le",
+      "content": "Hello é😀"
+    },
+    "expected": "H\u0000e\u0000l\u0000l\u0000o\u0000 \u0000�\u0000=�\u0000�"
+  },
+  {
+    "name": "utf-16le:61ff62",
+    "data": {
+      "encoding": "utf-16le",
+      "content": "61ff62"
+    },
+    "expected": "6\u00001\u0000f\u0000f\u00006\u00002\u0000"
+  },
+  {
+    "name": "utf-16le:616",
+    "data": {
+      "encoding": "utf-16le",
+      "content": "616"
+    },
+    "expected": "6\u00001\u00006\u0000"
+  },
+  {
+    "name": "hex:Hello é😀",
+    "data": {
+      "encoding": "hex",
+      "content": "Hello é😀"
+    },
+    "expected": ""
+  },
+  {
+    "name": "hex:61ff62",
+    "data": {
+      "encoding": "hex",
+      "content": "61ff62"
+    },
+    "expected": "a�b"
+  },
+  {
+    "name": "hex:616",
+    "data": {
+      "encoding": "hex",
+      "content": "616"
+    },
+    "expected": "a"
+  },
+  {
+    "name": "unknown:Hello é😀",
+    "data": {
+      "encoding": "unknown",
+      "content": "Hello é😀"
+    },
+    "error": "readme_not_available"
+  },
+  {
+    "name": "unknown:61ff62",
+    "data": {
+      "encoding": "unknown",
+      "content": "61ff62"
+    },
+    "error": "readme_not_available"
+  },
+  {
+    "name": "unknown:616",
+    "data": {
+      "encoding": "unknown",
+      "content": "616"
+    },
+    "error": "readme_not_available"
+  },
+  {
+    "name": "utf8 :Hello é😀",
+    "data": {
+      "encoding": "utf8 ",
+      "content": "Hello é😀"
+    },
+    "error": "readme_not_available"
+  },
+  {
+    "name": "utf8 :61ff62",
+    "data": {
+      "encoding": "utf8 ",
+      "content": "61ff62"
+    },
+    "error": "readme_not_available"
+  },
+  {
+    "name": "utf8 :616",
+    "data": {
+      "encoding": "utf8 ",
+      "content": "616"
+    },
+    "error": "readme_not_available"
+  },
+  {
+    "name": ":Hello é😀",
+    "data": {
+      "encoding": "",
+      "content": "Hello é😀"
+    },
+    "expected": "Hello é😀"
+  },
+  {
+    "name": ":61ff62",
+    "data": {
+      "encoding": "",
+      "content": "61ff62"
+    },
+    "expected": "61ff62"
+  },
+  {
+    "name": ":616",
+    "data": {
+      "encoding": "",
+      "content": "616"
+    },
+    "expected": "616"
+  },
+  {
+    "name": "null:Hello é😀",
+    "data": {
+      "encoding": null,
+      "content": "Hello é😀"
+    },
+    "expected": "Hello é😀"
+  },
+  {
+    "name": "null:61ff62",
+    "data": {
+      "encoding": null,
+      "content": "61ff62"
+    },
+    "expected": "61ff62"
+  },
+  {
+    "name": "null:616",
+    "data": {
+      "encoding": null,
+      "content": "616"
+    },
+    "expected": "616"
+  },
+  {
+    "name": "42:Hello é😀",
+    "data": {
+      "encoding": 42,
+      "content": "Hello é😀"
+    },
+    "expected": "Hello é😀"
+  },
+  {
+    "name": "42:61ff62",
+    "data": {
+      "encoding": 42,
+      "content": "61ff62"
+    },
+    "expected": "61ff62"
+  },
+  {
+    "name": "42:616",
+    "data": {
+      "encoding": 42,
+      "content": "616"
+    },
+    "expected": "616"
+  },
+  {
+    "name": "content:null",
+    "data": {
+      "content": null,
+      "encoding": "base64"
+    },
+    "error": "readme_not_available"
+  },
+  {
+    "name": "content:42",
+    "data": {
+      "content": 42,
+      "encoding": "base64"
+    },
+    "error": "readme_not_available"
+  },
+  {
+    "name": "content:true",
+    "data": {
+      "content": true,
+      "encoding": "base64"
+    },
+    "error": "readme_not_available"
+  },
+  {
+    "name": "content:[]",
+    "data": {
+      "content": [],
+      "encoding": "base64"
+    },
+    "expected": ""
+  },
+  {
+    "name": "content:[65,66,255]",
+    "data": {
+      "content": [
+        65,
+        66,
+        255
+      ],
+      "encoding": "base64"
+    },
+    "expected": "AB�"
+  },
+  {
+    "name": "content:[257,-1,1.9,null,true,\"258\",\"0x43\"]",
+    "data": {
+      "content": [
+        257,
+        -1,
+        1.9,
+        null,
+        true,
+        "258",
+        "0x43"
+      ],
+      "encoding": "base64"
+    },
+    "expected": "\u0001�\u0001\u0000\u0001\u0002C"
+  },
+  {
+    "name": "content:{\"type\":\"Buffer\",\"data\":[65,0,255]}",
+    "data": {
+      "content": {
+        "type": "Buffer",
+        "data": [
+          65,
+          0,
+          255
+        ]
+      },
+      "encoding": "base64"
+    },
+    "expected": "A\u0000�"
+  },
+  {
+    "name": "content:{\"0\":65,\"1\":66,\"length\":3}",
+    "data": {
+      "content": {
+        "0": 65,
+        "1": 66,
+        "length": 3
+      },
+      "encoding": "base64"
+    },
+    "expected": "AB\u0000"
+  },
+  {
+    "name": "content:{\"0\":65,\"length\":\"3\"}",
+    "data": {
+      "content": {
+        "0": 65,
+        "length": "3"
+      },
+      "encoding": "base64"
+    },
+    "expected": ""
+  },
+  {
+    "name": "content:[{\"toString\":null}]",
+    "data": {
+      "content": [
+        {
+          "toString": null
+        }
+      ],
+      "encoding": "base64"
+    },
+    "error": "readme_not_available"
+  },
+  {
+    "name": "content:[[257]]",
+    "data": {
+      "content": [
+        [
+          257
+        ]
+      ],
+      "encoding": "base64"
+    },
+    "expected": "\u0001"
+  },
+  {
+    "name": "content:{\"0\":{\"toString\":0},\"length\":1}",
+    "data": {
+      "content": {
+        "0": {
+          "toString": 0
+        },
+        "length": 1
+      },
+      "encoding": "base64"
+    },
+    "error": "readme_not_available"
+  },
+  {
+    "name": "content:{}",
+    "data": {
+      "content": {},
+      "encoding": "base64"
+    },
+    "error": "readme_not_available"
+  },
+  {
+    "name": "hex narrowing:Ķı",
+    "data": {
+      "encoding": "hex",
+      "content": "Ķı"
+    },
+    "expected": "a"
+  },
+  {
+    "name": "hex narrowing:61Ķı",
+    "data": {
+      "encoding": "hex",
+      "content": "61Ķı"
+    },
+    "expected": "aa"
+  },
+  {
+    "name": "hex narrowing:fFz1",
+    "data": {
+      "encoding": "hex",
+      "content": "fFz1"
+    },
+    "expected": "�"
+  },
+  {
+    "name": "hex narrowing:61 62",
+    "data": {
+      "encoding": "hex",
+      "content": "61 62"
+    },
+    "expected": "a"
+  },
+  {
+    "name": "missing content",
+    "data": {
+      "encoding": "base64"
+    },
+    "error": "readme_not_available"
+  },
+  {
+    "name": "missing encoding",
+    "data": {
+      "content": "Hello é😀"
+    },
+    "expected": "Hello é😀"
+  }
+]

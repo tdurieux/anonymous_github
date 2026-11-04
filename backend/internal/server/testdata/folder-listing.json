@@ -1,0 +1,48 @@
+{
+  "files": [
+    {
+      "name": "normal",
+      "path": "",
+      "size": 12,
+      "sha": "abc"
+    },
+    {
+      "name": "missing-sha",
+      "path": "",
+      "size": 1
+    },
+    {
+      "name": "empty",
+      "path": "",
+      "size": 0,
+      "sha": "abc"
+    },
+    {
+      "name": "folder",
+      "path": ""
+    }
+  ],
+  "expected": [
+    {
+      "name": "normal",
+      "path": "",
+      "size": 12,
+      "sha": "a9993e36"
+    },
+    {
+      "name": "missing-sha",
+      "path": "",
+      "size": 1,
+      "sha": "da39a3ee"
+    },
+    {
+      "name": "empty",
+      "path": "",
+      "size": 0
+    },
+    {
+      "name": "folder",
+      "path": ""
+    }
+  ]
+}

@@ -1,0 +1,441 @@
+{
+  "now": "2030-01-01T12:00:00.000Z",
+  "cases": [
+    {
+      "name": "minimal",
+      "user": {
+        "_id": "111111111111111111111111",
+        "username": "sample",
+        "dateOfEntry": "2030-01-01T12:00:00.000Z"
+      },
+      "repositories": [],
+      "expected": {
+        "default": {
+          "terms": []
+        },
+        "isAdmin": false,
+        "repositories": [],
+        "status": "active",
+        "_id": "111111111111111111111111",
+        "username": "sample",
+        "dateOfEntry": "2030-01-01T12:00:00.000Z",
+        "emails": []
+      }
+    },
+    {
+      "name": "defaults",
+      "user": {
+        "_id": "111111111111111111111111",
+        "username": "sample"
+      },
+      "repositories": [],
+      "expected": {
+        "default": {
+          "terms": []
+        },
+        "isAdmin": false,
+        "repositories": [],
+        "status": "active",
+        "_id": "111111111111111111111111",
+        "username": "sample",
+        "emails": [],
+        "dateOfEntry": "2030-01-01T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "rich",
+      "user": {
+        "_id": "111111111111111111111111",
+        "username": "sample",
+        "dateOfEntry": "2030-01-01T12:00:00.000Z",
+        "photo": "https://avatar.test",
+        "isAdmin": true,
+        "status": "banned",
+        "externalIDs": {
+          "github": "123"
+        },
+        "accessTokenDates": {
+          "github": "2030-01-01T12:00:00.000Z"
+        },
+        "emails": [
+          {
+            "_id": "666666666666666666666666",
+            "email": "owner@example.test",
+            "default": true
+          }
+        ],
+        "projectNames": {
+          "repo:example": "Project"
+        },
+        "default": {
+          "terms": [
+            "Alice"
+          ],
+          "options": {
+            "expirationMode": "never",
+            "image": false,
+            "page": "docs"
+          }
+        },
+        "__v": 2,
+        "accessTokens": {
+          "github": "synthetic-secret"
+        },
+        "apiTokens": [
+          {
+            "tokenHash": "synthetic-secret"
+          }
+        ]
+      },
+      "repositories": [],
+      "expected": {
+        "accessTokenDates": {
+          "github": "2030-01-01T12:00:00.000Z"
+        },
+        "externalIDs": {
+          "github": "123"
+        },
+        "default": {
+          "options": {
+            "expirationMode": "never",
+            "image": false,
+            "page": "docs"
+          },
+          "terms": [
+            "Alice"
+          ]
+        },
+        "repositories": [],
+        "_id": "111111111111111111111111",
+        "username": "sample",
+        "dateOfEntry": "2030-01-01T12:00:00.000Z",
+        "photo": "https://avatar.test",
+        "isAdmin": true,
+        "status": "banned",
+        "emails": [
+          {
+            "_id": "666666666666666666666666",
+            "email": "owner@example.test",
+            "default": true
+          }
+        ],
+        "projectNames": {
+          "repo:example": "Project"
+        },
+        "__v": 2
+      }
+    },
+    {
+      "name": "populated",
+      "user": {
+        "_id": "111111111111111111111111",
+        "username": "sample",
+        "dateOfEntry": "2030-01-01T12:00:00.000Z",
+        "repositories": [
+          "222222222222222222222222",
+          "333333333333333333333333"
+        ]
+      },
+      "repositories": [
+        {
+          "_id": "222222222222222222222222",
+          "externalId": "forge:opaque-id",
+          "name": "team/subgroup/project",
+          "source": "fixture",
+          "url": "https://forge.test/team/subgroup/project",
+          "dateOfEntry": "2030-01-01T12:00:00.000Z",
+          "size": 123,
+          "defaultBranch": "main",
+          "pageSource": {
+            "branch": "docs",
+            "path": "/"
+          },
+          "branches": [
+            {
+              "_id": "555555555555555555555555",
+              "name": "main",
+              "commit": "opaque:revision",
+              "readme": "Readme"
+            }
+          ]
+        },
+        {
+          "_id": "333333333333333333333333",
+          "name": "minimal"
+        }
+      ],
+      "expected": {
+        "default": {
+          "terms": []
+        },
+        "isAdmin": false,
+        "status": "active",
+        "_id": "111111111111111111111111",
+        "username": "sample",
+        "dateOfEntry": "2030-01-01T12:00:00.000Z",
+        "repositories": [
+          {
+            "pageSource": {
+              "branch": "docs",
+              "path": "/"
+            },
+            "hasPage": false,
+            "status": "ready",
+            "_id": "222222222222222222222222",
+            "externalId": "forge:opaque-id",
+            "name": "team/subgroup/project",
+            "source": "fixture",
+            "url": "https://forge.test/team/subgroup/project",
+            "dateOfEntry": "2030-01-01T12:00:00.000Z",
+            "size": 123,
+            "defaultBranch": "main",
+            "branches": [
+              {
+                "_id": "555555555555555555555555",
+                "name": "main",
+                "commit": "opaque:revision",
+                "readme": "Readme"
+              }
+            ]
+          },
+          {
+            "source": "github",
+            "hasPage": false,
+            "status": "ready",
+            "_id": "333333333333333333333333",
+            "name": "minimal",
+            "branches": [],
+            "dateOfEntry": "2030-01-01T12:00:00.000Z"
+          }
+        ],
+        "emails": []
+      }
+    },
+    {
+      "name": "missing-reference",
+      "user": {
+        "_id": "111111111111111111111111",
+        "username": "sample",
+        "dateOfEntry": "2030-01-01T12:00:00.000Z",
+        "repositories": [
+          "444444444444444444444444",
+          "222222222222222222222222"
+        ]
+      },
+      "repositories": [
+        {
+          "_id": "222222222222222222222222",
+          "externalId": "forge:opaque-id",
+          "name": "team/subgroup/project",
+          "source": "fixture",
+          "url": "https://forge.test/team/subgroup/project",
+          "dateOfEntry": "2030-01-01T12:00:00.000Z",
+          "size": 123,
+          "defaultBranch": "main",
+          "pageSource": {
+            "branch": "docs",
+            "path": "/"
+          },
+          "branches": [
+            {
+              "_id": "555555555555555555555555",
+              "name": "main",
+              "commit": "opaque:revision",
+              "readme": "Readme"
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "default": {
+          "terms": []
+        },
+        "isAdmin": false,
+        "status": "active",
+        "_id": "111111111111111111111111",
+        "username": "sample",
+        "dateOfEntry": "2030-01-01T12:00:00.000Z",
+        "repositories": [
+          {
+            "pageSource": {
+              "branch": "docs",
+              "path": "/"
+            },
+            "hasPage": false,
+            "status": "ready",
+            "_id": "222222222222222222222222",
+            "externalId": "forge:opaque-id",
+            "name": "team/subgroup/project",
+            "source": "fixture",
+            "url": "https://forge.test/team/subgroup/project",
+            "dateOfEntry": "2030-01-01T12:00:00.000Z",
+            "size": 123,
+            "defaultBranch": "main",
+            "branches": [
+              {
+                "_id": "555555555555555555555555",
+                "name": "main",
+                "commit": "opaque:revision",
+                "readme": "Readme"
+              }
+            ]
+          }
+        ],
+        "emails": []
+      }
+    },
+    {
+      "name": "duplicate-references",
+      "user": {
+        "_id": "111111111111111111111111",
+        "username": "sample",
+        "dateOfEntry": "2030-01-01T12:00:00.000Z",
+        "repositories": [
+          "222222222222222222222222",
+          "222222222222222222222222"
+        ]
+      },
+      "repositories": [
+        {
+          "_id": "222222222222222222222222",
+          "externalId": "forge:opaque-id",
+          "name": "team/subgroup/project",
+          "source": "fixture",
+          "url": "https://forge.test/team/subgroup/project",
+          "dateOfEntry": "2030-01-01T12:00:00.000Z",
+          "size": 123,
+          "defaultBranch": "main",
+          "pageSource": {
+            "branch": "docs",
+            "path": "/"
+          },
+          "branches": [
+            {
+              "_id": "555555555555555555555555",
+              "name": "main",
+              "commit": "opaque:revision",
+              "readme": "Readme"
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "default": {
+          "terms": []
+        },
+        "isAdmin": false,
+        "status": "active",
+        "_id": "111111111111111111111111",
+        "username": "sample",
+        "dateOfEntry": "2030-01-01T12:00:00.000Z",
+        "repositories": [
+          {
+            "pageSource": {
+              "branch": "docs",
+              "path": "/"
+            },
+            "hasPage": false,
+            "status": "ready",
+            "_id": "222222222222222222222222",
+            "externalId": "forge:opaque-id",
+            "name": "team/subgroup/project",
+            "source": "fixture",
+            "url": "https://forge.test/team/subgroup/project",
+            "dateOfEntry": "2030-01-01T12:00:00.000Z",
+            "size": 123,
+            "defaultBranch": "main",
+            "branches": [
+              {
+                "_id": "555555555555555555555555",
+                "name": "main",
+                "commit": "opaque:revision",
+                "readme": "Readme"
+              }
+            ]
+          },
+          {
+            "pageSource": {
+              "branch": "docs",
+              "path": "/"
+            },
+            "hasPage": false,
+            "status": "ready",
+            "_id": "222222222222222222222222",
+            "externalId": "forge:opaque-id",
+            "name": "team/subgroup/project",
+            "source": "fixture",
+            "url": "https://forge.test/team/subgroup/project",
+            "dateOfEntry": "2030-01-01T12:00:00.000Z",
+            "size": 123,
+            "defaultBranch": "main",
+            "branches": [
+              {
+                "_id": "555555555555555555555555",
+                "name": "main",
+                "commit": "opaque:revision",
+                "readme": "Readme"
+              }
+            ]
+          }
+        ],
+        "emails": []
+      }
+    },
+    {
+      "name": "null-fields",
+      "user": {
+        "_id": "111111111111111111111111",
+        "username": "sample",
+        "dateOfEntry": "2030-01-01T12:00:00.000Z",
+        "isAdmin": null,
+        "status": null,
+        "default": null,
+        "emails": null,
+        "externalIDs": null,
+        "projectNames": null,
+        "repositories": null
+      },
+      "repositories": [],
+      "expected": {
+        "externalIDs": null,
+        "default": null,
+        "_id": "111111111111111111111111",
+        "username": "sample",
+        "dateOfEntry": "2030-01-01T12:00:00.000Z",
+        "isAdmin": null,
+        "status": null,
+        "emails": null,
+        "projectNames": null,
+        "repositories": null
+      }
+    },
+    {
+      "name": "empty-maps",
+      "user": {
+        "_id": "111111111111111111111111",
+        "username": "sample",
+        "dateOfEntry": "2030-01-01T12:00:00.000Z",
+        "externalIDs": {},
+        "accessTokenDates": {},
+        "projectNames": {},
+        "default": {
+          "options": {}
+        }
+      },
+      "repositories": [],
+      "expected": {
+        "default": {
+          "terms": []
+        },
+        "isAdmin": false,
+        "repositories": [],
+        "status": "active",
+        "_id": "111111111111111111111111",
+        "username": "sample",
+        "dateOfEntry": "2030-01-01T12:00:00.000Z",
+        "projectNames": {},
+        "emails": []
+      }
+    }
+  ]
+}

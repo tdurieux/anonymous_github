@@ -1,0 +1,663 @@
+[
+  {
+    "name": "ping-0",
+    "event": "ping",
+    "body": "{}",
+    "contentType": "application/json",
+    "status": 204
+  },
+  {
+    "name": "ping-1",
+    "event": "ping",
+    "body": "null",
+    "contentType": "application/json",
+    "status": 204
+  },
+  {
+    "name": "ping-2",
+    "event": "ping",
+    "body": "[]",
+    "contentType": "application/json",
+    "status": 204
+  },
+  {
+    "name": "ping-3",
+    "event": "ping",
+    "body": "true",
+    "contentType": "application/json",
+    "status": 204
+  },
+  {
+    "name": "ping-4",
+    "event": "ping",
+    "body": "42",
+    "contentType": "application/json",
+    "status": 204
+  },
+  {
+    "name": "ping-5",
+    "event": "ping",
+    "body": "\"hello\"",
+    "contentType": "application/json",
+    "status": 204
+  },
+  {
+    "name": "ping-6",
+    "event": "ping",
+    "body": "{",
+    "contentType": "application/json",
+    "status": 503,
+    "error": "webhook_processing_failed"
+  },
+  {
+    "name": "ping-7",
+    "event": "ping",
+    "body": "",
+    "contentType": "application/json",
+    "status": 503,
+    "error": "webhook_processing_failed"
+  },
+  {
+    "name": "ping-8",
+    "event": "ping",
+    "body": "{\"action\":\"revoked\"}",
+    "contentType": "application/json",
+    "status": 204
+  },
+  {
+    "name": "ping-9",
+    "event": "ping",
+    "body": "{\"action\":\"revoked\",\"sender\":null}",
+    "contentType": "application/json",
+    "status": 204
+  },
+  {
+    "name": "installation-10",
+    "event": "installation",
+    "body": "{}",
+    "contentType": "application/json",
+    "status": 204
+  },
+  {
+    "name": "installation-11",
+    "event": "installation",
+    "body": "null",
+    "contentType": "application/json",
+    "status": 503,
+    "error": "webhook_processing_failed"
+  },
+  {
+    "name": "installation-12",
+    "event": "installation",
+    "body": "[]",
+    "contentType": "application/json",
+    "status": 204
+  },
+  {
+    "name": "installation-13",
+    "event": "installation",
+    "body": "true",
+    "contentType": "application/json",
+    "status": 204
+  },
+  {
+    "name": "installation-14",
+    "event": "installation",
+    "body": "42",
+    "contentType": "application/json",
+    "status": 204
+  },
+  {
+    "name": "installation-15",
+    "event": "installation",
+    "body": "\"hello\"",
+    "contentType": "application/json",
+    "status": 204
+  },
+  {
+    "name": "installation-16",
+    "event": "installation",
+    "body": "{",
+    "contentType": "application/json",
+    "status": 503,
+    "error": "webhook_processing_failed"
+  },
+  {
+    "name": "installation-17",
+    "event": "installation",
+    "body": "",
+    "contentType": "application/json",
+    "status": 503,
+    "error": "webhook_processing_failed"
+  },
+  {
+    "name": "installation-18",
+    "event": "installation",
+    "body": "{\"action\":\"revoked\"}",
+    "contentType": "application/json",
+    "status": 204
+  },
+  {
+    "name": "installation-19",
+    "event": "installation",
+    "body": "{\"action\":\"revoked\",\"sender\":null}",
+    "contentType": "application/json",
+    "status": 204
+  },
+  {
+    "name": "installation_repositories-20",
+    "event": "installation_repositories",
+    "body": "{}",
+    "contentType": "application/json",
+    "status": 204
+  },
+  {
+    "name": "installation_repositories-21",
+    "event": "installation_repositories",
+    "body": "null",
+    "contentType": "application/json",
+    "status": 503,
+    "error": "webhook_processing_failed"
+  },
+  {
+    "name": "installation_repositories-22",
+    "event": "installation_repositories",
+    "body": "[]",
+    "contentType": "application/json",
+    "status": 204
+  },
+  {
+    "name": "installation_repositories-23",
+    "event": "installation_repositories",
+    "body": "true",
+    "contentType": "application/json",
+    "status": 204
+  },
+  {
+    "name": "installation_repositories-24",
+    "event": "installation_repositories",
+    "body": "42",
+    "contentType": "application/json",
+    "status": 204
+  },
+  {
+    "name": "installation_repositories-25",
+    "event": "installation_repositories",
+    "body": "\"hello\"",
+    "contentType": "application/json",
+    "status": 204
+  },
+  {
+    "name": "installation_repositories-26",
+    "event": "installation_repositories",
+    "body": "{",
+    "contentType": "application/json",
+    "status": 503,
+    "error": "webhook_processing_failed"
+  },
+  {
+    "name": "installation_repositories-27",
+    "event": "installation_repositories",
+    "body": "",
+    "contentType": "application/json",
+    "status": 503,
+    "error": "webhook_processing_failed"
+  },
+  {
+    "name": "installation_repositories-28",
+    "event": "installation_repositories",
+    "body": "{\"action\":\"revoked\"}",
+    "contentType": "application/json",
+    "status": 204
+  },
+  {
+    "name": "installation_repositories-29",
+    "event": "installation_repositories",
+    "body": "{\"action\":\"revoked\",\"sender\":null}",
+    "contentType": "application/json",
+    "status": 204
+  },
+  {
+    "name": "github_app_authorization-30",
+    "event": "github_app_authorization",
+    "body": "{}",
+    "contentType": "application/json",
+    "status": 204
+  },
+  {
+    "name": "github_app_authorization-31",
+    "event": "github_app_authorization",
+    "body": "null",
+    "contentType": "application/json",
+    "status": 503,
+    "error": "webhook_processing_failed"
+  },
+  {
+    "name": "github_app_authorization-32",
+    "event": "github_app_authorization",
+    "body": "[]",
+    "contentType": "application/json",
+    "status": 204
+  },
+  {
+    "name": "github_app_authorization-33",
+    "event": "github_app_authorization",
+    "body": "true",
+    "contentType": "application/json",
+    "status": 204
+  },
+  {
+    "name": "github_app_authorization-34",
+    "event": "github_app_authorization",
+    "body": "42",
+    "contentType": "application/json",
+    "status": 204
+  },
+  {
+    "name": "github_app_authorization-35",
+    "event": "github_app_authorization",
+    "body": "\"hello\"",
+    "contentType": "application/json",
+    "status": 204
+  },
+  {
+    "name": "github_app_authorization-36",
+    "event": "github_app_authorization",
+    "body": "{",
+    "contentType": "application/json",
+    "status": 503,
+    "error": "webhook_processing_failed"
+  },
+  {
+    "name": "github_app_authorization-37",
+    "event": "github_app_authorization",
+    "body": "",
+    "contentType": "application/json",
+    "status": 503,
+    "error": "webhook_processing_failed"
+  },
+  {
+    "name": "github_app_authorization-38",
+    "event": "github_app_authorization",
+    "body": "{\"action\":\"revoked\"}",
+    "contentType": "application/json",
+    "status": 204
+  },
+  {
+    "name": "github_app_authorization-39",
+    "event": "github_app_authorization",
+    "body": "{\"action\":\"revoked\",\"sender\":null}",
+    "contentType": "application/json",
+    "status": 204
+  },
+  {
+    "name": "content-type-40",
+    "event": "ping",
+    "body": "{}",
+    "contentType": "",
+    "status": 401,
+    "error": "invalid_webhook_signature"
+  },
+  {
+    "name": "content-type-41",
+    "event": "ping",
+    "body": "{}",
+    "contentType": "text/plain",
+    "status": 401,
+    "error": "invalid_webhook_signature"
+  },
+  {
+    "name": "content-type-42",
+    "event": "ping",
+    "body": "{}",
+    "contentType": "application/vnd.github+json",
+    "status": 401,
+    "error": "invalid_webhook_signature"
+  },
+  {
+    "name": "content-type-43",
+    "event": "ping",
+    "body": "{}",
+    "contentType": "application/json; charset=utf-8",
+    "status": 204
+  },
+  {
+    "name": "content-type-44",
+    "event": "ping",
+    "body": "{}",
+    "contentType": "Application/JSON",
+    "status": 204
+  },
+  {
+    "name": "invalid-signature",
+    "event": "ping",
+    "body": "{}",
+    "contentType": "application/json",
+    "tampered": true,
+    "status": 401,
+    "error": "invalid_webhook_signature"
+  },
+  {
+    "name": "disabled-app",
+    "event": "ping",
+    "body": "{}",
+    "contentType": "application/json",
+    "disabled": true,
+    "status": 401,
+    "error": "invalid_webhook_signature"
+  },
+  {
+    "name": "body-size-1048577",
+    "event": "ping",
+    "size": 1048577,
+    "contentType": "application/json",
+    "status": 204
+  },
+  {
+    "name": "body-size-2097152",
+    "event": "ping",
+    "size": 2097152,
+    "contentType": "application/json",
+    "status": 204
+  },
+  {
+    "name": "body-size-2097153",
+    "event": "ping",
+    "size": 2097153,
+    "contentType": "application/json",
+    "status": 413
+  },
+  {
+    "name": "gzip-valid",
+    "event": "ping",
+    "body": "{}",
+    "contentType": "application/json",
+    "encoding": "gzip",
+    "mode": "valid",
+    "wire": "H4sIAAAAAAAAA6uuBQBDv6ajAgAAAA==",
+    "status": 204
+  },
+  {
+    "name": "gzip-truncated",
+    "event": "ping",
+    "body": "{}",
+    "contentType": "application/json",
+    "encoding": "gzip",
+    "mode": "truncated",
+    "wire": "H4sIAAAAAAAAA6uuBQBDv6ajAgA=",
+    "status": 400
+  },
+  {
+    "name": "gzip-corrupt",
+    "event": "ping",
+    "body": "{}",
+    "contentType": "application/json",
+    "encoding": "gzip",
+    "mode": "corrupt",
+    "wire": "bm90IGEgY29tcHJlc3NlZCBzdHJlYW0=",
+    "status": 400
+  },
+  {
+    "name": "gzip-wire-signature",
+    "event": "ping",
+    "body": "{}",
+    "contentType": "application/json",
+    "encoding": "gzip",
+    "mode": "wire-signature",
+    "wire": "H4sIAAAAAAAAA6uuBQBDv6ajAgAAAA==",
+    "status": 401,
+    "error": "invalid_webhook_signature"
+  },
+  {
+    "name": "gzip-boundary",
+    "event": "ping",
+    "body": "{}",
+    "contentType": "application/json",
+    "encoding": "gzip",
+    "mode": "boundary",
+    "size": 2097152,
+    "wire": "H4sIAAAAAAAAA+3BMQkAIAAEwC4fwzaCIC7iKIjdbeF0dyertjZmT8kGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+C73AWWVcGUAACAA",
+    "status": 204
+  },
+  {
+    "name": "gzip-oversized",
+    "event": "ping",
+    "body": "{}",
+    "contentType": "application/json",
+    "encoding": "gzip",
+    "mode": "oversized",
+    "size": 2097153,
+    "wire": "H4sIAAAAAAAAA+3BMQkAIAAEwC4fwzaCIC7iKIjdbeF0dyertjZmT8kGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+C/3AbPtA50BACAA",
+    "status": 413
+  },
+  {
+    "name": "deflate-valid",
+    "event": "ping",
+    "body": "{}",
+    "contentType": "application/json",
+    "encoding": "deflate",
+    "mode": "valid",
+    "wire": "eJyrrgUAAXUA+Q==",
+    "status": 204
+  },
+  {
+    "name": "deflate-truncated",
+    "event": "ping",
+    "body": "{}",
+    "contentType": "application/json",
+    "encoding": "deflate",
+    "mode": "truncated",
+    "wire": "eJyrrgUAAXU=",
+    "status": 400
+  },
+  {
+    "name": "deflate-corrupt",
+    "event": "ping",
+    "body": "{}",
+    "contentType": "application/json",
+    "encoding": "deflate",
+    "mode": "corrupt",
+    "wire": "bm90IGEgY29tcHJlc3NlZCBzdHJlYW0=",
+    "status": 400
+  },
+  {
+    "name": "deflate-wire-signature",
+    "event": "ping",
+    "body": "{}",
+    "contentType": "application/json",
+    "encoding": "deflate",
+    "mode": "wire-signature",
+    "wire": "eJyrrgUAAXUA+Q==",
+    "status": 401,
+    "error": "invalid_webhook_signature"
+  },
+  {
+    "name": "deflate-boundary",
+    "event": "ping",
+    "body": "{}",
+    "contentType": "application/json",
+    "encoding": "deflate",
+    "mode": "boundary",
+    "size": 2097152,
+    "wire": "eJztwTEJACAABMAuH8M2giAu4iiI3W3hdHcnq7Y2Zk/JBgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPgu9wFTVN8C",
+    "status": 204
+  },
+  {
+    "name": "deflate-oversized",
+    "event": "ping",
+    "body": "{}",
+    "contentType": "application/json",
+    "encoding": "deflate",
+    "mode": "oversized",
+    "size": 2097153,
+    "wire": "eJztwTEJACAABMAuH8M2giAu4iiI3W3hdHcnq7Y2Zk/JBgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPgv9wEzLt96",
+    "status": 413
+  },
+  {
+    "name": "br-valid",
+    "event": "ping",
+    "body": "{}",
+    "contentType": "application/json",
+    "encoding": "br",
+    "mode": "valid",
+    "wire": "iwCAe30D",
+    "status": 204
+  },
+  {
+    "name": "br-truncated",
+    "event": "ping",
+    "body": "{}",
+    "contentType": "application/json",
+    "encoding": "br",
+    "mode": "truncated",
+    "wire": "iwCAew==",
+    "status": 400
+  },
+  {
+    "name": "br-corrupt",
+    "event": "ping",
+    "body": "{}",
+    "contentType": "application/json",
+    "encoding": "br",
+    "mode": "corrupt",
+    "wire": "bm90IGEgY29tcHJlc3NlZCBzdHJlYW0=",
+    "status": 400
+  },
+  {
+    "name": "br-wire-signature",
+    "event": "ping",
+    "body": "{}",
+    "contentType": "application/json",
+    "encoding": "br",
+    "mode": "wire-signature",
+    "wire": "iwCAe30D",
+    "status": 401,
+    "error": "invalid_webhook_signature"
+  },
+  {
+    "name": "br-boundary",
+    "event": "ping",
+    "body": "{}",
+    "contentType": "application/json",
+    "encoding": "br",
+    "mode": "boundary",
+    "size": 2097152,
+    "wire": "m///H/iN1GLNGe6UInh7pdOXklTyWSGgUhu3V+8/CAE=",
+    "status": 204
+  },
+  {
+    "name": "br-oversized",
+    "event": "ping",
+    "body": "{}",
+    "contentType": "application/json",
+    "encoding": "br",
+    "mode": "oversized",
+    "size": 2097153,
+    "wire": "mwAAIPiN1GLNGe6UInh7pdOXklTyWSGgUhu3We8/CAE=",
+    "status": 413
+  },
+  {
+    "name": "zstd-valid",
+    "event": "ping",
+    "body": "{}",
+    "contentType": "application/json",
+    "encoding": "zstd",
+    "mode": "valid",
+    "wire": "KLUv/SACEQAAe30=",
+    "status": 204
+  },
+  {
+    "name": "zstd-truncated",
+    "event": "ping",
+    "body": "{}",
+    "contentType": "application/json",
+    "encoding": "zstd",
+    "mode": "truncated",
+    "wire": "KLUv/SACEQAA",
+    "status": 401,
+    "error": "invalid_webhook_signature"
+  },
+  {
+    "name": "zstd-corrupt",
+    "event": "ping",
+    "body": "{}",
+    "contentType": "application/json",
+    "encoding": "zstd",
+    "mode": "corrupt",
+    "wire": "bm90IGEgY29tcHJlc3NlZCBzdHJlYW0=",
+    "status": 400
+  },
+  {
+    "name": "zstd-wire-signature",
+    "event": "ping",
+    "body": "{}",
+    "contentType": "application/json",
+    "encoding": "zstd",
+    "mode": "wire-signature",
+    "wire": "KLUv/SACEQAAe30=",
+    "status": 401,
+    "error": "invalid_webhook_signature"
+  },
+  {
+    "name": "zstd-boundary",
+    "event": "ping",
+    "body": "{}",
+    "contentType": "application/json",
+    "encoding": "zstd",
+    "mode": "boundary",
+    "size": 2097152,
+    "wire": "KLUv/aAAACAArAAAaHsicGFkZGluZyI6IngBAPD/OfgCAgAQeAIAEHgCABB4AgAQeAIAEHgCABB4AgAQeAIAEHgCABB4AgAQeAIAEHgCABB4AgAQeAIAEHhdAAAYeCJ9AQD6/zkQAg==",
+    "status": 204
+  },
+  {
+    "name": "zstd-oversized",
+    "event": "ping",
+    "body": "{}",
+    "contentType": "application/json",
+    "encoding": "zstd",
+    "mode": "oversized",
+    "size": 2097153,
+    "wire": "KLUv/YBYAQAgAKwAAGh7InBhZGRpbmciOiJ4AQDw/zn4AgIAEHgCABB4AgAQeAIAEHgCABB4AgAQeAIAEHgCABB4AgAQeAIAEHgCABB4AgAQeAIAEHgCABB4VAAAEHgiAQD7/zkQAgkAAH0=",
+    "status": 413
+  },
+  {
+    "name": "encoding-identity",
+    "event": "ping",
+    "body": "{}",
+    "contentType": "application/json",
+    "encoding": "identity",
+    "mode": "valid",
+    "wire": "e30=",
+    "status": 204
+  },
+  {
+    "name": "encoding-GZIP",
+    "event": "ping",
+    "body": "{}",
+    "contentType": "application/json",
+    "encoding": "GZIP",
+    "mode": "valid",
+    "wire": "H4sIAAAAAAAAA6uuBQBDv6ajAgAAAA==",
+    "status": 204
+  },
+  {
+    "name": "encoding-unknown",
+    "event": "ping",
+    "body": "{}",
+    "contentType": "application/json",
+    "encoding": "unknown",
+    "mode": "valid",
+    "wire": "e30=",
+    "status": 415
+  },
+  {
+    "name": "encoding-gzip, deflate",
+    "event": "ping",
+    "body": "{}",
+    "contentType": "application/json",
+    "encoding": "gzip, deflate",
+    "mode": "valid",
+    "wire": "e30=",
+    "status": 415
+  }
+]

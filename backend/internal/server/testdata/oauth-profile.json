@@ -1,0 +1,226 @@
+[
+  {
+    "name": "id-0",
+    "profile": {
+      "login": "synthetic-login"
+    },
+    "rejected": true
+  },
+  {
+    "name": "id-1",
+    "profile": {
+      "login": "synthetic-login",
+      "id": null
+    },
+    "rejected": true
+  },
+  {
+    "name": "id-2",
+    "profile": {
+      "login": "synthetic-login",
+      "id": false
+    },
+    "rejected": true
+  },
+  {
+    "name": "id-3",
+    "profile": {
+      "login": "synthetic-login",
+      "id": true
+    },
+    "rejected": true
+  },
+  {
+    "name": "id-4",
+    "profile": {
+      "login": "synthetic-login",
+      "id": "42"
+    },
+    "rejected": true
+  },
+  {
+    "name": "id-5",
+    "profile": {
+      "login": "synthetic-login",
+      "id": ""
+    },
+    "rejected": true
+  },
+  {
+    "name": "id-6",
+    "profile": {
+      "login": "synthetic-login",
+      "id": []
+    },
+    "rejected": true
+  },
+  {
+    "name": "id-7",
+    "profile": {
+      "login": "synthetic-login",
+      "id": {}
+    },
+    "rejected": true
+  },
+  {
+    "name": "id-8",
+    "profile": {
+      "login": "synthetic-login",
+      "id": 0
+    },
+    "rejected": false
+  },
+  {
+    "name": "id-9",
+    "profile": {
+      "login": "synthetic-login",
+      "id": -1
+    },
+    "rejected": false
+  },
+  {
+    "name": "id-10",
+    "profile": {
+      "login": "synthetic-login",
+      "id": 1
+    },
+    "rejected": false
+  },
+  {
+    "name": "id-11",
+    "profile": {
+      "login": "synthetic-login",
+      "id": 1.5
+    },
+    "rejected": true
+  },
+  {
+    "name": "id-12",
+    "profile": {
+      "login": "synthetic-login",
+      "id": -1.5
+    },
+    "rejected": true
+  },
+  {
+    "name": "id-13",
+    "profile": {
+      "login": "synthetic-login",
+      "id": 9007199254740991
+    },
+    "rejected": false
+  },
+  {
+    "name": "id-14",
+    "profile": {
+      "login": "synthetic-login",
+      "id": -9007199254740991
+    },
+    "rejected": false
+  },
+  {
+    "name": "id-15",
+    "profile": {
+      "login": "synthetic-login",
+      "id": 9007199254740992
+    },
+    "rejected": true
+  },
+  {
+    "name": "id-16",
+    "profile": {
+      "login": "synthetic-login",
+      "id": 1e+30
+    },
+    "rejected": true
+  },
+  {
+    "name": "login-17",
+    "profile": {
+      "id": 42
+    },
+    "rejected": true
+  },
+  {
+    "name": "login-18",
+    "profile": {
+      "id": 42,
+      "login": null
+    },
+    "rejected": true
+  },
+  {
+    "name": "login-19",
+    "profile": {
+      "id": 42,
+      "login": false
+    },
+    "rejected": true
+  },
+  {
+    "name": "login-20",
+    "profile": {
+      "id": 42,
+      "login": true
+    },
+    "rejected": false
+  },
+  {
+    "name": "login-21",
+    "profile": {
+      "id": 42,
+      "login": 0
+    },
+    "rejected": true
+  },
+  {
+    "name": "login-22",
+    "profile": {
+      "id": 42,
+      "login": 1
+    },
+    "rejected": false
+  },
+  {
+    "name": "login-23",
+    "profile": {
+      "id": 42,
+      "login": ""
+    },
+    "rejected": true
+  },
+  {
+    "name": "login-24",
+    "profile": {
+      "id": 42,
+      "login": "valid-login"
+    },
+    "rejected": false
+  },
+  {
+    "name": "login-25",
+    "profile": {
+      "id": 42,
+      "login": []
+    },
+    "rejected": false
+  },
+  {
+    "name": "login-26",
+    "profile": {
+      "id": 42,
+      "login": {}
+    },
+    "rejected": false
+  },
+  {
+    "name": "login-27",
+    "profile": {
+      "id": 42,
+      "login": [
+        "login"
+      ]
+    },
+    "rejected": false
+  }
+]

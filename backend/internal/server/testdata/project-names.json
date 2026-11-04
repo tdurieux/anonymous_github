@@ -1,0 +1,331 @@
+[
+  {
+    "name": "case-0",
+    "body": {},
+    "rejected": true
+  },
+  {
+    "name": "case-1",
+    "body": {
+      "type": "repo",
+      "id": "item",
+      "name": " Name "
+    },
+    "expected": "Name"
+  },
+  {
+    "name": "case-2",
+    "body": {
+      "type": null,
+      "id": "item",
+      "name": "Name"
+    },
+    "rejected": true
+  },
+  {
+    "name": "case-3",
+    "body": {
+      "type": false,
+      "id": "item",
+      "name": "Name"
+    },
+    "rejected": true
+  },
+  {
+    "name": "case-4",
+    "body": {
+      "type": 0,
+      "id": "item",
+      "name": "Name"
+    },
+    "rejected": true
+  },
+  {
+    "name": "case-5",
+    "body": {
+      "type": [],
+      "id": "item",
+      "name": "Name"
+    },
+    "rejected": true
+  },
+  {
+    "name": "case-6",
+    "body": {
+      "type": {},
+      "id": "item",
+      "name": "Name"
+    },
+    "rejected": true
+  },
+  {
+    "name": "case-7",
+    "body": {
+      "type": "",
+      "id": "item",
+      "name": "Name"
+    },
+    "rejected": true
+  },
+  {
+    "name": "case-8",
+    "body": {
+      "type": "repo",
+      "id": null,
+      "name": "Name"
+    },
+    "rejected": true
+  },
+  {
+    "name": "case-9",
+    "body": {
+      "type": "repo",
+      "id": false,
+      "name": "Name"
+    },
+    "rejected": true
+  },
+  {
+    "name": "case-10",
+    "body": {
+      "type": "repo",
+      "id": 0,
+      "name": "Name"
+    },
+    "rejected": true
+  },
+  {
+    "name": "case-11",
+    "body": {
+      "type": "repo",
+      "id": [],
+      "name": "Name"
+    },
+    "rejected": true
+  },
+  {
+    "name": "case-12",
+    "body": {
+      "type": "repo",
+      "id": {},
+      "name": "Name"
+    },
+    "rejected": true
+  },
+  {
+    "name": "case-13",
+    "body": {
+      "type": "repo",
+      "id": "",
+      "name": "Name"
+    },
+    "rejected": true
+  },
+  {
+    "name": "case-14",
+    "body": {
+      "type": "repo",
+      "id": "item",
+      "name": null
+    },
+    "rejected": true
+  },
+  {
+    "name": "case-15",
+    "body": {
+      "type": "repo",
+      "id": "item",
+      "name": false
+    },
+    "rejected": true
+  },
+  {
+    "name": "case-16",
+    "body": {
+      "type": "repo",
+      "id": "item",
+      "name": 0
+    },
+    "rejected": true
+  },
+  {
+    "name": "case-17",
+    "body": {
+      "type": "repo",
+      "id": "item",
+      "name": []
+    },
+    "rejected": true
+  },
+  {
+    "name": "case-18",
+    "body": {
+      "type": "repo",
+      "id": "item",
+      "name": {}
+    },
+    "rejected": true
+  },
+  {
+    "name": "case-19",
+    "body": {
+      "type": "repo",
+      "id": "item",
+      "name": ""
+    },
+    "expected": ""
+  },
+  {
+    "name": "case-20",
+    "body": {
+      "type": "repo",
+      "id": "item",
+      "name": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    "expected": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  },
+  {
+    "name": "case-21",
+    "body": {
+      "type": "repo",
+      "id": "item",
+      "name": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    "rejected": true
+  },
+  {
+    "name": "case-22",
+    "body": {
+      "type": "repo",
+      "id": "item",
+      "name": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+    },
+    "expected": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+  },
+  {
+    "name": "case-23",
+    "body": {
+      "type": "repo",
+      "id": "item",
+      "name": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+    },
+    "rejected": true
+  },
+  {
+    "name": "case-24",
+    "body": {
+      "type": "repo",
+      "id": "item",
+      "name": "﻿Name﻿"
+    },
+    "expected": "Name"
+  },
+  {
+    "name": "case-25",
+    "body": {
+      "type": "repo",
+      "id": "item",
+      "name": "Name"
+    },
+    "expected": "Name"
+  },
+  {
+    "name": "case-26",
+    "body": {
+      "type": "repo",
+      "id": "item",
+      "name": ""
+    },
+    "expected": ""
+  },
+  {
+    "name": "case-27",
+    "body": {
+      "type": "repo",
+      "id": "item",
+      "name": "\tName"
+    },
+    "rejected": true
+  },
+  {
+    "name": "case-28",
+    "body": {
+      "type": "repo",
+      "id": "item",
+      "name": "Name\n"
+    },
+    "rejected": true
+  },
+  {
+    "name": "case-29",
+    "body": {
+      "type": "repo",
+      "id": "item",
+      "name": ""
+    },
+    "rejected": true
+  },
+  {
+    "name": "case-30",
+    "body": {
+      "type": "repo",
+      "id": "item",
+      "name": " Name "
+    },
+    "expected": "Name"
+  },
+  {
+    "name": "case-31",
+    "body": {
+      "type": "gist",
+      "id": "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé",
+      "name": "Name"
+    },
+    "expected": "Name"
+  },
+  {
+    "name": "case-32",
+    "body": {
+      "type": "gist",
+      "id": "ééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé",
+      "name": "Name"
+    },
+    "rejected": true
+  },
+  {
+    "name": "case-33",
+    "body": {
+      "type": "gist",
+      "id": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+      "name": "Name"
+    },
+    "expected": "Name"
+  },
+  {
+    "name": "case-34",
+    "body": {
+      "type": "gist",
+      "id": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+      "name": "Name"
+    },
+    "rejected": true
+  },
+  {
+    "name": "case-35",
+    "body": {
+      "type": "pr",
+      "id": "item",
+      "name": " "
+    },
+    "expected": ""
+  },
+  {
+    "name": "case-36",
+    "body": {
+      "type": "other",
+      "id": "item",
+      "name": "Name"
+    },
+    "rejected": true
+  }
+]

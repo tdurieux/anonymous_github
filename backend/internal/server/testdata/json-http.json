@@ -1,0 +1,1110 @@
+[
+  {
+    "name": "json-http-0",
+    "method": "GET",
+    "status": 200,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "",
+    "expected": {
+      "status": 200,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "application/json; charset=utf-8",
+      "length": "25",
+      "body": "{\"a\":\"<é>  \",\"z\":42}"
+    }
+  },
+  {
+    "name": "json-http-1",
+    "method": "HEAD",
+    "status": 200,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "",
+    "expected": {
+      "status": 200,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "application/json; charset=utf-8",
+      "length": "25",
+      "body": ""
+    }
+  },
+  {
+    "name": "json-http-2",
+    "method": "POST",
+    "status": 200,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "",
+    "expected": {
+      "status": 200,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "application/json; charset=utf-8",
+      "length": "25",
+      "body": "{\"a\":\"<é>  \",\"z\":42}"
+    }
+  },
+  {
+    "name": "json-http-3",
+    "method": "QUERY",
+    "status": 200,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "",
+    "expected": {
+      "status": 200,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "application/json; charset=utf-8",
+      "length": "25",
+      "body": "{\"a\":\"<é>  \",\"z\":42}"
+    }
+  },
+  {
+    "name": "json-http-4",
+    "method": "GET",
+    "status": 200,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+    "expected": {
+      "status": 304,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "",
+      "length": "",
+      "body": ""
+    }
+  },
+  {
+    "name": "json-http-5",
+    "method": "HEAD",
+    "status": 200,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+    "expected": {
+      "status": 304,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "",
+      "length": "",
+      "body": ""
+    }
+  },
+  {
+    "name": "json-http-6",
+    "method": "POST",
+    "status": 200,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+    "expected": {
+      "status": 200,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "application/json; charset=utf-8",
+      "length": "25",
+      "body": "{\"a\":\"<é>  \",\"z\":42}"
+    }
+  },
+  {
+    "name": "json-http-7",
+    "method": "QUERY",
+    "status": 200,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+    "expected": {
+      "status": 304,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "",
+      "length": "",
+      "body": ""
+    }
+  },
+  {
+    "name": "json-http-8",
+    "method": "GET",
+    "status": 200,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "W/\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+    "expected": {
+      "status": 304,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "",
+      "length": "",
+      "body": ""
+    }
+  },
+  {
+    "name": "json-http-9",
+    "method": "HEAD",
+    "status": 200,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "W/\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+    "expected": {
+      "status": 304,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "",
+      "length": "",
+      "body": ""
+    }
+  },
+  {
+    "name": "json-http-10",
+    "method": "POST",
+    "status": 200,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "W/\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+    "expected": {
+      "status": 200,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "application/json; charset=utf-8",
+      "length": "25",
+      "body": "{\"a\":\"<é>  \",\"z\":42}"
+    }
+  },
+  {
+    "name": "json-http-11",
+    "method": "QUERY",
+    "status": 200,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "W/\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+    "expected": {
+      "status": 304,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "",
+      "length": "",
+      "body": ""
+    }
+  },
+  {
+    "name": "json-http-12",
+    "method": "GET",
+    "status": 200,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "\"stale\", \"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+    "expected": {
+      "status": 304,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "",
+      "length": "",
+      "body": ""
+    }
+  },
+  {
+    "name": "json-http-13",
+    "method": "HEAD",
+    "status": 200,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "\"stale\", \"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+    "expected": {
+      "status": 304,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "",
+      "length": "",
+      "body": ""
+    }
+  },
+  {
+    "name": "json-http-14",
+    "method": "POST",
+    "status": 200,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "\"stale\", \"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+    "expected": {
+      "status": 200,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "application/json; charset=utf-8",
+      "length": "25",
+      "body": "{\"a\":\"<é>  \",\"z\":42}"
+    }
+  },
+  {
+    "name": "json-http-15",
+    "method": "QUERY",
+    "status": 200,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "\"stale\", \"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+    "expected": {
+      "status": 304,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "",
+      "length": "",
+      "body": ""
+    }
+  },
+  {
+    "name": "json-http-16",
+    "method": "GET",
+    "status": 200,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "*",
+    "expected": {
+      "status": 304,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "",
+      "length": "",
+      "body": ""
+    }
+  },
+  {
+    "name": "json-http-17",
+    "method": "HEAD",
+    "status": 200,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "*",
+    "expected": {
+      "status": 304,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "",
+      "length": "",
+      "body": ""
+    }
+  },
+  {
+    "name": "json-http-18",
+    "method": "POST",
+    "status": 200,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "*",
+    "expected": {
+      "status": 200,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "application/json; charset=utf-8",
+      "length": "25",
+      "body": "{\"a\":\"<é>  \",\"z\":42}"
+    }
+  },
+  {
+    "name": "json-http-19",
+    "method": "QUERY",
+    "status": 200,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "*",
+    "expected": {
+      "status": 304,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "",
+      "length": "",
+      "body": ""
+    }
+  },
+  {
+    "name": "json-http-20",
+    "method": "GET",
+    "status": 200,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "\"stale\"",
+    "expected": {
+      "status": 200,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "application/json; charset=utf-8",
+      "length": "25",
+      "body": "{\"a\":\"<é>  \",\"z\":42}"
+    }
+  },
+  {
+    "name": "json-http-21",
+    "method": "HEAD",
+    "status": 200,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "\"stale\"",
+    "expected": {
+      "status": 200,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "application/json; charset=utf-8",
+      "length": "25",
+      "body": ""
+    }
+  },
+  {
+    "name": "json-http-22",
+    "method": "POST",
+    "status": 200,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "\"stale\"",
+    "expected": {
+      "status": 200,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "application/json; charset=utf-8",
+      "length": "25",
+      "body": "{\"a\":\"<é>  \",\"z\":42}"
+    }
+  },
+  {
+    "name": "json-http-23",
+    "method": "QUERY",
+    "status": 200,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "\"stale\"",
+    "expected": {
+      "status": 200,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "application/json; charset=utf-8",
+      "length": "25",
+      "body": "{\"a\":\"<é>  \",\"z\":42}"
+    }
+  },
+  {
+    "name": "json-http-24",
+    "method": "GET",
+    "status": 200,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\", \"other\"",
+    "expected": {
+      "status": 304,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "",
+      "length": "",
+      "body": ""
+    }
+  },
+  {
+    "name": "json-http-25",
+    "method": "HEAD",
+    "status": 200,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\", \"other\"",
+    "expected": {
+      "status": 304,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "",
+      "length": "",
+      "body": ""
+    }
+  },
+  {
+    "name": "json-http-26",
+    "method": "POST",
+    "status": 200,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\", \"other\"",
+    "expected": {
+      "status": 200,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "application/json; charset=utf-8",
+      "length": "25",
+      "body": "{\"a\":\"<é>  \",\"z\":42}"
+    }
+  },
+  {
+    "name": "json-http-27",
+    "method": "QUERY",
+    "status": 200,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\", \"other\"",
+    "expected": {
+      "status": 304,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "",
+      "length": "",
+      "body": ""
+    }
+  },
+  {
+    "name": "json-http-28",
+    "method": "GET",
+    "status": 200,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "\t\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+    "expected": {
+      "status": 304,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "",
+      "length": "",
+      "body": ""
+    }
+  },
+  {
+    "name": "json-http-29",
+    "method": "HEAD",
+    "status": 200,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "\t\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+    "expected": {
+      "status": 304,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "",
+      "length": "",
+      "body": ""
+    }
+  },
+  {
+    "name": "json-http-30",
+    "method": "POST",
+    "status": 200,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "\t\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+    "expected": {
+      "status": 200,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "application/json; charset=utf-8",
+      "length": "25",
+      "body": "{\"a\":\"<é>  \",\"z\":42}"
+    }
+  },
+  {
+    "name": "json-http-31",
+    "method": "QUERY",
+    "status": 200,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "\t\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+    "expected": {
+      "status": 304,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "",
+      "length": "",
+      "body": ""
+    }
+  },
+  {
+    "name": "json-http-32",
+    "method": "GET",
+    "status": 200,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+    "control": "no-cache",
+    "expected": {
+      "status": 200,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "application/json; charset=utf-8",
+      "length": "25",
+      "body": "{\"a\":\"<é>  \",\"z\":42}"
+    }
+  },
+  {
+    "name": "json-http-33",
+    "method": "GET",
+    "status": 200,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+    "control": "max-age=0, no-cache",
+    "expected": {
+      "status": 200,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "application/json; charset=utf-8",
+      "length": "25",
+      "body": "{\"a\":\"<é>  \",\"z\":42}"
+    }
+  },
+  {
+    "name": "json-http-34",
+    "method": "GET",
+    "status": 200,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+    "control": "NO-CACHE",
+    "expected": {
+      "status": 304,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "",
+      "length": "",
+      "body": ""
+    }
+  },
+  {
+    "name": "json-http-35",
+    "method": "GET",
+    "status": 200,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+    "control": "no-cache=1",
+    "expected": {
+      "status": 304,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "",
+      "length": "",
+      "body": ""
+    }
+  },
+  {
+    "name": "json-http-36",
+    "method": "GET",
+    "status": 200,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+    "control": "max-age=0",
+    "expected": {
+      "status": 304,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "",
+      "length": "",
+      "body": ""
+    }
+  },
+  {
+    "name": "json-http-37",
+    "method": "GET",
+    "status": 201,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "",
+    "expected": {
+      "status": 201,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "application/json; charset=utf-8",
+      "length": "25",
+      "body": "{\"a\":\"<é>  \",\"z\":42}"
+    }
+  },
+  {
+    "name": "json-http-38",
+    "method": "GET",
+    "status": 201,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "*",
+    "expected": {
+      "status": 304,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "",
+      "length": "",
+      "body": ""
+    }
+  },
+  {
+    "name": "json-http-39",
+    "method": "GET",
+    "status": 204,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "",
+    "expected": {
+      "status": 204,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "",
+      "length": "",
+      "body": ""
+    }
+  },
+  {
+    "name": "json-http-40",
+    "method": "GET",
+    "status": 204,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "*",
+    "expected": {
+      "status": 304,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "",
+      "length": "",
+      "body": ""
+    }
+  },
+  {
+    "name": "json-http-41",
+    "method": "GET",
+    "status": 205,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "",
+    "expected": {
+      "status": 205,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "application/json; charset=utf-8",
+      "length": "0",
+      "body": ""
+    }
+  },
+  {
+    "name": "json-http-42",
+    "method": "GET",
+    "status": 205,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "*",
+    "expected": {
+      "status": 304,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "",
+      "length": "",
+      "body": ""
+    }
+  },
+  {
+    "name": "json-http-43",
+    "method": "GET",
+    "status": 304,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "",
+    "expected": {
+      "status": 304,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "",
+      "length": "",
+      "body": ""
+    }
+  },
+  {
+    "name": "json-http-44",
+    "method": "GET",
+    "status": 304,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "*",
+    "expected": {
+      "status": 304,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "",
+      "length": "",
+      "body": ""
+    }
+  },
+  {
+    "name": "json-http-45",
+    "method": "GET",
+    "status": 400,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "",
+    "expected": {
+      "status": 400,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "application/json; charset=utf-8",
+      "length": "25",
+      "body": "{\"a\":\"<é>  \",\"z\":42}"
+    }
+  },
+  {
+    "name": "json-http-46",
+    "method": "GET",
+    "status": 400,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "*",
+    "expected": {
+      "status": 400,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "application/json; charset=utf-8",
+      "length": "25",
+      "body": "{\"a\":\"<é>  \",\"z\":42}"
+    }
+  },
+  {
+    "name": "json-http-47",
+    "method": "GET",
+    "status": 401,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "",
+    "expected": {
+      "status": 401,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "application/json; charset=utf-8",
+      "length": "25",
+      "body": "{\"a\":\"<é>  \",\"z\":42}"
+    }
+  },
+  {
+    "name": "json-http-48",
+    "method": "GET",
+    "status": 401,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "*",
+    "expected": {
+      "status": 401,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "application/json; charset=utf-8",
+      "length": "25",
+      "body": "{\"a\":\"<é>  \",\"z\":42}"
+    }
+  },
+  {
+    "name": "json-http-49",
+    "method": "GET",
+    "status": 403,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "",
+    "expected": {
+      "status": 403,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "application/json; charset=utf-8",
+      "length": "25",
+      "body": "{\"a\":\"<é>  \",\"z\":42}"
+    }
+  },
+  {
+    "name": "json-http-50",
+    "method": "GET",
+    "status": 403,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "*",
+    "expected": {
+      "status": 403,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "application/json; charset=utf-8",
+      "length": "25",
+      "body": "{\"a\":\"<é>  \",\"z\":42}"
+    }
+  },
+  {
+    "name": "json-http-51",
+    "method": "GET",
+    "status": 500,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "",
+    "expected": {
+      "status": 500,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "application/json; charset=utf-8",
+      "length": "25",
+      "body": "{\"a\":\"<é>  \",\"z\":42}"
+    }
+  },
+  {
+    "name": "json-http-52",
+    "method": "GET",
+    "status": 500,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "*",
+    "expected": {
+      "status": 500,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "application/json; charset=utf-8",
+      "length": "25",
+      "body": "{\"a\":\"<é>  \",\"z\":42}"
+    }
+  },
+  {
+    "name": "json-http-53",
+    "method": "GET",
+    "status": 200,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "since": "Wed, 01 Jan 2025 00:00:00 GMT",
+    "modified": "Wed, 01 Jan 2025 00:00:00 GMT",
+    "expected": {
+      "status": 304,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "",
+      "length": "",
+      "body": ""
+    }
+  },
+  {
+    "name": "json-http-54",
+    "method": "GET",
+    "status": 200,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "since": "Tue, 31 Dec 2024 00:00:00 GMT",
+    "modified": "Wed, 01 Jan 2025 00:00:00 GMT",
+    "expected": {
+      "status": 200,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "application/json; charset=utf-8",
+      "length": "25",
+      "body": "{\"a\":\"<é>  \",\"z\":42}"
+    }
+  },
+  {
+    "name": "json-http-55",
+    "method": "GET",
+    "status": 200,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "since": "invalid",
+    "modified": "Wed, 01 Jan 2025 00:00:00 GMT",
+    "expected": {
+      "status": 200,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "application/json; charset=utf-8",
+      "length": "25",
+      "body": "{\"a\":\"<é>  \",\"z\":42}"
+    }
+  },
+  {
+    "name": "json-http-56",
+    "method": "GET",
+    "status": 200,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+    "since": "invalid",
+    "expected": {
+      "status": 304,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "",
+      "length": "",
+      "body": ""
+    }
+  },
+  {
+    "name": "json-http-57",
+    "method": "GET",
+    "status": 200,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "match": "\"stale\"",
+    "since": "Wed, 01 Jan 2030 00:00:00 GMT",
+    "modified": "Wed, 01 Jan 2025 00:00:00 GMT",
+    "expected": {
+      "status": 200,
+      "etag": "\"19-tby2Juxroci6d8ug6rRsIX12sEU\"",
+      "type": "application/json; charset=utf-8",
+      "length": "25",
+      "body": "{\"a\":\"<é>  \",\"z\":42}"
+    }
+  },
+  {
+    "name": "json-http-58",
+    "method": "GET",
+    "status": 200,
+    "value": null,
+    "expected": {
+      "status": 200,
+      "etag": "\"4-K+iMpCQsduglOsYkdIUQZQMtaDM\"",
+      "type": "application/json; charset=utf-8",
+      "length": "4",
+      "body": "null"
+    }
+  },
+  {
+    "name": "json-http-59",
+    "method": "GET",
+    "status": 200,
+    "value": [],
+    "expected": {
+      "status": 200,
+      "etag": "\"2-l9Fw4VUO7kr8CvBlt4zaMCqXZ0w\"",
+      "type": "application/json; charset=utf-8",
+      "length": "2",
+      "body": "[]"
+    }
+  },
+  {
+    "name": "json-http-60",
+    "method": "GET",
+    "status": 200,
+    "value": {},
+    "expected": {
+      "status": 200,
+      "etag": "\"2-vyGp6PvFo4RvsFtPoIWeCReyIC8\"",
+      "type": "application/json; charset=utf-8",
+      "length": "2",
+      "body": "{}"
+    }
+  },
+  {
+    "name": "json-http-61",
+    "method": "GET",
+    "status": 200,
+    "value": "literal \\u2028 then  ",
+    "expected": {
+      "status": 200,
+      "etag": "\"1a-3urRitzGYTx26+eHyzTspbKD3sQ\"",
+      "type": "application/json; charset=utf-8",
+      "length": "26",
+      "body": "\"literal \\\\u2028 then  \""
+    }
+  },
+  {
+    "name": "json-http-62",
+    "method": "GET",
+    "status": 200,
+    "value": true,
+    "expected": {
+      "status": 200,
+      "etag": "\"4-X/5TO4MPCKAyY0ipFgr6/IraRNs\"",
+      "type": "application/json; charset=utf-8",
+      "length": "4",
+      "body": "true"
+    }
+  },
+  {
+    "name": "json-http-63",
+    "method": "GET",
+    "status": 200,
+    "value": 0,
+    "expected": {
+      "status": 200,
+      "etag": "\"1-tlifxqsNyCzxIJnRwtQKuZToQQw\"",
+      "type": "application/json; charset=utf-8",
+      "length": "1",
+      "body": "0"
+    }
+  },
+  {
+    "name": "json-http-64",
+    "method": "GET",
+    "status": 200,
+    "value": {
+      "value": null
+    },
+    "expected": {
+      "status": 200,
+      "etag": "\"e-9/1BuKMgFObM1mWJm+YjxtXJnUM\"",
+      "type": "application/json; charset=utf-8",
+      "length": "14",
+      "body": "{\"value\":null}"
+    }
+  },
+  {
+    "name": "json-http-65",
+    "method": "GET",
+    "status": 200,
+    "value": {
+      "a": "<é>  ",
+      "z": 42
+    },
+    "preset": "\"custom\"",
+    "match": "W/\"custom\"",
+    "expected": {
+      "status": 304,
+      "etag": "\"custom\"",
+      "type": "",
+      "length": "",
+      "body": ""
+    }
+  }
+]

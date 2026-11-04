@@ -251,7 +251,11 @@ router.post(
       const model = await UserModel.findOne({
         "apiTokens.tokenHash": hashToken(token),
       });
-      if (!model) return res.status(401).json({ error: "invalid_token" });
+      const entry = model?.apiTokens?.find(t => t.tokenHash === hashToken(token));
+      if (!model || !entry || entry.scope ||
+        (entry.expiresAt && entry.expiresAt.getTime() <= Date.now())) {
+        return res.status(401).json({ error: "invalid_token" });
+      }
       if (isDisabledAccount(model.status)) {
         return res.status(model.status === "banned" ? 403 : 401).json({
           error: model.status === "banned" ? "user_banned" : "not_connected",

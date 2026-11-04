@@ -21,8 +21,8 @@ function decodePathSegment(segment: string): string {
   }
 }
 
-// Extensions the browser will execute script from when it renders the
-// response as a document (directly, or via the "Raw" action).
+// Keep explicit fallbacks for markup types not consistently mapped by MIME
+// databases. MIME classification below also covers aliases such as svgz/shtml.
 const SCRIPTABLE_EXTENSIONS = new Set([
   "html",
   "htm",
@@ -33,10 +33,16 @@ const SCRIPTABLE_EXTENSIONS = new Set([
   "xsl",
   "xslt",
   "mhtml",
+  "mht",
 ]);
 
 export function isScriptableDocument(anonymizedPath: string): boolean {
   const name = anonymizedPath.substring(anonymizedPath.lastIndexOf("/") + 1);
+  const mime = lookup(name);
+  if (mime && (
+    mime === "text/html" || mime === "text/xml" || mime === "application/xml" ||
+    mime.endsWith("+xml") || mime === "message/rfc822" || mime === "multipart/related"
+  )) return true;
   const dot = name.lastIndexOf(".");
   if (dot < 0) return false;
   return SCRIPTABLE_EXTENSIONS.has(name.substring(dot + 1).toLowerCase());
@@ -115,6 +121,7 @@ router.get(
           object: f,
         });
       }
+      res.header("X-Content-Type-Options", "nosniff");
       if (req.query.download) {
         res.attachment(
           anonymizedPath.substring(anonymizedPath.lastIndexOf("/") + 1)
@@ -139,7 +146,8 @@ router.get(
         anonymizedPath,
         repo.model.options
       );
-      res.header("ETag", etag);
+      if (config.SHARED_CACHE_ENABLED) res.vary("Accept-Encoding");
+      res.header("ETag", config.SHARED_CACHE_ENABLED ? `W/${etag}` : etag);
       // Force the browser to revalidate every time. The previous 210-day
       // max-age was keyed only on the upstream sha, so editing the
       // anonymization term list left old anonymizations cached under the

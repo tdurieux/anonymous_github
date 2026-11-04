@@ -1,0 +1,278 @@
+[
+  {
+    "name": "ordinary",
+    "pointer": "",
+    "revision": "b7a03985f2b13863493bd98e22d088b4ce285f08",
+    "proof": {
+      "gitSha": "b7a03985f2b13863493bd98e22d088b4ce285f08",
+      "sha256": "d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3",
+      "size": 18
+    },
+    "expected": "git-b7a03985f2b13863493bd98e22d088b4ce285f08",
+    "fetched": 0
+  },
+  {
+    "name": "lfs",
+    "pointer": "version https://git-lfs.github.com/spec/v1\noid sha256:d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3\nsize 18\n",
+    "revision": "462acda51d4133efef7be75aad09b382ccfb40f0",
+    "proof": {
+      "gitSha": "b7a03985f2b13863493bd98e22d088b4ce285f08",
+      "sha256": "d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3",
+      "size": 18
+    },
+    "expected": "sha256-d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3",
+    "fetched": 1
+  },
+  {
+    "name": "no final newline",
+    "pointer": "version https://git-lfs.github.com/spec/v1\noid sha256:d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3\nsize 18",
+    "revision": "b9413e5478040a35d5a19db5aa6d6a920a26cbe1",
+    "proof": {
+      "gitSha": "b7a03985f2b13863493bd98e22d088b4ce285f08",
+      "sha256": "d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3",
+      "size": 18
+    },
+    "expected": "sha256-d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3",
+    "fetched": 1
+  },
+  {
+    "name": "wrong pointer hash",
+    "pointer": "version https://git-lfs.github.com/spec/v1\noid sha256:d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3\nsize 18\n",
+    "revision": "0000000000000000000000000000000000000000",
+    "proof": {
+      "gitSha": "b7a03985f2b13863493bd98e22d088b4ce285f08",
+      "sha256": "d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3",
+      "size": 18
+    },
+    "error": "invalid_blob_hash",
+    "fetched": 1
+  },
+  {
+    "name": "wrong oid",
+    "pointer": "version https://git-lfs.github.com/spec/v1\noid sha256:0000000000000000000000000000000000000000000000000000000000000000\nsize 18\n",
+    "revision": "0475404c8a4cf8fef90e5887bf87a3d363962367",
+    "proof": {
+      "gitSha": "b7a03985f2b13863493bd98e22d088b4ce285f08",
+      "sha256": "d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3",
+      "size": 18
+    },
+    "error": "invalid_blob_hash",
+    "fetched": 1
+  },
+  {
+    "name": "wrong size",
+    "pointer": "version https://git-lfs.github.com/spec/v1\noid sha256:d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3\nsize 1\n",
+    "revision": "9f121b9ad063eb6cc3bd64ec9e82a37296718610",
+    "proof": {
+      "gitSha": "b7a03985f2b13863493bd98e22d088b4ce285f08",
+      "sha256": "d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3",
+      "size": 18
+    },
+    "error": "invalid_blob_hash",
+    "fetched": 1
+  },
+  {
+    "name": "wrong version",
+    "pointer": "version https://git-lfs.github.com/spec/v2\noid sha256:d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3\nsize 18\n",
+    "revision": "ae68c6a815c291d17ec875ff41da9599dcee8cd0",
+    "proof": {
+      "gitSha": "b7a03985f2b13863493bd98e22d088b4ce285f08",
+      "sha256": "d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3",
+      "size": 18
+    },
+    "error": "invalid_blob_hash",
+    "fetched": 1
+  },
+  {
+    "name": "missing oid",
+    "pointer": "version https://git-lfs.github.com/spec/v1\nsize 18",
+    "revision": "210cfdac23922a21488391a257d494073cd6517d",
+    "proof": {
+      "gitSha": "b7a03985f2b13863493bd98e22d088b4ce285f08",
+      "sha256": "d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3",
+      "size": 18
+    },
+    "error": "invalid_blob_hash",
+    "fetched": 1
+  },
+  {
+    "name": "missing size",
+    "pointer": "version https://git-lfs.github.com/spec/v1\noid sha256:d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3",
+    "revision": "dabd9adbb7fb83b6bb27e4dc555b3d40f70c79b2",
+    "proof": {
+      "gitSha": "b7a03985f2b13863493bd98e22d088b4ce285f08",
+      "sha256": "d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3",
+      "size": 18
+    },
+    "error": "invalid_blob_hash",
+    "fetched": 1
+  },
+  {
+    "name": "uppercase oid",
+    "pointer": "version https://git-lfs.github.com/spec/v1\noid sha256:D301245189E452B41EC6963C8385E5776AC30B06AA2117526FE128FBFF9EB6A3\nsize 18\n",
+    "revision": "46a1d52e5dcd91664ef7ec17a6f92a642bae396a",
+    "proof": {
+      "gitSha": "b7a03985f2b13863493bd98e22d088b4ce285f08",
+      "sha256": "d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3",
+      "size": 18
+    },
+    "error": "invalid_blob_hash",
+    "fetched": 1
+  },
+  {
+    "name": "negative size",
+    "pointer": "version https://git-lfs.github.com/spec/v1\noid sha256:d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3\nsize -1\n",
+    "revision": "594c6900790fc0738afe570c0f93cd01bdc4da67",
+    "proof": {
+      "gitSha": "b7a03985f2b13863493bd98e22d088b4ce285f08",
+      "sha256": "d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3",
+      "size": 18
+    },
+    "error": "invalid_blob_hash",
+    "fetched": 1
+  },
+  {
+    "name": "plus size",
+    "pointer": "version https://git-lfs.github.com/spec/v1\noid sha256:d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3\nsize +18\n",
+    "revision": "576cfe95813eca03d94a43b1e607af95b3ec0870",
+    "proof": {
+      "gitSha": "b7a03985f2b13863493bd98e22d088b4ce285f08",
+      "sha256": "d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3",
+      "size": 18
+    },
+    "error": "invalid_blob_hash",
+    "fetched": 1
+  },
+  {
+    "name": "leading zeros",
+    "pointer": "version https://git-lfs.github.com/spec/v1\noid sha256:d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3\nsize 00018\n",
+    "revision": "3c5b5f5ab7242fa7739227a0837904dc875975a0",
+    "proof": {
+      "gitSha": "b7a03985f2b13863493bd98e22d088b4ce285f08",
+      "sha256": "d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3",
+      "size": 18
+    },
+    "expected": "sha256-d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3",
+    "fetched": 1
+  },
+  {
+    "name": "space after size",
+    "pointer": "version https://git-lfs.github.com/spec/v1\noid sha256:d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3\nsize 18 \n",
+    "revision": "c1b74b2cc0ed9b4bf10f9a7483c84692ac6a7171",
+    "proof": {
+      "gitSha": "b7a03985f2b13863493bd98e22d088b4ce285f08",
+      "sha256": "d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3",
+      "size": 18
+    },
+    "error": "invalid_blob_hash",
+    "fetched": 1
+  },
+  {
+    "name": "duplicate oid",
+    "pointer": "version https://git-lfs.github.com/spec/v1\noid sha256:d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3\nsize 18\noid sha256:0000000000000000000000000000000000000000000000000000000000000000\n",
+    "revision": "7904097980812889d087b3942fac3cca9a9200c1",
+    "proof": {
+      "gitSha": "b7a03985f2b13863493bd98e22d088b4ce285f08",
+      "sha256": "d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3",
+      "size": 18
+    },
+    "expected": "sha256-d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3",
+    "fetched": 1
+  },
+  {
+    "name": "duplicate size",
+    "pointer": "version https://git-lfs.github.com/spec/v1\noid sha256:d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3\nsize 18\nsize 1\n",
+    "revision": "30a9d840ca06699e1be11654330d4865fd7db6a5",
+    "proof": {
+      "gitSha": "b7a03985f2b13863493bd98e22d088b4ce285f08",
+      "sha256": "d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3",
+      "size": 18
+    },
+    "expected": "sha256-d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3",
+    "fetched": 1
+  },
+  {
+    "name": "CRLF header",
+    "pointer": "version https://git-lfs.github.com/spec/v1\r\noid sha256:d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3\r\nsize 18\r\n",
+    "revision": "de36ded25cc0cd0417c39ee7f9455181a90b0c4c",
+    "proof": {
+      "gitSha": "b7a03985f2b13863493bd98e22d088b4ce285f08",
+      "sha256": "d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3",
+      "size": 18
+    },
+    "error": "invalid_blob_hash",
+    "fetched": 1
+  },
+  {
+    "name": "CRLF fields",
+    "pointer": "version https://git-lfs.github.com/spec/v1\noid sha256:d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3\r\nsize 18\r\n",
+    "revision": "862b6e77745fc904c2ea8450ecd51ea1810acd3b",
+    "proof": {
+      "gitSha": "b7a03985f2b13863493bd98e22d088b4ce285f08",
+      "sha256": "d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3",
+      "size": 18
+    },
+    "expected": "sha256-d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3",
+    "fetched": 1
+  },
+  {
+    "name": "unicode line separator",
+    "pointer": "version https://git-lfs.github.com/spec/v1\noid sha256:d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3 size 18 ",
+    "revision": "a852cb8085f2b5d96dbfb2288b0803e6ca4dc807",
+    "proof": {
+      "gitSha": "b7a03985f2b13863493bd98e22d088b4ce285f08",
+      "sha256": "d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3",
+      "size": 18
+    },
+    "expected": "sha256-d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3",
+    "fetched": 1
+  },
+  {
+    "name": "extra fields",
+    "pointer": "version https://git-lfs.github.com/spec/v1\noid sha256:d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3\nsize 18\next-example hello\n",
+    "revision": "70c394e5bdf3cc66592ec9dc60a714c68c4a8bb2",
+    "proof": {
+      "gitSha": "b7a03985f2b13863493bd98e22d088b4ce285f08",
+      "sha256": "d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3",
+      "size": 18
+    },
+    "expected": "sha256-d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3",
+    "fetched": 1
+  },
+  {
+    "name": "at limit",
+    "pointer": "version https://git-lfs.github.com/spec/v1\noid sha256:d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3\nsize 18\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "revision": "5dfb13cb6764d2dfab8d3fe1c6f8bba28cf8c567",
+    "proof": {
+      "gitSha": "b7a03985f2b13863493bd98e22d088b4ce285f08",
+      "sha256": "d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3",
+      "size": 18
+    },
+    "expected": "sha256-d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3",
+    "fetched": 1
+  },
+  {
+    "name": "over limit",
+    "pointer": "version https://git-lfs.github.com/spec/v1\noid sha256:d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3\nsize 18\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "revision": "91052b0e2dea82a2a88b1a54b625e98e6810f41b",
+    "proof": {
+      "gitSha": "b7a03985f2b13863493bd98e22d088b4ce285f08",
+      "sha256": "d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3",
+      "size": 18
+    },
+    "error": "invalid_lfs_pointer",
+    "fetched": 1
+  },
+  {
+    "name": "oversize integer",
+    "pointer": "version https://git-lfs.github.com/spec/v1\noid sha256:d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3\nsize 999999999999999999999999999999\n",
+    "revision": "1b54d75d2bf714cd81eb6b40c2ebe56857e90798",
+    "proof": {
+      "gitSha": "b7a03985f2b13863493bd98e22d088b4ce285f08",
+      "sha256": "d301245189e452b41ec6963c8385e5776ac30b06aa2117526fe128fbff9eb6a3",
+      "size": 18
+    },
+    "error": "invalid_blob_hash",
+    "fetched": 1
+  }
+]

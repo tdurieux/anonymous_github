@@ -2,6 +2,18 @@ import { resolve } from "path";
 import { randomBytes } from "crypto";
 
 interface Config {
+  SHARED_CACHE_ENABLED: boolean;
+  SHARED_CACHE_PATH: string;
+  SHARED_CACHE_BYTES: number;
+  SHARED_CACHE_MAX_FILE_BYTES: number;
+  SHARED_CACHE_GZIP: boolean;
+  SHARED_CACHE_GZIP_MIN_SAVING: number;
+  SHARED_CACHE_FREE_BYTES: number;
+  SHARED_CACHE_LOW_WATER: number;
+  SHARED_CACHE_DECISIONS: boolean;
+  SHARED_CACHE_RESULT_BYTES: number;
+  CACHE_MONITORING_ENABLED: boolean;
+
   GITHUB_APP_ENABLED: boolean;
   GITHUB_APP_NEW_CONNECTIONS: boolean;
   GITHUB_OAUTH_ENABLED: boolean;
@@ -67,6 +79,18 @@ interface Config {
   RATE_LIMIT: number;
 }
 const config: Config = {
+  SHARED_CACHE_ENABLED: false,
+  SHARED_CACHE_PATH: resolve(process.env.FOLDER || resolve(__dirname, "..", "repositories"), ".shared-cache-v1"),
+  SHARED_CACHE_BYTES: 10 * 1024 ** 3,
+  SHARED_CACHE_MAX_FILE_BYTES: 32 * 1024 ** 2,
+  SHARED_CACHE_GZIP: true,
+  SHARED_CACHE_GZIP_MIN_SAVING: 0.10,
+  SHARED_CACHE_FREE_BYTES: 1024 ** 3,
+  SHARED_CACHE_LOW_WATER: 0.9,
+  SHARED_CACHE_DECISIONS: true,
+  SHARED_CACHE_RESULT_BYTES: 512 * 1024 ** 2,
+  CACHE_MONITORING_ENABLED: true,
+
   GITHUB_APP_ENABLED: false,
   GITHUB_APP_NEW_CONNECTIONS: true,
   GITHUB_OAUTH_ENABLED: true,
