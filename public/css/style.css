@@ -385,8 +385,6 @@ a:hover {
     padding: 0;
   }
   .navbar .nav-support-label { display: none; }
-  [class*="floatingchat-container-wrap"],
-  iframe.floatingchat-container { display: none !important; }
 }
 
 .navbar .user-chip {
@@ -2807,12 +2805,6 @@ code {
     display: inline-block;
     margin-bottom: 2px;
   }
-
-  /* Ko-fi widget hidden on mobile */
-  .floatingchat-container-wrap {
-    display: none !important;
-  }
-
 
   /* ---- Anonymize page mobile ---- */
 
@@ -8155,13 +8147,6 @@ body:not(.dark-mode) .anonymize-page { --paper-card: #fff; --canvas-bg-color: #f
 .anonymize-page .anonymize-submit-bar .btn { font-weight: 600; }
 .anonymize-page .form-grid-2 .form-group { margin-bottom: 0; }
 .anonymize-page .form-check small { margin-left: -26px; }
-/* Reserve the widget's bottom-left space without moving or hiding donations. */
-@media (min-width: 992px) {
-  body:has([class*="floatingchat-container-wrap"]) .anonymize-page .anonymize-submit-bar {
-    padding-left: 228px;
-  }
-}
-
 /* User settings: one sheet, with labels aligned beside their controls. */
 .user-settings { max-width: 1060px; padding: 28px 26px 40px; }
 .user-settings .settings-title { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 22px; }
