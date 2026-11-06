@@ -58,7 +58,17 @@ export async function expandSubmodules(files: IFile[], data: GitHubBaseData,
       await waitForTokenGate("");
       const child = await octokit("").git.getTree({
         owner: repository.organization, repo: repository.repoName, tree_sha: mount.sha, recursive: "1",
+      }).catch((error: unknown) => {
+        const upstream = error as { status?: number; response?: { data?: { message?: string } } };
+        // GitHub also uses 422 for a gitlink whose pinned object is missing.
+        // Only classify this child-tree response, not arbitrary validation errors.
+        if (upstream.status === 422 && /^Invalid object requested\. SHA must identify a commit or a tree\b/.test(upstream.response?.data?.message || "")) {
+          mount.submodule = "unavailable";
+          return null;
+        }
+        throw error;
       });
+      if (!child) continue;
       if (child.data.truncated || child.data.tree.length > budget.remaining) { mount.submodule = "limit"; continue; }
       const entries = child.data.tree;
       if (entries.some(entry => !safeRepositoryPath(entry.path))) { mount.submodule = "unsupported"; continue; }

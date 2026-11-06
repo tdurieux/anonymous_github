@@ -138,6 +138,40 @@ describe("public GitHub submodules", function () {
     expect(calls).to.have.length(1);
   });
 
+  it("keeps parent files when a child gitlink points to an invalid Git object", async () => {
+    const error = Object.assign(new Error("invalid object"), { status: 422, response: { data: {
+      message: "Invalid object requested. SHA must identify a commit or a tree.",
+    } } });
+    api([], { error });
+    const source = new GitHubStream(parent);
+    source.getGHTree = async () => ({ tree: [
+      { path: "vendor/dependency", type: "commit", mode: "160000", sha },
+      { path: "README.md", type: "blob", sha: blob, size: 5 },
+    ] });
+    const files = await source.getFiles();
+    expect(files.find(file => file.name === "dependency").submodule).to.equal("unavailable");
+    expect(files.find(file => file.name === "dependency").upstream).not.to.exist;
+    expect(files.find(file => file.name === "README.md").sha).to.equal(blob);
+  });
+
+  it("does not suppress invalid-object errors from parent metadata", async () => {
+    const error = Object.assign(new Error("invalid parent"), { status: 422, response: { data: {
+      message: "Invalid object requested. SHA must identify a commit or a tree.",
+    } } });
+    stub(utils, "octokit", () => ({ repos: { getContent: async () => { throw error; } } }));
+    let caught; try { await expandSubmodules([mount()], parent); } catch (err) { caught = err; }
+    expect(caught).to.equal(error);
+  });
+
+  for (const [status, message] of [[422, "Validation Failed"], [422, ""], [429, "rate limited"], [500, "server error"]]) {
+    it(`preserves child failure ${status}: ${message}`, async () => {
+      const error = Object.assign(new Error(message), { status, response: { data: { message } } });
+      api([], { error });
+      let caught; try { await expandSubmodules([mount()], parent); } catch (err) { caught = err; }
+      expect(caught).to.equal(error);
+    });
+  }
+
   it("does not persist transient failures as permanently missing dependencies", async () => {
     const error = Object.assign(new Error("rate limited"), { status: 403 }); api([], { error });
     let caught; try { await expandSubmodules([mount()], parent); } catch (err) { caught = err; }
