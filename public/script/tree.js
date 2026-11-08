@@ -1,6 +1,29 @@
 import { h, reactive, ref, computed, watch, nextTick } from "vue";
 import { useRoute } from "vue-router";
 
+// Redacted segments (XXXX-N) render as a slot holding the term number; the rest stays readable.
+function redactedNodes(text) {
+  const out = []; let last = 0; const re = /\bXXXX-(\d+)\b/g; let m;
+  while ((m = re.exec(text))) {
+    if (m.index > last) out.push(text.slice(last, m.index));
+    out.push(h("span", { class: "redact-slot", role: "img", "aria-label": "Redacted term " + m[1] }, [h("i", null, m[1])]));
+    last = m.index + m[0].length;
+  }
+  if (!out.length) return text;
+  if (last < text.length) out.push(text.slice(last));
+  return out;
+}
+
+// File sizes from the API are bytes; the global humanFileSize expects bits.
+function formatBytes(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ["KB", "MB", "GB"];
+  let value = bytes / 1024;
+  let u = 0;
+  while (value >= 1024 && u < units.length - 1) { value /= 1024; u++; }
+  return `${value.toFixed(1)} ${units[u]}`;
+}
+
 export function fileHierarchy(files) {
   const root = { children: [] };
   const directories = new Map([["", root]]);
@@ -85,10 +108,9 @@ export default {
         const folder = !!node.children;
         const open = matching.value ? opens[path] !== false : !!opens[path];
         const truncated = folder && props.page?.options?.truncatedFolders?.includes(path.slice(1));
-        const count = props.page?.fileCounts?.[path.slice(1)] || 0;
         const icon = h("span", { class: folder ? "tree-icon-folder" : "far fa-file tree-icon-file", "aria-hidden": "true" },
           folder ? h("svg", { viewBox: "0 0 14 12", focusable: "false" }, h("path", { d: "M1.5 10.5v-9h4l1.5 2h5.5v7z" })) : null);
-        const label = h("span", { class: "tree-name" }, name);
+        const label = h("span", { class: "tree-name", title: name.replace(/\bXXXX-(\d+)\b/g, "[redacted term $1]") }, redactedNodes(name));
         const onClick = event => {
           focus(event.currentTarget);
           if (!folder) return;
@@ -102,10 +124,10 @@ export default {
           href: folder ? undefined : `/r/${encodeURIComponent(route.params.repoId)}${encodePathForUrl(path)}`,
           class: { "tree-focused": focusedPath === path },
           onClick,
-        }, [folder ? h("span", { class: "tree-toggle" }) : parent ? h("span", { class: "tree-spacer" }) : null, icon, label,
+        }, [folder ? h("span", { class: "tree-toggle" }) : h("span", { class: "tree-spacer" }), icon, label,
           truncated ? h("span", { class: "truncated-warning", title: props.page.fmt.translate("WARNINGS.folder_truncated") }, h("i", { class: "fas fa-exclamation-triangle" })) : null,
-          folder && count ? h("span", { class: "tree-count" }, count) : null]);
-        return h("li", { key: path, class: { file: true, folder, open, active: selectedPath() === path, truncated }, title: folder ? "" : `Size: ${humanFileSize(node.size || 0)}` }, [link, folder && open ? renderNodes(node.children, path) : null]);
+        ]);
+        return h("li", { key: path, class: { file: true, folder, open, active: selectedPath() === path, truncated }, title: folder ? "" : `Size: ${formatBytes(node.size || 0)}` }, [link, folder && open ? renderNodes(node.children, path) : null]);
       }));
     }
     return () => h("tree", { ref: host, tabindex: 0, onKeydown: keyboard },

@@ -781,7 +781,7 @@ describe("Vue 3 UI", function () {
     ui = await browser("/connections", {
       "/api/user": { username: "owner" },
       "/github/connections": { csrf: "csrf-value", appEnabled: true, appConnected: true, oauthEnabled: true, oauthConnected: connection === "oauth",
-        installations: [{ id: 4, account: "owner" }], gistCount: 0, resources: [resource] },
+        installations: [{ id: 4, account: "owner" }, { id: 5, account: "org" }], gistCount: 0, resources: [resource] },
       "/github/connections/migrate": request => request.payload.preview ? { eligible: true } : { connection: "github-app" },
     });
     const button = label => [...ui.window.document.querySelectorAll("button")].find(node => node.textContent.includes(label));
@@ -1048,21 +1048,19 @@ describe("Vue 3 UI", function () {
       "/api/repo/test/options": { anonymizedAt: "2026-01-01T00:00:00Z", sourceCommitDate: "2020-01-01T00:00:00Z",
         settingsSavedAt: "2026-02-01T00:00:00Z", publishedAt: "2026-03-01T00:00:00Z" },
     });
-    const footer = ui.window.document.querySelector(".leftCol-foot");
-    expect(footer.textContent).to.include("Source commit").and.include("Settings saved").and.include("Snapshot ready");
-    expect([...footer.querySelectorAll(".last-update")].map(node => node.title)).to.deep.equal([
-      "2020-01-01T00:00:00Z", "2026-02-01T00:00:00Z", "2026-03-01T00:00:00Z",
-    ]);
-    expect(footer.textContent).not.to.include("not recorded");
+    const snapshot = ui.window.document.querySelector(".vb-snapshot");
+    expect(snapshot.textContent).to.include("Mar 1, 2026");
+    expect(snapshot.title).to.include("Source commit").and.include("snapshot ready");
+    expect(snapshot.title).not.to.include("no recorded publication date");
     expect(ui.errors).to.deep.equal([]);
   });
   it("identifies an unknown legacy publication date", async function () {
     ui = await browser("/r/test/hello.txt", {
       "/api/repo/test/options": { anonymizedAt: "2026-01-01T00:00:00Z", sourceCommitDate: "2020-01-01T00:00:00Z" },
     });
-    const footer = ui.window.document.querySelector(".leftCol-foot");
-    expect(footer.textContent).to.include("Snapshot ready date not recorded");
-    expect(footer.textContent).not.to.include("Settings saved");
+    const snapshot = ui.window.document.querySelector(".vb-snapshot");
+    expect(snapshot.title).to.include("no recorded publication date");
+    expect(snapshot.textContent).not.to.include("Settings saved");
     expect(ui.errors).to.deep.equal([]);
   });
 
@@ -1372,7 +1370,7 @@ describe("Vue 3 UI", function () {
     await delay(10);
     expect(state.filteredItems.map(item => item._id).sort()).to.deep.equal(["error", "stalled"]);
     expect(ui.window.document.querySelector('[href="/anonymize/error"]').textContent).to.equal("Fix source");
-    expect(ui.window.document.querySelector(".filter-chip")?.textContent).not.to.include("Error hidden");
+    expect(ui.window.document.querySelector(".filter-chip")?.textContent ?? "").not.to.include("Hiding error");
     await ui.input("#search", "stalled");
     expect(state.filteredItems).to.have.length(1);
     state.clearFilters(); await delay(10);

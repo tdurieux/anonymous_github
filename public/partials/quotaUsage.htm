@@ -6,7 +6,7 @@
     ]">
     <div class="quota-header">
       <span class="quota-label"><svg class="project-type-svg" aria-hidden="true"><use :href="'#' + q.icon"></use></svg>{{ q.label }}</span>
-      <span class="quota-percent" v-if="!quota[q.key].unlimited">{{ fmt.number(quota[q.key].percent, 0) }}% used</span>
+      <span class="quota-percent" v-if="!quota[q.key].unlimited">{{ quota[q.key].percent > 0 &amp;&amp; quota[q.key].percent < 1 ? '<1' : fmt.number(quota[q.key].percent, 0) }}% used</span>
       <span class="quota-unlimited-tag" v-if="quota[q.key].unlimited">Unlimited</span>
     </div>
     <div class="quota-value"><strong>{{ formatAmount(quota[q.key].used, q.kind) }}</strong><span v-if="!quota[q.key].unlimited"> / {{ formatAmount(quota[q.key].total, q.kind) }}</span></div>

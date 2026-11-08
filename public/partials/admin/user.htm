@@ -1,5 +1,5 @@
 <div class="container paper-page admin-page">
-  <div class="paper-crumbs"><a href="/admin/users">Users</a> &nbsp;/&nbsp; <span class="here">{{ userInfo?.username || 'Profile' }}</span></div>
+  <div class="paper-crumbs"><a href="/admin/">Admin</a> &nbsp;/&nbsp; <a href="/admin/users">Users</a> &nbsp;/&nbsp; <span class="here">{{ userInfo?.username || 'Profile' }}</span></div>
   <h1 class="paper-page-title">{{ userInfo?.username || 'User' }}</h1>
 
   <nav class="admin-nav">
@@ -24,23 +24,23 @@
           <span class="type-badge type-repo" v-if="userInfo?.isAdmin">Admin</span>
         </h2>
         <div class="user-actions" style="margin-top: 4px;">
-          <button class="btn btn-sm text-danger" v-if="userInfo?.status !== &#x27;banned&#x27;" @click="banUser()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-ban"></use></svg> Ban</button>
+          <button class="btn btn-sm btn-outline-danger" v-if="userInfo?.status !== &#x27;banned&#x27; &amp;&amp; userInfo?.username !== user?.username" @click="banUser()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-ban"></use></svg> Ban</button>
           <button class="btn btn-sm" v-if="userInfo?.status === &#x27;banned&#x27; || userInfo?.status === &#x27;removed&#x27;" @click="activateUser()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-check-circle"></use></svg> Activate</button>
           <button class="btn btn-sm" v-if="!userInfo?.isAdmin" @click="promoteUser()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-user-shield"></use></svg> Promote to admin</button>
-          <button class="btn btn-sm text-danger" v-if="userInfo?.isAdmin" @click="demoteUser()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-user-minus"></use></svg> Remove admin</button>
+          <button class="btn btn-sm btn-outline-ink" v-if="userInfo?.isAdmin &amp;&amp; userInfo?.username !== user?.username" @click="demoteUser()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-user-minus"></use></svg> Remove admin</button>
         </div>
       </div>
     </div>
 
     <div class="user-detail-grid">
       <div class="detail-label">ID</div>
-      <div class="detail-value">{{ userInfo?._id }}</div>
+      <div class="detail-value mono-id">{{ userInfo?._id }}</div>
 
       <div class="detail-label">Email</div>
-      <div class="detail-value">{{ userInfo?.emails?.[0]?.email }}</div>
+      <div class="detail-value" :class="{ 'is-empty': !userInfo?.emails?.[0]?.email }">{{ userInfo?.emails?.[0]?.email || 'Not shared' }}</div>
 
       <div class="detail-label">Access token</div>
-      <div class="detail-value" style="font-family: var(--font-mono); font-size: 0.85rem;">{{ userInfo?.accessTokens?.github }}</div>
+      <div class="detail-value" :class="{ 'is-empty': !userInfo?.accessTokens?.github }" style="font-family: var(--font-mono); font-size: 0.85rem;">{{ userInfo?.accessTokens?.github || 'Not stored' }}</div>
 
       <div class="detail-label">GitHub</div>
       <div class="detail-value">
@@ -55,14 +55,14 @@
       <div class="detail-label">Last connection</div>
       <div class="detail-value">
         <span v-if="userInfo?.accessTokenDates?.github">{{ fmt?.humanTime(userInfo?.accessTokenDates?.github) }}</span>
-        <span class="text-muted" v-if="!userInfo?.accessTokenDates?.github">never</span>
+        <span class="text-muted" v-if="!userInfo?.accessTokenDates?.github">Not recorded (GitHub App sign-in)</span>
       </div>
 
       <div class="detail-label">GitHub repos</div>
       <div class="detail-value">
-        {{ userInfo?.repositories?.length }} repositories
-        <button class="btn btn-sm ml-2" @click="showRepos = !showRepos">
-          {{ showRepos ? 'Hide' : 'Show' }}
+        {{ userInfo?.repositories?.length ? userInfo.repositories.length + " repositories" : "Not synced" }}
+        <button class="btn btn-sm ml-2" v-if="userInfo?.repositories?.length" @click="showRepos = !showRepos">
+          {{ showRepos ? 'Hide repos' : 'Show repos' }}
         </button>
         <button class="btn btn-sm ml-1" @click="getGitHubRepositories()">
           <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-refresh"></use></svg> Refresh

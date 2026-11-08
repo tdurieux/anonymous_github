@@ -5,7 +5,7 @@
     <h1 class="paper-page-title">Errors</h1>
     <div class="errors-actions">
       <button class="btn btn-sm" type="button" @click="exportCsv()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-export"></use></svg> Export CSV</button>
-      <button class="btn btn-sm btn-danger" type="button" @click="clearAll()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-trash"></use></svg> Clear all</button>
+      <button class="btn btn-sm btn-outline-danger" type="button" @click="clearAll()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-trash"></use></svg> Clear all</button>
     </div>
   </header>
 
@@ -20,33 +20,33 @@
 
   <section class="kpi-grid">
     <div class="kpi-card">
-      <div class="kpi-label">Last 24h</div>
-      <div class="kpi-value">{{ stats?.last24h }}</div>
+      <div class="kpi-label">Occurrences · 24h</div>
+      <div class="kpi-value">{{ fmt?.number(stats?.last24h ?? 0) }}</div>
       <div class="kpi-sub" :class="{up: stats?.delta &gt; 0, down: stats?.delta &lt; 0}">
-        <span v-if="stats?.prev24h">{{ stats?.delta > 0 ? '+' : '' }}{{ stats?.delta }}% vs yesterday</span>
+        <span v-if="stats?.prev24h &gt;= 20">{{ (stats?.last24h ?? 0) - (stats?.prev24h ?? 0) &gt;= 0 ? '+' : '' }}{{ Math.round(((stats?.last24h ?? 0) - (stats?.prev24h ?? 0)) / stats.prev24h * 100) }}% vs yesterday</span><span v-else-if="stats?.prev24h !== undefined">{{ fmt?.number(stats?.prev24h ?? 0) }} in prior 24h</span>
         <span v-if="!stats?.prev24h">no prior baseline</span>
       </div>
     </div>
-    <div class="kpi-card kpi-error">
+    <div class="kpi-card kpi-error kpi-filter" role="button" tabindex="0" :class="{ 'is-selected': query?.bucket === 'error' }" :aria-pressed="query?.bucket === 'error'" :title="'Show only 5xx errors'" @click="setBucket(query?.bucket === 'error' ? '' : 'error')" @keydown.enter.prevent="setBucket(query?.bucket === 'error' ? '' : 'error')">
       <div class="kpi-label">Errors (5xx)</div>
-      <div class="kpi-value">{{ stats?.severity?.error }}</div>
+      <div class="kpi-value">{{ fmt?.number(stats?.severity?.error ?? 0) }}</div>
       <div class="kpi-sub">{{ stats?.unique?.error }} unique</div>
     </div>
-    <div class="kpi-card kpi-warn">
-      <div class="kpi-label">Warnings (4xx)</div>
-      <div class="kpi-value">{{ stats?.severity?.warn }}</div>
+    <div class="kpi-card kpi-warn kpi-filter" role="button" tabindex="0" :class="{ 'is-selected': query?.bucket === 'warn' }" :aria-pressed="query?.bucket === 'warn'" :title="'Show only 4xx responses'" @click="setBucket(query?.bucket === 'warn' ? '' : 'warn')" @keydown.enter.prevent="setBucket(query?.bucket === 'warn' ? '' : 'warn')">
+      <div class="kpi-label">4xx responses</div>
+      <div class="kpi-value">{{ fmt?.number(stats?.severity?.warn ?? 0) }}</div>
       <div class="kpi-sub">{{ stats?.unique?.warn }} unique</div>
     </div>
-    <div class="kpi-card kpi-info">
+    <div class="kpi-card kpi-info kpi-filter" role="button" tabindex="0" :class="{ 'is-selected': query?.bucket === 'info' }" :aria-pressed="query?.bucket === 'info'" :title="'Show only info events'" @click="setBucket(query?.bucket === 'info' ? '' : 'info')" @keydown.enter.prevent="setBucket(query?.bucket === 'info' ? '' : 'info')">
       <div class="kpi-label">Info (auth, 404)</div>
-      <div class="kpi-value">{{ stats?.severity?.info }}</div>
+      <div class="kpi-value">{{ fmt?.number(stats?.severity?.info ?? 0) }}</div>
       <div class="kpi-sub">{{ stats?.unique?.info }} unique</div>
     </div>
     <div class="kpi-card" :class="{&#x27;kpi-error&#x27;: stats?.dropped &gt; 0}">
-      <div class="kpi-label">Captured</div>
-      <div class="kpi-value">{{ total }}</div>
+      <div class="kpi-label">Distinct errors stored</div>
+      <div class="kpi-value">{{ fmt?.number(total) }}</div>
       <div class="kpi-sub">
-        cap {{ cap }} · {{ available ? 'live' : 'redis off' }}
+        all time · cap {{ fmt?.number(cap) }} · {{ available ? 'live' : 'redis off' }}
         <span class="dropped-warn" v-if="stats?.dropped &gt; 0"> · {{ stats?.dropped }} dropped</span>
       </div>
     </div>
@@ -56,9 +56,9 @@
     <div class="volume-head">
       <span class="volume-title">Volume · 24h · 1h buckets</span>
       <span class="volume-legend">
-        <span class="dot dot-error"></span>error
-        <span class="dot dot-warn"></span>warn
-        <span class="dot dot-info"></span>info
+        <span v-if="stats?.severity?.error"><span class="dot dot-error"></span>error</span>
+        <span v-if="stats?.severity?.warn"><span class="dot dot-warn"></span>warn</span>
+        <span v-if="stats?.severity?.info"><span class="dot dot-info"></span>info</span>
       </span>
     </div>
     <div class="volume-bars">
@@ -68,6 +68,7 @@
         <span class="seg seg-info" :style="{height: barPx(b, &#x27;info&#x27;) + &#x27;px&#x27;}"></span>
       </div>
     </div>
+    <div class="volume-axis" aria-hidden="true"><span>24h ago</span><span>12h ago</span><span>now</span></div>
   </section>
 
   <form class="errors-toolbar" aria-label="Error filters" v-form="viewState">
@@ -79,7 +80,7 @@
     </div>
     <div class="search-wrap">
       <svg class="ui-icon search-icon" aria-hidden="true"><use href="#ui-icon-search"></use></svg>
-      <input type="search" class="form-control" placeholder="code:repo_not_found module:route status:&gt;=400" autocomplete="off" v-field="{ state: viewState, set: value =&gt; { query.search = value }, value: query?.search, form: null, options: {} }">
+      <input type="search" class="form-control" placeholder="Search code, module, status…" title="Syntax: code:repo_not_found module:route status:&gt;=400" autocomplete="off" v-field="{ state: viewState, set: value =&gt; { query.search = value }, value: query?.search, form: null, options: {} }">
       <span class="filter-count" v-if="parsedFilterCount">{{ parsedFilterCount }} filter{{ parsedFilterCount > 1 ? 's' : '' }}</span>
     </div>
     <div class="select-wrap">
@@ -99,15 +100,15 @@
     </div>
     <label class="autoref">
       <input type="checkbox" v-field="{ state: viewState, set: value =&gt; { query.autoRefresh = value }, value: query?.autoRefresh, form: null, options: {} }">
-      Auto-refresh
+      <span class="auto-refresh-label">Auto-refresh</span>
     </label>
     <button class="btn btn-sm btn-icon" type="button" title="Refresh now" @click="refreshNow()" aria-label="Refresh"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-refresh"></use></svg></button>
   </form>
 
   <div class="admin-empty" v-if="!visible?.length">No errors captured.</div>
   <div class="errors-pager" v-if="canLoadMore() &amp;&amp; visible?.length">
-    <span>Showing {{ entries?.length }} of {{ total }} captured</span>
-    <button class="btn btn-sm" type="button" @click="loadMore()">Load older</button>
+    <span>{{ query?.group &amp;&amp; visible?.length !== entries?.length ? fmt?.number(visible?.length) + (visible?.length === 1 ? ' group' : ' groups') + ' from ' : '' }}{{ fmt?.number(entries?.length) }} of {{ fmt?.number(total) }} stored errors loaded</span>
+    <button class="btn btn-sm" type="button" @click="loadMore()">Load 250 older</button>
   </div>
 
   <div class="errors-list" v-if="visible?.length">
@@ -116,7 +117,7 @@
       <span class="col-sev">Severity</span>
       <span class="col-mod">Module</span>
       <span class="col-msg">Message</span>
-      <span class="col-count">Count</span>
+      <span class="col-count" title="Total occurrences since first seen">Total</span>
       <span class="col-status">Status</span>
     </div>
 
@@ -142,7 +143,7 @@
           <span class="count-pill count-pill-muted" v-if="row?.count === 1">×1</span>
         </div>
         <div class="col-status">
-          <span class="status-pill" v-if="row?._status" :class="&#x27;status-&#x27; + row?._bucket">{{ row?._status }}</span>
+          <span class="status-pill" v-if="row?._status" :class="String(row?._status).match(/^[23]/) ? 'status-neutral' : (&#x27;status-&#x27; + row?._bucket)" :title="String(row?._status).match(/^2/) &amp;&amp; row?._bucket === 'warn' ? 'Client closed the connection' : null">{{ String(row?._status).match(/^2/) &amp;&amp; row?._bucket === 'warn' ? '—' : row?._status }}</span>
         </div>
       </div>
 

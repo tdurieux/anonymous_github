@@ -12,13 +12,14 @@
   </nav>
 
   <div class="admin-summary">
-    <span class="summary-total">{{ total >= 0 ? fmt.number(total) : '…' }}</span>
+    <span class="summary-total">{{ total >= 0 ? fmt.number(total) : '…' }} <small>{{ total === 1 ? 'repository' : 'repositories' }}</small></span>
     <span class="summary-meta">{{ fmt?.humanFileSize(totalSize) }} on disk</span>
+    <span class="summary-show-label">Show:</span>
     <button type="button" class="summary-pill ok" title="Toggle ready filter" :class="{active: query?.ready}" @click="query.ready = !query.ready; query.page = 1" :aria-pressed="!!(query?.ready)">Ready <span class="count">{{ fmt?.number(statusCountFor('ready')) }}</span></button>
     <button type="button" class="summary-pill warn" title="Toggle preparing filter" :class="{active: query?.preparing}" @click="query.preparing = !query.preparing; query.page = 1" :aria-pressed="!!(query?.preparing)">Preparing <span class="count">{{ fmt?.number(statusCountFor('preparing') + statusCountFor('download')) }}</span></button>
     <button type="button" class="summary-pill error" title="Toggle errored filter" :class="{active: query?.error}" @click="query.error = !query.error; query.page = 1" :aria-pressed="!!(query?.error)">Errored <span class="count">{{ fmt?.number(statusCountFor('error')) }}</span></button>
     <button type="button" class="summary-pill" title="Toggle expired filter" :class="{active: query?.expired}" @click="query.expired = !query.expired; query.page = 1" :aria-pressed="!!(query?.expired)">Expired <span class="count">{{ fmt?.number(statusCountFor('expired') + statusCountFor('expiring')) }}</span></button>
-    <button type="button" class="summary-pill" title="Toggle removed filter" :class="{active: query?.removed}" @click="query.removed = !query.removed; query.page = 1" :aria-pressed="!!(query?.removed)">Removed <span class="count">{{ fmt?.number(statusCountFor('removed') + statusCountFor('removing')) }}</span></button>
+    <button type="button" class="summary-pill" :title="query?.removed ? 'Removed repositories are shown. Click to hide them.' : 'Removed repositories are hidden. Click to include them.'" :class="{active: query?.removed}" @click="query.removed = !query.removed; query.page = 1" :aria-pressed="!!(query?.removed)">Removed <span class="count">{{ fmt?.number(statusCountFor('removed') + statusCountFor('removing')) }}</span></button>
   </div>
 
   <div class="alert alert-danger" style="margin: 8px 0;" v-if="fetchError">
@@ -27,16 +28,17 @@
 
   <form class="w-100 admin-filter-toolbar" aria-label="Repositories" accept-charset="UTF-8" v-form="viewState">
     <!-- Row 1: search + scoped inputs + headline actions -->
-    <div class="admin-filter-row">
+    <button type="button" class="btn btn-sm admin-filters-toggle" @click="filtersOpen = !filtersOpen" :aria-expanded="filtersOpen ? 'true' : 'false'">Filters</button>
+    <div class="admin-filter-row" :class="{ 'is-open': filtersOpen }">
       <div class="search-wrap">
-        <input type="search" class="form-control" aria-label="Search repositories" placeholder="Search repoId, source repo, error message…" autocomplete="off" v-field="{ state: viewState, set: value =&gt; { query.search = value }, value: query?.search, form: null, options: {} }">
+        <input type="search" class="form-control" aria-label="Search repositories" placeholder="Search repositories…" autocomplete="off" v-field="{ state: viewState, set: value =&gt; { query.search = value }, value: query?.search, form: null, options: {} }">
         <span class="admin-search-hint" v-if="!query?.search">/</span>
       </div>
       <span class="admin-filter-inline"><label>Owner</label><input type="text" class="form-control form-control-sm" placeholder="username" v-field="{ state: viewState, set: value =&gt; { query.owner = value }, value: query?.owner, form: null, options: {} }"></span>
       <span class="admin-filter-inline"><label>Conference</label><input type="text" class="form-control form-control-sm" placeholder="ID" v-field="{ state: viewState, set: value =&gt; { query.conference = value }, value: query?.conference, form: null, options: {} }"></span>
       <span class="admin-filter-spacer"></span>
       <button class="btn btn-sm" type="button" title="Export current view to CSV" @click="exportCsv()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-export"></use></svg> Export</button>
-      <span class="admin-filter-inline" aria-label="Pagination">
+      <span class="admin-filter-inline" aria-label="Pagination" v-if="totalPage &gt; 1">
         <button class="btn btn-sm btn-icon" type="button" @click="query.page = Math.max(1, query.page - 1)" :disabled="query?.page &lt;= 1" aria-label="Previous page"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-chevron-left"></use></svg></button>
         <span style="font-family: var(--font-mono); font-size: 12px; color: var(--ink-muted);">{{ query?.page }}/{{ totalPage || 1 }}</span>
         <button class="btn btn-sm btn-icon" type="button" @click="query.page = Math.min(totalPage, query.page + 1)" :disabled="query?.page &gt;= totalPage" aria-label="Next page"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-chevron-right"></use></svg></button>
@@ -82,7 +84,7 @@
         <div class="anon-text">
           <a class="repo-name" target="_blank" v-text="repo?.repoId" :href="safeUrl(&quot;/r/&quot; + (repo?.repoId))"></a>
           <div class="anon-sub">
-            <a v-text="repo?.source?.repositoryName" :href="safeUrl(&quot;https://github.com/&quot; + (repo?.source?.repositoryName) + &quot;/&quot;)"></a><span v-if="repo?.options?.update">&nbsp;&middot;&nbsp;<a v-text="repo?.source?.branch" :href="safeUrl(&quot;https://github.com/&quot; + (repo?.source?.fullName) + &quot;/tree/&quot; + (repo?.source?.branch))"></a></span><span v-if="!repo?.options?.update">&nbsp;&middot;&nbsp;@<a v-text="repo?.source?.commit?.substring(0, 8)" :href="safeUrl(&quot;https://github.com/&quot; + (repo?.source?.fullName) + &quot;/tree/&quot; + (repo?.source?.commit))"></a></span><span v-if="repo?.conference">&nbsp;&middot;&nbsp;<svg class="ui-icon" aria-hidden="true"><use href="#project-icon-conference"></use></svg> {{ repo?.conference }}</span><span>&nbsp;&middot;&nbsp;{{ fmt?.humanFileSize(repo?.size?.storage) }}</span><span>&nbsp;&middot;&nbsp;{{ fmt?.number(repo?.options?.terms?.length) }} terms</span>
+            <a v-text="repo?.source?.repositoryName" :href="safeUrl(&quot;https://github.com/&quot; + (repo?.source?.repositoryName) + &quot;/&quot;)"></a><span class="meta-sep" v-if="repo?.options?.update"><a v-text="repo?.source?.branch" :href="safeUrl(&quot;https://github.com/&quot; + (repo?.source?.fullName) + &quot;/tree/&quot; + (repo?.source?.branch))"></a></span><span class="meta-sep" v-if="!repo?.options?.update"><a class="mono-hash" v-text="repo?.source?.commit?.substring(0, 7)" :href="safeUrl(&quot;https://github.com/&quot; + (repo?.source?.fullName) + &quot;/tree/&quot; + (repo?.source?.commit))"></a></span><span class="meta-sep" v-if="repo?.conference"><svg class="ui-icon" aria-hidden="true"><use href="#project-icon-conference"></use></svg> {{ repo?.conference }}</span><span class="meta-sep" v-if="repo?.size?.storage &gt; 0">{{ fmt?.humanFileSize(repo?.size?.storage) }}</span><span>{{ fmt?.number(repo?.options?.terms?.length) }} {{ repo?.options?.terms?.length === 1 ? 'term' : 'terms' }}</span>
           </div>
         </div>
       </div>
@@ -94,7 +96,7 @@
         <span class="status-sub" v-if="repo?.statusMessage" v-text="fmt?.statusMsg(repo?.statusMessage)" :title="(repo?.statusMessage)"></span>
       </div>
       <div class="cell-views num" role="cell"><svg class="ui-icon mobile-meta-icon" aria-hidden="true"><use href="#project-icon-eye"></use></svg> <span v-text="fmt?.number(repo?.pageView || 0)"></span></div>
-      <div class="cell-expires" role="cell"><svg class="ui-icon mobile-meta-icon" aria-hidden="true"><use href="#project-icon-clock"></use></svg> <span v-text="fmt?.humanTime(repo?.anonymizeDate)"></span></div>
+      <div class="cell-expires" role="cell"><svg class="ui-icon mobile-meta-icon" aria-hidden="true"><use href="#project-icon-clock"></use></svg> <span v-text="(fmt?.humanTime(repo?.anonymizeDate) || '').replace(/^on /, '')"></span></div>
       <div class="cell-actions" role="cell">
         <div class="dropdown">
           <button class="btn btn-icon-dots" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" aria-label="Actions">
@@ -119,6 +121,7 @@
     <div class="paper-table-empty" v-if="filteredRepositories?.length == 0">
       <svg class="ui-icon" aria-hidden="true"><use href="#project-icon-inbox"></use></svg>
       <span>No repositories match the current filters.</span>
+      <button type="button" class="btn btn-sm btn-outline-ink" v-if="!(query.ready &amp;&amp; query.expired &amp;&amp; query.removed &amp;&amp; query.error &amp;&amp; query.preparing)" @click="showAllStatuses()">Show all statuses</button>
     </div>
   </div>
 

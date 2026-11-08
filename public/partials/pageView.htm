@@ -1,7 +1,92 @@
-<div v-code-editor="{ content: content, options: aceOption }" v-if="type == &#x27;text&#x27;"></div>
-<div class="file-content markdown-body" v-if="type == &#x27;html&#x27;" v-html="sanitize(content)"></div>
+<section class="dir-card" v-if="sidebarHidden &amp;&amp; type == 'html' &amp;&amp; content != null &amp;&amp; paths?.length === 1 &amp;&amp; /^readme/i.test(paths[0] || '') &amp;&amp; files?.length" aria-label="Repository files">
+  <header class="dir-card-head">
+    <span class="dir-card-title">Files</span>
+    <span class="dir-card-sub">Snapshot of the repository at review time</span>
+  </header>
+  <ul class="dir-list" :class="{ 'is-expanded': dirExpanded }">
+    <li v-for="entry in rootEntries()" :key="entry.name">
+      <button type="button" class="dir-row" v-if="entry.size == null" @click="revealFolder(entry.name)">
+        <svg class="dir-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 3.5h4l1.5 1.5h7.5v8h-13z"/></svg>
+        <span class="dir-name">{{ entry.name }}</span>
+        <span class="dir-meta">Folder</span>
+      </button>
+      <a class="dir-row" v-else :class="{ 'is-current': entry.name === paths[0] }" :href="safeUrl('/r/' + repoId + '/' + encodeURIComponent(entry.name))">
+        <svg class="dir-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 1.5h6l3 3v10h-9z"/></svg>
+        <span class="dir-name">{{ entry.name }}</span>
+        <span class="dir-meta">{{ formatSize(entry.size) }}</span>
+      </a>
+    </li>
+  </ul>
+  <button type="button" class="dir-more" v-if="!dirExpanded &amp;&amp; files.length &gt; 8" @click="dirExpanded = true">Show all {{ files.length }} items</button>
+</section>
+<section class="file-card" :class="{ 'is-code': type != 'html', 'no-wrap': !wrapLines }" v-if="(type == 'text' || type == 'code' || type == 'html' || (type == 'html-doc' &amp;&amp; showSource)) &amp;&amp; content != null">
+  <header class="file-card-head">
+    <div class="file-card-path">
+      <button type="button" class="btn btn-sm btn-icon-only btn-ghost card-files-btn" :class="{ 'is-needed': sidebarHidden }" aria-label="Show file tree" title="Show file tree" @click="sidebarHidden ? (sidebarHidden = false) : (sidebarCollapsed = false)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-sidebar"></use></svg></button>
+      <ol class="breadcrumb paths" aria-label="Path">
+        <li class="breadcrumb-item breadcrumb-root"><a :href="safeUrl('/r/' + repoId + '/')" :title="repoId" v-text="/^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(repoId || '') ? 'repository' : repoId"></a></li>
+        <li class="breadcrumb-item" v-for="(p, index) in paths" :aria-current="index === paths.length - 1 ? 'page' : null"><template v-for="(seg, si) in redactParts(p)" :key="si"><span v-if="seg.n" class="redact-slot" role="img" :aria-label="'Redacted term ' + seg.n"><i>{{ seg.n }}</i></span><template v-else>{{ seg.t }}</template></template></li>
+      </ol>
+      <span class="mobile-sub"><span>{{ type == 'html' ? 'Markdown' : (languageName || 'Text') }}</span><span v-if="type != 'html' &amp;&amp; typeof content === 'string'">{{ fmt?.number(content.split('\n').length) }} lines</span><span v-if="type == 'html' && fileSize(filePath) != null">{{ formatSize(fileSize(filePath)) }}</span><b v-if="redactionCount()">{{ redactionCount() }} redacted</b></span>
+      <button type="button" class="btn btn-sm btn-icon-only btn-ghost copy-path-btn" v-show="filePath" :aria-label="pathCopied ? 'Path copied' : 'Copy path'" :title="pathCopied ? 'Path copied' : 'Copy path'" @click="copyPath()"><svg class="ui-icon" aria-hidden="true"><use :href="pathCopied ? '#ui-icon-check' : '#ui-icon-link'"></use></svg></button>
+    </div>
+    <span class="file-card-meta" v-if="type != 'html' &amp;&amp; typeof content === 'string'"><template v-if="languageName">{{ languageName }}<span class="sep">·</span></template>{{ fmt?.number(content.split('\n').length) }} lines<span class="meta-extra"><span class="sep">·</span>{{ content.length &lt; 1024 ? content.length + ' B' : (content.length / 1024).toFixed(1) + ' KB' }}</span><template v-if="redactionCount()"><span class="sep">·</span><span class="meta-redact">{{ redactionCount() }} redacted</span></template></span>
+    <span class="file-card-meta" v-if="type == 'html'">Markdown<template v-if="fileSize(filePath) != null"><span class="sep">·</span>{{ formatSize(fileSize(filePath)) }}</template><template v-if="redactionCount()"><span class="sep">·</span><span class="meta-redact">{{ redactionCount() }} redacted</span></template></span>
+    <div class="file-card-actions">
+    <div class="symbols" v-if="type != 'html' &amp;&amp; symbols().length &gt; 1">
+      <button type="button" class="btn btn-sm btn-ghost btn-symbols" :class="{ 'is-on': symbolsOpen }" :aria-expanded="symbolsOpen ? 'true' : 'false'" aria-haspopup="true" title="Symbols in this file" @click="symbolsOpen = !symbolsOpen"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-list"></use></svg><span class="btn-find-label">Symbols</span></button>
+      <div class="symbols-menu" v-if="symbolsOpen" role="menu">
+        <div class="symbols-head">{{ symbols().length }} {{ symbols().length === 1 ? 'symbol' : 'symbols' }}</div>
+        <button type="button" class="symbols-item" role="menuitem" v-for="sym in symbols()" :key="sym.line + sym.name" @click="goToSymbol(sym.line)"><span class="symbols-kind" :class="'is-' + sym.kind">{{ sym.kind === 'class' ? 'C' : sym.kind === 'function' ? 'ƒ' : 'v' }}</span><span class="symbols-name">{{ sym.name }}</span><span class="symbols-line">{{ sym.line }}</span></button>
+      </div>
+    </div>
+    <button type="button" class="btn btn-sm btn-ghost btn-icon-only btn-find btn-md-find" v-if="type == 'html'" :class="{ 'is-on': mdFindOpen }" aria-label="Find on this page" :title="'Find on this page (' + (isMac ? '⌘' : 'Ctrl+') + 'F)'" @click="toggleMdFind()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-search"></use></svg></button>
+    <button type="button" class="btn btn-sm btn-ghost btn-icon-only btn-find" v-if="type != 'html'" aria-label="Find in file" :title="'Find in file (' + (isMac ? '⌘' : 'Ctrl+') + 'F)'" @click="findInFile()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-search"></use></svg></button>
+    <button type="button" class="btn btn-sm btn-ghost btn-icon-only btn-goto" v-if="type != 'html'" aria-label="Go to line" :title="'Go to line (' + (isMac ? '⌘' : 'Ctrl+') + 'G)'" @click="gotoLine()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-goto"></use></svg></button>
+    <button type="button" class="btn btn-sm btn-icon-only btn-ghost btn-toggle" v-if="type != 'html'" :class="{ 'is-on': wrapLines }" :aria-pressed="wrapLines ? 'true' : 'false'" aria-label="Wrap long lines" :title="'Wrap long lines (Alt+Z)'" @click="toggleWrap()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-wrap"></use></svg></button>
+    <div class="tb-file" role="group" aria-label="File actions">
+      <a target="_self" class="tb-seg-btn" :title="type == 'html' ? 'Open the Markdown source' : 'Open the raw file'" :href="safeUrl((url))">Raw</a>
+      <button type="button" class="tb-seg-btn tb-seg-icon" v-if="typeof content === 'string'" :aria-label="contentCopied ? 'Copied' : 'Copy file contents'" :title="contentCopied ? 'Copied' : 'Copy file contents'" @click="copyContent()"><svg class="ui-icon" aria-hidden="true"><use :href="contentCopied ? '#ui-icon-check' : '#project-icon-copy'"></use></svg></button>
+      <a target="_self" class="tb-seg-btn tb-seg-icon" aria-label="Download file" title="Download file" :href="safeUrl((url) + &quot;&amp;download=true&quot;)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-download"></use></svg></a>
+    </div>
+    <button type="button" class="btn btn-sm btn-icon-only btn-ghost tb-copy-m" v-if="typeof content === 'string'" :aria-label="contentCopied ? 'Copied' : 'Copy file contents'" @click="copyContent()"><svg class="ui-icon" aria-hidden="true"><use :href="contentCopied ? '#ui-icon-check' : '#project-icon-copy'"></use></svg></button>
+    <div class="tb-more">
+      <button type="button" class="btn btn-sm btn-icon-only btn-ghost tb-more-btn" :class="{ 'is-on': moreOpen }" aria-label="More actions" aria-haspopup="true" :aria-expanded="moreOpen ? 'true' : 'false'" @click.stop="moreOpen = !moreOpen"><svg viewBox="0 0 24 24" class="ui-icon" aria-hidden="true" style="fill:currentColor;stroke:none"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button>
+      <div class="tb-menu" v-if="moreOpen" role="menu" @click="moreOpen = false">
+        <div class="tb-menu-note" v-if="options?.publishedAt || options?.sourceCommitDate || options?.anonymizedAt || options?.lastUpdateDate"><svg class="ui-icon" aria-hidden="true"><use href="#project-icon-clock"></use></svg>Snapshot · {{ fmt?.date(options?.publishedAt || options?.sourceCommitDate || options?.anonymizedAt || options?.lastUpdateDate) }}</div>
+        <div class="tb-menu-sep" v-if="options?.publishedAt || options?.sourceCommitDate || options?.anonymizedAt || options?.lastUpdateDate"></div>
+        <button type="button" role="menuitem" v-if="type != 'html'" @click="findInFile()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-search"></use></svg>Find in file</button>
+        <button type="button" role="menuitem" v-if="type != 'html'" @click="gotoLine()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-goto"></use></svg>Go to line</button>
+        <button type="button" role="menuitemcheckbox" v-if="type != 'html'" :aria-checked="wrapLines ? 'true' : 'false'" @click="toggleWrap()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-wrap"></use></svg>Wrap lines<span class="tb-menu-check" v-if="wrapLines">✓</span></button>
+        <div class="tb-menu-sep" v-if="type != 'html'"></div>
+        <a role="menuitem" target="_self" v-if="type != 'html'" :href="safeUrl((url))"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-code"></use></svg>Open raw file</a>
+        <button type="button" role="menuitem" v-if="typeof content === 'string'" @click="copyContent()"><svg class="ui-icon" aria-hidden="true"><use href="#project-icon-copy"></use></svg>Copy contents</button>
+        <a role="menuitem" target="_self" :href="safeUrl((url) + &quot;&amp;download=true&quot;)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-download"></use></svg>Download file</a>
+        <button type="button" role="menuitem" @click="copyPath()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-link"></use></svg>Copy path</button>
+        <div class="tb-menu-sep"></div>
+        <a role="menuitem" href="/faq"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-help"></use></svg>FAQ</a>
+        <a role="menuitem" href="https://github.com/tdurieux/anonymous_github/issues/new?template=issue_report.yml" target="_blank" rel="noopener"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-bug"></use></svg>Report a bug</a>
+      </div>
+    </div>
+    </div>
+  </header>
+  <div class="file-card-body" v-if="type != 'html'" v-code-editor="{ content: content, options: aceOption }"></div>
+  <div class="md-find-bar" v-if="type == 'html' &amp;&amp; mdFindOpen" role="search">
+    <input type="search" class="md-find-input" placeholder="Find on this page" aria-label="Find on this page" :value="mdFindQuery" @input="mdFindQuery = $event.target.value; runMdFind()" @keydown.enter.prevent="$event.shiftKey ? stepMdFind(-1) : stepMdFind(1)" @keydown.esc.prevent="toggleMdFind(false)">
+    <span class="md-find-nav"><button type="button" aria-label="Previous match" @click="stepMdFind(-1)" :disabled="!mdFindTotal"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-chevron-left"></use></svg></button><button type="button" aria-label="Next match" @click="stepMdFind(1)" :disabled="!mdFindTotal"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-chevron-right"></use></svg></button></span>
+    <span class="md-find-count" aria-live="polite">{{ mdFindQuery ? (mdFindTotal ? (mdFindIndex + 1) + ' of ' + mdFindTotal : 'No results') : '' }}</span>
+    <button type="button" class="md-find-opt" :class="{ 'is-on': mdFindCase }" :aria-pressed="mdFindCase ? 'true' : 'false'" title="Match case" aria-label="Match case" @click="mdFindCase = !mdFindCase; runMdFind()">Aa</button>
+    <button type="button" class="md-find-close" aria-label="Close find" @click="toggleMdFind(false)">&times;</button>
+  </div>
+  <div class="reading-layout" v-if="type == 'html'">
+    <div class="file-content markdown-body" v-html="renderReadme(sanitize(content))"></div>
+    <aside class="readme-toc" v-if="readmeToc().length &gt;= 3" aria-label="On this page">
+      <div class="readme-toc-head">On this page</div>
+      <nav class="toc-rail"><a href="#" class="lvl-2 toc-top" :class="{ 'is-active': !activeHeading }" @click.prevent="scrollToHeading(null)">Introduction</a><a v-for="(h, i) in readmeToc()" :key="h.id" :href="'#' + h.id" :class="['lvl-' + h.level, { 'is-active': activeHeading === h.id }]" @click.prevent="scrollToHeading(h.id)">{{ h.text }}</a></nav>
+    </aside>
+  </div>
+</section>
 <html-doc v-if="type == &#x27;html-doc&#x27; &amp;&amp; !showSource &amp;&amp; content != null" :content="content" :base-url="(fileBaseUrl)" :allow-scripts="allowScripts"></html-doc>
-<div v-code-editor="{ content: content, options: aceOption }" v-if="(type == &#x27;code&#x27; || (type == &#x27;html-doc&#x27; &amp;&amp; showSource)) &amp;&amp; content != null"></div>
 <img class="image-content" v-if="type == &#x27;image&#x27;" :src="safeUrl((url))">
 <iframe class="h-100 overflow-auto w-100 b-0" v-if="type == &#x27;media&#x27;" :src="safeUrl((url))"></iframe>
 <pdfviewer v-if="type == &#x27;pdf&#x27;" :src="safeUrl((url))"></pdfviewer>
@@ -42,5 +127,5 @@
   <div class="viewer-loading-lines" aria-hidden="true"><span v-for="line in 10" :key="line"></span></div>
 </section>
 <div class="file-error container d-flex h-100" v-if="type == &#x27;empty&#x27;"><h1 class="paper-empty-title m-auto">Empty <em>repository</em>.</h1></div>
-<div class="file-error container d-flex h-100" v-if="content == null &amp;&amp; type != &#x27;empty&#x27;"><h1 class="paper-empty-title m-auto">Empty <em>file</em>.</h1></div>
+<div class="file-error container d-flex h-100" v-if="content == null &amp;&amp; !['empty', 'loading', 'error', 'rate_limited'].includes(type)"><h1 class="paper-empty-title m-auto">Empty <em>file</em>.</h1></div>
 <div class="file-error container d-flex h-100" v-if="type == &#x27;binary&#x27;"><h1 class="paper-empty-title m-auto">Unsupported <em>binary file</em>. You can <a target="_blank" :href="safeUrl((url) + &quot;&amp;download=true&quot;)">download it</a>.</h1></div>

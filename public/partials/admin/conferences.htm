@@ -11,8 +11,9 @@
     <a href="/admin/errors"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-bug"></use></svg> Errors</a>
   </nav>
 
-  <div class="admin-summary">
-    <span class="summary-total">{{ total >= 0 ? fmt.number(total) : '…' }}</span>
+  <div class="admin-summary" :class="{ 'is-empty': total === 0 }">
+    <span class="summary-total">{{ total >= 0 ? fmt.number(total) : '…' }} <small>{{ total === 1 ? 'conference' : 'conferences' }}</small></span>
+    <span class="summary-show-label">Show:</span>
     <button type="button" class="summary-pill ok" title="Toggle ready filter" :class="{active: query?.ready}" @click="query.ready = !query.ready; query.page = 1" :aria-pressed="!!(query?.ready)">Ready <span class="count">{{ fmt?.number(statusCountFor('ready')) }}</span></button>
     <button type="button" class="summary-pill warn" title="Toggle preparing filter" :class="{active: query?.preparing}" @click="query.preparing = !query.preparing; query.page = 1" :aria-pressed="!!(query?.preparing)">Preparing <span class="count">{{ fmt?.number(statusCountFor('preparing')) }}</span></button>
     <button type="button" class="summary-pill error" title="Toggle errored filter" :class="{active: query?.error}" @click="query.error = !query.error; query.page = 1" :aria-pressed="!!(query?.error)">Errored <span class="count">{{ fmt?.number(statusCountFor('error')) }}</span></button>
@@ -31,8 +32,8 @@
         <span class="admin-search-hint" v-if="!query?.search">/</span>
       </div>
       <span class="admin-filter-spacer"></span>
-      <button class="btn btn-sm" type="button" @click="exportCsv()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-export"></use></svg> Export</button>
-      <span class="admin-filter-inline" aria-label="Pagination">
+      <button class="btn btn-sm" type="button" v-if="total &gt; 0" @click="exportCsv()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-export"></use></svg> Export</button>
+      <span class="admin-filter-inline" aria-label="Pagination" v-if="totalPage &gt; 1">
         <button class="btn btn-sm btn-icon" type="button" @click="query.page = Math.max(1, query.page - 1)" :disabled="query?.page &lt;= 1" aria-label="Previous page"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-chevron-left"></use></svg></button>
         <span style="font-family: var(--font-mono); font-size: 12px; color: var(--ink-muted);">{{ query?.page }}/{{ totalPage || 1 }}</span>
         <button class="btn btn-sm btn-icon" type="button" @click="query.page = Math.min(totalPage, query.page + 1)" :disabled="query?.page &gt;= totalPage" aria-label="Next page"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-chevron-right"></use></svg></button>
@@ -51,7 +52,7 @@
   </form>
 
   <div class="paper-table paper-table-conferences w-100" role="table" aria-label="Conferences">
-    <div class="paper-table-head" role="row">
+    <div class="paper-table-head" role="row" v-if="total !== 0">
       <div role="columnheader"><button type="button" class="sortable" :class="{active: query?.sort == &#x27;name&#x27;}" @click="sortBy(&#x27;name&#x27;)">Conference <svg class="ui-icon sort-direction" aria-hidden="true" v-if="sortIcon(&#x27;name&#x27;)" :class="{ascending: sortIcon(&#x27;name&#x27;) === 'fa-arrow-up'}"><use href="#project-icon-arrow"></use></svg></button></div>
       <div role="columnheader"><button type="button" class="sortable" :class="{active: query?.sort == &#x27;status&#x27;}" @click="sortBy(&#x27;status&#x27;)">Status <svg class="ui-icon sort-direction" aria-hidden="true" v-if="sortIcon(&#x27;status&#x27;)" :class="{ascending: sortIcon(&#x27;status&#x27;) === 'fa-arrow-up'}"><use href="#project-icon-arrow"></use></svg></button></div>
       <div role="columnheader" class="num">Repos</div>
@@ -93,7 +94,7 @@
     </div>
     <div class="paper-table-empty" v-if="filteredConferences?.length == 0">
       <svg class="ui-icon" aria-hidden="true"><use href="#project-icon-inbox"></use></svg>
-      <span>No conferences match the current filters.</span>
+      <span>{{ total ? 'No conferences match the current filters.' : 'No conferences yet.' }}</span>
     </div>
   </div>
 

@@ -1,5 +1,5 @@
 <div class="container paper-page connections-page">
-  <div class="paper-crumbs"><a href="/dashboard">My work</a> / <span class="here">GitHub connections</span></div>
+  <div class="paper-crumbs"><a href="/dashboard">My work</a> &nbsp;/&nbsp; <span class="here">GitHub connections</span></div>
   <header class="connections-heading">
     <h1 class="paper-page-title">GitHub <em>connections</em></h1>
     <p class="paper-page-lede">Manage how GitHub shares your code. Your anonymizations and URLs stay the same.</p>
@@ -17,12 +17,12 @@
         <div class="connection-actions">
           <a class="btn btn-ink" v-if="connections.appConnected &amp;&amp; !connections.appError" target="_self" href="/github/app/install">Manage repository access <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-external-link"></use></svg></a>
           <a :class="connections.appConnected &amp;&amp; !connections.appError ? 'connection-link' : 'btn btn-ink'" target="_self" href="/github/app/login">{{ connections.appConnected ? 'Reconnect account' : 'Connect GitHub account' }}</a>
+          <button class="connection-link connection-refresh" title="Refresh access" v-if="connections.appConnected" :disabled="busy" @click="loadConnections()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-refresh"></use></svg><span class="sr-only">Refresh access</span></button>
         </div>
         <p class="connection-help">Choose repositories on GitHub. Organization access may need an administrator's approval.</p>
         <ul class="connection-installations" v-if="connections.installations?.length">
-          <li v-for="installation in connections.installations" :key="installation.id"><div><strong>{{ installation.account }}</strong><span v-if="installation.suspended"> · Suspended</span></div><a target="_self" :href="'/github/app/install?installationId=' + installation.id">Manage access <span class="sr-only">for {{ installation.account }}</span> &rarr;</a></li>
+          <li v-for="installation in connections.installations" :key="installation.id"><div><span class="connection-label">Installed on</span> <strong>{{ installation.account }}</strong><span v-if="installation.suspended"> · Suspended</span></div><a v-if="connections.installations.length > 1" target="_self" :href="'/github/app/install?installationId=' + installation.id">Manage access <span class="sr-only">for {{ installation.account }}</span> &rarr;</a></li>
         </ul>
-        <button class="connection-link" :disabled="busy" @click="loadConnections()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-refresh"></use></svg> Refresh access</button>
       </section>
       <section>
         <div class="connection-top"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-key"></use></svg><span class="connection-badge connection-badge-muted">Legacy</span></div>
@@ -33,12 +33,12 @@
         <div class="connection-revoke" v-if="connections.oauthConnected">
           <p v-if="connections.gistCount">{{ connections.gistCount }} gist(s) use your GitHub App connection when available.</p>
           <p>Switch all dependent repositories before revoking access. Gists can use your GitHub App connection.</p>
-          <button v-if="connections.appConnected" class="connection-link connection-danger" :disabled="busy || connections.resources.some(r => r.connection === 'oauth')" @click="disconnectOAuth()">Revoke OAuth access</button>
+          <button v-if="connections.appConnected" class="btn btn-sm btn-outline-danger connection-danger" :disabled="busy || connections.resources.some(r => r.connection === 'oauth')" @click="disconnectOAuth()">Revoke OAuth access</button>
         </div>
       </section>
     </div>
     <section class="connection-resources">
-      <div class="connection-title"><h2>Repository connections</h2><span class="connection-count">{{ connections.resources?.length || 0 }} resources</span></div>
+      <div class="connection-title"><h2>Repository connections</h2><span class="connection-count">{{ connections.resources?.length || 0 }} {{ (connections.resources?.length || 0) === 1 ? 'resource' : 'resources' }}</span></div>
       <p>Check access, then switch each resource to the GitHub App. After reinstalling the App, reconnect existing resources here to keep their anonymous URLs and published snapshots.</p>
       <div class="connection-empty" v-if="!connections.resources?.length"><svg class="ui-icon" aria-hidden="true"><use href="#project-type-repo"></use></svg><div><h3>No repository connections yet</h3><p>Your repositories and pull requests will appear here once you anonymize them.</p></div><a class="connection-link" href="/anonymize">New anonymization &rarr;</a></div>
       <div class="connection-resource" v-for="resource in connections.resources" :key="resource.type + resource.id">

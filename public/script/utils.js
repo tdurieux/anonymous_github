@@ -28,7 +28,7 @@ function humanFileSize(bytes, si = false, dp = 1) {
   bytes = bytes / 8;
 
   if (Math.abs(bytes) < thresh) {
-    return bytes + "B";
+    return bytes + " B";
   }
 
   const units = si
@@ -45,7 +45,7 @@ function humanFileSize(bytes, si = false, dp = 1) {
     u < units.length - 1
   );
 
-  return bytes.toFixed(dp) + "" + units[u];
+  return bytes.toFixed(dp) + " " + units[u];
 }
 
 function urlRel2abs(
