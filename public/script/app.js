@@ -2533,7 +2533,22 @@ export const exploreController = function (state, http, location, params, html, 
       const timers = createTimers();
       // Prism rewrites fenced code blocks, so mark redactions once it is done.
       if (window.Prism?.hooks && !window.Prism.redactionHook) {
-        window.Prism.hooks.add("complete", (env) => markRedactionsIn(env.element));
+        window.Prism.hooks.add("complete", (env) => {
+          markRedactionsIn(env.element);
+          // Show the same numbered slot as the rest of the viewer.
+          env.element.querySelectorAll?.("mark.redaction").forEach((mark) => {
+            const m = /^XXXX-(\d+)$/.exec(mark.textContent);
+            if (!m) return;
+            mark.className = "redact-chip";
+            mark.setAttribute("title", "Redacted term " + m[1] + " — the same term everywhere in this snapshot");
+            mark.setAttribute("aria-label", "Redacted term " + m[1]);
+            mark.dataset.term = m[0];
+            mark.textContent = "";
+            const idx = mark.ownerDocument.createElement("i");
+            idx.textContent = m[1];
+            mark.appendChild(idx);
+          });
+        });
         window.Prism.redactionHook = true;
       }
       const listen = createListeners();
@@ -2570,11 +2585,12 @@ export const exploreController = function (state, http, location, params, html, 
       listen(document, "click", (e) => {
         if (state.symbolsOpen && !e.target.closest?.(".symbols")) state.symbolsOpen = false;
         if (state.moreOpen && !e.target.closest?.(".tb-more")) state.moreOpen = false;
+        if (state.tocOpen && !e.target.closest?.(".tb-toc-m")) state.tocOpen = false;
         if (state.accountOpen && !e.target.closest?.(".acct")) state.accountOpen = false;
         if (state.helpOpen && !e.target.closest?.(".vb-help")) state.helpOpen = false;
       });
       listen(document, "keydown", (e) => {
-        if (e.key === "Escape") { state.symbolsOpen = false; state.moreOpen = false; state.accountOpen = false; state.helpOpen = false; }
+        if (e.key === "Escape") { state.symbolsOpen = false; state.moreOpen = false; state.tocOpen = false; state.accountOpen = false; state.helpOpen = false; }
         if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key && e.key.toLowerCase() === "f" && state.type === "html" && window.document.querySelector(".reading-layout")) {
           e.preventDefault();
           state.toggleMdFind(true);
@@ -3056,7 +3072,12 @@ export const exploreController = function (state, http, location, params, html, 
         const doc = new window.DOMParser().parseFromString("<div>" + html + "</div>", "text/html");
         const walker = doc.createTreeWalker(doc.body, 4);
         const nodes = [];
-        while (walker.nextNode()) if (REDACTION_RE.test(walker.currentNode.nodeValue)) nodes.push(walker.currentNode);
+        while (walker.nextNode()) {
+          REDACTION_RE.lastIndex = 0;
+          // Prism re-highlights code blocks from their text, so those are slotted in its hook.
+          if (walker.currentNode.parentElement?.closest("pre code")) continue;
+          if (REDACTION_RE.test(walker.currentNode.nodeValue)) nodes.push(walker.currentNode);
+        }
         for (const node of nodes) {
           REDACTION_RE.lastIndex = 0;
           const frag = doc.createDocumentFragment();
@@ -3344,7 +3365,7 @@ export const exploreController = function (state, http, location, params, html, 
           theme: "chrome",
           useSoftTab: true,
           tabSize: 2,
-          fontSize: 13,
+          fontSize: window.matchMedia?.("(max-width: 767px)").matches ? 12 : 13,
           keyBinding: "vscode",
           fullLineSelection: true,
           highlightActiveLine: false,

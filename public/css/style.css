@@ -8479,7 +8479,7 @@ input[type="date"], select { color-scheme: light; }
 /* ===== Design refinements ===== */
 /* One primary colour: accent for actions and progress; amber/red stay for states. */
 .navbar .btn-signin, .navbar .btn-signin:hover { background: var(--accent); border-color: var(--accent); color: #fff !important; }
-.dark-mode .navbar .btn-signin, .dark-mode .navbar .btn-signin:hover { color: #1A1815 !important; }
+.dark-mode .navbar .btn-signin, .dark-mode .navbar .btn-signin:hover { background: #237A71; border-color: #237A71; color: #fff !important; }
 .navbar .btn-signin:hover { filter: brightness(.94); }
 .paper-progress .paper-progress-bar, .paper-progress.paper-progress-ready .paper-progress-bar { background: var(--accent); }
 .paper-progress .paper-progress-label { font-family: var(--font-sans); font-size: 12px; letter-spacing: 0; text-transform: none; }
@@ -11371,8 +11371,7 @@ mark.md-find.is-current { background: rgba(232,160,30,.85) !important; box-shado
 /* ===== Round 63: both find inputs on the toolbar edge; outline never jumps ===== */
 @media (min-width: 768px) {
   .md-find-bar { padding-left: 71px !important; }
-  .file-card .ace_search { overflow: visible !important; }
-}
+  .file-card }
 @media (min-width: 1200px) { .readme-toc, .file-card:has(.md-find-bar) .readme-toc { top: 120px !important; } }
 
 /* dark: selected segment clearly lifted */
@@ -12094,3 +12093,268 @@ input::placeholder, textarea::placeholder, .form-control::placeholder, #sourceUr
 .q-throughput { position: relative; }
 .q-throughput .q-range-btns { position: absolute !important; top: 12px; right: 16px; float: none !important; margin: 0 !important; width: auto !important; display: inline-flex !important; z-index: 2; }
 .anonymize-submit-bar .draft-status { order: -1; }
+
+/* Round 93: dark outline contrast after later light overrides; stronger dark selected row */
+.dark-mode .readme-toc a:not(.is-active) { color: #B8B1A6 !important; }
+.dark-mode .readme-toc a.lvl-3:not(.is-active) { color: #A39C91 !important; }
+.dark-mode .files .file.active > a { background: rgba(255,255,255,.13) !important; }
+/* Round 94: selection fill distinct from redaction slots; gentler phone scroll cue */
+.files .file.active > a { background: #EBE7E0 !important; }
+.files .file.active > a .redact-slot { background: var(--slot-bg) !important; }
+@media (max-width: 767px) {
+  .file-card.is-code.no-wrap .file-card-body::after { width: 28px !important; background: linear-gradient(to right, rgba(250,249,246,0) 0%, rgba(250,249,246,.85) 100%) !important; box-shadow: inset -1px 0 0 rgba(40,32,24,.16) !important; }
+  .dark-mode .file-card.is-code.no-wrap .file-card-body::after { background: linear-gradient(to right, rgba(20,19,17,0) 0%, rgba(20,19,17,.85) 100%) !important; box-shadow: inset -1px 0 0 rgba(255,255,255,.12) !important; }
+}
+/* Round 95: outline top aligns with the first heading; clearer dark sidebar depth; visible phone scroll cue */
+@media (min-width: 1100px) { .readme-toc { margin-top: -54px !important; top: 84px !important; } }
+.dark-mode .leftCol, .dark-mode .leftCol .leftCol-search { background: #1F1D1A !important; }
+@media (max-width: 767px) {
+  .file-card.is-code.no-wrap .file-card-body::after { width: 32px !important; background: linear-gradient(to right, rgba(250,249,246,0) 0%, rgba(250,249,246,.75) 45%, rgba(236,232,225,.98) 100%) !important; box-shadow: inset -1px 0 0 rgba(40,32,24,.2) !important; }
+  .dark-mode .file-card.is-code.no-wrap .file-card-body::after { background: linear-gradient(to right, rgba(20,19,17,0) 0%, rgba(20,19,17,.75) 45%, rgba(38,35,31,.98) 100%) !important; box-shadow: inset -1px 0 0 rgba(255,255,255,.16) !important; }
+}
+/* Round 96: phone Sign in matches the primary teal action; readable FAQ help card */
+@media (max-width: 991px) {
+  .navbar .nav-signin-m { display: inline-flex; align-items: center; gap: 6px; background: var(--accent) !important; border-color: var(--accent) !important; color: #fff !important; padding: 0 12px !important; font-weight: 500; }
+  .dark-mode .navbar .nav-signin-m { background: #237A71 !important; border-color: #237A71 !important; color: #fff !important; }
+  .navbar .nav-signin-m .fa-github { font-size: 15px; }
+}
+.paper-faq-help-card p { font-size: 14px !important; line-height: 1.55 !important; }
+/* Round 97: larger hero product mock; even phone top-bar spacing */
+@media (min-width: 1100px) { .paper-hero { grid-template-columns: minmax(0, 1fr) 500px !important; column-gap: 48px !important; } }
+@media (max-width: 767px) { .viewer-bar .vb-right { gap: 8px !important; } .viewer-bar .vb-right > .vb-support, .viewer-bar .vb-right > .vb-icon { margin: 0 !important; } }
+@media (min-width: 1100px) { .paper-reassure { flex-wrap: wrap !important; column-gap: 18px !important; row-gap: 6px !important; max-width: 100%; } .paper-reassure li { white-space: nowrap; } }
+/* Round 98: one landing split: every two-column block starts its right column at the same x */
+@media (min-width: 1100px) {
+  .paper-hero { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; column-gap: 20px !important; }
+  .paper-section-head { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; column-gap: 20px !important; }
+  .paper-section-head > p { max-width: 500px; }
+}
+/* Quieter dark slots with a brighter number */
+.dark-mode { --slot-bg: #3D3833; --slot-num: #8FDACD; }
+/* Sidebar search row centres on the same line as the file toolbar */
+@media (min-width: 768px) { .leftCol-search, .explorer-page > .leftCol .leftCol-search { height: 53px !important; padding: 0 12px !important; display: flex !important; align-items: center !important; box-sizing: border-box; } .leftCol-search .tree-search-box { height: 36px !important; padding-top: 0 !important; padding-bottom: 0 !important; align-items: center; } .leftCol-search .search-zip { height: 36px !important; width: 36px !important; } }
+/* Round 99: a clearer phone scroll cue; aligned FAQ help card */
+@media (max-width: 767px) {
+  .file-card.is-code.no-wrap .file-card-body::after { width: 36px !important; background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(250,249,246,.9) 55%, #ECE7DF 100%) !important; box-shadow: inset -2px 0 0 rgba(40,32,24,.18) !important; }
+  .dark-mode .file-card.is-code.no-wrap .file-card-body::after { background: linear-gradient(to right, rgba(20,19,17,0) 0%, rgba(20,19,17,.9) 55%, #2A2622 100%) !important; box-shadow: inset -2px 0 0 rgba(255,255,255,.18) !important; }
+}
+@media (min-width: 1100px) { .paper-faq-help-card { margin-top: 7px; } }
+/* Round 100: toolbar swatch reads as the slot (edge + slightly darker); one Sign in treatment (filled teal) everywhere */
+.meta-redact::before, .hero-mock-count::before, .mobile-sub b::before { background: #D9D1C3 !important; box-shadow: inset 0 0 0 1px rgba(40,32,24,.12) !important; }
+.dark-mode .meta-redact::before, .dark-mode .hero-mock-count::before, .dark-mode .mobile-sub b::before { background: #4A443D !important; box-shadow: inset 0 0 0 1px rgba(255,255,255,.14) !important; }
+.viewer-bar .vb-signin, .viewer-bar .vb-signin:hover { background: var(--accent) !important; color: #fff !important; box-shadow: none !important; border: 0 !important; }
+.viewer-bar .vb-signin:hover { filter: brightness(.94); }
+.dark-mode .viewer-bar .vb-signin, .dark-mode .viewer-bar .vb-signin:hover { background: #237A71 !important; color: #fff !important; }
+/* Round 101: tighter, uniform landing rhythm; sticky FAQ teaser heading; stronger tertiary text */
+@media (min-width: 992px) {
+  .paper-section-head, .paper-qa, .paper-features, .paper-stats { margin-top: 72px !important; }
+  .demo { margin-bottom: 0 !important; }
+  .paper-qa { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; column-gap: 20px !important; }
+}
+.ace-chrome .ace_gutter-cell { color: #57524A !important; }
+.dark-mode .ace_editor .ace_gutter-cell { color: #ADA69B !important; }
+.readme-toc a.lvl-3:not(.is-active) { color: #57524A !important; }
+.dark-mode .readme-toc a.lvl-3:not(.is-active) { color: #ADA69B !important; }
+.paper-stat-delta, .paper-stats small { color: #57524A !important; }
+.nav-heart-m, .nav-heart-m:hover, .nav-heart-m:focus { background: transparent !important; box-shadow: none !important; border: 0 !important; }
+@media (min-width: 992px) { .paper-section-head + .paper-features { margin-top: 32px !important; } }
+@media (min-width: 1100px) { .paper-features { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; column-gap: 20px !important; } .paper-features > :first-child { padding-right: 28px; } }
+@media (min-width: 1100px) { .fm-input-sm { width: 118px !important; } .fm-row { gap: 12px !important; } .fm-toggles { flex-wrap: nowrap !important; } }
+/* Round 102: one height (32px) and one gap (8px) across the viewer bar's right cluster */
+@media (min-width: 768px) {
+  .viewer-bar .vb-right { gap: 8px !important; }
+  .viewer-bar .vb-right > * { margin: 0 !important; }
+  .viewer-bar .vb-support, .viewer-bar .vb-help-btn, .viewer-bar .vb-icon, .viewer-bar .vb-signin { height: 32px !important; min-height: 32px !important; box-sizing: border-box; }
+  .viewer-bar .vb-icon { width: 32px !important; }
+  .viewer-bar .vb-snapshot { margin-right: 8px !important; }
+}
+/* Dark hero preview gets a lifted surface and a visible edge */
+.dark-mode .hero-mock { background: #221F1C !important; box-shadow: 0 0 0 1px rgba(255,255,255,.1), 0 18px 40px -18px rgba(0,0,0,.7) !important; }
+@media (min-width: 768px) { .viewer-bar .vb-right .vb-icon { width: 32px !important; height: 32px !important; } }
+.pane-url .meta-redact { display: inline-flex; align-items: center; gap: 6px; font-family: inherit; }
+/* Round 103: hairline between view tools and the file-action group; paired demo headers share one height; bolder selected file */
+@media (min-width: 768px) {
+  .file-card-head .tb-file, .tb-file { margin-left: 16px !important; }
+}
+.demo-panes .pane-header { height: 40px !important; min-height: 40px !important; box-sizing: border-box; display: flex; align-items: center; padding-top: 0 !important; padding-bottom: 0 !important; }
+.files .file.active > a .tree-name { font-weight: 500; color: var(--color); }
+.files .file.active > a { background: #E8E3DB !important; }
+/* Snapshot reads as passive metadata; softer dark selection; neutral tracking on small labels; 14px site nav */
+.viewer-bar .vb-snapshot { font-size: 12px !important; color: var(--ink-soft) !important; gap: 5px !important; }
+.dark-mode .files .file.active > a { background: rgba(255,255,255,.08) !important; }
+.pane-label, .demo-terms label, .demo-terms .label, .fm-label { letter-spacing: 0 !important; }
+@media (min-width: 992px) { .navbar .nav-link:not(.btn-signin) { font-size: 14px !important; } }
+/* Round 104: shared active-outline style (teal text + rail); visible accordion chevrons; dark slot edge; 13px toolbar metadata */
+.paper-faq-toc a.active { color: var(--accent) !important; font-weight: 500; }
+.dark-mode .paper-faq-toc a.active { color: #7FCFC2 !important; }
+.paper-features .paper-feature:not(.is-on) .paper-feature-tab::after, .paper-features .paper-feature.is-on .paper-feature-tab::after { border-color: #57524A !important; }
+.dark-mode .paper-features .paper-feature .paper-feature-tab::after { border-color: #ADA69B !important; }
+.paper-feature:not(.is-on) .paper-feature-tab:hover .paper-feature-title { color: var(--accent); }
+.dark-mode .redact-chip, .dark-mode .redact-slot, .dark-mode .ace_redacted { box-shadow: inset 0 0 0 1px rgba(255,255,255,.1) !important; }
+@media (min-width: 768px) { .file-card-meta { font-size: 13px !important; } }
+@media (min-width: 768px) { .file-card-head .btn-goto { order: 1; } .file-card-head .btn-toggle { order: 2; } .file-card-head .btn-find { order: 3; } .file-card-head .tb-file { order: 4; } .file-card-head .tb-copy-m, .file-card-head .tb-more-btn { order: 5; } }
+.leftCol-search .search-zip { width: auto !important; padding: 0 9px !important; gap: 4px; display: inline-flex !important; align-items: center; justify-content: center; }
+.search-zip-label { font-size: 11px; font-weight: 600; letter-spacing: .02em; }
+/* Round 106: find row spans the gutter; header labels share one weight; flush selection marker; dark hero mock depth; shared page lead */
+.navbar .nav-support, .navbar .nav-support-inline { font-weight: 400 !important; color: var(--ink-soft) !important; }
+.files .file.active > a::before { left: 0 !important; }
+.dark-mode .hero-mock { border-color: #3A3631 !important; }
+.dark-mode .hero-mock-side, .dark-mode .hero-mock .hm-side, .dark-mode .hero-mock-tree { background: #1E1C19 !important; }
+.paper-faq-lede { font-size: 18px !important; line-height: 1.55 !important; }
+/* Round 107: view tools share the file-action group's 32px box; legible search placeholder and footer line */
+@media (min-width: 768px) { .file-card-actions > .btn-ghost.btn-icon-only, .file-card-actions > .btn-toggle { height: 32px !important; width: 32px !important; min-height: 32px !important; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; } }
+.tree-search-input::placeholder { color: #6E685F !important; opacity: 1; }
+.dark-mode .tree-search-input::placeholder { color: #9C958A !important; }
+.tree-search-kbd { color: #57524A !important; }
+.dark-mode .tree-search-kbd { color: #ADA69B !important; }
+/* Footer link columns start on the landing page's shared axis (right half) */
+@media (min-width: 1100px) { .paper-footer-inner { grid-template-columns: calc(50% - 10px) repeat(3, minmax(0, 1fr)) !important; column-gap: 20px !important; } .paper-footer-brand { max-width: 420px; } }
+.ace_search_counter, .md-find-count, .find-count { font-variant-numeric: tabular-nums; }
+.demo-panes .pane-label, .demo-panes .pane-url { font-size: 13px !important; }
+.dark-mode .files .file.active > a { background: rgba(255,255,255,.1) !important; }
+/* Round 108: landing slots sit on the same optical line as viewer slots; toolbar group icons at 16px */
+.demo-output .redact-chip { vertical-align: -.16em !important; }
+span.redact, .hero-mock .redact { vertical-align: -.12em !important; }
+.tb-seg-icon .ui-icon { width: 16px !important; height: 16px !important; }
+.files .file.active > a { background: #E3DDD2 !important; }
+.files .file.active > a .redact-slot { background: #D0C7B7 !important; }
+.file-card-actions > .btn-find.is-on { box-shadow: inset 0 0 0 1px rgba(31,106,100,.55) !important; border-color: transparent !important; }
+/* Round 109: output card reads as the result; visible focus on the demo terms; README start anchor */
+.demo-panes > :last-child .pane-header { background: #F3EFE8 !important; }
+.dark-mode .demo-panes > :last-child .pane-header { background: #1F1C19 !important; }
+.demo-terms input:focus, .demo-terms textarea:focus { outline: none !important; border-color: var(--accent) !important; box-shadow: 0 0 0 3px rgba(31,106,100,.18) !important; }
+.markdown-body > h1:first-child { margin-top: 8px !important; margin-bottom: 24px !important; }
+/* Phone README outline lives in the ⋯ menu */
+.tb-menu-label { padding: 8px 14px 4px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: #57524A; }
+.dark-mode .tb-menu-label { color: #ADA69B; }
+.tb-menu .tb-menu-toc { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 280px; display: block; text-align: left; }
+.tb-menu .tb-menu-toc.lvl-3 { padding-left: 28px !important; color: #57524A; }
+.dark-mode .tb-menu .tb-menu-toc.lvl-3 { color: #ADA69B; }
+/* Selection stays lighter than the redaction slot (slots are data, selection is chrome) */
+.files .file.active > a { background: #ECE8E1 !important; }
+.files .file.active > a .redact-slot { background: var(--slot-bg) !important; }
+/* Round 110 */
+.tb-menu { max-height: calc(100dvh - 120px); overflow-y: auto; overscroll-behavior: contain; }
+.tb-menu .tb-menu-toc.is-active { color: var(--accent) !important; font-weight: 500; }
+.dark-mode .tb-menu .tb-menu-toc.is-active { color: #7FCFC2 !important; }
+.markdown-body > h1:first-child { margin-bottom: 18px !important; }
+@media (max-width: 767px) { .markdown-body > h1:first-child { margin-top: 0 !important; margin-bottom: 14px !important; } }
+.files .file.active > a { background: #E8E5DD !important; }
+.tree-toggle::after { border-color: #7A746A !important; }
+.dark-mode .tree-toggle::after { border-color: #8F887D !important; }
+.dark-mode .hero-mock { box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 0 0 1px rgba(255,255,255,.1), 0 18px 40px -18px rgba(0,0,0,.7) !important; background: #24211D !important; }
+.paper-faq-lede { text-wrap: balance; max-width: 640px; }
+.pane-edit-hint { font-weight: 400; color: #6E685F; }
+.dark-mode .pane-edit-hint { color: #9C958A; }
+.demo-panes > :first-child:hover, .demo-panes > :first-child:focus-within { border-color: #CFC7B9 !important; }
+/* Round 111: phone menu hierarchy (actions > outline), wrapping outline items, scrim; shared card radius */
+.tb-menu .tb-menu-toc { white-space: normal !important; font-size: 14px !important; line-height: 1.35; padding-top: 7px !important; padding-bottom: 7px !important; max-width: none !important; }
+.tb-menu .tb-menu-toc.lvl-3 { padding-left: 24px !important; }
+.tb-menu-note { font-size: 13px !important; color: #6E685F !important; }
+.dark-mode .tb-menu-note { color: #9C958A !important; }
+@media (max-width: 767px) { .tb-more:has(.tb-menu)::before { content: ""; position: fixed; inset: 0; background: rgba(26,24,21,.22); z-index: 40; } .tb-menu { z-index: 41 !important; } }
+.paper-faq-help-card { border-radius: 12px !important; }
+/* Phone home header mirrors the viewer bar: heart, theme, Sign in (32px), then the menu */
+.nav-theme-m { display: none; }
+@media (max-width: 991px) {
+  .nav-theme-m { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border: 0; background: transparent; color: var(--ink-soft); padding: 0; margin-left: 2px; }
+  .nav-theme-m .ui-icon { width: 18px; height: 18px; }
+  .navbar .nav-signin-m { height: 32px !important; margin-left: 6px !important; }
+  .nav-heart-m + .nav-theme-m { margin-left: 2px; }
+}
+@media (max-width: 767px) { .viewer-bar .vb-signin { height: 32px !important; } }
+/* Outline items share the action label column in the phone menu */
+.tb-menu .tb-menu-toc.lvl-2 { padding-left: 42px !important; }
+.tb-menu .tb-menu-toc.lvl-3 { padding-left: 58px !important; }
+.tb-menu-label { padding-left: 42px !important; }
+@media (max-width: 991px) { .navbar-collapse .nav-item:has(> .nav-icon) { display: none !important; } }
+.tb-menu > button.tb-menu-toc, .file-card-head .tb-menu > button.tb-menu-toc { font-size: 14px !important; min-height: 36px !important; padding-top: 8px !important; padding-bottom: 8px !important; line-height: 1.35 !important; height: auto !important; }
+.tb-menu > .tb-menu-label { padding-left: 40px !important; }
+.tb-menu > button.tb-menu-toc.lvl-2 { padding-left: 40px !important; }
+.tb-menu > button.tb-menu-toc.lvl-3 { padding-left: 56px !important; }
+/* Phone Contents button: its own outline popover (actions stay in ⋯) */
+.tb-toc-m { display: none; position: relative; }
+@media (max-width: 767px) {
+  .tb-toc-m { display: inline-flex; }
+  .file-card-head .tb-toc-btn { box-shadow: none !important; background: transparent !important; width: 36px; height: 36px; }
+  .tb-toc-m .tb-menu { right: -44px; min-width: 260px; }
+  .tb-toc-m:has(.tb-menu)::before { content: ""; position: fixed; inset: 0; background: rgba(26,24,21,.22); z-index: 40; }
+}
+/* Dark on-state for view tools uses the lighter dark accent */
+.dark-mode .file-card-actions > .btn-toggle.is-on, .dark-mode .file-card-actions > .btn-find.is-on { box-shadow: inset 0 0 0 1px #7FCFC2 !important; color: #7FCFC2 !important; }
+.tb-toc-m:has(.tb-menu)::before, .tb-more:has(.tb-menu)::before { pointer-events: none; }
+.tb-toc-menu > .tb-menu-label { padding-left: 16px !important; }
+.tb-toc-menu > button.tb-menu-toc.lvl-2 { padding-left: 16px !important; }
+.tb-toc-menu > button.tb-menu-toc.lvl-3 { padding-left: 32px !important; }
+@media (max-width: 767px) { .tb-toc-m .tb-menu { right: -40px; max-width: calc(100vw - 28px); } }
+/* Round 113: one icon box for folders and files; visible find-option state; one separator system in the toolbar */
+.files .tree-icon-folder, .files .tree-icon-file { width: 16px !important; min-width: 16px; display: inline-flex; justify-content: center; }
+.ace_search .ace_button[checked], .ace_search .ace_button.checked, .ace_search .ace_button[aria-checked="true"] { color: var(--accent) !important; box-shadow: inset 0 0 0 1px rgba(31,106,100,.55) !important; background: transparent !important; }
+.dark-mode .ace_search .ace_button[checked], .dark-mode .ace_search .ace_button.checked, .dark-mode .ace_search .ace_button[aria-checked="true"] { color: #7FCFC2 !important; box-shadow: inset 0 0 0 1px #7FCFC2 !important; }
+.file-card-meta .sep { font-size: 0 !important; display: inline-block; width: 0; margin: 0 6px !important; }
+/* Phone home header: wordmark left, one right-aligned action group with even 4px gaps */
+@media (max-width: 991px) {
+  .navbar .nav-heart-m { margin-left: auto !important; }
+  .navbar .nav-heart-m + .nav-theme-m { margin-left: 4px !important; }
+  .navbar .nav-theme-m + .nav-signin-m { margin-left: 4px !important; }
+  .navbar .navbar-toggler { margin-left: 4px !important; margin-right: -6px; }
+}
+.tb-toc-m:has(.tb-menu)::before, .tb-more:has(.tb-menu)::before { background: rgba(26,24,21,.1) !important; }
+.dark-mode .tb-toc-m:has(.tb-menu)::before, .dark-mode .tb-more:has(.tb-menu)::before { background: rgba(0,0,0,.3) !important; }
+/* Round 115: no partial scrim (shadowed popover + outside-tap close); stateful Wrap row; narrow phone fade; ZIP label scale; firmer swatch edge */
+.tb-toc-m:has(.tb-menu)::before, .tb-more:has(.tb-menu)::before { content: none !important; }
+.tb-menu { box-shadow: 0 12px 32px -8px rgba(26,24,21,.28), 0 0 0 1px rgba(26,24,21,.08) !important; }
+.tb-menu [role="menuitemcheckbox"] { position: relative; padding-right: 40px !important; }
+.tb-menu [role="menuitemcheckbox"][aria-checked="true"]::after { content: ""; position: absolute; right: 18px; top: 50%; width: 10px; height: 5px; border-left: 2px solid var(--accent); border-bottom: 2px solid var(--accent); transform: translateY(-70%) rotate(-45deg); }
+.tb-menu [role="menuitemcheckbox"][aria-checked="true"] .ui-icon { color: var(--accent); }
+@media (max-width: 767px) { .file-card.is-code.no-wrap .file-card-body::after { width: 20px !important; } }
+.search-zip-label { font-size: 12px !important; font-weight: 500 !important; }
+.meta-redact::before, .mobile-sub b::before { box-shadow: inset 0 0 0 1px rgba(40,32,24,.22) !important; }
+/* Round 116: phone toolbar keeps Copy next to ⋯ on every file type (Contents appears to its left); mid-strength fade */
+@media (max-width: 767px) {
+  .file-card-actions > .tb-toc-m, .file-card-head .tb-toc-m { order: 1 !important; }
+  .file-card-actions > .tb-copy-m, .file-card-head .tb-copy-m { order: 2 !important; }
+  .file-card-actions > .tb-more, .file-card-head .tb-more { order: 3 !important; }
+  .file-card.is-code.no-wrap .file-card-body::after { width: 26px !important; background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(250,249,246,.92) 60%, #EAE5DC 100%) !important; box-shadow: inset -1px 0 0 rgba(40,32,24,.2) !important; }
+}
+@media (max-width: 767px) { .ace_editor .ace_gutter-cell { padding-left: 6px !important; padding-right: 8px !important; } }
+.files .redact-slot i { font-size: 11px !important; }
+.tb-menu-meta { padding-top: 0 !important; padding-left: 42px !important; }
+.pane-url .meta-redact { font-family: var(--font-sans, Inter, system-ui, sans-serif) !important; font-size: 12px; }
+/* Round 117: both phone popovers share one right edge; smaller phone wordmark leaves room for the action group */
+@media (max-width: 767px) { .tb-toc-m .tb-menu { right: -76px !important; } }
+@media (max-width: 991px) { .navbar .navbar-brand { font-size: 18px !important; margin-right: 16px !important; } }
+.tb-menu .tb-menu-meta { white-space: nowrap; font-size: 12px !important; padding-left: 44px !important; padding-bottom: 8px !important; }
+.tb-menu .tb-menu-meta { padding-left: 38px !important; }
+/* Closing call to action before the footer */
+.paper-cta { margin-top: 72px; margin-bottom: 72px; padding: 40px 0; border-top: 1px solid var(--border-color); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 20px; align-items: center; }
+.paper-cta h2 { font-family: var(--font-serif); font-size: 40px; line-height: 1.05; letter-spacing: -0.01em; margin: 0 0 10px; color: var(--color); font-weight: 400; }
+.paper-cta p { margin: 0; color: var(--ink-soft); font-size: 16px; max-width: 440px; }
+.paper-cta-actions { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+.paper-cta-actions .btn-hero { display: inline-flex; align-items: center; gap: 10px; }
+@media (max-width: 991px) { .paper-cta { grid-template-columns: 1fr; row-gap: 20px; margin-top: 56px; margin-bottom: 40px; } .paper-cta h2 { font-size: 32px; } }
+/* Round 119 */
+.tb-menu-note, .tb-menu .tb-menu-meta { color: #57524A !important; }
+.dark-mode .tb-menu-note, .dark-mode .tb-menu .tb-menu-meta { color: #ADA69B !important; }
+.paper-cta { margin-bottom: 40px !important; padding-bottom: 40px !important; }
+/* Round 120: find bar on the 32px grid with a neutral input at rest; Contents open = toggle on-state; outline/FAQ top alignment */
+.ace_search .ace_search_field { height: 32px !important; box-sizing: border-box; border: 1px solid var(--control-border, #CFC7B9) !important; box-shadow: none !important; }
+.ace_search .ace_search_field:focus-visible { border-color: var(--accent) !important; box-shadow: 0 0 0 3px rgba(31,106,100,.16) !important; }
+.ace_search .ace_searchbtn, .ace_search .ace_button, .ace_search .ace_searchbtn_close { height: 32px !important; min-height: 32px !important; box-sizing: border-box; display: inline-flex !important; align-items: center; justify-content: center; }
+.ace_search .ace_searchbtn_close { width: 32px !important; border-radius: 6px; }
+.ace_search .ace_searchbtn_close:hover { background: var(--hover-bg-color) !important; }
+.file-card-head .tb-toc-btn.is-on { background: transparent !important; box-shadow: inset 0 0 0 1px rgba(31,106,100,.55) !important; color: var(--accent) !important; }
+@media (min-width: 1100px) { .readme-toc { top: 110px !important; margin-top: -28px !important; } }
+@media (min-width: 1100px) { .paper-faq-help-card { margin-top: 2px !important; } }
+@media (min-width: 1100px) { .readme-toc { top: 92px !important; } }
+/* Round 121: hero product shot gets real presence: wider column, bleeds to the viewport edge, larger type */
+@media (min-width: 1100px) {
+  .paper-hero { grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr) !important; column-gap: 40px !important; overflow: visible; }
+  .paper-hero-shot { margin-right: calc((100vw - 100%) / -2 + 0px); margin-right: min(-24px, calc((1076px - 100vw) / 2)); }
+  .paper-hero-shot .paper-frame { border-top-right-radius: 0 !important; border-bottom-right-radius: 0 !important; border-right: 0 !important; }
+  .hero-mock { font-size: 14px; min-height: 420px; }
+  .hero-mock-row { font-size: 13.5px !important; }
+  .hero-mock-doc-bar span { font-size: 13px !important; }
+  .paper-landing { overflow-x: clip; }
+}
+@media (min-width: 1100px) { .hero-mock { min-height: 0 !important; } }

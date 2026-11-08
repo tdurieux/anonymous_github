@@ -5,7 +5,8 @@
     <span class="nav-support-label">Support</span>
   </a>
   <a class="nav-heart-m" href="https://ko-fi.com/tdurieux" target="_blank" rel="noopener" aria-label="Support Anonymous GitHub" title="Support Anonymous GitHub" v-if="!/^\/(r|w|pr|gist)\//.test(path || '')"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-heart"></use></svg></a>
-  <a class="nav-signin-m" href="/signin" target="_self" v-if="!user &amp;&amp; !/^\/(r|w|pr|gist)\//.test(path || '')">Sign in</a>
+  <button type="button" class="nav-theme-m" v-if="!/^\/(r|w|pr|gist)\//.test(path || '')" :aria-label="isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'" :title="isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'" @click="darkMode(!isDarkMode)"><svg class="ui-icon" aria-hidden="true"><use :href="isDarkMode ? '#ui-icon-sun' : '#ui-icon-moon'"></use></svg></button>
+  <a class="nav-signin-m" href="/signin" target="_self" aria-label="Sign in with GitHub" v-if="!user &amp;&amp; !/^\/(r|w|pr|gist)\//.test(path || '')"><i class="fab fa-github" aria-hidden="true"></i>Sign in</a>
   <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
     <span class="navbar-toggler-icon"></span>
   </button>

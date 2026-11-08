@@ -7,6 +7,7 @@ export function initializeTemplate(name, state) {
     state.sidebarHidden = false;
     state.dirExpanded = false;
     state.moreOpen = false;
+    state.tocOpen = false;
     state.mdFindOpen = false;
     state.mdFindQuery = "";
     state.mdFindTotal = 0;

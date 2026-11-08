@@ -28,7 +28,7 @@
         <li class="breadcrumb-item" v-for="(p, index) in paths" :aria-current="index === paths.length - 1 ? 'page' : null"><template v-for="(seg, si) in redactParts(p)" :key="si"><span v-if="seg.n" class="redact-slot" role="img" :aria-label="'Redacted term ' + seg.n"><i>{{ seg.n }}</i></span><template v-else>{{ seg.t }}</template></template></li>
       </ol>
       <span class="mobile-sub"><span>{{ type == 'html' ? 'Markdown' : (languageName || 'Text') }}</span><span v-if="type != 'html' &amp;&amp; typeof content === 'string'">{{ fmt?.number(content.split('\n').length) }} lines</span><span v-if="type == 'html' && fileSize(filePath) != null">{{ formatSize(fileSize(filePath)) }}</span><b v-if="redactionCount()">{{ redactionCount() }} redacted</b></span>
-      <button type="button" class="btn btn-sm btn-icon-only btn-ghost copy-path-btn" v-show="filePath" :aria-label="pathCopied ? 'Path copied' : 'Copy path'" :title="pathCopied ? 'Path copied' : 'Copy path'" @click="copyPath()"><svg class="ui-icon" aria-hidden="true"><use :href="pathCopied ? '#ui-icon-check' : '#ui-icon-link'"></use></svg></button>
+      <button type="button" class="btn btn-sm btn-icon-only btn-ghost copy-path-btn" v-show="filePath" :aria-label="pathCopied ? 'Path copied' : 'Copy file path'" :title="pathCopied ? 'Path copied' : 'Copy file path'" @click="copyPath()"><svg class="ui-icon" aria-hidden="true"><use :href="pathCopied ? '#ui-icon-check' : '#ui-icon-link'"></use></svg></button>
     </div>
     <span class="file-card-meta" v-if="type != 'html' &amp;&amp; typeof content === 'string'"><template v-if="languageName">{{ languageName }}<span class="sep">·</span></template>{{ fmt?.number(content.split('\n').length) }} lines<span class="meta-extra"><span class="sep">·</span>{{ content.length &lt; 1024 ? content.length + ' B' : (content.length / 1024).toFixed(1) + ' KB' }}</span><template v-if="redactionCount()"><span class="sep">·</span><span class="meta-redact">{{ redactionCount() }} redacted</span></template></span>
     <span class="file-card-meta" v-if="type == 'html'">Markdown<template v-if="fileSize(filePath) != null"><span class="sep">·</span>{{ formatSize(fileSize(filePath)) }}</template><template v-if="redactionCount()"><span class="sep">·</span><span class="meta-redact">{{ redactionCount() }} redacted</span></template></span>
@@ -50,19 +50,31 @@
       <a target="_self" class="tb-seg-btn tb-seg-icon" aria-label="Download file" title="Download file" :href="safeUrl((url) + &quot;&amp;download=true&quot;)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-download"></use></svg></a>
     </div>
     <button type="button" class="btn btn-sm btn-icon-only btn-ghost tb-copy-m" v-if="typeof content === 'string'" :aria-label="contentCopied ? 'Copied' : 'Copy file contents'" @click="copyContent()"><svg class="ui-icon" aria-hidden="true"><use :href="contentCopied ? '#ui-icon-check' : '#project-icon-copy'"></use></svg></button>
+    <div class="tb-toc-m" v-if="type == 'html' &amp;&amp; readmeToc().length &gt;= 3">
+      <button type="button" class="btn btn-sm btn-icon-only btn-ghost tb-toc-btn" :class="{ 'is-on': tocOpen }" aria-label="On this page" title="On this page" aria-haspopup="true" :aria-expanded="tocOpen ? 'true' : 'false'" @click.stop="tocOpen = !tocOpen; moreOpen = false"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-outline"></use></svg></button>
+      <div class="tb-menu tb-toc-menu" v-if="tocOpen" role="menu" @click="tocOpen = false">
+        <div class="tb-menu-label">On this page</div>
+        <button type="button" role="menuitem" :class="['tb-menu-toc', 'lvl-2', { 'is-active': !activeHeading }]" @click="scrollToHeading(null)">Introduction</button>
+        <button type="button" role="menuitem" v-for="h in readmeToc()" :key="'m-' + h.id" :class="['tb-menu-toc', 'lvl-' + h.level, { 'is-active': activeHeading === h.id }]" @click="scrollToHeading(h.id)">{{ h.text }}</button>
+      </div>
+    </div>
     <div class="tb-more">
-      <button type="button" class="btn btn-sm btn-icon-only btn-ghost tb-more-btn" :class="{ 'is-on': moreOpen }" aria-label="More actions" aria-haspopup="true" :aria-expanded="moreOpen ? 'true' : 'false'" @click.stop="moreOpen = !moreOpen"><svg viewBox="0 0 24 24" class="ui-icon" aria-hidden="true" style="fill:currentColor;stroke:none"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button>
+      <button type="button" class="btn btn-sm btn-icon-only btn-ghost tb-more-btn" :class="{ 'is-on': moreOpen }" aria-label="More actions" aria-haspopup="true" :aria-expanded="moreOpen ? 'true' : 'false'" @click.stop="tocOpen = false; moreOpen = !moreOpen"><svg viewBox="0 0 24 24" class="ui-icon" aria-hidden="true" style="fill:currentColor;stroke:none"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button>
       <div class="tb-menu" v-if="moreOpen" role="menu" @click="moreOpen = false">
         <div class="tb-menu-note" v-if="options?.publishedAt || options?.sourceCommitDate || options?.anonymizedAt || options?.lastUpdateDate"><svg class="ui-icon" aria-hidden="true"><use href="#project-icon-clock"></use></svg>Snapshot · {{ fmt?.date(options?.publishedAt || options?.sourceCommitDate || options?.anonymizedAt || options?.lastUpdateDate) }}</div>
+        <div class="tb-menu-note tb-menu-meta" v-if="typeof content === 'string'">{{ type == 'html' ? 'Markdown' : (languageName || 'Text') }}<template v-if="type != 'html'"> · {{ fmt?.number(content.split('\n').length) }} lines</template> · {{ type == 'html' &amp;&amp; fileSize(filePath) != null ? formatSize(fileSize(filePath)) : (content.length &lt; 1024 ? content.length + ' B' : (content.length / 1024).toFixed(1) + ' KB') }}</div>
         <div class="tb-menu-sep" v-if="options?.publishedAt || options?.sourceCommitDate || options?.anonymizedAt || options?.lastUpdateDate"></div>
+        <button type="button" role="menuitem" v-if="type == 'html'" @click="toggleMdFind()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-search"></use></svg>Find in file</button>
+        <div class="tb-menu-sep" v-if="type == 'html'"></div>
         <button type="button" role="menuitem" v-if="type != 'html'" @click="findInFile()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-search"></use></svg>Find in file</button>
         <button type="button" role="menuitem" v-if="type != 'html'" @click="gotoLine()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-goto"></use></svg>Go to line</button>
         <button type="button" role="menuitemcheckbox" v-if="type != 'html'" :aria-checked="wrapLines ? 'true' : 'false'" @click="toggleWrap()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-wrap"></use></svg>Wrap lines<span class="tb-menu-check" v-if="wrapLines">✓</span></button>
         <div class="tb-menu-sep" v-if="type != 'html'"></div>
-        <a role="menuitem" target="_self" v-if="type != 'html'" :href="safeUrl((url))"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-code"></use></svg>Open raw file</a>
-        <button type="button" role="menuitem" v-if="typeof content === 'string'" @click="copyContent()"><svg class="ui-icon" aria-hidden="true"><use href="#project-icon-copy"></use></svg>Copy contents</button>
+        <a role="menuitem" target="_self" v-if="type == 'html'" :href="safeUrl((url))"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-code"></use></svg>View raw</a>
+        <a role="menuitem" target="_self" v-if="type != 'html'" :href="safeUrl((url))"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-code"></use></svg>View raw</a>
         <a role="menuitem" target="_self" :href="safeUrl((url) + &quot;&amp;download=true&quot;)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-download"></use></svg>Download file</a>
-        <button type="button" role="menuitem" @click="copyPath()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-link"></use></svg>Copy path</button>
+        <a role="menuitem" target="_self" v-if="options?.download" :href="safeUrl(&quot;/api/repo/&quot; + (repoId) + &quot;/zip&quot;)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-archive"></use></svg>Download ZIP</a>
+        <button type="button" role="menuitem" @click="copyPath()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-link"></use></svg>Copy file path</button>
         <div class="tb-menu-sep"></div>
         <a role="menuitem" href="/faq"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-help"></use></svg>FAQ</a>
         <a role="menuitem" href="https://github.com/tdurieux/anonymous_github/issues/new?template=issue_report.yml" target="_blank" rel="noopener"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-bug"></use></svg>Report a bug</a>
