@@ -1,6 +1,10 @@
+import { BillingQuota, BillingDraft } from "../../core/billing/models";
+import { cancelAccountBilling } from "../../core/billing/stripe";
+import { allowance } from "../../core/billing/quotas";
+import { notificationEmail } from "../../core/owner-notifications";
 import DashboardName from "../../core/model/dashboard-name";
 import { dashboardSummary } from "./dashboard-summary";
-import { revokeGrant } from "./github-app";
+import { connectionCSRF, revokeGrant } from "./github-app";
 import CredentialModel from "../../core/model/credentials/credentials.model";
 import * as express from "express";
 import config from "../../config";
@@ -40,7 +44,18 @@ router.get("/logout", async (req, res) => {
 router.get("/", async (req, res) => {
   try {
     const user = await getUser(req);
+    const showEmailPrompt = !!(config.RESEND_API_KEY && config.EMAIL_FROM) &&
+      !notificationEmail(user.model.emails, user.model.notificationEmail) && !user.model.emailPromptNever && !req.session.emailPromptDismissed;
+    if (showEmailPrompt) {
+      connectionCSRF(req);
+      await new Promise<void>((resolve, reject) => req.session.save(error => error ? reject(error) : resolve()));
+    }
+    res.set("Cache-Control", "no-store");
     res.json({
+      showEmailPrompt,
+      emailPromptCSRF: showEmailPrompt ? req.session.githubConnectionCSRF : undefined,
+      notificationEmail: notificationEmail(user.model.emails, user.model.notificationEmail),
+      emailNotificationsEnabled: !!(config.RESEND_API_KEY && config.EMAIL_FROM),
       username: user.username,
       photo: user.photo,
       isAdmin: user.isAdmin,
@@ -58,7 +73,15 @@ router.get("/dashboard", async (req, res) => {
 router.get("/quota", async (req, res) => {
   try {
     const user = await getUser(req);
-    const ready = await user.quotaRepositories();
+    let ready = await user.quotaRepositories();
+    const limits = config.BILLING_ENABLED ? await allowance(user.id) : null;
+    if (limits) {
+      const funded = [];
+      for (const repository of ready) {
+        if ((await allowance(user.id, repository.repoId, repository.conference)).scope === limits.scope) funded.push(repository);
+      }
+      ready = funded;
+    }
 
     let totalStorage = 0;
     let totalFiles = 0;
@@ -112,18 +135,20 @@ router.get("/quota", async (req, res) => {
       }
     }
 
+    const reserved = limits ? await BillingQuota.findById(limits.scope).lean() : null;
     res.json({
       storage: {
-        used: totalStorage,
-        total: config.DEFAULT_QUOTA,
+        unit: limits ? "bytes" : "legacy",
+        used: reserved ? reserved.allocations.reduce((sum, entry) => sum + (entry.bytes || 0), 0) : totalStorage,
+        total: limits?.storage ?? config.DEFAULT_QUOTA,
       },
       file: {
         used: totalFiles,
         total: 0,
       },
       repository: {
-        used: ready.length,
-        total: 20,
+        used: reserved ? reserved.allocations.length : ready.length,
+        total: limits?.repositories ?? 20,
       },
     });
   } catch (error) {
@@ -175,6 +200,8 @@ router.post("/default", async (req, res) => {
 router.delete("/", async (req, res) => {
   try {
     const user = await getUser(req);
+    if (config.BILLING_ENABLED) await cancelAccountBilling(user.id);
+    if (isConnected) await BillingDraft.deleteMany({ owner: user.id });
 
     const repositories = (await user.getRepositories()).filter(
       (r) => r.owner.id === user.model.id && r.status !== "removed"
@@ -226,6 +253,9 @@ router.delete("/", async (req, res) => {
           repositories: [],
         },
         $unset: {
+          notificationEmail: "",
+          emailPromptNever: "",
+          accessAlertAfter: "",
           accessTokens: "",
           accessTokenDates: "",
           externalIDs: "",

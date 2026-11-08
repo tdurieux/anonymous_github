@@ -2,6 +2,27 @@ import { resolve } from "path";
 import { randomBytes } from "crypto";
 
 interface Config {
+  BILLING_ENABLED: boolean;
+  BILLING_CHECKOUT_ENABLED: boolean;
+  BILLING_ORIGIN: string;
+  BILLING_AUTOMATIC_TAX: boolean;
+  STRIPE_SECRET_KEY: string;
+  STRIPE_WEBHOOK_SECRET: string;
+  STRIPE_AUTHOR_MONTHLY_PRICE: string;
+  STRIPE_AUTHOR_ANNUAL_PRICE: string;
+  STRIPE_AUTHOR_PASS_PRICE: string;
+  STRIPE_CONFERENCE_PRICE: string;
+  FREE_AUTHOR_REPOSITORIES: number;
+  FREE_AUTHOR_STORAGE: number;
+  PAID_AUTHOR_REPOSITORIES: number;
+  PAID_AUTHOR_STORAGE: number;
+  PAID_PASS_STORAGE: number;
+  PAID_CONFERENCE_REPOSITORIES: number;
+  PAID_CONFERENCE_STORAGE: number;
+
+  RESEND_API_KEY: string;
+  EMAIL_FROM: string;
+
   SHARED_CACHE_ENABLED: boolean;
   SHARED_CACHE_PATH: string;
   SHARED_CACHE_BYTES: number;
@@ -77,8 +98,31 @@ interface Config {
    */
   TRUST_PROXY: string;
   RATE_LIMIT: number;
+  /** Website requests per visitor per 15 minutes, independent of the API. */
+  WEBSITE_RATE_LIMIT: number;
 }
 const config: Config = {
+  BILLING_ENABLED: false,
+  BILLING_CHECKOUT_ENABLED: true,
+  BILLING_ORIGIN: "http://localhost:5000",
+  BILLING_AUTOMATIC_TAX: false,
+  STRIPE_SECRET_KEY: "",
+  STRIPE_WEBHOOK_SECRET: "",
+  STRIPE_AUTHOR_MONTHLY_PRICE: "",
+  STRIPE_AUTHOR_ANNUAL_PRICE: "",
+  STRIPE_AUTHOR_PASS_PRICE: "",
+  STRIPE_CONFERENCE_PRICE: "",
+  FREE_AUTHOR_REPOSITORIES: 5,
+  FREE_AUTHOR_STORAGE: 2 * 1024 ** 3,
+  PAID_AUTHOR_REPOSITORIES: 20,
+  PAID_AUTHOR_STORAGE: 10 * 1024 ** 3,
+  PAID_PASS_STORAGE: 2 * 1024 ** 3,
+  PAID_CONFERENCE_REPOSITORIES: 100,
+  PAID_CONFERENCE_STORAGE: 50 * 1024 ** 3,
+
+  RESEND_API_KEY: "",
+  EMAIL_FROM: "",
+
   SHARED_CACHE_ENABLED: false,
   SHARED_CACHE_PATH: resolve(process.env.FOLDER || resolve(__dirname, "..", "repositories"), ".shared-cache-v1"),
   SHARED_CACHE_BYTES: 10 * 1024 ** 3,
@@ -129,6 +173,7 @@ const config: Config = {
   // entries. Set a plain number to restore the legacy hop-count behavior.
   TRUST_PROXY: "loopback,uniquelocal,cloudflare",
   RATE_LIMIT: 350,
+  WEBSITE_RATE_LIMIT: 2000,
   APP_HOSTNAME: "anonymous.4open.science",
   DB_USERNAME: "admin",
   DB_PASSWORD: "password",
@@ -223,3 +268,10 @@ if (config.GITHUB_APP_ENABLED) {
   if (!config.GITHUB_APP_PRIVATE_KEY && !config.GITHUB_APP_PRIVATE_KEY_FILE) throw new Error("A GitHub App private key is required");
 }
 export default config;
+
+if (config.BILLING_ENABLED) {
+  for (const key of ["FREE_AUTHOR_REPOSITORIES", "FREE_AUTHOR_STORAGE", "PAID_AUTHOR_REPOSITORIES", "PAID_AUTHOR_STORAGE", "PAID_PASS_STORAGE", "PAID_CONFERENCE_REPOSITORIES", "PAID_CONFERENCE_STORAGE"] as const) {
+    if (!Number.isSafeInteger(config[key]) || config[key] <= 0) throw new Error(`${key} must be a positive integer`);
+  }
+  if (!config.STRIPE_SECRET_KEY || !config.STRIPE_WEBHOOK_SECRET) throw new Error("Billing requires STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET");
+}

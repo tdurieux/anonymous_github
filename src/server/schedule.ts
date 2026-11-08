@@ -1,3 +1,4 @@
+import { reconcileNeverExpiration } from "../core/billing/expiration";
 import { Model, Document } from "mongoose";
 import * as schedule from "node-schedule";
 import AnonymizedGistModel from "../core/model/anonymizedGists/anonymizedGists.model";
@@ -62,6 +63,7 @@ export function repositoryMaintenanceQuery(now: Date) {
 }
 
 export async function runRepositoryStatusCheck(now = new Date()) {
+  await reconcileNeverExpiration(now);
   logger.info("checking repository status and unused repositories");
   const fourMonthAgo = new Date(now);
   fourMonthAgo.setMonth(fourMonthAgo.getMonth() - 4);
@@ -156,7 +158,7 @@ export async function runRepositoryStatusCheck(now = new Date()) {
   await expireContent(AnonymizedPullRequestModel, data => new PullRequest(data), now);
 
   const retiredCursor = AnonymizedRepositoryModel.find({ $or: [
-    { retiredTreeGenerations: { $exists: true } }, { retiredContentPrefixes: { $exists: true } },
+    { retiredTreeGenerations: { $exists: true } }, { retiredPathIndexKeys: { $exists: true } }, { retiredContentPrefixes: { $exists: true } },
     { legacyContentCleanupPending: true, status: RepositoryStatus.READY },
     { "stagedFileTrees.until": { $lte: now } },
   ] }).cursor();

@@ -1,7 +1,15 @@
+import { ownerAlertLifecycle } from "../owner-alert-lifecycle.schema";
 import { repositoryAccessSchema } from "../repository-access.schema";
 import { Schema } from "mongoose";
 
 const AnonymizedRepositorySchema = new Schema({
+  billingManaged: Boolean,
+  billingNeverExpiresUntil: Date,
+  accessAlertGeneration: { type: String, select: false },
+  accessAlertClaimedAt: { type: Date, select: false },
+  accessAlertAttemptId: { type: String, select: false },
+  accessAlertClaimRevision: { type: Number, select: false },
+  reviewConsentRevision: { type: Number, select: false },
   repoId: {
     type: String,
     index: { unique: true, collation: { locale: "en", strength: 2 } },
@@ -11,6 +19,7 @@ const AnonymizedRepositorySchema = new Schema({
     default: "preparing",
   },
   statusDate: Date,
+  progressDate: Date,
   refreshToken: { type: String, select: false },
   refreshUntil: { type: Date, select: false },
   archivedAt: Date,
@@ -52,6 +61,7 @@ const AnonymizedRepositorySchema = new Schema({
   treeGeneration: String,
   stagedFileTrees: { type: [{ generation: String, until: Date }], default: undefined },
   retiredTreeGenerations: { type: [String], default: undefined },
+  retiredPathIndexKeys: { type: [String], default: undefined },
   retiredContentPrefixes: { type: [String], default: undefined },
   legacyContentCleanupPending: Boolean,
   contentCacheVersion: Number,
@@ -103,6 +113,7 @@ const AnonymizedRepositorySchema = new Schema({
 AnonymizedRepositorySchema.index({ "source.repositoryName": 1 });
 AnonymizedRepositorySchema.index({ "coauthors.githubId": 1 });
 AnonymizedRepositorySchema.index({ retiredTreeGenerations: 1 }, { sparse: true });
+AnonymizedRepositorySchema.index({ retiredPathIndexKeys: 1 }, { sparse: true });
 AnonymizedRepositorySchema.index({ "stagedFileTrees.until": 1 }, { sparse: true });
 AnonymizedRepositorySchema.index({ retiredContentPrefixes: 1 }, { sparse: true });
 AnonymizedRepositorySchema.index({ legacyContentCleanupPending: 1, status: 1 },
@@ -117,5 +128,7 @@ AnonymizedRepositorySchema.index({
   isReseted: 1,
   "options.expirationDate": 1,
 });
+
+AnonymizedRepositorySchema.plugin(ownerAlertLifecycle);
 
 export default AnonymizedRepositorySchema;

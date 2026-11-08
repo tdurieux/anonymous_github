@@ -3,10 +3,13 @@ import { Document, Model } from "mongoose";
 import { RepositoryStatus } from "../../types";
 
 export interface IAnonymizedRepository {
+  billingManaged?: boolean;
+  billingNeverExpiresUntil?: Date;
   repoId: string;
   status?: RepositoryStatus;
   statusMessage?: string;
   statusDate: Date;
+  progressDate?: Date;
   archivedAt?: Date;
   archiveReason?: string;
   archiveCachePending?: boolean;
@@ -33,6 +36,7 @@ export interface IAnonymizedRepository {
   treeGeneration?: string;
   stagedFileTrees?: { generation: string; until: Date }[];
   retiredTreeGenerations?: string[];
+  retiredPathIndexKeys?: string[];
   retiredContentPrefixes?: string[];
   legacyContentCleanupPending?: boolean;
   contentCacheVersion?: number;

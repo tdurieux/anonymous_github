@@ -21,7 +21,8 @@
     "test:performance": "mocha test/performance-*.test.js",
     "benchmark:performance": "node scripts/performance-benchmark.js",
     "build:ui": "node gulpfile.js",
-    "test:ui": "npm run build:ui && mocha test/frontend-regressions.test.js test/dashboard-ui.test.js test/vue-ui.test.js"
+    "test:ui": "npm run build:ui && mocha test/frontend-regressions.test.js test/dashboard-ui.test.js test/vue-ui.test.js",
+    "vendor:markdown": "node scripts/sync-markdown-vendors.js"
   },
   "repository": {
     "type": "git",
@@ -55,6 +56,7 @@
     "crypto-js": "^4.2.0",
     "d3-geo": "^3.1.1",
     "decompress-stream-to-s3": "^2.1.1",
+    "dompurify": "^3.4.17",
     "dotenv": "^18.0.9",
     "express": "^5.3.0",
     "express-rate-limit": "^8.7.2",
@@ -70,6 +72,7 @@
     "marked-footnote": "^1.4.0",
     "marked-gfm-heading-id": "^4.1.4",
     "marked-katex-extension": "^5.1.13",
+    "mermaid": "^12.2.0",
     "mime-types": "^3.0.2",
     "mongoose": "^7.8.13",
     "node-schedule": "^2.1.2",
@@ -81,6 +84,7 @@
     "redis": "^5.12.1",
     "sanitize-html": "^2.18.1",
     "topojson-client": "^3.1.0",
+    "stripe": "^23.1.0",
     "ts-custom-error": "^3.3.1",
     "unzip-stream": "^0.3.4"
   },

@@ -33,6 +33,20 @@ A free public instance is available at **[anonymous.4open.science](https://anony
 
 Just open **[anonymous.4open.science](https://anonymous.4open.science/)**, paste your repository URL, add the terms to hide, and share the generated link.
 
+### Git submodules
+
+Direct public GitHub submodules are included in the file browser and ZIP downloads
+at the commit recorded by the parent repository. Their paths and contents use the
+parent's anonymization settings. `.gitmodules` files are omitted from shared GitHub
+content because they contain source repository URLs.
+
+The service expands up to 20 direct submodules and 10,000 combined child tree entries.
+Private, non-GitHub, nested, missing, oversized, and truncated submodules remain empty
+folders with a warning. Child files are fetched anonymously on demand; child tree
+lookups use GitHub's unauthenticated API quota. ZIP downloads fetch public child archives.
+Existing cached repositories with `.gitmodules` rebuild their file trees on the next
+listing or ZIP download. No manual database migration is required.
+
 ### CLI
 
 Anonymize a repository locally and produce an anonymized zip:
@@ -65,8 +79,8 @@ Local installation requires Node.js 22.15 or newer in the 22.x series,
 For the November 2026 dependency update, install from the committed lockfile
 with `npm ci`, rebuild with `npm run build`, and restart the API and streamer
 services together. Docker installations should rebuild the application image.
-The Node dependency update alone does not change MongoDB documents, Redis keys,
-or queue formats. Switching to Go requires the separate cutover procedure linked above. Existing credential
+This dependency update does not change MongoDB documents, Redis keys, or queue
+formats, so it requires no production data migration. Existing credential
 migration requirements still apply when upgrading from an older release.
 
 The [`glob`](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4) and
@@ -131,6 +145,96 @@ the [MongoDB replication guide](docs/mongodb-replication.md).
 
 </details>
 
+### Owner email alerts
+
+Set `RESEND_API_KEY` and `EMAIL_FROM` on the web server and download workers to
+send access alerts through [Resend](https://resend.com/docs/api-reference/emails/send-email).
+Use a sender address on a domain verified in Resend. `APP_HOSTNAME` sets the
+host used for the connections link in emails.
+
+Registration saves a verified GitHub email address, preferring the primary address.
+OAuth requests `user:email`; GitHub App sign-in uses the read-only email permission
+described in the setup guide. Later sign-ins also fill missing addresses. Saved
+addresses and custom alert addresses are preserved. GitHub privacy placeholder
+addresses are not imported.
+
+Signed-in owners without an email address see an email form in a popup.
+“Remind me later” dismisses it for the current login session; “Never” saves a
+permanent preference on the account. Existing addresses are reused, and owners
+can add or change their address on the connections page at any time.
+Alerts cover invalid GitHub credentials and repository access errors encountered
+while reading or refreshing content. No periodic access scan is performed.
+Emails contain no repository names, anonymous URLs, or credentials.
+
+An atomic recipient claim allows one email attempt per normalized address across
+repositories, pull requests, gists and accounts. Suppression has no time expiry.
+Sign-in, reconnecting, successful access recovery, resource removal or expiration,
+and disabling the original account retain suppression for that address. Inactive
+resources cannot trigger new alerts. Changing to an address that has never been
+notified permits its first alert.
+
+Failed deliveries and interrupted sends whose outcome is unknown also stay
+blocked to avoid duplicate delivery. Unsent claims can be cancelled by confirmed recovery before dispatch. Bookkeeping failures
+release claims when no provider request has started. Pending claims interrupted
+before dispatch can be reclaimed after a 60-second lease during startup or a new
+notification attempt. Claim identity and state checks prevent a paused sender
+from dispatching after another instance reclaims its claim. Cancellation is saved
+before cleanup; matching legacy fields are cleared before the guard is released.
+Interrupted cleanup resumes on startup or a later notification. Legacy fields
+carry an attempt ID so unrelated deliveries and newer generations are preserved.
+A resource revision prevents delayed preparation from recreating a reclaimed
+claim. All asynchronous preparation stays pending. A sending reservation is
+reclaimable until dispatch commits atomically on the owner document, against its
+reset revision and lease, immediately before contacting the provider. Cancellation
+competes with that same commitment, so a paused sender cannot dispatch afterward.
+Owner dispatch records distinguish known-unsent reservations from interrupted
+committed sends. Completed records are removed; expired uncommitted records are
+pruned on later attempts. Persistent reset revisions also fence attempts created
+while a reset is in progress, even when no recipient guard existed at its start.
+Recovery recorded during an active reset is retried when reset finishes or its
+lease expires, with the original source and revision checks.
+Provider idempotency keys
+and redacted attempt records support auditing without storing recipient addresses
+or repository names in the audit log. Records include owner and resource IDs,
+resource kind, generation and a categorized access failure to identify the
+trigger without exposing the address. Attempt records are saved before dispatch,
+with completion recorded separately. Existing resource claims are migrated to
+recipient guards before new application instances serve requests using an indexed
+scan with resumable checkpoints. Other instances wait while its lease is healthy,
+and take over if the lease expires.
+Every existing resource claim is retained behind the recipient guard. Recovery
+marks claims recovered without authorizing another email. Completed provider
+results are recorded before guard updates, with bounded retries and reconciliation
+on startup or a later notification. The upgrade restores missing recipient guards
+from immutable provider completion records, including guards previously released
+by recovery or resource removal. This history scan uses an index and resumable
+checkpoints and does not send email. Its `recipient-alerts-v2` database marker is
+independent of the v1 marker, so cold starts also restore missing suppression.
+Resource lifecycle mutations advance the owner dispatch fence and block new
+attempts until the status write completes. Concurrent mutations keep separate
+reservations. Failed or ambiguous status writes retain suppression for that
+owner; run the offline reconciliation command below after stopping all writers
+to clear interrupted reservations safely.
+
+Use `scripts/deploy.sh` when upgrading recipient alert suppression. The new image
+has the `science.4open.owner-alert-protocol=recipient-v2` label. When running
+application containers have an older or missing protocol label, the script builds
+the replacement, stops and verifies all old API and streamer containers, then prepares a full claim
+reconciliation and starts the new streamers and API. Stopped legacy containers
+from a rollback also trigger reconciliation, so claims written after an earlier
+migration are included. This path also runs when retrying with an already-built
+image and `FORCE=0`. Once writers are stopped, preparation releases all known
+unsent pending claims and clears their matching legacy fields before backfill.
+This upgrade pauses traffic while claims migrate and allows up to 15
+minutes for startup, configurable with `MIGRATION_HEALTH_TIMEOUT`. Subsequent
+deployments keep the usual rolling streamer replacement. Manual upgrades must
+stop all application writers, run
+`docker compose run --rm --no-deps --entrypoint node anonymous_github ./build/scripts/reconcile-legacy-owner-alerts.js`
+using the new image, and then start the new application instances. Run this
+preparation after legacy writers have operated, even if their containers were
+already removed. Ordinary restarts preserve confirmed recoveries.
+Leaving either Resend setting empty disables delivery and the email prompt.
+
 ## Scope of anonymization
 
 In double-anonymous review, the boundary of anonymization is **the paper plus its online appendix — and only that**. Googling part of the paper or appendix to reveal authorship is considered a deliberate attempt to break anonymity ([explanation](https://www.monperrus.net/martin/open-science-double-blind)).
@@ -174,3 +278,7 @@ diagram is encountered. These libraries use hashed URLs and load once per tab.
 The Docker build compiles the same bundles and copies them, the asset manifest,
 and document-worker assets into the runtime image. The Compose app serves these
 assets directly; no frontend development server is needed.
+
+### Paid hosting
+
+Optional Stripe billing supports monthly and annual author subscriptions, repository review passes, and prepaid conference packages. Billing is disabled by default. See the [setup and rollout guide](docs/paid-hosting.md) for prices, capacities, webhooks, migration behavior, and test-mode verification.

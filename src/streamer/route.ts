@@ -35,6 +35,7 @@ router.post(
           getToken: () => token,
           anonymizerOptions: { ...anonymizerOptions, repoId },
           contentOptions,
+          submodules: req.body.submodules,
         },
         res
       );
@@ -90,7 +91,7 @@ router.post("/", async (req: express.Request, res: express.Response) => {
     const content = await source.getFileContentCache(
       filePath,
       repoId,
-      () => ({ sha: fileSha, size: fileSize })
+      () => ({ sha: fileSha, size: fileSize, upstream: req.body.upstream })
     );
     if (res.destroyed || res.writableEnded) { content.destroy(); anonymizer.destroy(); return; }
     const mime = lookup(filePath);

@@ -3,6 +3,7 @@ const { promises: fs } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { join } = require("node:path");
 const http = require("node:http");
+const { setTimeout } = require("node:timers");
 const { Readable } = require("node:stream");
 const { createHash } = require("node:crypto");
 const { gunzipSync } = require("node:zlib");
@@ -39,13 +40,15 @@ describe("shared cache HTTP and telemetry integration", function () {
       const source = new GitHubStream({ repoId: req.params.project, organization: "org", repoName: "repo", commit: "commit", getToken: async () => "" });
       source.downloadWithFallback = async () => { fills++; return Readable.from(body); };
       source.downloadFile = () => Readable.from("invalid pointer");
-      res.type("text/plain");
+      const filePath = String(req.query.name || "README.md");
+      const mime = require("mime-types").lookup(filePath);
+      if (mime) res.type(mime);
       try {
-        const input = await source.getFileContentCache("README.md", req.params.project, () => ({ sha: sha(body), size: body.length }));
-        const handled = await sendSharedContent(input, res, { filePath: "README.md", repoId: req.params.project,
+        const input = await source.getFileContentCache(filePath, req.params.project, () => ({ sha: sha(body), size: body.length }));
+        const handled = await sendSharedContent(input, res, { filePath, repoId: req.params.project,
           terms: req.params.mode === "changed" ? ["Public=>Private"] : ["Alice"] });
-        if (!handled) { input.destroy(); res.status(500).end("unexpected bypass"); }
-      } catch (e) { if (!res.headersSent) res.status(500).end(e.message); else res.destroy(e); }
+        if (!handled) res.send(await consume(input));
+      } catch (e) { if (!res.headersSent) res.status(e.httpStatus || 500).end(e.message); else res.destroy(e); }
     });
     await new Promise(resolve => { server = app.listen(0, "127.0.0.1", resolve); }); port = server.address().port;
   });
@@ -53,6 +56,34 @@ describe("shared cache HTTP and telemetry integration", function () {
     await new Promise(resolve => server.close(resolve)); closeBlobCaches(); closeCacheMetrics(); Object.assign(config, old);
     await fs.rm(root, { recursive: true, force: true });
   });
+  for (const mode of ["fill", "hit", "bypass"]) {
+    it(`enforces resolved-byte billing admission on shared source ${mode}`, async () => {
+      const quotas = require("../src/core/billing/quotas");
+      const { billingError } = require("../src/core/billing/config");
+      const reserve = quotas.reserveFileExpansion;
+      const payload = Buffer.alloc(2048, 65);
+      const source = new GitHubStream({ repoId: "billed-project", organization: "org", repoName: "repo", commit: "commit", getToken: async () => "" });
+      let downloads = 0, reservations = 0;
+      source.downloadWithFallback = async () => { downloads++; return Readable.from(payload); };
+      let cache = sharedBlobCache();
+      if (mode === "hit") await consume(await cache.getOrFill(`git-${sha(payload)}`, async () => Readable.from(payload)));
+      if (mode === "bypass") { closeBlobCaches(); config.SHARED_CACHE_MAX_FILE_BYTES = 1; cache = sharedBlobCache(); }
+      config.BILLING_ENABLED = true;
+      quotas.reserveFileExpansion = async (repoId, key, bytes) => {
+        reservations++;
+        assert.equal(repoId, "billed-project");
+        assert.equal(key, createHash("sha256").update("large.bin").digest("hex"));
+        assert.equal(bytes, 1024 ** 2 - 130);
+        throw billingError("quota_exceeded", 402);
+      };
+      try {
+        await assert.rejects(async () => consume(await source.getFileContentCache("large.bin", "billed-project", () => ({ sha: sha(payload), size: 130 }))), /quota_exceeded/);
+        assert.equal(reservations, 1);
+        assert.equal(downloads, mode === "hit" ? 0 : 1);
+        if (mode !== "hit") assert.equal(await cache.lookup(`git-${sha(payload)}`), undefined);
+      } finally { quotas.reserveFileExpansion = reserve; }
+    });
+  }
   const headers = { authorization: "test-access" };
   it("shares source content across projects without bypassing authorization", async () => {
     assert.equal((await request(port, "/a/plain")).status, 403); assert.equal(fills, 0);
@@ -62,6 +93,162 @@ describe("shared cache HTTP and telemetry integration", function () {
     assert.deepEqual(b.body, body); assert.equal(b.headers["content-encoding"], undefined); assert.equal(fills, 1);
     assert.equal(sharedBlobCache().stats().blobs, 1); assert.equal(resultBlobCache().stats().blobs, 0);
     assert.equal((await request(port, "/b/plain", "gzip")).status, 403);
+  });
+  it("fetches public submodule content from its origin without forwarding parent credentials", async () => {
+    const original = GitHubStream.prototype.downloadWithFallback;
+    const upstream = { organization: "public-org", repoName: "dependency", commit: "a".repeat(40), path: "src/data.txt" };
+    let calls = 0;
+    GitHubStream.prototype.downloadWithFallback = async function (token, digest, path) {
+      calls++;
+      assert.equal(token, ""); assert.equal(digest, sha(body)); assert.equal(path, upstream.path);
+      assert.equal(this.data.organization, upstream.organization); assert.equal(this.data.repoName, upstream.repoName);
+      assert.equal(this.data.commit, upstream.commit);
+      return Readable.from(body);
+    };
+    try {
+      const source = new GitHubStream({ repoId: "parent", organization: "private-org", repoName: "parent",
+        commit: "parent-commit", getToken: async () => "parent-secret" });
+      const meta = () => ({ sha: sha(body), size: body.length, upstream });
+      assert.deepEqual(await consume(await source.getFileContentCache("vendor/src/data.txt", "parent", meta)), body);
+      assert.deepEqual(await consume(await source.getFileContentCache("vendor/src/data.txt", "parent", meta)), body);
+      assert.equal(calls, 1);
+    } finally { GitHubStream.prototype.downloadWithFallback = original; }
+  });
+  for (const change of ["expired", "removed", "revision"]) it("rejects a large rewrite retired during worker execution: " + change, async () => {
+    const db = require("../src/server/database"), model = require("../src/core/model/anonymizedRepositories/anonymizedRepositories.model").default;
+    const pool = require("../src/core/anonymization-pool"), worker = pool.anonymizeOnWorker, find = model.findOne, connected = db.isConnected;
+    const current = { status: "ready" }; let release, started;
+    const began = new Promise(resolve => { started = resolve; }), held = new Promise(resolve => { release = resolve; });
+    body = Buffer.from("Public documentation.\n".repeat(20000));
+    db.isConnected = true;
+    model.findOne = () => ({ select() { return this; }, lean() { return this; }, exec: async () => current });
+    pool.anonymizeOnWorker = async message => {
+      started(); await held;
+      await fs.writeFile(message.output, (await fs.readFile(message.input, "utf8")).replaceAll("Public", "Private"));
+      return true;
+    };
+    let pending;
+    try {
+      pending = request(port, "/a/changed", "identity", headers); await began;
+      if (change === "revision") current.contentCacheRevision = "new"; else current.status = change;
+      release(); const r = await pending;
+      assert.equal(r.status, 409); assert.equal(r.body.toString(), "repository_changed");
+      assert.equal(resultBlobCache().stats().blobs, 0); assert.equal(resultBlobCache().stats().decisions, 0);
+    } finally { release(); await pending?.catch(() => {}); pool.anonymizeOnWorker = worker; model.findOne = find; db.isConnected = connected; }
+  });
+  it("rechecks repository lifecycle on a decision hit before sending bytes", async () => {
+    await request(port, "/a/changed", "identity", headers);
+    const db = require("../src/server/database"), model = require("../src/core/model/anonymizedRepositories/anonymizedRepositories.model").default;
+    const results = resultBlobCache(), open = results.open.bind(results), find = model.findOne, connected = db.isConnected;
+    const current = { status: "ready" }; db.isConnected = true;
+    model.findOne = () => ({ select() { return this; }, lean() { return this; }, exec: async () => current });
+    results.open = async (...args) => { const stream = await open(...args); current.status = "removed"; return stream; };
+    try {
+      const r = await request(port, "/a/changed", "identity", headers);
+      assert.equal(r.status, 409); assert.equal(r.body.toString(), "repository_changed");
+    } finally { results.open = open; model.findOne = find; db.isConnected = connected; }
+  });
+  it("cancels an active worker and releases spools when the client disconnects", async () => {
+    const pool = require("../src/core/anonymization-pool"), worker = pool.anonymizeOnWorker;
+    const baseline = pool.getAnonymizationPoolStats().spoolBytes;
+    let started, aborted, rejectWork, client;
+    const began = new Promise(resolve => { started = resolve; }), cancelled = new Promise(resolve => { aborted = resolve; });
+    body = Buffer.from("Public documentation.\n".repeat(20000));
+    pool.anonymizeOnWorker = (_message, _size, signal) => new Promise((_resolve, reject) => {
+      rejectWork = reject; started();
+      signal.addEventListener("abort", () => { aborted(); reject(Error("anonymization_cancelled")); }, { once: true });
+    });
+    try {
+      client = http.get({ host: "127.0.0.1", port, path: "/a/changed", headers }); client.on("error", () => {});
+      await began; assert.ok(pool.getAnonymizationPoolStats().spoolBytes > baseline);
+      client.destroy();
+      await Promise.race([cancelled, new Promise((_, reject) => setTimeout(() => reject(Error("worker was not cancelled")), 2000))]);
+      for (let i = 0; i < 100 && (pool.getAnonymizationPoolStats().spoolBytes !== baseline || resultBlobCache().stats().reservedBytes); i++)
+        await new Promise(resolve => setTimeout(resolve, 10));
+      assert.equal(pool.getAnonymizationPoolStats().spoolBytes, baseline);
+      assert.equal(resultBlobCache().stats().reservedBytes, 0);
+      assert.equal(resultBlobCache().stats().blobs, 0);
+    } finally { client?.destroy(); rejectWork?.(Error("test cleanup")); pool.anonymizeOnWorker = worker; }
+  });
+  for (const changed of [false, true]) it("preserves sniffed text MIME on initial and cached responses: " + changed, async () => {
+    for (const encoding of ["gzip", "identity"]) {
+      const r = await request(port, "/a/" + (changed ? "changed" : "plain") + "?name=data.unknownext", encoding, headers);
+      assert.equal(r.status, 200); assert.match(r.headers["content-type"], /^text\/plain/);
+      const decoded = r.headers["content-encoding"] === "gzip" ? gunzipSync(r.body) : r.body;
+      assert.equal(decoded.toString(), changed ? body.toString().replaceAll("Public", "Private") : body.toString());
+    }
+  });
+  for (const name of ["video.mp4", "audio.mp3", "binary.unknownext"]) it("omits the range-denial header for binary " + name, async () => {
+    body = Buffer.from([0, 1, 2, 0, 255]);
+    for (let i = 0; i < 2; i++) {
+      const r = await request(port, "/a/plain?name=" + name, "identity", headers);
+      assert.equal(r.status, 200); assert.equal(r.headers["accept-ranges"], undefined);
+      assert.notEqual(r.headers["content-type"], "text/plain; charset=utf-8"); assert.deepEqual(r.body, body);
+    }
+  });
+  it("bypasses a contended source index without failing a download", async () => {
+    await request(port, "/a/plain", "identity", headers);
+    const { BlobCache } = require("../src/core/blob-cache");
+    const other = new BlobCache(sharedBlobCache().options); other.db.exec("BEGIN IMMEDIATE");
+    try {
+      const r = await request(port, "/a/plain", "identity", headers);
+      assert.equal(r.status, 200); assert.deepEqual(r.body, body); assert.equal(fills, 2);
+    } finally { other.db.exec("ROLLBACK"); other.close(); }
+  });
+  it("bypasses a contended result index while retaining the source fallback", async () => {
+    await request(port, "/a/plain", "identity", headers);
+    const { BlobCache } = require("../src/core/blob-cache");
+    const other = new BlobCache(resultBlobCache().options); other.db.exec("BEGIN IMMEDIATE");
+    try {
+      const r = await request(port, "/a/plain", "identity", headers);
+      assert.equal(r.status, 200); assert.deepEqual(r.body, body); assert.equal(fills, 1);
+    } finally { other.db.exec("ROLLBACK"); other.close(); }
+  });
+  for (const bypass of [false, true]) for (const streamed of [false, true]) {
+    it("normalizes upstream permission errors for " + JSON.stringify({ bypass, streamed }), async () => {
+      if (bypass) sharedBlobCache().options.budget = 1;
+      const source = new GitHubStream({ repoId: "errors", organization: "org", repoName: "repo", commit: "commit", getToken: async () => "" });
+      source.downloadWithFallback = async () => {
+        const error = Object.assign(Error("forbidden"), { response: { statusCode: 403 } });
+        if (!streamed) throw error;
+        return Readable.from((async function* () { yield Buffer.alloc(0); throw error; })());
+      };
+      await assert.rejects(async () => consume(await source.getFileContentCache("data.txt", "errors", () => ({ sha: sha(body), size: body.length }))),
+        error => error.message === "file_not_accessible" && error.httpStatus === 403);
+    });
+  }
+  it("rejects truncated admission-bypass downloads before successful completion", async () => {
+    sharedBlobCache().options.budget = 1;
+    const source = new GitHubStream({ repoId: "short", organization: "org", repoName: "repo", commit: "commit", getToken: async () => "" });
+    source.downloadWithFallback = async () => Readable.from("short");
+    await assert.rejects(async () => consume(await source.getFileContentCache("data.txt", "short", () => ({ sha: sha(body), size: 20 }))),
+      error => error.message === "storage_write_size_mismatch" && error.httpStatus === 502);
+  });
+  it("classifies parent repository misses before returning a shared-download error", async () => {
+    const misses = require("../src/core/source/github-content-miss"), original = misses.classifyContentMiss;
+    let classified = 0;
+    misses.classifyContentMiss = async () => { classified++; return "repo_not_found"; };
+    try {
+      const source = new GitHubStream({ repoId: "missing-parent", organization: "org", repoName: "repo", commit: "missing-parent", getToken: async () => "" });
+      source.downloadWithFallback = async () => { throw Object.assign(Error("missing"), { status: 404 }); };
+      await assert.rejects(source.getFileContentCache("data.txt", "missing-parent", () => ({ sha: sha(body), size: body.length })),
+        error => error.message === "repo_not_found" && error.httpStatus === 404);
+      assert.equal(classified, 1);
+    } finally { misses.classifyContentMiss = original; }
+  });
+  it("classifies unavailable submodule streams on cache bypass", async () => {
+    sharedBlobCache().options.budget = 1;
+    const original = GitHubStream.prototype.downloadWithFallback;
+    GitHubStream.prototype.downloadWithFallback = async () => Readable.from((async function* () {
+      yield Buffer.alloc(0);
+      throw Object.assign(Error("missing"), { response: { statusCode: 404 } });
+    })());
+    try {
+      const source = new GitHubStream({ repoId: "errors", organization: "org", repoName: "repo", commit: "commit", getToken: async () => "" });
+      await assert.rejects(async () => consume(await source.getFileContentCache("vendor/data.txt", "errors", () => ({ sha: sha(body), size: body.length,
+        upstream: { organization: "public", repoName: "dependency", commit: "a".repeat(40), path: "data.txt" } }))),
+      error => error.message === "submodule_not_available" && error.httpStatus === 404);
+    } finally { GitHubStream.prototype.downloadWithFallback = original; }
   });
   it("reuses unchanged decisions, separates changed rules, and caches small changed output", async () => {
     const first = await request(port, "/a/plain", "gzip", headers);

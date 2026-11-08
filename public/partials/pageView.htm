@@ -105,7 +105,7 @@
   </div>
 </div>
 <div class="file-error container d-flex h-100" v-if="type == 'error'">
-  <section class="viewer-error m-auto" role="alert" aria-labelledby="viewer-error-title">
+  <section class="viewer-error paper-error-card file-error-card m-auto" role="alert" aria-labelledby="viewer-error-title">
     <h1 id="viewer-error-title" class="paper-empty-title">{{ fmt.translate(isSourceAccessError() ? 'VIEWER_ERRORS.access_title' : 'VIEWER_ERRORS.title') }}</h1>
     <p>{{ fmt.translate('ERRORS.' + content) }}</p>
     <template v-if="isSourceAccessError()">
@@ -113,6 +113,8 @@
       <p>{{ fmt.translate('VIEWER_ERRORS.owner_help') }}</p>
     </template>
     <div class="paper-error-actions">
+      <a v-if="!isSourceAccessError()" href="/" class="btn btn-sm">Back to home</a>
+      <a v-if="!isSourceAccessError()" href="/faq" class="btn btn-sm">Read the FAQ</a>
       <button type="button" class="btn btn-primary" @click="retryContent()">{{ fmt.translate('VIEWER_ERRORS.retry') }}</button>
       <a v-if="isSourceAccessError()" class="btn btn-outline-ink" href="/dashboard">{{ fmt.translate('VIEWER_ERRORS.dashboard') }}</a>
     </div>

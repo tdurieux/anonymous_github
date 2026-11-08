@@ -1,3 +1,6 @@
+import { FILE_LISTING_LIMIT } from "../../core/file-tree";
+import { folderCounts as scopedFolderCounts } from "../../core/folder-counts";
+import { repositoryFailureStatus } from "../../core/repository-failure-status";
 import { anonymizePath } from "../../core/anonymize-utils";
 import * as express from "express";
 import config from "../../config";
@@ -32,6 +35,7 @@ router.get(
       }
       const repo = await getRepo(req, res);
       if (!repo) return;
+      if (repo.model.billingManaged && repo.model.truncatedFolders?.length) throw new AnonymousError("repository_tree_incomplete", { httpStatus: 409 });
 
       let user: User | undefined = undefined;
       try {
@@ -56,6 +60,7 @@ router.get(
       res.attachment(`${repo.repoId}.zip`);
       if (req.method === "HEAD") { res.end(); return; }
       await repo.countView();
+      const submodules = await repo.submoduleMounts();
 
       if (config.STREAMER_ENTRYPOINT) {
         // use the streamer service
@@ -74,6 +79,7 @@ router.get(
               branch: repo.model.source.branch,
               repoId: repo.repoId,
               anonymizerOptions: anonymizer.opt,
+              submodules,
               contentOptions: {
                 image: repo.options.image,
                 pdf: repo.options.pdf,
@@ -168,6 +174,7 @@ router.get(
           commit: repo.model.source.commit || "HEAD",
           getToken: () => repo.getToken(),
           anonymizerOptions: anonymizer.opt,
+          submodules,
           contentOptions: {
             image: repo.options.image,
             pdf: repo.options.pdf,
@@ -208,26 +215,37 @@ router.get(
     const repo = await getRepo(req, res);
     if (!repo) return;
     try {
+      if (req.query?.path !== undefined) return res.json(await scopedFolderCounts(repo, req.query.path));
+      // Retain the guarded legacy response for clients requesting all counts.
       const repoId = repo.repoId;
       const results = await FileModel.aggregate([
         { $match: { repoId, treeGeneration: repo.model.treeGeneration || { $exists: false }, size: { $ne: null } } },
         { $project: { _id: 0, path: 1 } },
         { $group: { _id: "$path", count: { $sum: 1 } } },
+        { $limit: FILE_LISTING_LIMIT + 1 },
       ]).exec();
+      if (results.length > FILE_LISTING_LIMIT) throw new AnonymousError("file_listing_too_large", { httpStatus: 413 });
 
-      const directCounts: Record<string, number> = {};
+      const directCounts: Record<string, number> = Object.create(null);
       for (const r of results) {
         directCounts[r._id ?? ""] = r.count;
       }
 
-      const folderCounts: Record<string, number> = {};
+      const folderCounts: Record<string, number> = Object.create(null);
+      let folders = 0;
+      const addCount = (folder: string, count: number) => {
+        if (!Object.hasOwn(folderCounts, folder) && ++folders > FILE_LISTING_LIMIT) {
+          throw new AnonymousError("file_listing_too_large", { httpStatus: 413 });
+        }
+        folderCounts[folder] = (folderCounts[folder] || 0) + count;
+      };
       for (const [folder, count] of Object.entries(directCounts)) {
         let p = folder;
-        folderCounts[p] = (folderCounts[p] || 0) + count;
+        addCount(p, count);
         while (p) {
           const idx = p.lastIndexOf("/");
           p = idx >= 0 ? p.substring(0, idx) : "";
-          folderCounts[p] = (folderCounts[p] || 0) + count;
+          addCount(p, count);
           if (!p) break;
         }
       }
@@ -238,7 +256,7 @@ router.get(
           "../../core/anonymize-utils"
         );
         const compiled = compileTerms(terms);
-        const anonymized: Record<string, number> = {};
+        const anonymized: Record<string, number> = Object.create(null);
         for (const [folder, count] of Object.entries(folderCounts)) {
           const anonFolder = anonymizePathCompiled(folder, compiled);
           anonymized[anonFolder] = (anonymized[anonFolder] || 0) + count;
@@ -319,7 +337,7 @@ router.get(
         if (repo.status != "ready") {
           if (
             repo.status != RepositoryStatus.QUEUE &&
-            repo.model.statusDate < fiveMinuteAgo
+            repo.statusActivityDate < fiveMinuteAgo
           ) {
             await repo.updateStatus(RepositoryStatus.PREPARING);
             await downloadQueue.add(repo.repoId, { repoId: repo.repoId }, {
@@ -334,7 +352,7 @@ router.get(
                 : "repository_not_accessible",
               {
                 object: repo,
-                httpStatus: 500,
+                httpStatus: repositoryFailureStatus(repo.model.statusMessage),
               }
             );
           }
@@ -371,21 +389,26 @@ router.get(
         sourceCommitDate: repo.model.source.commitDate,
         settingsSavedAt: repo.model.settingsSavedAt,
         publishedAt: repo.model.publishedAt,
+        // Lets reviewers see how long the link stays available.
+        expirationDate:
+          repo.options.expirationMode !== "never"
+            ? repo.options.expirationDate || null
+            : null,
         isAdmin: user?.isAdmin === true,
         isOwner: user?.id == repo.model.owner,
         hasWebsite: !!repo.options.page && !!repo.options.pageSource,
         truncatedFolders: (repo.model.truncatedFolders || []).map((path) =>
           anonymizePath(path, repo.options.terms || [])
         ),
-        // Submodule contents are not included in GitHub archives/trees, so
-        // they end up as empty folders in the anonymized repository. Surface
-        // a warning in the explorer when the repository uses submodules (#737).
+        // Legacy trees retain .gitmodules until their next tree refresh.
         hasSubmodules:
           (await FileModel.exists({
             repoId: repo.repoId,
             treeGeneration: repo.model.treeGeneration || { $exists: false },
-            name: ".gitmodules",
-            path: "",
+            $or: [
+              { submodule: { $exists: true, $ne: "included" } },
+              { name: ".gitmodules", path: "" },
+            ],
           })) != null,
       });
     } catch (error) {

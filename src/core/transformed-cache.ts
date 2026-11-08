@@ -26,6 +26,14 @@ async function scopeActive(scope?: CacheScope) {
     && scope.revision === current.contentCacheRevision;
 }
 
+/** Shared and legacy result caches must enforce the same repository lifecycle. */
+export async function assertTransformScopeActive(options: unknown) {
+  const settings = options as { repoId?: string; cacheGeneration?: string; cacheRevision?: string } | undefined;
+  const scope = typeof settings?.repoId === "string"
+    ? { repoId: settings.repoId, generation: settings.cacheGeneration, revision: settings.cacheRevision } : undefined;
+  if (!await scopeActive(scope)) throw new AnonymousError("repository_changed", { httpStatus: 409 });
+}
+
 async function removeEntry(metadata: string) {
   await Promise.all([metadata, metadata.replace(/\.json$/, ".data")].map(path => fs.rm(path, { force: true })));
 }
@@ -36,9 +44,7 @@ export async function transformedFile(digest: string, options: unknown, output: 
   const settings = options as { repoId?: string; cacheGeneration?: string; cacheRevision?: string } | undefined;
   const scope: CacheScope | undefined = typeof settings?.repoId === "string"
     ? { repoId: settings.repoId, generation: settings.cacheGeneration, revision: settings.cacheRevision } : undefined;
-  const assertActive = async () => {
-    if (!await scopeActive(scope)) throw new AnonymousError("repository_changed", { httpStatus: 409 });
-  };
+  const assertActive = () => assertTransformScopeActive(options);
   const produceActive = async () => {
     await assertActive();
     const changed = await produce();

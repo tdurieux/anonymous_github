@@ -15,6 +15,7 @@ COPY backend ./
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o /anonymous-server ./cmd/server
 
 FROM debian:bookworm-slim
+LABEL science.4open.owner-alert-protocol="recipient-v2"
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/* && useradd --uid 10001 --create-home anonymous
 WORKDIR /app
 COPY --from=build /anonymous-server /usr/local/bin/anonymous-server

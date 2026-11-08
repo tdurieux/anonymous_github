@@ -117,26 +117,28 @@ describe("performance regressions", function () {
       calls.push({ sha, recursive: options.recursive });
       return { truncated: false, tree: Array.from({ length: 20 }, (_, i) => ({ path: `folder${i}/file.ts`, type: "blob", sha: "abc" })) };
     };
-    const files = await source.getTruncatedTree("head");
+    const files = await source.getFiles();
     expect(files).to.have.length(20); expect(calls).to.deep.equal([{ sha: "head", recursive: true }]);
   });
 
-  for (const [upstream, code, status] of [
+  for (const [caseId, [upstream, code, status]] of [
     [Object.assign(new Error("forbidden"), { response: { statusCode: 403 } }), "file_not_accessible", 403],
     [Object.assign(new Error("missing"), { response: { statusCode: 404 } }), "file_not_found", 404],
     [Object.assign(new Error("large"), { status: 422 }), "file_too_big", 422],
     [Object.assign(new Error("missing"), { httpStatus: 404 }), "file_not_found", 404],
     [Object.assign(new Error("reset"), { code: "ECONNRESET" }), "upstream_error", 502],
+    [new (require("../src/core/GitHubUtils").RateLimitDelayError)(Date.now() + 60000, "quota-key"), "github_rate_limit_exceeded", 429],
     [new (require("../src/core/AnonymousError").default)("file_not_accessible", { httpStatus: 403 }), "file_not_accessible", 403],
-  ]) {
+  ].entries()) {
     it(`preserves ${code}/${status} for failed downloads (${upstream.message})`, async () => {
-      const source = new GitHubStream({ repoId: "failed-download", organization: "owner", repoName: "repo", getToken: () => "token" });
+      const source = new GitHubStream({ repoId: `failed-download-${caseId}`, organization: "owner", repoName: "repo", getToken: () => "token" });
       const input = new PassThrough();
       stub(storage, "fileInfo", async () => { throw Error("cache miss"); });
       let committed = false;
       stub(storage, "write", async (_repo, _path, stream) => { for await (const chunk of stream) void chunk; committed = true; });
       source.downloadWithFallback = async () => { setImmediate(() => input.destroy(upstream)); return input; };
-      try { await source.getFileContentCache("file.txt", "failed-download", () => ({ sha: "blob", size: 1 })); throw Error("expected failure"); }
+      stub(require("../src/core/source/github-content-miss"), "classifyContentMiss", async () => "file_not_found");
+      try { await source.getFileContentCache("file.txt", source.data.repoId, () => ({ sha: "blob", size: 1 })); throw Error("expected failure"); }
       catch (error) {
         expect(error.message).to.equal(code); expect(error.httpStatus).to.equal(status);
         if (upstream instanceof require("../src/core/AnonymousError").default) expect(error).to.equal(upstream);
@@ -155,7 +157,7 @@ describe("performance regressions", function () {
       if (sha === "head") return { truncated: false, tree: [{ path: "src", type: "tree", sha: "src" }] };
       return { truncated: false, tree: [{ path: "file.ts", type: "blob", sha: "abc" }] };
     };
-    const files = await source.getTruncatedTree("head");
+    const files = await source.getFiles();
     expect(files.map(file => `${file.path}/${file.name}`)).to.deep.equal(["/src", "src/file.ts"]);
     expect(calls).to.deep.equal(["head:true", "head:false", "src:true"]);
   });

@@ -157,52 +157,52 @@
             <div class="q-job-detail">
               <div class="q-job-detail-grid">
                 <div class="q-job-detail-item">
-                  <span class="q-job-detail-label">JOB ID</span>
+                  <span class="q-job-detail-label">Job id</span>
                   <span class="q-job-detail-value"><a target="_blank" v-text="job?.id" :href="safeUrl(&quot;/r/&quot; + (job?.id))"></a></span>
                 </div>
                 <div class="q-job-detail-item">
-                  <span class="q-job-detail-label">STATE</span>
+                  <span class="q-job-detail-label">State</span>
                   <span class="q-job-detail-value"><span v-text="job?._state" :class="&quot;q-state-badge q-state-&quot; + (job?._state)"></span></span>
                 </div>
                 <div class="q-job-detail-item" v-if="job?.data?.repoId">
-                  <span class="q-job-detail-label">REPO ID</span>
+                  <span class="q-job-detail-label">Repo ID</span>
                   <span class="q-job-detail-value" v-text="job?.data?.repoId"></span>
                 </div>
                 <div class="q-job-detail-item" v-if="job?.timestamp">
-                  <span class="q-job-detail-label">CREATED</span>
+                  <span class="q-job-detail-label">Created</span>
                   <span class="q-job-detail-value" v-text="humanTime(job?.timestamp)"></span>
                 </div>
                 <div class="q-job-detail-item" v-if="job?._state == &#x27;delayed&#x27; &amp;&amp; job?.delayUntil">
-                  <span class="q-job-detail-label">RETRY AT</span>
+                  <span class="q-job-detail-label">Retry at</span>
                   <span class="q-job-detail-value">{{ humanTime(job?.delayUntil) }} ({{ delayCountdown(job?.delayUntil) }})</span>
                 </div>
                 <div class="q-job-detail-item" v-if="job?.processedOn">
-                  <span class="q-job-detail-label">PROCESSED</span>
+                  <span class="q-job-detail-label">Processed</span>
                   <span class="q-job-detail-value" v-text="humanTime(job?.processedOn)"></span>
                 </div>
                 <div class="q-job-detail-item" v-if="job?.finishedOn">
-                  <span class="q-job-detail-label">FINISHED</span>
+                  <span class="q-job-detail-label">Finished</span>
                   <span class="q-job-detail-value" v-text="humanTime(job?.finishedOn)"></span>
                 </div>
                 <div class="q-job-detail-item" v-if="job?.attemptsMade">
-                  <span class="q-job-detail-label">ATTEMPTS</span>
+                  <span class="q-job-detail-label">Attempts</span>
                   <span class="q-job-detail-value" v-text="job?.attemptsMade"></span>
                 </div>
                 <div class="q-job-detail-item" v-if="job?.progress &amp;&amp; job?.progress?.status">
-                  <span class="q-job-detail-label">STATUS</span>
+                  <span class="q-job-detail-label">Status</span>
                   <span class="q-job-detail-value" v-text="job?.progress?.status"></span>
                 </div>
                 <div class="q-job-detail-item" v-if="jobProgressPct(job) !== null">
-                  <span class="q-job-detail-label">PROGRESS</span>
+                  <span class="q-job-detail-label">Progress</span>
                   <span class="q-job-detail-value" v-text="jobProgressPct(job) + &#x27;%&#x27;"></span>
                 </div>
               </div>
               <div class="q-job-detail-error" v-if="job?.failedReason">
-                <span class="q-job-detail-label">ERROR</span>
+                <span class="q-job-detail-label">Error</span>
                 <div class="q-error-reason" v-text="job?.failedReason"></div>
               </div>
               <div v-if="job?.stacktrace?.length">
-                <span class="q-job-detail-label">STACKTRACE</span>
+                <span class="q-job-detail-label">Stacktrace</span>
                 <pre class="q-error-stack" v-for="(stack, index) in job?.stacktrace" :key="index"><code v-text="stack"></code></pre>
               </div>
               <div class="q-job-detail-actions">

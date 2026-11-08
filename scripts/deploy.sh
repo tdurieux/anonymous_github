@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Zero-downtime redeploy:
 #   build → blue/green streamer swap → recreate API.
+# Upgrading legacy owner alerts pauses application containers before backfill.
 # Skips everything if the rebuilt image hasn't changed (FORCE=1 to override).
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -12,6 +13,7 @@ IMAGE="${IMAGE:-tdurieux/anonymous_github:v2}"
 REPLICAS="${STREAMER_REPLICAS:-4}"
 TIMEOUT="${HEALTH_TIMEOUT:-90}"
 FORCE="${FORCE:-0}"
+COORDINATED_RESTART="${COORDINATED_RESTART:-0}"
 
 log()  { printf '==> %s\n' "$*"; }
 warn() { printf '!!  %s\n' "$*" >&2; }
@@ -35,11 +37,73 @@ list_streamers() {
     docker compose ps --status running --format '{{.Name}}' streamer 2>/dev/null
 }
 
+# Capture application writers, including stopped containers from a rollback.
+# Older instances can release recipient guards, so they must stop before
+# a new instance marks permanent-suppression migration complete.
+application_ids="$(docker compose ps --all -q anonymous_github streamer)"
+apps=()
+if [[ -n $application_ids ]]; then mapfile -t apps <<<"$application_ids"; fi
+legacy_alerts=0
+for app in "${apps[@]}"; do
+    protocol="$(docker inspect -f '{{index .Config.Labels "science.4open.owner-alert-protocol"}}' "$app")"
+    [[ $protocol == recipient-v2 ]] || legacy_alerts=1
+done
+
 # 1. Build
 log "Building image"
 before="$(image_id "$IMAGE")"
 docker compose build anonymous_github
 after="$(image_id "$IMAGE")"
+
+if [[ $legacy_alerts == 1 ]]; then
+    protocol="$(docker image inspect -f '{{index .Config.Labels "science.4open.owner-alert-protocol"}}' "$IMAGE")"
+    [[ $protocol == recipient-v2 ]] || { warn "replacement image lacks recipient alert migration support"; exit 1; }
+    TIMEOUT="${MIGRATION_HEALTH_TIMEOUT:-900}"
+    log "Pausing legacy application writers before recipient alert migration"
+    docker compose stop -t 30 anonymous_github streamer
+    for app in "${apps[@]}"; do
+        running="$(docker inspect -f '{{.State.Running}}' "$app")"
+        [[ $running == false ]] || { warn "legacy writer $app is still running; aborting migration"; exit 1; }
+    done
+    log "Preparing claim reconciliation, including claims written after rollback"
+    docker compose run --rm --no-deps --entrypoint node anonymous_github ./build/scripts/reconcile-legacy-owner-alerts.js
+    log "Starting ${REPLICAS} streamers after legacy writers stopped"
+    docker compose up -d --no-deps --force-recreate --scale "streamer=${REPLICAS}" streamer
+    mapfile -t news < <(list_streamers)
+    [[ ${#news[@]} == "$REPLICAS" ]] || { warn "streamer replica count does not match ${REPLICAS}"; exit 1; }
+    for app in "${news[@]}"; do wait_healthy "$app"; done
+    docker compose up -d --no-deps --force-recreate anonymous_github
+    api="$(docker compose ps -q anonymous_github)"
+    [[ -n $api ]] || { warn "API container missing after migration"; exit 1; }
+    wait_healthy "$api"
+    docker compose ps
+    exit 0
+fi
+
+# Cache index upgrades and budget changes must not overlap old/new writers.
+# Set this explicitly when enabling shared caching for the first time.
+for app in "${apps[@]}"; do
+    if docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$app" | grep -qx 'SHARED_CACHE_ENABLED=true'; then
+        COORDINATED_RESTART=1
+    fi
+done
+if [[ $COORDINATED_RESTART == 1 ]]; then
+    log "Coordinated application restart for shared cache compatibility"
+    docker compose stop -t 30 anonymous_github streamer
+    for app in "${apps[@]}"; do
+        [[ $(docker inspect -f '{{.State.Running}}' "$app") == false ]] || { warn "cache writer $app is still running"; exit 1; }
+    done
+    docker compose up -d --no-deps --force-recreate --scale "streamer=${REPLICAS}" streamer
+    mapfile -t news < <(list_streamers)
+    [[ ${#news[@]} == "$REPLICAS" ]] || { warn "streamer replica count does not match ${REPLICAS}"; exit 1; }
+    for app in "${news[@]}"; do wait_healthy "$app"; done
+    docker compose up -d --no-deps --force-recreate anonymous_github
+    api="$(docker compose ps -q anonymous_github)"
+    [[ -n $api ]] || { warn "API container missing after coordinated restart"; exit 1; }
+    wait_healthy "$api"
+    docker compose ps
+    exit 0
+fi
 
 # 2. Cold start
 mapfile -t olds < <(list_streamers)

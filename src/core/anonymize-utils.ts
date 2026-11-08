@@ -328,27 +328,47 @@ function hasCatastrophicBacktracking(src: string): boolean {
   return false;
 }
 
-// A leading sequence of literal characters and simple letter classes must
-// occur in every match. Stop before unfamiliar syntax, drop a quantified last
-// atom, and reject alternation entirely. This is only an absence check; RE2
-// still decides every replacement and all boundaries.
+// A conservative native absence check for the mandatory leading sequence.
+// Assertions can be omitted (only broadening matches); escaped punctuation and
+// a bounded number of optional atoms are safe to retain. RE2 remains the
+// authority for replacements, boundaries, and syntax outside this subset.
 function requiredPrefix(pattern: string): RegExp | undefined {
   if (pattern.includes("|")) return undefined;
   const atoms: string[] = [];
   let offset = 0;
+  let optional = 0;
+  let mandatory = 0;
   while (offset < pattern.length) {
+    let atom: string;
     const char = String.fromCodePoint(pattern.codePointAt(offset)!);
-    if (char === "[") {
+    if (char === "\\") {
+      const next = pattern[offset + 1];
+      if (next === "b" || next === "B") { offset += 2; continue; }
+      if (!next || !"^$\\.*+?()[]{}|/".includes(next)) break;
+      atom = pattern.slice(offset, offset + 2); offset += 2;
+    } else if (char === "[") {
       const end = pattern.indexOf("]", offset + 1);
-      if (end < 0 || !/^[\p{L}\p{N}]+$/u.test(pattern.slice(offset + 1, end))) break;
-      atoms.push(pattern.slice(offset, end + 1)); offset = end + 1;
+      const body = pattern.slice(offset + 1, end);
+      // Enumerated characters only; a trailing/leading hyphen is literal.
+      if (end < 0 || !/^-?[\p{L}\p{N} _]+-?$/u.test(body)) break;
+      atom = pattern.slice(offset, end + 1); offset = end + 1;
     } else {
       if (/[\\^$.*+?()[\]{}]/.test(char)) break;
-      atoms.push(char); offset += char.length;
+      atom = char; offset += char.length;
+    }
+    const quantifier = pattern[offset];
+    if (quantifier === "*" || quantifier === "{") break;
+    if (quantifier === "?") {
+      // At most 16 optional paths, avoiding backtracking-heavy prefilters.
+      if (++optional > 4) break;
+      atoms.push(`${atom}?`); offset++;
+      if (pattern[offset] === "?") offset++;
+    } else {
+      atoms.push(atom); mandatory++;
+      if (quantifier === "+") break;
     }
   }
-  if (/[?*+{]/.test(pattern.charAt(offset)) && offset < pattern.length) atoms.pop();
-  return atoms.length ? new RegExp(atoms.join(""), "iu") : undefined;
+  return mandatory ? new RegExp(atoms.join(""), "iu") : undefined;
 }
 
 
@@ -542,11 +562,12 @@ export class ContentAnonimizer {
       const replaced = replaceTerm(content, c, asciiContent);
       if (replaced !== content) this.wasAnonymized = true;
       content = replaced;
-      // Masks and changed boundaries can introduce later matches. Re-index
-      // only after a real change, never once per absent term.
+      // Masks and changed boundaries can introduce later matches. Invalidate
+      // the original-text index and check remaining rules directly; rebuilding
+      // the index after every change costs more than those presence checks.
       if (content !== previous) {
         asciiContent = asciiContent && /^\p{ASCII}*$/u.test(c.mask);
-        candidates = this.termPresence?.candidates(content, index);
+        candidates = undefined;
       }
     }
     return content;
@@ -657,11 +678,21 @@ function replaceTerm(content: string, term: CompiledTermVariant, asciiContent = 
     return pieces.join("");
   }
 
+  // Boolean searches use RE2's DFA without capture bookkeeping. Avoid a
+  // full capture search when this rule has no match in a large document.
+  if (!pattern.test(content)) return content;
   const matcher = pattern.matcher(content);
+  const prefix = term.requiredPrefix && new RegExp(term.requiredPrefix.source, "giu");
   const pieces: string[] = [];
   let cursor = 0;
-  while (matcher.find()) {
+  while (true) {
+    // A required prefix is nonempty and starts at the match position. Skip
+    // unmatched tails using native search without slicing away anchor context.
+    const candidate = prefix?.exec(content);
+    if (prefix && !candidate) break;
+    if (!matcher.find(candidate ? candidate.index : undefined)) break;
     const start = matcher.start(), end = matcher.end();
+    if (prefix) prefix.lastIndex = end;
     if (term.before && /[\p{L}\p{N}_]$/u.test(content.slice(Math.max(0, start - 2), start))) continue;
     if (term.after && /^[\p{L}\p{N}_]/u.test(content.slice(end, end + 2))) continue;
     pieces.push(content.slice(cursor, start), term.mask);

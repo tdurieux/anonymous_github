@@ -1,7 +1,9 @@
+import { reviewConsentController } from "./review-consent.js";
 import * as pages from "./app.js";
 import * as admin from "./admin.js";
 
 export const pageRoutes = [
+{path: "/review-link", template: "partials/reviewConsent.htm", title: "Artifact consent – Anonymous GitHub", setup: (state, services) => reviewConsentController(state, services)},
 {path: "/connections", template: "partials/connections.htm", title: "GitHub connections – Anonymous GitHub", preserveExplorer: false, setup: (state, services) => pages.connectionsController(state, services.http)},
 {path: "/signin", template: "partials/signin.htm", title: "Sign in – Anonymous GitHub", preserveExplorer: false, setup: (state, services) => pages.signinController(state, services.http)},
 {path: "/", template: "partials/home.htm", title: "Anonymous GitHub – Share the code, not the author", preserveExplorer: false, setup: (state, services) => pages.homeController(state, services.http, services.location, services.window, services.timeout)},

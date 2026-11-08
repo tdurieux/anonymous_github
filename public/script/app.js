@@ -1,3 +1,4 @@
+import { setupBilling, readBilling } from "./billing.js";
 import { reactive, nextTick, markRaw } from "vue";
 import { loadEditor } from "./lazy-assets.js";
 import { createTimers, createListeners } from "./state.js";
@@ -28,6 +29,75 @@ function viewerErrorCode(error) {
   return "unknown_error";
 }
 
+// The mask comes from /api/options; mainController sets it once loaded.
+let redactionMask = "XXXX";
+export const setRedactionMask = (mask) => { redactionMask = mask || "XXXX"; };
+
+// Matches the replacements the anonymizer writes: MASK and MASK-<n>.
+export const redactionPattern = (mask = redactionMask) => {
+  if (!mask) return null;
+  const escaped = mask.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(escaped + "(?:-\\d+)?", "g");
+};
+
+// Wraps redacted terms under root in <mark class="redaction">, touching text
+// nodes only so attributes and URLs stay intact. Mermaid sources are left
+// alone (Mermaid parses their text), and so are code blocks Prism will
+// rewrite unless root is that highlighted block itself.
+export const markRedactionsIn = (root, mask = redactionMask) => {
+  const pattern = redactionPattern(mask);
+  if (!pattern || !root || !root.textContent.includes(mask)) return;
+  const doc = root.ownerDocument;
+  const walker = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const nodes = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode);
+  for (const node of nodes) {
+    const text = node.nodeValue;
+    const parent = node.parentElement;
+    if (!text.includes(mask) || !parent || parent.closest("script, style, mark.redaction, .mermaid")) continue;
+    const highlighted = parent.closest('code[class*="language-"]');
+    if (highlighted && !highlighted.contains(root)) continue;
+    const fragment = doc.createDocumentFragment();
+    let last = 0;
+    for (const match of text.matchAll(pattern)) {
+      fragment.append(text.slice(last, match.index));
+      const mark = doc.createElement("mark");
+      mark.className = "redaction";
+      mark.title = "Redacted by Anonymous GitHub";
+      mark.textContent = match[0];
+      fragment.append(mark);
+      last = match.index + match[0].length;
+    }
+    fragment.append(text.slice(last));
+    node.replaceWith(fragment);
+  }
+};
+
+export const highlightRedactions = (html, mask = redactionMask) => {
+  if (!html || !mask || !html.includes(mask)) return html;
+  const doc = new DOMParser().parseFromString("<body>" + html + "</body>", "text/html");
+  markRedactionsIn(doc.body, mask);
+  return doc.body.innerHTML;
+};
+
+async function copyText(text) {
+  if (window.navigator.clipboard?.writeText) {
+    await window.navigator.clipboard.writeText(text);
+    return;
+  }
+  const field = document.createElement("textarea");
+  field.value = text;
+  field.setAttribute("readonly", "");
+  field.style.position = "fixed";
+  field.style.opacity = "0";
+  const focused = document.activeElement;
+  document.body.appendChild(field);
+  try {
+    field.select();
+    if (!document.execCommand?.("copy")) throw Error("Copy unavailable");
+  } finally { field.remove(); focused?.focus(); }
+}
+
 function previewTabKeydown(event) {
   if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
   const tabs = [...event.currentTarget.closest('[role="tablist"]').querySelectorAll('[role="tab"]')];
@@ -42,6 +112,21 @@ function previewTabKeydown(event) {
 // Page setup functions run inside Vue effect scopes.
 export const mainController = function (state, http, location, timeout) {
       state.previewTabKeydown = previewTabKeydown;
+      state.headerCanUpgrade = false;
+      state.headerShowSupport = false;
+      state.headerBillingPending = ["success", "portal"].includes(new URLSearchParams(window.location.search).get("billing"));
+      const updateHeaderBilling = billing => {
+        state.headerShowSupport = !(billing?.grants || []).some(g => ["active", "paid", "past_due"].includes(g.status) && new Date(g.until).getTime() > Date.now());
+        const subscribed = (billing?.grants || []).some(g => ["author_monthly", "author_annual"].includes(g.planId) && ["active", "paid", "past_due"].includes(g.status) && new Date(g.until).getTime() > Date.now());
+        state.headerCanUpgrade = !!billing?.enabled && billing.checkoutEnabled !== false && !subscribed && (billing.plans || []).some(p => ["author_monthly", "author_annual"].includes(p.id));
+      };
+      state.on("billing:updated", (_, billing) => updateHeaderBilling(billing));
+      state.on("billing:pending", (_, pending) => { state.headerBillingPending = pending; });
+      state.openHeaderUpgrade = () => {
+        if (location.path() === "/profile") state.emit("settings:upgrade");
+        else location.url("/profile?upgrade=1");
+      };
+
       state.title = "Main";
       state.user = { status: "connection" };
       state.site_options;
@@ -67,8 +152,11 @@ export const mainController = function (state, http, location, timeout) {
         return toast;
       };
 
+      // Anonymized content that signed-out reviewers browse.
+      const reviewerRoutes = /^\/(r|repository|pr|gist)\//;
       state.path = location.url();
       state.paths = location.path().substring(1).split("/");
+      state.isReviewerRoute = reviewerRoutes.test(location.path());
 
       state.darkMode = function (on) {
         localStorage.setItem("darkMode", on);
@@ -90,23 +178,51 @@ export const mainController = function (state, http, location, timeout) {
           document.head.append(link);
           $(`link[href='${darkPrismLink}']`).remove();
         }
-        const kofiBtn = document.querySelector("[class*='floatingchat-container-wrap'] [class*='floating-chat-kofi-text-container-wrap']");
-        if (kofiBtn) {
-          kofiBtn.style.backgroundColor = on ? "#FAF9F6" : "#1A1815";
-          kofiBtn.style.color = on ? "#1A1815" : "#FAF9F6";
-        }
         state.emit("dark-mode", on);
       };
 
       state.darkMode(localStorage.getItem("darkMode") == "true");
 
+      state.emailPromptOpen = false;
+      state.emailPromptAddress = "";
+      state.emailPromptBusy = false;
+      state.emailPromptError = "";
+      let emailPromptFocus;
+      state.respondToEmailPrompt = async (action) => {
+        if (state.emailPromptBusy) return;
+        state.emailPromptBusy = true;
+        state.emailPromptError = "";
+        try {
+          const res = await http.post("/github/connections/email", { action, email: state.emailPromptAddress },
+            { headers: { "X-CSRF-Token": state.user.emailPromptCSRF } });
+          if (action === "save") state.user.notificationEmail = res.data.notificationEmail;
+          state.emailPromptOpen = false;
+          state.user.showEmailPrompt = false;
+          emailPromptFocus?.focus();
+        } catch (error) { state.emailPromptError = error.data?.error || "Unable to save your preference. Please try again."; }
+        finally { state.emailPromptBusy = false; }
+      };
+
       function getUser() {
         http.get("/api/user").then(
           (res) => {
             if (res) state.user = res.data;
+            if (state.user?.username) readBilling(http).then(res => updateHeaderBilling(res.data)).catch(() => {});
+            else state.headerShowSupport = true;
+            if (state.user?.emailNotificationsEnabled && state.user.showEmailPrompt && !state.user.notificationEmail) {
+              emailPromptFocus = document.activeElement;
+              state.emailPromptOpen = true;
+              timeout(() => {
+                const dialog = document.getElementById("email-prompt");
+                if (dialog?.showModal) dialog.showModal();
+                else dialog?.setAttribute("open", "");
+                document.getElementById("email-prompt-address")?.focus();
+              }, 0);
+            }
           },
           () => {
             state.user = null;
+            state.headerShowSupport = true;
           }
         );
       }
@@ -116,6 +232,8 @@ export const mainController = function (state, http, location, timeout) {
         http.get("/api/options").then(
           (res) => {
             if (res) state.site_options = res.data;
+            setRedactionMask(res?.data?.ANONYMIZATION_MASK);
+            state.emit("site-options");
           },
           () => {
             state.site_options = null;
@@ -142,6 +260,7 @@ export const mainController = function (state, http, location, timeout) {
         }
         state.path = location.url();
         state.paths = location.path().substring(1).split("/");
+        state.isReviewerRoute = reviewerRoutes.test(location.path());
       }
 
       state.on("routeChange", changedUrl);
@@ -168,6 +287,26 @@ export const faqController = function (state, http) {
     };
 
 export const profileController = function (state, http, translate, timeout, quotaService) {
+      state.settingsTab = /(?:billing|upgrade)=/.test(window.location.search) ? "billing" : "defaults";
+      state.confirmDeleteAccount = false;
+      state.deleteUsername = "";
+      state.profilePastSubscription = () => !state.profileAuthorGrant() && (state.billing?.grants || []).some(g => ["author_monthly", "author_annual"].includes(g.planId));
+      state.showAuthorPlans = new URLSearchParams(window.location.search).get("upgrade") === "1";
+      state.showRepositoryPass = false;
+      state.profilePlan = "author_monthly";
+      state.openProfileUpgrade = () => {
+        state.settingsTab = "billing";
+        state.showAuthorPlans = true;
+        nextTick(() => document.getElementById("settings-plan-comparison")?.focus());
+      };
+      state.on("settings:upgrade", () => state.openProfileUpgrade());
+      state.profileAuthorPlans = () => (state.billing?.plans || []).filter(p => ["author_monthly", "author_annual"].includes(p.id));
+      state.profileSelectedPlan = () => state.profileAuthorPlans().find(p => p.id === state.profilePlan) || state.profileAuthorPlans()[0];
+      state.profilePassPlan = () => (state.billing?.plans || []).find(p => p.id === "author_pass");
+      state.profileAuthorGrant = () => (state.billing?.grants || []).find(g => ["author_monthly", "author_annual"].includes(g.planId) && ["active", "paid", "past_due"].includes(g.status) && new Date(g.until).getTime() > Date.now());
+      state.profileGrantName = grant => ({ author_monthly: "Author monthly", author_annual: "Author annual", author_pass: "Repository pass", conference: "Conference hosting" }[grant.planId] || grant.planId);
+
+      setupBilling(state, http, () => quotaService.load().then(quota => { state.quota = quota; }, console.error));
       state.terms = "";
       state.options = {
         expirationMode: "remove",
@@ -181,6 +320,42 @@ export const profileController = function (state, http, translate, timeout, quot
       state.saving = false;
       state.message = null;
       state.error = null;
+
+      state.accountEmail = "";
+      state.emailLoading = true;
+      state.emailCSRFReady = false;
+      state.emailSaving = false;
+      state.emailSaved = false;
+      state.emailError = "";
+      let emailCSRF = "";
+      state.loadAccountEmail = async () => {
+        state.emailLoading = true;
+        state.emailError = "";
+        try {
+          const res = await http.get("/github/connections/email");
+          state.accountEmail = res.data.notificationEmail || "";
+          emailCSRF = res.data.csrf;
+          state.emailCSRFReady = !!emailCSRF;
+        } catch {
+          state.emailError = "Unable to load your email address. Please try again.";
+        } finally { state.emailLoading = false; }
+      };
+      state.saveAccountEmail = async () => {
+        if (state.emailSaving || state.emailLoading || !emailCSRF) return;
+        state.emailSaving = true;
+        state.emailSaved = false;
+        state.emailError = "";
+        try {
+          const res = await http.post("/github/connections/email", { email: state.accountEmail },
+            { headers: { "X-CSRF-Token": emailCSRF } });
+          state.accountEmail = res.data.notificationEmail;
+          if (state.user) state.user.notificationEmail = res.data.notificationEmail;
+          state.emailSaved = true;
+        } catch {
+          state.emailError = "Unable to save your email address. Check the address and try again.";
+        } finally { state.emailSaving = false; }
+      };
+      state.loadAccountEmail();
 
       quotaService.load().then((quota) => {
         state.quota = quota;
@@ -227,23 +402,20 @@ export const profileController = function (state, http, translate, timeout, quot
           (error) => {
             state.saving = false;
             const code = error && error.data && error.data.error;
-            const key = "ERRORS." + code;
-            translate(key).then((translation) => {
-              state.error = translation && translation !== key ? translation : "Unable to save your defaults. Please try again.";
+            const fallback = "Unable to save your defaults. Please try again.";
+            // Unknown codes translate to the generic unknown_error message;
+            // this page has a more specific one.
+            Promise.all([translate("ERRORS." + code), translate("ERRORS.unknown_error")]).then(([translation, unknown]) => {
+              state.error = code && translation !== unknown ? translation : fallback;
             }, () => {
-              state.error = "Unable to save your defaults. Please try again.";
+              state.error = fallback;
             });
           }
         );
       };
 
       state.deleteAccount = () => {
-        if (
-          !confirm(
-            "Delete your account? All your anonymized repositories, gists, and pull requests will be removed, and your personal data will be erased. This cannot be undone."
-          )
-        )
-          return;
+        if (state.deletingAccount || !state.confirmDeleteAccount || state.deleteUsername !== state.user?.username) return;
         state.deletingAccount = true;
         http.delete("/api/user").then(
           () => {
@@ -561,21 +733,7 @@ export const unifiedDashboardController = function (state, http, location, promi
         const link = new URL(item._viewUrl, window.location.origin).href;
         state.copyingId = item._type + ":" + item._id;
         try {
-          if (window.navigator.clipboard?.writeText) {
-            await window.navigator.clipboard.writeText(link);
-          } else {
-            const field = document.createElement("textarea");
-            field.value = link;
-            field.setAttribute("readonly", "");
-            field.style.position = "fixed";
-            field.style.opacity = "0";
-            const focused = document.activeElement;
-            document.body.appendChild(field);
-            try {
-              field.select();
-              if (!document.execCommand?.("copy")) throw Error("Copy unavailable");
-            } finally { field.remove(); focused?.focus(); }
-          }
+          await copyText(link);
           state.addToast({ title: "Link copied", body: "The anonymous link is ready to share." });
         } catch {
           state.addToast({ title: "Copy this anonymous link", body: link });
@@ -1046,10 +1204,24 @@ export const prDashboardController = function (state, location) {
 export const statusController = function (state, http, params) {
       const timers = createTimers();
       state.repoId = params.repoId;
+      state.reviewUrl = window.location.origin + "/r/" + encodeURIComponent(params.repoId) + "/";
       state.repo = null;
       state.progress = 0;
       state.rateLimitResetAt = 0;
       state.rateLimitCountdown = "";
+      state.shareUrl = (window.location?.origin || "") + "/r/" + encodeURIComponent(state.repoId) + "/";
+      state.copied = false;
+      let copiedTimer = null;
+      state.copyShareUrl = async () => {
+        try {
+          await copyText(state.shareUrl);
+          state.copied = true;
+          if (copiedTimer) timers.timeout.cancel(copiedTimer);
+          copiedTimer = timers.timeout(() => { state.copied = false; }, 2000);
+        } catch {
+          state.addToast?.({ title: "Copy this anonymous link", body: state.shareUrl });
+        }
+      };
 
       var countdownTimer = null;
       let pollTimer = null;
@@ -1174,6 +1346,72 @@ export const anonymizeController = function (state, http, html, params, location
         ? "gist:" + parsed.gistId.toLowerCase()
         : (parsed.owner + "/" + parsed.repo).toLowerCase() + (parsed.pullRequestId ? "/pull/" + parsed.pullRequestId : "");
       const draft = formDraft(state, ["sourceUrl", "terms", "repoId", "pullRequestId", "gistId", "source", "options", "conference", "githubConnection"], "anonymize:" + (location.path?.() || ""));
+      let restoredCheckoutConference = null;
+      let checkoutDraftId = null;
+      let checkoutDraftSnapshot = null;
+      state.hostingReview = false;
+      state.previewExpanded = false;
+      state.taskValidationError = "";
+      state.editRepository = () => {
+        state.mobilePane = "settings";
+        state.previewExpanded = false;
+        nextTick(() => document.querySelector(".anonymize-fields .is-invalid")?.focus());
+      };
+      state.submitRepository = (event) => {
+        state.taskValidationError = "";
+        if (state.sourceLoading || state.billingBusy || state.hostingSaving || state.billingPending) return;
+        if (expirationDateInvalid() || state.anonymize?.invalid || state.sourceUrlError) {
+          state.taskValidationError = "Check the highlighted fields before continuing.";
+          state.editRepository();
+          return;
+        }
+        if (state.hostingNeedsPayment()) return state.checkoutRepository();
+        return state.anonymizeRepo(event);
+      };
+      state.hostingPayment = false;
+      state.hostingAlternatives = false;
+      state.hostingPrice = plan => {
+        if (plan.amount == null) return "Price shown at checkout";
+        const amount = new Intl.NumberFormat(undefined, { style: "currency", currency: plan.currency, minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(plan.amount / 100);
+        return amount + (plan.interval === "year" ? " billed annually" : " billed monthly");
+      };
+      state.hostingPlan = "author_monthly";
+      state.hostingSaving = false;
+      state.selectedHostingPlan = () => state.authorPlans().find(p => p.id === state.hostingPlan) || state.authorPlans()[0];
+      const loadHostingQuota = () => http.get("/api/user/quota").then(res => { state.hostingQuota = res.data; });
+      setupBilling(state, http, async () => {
+        await loadHostingQuota();
+        state.hostingQuotaBlocked = false;
+      }, { confirmedMessage: "Hosting status refreshed. Your draft is ready to continue." });
+      loadHostingQuota().catch(() => {});
+      state.authorPlans = () => (state.billing?.plans || []).filter(p => ["author_monthly", "author_annual"].includes(p.id));
+      state.hasAuthorHosting = () => ["author_monthly", "author_annual"].includes(state.billing?.allowance?.plan);
+      state.hostingNeedsPayment = () => {
+        if (!state.billing?.enabled || state.detectedType !== "repo" || state.hasAuthorHosting() ||
+            (state.isUpdate && state.role !== "owner")) return false;
+        const needsLifetime = state.options?.expirationMode === "never" && !state._existingNever;
+        // Reported usage may include removed reservations; admission reclaims them.
+        return !!(needsLifetime || (!state.conference && state.hostingQuotaBlocked));
+      };
+      state.checkoutRepository = async (pass = false) => {
+        if (state.hostingSaving || state.billingBusy || !state.billing?.csrf || state.sourceLoading) return;
+        state.hostingSaving = true;
+        state.billingError = "";
+        try {
+          const values = draft.checkpoint();
+          const serialized = JSON.stringify(values);
+          if (!checkoutDraftId || serialized !== checkoutDraftSnapshot) {
+            const saved = await http.post("/api/billing/draft", { path: location.path(), values }, { headers: { "x-csrf-token": state.billing.csrf } });
+            checkoutDraftId = saved.data.id;
+            checkoutDraftSnapshot = serialized;
+          }
+          const plan = state.authorPlans().find(p => p.id === state.hostingPlan) || state.authorPlans()[0];
+          if (!pass && !plan) throw new Error("No author plan available");
+          await state.checkout(pass ? "author_pass" : plan.id, pass ? state.repoId : "", { draftId: checkoutDraftId });
+        } catch { state.billingError = "Your draft could not be saved for checkout. Your form is unchanged. Please try again."; }
+        finally { state.hostingSaving = false; }
+      };
+      state.useDatedHosting = () => { state.options.expirationMode = "remove"; };
       state.discardDraft = async () => {
         draft.discard();
         state.workspaceOpen = !!state.sourceUrl;
@@ -1273,6 +1511,33 @@ export const anonymizeController = function (state, http, html, params, location
       state.html_readme = "";
       state.isUpdate = false;
 
+      state.previousConfigurations = [];
+      state.previousConfigurationId = "";
+      let previousRepositories;
+      const normalizedRepositoryName = name => String(name || "").replace(/\/$/, "").replace(/\.git$/i, "").toLowerCase();
+      async function findPreviousConfigurations() {
+        if (state.isUpdate || params.repoId || params.pullRequestId || params.gistId) return;
+        const request = { generation: sourceGeneration, url: state.sourceUrl.trim(), connection: state.githubConnection };
+        try {
+          // This endpoint only returns repositories the signed-in user can manage.
+          previousRepositories ||= http.get("/api/user/anonymized_repositories").then(res => res.data);
+          const repositories = await previousRepositories;
+          if (!isCurrentSource(request)) return;
+          const name = normalizedRepositoryName(parseRepoFullName(request.url));
+          state.previousConfigurations = repositories.filter(repo => repo.repoId && repo.options
+            && normalizedRepositoryName(repo.source?.fullName) === name)
+            .sort((a, b) => (Date.parse(b.anonymizeDate) || 0) - (Date.parse(a.anonymizeDate) || 0));
+          state.previousConfigurationId = state.previousConfigurations[0]?.repoId || "";
+        } catch (_) {
+          // A suggestion failure must not prevent creating a repository. Retry on the next URL selection.
+          previousRepositories = undefined;
+        }
+      }
+      state.existingConfigurationUrl = () => {
+        const previous = state.previousConfigurations.find(repo => repo.repoId === state.previousConfigurationId);
+        return previous ? "/anonymize/" + encodeURIComponent(previous.repoId) : null;
+      };
+
       function getDefault(cb) {
         http.get("/api/user/default").then((res) => {
           const data = res.data;
@@ -1309,6 +1574,38 @@ export const anonymizeController = function (state, http, html, params, location
         return null;
       }
 
+      state.accessRepairAllowed = false;
+      state.repairingGitHubAccess = false;
+      state.accessRepairMessage = "";
+      state.repairGitHubAccess = async () => {
+        if (!state.accessRepairAllowed || state.repairingGitHubAccess || !state.githubConnections?.appEnabled || !params.repoId || state.role !== "owner" ||
+            state.githubConnection !== "github-app" || parseRepoFullName(state.sourceUrl) !== state._originalFullName) return;
+        state.repairingGitHubAccess = true;
+        state.accessRepairMessage = "";
+        const request = beginSourceRequest();
+        try {
+          const connections = await http.get("/github/connections");
+          state.githubConnections = connections.data;
+          if (!connections.data.appEnabled) return;
+          const repaired = await http.post("/github/connections/migrate", { type: "repository", id: params.repoId, connection: "github-app" },
+            { headers: { "X-CSRF-Token": connections.data.csrf } });
+          if (!isCurrentSource(request)) return;
+          state.error = null;
+          if (repaired.data.fullName) {
+            state._originalFullName = repaired.data.fullName;
+            state.source.fullName = repaired.data.fullName;
+            state.sourceUrl = "https://github.com/" + repaired.data.fullName;
+          }
+          state.accessRepairMessage = "GitHub access repaired. Your anonymous URL and published commit are unchanged.";
+          await state.urlSelected(true);
+        } catch (_) {
+          if (isCurrentSource(request)) state.accessRepairMessage = "Unable to repair GitHub access. Check the App's repository permissions in Manage access, then retry. Your published snapshot has not been replaced.";
+        } finally {
+          state.repairingGitHubAccess = false;
+          finishSourceRequest(request);
+        }
+      };
+
       state.reconnectingSource = false;
       state.reconnectRepositoryId = undefined;
       state.reconnectSource = async () => {
@@ -1339,6 +1636,27 @@ export const anonymizeController = function (state, http, html, params, location
       }
 
       async function restoreGitHubDraft() {
+        const billingDraft = new URLSearchParams(window.location.search).get("billingDraft");
+        if (billingDraft) {
+          draft.restore();
+          try {
+            const saved = (await http.get("/api/billing/draft/" + encodeURIComponent(billingDraft))).data;
+            if (saved.path !== location.path()) throw new Error("Wrong task");
+            restoredCheckoutConference = saved.values.conference || null;
+            for (const key of ["sourceUrl", "terms", "repoId", "source", "options", "conference", "githubConnection"]) {
+              if (Object.prototype.hasOwnProperty.call(saved.values, key)) state[key] = saved.values[key];
+            }
+            if (state.options?.expirationDate) state.options.expirationDate = new Date(state.options.expirationDate);
+            checkoutDraftId = saved.id;
+            checkoutDraftSnapshot = JSON.stringify(draft.checkpoint());
+            state.draftRestored = true;
+            state.hostingReview = true;
+            if (state.sourceUrl) await refreshGitHubAccess();
+            // Consume the return token so revisiting the form cannot overwrite newer edits.
+            location.replace?.(location.path());
+            return true;
+          } catch { state.billingError = "The checkout draft could not be restored. Retry by reloading this page; any local draft is still available."; }
+        }
         let saved;
         try { saved = JSON.parse(sessionStorage.getItem("github-access-draft") || "null"); }
         catch (_) { return false; }
@@ -1366,12 +1684,14 @@ export const anonymizeController = function (state, http, html, params, location
           state.repoId = params.repoId;
           http.get("/api/repo/" + state.repoId).then(
             async (res) => {
+              state.accessRepairAllowed = !["removed", "archived", "preparing", "queue", "download", "removing", "expiring"].includes(res.data.status);
               state.githubConnection = res.data.connection || "oauth";
               state.sourceUrl = "https://github.com/" + res.data.source.fullName;
               state._originalFullName = res.data.source.fullName;
               state.terms = res.data.options.terms.filter((f) => f).join("\n");
               state.source = res.data.source;
               state.role = res.data.role || "owner";
+              state._existingNever = res.data.options.expirationMode === "never";
               state.coauthors = res.data.coauthors || [];
               // Remember the saved branch so the source.branch watcher knows
               // not to bump source.commit to GitHub HEAD on edit-page load
@@ -1461,6 +1781,8 @@ export const anonymizeController = function (state, http, html, params, location
       // Keep the same input focused until a complete GitHub URL can be loaded.
       state.urlSelected = async (preserveDraft = false) => {
         const generation = ++sourceGeneration;
+        state.previousConfigurations = [];
+        state.previousConfigurationId = "";
         let o;
         try { o = parseGithubUrl(state.sourceUrl.trim()); }
         catch (_) {
@@ -1518,6 +1840,7 @@ export const anonymizeController = function (state, http, html, params, location
             await getPrDetails();
           } else {
             state.detectedType = "repo";
+            void findPreviousConfigurations();
             await Promise.all([getRepoDetails(), getReadme()]);
             anonymizeReadme();
           }
@@ -1929,7 +2252,9 @@ export const anonymizeController = function (state, http, html, params, location
         state.conference_data = null;
         if (!conference) return;
         const preserveSavedOptions =
-          state.isUpdate && conference === state._originalConference;
+          conference === restoredCheckoutConference ||
+          (state.isUpdate && conference === state._originalConference);
+        if (conference !== restoredCheckoutConference) restoredCheckoutConference = null;
         http.get("/api/conferences/" + conference).then(
           (res) => {
             if (state.conference !== conference) return;
@@ -1974,6 +2299,7 @@ export const anonymizeController = function (state, http, html, params, location
       // When the picked date fails min/max validation AngularJS sets the model
       // to undefined, so we check both the field validity and the model value.
       function expirationDateInvalid() {
+        if (state.detectedType === "repo" && state.options.expirationMode === "never") return false;
         const field = state.anonymize && state.anonymize.expirationDate;
         if (!state.options.expirationDate || (field && field.invalid)) {
           if (field && field.setDirty) field.setDirty();
@@ -2072,9 +2398,16 @@ export const anonymizeController = function (state, http, html, params, location
       state.anonymizeRepo = (event) => {
         if (state.sourceLoading) { state.error = "Wait for the source to finish loading before saving."; return; }
         if (state.reconnectingSource && !state.reconnectRepositoryId) return;
-        if (expirationDateInvalid()) return;
+        if (expirationDateInvalid()) { state.editRepository(); return; }
         if (state.anonymize?.invalid || state.sourceUrlError) {
+          state.editRepository();
           state.error = "Please correct the highlighted fields before saving.";
+          return;
+        }
+        // Capacity is enforced on the server, which can release removed reservations.
+        if (state.hostingNeedsPayment() && state.options.expirationMode === "never") {
+          state.hostingReview = true;
+          nextTick(() => document.getElementById("repository-hosting")?.scrollIntoView({ block: "center" }));
           return;
         }
         const button = event.currentTarget || event.target.closest?.("button") || event.target;
@@ -2100,6 +2433,12 @@ export const anonymizeController = function (state, http, html, params, location
             if (error.data) {
               translate("ERRORS." + error.data.error).then((t) => { state.error = t; }, console.error);
               displayErrorMessage(error.data.error);
+              if (["quota_exceeded", "subscription_required_for_never_expiration"].includes(error.data.error)) {
+                if (error.data.error === "subscription_required_for_never_expiration") state._existingNever = false;
+                state.hostingQuotaBlocked = true;
+                state.hostingReview = true;
+                nextTick(() => document.getElementById("repository-hosting")?.scrollIntoView({ block: "center" }));
+              }
             }
           }
         ).finally(() => { button.disabled = false;  });
@@ -2192,6 +2531,11 @@ export const anonymizeController = function (state, http, html, params, location
 
 export const exploreController = function (state, http, location, params, html, promises) {
       const timers = createTimers();
+      // Prism rewrites fenced code blocks, so mark redactions once it is done.
+      if (window.Prism?.hooks && !window.Prism.redactionHook) {
+        window.Prism.hooks.add("complete", (env) => markRedactionsIn(env.element));
+        window.Prism.redactionHook = true;
+      }
       const listen = createListeners();
         state.on("dark-mode", (event, on) => {
           if (!state.aceOption) return;
@@ -2432,18 +2776,24 @@ export const exploreController = function (state, http, location, params, html, 
           );
         }
       }
-      state.getFiles = function (path, background = false) {
+      state.fileCounts = null;
+      let listingGeneration = 0;
+      let countRequests = new Set();
+      let countsUnavailable = false;
+        state.getFiles = function (path, background = false) {
         const repoId = state.repoId;
+        const generation = listingGeneration;
         return http.get(
           `/api/repo/${state.repoId}/files/?path=${encodeURIComponent(path)}&v=${state.options.lastUpdateDate}`
         ).then(function (res) {
-          if (destroyed || repoId !== state.repoId) return [];
+          if (destroyed || repoId !== state.repoId || generation !== listingGeneration) return [];
           const normalized = path || "";
           state.files = state.files.filter((f) => f.path !== normalized);
           state.files.push(...res.data);
+          fetchFileCounts(normalized, generation);
           return res.data;
         }, function (err) {
-          if (destroyed || repoId !== state.repoId) return [];
+            if (destroyed || repoId !== state.repoId || generation !== listingGeneration) return [];
           if (!background) {
             state.type = "error";
             state.content = viewerErrorCode(err);
@@ -2451,6 +2801,23 @@ export const exploreController = function (state, http, location, params, html, 
           }
         });
       };
+      function fetchFileCounts(path, generation) {
+        if (countsUnavailable || countRequests.has(path)) return;
+        countRequests.add(path);
+        const repoId = state.repoId;
+        http.get(
+          `/api/repo/${state.repoId}/files/counts?path=${encodeURIComponent(path)}`
+        ).then(function (res) {
+          if (destroyed || repoId !== state.repoId || generation !== listingGeneration) return;
+          state.fileCounts = { ...state.fileCounts, ...res.data };
+        }, function () {
+          if (destroyed || repoId !== state.repoId || generation !== listingGeneration) return;
+          // Counts are optional. Do not retry a guarded or rate-limited query
+          // every time a visitor opens another directory.
+          countsUnavailable = true;
+        });
+      }
+
       function getSelectedFile() {
         return state.files.filter(
           (f) =>
@@ -3184,6 +3551,10 @@ export const exploreController = function (state, http, location, params, html, 
         cancelContentLoad();
         state.files = [];
         state.content = null;
+        state.fileCounts = null;
+        listingGeneration++;
+        countRequests = new Set();
+        countsUnavailable = false;
         state.fileSearchQuery = "";
         state.onFileSearchChange();
         state.repoId = params.repoId;
@@ -3433,7 +3804,7 @@ export const newConferenceController = function (state, http, location, params) 
       state.error = "";
 
       function getConference() {
-        http
+        return http
           .get("/api/conferences/" + params.conferenceId)
           .then((res) => {
             state.options = { ...state.options, ...res.data, billing: res.data.billing || {} };
@@ -3460,7 +3831,7 @@ export const newConferenceController = function (state, http, location, params) 
       start.setDate(1);
       start.setMonth(start.getMonth() + 1);
       const end = new Date(start);
-      end.setMonth(start.getMonth() + 7, 0);
+      end.setTime(start.getTime() + 179 * 86400000);
       state.options = {
         billing: {},
         startDate: start,
@@ -3572,6 +3943,7 @@ export const newConferenceController = function (state, http, location, params) 
     };
 
 export const conferenceController = function (state, http, location, params) {
+      setupBilling(state, http, () => getConference(), { confirmedMessage: "Payment status checked. Your conference is ready for submissions once payment is confirmed." });
       state.watch("user.status", () => {
         if (state.user == null) {
           location.url("/");
@@ -3612,11 +3984,27 @@ export const conferenceController = function (state, http, location, params) {
 
 
 export const connectionsController = function (state, http) {
+  state.notificationEmail = "";
+  state.emailSaved = false;
+  state.saveNotificationEmail = async () => {
+    state.busy = true;
+    state.emailSaved = false;
+    state.connectionError = "";
+    try {
+      const res = await http.post("/github/connections/email", { email: state.notificationEmail },
+        { headers: { "X-CSRF-Token": state.connections.csrf } });
+      state.notificationEmail = res.data.notificationEmail;
+      if (state.user) state.user.notificationEmail = res.data.notificationEmail;
+      state.emailSaved = true;
+    } catch (error) { state.connectionError = error.data?.error || "Unable to save email address."; }
+    finally { state.busy = false; }
+  };
   state.connections = null;
   state.connectionError = "";
   state.busy = false;
   state.loadConnections = () => http.get("/github/connections").then(res => {
     state.connections = res.data;
+    state.notificationEmail = res.data.notificationEmail || "";
   }).catch(error => { state.connectionError = error.data?.error || "Unable to load connections."; });
   state.changeConnection = async (resource, connection, preview) => {
     state.busy = true;

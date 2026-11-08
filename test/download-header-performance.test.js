@@ -43,17 +43,6 @@ describe("download headers and website revalidation", function () {
     expect(response.headers["etag"]).to.match(/^"f-/); expect(response.headers["content-type"]).to.include("text/plain");
     expect(transfers).to.equal(0);
   });
-  it("uses representation-safe validators for shared-cache HEAD and revalidation without reading bytes", async function () {
-    const previous = config.SHARED_CACHE_ENABLED; config.SHARED_CACHE_ENABLED = true;
-    try {
-      const path = "/api/repo/fixture/file/data.txt";
-      const head = await fetch(path, "HEAD", { "accept-encoding": "gzip" });
-      expect(head.status).to.equal(200); expect(head.headers.etag).to.match(/^W\/"f-/);
-      expect(head.headers.vary).to.include("Accept-Encoding"); expect(head.body).to.equal("");
-      const fresh = await fetch(path, "GET", { "if-none-match": head.headers.etag, "accept-encoding": "identity" });
-      expect(fresh.status).to.equal(304); expect(transfers).to.equal(0);
-    } finally { config.SHARED_CACHE_ENABLED = previous; }
-  });
   for (const name of ["page.shtml", "drawing.svgz", "schema.xsd"]) {
     it(`sandboxes ${name} on GET, HEAD, and revalidation`, async function () {
       const path = `/api/repo/fixture/file/${name}`;
@@ -82,6 +71,17 @@ describe("download headers and website revalidation", function () {
     expect(response.status).to.equal(200);
     expect(response.headers["content-disposition"]).to.include("attachment");
     expect(response.headers["x-content-type-options"]).to.equal("nosniff");
+  });
+  it("uses representation-safe validators for shared-cache HEAD and revalidation without reading bytes", async function () {
+    const previous = config.SHARED_CACHE_ENABLED; config.SHARED_CACHE_ENABLED = true;
+    try {
+      const path = "/api/repo/fixture/file/data.txt";
+      const head = await fetch(path, "HEAD", { "accept-encoding": "gzip" });
+      expect(head.status).to.equal(200); expect(head.headers.etag).to.match(/^W\/"f-/);
+      expect(head.headers.vary).to.include("Accept-Encoding"); expect(head.body).to.equal("");
+      const fresh = await fetch(path, "GET", { "if-none-match": head.headers.etag, "accept-encoding": "identity" });
+      expect(fresh.status).to.equal(304); expect(transfers).to.equal(0);
+    } finally { config.SHARED_CACHE_ENABLED = previous; }
   });
   it("preserves content gates for HEAD", async function () {
     repo.options.pdf = false;

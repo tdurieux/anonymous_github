@@ -108,7 +108,8 @@
         </div>
         <div class="form-check">
           <input class="form-check-input" type="checkbox" id="notebook" name="notebook" v-field="{ state: viewState, set: value =&gt; { options.options.notebook = value }, value: options?.options?.notebook, form: &quot;conference&quot;, options: {} }">
-          <label class="form-check-label" for="notebook">Display Notebooks</label>
+          <label class="form-check-label" for="notebook">Display notebooks</label>
+          <small class="form-text text-muted">Render Jupyter notebooks instead of raw JSON.</small>
         </div>
       </section>
 
@@ -129,15 +130,15 @@
 
       <section id="conf-plan" class="paper-settings-section">
         <div class="paper-section-eyebrow">Plan</div>
-        <p class="paper-section-copy">Billed per repository per month, prorated by the day for as long as a repository stays in the conference.</p>
+        <p class="paper-section-copy">The review package is prepaid and covers up to 180 days. Pay from the conference page after creating it. Plan and review dates cannot change after creation.</p>
 
         <div class="paper-plan-grid">
           <label class="paper-plan-card" v-for="(plan, index) in plans" :class="{&#x27;selected&#x27;: options?.plan?.planID == plan?.id}">
-            <input type="radio" name="planPicker" v-field="{ state: viewState, set: value =&gt; { options.plan.planID = value }, value: options?.plan?.planID, form: &quot;conference&quot;, options: {} }" :value="plan?.id">
+            <input type="radio" :disabled="editionMode" name="planPicker" v-field="{ state: viewState, set: value =&gt; { options.plan.planID = value }, value: options?.plan?.planID, form: &quot;conference&quot;, options: {} }" :value="plan?.id">
             <div class="paper-plan-head" v-text="plan?.name"></div>
             <div class="paper-plan-price">
-              {{ fmt?.number(plan?.pricePerRepo) }}&euro;
-              <span class="paper-plan-per">/ repo / month</span>
+              {{ plan.id === "free_conference" ? "Free" : "Prepaid package" }}
+              <span class="paper-plan-per">{{ plan.id === "free_conference" ? "" : "Price on the conference page" }}</span>
             </div>
             <div class="paper-plan-desc" v-html="sanitize(plan?.description)"></div>
           </label>

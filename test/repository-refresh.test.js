@@ -50,6 +50,22 @@ describe("repository refresh and restoration", () => {
     expect(failure.httpStatus).to.equal(403);
   });
 
+  for (const actingOwner of [true, false]) {
+    it(`${actingOwner ? "rearms" : "does not rearm"} alerts when ${actingOwner ? "the owner" : "an admin"} refreshes`, async () => {
+      const repo = repository("ready");
+      const notifications = require("../src/core/owner-notifications");
+      const resets = [];
+      stub(notifications, "resetOwnerAccessAlerts", async (...args) => { resets.push(args); });
+      const id = actingOwner ? repo.owner.id : "admin";
+      stub(utils, "getUser", async () => ({ id, model: { id }, isAdmin: !actingOwner }));
+      repo.refresh = async () => {
+        expect(resets).to.have.length(actingOwner ? 1 : 0);
+      };
+      await refresh({}, { json: () => {} });
+      expect(resets).to.deep.equal(actingOwner ? [[repo.owner.id, { kind: "repository", id: String(repo.model._id) }]] : []);
+    });
+  }
+
   for (const commit of ["saved-sha", "new-sha"]) {
     it(`rebuilds a removed repository at ${commit} while preserving its ID`, async () => {
       const repo = repository("removed");
@@ -72,6 +88,37 @@ describe("repository refresh and restoration", () => {
     });
   }
 
+  for (const force of [true, false]) {
+    it(`preserves the published snapshot when a ${force ? "manual" : "automatic"} refresh exceeds capacity`, async () => {
+      const config = require("../src/config").default;
+      const quotas = require("../src/core/billing/quotas");
+      const Stream = require("../src/core/source/GitHubStream").default;
+      const repo = repository("ready");
+      repo.model.billingManaged = true;
+      repo.model.options.update = true;
+      repo.model.lastView = new Date("2020-01-01");
+      stub(config, "BILLING_ENABLED", true);
+      stub(db, "isConnected", false);
+      stub(quotas, "allowance", async () => ({ plan: "author_monthly" }));
+      stub(quotas, "reserveRepository", async (_owner, _id, bytes) => {
+        expect(bytes).to.equal(999);
+        throw new Error("quota_exceeded");
+      });
+      stub(Stream.prototype, "iterateFiles", async function* () {
+        expect(this.data.commit).to.equal("new-sha"); yield { size: 999 };
+      });
+      repo.getToken = async () => "test-token";
+      stub(github, "getRepositoryFromGitHub", async () => ({ fullName: "owner/repo", model: {},
+        branches: async () => [{ name: "main", commit: "new-sha" }],
+      }));
+      repo.resetSate = async () => { throw new Error("must preserve files"); };
+      let error;
+      try { await repo.updateIfNeeded({ force }); } catch (caught) { error = caught; }
+      expect(error?.message).to.equal(force ? "quota_exceeded" : undefined);
+      expect(repo.model.source.commit).to.equal("saved-sha");
+      expect(repo.status).to.equal("ready");
+    });
+  }
   it("preserves a removed repository and reports a GitHub access failure", async () => {
     const repo = repository("removed");
     const failure = new Error("token_expired");
@@ -113,6 +160,46 @@ describe("repository refresh and restoration", () => {
     return stored;
   }
 
+  for (const force of [false, true]) {
+    for (const commit of ["saved-sha", "new-sha"]) {
+      it(`refreshes a ready snapshot with force=${force}, commit=${commit}`, async () => {
+        const repo = repository("ready");
+        repo.model.options.update = true;
+        repo.model.lastView = new Date(0);
+        const stored = database(repo);
+        repo.getToken = async () => "token";
+        stub(github, "getRepositoryFromGitHub", async options => {
+          expect(options.force).to.equal(true);
+          return { fullName: "owner/repo", model: { defaultBranch: "main" },
+            branches: async options => {
+              expect(options.force).to.equal(true);
+              return [{ name: "main", commit }];
+            }, getCommitInfo: async () => ({ commit: {} }) };
+        });
+        let cleared = false, queued = false;
+        repo.resetSate = async () => {
+          expect(stored.source.commit).to.equal(commit);
+          expect(stored.status).to.equal("preparing");
+          cleared = true;
+        };
+        stub(queue, "downloadQueue", { getJob: async () => undefined, add: async (_id, data) => {
+          expect(cleared).to.equal(true);
+          expect(data.repoId).to.equal("restore-me");
+          queued = true;
+        } });
+        if (force) await repo.refresh();
+        else await repo.updateIfNeeded();
+        const rebuilt = force || commit !== "saved-sha";
+        expect(cleared).to.equal(rebuilt);
+        expect(queued).to.equal(rebuilt);
+        expect(stored.status).to.equal(rebuilt ? "preparing" : "ready");
+        expect(stored.source.commit).to.equal(commit);
+        expect(stored.repoId).to.equal("restore-me");
+        expect(stored).not.to.have.property("refreshToken");
+      });
+    }
+  }
+
   it("claims a lease before GitHub work and rejects a concurrent refresh", async () => {
     const first = repository("ready");
     const second = new Repository(new Model(first.model.toObject()));
@@ -134,6 +221,35 @@ describe("repository refresh and restoration", () => {
     } finally { release(); await running; }
     expect(stored).not.to.have.property("refreshToken");
   });
+
+  for (const recoveryFirst of [false, true]) {
+    it(`serializes missing-tree recovery and dashboard refresh (recovery first: ${recoveryFirst})`, async () => {
+      const first = repository("ready");
+      const second = new Repository(new Model(first.model.toObject()));
+      const stored = database(first);
+      const Files = require("../src/core/model/files/files.model").default;
+      stub(Files, "exists", () => ({ exec: async () => null }));
+      let release, started;
+      const entered = new Promise(resolve => { started = resolve; });
+      let updates = 0;
+      first.updateIfNeeded = async () => {
+        updates++;
+        started();
+        await new Promise(resolve => { release = resolve; });
+      };
+      second.updateIfNeeded = async () => { updates++; };
+      const running = recoveryFirst ? first.isReady() : first.refresh();
+      await entered;
+      try {
+        let failure;
+        try { await (recoveryFirst ? second.refresh() : second.isReady()); } catch (error) { failure = error; }
+        expect(failure?.message).to.equal("invalid_status");
+        expect(updates).to.equal(1);
+        expect(stored.status).to.equal("ready");
+      } finally { release(); await running; }
+      expect(stored).not.to.have.property("refreshToken");
+    });
+  }
 
   it("releases a failed lease so reconnecting can be retried", async () => {
     const repo = repository("removed");

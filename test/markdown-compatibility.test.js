@@ -1,3 +1,4 @@
+const normalizeFootnotes = html => html.replace(/footnote-(?:[a-f0-9]+-){4}/g, "footnote-");
 const { expect } = require("chai");
 const { JSDOM } = require("jsdom");
 const fs = require("node:fs");
@@ -88,6 +89,23 @@ describe("GitHub Markdown compatibility", function () {
     expect(dom.querySelectorAll("[data-footnote-backref]")).to.have.length(2);
     expect(dom.querySelector(".footnotes").textContent).to.include("Second paragraph.");
   });
+  it("keeps footnote navigation and accessibility targets within each document", function () {
+    const source = "One[^a].\n\n[^a]: Details";
+    const dom = JSDOM.fragment(`<article>${renderMarkdown(source)}</article><article>${renderMarkdown(source)}</article>`);
+    const ids = [...dom.querySelectorAll("[id]")].map(node => node.id);
+    expect(new Set(ids).size).to.equal(ids.length);
+    for (const article of dom.querySelectorAll("article")) {
+      for (const node of article.querySelectorAll("[href], [aria-describedby]")) {
+        const target = node.getAttribute("aria-describedby") || node.getAttribute("href").slice(1);
+        expect(article.querySelector(`[id="${target}"]`)).not.to.equal(null);
+      }
+    }
+  });
+  for (const source of ["Costs $5 and $10 per run.", "Budget: $100-$200."]) it(`preserves currency prose: ${source}`, function () {
+    const dom = fragment(source);
+    expect(dom.querySelector(".katex")).to.equal(null);
+    expect(dom.textContent.trim()).to.equal(source);
+  });
   it("uses unique GitHub heading slugs including suffixed collisions and Unicode", function () {
     const dom = fragment("# Hello\n# Hello\n# Hello-1\n# Hello\n# 中文 *标题*\n# constructor");
     expect([...dom.querySelectorAll("h1")].map(h => h.id)).to.deep.equal(["hello", "hello-1", "hello-1-1", "hello-2", "中文-标题", "constructor"]);
@@ -136,6 +154,7 @@ describe("GitHub Markdown compatibility", function () {
   });
 
   it("serves the shared renderer through the project-page route", async function () {
+    this.timeout(10000); // Includes cold TypeScript compilation of the route dependencies.
     const { Readable } = require("node:stream");
     const utils = require("../src/server/routes/route-utils");
     const File = require("../src/core/AnonymizedFile").default;
@@ -181,7 +200,7 @@ describe("GitHub Markdown compatibility", function () {
     after(function () { dom.window.close(); });
     it("matches the server renderer across the feature matrix", function () {
       for (const [name, source] of cases) {
-        expect(dom.window.renderMD(source, "/r/repo/"), name).to.equal(renderMarkdown(source, "/r/repo/"));
+        expect(normalizeFootnotes(dom.window.renderMD(source, "/r/repo/")), name).to.equal(normalizeFootnotes(renderMarkdown(source, "/r/repo/")));
       }
     });
     it("enhances Mermaid inserted while another diagram is rendering", async function () {

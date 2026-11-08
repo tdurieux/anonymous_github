@@ -8,7 +8,7 @@ const QuotaUsage = {
   props: ["quota", "fmt"],
   setup(props) {
     return { formatAmount: (value, kind) => kind === "bytes"
-      ? props.fmt.humanFileSize(value).replace(/([a-zA-Z]+)$/, " $1") : props.fmt.number(value) };
+      ? props.fmt.humanFileSize(props.quota?.storage?.unit === "bytes" ? value * 8 : value).replace(/([a-zA-Z]+)$/, " $1") : props.fmt.number(value) };
   },
   render: quotaUsageTemplate,
 };

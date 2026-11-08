@@ -1,3 +1,4 @@
+import { notifyOwnerAccessProblem } from "./owner-notifications";
 import { sendSharedContent } from "./cached-response";
 import { streamResponse } from "./response-stream";
 import { join, basename, dirname } from "path";
@@ -153,8 +154,18 @@ export default class AnonymizedFile {
     return this._file.size;
   }
 
+  private visibleFile(file: IFile): IFile {
+    if (this.repository.model?.source?.type !== "Zip" && file.name === ".gitmodules") {
+      throw new AnonymousError("file_not_found", { httpStatus: 404 });
+    }
+    return file;
+  }
+
   async getFileInfo(): Promise<IFile> {
-    if (this._file) return this._file;
+    if (this.repository.model?.source?.type !== "Zip" && basename(this.anonymizedPath) === ".gitmodules") {
+      throw new AnonymousError("file_not_found", { httpStatus: 404 });
+    }
+    if (this._file) return this.visibleFile(this._file);
     let fileDir = dirname(this.anonymizedPath);
     if (fileDir == ".") fileDir = "";
     if (fileDir.endsWith("/")) fileDir = fileDir.slice(0, -1);
@@ -180,7 +191,7 @@ export default class AnonymizedFile {
     if (exact) {
       if (exact.metadataPending) await this.repository.completeRecoveredFileMetadata(exact);
       this._file = exact;
-      return exact;
+      return this.visibleFile(exact);
     }
 
     const terms = this.repository.options.terms || [];
@@ -213,7 +224,7 @@ export default class AnonymizedFile {
     const compiled = compileTerms(terms);
     if (typeof this.repository.findAnonymizedPath === "function") {
       const indexed = await this.repository.findAnonymizedPath(this.anonymizedPath);
-      if (indexed) { this._file = indexed; return indexed; }
+      if (indexed) { this._file = indexed; return this.visibleFile(indexed); }
       if (indexed === null) {
         if (anonymizePathCompiled(this.anonymizedPath, compiled) === this.anonymizedPath) {
           const recovered = await this.recoverTruncatedFile(fileDir);
@@ -237,7 +248,7 @@ export default class AnonymizedFile {
       ) {
         if (candidate.metadataPending) await this.repository.completeRecoveredFileMetadata(candidate);
         this._file = candidate;
-        return candidate;
+        return this.visibleFile(candidate);
       }
     }
 
@@ -266,11 +277,15 @@ export default class AnonymizedFile {
         folder === "" || fileDir === folder || fileDir.startsWith(folder + "/")
     );
     if (!isAffected) return null;
+    if (this.repository.model.billingManaged) throw new AnonymousError("repository_tree_incomplete", { httpStatus: 409 });
     const source = this.repository.source as {
       fetchFileInfoFromPath?: (filePath: string) => Promise<IFile | null>;
     };
     if (typeof source.fetchFileInfoFromPath !== "function") return null;
-    const recovered = await source.fetchFileInfoFromPath(this.anonymizedPath);
+    const recovered = await source.fetchFileInfoFromPath(this.anonymizedPath).catch(error => {
+      void notifyOwnerAccessProblem(this.repository.owner.id, error, { kind: "repository", id: String(this.repository.model._id) });
+      throw error;
+    });
     if (!recovered) return null;
     recovered.repoId = this.repository.repoId;
     recovered.treeGeneration = this.repository.model.treeGeneration;
@@ -309,6 +324,7 @@ export default class AnonymizedFile {
     if (!this._file) {
       this._file = await this.getFileInfo();
     }
+    this.visibleFile(this._file);
     return join(this._file.path, this._file.name);
   }
   extension() {
@@ -356,7 +372,11 @@ export default class AnonymizedFile {
         httpStatus: 413,
       });
     }
-    const content = await this.repository.source?.getFileContent(this);
+    const content = await this.repository.source?.getFileContent(this).catch(error => {
+      void notifyOwnerAccessProblem(this.repository.owner.id, error, { kind: "repository", id: String(this.repository.model._id) });
+      throw error;
+    });
+    content.on("error", error => { void notifyOwnerAccessProblem(this.repository.owner.id, error, { kind: "repository", id: String(this.repository.model._id) }); });
     const cacheWasReset = this.repository.model.isReseted;
     if (cacheWasReset) {
       await this.repository.markCachePresent();
@@ -379,7 +399,7 @@ export default class AnonymizedFile {
     }
 
     // use the streamer service
-    return got.stream(join(config.STREAMER_ENTRYPOINT, "api"), {
+    const content = got.stream(join(config.STREAMER_ENTRYPOINT, "api"), {
       method: "POST",
       headers: requestHeaders(),
       json: {
@@ -391,11 +411,17 @@ export default class AnonymizedFile {
         branch: this.repository.model.source.branch,
         repoId: this.repository.repoId,
         filePath: this.filePath,
+        upstream: (await this.getFileInfo()).upstream,
         sha: await this.sha(),
         size: await this.size(),
         anonymizerOptions: anonymizer.opt,
       },
     });
+    content.on("error", err => {
+      const { error } = streamerErrorToAnonymous(err, { repoId: this.repository.repoId, filePath: this.anonymizedPath });
+      void notifyOwnerAccessProblem(this.repository.owner.id, error, { kind: "repository", id: String(this.repository.model._id) });
+    });
+    return content;
   }
 
   get filePath() {
@@ -435,6 +461,7 @@ export default class AnonymizedFile {
               json: {
                 sha,
                 size,
+                upstream: (await this.getFileInfo()).upstream,
                 token: await githubTokenForStreamer(token, this.repository.model.source.repositoryName),
                 repoFullName: this.repository.model.source.repositoryName,
                 commit: this.repository.model.source.commit,
@@ -478,6 +505,7 @@ export default class AnonymizedFile {
                   filePath: this.anonymizedPath,
                 }
               );
+              void notifyOwnerAccessProblem(this.repository.owner.id, error, { kind: "repository", id: String(this.repository.model._id) });
               error.value = this;
               handleError(error, res);
               if (res.headersSent && !res.writableEnded) res.destroy();

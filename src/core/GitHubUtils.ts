@@ -1,3 +1,6 @@
+import { isGitHubRateLimitError, OctokitRequestErrorLike } from "./github-rate-limit";
+import { refreshLegacyToken } from "./legacy-token-refresh";
+import { notifyOwnerAccessProblem } from "./owner-notifications";
 import AnonymizedRepositoryModel from "./model/anonymizedRepositories/anonymizedRepositories.model";
 import { isConnected } from "../server/database";
 import { githubQuotaKey, githubTokenContext } from "./github-token-context";
@@ -8,42 +11,15 @@ import { createClient, RedisClientType } from "redis";
 
 import AnonymousError from "./AnonymousError";
 import Repository from "./Repository";
-import { getCredential, replaceCredential, getCredentialToken } from "./credentials";
+import { getCredential, getCredentialToken } from "./credentials";
 import config from "../config";
 import { createLogger } from "./logger";
 import { measureStage } from "./request-monitoring";
+import { setTimeout as delay } from "timers/promises";
 
 const logger = createLogger("github");
 
-// Octokit RequestError shape (subset we care about for rate-limit detection).
-interface OctokitRequestErrorLike {
-  status?: number;
-  message?: string;
-  response?: {
-    headers?: Record<string, string | undefined>;
-  };
-}
-
-/**
- * Detect GitHub rate-limit / abuse responses (primary 5k/h or undocumented
- * "secondary" limits) and rewrap them as a translatable AnonymousError so
- * the UI can show a friendly message instead of a raw HttpError stack. The
- * GitHub `x-github-request-id` header is preserved in `detail` so users can
- * cite it if they reach out to GitHub Support.
- */
-export function isGitHubRateLimitError(err: unknown): boolean {
-  if (!err || typeof err !== "object") return false;
-  const e = err as OctokitRequestErrorLike;
-  const msg = (e.message ?? "").toLowerCase();
-  // Primary limits return 403 with "x-ratelimit-remaining: 0"; secondary
-  // limits return 403 (sometimes 429) with "secondary rate limit" in the
-  // body. Match on either signal so we catch both.
-  const status = e.status ?? 0;
-  if (status !== 403 && status !== 429) return false;
-  if (msg.includes("rate limit") || msg.includes("abuse")) return true;
-  const remaining = e.response?.headers?.["x-ratelimit-remaining"];
-  return remaining === "0";
-}
+export { isGitHubRateLimitError } from "./github-rate-limit";
 
 function rateLimitDetail(err: OctokitRequestErrorLike): string {
   const headers = err.response?.headers ?? {};
@@ -110,7 +86,18 @@ export function getTokenGateResetAt(token: string): number {
   return gate.resetAt;
 }
 
-async function waitForTokenGate(token: string): Promise<void> {
+function abortableGateLookup(lookup: Promise<number>, signal: AbortSignal): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const cancelled = () => { signal.removeEventListener("abort", cancelled); reject(signal.reason); };
+    if (signal.aborted) cancelled();
+    else signal.addEventListener("abort", cancelled, { once: true });
+    lookup.then(value => { signal.removeEventListener("abort", cancelled); resolve(value); },
+      error => { signal.removeEventListener("abort", cancelled); reject(error); });
+  });
+}
+
+async function waitForTokenGate(token: string, signal?: AbortSignal): Promise<void> {
+  signal?.throwIfAborted();
   const key = githubQuotaKey(token);
   const localGate = tokenGates.get(key);
   let waitMs = 0;
@@ -121,7 +108,9 @@ async function waitForTokenGate(token: string): Promise<void> {
     waitMs = resetAt - Date.now();
   }
 
-  const redisResetAt = await getRedisGateResetAt(key);
+  const lookup = getRedisGateResetAt(key);
+  const redisResetAt = await (signal ? abortableGateLookup(lookup, signal) : lookup);
+  signal?.throwIfAborted();
   if (redisResetAt > resetAt) {
     resetAt = redisResetAt;
     waitMs = resetAt - Date.now();
@@ -137,7 +126,7 @@ async function waitForTokenGate(token: string): Promise<void> {
     waitMs,
     resetAt: new Date(resetAt).toISOString(),
   });
-  await new Promise((resolve) => setTimeout(resolve, waitMs));
+  await delay(waitMs, undefined, { signal });
   if (localGate) tokenGates.delete(key);
 }
 
@@ -255,7 +244,7 @@ export function octokit(token: string) {
         const prefix = `/repos/${context.publicRepository.split("/").map(encodeURIComponent).join("/")}`.toLowerCase();
         const path = url.pathname.toLowerCase();
         const suffix = path.slice(prefix.length);
-        const readable = /^(?:\/?|\/branches(?:\/[^/]+)?|\/commits(?:\/[^/]+)?|\/readme|\/pages|\/zipball\/[^/]+|\/git\/(?:trees|blobs)\/[^/]+|\/pulls\/\d+|\/issues\/\d+\/comments)$/.test(suffix);
+        const readable = /^(?:\/?|\/branches(?:\/[^/]+)?|\/commits(?:\/[^/]+)?|\/contents(?:\/[^/]+)*|\/readme|\/pages|\/zipball\/[^/]+|\/git\/(?:trees|blobs)\/[^/]+|\/pulls\/\d+|\/issues\/\d+\/comments)$/.test(suffix);
         if (!readable || (options.method !== "GET" && !(options.method === "HEAD" && suffix.startsWith("/zipball/"))) || url.origin !== "https://api.github.com" ||
             (path !== prefix && !path.startsWith(prefix + "/"))) {
           throw new AnonymousError("github_app_access_required", { httpStatus: 403 });
@@ -297,12 +286,9 @@ export async function checkToken(token: string) {
     else await oct.users.getAuthenticated();
     return true;
   } catch (err) {
-    if (
-      err instanceof AnonymousError &&
-      err.message === "github_rate_limit_exceeded"
-    ) {
-      throw err;
-    }
+    // Only a confirmed invalid credential permits fallback. Network failures,
+    // permission failures and rate limits must retain their original meaning.
+    if ((err as { status?: number })?.status !== 401) throw err;
     return false;
   }
 }
@@ -310,7 +296,12 @@ export async function checkToken(token: string) {
 const checkedRepositoryTokens = new WeakMap<Repository, string>();
 
 export async function getToken(repository: Repository) {
-  return measureStage("authorization", () => resolveRepositoryToken(repository));
+  try {
+    return await measureStage("authorization", () => resolveRepositoryToken(repository));
+  } catch (error) {
+    void notifyOwnerAccessProblem(repository.owner.id, error, { kind: "repository", id: String(repository.model._id) });
+    throw error;
+  }
 }
 
 async function resolveRepositoryToken(repository: Repository) {
@@ -337,62 +328,18 @@ async function resolveRepositoryToken(repository: Repository) {
       credential?.persisted &&
       (!tokenAge || tokenAge < new Date(Date.now() - 1000 * 60 * 60 * 24 * 7))
     ) {
-      const url = `https://api.github.com/applications/${config.CLIENT_ID}/token`;
-      const headers = {
-        Accept: "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-      };
-
-      const res = await fetch(url, {
-        method: "PATCH",
-        body: JSON.stringify({
-          access_token: ownerAccessToken,
-        }),
-        credentials: "include",
-        headers: {
-          ...headers,
-          Authorization:
-            "Basic " +
-            Buffer.from(
-              config.CLIENT_ID + ":" + config.CLIENT_SECRET
-            ).toString("base64"),
-        },
-      });
-      // Only persist a refreshed token if GitHub actually returned a
-      // valid one. Without this guard, a 4xx/5xx error body (revoked
-      // OAuth, rate limit, transient outage) silently overwrites the
-      // user's stored token with `undefined`, which then propagates as
-      // `Authorization: token undefined` to every subsequent API call —
-      // 401 even on public repos, and the config.GITHUB_TOKEN fallback
-      // below is unreachable because the token field is no longer falsy.
-      if (res.ok) {
-        const resBody = (await res.json().catch(() => null)) as
-          | { token?: unknown }
-          | null;
-        const refreshed =
-          resBody && typeof resBody.token === "string" && resBody.token.length > 0
-            ? resBody.token
-            : null;
-        if (refreshed) {
-          if (await replaceCredential(repository.owner.id, ownerAccessToken, refreshed)) {
-            checkedRepositoryTokens.set(repository, refreshed);
-            return refreshed;
-          }
-          return (await getCredentialToken(repository.owner.id)) || config.GITHUB_TOKEN;
-        }
+      const refreshed = await refreshLegacyToken(repository.owner.id, ownerAccessToken);
+      if (refreshed !== null) {
+        checkedRepositoryTokens.set(repository, refreshed);
+        return refreshed;
       }
-      logger.warn("token refresh failed; falling back", {
-        code: "token_refresh_failed",
-        httpStatus: res.status,
-        username: repository.owner.model.username,
-      });
-      // fall through to the checkToken path / config.GITHUB_TOKEN
     }
     const check = await checkToken(ownerAccessToken);
     if (check) {
       checkedRepositoryTokens.set(repository, ownerAccessToken);
       return ownerAccessToken;
     }
+    void notifyOwnerAccessProblem(repository.owner.id, "token_expired", { kind: "repository", id: String(repository.model._id) });
     return config.GITHUB_TOKEN;
   }
   return (await getCredentialToken(repository.owner.id, "github", {

@@ -19,7 +19,10 @@ Configure:
 - Repository permissions: **Contents: read-only**, **Metadata: read-only**,
   **Pull requests: read-only**, **Pages: read-only**. Do not grant write permissions.
   Pull requests read also permits [reading PR issue comments](https://docs.github.com/en/rest/issues/comments#list-issue-comments); Issues permission is unnecessary.
-- Keep user access token expiration enabled. Private email permission is unnecessary.
+- User permissions: **Email addresses: read-only** to save a verified address at
+  sign-in, including addresses hidden from the public GitHub profile. If this
+  permission is unavailable, owners can enter an address in the email form.
+- Keep user access token expiration enabled.
 - Leave **Request user authorization (OAuth) during installation** unchecked.
   Anonymous GitHub authorizes the user before opening installation; the setup
   redirect must remain available afterward.
@@ -105,6 +108,14 @@ Public reads use a [repository-scoped App user token](https://docs.github.com/en
 Each API request renews through its own repository binding, rechecking identity
 and public visibility while keeping the same user quota.
 Existing installation bindings retain their installation checks.
+
+If a previously public source becomes private, its existing public-only binding
+continues to reject private reads. Select the repository in the App installation,
+then open the anonymization's Edit page and click **Repair GitHub access**. This
+verifies installation access to the same GitHub repository ID and published commit
+before replacing the binding. It preserves the anonymous URL, snapshot and settings.
+Signing in again alone does not change a resource's binding. The Connections page
+also provides **Reconnect read-only access** for this purpose.
 This uses GitHub's documented [public resource access for App user tokens](https://docs.github.com/en/apps/creating-github-apps/registering-a-github-app/choosing-permissions-for-a-github-app).
 
 The explicit **Use existing OAuth access** choice handles repositories not yet

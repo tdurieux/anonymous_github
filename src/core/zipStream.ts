@@ -1,4 +1,6 @@
 import got from "got";
+import config from "../config";
+import { MAX_SUBMODULE_ENTRIES, SubmoduleMount, safeRepositoryPath, validateMounts } from "./source/github-submodules";
 import { Readable, Transform, Writable } from "stream";
 import { Parse } from "unzip-stream";
 import archiver = require("archiver");
@@ -13,11 +15,13 @@ import {
 } from "./anonymize-utils";
 import { createLogger, serializeError } from "./logger";
 import { startStage } from "./request-monitoring";
+import { zipEntryOptions } from "./archive-entry";
 
 const logger = createLogger("zip-stream");
 
 export interface StreamAnonymizedZipOptions {
   repoId: string;
+  submodules?: SubmoduleMount[];
   organization: string;
   repoName: string;
   commit: string;
@@ -77,6 +81,7 @@ export async function streamAnonymizedZip(
     on(event: string, listener: (...args: unknown[]) => void): unknown;
   }
 ): Promise<void> {
+  const submodules = validateMounts(opt.submodules);
   let response;
   try {
     const token = await opt.getToken();
@@ -112,14 +117,10 @@ export async function streamAnonymizedZip(
       },
     });
   }
-  const upstreamDone = startStage("upstream");
-  const downloadStream = got.stream(response.url);
-  downloadStream.once("end", () => upstreamDone());
-  downloadStream.once("error", () => upstreamDone(true));
-  downloadStream.once("close", () => upstreamDone(!downloadStream.readableEnded));
-
+  let downloadStream: Readable;
   const archive = archiver("zip", {});
-  const parser = Parse() as Transform;
+  let parser: Transform;
+  let childEntries = 0;
   const activeStreams = new Set<Readable>();
   const compiledTerms = compileTerms(opt.anonymizerOptions.terms || []);
   let stopped = false;
@@ -159,8 +160,8 @@ export async function streamAnonymizedZip(
     stopped = true;
     cleanupDrain?.();
     cleanupDrain = undefined;
-    downloadStream.destroy();
-    parser.destroy();
+    downloadStream?.destroy();
+    parser?.destroy();
     for (const stream of activeStreams) stream.destroy();
     activeStreams.clear();
     output.destroy();
@@ -186,53 +187,82 @@ export async function streamAnonymizedZip(
   archive.on("error", fail);
   archive.pipe(output);
 
-  downloadStream
-    .on("error", fail)
-    .pipe(parser)
-    .on("entry", (entry: Readable & { type: string; path: string; autodrain: () => void }) => {
-      if (stopped) {
-        entry.destroy();
-        return;
-      }
-      entry.on("error", fail);
-      activeStreams.add(entry);
-      entry.once("close", () => activeStreams.delete(entry));
-      if (entry.type === "File") {
-        try {
-          const fileName = anonymizePathCompiled(
-            entry.path.substring(entry.path.indexOf("/") + 1),
-            compiledTerms
-          );
-          if (!isEntryAllowed(entry.path, opt.contentOptions)) {
-            entry.autodrain();
-            return;
-          }
-          // Pass filePath via the constructor — AnonymizeTransformer reads it
-          // there to decide whether the entry is text (and therefore should be
-          // anonymized) vs binary (passthrough). Assigning afterwards leaves
-          // isText=false for every file, so the zip ships unanonymized.
-          parser.pause();
-          const onArchived = () => { entryWaiting = true; setImmediate(resumeParser); };
-          archive.once("entry", onArchived);
-          const anonymizer = new AnonymizeTransformer({
-            ...opt.anonymizerOptions,
-            filePath: entry.path,
-          });
-          anonymizer.on("error", fail);
-          activeStreams.add(anonymizer);
-          anonymizer.once("close", () => activeStreams.delete(anonymizer));
-          const st = entry.pipe(anonymizer);
-          archive.append(st, { name: fileName });
-        } catch (error) {
-          fail(error as Error);
+  const startArchive = (url: string, prefix: string, next: number) => {
+    if (stopped) return;
+    const upstreamDone = startStage("upstream");
+    const input = got.stream(url);
+    downloadStream = input;
+    input.once("end", () => upstreamDone());
+    input.once("error", () => upstreamDone(true));
+    input.once("close", () => upstreamDone(!input.readableEnded));
+    parser = Parse() as Transform;
+    downloadStream
+      .on("error", fail)
+      .pipe(parser)
+      .on("entry", (entry: Readable & { type: string; path: string; autodrain: () => void }) => {
+        if (stopped) {
+          entry.destroy();
+          return;
         }
-      } else {
-        entry.autodrain();
-      }
-    })
-    .on("error", fail)
-    .on("end", () => {
-      if (stopped) return;
-      void archive.finalize().catch(fail);
-    });
+        entry.on("error", fail);
+        activeStreams.add(entry);
+        entry.once("close", () => activeStreams.delete(entry));
+        if (entry.type === "File") {
+          try {
+            const relativePath = entry.path.substring(entry.path.indexOf("/") + 1);
+            if (!safeRepositoryPath(relativePath)) throw new AnonymousError("invalid_file_path", { httpStatus: 502 });
+            if (relativePath.split("/").pop() === ".gitmodules") { entry.autodrain(); return; }
+            if (prefix && ++childEntries > MAX_SUBMODULE_ENTRIES) throw new AnonymousError("file_too_big", { httpStatus: 413 });
+            const mountedPath = prefix ? `${prefix}/${relativePath}` : relativePath;
+            const fileName = anonymizePathCompiled(mountedPath, compiledTerms);
+            if (!isEntryAllowed(entry.path, opt.contentOptions)) {
+              entry.autodrain();
+              return;
+            }
+            // Pass filePath via the constructor — AnonymizeTransformer reads it
+            // there to decide whether the entry is text (and therefore should be
+            // anonymized) vs binary (passthrough). Assigning afterwards leaves
+            // isText=false for every file, so the zip ships unanonymized.
+            parser.pause();
+            const onArchived = () => { entryWaiting = true; setImmediate(resumeParser); };
+            archive.once("entry", onArchived);
+            const anonymizer = new AnonymizeTransformer({
+              ...opt.anonymizerOptions,
+              filePath: mountedPath,
+            });
+            anonymizer.on("error", fail);
+            activeStreams.add(anonymizer);
+            anonymizer.once("close", () => activeStreams.delete(anonymizer));
+            let source: Readable = entry;
+            if (prefix) {
+              let bytes = 0;
+              const limited = new Transform({ transform(chunk, encoding, callback) {
+                bytes += chunk.length;
+                callback(bytes > config.MAX_FILE_SIZE ? new AnonymousError("file_too_big", { httpStatus: 413 }) : null, chunk);
+              } });
+              limited.on("error", fail);
+              activeStreams.add(limited);
+              limited.once("close", () => activeStreams.delete(limited));
+              source = entry.pipe(limited);
+            }
+            const st = source.pipe(anonymizer);
+            archive.append(st, zipEntryOptions(fileName, mountedPath));
+          } catch (error) {
+            fail(error as Error);
+          }
+        } else {
+          entry.autodrain();
+        }
+      })
+      .on("error", fail)
+      .on("end", () => {
+        if (stopped) return;
+        const mount = submodules[next];
+        if (mount) {
+          // Public child archives never receive parent credentials.
+          startArchive(`https://codeload.github.com/${encodeURIComponent(mount.organization)}/${encodeURIComponent(mount.repoName)}/zip/${mount.commit}`, mount.path, next + 1);
+        } else void archive.finalize().catch(fail);
+      });
+  };
+  startArchive(response.url, "", 0);
 }

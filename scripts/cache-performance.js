@@ -2,7 +2,7 @@
 const { strict: assert } = require('node:assert');
 const { promises: fs, createReadStream } = require('node:fs');
 const { tmpdir, cpus, totalmem, loadavg } = require('node:os');
-const { join } = require('node:path');
+const { join, dirname } = require('node:path');
 const { createHash } = require('node:crypto');
 const { Readable } = require('node:stream');
 const { pipeline } = require('node:stream/promises');
@@ -133,7 +133,9 @@ async function main() {
   report.completedAt=new Date().toISOString();report.assertions=`All ${scenarios.length*100} response bodies verified against expected output or the validated wire digest`;
   if (process.argv.includes('--normal')) report.methodology.experimentalOverride='PRAGMA synchronous=NORMAL in both temporary pool connections only. Application defaults are unchanged. WAL commits may be lost after power failure.';
   if (process.argv.includes('--legacy')) report.methodology.legacyComparison='Existing large-file transformedFile cache enabled, isolated TMPDIR, local source file, no Redis coordination or database authorization.';
-  await fs.writeFile(process.argv[2]||'docs/cache-performance-results.json',JSON.stringify(report,null,2)+'\n');
+  const output = process.argv[2] || 'benchmark-results/cache/http.json';
+  await fs.mkdir(dirname(output), { recursive: true });
+  await fs.writeFile(output,JSON.stringify(report,null,2)+'\n');
   process.stdout.write(JSON.stringify({scenarios:report.scenarios.length,assertions:report.assertions})+'\n');
 }
 if(process.argv[2]==='--worker')worker(JSON.parse(process.argv[3])).then(()=>process.exit(0),e=>{console.error(e);process.exit(1);});

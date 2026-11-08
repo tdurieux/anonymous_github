@@ -9,7 +9,18 @@ const maintenance = require(path.join(base, "core/temporary-storage"));
 const startMaintenance = maintenance.startTemporaryStorageMaintenance;
 // Exercise the real startup/timer wiring without waiting a production minute.
 maintenance.startTemporaryStorageMaintenance = () => startMaintenance(25);
-GitHubStream.prototype.downloadWithFallback = async function () {
+const downloadWithFallback = GitHubStream.prototype.downloadWithFallback;
+GitHubStream.prototype.downloadWithFallback = async function (token, sha, filePath) {
+  if (filePath.startsWith("fail-")) {
+    this.downloadFile = () => {
+      const input = new Readable({ read() {} });
+      const failure = Object.assign(new Error("fixture upstream failure"), filePath === "fail-reset.txt"
+        ? { code: "ECONNRESET" } : { response: { statusCode: 401 } });
+      process.nextTick(() => input.destroy(failure));
+      return input;
+    };
+    return downloadWithFallback.call(this, token, sha, filePath);
+  }
   process.send({ download: true });
   return Readable.from([Buffer.alloc(300000, "x")]);
 };

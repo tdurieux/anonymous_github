@@ -23,6 +23,8 @@ export interface IUser {
     repoIds?: string[];
     expiresAt?: Date;
   }[];
+  notificationEmail?: string;
+  emailPromptNever?: boolean;
   emails: {
     email: string;
     default: boolean;

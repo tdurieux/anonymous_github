@@ -1,3 +1,7 @@
+import { startBillingMaintenance } from "../core/billing/maintenance";
+import billing, { billingWebhook } from "./routes/billing";
+import { sendRequestRateLimit } from "./request-rate-limit";
+import { installFatalErrorLogging } from "../core/process-monitoring";
 import { githubAppRouter, githubAppWebhook } from "./routes/github-app";
 import { config as dotenv } from "dotenv";
 dotenv();
@@ -39,12 +43,20 @@ import { getUser } from "./routes/route-utils";
 import config from "../config";
 import { resolveTrustProxy } from "./trustProxy";
 import { requestRateLimitKey } from "./rate-limit-key";
+import { createWebsiteRateLimiter } from "./website-rate-limit";
 import { createLogger, serializeError } from "../core/logger";
+import { serverOptions } from "./server-options";
 import { monitorRequests } from "../core/request-monitoring";
 import { startPerformanceMonitoring } from "../core/performance-monitoring";
 import { getAnonymizationPoolStats } from "../core/anonymization-pool";
 
+import { createReviewCapabilities } from "./service/review-capabilities";
+
+import { createReviewConsentPage, isReviewConsentPagePath } from "./review-consent-page";
+
+const reviewConsentPage = createReviewConsentPage();
 const logger = createLogger("server");
+installFatalErrorLogging("api");
 
 // Lazily build the templated index.html on first request so the server
 // works even when started before `gulp` finishes.
@@ -81,6 +93,7 @@ function getIndexHtml(): string {
 }
 
 function indexResponse(req: express.Request, res: express.Response) {
+  if (isReviewConsentPagePath(req.path)) return reviewConsentPage(req, res);
   if (
     req.path.startsWith("/script") ||
     req.path.startsWith("/css") ||
@@ -107,9 +120,12 @@ function indexResponse(req: express.Request, res: express.Response) {
 export default async function start() {
   const app = express();
   app.use(monitorRequests("api"));
+  app.use(serverOptions);
   startPerformanceMonitoring("api", getAnonymizationPoolStats);
   app.set("query parser", "extended");
+  app.use("/service", createReviewCapabilities(process.env.REVIEW_SERVICE_KEYS));
   app.use("/github/app/webhook", githubAppWebhook);
+  app.use("/api/billing/webhook", billingWebhook);
   app.use(express.json());
   // Preserve the empty body used by API validation when no JSON was parsed.
   app.use((req, _res, next) => {
@@ -207,9 +223,7 @@ export default async function start() {
     keyGenerator: apiRateKey,
     standardHeaders: "draft-6",
     legacyHeaders: false,
-    message: (_request: express.Request, _response: express.Response) => {
-      return `You can only make ${config.RATE_LIMIT} requests every 15min. Please try again later.`;
-    },
+    handler: sendRequestRateLimit,
   });
   const speedLimiter = slowDown({
     windowMs: 15 * 60 * 1000, // 15 minutes
@@ -225,6 +239,10 @@ export default async function start() {
     maxDelayMs: 5000,
     keyGenerator: apiRateKey,
   });
+  const websiteRate = createWebsiteRateLimiter(new RedisStore({
+    prefix: "website-rate:",
+    sendCommand: (...args: string[]) => redisClient.sendCommand(args),
+  }));
 
   app.use("/github", rate, speedLimiter, githubAppRouter);
   app.use("/github", rate, speedLimiter, connectionRouter);
@@ -233,6 +251,7 @@ export default async function start() {
   const apiRouter = express.Router();
   app.use("/api", rate, apiRouter);
 
+  apiRouter.use("/billing", billing);
   apiRouter.use("/maintenance", speedLimiter, maintenanceRouter);
   apiRouter.use("/user/maintenance-tokens", maintenanceTokens);
   apiRouter.use("/admin", router.admin);
@@ -274,7 +293,7 @@ export default async function start() {
   });
 
   // web view
-  app.use("/w/", rate, webViewSpeedLimiter, router.webview);
+  app.use("/w/", websiteRate, webViewSpeedLimiter, router.webview);
 
   // Hashed assets (e.g. core.a1b2c3d4e5.min.js) — immutable, cache for 1 year.
   // Strip the hash from the filename and serve the underlying file.
@@ -304,6 +323,13 @@ export default async function start() {
   app.use(
     express.static(join("public"), {
       etag: true,
+      setHeaders(res, filePath) {
+        // Sandboxed Markdown pages have an opaque origin; public math fonts
+        // must permit anonymous cross-origin requests without relaxing CSP.
+        if (/[/\\]css[/\\]fonts[/\\]KaTeX_[^/\\]+\.(?:woff2?|ttf)$/.test(filePath)) {
+          res.setHeader("Access-Control-Allow-Origin", "*");
+        }
+      },
       lastModified: true,
       maxAge: 86400000, // 1 day (fonts, images, partials)
       index: false, // don't serve index.html for "/" — indexResponse handles it
@@ -325,6 +351,7 @@ export default async function start() {
   dailyStatsSnapshot();
 
   await connect();
+  await startBillingMaintenance();
   await startTemporaryStorageMaintenance();
   app.listen(config.PORT);
   logger.info("server started", { port: config.PORT });

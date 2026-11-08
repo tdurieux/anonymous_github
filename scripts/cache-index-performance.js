@@ -2,7 +2,7 @@
 const { strict: assert } = require('node:assert');
 const { promises: fs } = require('node:fs');
 const { tmpdir } = require('node:os');
-const { join } = require('node:path');
+const { join, dirname } = require('node:path');
 const { Readable } = require('node:stream');
 const { performance } = require('node:perf_hooks');
 require('ts-node/register/transpile-only');
@@ -20,7 +20,7 @@ async function main(){
       const now=Date.now();cache.db.exec('BEGIN');
       const blob=cache.db.prepare('INSERT INTO blobs VALUES(?,?,?,?,?,?,?)');
       const alias=cache.db.prepare('INSERT INTO aliases VALUES(?,?)');
-      const decision=cache.db.prepare('INSERT INTO decisions VALUES(?,?,?,?,?)');
+      const decision=cache.db.prepare('INSERT INTO decisions(key,digest,changed,accessed,expires) VALUES(?,?,?,?,?)');
       const history=cache.db.prepare('INSERT INTO history VALUES(?,?,0)');
       for(let i=0;i<cardinality;i++){
         // Metadata-only dummy rows, never opened. Real lookups/fills use the separate verified content above.
@@ -51,7 +51,9 @@ async function main(){
     const report={measuredAt:new Date().toISOString(),scope:'Synthetic metadata-only scale probe. Dummy blob rows have no payload files; excludes directory scanning and disk reads for those rows. Real reads use one verified blob. Eviction probe uses real 64 KiB files.',
       node:process.version,cardinality:results,eviction:{requests:300,distinctObjects:100,upstreamFills:upstream,hitRate:1-upstream/300,
         elapsedMs:performance.now()-started,p50Ms:percentile(times,.5),p95Ms:percentile(times,.95),peakAllocated,final:cache.stats()},assertions:'passed'};
-    await fs.writeFile(process.argv[2]||'docs/cache-index-performance-results.json',JSON.stringify(report,null,2)+'\n');
+    const output = process.argv[2] || 'benchmark-results/cache/index.json';
+  await fs.mkdir(dirname(output), { recursive: true });
+  await fs.writeFile(output,JSON.stringify(report,null,2)+'\n');
     process.stdout.write(JSON.stringify(report,null,2)+'\n');
   }finally{cache?.close();await fs.rm(root,{recursive:true,force:true});}
 }
