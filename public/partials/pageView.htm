@@ -73,6 +73,8 @@
         <a role="menuitem" target="_self" v-if="type == 'html'" :href="safeUrl((url))"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-code"></use></svg>View raw</a>
         <a role="menuitem" target="_self" v-if="type != 'html'" :href="safeUrl((url))"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-code"></use></svg>View raw</a>
         <a role="menuitem" target="_self" :href="safeUrl((url) + &quot;&amp;download=true&quot;)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-download"></use></svg>Download file</a>
+        <a role="menuitem" target="_self" v-if="options?.hasWebsite" :href="safeUrl(&quot;/w/&quot; + (repoId) + &quot;/&quot;)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-globe"></use></svg>Open website</a>
+        <a role="menuitem" v-if="options?.isAdmin || options?.isOwner" :href="safeUrl(&quot;/anonymize/&quot; + (repoId))"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-edit"></use></svg>Edit anonymization</a>
         <a role="menuitem" target="_self" v-if="options?.download" :href="safeUrl(&quot;/api/repo/&quot; + (repoId) + &quot;/zip&quot;)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-archive"></use></svg>Download ZIP</a>
         <button type="button" role="menuitem" @click="copyPath()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-link"></use></svg>Copy file path</button>
         <div class="tb-menu-sep"></div>
@@ -135,7 +137,7 @@
 <section class="viewer-loading" v-if="type == 'loading' &amp;&amp; !error" aria-busy="true">
   <div class="viewer-loading-status" role="status" aria-live="polite">
     <strong>{{ fmt.translate(fileReceivedBytes ? 'VIEWER_LOADING.receiving' : 'VIEWER_LOADING.loading') }}</strong>
-    <span class="viewer-loading-name">{{ filePath }}</span>
+    <span class="viewer-loading-name sr-only">{{ filePath }}</span>
     <p v-if="fileLoadingSlow">{{ fmt.translate('VIEWER_LOADING.slow') }}</p>
   </div>
   <div class="viewer-loading-lines" aria-hidden="true"><span v-for="line in 10" :key="line"></span></div>

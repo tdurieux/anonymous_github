@@ -442,7 +442,7 @@
           <button class="btn btn-outline-ink" type="button" @click="retryPreview()">Retry preview</button>
         </div>
         <div class="anonymize-preview-status" v-if="!sourceLoading &amp;&amp; !readme &amp;&amp; previewStatus === 'idle'">No README is available to preview. Review the published files before sharing.</div>
-        <div class="anonymize-preview-body markdown-body body" v-if="previewStatus === 'ready'" v-html="sanitize(html_readme)"></div>
+        <div class="anonymize-preview-body markdown-body body" v-if="previewStatus === 'ready'" v-html="renderRedacted(sanitize(html_readme))"></div>
       </div>
 
       <div id="workspace-preview" :role="mobileWorkspace ? 'tabpanel' : null" :aria-labelledby="mobileWorkspace ? 'workspace-preview-tab' : null" class="anonymize-preview-col" v-if="detectedType === &#x27;gist&#x27; &amp;&amp; details">
