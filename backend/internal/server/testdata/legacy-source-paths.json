@@ -1,178 +1,0 @@
-[
-  {
-    "record": {},
-    "commit": "opaque:<>& ",
-    "revision": "blob:one",
-    "path": "nested/Alice.txt",
-    "expected": "__content/fb916ece96f3bc33d28795d2ddc4b3049c391f0a3e1c8b2b98164c83757fd223/aa29b46789634776312739145cb01baee8ea8feec2478c24c45d31f754d15247/nested/Alice.txt"
-  },
-  {
-    "record": {
-      "contentCacheRevision": null
-    },
-    "commit": "opaque:<>& ",
-    "revision": "blob:one",
-    "path": "nested/Alice.txt",
-    "expected": "__content/fb916ece96f3bc33d28795d2ddc4b3049c391f0a3e1c8b2b98164c83757fd223/aa29b46789634776312739145cb01baee8ea8feec2478c24c45d31f754d15247/nested/Alice.txt"
-  },
-  {
-    "record": {
-      "contentCacheRevision": "revision:two"
-    },
-    "commit": "opaque:<>& ",
-    "revision": "blob:one",
-    "path": "nested/Alice.txt",
-    "expected": "__content/fb916ece96f3bc33d28795d2ddc4b3049c391f0a3e1c8b2b98164c83757fd223/9258257db9f073ef6b9c9f1269b0fd655ffe91e66bd4fea12513bf13b3d99e8e/nested/Alice.txt"
-  },
-  {
-    "record": {
-      "anonymizeDate": "2026-01-02T03:04:05.006Z"
-    },
-    "commit": "opaque:<>& ",
-    "revision": "blob:one",
-    "path": "nested/Alice.txt",
-    "expected": "__content/8b87f867180bbecf2e1931d15df39a5b9a28188f0708a4f04e84d41f2559124e/95a94ce3b5c306fa98d679230565556733ee44773c8c9cfdcb66787a038389f1/nested/Alice.txt"
-  },
-  {
-    "record": {
-      "anonymizeDate": "2026-01-02T03:04:05.006Z",
-      "contentCacheRevision": null
-    },
-    "commit": "opaque:<>& ",
-    "revision": "blob:one",
-    "path": "nested/Alice.txt",
-    "expected": "__content/8b87f867180bbecf2e1931d15df39a5b9a28188f0708a4f04e84d41f2559124e/95a94ce3b5c306fa98d679230565556733ee44773c8c9cfdcb66787a038389f1/nested/Alice.txt"
-  },
-  {
-    "record": {
-      "anonymizeDate": "2026-01-02T03:04:05.006Z",
-      "contentCacheRevision": "revision:two"
-    },
-    "commit": "opaque:<>& ",
-    "revision": "blob:one",
-    "path": "nested/Alice.txt",
-    "expected": "__content/8b87f867180bbecf2e1931d15df39a5b9a28188f0708a4f04e84d41f2559124e/b33fc5c8d1c2f2bd48cada3b1011a2497b1202e231c38c3d2a23b200bded417a/nested/Alice.txt"
-  },
-  {
-    "record": {
-      "treeGeneration": "generation:one"
-    },
-    "commit": "opaque:<>& ",
-    "revision": "blob:one",
-    "path": "nested/Alice.txt",
-    "expected": "__content/794d8ad90714945ecd4adef0ba987cc4569d7403ab1506ce28e84c95aab87b5a/52dd79bc9244b04a15ef5cb0685f6070be00d8b17b571eeb711f4bb5ebd5dc77/nested/Alice.txt"
-  },
-  {
-    "record": {
-      "treeGeneration": "generation:one",
-      "contentCacheRevision": null
-    },
-    "commit": "opaque:<>& ",
-    "revision": "blob:one",
-    "path": "nested/Alice.txt",
-    "expected": "__content/794d8ad90714945ecd4adef0ba987cc4569d7403ab1506ce28e84c95aab87b5a/52dd79bc9244b04a15ef5cb0685f6070be00d8b17b571eeb711f4bb5ebd5dc77/nested/Alice.txt"
-  },
-  {
-    "record": {
-      "treeGeneration": "generation:one",
-      "contentCacheRevision": "revision:two"
-    },
-    "commit": "opaque:<>& ",
-    "revision": "blob:one",
-    "path": "nested/Alice.txt",
-    "expected": "__content/794d8ad90714945ecd4adef0ba987cc4569d7403ab1506ce28e84c95aab87b5a/a34016c2402b1ab4f94d1b96544c392236ab76121d09521246328aa1f4f8a7b4/nested/Alice.txt"
-  },
-  {
-    "record": {
-      "treeGeneration": "generation:one",
-      "anonymizeDate": "2026-01-02T03:04:05.006Z"
-    },
-    "commit": "opaque:<>& ",
-    "revision": "blob:one",
-    "path": "nested/Alice.txt",
-    "expected": "__content/7cab1dee2df6efa0dc627cfe28eb1ebcdc7c02ee6b5e527a93cc852f202be9e6/5b4286ddcd827d439249a4c4a5ad1d7c92090dd84104c5892ca44aba7c6dac00/nested/Alice.txt"
-  },
-  {
-    "record": {
-      "treeGeneration": "generation:one",
-      "anonymizeDate": "2026-01-02T03:04:05.006Z",
-      "contentCacheRevision": null
-    },
-    "commit": "opaque:<>& ",
-    "revision": "blob:one",
-    "path": "nested/Alice.txt",
-    "expected": "__content/7cab1dee2df6efa0dc627cfe28eb1ebcdc7c02ee6b5e527a93cc852f202be9e6/5b4286ddcd827d439249a4c4a5ad1d7c92090dd84104c5892ca44aba7c6dac00/nested/Alice.txt"
-  },
-  {
-    "record": {
-      "treeGeneration": "generation:one",
-      "anonymizeDate": "2026-01-02T03:04:05.006Z",
-      "contentCacheRevision": "revision:two"
-    },
-    "commit": "opaque:<>& ",
-    "revision": "blob:one",
-    "path": "nested/Alice.txt",
-    "expected": "__content/7cab1dee2df6efa0dc627cfe28eb1ebcdc7c02ee6b5e527a93cc852f202be9e6/96fe544cbae56481f927c8b75e95a44e276c741345b059634702e72eb696ecad/nested/Alice.txt"
-  },
-  {
-    "record": {
-      "treeGeneration": "<>& \\u2028"
-    },
-    "commit": "opaque:<>& ",
-    "revision": "blob:one",
-    "path": "nested/Alice.txt",
-    "expected": "__content/b1cb4810318ecdb8e0ebc1a9b2350711f4988f7eea7b86b119cdac05c5ff60de/85b6b3426a4a3cbf25432016ec5eb0a19648b473ab34e7a6930e57f523f95563/nested/Alice.txt"
-  },
-  {
-    "record": {
-      "treeGeneration": "<>& \\u2028",
-      "contentCacheRevision": null
-    },
-    "commit": "opaque:<>& ",
-    "revision": "blob:one",
-    "path": "nested/Alice.txt",
-    "expected": "__content/b1cb4810318ecdb8e0ebc1a9b2350711f4988f7eea7b86b119cdac05c5ff60de/85b6b3426a4a3cbf25432016ec5eb0a19648b473ab34e7a6930e57f523f95563/nested/Alice.txt"
-  },
-  {
-    "record": {
-      "treeGeneration": "<>& \\u2028",
-      "contentCacheRevision": "revision:two"
-    },
-    "commit": "opaque:<>& ",
-    "revision": "blob:one",
-    "path": "nested/Alice.txt",
-    "expected": "__content/b1cb4810318ecdb8e0ebc1a9b2350711f4988f7eea7b86b119cdac05c5ff60de/5ca4526fb45b59789aa75e0641fc6208f2a7dc5928e443fc20526e15acdd17ed/nested/Alice.txt"
-  },
-  {
-    "record": {
-      "treeGeneration": "<>& \\u2028",
-      "anonymizeDate": "2026-01-02T03:04:05.006Z"
-    },
-    "commit": "opaque:<>& ",
-    "revision": "blob:one",
-    "path": "nested/Alice.txt",
-    "expected": "__content/d293ed507afa2ef82047ea9a7056ed74a4db35dc88cac4f7b8b0f14eef82d57c/7caa5508e30f6d17a15d375429ac722700f472ca1d7932442c419ebe138904fa/nested/Alice.txt"
-  },
-  {
-    "record": {
-      "treeGeneration": "<>& \\u2028",
-      "anonymizeDate": "2026-01-02T03:04:05.006Z",
-      "contentCacheRevision": null
-    },
-    "commit": "opaque:<>& ",
-    "revision": "blob:one",
-    "path": "nested/Alice.txt",
-    "expected": "__content/d293ed507afa2ef82047ea9a7056ed74a4db35dc88cac4f7b8b0f14eef82d57c/7caa5508e30f6d17a15d375429ac722700f472ca1d7932442c419ebe138904fa/nested/Alice.txt"
-  },
-  {
-    "record": {
-      "treeGeneration": "<>& \\u2028",
-      "anonymizeDate": "2026-01-02T03:04:05.006Z",
-      "contentCacheRevision": "revision:two"
-    },
-    "commit": "opaque:<>& ",
-    "revision": "blob:one",
-    "path": "nested/Alice.txt",
-    "expected": "__content/d293ed507afa2ef82047ea9a7056ed74a4db35dc88cac4f7b8b0f14eef82d57c/0faa590620eeec180ec4adae01ef2a86f5f93c178ee6abc5ca1e1c9d925723c6/nested/Alice.txt"
-  }
-]

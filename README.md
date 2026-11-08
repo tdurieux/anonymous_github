@@ -68,10 +68,6 @@ These tokens cannot access GitHub previews, file downloads, or admin routes.
 
 ## Self-hosting
 
-Docker now runs the Go backend, including streaming and background workers. See the [Go deployment and cutover guide](backend/README.md#default-deployment) before upgrading an existing installation. It covers queue handoff, storage permissions, staging checks and the preserved Node rollback stack. A full production staging rehearsal is still required before cutover.
-
-The following Node instructions also support the CLI, asset build and rollback backend.
-
 Local installation requires Node.js 22.15 or newer in the 22.x series,
 24.x, or 26 or newer. Run `npm ci` and `npm run build` to install and build.
 `npm run dev` uses Node's watch mode; `npm run build:ui` rebuilds browser assets.
@@ -117,8 +113,6 @@ PORT=5000
 DB_USERNAME=
 DB_PASSWORD=
 AUTH_CALLBACK=http://localhost:5000/github/auth
-SESSION_SECRET=<random-session-secret>
-COOKIE_SECURE=false
 ```
 
 - `GITHUB_TOKEN` — create one at <https://github.com/settings/tokens/new> with the `repo` scope.
@@ -132,11 +126,8 @@ the [GitHub App setup guide](docs/github-app-setup.md).
 **3. Start the server**
 
 ```bash
-install -d -m 0750 -o 10001 -g 10001 repositories
-docker compose up -d --build
+docker-compose up -d
 ```
-
-The storage command requires permission to set ownership. For an existing storage directory, apply your ownership or ACL policy without replacing its contents. Use `COOKIE_SECURE=true` with HTTPS in production.
 
 **4. Open** <http://localhost:5000>. The port can be changed in `docker-compose.yml`; putting Anonymous GitHub behind nginx is recommended for HTTPS.
 
