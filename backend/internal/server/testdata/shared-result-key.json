@@ -1,0 +1,328 @@
+[
+  {
+    "record": {
+      "repoId": "anonymous-one",
+      "treeGeneration": "generation",
+      "anonymizeDate": "2026-01-02T03:04:05.006Z"
+    },
+    "row": {
+      "path": "nested",
+      "name": "Alice.txt"
+    },
+    "options": {
+      "terms": [],
+      "image": false,
+      "link": true,
+      "repoId": "anonymous-one",
+      "repoName": "team/subgroup/project",
+      "branchName": "main",
+      "sourceURLs": []
+    },
+    "digest": "sha256-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "mask": "XX<>& ",
+    "hostname": "anonymous.test",
+    "expected": "f8b1fe5fb9709743073b3253b9dc3914159990103dd1d368597d8537faee57c8"
+  },
+  {
+    "record": {
+      "repoId": "anonymous-one",
+      "treeGeneration": "generation",
+      "anonymizeDate": "2026-01-02T03:04:05.006Z",
+      "contentCacheRevision": "reset:two"
+    },
+    "row": {
+      "path": "nested",
+      "name": "Alice.txt"
+    },
+    "options": {
+      "terms": [],
+      "image": false,
+      "link": true,
+      "repoId": "anonymous-one",
+      "repoName": "team/subgroup/project",
+      "branchName": "main",
+      "sourceURLs": []
+    },
+    "digest": "sha256-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "mask": "XX<>& ",
+    "hostname": "anonymous.test",
+    "expected": "5a1b932be9907cf0356f6ff57a99321fde42ab5f3e7947bc5f206c6be60cbae1"
+  },
+  {
+    "record": {
+      "repoId": "anonymous-one",
+      "treeGeneration": "generation",
+      "anonymizeDate": "2026-01-02T03:04:05.006Z"
+    },
+    "row": {
+      "path": "nested",
+      "name": "Alice.txt"
+    },
+    "options": {
+      "terms": [],
+      "image": false,
+      "link": true,
+      "repoId": "anonymous-one",
+      "repoName": "team/subgroup/project",
+      "branchName": "main",
+      "sourceURLs": [
+        "https://forge.test/nested/project"
+      ]
+    },
+    "digest": "sha256-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "mask": "XX<>& ",
+    "hostname": "anonymous.test",
+    "expected": "6df1510473828efcf50e72755d4396bace34786acccab677074712e4deeb04b4"
+  },
+  {
+    "record": {
+      "repoId": "anonymous-one",
+      "treeGeneration": "generation",
+      "anonymizeDate": "2026-01-02T03:04:05.006Z",
+      "contentCacheRevision": "reset:two"
+    },
+    "row": {
+      "path": "nested",
+      "name": "Alice.txt"
+    },
+    "options": {
+      "terms": [],
+      "image": false,
+      "link": true,
+      "repoId": "anonymous-one",
+      "repoName": "team/subgroup/project",
+      "branchName": "main",
+      "sourceURLs": [
+        "https://forge.test/nested/project"
+      ]
+    },
+    "digest": "sha256-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "mask": "XX<>& ",
+    "hostname": "anonymous.test",
+    "expected": "c7eca32ac8d0547e2435ef698165dfaefebc743bfe25910e581bec9f9950de5f"
+  },
+  {
+    "record": {
+      "repoId": "anonymous-one",
+      "treeGeneration": "generation",
+      "anonymizeDate": "2026-01-02T03:04:05.006Z"
+    },
+    "row": {
+      "path": "nested",
+      "name": "Alice.txt"
+    },
+    "options": {
+      "terms": [
+        "Alice"
+      ],
+      "image": false,
+      "link": true,
+      "repoId": "anonymous-one",
+      "repoName": "team/subgroup/project",
+      "branchName": "main",
+      "sourceURLs": []
+    },
+    "digest": "sha256-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "mask": "XX<>& ",
+    "hostname": "anonymous.test",
+    "expected": "568c570fd5e74ca92dfd7b52617846b2dc0e153e3a9d84cedbfa388f98ef34ea"
+  },
+  {
+    "record": {
+      "repoId": "anonymous-one",
+      "treeGeneration": "generation",
+      "anonymizeDate": "2026-01-02T03:04:05.006Z",
+      "contentCacheRevision": "reset:two"
+    },
+    "row": {
+      "path": "nested",
+      "name": "Alice.txt"
+    },
+    "options": {
+      "terms": [
+        "Alice"
+      ],
+      "image": false,
+      "link": true,
+      "repoId": "anonymous-one",
+      "repoName": "team/subgroup/project",
+      "branchName": "main",
+      "sourceURLs": []
+    },
+    "digest": "sha256-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "mask": "XX<>& ",
+    "hostname": "anonymous.test",
+    "expected": "a6784a8e66e7c996d8169cdb3e23228269162fd7b643a28fee7477b78b727f95"
+  },
+  {
+    "record": {
+      "repoId": "anonymous-one",
+      "treeGeneration": "generation",
+      "anonymizeDate": "2026-01-02T03:04:05.006Z"
+    },
+    "row": {
+      "path": "nested",
+      "name": "Alice.txt"
+    },
+    "options": {
+      "terms": [
+        "Alice"
+      ],
+      "image": false,
+      "link": true,
+      "repoId": "anonymous-one",
+      "repoName": "team/subgroup/project",
+      "branchName": "main",
+      "sourceURLs": [
+        "https://forge.test/nested/project"
+      ]
+    },
+    "digest": "sha256-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "mask": "XX<>& ",
+    "hostname": "anonymous.test",
+    "expected": "cdc9864ddff330d378ad914993154e167113f413b71c404f72a896b8fea5e31b"
+  },
+  {
+    "record": {
+      "repoId": "anonymous-one",
+      "treeGeneration": "generation",
+      "anonymizeDate": "2026-01-02T03:04:05.006Z",
+      "contentCacheRevision": "reset:two"
+    },
+    "row": {
+      "path": "nested",
+      "name": "Alice.txt"
+    },
+    "options": {
+      "terms": [
+        "Alice"
+      ],
+      "image": false,
+      "link": true,
+      "repoId": "anonymous-one",
+      "repoName": "team/subgroup/project",
+      "branchName": "main",
+      "sourceURLs": [
+        "https://forge.test/nested/project"
+      ]
+    },
+    "digest": "sha256-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "mask": "XX<>& ",
+    "hostname": "anonymous.test",
+    "expected": "096fa45165a1e29fa4320c3f8da5d78877c974ee43eb559e1a07351a613debf3"
+  },
+  {
+    "record": {
+      "repoId": "anonymous-one",
+      "treeGeneration": "generation",
+      "anonymizeDate": "2026-01-02T03:04:05.006Z"
+    },
+    "row": {
+      "path": "nested",
+      "name": "Alice.txt"
+    },
+    "options": {
+      "terms": [
+        "é<>& ",
+        "\\u2028"
+      ],
+      "image": false,
+      "link": true,
+      "repoId": "anonymous-one",
+      "repoName": "team/subgroup/project",
+      "branchName": "main",
+      "sourceURLs": []
+    },
+    "digest": "sha256-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "mask": "XX<>& ",
+    "hostname": "anonymous.test",
+    "expected": "846583368bdbf3e5f32d76720c21e2c3b446c1a22d596c01a4c060b446146e4b"
+  },
+  {
+    "record": {
+      "repoId": "anonymous-one",
+      "treeGeneration": "generation",
+      "anonymizeDate": "2026-01-02T03:04:05.006Z",
+      "contentCacheRevision": "reset:two"
+    },
+    "row": {
+      "path": "nested",
+      "name": "Alice.txt"
+    },
+    "options": {
+      "terms": [
+        "é<>& ",
+        "\\u2028"
+      ],
+      "image": false,
+      "link": true,
+      "repoId": "anonymous-one",
+      "repoName": "team/subgroup/project",
+      "branchName": "main",
+      "sourceURLs": []
+    },
+    "digest": "sha256-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "mask": "XX<>& ",
+    "hostname": "anonymous.test",
+    "expected": "3645220d7c1dbd49b51415af98f07864d7ea7e1a97f2712ab543fbf71079111f"
+  },
+  {
+    "record": {
+      "repoId": "anonymous-one",
+      "treeGeneration": "generation",
+      "anonymizeDate": "2026-01-02T03:04:05.006Z"
+    },
+    "row": {
+      "path": "nested",
+      "name": "Alice.txt"
+    },
+    "options": {
+      "terms": [
+        "é<>& ",
+        "\\u2028"
+      ],
+      "image": false,
+      "link": true,
+      "repoId": "anonymous-one",
+      "repoName": "team/subgroup/project",
+      "branchName": "main",
+      "sourceURLs": [
+        "https://forge.test/nested/project"
+      ]
+    },
+    "digest": "sha256-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "mask": "XX<>& ",
+    "hostname": "anonymous.test",
+    "expected": "31902697ea4e457641016822e4f53d23de59a1ba3b563696ed0def04095d6bbb"
+  },
+  {
+    "record": {
+      "repoId": "anonymous-one",
+      "treeGeneration": "generation",
+      "anonymizeDate": "2026-01-02T03:04:05.006Z",
+      "contentCacheRevision": "reset:two"
+    },
+    "row": {
+      "path": "nested",
+      "name": "Alice.txt"
+    },
+    "options": {
+      "terms": [
+        "é<>& ",
+        "\\u2028"
+      ],
+      "image": false,
+      "link": true,
+      "repoId": "anonymous-one",
+      "repoName": "team/subgroup/project",
+      "branchName": "main",
+      "sourceURLs": [
+        "https://forge.test/nested/project"
+      ]
+    },
+    "digest": "sha256-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "mask": "XX<>& ",
+    "hostname": "anonymous.test",
+    "expected": "ae04fc3d0bf3870895cee4558458e82bc93a097bff189eadb1e58ef32f2dee7a"
+  }
+]

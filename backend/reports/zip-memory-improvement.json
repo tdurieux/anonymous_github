@@ -1,0 +1,94 @@
+{
+  "fixture": {
+    "repository": "tdurieux/anonymous_github",
+    "commit": "b09ef0e5b0027756ad86eb3353a5ff6416016ade",
+    "originalFiles": 1017,
+    "originalBytes": 28687144,
+    "terms": [
+      "tdurieux"
+    ],
+    "addedFixture": "1000 copies of snapshot gulpfile.js in benchmark-1000"
+  },
+  "output": {
+    "status": 200,
+    "sha256": "72d41a3fe5dcbf91eb33c1682cd4db5ccb220160c35e58e310ead96ac39ac600",
+    "entries": 2017
+  },
+  "method": "One fresh process per binary, one initial and one repeated archive download, sequential loopback runs. Peak RSS sampled every 20 ms during repeated request; includes worker processes, excludes MongoDB, Redis and benchmark client. No profiler attached. Filesystem caches were not dropped. Timing is indicative, not a multi-run statistical estimate.",
+  "before": {
+    "name": "repository ZIP",
+    "cold": {
+      "ms": 40264.038648,
+      "firstBodyMs": 177.61004400000093,
+      "status": 200,
+      "bytes": 13045815
+    },
+    "output": {
+      "status": 200,
+      "sha256": "72d41a3fe5dcbf91eb33c1682cd4db5ccb220160c35e58e310ead96ac39ac600",
+      "entries": 2017
+    },
+    "warm": [
+      {
+        "concurrency": 1,
+        "requests": 1,
+        "p50Ms": 39293.266413000005,
+        "p95Ms": 39293.266413000005,
+        "p50FirstBodyMs": 148.60325800000282,
+        "requestsPerSecond": 0.025418685391377722,
+        "cpuMs": 38020,
+        "peakProcessTreeRssBytes": 696705024,
+        "bytes": 13045799
+      }
+    ]
+  },
+  "after": {
+    "name": "repository ZIP",
+    "cold": {
+      "ms": 36796.176851,
+      "firstBodyMs": 55.14695500000016,
+      "status": 200,
+      "bytes": 13045739
+    },
+    "output": {
+      "status": 200,
+      "sha256": "72d41a3fe5dcbf91eb33c1682cd4db5ccb220160c35e58e310ead96ac39ac600",
+      "entries": 2017
+    },
+    "warm": [
+      {
+        "concurrency": 1,
+        "requests": 1,
+        "p50Ms": 35981.36801400001,
+        "p95Ms": 35981.36801400001,
+        "p50FirstBodyMs": 39.2833660000033,
+        "requestsPerSecond": 0.027762249951141002,
+        "cpuMs": 35640,
+        "peakProcessTreeRssBytes": 74838016,
+        "bytes": 13045723
+      }
+    ]
+  },
+  "memoryReductionPercent": 89.25829247357345,
+  "changes": [
+    "Default MongoDB wire compression changed from zstd to Snappy; explicit URI compressor settings respected",
+    "Projected MongoDB cursor with 128-entry batches; removed silent 100000-file truncation",
+    "One 32 KiB copy buffer reused per ZIP"
+  ],
+  "validation": {
+    "raceTests": "ZIP streaming/cancellation, multi-batch archive contents and exclusions, second-provider lifecycle: passed (302.324s server package)",
+    "vet": "passed",
+    "live": {
+      "hostname": "beta.durieux.me",
+      "checks": 133,
+      "temporaryKeyRevoked": true,
+      "testRepositoryRemoved": true,
+      "image": "sha256:6817b036c77e372bbeb5fb2570e3df044af920d66fc51cbdb44536f866c92d28"
+    }
+  },
+  "limitations": [
+    "ZIP central directory and duplicate-name set still scale with entry count",
+    "Individual transformation workers still have their existing input and memory limits",
+    "Explicitly configuring zstd in the MongoDB URI can reintroduce its encoder memory costs"
+  ]
+}

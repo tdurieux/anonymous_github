@@ -5,9 +5,7 @@
       <div class="paper-crumbs">My work &nbsp;/&nbsp; <span class="here">New anonymization</span></div>
       <h1 class="paper-page-title">New <em>anonymization</em></h1>
       <p class="paper-page-lede">
-        Paste a GitHub repository, pull-request, or gist URL. We&rsquo;ll fetch
-        it, redact the terms you choose in text files, and give you a share link.
-        Images and PDFs are served unchanged when enabled. Review them before sharing.
+        Paste a repository, pull request, or gist URL. You&rsquo;ll choose the terms to redact next.
       </p>
       <div class="form-group mt-4 mb-2">
         <div class="source-url-label-row">
@@ -20,9 +18,8 @@
             <span class="connection-badge" v-if="isUpdate || detectedType === 'gist'">{{ (detectedType === 'gist' ? githubConnections?.gistConnection === 'github-app' : githubConnection === 'github-app') ? 'Read-only GitHub App' : 'Legacy OAuth' }}</span>
           </aside>
         </div>
-        <input id="sourceUrl-landing" type="text" class="form-control form-control-lg" placeholder="https://github.com/owner/repository" v-field="{ state: viewState, set: value =&gt; { sourceUrl = value }, value: sourceUrl, form: null, options: { debounce: {default: 1000, blur: 0, click: 0}, updateOn: &#x27;default blur click&#x27; }, change: () =&gt; { urlSelected() } }">
+        <div class="landing-url-row"><input id="sourceUrl-landing" onblur="this.scrollLeft=0" type="text" class="form-control form-control-lg" placeholder="https://github.com/owner/repository" v-field="{ state: viewState, set: value =&gt; { sourceUrl = value }, value: sourceUrl, form: null, options: { debounce: {default: 1000, blur: 0, click: 0}, updateOn: &#x27;default blur click&#x27; }, change: () =&gt; { urlSelected() } }"><button type="button" class="btn btn-primary landing-continue" :aria-disabled="!sourceUrl ? 'true' : null" @click="sourceUrl && urlSelected()">Continue</button></div>
       </div>
-      <div class="draft-status" role="status" v-if="draftRestored">Your unsaved draft was restored. <button type="button" class="draft-discard" @click="discardDraft()">Discard draft</button></div>
       <p class="text-danger" role="alert" v-if="sourceUrlError">{{ sourceUrlError }}</p>
       <small class="form-text" style="color: var(--ink-muted);">
         Repository, pull request (…/pull/42) and gist (gist.github.com/…) URLs are all accepted.
@@ -30,7 +27,7 @@
       <aside class="repo-access-details" aria-label="GitHub access" v-if="!sourceUrl &amp;&amp; githubConnections?.appEnabled &amp;&amp; githubConnections.appConnected">
         <div class="repo-access-main">
           <div class="repo-access-controls">
-            <button type="button" class="btn btn-outline-ink" v-if="detectedType !== 'gist' &amp;&amp; githubConnection !== 'oauth'" @click="grantGitHubAccess()">Manage access <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-external-link"></use></svg></button>
+            <span class="access-q" v-if="detectedType !== 'gist' &amp;&amp; githubConnection !== 'oauth'">Repository not listed?</span><button type="button" class="btn btn-outline-ink" v-if="detectedType !== 'gist' &amp;&amp; githubConnection !== 'oauth'" @click="grantGitHubAccess()">Manage access <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-external-link"></use></svg></button>
             <a class="connection-link" href="/connections" v-if="isUpdate || detectedType === 'gist' || githubConnection === 'oauth'">{{ isUpdate ? 'Change connection' : 'Manage connections' }} &rarr;</a>
           </div>
         </div>
@@ -49,7 +46,7 @@
             <span v-if="isUpdate">Edit anonymization</span>
           </h1>
           <span class="type-badge" v-show="detectedType" :class="{&#x27;type-repo&#x27;: detectedType === &#x27;repo&#x27;, &#x27;type-pr&#x27;: detectedType === &#x27;pr&#x27;, &#x27;type-gist&#x27;: detectedType === &#x27;gist&#x27;}">
-            {{ detectedType === 'repo' ? 'Repo' : detectedType === 'pr' ? 'PR' : 'Gist' }}
+            {{ detectedType === 'repo' ? 'Repository' : detectedType === 'pr' ? 'Pull request' : 'Gist' }}
           </span>
         </div>
       </div>
@@ -81,7 +78,7 @@
 
             <div class="form-group">
               <div class="source-url-label-row">
-                <label class="paper-field-label" for="sourceUrl">GitHub URL</label>
+                <label class="paper-field-label" for="sourceUrl">Source URL</label>
                 <aside class="repo-access" aria-label="GitHub access" v-if="sourceUrl &amp;&amp; githubConnections?.appEnabled &amp;&amp; githubConnections.appConnected &amp;&amp; githubConnections.oauthConnected">
                   <div class="repo-access-switch" role="group" aria-label="Repository connection" v-if="!isUpdate &amp;&amp; detectedType !== 'gist'">
                     <button type="button" :aria-pressed="githubConnection === 'github-app'" :disabled="githubConnection === 'github-app'" @click="chooseGitHubConnection('github-app')"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-shield"></use></svg> <span class="sr-only">Read-only </span>GitHub App</button>
@@ -90,7 +87,7 @@
                   <span class="connection-badge" v-if="isUpdate || detectedType === 'gist'">{{ (detectedType === 'gist' ? githubConnections?.gistConnection === 'github-app' : githubConnection === 'github-app') ? 'Read-only GitHub App' : 'Legacy OAuth' }}</span>
                 </aside>
               </div>
-              <input type="text" class="form-control" name="sourceUrl" id="sourceUrl" :disabled="isUpdate &amp;&amp; detectedType !== &#x27;repo&#x27;" placeholder="Paste a GitHub repo or pull request URL" v-field="{ state: viewState, set: value =&gt; { sourceUrl = value }, value: sourceUrl, form: &quot;anonymize&quot;, options: { debounce: {default: 1000, blur: 0, click: 0}, updateOn: &#x27;default blur click&#x27; }, change: () =&gt; { urlSelected() } }" :class="{&#x27;is-invalid&#x27;: anonymize?.sourceUrl?.invalid}">
+              <input type="text" class="form-control" name="sourceUrl" id="sourceUrl" onblur="this.scrollLeft=0" :disabled="isUpdate &amp;&amp; detectedType !== &#x27;repo&#x27;" placeholder="Paste a GitHub repo or pull request URL" v-field="{ state: viewState, set: value =&gt; { sourceUrl = value }, value: sourceUrl, form: &quot;anonymize&quot;, options: { debounce: {default: 1000, blur: 0, click: 0}, updateOn: &#x27;default blur click&#x27; }, change: () =&gt; { urlSelected() } }" :class="{&#x27;is-invalid&#x27;: anonymize?.sourceUrl?.invalid}">
               <div class="invalid-feedback" v-show="anonymize?.sourceUrl?.errors?.github">
                 Please provide a valid GitHub URL.
               </div>
@@ -124,11 +121,11 @@
             <aside class="repo-access-details" aria-label="GitHub access" v-if="sourceUrl &amp;&amp; githubConnections?.appEnabled &amp;&amp; githubConnections.appConnected">
               <div class="repo-access-main">
                 <div class="repo-access-controls">
-                  <button type="button" class="btn btn-outline-ink" v-if="detectedType !== 'gist' &amp;&amp; githubConnection !== 'oauth'" @click="grantGitHubAccess()">Manage access <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-external-link"></use></svg></button>
+                  <span class="access-q" v-if="detectedType !== 'gist' &amp;&amp; githubConnection !== 'oauth' &amp;&amp; !details">Repository not listed?</span><button type="button" class="btn btn-outline-ink" v-if="detectedType !== 'gist' &amp;&amp; githubConnection !== 'oauth' &amp;&amp; !details" @click="grantGitHubAccess()">Manage access <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-external-link"></use></svg></button>
                   <a class="connection-link" href="/connections" v-if="isUpdate || detectedType === 'gist' || githubConnection === 'oauth'">{{ isUpdate ? 'Change connection' : 'Manage connections' }} &rarr;</a>
                 </div>
               </div>
-              <div class="repo-access-note"><span v-if="error &amp;&amp; detectedType !== 'gist' &amp;&amp; githubConnection === 'github-app'">Signing in does not grant access to private repositories. Use Manage access to select this repository, then return here. Organization access may require administrator approval.</span><span><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-info"></use></svg> Anonymized content is public, even from private repositories.</span></div>
+              <div class="repo-access-note"><span v-if="error &amp;&amp; detectedType !== 'gist' &amp;&amp; githubConnection === 'github-app'">Signing in does not grant access to private repositories. Use Manage access to select this repository, then return here. Organization access may require administrator approval.</span><span v-if="detectedType !== 'gist' &amp;&amp; githubConnection !== 'oauth' &amp;&amp; !details">Select repositories on GitHub, then return here.</span><span><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-info"></use></svg> Selected content will be published, including content from private repositories.</span></div>
             </aside>
 
             <aside class="repo-access-details" v-if="isUpdate &amp;&amp; detectedType === 'repo' &amp;&amp; role === 'owner' &amp;&amp; accessRepairAllowed &amp;&amp; githubConnections?.appEnabled &amp;&amp; githubConnection === 'github-app' &amp;&amp; sourceUrl === 'https://github.com/' + _originalFullName">
@@ -211,7 +208,7 @@
 
             <div class="form-group">
               <label class="paper-field-label" for="terms">Terms to redact</label>
-              <textarea class="form-control" id="terms" name="terms" rows="3" v-field="{ state: viewState, set: value =&gt; { terms = value }, value: terms, form: &quot;anonymize&quot;, options: { debounce: 250 } }" :class="{&#x27;is-invalid&#x27;: anonymize?.terms?.invalid}"></textarea>
+              <textarea class="form-control" id="terms" name="terms" rows="4" placeholder="Jane Smith&#10;MIT CSAIL&#10;jane.smith@example.org" v-field="{ state: viewState, set: value =&gt; { terms = value }, value: terms, form: &quot;anonymize&quot;, options: { debounce: 250 } }" :class="{&#x27;is-invalid&#x27;: anonymize?.terms?.invalid}"></textarea>
               <small class="form-text text-muted">One term per line.</small><details class="redaction-syntax"><summary>Regex &amp; replacement syntax</summary>              <small class="form-text text-muted">Regex is supported. Replaced by <code>{{ site_options?.ANONYMIZATION_MASK }}-[N]</code>, or use <code>term=&gt;replacement</code> to pick your own (e.g. <code>Anonymous=&gt;ABC</code>).</small></details>
               <div class="warning-feedback" v-show="termsRegexWarning">Regex characters detected. Escape them if unintentional.</div>
               <div class="invalid-feedback" v-show="anonymize?.terms?.errors?.format">Terms are in an invalid format.</div>
@@ -405,10 +402,8 @@
 
           <div class="alert alert-danger" role="alert" v-if="error" v-text="error"></div>
 
-          <div class="draft-status" role="status" v-if="draftRestored">Your unsaved draft was restored. <button type="button" class="draft-discard" @click="discardDraft()">Discard draft</button></div>
-          <div class="draft-status" v-else-if="unsavedChanges">{{ draftSaved ? "Draft saved in this tab for 30 minutes." : "Unsaved changes. Keep this tab open until you save." }} <button type="button" class="draft-discard" @click="discardDraft()">{{ isUpdate ? "Restore saved settings" : "Discard changes" }}</button></div>
-
           </div>
+          <button type="button" class="btn btn-outline-ink mobile-preview-jump" @click="selectMobilePane('preview')">Review preview <span aria-hidden="true">→</span></button>
           <div class="anonymize-submit-bar" v-show="detectedType">
             <template v-if="detectedType === 'repo'">
               <button type="button" class="btn btn-ink" v-if="billingPending" @click="refreshBilling()" :disabled="billingBusy">Check payment status</button>
@@ -427,6 +422,8 @@
             <button type="submit" :disabled="sourceLoading" class="btn btn-ink" v-if="detectedType === &#x27;gist&#x27; &amp;&amp; isUpdate" @click.prevent="submitForm($event, () =&gt; { anonymizeGist($event) })">
               <svg class="ui-icon mr-1" aria-hidden="true"><use href="#ui-icon-save"></use></svg> Update Gist
             </button>
+            <div class="draft-status" role="status" v-if="draftRestored">Your unsaved draft was restored. <button type="button" class="draft-discard" @click="discardDraft()">Discard draft</button></div>
+            <div class="draft-status" v-else-if="unsavedChanges">{{ draftSaved ? "Draft saved ·" : "Unsaved changes ·" }} <button type="button" class="draft-discard" @click="discardDraft()">{{ isUpdate ? "Restore saved" : "Discard" }}</button></div>
           </div>
         </form>
       </div>
@@ -434,7 +431,9 @@
       <!-- Preview column (right) -->
       <div id="workspace-preview" :role="mobileWorkspace ? 'tabpanel' : null" :aria-labelledby="mobileWorkspace ? 'workspace-preview-tab' : null" class="anonymize-preview-col" v-if="detectedType === &#x27;repo&#x27;">
         <div class="anonymize-preview-head">
-          <strong>README.md</strong><button type="button" class="task-text-button preview-expand" @click="previewExpanded = !previewExpanded">{{ previewExpanded ? 'Restore split view' : 'Expand preview' }}</button>
+          <span class="paper-eyebrow">Live preview</span>
+          <span class="anonymize-preview-sub">{{ previewStatus !== 'ready' ? 'README preview' : (String(terms || '').trim() ? 'README with redactions applied' : 'No terms yet. Add some to see them redacted here.') }}</span>
+          <button type="button" class="task-text-button preview-expand" @click="previewExpanded = !previewExpanded">{{ previewExpanded ? 'Restore split view' : 'Expand preview' }}</button>
         </div>
         <div class="anonymize-preview-status" role="status" v-if="sourceLoading &amp;&amp; previewStatus === 'idle'">Loading source…</div>
         <div class="anonymize-preview-status" role="status" v-if="previewStatus === 'loading'">Updating the anonymized preview…</div>

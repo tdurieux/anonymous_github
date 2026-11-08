@@ -3,10 +3,14 @@
     <div class="w-100">
       <div class="dashboard-heading">
         <div>
-          <h1 class="paper-page-title">Projects</h1>
+          <h1 class="paper-page-title">My work</h1>
           <p class="paper-page-lede">Manage your anonymous links.</p>
+
+
+        </div>
+        <div class="dashboard-heading-actions">
           <details class="dashboard-quota" :open="quotaExpanded" @toggle="quotaExpanded = $event.target.open" @keydown.esc.prevent.stop="closeQuota()">
-            <summary aria-controls="dashboard-usage" :aria-expanded="quotaExpanded">
+            <summary aria-controls="dashboard-usage" :aria-expanded="quotaExpanded" :style="quota && !quota.repository.unlimited ? { '--quota-pct': quota.repository.percent + '%' } : null">
               <svg class="quota-summary-ring" viewBox="0 0 24 24" aria-hidden="true" :class="quota ? 'quota-' + quota.repository.level : ''">
                 <circle class="quota-ring-track" cx="12" cy="12" r="9"></circle>
                 <circle class="quota-ring-fill" cx="12" cy="12" r="9" pathLength="100" v-if="quota &amp;&amp; !quota.repository.unlimited" :stroke-dasharray="quota.repository.percent + ' 100'"></circle>
@@ -22,12 +26,8 @@
               <p class="quota-loading" role="status" v-else>Loading usage…</p>
             </div>
           </details>
-
-
-        </div>
-        <div class="dashboard-heading-actions">
           <a href="/anonymize" class="btn btn-ink" aria-label="New anonymization">
-            <svg class="project-type-svg" aria-hidden="true"><use href="#project-icon-plus"></use></svg><span class="dashboard-new-label">New link</span><span class="dashboard-new-mobile" aria-hidden="true">New</span>
+            <svg class="project-type-svg" aria-hidden="true"><use href="#project-icon-plus"></use></svg><span class="dashboard-new-label">New anonymization</span><span class="dashboard-new-mobile" aria-hidden="true">New</span>
           </a>
 
         </div>
@@ -36,7 +36,7 @@
       <!-- Search + filters -->
       <form class="w-100 dashboard-filter-row" aria-label="Filter anonymizations" accept-charset="UTF-8" v-form="viewState" @submit.prevent="submitForm($event, () =&gt; { $event.preventDefault() })">
         <div class="search-wrap">
-          <input type="search" id="search" class="form-control" aria-label="Search anonymizations" placeholder="Search projects, IDs, or conferences…" autocomplete="off" v-field="{ state: viewState, set: value =&gt; { search = value }, value: search, form: null, options: {} }">
+          <input type="search" id="search" class="form-control" aria-label="Search anonymizations" placeholder="Search projects…" autocomplete="off" v-field="{ state: viewState, set: value =&gt; { search = value }, value: search, form: null, options: {} }">
         </div>
           <button class="btn dashboard-filters-toggle" type="button" :aria-expanded="filtersExpanded" aria-controls="dashboard-filter-controls" @click="filtersExpanded = !filtersExpanded">Filters<svg class="project-type-svg" aria-hidden="true"><use href="#project-icon-filter"></use></svg></button>
         <div id="dashboard-filter-controls" class="dashboard-filter-controls" :class="{'expanded': filtersExpanded}">
@@ -73,7 +73,8 @@
             <button class="btn dropdown-toggle" type="button" id="dropdownStatus" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
               <span class="filter-btn-label">Status</span>
               <span class="filter-btn-value" v-if="!hasHiddenStatus()">All</span>
-              <span class="filter-btn-value" v-if="hasHiddenStatus()">{{ hiddenStatusCount() }} hidden</span>
+              <span class="filter-btn-value" v-if="hiddenStatusCount() === 1 &amp;&amp; filters?.status?.removed === false">Active</span>
+              <span class="filter-btn-value" v-if="hasHiddenStatus() &amp;&amp; !(hiddenStatusCount() === 1 &amp;&amp; filters?.status?.removed === false)">{{ hiddenStatusCount() === 1 ? 'Hiding ' + (statusKeyLabels[Object.keys(filters?.status || {}).find(k => filters.status[k] === false)] || '').toLowerCase() : hiddenStatusCount() + ' hidden' }}</span>
             </button>
             <div class="dropdown-menu" aria-labelledby="dropdownStatus">
               <h6 class="dropdown-header">Show statuses</h6>
@@ -89,16 +90,16 @@
 
       <!-- Result count + active filter chips -->
       <div class="dashboard-meta" v-if="!loading">
-        <div class="dashboard-view-tabs" role="group" aria-label="Project view">
+        <div class="dashboard-view-tabs" role="group" aria-label="Project view" v-if="attentionCount() &gt; 0 || projectView === 'attention'">
           <button type="button" :aria-pressed="projectView === 'all'" @click="setProjectView('all')" aria-label="All projects"><span class="dashboard-view-long">All projects</span><span class="dashboard-view-short" aria-hidden="true">All</span></button>
-          <button type="button" :aria-pressed="projectView === 'attention'" @click="setProjectView('attention')" :aria-label="'Needs attention ' + attentionCount()"><span class="dashboard-attention-prefix">Needs </span><span>attention</span> <span class="attention-count" :class="{'has-attention': attentionCount() > 0}">{{ attentionCount() }}</span></button>
+          <button type="button" v-if="attentionCount() &gt; 0 || projectView === 'attention'" :aria-pressed="projectView === 'attention'" @click="setProjectView('attention')" :aria-label="'Needs attention ' + attentionCount()"><span class="dashboard-attention-prefix">Needs </span><span>attention</span> <span class="attention-count" :class="{'has-attention': attentionCount() > 0}">{{ attentionCount() }}</span></button>
         </div>
         <span class="dashboard-count">
           <span v-if="(dashboardTotals?.filtered ?? filteredItems?.length) === (dashboardTotals?.total ?? items?.length)">{{ fmt?.number(dashboardTotals?.total ?? items?.length) }} project<span v-if="(dashboardTotals?.total ?? items?.length) !== 1">s</span></span>
-          <span v-else>{{ fmt?.number(dashboardTotals?.filtered ?? filteredItems?.length) }} of {{ fmt?.number(dashboardTotals?.total ?? items?.length) }} shown</span>
+          <span v-else>{{ fmt?.number(dashboardTotals?.filtered ?? filteredItems?.length) }} shown · <button type="button" class="btn-link-inline hidden-toggle" @click="clearFilters()">Show {{ fmt?.number((dashboardTotals?.total ?? items?.length) - (dashboardTotals?.filtered ?? filteredItems?.length)) }} removed</button></span>
         </span>
         <div class="dashboard-active-filters">
-          <template v-for="(v, f, index) in filters?.status"><button type="button" class="filter-chip" v-if="v === false" @click="filters.status[f] = true" :aria-label="'Show ' + statusKeyLabels[f] + ' again'" :title="'Show ' + statusKeyLabels[f] + ' again'">{{ statusKeyLabels[f] }} hidden<svg class="project-type-svg" aria-hidden="true"><use href="#project-icon-close"></use></svg></button></template>
+          <template v-for="(v, f, index) in filters?.status"><button type="button" class="filter-chip" v-if="v === false &amp;&amp; !(f === 'removed' &amp;&amp; hiddenStatusCount() === 1)" @click="filters.status[f] = true" :aria-label="'Show ' + statusKeyLabels[f] + ' again'" :title="'Show ' + statusKeyLabels[f] + ' again'">Hiding {{ (statusKeyLabels[f] || '').toLowerCase() }}<svg class="project-type-svg" aria-hidden="true"><use href="#project-icon-close"></use></svg></button></template>
           <button type="button" class="filter-chip" v-if="typeFilter !== 'all'" @click="typeFilter = 'all'" aria-label="Show all project types">{{ typeFilter === 'repo' ? 'Repositories' : typeFilter === 'pr' ? 'Pull requests' : 'Gists' }}<svg class="project-type-svg" aria-hidden="true"><use href="#project-icon-close"></use></svg></button>
           <button type="button" class="btn-link-inline" v-if="showClearFilters()" @click="clearFilters()">Clear filters</button>
         </div>
@@ -128,7 +129,7 @@
             Expires <svg class="project-type-svg sort-direction" aria-hidden="true" v-if="isSortedBy(&#x27;options.expirationDate&#x27;)" :class="{'ascending': !sortDesc()}"><use href="#project-icon-arrow"></use></svg>
           </button>
         </div>
-        <div role="columnheader"><span class="sr-only">Actions</span></div>
+        <div role="columnheader" class="col-link">Link</div>
       </div>
 
       <!-- Loading skeleton: keeps the layout stable while the three lists load -->
@@ -176,15 +177,17 @@
         <div class="cell-expires" role="cell">
           <svg class="project-type-svg mobile-meta-icon" aria-hidden="true"><use href="#project-icon-clock"></use></svg>
           <span class="expires-never" v-if="item?._expiry?.kind === &#x27;never&#x27;">Never</span>
-          <span v-if="item?._expiry?.kind === &#x27;date&#x27;" v-text="fmt?.humanTime(item?._expiry?.date)"></span>
+          <span v-if="item?._expiry?.kind === &#x27;date&#x27;" v-text="(fmt?.humanTime(item?._expiry?.date) || '').replace(/^on /, '')"></span>
           <span class="expires-past" v-if="item?._expiry?.kind === &#x27;expired&#x27; &amp;&amp; item?._expiry?.date">Expired {{ fmt?.humanTime(item?._expiry?.date) }}</span>
           <span class="expires-past" v-if="item?._expiry?.kind === &#x27;expired&#x27; &amp;&amp; !item?._expiry?.date">Expired</span>
           <span class="empty-dash" aria-label="Not applicable" v-if="item?._expiry?.kind === &#x27;none&#x27;">&mdash;</span>
         </div>
         </div>
         <div class="cell-actions" role="cell">
-          <button type="button" class="copy-link-inline" v-if="item._viewUrl" @click.stop="copyLink(item)" :disabled="!!copyingId" :title="'Copy anonymous link for ' + item._label" :aria-label="'Copy anonymous link for ' + item._label"><svg class="project-type-svg" aria-hidden="true"><use href="#project-icon-copy"></use></svg></button>
+          <button type="button" class="copy-url" v-if="item._viewUrl" @click.stop="copyLink(item)" :disabled="!!copyingId" :title="'Copy anonymous link: ' + item._viewUrl" :aria-label="'Copy anonymous link for ' + item._label"><span class="copy-url-text">{{ copyingId === item._type + ':' + item._id ? 'Copied' : item._viewUrl.replace(/^https?:\/\/[^/]+/, '').replace(/\/$/, '') }}</span><svg class="project-type-svg" aria-hidden="true"><use :href="copyingId === item._type + ':' + item._id ? '#ui-icon-check' : '#project-icon-copy'"></use></svg></button>
           <button type="button" class="project-details-button" v-if="item._broken" @click.stop="showProjectDetails(item)" :data-project-actions="encodeURIComponent(item._type + ':' + item._id)" :aria-controls="projectDetailsId(item)" :aria-expanded="selectedProject === item">Details</button>
+          <a class="row-edit row-open" v-if="item._viewUrl" :href="safeUrl(item._viewUrl)" target="_blank" rel="noopener" :title="'Open what reviewers see'" :aria-label="'Open anonymous page for ' + item._label"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-external-link"></use></svg></a>
+          <a class="row-edit" v-if="item?._editUrl &amp;&amp; !item?._broken" :href="safeUrl(item._editUrl)" :title="'Edit ' + item._name" :aria-label="'Edit ' + item._name"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-edit"></use></svg></a>
           <div class="dropdown" v-if="!item?._broken">
             <button class="btn btn-icon-dots" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" :data-project-actions="encodeURIComponent(item._type + ':' + item._id)" :aria-label="&quot;Actions for &quot; + (item?._name)">
               <svg class="project-type-svg" aria-hidden="true"><use href="#project-icon-more"></use></svg>

@@ -1,0 +1,562 @@
+[
+  {
+    "name": "queue/never",
+    "status": "queue",
+    "options": {
+      "expirationMode": "never"
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "queue/future",
+    "status": "queue",
+    "options": {
+      "expirationMode": "remove",
+      "expirationDate": "2099-01-01T00:00:00.000Z"
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "queue/past",
+    "status": "queue",
+    "options": {
+      "expirationMode": "remove",
+      "expirationDate": "2000-01-01T00:00:00.000Z"
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "queue/missing",
+    "status": "queue",
+    "options": {},
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "queue/empty",
+    "status": "queue",
+    "options": {
+      "expirationMode": "remove",
+      "expirationDate": null
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "queue/boundary",
+    "status": "queue",
+    "options": {
+      "expirationMode": "remove",
+      "expirationDate": "2026-01-01T00:00:00.000Z"
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "preparing/never",
+    "status": "preparing",
+    "options": {
+      "expirationMode": "never"
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "preparing/future",
+    "status": "preparing",
+    "options": {
+      "expirationMode": "remove",
+      "expirationDate": "2099-01-01T00:00:00.000Z"
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "preparing/past",
+    "status": "preparing",
+    "options": {
+      "expirationMode": "remove",
+      "expirationDate": "2000-01-01T00:00:00.000Z"
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "preparing/missing",
+    "status": "preparing",
+    "options": {},
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "preparing/empty",
+    "status": "preparing",
+    "options": {
+      "expirationMode": "remove",
+      "expirationDate": null
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "preparing/boundary",
+    "status": "preparing",
+    "options": {
+      "expirationMode": "remove",
+      "expirationDate": "2026-01-01T00:00:00.000Z"
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "download/never",
+    "status": "download",
+    "options": {
+      "expirationMode": "never"
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "download/future",
+    "status": "download",
+    "options": {
+      "expirationMode": "remove",
+      "expirationDate": "2099-01-01T00:00:00.000Z"
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "download/past",
+    "status": "download",
+    "options": {
+      "expirationMode": "remove",
+      "expirationDate": "2000-01-01T00:00:00.000Z"
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "download/missing",
+    "status": "download",
+    "options": {},
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "download/empty",
+    "status": "download",
+    "options": {
+      "expirationMode": "remove",
+      "expirationDate": null
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "download/boundary",
+    "status": "download",
+    "options": {
+      "expirationMode": "remove",
+      "expirationDate": "2026-01-01T00:00:00.000Z"
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "ready/never",
+    "status": "ready",
+    "options": {
+      "expirationMode": "never"
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "ready/future",
+    "status": "ready",
+    "options": {
+      "expirationMode": "remove",
+      "expirationDate": "2099-01-01T00:00:00.000Z"
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "ready/past",
+    "status": "ready",
+    "options": {
+      "expirationMode": "remove",
+      "expirationDate": "2000-01-01T00:00:00.000Z"
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "ready/missing",
+    "status": "ready",
+    "options": {},
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "ready/empty",
+    "status": "ready",
+    "options": {
+      "expirationMode": "remove",
+      "expirationDate": null
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "ready/boundary",
+    "status": "ready",
+    "options": {
+      "expirationMode": "remove",
+      "expirationDate": "2026-01-01T00:00:00.000Z"
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "archived/never",
+    "status": "archived",
+    "options": {
+      "expirationMode": "never"
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "archived/future",
+    "status": "archived",
+    "options": {
+      "expirationMode": "remove",
+      "expirationDate": "2099-01-01T00:00:00.000Z"
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "archived/past",
+    "status": "archived",
+    "options": {
+      "expirationMode": "remove",
+      "expirationDate": "2000-01-01T00:00:00.000Z"
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "archived/missing",
+    "status": "archived",
+    "options": {},
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "archived/empty",
+    "status": "archived",
+    "options": {
+      "expirationMode": "remove",
+      "expirationDate": null
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "archived/boundary",
+    "status": "archived",
+    "options": {
+      "expirationMode": "remove",
+      "expirationDate": "2026-01-01T00:00:00.000Z"
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "expired/never",
+    "status": "expired",
+    "options": {
+      "expirationMode": "never"
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": true
+  },
+  {
+    "name": "expired/future",
+    "status": "expired",
+    "options": {
+      "expirationMode": "remove",
+      "expirationDate": "2099-01-01T00:00:00.000Z"
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": true
+  },
+  {
+    "name": "expired/past",
+    "status": "expired",
+    "options": {
+      "expirationMode": "remove",
+      "expirationDate": "2000-01-01T00:00:00.000Z"
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "expired/missing",
+    "status": "expired",
+    "options": {},
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "expired/empty",
+    "status": "expired",
+    "options": {
+      "expirationMode": "remove",
+      "expirationDate": null
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "expired/boundary",
+    "status": "expired",
+    "options": {
+      "expirationMode": "remove",
+      "expirationDate": "2026-01-01T00:00:00.000Z"
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "expiring/never",
+    "status": "expiring",
+    "options": {
+      "expirationMode": "never"
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "expiring/future",
+    "status": "expiring",
+    "options": {
+      "expirationMode": "remove",
+      "expirationDate": "2099-01-01T00:00:00.000Z"
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "expiring/past",
+    "status": "expiring",
+    "options": {
+      "expirationMode": "remove",
+      "expirationDate": "2000-01-01T00:00:00.000Z"
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "expiring/missing",
+    "status": "expiring",
+    "options": {},
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "expiring/empty",
+    "status": "expiring",
+    "options": {
+      "expirationMode": "remove",
+      "expirationDate": null
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "expiring/boundary",
+    "status": "expiring",
+    "options": {
+      "expirationMode": "remove",
+      "expirationDate": "2026-01-01T00:00:00.000Z"
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "removed/never",
+    "status": "removed",
+    "options": {
+      "expirationMode": "never"
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": true
+  },
+  {
+    "name": "removed/future",
+    "status": "removed",
+    "options": {
+      "expirationMode": "remove",
+      "expirationDate": "2099-01-01T00:00:00.000Z"
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": true
+  },
+  {
+    "name": "removed/past",
+    "status": "removed",
+    "options": {
+      "expirationMode": "remove",
+      "expirationDate": "2000-01-01T00:00:00.000Z"
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "removed/missing",
+    "status": "removed",
+    "options": {},
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "removed/empty",
+    "status": "removed",
+    "options": {
+      "expirationMode": "remove",
+      "expirationDate": null
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "removed/boundary",
+    "status": "removed",
+    "options": {
+      "expirationMode": "remove",
+      "expirationDate": "2026-01-01T00:00:00.000Z"
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "removing/never",
+    "status": "removing",
+    "options": {
+      "expirationMode": "never"
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "removing/future",
+    "status": "removing",
+    "options": {
+      "expirationMode": "remove",
+      "expirationDate": "2099-01-01T00:00:00.000Z"
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "removing/past",
+    "status": "removing",
+    "options": {
+      "expirationMode": "remove",
+      "expirationDate": "2000-01-01T00:00:00.000Z"
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "removing/missing",
+    "status": "removing",
+    "options": {},
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "removing/empty",
+    "status": "removing",
+    "options": {
+      "expirationMode": "remove",
+      "expirationDate": null
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "removing/boundary",
+    "status": "removing",
+    "options": {
+      "expirationMode": "remove",
+      "expirationDate": "2026-01-01T00:00:00.000Z"
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "error/never",
+    "status": "error",
+    "options": {
+      "expirationMode": "never"
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "error/future",
+    "status": "error",
+    "options": {
+      "expirationMode": "remove",
+      "expirationDate": "2099-01-01T00:00:00.000Z"
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "error/past",
+    "status": "error",
+    "options": {
+      "expirationMode": "remove",
+      "expirationDate": "2000-01-01T00:00:00.000Z"
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "error/missing",
+    "status": "error",
+    "options": {},
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "error/empty",
+    "status": "error",
+    "options": {
+      "expirationMode": "remove",
+      "expirationDate": null
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  },
+  {
+    "name": "error/boundary",
+    "status": "error",
+    "options": {
+      "expirationMode": "remove",
+      "expirationDate": "2026-01-01T00:00:00.000Z"
+    },
+    "now": "2026-01-01T00:00:00.000Z",
+    "expected": false
+  }
+]

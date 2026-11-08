@@ -73,7 +73,7 @@ describe("dashboard UI", function () {
   describe("humanTime filter", function () {
     it("spells the month for dates older than two days", function () {
       const out = filters.humanTime()("2024-03-09T12:00:00Z");
-      expect(out).to.match(/^on /);
+      expect(out).to.not.match(/^on /);
       expect(out).to.match(/Mar/);
       expect(out).to.not.match(/\d+\/\d+\/\d+/);
     });
@@ -93,7 +93,7 @@ describe("dashboard UI", function () {
       expect(divider).to.be.greaterThan(-1);
     });
     it("labels hidden statuses as hidden, not as active filters", function () {
-      expect(html).to.match(/\{\{\s*statusKeyLabels\[f\]\s*\}\} hidden/);
+      expect(html).to.match(/Hiding \{\{\s*\(statusKeyLabels\[f\] \|\| ''\)\.toLowerCase\(\)\s*\}\}/);
     });
     it("shows an unlimited quota without a full bar", function () {
       const quota = fs.readFileSync(path.join(__dirname, "../public/partials/quotaUsage.htm"), "utf8");

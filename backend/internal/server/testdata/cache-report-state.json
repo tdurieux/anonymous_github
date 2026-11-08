@@ -1,0 +1,149 @@
+[
+  {
+    "input": {
+      "name": "disabled",
+      "enabled": false,
+      "storage": "filesystem"
+    },
+    "expected": {
+      "available": false,
+      "reason": "Monitoring is disabled",
+      "rows": [],
+      "enabled": false,
+      "filesystemSupported": true,
+      "source": null,
+      "results": null
+    },
+    "headers": {
+      "Cache-Control": "no-store"
+    }
+  },
+  {
+    "input": {
+      "name": "source only",
+      "enabled": true,
+      "storage": "filesystem",
+      "source": true
+    },
+    "expected": {
+      "available": false,
+      "reason": "Monitoring is disabled",
+      "rows": [],
+      "enabled": true,
+      "filesystemSupported": true,
+      "source": {
+        "blobs": 0,
+        "originalBytes": 0,
+        "storedBytes": 0,
+        "allocatedBytes": 0,
+        "activeReaders": 0,
+        "decisions": 0,
+        "reservedBytes": 0,
+        "budgetBytes": 65536,
+        "maxObjectBytes": 4096,
+        "oldestAccess": null
+      },
+      "results": null
+    },
+    "headers": {
+      "Cache-Control": "no-store"
+    }
+  },
+  {
+    "input": {
+      "name": "source and results",
+      "enabled": true,
+      "storage": "filesystem",
+      "source": true,
+      "results": true
+    },
+    "expected": {
+      "available": false,
+      "reason": "Monitoring is disabled",
+      "rows": [],
+      "enabled": true,
+      "filesystemSupported": true,
+      "source": {
+        "blobs": 0,
+        "originalBytes": 0,
+        "storedBytes": 0,
+        "allocatedBytes": 0,
+        "activeReaders": 0,
+        "decisions": 0,
+        "reservedBytes": 0,
+        "budgetBytes": 65536,
+        "maxObjectBytes": 4096,
+        "oldestAccess": null
+      },
+      "results": {
+        "blobs": 0,
+        "originalBytes": 0,
+        "storedBytes": 0,
+        "allocatedBytes": 0,
+        "activeReaders": 0,
+        "decisions": 0,
+        "reservedBytes": 0,
+        "budgetBytes": 65536,
+        "maxObjectBytes": 4096,
+        "oldestAccess": null
+      }
+    },
+    "headers": {
+      "Cache-Control": "no-store"
+    }
+  },
+  {
+    "input": {
+      "name": "s3",
+      "enabled": true,
+      "storage": "s3"
+    },
+    "expected": {
+      "available": false,
+      "reason": "Monitoring is disabled",
+      "rows": [],
+      "enabled": true,
+      "filesystemSupported": false,
+      "source": null,
+      "results": null
+    },
+    "headers": {
+      "Cache-Control": "no-store"
+    }
+  },
+  {
+    "input": {
+      "name": "source unavailable",
+      "enabled": true,
+      "storage": "filesystem",
+      "source": true,
+      "sourceError": true
+    },
+    "expected": {
+      "available": false,
+      "reason": "The cache index is unavailable",
+      "rows": []
+    },
+    "headers": {
+      "Cache-Control": "no-store"
+    }
+  },
+  {
+    "input": {
+      "name": "results unavailable",
+      "enabled": true,
+      "storage": "filesystem",
+      "source": true,
+      "results": true,
+      "resultError": true
+    },
+    "expected": {
+      "available": false,
+      "reason": "The cache index is unavailable",
+      "rows": []
+    },
+    "headers": {
+      "Cache-Control": "no-store"
+    }
+  }
+]

@@ -122,9 +122,12 @@ export const paperScrollspy = {
     const observer = new IntersectionObserver(entries => {
       entries.forEach(e => e.isIntersecting ? visible.add(e.target.id) : visible.delete(e.target.id));
       const active = links.find(a => visible.has(a.hash.slice(1)));
-      links.forEach(a => a.classList.toggle("active", a === active));
+      if (active) links.forEach(a => a.classList.toggle("active", a === active));
     }, { rootMargin: "-20% 0px -60% 0px", threshold: 0 });
-    nextTick(() => links.forEach(a => { const target = document.getElementById(a.hash.slice(1)); if (target) observer.observe(target); }));
+    nextTick(() => {
+      links.forEach(a => { const target = document.getElementById(a.hash.slice(1)); if (target) observer.observe(target); });
+      if (links[0] && !links.some(a => a.classList.contains("active"))) links[0].classList.add("active");
+    });
     el._observer = observer;
   },
   beforeUnmount(el) { el._observer?.disconnect(); },

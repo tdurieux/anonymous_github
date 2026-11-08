@@ -1,0 +1,2600 @@
+[
+  {
+    "name": "repos/empty",
+    "kind": "repos",
+    "rows": [],
+    "expected": "repoId",
+    "headers": {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": "attachment; filename=\"repositories-2030-01-02.csv\""
+    }
+  },
+  {
+    "name": "repos/minimal",
+    "kind": "repos",
+    "rows": [
+      {}
+    ],
+    "expected": "repoId,status,statusMessage,anonymizeDate,lastView,pageView,sourceRepository,sourceBranch,sourceCommit,conference,storage,terms\n,,,,,0,,,,,0,0",
+    "headers": {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": "attachment; filename=\"repositories-2030-01-02.csv\""
+    }
+  },
+  {
+    "name": "repos/rich",
+    "kind": "repos",
+    "rows": [
+      {
+        "repoId": "sample",
+        "username": "sample",
+        "conferenceID": "sample",
+        "name": "Conference",
+        "status": "ready",
+        "statusMessage": "Message",
+        "anonymizeDate": "2029-04-03T01:02:03.456Z",
+        "lastView": "2029-05-01T00:00:00.000Z",
+        "dateOfEntry": "2028-01-01T00:00:00.000Z",
+        "startDate": "2029-01-01T00:00:00.000Z",
+        "endDate": "2031-01-01T00:00:00.000Z",
+        "pageView": 1.5,
+        "size": {
+          "storage": 2.5
+        },
+        "source": {
+          "repositoryName": "team/subgroup/project",
+          "branch": "main",
+          "commit": "opaque:revision",
+          "accessToken": "synthetic-secret"
+        },
+        "options": {
+          "terms": [
+            "one",
+            "two"
+          ]
+        },
+        "emails": [
+          {
+            "email": "chair@example.test"
+          }
+        ],
+        "isAdmin": true,
+        "price": 0.125,
+        "repositories": [
+          {
+            "id": "one"
+          },
+          {
+            "id": "two"
+          }
+        ],
+        "conference": "Conference",
+        "apiTokens": [
+          {
+            "tokenHash": "synthetic-secret"
+          }
+        ]
+      }
+    ],
+    "expected": "repoId,status,statusMessage,anonymizeDate,lastView,pageView,sourceRepository,sourceBranch,sourceCommit,conference,storage,terms\nsample,ready,Message,2029-04-03T01:02:03.456Z,2029-05-01T00:00:00.000Z,1.5,team/subgroup/project,main,opaque:revision,Conference,2.5,2",
+    "headers": {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": "attachment; filename=\"repositories-2030-01-02.csv\""
+    }
+  },
+  {
+    "name": "repos/text/\" leading\"",
+    "kind": "repos",
+    "rows": [
+      {
+        "repoId": " leading",
+        "username": " leading",
+        "conferenceID": "sample",
+        "name": " leading",
+        "status": "ready",
+        "statusMessage": " leading",
+        "anonymizeDate": "2029-04-03T01:02:03.456Z",
+        "lastView": "2029-05-01T00:00:00.000Z",
+        "dateOfEntry": "2028-01-01T00:00:00.000Z",
+        "startDate": "2029-01-01T00:00:00.000Z",
+        "endDate": "2031-01-01T00:00:00.000Z",
+        "pageView": 1.5,
+        "size": {
+          "storage": 2.5
+        },
+        "source": {
+          "repositoryName": "team/subgroup/project",
+          "branch": "main",
+          "commit": "opaque:revision",
+          "accessToken": "synthetic-secret"
+        },
+        "options": {
+          "terms": [
+            "one",
+            "two"
+          ]
+        },
+        "emails": [
+          {
+            "email": "chair@example.test"
+          }
+        ],
+        "isAdmin": true,
+        "price": 0.125,
+        "repositories": [
+          {
+            "id": "one"
+          },
+          {
+            "id": "two"
+          }
+        ],
+        "conference": "Conference",
+        "apiTokens": [
+          {
+            "tokenHash": "synthetic-secret"
+          }
+        ]
+      }
+    ],
+    "expected": "repoId,status,statusMessage,anonymizeDate,lastView,pageView,sourceRepository,sourceBranch,sourceCommit,conference,storage,terms\n leading,ready, leading,2029-04-03T01:02:03.456Z,2029-05-01T00:00:00.000Z,1.5,team/subgroup/project,main,opaque:revision,Conference,2.5,2",
+    "headers": {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": "attachment; filename=\"repositories-2030-01-02.csv\""
+    }
+  },
+  {
+    "name": "repos/text/\"trailing \"",
+    "kind": "repos",
+    "rows": [
+      {
+        "repoId": "trailing ",
+        "username": "trailing ",
+        "conferenceID": "sample",
+        "name": "trailing ",
+        "status": "ready",
+        "statusMessage": "trailing ",
+        "anonymizeDate": "2029-04-03T01:02:03.456Z",
+        "lastView": "2029-05-01T00:00:00.000Z",
+        "dateOfEntry": "2028-01-01T00:00:00.000Z",
+        "startDate": "2029-01-01T00:00:00.000Z",
+        "endDate": "2031-01-01T00:00:00.000Z",
+        "pageView": 1.5,
+        "size": {
+          "storage": 2.5
+        },
+        "source": {
+          "repositoryName": "team/subgroup/project",
+          "branch": "main",
+          "commit": "opaque:revision",
+          "accessToken": "synthetic-secret"
+        },
+        "options": {
+          "terms": [
+            "one",
+            "two"
+          ]
+        },
+        "emails": [
+          {
+            "email": "chair@example.test"
+          }
+        ],
+        "isAdmin": true,
+        "price": 0.125,
+        "repositories": [
+          {
+            "id": "one"
+          },
+          {
+            "id": "two"
+          }
+        ],
+        "conference": "Conference",
+        "apiTokens": [
+          {
+            "tokenHash": "synthetic-secret"
+          }
+        ]
+      }
+    ],
+    "expected": "repoId,status,statusMessage,anonymizeDate,lastView,pageView,sourceRepository,sourceBranch,sourceCommit,conference,storage,terms\ntrailing ,ready,trailing ,2029-04-03T01:02:03.456Z,2029-05-01T00:00:00.000Z,1.5,team/subgroup/project,main,opaque:revision,Conference,2.5,2",
+    "headers": {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": "attachment; filename=\"repositories-2030-01-02.csv\""
+    }
+  },
+  {
+    "name": "repos/text/\"a,b\"",
+    "kind": "repos",
+    "rows": [
+      {
+        "repoId": "a,b",
+        "username": "a,b",
+        "conferenceID": "sample",
+        "name": "a,b",
+        "status": "ready",
+        "statusMessage": "a,b",
+        "anonymizeDate": "2029-04-03T01:02:03.456Z",
+        "lastView": "2029-05-01T00:00:00.000Z",
+        "dateOfEntry": "2028-01-01T00:00:00.000Z",
+        "startDate": "2029-01-01T00:00:00.000Z",
+        "endDate": "2031-01-01T00:00:00.000Z",
+        "pageView": 1.5,
+        "size": {
+          "storage": 2.5
+        },
+        "source": {
+          "repositoryName": "team/subgroup/project",
+          "branch": "main",
+          "commit": "opaque:revision",
+          "accessToken": "synthetic-secret"
+        },
+        "options": {
+          "terms": [
+            "one",
+            "two"
+          ]
+        },
+        "emails": [
+          {
+            "email": "chair@example.test"
+          }
+        ],
+        "isAdmin": true,
+        "price": 0.125,
+        "repositories": [
+          {
+            "id": "one"
+          },
+          {
+            "id": "two"
+          }
+        ],
+        "conference": "Conference",
+        "apiTokens": [
+          {
+            "tokenHash": "synthetic-secret"
+          }
+        ]
+      }
+    ],
+    "expected": "repoId,status,statusMessage,anonymizeDate,lastView,pageView,sourceRepository,sourceBranch,sourceCommit,conference,storage,terms\n\"a,b\",ready,\"a,b\",2029-04-03T01:02:03.456Z,2029-05-01T00:00:00.000Z,1.5,team/subgroup/project,main,opaque:revision,Conference,2.5,2",
+    "headers": {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": "attachment; filename=\"repositories-2030-01-02.csv\""
+    }
+  },
+  {
+    "name": "repos/text/\"say \\\"hi\\\"\"",
+    "kind": "repos",
+    "rows": [
+      {
+        "repoId": "say \"hi\"",
+        "username": "say \"hi\"",
+        "conferenceID": "sample",
+        "name": "say \"hi\"",
+        "status": "ready",
+        "statusMessage": "say \"hi\"",
+        "anonymizeDate": "2029-04-03T01:02:03.456Z",
+        "lastView": "2029-05-01T00:00:00.000Z",
+        "dateOfEntry": "2028-01-01T00:00:00.000Z",
+        "startDate": "2029-01-01T00:00:00.000Z",
+        "endDate": "2031-01-01T00:00:00.000Z",
+        "pageView": 1.5,
+        "size": {
+          "storage": 2.5
+        },
+        "source": {
+          "repositoryName": "team/subgroup/project",
+          "branch": "main",
+          "commit": "opaque:revision",
+          "accessToken": "synthetic-secret"
+        },
+        "options": {
+          "terms": [
+            "one",
+            "two"
+          ]
+        },
+        "emails": [
+          {
+            "email": "chair@example.test"
+          }
+        ],
+        "isAdmin": true,
+        "price": 0.125,
+        "repositories": [
+          {
+            "id": "one"
+          },
+          {
+            "id": "two"
+          }
+        ],
+        "conference": "Conference",
+        "apiTokens": [
+          {
+            "tokenHash": "synthetic-secret"
+          }
+        ]
+      }
+    ],
+    "expected": "repoId,status,statusMessage,anonymizeDate,lastView,pageView,sourceRepository,sourceBranch,sourceCommit,conference,storage,terms\n\"say \"\"hi\"\"\",ready,\"say \"\"hi\"\"\",2029-04-03T01:02:03.456Z,2029-05-01T00:00:00.000Z,1.5,team/subgroup/project,main,opaque:revision,Conference,2.5,2",
+    "headers": {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": "attachment; filename=\"repositories-2030-01-02.csv\""
+    }
+  },
+  {
+    "name": "repos/text/\"line\\nnext\"",
+    "kind": "repos",
+    "rows": [
+      {
+        "repoId": "line\nnext",
+        "username": "line\nnext",
+        "conferenceID": "sample",
+        "name": "line\nnext",
+        "status": "ready",
+        "statusMessage": "line\nnext",
+        "anonymizeDate": "2029-04-03T01:02:03.456Z",
+        "lastView": "2029-05-01T00:00:00.000Z",
+        "dateOfEntry": "2028-01-01T00:00:00.000Z",
+        "startDate": "2029-01-01T00:00:00.000Z",
+        "endDate": "2031-01-01T00:00:00.000Z",
+        "pageView": 1.5,
+        "size": {
+          "storage": 2.5
+        },
+        "source": {
+          "repositoryName": "team/subgroup/project",
+          "branch": "main",
+          "commit": "opaque:revision",
+          "accessToken": "synthetic-secret"
+        },
+        "options": {
+          "terms": [
+            "one",
+            "two"
+          ]
+        },
+        "emails": [
+          {
+            "email": "chair@example.test"
+          }
+        ],
+        "isAdmin": true,
+        "price": 0.125,
+        "repositories": [
+          {
+            "id": "one"
+          },
+          {
+            "id": "two"
+          }
+        ],
+        "conference": "Conference",
+        "apiTokens": [
+          {
+            "tokenHash": "synthetic-secret"
+          }
+        ]
+      }
+    ],
+    "expected": "repoId,status,statusMessage,anonymizeDate,lastView,pageView,sourceRepository,sourceBranch,sourceCommit,conference,storage,terms\n\"line\nnext\",ready,\"line\nnext\",2029-04-03T01:02:03.456Z,2029-05-01T00:00:00.000Z,1.5,team/subgroup/project,main,opaque:revision,Conference,2.5,2",
+    "headers": {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": "attachment; filename=\"repositories-2030-01-02.csv\""
+    }
+  },
+  {
+    "name": "repos/text/\"line\\rnext\"",
+    "kind": "repos",
+    "rows": [
+      {
+        "repoId": "line\rnext",
+        "username": "line\rnext",
+        "conferenceID": "sample",
+        "name": "line\rnext",
+        "status": "ready",
+        "statusMessage": "line\rnext",
+        "anonymizeDate": "2029-04-03T01:02:03.456Z",
+        "lastView": "2029-05-01T00:00:00.000Z",
+        "dateOfEntry": "2028-01-01T00:00:00.000Z",
+        "startDate": "2029-01-01T00:00:00.000Z",
+        "endDate": "2031-01-01T00:00:00.000Z",
+        "pageView": 1.5,
+        "size": {
+          "storage": 2.5
+        },
+        "source": {
+          "repositoryName": "team/subgroup/project",
+          "branch": "main",
+          "commit": "opaque:revision",
+          "accessToken": "synthetic-secret"
+        },
+        "options": {
+          "terms": [
+            "one",
+            "two"
+          ]
+        },
+        "emails": [
+          {
+            "email": "chair@example.test"
+          }
+        ],
+        "isAdmin": true,
+        "price": 0.125,
+        "repositories": [
+          {
+            "id": "one"
+          },
+          {
+            "id": "two"
+          }
+        ],
+        "conference": "Conference",
+        "apiTokens": [
+          {
+            "tokenHash": "synthetic-secret"
+          }
+        ]
+      }
+    ],
+    "expected": "repoId,status,statusMessage,anonymizeDate,lastView,pageView,sourceRepository,sourceBranch,sourceCommit,conference,storage,terms\n\"line\rnext\",ready,\"line\rnext\",2029-04-03T01:02:03.456Z,2029-05-01T00:00:00.000Z,1.5,team/subgroup/project,main,opaque:revision,Conference,2.5,2",
+    "headers": {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": "attachment; filename=\"repositories-2030-01-02.csv\""
+    }
+  },
+  {
+    "name": "repos/text/\"back\\\\slash\"",
+    "kind": "repos",
+    "rows": [
+      {
+        "repoId": "back\\slash",
+        "username": "back\\slash",
+        "conferenceID": "sample",
+        "name": "back\\slash",
+        "status": "ready",
+        "statusMessage": "back\\slash",
+        "anonymizeDate": "2029-04-03T01:02:03.456Z",
+        "lastView": "2029-05-01T00:00:00.000Z",
+        "dateOfEntry": "2028-01-01T00:00:00.000Z",
+        "startDate": "2029-01-01T00:00:00.000Z",
+        "endDate": "2031-01-01T00:00:00.000Z",
+        "pageView": 1.5,
+        "size": {
+          "storage": 2.5
+        },
+        "source": {
+          "repositoryName": "team/subgroup/project",
+          "branch": "main",
+          "commit": "opaque:revision",
+          "accessToken": "synthetic-secret"
+        },
+        "options": {
+          "terms": [
+            "one",
+            "two"
+          ]
+        },
+        "emails": [
+          {
+            "email": "chair@example.test"
+          }
+        ],
+        "isAdmin": true,
+        "price": 0.125,
+        "repositories": [
+          {
+            "id": "one"
+          },
+          {
+            "id": "two"
+          }
+        ],
+        "conference": "Conference",
+        "apiTokens": [
+          {
+            "tokenHash": "synthetic-secret"
+          }
+        ]
+      }
+    ],
+    "expected": "repoId,status,statusMessage,anonymizeDate,lastView,pageView,sourceRepository,sourceBranch,sourceCommit,conference,storage,terms\nback\\slash,ready,back\\slash,2029-04-03T01:02:03.456Z,2029-05-01T00:00:00.000Z,1.5,team/subgroup/project,main,opaque:revision,Conference,2.5,2",
+    "headers": {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": "attachment; filename=\"repositories-2030-01-02.csv\""
+    }
+  },
+  {
+    "name": "repos/text/\"é😀\"",
+    "kind": "repos",
+    "rows": [
+      {
+        "repoId": "é😀",
+        "username": "é😀",
+        "conferenceID": "sample",
+        "name": "é😀",
+        "status": "ready",
+        "statusMessage": "é😀",
+        "anonymizeDate": "2029-04-03T01:02:03.456Z",
+        "lastView": "2029-05-01T00:00:00.000Z",
+        "dateOfEntry": "2028-01-01T00:00:00.000Z",
+        "startDate": "2029-01-01T00:00:00.000Z",
+        "endDate": "2031-01-01T00:00:00.000Z",
+        "pageView": 1.5,
+        "size": {
+          "storage": 2.5
+        },
+        "source": {
+          "repositoryName": "team/subgroup/project",
+          "branch": "main",
+          "commit": "opaque:revision",
+          "accessToken": "synthetic-secret"
+        },
+        "options": {
+          "terms": [
+            "one",
+            "two"
+          ]
+        },
+        "emails": [
+          {
+            "email": "chair@example.test"
+          }
+        ],
+        "isAdmin": true,
+        "price": 0.125,
+        "repositories": [
+          {
+            "id": "one"
+          },
+          {
+            "id": "two"
+          }
+        ],
+        "conference": "Conference",
+        "apiTokens": [
+          {
+            "tokenHash": "synthetic-secret"
+          }
+        ]
+      }
+    ],
+    "expected": "repoId,status,statusMessage,anonymizeDate,lastView,pageView,sourceRepository,sourceBranch,sourceCommit,conference,storage,terms\né😀,ready,é😀,2029-04-03T01:02:03.456Z,2029-05-01T00:00:00.000Z,1.5,team/subgroup/project,main,opaque:revision,Conference,2.5,2",
+    "headers": {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": "attachment; filename=\"repositories-2030-01-02.csv\""
+    }
+  },
+  {
+    "name": "repos/date/0001-01-01T00:00:00.000Z",
+    "kind": "repos",
+    "rows": [
+      {
+        "repoId": "sample",
+        "username": "sample",
+        "conferenceID": "sample",
+        "name": "Conference",
+        "status": "ready",
+        "statusMessage": "Message",
+        "anonymizeDate": "0001-01-01T00:00:00.000Z",
+        "lastView": "0001-01-01T00:00:00.000Z",
+        "dateOfEntry": "0001-01-01T00:00:00.000Z",
+        "startDate": "0001-01-01T00:00:00.000Z",
+        "endDate": "0001-01-01T00:00:00.000Z",
+        "pageView": 1.5,
+        "size": {
+          "storage": 2.5
+        },
+        "source": {
+          "repositoryName": "team/subgroup/project",
+          "branch": "main",
+          "commit": "opaque:revision",
+          "accessToken": "synthetic-secret"
+        },
+        "options": {
+          "terms": [
+            "one",
+            "two"
+          ]
+        },
+        "emails": [
+          {
+            "email": "chair@example.test"
+          }
+        ],
+        "isAdmin": true,
+        "price": 0.125,
+        "repositories": [
+          {
+            "id": "one"
+          },
+          {
+            "id": "two"
+          }
+        ],
+        "conference": "Conference",
+        "apiTokens": [
+          {
+            "tokenHash": "synthetic-secret"
+          }
+        ]
+      }
+    ],
+    "expected": "repoId,status,statusMessage,anonymizeDate,lastView,pageView,sourceRepository,sourceBranch,sourceCommit,conference,storage,terms\nsample,ready,Message,0001-01-01T00:00:00.000Z,0001-01-01T00:00:00.000Z,1.5,team/subgroup/project,main,opaque:revision,Conference,2.5,2",
+    "headers": {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": "attachment; filename=\"repositories-2030-01-02.csv\""
+    }
+  },
+  {
+    "name": "repos/date/2029-01-01T01:00:00+01:00",
+    "kind": "repos",
+    "rows": [
+      {
+        "repoId": "sample",
+        "username": "sample",
+        "conferenceID": "sample",
+        "name": "Conference",
+        "status": "ready",
+        "statusMessage": "Message",
+        "anonymizeDate": "2029-01-01T01:00:00+01:00",
+        "lastView": "2029-01-01T01:00:00+01:00",
+        "dateOfEntry": "2029-01-01T01:00:00+01:00",
+        "startDate": "2029-01-01T01:00:00+01:00",
+        "endDate": "2029-01-01T01:00:00+01:00",
+        "pageView": 1.5,
+        "size": {
+          "storage": 2.5
+        },
+        "source": {
+          "repositoryName": "team/subgroup/project",
+          "branch": "main",
+          "commit": "opaque:revision",
+          "accessToken": "synthetic-secret"
+        },
+        "options": {
+          "terms": [
+            "one",
+            "two"
+          ]
+        },
+        "emails": [
+          {
+            "email": "chair@example.test"
+          }
+        ],
+        "isAdmin": true,
+        "price": 0.125,
+        "repositories": [
+          {
+            "id": "one"
+          },
+          {
+            "id": "two"
+          }
+        ],
+        "conference": "Conference",
+        "apiTokens": [
+          {
+            "tokenHash": "synthetic-secret"
+          }
+        ]
+      }
+    ],
+    "expected": "repoId,status,statusMessage,anonymizeDate,lastView,pageView,sourceRepository,sourceBranch,sourceCommit,conference,storage,terms\nsample,ready,Message,2029-01-01T00:00:00.000Z,2029-01-01T00:00:00.000Z,1.5,team/subgroup/project,main,opaque:revision,Conference,2.5,2",
+    "headers": {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": "attachment; filename=\"repositories-2030-01-02.csv\""
+    }
+  },
+  {
+    "name": "repos/date/null",
+    "kind": "repos",
+    "rows": [
+      {
+        "repoId": "sample",
+        "username": "sample",
+        "conferenceID": "sample",
+        "name": "Conference",
+        "status": "ready",
+        "statusMessage": "Message",
+        "anonymizeDate": null,
+        "lastView": null,
+        "dateOfEntry": null,
+        "startDate": null,
+        "endDate": null,
+        "pageView": 1.5,
+        "size": {
+          "storage": 2.5
+        },
+        "source": {
+          "repositoryName": "team/subgroup/project",
+          "branch": "main",
+          "commit": "opaque:revision",
+          "accessToken": "synthetic-secret"
+        },
+        "options": {
+          "terms": [
+            "one",
+            "two"
+          ]
+        },
+        "emails": [
+          {
+            "email": "chair@example.test"
+          }
+        ],
+        "isAdmin": true,
+        "price": 0.125,
+        "repositories": [
+          {
+            "id": "one"
+          },
+          {
+            "id": "two"
+          }
+        ],
+        "conference": "Conference",
+        "apiTokens": [
+          {
+            "tokenHash": "synthetic-secret"
+          }
+        ]
+      }
+    ],
+    "expected": "repoId,status,statusMessage,anonymizeDate,lastView,pageView,sourceRepository,sourceBranch,sourceCommit,conference,storage,terms\nsample,ready,Message,,,1.5,team/subgroup/project,main,opaque:revision,Conference,2.5,2",
+    "headers": {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": "attachment; filename=\"repositories-2030-01-02.csv\""
+    }
+  },
+  {
+    "name": "repos/multiple",
+    "kind": "repos",
+    "rows": [
+      {
+        "repoId": "sample",
+        "username": "sample",
+        "conferenceID": "sample",
+        "name": "Conference",
+        "status": "ready",
+        "statusMessage": "Message",
+        "anonymizeDate": "2029-04-03T01:02:03.456Z",
+        "lastView": "2029-05-01T00:00:00.000Z",
+        "dateOfEntry": "2028-01-01T00:00:00.000Z",
+        "startDate": "2029-01-01T00:00:00.000Z",
+        "endDate": "2031-01-01T00:00:00.000Z",
+        "pageView": 1.5,
+        "size": {
+          "storage": 2.5
+        },
+        "source": {
+          "repositoryName": "team/subgroup/project",
+          "branch": "main",
+          "commit": "opaque:revision",
+          "accessToken": "synthetic-secret"
+        },
+        "options": {
+          "terms": [
+            "one",
+            "two"
+          ]
+        },
+        "emails": [
+          {
+            "email": "chair@example.test"
+          }
+        ],
+        "isAdmin": true,
+        "price": 0.125,
+        "repositories": [
+          {
+            "id": "one"
+          },
+          {
+            "id": "two"
+          }
+        ],
+        "conference": "Conference",
+        "apiTokens": [
+          {
+            "tokenHash": "synthetic-secret"
+          }
+        ]
+      },
+      {},
+      {
+        "repoId": "sample",
+        "username": "sample",
+        "conferenceID": "sample",
+        "name": "Conference",
+        "status": "ready",
+        "statusMessage": "Message",
+        "anonymizeDate": "2029-04-03T01:02:03.456Z",
+        "lastView": "2029-05-01T00:00:00.000Z",
+        "dateOfEntry": "2028-01-01T00:00:00.000Z",
+        "startDate": "2029-01-01T00:00:00.000Z",
+        "endDate": "2031-01-01T00:00:00.000Z",
+        "pageView": 1e+21,
+        "size": {
+          "storage": 100000000000000000000
+        },
+        "source": {
+          "repositoryName": "team/subgroup/project",
+          "branch": "main",
+          "commit": "opaque:revision",
+          "accessToken": "synthetic-secret"
+        },
+        "options": {
+          "terms": [
+            "one",
+            "two"
+          ]
+        },
+        "emails": [
+          {
+            "email": "chair@example.test"
+          }
+        ],
+        "isAdmin": true,
+        "price": 1e-7,
+        "repositories": [
+          {
+            "id": "one"
+          },
+          {
+            "id": "two"
+          }
+        ],
+        "conference": "Conference",
+        "apiTokens": [
+          {
+            "tokenHash": "synthetic-secret"
+          }
+        ]
+      }
+    ],
+    "expected": "repoId,status,statusMessage,anonymizeDate,lastView,pageView,sourceRepository,sourceBranch,sourceCommit,conference,storage,terms\nsample,ready,Message,2029-04-03T01:02:03.456Z,2029-05-01T00:00:00.000Z,1.5,team/subgroup/project,main,opaque:revision,Conference,2.5,2\n,,,,,0,,,,,0,0\nsample,ready,Message,2029-04-03T01:02:03.456Z,2029-05-01T00:00:00.000Z,1e+21,team/subgroup/project,main,opaque:revision,Conference,100000000000000000000,2",
+    "headers": {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": "attachment; filename=\"repositories-2030-01-02.csv\""
+    }
+  },
+  {
+    "name": "users/empty",
+    "kind": "users",
+    "rows": [],
+    "expected": "username,email,status,isAdmin,repoCount,dateOfEntry",
+    "headers": {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": "attachment; filename=\"users-2030-01-02.csv\""
+    }
+  },
+  {
+    "name": "users/minimal",
+    "kind": "users",
+    "rows": [
+      {}
+    ],
+    "expected": "username,email,status,isAdmin,repoCount,dateOfEntry\n,,,false,0,",
+    "headers": {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": "attachment; filename=\"users-2030-01-02.csv\""
+    }
+  },
+  {
+    "name": "users/rich",
+    "kind": "users",
+    "rows": [
+      {
+        "repoId": "sample",
+        "username": "sample",
+        "conferenceID": "sample",
+        "name": "Conference",
+        "status": "ready",
+        "statusMessage": "Message",
+        "anonymizeDate": "2029-04-03T01:02:03.456Z",
+        "lastView": "2029-05-01T00:00:00.000Z",
+        "dateOfEntry": "2028-01-01T00:00:00.000Z",
+        "startDate": "2029-01-01T00:00:00.000Z",
+        "endDate": "2031-01-01T00:00:00.000Z",
+        "pageView": 1.5,
+        "size": {
+          "storage": 2.5
+        },
+        "source": {
+          "repositoryName": "team/subgroup/project",
+          "branch": "main",
+          "commit": "opaque:revision",
+          "accessToken": "synthetic-secret"
+        },
+        "options": {
+          "terms": [
+            "one",
+            "two"
+          ]
+        },
+        "emails": [
+          {
+            "email": "chair@example.test"
+          }
+        ],
+        "isAdmin": true,
+        "price": 0.125,
+        "repositories": [
+          {
+            "id": "one"
+          },
+          {
+            "id": "two"
+          }
+        ],
+        "conference": "Conference",
+        "apiTokens": [
+          {
+            "tokenHash": "synthetic-secret"
+          }
+        ]
+      }
+    ],
+    "expected": "username,email,status,isAdmin,repoCount,dateOfEntry\nsample,chair@example.test,ready,true,2,2028-01-01T00:00:00.000Z",
+    "headers": {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": "attachment; filename=\"users-2030-01-02.csv\""
+    }
+  },
+  {
+    "name": "users/text/\" leading\"",
+    "kind": "users",
+    "rows": [
+      {
+        "repoId": " leading",
+        "username": " leading",
+        "conferenceID": "sample",
+        "name": " leading",
+        "status": "ready",
+        "statusMessage": " leading",
+        "anonymizeDate": "2029-04-03T01:02:03.456Z",
+        "lastView": "2029-05-01T00:00:00.000Z",
+        "dateOfEntry": "2028-01-01T00:00:00.000Z",
+        "startDate": "2029-01-01T00:00:00.000Z",
+        "endDate": "2031-01-01T00:00:00.000Z",
+        "pageView": 1.5,
+        "size": {
+          "storage": 2.5
+        },
+        "source": {
+          "repositoryName": "team/subgroup/project",
+          "branch": "main",
+          "commit": "opaque:revision",
+          "accessToken": "synthetic-secret"
+        },
+        "options": {
+          "terms": [
+            "one",
+            "two"
+          ]
+        },
+        "emails": [
+          {
+            "email": "chair@example.test"
+          }
+        ],
+        "isAdmin": true,
+        "price": 0.125,
+        "repositories": [
+          {
+            "id": "one"
+          },
+          {
+            "id": "two"
+          }
+        ],
+        "conference": "Conference",
+        "apiTokens": [
+          {
+            "tokenHash": "synthetic-secret"
+          }
+        ]
+      }
+    ],
+    "expected": "username,email,status,isAdmin,repoCount,dateOfEntry\n leading,chair@example.test,ready,true,2,2028-01-01T00:00:00.000Z",
+    "headers": {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": "attachment; filename=\"users-2030-01-02.csv\""
+    }
+  },
+  {
+    "name": "users/text/\"trailing \"",
+    "kind": "users",
+    "rows": [
+      {
+        "repoId": "trailing ",
+        "username": "trailing ",
+        "conferenceID": "sample",
+        "name": "trailing ",
+        "status": "ready",
+        "statusMessage": "trailing ",
+        "anonymizeDate": "2029-04-03T01:02:03.456Z",
+        "lastView": "2029-05-01T00:00:00.000Z",
+        "dateOfEntry": "2028-01-01T00:00:00.000Z",
+        "startDate": "2029-01-01T00:00:00.000Z",
+        "endDate": "2031-01-01T00:00:00.000Z",
+        "pageView": 1.5,
+        "size": {
+          "storage": 2.5
+        },
+        "source": {
+          "repositoryName": "team/subgroup/project",
+          "branch": "main",
+          "commit": "opaque:revision",
+          "accessToken": "synthetic-secret"
+        },
+        "options": {
+          "terms": [
+            "one",
+            "two"
+          ]
+        },
+        "emails": [
+          {
+            "email": "chair@example.test"
+          }
+        ],
+        "isAdmin": true,
+        "price": 0.125,
+        "repositories": [
+          {
+            "id": "one"
+          },
+          {
+            "id": "two"
+          }
+        ],
+        "conference": "Conference",
+        "apiTokens": [
+          {
+            "tokenHash": "synthetic-secret"
+          }
+        ]
+      }
+    ],
+    "expected": "username,email,status,isAdmin,repoCount,dateOfEntry\ntrailing ,chair@example.test,ready,true,2,2028-01-01T00:00:00.000Z",
+    "headers": {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": "attachment; filename=\"users-2030-01-02.csv\""
+    }
+  },
+  {
+    "name": "users/text/\"a,b\"",
+    "kind": "users",
+    "rows": [
+      {
+        "repoId": "a,b",
+        "username": "a,b",
+        "conferenceID": "sample",
+        "name": "a,b",
+        "status": "ready",
+        "statusMessage": "a,b",
+        "anonymizeDate": "2029-04-03T01:02:03.456Z",
+        "lastView": "2029-05-01T00:00:00.000Z",
+        "dateOfEntry": "2028-01-01T00:00:00.000Z",
+        "startDate": "2029-01-01T00:00:00.000Z",
+        "endDate": "2031-01-01T00:00:00.000Z",
+        "pageView": 1.5,
+        "size": {
+          "storage": 2.5
+        },
+        "source": {
+          "repositoryName": "team/subgroup/project",
+          "branch": "main",
+          "commit": "opaque:revision",
+          "accessToken": "synthetic-secret"
+        },
+        "options": {
+          "terms": [
+            "one",
+            "two"
+          ]
+        },
+        "emails": [
+          {
+            "email": "chair@example.test"
+          }
+        ],
+        "isAdmin": true,
+        "price": 0.125,
+        "repositories": [
+          {
+            "id": "one"
+          },
+          {
+            "id": "two"
+          }
+        ],
+        "conference": "Conference",
+        "apiTokens": [
+          {
+            "tokenHash": "synthetic-secret"
+          }
+        ]
+      }
+    ],
+    "expected": "username,email,status,isAdmin,repoCount,dateOfEntry\n\"a,b\",chair@example.test,ready,true,2,2028-01-01T00:00:00.000Z",
+    "headers": {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": "attachment; filename=\"users-2030-01-02.csv\""
+    }
+  },
+  {
+    "name": "users/text/\"say \\\"hi\\\"\"",
+    "kind": "users",
+    "rows": [
+      {
+        "repoId": "say \"hi\"",
+        "username": "say \"hi\"",
+        "conferenceID": "sample",
+        "name": "say \"hi\"",
+        "status": "ready",
+        "statusMessage": "say \"hi\"",
+        "anonymizeDate": "2029-04-03T01:02:03.456Z",
+        "lastView": "2029-05-01T00:00:00.000Z",
+        "dateOfEntry": "2028-01-01T00:00:00.000Z",
+        "startDate": "2029-01-01T00:00:00.000Z",
+        "endDate": "2031-01-01T00:00:00.000Z",
+        "pageView": 1.5,
+        "size": {
+          "storage": 2.5
+        },
+        "source": {
+          "repositoryName": "team/subgroup/project",
+          "branch": "main",
+          "commit": "opaque:revision",
+          "accessToken": "synthetic-secret"
+        },
+        "options": {
+          "terms": [
+            "one",
+            "two"
+          ]
+        },
+        "emails": [
+          {
+            "email": "chair@example.test"
+          }
+        ],
+        "isAdmin": true,
+        "price": 0.125,
+        "repositories": [
+          {
+            "id": "one"
+          },
+          {
+            "id": "two"
+          }
+        ],
+        "conference": "Conference",
+        "apiTokens": [
+          {
+            "tokenHash": "synthetic-secret"
+          }
+        ]
+      }
+    ],
+    "expected": "username,email,status,isAdmin,repoCount,dateOfEntry\n\"say \"\"hi\"\"\",chair@example.test,ready,true,2,2028-01-01T00:00:00.000Z",
+    "headers": {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": "attachment; filename=\"users-2030-01-02.csv\""
+    }
+  },
+  {
+    "name": "users/text/\"line\\nnext\"",
+    "kind": "users",
+    "rows": [
+      {
+        "repoId": "line\nnext",
+        "username": "line\nnext",
+        "conferenceID": "sample",
+        "name": "line\nnext",
+        "status": "ready",
+        "statusMessage": "line\nnext",
+        "anonymizeDate": "2029-04-03T01:02:03.456Z",
+        "lastView": "2029-05-01T00:00:00.000Z",
+        "dateOfEntry": "2028-01-01T00:00:00.000Z",
+        "startDate": "2029-01-01T00:00:00.000Z",
+        "endDate": "2031-01-01T00:00:00.000Z",
+        "pageView": 1.5,
+        "size": {
+          "storage": 2.5
+        },
+        "source": {
+          "repositoryName": "team/subgroup/project",
+          "branch": "main",
+          "commit": "opaque:revision",
+          "accessToken": "synthetic-secret"
+        },
+        "options": {
+          "terms": [
+            "one",
+            "two"
+          ]
+        },
+        "emails": [
+          {
+            "email": "chair@example.test"
+          }
+        ],
+        "isAdmin": true,
+        "price": 0.125,
+        "repositories": [
+          {
+            "id": "one"
+          },
+          {
+            "id": "two"
+          }
+        ],
+        "conference": "Conference",
+        "apiTokens": [
+          {
+            "tokenHash": "synthetic-secret"
+          }
+        ]
+      }
+    ],
+    "expected": "username,email,status,isAdmin,repoCount,dateOfEntry\n\"line\nnext\",chair@example.test,ready,true,2,2028-01-01T00:00:00.000Z",
+    "headers": {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": "attachment; filename=\"users-2030-01-02.csv\""
+    }
+  },
+  {
+    "name": "users/text/\"line\\rnext\"",
+    "kind": "users",
+    "rows": [
+      {
+        "repoId": "line\rnext",
+        "username": "line\rnext",
+        "conferenceID": "sample",
+        "name": "line\rnext",
+        "status": "ready",
+        "statusMessage": "line\rnext",
+        "anonymizeDate": "2029-04-03T01:02:03.456Z",
+        "lastView": "2029-05-01T00:00:00.000Z",
+        "dateOfEntry": "2028-01-01T00:00:00.000Z",
+        "startDate": "2029-01-01T00:00:00.000Z",
+        "endDate": "2031-01-01T00:00:00.000Z",
+        "pageView": 1.5,
+        "size": {
+          "storage": 2.5
+        },
+        "source": {
+          "repositoryName": "team/subgroup/project",
+          "branch": "main",
+          "commit": "opaque:revision",
+          "accessToken": "synthetic-secret"
+        },
+        "options": {
+          "terms": [
+            "one",
+            "two"
+          ]
+        },
+        "emails": [
+          {
+            "email": "chair@example.test"
+          }
+        ],
+        "isAdmin": true,
+        "price": 0.125,
+        "repositories": [
+          {
+            "id": "one"
+          },
+          {
+            "id": "two"
+          }
+        ],
+        "conference": "Conference",
+        "apiTokens": [
+          {
+            "tokenHash": "synthetic-secret"
+          }
+        ]
+      }
+    ],
+    "expected": "username,email,status,isAdmin,repoCount,dateOfEntry\n\"line\rnext\",chair@example.test,ready,true,2,2028-01-01T00:00:00.000Z",
+    "headers": {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": "attachment; filename=\"users-2030-01-02.csv\""
+    }
+  },
+  {
+    "name": "users/text/\"back\\\\slash\"",
+    "kind": "users",
+    "rows": [
+      {
+        "repoId": "back\\slash",
+        "username": "back\\slash",
+        "conferenceID": "sample",
+        "name": "back\\slash",
+        "status": "ready",
+        "statusMessage": "back\\slash",
+        "anonymizeDate": "2029-04-03T01:02:03.456Z",
+        "lastView": "2029-05-01T00:00:00.000Z",
+        "dateOfEntry": "2028-01-01T00:00:00.000Z",
+        "startDate": "2029-01-01T00:00:00.000Z",
+        "endDate": "2031-01-01T00:00:00.000Z",
+        "pageView": 1.5,
+        "size": {
+          "storage": 2.5
+        },
+        "source": {
+          "repositoryName": "team/subgroup/project",
+          "branch": "main",
+          "commit": "opaque:revision",
+          "accessToken": "synthetic-secret"
+        },
+        "options": {
+          "terms": [
+            "one",
+            "two"
+          ]
+        },
+        "emails": [
+          {
+            "email": "chair@example.test"
+          }
+        ],
+        "isAdmin": true,
+        "price": 0.125,
+        "repositories": [
+          {
+            "id": "one"
+          },
+          {
+            "id": "two"
+          }
+        ],
+        "conference": "Conference",
+        "apiTokens": [
+          {
+            "tokenHash": "synthetic-secret"
+          }
+        ]
+      }
+    ],
+    "expected": "username,email,status,isAdmin,repoCount,dateOfEntry\nback\\slash,chair@example.test,ready,true,2,2028-01-01T00:00:00.000Z",
+    "headers": {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": "attachment; filename=\"users-2030-01-02.csv\""
+    }
+  },
+  {
+    "name": "users/text/\"é😀\"",
+    "kind": "users",
+    "rows": [
+      {
+        "repoId": "é😀",
+        "username": "é😀",
+        "conferenceID": "sample",
+        "name": "é😀",
+        "status": "ready",
+        "statusMessage": "é😀",
+        "anonymizeDate": "2029-04-03T01:02:03.456Z",
+        "lastView": "2029-05-01T00:00:00.000Z",
+        "dateOfEntry": "2028-01-01T00:00:00.000Z",
+        "startDate": "2029-01-01T00:00:00.000Z",
+        "endDate": "2031-01-01T00:00:00.000Z",
+        "pageView": 1.5,
+        "size": {
+          "storage": 2.5
+        },
+        "source": {
+          "repositoryName": "team/subgroup/project",
+          "branch": "main",
+          "commit": "opaque:revision",
+          "accessToken": "synthetic-secret"
+        },
+        "options": {
+          "terms": [
+            "one",
+            "two"
+          ]
+        },
+        "emails": [
+          {
+            "email": "chair@example.test"
+          }
+        ],
+        "isAdmin": true,
+        "price": 0.125,
+        "repositories": [
+          {
+            "id": "one"
+          },
+          {
+            "id": "two"
+          }
+        ],
+        "conference": "Conference",
+        "apiTokens": [
+          {
+            "tokenHash": "synthetic-secret"
+          }
+        ]
+      }
+    ],
+    "expected": "username,email,status,isAdmin,repoCount,dateOfEntry\né😀,chair@example.test,ready,true,2,2028-01-01T00:00:00.000Z",
+    "headers": {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": "attachment; filename=\"users-2030-01-02.csv\""
+    }
+  },
+  {
+    "name": "users/date/0001-01-01T00:00:00.000Z",
+    "kind": "users",
+    "rows": [
+      {
+        "repoId": "sample",
+        "username": "sample",
+        "conferenceID": "sample",
+        "name": "Conference",
+        "status": "ready",
+        "statusMessage": "Message",
+        "anonymizeDate": "0001-01-01T00:00:00.000Z",
+        "lastView": "0001-01-01T00:00:00.000Z",
+        "dateOfEntry": "0001-01-01T00:00:00.000Z",
+        "startDate": "0001-01-01T00:00:00.000Z",
+        "endDate": "0001-01-01T00:00:00.000Z",
+        "pageView": 1.5,
+        "size": {
+          "storage": 2.5
+        },
+        "source": {
+          "repositoryName": "team/subgroup/project",
+          "branch": "main",
+          "commit": "opaque:revision",
+          "accessToken": "synthetic-secret"
+        },
+        "options": {
+          "terms": [
+            "one",
+            "two"
+          ]
+        },
+        "emails": [
+          {
+            "email": "chair@example.test"
+          }
+        ],
+        "isAdmin": true,
+        "price": 0.125,
+        "repositories": [
+          {
+            "id": "one"
+          },
+          {
+            "id": "two"
+          }
+        ],
+        "conference": "Conference",
+        "apiTokens": [
+          {
+            "tokenHash": "synthetic-secret"
+          }
+        ]
+      }
+    ],
+    "expected": "username,email,status,isAdmin,repoCount,dateOfEntry\nsample,chair@example.test,ready,true,2,0001-01-01T00:00:00.000Z",
+    "headers": {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": "attachment; filename=\"users-2030-01-02.csv\""
+    }
+  },
+  {
+    "name": "users/date/2029-01-01T01:00:00+01:00",
+    "kind": "users",
+    "rows": [
+      {
+        "repoId": "sample",
+        "username": "sample",
+        "conferenceID": "sample",
+        "name": "Conference",
+        "status": "ready",
+        "statusMessage": "Message",
+        "anonymizeDate": "2029-01-01T01:00:00+01:00",
+        "lastView": "2029-01-01T01:00:00+01:00",
+        "dateOfEntry": "2029-01-01T01:00:00+01:00",
+        "startDate": "2029-01-01T01:00:00+01:00",
+        "endDate": "2029-01-01T01:00:00+01:00",
+        "pageView": 1.5,
+        "size": {
+          "storage": 2.5
+        },
+        "source": {
+          "repositoryName": "team/subgroup/project",
+          "branch": "main",
+          "commit": "opaque:revision",
+          "accessToken": "synthetic-secret"
+        },
+        "options": {
+          "terms": [
+            "one",
+            "two"
+          ]
+        },
+        "emails": [
+          {
+            "email": "chair@example.test"
+          }
+        ],
+        "isAdmin": true,
+        "price": 0.125,
+        "repositories": [
+          {
+            "id": "one"
+          },
+          {
+            "id": "two"
+          }
+        ],
+        "conference": "Conference",
+        "apiTokens": [
+          {
+            "tokenHash": "synthetic-secret"
+          }
+        ]
+      }
+    ],
+    "expected": "username,email,status,isAdmin,repoCount,dateOfEntry\nsample,chair@example.test,ready,true,2,2029-01-01T00:00:00.000Z",
+    "headers": {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": "attachment; filename=\"users-2030-01-02.csv\""
+    }
+  },
+  {
+    "name": "users/date/null",
+    "kind": "users",
+    "rows": [
+      {
+        "repoId": "sample",
+        "username": "sample",
+        "conferenceID": "sample",
+        "name": "Conference",
+        "status": "ready",
+        "statusMessage": "Message",
+        "anonymizeDate": null,
+        "lastView": null,
+        "dateOfEntry": null,
+        "startDate": null,
+        "endDate": null,
+        "pageView": 1.5,
+        "size": {
+          "storage": 2.5
+        },
+        "source": {
+          "repositoryName": "team/subgroup/project",
+          "branch": "main",
+          "commit": "opaque:revision",
+          "accessToken": "synthetic-secret"
+        },
+        "options": {
+          "terms": [
+            "one",
+            "two"
+          ]
+        },
+        "emails": [
+          {
+            "email": "chair@example.test"
+          }
+        ],
+        "isAdmin": true,
+        "price": 0.125,
+        "repositories": [
+          {
+            "id": "one"
+          },
+          {
+            "id": "two"
+          }
+        ],
+        "conference": "Conference",
+        "apiTokens": [
+          {
+            "tokenHash": "synthetic-secret"
+          }
+        ]
+      }
+    ],
+    "expected": "username,email,status,isAdmin,repoCount,dateOfEntry\nsample,chair@example.test,ready,true,2,",
+    "headers": {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": "attachment; filename=\"users-2030-01-02.csv\""
+    }
+  },
+  {
+    "name": "users/multiple",
+    "kind": "users",
+    "rows": [
+      {
+        "repoId": "sample",
+        "username": "sample",
+        "conferenceID": "sample",
+        "name": "Conference",
+        "status": "ready",
+        "statusMessage": "Message",
+        "anonymizeDate": "2029-04-03T01:02:03.456Z",
+        "lastView": "2029-05-01T00:00:00.000Z",
+        "dateOfEntry": "2028-01-01T00:00:00.000Z",
+        "startDate": "2029-01-01T00:00:00.000Z",
+        "endDate": "2031-01-01T00:00:00.000Z",
+        "pageView": 1.5,
+        "size": {
+          "storage": 2.5
+        },
+        "source": {
+          "repositoryName": "team/subgroup/project",
+          "branch": "main",
+          "commit": "opaque:revision",
+          "accessToken": "synthetic-secret"
+        },
+        "options": {
+          "terms": [
+            "one",
+            "two"
+          ]
+        },
+        "emails": [
+          {
+            "email": "chair@example.test"
+          }
+        ],
+        "isAdmin": true,
+        "price": 0.125,
+        "repositories": [
+          {
+            "id": "one"
+          },
+          {
+            "id": "two"
+          }
+        ],
+        "conference": "Conference",
+        "apiTokens": [
+          {
+            "tokenHash": "synthetic-secret"
+          }
+        ]
+      },
+      {},
+      {
+        "repoId": "sample",
+        "username": "sample",
+        "conferenceID": "sample",
+        "name": "Conference",
+        "status": "ready",
+        "statusMessage": "Message",
+        "anonymizeDate": "2029-04-03T01:02:03.456Z",
+        "lastView": "2029-05-01T00:00:00.000Z",
+        "dateOfEntry": "2028-01-01T00:00:00.000Z",
+        "startDate": "2029-01-01T00:00:00.000Z",
+        "endDate": "2031-01-01T00:00:00.000Z",
+        "pageView": 1e+21,
+        "size": {
+          "storage": 100000000000000000000
+        },
+        "source": {
+          "repositoryName": "team/subgroup/project",
+          "branch": "main",
+          "commit": "opaque:revision",
+          "accessToken": "synthetic-secret"
+        },
+        "options": {
+          "terms": [
+            "one",
+            "two"
+          ]
+        },
+        "emails": [
+          {
+            "email": "chair@example.test"
+          }
+        ],
+        "isAdmin": true,
+        "price": 1e-7,
+        "repositories": [
+          {
+            "id": "one"
+          },
+          {
+            "id": "two"
+          }
+        ],
+        "conference": "Conference",
+        "apiTokens": [
+          {
+            "tokenHash": "synthetic-secret"
+          }
+        ]
+      }
+    ],
+    "expected": "username,email,status,isAdmin,repoCount,dateOfEntry\nsample,chair@example.test,ready,true,2,2028-01-01T00:00:00.000Z\n,,,false,0,\nsample,chair@example.test,ready,true,2,2028-01-01T00:00:00.000Z",
+    "headers": {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": "attachment; filename=\"users-2030-01-02.csv\""
+    }
+  },
+  {
+    "name": "conferences/empty",
+    "kind": "conferences",
+    "rows": [],
+    "expected": "conferenceID,name,status,price,repoCount,startDate,endDate",
+    "headers": {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": "attachment; filename=\"conferences-2030-01-02.csv\""
+    }
+  },
+  {
+    "name": "conferences/minimal",
+    "kind": "conferences",
+    "rows": [
+      {}
+    ],
+    "expected": "conferenceID,name,status,price,repoCount,startDate,endDate\n,,,0,0,,",
+    "headers": {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": "attachment; filename=\"conferences-2030-01-02.csv\""
+    }
+  },
+  {
+    "name": "conferences/rich",
+    "kind": "conferences",
+    "rows": [
+      {
+        "repoId": "sample",
+        "username": "sample",
+        "conferenceID": "sample",
+        "name": "Conference",
+        "status": "ready",
+        "statusMessage": "Message",
+        "anonymizeDate": "2029-04-03T01:02:03.456Z",
+        "lastView": "2029-05-01T00:00:00.000Z",
+        "dateOfEntry": "2028-01-01T00:00:00.000Z",
+        "startDate": "2029-01-01T00:00:00.000Z",
+        "endDate": "2031-01-01T00:00:00.000Z",
+        "pageView": 1.5,
+        "size": {
+          "storage": 2.5
+        },
+        "source": {
+          "repositoryName": "team/subgroup/project",
+          "branch": "main",
+          "commit": "opaque:revision",
+          "accessToken": "synthetic-secret"
+        },
+        "options": {
+          "terms": [
+            "one",
+            "two"
+          ]
+        },
+        "emails": [
+          {
+            "email": "chair@example.test"
+          }
+        ],
+        "isAdmin": true,
+        "price": 0.125,
+        "repositories": [
+          {
+            "id": "one"
+          },
+          {
+            "id": "two"
+          }
+        ],
+        "conference": "Conference",
+        "apiTokens": [
+          {
+            "tokenHash": "synthetic-secret"
+          }
+        ]
+      }
+    ],
+    "expected": "conferenceID,name,status,price,repoCount,startDate,endDate\nsample,Conference,ready,0.125,2,2029-01-01T00:00:00.000Z,2031-01-01T00:00:00.000Z",
+    "headers": {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": "attachment; filename=\"conferences-2030-01-02.csv\""
+    }
+  },
+  {
+    "name": "conferences/text/\" leading\"",
+    "kind": "conferences",
+    "rows": [
+      {
+        "repoId": " leading",
+        "username": " leading",
+        "conferenceID": "sample",
+        "name": " leading",
+        "status": "ready",
+        "statusMessage": " leading",
+        "anonymizeDate": "2029-04-03T01:02:03.456Z",
+        "lastView": "2029-05-01T00:00:00.000Z",
+        "dateOfEntry": "2028-01-01T00:00:00.000Z",
+        "startDate": "2029-01-01T00:00:00.000Z",
+        "endDate": "2031-01-01T00:00:00.000Z",
+        "pageView": 1.5,
+        "size": {
+          "storage": 2.5
+        },
+        "source": {
+          "repositoryName": "team/subgroup/project",
+          "branch": "main",
+          "commit": "opaque:revision",
+          "accessToken": "synthetic-secret"
+        },
+        "options": {
+          "terms": [
+            "one",
+            "two"
+          ]
+        },
+        "emails": [
+          {
+            "email": "chair@example.test"
+          }
+        ],
+        "isAdmin": true,
+        "price": 0.125,
+        "repositories": [
+          {
+            "id": "one"
+          },
+          {
+            "id": "two"
+          }
+        ],
+        "conference": "Conference",
+        "apiTokens": [
+          {
+            "tokenHash": "synthetic-secret"
+          }
+        ]
+      }
+    ],
+    "expected": "conferenceID,name,status,price,repoCount,startDate,endDate\nsample, leading,ready,0.125,2,2029-01-01T00:00:00.000Z,2031-01-01T00:00:00.000Z",
+    "headers": {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": "attachment; filename=\"conferences-2030-01-02.csv\""
+    }
+  },
+  {
+    "name": "conferences/text/\"trailing \"",
+    "kind": "conferences",
+    "rows": [
+      {
+        "repoId": "trailing ",
+        "username": "trailing ",
+        "conferenceID": "sample",
+        "name": "trailing ",
+        "status": "ready",
+        "statusMessage": "trailing ",
+        "anonymizeDate": "2029-04-03T01:02:03.456Z",
+        "lastView": "2029-05-01T00:00:00.000Z",
+        "dateOfEntry": "2028-01-01T00:00:00.000Z",
+        "startDate": "2029-01-01T00:00:00.000Z",
+        "endDate": "2031-01-01T00:00:00.000Z",
+        "pageView": 1.5,
+        "size": {
+          "storage": 2.5
+        },
+        "source": {
+          "repositoryName": "team/subgroup/project",
+          "branch": "main",
+          "commit": "opaque:revision",
+          "accessToken": "synthetic-secret"
+        },
+        "options": {
+          "terms": [
+            "one",
+            "two"
+          ]
+        },
+        "emails": [
+          {
+            "email": "chair@example.test"
+          }
+        ],
+        "isAdmin": true,
+        "price": 0.125,
+        "repositories": [
+          {
+            "id": "one"
+          },
+          {
+            "id": "two"
+          }
+        ],
+        "conference": "Conference",
+        "apiTokens": [
+          {
+            "tokenHash": "synthetic-secret"
+          }
+        ]
+      }
+    ],
+    "expected": "conferenceID,name,status,price,repoCount,startDate,endDate\nsample,trailing ,ready,0.125,2,2029-01-01T00:00:00.000Z,2031-01-01T00:00:00.000Z",
+    "headers": {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": "attachment; filename=\"conferences-2030-01-02.csv\""
+    }
+  },
+  {
+    "name": "conferences/text/\"a,b\"",
+    "kind": "conferences",
+    "rows": [
+      {
+        "repoId": "a,b",
+        "username": "a,b",
+        "conferenceID": "sample",
+        "name": "a,b",
+        "status": "ready",
+        "statusMessage": "a,b",
+        "anonymizeDate": "2029-04-03T01:02:03.456Z",
+        "lastView": "2029-05-01T00:00:00.000Z",
+        "dateOfEntry": "2028-01-01T00:00:00.000Z",
+        "startDate": "2029-01-01T00:00:00.000Z",
+        "endDate": "2031-01-01T00:00:00.000Z",
+        "pageView": 1.5,
+        "size": {
+          "storage": 2.5
+        },
+        "source": {
+          "repositoryName": "team/subgroup/project",
+          "branch": "main",
+          "commit": "opaque:revision",
+          "accessToken": "synthetic-secret"
+        },
+        "options": {
+          "terms": [
+            "one",
+            "two"
+          ]
+        },
+        "emails": [
+          {
+            "email": "chair@example.test"
+          }
+        ],
+        "isAdmin": true,
+        "price": 0.125,
+        "repositories": [
+          {
+            "id": "one"
+          },
+          {
+            "id": "two"
+          }
+        ],
+        "conference": "Conference",
+        "apiTokens": [
+          {
+            "tokenHash": "synthetic-secret"
+          }
+        ]
+      }
+    ],
+    "expected": "conferenceID,name,status,price,repoCount,startDate,endDate\nsample,\"a,b\",ready,0.125,2,2029-01-01T00:00:00.000Z,2031-01-01T00:00:00.000Z",
+    "headers": {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": "attachment; filename=\"conferences-2030-01-02.csv\""
+    }
+  },
+  {
+    "name": "conferences/text/\"say \\\"hi\\\"\"",
+    "kind": "conferences",
+    "rows": [
+      {
+        "repoId": "say \"hi\"",
+        "username": "say \"hi\"",
+        "conferenceID": "sample",
+        "name": "say \"hi\"",
+        "status": "ready",
+        "statusMessage": "say \"hi\"",
+        "anonymizeDate": "2029-04-03T01:02:03.456Z",
+        "lastView": "2029-05-01T00:00:00.000Z",
+        "dateOfEntry": "2028-01-01T00:00:00.000Z",
+        "startDate": "2029-01-01T00:00:00.000Z",
+        "endDate": "2031-01-01T00:00:00.000Z",
+        "pageView": 1.5,
+        "size": {
+          "storage": 2.5
+        },
+        "source": {
+          "repositoryName": "team/subgroup/project",
+          "branch": "main",
+          "commit": "opaque:revision",
+          "accessToken": "synthetic-secret"
+        },
+        "options": {
+          "terms": [
+            "one",
+            "two"
+          ]
+        },
+        "emails": [
+          {
+            "email": "chair@example.test"
+          }
+        ],
+        "isAdmin": true,
+        "price": 0.125,
+        "repositories": [
+          {
+            "id": "one"
+          },
+          {
+            "id": "two"
+          }
+        ],
+        "conference": "Conference",
+        "apiTokens": [
+          {
+            "tokenHash": "synthetic-secret"
+          }
+        ]
+      }
+    ],
+    "expected": "conferenceID,name,status,price,repoCount,startDate,endDate\nsample,\"say \"\"hi\"\"\",ready,0.125,2,2029-01-01T00:00:00.000Z,2031-01-01T00:00:00.000Z",
+    "headers": {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": "attachment; filename=\"conferences-2030-01-02.csv\""
+    }
+  },
+  {
+    "name": "conferences/text/\"line\\nnext\"",
+    "kind": "conferences",
+    "rows": [
+      {
+        "repoId": "line\nnext",
+        "username": "line\nnext",
+        "conferenceID": "sample",
+        "name": "line\nnext",
+        "status": "ready",
+        "statusMessage": "line\nnext",
+        "anonymizeDate": "2029-04-03T01:02:03.456Z",
+        "lastView": "2029-05-01T00:00:00.000Z",
+        "dateOfEntry": "2028-01-01T00:00:00.000Z",
+        "startDate": "2029-01-01T00:00:00.000Z",
+        "endDate": "2031-01-01T00:00:00.000Z",
+        "pageView": 1.5,
+        "size": {
+          "storage": 2.5
+        },
+        "source": {
+          "repositoryName": "team/subgroup/project",
+          "branch": "main",
+          "commit": "opaque:revision",
+          "accessToken": "synthetic-secret"
+        },
+        "options": {
+          "terms": [
+            "one",
+            "two"
+          ]
+        },
+        "emails": [
+          {
+            "email": "chair@example.test"
+          }
+        ],
+        "isAdmin": true,
+        "price": 0.125,
+        "repositories": [
+          {
+            "id": "one"
+          },
+          {
+            "id": "two"
+          }
+        ],
+        "conference": "Conference",
+        "apiTokens": [
+          {
+            "tokenHash": "synthetic-secret"
+          }
+        ]
+      }
+    ],
+    "expected": "conferenceID,name,status,price,repoCount,startDate,endDate\nsample,\"line\nnext\",ready,0.125,2,2029-01-01T00:00:00.000Z,2031-01-01T00:00:00.000Z",
+    "headers": {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": "attachment; filename=\"conferences-2030-01-02.csv\""
+    }
+  },
+  {
+    "name": "conferences/text/\"line\\rnext\"",
+    "kind": "conferences",
+    "rows": [
+      {
+        "repoId": "line\rnext",
+        "username": "line\rnext",
+        "conferenceID": "sample",
+        "name": "line\rnext",
+        "status": "ready",
+        "statusMessage": "line\rnext",
+        "anonymizeDate": "2029-04-03T01:02:03.456Z",
+        "lastView": "2029-05-01T00:00:00.000Z",
+        "dateOfEntry": "2028-01-01T00:00:00.000Z",
+        "startDate": "2029-01-01T00:00:00.000Z",
+        "endDate": "2031-01-01T00:00:00.000Z",
+        "pageView": 1.5,
+        "size": {
+          "storage": 2.5
+        },
+        "source": {
+          "repositoryName": "team/subgroup/project",
+          "branch": "main",
+          "commit": "opaque:revision",
+          "accessToken": "synthetic-secret"
+        },
+        "options": {
+          "terms": [
+            "one",
+            "two"
+          ]
+        },
+        "emails": [
+          {
+            "email": "chair@example.test"
+          }
+        ],
+        "isAdmin": true,
+        "price": 0.125,
+        "repositories": [
+          {
+            "id": "one"
+          },
+          {
+            "id": "two"
+          }
+        ],
+        "conference": "Conference",
+        "apiTokens": [
+          {
+            "tokenHash": "synthetic-secret"
+          }
+        ]
+      }
+    ],
+    "expected": "conferenceID,name,status,price,repoCount,startDate,endDate\nsample,\"line\rnext\",ready,0.125,2,2029-01-01T00:00:00.000Z,2031-01-01T00:00:00.000Z",
+    "headers": {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": "attachment; filename=\"conferences-2030-01-02.csv\""
+    }
+  },
+  {
+    "name": "conferences/text/\"back\\\\slash\"",
+    "kind": "conferences",
+    "rows": [
+      {
+        "repoId": "back\\slash",
+        "username": "back\\slash",
+        "conferenceID": "sample",
+        "name": "back\\slash",
+        "status": "ready",
+        "statusMessage": "back\\slash",
+        "anonymizeDate": "2029-04-03T01:02:03.456Z",
+        "lastView": "2029-05-01T00:00:00.000Z",
+        "dateOfEntry": "2028-01-01T00:00:00.000Z",
+        "startDate": "2029-01-01T00:00:00.000Z",
+        "endDate": "2031-01-01T00:00:00.000Z",
+        "pageView": 1.5,
+        "size": {
+          "storage": 2.5
+        },
+        "source": {
+          "repositoryName": "team/subgroup/project",
+          "branch": "main",
+          "commit": "opaque:revision",
+          "accessToken": "synthetic-secret"
+        },
+        "options": {
+          "terms": [
+            "one",
+            "two"
+          ]
+        },
+        "emails": [
+          {
+            "email": "chair@example.test"
+          }
+        ],
+        "isAdmin": true,
+        "price": 0.125,
+        "repositories": [
+          {
+            "id": "one"
+          },
+          {
+            "id": "two"
+          }
+        ],
+        "conference": "Conference",
+        "apiTokens": [
+          {
+            "tokenHash": "synthetic-secret"
+          }
+        ]
+      }
+    ],
+    "expected": "conferenceID,name,status,price,repoCount,startDate,endDate\nsample,back\\slash,ready,0.125,2,2029-01-01T00:00:00.000Z,2031-01-01T00:00:00.000Z",
+    "headers": {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": "attachment; filename=\"conferences-2030-01-02.csv\""
+    }
+  },
+  {
+    "name": "conferences/text/\"é😀\"",
+    "kind": "conferences",
+    "rows": [
+      {
+        "repoId": "é😀",
+        "username": "é😀",
+        "conferenceID": "sample",
+        "name": "é😀",
+        "status": "ready",
+        "statusMessage": "é😀",
+        "anonymizeDate": "2029-04-03T01:02:03.456Z",
+        "lastView": "2029-05-01T00:00:00.000Z",
+        "dateOfEntry": "2028-01-01T00:00:00.000Z",
+        "startDate": "2029-01-01T00:00:00.000Z",
+        "endDate": "2031-01-01T00:00:00.000Z",
+        "pageView": 1.5,
+        "size": {
+          "storage": 2.5
+        },
+        "source": {
+          "repositoryName": "team/subgroup/project",
+          "branch": "main",
+          "commit": "opaque:revision",
+          "accessToken": "synthetic-secret"
+        },
+        "options": {
+          "terms": [
+            "one",
+            "two"
+          ]
+        },
+        "emails": [
+          {
+            "email": "chair@example.test"
+          }
+        ],
+        "isAdmin": true,
+        "price": 0.125,
+        "repositories": [
+          {
+            "id": "one"
+          },
+          {
+            "id": "two"
+          }
+        ],
+        "conference": "Conference",
+        "apiTokens": [
+          {
+            "tokenHash": "synthetic-secret"
+          }
+        ]
+      }
+    ],
+    "expected": "conferenceID,name,status,price,repoCount,startDate,endDate\nsample,é😀,ready,0.125,2,2029-01-01T00:00:00.000Z,2031-01-01T00:00:00.000Z",
+    "headers": {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": "attachment; filename=\"conferences-2030-01-02.csv\""
+    }
+  },
+  {
+    "name": "conferences/date/0001-01-01T00:00:00.000Z",
+    "kind": "conferences",
+    "rows": [
+      {
+        "repoId": "sample",
+        "username": "sample",
+        "conferenceID": "sample",
+        "name": "Conference",
+        "status": "ready",
+        "statusMessage": "Message",
+        "anonymizeDate": "0001-01-01T00:00:00.000Z",
+        "lastView": "0001-01-01T00:00:00.000Z",
+        "dateOfEntry": "0001-01-01T00:00:00.000Z",
+        "startDate": "0001-01-01T00:00:00.000Z",
+        "endDate": "0001-01-01T00:00:00.000Z",
+        "pageView": 1.5,
+        "size": {
+          "storage": 2.5
+        },
+        "source": {
+          "repositoryName": "team/subgroup/project",
+          "branch": "main",
+          "commit": "opaque:revision",
+          "accessToken": "synthetic-secret"
+        },
+        "options": {
+          "terms": [
+            "one",
+            "two"
+          ]
+        },
+        "emails": [
+          {
+            "email": "chair@example.test"
+          }
+        ],
+        "isAdmin": true,
+        "price": 0.125,
+        "repositories": [
+          {
+            "id": "one"
+          },
+          {
+            "id": "two"
+          }
+        ],
+        "conference": "Conference",
+        "apiTokens": [
+          {
+            "tokenHash": "synthetic-secret"
+          }
+        ]
+      }
+    ],
+    "expected": "conferenceID,name,status,price,repoCount,startDate,endDate\nsample,Conference,ready,0.125,2,0001-01-01T00:00:00.000Z,0001-01-01T00:00:00.000Z",
+    "headers": {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": "attachment; filename=\"conferences-2030-01-02.csv\""
+    }
+  },
+  {
+    "name": "conferences/date/2029-01-01T01:00:00+01:00",
+    "kind": "conferences",
+    "rows": [
+      {
+        "repoId": "sample",
+        "username": "sample",
+        "conferenceID": "sample",
+        "name": "Conference",
+        "status": "ready",
+        "statusMessage": "Message",
+        "anonymizeDate": "2029-01-01T01:00:00+01:00",
+        "lastView": "2029-01-01T01:00:00+01:00",
+        "dateOfEntry": "2029-01-01T01:00:00+01:00",
+        "startDate": "2029-01-01T01:00:00+01:00",
+        "endDate": "2029-01-01T01:00:00+01:00",
+        "pageView": 1.5,
+        "size": {
+          "storage": 2.5
+        },
+        "source": {
+          "repositoryName": "team/subgroup/project",
+          "branch": "main",
+          "commit": "opaque:revision",
+          "accessToken": "synthetic-secret"
+        },
+        "options": {
+          "terms": [
+            "one",
+            "two"
+          ]
+        },
+        "emails": [
+          {
+            "email": "chair@example.test"
+          }
+        ],
+        "isAdmin": true,
+        "price": 0.125,
+        "repositories": [
+          {
+            "id": "one"
+          },
+          {
+            "id": "two"
+          }
+        ],
+        "conference": "Conference",
+        "apiTokens": [
+          {
+            "tokenHash": "synthetic-secret"
+          }
+        ]
+      }
+    ],
+    "expected": "conferenceID,name,status,price,repoCount,startDate,endDate\nsample,Conference,ready,0.125,2,2029-01-01T00:00:00.000Z,2029-01-01T00:00:00.000Z",
+    "headers": {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": "attachment; filename=\"conferences-2030-01-02.csv\""
+    }
+  },
+  {
+    "name": "conferences/date/null",
+    "kind": "conferences",
+    "rows": [
+      {
+        "repoId": "sample",
+        "username": "sample",
+        "conferenceID": "sample",
+        "name": "Conference",
+        "status": "ready",
+        "statusMessage": "Message",
+        "anonymizeDate": null,
+        "lastView": null,
+        "dateOfEntry": null,
+        "startDate": null,
+        "endDate": null,
+        "pageView": 1.5,
+        "size": {
+          "storage": 2.5
+        },
+        "source": {
+          "repositoryName": "team/subgroup/project",
+          "branch": "main",
+          "commit": "opaque:revision",
+          "accessToken": "synthetic-secret"
+        },
+        "options": {
+          "terms": [
+            "one",
+            "two"
+          ]
+        },
+        "emails": [
+          {
+            "email": "chair@example.test"
+          }
+        ],
+        "isAdmin": true,
+        "price": 0.125,
+        "repositories": [
+          {
+            "id": "one"
+          },
+          {
+            "id": "two"
+          }
+        ],
+        "conference": "Conference",
+        "apiTokens": [
+          {
+            "tokenHash": "synthetic-secret"
+          }
+        ]
+      }
+    ],
+    "expected": "conferenceID,name,status,price,repoCount,startDate,endDate\nsample,Conference,ready,0.125,2,,",
+    "headers": {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": "attachment; filename=\"conferences-2030-01-02.csv\""
+    }
+  },
+  {
+    "name": "conferences/multiple",
+    "kind": "conferences",
+    "rows": [
+      {
+        "repoId": "sample",
+        "username": "sample",
+        "conferenceID": "sample",
+        "name": "Conference",
+        "status": "ready",
+        "statusMessage": "Message",
+        "anonymizeDate": "2029-04-03T01:02:03.456Z",
+        "lastView": "2029-05-01T00:00:00.000Z",
+        "dateOfEntry": "2028-01-01T00:00:00.000Z",
+        "startDate": "2029-01-01T00:00:00.000Z",
+        "endDate": "2031-01-01T00:00:00.000Z",
+        "pageView": 1.5,
+        "size": {
+          "storage": 2.5
+        },
+        "source": {
+          "repositoryName": "team/subgroup/project",
+          "branch": "main",
+          "commit": "opaque:revision",
+          "accessToken": "synthetic-secret"
+        },
+        "options": {
+          "terms": [
+            "one",
+            "two"
+          ]
+        },
+        "emails": [
+          {
+            "email": "chair@example.test"
+          }
+        ],
+        "isAdmin": true,
+        "price": 0.125,
+        "repositories": [
+          {
+            "id": "one"
+          },
+          {
+            "id": "two"
+          }
+        ],
+        "conference": "Conference",
+        "apiTokens": [
+          {
+            "tokenHash": "synthetic-secret"
+          }
+        ]
+      },
+      {},
+      {
+        "repoId": "sample",
+        "username": "sample",
+        "conferenceID": "sample",
+        "name": "Conference",
+        "status": "ready",
+        "statusMessage": "Message",
+        "anonymizeDate": "2029-04-03T01:02:03.456Z",
+        "lastView": "2029-05-01T00:00:00.000Z",
+        "dateOfEntry": "2028-01-01T00:00:00.000Z",
+        "startDate": "2029-01-01T00:00:00.000Z",
+        "endDate": "2031-01-01T00:00:00.000Z",
+        "pageView": 1e+21,
+        "size": {
+          "storage": 100000000000000000000
+        },
+        "source": {
+          "repositoryName": "team/subgroup/project",
+          "branch": "main",
+          "commit": "opaque:revision",
+          "accessToken": "synthetic-secret"
+        },
+        "options": {
+          "terms": [
+            "one",
+            "two"
+          ]
+        },
+        "emails": [
+          {
+            "email": "chair@example.test"
+          }
+        ],
+        "isAdmin": true,
+        "price": 1e-7,
+        "repositories": [
+          {
+            "id": "one"
+          },
+          {
+            "id": "two"
+          }
+        ],
+        "conference": "Conference",
+        "apiTokens": [
+          {
+            "tokenHash": "synthetic-secret"
+          }
+        ]
+      }
+    ],
+    "expected": "conferenceID,name,status,price,repoCount,startDate,endDate\nsample,Conference,ready,0.125,2,2029-01-01T00:00:00.000Z,2031-01-01T00:00:00.000Z\n,,,0,0,,\nsample,Conference,ready,1e-7,2,2029-01-01T00:00:00.000Z,2031-01-01T00:00:00.000Z",
+    "headers": {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": "attachment; filename=\"conferences-2030-01-02.csv\""
+    }
+  }
+]

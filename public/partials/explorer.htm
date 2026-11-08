@@ -1,4 +1,38 @@
-<div class="explorer-page">
+<div class="explorer-page" :class="{ 'files-hidden': sidebarHidden }" :style="{ '--sidebar-w': sidebarWidth + 'px' }">
+  <header class="viewer-bar">
+    <div class="vb-left">
+      <a class="vb-logo" href="/">Anonymous <em>GitHub</em></a>
+      <button type="button" class="vb-icon vb-sidebar" :aria-label="sidebarHidden ? 'Show file tree' : 'Hide file tree'" :title="sidebarHidden ? 'Show file tree' : 'Hide file tree'" @click="sidebarHidden = !sidebarHidden"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-sidebar"></use></svg></button>
+    </div>
+    <div class="vb-right">
+      <span class="vb-snapshot" v-if="options?.sourceCommitDate || options?.anonymizedAt || options?.lastUpdateDate" :title="(options?.expirationDate ? 'Available until ' + fmt?.date(options.expirationDate) + '. ' : '') + ((options?.anonymizedAt &amp;&amp; !options?.publishedAt) ? 'Older repositories have no recorded publication date. The source commit date does not establish when files became available here.' : ((options?.sourceCommitDate ? 'Source commit ' : options?.anonymizedAt ? 'Anonymized ' : 'Updated ') + fmt?.date(options?.sourceCommitDate || options?.anonymizedAt || options?.lastUpdateDate) + (options?.publishedAt ? ' · snapshot ready ' + fmt?.date(options.publishedAt) : '')))">
+        <svg class="ui-icon" aria-hidden="true"><use href="#project-icon-clock"></use></svg><span>Snapshot</span><span class="vb-dot" aria-hidden="true">·</span><span>{{ fmt?.date(options?.publishedAt || options?.sourceCommitDate || options?.anonymizedAt || options?.lastUpdateDate) }}</span>
+      </span>
+      <a class="vb-support" href="https://ko-fi.com/tdurieux" target="_blank" rel="noopener" title="Support Anonymous GitHub — help keep it free for researchers"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-heart"></use></svg><span>Support</span></a>
+      <div class="vb-help">
+        <button type="button" class="vb-help-btn" aria-haspopup="true" :aria-expanded="helpOpen ? 'true' : 'false'" @click.stop="helpOpen = !helpOpen"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-help"></use></svg><span>Help</span></button>
+        <div class="acct-menu vb-help-menu" v-if="helpOpen" role="menu">
+          <a role="menuitem" href="/faq"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-help"></use></svg><span>FAQ<small>How anonymization works</small></span></a>
+          <a role="menuitem" href="https://github.com/tdurieux/anonymous_github/issues/new?template=issue_report.yml" target="_blank" rel="noopener"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-bug"></use></svg><span>Report a bug<small>About this service, not the paper</small></span></a>
+        </div>
+      </div>
+      <button type="button" class="vb-icon" :aria-label="isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'" :title="isDarkMode ? 'Light mode' : 'Dark mode'" @click="darkMode(!isDarkMode)"><svg class="ui-icon" aria-hidden="true"><use :href="isDarkMode ? '#ui-icon-sun' : '#ui-icon-moon'"></use></svg></button>
+      <div class="acct" v-if="user">
+        <button type="button" class="acct-chip" aria-haspopup="true" :aria-label="'Account: ' + user?.username" :aria-expanded="accountOpen ? 'true' : 'false'" @click.stop="accountOpen = !accountOpen">
+          <img v-if="user?.photo" :src="safeUrl(user.photo)" alt="" width="26" height="26">
+          <span v-else class="acct-initial">{{ (user?.username || '?').charAt(0).toUpperCase() }}</span>
+        </button>
+        <div class="acct-menu" v-if="accountOpen" role="menu">
+          <div class="acct-menu-head">Signed in as <b>@{{ user?.username }}</b></div>
+          <a role="menuitem" href="/dashboard"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-grid"></use></svg>My work</a>
+          <a role="menuitem" href="/profile"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-user"></use></svg>Settings</a>
+          <a role="menuitem" href="/api/user/logout" target="_self"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-logout"></use></svg>Sign out</a>
+        </div>
+      </div>
+      <a class="vb-signin" v-else href="/signin" target="_self"><i class="fab fa-github" aria-hidden="true"></i>Sign in</a>
+    </div>
+  </header>
+
   <button class="sidebar-toggle" v-show="files?.length" @click="sidebarCollapsed = !sidebarCollapsed" :aria-label="(sidebarCollapsed ? &#x27;Show files&#x27; : &#x27;Hide files&#x27;)">
     <svg class="ui-icon" aria-hidden="true"><use :href="sidebarCollapsed ? '#ui-icon-folder' : '#project-icon-close'"></use></svg>
     <span v-text="sidebarCollapsed ? &#x27;Files&#x27; : &#x27;Close&#x27;"></span>
@@ -18,14 +52,7 @@
         <kbd class="tree-search-kbd" v-show="!(fileSearchQuery)">{{ isMac ? '⌘' : 'Ctrl+' }}K</kbd>
         <button class="tree-search-clear" aria-label="Clear search" v-show="fileSearchQuery" @click="fileSearchQuery = &#x27;&#x27;; onFileSearchChange()">&times;</button>
       </div>
-    </div>
-    <div class="leftCol-project-header">
-      <span class="project-name" v-text="repoId" :title="repoId"></span>
-      <span class="project-file-count" v-if="fileCounts?.[''] != null">{{ fileCounts[''] }} files</span>
-      <span class="project-expiry" v-if="options?.expirationDate" :title="options.expirationDate">
-        <svg class="ui-icon" aria-hidden="true"><use href="#project-icon-clock"></use></svg>
-        Available until {{ fmt?.date(options.expirationDate) }}
-      </span>
+      <a target="_self" class="search-zip" v-if="options?.download" aria-label="Download repository as ZIP" :title="'Download the repository (snapshot ' + fmt?.date(options?.sourceCommitDate || options?.anonymizedAt || options?.lastUpdateDate) + ') as ZIP'" :href="safeUrl(&quot;/api/repo/&quot; + (repoId) + &quot;/zip&quot;)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-download"></use></svg></a>
     </div>
     <div class="leftCol-body">
       <div class="paper-inline-warning" role="alert" v-if="options?.truncatedFolders?.length &gt; 0">
@@ -38,29 +65,21 @@
       </div>
       <tree class="files" :file="files" :search-query="fileSearchQuery" :search-results="fileSearchResults" :page="viewState"></tree>
     </div>
-    <div class="leftCol-foot">
-      <span class="last-update" :title="options?.sourceCommitDate || options?.anonymizedAt || options?.lastUpdateDate">
-        {{ options?.sourceCommitDate ? 'Source commit' : options?.anonymizedAt ? 'Anonymized' : 'Updated' }} {{ fmt?.date(options?.sourceCommitDate || options?.anonymizedAt || options?.lastUpdateDate) }}
-      </span>
-      <span class="last-update" v-if="options?.settingsSavedAt" :title="options.settingsSavedAt">
-        Settings saved {{ fmt?.date(options.settingsSavedAt) }}
-      </span>
-      <span class="last-update" v-if="options?.publishedAt" :title="options.publishedAt">
-        Snapshot ready {{ fmt?.date(options.publishedAt) }}
-      </span>
-      <span class="last-update" v-if="options?.anonymizedAt &amp;&amp; !options?.publishedAt" title="Older repositories have no recorded publication date. The source commit date does not establish when files became available here.">
-        Snapshot ready date not recorded
-      </span>
-    </div>
   </div>
 
+  <div class="leftCol-resizer" v-show="files?.length &amp;&amp; !sidebarHidden" role="separator" aria-orientation="vertical" aria-label="Resize file tree" title="Drag to resize" @pointerdown="startSidebarResize($event)"></div>
   <div class="leftCol-backdrop" v-show="files?.length &amp;&amp; !sidebarCollapsed" @click="sidebarCollapsed = true"></div>
 
   <div class="explorer-main">
-    <div class="status-bar" v-show="type != &#x27;error&#x27; || files?.length">
+    <div class="status-bar" v-show="type != 'error' || files?.length" :class="{ 'is-redundant': ['code', 'text', 'html'].includes(type) &amp;&amp; content != null &amp;&amp; !(options?.isAdmin || options?.isOwner || options?.hasWebsite) }">
+      <button type="button" class="btn btn-sm status-files-btn" v-show="files?.length" aria-label="Show files" title="Show files" @click="sidebarHidden ? (sidebarHidden = false) : (sidebarCollapsed = false)">
+        <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-folder"></use></svg><span>Files</span>
+      </button>
       <ol class="breadcrumb paths" aria-label="Path">
-        <li class="breadcrumb-item" v-for="(p, index) in paths" v-text="p"></li>
+        <li class="breadcrumb-item breadcrumb-root"><a :href="safeUrl('/r/' + repoId + '/')" :title="repoId" v-text="/^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(repoId || '') ? 'repository' : repoId"></a></li>
+        <li class="breadcrumb-item" v-for="(p, index) in paths" :aria-current="index === paths.length - 1 ? 'page' : null" v-text="p"></li>
       </ol>
+      <button type="button" class="btn btn-sm btn-icon-only btn-ghost copy-path-btn" v-show="filePath" :aria-label="pathCopied ? 'Path copied' : 'Copy path'" :title="pathCopied ? 'Path copied' : 'Copy path'" @click="copyPath()"><svg class="ui-icon" aria-hidden="true"><use :href="pathCopied ? '#ui-icon-check' : '#project-icon-copy'"></use></svg></button>
       <div class="status-bar-actions">
         <a class="btn btn-sm" aria-label="Edit" v-if="options?.isAdmin || options?.isOwner" :href="safeUrl(&quot;/anonymize/&quot; + (repoId))"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-edit"></use></svg><span class="d-none d-md-inline"> Edit</span></a>
         <button class="btn btn-sm" aria-label="Allow this document to run JavaScript" title="Scripts in this file are blocked by default. Enable them only if you trust the repository — the document stays isolated from your session either way." v-if="type == &#x27;html-doc&#x27; &amp;&amp; !showSource" :class="{&#x27;btn-active&#x27;: allowScripts}" @click="toggleAllowScripts()">
@@ -71,9 +90,6 @@
           <svg class="ui-icon" aria-hidden="true"><use :href="showSource ? '#project-icon-eye' : '#ui-icon-code'"></use></svg><span class="d-none d-md-inline">
             {{ showSource ? "Rendered" : "Source" }}</span>
         </button>
-        <a target="_self" class="btn btn-sm btn-icon-only" aria-label="View raw current file" title="View raw file" v-show="content != null &amp;&amp; type != &#x27;error&#x27; &amp;&amp; type != &#x27;rate_limited&#x27;" :href="safeUrl((url))"><svg class="ui-icon" aria-hidden="true"><use href="#project-icon-file"></use></svg></a>
-        <a target="_self" class="btn btn-sm btn-icon-only" aria-label="Download current file" title="Download this file" v-show="content != null &amp;&amp; type != &#x27;error&#x27; &amp;&amp; type != &#x27;rate_limited&#x27;" :href="safeUrl((url) + &quot;&amp;download=true&quot;)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-download"></use></svg></a>
-        <a target="_self" class="btn btn-sm btn-ink" aria-label="Download repository as ZIP" title="Download the whole repository as a ZIP archive" v-if="options?.download" :href="safeUrl(&quot;/api/repo/&quot; + (repoId) + &quot;/zip&quot;)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-archive"></use></svg><span class="d-none d-md-inline"> Download repository</span></a>
         <a target="_self" class="btn btn-sm" aria-label="Website" v-if="options?.hasWebsite" :href="safeUrl(&quot;/w/&quot; + (repoId) + &quot;/&quot;)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-globe"></use></svg><span class="d-none d-md-inline"> Website</span></a>
       </div>
     </div>

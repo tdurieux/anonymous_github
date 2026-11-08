@@ -1,0 +1,119 @@
+{
+  "historicalFailure": {
+    "requestID": "974a5480-48d8-47f8-8fa2-443ace1a1c95",
+    "elapsedMs": 43612,
+    "bytesSent": 12425955,
+    "cause": "Unknown: old logs recorded interruption without a cause. Neither new fix is claimed as the proven cause of this exact request."
+  },
+  "archiveSize": {
+    "uncompressedBytes": 36104569,
+    "publicAssetsCompressedBytes": 11954860,
+    "largestEntries": [
+      {
+        "name": "public/script/external/mermaid.min.js",
+        "compressedBytes": 1647663,
+        "uncompressedBytes": 5494262
+      },
+      {
+        "name": "public/script/mermaid.min.js",
+        "compressedBytes": 1647663,
+        "uncompressedBytes": 5494262
+      },
+      {
+        "name": "public/script/markdown.min.js",
+        "compressedBytes": 323605,
+        "uncompressedBytes": 995410
+      },
+      {
+        "name": "public/script/external/pdf.worker.js",
+        "compressedBytes": 319085,
+        "uncompressedBytes": 1133581
+      },
+      {
+        "name": "public/script/external/ace/worker-xquery.js",
+        "compressedBytes": 277003,
+        "uncompressedBytes": 1624214
+      },
+      {
+        "name": "public/fonts/fa-solid-900.svg",
+        "compressedBytes": 267895,
+        "uncompressedBytes": 918991
+      },
+      {
+        "name": "public/fonts/fa-brands-400.svg",
+        "compressedBytes": 263631,
+        "uncompressedBytes": 747927
+      },
+      {
+        "name": "public/script/vendor.min.js",
+        "compressedBytes": 185730,
+        "uncompressedBytes": 660232
+      },
+      {
+        "name": "public/script/external/ace/worker-javascript.js",
+        "compressedBytes": 181291,
+        "uncompressedBytes": 506890
+      },
+      {
+        "name": "public/imgs/screenshot.png",
+        "compressedBytes": 167036,
+        "uncompressedBytes": 178933
+      }
+    ],
+    "explanation": "The archive includes tracked frontend libraries/assets, including two Mermaid bundles. No tracked files were removed."
+  },
+  "fixes": [
+    "ZIP-only 30-minute request deadline; ordinary APIs retain two minutes",
+    "Rolling one-minute socket write deadline; stalled sockets still time out",
+    "Worker execution and memory reservations released once output is on disk, before slow readers close it; cold and cached paths covered",
+    "Stream interruption logs carry request ID, stage and fixed safe reason"
+  ],
+  "downloads": [
+    {
+      "name": "check",
+      "files": 1128,
+      "bytes": 13044565,
+      "seconds": 48.593654,
+      "crcVerified": true,
+      "manifestSHA256": "3e1811510fe90fe26ec4287cd4ce84639b22f4d1bc28cc796cd12a2c49bee277"
+    },
+    {
+      "name": "slow",
+      "files": 1128,
+      "bytes": 13044625,
+      "seconds": 197.412186,
+      "crcVerified": true,
+      "manifestSHA256": "3e1811510fe90fe26ec4287cd4ce84639b22f4d1bc28cc796cd12a2c49bee277"
+    },
+    {
+      "name": "concurrent",
+      "files": 1128,
+      "bytes": 13044598,
+      "seconds": 89.78183,
+      "crcVerified": true,
+      "manifestSHA256": "3e1811510fe90fe26ec4287cd4ce84639b22f4d1bc28cc796cd12a2c49bee277"
+    },
+    {
+      "name": "final",
+      "files": 1128,
+      "bytes": 13044462,
+      "seconds": 42.10229,
+      "crcVerified": true,
+      "manifestSHA256": "3e1811510fe90fe26ec4287cd4ce84639b22f4d1bc28cc796cd12a2c49bee277"
+    }
+  ],
+  "validation": {
+    "scope": "Slow and concurrent downloads tested timeout-fix image 35390fac; final full download and 133 App checks tested final worker-admission-fix image below.",
+    "slowDownload": "Direct origin, capped at 64 KiB/s, concurrent with public CDN download",
+    "raceTests": "passed: ZIP streaming/cancellation/corruption/revocation, socket deadlines, stalled clients, worker/cache admission and shared result/HTTP caches",
+    "vet": "passed",
+    "liveChecks": 133,
+    "temporaryKeyRevoked": true,
+    "testRepositoryRemoved": true
+  },
+  "deployment": {
+    "hostname": "beta.durieux.me",
+    "image": "sha256:0244d37165a8b1217a9518219727920e56c48647cb2d5f138c197e949761db6c",
+    "healthy": true
+  }
+}

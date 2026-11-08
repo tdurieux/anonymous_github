@@ -1,0 +1,10 @@
+'use strict';
+const fs=require('node:fs'),ts=require('typescript'),assert=require('node:assert/strict');
+const file=ts.createSourceFile('Repository.ts',fs.readFileSync('src/core/Repository.ts','utf8'),ts.ScriptTarget.Latest,true);
+const fn=file.statements.find(n=>ts.isFunctionDeclaration(n)&&n.name?.text==='anonymizeTreeRecursive');
+const run=new Function('compileTerms','anonymizePathCompiled','sha1',ts.transpile(fn.getText(file)+'; return anonymizeTreeRecursive;',{target:ts.ScriptTarget.ES2022}))(()=>[],s=>s,require('crypto-js/sha1'));
+const files=[{name:'normal',path:'',size:12,sha:'abc'},{name:'missing-sha',path:'',size:1},{name:'empty',path:'',size:0,sha:'abc'},{name:'folder',path:''}];
+const output=JSON.stringify({files,expected:run(files,[],{includeSha:false})},null,2)+'\n';
+const dest='backend/internal/server/testdata/folder-listing.json';
+if(process.argv.includes('--check'))assert.equal(fs.readFileSync(dest,'utf8'),output);else fs.writeFileSync(dest,output);
+console.log('4 actual TypeScript folder-listing output contracts verified');

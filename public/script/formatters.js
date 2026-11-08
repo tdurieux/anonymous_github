@@ -15,19 +15,22 @@ export const humanTime = (function () {
       if (!seconds) {
         return "never";
       }
-      if (seconds instanceof Date)
+      var when = null;
+      if (seconds instanceof Date) {
+        when = seconds;
         seconds = Math.round((Date.now() - seconds) / 1000);
-      if (typeof seconds == "string" || typeof seconds == "number")
-        seconds = Math.round((Date.now() - new Date(seconds)) / 1000);
+      }
+      if (typeof seconds == "string" || typeof seconds == "number") {
+        when = new Date(seconds);
+        seconds = Math.round((Date.now() - when) / 1000);
+      }
       var suffix = seconds < 0 ? "from now" : "ago";
 
       // more than 2 days ago display Date. Spell the month out so the date
       // is unambiguous regardless of the reader's locale (9/6 vs 6/9).
       if (Math.abs(seconds) > 2 * 60 * 60 * 24) {
-        const now = new Date();
-        now.setSeconds(now.getSeconds() - seconds);
+        const now = when && !isNaN(when) ? when : new Date(Date.now() - seconds * 1000);
         return (
-          "on " +
           now.toLocaleDateString(undefined, {
             day: "numeric",
             month: "short",

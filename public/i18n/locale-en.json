@@ -6,7 +6,7 @@
     "owner_help": "Own this repository? If your GitHub account was suspended or recently recovered, sign in to Anonymous GitHub again and check the GitHub connection and repository permissions in your dashboard. Then retry this page. Keep the existing anonymous URL; do not delete the repository to restore access.",
     "retry": "Try again",
     "dashboard": "Open owner dashboard"
-},
+  },
   "ERRORS": {
     "cache_busy": "Downloads are busy. Please try again shortly.",
     "invalid_sort": "The selected sort order is invalid.",
@@ -177,5 +177,10 @@
     "folder_truncated": "This folder has more than 10,000 entries; only a partial listing is shown.",
     "repo_truncated": "Some folders in this repository have too many files to be fully listed. Affected folders are marked with a warning icon.",
     "submodules_not_included": "Some submodule contents could not be included. Only direct public GitHub submodules within the size limits are supported. Private, external, nested, or unavailable submodules appear as empty folders."
+  },
+  "VIEWER_LOADING": {
+    "loading": "Loading file…",
+    "receiving": "Receiving file…",
+    "slow": "Still loading. You can select another file while you wait."
   }
 }

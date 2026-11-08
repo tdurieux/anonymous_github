@@ -1,0 +1,273 @@
+[
+  {
+    "user": {
+      "_id": "local-owner",
+      "externalIDs": {}
+    },
+    "expected": {
+      "$or": [
+        {
+          "owner": "local-owner"
+        }
+      ]
+    }
+  },
+  {
+    "user": {
+      "_id": "local-owner",
+      "externalIDs": {
+        "github": null
+      }
+    },
+    "expected": {
+      "$or": [
+        {
+          "owner": "local-owner"
+        }
+      ]
+    }
+  },
+  {
+    "user": {
+      "_id": "local-owner",
+      "externalIDs": {
+        "github": ""
+      }
+    },
+    "expected": {
+      "$or": [
+        {
+          "owner": "local-owner"
+        }
+      ]
+    }
+  },
+  {
+    "user": {
+      "_id": "local-owner",
+      "externalIDs": {
+        "github": "12345"
+      }
+    },
+    "expected": {
+      "$or": [
+        {
+          "owner": "local-owner"
+        },
+        {
+          "coauthors.githubId": "12345"
+        }
+      ]
+    }
+  },
+  {
+    "user": {
+      "_id": "local-owner",
+      "username": "",
+      "externalIDs": {}
+    },
+    "expected": {
+      "$or": [
+        {
+          "owner": "local-owner"
+        }
+      ]
+    }
+  },
+  {
+    "user": {
+      "_id": "local-owner",
+      "username": "",
+      "externalIDs": {
+        "github": null
+      }
+    },
+    "expected": {
+      "$or": [
+        {
+          "owner": "local-owner"
+        }
+      ]
+    }
+  },
+  {
+    "user": {
+      "_id": "local-owner",
+      "username": "",
+      "externalIDs": {
+        "github": ""
+      }
+    },
+    "expected": {
+      "$or": [
+        {
+          "owner": "local-owner"
+        }
+      ]
+    }
+  },
+  {
+    "user": {
+      "_id": "local-owner",
+      "username": "",
+      "externalIDs": {
+        "github": "12345"
+      }
+    },
+    "expected": {
+      "$or": [
+        {
+          "owner": "local-owner"
+        },
+        {
+          "coauthors.githubId": "12345"
+        }
+      ]
+    }
+  },
+  {
+    "user": {
+      "_id": "local-owner",
+      "username": "alice",
+      "externalIDs": {}
+    },
+    "expected": {
+      "$or": [
+        {
+          "owner": "local-owner"
+        },
+        {
+          "coauthors": {
+            "$elemMatch": {
+              "username": "alice",
+              "$or": [
+                {
+                  "githubId": {
+                    "$exists": false
+                  }
+                },
+                {
+                  "githubId": null
+                },
+                {
+                  "githubId": ""
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "user": {
+      "_id": "local-owner",
+      "username": "alice",
+      "externalIDs": {
+        "github": null
+      }
+    },
+    "expected": {
+      "$or": [
+        {
+          "owner": "local-owner"
+        },
+        {
+          "coauthors": {
+            "$elemMatch": {
+              "username": "alice",
+              "$or": [
+                {
+                  "githubId": {
+                    "$exists": false
+                  }
+                },
+                {
+                  "githubId": null
+                },
+                {
+                  "githubId": ""
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "user": {
+      "_id": "local-owner",
+      "username": "alice",
+      "externalIDs": {
+        "github": ""
+      }
+    },
+    "expected": {
+      "$or": [
+        {
+          "owner": "local-owner"
+        },
+        {
+          "coauthors": {
+            "$elemMatch": {
+              "username": "alice",
+              "$or": [
+                {
+                  "githubId": {
+                    "$exists": false
+                  }
+                },
+                {
+                  "githubId": null
+                },
+                {
+                  "githubId": ""
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "user": {
+      "_id": "local-owner",
+      "username": "alice",
+      "externalIDs": {
+        "github": "12345"
+      }
+    },
+    "expected": {
+      "$or": [
+        {
+          "owner": "local-owner"
+        },
+        {
+          "coauthors.githubId": "12345"
+        },
+        {
+          "coauthors": {
+            "$elemMatch": {
+              "username": "alice",
+              "$or": [
+                {
+                  "githubId": {
+                    "$exists": false
+                  }
+                },
+                {
+                  "githubId": null
+                },
+                {
+                  "githubId": ""
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  }
+]

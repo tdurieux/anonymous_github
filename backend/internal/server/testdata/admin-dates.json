@@ -1,0 +1,4538 @@
+[
+  {
+    "query": "",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=invalid",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=0000",
+    "expected": {
+      "date": {
+        "$gte": "0000-01-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=0001-01-01",
+    "expected": {
+      "date": {
+        "$gte": "0001-01-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-29",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-30",
+    "expected": {
+      "date": {
+        "$gte": "2024-03-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-31",
+    "expected": {
+      "date": {
+        "$gte": "2024-03-02T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-32",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024-00-01",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024-13-01",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024-01-00",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024-01-01",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024T00%3A00",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02T00%3A00",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-01-01t00%3A00z",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=%202024-01-01%20",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-01-01T00%3A00Z%20",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024-01-01T00%3A00Z%00ignored",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=%2B010000-01-01",
+    "expected": {
+      "date": {
+        "$gte": "+010000-01-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=-000001-01-01",
+    "expected": {
+      "date": {
+        "$gte": "-000001-01-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=-000000-01-01",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=%2B275760-09-13",
+    "expected": {
+      "date": {
+        "$gte": "+275760-09-13T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=%2B275760-09-14",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=-271821-04-20",
+    "expected": {
+      "date": {
+        "$gte": "-271821-04-20T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=-271821-04-19",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024-02-29T00%3A00Z",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29T00%3A00%2B02%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-28T21:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29T00%3A00-0330",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T03:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29T00%3A00",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29T12%3A34%3A56Z",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T12:34:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29T12%3A34%3A56%2B02%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T10:04:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29T12%3A34%3A56-0330",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T16:04:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29T12%3A34%3A56",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T12:34:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29T12%3A34%3A56.1Z",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T12:34:56.100Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29T12%3A34%3A56.1%2B02%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T10:04:56.100Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29T12%3A34%3A56.1-0330",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T16:04:56.100Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29T12%3A34%3A56.1",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T12:34:56.100Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29T12%3A34%3A56.123456789Z",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T12:34:56.123Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29T12%3A34%3A56.123456789%2B02%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T10:04:56.123Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29T12%3A34%3A56.123456789-0330",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T16:04:56.123Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29T12%3A34%3A56.123456789",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T12:34:56.123Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29T24%3A00Z",
+    "expected": {
+      "date": {
+        "$gte": "2024-03-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29T24%3A00%2B02%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T21:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29T24%3A00-0330",
+    "expected": {
+      "date": {
+        "$gte": "2024-03-01T03:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29T24%3A00",
+    "expected": {
+      "date": {
+        "$gte": "2024-03-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29T24%3A00%3A00.001Z",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024-02-29T24%3A00%3A00.001%2B02%3A30",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024-02-29T24%3A00%3A00.001-0330",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024-02-29T24%3A00%3A00.001",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024-02-29T25%3A00Z",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024-02-29T25%3A00%2B02%3A30",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024-02-29T25%3A00-0330",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024-02-29T25%3A00",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024-02-29T12%3A60Z",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024-02-29T12%3A60%2B02%3A30",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024-02-29T12%3A60-0330",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024-02-29T12%3A60",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024-02-29T12%3A34%3A60Z",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024-02-29T12%3A34%3A60%2B02%3A30",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024-02-29T12%3A34%3A60-0330",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024-02-29T12%3A34%3A60",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2023-02-29T00%3A00Z",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-29T00%3A00%2B02%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2023-02-28T21:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-29T00%3A00-0330",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-01T03:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-29T00%3A00",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-29T12%3A34%3A56Z",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-01T12:34:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-29T12%3A34%3A56%2B02%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-01T10:04:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-29T12%3A34%3A56-0330",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-01T16:04:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-29T12%3A34%3A56",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-01T12:34:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-29T12%3A34%3A56.1Z",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-01T12:34:56.100Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-29T12%3A34%3A56.1%2B02%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-01T10:04:56.100Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-29T12%3A34%3A56.1-0330",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-01T16:04:56.100Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-29T12%3A34%3A56.1",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-01T12:34:56.100Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-29T12%3A34%3A56.123456789Z",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-01T12:34:56.123Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-29T12%3A34%3A56.123456789%2B02%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-01T10:04:56.123Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-29T12%3A34%3A56.123456789-0330",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-01T16:04:56.123Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-29T12%3A34%3A56.123456789",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-01T12:34:56.123Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-29T24%3A00Z",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-02T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-29T24%3A00%2B02%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-01T21:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-29T24%3A00-0330",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-02T03:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-29T24%3A00",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-02T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-29T24%3A00%3A00.001Z",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2023-02-29T24%3A00%3A00.001%2B02%3A30",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2023-02-29T24%3A00%3A00.001-0330",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2023-02-29T24%3A00%3A00.001",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2023-02-29T25%3A00Z",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2023-02-29T25%3A00%2B02%3A30",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2023-02-29T25%3A00-0330",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2023-02-29T25%3A00",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2023-02-29T12%3A60Z",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2023-02-29T12%3A60%2B02%3A30",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2023-02-29T12%3A60-0330",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2023-02-29T12%3A60",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2023-02-29T12%3A34%3A60Z",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2023-02-29T12%3A34%3A60%2B02%3A30",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2023-02-29T12%3A34%3A60-0330",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2023-02-29T12%3A34%3A60",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024-02-30T00%3A00Z",
+    "expected": {
+      "date": {
+        "$gte": "2024-03-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-30T00%3A00%2B02%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T21:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-30T00%3A00-0330",
+    "expected": {
+      "date": {
+        "$gte": "2024-03-01T03:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-30T00%3A00",
+    "expected": {
+      "date": {
+        "$gte": "2024-03-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-30T12%3A34%3A56Z",
+    "expected": {
+      "date": {
+        "$gte": "2024-03-01T12:34:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-30T12%3A34%3A56%2B02%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2024-03-01T10:04:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-30T12%3A34%3A56-0330",
+    "expected": {
+      "date": {
+        "$gte": "2024-03-01T16:04:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-30T12%3A34%3A56",
+    "expected": {
+      "date": {
+        "$gte": "2024-03-01T12:34:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-30T12%3A34%3A56.1Z",
+    "expected": {
+      "date": {
+        "$gte": "2024-03-01T12:34:56.100Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-30T12%3A34%3A56.1%2B02%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2024-03-01T10:04:56.100Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-30T12%3A34%3A56.1-0330",
+    "expected": {
+      "date": {
+        "$gte": "2024-03-01T16:04:56.100Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-30T12%3A34%3A56.1",
+    "expected": {
+      "date": {
+        "$gte": "2024-03-01T12:34:56.100Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-30T12%3A34%3A56.123456789Z",
+    "expected": {
+      "date": {
+        "$gte": "2024-03-01T12:34:56.123Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-30T12%3A34%3A56.123456789%2B02%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2024-03-01T10:04:56.123Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-30T12%3A34%3A56.123456789-0330",
+    "expected": {
+      "date": {
+        "$gte": "2024-03-01T16:04:56.123Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-30T12%3A34%3A56.123456789",
+    "expected": {
+      "date": {
+        "$gte": "2024-03-01T12:34:56.123Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-30T24%3A00Z",
+    "expected": {
+      "date": {
+        "$gte": "2024-03-02T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-30T24%3A00%2B02%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2024-03-01T21:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-30T24%3A00-0330",
+    "expected": {
+      "date": {
+        "$gte": "2024-03-02T03:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-30T24%3A00",
+    "expected": {
+      "date": {
+        "$gte": "2024-03-02T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-30T24%3A00%3A00.001Z",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024-02-30T24%3A00%3A00.001%2B02%3A30",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024-02-30T24%3A00%3A00.001-0330",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024-02-30T24%3A00%3A00.001",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024-02-30T25%3A00Z",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024-02-30T25%3A00%2B02%3A30",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024-02-30T25%3A00-0330",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024-02-30T25%3A00",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024-02-30T12%3A60Z",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024-02-30T12%3A60%2B02%3A30",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024-02-30T12%3A60-0330",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024-02-30T12%3A60",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024-02-30T12%3A34%3A60Z",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024-02-30T12%3A34%3A60%2B02%3A30",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024-02-30T12%3A34%3A60-0330",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024-02-30T12%3A34%3A60",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=0",
+    "expected": {
+      "date": {
+        "$gte": "2000-01-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=1",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=12",
+    "expected": {
+      "date": {
+        "$gte": "2001-12-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=13",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=31",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=32",
+    "expected": {
+      "date": {
+        "$gte": "2032-01-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=49",
+    "expected": {
+      "date": {
+        "$gte": "2049-01-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=50",
+    "expected": {
+      "date": {
+        "$gte": "1950-01-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=99",
+    "expected": {
+      "date": {
+        "$gte": "1999-01-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=100",
+    "expected": {
+      "date": {
+        "$gte": "0100-01-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=000000-01-01",
+    "expected": {
+      "date": {
+        "$gte": "2000-01-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=-000000-02-03",
+    "expected": {
+      "date": {
+        "$gte": "2001-02-03T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=-000000-01-01T00%3A00Z",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=1%2F2%2F03",
+    "expected": {
+      "date": {
+        "$gte": "2003-01-02T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024%2F02%2F30",
+    "expected": {
+      "date": {
+        "$gte": "2024-03-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024.02.29",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=Jan%205",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-05T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=5%20January%202024",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-05T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=Tue%2C%2005%20Mar%202024%2012%3A34%3A56%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2024-03-05T12:34:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=March%205%2C%202024%2012%3A30%20PM",
+    "expected": {
+      "date": {
+        "$gte": "2024-03-05T12:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-01-01%2012%3A34%3A56",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-01T12:34:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-01-01%2012%3A34%3A56.1234%20GMT%2B0200",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-01T10:34:56.123Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-01-01%20(comment)",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=(comment)%202024-01-01",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=garbage%202024-01-01",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=garbage2024-01-01",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024-01-01%20garbage",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024-01-01%20GMT-8",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-01T08:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-01-01%2012%3A%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-01T12:00:30.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-01-01%2012%3A30%3A40%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-01T17:30:40.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=999999999999999999999999",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024-02-29",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-28T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T05:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29%20%2B0130",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024-02-29%2012%3A34",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T12:34:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29%2012%3A34%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T12:34:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29%2012%3A34%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T11:04:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29%2012%3A34%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T17:34:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29%2012%3A34%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T11:04:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29%2012%3A34%3A56.000123",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T12:34:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29%2012%3A34%3A56.000123%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T12:34:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29%2012%3A34%3A56.000123%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T11:04:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29%2012%3A34%3A56.000123%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T17:34:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29%2012%3A34%3A56.000123%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T11:04:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29%2012%3A34%3A56.999999999999",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T12:34:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29%2012%3A34%3A56.999999999999%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T12:34:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29%2012%3A34%3A56.999999999999%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T11:04:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29%2012%3A34%3A56.999999999999%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T17:34:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29%2012%3A34%3A56.999999999999%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T11:04:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29%2024%3A00",
+    "expected": {
+      "date": {
+        "$gte": "2024-03-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29%2024%3A00%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2024-03-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29%2024%3A00%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29%2024%3A00%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2024-03-01T05:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29%2024%3A00%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29%2012%3A00%20AM",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29%2012%3A00%20AM%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29%2012%3A00%20AM%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-28T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29%2012%3A00%20AM%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T05:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29%2012%3A00%20AM%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-28T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29%2012%3A00%20PM",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T12:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29%2012%3A00%20PM%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T12:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29%2012%3A00%20PM%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T10:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29%2012%3A00%20PM%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T17:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29%2012%3A00%20PM%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T10:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29%200%3A00%20PM",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T12:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29%200%3A00%20PM%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T12:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29%200%3A00%20PM%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T10:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29%200%3A00%20PM%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T17:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29%200%3A00%20PM%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T10:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29%2013%3A00%20PM",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024-02-29%2013%3A00%20PM%20GMT",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024-02-29%2013%3A00%20PM%20UTC%2B01%3A30",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024-02-29%2013%3A00%20PM%20EST",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024-02-29%2013%3A00%20PM%20%2B0130",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2023-02-30",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-02T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-30%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-02T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-30%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-01T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-30%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-02T05:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-30%20%2B0130",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2023-02-30%2012%3A34",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-02T12:34:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-30%2012%3A34%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-02T12:34:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-30%2012%3A34%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-02T11:04:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-30%2012%3A34%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-02T17:34:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-30%2012%3A34%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-02T11:04:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-30%2012%3A34%3A56.000123",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-02T12:34:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-30%2012%3A34%3A56.000123%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-02T12:34:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-30%2012%3A34%3A56.000123%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-02T11:04:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-30%2012%3A34%3A56.000123%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-02T17:34:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-30%2012%3A34%3A56.000123%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-02T11:04:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-30%2012%3A34%3A56.999999999999",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-02T12:34:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-30%2012%3A34%3A56.999999999999%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-02T12:34:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-30%2012%3A34%3A56.999999999999%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-02T11:04:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-30%2012%3A34%3A56.999999999999%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-02T17:34:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-30%2012%3A34%3A56.999999999999%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-02T11:04:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-30%2024%3A00",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-03T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-30%2024%3A00%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-03T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-30%2024%3A00%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-02T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-30%2024%3A00%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-03T05:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-30%2024%3A00%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-02T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-30%2012%3A00%20AM",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-02T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-30%2012%3A00%20AM%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-02T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-30%2012%3A00%20AM%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-01T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-30%2012%3A00%20AM%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-02T05:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-30%2012%3A00%20AM%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-01T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-30%2012%3A00%20PM",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-02T12:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-30%2012%3A00%20PM%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-02T12:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-30%2012%3A00%20PM%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-02T10:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-30%2012%3A00%20PM%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-02T17:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-30%2012%3A00%20PM%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-02T10:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-30%200%3A00%20PM",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-02T12:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-30%200%3A00%20PM%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-02T12:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-30%200%3A00%20PM%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-02T10:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-30%200%3A00%20PM%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-02T17:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-30%200%3A00%20PM%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2023-03-02T10:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2023-02-30%2013%3A00%20PM",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2023-02-30%2013%3A00%20PM%20GMT",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2023-02-30%2013%3A00%20PM%20UTC%2B01%3A30",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2023-02-30%2013%3A00%20PM%20EST",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2023-02-30%2013%3A00%20PM%20%2B0130",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=0001-01-01",
+    "expected": {
+      "date": {
+        "$gte": "0001-01-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=0001-01-01%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=0001-01-01%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2000-12-31T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=0001-01-01%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-01T05:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=0001-01-01%20%2B0130",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=0001-01-01%2012%3A34",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-01T12:34:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=0001-01-01%2012%3A34%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-01T12:34:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=0001-01-01%2012%3A34%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-01T11:04:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=0001-01-01%2012%3A34%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-01T17:34:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=0001-01-01%2012%3A34%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-01T11:04:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=0001-01-01%2012%3A34%3A56.000123",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-01T12:34:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=0001-01-01%2012%3A34%3A56.000123%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-01T12:34:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=0001-01-01%2012%3A34%3A56.000123%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-01T11:04:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=0001-01-01%2012%3A34%3A56.000123%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-01T17:34:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=0001-01-01%2012%3A34%3A56.000123%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-01T11:04:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=0001-01-01%2012%3A34%3A56.999999999999",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-01T12:34:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=0001-01-01%2012%3A34%3A56.999999999999%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-01T12:34:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=0001-01-01%2012%3A34%3A56.999999999999%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-01T11:04:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=0001-01-01%2012%3A34%3A56.999999999999%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-01T17:34:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=0001-01-01%2012%3A34%3A56.999999999999%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-01T11:04:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=0001-01-01%2024%3A00",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-02T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=0001-01-01%2024%3A00%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-02T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=0001-01-01%2024%3A00%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-01T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=0001-01-01%2024%3A00%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-02T05:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=0001-01-01%2024%3A00%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-01T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=0001-01-01%2012%3A00%20AM",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=0001-01-01%2012%3A00%20AM%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=0001-01-01%2012%3A00%20AM%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2000-12-31T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=0001-01-01%2012%3A00%20AM%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-01T05:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=0001-01-01%2012%3A00%20AM%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2000-12-31T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=0001-01-01%2012%3A00%20PM",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-01T12:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=0001-01-01%2012%3A00%20PM%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-01T12:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=0001-01-01%2012%3A00%20PM%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-01T10:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=0001-01-01%2012%3A00%20PM%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-01T17:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=0001-01-01%2012%3A00%20PM%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-01T10:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=0001-01-01%200%3A00%20PM",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-01T12:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=0001-01-01%200%3A00%20PM%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-01T12:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=0001-01-01%200%3A00%20PM%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-01T10:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=0001-01-01%200%3A00%20PM%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-01T17:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=0001-01-01%200%3A00%20PM%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-01T10:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=0001-01-01%2013%3A00%20PM",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=0001-01-01%2013%3A00%20PM%20GMT",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=0001-01-01%2013%3A00%20PM%20UTC%2B01%3A30",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=0001-01-01%2013%3A00%20PM%20EST",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=0001-01-01%2013%3A00%20PM%20%2B0130",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=-000000-02-03",
+    "expected": {
+      "date": {
+        "$gte": "2001-02-03T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=-000000-02-03%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2001-02-03T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=-000000-02-03%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2001-02-02T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=-000000-02-03%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2001-02-03T05:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=-000000-02-03%20%2B0130",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=-000000-02-03%2012%3A34",
+    "expected": {
+      "date": {
+        "$gte": "2001-02-03T12:34:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=-000000-02-03%2012%3A34%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2001-02-03T12:34:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=-000000-02-03%2012%3A34%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2001-02-03T11:04:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=-000000-02-03%2012%3A34%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2001-02-03T17:34:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=-000000-02-03%2012%3A34%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2001-02-03T11:04:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=-000000-02-03%2012%3A34%3A56.000123",
+    "expected": {
+      "date": {
+        "$gte": "2001-02-03T12:34:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=-000000-02-03%2012%3A34%3A56.000123%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2001-02-03T12:34:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=-000000-02-03%2012%3A34%3A56.000123%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2001-02-03T11:04:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=-000000-02-03%2012%3A34%3A56.000123%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2001-02-03T17:34:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=-000000-02-03%2012%3A34%3A56.000123%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2001-02-03T11:04:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=-000000-02-03%2012%3A34%3A56.999999999999",
+    "expected": {
+      "date": {
+        "$gte": "2001-02-03T12:34:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=-000000-02-03%2012%3A34%3A56.999999999999%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2001-02-03T12:34:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=-000000-02-03%2012%3A34%3A56.999999999999%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2001-02-03T11:04:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=-000000-02-03%2012%3A34%3A56.999999999999%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2001-02-03T17:34:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=-000000-02-03%2012%3A34%3A56.999999999999%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2001-02-03T11:04:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=-000000-02-03%2024%3A00",
+    "expected": {
+      "date": {
+        "$gte": "2001-02-04T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=-000000-02-03%2024%3A00%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2001-02-04T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=-000000-02-03%2024%3A00%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2001-02-03T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=-000000-02-03%2024%3A00%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2001-02-04T05:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=-000000-02-03%2024%3A00%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2001-02-03T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=-000000-02-03%2012%3A00%20AM",
+    "expected": {
+      "date": {
+        "$gte": "2001-02-03T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=-000000-02-03%2012%3A00%20AM%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2001-02-03T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=-000000-02-03%2012%3A00%20AM%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2001-02-02T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=-000000-02-03%2012%3A00%20AM%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2001-02-03T05:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=-000000-02-03%2012%3A00%20AM%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2001-02-02T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=-000000-02-03%2012%3A00%20PM",
+    "expected": {
+      "date": {
+        "$gte": "2001-02-03T12:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=-000000-02-03%2012%3A00%20PM%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2001-02-03T12:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=-000000-02-03%2012%3A00%20PM%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2001-02-03T10:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=-000000-02-03%2012%3A00%20PM%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2001-02-03T17:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=-000000-02-03%2012%3A00%20PM%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2001-02-03T10:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=-000000-02-03%200%3A00%20PM",
+    "expected": {
+      "date": {
+        "$gte": "2001-02-03T12:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=-000000-02-03%200%3A00%20PM%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2001-02-03T12:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=-000000-02-03%200%3A00%20PM%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2001-02-03T10:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=-000000-02-03%200%3A00%20PM%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2001-02-03T17:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=-000000-02-03%200%3A00%20PM%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2001-02-03T10:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=-000000-02-03%2013%3A00%20PM",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=-000000-02-03%2013%3A00%20PM%20GMT",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=-000000-02-03%2013%3A00%20PM%20UTC%2B01%3A30",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=-000000-02-03%2013%3A00%20PM%20EST",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=-000000-02-03%2013%3A00%20PM%20%2B0130",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=01%2F02%2F03",
+    "expected": {
+      "date": {
+        "$gte": "2003-01-02T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=01%2F02%2F03%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2003-01-02T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=01%2F02%2F03%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2003-01-01T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=01%2F02%2F03%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2003-01-02T05:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=01%2F02%2F03%20%2B0130",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=01%2F02%2F03%2012%3A34",
+    "expected": {
+      "date": {
+        "$gte": "2003-01-02T12:34:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=01%2F02%2F03%2012%3A34%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2003-01-02T12:34:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=01%2F02%2F03%2012%3A34%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2003-01-02T11:04:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=01%2F02%2F03%2012%3A34%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2003-01-02T17:34:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=01%2F02%2F03%2012%3A34%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2003-01-02T11:04:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=01%2F02%2F03%2012%3A34%3A56.000123",
+    "expected": {
+      "date": {
+        "$gte": "2003-01-02T12:34:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=01%2F02%2F03%2012%3A34%3A56.000123%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2003-01-02T12:34:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=01%2F02%2F03%2012%3A34%3A56.000123%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2003-01-02T11:04:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=01%2F02%2F03%2012%3A34%3A56.000123%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2003-01-02T17:34:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=01%2F02%2F03%2012%3A34%3A56.000123%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2003-01-02T11:04:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=01%2F02%2F03%2012%3A34%3A56.999999999999",
+    "expected": {
+      "date": {
+        "$gte": "2003-01-02T12:34:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=01%2F02%2F03%2012%3A34%3A56.999999999999%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2003-01-02T12:34:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=01%2F02%2F03%2012%3A34%3A56.999999999999%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2003-01-02T11:04:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=01%2F02%2F03%2012%3A34%3A56.999999999999%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2003-01-02T17:34:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=01%2F02%2F03%2012%3A34%3A56.999999999999%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2003-01-02T11:04:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=01%2F02%2F03%2024%3A00",
+    "expected": {
+      "date": {
+        "$gte": "2003-01-03T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=01%2F02%2F03%2024%3A00%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2003-01-03T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=01%2F02%2F03%2024%3A00%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2003-01-02T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=01%2F02%2F03%2024%3A00%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2003-01-03T05:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=01%2F02%2F03%2024%3A00%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2003-01-02T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=01%2F02%2F03%2012%3A00%20AM",
+    "expected": {
+      "date": {
+        "$gte": "2003-01-02T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=01%2F02%2F03%2012%3A00%20AM%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2003-01-02T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=01%2F02%2F03%2012%3A00%20AM%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2003-01-01T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=01%2F02%2F03%2012%3A00%20AM%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2003-01-02T05:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=01%2F02%2F03%2012%3A00%20AM%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2003-01-01T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=01%2F02%2F03%2012%3A00%20PM",
+    "expected": {
+      "date": {
+        "$gte": "2003-01-02T12:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=01%2F02%2F03%2012%3A00%20PM%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2003-01-02T12:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=01%2F02%2F03%2012%3A00%20PM%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2003-01-02T10:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=01%2F02%2F03%2012%3A00%20PM%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2003-01-02T17:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=01%2F02%2F03%2012%3A00%20PM%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2003-01-02T10:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=01%2F02%2F03%200%3A00%20PM",
+    "expected": {
+      "date": {
+        "$gte": "2003-01-02T12:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=01%2F02%2F03%200%3A00%20PM%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2003-01-02T12:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=01%2F02%2F03%200%3A00%20PM%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2003-01-02T10:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=01%2F02%2F03%200%3A00%20PM%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2003-01-02T17:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=01%2F02%2F03%200%3A00%20PM%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2003-01-02T10:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=01%2F02%2F03%2013%3A00%20PM",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=01%2F02%2F03%2013%3A00%20PM%20GMT",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=01%2F02%2F03%2013%3A00%20PM%20UTC%2B01%3A30",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=01%2F02%2F03%2013%3A00%20PM%20EST",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=01%2F02%2F03%2013%3A00%20PM%20%2B0130",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=32%2F01%2F02",
+    "expected": {
+      "date": {
+        "$gte": "2032-01-02T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=32%2F01%2F02%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2032-01-02T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=32%2F01%2F02%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2032-01-01T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=32%2F01%2F02%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2032-01-02T05:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=32%2F01%2F02%20%2B0130",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=32%2F01%2F02%2012%3A34",
+    "expected": {
+      "date": {
+        "$gte": "2032-01-02T12:34:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=32%2F01%2F02%2012%3A34%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2032-01-02T12:34:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=32%2F01%2F02%2012%3A34%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2032-01-02T11:04:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=32%2F01%2F02%2012%3A34%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2032-01-02T17:34:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=32%2F01%2F02%2012%3A34%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2032-01-02T11:04:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=32%2F01%2F02%2012%3A34%3A56.000123",
+    "expected": {
+      "date": {
+        "$gte": "2032-01-02T12:34:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=32%2F01%2F02%2012%3A34%3A56.000123%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2032-01-02T12:34:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=32%2F01%2F02%2012%3A34%3A56.000123%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2032-01-02T11:04:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=32%2F01%2F02%2012%3A34%3A56.000123%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2032-01-02T17:34:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=32%2F01%2F02%2012%3A34%3A56.000123%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2032-01-02T11:04:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=32%2F01%2F02%2012%3A34%3A56.999999999999",
+    "expected": {
+      "date": {
+        "$gte": "2032-01-02T12:34:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=32%2F01%2F02%2012%3A34%3A56.999999999999%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2032-01-02T12:34:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=32%2F01%2F02%2012%3A34%3A56.999999999999%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2032-01-02T11:04:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=32%2F01%2F02%2012%3A34%3A56.999999999999%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2032-01-02T17:34:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=32%2F01%2F02%2012%3A34%3A56.999999999999%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2032-01-02T11:04:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=32%2F01%2F02%2024%3A00",
+    "expected": {
+      "date": {
+        "$gte": "2032-01-03T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=32%2F01%2F02%2024%3A00%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2032-01-03T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=32%2F01%2F02%2024%3A00%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2032-01-02T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=32%2F01%2F02%2024%3A00%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2032-01-03T05:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=32%2F01%2F02%2024%3A00%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2032-01-02T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=32%2F01%2F02%2012%3A00%20AM",
+    "expected": {
+      "date": {
+        "$gte": "2032-01-02T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=32%2F01%2F02%2012%3A00%20AM%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2032-01-02T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=32%2F01%2F02%2012%3A00%20AM%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2032-01-01T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=32%2F01%2F02%2012%3A00%20AM%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2032-01-02T05:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=32%2F01%2F02%2012%3A00%20AM%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2032-01-01T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=32%2F01%2F02%2012%3A00%20PM",
+    "expected": {
+      "date": {
+        "$gte": "2032-01-02T12:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=32%2F01%2F02%2012%3A00%20PM%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2032-01-02T12:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=32%2F01%2F02%2012%3A00%20PM%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2032-01-02T10:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=32%2F01%2F02%2012%3A00%20PM%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2032-01-02T17:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=32%2F01%2F02%2012%3A00%20PM%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2032-01-02T10:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=32%2F01%2F02%200%3A00%20PM",
+    "expected": {
+      "date": {
+        "$gte": "2032-01-02T12:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=32%2F01%2F02%200%3A00%20PM%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2032-01-02T12:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=32%2F01%2F02%200%3A00%20PM%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2032-01-02T10:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=32%2F01%2F02%200%3A00%20PM%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2032-01-02T17:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=32%2F01%2F02%200%3A00%20PM%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2032-01-02T10:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=32%2F01%2F02%2013%3A00%20PM",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=32%2F01%2F02%2013%3A00%20PM%20GMT",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=32%2F01%2F02%2013%3A00%20PM%20UTC%2B01%3A30",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=32%2F01%2F02%2013%3A00%20PM%20EST",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=32%2F01%2F02%2013%3A00%20PM%20%2B0130",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=Jan%205",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-05T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=Jan%205%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-05T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=Jan%205%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-04T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=Jan%205%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-05T05:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=Jan%205%20%2B0130",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=Jan%205%2012%3A34",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-05T12:34:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=Jan%205%2012%3A34%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-05T12:34:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=Jan%205%2012%3A34%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-05T11:04:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=Jan%205%2012%3A34%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-05T17:34:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=Jan%205%2012%3A34%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-05T11:04:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=Jan%205%2012%3A34%3A56.000123",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-05T12:34:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=Jan%205%2012%3A34%3A56.000123%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-05T12:34:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=Jan%205%2012%3A34%3A56.000123%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-05T11:04:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=Jan%205%2012%3A34%3A56.000123%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-05T17:34:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=Jan%205%2012%3A34%3A56.000123%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-05T11:04:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=Jan%205%2012%3A34%3A56.999999999999",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-05T12:34:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=Jan%205%2012%3A34%3A56.999999999999%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-05T12:34:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=Jan%205%2012%3A34%3A56.999999999999%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-05T11:04:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=Jan%205%2012%3A34%3A56.999999999999%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-05T17:34:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=Jan%205%2012%3A34%3A56.999999999999%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-05T11:04:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=Jan%205%2024%3A00",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-06T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=Jan%205%2024%3A00%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-06T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=Jan%205%2024%3A00%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-05T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=Jan%205%2024%3A00%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-06T05:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=Jan%205%2024%3A00%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-05T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=Jan%205%2012%3A00%20AM",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-05T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=Jan%205%2012%3A00%20AM%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-05T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=Jan%205%2012%3A00%20AM%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-04T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=Jan%205%2012%3A00%20AM%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-05T05:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=Jan%205%2012%3A00%20AM%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-04T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=Jan%205%2012%3A00%20PM",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-05T12:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=Jan%205%2012%3A00%20PM%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-05T12:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=Jan%205%2012%3A00%20PM%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-05T10:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=Jan%205%2012%3A00%20PM%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-05T17:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=Jan%205%2012%3A00%20PM%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-05T10:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=Jan%205%200%3A00%20PM",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-05T12:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=Jan%205%200%3A00%20PM%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-05T12:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=Jan%205%200%3A00%20PM%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-05T10:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=Jan%205%200%3A00%20PM%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-05T17:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=Jan%205%200%3A00%20PM%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2001-01-05T10:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=Jan%205%2013%3A00%20PM",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=Jan%205%2013%3A00%20PM%20GMT",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=Jan%205%2013%3A00%20PM%20UTC%2B01%3A30",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=Jan%205%2013%3A00%20PM%20EST",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=Jan%205%2013%3A00%20PM%20%2B0130",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=5%20March%2049",
+    "expected": {
+      "date": {
+        "$gte": "2049-03-05T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=5%20March%2049%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2049-03-05T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=5%20March%2049%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2049-03-04T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=5%20March%2049%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2049-03-05T05:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=5%20March%2049%20%2B0130",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=5%20March%2049%2012%3A34",
+    "expected": {
+      "date": {
+        "$gte": "2049-03-05T12:34:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=5%20March%2049%2012%3A34%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2049-03-05T12:34:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=5%20March%2049%2012%3A34%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2049-03-05T11:04:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=5%20March%2049%2012%3A34%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2049-03-05T17:34:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=5%20March%2049%2012%3A34%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2049-03-05T11:04:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=5%20March%2049%2012%3A34%3A56.000123",
+    "expected": {
+      "date": {
+        "$gte": "2049-03-05T12:34:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=5%20March%2049%2012%3A34%3A56.000123%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2049-03-05T12:34:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=5%20March%2049%2012%3A34%3A56.000123%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2049-03-05T11:04:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=5%20March%2049%2012%3A34%3A56.000123%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2049-03-05T17:34:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=5%20March%2049%2012%3A34%3A56.000123%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2049-03-05T11:04:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=5%20March%2049%2012%3A34%3A56.999999999999",
+    "expected": {
+      "date": {
+        "$gte": "2049-03-05T12:34:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=5%20March%2049%2012%3A34%3A56.999999999999%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2049-03-05T12:34:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=5%20March%2049%2012%3A34%3A56.999999999999%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2049-03-05T11:04:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=5%20March%2049%2012%3A34%3A56.999999999999%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2049-03-05T17:34:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=5%20March%2049%2012%3A34%3A56.999999999999%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2049-03-05T11:04:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=5%20March%2049%2024%3A00",
+    "expected": {
+      "date": {
+        "$gte": "2049-03-06T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=5%20March%2049%2024%3A00%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2049-03-06T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=5%20March%2049%2024%3A00%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2049-03-05T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=5%20March%2049%2024%3A00%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2049-03-06T05:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=5%20March%2049%2024%3A00%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2049-03-05T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=5%20March%2049%2012%3A00%20AM",
+    "expected": {
+      "date": {
+        "$gte": "2049-03-05T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=5%20March%2049%2012%3A00%20AM%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2049-03-05T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=5%20March%2049%2012%3A00%20AM%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2049-03-04T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=5%20March%2049%2012%3A00%20AM%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2049-03-05T05:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=5%20March%2049%2012%3A00%20AM%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2049-03-04T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=5%20March%2049%2012%3A00%20PM",
+    "expected": {
+      "date": {
+        "$gte": "2049-03-05T12:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=5%20March%2049%2012%3A00%20PM%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2049-03-05T12:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=5%20March%2049%2012%3A00%20PM%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2049-03-05T10:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=5%20March%2049%2012%3A00%20PM%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2049-03-05T17:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=5%20March%2049%2012%3A00%20PM%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2049-03-05T10:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=5%20March%2049%200%3A00%20PM",
+    "expected": {
+      "date": {
+        "$gte": "2049-03-05T12:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=5%20March%2049%200%3A00%20PM%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2049-03-05T12:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=5%20March%2049%200%3A00%20PM%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2049-03-05T10:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=5%20March%2049%200%3A00%20PM%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2049-03-05T17:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=5%20March%2049%200%3A00%20PM%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2049-03-05T10:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=5%20March%2049%2013%3A00%20PM",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=5%20March%2049%2013%3A00%20PM%20GMT",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=5%20March%2049%2013%3A00%20PM%20UTC%2B01%3A30",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=5%20March%2049%2013%3A00%20PM%20EST",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=5%20March%2049%2013%3A00%20PM%20%2B0130",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=December%2031%2099",
+    "expected": {
+      "date": {
+        "$gte": "1999-12-31T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=December%2031%2099%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "1999-12-31T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=December%2031%2099%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "1999-12-30T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=December%2031%2099%20EST",
+    "expected": {
+      "date": {
+        "$gte": "1999-12-31T05:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=December%2031%2099%20%2B0130",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=December%2031%2099%2012%3A34",
+    "expected": {
+      "date": {
+        "$gte": "1999-12-31T12:34:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=December%2031%2099%2012%3A34%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "1999-12-31T12:34:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=December%2031%2099%2012%3A34%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "1999-12-31T11:04:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=December%2031%2099%2012%3A34%20EST",
+    "expected": {
+      "date": {
+        "$gte": "1999-12-31T17:34:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=December%2031%2099%2012%3A34%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "1999-12-31T11:04:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=December%2031%2099%2012%3A34%3A56.000123",
+    "expected": {
+      "date": {
+        "$gte": "1999-12-31T12:34:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=December%2031%2099%2012%3A34%3A56.000123%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "1999-12-31T12:34:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=December%2031%2099%2012%3A34%3A56.000123%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "1999-12-31T11:04:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=December%2031%2099%2012%3A34%3A56.000123%20EST",
+    "expected": {
+      "date": {
+        "$gte": "1999-12-31T17:34:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=December%2031%2099%2012%3A34%3A56.000123%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "1999-12-31T11:04:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=December%2031%2099%2012%3A34%3A56.999999999999",
+    "expected": {
+      "date": {
+        "$gte": "1999-12-31T12:34:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=December%2031%2099%2012%3A34%3A56.999999999999%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "1999-12-31T12:34:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=December%2031%2099%2012%3A34%3A56.999999999999%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "1999-12-31T11:04:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=December%2031%2099%2012%3A34%3A56.999999999999%20EST",
+    "expected": {
+      "date": {
+        "$gte": "1999-12-31T17:34:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=December%2031%2099%2012%3A34%3A56.999999999999%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "1999-12-31T11:04:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=December%2031%2099%2024%3A00",
+    "expected": {
+      "date": {
+        "$gte": "2000-01-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=December%2031%2099%2024%3A00%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2000-01-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=December%2031%2099%2024%3A00%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "1999-12-31T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=December%2031%2099%2024%3A00%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2000-01-01T05:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=December%2031%2099%2024%3A00%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "1999-12-31T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=December%2031%2099%2012%3A00%20AM",
+    "expected": {
+      "date": {
+        "$gte": "1999-12-31T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=December%2031%2099%2012%3A00%20AM%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "1999-12-31T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=December%2031%2099%2012%3A00%20AM%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "1999-12-30T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=December%2031%2099%2012%3A00%20AM%20EST",
+    "expected": {
+      "date": {
+        "$gte": "1999-12-31T05:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=December%2031%2099%2012%3A00%20AM%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "1999-12-30T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=December%2031%2099%2012%3A00%20PM",
+    "expected": {
+      "date": {
+        "$gte": "1999-12-31T12:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=December%2031%2099%2012%3A00%20PM%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "1999-12-31T12:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=December%2031%2099%2012%3A00%20PM%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "1999-12-31T10:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=December%2031%2099%2012%3A00%20PM%20EST",
+    "expected": {
+      "date": {
+        "$gte": "1999-12-31T17:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=December%2031%2099%2012%3A00%20PM%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "1999-12-31T10:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=December%2031%2099%200%3A00%20PM",
+    "expected": {
+      "date": {
+        "$gte": "1999-12-31T12:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=December%2031%2099%200%3A00%20PM%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "1999-12-31T12:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=December%2031%2099%200%3A00%20PM%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "1999-12-31T10:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=December%2031%2099%200%3A00%20PM%20EST",
+    "expected": {
+      "date": {
+        "$gte": "1999-12-31T17:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=December%2031%2099%200%3A00%20PM%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "1999-12-31T10:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=December%2031%2099%2013%3A00%20PM",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=December%2031%2099%2013%3A00%20PM%20GMT",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=December%2031%2099%2013%3A00%20PM%20UTC%2B01%3A30",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=December%2031%2099%2013%3A00%20PM%20EST",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=December%2031%2099%2013%3A00%20PM%20%2B0130",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024%2C1%2C2",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-02T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024%2C1%2C2%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-02T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024%2C1%2C2%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-01T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024%2C1%2C2%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-02T05:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024%2C1%2C2%20%2B0130",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024%2C1%2C2%2012%3A34",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-02T12:34:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024%2C1%2C2%2012%3A34%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-02T12:34:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024%2C1%2C2%2012%3A34%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-02T11:04:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024%2C1%2C2%2012%3A34%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-02T17:34:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024%2C1%2C2%2012%3A34%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-02T11:04:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024%2C1%2C2%2012%3A34%3A56.000123",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-02T12:34:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024%2C1%2C2%2012%3A34%3A56.000123%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-02T12:34:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024%2C1%2C2%2012%3A34%3A56.000123%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-02T11:04:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024%2C1%2C2%2012%3A34%3A56.000123%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-02T17:34:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024%2C1%2C2%2012%3A34%3A56.000123%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-02T11:04:56.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024%2C1%2C2%2012%3A34%3A56.999999999999",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-02T12:34:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024%2C1%2C2%2012%3A34%3A56.999999999999%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-02T12:34:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024%2C1%2C2%2012%3A34%3A56.999999999999%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-02T11:04:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024%2C1%2C2%2012%3A34%3A56.999999999999%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-02T17:34:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024%2C1%2C2%2012%3A34%3A56.999999999999%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-02T11:04:56.999Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024%2C1%2C2%2024%3A00",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-03T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024%2C1%2C2%2024%3A00%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-03T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024%2C1%2C2%2024%3A00%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-02T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024%2C1%2C2%2024%3A00%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-03T05:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024%2C1%2C2%2024%3A00%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-02T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024%2C1%2C2%2012%3A00%20AM",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-02T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024%2C1%2C2%2012%3A00%20AM%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-02T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024%2C1%2C2%2012%3A00%20AM%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-01T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024%2C1%2C2%2012%3A00%20AM%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-02T05:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024%2C1%2C2%2012%3A00%20AM%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-01T22:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024%2C1%2C2%2012%3A00%20PM",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-02T12:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024%2C1%2C2%2012%3A00%20PM%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-02T12:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024%2C1%2C2%2012%3A00%20PM%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-02T10:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024%2C1%2C2%2012%3A00%20PM%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-02T17:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024%2C1%2C2%2012%3A00%20PM%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-02T10:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024%2C1%2C2%200%3A00%20PM",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-02T12:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024%2C1%2C2%200%3A00%20PM%20GMT",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-02T12:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024%2C1%2C2%200%3A00%20PM%20UTC%2B01%3A30",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-02T10:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024%2C1%2C2%200%3A00%20PM%20EST",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-02T17:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024%2C1%2C2%200%3A00%20PM%20%2B0130",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-02T10:30:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024%2C1%2C2%2013%3A00%20PM",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024%2C1%2C2%2013%3A00%20PM%20GMT",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024%2C1%2C2%2013%3A00%20PM%20UTC%2B01%3A30",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024%2C1%2C2%2013%3A00%20PM%20EST",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024%2C1%2C2%2013%3A00%20PM%20%2B0130",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024-01-01%20",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-01-01%09",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-01-01%0A",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-01-01%EF%BB%BF",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-01-01%20(ignored)",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-01-01%20garbage",
+    "expected": null
+  },
+  {
+    "query": "dateFrom=2024-01-01%00ignored",
+    "expected": {
+      "date": {
+        "$gte": "2024-01-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom[]=2024-02-29",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom[0]=2024-02-29",
+    "expected": {
+      "date": {
+        "$gte": "2024-02-29T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateFrom=2024-02-29&dateFrom=2024-03-01",
+    "expected": null
+  },
+  {
+    "query": "dateFrom[]=",
+    "expected": null
+  },
+  {
+    "query": "dateFrom[x]=x",
+    "expected": null
+  },
+  {
+    "query": "dateFrom[toString]=x",
+    "error": true
+  },
+  {
+    "query": "dateFrom=invalid&dateTo[]=2024-03-01",
+    "expected": {
+      "date": {
+        "$lte": "2024-03-01T00:00:00.000Z"
+      }
+    }
+  },
+  {
+    "query": "dateTo[toString]=x",
+    "error": true
+  }
+]

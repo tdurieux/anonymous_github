@@ -20,7 +20,24 @@ export function createHttp(fetcher = (...args) => fetch(...args)) {
         else { headers["Content-Type"] ||= "application/json;charset=utf-8"; body = JSON.stringify(data); }
       }
       const response = await fetcher(target.href, { method, headers, body, credentials: "same-origin", signal: controller.signal });
-      const raw = await response.text();
+      let raw;
+      if (options.onDownloadProgress && response.ok && response.body?.getReader && typeof TextDecoder !== "undefined") {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        const chunks = [];
+        let received = 0;
+        try {
+          while (true) {
+            const {value, done} = await reader.read();
+            if (done) break;
+            chunks.push(decoder.decode(value, {stream: true}));
+            received += value.byteLength;
+            options.onDownloadProgress(received);
+          }
+          chunks.push(decoder.decode());
+          raw = chunks.join("");
+        } finally { reader.releaseLock(); }
+      } else raw = await response.text();
       let result = raw;
       if (options.transformResponse) result = options.transformResponse(raw);
       else if (raw && (/json/i.test(response.headers.get("content-type") || "") || /^[\[{]/.test(raw.trim()))) {

@@ -1,0 +1,56 @@
+{
+  "scope": "Remaining direct URL.Query reads after shared query-parser migration",
+  "incomingReads": [
+    {
+      "file": "backend/internal/server/source.go",
+      "parameter": "name",
+      "use": "Generic provider PR preview; legacy GitHub route uses owner/repository path parameters."
+    },
+    {
+      "file": "backend/internal/server/files.go",
+      "parameter": "name",
+      "use": "Generic provider repository preview; legacy GitHub route uses owner/repo path parameters."
+    }
+  ],
+  "outgoingReads": [
+    {
+      "file": "backend/internal/server/connections.go",
+      "use": "Construct installation redirect URL."
+    },
+    {
+      "file": "backend/internal/server/github_pagination.go",
+      "use": "Validate upstream pagination URL."
+    }
+  ],
+  "fixedRead": {
+    "file": "backend/internal/server/source.go",
+    "parameter": "connection",
+    "change": "Use the same typed, provider-aware connection validator as repository previews. Reject arrays and objects before provider access; retain custom provider scalar names."
+  },
+  "dateConsumerReview": {
+    "internalClockSentinels": [
+      "dashboard_cache.go",
+      "stats_cache.go",
+      "process_metrics.go",
+      "request_trace.go",
+      "request_metrics.go"
+    ],
+    "note": "These are review candidates, not confirmed functional requirements or requests to reproduce TypeScript bugs.",
+    "fixedConsumers": [
+      "resources.go lastUpdateDate maximum uses zero-time initial value",
+      "refresh.go missing-date versus year-0001 guards",
+      "content_cleanup.go contentGeneration date component",
+      "conference_membership.go pending transition timestamp validation",
+      "admin.go job date formatting",
+      "provider_github.go author/committer fallback"
+    ],
+    "remainingZeroChecks": {
+      "connections.go": "Both absent and year-0001 status dates represent a stale PR download; branch already treats both as stale.",
+      "imported_removal.go": "Requires a positive Unix timestamp independently of IsZero, matching the recorded imported-job eligibility rule.",
+      "providers.go": "Optional rate-limit reset is an adapter sentinel, not a persisted record date.",
+      "json_http.go": "HTTP-date parsing returns validity separately; ISO fallback has a year-0001 edge outside HTTP date syntax.",
+      "admin_csv.go": "The IsZero check triggers a second parse for strings; successfully parsed year-0001 values are still emitted."
+    },
+    "remainingValidation": "None for the recorded date-consumer findings. Full backend race suite and all 64 CI contract commands passed; see implementation-completion-audit.json."
+  }
+}

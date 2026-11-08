@@ -12,7 +12,8 @@
   </nav>
 
   <div class="admin-summary">
-    <span class="summary-total">{{ total >= 0 ? fmt.number(total) : '…' }}</span>
+    <span class="summary-total">{{ total >= 0 ? fmt.number(total) : '…' }} <small>{{ total === 1 ? 'user' : 'users' }}</small></span>
+    <button type="button" class="summary-pill" :class="{active: !query?.status}" @click="query.status = ''; query.page = 1" :aria-pressed="!query?.status">All <span class="count">{{ fmt?.number(total) }}</span></button>
     <button type="button" class="summary-pill ok" :class="{active: query?.status == &#x27;active&#x27;}" @click="query.status = query.status == &#x27;active&#x27; ? &#x27;&#x27; : &#x27;active&#x27;; query.page = 1" :aria-pressed="!!(query?.status == &#x27;active&#x27;)">Active <span class="count">{{ fmt?.number(statusCountFor('active')) }}</span></button>
     <button type="button" class="summary-pill error" :class="{active: query?.status == &#x27;banned&#x27;}" @click="query.status = query.status == &#x27;banned&#x27; ? &#x27;&#x27; : &#x27;banned&#x27;; query.page = 1" :aria-pressed="!!(query?.status == &#x27;banned&#x27;)">Banned <span class="count">{{ fmt?.number(statusCountFor('banned')) }}</span></button>
     <button type="button" class="summary-pill" :class="{active: query?.status == &#x27;removed&#x27;}" @click="query.status = query.status == &#x27;removed&#x27; ? &#x27;&#x27; : &#x27;removed&#x27;; query.page = 1" :aria-pressed="!!(query?.status == &#x27;removed&#x27;)">Removed <span class="count">{{ fmt?.number(statusCountFor('removed')) }}</span></button>
@@ -33,7 +34,7 @@
       </span>
       <span class="admin-filter-spacer"></span>
       <button class="btn btn-sm" type="button" @click="exportCsv()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-export"></use></svg> Export</button>
-      <span class="admin-filter-inline" aria-label="Pagination">
+      <span class="admin-filter-inline" aria-label="Pagination" v-if="totalPage &gt; 1">
         <button class="btn btn-sm btn-icon" type="button" @click="query.page = Math.max(1, query.page - 1)" :disabled="query?.page &lt;= 1" aria-label="Previous page"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-chevron-left"></use></svg></button>
         <span style="font-family: var(--font-mono); font-size: 12px; color: var(--ink-muted);">{{ query?.page }}/{{ totalPage || 1 }}</span>
         <button class="btn btn-sm btn-icon" type="button" @click="query.page = Math.min(totalPage, query.page + 1)" :disabled="query?.page &gt;= totalPage" aria-label="Next page"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-chevron-right"></use></svg></button>
@@ -63,7 +64,7 @@
         <input type="checkbox" aria-label="Select all on page" @click="selectAllOnPage()" :checked="allSelected">
       </div>
       <div role="columnheader"><button type="button" class="sortable" :class="{active: query?.sort == &#x27;username&#x27;}" @click="sortBy(&#x27;username&#x27;)">User <svg class="ui-icon sort-direction" aria-hidden="true" v-if="sortIcon(&#x27;username&#x27;)" :class="{ascending: sortIcon(&#x27;username&#x27;) === 'fa-arrow-up'}"><use href="#project-icon-arrow"></use></svg></button></div>
-      <div role="columnheader" class="num">Repos</div>
+      <div role="columnheader" class="num" title="Repositories discovered on the user's GitHub account">GitHub repos</div>
       <div role="columnheader"><button type="button" class="sortable" :class="{active: query?.sort == &#x27;status&#x27;}" @click="sortBy(&#x27;status&#x27;)">Status <svg class="ui-icon sort-direction" aria-hidden="true" v-if="sortIcon(&#x27;status&#x27;)" :class="{ascending: sortIcon(&#x27;status&#x27;) === 'fa-arrow-up'}"><use href="#project-icon-arrow"></use></svg></button></div>
       <div role="columnheader">Role</div>
       <div role="columnheader" aria-label="Actions"></div>
@@ -74,6 +75,7 @@
       </div>
       <div class="cell-anon" role="cell">
         <img width="28" height="28" class="rounded-circle" style="flex-shrink:0;" v-if="u?.photo" :src="safeUrl((u?.photo))">
+        <span class="avatar-fallback" aria-hidden="true" v-else>{{ (u?.username || '?').charAt(0).toUpperCase() }}</span>
         <div class="anon-text">
           <a class="repo-name" v-text="u?.username" :href="safeUrl(&quot;/admin/users/&quot; + (u?.username))"></a>
           <div class="anon-sub">
@@ -82,14 +84,14 @@
         </div>
       </div>
       <div class="cell-views num" role="cell"><svg class="ui-icon mobile-meta-icon" aria-hidden="true"><use href="#project-type-repo"></use></svg>
-        <a title="Show this user&#x27;s repositories" v-text="fmt?.number((u?.repoCount || 0))" :href="safeUrl(&quot;/admin/repositories?owner=&quot; + (u?.username))"></a>
+        <a :title="u?.repoCount ? 'Show this user’s repositories' : 'Repositories not synced yet'" v-text="u?.repoCount ? fmt?.number(u.repoCount) : 'Not synced'" :class="{ 'is-unsynced': !u?.repoCount }" :href="safeUrl(&quot;/admin/repositories?owner=&quot; + (u?.username))"></a>
       </div>
       <div class="cell-status" role="cell">
         <span class="status-dot" :class="{&#x27;status-ready&#x27;: u?.status == &#x27;active&#x27;, &#x27;status-removed&#x27;: u?.status == &#x27;removed&#x27; || u?.status == &#x27;banned&#x27;}"></span>
         <span v-text="fmt?.title(u?.status)"></span>
       </div>
       <div class="cell-status" role="cell">
-        <span class="type-badge type-repo" v-if="u?.isAdmin">Admin</span>
+        <span class="role-pill" v-if="u?.isAdmin">Admin</span>
         <span class="empty-dash" v-if="!u?.isAdmin">&mdash;</span>
       </div>
       <div class="cell-actions" role="cell">

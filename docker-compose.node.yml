@@ -1,0 +1,143 @@
+# Explicit Node rollback stack. Read backend/README.md before switching runtimes.
+services:
+  anonymous_github:
+    logging:
+      driver: json-file
+      options:
+        max-size: "25m"
+        max-file: "4"
+    build:
+      context: .
+      dockerfile: Dockerfile.node
+    restart: always
+    image: anonymous-github-node:${NODE_IMAGE_TAG:-rollback}
+    ports:
+      - $EXPOSED_PORT:5000
+    deploy:
+      resources:
+        limits:
+          memory: 3G
+    env_file:
+      - ./.env
+    volumes:
+      - ./repositories:/app/repositories/
+    environment:
+      - PORT=5000
+      - REDIS_HOSTNAME=redis
+      - DB_HOSTNAME=mongodb
+      - STREAMER_ENTRYPOINT=http://streamer:5000/
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - healthcheck.js
+      interval: 5s
+      timeout: 5s
+      retries: 3
+      start_period: 2s
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      streamer:
+        condition: service_healthy
+
+  streamer:
+    logging:
+      driver: json-file
+      options:
+        max-size: "25m"
+        max-file: "4"
+    build:
+      context: .
+      dockerfile: Dockerfile.node
+    restart: always
+    image: anonymous-github-node:${NODE_IMAGE_TAG:-rollback}
+    deploy:
+      mode: replicated
+      replicas: 4
+      endpoint_mode: dnsrr
+      resources:
+        limits:
+          memory: 768M
+    entrypoint: ["node", "--max-old-space-size=512", "./build/streamer/index.js"]
+    env_file:
+      - ./.env
+    volumes:
+      - ./repositories:/app/repositories/
+    environment:
+      - PORT=5000
+      - SERVICE_NAME=Streamer
+      - DB_HOSTNAME=mongodb
+      - REDIS_HOSTNAME=redis
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - healthcheck.js
+      interval: 5s
+      timeout: 5s
+      retries: 3
+      start_period: 2s
+
+  redis:
+    image: "redis:alpine"
+    restart: always
+    ports:
+      - 127.0.0.1:6379:6379
+    healthcheck:
+      test:
+        - CMD
+        - redis-cli
+        - ping
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  mongodb:
+    image: ${MONGO_IMAGE:-mongo:latest}
+    restart: on-failure
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: $DB_USERNAME
+      MONGO_INITDB_ROOT_PASSWORD: $DB_PASSWORD
+    volumes:
+      - mongodb_data_container:/data/db
+    ports:
+      - ${MONGO_BIND_ADDRESS:-127.0.0.1}:27017:27017
+    command: --quiet
+    healthcheck:
+      test:
+        - CMD
+        - mongosh
+        - --eval
+        - "db.adminCommand('ping')"
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  mongodb-backup:
+    image: tiredofit/db-backup
+    links:
+      - mongodb
+    env_file:
+      - ./.env
+    volumes:
+      - ./db_backups:/backup
+    environment:
+      - DB_TYPE=mongo
+      - DB_HOST=mongodb
+      - DB_DUMP_FREQ=120
+      - DB_CLEANUP_TIME=500
+      - COMPRESSION=XZ
+      - DB_USER=$DB_USERNAME
+      - DB_PASS=$DB_PASSWORD
+
+    restart: always
+volumes:
+  mongodb_data_container:

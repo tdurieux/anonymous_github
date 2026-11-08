@@ -24,46 +24,54 @@
       </div>
       <ul class="paper-reassure">
         <li>Free and open source</li>
-        <li>Read-only: never writes to your repos</li>
-        <li>Expires on the date you set</li>
+        <li>Read-only GitHub access</li>
+        <li>Expires when you choose</li>
       </ul>
     </div>
     <div class="paper-hero-shot">
       <div class="paper-frame">
         <div class="paper-frame-bar" aria-hidden="true">
           <span class="dots"><i></i><i></i><i></i></span>
-          <span class="url">anonymous.4open.science/anonymize</span>
+          <span class="url">anonymous.4open.science/r/paper-7f2a</span>
         </div>
-        <img src="/imgs/redaction-preview.png" width="1360" height="960" alt="A reviewer preview with the author, affiliation, and email replaced by anonymous terms">
+        <div class="hero-mock" role="img" aria-label="A reviewer browsing an anonymized repository: the author, affiliation, and email in the README are replaced by anonymous terms">
+          <div class="hero-mock-tree" aria-hidden="true">
+            <div class="hero-mock-tree-title">Files</div>
+            <div class="hero-mock-row is-folder"><svg viewBox="0 0 16 16"><path d="M1.5 3.5h4l1.5 1.5h7.5v8h-13z"/></svg>data</div>
+            <div class="hero-mock-row is-folder"><svg viewBox="0 0 16 16"><path d="M1.5 3.5h4l1.5 1.5h7.5v8h-13z"/></svg>experiments</div>
+            <div class="hero-mock-row is-folder"><svg viewBox="0 0 16 16"><path d="M1.5 3.5h4l1.5 1.5h7.5v8h-13z"/></svg>src</div>
+            <div class="hero-mock-row"><svg viewBox="0 0 16 16"><path d="M3.5 1.5h6l3 3v10h-9z"/></svg>LICENSE</div>
+            <div class="hero-mock-row is-active"><svg viewBox="0 0 16 16"><path d="M3.5 1.5h6l3 3v10h-9z"/></svg>README.md</div>
+            <div class="hero-mock-row"><svg viewBox="0 0 16 16"><path d="M3.5 1.5h6l3 3v10h-9z"/></svg>requirements.txt</div>
+          </div>
+          <div class="hero-mock-doc" aria-hidden="true">
+            <div class="hero-mock-doc-bar"><strong>README.md</strong><span class="hero-mock-count">3 redacted</span></div>
+            <div class="hero-mock-doc-body">
+              <div class="hero-mock-h1">DeepLearnUtils</div>
+              <p>Developed by <span class="redact" role="img" aria-label="Redacted term 1"><i>1</i></span> at <span class="redact" role="img" aria-label="Redacted term 2"><i>2</i></span>.</p>
+              <p>Utilities for reproducing the paper&rsquo;s experiments.</p>
+              <div class="hero-mock-h2">Quick start</div>
+              <pre>pip install -r requirements.txt
+python experiments/run.py</pre>
+              <p>Contact: <span class="redact" role="img" aria-label="Redacted term 3"><i>3</i></span></p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </section>
 
-  <!-- Proof -->
-  <section class="paper-proof paper-wrap" aria-label="Venues">
-    <div class="paper-eyebrow">Trusted by authors at</div>
-    <div class="paper-proof-venues">
-      <span>ICSE</span><i aria-hidden="true">&middot;</i>
-      <span>FSE</span><i aria-hidden="true">&middot;</i>
-      <span>OOPSLA</span>
-    </div>
-  </section>
 
   <!-- Live stats -->
   <section class="paper-stats paper-wrap" id="metrics" aria-label="Usage over the last 60 days">
     <div class="paper-stats-meta">
-      <div class="paper-stats-meta-left">Live &middot; last 60 days</div>
-      <div class="paper-stats-meta-right">
-        <span class="paper-stats-dot" aria-hidden="true"></span> updated daily
-      </div>
+      <div class="paper-stats-meta-left"><span class="paper-stats-dot" aria-hidden="true"></span> Live &middot; last 60 days &middot; updated daily</div>
+      <div class="paper-stats-meta-right">Used by authors at ICSE &middot; FSE &middot; OOPSLA</div>
     </div>
     <div class="paper-stats-grid">
       <div class="paper-stat-card" v-for="(card, index) in cards" :key="card?.key">
-        <div class="paper-stat-value">{{ fmt?.bigNum(card?.total) }}</div>
+        <div class="paper-stat-value" :class="{ 'is-pending': !stat }">{{ stat ? fmt?.bigNum(card?.total) : '—' }}</div>
         <div class="paper-stat-label">{{ card?.label }}</div>
-        <svg class="paper-stat-bars" preserveAspectRatio="none" aria-hidden="true" v-if="history[card?.key].bars?.length &gt; 1" :viewBox="&quot;0 0 &quot; + (history[card?.key].viewW) + &quot; 36&quot;">
-          <rect v-for="(b, index) in history[card?.key].bars" :key="index" :class="{&#x27;is-latest&#x27;: index === history[card.key].bars.length - 1}" :x="(b?.x)" :y="(b?.y)" :width="(b?.w)" :height="(b?.h)"></rect>
-        </svg>
         <div class="paper-stat-delta" v-if="history[card?.key].bars?.length &gt; 1">
           +{{ fmt?.number(history[card?.key].deltaToday) }} today
         </div>
@@ -74,7 +82,7 @@
   <!-- Before / after -->
   <section class="paper-section-head paper-wrap">
     <div>
-      <div class="paper-eyebrow">Before &middot; after</div>
+      <div class="paper-eyebrow">Try it</div>
       <h2>The same repository, <em>minus you.</em></h2>
     </div>
     <p>
@@ -83,29 +91,22 @@
       real thing, not a zip.
     </p>
   </section>
-  <div class="paper-preview paper-wrap" aria-label="Before and after example">
-    <div class="pane">
-      <div class="pane-header">
-        <span class="pane-label">Before &middot; your repo</span>
-        <span class="pane-url">github.com/jane-smith/DeepLearnUtils</span>
-      </div>
-      <div class="pane-body">
-        <div><span class="tok">#</span> <strong>DeepLearnUtils</strong></div>
-        <div>Developed by Jane Smith at MIT CSAIL.</div>
-        <div>See Smith et&nbsp;al., &ldquo;Attention That Works,&rdquo; 2026.</div>
-        <div>Contact: jane.smith@mit.edu</div>
-      </div>
+  <div class="demo paper-wrap" aria-label="Try redaction">
+    <div class="demo-terms">
+      <label for="demo-terms">Terms to redact <span>comma-separated, try adding your own</span></label>
+      <input id="demo-terms" type="text" v-model="demoTerms" spellcheck="false" autocomplete="off">
     </div>
-    <div class="pane">
-      <div class="pane-header">
-        <span class="pane-label">After &middot; anonymous mirror</span>
-        <span class="pane-url">anonymous.4open.science/r/paper-7f2a</span>
+    <div class="demo-panes">
+      <div class="pane">
+        <div class="pane-header"><span class="pane-label">Your repository</span><span class="pane-url">github.com/jane-smith/DeepLearnUtils</span></div>
+        <div class="demo-input-wrap">
+          <div class="pane-body demo-backdrop" aria-hidden="true"><template v-for="(p, i) in demoParts()" :key="i"><mark v-if="p.redacted" class="demo-match">{{ p.original }}</mark><template v-else>{{ p.text }}</template></template>&#8203;</div>
+          <textarea class="pane-body demo-input" v-model="demoText" spellcheck="false" aria-label="Sample README to anonymize"></textarea>
+        </div>
       </div>
-      <div class="pane-body">
-        <div><span class="tok">#</span> <strong>DeepLearnUtils</strong></div>
-        <div>Developed by <span class="redact" role="img" aria-label="redacted author name">XXXX-1</span> at <span class="redact" role="img" aria-label="redacted affiliation">XXXX-2</span>.</div>
-        <div>See <span class="redact" role="img" aria-label="redacted author name">XXXX-1</span> et&nbsp;al., &ldquo;Attention That Works,&rdquo; 2026.</div>
-        <div>Contact: <span class="redact" role="img" aria-label="redacted email address">XXXX-3</span></div>
+      <div class="pane pane-after">
+        <div class="pane-header"><span class="pane-label">What reviewers see</span><span class="pane-url">{{ demoCount() }} redacted · anonymous.4open.science/r/paper-7f2a</span></div>
+        <div class="pane-body demo-output" aria-live="polite"><template v-for="(p, i) in demoParts()" :key="i"><span v-if="p.redacted" class="redact-chip" :title="'Replaces “' + p.original + '”'">{{ p.text }}</span><template v-else>{{ p.text }}</template></template></div>
       </div>
     </div>
   </div>
@@ -143,8 +144,47 @@
             <span class="dots"><i></i><i></i><i></i></span>
             <span class="url">{{ f?.url }}</span>
           </div>
-          <div :class="&quot;paper-crop paper-crop-&quot; + (f?.key)">
-            <img loading="lazy" width="2880" height="1800" :src="safeUrl((f?.img))" :alt="(f?.alt)">
+          <div class="feat-mock" :class="'is-' + f?.key" role="img" :aria-label="(f?.alt)">
+            <template v-if="f?.key === 'anonymize'">
+              <div class="fm-form">
+                <div class="fm-label">GitHub repository</div>
+                <div class="fm-input">github.com/jane-smith/DeepLearnUtils</div>
+                <div class="fm-label">Terms to redact</div>
+                <div class="fm-chips"><span>Jane Smith</span><span>MIT CSAIL</span><span>jane.smith@mit.edu</span><span class="fm-chip-add">+ Add term</span></div>
+                <div class="fm-row">
+                  <div><div class="fm-label">Reviewers can see</div><div class="fm-toggles"><span class="is-on">Images</span><span class="is-on">PDFs</span><span>Links</span><span class="is-on">Notebooks</span></div></div>
+                  <div><div class="fm-label">Expires</div><div class="fm-input fm-input-sm">Mar 31, 2027</div></div>
+                </div>
+                <div class="fm-actions"><span class="fm-share">anonymous.4open.science/r/paper-7f2a</span><span class="fm-btn">Anonymize repository</span></div>
+              </div>
+            </template>
+            <template v-else-if="f?.key === 'review'">
+              <div class="fm-viewer">
+                <div class="fm-tree"><div class="is-folder">data</div><div class="is-folder">src</div><div class="is-file is-active">train.py</div><div class="is-file">README.md</div><div class="is-file">LICENSE</div></div>
+                <div class="fm-code">
+                  <div class="fm-code-bar"><span><b>train.py</b></span><span>48 lines · Python</span></div>
+                  <pre><span class="ln">1</span><span class="c"># Training loop for DeepLearnUtils</span>
+<span class="ln">2</span><span class="c"># Author: <span class="redact">XXXX-1</span>, <span class="redact">XXXX-2</span></span>
+<span class="ln">3</span><span class="k">import</span> torch
+<span class="ln">4</span><span class="k">from</span> utils <span class="k">import</span> load_config
+<span class="ln">5</span>
+<span class="ln">6</span><span class="k">def</span> <span class="f">train</span>(config):
+<span class="ln">7</span>    model = build_model(config)
+<span class="ln">8</span>    <span class="k">for</span> epoch <span class="k">in</span> range(config.epochs):
+<span class="ln">9</span>        loss = step(model)
+<span class="ln">10</span>        log(<span class="s">"epoch %d: %.3f"</span>, epoch, loss)</pre>
+                </div>
+              </div>
+            </template>
+            <template v-else>
+              <div class="fm-dash">
+                <div class="fm-dash-head"><span>Project</span><span>Status</span><span>Views</span><span>Expires</span></div>
+                <div class="fm-dash-row"><span><b>DeepLearnUtils</b><i>paper-7f2a · ICSE 2027</i></span><span class="st is-ready">Ready</span><span>41</span><span>Mar 31, 2027</span></div>
+                <div class="fm-dash-row"><span><b>vision-bench#212</b><i>pull request · FSE 2027</i></span><span class="st is-ready">Ready</span><span>12</span><span>Never</span></div>
+                <div class="fm-dash-row"><span><b>graph-repair</b><i>gr-91ab</i></span><span class="st is-progress">Updating</span><span>5</span><span>Jan 5, 2027</span></div>
+                <div class="fm-dash-row is-muted"><span><b>JarSift</b><i>OOPSLA 2025</i></span><span class="st is-expired">Expired</span><span>72</span><span>Sep 28, 2026</span></div>
+              </div>
+            </template>
           </div>
         </div>
       </div>
@@ -205,7 +245,7 @@
         <div class="paper-footer-head">Project</div>
         <a href="https://github.com/tdurieux/anonymous_github/" target="_blank" rel="noopener">Source code</a>
         <a href="https://github.com/tdurieux/anonymous_github/issues/new?template=issue_report.yml" target="_blank" rel="noopener">Report a bug</a>
-        <a href="https://github.com/sponsors/tdurieux/" target="_blank" rel="noopener">Sponsor</a>
+        <a href="https://github.com/sponsors/tdurieux/" target="_blank" rel="noopener">Support</a>
       </div>
       <div class="paper-footer-col">
         <div class="paper-footer-head">Contact</div>

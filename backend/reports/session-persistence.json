@@ -1,0 +1,38 @@
+{
+  "date": "2026-11-04",
+  "deployment": "beta.durieux.me",
+  "image": "sha256:9fe2455d966903eb44044af22d2347904a8e5b277ed10cdb8a748849eda2cee8",
+  "findings": [
+    "Browser login cookie had no persistent expiry",
+    "Redis session TTL was fixed at 24 hours and never renewed during authenticated reads",
+    "Redis reported zero evicted keys"
+  ],
+  "policy": {
+    "authenticatedLifetimeDays": 30,
+    "renewalIntervalDays": 1,
+    "idleLifetimeDays": [
+      29,
+      30
+    ],
+    "anonymousRedisLifetimeHours": 24,
+    "oauthStateLifetimeMinutes": 10
+  },
+  "validation": {
+    "raceTests": [
+      "OAuth callback session and identity",
+      "persistent rolling session",
+      "removed account and forged session fail closed"
+    ],
+    "vet": "passed",
+    "live": {
+      "result": "passed",
+      "requests": 133,
+      "persistentCookie": "passed",
+      "sessionLoginLogout": "passed"
+    }
+  },
+  "notes": [
+    "Existing valid browser sessions upgrade on their next authenticated request. Expired sessions require login again.",
+    "Renewal compare-and-set cannot recreate deleted sessions. Account status continues to be checked on each request."
+  ]
+}

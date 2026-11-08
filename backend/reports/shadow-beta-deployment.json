@@ -1,0 +1,48 @@
+{
+  "verifiedAt": "2026-11-03T08:25:36.021003+00:00",
+  "hostname": "beta.durieux.me",
+  "server": "vps-1593",
+  "originIP": "212.127.73.172",
+  "productionChanged": false,
+  "productionDataImported": false,
+  "publicDeploymentHeader": "go-shadow-beta",
+  "httpsCertificateVerified": true,
+  "githubOutboundTLSStatus": 200,
+  "oauth": {
+    "legacyEnabled": true,
+    "githubAppEnabled": false,
+    "clientMatchesBetaConfiguration": true,
+    "callback": "https://beta.durieux.me/github/auth",
+    "redirectStatus": 302,
+    "cookieSecure": true,
+    "cookieHttpOnly": true,
+    "cookieSameSite": "Lax",
+    "completedUserAuthorization": true,
+    "authorizationEvidence": {
+      "userReportedSignIn": true,
+      "activeGitHubAccountObserved": true,
+      "authenticatedGitHubRepositoryLifecycle": "passed",
+      "report": "shadow-authenticated-deployment.json",
+      "verifiedAt": "2026-11-03T08:33:37.756Z"
+    }
+  },
+  "browser": {
+    "legacyOAuthCopyRendered": true,
+    "loginPath": "/github/login"
+  },
+  "checks": {
+    "isolation": "passed",
+    "health": "passed",
+    "authentication": "User-reported OAuth sign-in, active account, API-key authentication and live GitHub repository lifecycle verified",
+    "exactAnonymizedFileChecks": 9,
+    "zip": "passed",
+    "demo": "https://beta.durieux.me/r/shadow-demo/"
+  },
+  "configurationSHA256": {
+    "backend/compose.shadow.yml": "175cff66898963bbab81a06727e47e57855a748111865ab3119ef1647b3b14e5",
+    "backend/compose.shadow-beta.yml": "29f7874bd8210f2be036e08f87bb64347dd59a47345a1bc27e1d58dfebb585c6",
+    "backend/shadow-beta-nginx.conf": "89feaf1fd4d56b6d5cc9ddb09c505c44cbf26be10e20cf02272b60090e9ab9a8",
+    "backend/shadow-beta.caddy": "985ab1b605946d68c528c89f42f9f5d4279ad1509e30e4df168c0f83bda46904",
+    "backend/scripts/check-shadow.cjs": "1869cef7fdccb8a2ce70e90de5b0e16c82d48be9d11b7987cc40d651b0915499"
+  }
+}

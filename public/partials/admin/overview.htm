@@ -1,8 +1,9 @@
 <div class="container paper-page admin-page overview-page">
-  <div class="paper-crumbs">Admin &nbsp;/&nbsp; <span class="here">Overview</span></div>
+  <div class="paper-crumbs"><a href="/admin/">Admin</a> &nbsp;/&nbsp; <span class="here">Overview</span></div>
 
   <div class="ov-header">
     <h1 class="paper-page-title">Overview</h1>
+    <span class="ov-live"><span class="ov-live-dot" aria-hidden="true"></span>Live<span class="ov-live-extra"> &middot; refreshes every 30s</span></span>
   </div>
 
   <nav class="admin-nav">
@@ -20,27 +21,32 @@
 
   <div v-if="data">
 
+    <div class="ov-health" role="status" v-if="data?.system?.memPercent &gt; 90 || data?.system?.diskPercent &gt; 90">
+      <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-warning"></use></svg>
+      <span><b>Server needs attention.</b> Memory or disk is running high (see the cards below). New anonymizations may fail until it drops.</span>
+    </div>
+
     <!-- ── Top KPI row ──────────────────────────────────────────── -->
     <section class="ov-kpi-row">
       <div class="ov-kpi-card">
-        <div class="ov-kpi-label">Repositories <span class="ov-dot ov-dot-ok"></span></div>
-        <div class="ov-kpi-value">{{ humanNum(data?.repos?.total) }}</div>
-        <div class="ov-kpi-sub">+{{ data?.repos?.newRepos24h }} &middot; last 24h</div>
+        <div class="ov-kpi-label">Live repositories</div>
+        <div class="ov-kpi-value">{{ humanNum((data?.repos?.statusBreakdown || []).filter(s =&gt; s._id !== 'removed' &amp;&amp; s._id !== 'expired').reduce((a, s) =&gt; a + (s.count || 0), 0)) }}</div>
+        <div class="ov-kpi-sub">{{ humanNum(((data?.repos?.statusBreakdown || []).find(s =&gt; s._id === 'removed') || {}).count || 0) }} removed &middot; {{ humanNum(data?.repos?.total) }} total</div>
       </div>
       <div class="ov-kpi-card">
         <div class="ov-kpi-label">CPU</div>
-        <div class="ov-kpi-value" :class="{&#x27;ov-val-warn&#x27;: data?.system?.cpuPercent &gt; 80}">{{ data?.system?.cpuPercent }}%</div>
+        <div class="ov-kpi-value" :class="{&#x27;ov-val-warn&#x27;: data?.system?.cpuPercent &gt; 80}">{{ data?.system?.cpuPercent }}%</div><div class="ov-meter" :class="{ warn: data?.system?.cpuPercent &gt; 80, crit: data?.system?.cpuPercent &gt; 90 }"><span :style="{ width: Math.min(100, data?.system?.cpuPercent || 0) + '%' }"></span></div>
         <div class="ov-kpi-sub">{{ data?.system?.cpuCount }} cores &middot; load {{ data?.system?.loadAvg?.[0]?.toFixed(1) }}</div>
       </div>
       <div class="ov-kpi-card">
         <div class="ov-kpi-label">Memory</div>
-        <div class="ov-kpi-value" :class="{&#x27;ov-val-warn&#x27;: data?.system?.memPercent &gt; 85}">{{ data?.system?.memPercent }}%</div>
-        <div class="ov-kpi-sub">{{ humanBytes(data?.system?.memUsed) }} / {{ humanBytes(data?.system?.memTotal) }}</div>
+        <div class="ov-kpi-value" :class="{&#x27;ov-val-warn&#x27;: data?.system?.memPercent &gt; 85}">{{ data?.system?.memPercent }}%</div><div class="ov-meter" :class="{ warn: data?.system?.memPercent &gt; 85, crit: data?.system?.memPercent &gt; 90 }"><span :style="{ width: Math.min(100, data?.system?.memPercent || 0) + '%' }"></span></div>
+        <div class="ov-kpi-sub"><b class="ov-flag" :class="{ critical: data?.system?.memPercent &gt; 90 }" v-if="data?.system?.memPercent &gt; 85">{{ data?.system?.memPercent &gt; 90 ? 'Critical' : 'High' }} · </b>{{ humanBytes(data?.system?.memUsed).replace(/\s*GB$/, '') }} / {{ humanBytes(data?.system?.memTotal) }}</div>
       </div>
       <div class="ov-kpi-card">
         <div class="ov-kpi-label">Disk</div>
-        <div class="ov-kpi-value" :class="{&#x27;ov-val-warn&#x27;: data?.system?.diskPercent &gt; 85}">{{ data?.system?.diskPercent }}%</div>
-        <div class="ov-kpi-sub">{{ humanBytes(data?.system?.diskUsed) }} / {{ humanBytes(data?.system?.diskTotal) }} &middot; {{ data?.system?.diskMount }}</div>
+        <div class="ov-kpi-value" :class="{&#x27;ov-val-warn&#x27;: data?.system?.diskPercent &gt; 85}">{{ data?.system?.diskPercent }}%</div><div class="ov-meter" :class="{ warn: data?.system?.diskPercent &gt; 85, crit: data?.system?.diskPercent &gt; 90 }"><span :style="{ width: Math.min(100, data?.system?.diskPercent || 0) + '%' }"></span></div>
+        <div class="ov-kpi-sub"><b class="ov-flag" :class="{ critical: data?.system?.diskPercent &gt; 90 }" v-if="data?.system?.diskPercent &gt; 85">{{ data?.system?.diskPercent &gt; 90 ? 'Critical' : 'High' }} · </b>{{ humanBytes(data?.system?.diskUsed).replace(/\s*GB$/, '') }} / {{ humanBytes(data?.system?.diskTotal) }}<template v-if="data?.system?.diskMount &amp;&amp; data.system.diskMount !== '/'"> &middot; {{ data?.system?.diskMount }}</template></div>
       </div>
       <div class="ov-kpi-card">
         <div class="ov-kpi-label">Uptime</div>
@@ -53,18 +59,18 @@
     <section class="ov-daily-row">
       <div class="ov-daily-card">
         <div class="ov-daily-label">New repos today</div>
-        <div class="ov-daily-value">+{{ fmt?.number(data?.daily?.today?.repositories) }}</div>
-        <div class="ov-daily-sub">since yesterday</div>
+        <div class="ov-daily-value">{{ fmt?.number(data?.daily?.today?.repositories || 0) }}</div>
+        <div class="ov-daily-sub">so far today</div>
       </div>
       <div class="ov-daily-card">
         <div class="ov-daily-label">New users today</div>
-        <div class="ov-daily-value">+{{ fmt?.number(data?.daily?.today?.users) }}</div>
+        <div class="ov-daily-value">{{ fmt?.number(data?.daily?.today?.users || 0) }}</div>
         <div class="ov-daily-sub">{{ fmt?.number(data?.users?.total) }} total users</div>
       </div>
       <div class="ov-daily-card">
         <div class="ov-daily-label">Page views today</div>
-        <div class="ov-daily-value">+{{ fmt?.number(data?.daily?.today?.pageViews) }}</div>
-        <div class="ov-daily-sub">since yesterday</div>
+        <div class="ov-daily-value">{{ fmt?.number(data?.daily?.today?.pageViews || 0) }}</div>
+        <div class="ov-daily-sub">so far today</div>
       </div>
     </section>
 
@@ -73,7 +79,7 @@
       <div class="ov-chart-card">
         <div class="ov-chart-head">
           <span class="ov-chart-title">Daily page views &middot; 30d</span>
-          <span class="ov-chart-legend"><span class="ov-dot-legend ov-dot-accent"></span>views/day</span>
+          <span class="ov-chart-legend"><span class="ov-dot-legend ov-dot-accent"></span>views/day &middot; peak {{ fmt?.number(historyMax('dailyPageViews')) }}</span>
         </div>
         <div class="ov-spark-bars" v-if="data?.history?.length">
           <div class="ov-spark-col has-tip" v-for="(d, index) in data?.history" :key="index" :data-tip="(historyLabel(d)) + &quot;: +&quot; + (fmt?.number(d?.dailyPageViews)) + &quot; views&quot;" :aria-label="(historyLabel(d)) + &quot;: +&quot; + (fmt?.number(d?.dailyPageViews)) + &quot; views&quot;">
@@ -89,7 +95,7 @@
       <div class="ov-chart-card">
         <div class="ov-chart-head">
           <span class="ov-chart-title">New repos &middot; 30d</span>
-          <span class="ov-chart-legend"><span class="ov-dot-legend ov-dot-ok-fill"></span>repos/day</span>
+          <span class="ov-chart-legend"><span class="ov-dot-legend ov-dot-ok-fill"></span>repos/day &middot; peak {{ fmt?.number(historyMax('dailyRepositories')) }}</span>
         </div>
         <div class="ov-spark-bars" v-if="data?.history?.length">
           <div class="ov-spark-col has-tip" v-for="(d, index) in data?.history" :key="index" :data-tip="(historyLabel(d)) + &quot;: +&quot; + (fmt?.number(d?.dailyRepositories)) + &quot; repos&quot;" :aria-label="(historyLabel(d)) + &quot;: +&quot; + (fmt?.number(d?.dailyRepositories)) + &quot; repos&quot;">
@@ -121,7 +127,7 @@
       <div class="ov-chart-card">
         <div class="ov-chart-head">
           <span class="ov-chart-title">New users &middot; 30d</span>
-          <span class="ov-chart-legend"><span class="ov-dot-legend ov-dot-new-user-fill"></span>users/day</span>
+          <span class="ov-chart-legend"><span class="ov-dot-legend ov-dot-new-user-fill"></span>users/day &middot; peak {{ fmt?.number(historyMax('dailyUsers')) }}</span>
         </div>
         <div class="ov-spark-bars" v-if="data?.history?.length">
           <div class="ov-spark-col has-tip" v-for="(d, index) in data?.history" :key="index" :data-tip="(historyLabel(d)) + &quot;: +&quot; + (fmt?.number(d?.dailyUsers)) + &quot; users&quot;" :aria-label="(historyLabel(d)) + &quot;: +&quot; + (fmt?.number(d?.dailyUsers)) + &quot; users&quot;">
@@ -377,7 +383,7 @@
             <tbody><tr v-for="sample in performance.instances" :key="sample.instance" :class="{'ov-metric-warning-row': performanceWarning(sample)}">
               <th scope="row" class="ov-metric-name"><span>{{ sample.instance }}</span><small class="ov-metric-warn" v-if="performanceWarning(sample)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-warning"></use></svg> Needs attention</small></th>
               <td class="num">{{ humanBytes(sample.memory.rss) }} / {{ humanBytes(sample.memoryLimitBytes) }}<small>Peak {{ humanBytes(peakRss(sample)) }}</small></td>
-              <td class="num">{{ sample.cpuPercent.toFixed(1) }}%</td><td class="num">{{ sample.eventLoop.p95Ms.toFixed(1) }} ms</td>
+              <td class="num">{{ sample.cpuPercent == null ? 'Unavailable' : sample.cpuPercent.toFixed(1) + '%' }}</td><td class="num">{{ sample.eventLoop?.p95Ms == null ? 'Not applicable' : sample.eventLoop.p95Ms.toFixed(1) + ' ms' }}</td>
               <td class="num">{{ sample.activeRequests }}</td><td class="num">{{ sample.sockets?.descriptors ?? 'Unavailable' }} / {{ sample.sockets?.closeWait ?? 'Unavailable' }}</td>
               <td class="num">{{ sample.workers?.running ?? 0 }} / {{ sample.workers?.waiting ?? 0 }}</td><td class="num">{{ sampleAge(sample) }} s</td>
               <td class="num">{{ sample.droppedBatches }} / {{ sample.droppedMetrics }}</td>

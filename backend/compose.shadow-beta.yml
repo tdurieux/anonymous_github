@@ -1,0 +1,19 @@
+# HTTPS/OAuth overlay for the isolated shadow. Keeps all shadow data volumes.
+services:
+  app:
+    environment:
+      APP_HOSTNAME: beta.durieux.me
+      AUTH_CALLBACK: https://beta.durieux.me/github/auth
+      COOKIE_SECURE: "true"
+      TRUST_PROXY: "2"
+      GITHUB_OAUTH_ENABLED: "true"
+      GITHUB_APP_ENABLED: "false"
+      GITHUB_APP_NEW_CONNECTIONS: "false"
+      CLIENT_ID: ${SHADOW_CLIENT_ID:?Set beta OAuth credentials in .env.go-shadow}
+      CLIENT_SECRET: ${SHADOW_CLIENT_SECRET:?Set beta OAuth credentials in .env.go-shadow}
+    networks: [default, outbound]
+  gateway:
+    volumes:
+      - ./shadow-beta-nginx.conf:/etc/nginx/nginx.conf:ro
+networks:
+  outbound: {}

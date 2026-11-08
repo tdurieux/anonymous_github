@@ -1,8 +1,22 @@
 import { setupBilling, readBilling } from "./billing.js";
-import { reactive, nextTick } from "vue";
+import { reactive, nextTick, markRaw } from "vue";
+import { loadEditor } from "./lazy-assets.js";
 import { createTimers, createListeners } from "./state.js";
 import { formDraft } from "./drafts.js";
 import translations from "../i18n/locale-en.json";
+
+// A README image that fails to load becomes a quiet placeholder, not a broken-image glyph.
+if (typeof window !== "undefined" && window.document?.addEventListener) {
+  window.document.addEventListener("error", (event) => {
+    const img = event.target;
+    if (!img || img.tagName !== "IMG" || img.dataset.failed || !img.closest?.(".markdown-body, .anonymize-preview-body")) return;
+    img.dataset.failed = "1";
+    const ph = window.document.createElement("span");
+    ph.className = "img-unavailable";
+    ph.textContent = img.alt ? "Image unavailable: " + img.alt : "Image unavailable";
+    img.replaceWith(ph);
+  }, true);
+}
 
 function viewerErrorCode(error) {
   let data = error?.data;
@@ -528,6 +542,25 @@ export const homeController = function (state, http, location, window, timeout) 
         });
       };
 
+      // Live redaction demo on the landing page: same masking rule as the product (XXXX-n per distinct term).
+      state.demoText = "# DeepLearnUtils\nDeveloped by Jane Smith at MIT CSAIL.\nSee Smith et al., \"Attention That Works,\" 2026.\nContact: jane.smith@mit.edu";
+      state.demoTerms = "Jane Smith, Smith, MIT CSAIL, jane.smith@mit.edu";
+      state.demoParts = function () {
+        const terms = (state.demoTerms || "").split(/[,\n]/).map((t) => t.trim()).filter(Boolean).sort((a, b) => b.length - a.length);
+        const escape = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        if (!terms.length) return [{ text: state.demoText }];
+        const re = new RegExp("(" + terms.map(escape).join("|") + ")", "gi");
+        const index = {};
+        let n = 0;
+        return (state.demoText || "").split(re).filter((p) => p !== "").map((p) => {
+          const key = terms.find((t) => t.toLowerCase() === p.toLowerCase());
+          if (!key) return { text: p };
+          if (!index[key.toLowerCase()]) index[key.toLowerCase()] = ++n;
+          return { text: String(index[key.toLowerCase()]), redacted: true, original: p };
+        });
+      };
+      state.demoCount = () => state.demoParts().filter((p) => p.redacted).length;
+
       state.cards = [
         { key: "repositories", total: 0, label: "repositories anonymized" },
         { key: "users", total: 0, label: "researchers" },
@@ -541,6 +574,8 @@ export const homeController = function (state, http, location, window, timeout) 
           state.cards[1].total = res.data.nbUsers;
           state.cards[2].total = res.data.nbPageViews;
           state.cards[3].total = res.data.nbPullRequests;
+        }).catch(() => {
+          // Leave the placeholders in place rather than showing zeros.
         });
       }
       getStat();
@@ -607,7 +642,7 @@ export const homeController = function (state, http, location, window, timeout) 
           pageViews: buildSeriesView(rows.map((r) => r.nbPageViews || 0)),
           pullRequests: buildSeriesView(rows.map((r) => r.nbPullRequests || 0)),
         };
-      });
+      }).catch(() => {});
     };
 
 export const unifiedDashboardController = function (state, http, location, promises, window, quotaService) {
@@ -1767,6 +1802,8 @@ export const anonymizeController = function (state, http, html, params, location
         setValidity("sourceUrl", "github", true);
         const transferFocus = document.activeElement?.id === "sourceUrl-landing";
         state.workspaceOpen = true;
+        // Show the pasted URL from its start, not scrolled to the caret.
+        setTimeout(() => { const el = window.document.getElementById("sourceUrl"); if (!el) return; try { el.setSelectionRange(0, 0); } catch { /* not a text input */ } el.scrollLeft = 0; }, 50);
         if (transferFocus) timeout(() => document.getElementById("sourceUrl")?.focus(), 0);
         state.reconnectingSource = false;
         state.reconnectRepositoryId = undefined;
@@ -2509,10 +2546,19 @@ export const exploreController = function (state, http, location, params, html, 
           }
         });
       let contentGeneration = 0;
+      let contentCanceller = null;
+      let loadingNoticeTimer = null;
+      state.fileLoadingSlow = false;
+      state.fileReceivedBytes = 0;
+      function cancelContentLoad() {
+        if (contentCanceller) { contentCanceller.resolve(); contentCanceller = null; }
+        if (loadingNoticeTimer) { timers.timeout.cancel(loadingNoticeTimer); loadingNoticeTimer = null; }
+      }
       let destroyed = false;
       state.on("dispose", () => {
         destroyed = true;
         contentGeneration++;
+        cancelContentLoad();
         if (searchCanceller) searchCanceller.resolve();
       });
       state.files = [];
@@ -2520,6 +2566,20 @@ export const exploreController = function (state, http, location, params, html, 
       state.fileSearchQuery = "";
       state.fileSearchResults = null;
       state.fileSearchLoading = false;
+
+      listen(document, "click", (e) => {
+        if (state.symbolsOpen && !e.target.closest?.(".symbols")) state.symbolsOpen = false;
+        if (state.moreOpen && !e.target.closest?.(".tb-more")) state.moreOpen = false;
+        if (state.accountOpen && !e.target.closest?.(".acct")) state.accountOpen = false;
+        if (state.helpOpen && !e.target.closest?.(".vb-help")) state.helpOpen = false;
+      });
+      listen(document, "keydown", (e) => {
+        if (e.key === "Escape") { state.symbolsOpen = false; state.moreOpen = false; state.accountOpen = false; state.helpOpen = false; }
+        if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key && e.key.toLowerCase() === "f" && state.type === "html" && window.document.querySelector(".reading-layout")) {
+          e.preventDefault();
+          state.toggleMdFind(true);
+        }
+      });
 
       listen(document, "keydown", function (e) {
         if ((e.metaKey || e.ctrlKey) && e.key === "k") {
@@ -2720,7 +2780,7 @@ export const exploreController = function (state, http, location, params, html, 
       let listingGeneration = 0;
       let countRequests = new Set();
       let countsUnavailable = false;
-      state.getFiles = function (path) {
+        state.getFiles = function (path, background = false) {
         const repoId = state.repoId;
         const generation = listingGeneration;
         return http.get(
@@ -2733,10 +2793,12 @@ export const exploreController = function (state, http, location, params, html, 
           fetchFileCounts(normalized, generation);
           return res.data;
         }, function (err) {
-          if (destroyed || repoId !== state.repoId || generation !== listingGeneration) return [];
-          state.type = "error";
-          state.content = viewerErrorCode(err);
-          state.files = [];
+            if (destroyed || repoId !== state.repoId || generation !== listingGeneration) return [];
+          if (!background) {
+            state.type = "error";
+            state.content = viewerErrorCode(err);
+            state.files = [];
+          }
         });
       };
       function fetchFileCounts(path, generation) {
@@ -2828,6 +2890,289 @@ export const exploreController = function (state, http, location, params, html, 
         state.allowScripts = !state.allowScripts;
       };
 
+      // Wrap on wide screens; on phones code scrolls sideways so tokens stay intact.
+      const storedWrap = (() => { try { return window.localStorage?.getItem("wrapLines"); } catch { return null; } })();
+      state.wrapLines = (storedWrap ?? (window.matchMedia?.("(max-width: 767px)").matches ? "false" : "true")) !== "false";
+      state.toggleWrap = function () {
+        state.wrapLines = !state.wrapLines;
+        try { window.localStorage?.setItem("wrapLines", String(state.wrapLines)); } catch { /* storage unavailable */ }
+        state.codeEditor?.session.setUseWrapMode(state.wrapLines);
+      };
+      // Find opens as an overlay at the top right of the code, like an editor.
+      // Find on rendered Markdown pages: highlight matches inside the reading column.
+      function mdFindRoot() { return window.document.querySelector(".reading-layout .markdown-body"); }
+      function clearMdFind() {
+        const root = mdFindRoot();
+        if (!root) return;
+        root.querySelectorAll("mark.md-find").forEach((m) => { m.replaceWith(window.document.createTextNode(m.textContent)); });
+        root.normalize();
+      }
+      state.runMdFind = function () {
+        clearMdFind();
+        state.mdFindTotal = 0;
+        state.mdFindIndex = 0;
+        const q = (state.mdFindQuery || "").trim();
+        const root = mdFindRoot();
+        if (!q || !root) return;
+        const cs = !!state.mdFindCase;
+        const needle = cs ? q : q.toLowerCase();
+        const walker = window.document.createTreeWalker(root, 4);
+        const nodes = [];
+        while (walker.nextNode()) if ((cs ? walker.currentNode.nodeValue : walker.currentNode.nodeValue.toLowerCase()).includes(needle)) nodes.push(walker.currentNode);
+        let total = 0;
+        for (const node of nodes) {
+          const text = node.nodeValue, lower = cs ? text : text.toLowerCase();
+          const frag = window.document.createDocumentFragment();
+          let last = 0, i;
+          while ((i = lower.indexOf(needle, last)) !== -1) {
+            frag.appendChild(window.document.createTextNode(text.slice(last, i)));
+            const m = window.document.createElement("mark");
+            m.className = "md-find";
+            m.textContent = text.slice(i, i + q.length);
+            frag.appendChild(m);
+            total++;
+            last = i + q.length;
+          }
+          frag.appendChild(window.document.createTextNode(text.slice(last)));
+          node.parentNode.replaceChild(frag, node);
+        }
+        state.mdFindTotal = total;
+        if (total) state.stepMdFind(0);
+      };
+      state.stepMdFind = function (delta) {
+        const root = mdFindRoot();
+        if (!root || !state.mdFindTotal) return;
+        const marks = root.querySelectorAll("mark.md-find");
+        state.mdFindIndex = (state.mdFindIndex + delta + marks.length) % marks.length;
+        marks.forEach((m, i) => m.classList.toggle("is-current", i === state.mdFindIndex));
+        marks[state.mdFindIndex]?.scrollIntoView({ block: "center", behavior: "smooth" });
+      };
+      state.toggleMdFind = function (open) {
+        state.mdFindOpen = open === undefined ? !state.mdFindOpen : open;
+        if (!state.mdFindOpen) { clearMdFind(); state.mdFindTotal = 0; return; }
+        nextTick(() => window.document.querySelector(".md-find-input")?.focus());
+      };
+      state.findInFile = function () {
+        const editor = state.codeEditor;
+        if (!editor) return;
+        editor.focus();
+        editor.execCommand("find");
+        // Docked under the toolbar: push the code down while the find bar is open.
+        const dock = () => {
+          const box = editor.searchBox?.element;
+          if (!box) return;
+          editor.renderer.setScrollMargin(52, 12, 0, 0);
+          if (box._dockObserver) return;
+          box._dockObserver = new MutationObserver(() => {
+            editor.renderer.setScrollMargin(box.style.display !== "none" ? 52 : 12, 12, 0, 0);
+          });
+          box._dockObserver.observe(box, { attributes: true, attributeFilter: ["style"] });
+        };
+        dock();
+        setTimeout(dock, 150);
+      };
+      // Lightweight outline: top-level classes, functions and exported constants.
+      const symbolPatterns = [
+        [/^\s*(?:export\s+)?(?:default\s+)?(?:abstract\s+)?class\s+([A-Za-z_$][\w$]*)/, "class"],
+        [/^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?function\s*\*?\s*([A-Za-z_$][\w$]*)/, "function"],
+        [/^\s*(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?(?:function|\([^)]*\)\s*=>|[A-Za-z_$][\w$]*\s*=>)/, "function"],
+        [/^\s*(?:async\s+)?def\s+([A-Za-z_]\w*)/, "function"],
+        [/^\s*class\s+([A-Za-z_]\w*)/, "class"],
+        [/^\s*func\s+(?:\([^)]*\)\s*)?([A-Za-z_]\w*)/, "function"],
+        [/^\s*(?:pub\s+)?fn\s+([A-Za-z_]\w*)/, "function"],
+        [/^\s*(?:public|private|protected|static|\s)+[\w<>\[\],\s]+\s+([A-Za-z_]\w*)\s*\([^;]*\)\s*\{?\s*$/, "function"],
+      ];
+      let symbolCache = { content: null, list: [] };
+      state.symbolsOpen = false;
+      state.symbols = function () {
+        if (typeof state.content !== "string" || state.content.length > 2_000_000) return [];
+        if (symbolCache.content === state.content) return symbolCache.list;
+        const list = [];
+        state.content.split("\n").forEach((text, index) => {
+          for (const [re, kind] of symbolPatterns) {
+            const m = re.exec(text);
+            if (m && !/^(if|for|while|switch|return|catch)$/.test(m[1])) { list.push({ name: m[1], kind, line: index + 1 }); break; }
+          }
+        });
+        symbolCache = { content: state.content, list: list.slice(0, 300) };
+        return symbolCache.list;
+      };
+      state.goToSymbol = function (line) {
+        state.symbolsOpen = false;
+        const editor = state.codeEditor;
+        if (!editor) return;
+        editor.scrollToLine(line - 1, true, true, () => {});
+        editor.gotoLine(line, 0, true);
+        window.history.replaceState(null, "", window.location.pathname + window.location.search + "#L" + line);
+        window.dispatchEvent(new HashChangeEvent("hashchange"));
+      };
+
+      state.gotoLine = function () {
+        const editor = state.codeEditor;
+        if (!editor) return;
+        editor.focus();
+        editor.execCommand("gotoline");
+      };
+      // Root listing above the README: folders first, then files.
+      state.rootEntries = function () {
+        return [...(state.files || [])].sort((a, b) => {
+          const af = a.size == null, bf = b.size == null;
+          if (af !== bf) return af ? -1 : 1;
+          return a.name.localeCompare(b.name);
+        });
+      };
+      state.formatSize = function (bytes) {
+        if (bytes == null) return "";
+        if (bytes < 1024) return bytes + " B";
+        const kb = bytes / 1024;
+        return kb < 1024 ? kb.toFixed(1) + " KB" : (kb / 1024).toFixed(1) + " MB";
+      };
+      state.fileSize = function (path) {
+        if (!path) return null;
+        const clean = path.replace(/^\/+/, "");
+        const entry = (state.files || []).find((f) => (f.path ? f.path + "/" : "") + f.name === clean);
+        return entry && entry.size != null ? entry.size : null;
+      };
+      state.revealFolder = function (name) {
+        state.sidebarHidden = false;
+        state.sidebarCollapsed = false;
+        nextTick(() => {
+          const link = window.document.querySelector('.files a[data-path="/' + (window.CSS?.escape ? window.CSS.escape(name) : name) + '"]');
+          if (!link) return;
+          if (!link.closest("li")?.classList.contains("open")) link.click();
+          link.scrollIntoView({ block: "nearest" });
+          link.focus();
+        });
+      };
+      // Redactions are the product's signature: show every XXXX-n mask as a chip.
+      const REDACTION_RE = /\bXXXX-\d+\b/g;
+      state.redactionCount = function () {
+        if (typeof state.content !== "string") return 0;
+        const text = state.type === "html" ? state.content.replace(/<[^>]*>/g, " ") : state.content;
+        return (text.match(REDACTION_RE) || []).length;
+      };
+      state.renderRedacted = function (html) {
+        if (!html || html.indexOf("XXXX-") === -1 || typeof window.DOMParser !== "function") return html;
+        const doc = new window.DOMParser().parseFromString("<div>" + html + "</div>", "text/html");
+        const walker = doc.createTreeWalker(doc.body, 4);
+        const nodes = [];
+        while (walker.nextNode()) if (REDACTION_RE.test(walker.currentNode.nodeValue)) nodes.push(walker.currentNode);
+        for (const node of nodes) {
+          REDACTION_RE.lastIndex = 0;
+          const frag = doc.createDocumentFragment();
+          let last = 0, m;
+          const text = node.nodeValue;
+          while ((m = REDACTION_RE.exec(text))) {
+            frag.appendChild(doc.createTextNode(text.slice(last, m.index)));
+            const mark = doc.createElement("mark");
+            mark.className = "redact-chip";
+            mark.setAttribute("title", "Redacted term " + m[0].slice(5) + " — the same term everywhere in this snapshot");
+            // Display: an empty slot holding only the term's number (the file keeps XXXX-N).
+            const num = m[0].slice(5);
+            mark.textContent = "";
+            const idx = doc.createElement("i");
+            idx.textContent = num;
+            mark.appendChild(idx);
+            mark.dataset.term = m[0];
+            mark.setAttribute("aria-label", "Redacted term " + num);
+            // Keep trailing punctuation on the chip's line (no orphaned "." or ",").
+            const trail = /^[.,;:!?)\]]+/.exec(text.slice(m.index + m[0].length));
+            if (trail) {
+              const glue = doc.createElement("span");
+              glue.className = "redact-glue";
+              glue.appendChild(mark);
+              glue.appendChild(doc.createTextNode(trail[0]));
+              frag.appendChild(glue);
+              last = m.index + m[0].length + trail[0].length;
+            } else {
+              frag.appendChild(mark);
+              last = m.index + m[0].length;
+            }
+          }
+          frag.appendChild(doc.createTextNode(text.slice(last)));
+          node.parentNode.replaceChild(frag, node);
+        }
+        return doc.body.firstChild.innerHTML;
+      };
+      // Reading mode: slugged heading ids + an "On this page" outline (like Mintlify/Stripe docs).
+      const slug = (t) => t.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-").slice(0, 60) || "section";
+      state.renderReadme = function (html) {
+        const out = state.renderRedacted(html);
+        if (!out || typeof window.DOMParser !== "function") return out;
+        const doc = new window.DOMParser().parseFromString("<div>" + out + "</div>", "text/html");
+        const seen = {};
+        doc.querySelectorAll("h1, h2, h3").forEach((h) => {
+          let id = h.id || slug(h.textContent);
+          if (seen[id]) id += "-" + (++seen[id]); else seen[id] = 1;
+          h.id = id;
+        });
+        return doc.body.firstChild.innerHTML;
+      };
+      let tocCache = { content: null, list: [] };
+      state.readmeToc = function () {
+        if (state.type !== "html" || typeof state.content !== "string") return [];
+        if (tocCache.content === state.content) return tocCache.list;
+        const doc = new window.DOMParser().parseFromString("<div>" + state.renderReadme(state.sanitize ? state.sanitize(state.content) : state.content) + "</div>", "text/html");
+        const list = [...doc.querySelectorAll("h2, h3")].map((h) => ({ id: h.id, text: h.textContent.trim(), level: h.tagName === "H3" ? 3 : 2 })).slice(0, 40);
+        tocCache = { content: state.content, list };
+        return list;
+      };
+      state.activeHeading = null;
+      listen(window, "scroll", () => {
+        const toc = state.readmeToc ? state.readmeToc() : [];
+        if (!toc.length) return;
+        // Active = the first heading visible below the sticky chrome; if none is on screen,
+        // the last heading already scrolled past (the reader is inside that section).
+        const chrome = 150;
+        let current = "", firstVisible = "";
+        for (const h of toc) {
+          const el = window.document.getElementById(h.id);
+          if (!el) continue;
+          const top = el.getBoundingClientRect().top;
+          if (top < chrome) current = h.id;
+          else if (!firstVisible && top < window.innerHeight - 80) firstVisible = h.id;
+        }
+        if (firstVisible) current = firstVisible;
+        if (state.activeHeading !== current) state.activeHeading = current;
+      }, { capture: true, passive: true });
+      state.scrollToHeading = function (id) {
+        if (!id) {
+          const sc = window.document.querySelector(".explorer-content, .file-card-body, .main-pane");
+          (sc || window).scrollTo({ top: 0, behavior: "smooth" });
+          state.activeHeading = "";
+          return;
+        }
+        const el = window.document.getElementById(id);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+        state.activeHeading = id;
+      };
+      state.redactParts = function (text) {
+        const out = []; let last = 0; let m; const re = /\bXXXX-(\d+)\b/g;
+        text = String(text || "");
+        while ((m = re.exec(text))) { if (m.index > last) out.push({ t: text.slice(last, m.index) }); out.push({ n: m[1] }); last = m.index + m[0].length; }
+        if (last < text.length) out.push({ t: text.slice(last) });
+        return out;
+      };
+      state.pathCopied = false;
+      state.copyPath = async function () {
+        if (!window.navigator.clipboard?.writeText) return;
+        await window.navigator.clipboard.writeText(state.filePath || "");
+        state.pathCopied = true;
+        setTimeout(() => { state.pathCopied = false; }, 1600);
+      };
+      state.contentCopied = false;
+      state.copyContent = async function () {
+        if (typeof state.content !== "string" || !window.navigator.clipboard?.writeText) return;
+        // Rendered Markdown: copy the source, not the HTML.
+        let text = state.content;
+        if (state.type === "html" && state.url) {
+          try { text = await (await window.fetch(state.url, { credentials: "same-origin" })).text(); } catch (_) { return; }
+        }
+        await window.navigator.clipboard.writeText(text);
+        state.contentCopied = true;
+        setTimeout(() => { state.contentCopied = false; }, 1600);
+      };
+
       function getMode(extension) {
         if (extensionModes[extension]) {
           return extensionModes[extension];
@@ -2877,8 +3222,18 @@ export const exploreController = function (state, http, location, params, html, 
           return;
         }
         const originalType = state.type;
+        // Load the editor alongside content, not after the response finishes.
+        // Its mounting path still reports errors and can retry a failed load.
+        if (originalType === "code" || originalType === "text") loadEditor().catch(() => {});
         state.type = "loading";
         state.content = "loading";
+        state.fileLoadingSlow = false;
+        state.fileReceivedBytes = 0;
+        const canceller = promises.defer();
+        contentCanceller = canceller;
+        loadingNoticeTimer = timers.timeout(() => {
+          if (!destroyed && generation === contentGeneration && state.type === "loading") state.fileLoadingSlow = true;
+        }, 1500);
         // fileInfo can be undefined when the user navigates (e.g. clicks a
         // markdown link into a subdir whose file list hasn't loaded yet) —
         // see #510. Fall back to "0" so the request still goes through; the
@@ -2889,6 +3244,10 @@ export const exploreController = function (state, http, location, params, html, 
             `/api/repo/${state.repoId}/file/${encodePathForUrl(path)}?v=` +
               sha,
             {
+              timeout: canceller.promise,
+              onDownloadProgress: bytes => {
+                if (!destroyed && generation === contentGeneration) state.fileReceivedBytes = bytes;
+              },
               transformResponse: (data) => {
                 return data;
               },
@@ -2897,6 +3256,7 @@ export const exploreController = function (state, http, location, params, html, 
           .then(
             (res) => {
               if (destroyed || generation !== contentGeneration) return;
+              cancelContentLoad();
               state.type = originalType;
               state.content = res.data;
               if (state.content == "") {
@@ -2934,6 +3294,7 @@ export const exploreController = function (state, http, location, params, html, 
             },
             (err) => {
               if (destroyed || generation !== contentGeneration) return;
+              cancelContentLoad();
               state.type = "error";
               state.content = viewerErrorCode(err);
             }
@@ -2942,6 +3303,7 @@ export const exploreController = function (state, http, location, params, html, 
 
       function updateContent() {
         contentGeneration++;
+        cancelContentLoad();
         state.content = "";
         state.file = getSelectedFile();
         let fileVersion = "0";
@@ -2972,6 +3334,9 @@ export const exploreController = function (state, http, location, params, html, 
           extension = extension.substring(extensionIndex + 1);
         }
 
+        const languageNames = { javascript: "JavaScript", typescript: "TypeScript", tsx: "TSX", jsx: "JSX", python: "Python", java: "Java", c_cpp: "C/C++", csharp: "C#", golang: "Go", rust: "Rust", ruby: "Ruby", php: "PHP", html: "HTML", css: "CSS", scss: "SCSS", json: "JSON", yaml: "YAML", markdown: "Markdown", sh: "Shell", dockerfile: "Dockerfile", xml: "XML", sql: "SQL", kotlin: "Kotlin", swift: "Swift", scala: "Scala", r: "R", julia: "Julia", latex: "LaTeX", toml: "TOML", text: "" };
+        const detectedMode = getMode(extension);
+        state.languageName = languageNames[detectedMode] ?? (detectedMode ? detectedMode.charAt(0).toUpperCase() + detectedMode.slice(1) : "");
         state.aceOption = {
           readOnly: true,
           useWrapMode: true,
@@ -2986,7 +3351,7 @@ export const exploreController = function (state, http, location, params, html, 
           highlightGutterLine: false,
           cursor: "hide",
           showInvisibles: false,
-          showIndentGuides: true,
+          showIndentGuides: false,
           showPrintMargin: false,
           highlightSelectedWord: false,
           enableBehaviours: true,
@@ -2994,6 +3359,53 @@ export const exploreController = function (state, http, location, params, html, 
           mode: getMode(extension),
 
           onLoad: function (_editor) {
+            state.codeEditor = markRaw(_editor);
+            {
+              // Render each XXXX-n as its own "redacted" token so the text layer
+              // draws it exactly like the Markdown chip (teal text on a teal tint).
+              const session = _editor.session;
+              const origGetTokens = session.getTokens.bind(session);
+              const re = /\bXXXX-\d+\b/g;
+              session.getTokens = function (row) {
+                const tokens = origGetTokens(row);
+                if (!tokens.some((t) => t.value.indexOf("XXXX-") !== -1)) return tokens;
+                const out = [];
+                for (const t of tokens) {
+                  if (t.value.indexOf("XXXX-") === -1) { out.push(t); continue; }
+                  let last = 0;
+                  re.lastIndex = 0;
+                  let m;
+                  while ((m = re.exec(t.value))) {
+                    if (m.index > last) out.push({ type: t.type, value: t.value.slice(last, m.index) });
+                    out.push({ type: "redacted.n" + m[0].slice(5), value: m[0] });
+                    last = m.index + m[0].length;
+                  }
+                  if (last < t.value.length) out.push({ type: t.type, value: t.value.slice(last) });
+                }
+                return out;
+              };
+              // Each redacted token shows its term number inside the slot.
+              if (!window.document.getElementById("redact-index-rules")) {
+                const st = window.document.createElement("style");
+                st.id = "redact-index-rules";
+                st.textContent = Array.from({ length: 99 }, (_, i) => `.ace_redacted.ace_n${i + 1}::after{content:"${i + 1}"}`).join("");
+                window.document.head.appendChild(st);
+              }
+              _editor.renderer.updateFull(true);
+            }
+            _editor.session.setUseWrapMode(state.wrapLines !== false);
+            // The right-edge fade is a cue only while there is more code to the right.
+            const card = _editor.container.closest?.(".file-card");
+            const syncEdge = () => {
+              if (!card) return;
+              const r = _editor.renderer;
+              const max = (r.layerConfig?.width || 0) - (r.$size?.scrollerWidth || 0);
+              card.classList.toggle("at-right-edge", max <= 2 || r.getScrollLeft() >= max - 2);
+            };
+            _editor.session.on("changeScrollLeft", syncEdge);
+            _editor.renderer.on("afterRender", syncEdge);
+            // On phones code scrolls sideways; keep the scrollbar visible as a cue.
+            if (window.matchMedia?.("(max-width: 767px)").matches) _editor.setOption("hScrollBarAlwaysVisible", true);
             const Range = ace.require("ace/range").Range;
             let activeLineMarker = null;
 
@@ -3058,12 +3470,19 @@ export const exploreController = function (state, http, location, params, html, 
             const removeHashListener = listen(window, "hashchange", () => applyHashFromUrl(false));
 
             _editor.setFontSize(state.aceOption.fontSize);
+            _editor.setOptions({
+              fontFamily: "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace",
+            });
+            _editor.container.style.lineHeight = "20px";
+            _editor.renderer.setPadding(16);
+            _editor.renderer.setScrollMargin(12, 12, 0, 0);
+            _editor.renderer.updateFontSize();
             _editor.setReadOnly(state.aceOption.readOnly);
             _editor.setKeyboardHandler(state.aceOption.keyBinding);
             _editor.setSelectionStyle(
               state.aceOption.fullLineSelection ? "line" : "text"
             );
-            _editor.setOption("displayIndentGuides", true);
+            _editor.setOption("displayIndentGuides", false);
             _editor.setHighlightActiveLine(
               state.aceOption.highlightActiveLine
             );
@@ -3084,43 +3503,26 @@ export const exploreController = function (state, http, location, params, html, 
             );
             _editor.session.setUseSoftTabs(state.aceOption.useSoftTab);
             _editor.session.setTabSize(state.aceOption.tabSize);
-            // Phones can't scroll long lines comfortably, so wrap them there,
-            // following the viewport when a tablet rotates or a window resizes.
-            const narrow = window.matchMedia("(max-width: 991px)");
-            const applyWrap = () => _editor.session.setUseWrapMode(state.aceOption.useWrapMode && narrow.matches);
-            applyWrap();
-            narrow.addEventListener?.("change", applyWrap);
             _editor.setBehavioursEnabled(state.aceOption.enableBehaviours);
             _editor.setFadeFoldWidgets(state.aceOption.fadeFoldWidgets);
-
-            // Outline redacted terms (XXXX-1, ...) so reviewers can tell a
-            // replacement from the author's own text.
-            let redactionMarkers = [];
-            const markRedactions = () => {
-              redactionMarkers.forEach((id) => _editor.session.removeMarker(id));
-              redactionMarkers = [];
-              const pattern = redactionPattern();
-              if (!pattern) return;
-              const lines = _editor.session.getDocument().getAllLines();
-              lines.forEach((line, row) => {
-                for (const match of line.matchAll(pattern)) {
-                  redactionMarkers.push(_editor.session.addMarker(
-                    new Range(row, match.index, row, match.index + match[0].length),
-                    "ace_redaction",
-                    "text"
-                  ));
-                }
-              });
-            };
-            markRedactions();
-            _editor.session.on("change", () => timers.timeout(markRedactions, 0));
-            // The mask may arrive after the editor mounts.
-            const offOptions = state.on("site-options", markRedactions);
-            return () => {
-              removeHashListener();
-              offOptions();
-              narrow.removeEventListener?.("change", applyWrap);
-            };
+            // Ctrl/Cmd+F searches inside the file (Ace searchbox), like GitHub's blob view.
+            const removeFindListener = listen(window, "keydown", (event) => {
+              if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === "g" && document.body.contains(_editor.container)) {
+                event.preventDefault();
+                state.gotoLine();
+                return;
+              }
+              if (event.altKey && !event.ctrlKey && !event.metaKey && event.key.toLowerCase() === "z" && document.body.contains(_editor.container)) {
+                event.preventDefault();
+                state.toggleWrap();
+                return;
+              }
+              if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === "f" && document.body.contains(_editor.container)) {
+                event.preventDefault();
+                state.findInFile();
+              }
+            });
+            return () => { removeHashListener(); removeFindListener(); };
           },
         };
         if (state.isDarkMode) {
@@ -3146,6 +3548,7 @@ export const exploreController = function (state, http, location, params, html, 
 
       function init() {
         contentGeneration++;
+        cancelContentLoad();
         state.files = [];
         state.content = null;
         state.fileCounts = null;
@@ -3161,6 +3564,14 @@ export const exploreController = function (state, http, location, params, html, 
 
         const repoId = state.repoId;
         getOptions(function (options) {
+          if (state.filePath) {
+            // File URLs are independently authorized by the content endpoint.
+            // The tree is navigation metadata, not a prerequisite for reading.
+            updateContent();
+            const directories = [...new Set(state.paths.map((_, i) => state.paths.slice(0, i).join("/")))];
+            promises.all(directories.map(path => state.getFiles(path, true)));
+            return;
+          }
           var chain = promises.resolve();
           for (let i = 0; i < state.paths.length; i++) {
             const path = i > 0 ? state.paths.slice(0, i).join("/") : "";

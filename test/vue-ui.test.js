@@ -81,6 +81,48 @@ describe("Vue 3 UI", function () {
   let ui;
   afterEach(() => ui?.close());
 
+  it("starts a deep-linked file and editor before directory listings finish", async () => {
+    const pendingDirectories = [];
+    let releaseFile;
+    ui = await browser("/r/access-test/src/nested/hello.js", {
+      "/api/repo/access-test/files/": () => new Promise(resolve => pendingDirectories.push(resolve)),
+      "/api/repo/access-test/file/src/nested/hello.js": () => new Promise(resolve => { releaseFile = resolve; }),
+    });
+    await delay(100);
+    expect(releaseFile, JSON.stringify({requests:ui.requests.map(r=>r.url.pathname),errors:ui.errors})).to.be.a("function");
+    expect(pendingDirectories).to.have.length(3);
+    expect(ui.assets.some(asset => /editor\.[a-f0-9]+\.min\.js$/.test(asset))).to.equal(true);
+    releaseFile("hello without waiting for the tree");
+    await delay(150);
+    expect(ui.window.document.querySelector(".viewer-loading")).to.equal(null);
+    // Navigation metadata failure must not replace a successful file preview.
+    pendingDirectories.forEach(resolve => resolve({__status:503,body:{error:"unreachable"}}));
+    await delay(80);
+    expect(ui.window.document.querySelector(".viewer-error")).to.equal(null);
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("shows file context immediately and cancels a superseded load", async () => {
+    let release;
+    ui = await browser("/r/access-test/hello.js", {
+      "/api/repo/access-test/file/hello.js": () => new Promise(resolve => { release = resolve; }),
+    });
+    const loading = ui.window.document.querySelector(".viewer-loading");
+    expect(loading?.textContent).to.include("Loading file");
+    expect(loading.textContent).to.include("hello.js");
+    expect(loading.getAttribute("aria-busy")).to.equal("true");
+    await delay(1550);
+    expect(loading.textContent).to.include("You can select another file");
+    const pending = ui.requests.find(r => r.url.pathname.endsWith("/file/hello.js"));
+    await ui.go("/r/access-test/other.txt");
+    expect(pending.signal.aborted).to.equal(true);
+    release("outdated file content");
+    await delay(100);
+    expect(ui.window.document.querySelector(".viewer-loading")).to.equal(null);
+    expect(ui.window.document.body.textContent).not.to.include("outdated file content");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
   it("keeps defaults across settings tabs and preserves the hidden fetch preference", async () => {
     ui = await browser("/profile", {
       "/api/user": { username: "owner" },
@@ -1089,6 +1131,23 @@ describe("Vue 3 UI", function () {
     expect(ui.errors).to.deep.equal([]);
   });
 
+  it("renders Go process samples without inventing event-loop or initial CPU measurements", async function () {
+    const sample = { instance: "api:go-fixture", runtime: "go", service: "api", sampledAt: Date.now(),
+      cpuPercent: null, memory: { rss: 16 * 1024 * 1024 }, memoryLimitBytes: null,
+      eventLoop: { available: false, p95Ms: null }, activeRequests: 1, sockets: null,
+      workers: { running: 1, waiting: 0 }, droppedBatches: 0, droppedMetrics: 0 };
+    ui = await browser("/", { "/api/user": { username: "admin", isAdmin: true },
+      "/api/admin/overview": { history: [] },
+      "/api/admin/performance": { available: true, instances: [sample], routes: [], stages: [], runtimeSeries: [] } });
+    await ui.go("/admin/");
+    const row = ui.window.document.querySelector("#performance-processes tbody tr");
+    expect(row.textContent).to.include("api:go-fixture");
+    expect(row.textContent).to.include("Unavailable");
+    expect(row.textContent).to.include("Not applicable");
+    expect(row.textContent).not.to.include("NaN");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
   it("shows missing monitoring as unavailable on the admin overview", async function () {
     ui = await browser("/", { "/api/user": { username: "admin", isAdmin: true },
       "/api/admin/overview": { history: [] }, "/api/admin/performance": { available: false } });
@@ -1239,7 +1298,7 @@ describe("Vue 3 UI", function () {
     ui = await browser("/connections", {
       "/api/user": { username: "owner" },
       "/github/connections": { csrf: "csrf-value", appEnabled: true, appConnected: true, oauthEnabled: true, oauthConnected: connection === "oauth",
-        installations: [{ id: 4, account: "owner" }], gistCount: 0, resources: [resource] },
+        installations: [{ id: 4, account: "owner" }, { id: 5, account: "org" }], gistCount: 0, resources: [resource] },
       "/github/connections/migrate": request => request.payload.preview ? { eligible: true } : { connection: "github-app" },
     });
     const button = label => [...ui.window.document.querySelectorAll("button")].find(node => node.textContent.includes(label));
@@ -1597,21 +1656,19 @@ describe("Vue 3 UI", function () {
       "/api/repo/test/options": { anonymizedAt: "2026-01-01T00:00:00Z", sourceCommitDate: "2020-01-01T00:00:00Z",
         settingsSavedAt: "2026-02-01T00:00:00Z", publishedAt: "2026-03-01T00:00:00Z" },
     });
-    const footer = ui.window.document.querySelector(".leftCol-foot");
-    expect(footer.textContent).to.include("Source commit").and.include("Settings saved").and.include("Snapshot ready");
-    expect([...footer.querySelectorAll(".last-update")].map(node => node.title)).to.deep.equal([
-      "2020-01-01T00:00:00Z", "2026-02-01T00:00:00Z", "2026-03-01T00:00:00Z",
-    ]);
-    expect(footer.textContent).not.to.include("not recorded");
+    const snapshot = ui.window.document.querySelector(".vb-snapshot");
+    expect(snapshot.textContent).to.include("Mar 1, 2026");
+    expect(snapshot.title).to.include("Source commit").and.include("snapshot ready");
+    expect(snapshot.title).not.to.include("no recorded publication date");
     expect(ui.errors).to.deep.equal([]);
   });
   it("identifies an unknown legacy publication date", async function () {
     ui = await browser("/r/test/hello.txt", {
       "/api/repo/test/options": { anonymizedAt: "2026-01-01T00:00:00Z", sourceCommitDate: "2020-01-01T00:00:00Z" },
     });
-    const footer = ui.window.document.querySelector(".leftCol-foot");
-    expect(footer.textContent).to.include("Snapshot ready date not recorded");
-    expect(footer.textContent).not.to.include("Settings saved");
+    const snapshot = ui.window.document.querySelector(".vb-snapshot");
+    expect(snapshot.title).to.include("no recorded publication date");
+    expect(snapshot.textContent).not.to.include("Settings saved");
     expect(ui.errors).to.deep.equal([]);
   });
 
@@ -1619,10 +1676,11 @@ describe("Vue 3 UI", function () {
     ui = await browser("/r/test/hello.txt", {
       "/api/repo/test/options": { anonymizedAt: "2026-01-01T00:00:00Z", expirationDate: "2099-01-01T00:00:00Z" },
     });
-    const header = ui.window.document.querySelector(".navbar");
-    expect(header.querySelector(".btn-signin")).to.equal(null);
-    expect(header.textContent).to.include("Report a bug");
-    expect(ui.window.document.querySelector(".project-expiry").textContent).to.include("Available until");
+    // Reviewers get the viewer's own bar, not the site header; expiry is part of the snapshot details.
+    expect(ui.window.document.querySelector(".navbar")).to.equal(null);
+    const bar = ui.window.document.querySelector(".viewer-bar");
+    expect(bar.querySelector(".vb-help-btn").textContent).to.include("Help");
+    expect(bar.querySelector(".vb-snapshot").getAttribute("title")).to.include("Available until");
     await ui.go("/faq");
     expect(ui.window.document.querySelector(".navbar .btn-signin")).to.not.equal(null);
     expect(ui.errors).to.deep.equal([]);
@@ -1673,11 +1731,11 @@ describe("Vue 3 UI", function () {
       "/api/repo/test/files/counts": request => request.url.searchParams.get("path") === "src"
         ? { src: 2 } : new Promise(resolve => { finishRootCounts = resolve; }),
     });
-    expect(ui.window.document.querySelector(".project-file-count")).to.equal(null);
     expect(ui.requests.filter(r => /files\/counts$/.test(r.url.pathname)).map(r => r.url.searchParams.get("path"))).to.deep.equal([""]);
     finishRootCounts({ "": 3, src: 2 });
     await delay(30);
-    expect(ui.window.document.querySelector(".project-file-count").textContent).to.equal("3 files");
+    // The viewer shows no repository-wide count (anonymity by design); counts feed the tree only.
+    expect(ui.window.document.querySelector(".project-file-count")).to.equal(null);
     const folder = () => ui.window.document.querySelector('tree a[data-path="/src"]');
     folder().click(); await delay(90);
     expect(ui.window.document.querySelector('tree a[data-path="/src/a.txt"]')).not.to.equal(null);
@@ -1710,7 +1768,8 @@ describe("Vue 3 UI", function () {
     });
     await ui.go("/r/other/hello.txt");
     finish({ "": 999 }); await delay(30);
-    expect(ui.window.document.querySelector(".project-file-count").textContent).to.equal("9 files");
+    const counts = ui.window.document.querySelector("tree")?.__vueParentComponent?.props?.page?.fileCounts ?? ui.app.state.fileCounts;
+    expect(counts?.[""]).to.not.equal(999);
     expect(ui.errors).to.deep.equal([]);
   });
 
@@ -2004,7 +2063,7 @@ describe("Vue 3 UI", function () {
     await delay(10);
     expect(state.filteredItems.map(item => item._id).sort()).to.deep.equal(["error", "stalled"]);
     expect(ui.window.document.querySelector('[href="/anonymize/error"]').textContent).to.equal("Fix source");
-    expect(ui.window.document.querySelector(".filter-chip")?.textContent).not.to.include("Error hidden");
+    expect(ui.window.document.querySelector(".filter-chip")?.textContent ?? "").not.to.include("Hiding error");
     await ui.input("#search", "stalled");
     expect(state.filteredItems).to.have.length(1);
     state.clearFilters(); await delay(10);

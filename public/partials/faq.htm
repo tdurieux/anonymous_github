@@ -1,14 +1,14 @@
 <div class="paper-faq">
   <div class="paper-faq-hero">
     <div class="paper-faq-eyebrow">Help</div>
-    <h1 class="paper-faq-title">Answers to the <em>questions</em> that come up most.</h1>
+    <h1 class="paper-faq-title">Answers to the questions that <em>come up most.</em></h1>
     <p class="paper-faq-lede">
-      If something's missing, write to us &mdash;
-      <a href="https://github.com/tdurieux/anonymous_github/issues/new?template=issue_report.yml" target="_blank" rel="noopener">report a bug on GitHub</a>.
+      Can&rsquo;t find your answer?
+      <a href="https://github.com/tdurieux/anonymous_github/issues/new?template=issue_report.yml" target="_blank" rel="noopener">Open an issue on GitHub</a>.
     </p>
   </div>
   <div class="paper-faq-body">
-    <aside class="paper-faq-toc">
+    <aside class="paper-faq-toc" v-paper-scrollspy>
       <div class="paper-faq-toc-head">Contents</div>
       <nav>
         <a href="#faq-general">General</a>
@@ -30,12 +30,12 @@
             <div class="panel panel-default mb-3">
               <div class="panel-heading p-3" role="tab" id="headingWhatIs">
                 <h3 class="panel-title">
-                  <a class="collapsed" role="button" data-toggle="collapse" data-parent="#faq-general" href="#whatIs" aria-expanded="false" aria-controls="whatIs">
+                  <a role="button" data-toggle="collapse" data-parent="#faq-general" href="#whatIs" aria-expanded="true" aria-controls="whatIs">
                     What is Anonymous GitHub?
                   </a>
                 </h3>
               </div>
-              <div id="whatIs" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingWhatIs">
+              <div id="whatIs" class="panel-collapse collapse show" role="tabpanel" aria-labelledby="headingWhatIs">
                 <div class="panel-body p-3">
                   <p>
                     Anonymous GitHub is an open-source tool with free hosting and optional paid plans that anonymizes GitHub repositories and pull requests
@@ -553,5 +553,12 @@ anonymous_github</code></pre>
 
         </div>
       </section>
+      <aside class="paper-faq-help" aria-label="More help">
+        <div class="paper-faq-help-card">
+          <strong>Still stuck?</strong>
+          <p>Open an issue on GitHub about the service. For a paper's content, contact the conference instead.</p>
+          <a class="btn btn-outline-ink btn-sm" target="_blank" rel="noopener" href="https://github.com/tdurieux/anonymous_github/issues/new?template=issue_report.yml">Open an issue</a>
+        </div>
+      </aside>
     </div>
   </div>

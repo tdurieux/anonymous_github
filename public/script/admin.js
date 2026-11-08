@@ -126,8 +126,8 @@ export const repositoriesAdminController = function (state, http, location) {
         conference: "",
         dateFrom: "",
         dateTo: "",
-        ready: false,
-        expired: false,
+        ready: true,
+        expired: true,
         removed: false,
         error: true,
         preparing: true,
@@ -242,6 +242,7 @@ export const repositoriesAdminController = function (state, http, location) {
         );
       };
 
+      state.filtersOpen = false;
       state.fetchError = null;
       function getRepositories() {
         state.fetchError = null;
@@ -250,8 +251,6 @@ export const repositoriesAdminController = function (state, http, location) {
             state.total = res.data.total;
             state.totalPage = Math.ceil(res.data.total / state.query.limit);
             state.repositories = res.data.results;
-            state.statusCounts = res.data.statusCounts || [];
-            state.totalSize = res.data.totalSize || 0;
             state.allSelected = false;
           },
           (err) => {
@@ -260,14 +259,25 @@ export const repositoriesAdminController = function (state, http, location) {
           }
         );
       }
+      // Status chips always show real totals: the list endpoint counts only within the
+      // active status filter, so ask again with every status enabled (one row).
+      function getStatusCounts() {
+        const params = Object.assign({}, state.query, { page: 1, limit: 1, ready: true, expired: true, removed: true, error: true, preparing: true });
+        http.get("/api/admin/repos", { params }).then((res) => {
+          state.statusCounts = res.data.statusCounts || [];
+          state.totalSize = res.data.totalSize || 0;
+        }, () => {});
+      }
+      state.showAllStatuses = () => Object.assign(state.query, { ready: true, expired: true, removed: true, error: true, preparing: true, page: 1 });
       getRepositories();
+      getStatusCounts();
 
       let timeClear = null;
       state.watch(
         "query",
         () => {
           timers.timeout.cancel(timeClear);
-          timeClear = timers.timeout(getRepositories, 500);
+          timeClear = timers.timeout(() => { getRepositories(); getStatusCounts(); }, 500);
           const { page, search, ...persisted } = state.query;
           saveFilterPrefs(reposAdminPrefsKey, persisted);
           recomputeChips();
@@ -808,8 +818,8 @@ export const conferencesAdminController = function (state, http, location) {
         search: "",
         dateFrom: "",
         dateTo: "",
-        ready: false,
-        expired: false,
+        ready: true,
+        expired: true,
         removed: false,
         error: true,
         preparing: true,
@@ -1089,8 +1099,8 @@ export const queuesAdminController = function (state, http, location, interval, 
         var isDark = document.body.classList.contains("dark-mode");
         var labelColor = "#8A857C";
         var gridColor = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
-        var completedColor = isDark ? "#A7B2FF" : "#3B4AD6";
-        var completedFill = isDark ? "rgba(167,178,255,0.12)" : "rgba(59,74,214,0.08)";
+        var completedColor = isDark ? "#6FBF8A" : "#2F7D4F";
+        var completedFill = isDark ? "rgba(111,191,138,0.12)" : "rgba(47,125,79,0.08)";
         var failedColor = isDark ? "#F08A82" : "#B42318";
         var failedFill = isDark ? "rgba(240,138,130,0.08)" : "rgba(180,35,24,0.06)";
         var execColor = isDark ? "#F5C842" : "#B8860B";
@@ -1098,7 +1108,7 @@ export const queuesAdminController = function (state, http, location, interval, 
         var pts = state.metricsPoints || [];
         if (pts.length === 0) {
           ctx.fillStyle = labelColor;
-          ctx.font = "12px monospace";
+          ctx.font = "13px Inter, system-ui, sans-serif";
           ctx.textAlign = "center";
           ctx.fillText("No metrics data yet", totalW / 2, totalH / 2);
           chartState = null;
@@ -1109,6 +1119,19 @@ export const queuesAdminController = function (state, http, location, interval, 
         var completedPts = pts.map(function (p) { return p.completed; });
         var failedPts = pts.map(function (p) { return p.failed; });
         var execPts = pts.map(function (p) { return p.avgMs; });
+        if (!completedPts.some(Boolean) && !failedPts.some(Boolean)) {
+          ctx.strokeStyle = isDark ? "rgba(255,255,255,0.14)" : "rgba(0,0,0,0.12)";
+          ctx.beginPath(); ctx.moveTo(0, totalH - 18.5); ctx.lineTo(totalW, totalH - 18.5); ctx.stroke();
+          ctx.fillStyle = isDark ? "#CFC8BD" : "#4F4A42";
+          ctx.font = "500 14px Inter, system-ui, sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText("No jobs processed in this window", totalW / 2, totalH / 2 - 6);
+          ctx.fillStyle = labelColor;
+          ctx.font = "12.5px Inter, system-ui, sans-serif";
+          ctx.fillText("Completed and failed jobs will chart here", totalW / 2, totalH / 2 + 16);
+          chartState = null;
+          return;
+        }
         var maxLen = pts.length;
         var step = w / (maxLen - 1 || 1);
 
@@ -1594,12 +1617,23 @@ export const errorsAdminController = function (state, http, location, interval) 
           });
         }
 
+        // Errors surface first, then warnings, then routine info; within a level, the chosen order.
+        const rank = (r) => ({ error: 0, warn: 1, info: 2 })[r._bucket] ?? 1;
         if (state.query.sort === "count") {
-          rows.sort((a, b) => b.count - a.count || new Date(b.ts) - new Date(a.ts));
+          rows.sort((a, b) => rank(a) - rank(b) || b.count - a.count || new Date(b.ts) - new Date(a.ts));
         } else {
-          rows.sort((a, b) => new Date(b.ts) - new Date(a.ts));
+          rows.sort((a, b) => rank(a) - rank(b) || new Date(b.ts) - new Date(a.ts));
         }
         state.visible = rows;
+        // A filter that matches nothing in the loaded window keeps reading older pages
+        // (bounded) so a 5xx counted in the tiles is not reported as "No errors captured".
+        const filtering = !!(state.query.bucket || (state.query.search || "").trim());
+        // The default view also reads on until the server errors counted in the tiles appear.
+        const errorsHidden = !filtering && (state.stats?.severity?.error || 0) > 0 && !rows.some((r) => r._bucket === "error") && state.entries.length < 1500;
+        if (((filtering && !rows.length) || errorsHidden) && state.canLoadMore?.() && !state._autoLoading && state.entries.length < 2500) {
+          state._autoLoading = true;
+          loadEntries(true);
+        }
       }
 
       function loadEntries(append) {
@@ -1620,9 +1654,10 @@ export const errorsAdminController = function (state, http, location, interval) 
               state.available = !!res.data.available;
               state.cap = res.data.max || state.cap;
               state.total = res.data.total || state.entries.length;
+              state._autoLoading = false;
               recompute();
             },
-            (err) => console.error(err)
+            (err) => { state._autoLoading = false; console.error(err); }
           );
       }
       state.loadMore = () => loadEntries(true);
@@ -1641,6 +1676,7 @@ export const errorsAdminController = function (state, http, location, interval) 
               buckets: s.buckets || [],
               dropped: s.dropped || 0,
             };
+            recompute();
           },
           (err) => console.error(err)
         );
@@ -1650,17 +1686,18 @@ export const errorsAdminController = function (state, http, location, interval) 
         loadStats();
       }
 
-      // For the volume chart: scale tallest bucket-total to a fixed pixel max.
+      // Volume chart: errors and warnings carry the height (scaled to their own peak, up to 44px);
+      // routine info traffic is a faint band on top, capped at 16px. Exact counts are in the tooltip.
       state.barPx = (b, key) => {
         const all = state.stats.buckets || [];
-        let max = 0;
-        for (const x of all) max = Math.max(max, (x.error || 0) + (x.warn || 0) + (x.info || 0));
-        if (!max) return 0;
-        const total = (b.error || 0) + (b.warn || 0) + (b.info || 0);
-        if (!total) return 0;
-        const targetTotal = Math.round((total / max) * 60); // 60px max
+        let maxEW = 0, maxInfo = 0;
+        for (const x of all) { maxEW = Math.max(maxEW, (x.error || 0) + (x.warn || 0)); maxInfo = Math.max(maxInfo, x.info || 0); }
         const part = b[key] || 0;
-        return Math.round((part / total) * targetTotal);
+        if (!part) return 0;
+        if (key === "info") return maxInfo ? Math.max(2, Math.round((part / maxInfo) * (maxEW ? 16 : 60))) : 0;
+        const ew = (b.error || 0) + (b.warn || 0);
+        const h = Math.round((ew / maxEW) * 44);
+        return Math.max(4, Math.round((part / ew) * h));
       };
       state.bucketTitle = (b) => {
         const t = new Date(b.hour);
@@ -1799,7 +1836,7 @@ export const overviewAdminController = function (state, http, location, interval
       };
       state.performanceWarning = function (sample) {
         return state.sampleAge(sample) > 45 || sample.droppedBatches || sample.droppedMetrics ||
-          sample.sockets?.closeWait > 0 || sample.eventLoop.p95Ms > 100 ||
+          sample.sockets?.closeWait > 0 || sample.eventLoop?.p95Ms > 100 ||
           sample.memoryLimitBytes && sample.memory.rss > sample.memoryLimitBytes * 0.8;
       };
       var performanceLoading = false;
@@ -1908,7 +1945,23 @@ export const overviewAdminController = function (state, http, location, interval
         };
       }
 
+      // Always show a full 30-day axis; days before data exists are empty slots.
+      function padHistory(rows, days) {
+        if (!rows || !rows.length) return rows;
+        var last = new Date(rows[rows.length - 1].date);
+        if (isNaN(last)) return rows;
+        var byDay = {};
+        rows.forEach(function (r) { byDay[new Date(r.date).toISOString().slice(0, 10)] = r; });
+        var out = [];
+        for (var i = days - 1; i >= 0; i--) {
+          var dt = new Date(last.getTime() - i * 86400000);
+          var key = dt.toISOString().slice(0, 10);
+          out.push(byDay[key] || { date: dt.toISOString(), _empty: true, dailyPageViews: 0, dailyRepositories: 0, dailyUsers: 0, nbUsers: 0 });
+        }
+        return out;
+      }
       var historyMaxes = {};
+      state.historyMax = function (field) { return historyMaxes[field] || 0; };
       var historyMins = {};
       state.historyBarH = function (d, field) {
         if (!d || !historyMaxes[field]) return 0;
@@ -1936,6 +1989,10 @@ export const overviewAdminController = function (state, http, location, interval
         state.loadCache();
         http.get("/api/admin/overview").then(function (r) {
           r.data.history = computeDailyHistory(r.data.history);
+          r.data.daily = {
+            today: todayDailyStats(r.data.history),
+          };
+          r.data.history = padHistory(r.data.history, 30);
           r.data.daily = {
             today: todayDailyStats(r.data.history),
           };
