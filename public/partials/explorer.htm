@@ -6,7 +6,7 @@
     </div>
     <div class="vb-right">
       <span class="vb-snapshot" v-if="options?.sourceCommitDate || options?.anonymizedAt || options?.lastUpdateDate" :title="(options?.expirationDate ? 'Available until ' + fmt?.date(options.expirationDate) + '. ' : '') + ((options?.anonymizedAt &amp;&amp; !options?.publishedAt) ? 'Older repositories have no recorded publication date. The source commit date does not establish when files became available here.' : ((options?.sourceCommitDate ? 'Source commit ' : options?.anonymizedAt ? 'Anonymized ' : 'Updated ') + fmt?.date(options?.sourceCommitDate || options?.anonymizedAt || options?.lastUpdateDate) + (options?.publishedAt ? ' · snapshot ready ' + fmt?.date(options.publishedAt) : '')))">
-        <svg class="ui-icon" aria-hidden="true"><use href="#project-icon-clock"></use></svg><span>Snapshot</span><span class="vb-dot" aria-hidden="true">·</span><span>{{ fmt?.date(options?.publishedAt || options?.sourceCommitDate || options?.anonymizedAt || options?.lastUpdateDate) }}</span>
+        <svg class="ui-icon" aria-hidden="true"><use href="#project-icon-clock"></use></svg><span>Snapshot</span><span>{{ fmt?.date(options?.publishedAt || options?.sourceCommitDate || options?.anonymizedAt || options?.lastUpdateDate) }}</span>
       </span>
       <a class="vb-support" href="https://ko-fi.com/tdurieux" target="_blank" rel="noopener" title="Support Anonymous GitHub — help keep it free for researchers"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-heart"></use></svg><span>Support</span></a>
       <div class="vb-help">
@@ -52,7 +52,7 @@
         <kbd class="tree-search-kbd" v-show="!(fileSearchQuery)">{{ isMac ? '⌘' : 'Ctrl+' }}K</kbd>
         <button class="tree-search-clear" aria-label="Clear search" v-show="fileSearchQuery" @click="fileSearchQuery = &#x27;&#x27;; onFileSearchChange()">&times;</button>
       </div>
-      <a target="_self" class="search-zip" v-if="options?.download" aria-label="Download repository as ZIP" :title="'Download the repository (snapshot ' + fmt?.date(options?.sourceCommitDate || options?.anonymizedAt || options?.lastUpdateDate) + ') as ZIP'" :href="safeUrl(&quot;/api/repo/&quot; + (repoId) + &quot;/zip&quot;)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-download"></use></svg></a>
+      <a target="_self" class="search-zip" v-if="options?.download" aria-label="Download repository as ZIP" :title="'Download the repository (snapshot ' + fmt?.date(options?.sourceCommitDate || options?.anonymizedAt || options?.lastUpdateDate) + ') as ZIP'" :href="safeUrl(&quot;/api/repo/&quot; + (repoId) + &quot;/zip&quot;)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-download"></use></svg><span class="search-zip-label" aria-hidden="true">ZIP</span></a>
     </div>
     <div class="leftCol-body">
       <div class="paper-inline-warning" role="alert" v-if="options?.truncatedFolders?.length &gt; 0">
