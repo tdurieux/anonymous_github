@@ -165,13 +165,12 @@ passport.deserializeUser(async (id: string, done) => {
   }
 });
 
-export function initSession() {
-  const redisClient = createClient({
+export function initSession(redisClient = createClient({
     socket: {
       port: config.REDIS_PORT,
       host: config.REDIS_HOSTNAME,
     },
-  });
+  })) {
   redisClient.on("error", (err) =>
     logger.error("redis client error", serializeError(err))
   );
@@ -186,6 +185,14 @@ export function initSession() {
     store: redisStore,
     saveUninitialized: false,
     resave: false,
+    rolling: true,
+    cookie: {
+      // Keep the browser cookie and Redis expiry aligned on active sessions.
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+      httpOnly: true,
+      sameSite: "lax",
+      secure: "auto",
+    },
   });
 }
 
