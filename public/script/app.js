@@ -73,6 +73,82 @@ export const markRedactionsIn = (root, mask = redactionMask) => {
   }
 };
 
+// Redactions are the product's signature: show every XXXX-n mask as a numbered slot.
+const REDACTION_RE = /\bXXXX-\d+\b/g;
+export const slotRedactions = function (html) {
+  if (!html || html.indexOf("XXXX-") === -1 || typeof window.DOMParser !== "function") return html;
+  const doc = new window.DOMParser().parseFromString("<div>" + html + "</div>", "text/html");
+  const walker = doc.createTreeWalker(doc.body, 4);
+  const nodes = [];
+  while (walker.nextNode()) {
+    REDACTION_RE.lastIndex = 0;
+    // Prism re-highlights code blocks from their text, so those are slotted in its hook.
+    if (walker.currentNode.parentElement?.closest("pre code")) continue;
+    if (REDACTION_RE.test(walker.currentNode.nodeValue)) nodes.push(walker.currentNode);
+  }
+  for (const node of nodes) {
+    REDACTION_RE.lastIndex = 0;
+    const frag = doc.createDocumentFragment();
+    let last = 0, m;
+    const text = node.nodeValue;
+    while ((m = REDACTION_RE.exec(text))) {
+      frag.appendChild(doc.createTextNode(text.slice(last, m.index)));
+      const mark = doc.createElement("mark");
+      mark.className = "redact-chip";
+      mark.setAttribute("title", "Redacted term " + m[0].slice(5) + " — the same term everywhere in this snapshot");
+      // Display: an empty slot holding only the term's number (the file keeps XXXX-N).
+      const num = m[0].slice(5);
+      mark.textContent = "";
+      const idx = doc.createElement("i");
+      idx.textContent = num;
+      mark.appendChild(idx);
+      mark.dataset.term = m[0];
+      mark.setAttribute("aria-label", "Redacted term " + num);
+      // Keep trailing punctuation on the chip's line (no orphaned "." or ",").
+      const trail = /^[.,;:!?)\]]+/.exec(text.slice(m.index + m[0].length));
+      if (trail) {
+        const glue = doc.createElement("span");
+        glue.className = "redact-glue";
+        glue.appendChild(mark);
+        glue.appendChild(doc.createTextNode(trail[0]));
+        frag.appendChild(glue);
+        last = m.index + m[0].length + trail[0].length;
+      } else {
+        frag.appendChild(mark);
+        last = m.index + m[0].length;
+      }
+    }
+    frag.appendChild(doc.createTextNode(text.slice(last)));
+    node.parentNode.replaceChild(frag, node);
+  }
+  return doc.body.firstChild.innerHTML;
+};
+
+// Prism rewrites fenced code blocks from their text, so slot redactions once it is done.
+export const installPrismRedactionSlots = () => {
+  if (window.Prism?.hooks && !window.Prism.redactionHook) {
+    window.Prism.hooks.add("complete", (env) => {
+      markRedactionsIn(env.element);
+      // Show the same numbered slot as the rest of the viewer.
+      env.element.querySelectorAll?.("mark.redaction").forEach((mark) => {
+        const m = /^XXXX-(\d+)$/.exec(mark.textContent);
+        if (!m) return;
+        mark.className = "redact-chip";
+        mark.setAttribute("title", "Redacted term " + m[1] + " — the same term everywhere in this snapshot");
+        mark.setAttribute("aria-label", "Redacted term " + m[1]);
+        mark.dataset.term = m[0];
+        // Same width as the XXXX-n it replaces, so code columns stay aligned.
+        mark.style.setProperty("--slot-ch", m[0].length + "ch");
+        mark.textContent = "";
+        const idx = mark.ownerDocument.createElement("i");
+        idx.textContent = m[1];
+        mark.appendChild(idx);
+      });
+    });
+    window.Prism.redactionHook = true;
+  }
+};
+
 export const highlightRedactions = (html, mask = redactionMask) => {
   if (!html || !mask || !html.includes(mask)) return html;
   const doc = new DOMParser().parseFromString("<body>" + html + "</body>", "text/html");
@@ -1311,6 +1387,9 @@ export const statusController = function (state, http, params) {
     };
 
 export const anonymizeController = function (state, http, html, params, location, translate, timeout) {
+      // The preview shows redactions as the same numbered slots reviewers see.
+      installPrismRedactionSlots();
+      state.renderRedacted = slotRedactions;
       // Unified state
       state.sourceUrl = "";
       state.workspaceOpen = false;
@@ -2531,26 +2610,7 @@ export const anonymizeController = function (state, http, html, params, location
 
 export const exploreController = function (state, http, location, params, html, promises) {
       const timers = createTimers();
-      // Prism rewrites fenced code blocks, so mark redactions once it is done.
-      if (window.Prism?.hooks && !window.Prism.redactionHook) {
-        window.Prism.hooks.add("complete", (env) => {
-          markRedactionsIn(env.element);
-          // Show the same numbered slot as the rest of the viewer.
-          env.element.querySelectorAll?.("mark.redaction").forEach((mark) => {
-            const m = /^XXXX-(\d+)$/.exec(mark.textContent);
-            if (!m) return;
-            mark.className = "redact-chip";
-            mark.setAttribute("title", "Redacted term " + m[1] + " — the same term everywhere in this snapshot");
-            mark.setAttribute("aria-label", "Redacted term " + m[1]);
-            mark.dataset.term = m[0];
-            mark.textContent = "";
-            const idx = mark.ownerDocument.createElement("i");
-            idx.textContent = m[1];
-            mark.appendChild(idx);
-          });
-        });
-        window.Prism.redactionHook = true;
-      }
+      installPrismRedactionSlots();
       const listen = createListeners();
         state.on("dark-mode", (event, on) => {
           if (!state.aceOption) return;
@@ -2732,6 +2792,8 @@ export const exploreController = function (state, http, location, params, html, 
         if ((params.path || "") == state.filePath) {
           return;
         }
+        // On phones the file tree is a drawer: close it once a file is opened.
+        if (window.matchMedia?.("(max-width: 767px)").matches) state.sidebarCollapsed = true;
         state.filePath = params.path || "";
         state.paths = state.filePath
           .split("/")
@@ -3060,61 +3122,12 @@ export const exploreController = function (state, http, location, params, html, 
           link.focus();
         });
       };
-      // Redactions are the product's signature: show every XXXX-n mask as a chip.
-      const REDACTION_RE = /\bXXXX-\d+\b/g;
       state.redactionCount = function () {
         if (typeof state.content !== "string") return 0;
         const text = state.type === "html" ? state.content.replace(/<[^>]*>/g, " ") : state.content;
         return (text.match(REDACTION_RE) || []).length;
       };
-      state.renderRedacted = function (html) {
-        if (!html || html.indexOf("XXXX-") === -1 || typeof window.DOMParser !== "function") return html;
-        const doc = new window.DOMParser().parseFromString("<div>" + html + "</div>", "text/html");
-        const walker = doc.createTreeWalker(doc.body, 4);
-        const nodes = [];
-        while (walker.nextNode()) {
-          REDACTION_RE.lastIndex = 0;
-          // Prism re-highlights code blocks from their text, so those are slotted in its hook.
-          if (walker.currentNode.parentElement?.closest("pre code")) continue;
-          if (REDACTION_RE.test(walker.currentNode.nodeValue)) nodes.push(walker.currentNode);
-        }
-        for (const node of nodes) {
-          REDACTION_RE.lastIndex = 0;
-          const frag = doc.createDocumentFragment();
-          let last = 0, m;
-          const text = node.nodeValue;
-          while ((m = REDACTION_RE.exec(text))) {
-            frag.appendChild(doc.createTextNode(text.slice(last, m.index)));
-            const mark = doc.createElement("mark");
-            mark.className = "redact-chip";
-            mark.setAttribute("title", "Redacted term " + m[0].slice(5) + " — the same term everywhere in this snapshot");
-            // Display: an empty slot holding only the term's number (the file keeps XXXX-N).
-            const num = m[0].slice(5);
-            mark.textContent = "";
-            const idx = doc.createElement("i");
-            idx.textContent = num;
-            mark.appendChild(idx);
-            mark.dataset.term = m[0];
-            mark.setAttribute("aria-label", "Redacted term " + num);
-            // Keep trailing punctuation on the chip's line (no orphaned "." or ",").
-            const trail = /^[.,;:!?)\]]+/.exec(text.slice(m.index + m[0].length));
-            if (trail) {
-              const glue = doc.createElement("span");
-              glue.className = "redact-glue";
-              glue.appendChild(mark);
-              glue.appendChild(doc.createTextNode(trail[0]));
-              frag.appendChild(glue);
-              last = m.index + m[0].length + trail[0].length;
-            } else {
-              frag.appendChild(mark);
-              last = m.index + m[0].length;
-            }
-          }
-          frag.appendChild(doc.createTextNode(text.slice(last)));
-          node.parentNode.replaceChild(frag, node);
-        }
-        return doc.body.firstChild.innerHTML;
-      };
+      state.renderRedacted = slotRedactions;
       // Reading mode: slugged heading ids + an "On this page" outline (like Mintlify/Stripe docs).
       const slug = (t) => t.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-").slice(0, 60) || "section";
       state.renderReadme = function (html) {

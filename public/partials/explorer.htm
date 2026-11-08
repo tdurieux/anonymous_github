@@ -71,7 +71,7 @@
   <div class="leftCol-backdrop" v-show="files?.length &amp;&amp; !sidebarCollapsed" @click="sidebarCollapsed = true"></div>
 
   <div class="explorer-main">
-    <div class="status-bar" v-show="type != 'error' || files?.length" :class="{ 'is-redundant': ['code', 'text', 'html'].includes(type) &amp;&amp; content != null &amp;&amp; !(options?.isAdmin || options?.isOwner || options?.hasWebsite) }">
+    <div class="status-bar" v-show="type != 'error' || files?.length" :class="{ 'is-redundant': ['code', 'text', 'html'].includes(type) &amp;&amp; content != null }">
       <button type="button" class="btn btn-sm status-files-btn" v-show="files?.length" aria-label="Show files" title="Show files" @click="sidebarHidden ? (sidebarHidden = false) : (sidebarCollapsed = false)">
         <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-folder"></use></svg><span>Files</span>
       </button>

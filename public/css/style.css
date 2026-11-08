@@ -12358,3 +12358,23 @@ span.redact, .hero-mock .redact { vertical-align: -.12em !important; }
   .paper-landing { overflow-x: clip; }
 }
 @media (min-width: 1100px) { .hero-mock { min-height: 0 !important; } }
+
+/* ── Fix round: redaction slots in code blocks, phone reading layout ── */
+/* A slot in a code block keeps the width of the XXXX-n it replaces and sits on the text line. */
+.markdown-body pre code mark.redact-chip, .dark-mode .markdown-body pre code mark.redact-chip, pre code mark.redact-chip {
+  display: inline-block !important; box-sizing: border-box !important; overflow: hidden !important;
+  width: var(--slot-ch, 6ch) !important; min-width: 0 !important; height: 1.2em !important;
+  margin: 0 !important; padding: 0 .4ch !important; vertical-align: -.24em !important;
+  font-size: inherit !important; line-height: 1.2em !important; text-align: right !important;
+}
+.markdown-body pre code mark.redact-chip i, pre code mark.redact-chip i { font-size: .8em !important; line-height: inherit !important; vertical-align: top !important; }
+/* Below the outline breakpoint the outline is hidden: one column that never exceeds the screen. */
+@media (max-width: 1199px) { .reading-layout { grid-template-columns: minmax(0, 760px) !important; } }
+@media (max-width: 767px) { .reading-layout { grid-template-columns: minmax(0, 1fr) !important; padding: 0 16px !important; } }
+.reading-layout > .file-content.markdown-body { min-width: 0 !important; max-width: 100% !important; }
+/* Home closing band: no second divider under the FAQ, and the footer rule sits closer to it. */
+.paper-cta { border-top: 0 !important; padding-top: 0 !important; padding-bottom: 0 !important; margin-top: 96px !important; margin-bottom: 88px !important; }
+.paper-cta + .paper-footer { margin-top: 0 !important; }
+@media (max-width: 991px) { .paper-cta { margin-top: 72px !important; margin-bottom: 64px !important; } }
+/* Phone usage popover: open from the left edge of the Usage button, inside the screen. */
+@media (max-width: 767px) { .dashboard-heading-actions .dashboard-quota .quota-panel { left: 0 !important; right: auto !important; width: calc(100vw - 36px) !important; } }
