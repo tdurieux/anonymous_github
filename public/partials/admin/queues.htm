@@ -4,12 +4,6 @@
   <div class="q-header">
     <h1 class="paper-page-title">Queues</h1>
     <div class="q-header-actions">
-      <div class="q-range-btns">
-        <button class="btn btn-sm" :class="{active: range == &#x27;1h&#x27;}" @click="setRange(&#x27;1h&#x27;)">1h</button>
-        <button class="btn btn-sm" :class="{active: range == &#x27;6h&#x27;}" @click="setRange(&#x27;6h&#x27;)">6h</button>
-        <button class="btn btn-sm" :class="{active: range == &#x27;24h&#x27;}" @click="setRange(&#x27;24h&#x27;)">24h</button>
-        <button class="btn btn-sm" :class="{active: range == &#x27;7d&#x27;}" @click="setRange(&#x27;7d&#x27;)">7d</button>
-      </div>
       <button class="btn btn-sm" @click="pauseAll()">Pause all queues</button>
       
     </div>
@@ -44,6 +38,12 @@
   <!-- Detail: throughput chart + stats panel -->
   <div class="q-detail" v-if="selectedStats">
     <div class="q-throughput">
+      <div class="q-range-btns">
+        <button class="btn btn-sm" :class="{active: range == &#x27;1h&#x27;}" @click="setRange(&#x27;1h&#x27;)">1h</button>
+        <button class="btn btn-sm" :class="{active: range == &#x27;6h&#x27;}" @click="setRange(&#x27;6h&#x27;)">6h</button>
+        <button class="btn btn-sm" :class="{active: range == &#x27;24h&#x27;}" @click="setRange(&#x27;24h&#x27;)">24h</button>
+        <button class="btn btn-sm" :class="{active: range == &#x27;7d&#x27;}" @click="setRange(&#x27;7d&#x27;)">7d</button>
+      </div>
       <div class="q-section-label">Throughput · {{ selectedQueue }} <span class="q-section-right" v-if="(selectedStats?.completed24h || 0) + (selectedStats?.failed24h || 0) &gt; 0"><span class="q-legend-completed">&#9679;</span> completed <span class="q-legend-failed">&#9679;</span> failed <template v-if="(selectedStats?.completed24h || 0) + (selectedStats?.failed24h || 0) &gt; 0"><span class="q-legend-exec" aria-hidden="true"></span> avg time &middot; {{ range }}</template></span></div>
       <div class="q-chart-wrap">
         <canvas id="q-throughput-chart" height="180"></canvas>

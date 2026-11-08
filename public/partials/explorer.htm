@@ -52,7 +52,7 @@
         <kbd class="tree-search-kbd" v-show="!(fileSearchQuery)">{{ isMac ? '⌘' : 'Ctrl+' }}K</kbd>
         <button class="tree-search-clear" aria-label="Clear search" v-show="fileSearchQuery" @click="fileSearchQuery = &#x27;&#x27;; onFileSearchChange()">&times;</button>
       </div>
-      <a target="_self" class="search-zip" v-if="options?.download" aria-label="Download repository as ZIP" :title="'Download the repository (snapshot ' + fmt?.date(options?.sourceCommitDate || options?.anonymizedAt || options?.lastUpdateDate) + ') as ZIP'" :href="safeUrl(&quot;/api/repo/&quot; + (repoId) + &quot;/zip&quot;)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-zip"></use></svg></a>
+      <a target="_self" class="search-zip" v-if="options?.download" aria-label="Download repository as ZIP" :title="'Download the repository (snapshot ' + fmt?.date(options?.sourceCommitDate || options?.anonymizedAt || options?.lastUpdateDate) + ') as ZIP'" :href="safeUrl(&quot;/api/repo/&quot; + (repoId) + &quot;/zip&quot;)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-download"></use></svg></a>
     </div>
     <div class="leftCol-body">
       <div class="paper-inline-warning" role="alert" v-if="options?.truncatedFolders?.length &gt; 0">

@@ -1628,7 +1628,9 @@ export const errorsAdminController = function (state, http, location, interval) 
         // A filter that matches nothing in the loaded window keeps reading older pages
         // (bounded) so a 5xx counted in the tiles is not reported as "No errors captured".
         const filtering = !!(state.query.bucket || (state.query.search || "").trim());
-        if (filtering && !rows.length && state.canLoadMore?.() && !state._autoLoading && state.entries.length < 2500) {
+        // The default view also reads on until the server errors counted in the tiles appear.
+        const errorsHidden = !filtering && (state.stats?.severity?.error || 0) > 0 && !rows.some((r) => r._bucket === "error") && state.entries.length < 1500;
+        if (((filtering && !rows.length) || errorsHidden) && state.canLoadMore?.() && !state._autoLoading && state.entries.length < 2500) {
           state._autoLoading = true;
           loadEntries(true);
         }
@@ -1674,6 +1676,7 @@ export const errorsAdminController = function (state, http, location, interval) 
               buckets: s.buckets || [],
               dropped: s.dropped || 0,
             };
+            recompute();
           },
           (err) => console.error(err)
         );

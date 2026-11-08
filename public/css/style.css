@@ -11613,3 +11613,75 @@ input::placeholder, textarea::placeholder, .form-control::placeholder, #sourceUr
 .errors-page .kpi-filter:hover { border-color: var(--control-border, #CFC7B9) !important; }
 .errors-page .kpi-filter.is-selected { border-color: var(--accent) !important; box-shadow: inset 0 0 0 1px var(--accent) !important; }
 .errors-page .kpi-filter:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ===== Round 94 ===== */
+/* outline: inactive items readable */
+.readme-toc a:not(.is-active) { color: #4F4A43 !important; }
+.readme-toc a.lvl-3:not(.is-active) { color: #625C53 !important; }
+/* find: a 1px ring so it doesn't double up with the toolbar's on-state */
+.md-find-input:focus, .ace_search .ace_search_field:focus { box-shadow: 0 0 0 2px var(--accent-soft) !important; border-color: var(--accent) !important; }
+/* phone toolbar: toggle sits on the file-name line */
+@media (max-width: 767px) { .file-card-head { align-items: flex-start !important; } .file-card-head .btn-sidebar-toggle, .file-card-head .mobile-files-toggle, .file-card-head > button:first-child { margin-top: 2px !important; } }
+/* phone dashboard: one 40px control height on both rows */
+@media (max-width: 767px) { .dashboard-page .dashboard-quota > summary, .dashboard-page #search, .dashboard-page .dashboard-heading-actions .btn, .dashboard-page .filters-toggle, .dashboard-page .btn-filters { height: 40px !important; min-height: 40px !important; } }
+/* profile: the Files tile gets a caption like its neighbours */
+.quota-panel .quota-item:has(.quota-unlimited)::after, .profile-page .quota-tile:has(.quota-unlimited)::after { content: "No limit on file count"; display: block; font-size: 12.5px; color: var(--ink-soft); margin-top: 6px; }
+/* admin user: absent values quieter than real ones */
+.admin-page .detail-value.is-empty, .admin-page .is-unsynced { color: #9A9389 !important; font-style: normal !important; }
+
+/* ===== Round 95 ===== */
+/* submit bar: draft note beside the button, one compact row */
+@media (min-width: 768px) {
+  .anonymize-form-col .anonymize-submit-bar { display: flex !important; align-items: center; gap: 16px; }
+  .anonymize-submit-bar .draft-status { margin: 0 !important; flex: 0 1 auto; max-width: 46%; line-height: 1.35; }
+  .anonymize-submit-bar .btn-ink { flex: 1 1 auto; }
+}
+/* the publish warning appears once a source is loaded, not on the empty first step */
+.anonymize-landing .repo-access-note > span:has(.ui-icon) { display: none !important; }
+/* sidebar ZIP button uses the same download glyph as the toolbar (CSS mask over the old icon) */
+/* phone code: a shadow edge marks more code to the right */
+@media (max-width: 767px) { .file-card.is-code.no-wrap .file-card-body::after { box-shadow: inset -8px 0 8px -8px rgba(40,32,24,.35) !important; border-right: 0 !important; } }
+/* dark: chrome and reading pane closer in tone */
+.dark-mode .leftCol { background: #1C1A17 !important; }
+.dark-mode .viewer-bar { background: #181614 !important; }
+@media (max-width: 767px) {
+  .file-card.is-code.no-wrap .file-card-body::after { width: 44px !important; background: linear-gradient(to right, rgba(250,249,246,0) 0%, rgba(250,249,246,.92) 55%, rgba(226,220,210,.95) 100%) !important; box-shadow: inset -1px 0 0 rgba(40,32,24,.18) !important; }
+  .dark-mode .file-card.is-code.no-wrap .file-card-body::after { background: linear-gradient(to right, rgba(20,19,17,0) 0%, rgba(20,19,17,.92) 55%, rgba(44,40,35,.95) 100%) !important; box-shadow: inset -1px 0 0 rgba(255,255,255,.14) !important; }
+}
+
+/* ===== Round 96: structural ===== */
+/* phone toolbar: one 48px row — sidebar toggle, file name, redaction count, Copy, ⋯ */
+@media (max-width: 767px) {
+  .file-card-head { min-height: 48px !important; align-items: center !important; padding-top: 4px !important; padding-bottom: 4px !important; }
+  .file-card-head .file-card-path { display: flex !important; flex-direction: row !important; align-items: center !important; flex-wrap: nowrap !important; gap: 8px !important; min-width: 0; }
+  .file-card-head .file-card-path .breadcrumb { min-width: 0; flex: 0 1 auto; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .mobile-sub { margin: 0 !important; flex: 0 0 auto; white-space: nowrap; }
+  .mobile-sub > span { display: none !important; }
+  .mobile-sub span:has(+ b)::after { content: none !important; }
+  .mobile-sub b { font-size: 12.5px !important; }
+}
+/* FAQ: contents rail + answers centred as one group in the container */
+/* landing: one section rhythm */
+.paper-section-head, .paper-qa, .paper-features, .paper-stats { margin-top: 88px !important; }
+.paper-hero + .paper-stats { margin-top: 40px !important; }
+
+/* ===== Round 97 ===== */
+/* FAQ: contents | answers | a quiet help card, on the site grid */
+@media (min-width: 1100px) { .paper-faq-body { grid-template-columns: 180px minmax(0, 1fr) 220px !important; gap: 48px !important; } .paper-faq-help { display: block; } }
+.paper-faq-help { display: none; }
+.paper-faq-help-card { position: sticky; top: 96px; border: 1px solid var(--border-color); border-radius: 12px; background: var(--paper-card); padding: 18px; }
+.paper-faq-help-card strong { display: block; font-size: 14px; margin-bottom: 6px; }
+.paper-faq-help-card p { font-size: 13px; line-height: 1.5; color: var(--ink-soft); margin: 0 0 12px; }
+/* submit bar: draft status on one line */
+.anonymize-submit-bar .draft-status { white-space: nowrap; flex: 0 0 auto !important; max-width: none !important; }
+/* queues: range control lives in the Throughput card header */
+.q-throughput .q-range-btns { float: right; margin: -4px 0 0 12px; }
+/* admin tables share the card shell used on Errors */
+.admin-page .paper-table { border: 1px solid var(--border-color) !important; border-radius: 12px !important; overflow: hidden; background: var(--paper-card); }
+/* dark mode: tertiary text lifted to AA */
+.dark-mode { --ink-soft: #ADA699; --ink-muted: #8C8579; }
+/* hero mock swatch = product slot */
+.hero-mock-count::before { background: var(--slot-bg) !important; }
+@media (min-width: 1100px) { .paper-faq-help { display: block !important; } }
+.q-throughput { position: relative; }
+.q-throughput .q-range-btns { position: absolute !important; top: 12px; right: 16px; float: none !important; margin: 0 !important; width: auto !important; display: inline-flex !important; z-index: 2; }

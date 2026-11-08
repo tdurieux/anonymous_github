@@ -23,7 +23,7 @@
 
     <div class="ov-health" role="status" v-if="data?.system?.memPercent &gt; 90 || data?.system?.diskPercent &gt; 90">
       <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-warning"></use></svg>
-      <span><b>Server needs attention.</b> {{ [data?.system?.memPercent &gt; 85 ? 'Memory at ' + Math.round(data.system.memPercent) + '%.' : '', data?.system?.diskPercent &gt; 85 ? 'Disk at ' + Math.round(data.system.diskPercent) + '%.' : ''].filter(Boolean).join(' ') }} New anonymizations may fail until it drops.</span>
+      <span><b>Server needs attention.</b> Memory or disk is running high (see the cards below). New anonymizations may fail until it drops.</span>
     </div>
 
     <!-- ── Top KPI row ──────────────────────────────────────────── -->

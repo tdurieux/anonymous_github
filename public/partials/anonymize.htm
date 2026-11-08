@@ -362,7 +362,7 @@
           <button type="button" class="btn btn-outline-ink mobile-preview-jump" @click="selectMobilePane('preview')">Review preview <span aria-hidden="true">→</span></button>
           <div class="anonymize-submit-bar" v-show="detectedType">
             <div class="draft-status" role="status" v-if="draftRestored">Your unsaved draft was restored. <button type="button" class="draft-discard" @click="discardDraft()">Discard draft</button></div>
-            <div class="draft-status" v-else-if="unsavedChanges">{{ draftSaved ? "Draft saved in this tab for 30 minutes." : "Unsaved changes. Keep this tab open until you save." }} <button type="button" class="draft-discard" @click="discardDraft()">{{ isUpdate ? "Restore saved settings" : "Discard changes" }}</button></div>
+            <div class="draft-status" v-else-if="unsavedChanges">{{ draftSaved ? "Draft saved ·" : "Unsaved changes ·" }} <button type="button" class="draft-discard" @click="discardDraft()">{{ isUpdate ? "Restore saved" : "Discard" }}</button></div>
             <button type="submit" :disabled="sourceLoading" class="btn btn-ink" v-if="detectedType === &#x27;repo&#x27; &amp;&amp; !isUpdate" @click.prevent="submitForm($event, () =&gt; { anonymizeRepo($event) })">
               <svg class="ui-icon mr-1" aria-hidden="true"><use href="#ui-icon-shield"></use></svg> Anonymize Repository
             </button>
