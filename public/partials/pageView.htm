@@ -83,6 +83,11 @@
       </div>
     </div>
     </div>
+    <form class="goto-pop" v-if="gotoOpen &amp;&amp; type != 'html'" role="dialog" aria-label="Go to line" @submit.prevent="submitGoto()">
+      <label class="goto-label" for="goto-input">Go to line</label>
+      <input id="goto-input" class="goto-input" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" :placeholder="'1–' + fmt?.number(typeof content === 'string' ? content.split('\n').length : 1)" :aria-invalid="gotoError ? 'true' : 'false'" v-model="gotoValue" @keydown.esc.prevent.stop="closeGoto()">
+      <span class="goto-hint" :class="{ 'is-error': gotoError }">{{ gotoError || 'Line, or line:column' }}</span>
+    </form>
   </header>
   <div class="file-card-body" v-if="type != 'html'" v-code-editor="{ content: content, options: aceOption }"></div>
   <div class="md-find-bar" v-if="type == 'html' &amp;&amp; mdFindOpen" role="search">

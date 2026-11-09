@@ -8,6 +8,9 @@ export function initializeTemplate(name, state) {
     state.dirExpanded = false;
     state.moreOpen = false;
     state.tocOpen = false;
+    state.gotoOpen = false;
+    state.gotoValue = "";
+    state.gotoError = "";
     state.mdFindOpen = false;
     state.mdFindQuery = "";
     state.mdFindTotal = 0;
