@@ -2646,11 +2646,13 @@ export const exploreController = function (state, http, location, params, html, 
         if (state.symbolsOpen && !e.target.closest?.(".symbols")) state.symbolsOpen = false;
         if (state.moreOpen && !e.target.closest?.(".tb-more")) state.moreOpen = false;
         if (state.tocOpen && !e.target.closest?.(".tb-toc-m")) state.tocOpen = false;
+        // The ⋯ menu item that opens it is removed on click, so ignore detached targets.
+        if (state.gotoOpen && e.target.isConnected && !e.target.closest?.(".goto-pop, .btn-goto, .tb-more")) state.gotoOpen = false;
         if (state.accountOpen && !e.target.closest?.(".acct")) state.accountOpen = false;
         if (state.helpOpen && !e.target.closest?.(".vb-help")) state.helpOpen = false;
       });
       listen(document, "keydown", (e) => {
-        if (e.key === "Escape") { state.symbolsOpen = false; state.moreOpen = false; state.tocOpen = false; state.accountOpen = false; state.helpOpen = false; }
+        if (e.key === "Escape") { state.symbolsOpen = false; state.moreOpen = false; state.tocOpen = false; state.gotoOpen = false; state.accountOpen = false; state.helpOpen = false; }
         if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key && e.key.toLowerCase() === "f" && state.type === "html" && window.document.querySelector(".reading-layout")) {
           e.preventDefault();
           state.toggleMdFind(true);
@@ -3085,11 +3087,30 @@ export const exploreController = function (state, http, location, params, html, 
         window.dispatchEvent(new HashChangeEvent("hashchange"));
       };
 
+      // Go to line: a small popover in the file header (Ace's own prompt ignores the site theme).
       state.gotoLine = function () {
+        if (!state.codeEditor) return;
+        state.moreOpen = false;
+        state.gotoError = "";
+        state.gotoValue = String(state.codeEditor.getCursorPosition().row + 1);
+        state.gotoOpen = true;
+        setTimeout(() => { const el = window.document.getElementById("goto-input"); if (el) { el.focus(); el.select(); } }, 0);
+      };
+      state.closeGoto = function () {
+        state.gotoOpen = false;
+        state.gotoError = "";
+        state.codeEditor?.focus();
+      };
+      state.submitGoto = function () {
         const editor = state.codeEditor;
         if (!editor) return;
+        const m = /^\s*:?\s*(\d+)\s*(?:[:,]\s*(\d+))?\s*$/.exec(state.gotoValue || "");
+        const lines = editor.session.getLength();
+        if (!m || +m[1] < 1 || +m[1] > lines) { state.gotoError = "Enter a line from 1 to " + lines; return; }
+        editor.gotoLine(+m[1], m[2] ? Math.max(0, +m[2] - 1) : 0, true);
+        state.gotoOpen = false;
+        state.gotoError = "";
         editor.focus();
-        editor.execCommand("gotoline");
       };
       // Root listing above the README: folders first, then files.
       state.rootEntries = function () {

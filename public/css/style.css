@@ -12458,3 +12458,67 @@ span.redact, .hero-mock .redact { vertical-align: -.12em !important; }
   .paper-table-dashboard .cell-actions > .ended-row { grid-area: link; display: flex; justify-content: space-between; width: 100%; margin: 0; padding: 6px 6px 6px 12px; border-radius: 8px; border: 1px dashed var(--border-color); }
   .paper-table-dashboard .paper-table-row.repo-inactive .cell-expires { display: none !important; }
 }
+
+/* ── Fix: date fields on iOS Safari ──
+   WebKit draws <input type=date> as a native button with its own height, centred text and an
+   intrinsic min-width, so it ignores width:100% and overflows its column. Make it a plain field. */
+input.form-control[type="date"] {
+  -webkit-appearance: none; appearance: none;
+  display: block; box-sizing: border-box; width: 100%; min-width: 0; max-width: 100%;
+  height: 40px; min-height: 40px; line-height: 1.25; text-align: left;
+}
+input.form-control[type="date"]::-webkit-date-and-time-value { text-align: left; margin: 0; min-height: 1.25em; }
+input.form-control[type="date"]::-webkit-datetime-edit { padding: 0; }
+.hosting-date > input.form-control[type="date"] { justify-self: stretch; }
+
+/* My work: the copy-link control is an icon button like Open and Edit (the URL is in its tooltip). */
+.paper-table-dashboard .cell-actions > .copy-url {
+  display: inline-flex !important; align-items: center !important; justify-content: center !important;
+  width: 36px !important; height: 36px !important; min-width: 0 !important; max-width: none !important;
+  padding: 0 !important; margin: 0 !important; border: 0 !important; border-radius: 8px !important;
+  background: transparent !important; color: var(--ink-soft) !important; box-shadow: none !important;
+}
+.paper-table-dashboard .cell-actions > .copy-url:hover { background: rgba(0, 0, 0, .05) !important; color: var(--color) !important; }
+.dark-mode .paper-table-dashboard .cell-actions > .copy-url:hover { background: rgba(255, 255, 255, .07) !important; }
+.paper-table-dashboard .cell-actions > .copy-url .project-type-svg { width: 18px; height: 18px; margin: 0 !important; }
+@media (max-width: 767px) {
+  .paper-table.paper-table-dashboard .paper-table-row { grid-template-columns: minmax(0, 1fr) auto auto auto !important; grid-template-areas: "name copy edit more" "meta meta meta meta" !important; }
+  .paper-table.paper-table-dashboard .paper-table-row.repo-inactive { grid-template-areas: "name copy edit more" "meta meta meta meta" "link link link link" !important; }
+  .paper-table-dashboard .cell-actions > .copy-url { grid-area: copy; align-self: start; width: 40px !important; height: 40px !important; margin-top: -4px !important; justify-self: auto !important; }
+}
+.paper-table-dashboard .cell-actions > .copy-url .project-type-svg { width: 16px !important; height: 16px !important; }
+@media (max-width: 767px) {
+  .paper-table-dashboard .anon-title { min-width: 0; }
+  .paper-table.paper-table-dashboard .anon-title .repo-name { display: block !important; min-width: 0 !important; overflow: hidden !important; text-overflow: ellipsis !important; white-space: nowrap !important; word-break: normal !important; overflow-wrap: normal !important; }
+}
+
+/* Code viewer selection: Ace draws a multi-line selection as several boxes. An outline (box-shadow)
+   on each box overlaps its neighbours and darkens the joins, so multi-line selections are a plain
+   fill; a single-line selection (e.g. the current find match, ace_br15) keeps an inset outline. */
+.ace_editor .ace_marker-layer .ace_selection, .dark-mode .ace_editor .ace_marker-layer .ace_selection { box-shadow: none !important; border-radius: 0 !important; }
+.ace_editor .ace_marker-layer .ace_selection.ace_br15 { box-shadow: inset 0 0 0 1px rgba(170, 115, 15, .75) !important; border-radius: 3px !important; }
+.dark-mode .ace_editor .ace_marker-layer .ace_selection.ace_br15 { box-shadow: inset 0 0 0 1px rgba(240, 200, 90, .7) !important; }
+.ace_editor.ace-chrome .ace_marker-layer .ace_selection, .ace_editor.ace-nord-dark .ace_marker-layer .ace_selection { box-shadow: none !important; border-radius: 0 !important; }
+.ace_editor.ace-chrome .ace_marker-layer .ace_selection.ace_br15 { box-shadow: inset 0 0 0 1px rgba(170, 115, 15, .75) !important; border-radius: 3px !important; }
+.ace_editor.ace-nord-dark .ace_marker-layer .ace_selection.ace_br15 { box-shadow: inset 0 0 0 1px rgba(240, 200, 90, .7) !important; border-radius: 3px !important; }
+
+/* Go to line popover (replaces Ace's unthemed prompt). */
+.file-card .file-card-head { position: relative; }
+.file-card:not(.is-code) .file-card-head { position: sticky; }
+.goto-pop { position: absolute; z-index: 30; top: calc(100% + 6px); right: 12px; width: 260px; max-width: calc(100vw - 24px); margin: 0;
+  padding: 12px; display: grid; gap: 6px; background: var(--paper-card, #fff); border: 1px solid var(--border-color); border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(26, 24, 21, .16); }
+.dark-mode .goto-pop { box-shadow: 0 12px 32px rgba(0, 0, 0, .5); }
+.goto-label { margin: 0; font: 600 12.5px var(--font-sans); color: var(--color); }
+.goto-input { width: 100%; height: 36px; padding: 0 10px; border: 1px solid var(--control-border, var(--border-color)); border-radius: 7px;
+  background: var(--bg-color, transparent); color: var(--color); font: 500 14px var(--font-mono, ui-monospace, monospace); outline: none; }
+.goto-input:focus { border-color: var(--accent, #1F6B66); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent, #1F6B66) 22%, transparent); }
+.goto-input[aria-invalid="true"] { border-color: #b91c1c; }
+.goto-hint { font-size: 12px; color: var(--ink-soft); }
+.goto-hint.is-error { color: #b91c1c; }
+.dark-mode .goto-input[aria-invalid="true"] { border-color: #f87171; }
+.dark-mode .goto-hint.is-error { color: #f87171; }
+
+/* Submit bar: the checkout note gets its own line under the button instead of a one-word column. */
+.anonymize-form-col .anonymize-submit-bar:has(> .checkout-return-note) { flex-wrap: wrap !important; row-gap: 6px !important; }
+.anonymize-submit-bar .checkout-return-note { order: 3; flex: 1 0 100%; margin: 0 !important; font-size: 12px; text-align: center; white-space: normal; }
