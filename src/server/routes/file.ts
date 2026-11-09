@@ -115,6 +115,7 @@ router.get(
         anonymizedPath,
       });
       const originalPath = await f.originalPath();
+      await f.assertContentFile();
       if (!f.isFileSupported()) {
         throw new AnonymousError("file_not_supported", {
           httpStatus: 403,

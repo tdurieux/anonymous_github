@@ -139,15 +139,29 @@ export default class GitHubStream extends GitHubBase {
       filePath
     );
     logger.debug("downloading via raw URL (LFS)", { url });
+    const assertDownloadUrl = (value: URL) => {
+      if (value.protocol !== "https:" || value.username || value.password || value.port ||
+          !["raw.githubusercontent.com", "media.githubusercontent.com"].includes(value.hostname)) {
+        throw new AnonymousError("upstream_error", { httpStatus: 502 });
+      }
+    };
     const data = this.data;
     const cancellation = new AbortController();
     let active: stream.Readable | undefined;
     const output = stream.Readable.from((async function* () {
       try {
         active = got.stream(url, {
-          hooks: { beforeRequest: [async () => { await githubTokenContext(token)?.renew(); }] },
+          hooks: {
+            beforeRequest: [async () => { await githubTokenContext(token)?.renew(); }],
+            beforeRedirect: [options => { assertDownloadUrl(options.url); }],
+          },
           headers: !token || githubTokenContext(token)?.publicRepository ? {} : { authorization: `token ${token}` },
           followRedirect: true,
+        });
+        active.once("response", response => {
+          if (response.statusCode !== 200) return;
+          try { assertDownloadUrl(new URL(response.url)); }
+          catch (error) { active?.destroy(error as Error); }
         });
         for await (const chunk of active) yield chunk;
         return;
@@ -173,12 +187,6 @@ export default class GitHubStream extends GitHubBase {
         if (cancellation.signal.aborted) return;
         const metadata = response.data as { type?: string; download_url?: string };
         if (metadata.type !== "file" || !metadata.download_url) throw error;
-        const assertDownloadUrl = (value: URL) => {
-          if (value.protocol !== "https:" || value.username || value.password || value.port ||
-              !["raw.githubusercontent.com", "media.githubusercontent.com"].includes(value.hostname)) {
-            throw new AnonymousError("upstream_error", { httpStatus: 502 });
-          }
-        };
         assertDownloadUrl(new URL(metadata.download_url));
         // The API URL supplies its own authorization. Never forward the
         // owner's token to the download host or a redirect destination.

@@ -484,6 +484,7 @@ describe("streamed file access alerts", () => {
     repository = { owner: { id: "saved-owner" }, options: { terms: [] }, model: { source: {} }, repoId: "anon-id", status: "ready", source: {},
       getToken: async () => "token", generateAnonymizeTransformer: () => new PassThrough() };
     file = new File({ repository, anonymizedPath: "README.md" });
+    file._file = { name: "README.md", path: "", sha: "sha", size: 10 };
   });
   afterEach(() => { while (restores.length) restores.pop()(); });
   for (const status of [403, 404, 503]) it(`handles local file download failure ${status}`, async () => {

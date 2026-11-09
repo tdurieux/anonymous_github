@@ -226,7 +226,7 @@ describe("production regressions", function () {
     const utils = require("../src/server/routes/route-utils");
     const repo = { options: { pdf: false, image: false, terms: [] }, model: { source: { commit: "commit-1" }, options: {} }, isReady: async () => true, countView: async () => {} };
     stub(utils, "getRepo", async () => repo);
-    stub(File.prototype, "originalPath", async function () { this._file = { name: originalName, path: "" }; return originalName; });
+    stub(File.prototype, "originalPath", async function () { this._file = { name: originalName, path: "", size: 10 }; return originalName; });
     stub(File.prototype, "sha", async () => "sha");
     stub(File.prototype, "send", async () => {});
     const handler = require("../src/server/routes/file").default.stack[0].route.stack[0].handle;
