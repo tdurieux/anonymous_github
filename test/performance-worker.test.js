@@ -104,8 +104,13 @@ describe("large anonymization resources", function () {
       await Promise.all([old, current, other].map(path => fs.mkdir(path)));
       await fs.writeFile(join(old, "input"), "private");
       await fs.utimes(old, new Date(0), new Date(0));
+      const oldZip = join(root, "anonymous-zip-directory-old"), liveZip = join(root, "anonymous-zip-directory-live");
+      await Promise.all([oldZip, liveZip].map(path => fs.mkdir(path)));
+      await Promise.all([oldZip, liveZip].map(path => fs.writeFile(join(path, "central"), "directory records")));
+      await fs.utimes(join(oldZip, "central"), new Date(0), new Date(0));
+      await fs.utimes(liveZip, new Date(0), new Date(0));
       await removeStaleTextSpools(root);
-      expect((await fs.readdir(root)).sort()).to.deep.equal(["anonymous-text-current", "other"]);
+      expect((await fs.readdir(root)).sort()).to.deep.equal(["anonymous-text-current", "anonymous-zip-directory-live", "other"]);
     } finally { await fs.rm(root, { force: true, recursive: true }); }
   });
   it("bounds an unresponsive Redis command and disconnects its socket", async () => {

@@ -3,7 +3,7 @@ import config from "../config";
 import { MAX_SUBMODULE_ENTRIES, SubmoduleMount, safeRepositoryPath, validateMounts } from "./source/github-submodules";
 import { Readable, Transform, Writable } from "stream";
 import { Parse } from "unzip-stream";
-import archiver = require("archiver");
+import { boundedZip } from "./bounded-zip";
 
 import GitHubDownload from "./source/GitHubDownload";
 import { classifyGitHubMissError } from "./source/GitHubBase";
@@ -118,7 +118,7 @@ export async function streamAnonymizedZip(
     });
   }
   let downloadStream: Readable;
-  const archive = archiver("zip", {});
+  const archive = boundedZip();
   let parser: Transform;
   let childEntries = 0;
   const activeStreams = new Set<Readable>();

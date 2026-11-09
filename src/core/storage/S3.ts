@@ -1,3 +1,4 @@
+import { boundedZip } from "../bounded-zip";
 import { appendArchiveEntry, zipEntryOptions } from "../archive-entry";
 import {
   GetObjectCommand,
@@ -371,7 +372,7 @@ export default class S3Storage extends StorageBase {
   ) {
     if (!config.S3_BUCKET) throw new Error("S3_BUCKET not set");
     this.assertSafePath(dir);
-    const archive = archiver(opt?.format || "zip", {});
+    const archive = opt?.format === "tar" ? archiver("tar", {}) : boundedZip();
     if (dir && dir[dir.length - 1] != "/") dir = dir + "/";
 
     let active: Readable | undefined;
