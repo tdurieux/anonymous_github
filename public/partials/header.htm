@@ -15,6 +15,7 @@
     <ul class="navbar-nav mr-auto smooth-scroll">
       <li class="nav-item nav-home-item" v-if="!user">
         <a class="nav-link" href="/" :class="{&#x27;active&#x27;: path == &#x27;/&#x27;}">
+          <svg class="ui-icon d-lg-none mr-1" aria-hidden="true"><use href="#ui-icon-home"></use></svg>
           Home
         </a>
       </li>
@@ -41,7 +42,7 @@
       </li>
       <li class="nav-item" v-if="user &amp;&amp; user?.isAdmin">
         <a class="nav-link" href="/admin/" :class="{&#x27;active&#x27;:path?.indexOf(&#x27;/admin&#x27;) === 0}">
-          <svg class="ui-icon d-lg-none mr-1" aria-hidden="true"><use href="#project-icon-filter"></use></svg>
+          <svg class="ui-icon d-lg-none mr-1" aria-hidden="true"><use href="#ui-icon-user-shield"></use></svg>
           Admin
         </a>
       </li>
@@ -107,11 +108,11 @@
             <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-bug"></use></svg>
             <span>Report a bug<small>About this service, not a paper</small></span>
           </a>
-          <a class="dropdown-item" href="https://github.com/tdurieux/anonymous_github/" target="_blank" rel="noopener">
+          <a class="dropdown-item um-extra" href="https://github.com/tdurieux/anonymous_github/" target="_blank" rel="noopener">
             <i class="fab fa-github" aria-hidden="true"></i>
             <span>Source code</span>
           </a>
-          <a v-if="headerShowSupport" class="dropdown-item" href="https://ko-fi.com/tdurieux" target="_blank" rel="noopener">
+          <a v-if="headerShowSupport" class="dropdown-item um-extra" href="https://ko-fi.com/tdurieux" target="_blank" rel="noopener">
             <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-heart"></use></svg>
             <span>Support the project</span>
           </a>

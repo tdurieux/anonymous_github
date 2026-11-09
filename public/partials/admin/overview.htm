@@ -19,7 +19,11 @@
   <div class="alert alert-danger" style="margin:12px 0" v-if="error"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-warning"></use></svg> {{ error }}</div>
 
 
-  <div v-if="data">
+  <div class="ov-views" role="tablist" aria-label="Overview sections">
+    <button type="button" role="tab" v-for="v in [{id: 'summary', label: 'Summary'}, {id: 'performance', label: 'Performance'}, {id: 'cache', label: 'Cache'}]" :key="v.id" :aria-selected="ovView === v.id ? 'true' : 'false'" :class="{ active: ovView === v.id }" @click="setOvView(v.id)">{{ v.label }}</button>
+  </div>
+
+  <div v-if="data" v-show="ovView === 'summary'">
 
     <div class="ov-health" role="status" v-if="data?.system?.memPercent &gt; 90 || data?.system?.diskPercent &gt; 90">
       <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-warning"></use></svg>
@@ -282,7 +286,7 @@
 
   </div>
 
-  <section class="ov-panel-card ov-cache" aria-labelledby="cache-heading">
+  <section class="ov-panel-card ov-cache" aria-labelledby="cache-heading" v-show="ovView === 'cache'">
     <div class="ov-panel-head ov-performance-head">
       <div><h2 class="ov-panel-title" id="cache-heading">Cache</h2>
         <p class="ov-performance-note">Shared storage, repeated reads and anonymization work · refreshes every 30 seconds</p></div>
@@ -333,7 +337,7 @@
     </template>
   </section>
 
-  <section class="ov-panel-card ov-performance" aria-labelledby="performance-heading">
+  <section class="ov-panel-card ov-performance" aria-labelledby="performance-heading" v-show="ovView === 'performance'">
     <div class="ov-panel-head ov-performance-head">
       <div>
         <h2 class="ov-panel-title" id="performance-heading">Request performance</h2>

@@ -1778,6 +1778,12 @@ export const overviewAdminController = function (state, http, location, interval
       state.cacheError = null;
       state.cacheMinutes = 60;
       state.cacheTraffic = "all";
+      // The overview is split into views; the hash keeps the chosen one on reload.
+      state.ovView = ["performance", "cache"].includes((window.location.hash || "").slice(1)) ? window.location.hash.slice(1) : "summary";
+      state.setOvView = function (view) {
+        state.ovView = view;
+        try { window.history.replaceState(null, "", view === "summary" ? window.location.pathname : "#" + view); } catch (e) { /* ignore */ }
+      };
       var cacheLoading = false;
       state.loadCache = function () {
         if (cacheLoading) return;

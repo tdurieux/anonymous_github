@@ -12378,3 +12378,83 @@ span.redact, .hero-mock .redact { vertical-align: -.12em !important; }
 @media (max-width: 991px) { .paper-cta { margin-top: 72px !important; margin-bottom: 64px !important; } }
 /* Phone usage popover: open from the left edge of the Usage button, inside the screen. */
 @media (max-width: 767px) { .dashboard-heading-actions .dashboard-quota .quota-panel { left: 0 !important; right: auto !important; width: calc(100vw - 36px) !important; } }
+
+/* ── Fix round: admin errors filters, overview views, phone menu, ended projects ── */
+/* Errors filters on phones: tabs, then search, then the two selects side by side, then refresh. */
+@media (max-width: 767px) {
+  .errors-page .errors-toolbar { display: grid !important; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px !important; align-items: center; }
+  .errors-page .errors-toolbar .seg-tabs { grid-column: 1 / -1; display: flex !important; width: 100%; }
+  .errors-page .errors-toolbar .seg-tabs button { flex: 1 1 0; }
+  .errors-page .errors-toolbar .search-wrap { grid-column: 1 / -1; max-width: none !important; min-width: 0 !important; width: 100%; }
+  .errors-page .errors-toolbar .select-wrap { display: flex !important; min-width: 0; }
+  .errors-page .errors-toolbar .select-wrap select { flex: 1 1 auto; min-width: 0 !important; width: 100% !important; max-width: none !important; }
+  .errors-page .errors-toolbar .autoref { grid-column: 1; }
+  .errors-page .errors-toolbar > .btn-icon { grid-column: 2; justify-self: end; }
+}
+/* Overview views: a quiet segmented control under the admin tabs. */
+.overview-page .ov-views { display: inline-flex; gap: 2px; padding: 3px; margin: 4px 0 16px; border-radius: 9px; background: var(--paper-sunk, rgba(0,0,0,.05)); }
+.overview-page .ov-views button { border: 0; background: transparent; padding: 6px 14px; border-radius: 7px; font: 500 13.5px var(--font-sans); color: var(--ink-soft); cursor: pointer; }
+.overview-page .ov-views button:hover { color: var(--color); }
+.overview-page .ov-views button.active { background: var(--paper-card, #fff); color: var(--color); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+.dark-mode .overview-page .ov-views { background: rgba(255,255,255,.06); }
+.dark-mode .overview-page .ov-views button.active { background: rgba(255,255,255,.1); box-shadow: none; }
+@media (max-width: 767px) {
+  .overview-page .ov-views { display: flex; }
+  .overview-page .ov-views button { flex: 1 1 0; }
+  /* Charts and tables need the full width on a phone. */
+  .admin-page.overview-page section.ov-chart-row, .admin-page.overview-page section.ov-triple-row { grid-template-columns: minmax(0, 1fr) !important; }
+}
+/* Phone and tablet menu: one list, same row height and left edge, neutral fill for the current page,
+   account links shown inline (no second tap), no duplicate Sign in. */
+@media (max-width: 991.98px) {
+  .navbar .navbar-collapse { padding: 8px 10px 12px !important; }
+  .navbar .navbar-collapse .navbar-nav { gap: 2px !important; margin: 0 !important; padding: 0 !important; }
+  .navbar .navbar-collapse .nav-item { margin: 0 !important; padding: 0 !important; width: 100% !important; }
+  .navbar .navbar-collapse .nav-link, .navbar .navbar-collapse .user-menu .dropdown-item {
+    display: flex !important; align-items: center !important; gap: 12px !important; width: 100% !important;
+    min-height: 44px; padding: 10px 12px !important; margin: 0 !important; border: 0 !important; border-radius: 8px !important;
+    font: 500 15px/1.2 var(--font-sans) !important; color: var(--color) !important; background: transparent !important;
+    box-shadow: none !important; text-decoration: none !important; white-space: normal;
+  }
+  .navbar .navbar-collapse .nav-link::before, .navbar .navbar-collapse .nav-link::after { display: none !important; }
+  .navbar .navbar-collapse .nav-link:hover, .navbar .navbar-collapse .user-menu .dropdown-item:hover { background: rgba(0, 0, 0, .04) !important; }
+  .navbar .navbar-collapse .nav-link.active { background: rgba(0, 0, 0, .06) !important; font-weight: 600 !important; }
+  .dark-mode .navbar .navbar-collapse .nav-link:hover, .dark-mode .navbar .navbar-collapse .user-menu .dropdown-item:hover { background: rgba(255, 255, 255, .05) !important; }
+  .dark-mode .navbar .navbar-collapse .nav-link.active { background: rgba(255, 255, 255, .08) !important; }
+  .navbar .navbar-collapse .nav-link .ui-icon, .navbar .navbar-collapse .user-menu .dropdown-item .ui-icon, .navbar .navbar-collapse .user-menu .dropdown-item .fab {
+    flex: none; width: 18px !important; height: 18px !important; margin: 0 !important; color: var(--ink-soft) !important; font-size: 16px; text-align: center;
+  }
+  .navbar .navbar-collapse .nav-signin-item { display: none !important; }
+  /* Account block */
+  .navbar .navbar-collapse .user-chip-wrap { margin-top: 8px !important; padding-top: 8px !important; border-top: 1px solid var(--border-color) !important; }
+  .navbar .navbar-collapse .user-chip { pointer-events: none; font-weight: 600 !important; }
+  .navbar .navbar-collapse .user-chip img { width: 24px !important; height: 24px !important; margin: -3px 0 !important; }
+  .navbar .navbar-collapse .user-menu { display: block !important; position: static !important; transform: none !important; float: none !important;
+    min-width: 0 !important; margin: 0 !important; padding: 0 !important; border: 0 !important; box-shadow: none !important; background: transparent !important; }
+  .navbar .navbar-collapse .user-menu .dropdown-header, .navbar .navbar-collapse .user-menu .um-extra { display: none !important; }
+  .navbar .navbar-collapse .user-menu .dropdown-item small { display: none !important; }
+  .navbar .navbar-collapse .user-menu .dropdown-item span { display: inline !important; }
+  .navbar .navbar-collapse .user-menu .dropdown-divider { margin: 6px 12px !important; }
+}
+/* My work: ended projects (removed, expired) read as ended at a glance. */
+.paper-table .paper-table-row.repo-inactive > *:not(.cell-actions) { opacity: 1 !important; }
+.paper-table .paper-table-row.repo-inactive .cell-anon,
+.paper-table .paper-table-row.repo-inactive .cell-views,
+.paper-table .paper-table-row.repo-inactive .cell-expires,
+.paper-table .paper-table-row.repo-inactive .status-sub { opacity: .55; }
+.paper-table .paper-table-row.repo-inactive .repo-name { color: var(--ink-soft) !important; }
+.status-line.status-ended { display: inline-flex !important; align-items: center; gap: 5px; padding: 2px 8px 2px 6px; border-radius: 999px; background: rgba(0, 0, 0, .06); color: var(--ink-soft); }
+.status-line.status-ended .status-word { font-size: 12.5px !important; font-weight: 600 !important; color: inherit !important; }
+.status-line.status-ended .status-ended-icon { width: 13px; height: 13px; flex: none; }
+.status-line.status-ended-expired { background: rgba(245, 158, 11, .1); color: #b45309; }
+.dark-mode .status-line.status-ended { background: rgba(255, 255, 255, .08); color: var(--ink-soft); }
+.dark-mode .status-line.status-ended-expired { background: rgba(245, 158, 11, .16); color: #fbbf24; }
+.ended-link { font-size: 12.5px; color: var(--ink-muted, var(--ink-soft)); font-style: italic; white-space: nowrap; margin-right: 4px; }
+.ended-action { border: 1px solid var(--control-border, var(--border-color)); background: transparent; color: var(--color); border-radius: 7px; padding: 4px 10px; font: 500 12.5px var(--font-sans); cursor: pointer; white-space: nowrap; }
+.ended-action:hover { background: rgba(0, 0, 0, .04); }
+.dark-mode .ended-action:hover { background: rgba(255, 255, 255, .06); }
+.ended-row { display: inline-flex; align-items: center; gap: 8px; margin-right: 6px; }
+@media (max-width: 767px) {
+  .paper-table-dashboard .cell-actions > .ended-row { grid-area: link; display: flex; justify-content: space-between; width: 100%; margin: 0; padding: 6px 6px 6px 12px; border-radius: 8px; border: 1px dashed var(--border-color); }
+  .paper-table-dashboard .paper-table-row.repo-inactive .cell-expires { display: none !important; }
+}
