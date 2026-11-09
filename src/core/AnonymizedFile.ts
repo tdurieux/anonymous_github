@@ -362,7 +362,16 @@ export default class AnonymizedFile {
     return true;
   }
 
+  /** Tree entries have no size; zero-byte files are still valid files. */
+  async assertContentFile(): Promise<void> {
+    const file = await this.getFileInfo();
+    if (file.size == null || file.submodule) {
+      throw new AnonymousError("folder_not_supported", { httpStatus: 404 });
+    }
+  }
+
   async content(): Promise<Readable> {
+    await this.assertContentFile();
     if (this.anonymizedPath.includes(config.ANONYMIZATION_MASK)) {
       await this.originalPath();
     }
@@ -388,6 +397,7 @@ export default class AnonymizedFile {
   }
 
   async anonymizedContent() {
+    await this.assertContentFile();
     const anonymizer = this.repository.generateAnonymizeTransformer(
       await this.originalPath()
     );
@@ -439,6 +449,7 @@ export default class AnonymizedFile {
   }
 
   async send(res: Response): Promise<void> {
+    await this.assertContentFile();
     const anonymizer = this.repository.generateAnonymizeTransformer(
       await this.originalPath()
     );
