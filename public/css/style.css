@@ -12522,3 +12522,9 @@ input.form-control[type="date"]::-webkit-datetime-edit { padding: 0; }
 /* Submit bar: the checkout note gets its own line under the button instead of a one-word column. */
 .anonymize-form-col .anonymize-submit-bar:has(> .checkout-return-note) { flex-wrap: wrap !important; row-gap: 6px !important; }
 .anonymize-submit-bar .checkout-return-note { order: 3; flex: 1 0 100%; margin: 0 !important; font-size: 12px; text-align: center; white-space: normal; }
+
+/* Tables: let row menus escape the rounded container (overflow:hidden clipped them on short lists);
+   the head and last row carry the corner radius instead. */
+.paper-table { overflow: visible !important; }
+.paper-table > .paper-table-head { border-top-left-radius: inherit; border-top-right-radius: inherit; }
+.paper-table > :last-child { border-bottom-left-radius: inherit; border-bottom-right-radius: inherit; }
