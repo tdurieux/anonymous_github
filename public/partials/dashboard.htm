@@ -159,8 +159,9 @@
         </div>
         <div class="dashboard-row-meta" role="presentation">
         <div class="cell-status" role="cell">
-          <div class="status-line">
-            <span class="status-dot" aria-hidden="true" :class="&#x27;status-&#x27; + item?._statusKey"></span>
+          <div class="status-line" :class="{ 'status-ended': (item?._statusKey == 'expired' || item?._statusKey == 'removed'), ['status-ended-' + item?._statusKey]: (item?._statusKey == 'expired' || item?._statusKey == 'removed') }">
+            <span class="status-dot" aria-hidden="true" v-if="!(item?._statusKey == 'expired' || item?._statusKey == 'removed')" :class="&#x27;status-&#x27; + item?._statusKey"></span>
+            <svg class="ui-icon status-ended-icon" aria-hidden="true" v-if="(item?._statusKey == 'expired' || item?._statusKey == 'removed')"><use :href="item?._statusKey == 'removed' ? '#ui-icon-trash' : '#ui-icon-hourglass'"></use></svg>
             <span class="status-word" v-text="fmt?.statusLabel(item?.status)"></span>
           </div>
           <div class="status-sub status-sub-error" v-if="item?.status == &#x27;error&#x27; &amp;&amp; item?.statusMessage" v-text="fmt?.statusMsg(item?.statusMessage)" :title="(item?.statusMessage)"></div>
@@ -184,9 +185,14 @@
         </div>
         </div>
         <div class="cell-actions" role="cell">
-          <button type="button" class="copy-url" v-if="item._viewUrl" @click.stop="copyLink(item)" :disabled="!!copyingId" :title="'Copy anonymous link: ' + item._viewUrl" :aria-label="'Copy anonymous link for ' + item._label"><span class="copy-url-text">{{ copyingId === item._type + ':' + item._id ? 'Copied' : item._viewUrl.replace(/^https?:\/\/[^/]+/, '').replace(/\/$/, '') }}</span><svg class="project-type-svg" aria-hidden="true"><use :href="copyingId === item._type + ':' + item._id ? '#ui-icon-check' : '#project-icon-copy'"></use></svg></button>
+          <div class="ended-row" v-if="(item?._statusKey == 'expired' || item?._statusKey == 'removed')">
+            <span class="ended-link" title="Reviewers can no longer open this link">Link offline</span>
+            <button type="button" class="ended-action" v-if="item?.status == 'removed'" @click.stop="refreshItem(item)">Enable</button>
+            <button type="button" class="ended-action" v-if="item?.status == 'expired'" @click.stop="extendItem(item)">Extend</button>
+          </div>
+          <button type="button" class="copy-url" v-if="item._viewUrl &amp;&amp; !(item?._statusKey == 'expired' || item?._statusKey == 'removed')" @click.stop="copyLink(item)" :disabled="!!copyingId" :title="'Copy anonymous link: ' + item._viewUrl" :aria-label="'Copy anonymous link for ' + item._label"><span class="copy-url-text">{{ copyingId === item._type + ':' + item._id ? 'Copied' : item._viewUrl.replace(/^https?:\/\/[^/]+/, '').replace(/\/$/, '') }}</span><svg class="project-type-svg" aria-hidden="true"><use :href="copyingId === item._type + ':' + item._id ? '#ui-icon-check' : '#project-icon-copy'"></use></svg></button>
           <button type="button" class="project-details-button" v-if="item._broken" @click.stop="showProjectDetails(item)" :data-project-actions="encodeURIComponent(item._type + ':' + item._id)" :aria-controls="projectDetailsId(item)" :aria-expanded="selectedProject === item">Details</button>
-          <a class="row-edit row-open" v-if="item._viewUrl" :href="safeUrl(item._viewUrl)" target="_blank" rel="noopener" :title="'Open what reviewers see'" :aria-label="'Open anonymous page for ' + item._label"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-external-link"></use></svg></a>
+          <a class="row-edit row-open" v-if="item._viewUrl &amp;&amp; !(item?._statusKey == 'expired' || item?._statusKey == 'removed')" :href="safeUrl(item._viewUrl)" target="_blank" rel="noopener" :title="'Open what reviewers see'" :aria-label="'Open anonymous page for ' + item._label"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-external-link"></use></svg></a>
           <a class="row-edit" v-if="item?._editUrl &amp;&amp; !item?._broken" :href="safeUrl(item._editUrl)" :title="'Edit ' + item._name" :aria-label="'Edit ' + item._name"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-edit"></use></svg></a>
           <div class="dropdown" v-if="!item?._broken">
             <button class="btn btn-icon-dots" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" :data-project-actions="encodeURIComponent(item._type + ':' + item._id)" :aria-label="&quot;Actions for &quot; + (item?._name)">
