@@ -13,10 +13,11 @@ let cleanup: Promise<void> | undefined;
 export async function removeStaleTextSpools(directory = tmpdir(), now = Date.now()) {
   const entries = await fs.opendir(directory);
   for await (const entry of entries) {
-    if (!entry.isDirectory() || !entry.name.startsWith("anonymous-text-")) continue;
+    if (!entry.isDirectory() || (!entry.name.startsWith("anonymous-text-") && !entry.name.startsWith("anonymous-zip-directory-"))) continue;
     const path = join(directory, entry.name);
     try {
-      if (now - (await fs.stat(path)).mtimeMs > 3600_000) await fs.rm(path, { recursive: true, force: true });
+      const agePath = entry.name.startsWith("anonymous-zip-directory-") ? join(path, "central") : path;
+      if (now - (await fs.stat(agePath)).mtimeMs > 3600_000) await fs.rm(path, { recursive: true, force: true });
     } catch { /* another process can finish cleanup first */ }
   }
 }

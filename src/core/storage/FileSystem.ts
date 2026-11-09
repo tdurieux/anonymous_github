@@ -1,3 +1,4 @@
+import { boundedZip } from "../bounded-zip";
 import { appendArchiveEntry, zipEntryOptions } from "../archive-entry";
 import config from "../../config";
 import * as fs from "fs";
@@ -261,7 +262,7 @@ export default class FileSystem extends StorageBase {
     }
   ) {
     this.assertSafePath(dir);
-    const archive = archiver(opt?.format || "zip", {});
+    const archive = opt?.format === "tar" ? archiver("tar", {}) : boundedZip();
     let active: Readable | undefined;
     let stopped = false;
     archive.once("close", () => { stopped = true; active?.destroy(); });
