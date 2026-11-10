@@ -105,6 +105,33 @@ describe('cached file streamer probe', function () {
       await disconnected;
     } finally { await new Promise(resolve => pending.close(resolve)); }
   });
+  for (const status of [0, 409, 500]) it(`normalizes probe failure ${status || 'connection refused'} at the API boundary`, async () => {
+    const app = express();
+    app.post('/api', (_req, res) => res.status(status || 500).json({ error: status === 409 ? 'repository_changed' : 'upstream_error' }));
+    const upstream = await new Promise(resolve => { const s = app.listen(0, '127.0.0.1', () => resolve(s)); });
+    config.STREAMER_ENTRYPOINT = `http://127.0.0.1:${upstream.address().port}/`;
+    if (!status) await new Promise(resolve => upstream.close(resolve));
+    const check = localAccess.canReadCachedRepository;
+    localAccess.canReadCachedRepository = async () => true;
+    const response = new (require('node:stream').PassThrough)();
+    const file = new File({ repository: {
+      repoId: 'anon', owner: { id: '507f1f77bcf86cd799439011' }, options: { terms: [] },
+      model: { _id: '507f1f77bcf86cd799439012', source: { repositoryName: 'owner/private' } },
+      getToken: async () => { throw new Error('unexpected authorization fallback'); },
+      generateAnonymizeTransformer: filePath => new AnonymizeTransformer({ terms: [], filePath }),
+    }, anonymizedPath: 'README.md' });
+    file._file = { name: 'README.md', path: '', sha, size: body.length };
+    try {
+      await assert.rejects(file.send(response), error => {
+        assert.equal(error.httpStatus, status === 409 ? 409 : 502);
+        assert.equal(error.message, status === 409 ? 'repository_changed' : status ? 'upstream_error' : 'streamer_unreachable');
+        return true;
+      });
+    } finally {
+      localAccess.canReadCachedRepository = check; response.destroy();
+      if (status) await new Promise(resolve => upstream.close(resolve));
+    }
+  });
   for (const hit of [true, false]) it(`API send ${hit ? 'hit skips' : 'miss performs'} GitHub authorization`, async () => {
     if (hit) await seed();
     config.STREAMER_ENTRYPOINT = url.replace(/api$/, '');

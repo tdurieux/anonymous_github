@@ -484,6 +484,15 @@ export default class AnonymizedFile {
             res.once("close", cancel);
             if (res.destroyed || res.writableEnded) cancel();
             try { return await probeStreamerCache(url, payload, headers, cancellation.signal); }
+            catch (err) {
+              headersDone(true);
+              const { error } = streamerErrorToAnonymous(err as Error & {
+                response?: { statusCode?: number; body?: unknown };
+              }, { repoId: this.repository.repoId, filePath: this.anonymizedPath });
+              void notifyOwnerAccessProblem(this.repository.owner.id, error, { kind: "repository", id: String(this.repository.model._id) });
+              error.value = this;
+              throw error;
+            }
             finally { res.removeListener("close", cancel); }
           };
           const cached = await probe();
