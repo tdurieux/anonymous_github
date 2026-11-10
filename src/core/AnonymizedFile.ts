@@ -1,3 +1,5 @@
+import { canReadCachedRepository } from "./cached-repository-access";
+import { probeStreamerCache } from "./streamer-cache-probe";
 import { notifyOwnerAccessProblem } from "./owner-notifications";
 import { sendSharedContent } from "./cached-response";
 import { streamResponse } from "./response-stream";
@@ -458,37 +460,48 @@ export default class AnonymizedFile {
       try {
         if (config.STREAMER_ENTRYPOINT) {
           // use the streamer service
-          const [sha, size, token] = await Promise.all([
-            this.sha(),
-            this.size(),
-            this.repository.getToken(),
-          ]);
+          const [sha, size] = await Promise.all([this.sha(), this.size()]);
+          const payload = {
+            sha,
+            size,
+            upstream: (await this.getFileInfo()).upstream,
+            repoFullName: this.repository.model.source.repositoryName,
+            commit: this.repository.model.source.commit,
+            cacheGeneration: `${this.repository.model.treeGeneration || "legacy"}:${this.repository.model.anonymizeDate?.toISOString() || ""}`,
+            cacheRevision: this.repository.model.contentCacheRevision,
+            branch: this.repository.model.source.branch,
+            repoId: this.repository.repoId,
+            filePath: this.filePath,
+            anonymizerOptions: anonymizer.opt,
+          };
+          const url = join(config.STREAMER_ENTRYPOINT, "api");
+          const headers = { ...requestHeaders(), "accept-encoding": res.req?.get?.("accept-encoding") || "identity" };
           const headersDone = startStage("streamer_headers");
-          const resStream = got
-            .stream(join(config.STREAMER_ENTRYPOINT, "api"), {
-              method: "POST",
-              headers: { ...requestHeaders(), "accept-encoding": res.req?.get?.("accept-encoding") || "identity" },
-              decompress: false,
-              json: {
-                sha,
-                size,
-                upstream: (await this.getFileInfo()).upstream,
-                token: await githubTokenForStreamer(token, this.repository.model.source.repositoryName),
-                repoFullName: this.repository.model.source.repositoryName,
-                commit: this.repository.model.source.commit,
-        cacheGeneration: `${this.repository.model.treeGeneration || "legacy"}:${this.repository.model.anonymizeDate?.toISOString() || ""}`,
-                cacheRevision: this.repository.model.contentCacheRevision,
-                branch: this.repository.model.source.branch,
-                repoId: this.repository.repoId,
-                filePath: this.filePath,
-                anonymizerOptions: anonymizer.opt,
-              },
-            });
+          const probe = async () => {
+            if (!config.SHARED_CACHE_ENABLED || !await canReadCachedRepository(this.repository)) return undefined;
+            const cancellation = new AbortController();
+            const cancel = () => cancellation.abort();
+            res.once("close", cancel);
+            if (res.destroyed || res.writableEnded) cancel();
+            try { return await probeStreamerCache(url, payload, headers, cancellation.signal); }
+            finally { res.removeListener("close", cancel); }
+          };
+          const cached = await probe();
+          if (cached) {
+            try {
+              if (!await canReadCachedRepository(this.repository)) throw new AnonymousError("connection_changed", { httpStatus: 409 });
+            } catch (error) { cached.stream.destroy(); throw error; }
+          }
+          if (res.destroyed || res.writableEnded) { cached?.stream.destroy(); headersDone(); resolve(); return; }
+          const resStream = cached?.stream || got.stream(url, {
+            method: "POST", headers, decompress: false,
+            json: { ...payload, token: await githubTokenForStreamer(await this.repository.getToken(), this.repository.model.source.repositoryName) },
+          });
           // Forward Content-Type from the streamer's upstream response.
           // got.stream(...).pipe(res) forwards body bytes only — without
           // this, the parent response has no Content-Type and the browser
           // guesses (text renders as download, images as octet-stream).
-          resStream.on("response", (upstream: { headers: Record<string, string | string[] | undefined> }) => {
+          const forwardHeaders = (upstream: { headers: Record<string, string | string[] | undefined> }) => {
             headersDone();
             if (res.headersSent) return;
             for (const header of ["content-encoding", "content-length", "vary", "accept-ranges"]) {
@@ -503,7 +516,9 @@ export default class AnonymizedFile {
               if (fallback) res.contentType(fallback);
               else if (isTextFile(this.anonymizedPath)) res.contentType("text/plain");
             }
-          });
+          };
+          if (cached) forwardHeaders(cached.response);
+          else resStream.on("response", forwardHeaders);
           resStream.once("error", () => headersDone(true));
           resStream.once("close", () => headersDone());
           await streamResponse(resStream, res, (err: Error) => {

@@ -337,7 +337,8 @@ export default class GitHubStream extends GitHubBase {
       | Promise<{ sha: string; size?: number; upstream?: UpstreamFile }>
       | { sha: string; size?: number; upstream?: UpstreamFile }
       | Promise<string>
-      | string
+      | string,
+    cacheOnly = false
   ) {
     const meta = await fileMeta();
     const expected: { sha: string; size?: number; upstream?: UpstreamFile } =
@@ -396,6 +397,23 @@ export default class GitHubStream extends GitHubBase {
       }
     };
     const shared = sharedBlobCache();
+    // A cache-only probe must never fill, promote legacy data or contact GitHub.
+    // The API has checked local access; lifecycle/revision fences still apply here.
+    if (cacheOnly) {
+      await assertActive();
+      if (expected.size != null && expected.size > config.MAX_FILE_SIZE) throw new AnonymousError("file_too_big", { httpStatus: 413 });
+      const hit = /^[a-f0-9]{40}$/.test(expected.sha) ? await shared?.lookup(`git-${expected.sha}`) : undefined;
+      if (!hit) throw new AnonymousError("cache_miss", { httpStatus: 409 });
+      // Resolved LFS payloads may need additional billing admission. Let the
+      // normal path reserve that expansion before serving it.
+      if (config.BILLING_ENABLED && hit.cachedBlob!.record.size > (expected.size || 0)) {
+        hit.destroy(); throw new AnonymousError("cache_miss", { httpStatus: 409 });
+      }
+      try { await assertActive(); } catch (error) { hit.destroy(); throw error; }
+      observeCache("source_hit", hit.cachedBlob!.record.size);
+      recordCacheHit("source", true);
+      return hit;
+    }
     if (shared && /^[a-f0-9]{40}$/.test(expected.sha)) {
       await assertActive();
       if (expected.size != null && expected.size > config.MAX_FILE_SIZE) throw new AnonymousError("file_too_big", { httpStatus: 413 });
