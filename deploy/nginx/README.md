@@ -23,3 +23,21 @@ python3 scripts/test-nginx-logging.py deploy/nginx/anonymous-logging.conf
 ```
 
 The test starts an isolated loopback listener and checks trusted IPv4/IPv6 peers, spoofed headers, missing-header fallback, JSON escaping and omitted sensitive data. It never changes production listeners.
+
+## Bulk file/listing protection
+
+Install `anonymous-bulk-limits.conf` in the http context, and create an empty root-owned `/etc/nginx/anonymous-bulk-blocks.map` with mode 0600. The latter can hold private temporary blocks in this format:
+
+```nginx
+"~^2026-11-10T.*:203\\.0\\.113\\.9$" 1;
+```
+
+Dates use the Nginx host timezone; production uses UTC. Such a block automatically ceases matching at midnight. Remove expired entries during maintenance. Use only verified visitor IPs, never Cloudflare edge IPs. Targeted blocks apply only to the file/listing paths and return a one-hour Retry-After; they do not block ZIPs or the whole site.
+
+Install the location/server fragments under `/etc/nginx/snippets/`. Include `anonymous-bulk-location.conf` inside each application's proxied `location /`, and `anonymous-bulk-server.conf` in its enclosing HTTPS server. Run `nginx -t` before gracefully reloading. Keep a backup for rollback. Do not enable proxy_intercept_errors: application 429 responses should retain their existing bodies and headers.
+
+Limits aggregate across repositories per trusted client IP. File reads allow a burst of 60 plus a sustained four requests/minute; listing/count/search reads allow a burst of 30 plus two/minute. GET and HEAD count, including conditional requests. Other paths have empty limit keys and do not consume these budgets. Shared-NAT users share these limits, so review legitimate 429 rates and adjust if needed. Neither User-Agent nor Referer grants a bypass. This protects these API routes, not the homepage or every source of resource exhaustion.
+
+Rollback by removing the server/location includes, validating, and reloading; then remove the unused http config. Existing client identification and application rate limits are unchanged.
+
+Run `python3 scripts/test-nginx-bulk-limits.py deploy/nginx` on a host with Nginx to test these limits against an isolated mock origin. It checks budgets, per-client separation, targeted blocks and ZIP/navigation/write exclusions without sending a traffic burst to production.
