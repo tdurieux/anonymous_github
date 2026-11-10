@@ -402,7 +402,12 @@ export default class GitHubStream extends GitHubBase {
     if (cacheOnly) {
       await assertActive();
       if (expected.size != null && expected.size > config.MAX_FILE_SIZE) throw new AnonymousError("file_too_big", { httpStatus: 413 });
-      const hit = /^[a-f0-9]{40}$/.test(expected.sha) ? await shared?.lookup(`git-${expected.sha}`) : undefined;
+      let hit;
+      try { hit = /^[a-f0-9]{40}$/.test(expected.sha) ? await shared?.lookup(`git-${expected.sha}`) : undefined; }
+      catch (error) {
+        if (!(error instanceof CacheAdmissionError)) throw error;
+        throw new AnonymousError("cache_miss", { httpStatus: 409 });
+      }
       if (!hit) throw new AnonymousError("cache_miss", { httpStatus: 409 });
       // Resolved LFS payloads may need additional billing admission. Let the
       // normal path reserve that expansion before serving it.

@@ -49,6 +49,17 @@ describe('cached file streamer probe', function () {
     await assert.rejects(source.getFileContentCache('README.md', 'anon', () => ({ sha, size: body.length }), true), /cache_miss/);
     assert.equal(await probeStreamerCache(url, payload(), {}), undefined);
   });
+  it('treats a real SQLite write lock as a miss and preserves the cached bytes', async () => {
+    await seed();
+    const { DatabaseSync } = require('node:sqlite');
+    const other = new DatabaseSync(join(root, 'cache/source/index.sqlite'));
+    other.exec('BEGIN IMMEDIATE');
+    try { assert.equal(await probeStreamerCache(url, payload(), {}), undefined); }
+    finally { other.exec('ROLLBACK'); other.close(); }
+    const result = await probeStreamerCache(url, payload(), {});
+    assert.equal(result.response.statusCode, 200);
+    assert.ok((await consume(result.stream)).includes('Public README'));
+  });
   it('serves a hit through the real streamer and anonymizes it without GitHub', async () => {
     await seed();
     const fetch = global.fetch;
@@ -158,5 +169,25 @@ describe('local cached snapshot access', () => {
     assert.equal(await localAccess.canReadCachedRepository(repository), false);
     grant.revoked = true;
     await assert.rejects(localAccess.canReadCachedRepository(repository), /not_authorized/);
+  });
+});
+
+
+describe('response handoff after access recheck', () => {
+  const { PassThrough } = require('node:stream');
+  const { streamResponse } = require('../src/core/response-stream');
+  for (const withError of [true, false]) it(`handles an already destroyed upstream ${withError ? 'with its original error' : 'without an error'}`, async () => {
+    const source = new PassThrough();
+    const response = new PassThrough();
+    const error = new Error('streamer connection lost during access check');
+    source.on('error', () => {});
+    const closed = new Promise(resolve => source.once('close', resolve));
+    source.destroy(withError ? error : undefined);
+    await closed;
+    let received;
+    await streamResponse(source, response, failure => { received = failure; response.end(); });
+    if (withError) assert.equal(received, error);
+    else assert.equal(received.message, 'upstream_stream_closed');
+    assert.equal(response.writableEnded, true);
   });
 });
