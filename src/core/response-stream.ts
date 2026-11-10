@@ -19,6 +19,9 @@ export function streamResponse(source: Readable, response: Writable,
     response.once("finish", done);
     response.once("error", failed);
     source.once("error", upstreamFailed);
-    if (response.destroyed || response.writableEnded) done(); else source.pipe(response);
+    if (response.destroyed || response.writableEnded) done();
+    else if (source.errored) upstreamFailed(source.errored);
+    else if (source.destroyed || source.readableEnded) upstreamFailed(new Error("upstream_stream_closed"));
+    else source.pipe(response);
   });
 }

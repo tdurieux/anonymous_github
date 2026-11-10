@@ -91,7 +91,8 @@ router.post("/", async (req: express.Request, res: express.Response) => {
     const content = await source.getFileContentCache(
       filePath,
       repoId,
-      () => ({ sha: fileSha, size: fileSize, upstream: req.body.upstream })
+      () => ({ sha: fileSha, size: fileSize, upstream: req.body.upstream }),
+      req.body.cacheOnly === true
     );
     if (res.destroyed || res.writableEnded) { content.destroy(); anonymizer.destroy(); return; }
     const mime = lookup(filePath);
@@ -136,6 +137,12 @@ router.post("/", async (req: express.Request, res: express.Response) => {
         }
       });
   } catch (error) {
+    anonymizer.destroy();
+    if (req.body.cacheOnly === true && error instanceof Error && error.message === "cache_miss") {
+      res.setHeader("X-Anonymous-Cache-Miss", "1");
+      res.status(409).end();
+      return;
+    }
     handleError(error, res);
   }
 });
