@@ -1,4 +1,5 @@
 import { isGitHubRateLimitError, OctokitRequestErrorLike } from "./github-rate-limit";
+import { CredentialValidation } from "./credential-validation";
 import { refreshLegacyToken } from "./legacy-token-refresh";
 import { notifyOwnerAccessProblem } from "./owner-notifications";
 import AnonymizedRepositoryModel from "./model/anonymizedRepositories/anonymizedRepositories.model";
@@ -277,13 +278,26 @@ export function octokit(token: string) {
 
 export { waitForTokenGate };
 
+const credentialValidation = new CredentialValidation();
+
 export async function checkToken(token: string) {
   const oct = octokit(token);
   try {
     const context = githubTokenContext(token);
     if (context?.publicRepository) { await context.renew(); return true; }
-    if (token.startsWith("ghs_")) await oct.request("GET /installation/repositories");
-    else await oct.users.getAuthenticated();
+    // Managed credentials can renew or revalidate repository access. Never
+    // share their checks or cache validators under a potentially rotating handle.
+    if (context) {
+      if (token.startsWith("ghs_")) await oct.request("GET /installation/repositories");
+      else await oct.users.getAuthenticated();
+    } else {
+      await credentialValidation.check(token, async etag => {
+        const headers = etag ? { "if-none-match": etag } : {};
+        return token.startsWith("ghs_")
+          ? oct.request("GET /installation/repositories", { headers })
+          : oct.users.getAuthenticated({ headers });
+      });
+    }
     return true;
   } catch (err) {
     // Only a confirmed invalid credential permits fallback. Network failures,
