@@ -17,6 +17,22 @@ describe("folder count request validation", () => {
       expect(error.message).to.equal("invalid_path"); expect(error.httpStatus).to.equal(400);
     });
   }
+  for (const error of [Object.assign(Error("operation exceeded time limit"), { code: 50 }),
+    Object.assign(Error("unrelated bad value"), { code: 2 })]) {
+    it(`does not retry ${error.message}`, async () => {
+      const original = File.aggregate; let calls = 0;
+      File.aggregate = () => {
+        calls++;
+        return { option() { return this; }, exec: async () => { throw error; } };
+      };
+      try {
+        const caught = await folderCounts({ repoId: "fixture", model: { treeGeneration: "active" } }, "")
+          .then(() => null, error => error);
+        expect(caught).to.equal(error); expect(calls).to.equal(1);
+      } finally { File.aggregate = original; }
+    });
+  }
+
 });
 
 (uri ? describe : describe.skip)("scoped folder counts with MongoDB", function () {
@@ -50,15 +66,29 @@ describe("folder count request validation", () => {
     await insert(Array.from({ length: 2000 }, (_, i) => ({ name: `file${i}`, path: `src/folder${i % 20}`, size: i % 2 })));
     await insert([{ name: "excluded-directory", path: "" },
       { name: "old", path: "old", size: 1, treeGeneration: "retired" }]);
-    let pipeline;
+    let pipeline, query;
     const aggregate = File.aggregate;
-    File.aggregate = function (stages, ...args) { pipeline = stages; return aggregate.call(this, stages, ...args); };
+    File.aggregate = function (stages, ...args) {
+      pipeline = stages; query = aggregate.call(this, stages, ...args); return query;
+    };
     try { expect(await folderCounts(repo, "")).to.deep.equal({ "": 2000, src: 2000 }); }
     finally { File.aggregate = aggregate; }
-    const explained = await File.aggregate(pipeline).option({ hint: "file_counts_covering" }).explain("executionStats");
+    expect(query.options.hint).to.equal("file_counts_covering");
+    const explained = await File.aggregate(pipeline).option(query.options).explain("executionStats");
     const cursor = explained.stages?.find(stage => stage.$cursor)?.$cursor || explained;
     expect(cursor.executionStats.totalDocsExamined).to.equal(0);
     expect(cursor.executionStats.totalKeysExamined).to.be.at.least(2000);
+  });
+
+  it("falls back before the covering index exists and uses it after creation", async () => {
+    await insert([{ name: "one", path: "src", size: 1 }]);
+    await File.collection.dropIndex("file_counts_covering");
+    try {
+      expect(await folderCounts(repo, "")).to.deep.equal({ "": 1, src: 1 });
+    } finally {
+      await File.collection.createIndex({ repoId: 1, treeGeneration: 1, path: 1, size: 1 }, { name: "file_counts_covering" });
+    }
+    expect(await folderCounts(repo, "")).to.deep.equal({ "": 1, src: 1 });
   });
 
   it("preserves counts for legacy repositories without a generation", async () => {
