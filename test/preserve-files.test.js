@@ -46,6 +46,16 @@ describe("preserveFiles (#941)", function () {
       expect(isPreservedPath("paper/draft.bib", ["/paper/\\{draft,final\\}.bib"])).to.equal(false);
     });
 
+    it("applies folder rules to everything inside, like .gitignore", function () {
+      expect(isPreservedPath("private/refs.bib", ["*.bib", "!private"])).to.equal(false);
+      expect(isPreservedPath("paper/private/refs.bib", ["*.bib", "!private/"])).to.equal(false);
+      expect(isPreservedPath("paper/refs.bib", ["*.bib", "!private"])).to.equal(true);
+      expect(isPreservedPath("paper/a/b.tex", ["paper"])).to.equal(true);
+      expect(isPreservedPath("x/paper/b.tex", ["/paper"])).to.equal(false);
+      expect(isPreservedPath("private.bib", ["*.bib", "!private/"])).to.equal(true);
+      expect(isPreservedPath("private/x.bib", ["/private/x.bib", "!/private/"])).to.equal(false);
+    });
+
     it("applies !patterns as exclusions, last match wins", function () {
       const patterns = ["*.bib", "!private.bib"];
       expect(isPreservedPath("paper/refs.bib", patterns)).to.equal(true);
@@ -77,6 +87,7 @@ describe("preserveFiles (#941)", function () {
       expect(isPreservedPath("a.bib", normalized)).to.equal(isPreservedPath("a.bib", raw));
       expect(isPreservedPath("a.bib", normalized)).to.equal(false);
       expect(normalizePreserveFiles(undefined)).to.deep.equal([]);
+      expect(normalizePreserveFiles(["!private/", "paper/"])).to.deep.equal(["!private/", "paper/"]);
       expect(normalizePreserveFiles(["/refs.bib", "!private.bib", "/a\\{b\\}"])).to.deep.equal(["/refs.bib", "!private.bib", "/a\\{b\\}"]);
     });
 
@@ -88,6 +99,7 @@ describe("preserveFiles (#941)", function () {
       expect(normalizePreserveFiles(["../x"])).to.equal(null);
       expect(normalizePreserveFiles(["!"])).to.equal(null);
       expect(normalizePreserveFiles(["!/"])).to.equal(null);
+      expect(normalizePreserveFiles(["//"])).to.equal(null);
       expect(normalizePreserveFiles(["!../x"])).to.equal(null);
       expect(normalizePreserveFiles(["x".repeat(513)])).to.equal(null);
       expect(normalizePreserveFiles(Array.from({ length: 201 }, (_, i) => `f${i}`))).to.equal(null);

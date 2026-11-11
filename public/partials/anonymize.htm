@@ -247,7 +247,7 @@
                 <details class="preserve-patterns" :open="preserve.patternsOpen">
                   <summary>Patterns</summary>
                   <textarea class="form-control" rows="3" aria-label="Patterns" placeholder="*.bib&#10;paper/appendix/**" v-model="preserve.patterns"></textarea>
-                  <small class="form-text text-muted">One per line, as in .gitignore: <code>*.bib</code> matches in any folder; <code>/refs.bib</code> and <code>paper/refs.bib</code> match from the repository root; <code>!private.bib</code> excludes a file again.</small>
+                  <small class="form-text text-muted">One per line, as in .gitignore: <code>*.bib</code> matches in any folder; <code>/refs.bib</code> and <code>paper/refs.bib</code> match from the repository root; a folder name such as <code>drafts/</code> covers everything inside it; <code>!private.bib</code> excludes again.</small>
                 </details>
                 <div class="preserve-foot">
                   <span class="preserve-count" aria-live="polite">{{ preserve.loading || preserve.error ? "" : preserveCount() + (preserveCount() === 1 ? " file" : " files") + " will be shown as written" }}</span>
