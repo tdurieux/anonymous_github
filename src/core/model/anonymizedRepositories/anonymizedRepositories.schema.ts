@@ -110,6 +110,10 @@ const AnonymizedRepositorySchema = new Schema({
   },
 });
 
+AnonymizedRepositorySchema.index({ billingNeverExpiresUntil: 1, status: 1 }, {
+  name: "billing_never_expiration",
+  partialFilterExpression: { "options.expirationMode": "never", billingNeverExpiresUntil: { $exists: true } },
+});
 AnonymizedRepositorySchema.index({ "source.repositoryName": 1 });
 AnonymizedRepositorySchema.index({ "coauthors.githubId": 1 });
 AnonymizedRepositorySchema.index({ retiredTreeGenerations: 1 }, { sparse: true });

@@ -1,3 +1,4 @@
+import { REPOSITORY_ID_COLLATION } from "./repository-id";
 import { allowance, reserveRepository } from "./billing/quotas";
 import { FILE_TREE_BATCH_SIZE, FILE_LISTING_LIMIT, deleteRowsInBatches } from "./file-tree";
 import { SourceBase, sourceStorageSize } from "./source/Source";
@@ -422,7 +423,7 @@ export default class Repository {
 
   /** Indexed row markers also discover inserts that finish after a build lease is retired. */
   static async cleanupStagedFileTree(repoId: string, generation: string, now = new Date()) {
-    let current = await AnonymizedRepositoryModel.findOne({ repoId }).exec();
+    let current = await AnonymizedRepositoryModel.findOne({ repoId }, null, { collation: REPOSITORY_ID_COLLATION }).exec();
     if (current && current.treeGeneration !== generation &&
       current.stagedFileTrees?.some(stage => stage.generation === generation && stage.until > now)) return;
     if (current) {

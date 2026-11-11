@@ -4,7 +4,7 @@ export const UpstreamFileSchema = new Schema({ organization: String, repoName: S
 
 const FileSchema = new Schema({
   name: { type: String, index: true },
-  path: { type: String, index: true },
+  path: { type: String },
   repoId: { type: String, index: true },
   treeGeneration: String,
   treeStaged: Boolean,
@@ -19,7 +19,6 @@ const FileSchema = new Schema({
   },
 });
 
-FileSchema.index({ path: 1, repoId: 1 });
 FileSchema.index({ metadataPending: 1, repoId: 1, treeGeneration: 1 },
   { partialFilterExpression: { metadataPending: true } });
 FileSchema.index({ treeStaged: 1, repoId: 1, treeGeneration: 1 },

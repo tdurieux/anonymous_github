@@ -1,3 +1,4 @@
+import { REPOSITORY_ID_COLLATION } from "../../core/repository-id";
 import { notificationEmail, normalizeEmail, resetOwnerAccessAlerts } from "../../core/owner-notifications";
 import { saveRegistrationEmail } from "../../core/registration-email";
 import * as express from "express";
@@ -230,7 +231,7 @@ router.post("/connections/migrate", async (req, res) => {
     if (typeof id !== "string" || !["repository", "pull-request"].includes(type) || !["oauth", "github-app"].includes(connection)) throw appError("invalid_connection", 400);
     if (connection === "github-app" && (!config.GITHUB_APP_ENABLED || !config.GITHUB_APP_NEW_CONNECTIONS)) throw appError("github_app_disabled", 503);
     const isRepo = type === "repository";
-    const model = isRepo ? await RepositoryModel.findOne({ repoId: id, owner: user.id }) : await PullRequestModel.findOne({ pullRequestId: id, owner: user.id });
+    const model = isRepo ? await RepositoryModel.findOne({ repoId: id, owner: user.id }, null, { collation: REPOSITORY_ID_COLLATION }) : await PullRequestModel.findOne({ pullRequestId: id, owner: user.id });
     if (!model || ["removed", "archived"].includes(model.status || "")) throw appError("repo_not_found", 404);
     const stalePullRequest = !isRepo && model.status === "download" &&
       (!model.statusDate || model.statusDate.getTime() <= Date.now() - 5 * 60 * 1000);

@@ -11,6 +11,10 @@ import Name from "../core/model/dashboard-name";
 async function main() {
   const uri = config.MONGODB_URI || `mongodb://${config.DB_USERNAME}:${config.DB_PASSWORD}@${config.DB_HOSTNAME}:27017/production`;
   await mongoose.connect(uri, { autoIndex: false, ...(config.MONGODB_URI ? {} : { authSource: "admin" }) });
+  await Repository.collection.createIndex({ billingNeverExpiresUntil: 1, status: 1 }, {
+    name: "billing_never_expiration",
+    partialFilterExpression: { "options.expirationMode": "never", billingNeverExpiresUntil: { $exists: true } },
+  });
   // Additive only. Never use syncIndexes here, which can drop deployed indexes.
   await Repository.collection.createIndex({ "coauthors.githubId": 1 });
   await File.collection.createIndex({ repoId: 1, treeGeneration: 1, path: 1, name: 1 });
