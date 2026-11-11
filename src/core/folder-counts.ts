@@ -21,7 +21,7 @@ export async function folderCounts(repo: Repository, requestedPath: unknown): Pr
   }
   const prefix = originalPath ? originalPath + "/" : "";
   const escapedPrefix = prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const prefixLength = Array.from(prefix).length;
+  const childDepth = originalPath ? originalPath.split("/").length : 0;
   const rows = await FileModel.aggregate<{ _id: string; count: number }>([
     { $match: {
       repoId: repo.repoId,
@@ -29,12 +29,11 @@ export async function folderCounts(repo: Repository, requestedPath: unknown): Pr
       size: { $ne: null },
       ...(originalPath ? { $or: [{ path: originalPath }, { path: { $regex: "^" + escapedPrefix } }] } : {}),
     } },
-    { $project: { child: { $cond: [
+    // Group directly by the immediate child using only indexed fields.
+    { $group: { _id: originalPath ? { $cond: [
       { $eq: ["$path", { $literal: originalPath }] }, "",
-      { $arrayElemAt: [{ $split: [{ $substrCP: ["$path", prefixLength,
-        { $subtract: [{ $strLenCP: "$path" }, prefixLength] }] }, "/"] }, 0] },
-    ] } } },
-    { $group: { _id: "$child", count: { $sum: 1 } } },
+      { $arrayElemAt: [{ $split: ["$path", "/"] }, childDepth] },
+    ] } : { $arrayElemAt: [{ $split: ["$path", "/"] }, 0] }, count: { $sum: 1 } } },
     { $limit: FILE_LISTING_LIMIT + 1 },
   ]).option({ maxTimeMS: 2000, allowDiskUse: true }).exec();
   if (rows.length > FILE_LISTING_LIMIT) throw new AnonymousError("file_listing_too_large", { httpStatus: 413 });

@@ -46,6 +46,32 @@ describe("folder count request validation", () => {
     expect(await folderCounts(repo, "src")).to.deep.equal({ src: 12000, "src/deep": 12000 });
   });
 
+  it("covers root counts without fetching documents and counts every file in a directory", async () => {
+    await insert(Array.from({ length: 2000 }, (_, i) => ({ name: `file${i}`, path: `src/folder${i % 20}`, size: i % 2 })));
+    await insert([{ name: "excluded-directory", path: "" },
+      { name: "old", path: "old", size: 1, treeGeneration: "retired" }]);
+    let pipeline;
+    const aggregate = File.aggregate;
+    File.aggregate = function (stages, ...args) { pipeline = stages; return aggregate.call(this, stages, ...args); };
+    try { expect(await folderCounts(repo, "")).to.deep.equal({ "": 2000, src: 2000 }); }
+    finally { File.aggregate = aggregate; }
+    const explained = await File.aggregate(pipeline).option({ hint: "file_counts_covering" }).explain("executionStats");
+    const cursor = explained.stages?.find(stage => stage.$cursor)?.$cursor || explained;
+    expect(cursor.executionStats.totalDocsExamined).to.equal(0);
+    expect(cursor.executionStats.totalKeysExamined).to.be.at.least(2000);
+  });
+
+  it("preserves counts for legacy repositories without a generation", async () => {
+    repo.model.treeGeneration = undefined; await repo.model.save();
+    await File.collection.insertMany([
+      { repoId: "counts", name: "zero", path: "", size: 0 },
+      { repoId: "counts", name: "one", path: "src", size: 1 },
+      { repoId: "counts", name: "folder", path: "" },
+      { repoId: "counts", name: "staged", path: "src", size: 1, treeGeneration: "future" },
+    ]);
+    expect(await folderCounts(repo, "")).to.deep.equal({ "": 2, src: 1 });
+  });
+
   it("escapes regex punctuation and handles Unicode scopes and empty directories", async () => {
     await insert([{ path: "", name: "猫.[x]" }, { path: "猫.[x]", name: "empty" },
       { path: "猫.[x]/child", name: "a", size: 0 }, { path: "猫.[x]", name: "b", size: 2 },

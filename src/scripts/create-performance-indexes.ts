@@ -14,6 +14,7 @@ async function main() {
   // Additive only. Never use syncIndexes here, which can drop deployed indexes.
   await Repository.collection.createIndex({ "coauthors.githubId": 1 });
   await File.collection.createIndex({ repoId: 1, treeGeneration: 1, path: 1, name: 1 });
+  await File.collection.createIndex({ repoId: 1, treeGeneration: 1, path: 1, size: 1 }, { name: "file_counts_covering" });
   await File.collection.createIndex({ metadataPending: 1, repoId: 1, treeGeneration: 1 },
     { partialFilterExpression: { metadataPending: true } });
   await Repository.collection.createIndex({ retiredTreeGenerations: 1 }, { sparse: true });

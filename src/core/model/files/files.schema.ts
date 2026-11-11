@@ -25,6 +25,8 @@ FileSchema.index({ metadataPending: 1, repoId: 1, treeGeneration: 1 },
 FileSchema.index({ treeStaged: 1, repoId: 1, treeGeneration: 1 },
   { partialFilterExpression: { treeStaged: true } });
 FileSchema.index({ repoId: 1, treeGeneration: 1, path: 1, name: 1 });
+// Cover generation-scoped count aggregations without fetching every file.
+FileSchema.index({ repoId: 1, treeGeneration: 1, path: 1, size: 1 }, { name: "file_counts_covering" });
 FileSchema.index(
   { repoId: 1, size: 1, path: 1 },
   { name: "repoId_1_size_1_path_1" }
