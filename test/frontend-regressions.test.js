@@ -175,6 +175,25 @@ describe("frontend production regressions", function () {
     h.scope.togglePreserveFile("a.bib");
     expect(h.scope.preserveCount()).to.equal(1);
   });
+  it("unchecking a folder overrides broader rules (#941)", async function () {
+    const h = harness(); const timeout = () => 0; timeout.cancel = () => {};
+    h.context.document.getElementById = () => null;
+    h.defs.anonymizeController(h.scope, h.http, {}, {}, {}, () => {}, timeout);
+    h.scope.options.preserveFiles = ["*.bib"];
+    h.scope.source = { commit: "abc123" };
+    h.scope.sourceUrl = "https://github.com/owner/repo";
+    h.scope.openPreserveFiles();
+    h.requests.at(-1).resolve({ data: { files: ["paper/refs.bib", "refs.bib"], truncated: false } });
+    await h.flush();
+    expect(h.scope.preserveCount()).to.equal(2);
+    h.scope.togglePreserveFolder("paper");
+    expect(h.scope.preserveCount()).to.equal(1);
+    h.scope.togglePreserveFolder("paper");
+    expect(h.scope.preserveCount()).to.equal(2);
+    h.scope.togglePreserveFolder("paper");
+    h.scope.savePreserveFiles();
+    expect(Array.from(h.scope.options.preserveFiles)).to.deep.equal(["*.bib", "!/paper/"]);
+  });
   it("keeps the order of saved rules when the picker opens and saves (#941)", function () {
     const h = harness(); const timeout = () => 0; timeout.cancel = () => {};
     h.context.document.getElementById = () => null;

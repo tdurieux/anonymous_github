@@ -8,11 +8,14 @@ describe("sourceFileList (#941)", function () {
   let response;
   let request;
   beforeEach(() => {
-    GitHubUtils.octokit = () => ({ git: { getTree: async (params) => {
-      request = params;
-      if (response instanceof Error) throw response;
-      return { data: response };
-    } } });
+    GitHubUtils.octokit = () => ({
+      repos: { getCommit: async ({ ref }) => ({ data: { sha: ref.padEnd(40, "0") } }) },
+      git: { getTree: async (params) => {
+        request = params;
+        if (response instanceof Error) throw response;
+        return { data: response };
+      } },
+    });
   });
   afterEach(() => { GitHubUtils.octokit = original; });
 
@@ -29,6 +32,12 @@ describe("sourceFileList (#941)", function () {
     ] };
     expect(await sourceFileList(opt)).to.deep.equal({ files: ["README.md", "paper/refs.bib"], truncated: false });
     expect(request).to.include({ owner: "o", repo: "r", tree_sha: "a".repeat(40), recursive: "true" });
+  });
+
+  it("resolves an abbreviated commit hash before reading the tree", async function () {
+    response = { truncated: false, tree: [] };
+    await sourceFileList({ ...opt, commit: "abc123" });
+    expect(request.tree_sha).to.equal("abc123".padEnd(40, "0"));
   });
 
   it("reports GitHub truncation and caps the list", async function () {

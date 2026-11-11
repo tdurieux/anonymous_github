@@ -358,7 +358,7 @@ router.get(
   async (req, res) => {
     try {
       const commit = typeof req.query.commit === "string" ? req.query.commit : "";
-      if (!/^[0-9a-f]{40}$/i.test(commit)) throw appError("invalid_commit_format", 400);
+      if (!/^[0-9a-f]{6,40}$/i.test(commit)) throw appError("invalid_commit_format", 400);
       const token = await previewToken(req);
       res.set("Cache-Control", "private, no-store");
       res.json(await sourceFileList({

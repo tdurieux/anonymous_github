@@ -21,12 +21,18 @@ export async function sourceFileList(opt: {
   commit: string;
   accessToken: string;
 }): Promise<SourceFileList> {
+  const oct = octokit(opt.accessToken);
   let data;
   try {
-    ({ data } = await octokit(opt.accessToken).git.getTree({
+    // The commit field accepts abbreviated hashes; the tree API needs a full one.
+    let commit = opt.commit;
+    if (!/^[0-9a-f]{40}$/i.test(commit)) {
+      commit = (await oct.repos.getCommit({ owner: opt.owner, repo: opt.repo, ref: commit })).data.sha;
+    }
+    ({ data } = await oct.git.getTree({
       owner: opt.owner,
       repo: opt.repo,
-      tree_sha: opt.commit,
+      tree_sha: commit,
       recursive: "true",
     }));
   } catch (error) {

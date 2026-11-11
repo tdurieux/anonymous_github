@@ -2069,6 +2069,7 @@ export const anonymizeController = function (state, http, html, params, location
       const globOpts = { magicalBraces: true };
       const isPickedPattern = (p) => p.startsWith("/") && globEscape(globUnescape(p.slice(1), globOpts), globOpts) === p.slice(1);
       const folderPattern = (dir) => "/" + globEscape(dir, globOpts) + "/**";
+      const folderExclusion = (dir) => "!/" + globEscape(dir, globOpts) + "/";
       const patternLines = () => String(state.preserve.patterns || "").split("\n").map((l) => l.trim()).filter(Boolean);
       let preserveIndex = null;
       let matcherKey = null;
@@ -2203,15 +2204,17 @@ export const anonymizeController = function (state, http, html, params, location
       state.preserveCount = () => preserveIndex ? preserveIndex.files.filter(fileChecked).length : 0;
       state.togglePreserveDir = (dir) => { state.preserve.expanded[dir] = !state.preserve.expanded[dir]; };
       state.togglePreserveFile = (file) => { state.preserve.picked[file] = !state.preserve.picked[file]; };
+      // Unchecking a folder must win over broader rules such as "*.bib", so a
+      // folder exclusion is appended when files inside would stay checked.
       state.togglePreserveFolder = (dir) => {
         const own = folderPattern(dir);
-        const lines = patternLines();
-        const wasChecked = dirState(dir) === "all" || lines.includes(own);
+        const exclusion = folderExclusion(dir);
+        const lines = patternLines().filter((l) => l !== own && l !== exclusion);
+        const wasChecked = dirState(dir) === "all" || patternLines().includes(own);
         for (const f of descendants(dir)) state.preserve.picked[f] = false;
-        if (wasChecked) {
-          state.preserve.patterns = lines.filter((l) => l !== own).join("\n");
-        } else {
-          state.preserve.patterns = [...lines, own].join("\n");
+        state.preserve.patterns = (wasChecked ? lines : [...lines, own]).join("\n");
+        if (wasChecked && descendants(dir).some(fileChecked)) {
+          state.preserve.patterns = [...lines, exclusion].join("\n");
         }
       };
 
