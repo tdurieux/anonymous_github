@@ -88,7 +88,7 @@
               "preserveFiles": {
                 "type": "array",
                 "maxItems": 200,
-                "description": "Glob patterns of files whose content is not redacted. Same rules as .gitignore: a pattern without / matches the file name in any folder; one containing / (including a leading /) matches from the repository root. Replaces the whole list.",
+                "description": "Glob patterns of files whose content is not redacted. Same rules as .gitignore: a pattern without / matches the file name in any folder; one containing / (including a leading /) matches from the repository root; !pattern excludes again and the last match wins. Replaces the whole list.",
                 "items": {
                   "type": "string",
                   "maxLength": 512
@@ -270,7 +270,7 @@
                   "preserveFiles": {
                     "type": "array",
                     "maxItems": 200,
-                    "description": "Glob patterns of files whose content is not redacted. Same rules as .gitignore: a pattern without / matches the file name in any folder; one containing / (including a leading /) matches from the repository root. Replaces the whole list.",
+                    "description": "Glob patterns of files whose content is not redacted. Same rules as .gitignore: a pattern without / matches the file name in any folder; one containing / (including a leading /) matches from the repository root; !pattern excludes again and the last match wins. Replaces the whole list.",
                     "items": {
                       "type": "string",
                       "maxLength": 512

@@ -157,8 +157,33 @@ describe("frontend production regressions", function () {
     h.scope.togglePreserveFolder("configs");
     expect(h.scope.preserveCount()).to.equal(4);
     h.scope.savePreserveFiles();
-    expect(Array.from(h.scope.options.preserveFiles)).to.deep.equal(["/paper/[[]draft[]].tex", "*.bib", "/configs/**"]);
+    expect(Array.from(h.scope.options.preserveFiles)).to.deep.equal(["/paper/\\[draft\\].tex", "*.bib", "/configs/**"]);
     expect(h.scope.preserveSummary()).to.equal("paper/[draft].tex, *.bib and 1 more");
+  });
+  it("lets a later !pattern exclude a picked file, and keeps braces literal (#941)", async function () {
+    const h = harness(); const timeout = () => 0; timeout.cancel = () => {};
+    h.context.document.getElementById = () => null;
+    h.defs.anonymizeController(h.scope, h.http, {}, {}, {}, () => {}, timeout);
+    h.scope.options.preserveFiles = ["/paper/\\{a,b\\}.bib", "!a.bib"];
+    h.scope.source = { commit: "a".repeat(40) };
+    h.scope.sourceUrl = "https://github.com/owner/repo";
+    h.scope.openPreserveFiles();
+    expect(h.scope.preserve.picked["paper/{a,b}.bib"]).to.equal(true);
+    h.requests.at(-1).resolve({ data: { files: ["a.bib", "paper/a.bib", "paper/{a,b}.bib"], truncated: false } });
+    await h.flush();
+    expect(h.scope.preserveCount()).to.equal(1);
+    h.scope.togglePreserveFile("a.bib");
+    expect(h.scope.preserveCount()).to.equal(1);
+  });
+  it("shows the README unredacted in the preview when it is an unredacted file (#941)", function () {
+    const h = harness(); const timeout = () => 0; timeout.cancel = () => {};
+    h.defs.anonymizeController(h.scope, h.http, {}, {}, {}, () => {}, timeout);
+    h.scope.detectedType = "repo";
+    h.scope.options.preserveFiles = ["*.bib"];
+    expect(h.scope.readmePreserved()).to.equal(false);
+    h.scope.options.preserveFiles = ["/README.md"];
+    expect(h.scope.readmePreserved()).to.equal(true);
+    expect(typeof h.watches["options.preserveFiles"]).to.equal("function");
   });
   it("includes PR comment authors and bodies in the preview batch", async function () {
     const h = harness(); const pending = new Map(); let id = 0;

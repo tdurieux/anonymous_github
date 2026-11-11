@@ -247,7 +247,7 @@
                 <details class="preserve-patterns" :open="preserve.patternsOpen">
                   <summary>Patterns</summary>
                   <textarea class="form-control" rows="3" aria-label="Patterns" placeholder="*.bib&#10;paper/appendix/**" v-model="preserve.patterns"></textarea>
-                  <small class="form-text text-muted">One per line, as in .gitignore: <code>*.bib</code> matches in any folder; <code>/refs.bib</code> and <code>paper/refs.bib</code> match from the repository root.</small>
+                  <small class="form-text text-muted">One per line, as in .gitignore: <code>*.bib</code> matches in any folder; <code>/refs.bib</code> and <code>paper/refs.bib</code> match from the repository root; <code>!private.bib</code> excludes a file again.</small>
                 </details>
                 <div class="preserve-foot">
                   <span class="preserve-count" aria-live="polite">{{ preserve.loading || preserve.error ? "" : preserveCount() + (preserveCount() === 1 ? " file" : " files") + " will be shown as written" }}</span>
@@ -477,7 +477,7 @@
       <div id="workspace-preview" :role="mobileWorkspace ? 'tabpanel' : null" :aria-labelledby="mobileWorkspace ? 'workspace-preview-tab' : null" class="anonymize-preview-col" v-if="detectedType === &#x27;repo&#x27;">
         <div class="anonymize-preview-head">
           <span class="paper-eyebrow">Live preview</span>
-          <span class="anonymize-preview-sub">{{ previewStatus !== 'ready' ? 'README preview' : (String(terms || '').trim() ? 'README with redactions applied' : 'No terms yet. Add some to see them redacted here.') }}</span>
+          <span class="anonymize-preview-sub">{{ previewStatus !== 'ready' ? 'README preview' : (readmePreserved() ? 'README left unredacted (Unredacted files)' : (String(terms || '').trim() ? 'README with redactions applied' : 'No terms yet. Add some to see them redacted here.')) }}</span>
           <button type="button" class="task-text-button preview-expand" @click="previewExpanded = !previewExpanded">{{ previewExpanded ? 'Restore split view' : 'Expand preview' }}</button>
         </div>
         <div class="anonymize-preview-status" role="status" v-if="sourceLoading &amp;&amp; previewStatus === 'idle'">Loading source…</div>

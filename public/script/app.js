@@ -2062,9 +2062,11 @@ export const anonymizeController = function (state, http, html, params, location
       // typing in the form stays responsive.
 
       // ---- "Leave files unredacted" picker (#941) ----
-      // Picked files are saved as root-anchored, escaped paths ("/paper/refs.bib");
-      // folders and anything typed by hand are saved as patterns.
-      const globOpts = { windowsPathsNoEscape: true };
+      // Picked files are saved first, as root-anchored paths with glob characters
+      // (braces included) escaped by a backslash; folders and anything typed by
+      // hand follow as patterns. Patterns apply in order, so a later "!pattern"
+      // can exclude a picked file, exactly as on the server.
+      const globOpts = { magicalBraces: true };
       const isPickedPattern = (p) => p.startsWith("/") && globEscape(globUnescape(p.slice(1), globOpts), globOpts) === p.slice(1);
       const folderPattern = (dir) => "/" + globEscape(dir, globOpts) + "/**";
       const patternLines = () => String(state.preserve.patterns || "").split("\n").map((l) => l.trim()).filter(Boolean);
@@ -2100,7 +2102,7 @@ export const anonymizeController = function (state, http, html, params, location
         }
         return preserveIndex.descendants.get(dir);
       }
-      const fileChecked = (file) => !!state.preserve.picked[file] || patternMatcher()(file);
+      const fileChecked = (file) => patternMatcher()(file, !!state.preserve.picked[file]);
       function dirState(dir) {
         const files = descendants(dir);
         let checked = 0;
@@ -2172,8 +2174,10 @@ export const anonymizeController = function (state, http, html, params, location
         if (!preserveIndex) return [];
         const matcher = patternMatcher();
         const fileRow = (file, depth, label) => {
-          const byPattern = !state.preserve.picked[file] && matcher(file);
-          return { kind: "file", path: file, label, depth, state: state.preserve.picked[file] || byPattern ? "all" : "none", locked: byPattern, note: byPattern ? "matched by a pattern" : "" };
+          const picked = !!state.preserve.picked[file];
+          const checked = matcher(file, picked);
+          const note = !picked && checked ? "matched by a pattern" : picked && !checked ? "excluded by a pattern" : "";
+          return { kind: "file", path: file, label, depth, state: checked ? "all" : "none", locked: !picked && checked, note };
         };
         const search = String(state.preserve.search || "").trim().toLowerCase();
         if (search) {
@@ -2208,9 +2212,23 @@ export const anonymizeController = function (state, http, html, params, location
         }
       };
 
+      // GitHub's README lookup order. The exact path is not known here, so the
+      // preview treats the README as unredacted if any candidate is selected:
+      // when unsure, it shows the author more exposure, not less.
+      const README_CANDIDATES = [".github", "", "docs"].flatMap((dir) =>
+        ["README.md", "README", "README.markdown", "README.rst", "README.txt", "readme.md"].map((name) => (dir ? dir + "/" : "") + name));
+      state.readmePreserved = () => {
+        if (state.detectedType !== "repo") return false;
+        const patterns = (state.options?.preserveFiles || []).map((p) => String(p).trim()).filter(Boolean);
+        if (!patterns.length) return false;
+        try {
+          const matcher = compilePreserveMatcher(patterns);
+          return README_CANDIDATES.some((path) => matcher(path));
+        } catch { return false; }
+      };
       function previewOptions() {
         const opts = {
-          terms: state.terms ? state.terms.split("\n") : [],
+          terms: state.terms && !state.readmePreserved() ? state.terms.split("\n") : [],
           image: !!state.options.image,
           link: !!state.options.link,
           repoId: state.repoId,
@@ -2739,6 +2757,9 @@ export const anonymizeController = function (state, http, html, params, location
       state.matchTermAsWritten = (line) => {
         state.terms = escapeTermLine(state.terms, line);
       };
+      state.watch("options.preserveFiles", () => {
+        if (state.detectedType === "repo") scheduleReadmePreview();
+      });
       state.watch("terms", () => {
         state.termHints = termHints(state.terms);
         if (state.detectedType === "repo") anonymizeReadme();

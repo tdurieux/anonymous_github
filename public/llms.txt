@@ -31,7 +31,7 @@ an admin token or browser cookie. Maintenance tokens cannot log into the UI.
    {"terms":["Alice Smith","Example University"],"image":false,"update":false}
    Omitted settings stay unchanged. terms replaces the whole term list;
    [] clears it. preserveFiles is a list of .gitignore-style patterns
-   (*.bib, /refs.bib, paper/**) whose file content is served without term
+   (*.bib, /refs.bib, paper/**, !private.bib) whose file content is served without term
    redaction; file names are still redacted. Supported boolean fields: update, image, pdf,
    notebook, link.
    update controls automatic snapshot updates. Settings edits work in ready

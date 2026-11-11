@@ -39,9 +39,21 @@ describe("preserveFiles (#941)", function () {
       expect(isPreservedPath("paper/refs.bib", ["/paper/refs.bib"])).to.equal(true);
     });
 
-    it("matches picked paths escaped with character classes", function () {
-      expect(isPreservedPath("paper/[draft].bib", ["/paper/[[]draft[]].bib"])).to.equal(true);
-      expect(isPreservedPath("paper/d.bib", ["/paper/[[]draft[]].bib"])).to.equal(false);
+    it("matches picked paths escaped with backslashes, braces included", function () {
+      expect(isPreservedPath("paper/[draft].bib", ["/paper/\\[draft\\].bib"])).to.equal(true);
+      expect(isPreservedPath("paper/d.bib", ["/paper/\\[draft\\].bib"])).to.equal(false);
+      expect(isPreservedPath("paper/{draft,final}.bib", ["/paper/\\{draft,final\\}.bib"])).to.equal(true);
+      expect(isPreservedPath("paper/draft.bib", ["/paper/\\{draft,final\\}.bib"])).to.equal(false);
+    });
+
+    it("applies !patterns as exclusions, last match wins", function () {
+      const patterns = ["*.bib", "!private.bib"];
+      expect(isPreservedPath("paper/refs.bib", patterns)).to.equal(true);
+      expect(isPreservedPath("paper/private.bib", patterns)).to.equal(false);
+      expect(isPreservedPath("README.md", patterns)).to.equal(false);
+      expect(isPreservedPath("paper/private.bib", ["!private.bib", "*.bib"])).to.equal(true);
+      expect(isPreservedPath("a/x.bib", ["a/**", "!a/*.bib"])).to.equal(false);
+      expect(isPreservedPath("#notes.txt", ["#notes.txt"])).to.equal(true);
     });
 
     it("matches dotfiles and ignores empty input", function () {
@@ -57,7 +69,7 @@ describe("preserveFiles (#941)", function () {
       expect(normalizePreserveFiles([" refs.bib ", "", "refs.bib", "*.bib"]))
         .to.deep.equal(["refs.bib", "*.bib"]);
       expect(normalizePreserveFiles(undefined)).to.deep.equal([]);
-      expect(normalizePreserveFiles(["/refs.bib"])).to.deep.equal(["/refs.bib"]);
+      expect(normalizePreserveFiles(["/refs.bib", "!private.bib", "/a\\{b\\}"])).to.deep.equal(["/refs.bib", "!private.bib", "/a\\{b\\}"]);
     });
 
     it("rejects invalid input", function () {
@@ -66,7 +78,9 @@ describe("preserveFiles (#941)", function () {
       expect(normalizePreserveFiles(["//x"])).to.equal(null);
       expect(normalizePreserveFiles(["/"])).to.equal(null);
       expect(normalizePreserveFiles(["../x"])).to.equal(null);
-      expect(normalizePreserveFiles(["a\\b"])).to.equal(null);
+      expect(normalizePreserveFiles(["!"])).to.equal(null);
+      expect(normalizePreserveFiles(["!/"])).to.equal(null);
+      expect(normalizePreserveFiles(["!../x"])).to.equal(null);
       expect(normalizePreserveFiles(["x".repeat(513)])).to.equal(null);
       expect(normalizePreserveFiles(Array.from({ length: 201 }, (_, i) => `f${i}`))).to.equal(null);
     });
