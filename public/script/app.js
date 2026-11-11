@@ -2067,18 +2067,25 @@ export const anonymizeController = function (state, http, html, params, location
       // hand follow as patterns. Patterns apply in order, so a later "!pattern"
       // can exclude a picked file, exactly as on the server.
       const globOpts = { magicalBraces: true };
-      const isPickedPattern = (p) => p.startsWith("/") && globEscape(globUnescape(p.slice(1), globOpts), globOpts) === p.slice(1);
+      // A picked file: a root-anchored path with no glob characters. Folder rules
+      // ("/paper/") stay patterns.
+      const isPickedPattern = (p) => p.startsWith("/") && !p.endsWith("/") && globEscape(globUnescape(p.slice(1), globOpts), globOpts) === p.slice(1);
+      const pickedRules = () => Object.keys(state.preserve.picked).filter((f) => state.preserve.picked[f]).sort()
+        .map((f) => "/" + globEscape(f, globOpts));
       const folderPattern = (dir) => "/" + globEscape(dir, globOpts) + "/**";
       const folderExclusion = (dir) => "!/" + globEscape(dir, globOpts) + "/";
       const patternLines = () => String(state.preserve.patterns || "").split("\n").map((l) => l.trim()).filter(Boolean);
       let preserveIndex = null;
+      // The checkboxes use the exact rule list that will be saved (picks first,
+      // then patterns) through the server's matcher, so they cannot disagree.
+      let pickVersion = 0;
       let matcherKey = null;
       let matcherFn = () => false;
-      function patternMatcher() {
-        const key = state.preserve.patterns;
+      function preserveMatcher() {
+        const key = pickVersion + "\u0000" + state.preserve.patterns;
         if (key !== matcherKey) {
           matcherKey = key;
-          try { matcherFn = compilePreserveMatcher(patternLines()); } catch { matcherFn = () => false; }
+          try { matcherFn = compilePreserveMatcher(dedupePreservePatterns([...pickedRules(), ...patternLines()])); } catch { matcherFn = () => false; }
         }
         return matcherFn;
       }
@@ -2103,7 +2110,7 @@ export const anonymizeController = function (state, http, html, params, location
         }
         return preserveIndex.descendants.get(dir);
       }
-      const fileChecked = (file) => patternMatcher()(file, !!state.preserve.picked[file]);
+      const fileChecked = (file) => preserveMatcher()(file);
       function dirState(dir) {
         const files = descendants(dir);
         let checked = 0;
@@ -2157,6 +2164,7 @@ export const anonymizeController = function (state, http, html, params, location
           for (let i = 1; i < parts.length; i++) expanded[parts.slice(0, i).join("/")] = true;
         }
         Object.assign(state.preserve, { open: true, search: "", picked, expanded, patterns: patterns.join("\n"), patternsOpen: patterns.length > 0 });
+        pickVersion++;
         timeout(() => {
           const dialog = document.getElementById("preserve-files-dialog");
           if (dialog?.showModal && !dialog.open) dialog.showModal();
@@ -2169,17 +2177,15 @@ export const anonymizeController = function (state, http, html, params, location
         state.preserve.open = false;
       };
       state.savePreserveFiles = () => {
-        const picked = Object.keys(state.preserve.picked).filter((f) => state.preserve.picked[f]).sort()
-          .map((f) => "/" + globEscape(f, globOpts));
-        state.options.preserveFiles = dedupePreservePatterns([...picked, ...patternLines()]);
+        state.options.preserveFiles = dedupePreservePatterns([...pickedRules(), ...patternLines()]);
         state.closePreserveFiles();
       };
       state.preserveRows = () => {
         if (!preserveIndex) return [];
-        const matcher = patternMatcher();
+        const matcher = preserveMatcher();
         const fileRow = (file, depth, label) => {
           const picked = !!state.preserve.picked[file];
-          const checked = matcher(file, picked);
+          const checked = matcher(file);
           const note = !picked && checked ? "matched by a pattern" : picked && !checked ? "excluded by a pattern" : "";
           return { kind: "file", path: file, label, depth, state: checked ? "all" : "none", locked: !picked && checked, note };
         };
@@ -2203,7 +2209,7 @@ export const anonymizeController = function (state, http, html, params, location
       };
       state.preserveCount = () => preserveIndex ? preserveIndex.files.filter(fileChecked).length : 0;
       state.togglePreserveDir = (dir) => { state.preserve.expanded[dir] = !state.preserve.expanded[dir]; };
-      state.togglePreserveFile = (file) => { state.preserve.picked[file] = !state.preserve.picked[file]; };
+      state.togglePreserveFile = (file) => { state.preserve.picked[file] = !state.preserve.picked[file]; pickVersion++; };
       // Unchecking a folder must win over broader rules such as "*.bib", so a
       // folder exclusion is appended when files inside would stay checked.
       state.togglePreserveFolder = (dir) => {
@@ -2212,6 +2218,7 @@ export const anonymizeController = function (state, http, html, params, location
         const lines = patternLines().filter((l) => l !== own && l !== exclusion);
         const wasChecked = dirState(dir) === "all" || patternLines().includes(own);
         for (const f of descendants(dir)) state.preserve.picked[f] = false;
+        pickVersion++;
         state.preserve.patterns = (wasChecked ? lines : [...lines, own]).join("\n");
         if (wasChecked && descendants(dir).some(fileChecked)) {
           state.preserve.patterns = [...lines, exclusion].join("\n");

@@ -175,6 +175,22 @@ describe("frontend production regressions", function () {
     h.scope.togglePreserveFile("a.bib");
     expect(h.scope.preserveCount()).to.equal(1);
   });
+  it("keeps folder rules as patterns and counts them like the server (#941)", async function () {
+    const h = harness(); const timeout = () => 0; timeout.cancel = () => {};
+    h.context.document.getElementById = () => null;
+    h.defs.anonymizeController(h.scope, h.http, {}, {}, {}, () => {}, timeout);
+    h.scope.options.preserveFiles = ["/paper/", "/refs.bib"];
+    h.scope.source = { commit: "abc123" };
+    h.scope.sourceUrl = "https://github.com/owner/repo";
+    h.scope.openPreserveFiles();
+    expect(Object.keys(h.scope.preserve.picked)).to.deep.equal([]);
+    expect(h.scope.preserve.patterns).to.equal("/paper/\n/refs.bib");
+    h.requests.at(-1).resolve({ data: { files: ["paper/a.tex", "paper/b/c.tex", "refs.bib", "x.tex"], truncated: false } });
+    await h.flush();
+    expect(h.scope.preserveCount()).to.equal(3);
+    const paper = h.scope.preserveRows().find((row) => row.path === "paper");
+    expect(paper.state).to.equal("all");
+  });
   it("unchecking a folder overrides broader rules (#941)", async function () {
     const h = harness(); const timeout = () => 0; timeout.cancel = () => {};
     h.context.document.getElementById = () => null;
