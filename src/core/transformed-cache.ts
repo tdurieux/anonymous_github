@@ -1,3 +1,4 @@
+import { REPOSITORY_ID_COLLATION } from "./repository-id";
 import { observeCache } from "./cache-observability";
 import { promises as fs } from "fs";
 import { join } from "path";
@@ -18,7 +19,7 @@ interface CacheScope { repoId: string; generation?: string; revision?: string }
 
 async function scopeActive(scope?: CacheScope) {
   if (!scope || !isConnected) return true;
-  const current = await RepositoryModel.findOne({ repoId: scope.repoId })
+  const current = await RepositoryModel.findOne({ repoId: scope.repoId }, null, { collation: REPOSITORY_ID_COLLATION })
     .select("status treeGeneration anonymizeDate contentCacheRevision").lean().exec();
   return !!current?.status && ![RepositoryStatus.EXPIRING, RepositoryStatus.EXPIRED,
     RepositoryStatus.REMOVING, RepositoryStatus.REMOVED, RepositoryStatus.ARCHIVED].includes(current.status)

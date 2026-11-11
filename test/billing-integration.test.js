@@ -30,6 +30,23 @@ async function rejects(promise, message) {
     await BillingAccount.create({ _id: owner, customerId: "cus_owner" });
   });
   after(async () => { Object.assign(config, original); await mongoose.disconnect(); });
+  it("indexes terminal quota lookups by repository ID rather than scanning removed repositories", async () => {
+    await Repo.insertMany(Array.from({ length: 1000 }, (_, i) => ({ repoId: `removed-${i}`, owner, status: "removed" })));
+    await BillingQuota.create({ _id: `user:${owner}`, allocations: [{ repoId: "removed-999", reservationId: "old", bytes: 90 }] });
+    const find = Repo.find; let terminalQuery;
+    Repo.find = function (...args) {
+      const query = find.apply(this, args);
+      if (args[0]?.repoId?.$in) terminalQuery = query;
+      return query;
+    };
+    try {
+      await reserveRepository(owner, "new", 100);
+      expect((await BillingQuota.findById(`user:${owner}`)).allocations.map(a => a.repoId)).to.deep.equal(["new"]);
+      const plan = await terminalQuery.clone().explain("executionStats");
+      expect(plan.executionStats.totalDocsExamined).to.equal(1);
+      expect(plan.executionStats.totalKeysExamined).to.equal(1);
+    } finally { Repo.find = find; }
+  });
   it("atomically admits only three concurrent repositories", async () => {
     const results = await Promise.allSettled(Array.from({ length: 12 }, (_, i) => reserveRepository(owner, `repo-${i}`, 10)));
     expect(results.filter(r => r.status === "fulfilled")).to.have.length(3);

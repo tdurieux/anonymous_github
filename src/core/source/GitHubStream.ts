@@ -1,3 +1,4 @@
+import { REPOSITORY_ID_COLLATION } from "../repository-id";
 import { reserveFileExpansion } from "../billing/quotas";
 import { withOwnerAccessRecovery } from "../owner-notifications";
 import { ExpiringMap } from "../expiring-map";
@@ -362,7 +363,7 @@ export default class GitHubStream extends GitHubBase {
       // Retirement markers live inside the storage root and disappear when
       // expiration removes it. The persisted lifecycle also fences late fills.
       if (isConnected) {
-        const current = await AnonymizedRepositoryModel.findOne({ repoId })
+        const current = await AnonymizedRepositoryModel.findOne({ repoId }, null, { collation: REPOSITORY_ID_COLLATION })
           .select("status treeGeneration anonymizeDate contentCacheRevision").lean().exec();
         if (!current || !current.status || [RepositoryStatus.EXPIRING, RepositoryStatus.EXPIRED,
           RepositoryStatus.REMOVING, RepositoryStatus.REMOVED, RepositoryStatus.ARCHIVED].includes(current.status)
@@ -641,7 +642,7 @@ export default class GitHubStream extends GitHubBase {
   private async confirmOwnerAccess<T>(repoId: string, work: () => Promise<T>, confirmed?: (result: T) => boolean): Promise<T> {
     let repository;
     try {
-      repository = isConnected ? await AnonymizedRepositoryModel.findOne({ repoId })
+      repository = isConnected ? await AnonymizedRepositoryModel.findOne({ repoId }, null, { collation: REPOSITORY_ID_COLLATION })
         .select("owner source githubAccess").lean().exec() : null;
     } catch {
       // Email recovery bookkeeping must not prevent the upstream read.

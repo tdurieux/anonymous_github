@@ -22,7 +22,7 @@ export async function folderCounts(repo: Repository, requestedPath: unknown): Pr
   const prefix = originalPath ? originalPath + "/" : "";
   const escapedPrefix = prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const childDepth = originalPath ? originalPath.split("/").length : 0;
-  const rows = await FileModel.aggregate<{ _id: string; count: number }>([
+  const aggregate = () => FileModel.aggregate<{ _id: string; count: number }>([
     { $match: {
       repoId: repo.repoId,
       treeGeneration: repo.model.treeGeneration || { $exists: false },
@@ -35,7 +35,19 @@ export async function folderCounts(repo: Repository, requestedPath: unknown): Pr
       { $arrayElemAt: [{ $split: ["$path", "/"] }, childDepth] },
     ] } : { $arrayElemAt: [{ $split: ["$path", "/"] }, 0] }, count: { $sum: 1 } } },
     { $limit: FILE_LISTING_LIMIT + 1 },
-  ]).option({ maxTimeMS: 2000, allowDiskUse: true }).exec();
+  ]).option({ maxTimeMS: 2000, allowDiskUse: true });
+  let rows: { _id: string; count: number }[];
+  try {
+    // The short planner trial can favor the size-first index despite its
+    // document fetches. Legacy snapshots still use the default planner.
+    rows = await aggregate().option(repo.model.treeGeneration ? { hint: "file_counts_covering" } : {}).exec();
+  } catch (error) {
+    // During an additive rollout the index may not be ready yet. Retry only
+    // the missing-hint planning error, never timeouts or execution failures.
+    if (!repo.model.treeGeneration || !(error instanceof Error) || !("code" in error) || error.code !== 2 ||
+        !/hint provided does not correspond to an existing index/.test(error.message || "")) throw error;
+    rows = await aggregate().exec();
+  }
   if (rows.length > FILE_LISTING_LIMIT) throw new AnonymousError("file_listing_too_large", { httpStatus: 413 });
   const counts: Record<string, number> = Object.create(null);
   const compiled = compileTerms(repo.options.terms || []);

@@ -1,3 +1,4 @@
+import { REPOSITORY_ID_COLLATION } from "../repository-id";
 import { randomUUID } from "crypto";
 import ConferenceModel from "../model/conference/conferences.model";
 import config from "../../config";
@@ -30,7 +31,8 @@ export async function reserveRepository(owner: string, repoId: string, bytes: nu
   // count toward the owner's capacity when creating new work.
   if (!await BillingQuota.exists({ _id: limits.scope })) {
     const existing = await RepositoryModel.find(limits.scope.startsWith("user:") ? { owner, status: { $nin: ["removed", "expired"] } }
-      : limits.scope.startsWith("conference:") ? { conference, status: { $nin: ["removed", "expired"] } } : { repoId, status: { $nin: ["removed", "expired"] } })
+      : limits.scope.startsWith("conference:") ? { conference, status: { $nin: ["removed", "expired"] } } : { repoId, status: { $nin: ["removed", "expired"] } }, null,
+      limits.scope.startsWith("repo:") ? { collation: REPOSITORY_ID_COLLATION } : {})
       .select("repoId size owner conference").lean();
     const funded = [];
     for (const repository of existing) {
@@ -42,7 +44,7 @@ export async function reserveRepository(owner: string, repoId: string, bytes: nu
   // Only confirmed terminal repositories release capacity. Unknown reservations
   // remain until reconciled by an operator, so a crash cannot oversell capacity.
   const ledger = await BillingQuota.findById(limits.scope).lean();
-  const terminal = await RepositoryModel.find({ repoId: { $in: ledger?.allocations.map(a => a.repoId) || [] }, status: "removed" }).select("repoId").lean();
+  const terminal = await RepositoryModel.find({ repoId: { $in: ledger?.allocations.map(a => a.repoId) || [] }, status: "removed" }, null, { collation: REPOSITORY_ID_COLLATION }).select("repoId").lean();
   if (terminal.length) await BillingQuota.updateOne({ _id: limits.scope }, { $pull: { allocations: { $or: terminal.map(r => ({
     repoId: r.repoId, reservationId: ledger?.allocations.find(a => a.repoId === r.repoId)?.reservationId || { $exists: false },
   })) } } });
@@ -81,7 +83,7 @@ export async function assertConferenceAdmission(owner: string, repoId: string, c
 export async function reserveFileExpansion(repoId: string, key: string, extraBytes: number) {
   if (!config.BILLING_ENABLED) return;
   if (!Number.isSafeInteger(extraBytes) || extraBytes < 0) throw billingError("billing_invalid_repository_size");
-  const repo = await RepositoryModel.findOne({ repoId }).select("owner conference billingManaged").lean();
+  const repo = await RepositoryModel.findOne({ repoId }, null, { collation: REPOSITORY_ID_COLLATION }).select("owner conference billingManaged").lean();
   if (!repo?.billingManaged) return;
   await reserveRepository(String(repo.owner), repoId, 0, repo.conference, { key, bytes: extraBytes });
 }

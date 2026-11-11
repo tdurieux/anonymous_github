@@ -1,3 +1,4 @@
+import { REPOSITORY_ID_COLLATION } from "../core/repository-id";
 import { reconcileNeverExpiration } from "../core/billing/expiration";
 import { Model, Document } from "mongoose";
 import * as schedule from "node-schedule";
@@ -185,7 +186,7 @@ export async function runRepositoryStatusCheck(now = new Date()) {
   for await (const file of pendingCursor) {
     batch.push((async () => {
       try {
-        const data = await AnonymizedRepositoryModel.findOne({ repoId: file.repoId }).exec();
+        const data = await AnonymizedRepositoryModel.findOne({ repoId: file.repoId }, null, { collation: REPOSITORY_ID_COLLATION }).exec();
         if (!data || data.treeGeneration !== file.treeGeneration ||
           (data.status && [RepositoryStatus.EXPIRING, RepositoryStatus.EXPIRED, RepositoryStatus.REMOVING, RepositoryStatus.REMOVED].includes(data.status))) {
           await FileModel.deleteOne({ _id: file._id, metadataPending: true }).exec();
