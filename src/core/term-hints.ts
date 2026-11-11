@@ -41,6 +41,8 @@ export function escapeTermLine(text: string, line: number): string {
     if (term[i] === "\\") { escaped += term.slice(i, i + 2); i++; continue; }
     escaped += STRUCTURAL.has(term[i]) || term[i] === "." ? "\\" + term[i] : term[i];
   }
-  lines[line] = raw.replace(term, escaped);
+  // Splice by index: String.replace would expand "$&", "$'" and "$1" in the term.
+  const start = raw.indexOf(term);
+  lines[line] = raw.slice(0, start) + escaped + raw.slice(start + term.length);
   return lines.join("\n");
 }

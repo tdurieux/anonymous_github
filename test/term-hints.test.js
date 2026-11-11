@@ -22,4 +22,10 @@ describe("term hints", function () {
     expect(escapeTermLine("a\nSmith (MIT).x=>Anon (1)\nb", 1)).to.equal("a\nSmith \\(MIT\\)\\.x=>Anon (1)\nb");
     expect(escapeTermLine("C\\+\\+ +", 0)).to.equal("C\\+\\+ \\+");
   });
+
+  it("inserts terms containing $ sequences literally", function () {
+    expect(escapeTermLine("a$&b (x)", 0)).to.equal("a\\$&b \\(x\\)");
+    expect(escapeTermLine("  $'(y)=>z", 0)).to.equal("  \\$'\\(y\\)=>z");
+    expect(escapeTermLine("$1+", 0)).to.equal("\\$1\\+");
+  });
 });
