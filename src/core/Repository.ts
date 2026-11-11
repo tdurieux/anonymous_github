@@ -610,6 +610,7 @@ export default class Repository {
       filePath: filePath,
       cacheGeneration: `${this.model.treeGeneration || "legacy"}:${this.model.anonymizeDate?.toISOString() || ""}`,
       terms: this.options.terms,
+      preserveFiles: this.options.preserveFiles || [],
       cacheRevision: this.model.contentCacheRevision,
       image: this.options.image,
       link: this.options.link,

@@ -30,6 +30,8 @@ import RepositoryModel from "../../core/model/repositories/repositories.model";
 import { RepositoryStatus } from "../../core/types";
 import { octokit, getRedisGateResetAt, getToken } from "../../core/GitHubUtils";
 import { createLogger } from "../../core/logger";
+import { normalizePreserveFiles } from "../../core/preserve-files";
+import { sourceFileList } from "../../core/source-file-list";
 
 const logger = createLogger("route:repo");
 
@@ -350,6 +352,27 @@ router.get(
   }
 );
 
+// Text files of a source commit, for the "Leave files unredacted" picker (#941).
+router.get(
+  "/:owner/:repo/tree",
+  async (req, res) => {
+    try {
+      const commit = typeof req.query.commit === "string" ? req.query.commit : "";
+      if (!/^[0-9a-f]{6,40}$/i.test(commit)) throw appError("invalid_commit_format", 400);
+      const token = await previewToken(req);
+      res.set("Cache-Control", "private, no-store");
+      res.json(await sourceFileList({
+        owner: req.params.owner,
+        repo: req.params.repo,
+        commit,
+        accessToken: token,
+      }));
+    } catch (error) {
+      handleError(error, res, req);
+    }
+  }
+);
+
 // get repository information
 router.get("/:repoId/", async (req, res) => {
   try {
@@ -428,6 +451,14 @@ function validateNewRepo(repoUpdate: any): void {
       httpStatus: 400,
     });
   }
+  const preserveFiles = normalizePreserveFiles(repoUpdate.options.preserveFiles);
+  if (preserveFiles === null) {
+    throw new AnonymousError("invalid_preserve_files_format", {
+      object: repoUpdate,
+      httpStatus: 400,
+    });
+  }
+  repoUpdate.options.preserveFiles = preserveFiles;
   if (!/^[a-fA-F0-9]+$/.test(repoUpdate.source.commit)) {
     throw new AnonymousError("invalid_commit_format", {
       object: repoUpdate,
@@ -446,6 +477,7 @@ function updateRepoModel(
   model.source.branch = repoUpdate.source.branch;
   model.options = {
     terms: repoUpdate.terms,
+    preserveFiles: normalizePreserveFiles(repoUpdate.options.preserveFiles) || [],
     expirationMode: repoUpdate.options.expirationMode,
     expirationDate: repoUpdate.options.expirationDate
       ? new Date(repoUpdate.options.expirationDate)

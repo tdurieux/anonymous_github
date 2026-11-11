@@ -5,6 +5,10 @@ const path = require("path");
 const { setImmediate } = require("timers");
 const { URLSearchParams } = require("node:url");
 const source = fs.readFileSync(path.join(__dirname, "../public/script/app.js"), "utf8");
+require("ts-node/register/transpile-only");
+const minimatch = require("minimatch");
+const { compilePreserveMatcher, dedupePreservePatterns } = require("../src/core/preserve-files");
+const { termHints, escapeTermLine } = require("../src/core/term-hints");
 
 function harness(date) {
   const defs = {}, routes = {}, timers = new Map();
@@ -18,6 +22,8 @@ function harness(date) {
     $: () => ({ on() {}, tooltip() {} }),
     setTimeout: fn => { timers.set(++timerId, fn); return timerId; },
     clearTimeout: id => timers.delete(id), setInterval: () => 0, clearInterval() {},
+    markRaw: value => value, globEscape: minimatch.escape, globUnescape: minimatch.unescape,
+    compilePreserveMatcher, dedupePreservePatterns, termHints, escapeTermLine,
   };
   context.createTimers = () => ({ timeout: Object.assign(context.setTimeout, { cancel: context.clearTimeout }), interval: Object.assign(context.setInterval, { cancel: context.clearInterval }) });
   context.createListeners = () => (target, name, callback) => target.addEventListener(name, callback);
@@ -132,6 +138,100 @@ describe("frontend production regressions", function () {
     for (const route of ["/pr/:pullRequestId/:path(.*)*", "/gist/:gistId/:path(.*)*"]) {
       expect(h.routes[route].preserveExplorer).to.equal(false);
     }
+  });
+  it("saves picked files as anchored, escaped paths and folders as patterns (#941)", async function () {
+    const h = harness(); const timeout = () => 0; timeout.cancel = () => {};
+    h.context.document.getElementById = () => null;
+    h.defs.anonymizeController(h.scope, h.http, {}, {}, {}, () => {}, timeout);
+    h.scope.options.preserveFiles = ["*.bib"];
+    h.scope.source = { commit: "a".repeat(40) };
+    h.scope.sourceUrl = "https://github.com/owner/repo";
+    h.scope.openPreserveFiles();
+    const request = h.requests.at(-1);
+    expect(request.url).to.equal("/api/repo/owner/repo/tree");
+    expect(request.body.params.commit).to.equal("a".repeat(40));
+    request.resolve({ data: { files: ["configs/a.yaml", "configs/b.yaml", "paper/[draft].tex", "paper/refs.bib"], truncated: false } });
+    await h.flush();
+    expect(h.scope.preserveCount()).to.equal(1);
+    h.scope.togglePreserveFile("paper/[draft].tex");
+    h.scope.togglePreserveFolder("configs");
+    expect(h.scope.preserveCount()).to.equal(4);
+    h.scope.savePreserveFiles();
+    expect(Array.from(h.scope.options.preserveFiles)).to.deep.equal(["/paper/\\[draft\\].tex", "*.bib", "/configs/**"]);
+    expect(h.scope.preserveSummary()).to.equal("paper/[draft].tex, *.bib and 1 more");
+  });
+  it("lets a later !pattern exclude a picked file, and keeps braces literal (#941)", async function () {
+    const h = harness(); const timeout = () => 0; timeout.cancel = () => {};
+    h.context.document.getElementById = () => null;
+    h.defs.anonymizeController(h.scope, h.http, {}, {}, {}, () => {}, timeout);
+    h.scope.options.preserveFiles = ["/paper/\\{a,b\\}.bib", "!a.bib"];
+    h.scope.source = { commit: "a".repeat(40) };
+    h.scope.sourceUrl = "https://github.com/owner/repo";
+    h.scope.openPreserveFiles();
+    expect(h.scope.preserve.picked["paper/{a,b}.bib"]).to.equal(true);
+    h.requests.at(-1).resolve({ data: { files: ["a.bib", "paper/a.bib", "paper/{a,b}.bib"], truncated: false } });
+    await h.flush();
+    expect(h.scope.preserveCount()).to.equal(1);
+    h.scope.togglePreserveFile("a.bib");
+    expect(h.scope.preserveCount()).to.equal(1);
+  });
+  it("keeps folder rules as patterns and counts them like the server (#941)", async function () {
+    const h = harness(); const timeout = () => 0; timeout.cancel = () => {};
+    h.context.document.getElementById = () => null;
+    h.defs.anonymizeController(h.scope, h.http, {}, {}, {}, () => {}, timeout);
+    h.scope.options.preserveFiles = ["/paper/", "/refs.bib"];
+    h.scope.source = { commit: "abc123" };
+    h.scope.sourceUrl = "https://github.com/owner/repo";
+    h.scope.openPreserveFiles();
+    expect(Object.keys(h.scope.preserve.picked)).to.deep.equal([]);
+    expect(h.scope.preserve.patterns).to.equal("/paper/\n/refs.bib");
+    h.requests.at(-1).resolve({ data: { files: ["paper/a.tex", "paper/b/c.tex", "refs.bib", "x.tex"], truncated: false } });
+    await h.flush();
+    expect(h.scope.preserveCount()).to.equal(3);
+    const paper = h.scope.preserveRows().find((row) => row.path === "paper");
+    expect(paper.state).to.equal("all");
+  });
+  it("unchecking a folder overrides broader rules (#941)", async function () {
+    const h = harness(); const timeout = () => 0; timeout.cancel = () => {};
+    h.context.document.getElementById = () => null;
+    h.defs.anonymizeController(h.scope, h.http, {}, {}, {}, () => {}, timeout);
+    h.scope.options.preserveFiles = ["*.bib"];
+    h.scope.source = { commit: "abc123" };
+    h.scope.sourceUrl = "https://github.com/owner/repo";
+    h.scope.openPreserveFiles();
+    h.requests.at(-1).resolve({ data: { files: ["paper/refs.bib", "refs.bib"], truncated: false } });
+    await h.flush();
+    expect(h.scope.preserveCount()).to.equal(2);
+    h.scope.togglePreserveFolder("paper");
+    expect(h.scope.preserveCount()).to.equal(1);
+    h.scope.togglePreserveFolder("paper");
+    expect(h.scope.preserveCount()).to.equal(2);
+    h.scope.togglePreserveFolder("paper");
+    h.scope.savePreserveFiles();
+    expect(Array.from(h.scope.options.preserveFiles)).to.deep.equal(["*.bib", "!/paper/"]);
+  });
+  it("keeps the order of saved rules when the picker opens and saves (#941)", function () {
+    const h = harness(); const timeout = () => 0; timeout.cancel = () => {};
+    h.context.document.getElementById = () => null;
+    h.defs.anonymizeController(h.scope, h.http, {}, {}, {}, () => {}, timeout);
+    h.scope.options.preserveFiles = ["/a.bib", "*.bib", "!/refs.bib", "/refs.bib"];
+    h.scope.source = { commit: "a".repeat(40) };
+    h.scope.sourceUrl = "https://github.com/owner/repo";
+    h.scope.openPreserveFiles();
+    expect(Object.keys(h.scope.preserve.picked)).to.deep.equal(["a.bib"]);
+    expect(h.scope.preserve.patterns).to.equal("*.bib\n!/refs.bib\n/refs.bib");
+    h.scope.savePreserveFiles();
+    expect(Array.from(h.scope.options.preserveFiles)).to.deep.equal(["/a.bib", "*.bib", "!/refs.bib", "/refs.bib"]);
+  });
+  it("shows the README unredacted in the preview when it is an unredacted file (#941)", function () {
+    const h = harness(); const timeout = () => 0; timeout.cancel = () => {};
+    h.defs.anonymizeController(h.scope, h.http, {}, {}, {}, () => {}, timeout);
+    h.scope.detectedType = "repo";
+    h.scope.options.preserveFiles = ["*.bib"];
+    expect(h.scope.readmePreserved()).to.equal(false);
+    h.scope.options.preserveFiles = ["/README.md"];
+    expect(h.scope.readmePreserved()).to.equal(true);
+    expect(typeof h.watches["options.preserveFiles"]).to.equal("function");
   });
   it("includes PR comment authors and bodies in the preview batch", async function () {
     const h = harness(); const pending = new Map(); let id = 0;

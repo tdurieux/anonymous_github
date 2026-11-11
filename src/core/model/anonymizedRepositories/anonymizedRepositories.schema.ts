@@ -76,6 +76,7 @@ const AnonymizedRepositorySchema = new Schema({
   },
   options: {
     terms: [String],
+    preserveFiles: { type: [String], default: undefined },
     expirationMode: { type: String },
     expirationDate: Date,
     update: Boolean,

@@ -1,6 +1,7 @@
 import * as express from "express";
 import { getRepo, getUser, handleError, isOwnerCoauthorOrAdmin } from "./route-utils";
 import AnonymousError from "../../core/AnonymousError";
+import { normalizePreserveFiles } from "../../core/preserve-files";
 import RepoModel from "../../core/model/anonymizedRepositories/anonymizedRepositories.model";
 
 const router = express.Router();
@@ -17,6 +18,11 @@ export function maintenanceSettings(body: unknown): Record<string, unknown> {
     if (key === "terms") {
       if (!Array.isArray(value) || value.length > 1000 ||
         !value.every(t => typeof t === "string" && t.length > 0 && t.length <= 1000)) throw invalid();
+    } else if (key === "preserveFiles") {
+      const patterns = normalizePreserveFiles(value);
+      if (!Array.isArray(value) || patterns === null) throw invalid();
+      updates["options.preserveFiles"] = patterns;
+      continue;
     } else if (!toggles.includes(key) || typeof value !== "boolean") throw invalid();
     updates[`options.${key}`] = value;
   }

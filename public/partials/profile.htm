@@ -6,7 +6,7 @@
   <div v-show="settingsTab === 'defaults'">
     <p class="settings-scope">For new anonymizations only. Existing repositories keep their settings.</p>
     <form class="form needs-validation" name="defaultsForm" novalidate v-form="viewState" @submit.prevent="submitForm($event, () => { saveDefault($event) })">
-      <section class="settings-row"><div><label class="settings-label" for="terms">Terms to redact</label><p class="settings-help">One term per line.</p></div><div><textarea class="form-control" id="terms" name="terms" rows="3" placeholder="Jane Smith
+      <section class="settings-row"><div><label class="settings-label" for="terms">Terms to redact</label><p class="settings-help">One term per line.</p></div><div><textarea class="form-control" id="terms" name="terms" :rows="Math.min(14, Math.max(3, String(terms || &quot;&quot;).split(&quot;\n&quot;).length + 1))" placeholder="Jane Smith
 MIT CSAIL
 jane.smith@example.org" v-field="{ state: viewState, set: value =&gt; { terms = value }, value: terms, form: &quot;defaultsForm&quot;, options: { debounce: 250 } }"></textarea>
         <details class="settings-syntax"><summary>Regex &amp; replacement syntax</summary><p>Matches become <code>{{ site_options?.ANONYMIZATION_MASK || 'XXX' }}-[N]</code>. Use <code>term=&gt;replacement</code> for a custom replacement. Regex is supported.</p></details>
