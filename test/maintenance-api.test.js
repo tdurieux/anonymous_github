@@ -114,6 +114,14 @@ describe("maintenance settings patch", () => {
       "options.terms": [], "options.update": false,
     });
   });
+  it("normalizes preserveFiles patterns (#941)", () => {
+    expect(maintenanceSettings({ preserveFiles: [" refs.bib ", ""] })).to.deep.equal({
+      "options.preserveFiles": ["refs.bib"],
+    });
+    for (const body of [{ preserveFiles: "refs.bib" }, { preserveFiles: null }, { preserveFiles: ["../x"] }]) {
+      expect(() => maintenanceSettings(body)).to.throw("invalid_settings");
+    }
+  });
   it("rejects source changes, arbitrary option paths, invalid types and oversized terms", () => {
     for (const body of [null, [], {}, { source: {} }, { "options.update": true },
       { image: "false" }, { terms: [1] }, { terms: [""] }, { terms: ["a".repeat(1001)] },

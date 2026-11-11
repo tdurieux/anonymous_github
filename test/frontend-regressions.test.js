@@ -5,6 +5,10 @@ const path = require("path");
 const { setImmediate } = require("timers");
 const { URLSearchParams } = require("node:url");
 const source = fs.readFileSync(path.join(__dirname, "../public/script/app.js"), "utf8");
+require("ts-node/register/transpile-only");
+const minimatch = require("minimatch");
+const { compilePreserveMatcher } = require("../src/core/preserve-files");
+const { termHints, escapeTermLine } = require("../src/core/term-hints");
 
 function harness(date) {
   const defs = {}, routes = {}, timers = new Map();
@@ -18,6 +22,8 @@ function harness(date) {
     $: () => ({ on() {}, tooltip() {} }),
     setTimeout: fn => { timers.set(++timerId, fn); return timerId; },
     clearTimeout: id => timers.delete(id), setInterval: () => 0, clearInterval() {},
+    markRaw: value => value, globEscape: minimatch.escape, globUnescape: minimatch.unescape,
+    compilePreserveMatcher, termHints, escapeTermLine,
   };
   context.createTimers = () => ({ timeout: Object.assign(context.setTimeout, { cancel: context.clearTimeout }), interval: Object.assign(context.setInterval, { cancel: context.clearInterval }) });
   context.createListeners = () => (target, name, callback) => target.addEventListener(name, callback);
@@ -132,6 +138,27 @@ describe("frontend production regressions", function () {
     for (const route of ["/pr/:pullRequestId/:path(.*)*", "/gist/:gistId/:path(.*)*"]) {
       expect(h.routes[route].preserveExplorer).to.equal(false);
     }
+  });
+  it("saves picked files as anchored, escaped paths and folders as patterns (#941)", async function () {
+    const h = harness(); const timeout = () => 0; timeout.cancel = () => {};
+    h.context.document.getElementById = () => null;
+    h.defs.anonymizeController(h.scope, h.http, {}, {}, {}, () => {}, timeout);
+    h.scope.options.preserveFiles = ["*.bib"];
+    h.scope.source = { commit: "a".repeat(40) };
+    h.scope.sourceUrl = "https://github.com/owner/repo";
+    h.scope.openPreserveFiles();
+    const request = h.requests.at(-1);
+    expect(request.url).to.equal("/api/repo/owner/repo/tree");
+    expect(request.body.params.commit).to.equal("a".repeat(40));
+    request.resolve({ data: { files: ["configs/a.yaml", "configs/b.yaml", "paper/[draft].tex", "paper/refs.bib"], truncated: false } });
+    await h.flush();
+    expect(h.scope.preserveCount()).to.equal(1);
+    h.scope.togglePreserveFile("paper/[draft].tex");
+    h.scope.togglePreserveFolder("configs");
+    expect(h.scope.preserveCount()).to.equal(4);
+    h.scope.savePreserveFiles();
+    expect(Array.from(h.scope.options.preserveFiles)).to.deep.equal(["/paper/[[]draft[]].tex", "*.bib", "/configs/**"]);
+    expect(h.scope.preserveSummary()).to.equal("paper/[draft].tex, *.bib and 1 more");
   });
   it("includes PR comment authors and bodies in the preview batch", async function () {
     const h = harness(); const pending = new Map(); let id = 0;

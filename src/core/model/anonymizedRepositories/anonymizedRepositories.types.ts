@@ -49,6 +49,8 @@ export interface IAnonymizedRepository {
   conference: string;
   options: {
     terms: string[];
+    /** Glob patterns of files whose content skips term redaction (#941). */
+    preserveFiles?: string[];
     expirationMode: "never" | "redirect" | "remove";
     expirationDate?: Date;
     update: boolean;

@@ -16,6 +16,7 @@ import { lookup as lookupMime } from "mime-types";
 
 import config from "../config";
 import { TermPresenceIndex } from "./term-presence";
+import { isPreservedPath } from "./preserve-files";
 import {
   parseTermSpec,
   termVariants,
@@ -154,6 +155,11 @@ export class AnonymizeTransformer extends Transform {
   private spoolOperation?: Promise<void>;
   private readonly memoryThreshold = 256 * 1024;
   private readonly bufferWholeStream: boolean;
+  // Options actually applied to the content. Identical to `opt` except that
+  // files matching `preserveFiles` drop their terms (#941). `opt` keeps the
+  // full configuration because it is forwarded to the streamer and zip
+  // builder, which re-evaluate it per file.
+  private readonly contentOpt: ConstructorParameters<typeof ContentAnonimizer>[0];
 
   constructor(
     readonly opt: {
@@ -161,9 +167,11 @@ export class AnonymizeTransformer extends Transform {
       cacheGeneration?: string;
       cacheRevision?: string;
       decisionManaged?: boolean;
+      preserveFiles?: string[];
     } & ConstructorParameters<typeof ContentAnonimizer>[0]
   ) {
     super();
+    this.contentOpt = isPreservedPath(opt.filePath, opt.preserveFiles) ? { ...opt, terms: [] } : opt;
     // Tri-state: name-based check returns true (known text), false (known
     // binary), or null (name inconclusive). For null we defer to a content
     // sniff on the first chunk in _transform — known binary extensions
@@ -171,14 +179,14 @@ export class AnonymizeTransformer extends Transform {
     // reach the sniff path (#493).
     this.nameVerdict = classifyByName(this.opt.filePath);
     if (this.nameVerdict !== null) this.isText = this.nameVerdict;
-    this.anonimizer = new ContentAnonimizer(this.opt);
+    this.anonimizer = new ContentAnonimizer(this.contentOpt);
 
     // Matching a prefix in isolation can split even a fixed-length name or
     // turn the split into a false word boundary. Preserve the complete text
     // whenever a rewrite is enabled, with MAX_FILE_SIZE as a hard limit.
     this.bufferWholeStream =
       opt.link === false || opt.image === false ||
-      (opt.terms || []).length > 0 || !!(opt.repoName && opt.branchName);
+      (this.contentOpt.terms || []).length > 0 || !!(opt.repoName && opt.branchName);
   }
 
   get wasAnonimized() {
@@ -247,8 +255,8 @@ export class AnonymizeTransformer extends Transform {
       const output = join(this.spool, "output");
       const started = performance.now();
       const produce = () => anonymizeOnWorker({ input: join(this.spool!, "input"), output,
-        options: this.opt, maxOutput: config.MAX_FILE_SIZE * 4, context: { mask: config.ANONYMIZATION_MASK, hostname: config.APP_HOSTNAME } }, this.wholeBytes, this.cancelled.signal);
-      void (this.opt.decisionManaged ? produce() : transformedFile(this.digest.digest("hex"), this.opt, output, produce))
+        options: this.contentOpt, maxOutput: config.MAX_FILE_SIZE * 4, context: { mask: config.ANONYMIZATION_MASK, hostname: config.APP_HOSTNAME } }, this.wholeBytes, this.cancelled.signal);
+      void (this.opt.decisionManaged ? produce() : transformedFile(this.digest.digest("hex"), this.contentOpt, output, produce))
         .then(changed => {
           if (this.destroyed) return;
           this.anonimizer.wasAnonymized = changed;

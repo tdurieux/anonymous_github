@@ -208,11 +208,56 @@
 
             <div class="form-group">
               <label class="paper-field-label" for="terms">Terms to redact</label>
-              <textarea class="form-control" id="terms" name="terms" rows="4" placeholder="Jane Smith&#10;MIT CSAIL&#10;jane.smith@example.org" v-field="{ state: viewState, set: value =&gt; { terms = value }, value: terms, form: &quot;anonymize&quot;, options: { debounce: 250 } }" :class="{&#x27;is-invalid&#x27;: anonymize?.terms?.invalid}"></textarea>
+              <textarea class="form-control terms-input" id="terms" name="terms" :rows="Math.min(14, Math.max(4, String(terms || &quot;&quot;).split(&quot;\n&quot;).length + 1))" placeholder="Jane Smith&#10;MIT CSAIL&#10;jane.smith@example.org" v-field="{ state: viewState, set: value =&gt; { terms = value }, value: terms, form: &quot;anonymize&quot;, options: { debounce: 250 } }" :class="{&#x27;is-invalid&#x27;: anonymize?.terms?.invalid}"></textarea>
               <small class="form-text text-muted">One term per line.</small><details class="redaction-syntax"><summary>Regex &amp; replacement syntax</summary>              <small class="form-text text-muted">Regex is supported. Replaced by <code>{{ site_options?.ANONYMIZATION_MASK }}-[N]</code>, or use <code>term=&gt;replacement</code> to pick your own (e.g. <code>Anonymous=&gt;ABC</code>).</small></details>
-              <div class="warning-feedback" v-show="termsRegexWarning">Regex characters detected. Escape them if unintentional.</div>
+              <div class="term-hint" v-for="hint in (termHints || []).slice(0, 3)" :key="hint.line">
+                <span>In <code>{{ hint.term }}</code>, <code>{{ hint.symbols.join(" ") }}</code> {{ hint.symbols.length > 1 ? "are regex symbols" : "is a regex symbol" }}, so it may not match the text as written.</span>
+                <button type="button" class="btn btn-outline-ink btn-sm" @click="matchTermAsWritten(hint.line)">Match as written</button>
+              </div>
+              <div class="term-hint-more" v-if="(termHints || []).length > 3">{{ termHints.length - 3 }} more {{ termHints.length - 3 === 1 ? "term uses" : "terms use" }} regex symbols.</div>
               <div class="invalid-feedback" v-show="anonymize?.terms?.errors?.format">Terms are in an invalid format.</div>
             </div>
+            <div class="preserve-row" v-show="detectedType === &#x27;repo&#x27;">
+              <div class="preserve-row-text">
+                <span class="paper-field-label" id="preserve-files-label">Unredacted files</span>
+                <span class="preserve-row-value">{{ preserveSummary() }}</span>
+              </div>
+              <button type="button" class="btn btn-outline-ink btn-sm" aria-describedby="preserve-files-label" :disabled="!source?.commit" @click="openPreserveFiles()">{{ (options?.preserveFiles || []).length ? "Edit" : "Choose files" }}</button>
+            </div>
+            <dialog id="preserve-files-dialog" class="preserve-dialog" v-if="preserve?.open" aria-labelledby="preserve-files-title" @cancel.prevent="closePreserveFiles()">
+              <form @submit.prevent="savePreserveFiles()">
+                <h2 id="preserve-files-title">Leave files unredacted</h2>
+                <p class="preserve-intro">Checked files are shown exactly as written, for example a bibliography where redacted self-citations would reveal you. File names are still redacted.</p>
+                <input type="search" id="preserve-files-search" class="form-control" placeholder="Search files" aria-label="Search files" autocomplete="off" v-model="preserve.search">
+                <div class="preserve-tree">
+                  <p class="preserve-status" v-if="preserve.loading">Loading files from GitHub…</p>
+                  <p class="paper-inline-alert paper-inline-alert-error" role="alert" v-else-if="preserve.error">{{ preserve.error }}</p>
+                  <template v-else>
+                    <div class="preserve-item" v-for="(row, i) in preserveRows()" :key="row.kind + ':' + row.path" :style="{ paddingLeft: (row.depth * 18 + 6) + &quot;px&quot; }">
+                      <button type="button" class="preserve-caret" v-if="row.kind === &#x27;dir&#x27;" :aria-expanded="row.open ? &quot;true&quot; : &quot;false&quot;" :aria-label="(row.open ? &quot;Collapse &quot; : &quot;Expand &quot;) + row.label" @click="togglePreserveDir(row.path)">{{ row.open ? "▾" : "▸" }}</button>
+                      <span class="preserve-caret-space" v-else></span>
+                      <input type="checkbox" :id="&quot;pf-&quot; + i" :aria-label="row.kind === &#x27;dir&#x27; ? &quot;Leave folder &quot; + row.path + &quot; unredacted&quot; : null" :checked="row.state === &#x27;all&#x27;" :indeterminate.prop="row.state === &#x27;some&#x27;" :disabled="row.locked" @change="row.kind === &#x27;dir&#x27; ? togglePreserveFolder(row.path) : togglePreserveFile(row.path)">
+                      <label :for="row.kind === &#x27;file&#x27; ? &quot;pf-&quot; + i : null" class="preserve-name" @click="row.kind === &#x27;dir&#x27; &amp;&amp; togglePreserveDir(row.path)">{{ row.label }}</label>
+                      <span class="preserve-note" v-if="row.note">{{ row.note }}</span>
+                    </div>
+                    <p class="preserve-status" v-if="!preserve.loading &amp;&amp; !preserveRows().length">{{ preserve.search ? "No file matches your search." : "No text files in this commit." }}</p>
+                  </template>
+                </div>
+                <p class="preserve-status" v-if="preserve.truncated">This repository has too many files to list them all. Use a pattern for files you cannot find.</p>
+                <details class="preserve-patterns" :open="preserve.patternsOpen">
+                  <summary>Patterns</summary>
+                  <textarea class="form-control" rows="3" aria-label="Patterns" placeholder="*.bib&#10;paper/appendix/**" v-model="preserve.patterns"></textarea>
+                  <small class="form-text text-muted">One per line, as in .gitignore: <code>*.bib</code> matches in any folder; <code>/refs.bib</code> and <code>paper/refs.bib</code> match from the repository root.</small>
+                </details>
+                <div class="preserve-foot">
+                  <span class="preserve-count" aria-live="polite">{{ preserve.loading || preserve.error ? "" : preserveCount() + (preserveCount() === 1 ? " file" : " files") + " will be shown as written" }}</span>
+                  <span class="preserve-actions">
+                    <button type="button" class="btn btn-outline-ink" @click="closePreserveFiles()">Cancel</button>
+                    <button type="submit" class="btn btn-ink">Save</button>
+                  </span>
+                </div>
+              </form>
+            </dialog>
           </section>
 
           <section class="paper-settings-section" v-show="detectedType">

@@ -30,7 +30,10 @@ an admin token or browser cookie. Maintenance tokens cannot log into the UI.
 2. PATCH the same URL with only the settings to change, for example:
    {"terms":["Alice Smith","Example University"],"image":false,"update":false}
    Omitted settings stay unchanged. terms replaces the whole term list;
-   [] clears it. Supported boolean fields: update, image, pdf, notebook, link.
+   [] clears it. preserveFiles is a list of .gitignore-style patterns
+   (*.bib, /refs.bib, paper/**) whose file content is served without term
+   redaction; file names are still redacted. Supported boolean fields: update, image, pdf,
+   notebook, link.
    update controls automatic snapshot updates. Settings edits work in ready
    or error state, and cannot change the upstream source or connection.
 3. POST /api/repo/{repoId}/refresh with {} requests the latest snapshot of the

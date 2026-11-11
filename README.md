@@ -25,7 +25,7 @@ A free public instance is available at **[anonymous.4open.science](https://anony
 
 - The GitHub **owner, organization, and repository name**
 - **File and directory names**
-- **File contents** of every extension (Markdown, text, source code, …), replacing a configurable list of terms
+- **File contents** of every extension (Markdown, text, source code, …), replacing a configurable list of terms. Files you choose under "Unredacted files" (e.g. `paper/refs.bib`, or a pattern such as `*.bib`) keep their content as written, so redacted self-citations do not single out the authors; their names are still redacted
 
 ## Usage
 

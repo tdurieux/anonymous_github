@@ -3,6 +3,9 @@ import { reactive, nextTick, markRaw } from "vue";
 import { loadEditor } from "./lazy-assets.js";
 import { createTimers, createListeners } from "./state.js";
 import { formDraft } from "./drafts.js";
+import { escape as globEscape, unescape as globUnescape } from "minimatch";
+import { compilePreserveMatcher } from "../../src/core/preserve-files";
+import { termHints, escapeTermLine } from "../../src/core/term-hints";
 import translations from "../i18n/locale-en.json";
 
 // A README image that fails to load becomes a quiet placeholder, not a broken-image glyph.
@@ -2058,6 +2061,153 @@ export const anonymizeController = function (state, http, html, params, location
       // debounced and the in-flight request is dropped on the next change so
       // typing in the form stays responsive.
 
+      // ---- "Leave files unredacted" picker (#941) ----
+      // Picked files are saved as root-anchored, escaped paths ("/paper/refs.bib");
+      // folders and anything typed by hand are saved as patterns.
+      const globOpts = { windowsPathsNoEscape: true };
+      const isPickedPattern = (p) => p.startsWith("/") && globEscape(globUnescape(p.slice(1), globOpts), globOpts) === p.slice(1);
+      const folderPattern = (dir) => "/" + globEscape(dir, globOpts) + "/**";
+      const patternLines = () => String(state.preserve.patterns || "").split("\n").map((l) => l.trim()).filter(Boolean);
+      let preserveIndex = null;
+      let matcherKey = null;
+      let matcherFn = () => false;
+      function patternMatcher() {
+        const key = state.preserve.patterns;
+        if (key !== matcherKey) {
+          matcherKey = key;
+          try { matcherFn = compilePreserveMatcher(patternLines()); } catch { matcherFn = () => false; }
+        }
+        return matcherFn;
+      }
+      function buildPreserveIndex(files) {
+        const dirs = new Map([["", { dirs: [], files: [] }]]);
+        for (const file of files) {
+          const parts = file.split("/");
+          let parent = "";
+          for (let i = 0; i < parts.length - 1; i++) {
+            const dir = parts.slice(0, i + 1).join("/");
+            if (!dirs.has(dir)) { dirs.set(dir, { dirs: [], files: [] }); dirs.get(parent).dirs.push(dir); }
+            parent = dir;
+          }
+          dirs.get(parent).files.push(file);
+        }
+        for (const entry of dirs.values()) entry.dirs.sort();
+        return { files, dirs, descendants: new Map() };
+      }
+      function descendants(dir) {
+        if (!preserveIndex.descendants.has(dir)) {
+          preserveIndex.descendants.set(dir, preserveIndex.files.filter((f) => f.startsWith(dir + "/")));
+        }
+        return preserveIndex.descendants.get(dir);
+      }
+      const fileChecked = (file) => !!state.preserve.picked[file] || patternMatcher()(file);
+      function dirState(dir) {
+        const files = descendants(dir);
+        let checked = 0;
+        for (const f of files) if (fileChecked(f)) checked++;
+        return checked === 0 ? "none" : checked === files.length ? "all" : "some";
+      }
+      state.preserve = { open: false, loading: false, error: "", truncated: false, commit: "", search: "", expanded: {}, picked: {}, patterns: "", patternsOpen: false };
+      state.preserveSummary = () => {
+        const list = (state.options?.preserveFiles || []).map((p) => String(p).trim()).filter(Boolean)
+          .map((p) => isPickedPattern(p) ? globUnescape(p.slice(1), globOpts) : p);
+        if (!list.length) return "None. Every file is redacted.";
+        return list.slice(0, 2).join(", ") + (list.length > 2 ? ` and ${list.length - 2} more` : "");
+      };
+      async function loadPreserveTree() {
+        const commit = state.source?.commit;
+        if (preserveIndex && state.preserve.commit === commit) return;
+        state.preserve.loading = true;
+        state.preserve.error = "";
+        preserveIndex = null;
+        try {
+          const o = parseGithubUrl(state.sourceUrl);
+          const res = await http.get(`/api/repo/${o.owner}/${o.repo}/tree`, {
+            params: { commit, connection: state.githubConnection, anonymizedRepoId: state.isUpdate && params.repoId && parseRepoFullName(state.sourceUrl) === state._originalFullName ? params.repoId : undefined, repositoryID: sourceRepositoryID() },
+          });
+          if (state.source?.commit !== commit) return;
+          preserveIndex = markRaw(buildPreserveIndex(res.data.files || []));
+          state.preserve.commit = commit;
+          state.preserve.truncated = !!res.data.truncated;
+        } catch (error) {
+          state.preserve.error = "The file list could not be loaded from GitHub. You can still use patterns.";
+          state.preserve.patternsOpen = true;
+        } finally {
+          state.preserve.loading = false;
+        }
+      }
+      state.openPreserveFiles = () => {
+        const picked = {};
+        const patterns = [];
+        for (const raw of state.options?.preserveFiles || []) {
+          const p = String(raw).trim();
+          if (!p) continue;
+          if (isPickedPattern(p)) picked[globUnescape(p.slice(1), globOpts)] = true;
+          else patterns.push(p);
+        }
+        const expanded = {};
+        for (const file of Object.keys(picked)) {
+          const parts = file.split("/");
+          for (let i = 1; i < parts.length; i++) expanded[parts.slice(0, i).join("/")] = true;
+        }
+        Object.assign(state.preserve, { open: true, search: "", picked, expanded, patterns: patterns.join("\n"), patternsOpen: patterns.length > 0 });
+        timeout(() => {
+          const dialog = document.getElementById("preserve-files-dialog");
+          if (dialog?.showModal && !dialog.open) dialog.showModal();
+          document.getElementById("preserve-files-search")?.focus();
+        }, 0);
+        loadPreserveTree();
+      };
+      state.closePreserveFiles = () => {
+        document.getElementById("preserve-files-dialog")?.close?.();
+        state.preserve.open = false;
+      };
+      state.savePreserveFiles = () => {
+        const picked = Object.keys(state.preserve.picked).filter((f) => state.preserve.picked[f]).sort()
+          .map((f) => "/" + globEscape(f, globOpts));
+        state.options.preserveFiles = [...picked, ...patternLines().filter((p) => !picked.includes(p))];
+        state.closePreserveFiles();
+      };
+      state.preserveRows = () => {
+        if (!preserveIndex) return [];
+        const matcher = patternMatcher();
+        const fileRow = (file, depth, label) => {
+          const byPattern = !state.preserve.picked[file] && matcher(file);
+          return { kind: "file", path: file, label, depth, state: state.preserve.picked[file] || byPattern ? "all" : "none", locked: byPattern, note: byPattern ? "matched by a pattern" : "" };
+        };
+        const search = String(state.preserve.search || "").trim().toLowerCase();
+        if (search) {
+          return preserveIndex.files.filter((f) => f.toLowerCase().includes(search)).slice(0, 300).map((f) => fileRow(f, 0, f));
+        }
+        const rows = [];
+        const walk = (dir, depth) => {
+          const entry = preserveIndex.dirs.get(dir);
+          for (const sub of entry.dirs) {
+            const open = !!state.preserve.expanded[sub];
+            const ownPattern = patternLines().includes(folderPattern(sub));
+            rows.push({ kind: "dir", path: sub, label: sub.slice(dir ? dir.length + 1 : 0) + "/", depth, open, state: dirState(sub), locked: false, note: ownPattern ? "whole folder" : "" });
+            if (open) walk(sub, depth + 1);
+          }
+          for (const file of entry.files) rows.push(fileRow(file, depth, file.slice(dir ? dir.length + 1 : 0)));
+        };
+        walk("", 0);
+        return rows;
+      };
+      state.preserveCount = () => preserveIndex ? preserveIndex.files.filter(fileChecked).length : 0;
+      state.togglePreserveDir = (dir) => { state.preserve.expanded[dir] = !state.preserve.expanded[dir]; };
+      state.togglePreserveFile = (file) => { state.preserve.picked[file] = !state.preserve.picked[file]; };
+      state.togglePreserveFolder = (dir) => {
+        const own = folderPattern(dir);
+        const lines = patternLines();
+        const wasChecked = dirState(dir) === "all" || lines.includes(own);
+        for (const f of descendants(dir)) state.preserve.picked[f] = false;
+        if (wasChecked) {
+          state.preserve.patterns = lines.filter((l) => l !== own).join("\n");
+        } else {
+          state.preserve.patterns = [...lines, own].join("\n");
+        }
+      };
+
       function previewOptions() {
         const opts = {
           terms: state.terms ? state.terms.split("\n") : [],
@@ -2144,8 +2294,6 @@ export const anonymizeController = function (state, http, html, params, location
         if (!state.anonymize || !state.anonymize.terms) return;
         // The "regex characters detected" hint is informational, not a blocker
         // — IP addresses, escaped chars, etc. are all legitimate terms (#430).
-        state.termsRegexWarning =
-          !!state.terms && !!state.terms.match(/[-[\]{}()*+?.,\\^$|#]/g);
         scheduleReadmePreview();
       }
 
@@ -2371,7 +2519,7 @@ export const anonymizeController = function (state, http, html, params, location
         setValidity("commit", "exists", true);
         setValidity("conference", "activated", true);
         setValidity("terms", "format", true);
-        state.termsRegexWarning = false;
+        state.termHints = [];
       }
 
       // Guards against submitting a missing or out-of-range expiration date.
@@ -2587,7 +2735,12 @@ export const anonymizeController = function (state, http, html, params, location
       };
 
       state.watch("conference", () => { getConference(); });
+      state.termHints = [];
+      state.matchTermAsWritten = (line) => {
+        state.terms = escapeTermLine(state.terms, line);
+      };
       state.watch("terms", () => {
+        state.termHints = termHints(state.terms);
         if (state.detectedType === "repo") anonymizeReadme();
         if (state.detectedType === "pr") refreshPrPreview();
         if (state.detectedType === "gist") refreshGistPreview();
