@@ -4,7 +4,7 @@ import { loadEditor } from "./lazy-assets.js";
 import { createTimers, createListeners } from "./state.js";
 import { formDraft } from "./drafts.js";
 import { escape as globEscape, unescape as globUnescape } from "minimatch";
-import { compilePreserveMatcher } from "../../src/core/preserve-files";
+import { compilePreserveMatcher, dedupePreservePatterns } from "../../src/core/preserve-files";
 import { termHints, escapeTermLine } from "../../src/core/term-hints";
 import translations from "../i18n/locale-en.json";
 
@@ -2139,12 +2139,15 @@ export const anonymizeController = function (state, http, html, params, location
         }
       }
       state.openPreserveFiles = () => {
+        // Picks are saved first, so only the leading run of plain paths can be
+        // shown as picks; a plain path after another rule stays a pattern to
+        // keep its place in the order.
         const picked = {};
         const patterns = [];
         for (const raw of state.options?.preserveFiles || []) {
           const p = String(raw).trim();
           if (!p) continue;
-          if (isPickedPattern(p)) picked[globUnescape(p.slice(1), globOpts)] = true;
+          if (!patterns.length && isPickedPattern(p)) picked[globUnescape(p.slice(1), globOpts)] = true;
           else patterns.push(p);
         }
         const expanded = {};
@@ -2167,7 +2170,7 @@ export const anonymizeController = function (state, http, html, params, location
       state.savePreserveFiles = () => {
         const picked = Object.keys(state.preserve.picked).filter((f) => state.preserve.picked[f]).sort()
           .map((f) => "/" + globEscape(f, globOpts));
-        state.options.preserveFiles = [...picked, ...patternLines().filter((p) => !picked.includes(p))];
+        state.options.preserveFiles = dedupePreservePatterns([...picked, ...patternLines()]);
         state.closePreserveFiles();
       };
       state.preserveRows = () => {

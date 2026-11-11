@@ -68,6 +68,14 @@ describe("preserveFiles (#941)", function () {
     it("trims, drops blanks and duplicates", function () {
       expect(normalizePreserveFiles([" refs.bib ", "", "refs.bib", "*.bib"]))
         .to.deep.equal(["refs.bib", "*.bib"]);
+    });
+
+    it("keeps the last copy of a repeated rule so the result does not change", function () {
+      const raw = ["!a.bib", "*.bib", "!a.bib"];
+      const normalized = normalizePreserveFiles(raw);
+      expect(normalized).to.deep.equal(["*.bib", "!a.bib"]);
+      expect(isPreservedPath("a.bib", normalized)).to.equal(isPreservedPath("a.bib", raw));
+      expect(isPreservedPath("a.bib", normalized)).to.equal(false);
       expect(normalizePreserveFiles(undefined)).to.deep.equal([]);
       expect(normalizePreserveFiles(["/refs.bib", "!private.bib", "/a\\{b\\}"])).to.deep.equal(["/refs.bib", "!private.bib", "/a\\{b\\}"]);
     });

@@ -7,7 +7,7 @@ const { URLSearchParams } = require("node:url");
 const source = fs.readFileSync(path.join(__dirname, "../public/script/app.js"), "utf8");
 require("ts-node/register/transpile-only");
 const minimatch = require("minimatch");
-const { compilePreserveMatcher } = require("../src/core/preserve-files");
+const { compilePreserveMatcher, dedupePreservePatterns } = require("../src/core/preserve-files");
 const { termHints, escapeTermLine } = require("../src/core/term-hints");
 
 function harness(date) {
@@ -23,7 +23,7 @@ function harness(date) {
     setTimeout: fn => { timers.set(++timerId, fn); return timerId; },
     clearTimeout: id => timers.delete(id), setInterval: () => 0, clearInterval() {},
     markRaw: value => value, globEscape: minimatch.escape, globUnescape: minimatch.unescape,
-    compilePreserveMatcher, termHints, escapeTermLine,
+    compilePreserveMatcher, dedupePreservePatterns, termHints, escapeTermLine,
   };
   context.createTimers = () => ({ timeout: Object.assign(context.setTimeout, { cancel: context.clearTimeout }), interval: Object.assign(context.setInterval, { cancel: context.clearInterval }) });
   context.createListeners = () => (target, name, callback) => target.addEventListener(name, callback);
@@ -174,6 +174,19 @@ describe("frontend production regressions", function () {
     expect(h.scope.preserveCount()).to.equal(1);
     h.scope.togglePreserveFile("a.bib");
     expect(h.scope.preserveCount()).to.equal(1);
+  });
+  it("keeps the order of saved rules when the picker opens and saves (#941)", function () {
+    const h = harness(); const timeout = () => 0; timeout.cancel = () => {};
+    h.context.document.getElementById = () => null;
+    h.defs.anonymizeController(h.scope, h.http, {}, {}, {}, () => {}, timeout);
+    h.scope.options.preserveFiles = ["/a.bib", "*.bib", "!/refs.bib", "/refs.bib"];
+    h.scope.source = { commit: "a".repeat(40) };
+    h.scope.sourceUrl = "https://github.com/owner/repo";
+    h.scope.openPreserveFiles();
+    expect(Object.keys(h.scope.preserve.picked)).to.deep.equal(["a.bib"]);
+    expect(h.scope.preserve.patterns).to.equal("*.bib\n!/refs.bib\n/refs.bib");
+    h.scope.savePreserveFiles();
+    expect(Array.from(h.scope.options.preserveFiles)).to.deep.equal(["/a.bib", "*.bib", "!/refs.bib", "/refs.bib"]);
   });
   it("shows the README unredacted in the preview when it is an unredacted file (#941)", function () {
     const h = harness(); const timeout = () => 0; timeout.cancel = () => {};

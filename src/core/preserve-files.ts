@@ -22,6 +22,14 @@ function parsePattern(pattern: string) {
   return { negated, anchored, body };
 }
 
+/**
+ * Drops repeated patterns but keeps the last copy: rules apply in order and
+ * the last match wins, so an earlier copy can never decide the result.
+ */
+export function dedupePreservePatterns(patterns: string[]): string[] {
+  return patterns.filter((pattern, index) => patterns.lastIndexOf(pattern) === index);
+}
+
 /** Returns the normalized patterns, or null when the input is invalid. */
 export function normalizePreserveFiles(value: unknown): string[] | null {
   if (value === undefined || value === null) return [];
@@ -34,9 +42,10 @@ export function normalizePreserveFiles(value: unknown): string[] | null {
     if (pattern.length > MAX_PRESERVE_PATTERN_LENGTH) return null;
     const { body } = parsePattern(pattern);
     if (!body || body.split("/").some(segment => segment === ".." || segment === "")) return null;
-    if (!patterns.includes(pattern)) patterns.push(pattern);
+    patterns.push(pattern);
   }
-  return patterns.length > MAX_PRESERVE_PATTERNS ? null : patterns;
+  const unique = dedupePreservePatterns(patterns);
+  return unique.length > MAX_PRESERVE_PATTERNS ? null : unique;
 }
 
 /**
