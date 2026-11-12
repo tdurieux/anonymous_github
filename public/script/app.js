@@ -1,4 +1,4 @@
-import { setupBilling, readBilling } from "./billing.js";
+import { setupBilling, readBilling, isRepositoryAddon } from "./billing.js";
 import { reactive, nextTick, markRaw } from "vue";
 import { loadEditor } from "./lazy-assets.js";
 import { createTimers, createListeners } from "./state.js";
@@ -193,7 +193,7 @@ export const mainController = function (state, http, location, timeout) {
       state.previewTabKeydown = previewTabKeydown;
       state.headerCanUpgrade = false;
       state.headerShowSupport = false;
-      state.headerBillingPending = ["success", "portal"].includes(new URLSearchParams(window.location.search).get("billing"));
+      state.headerBillingPending = new URLSearchParams(window.location.search).get("billing") === "success";
       const updateHeaderBilling = billing => {
         state.headerShowSupport = !(billing?.grants || []).some(g => ["active", "paid", "past_due"].includes(g.status) && new Date(g.until).getTime() > Date.now());
         const subscribed = (billing?.grants || []).some(g => ["author_monthly", "author_annual"].includes(g.planId) && ["active", "paid", "past_due"].includes(g.status) && new Date(g.until).getTime() > Date.now());
@@ -372,7 +372,8 @@ export const profileController = function (state, http, translate, timeout, quot
       state.profilePastSubscription = () => !state.profileAuthorGrant() && (state.billing?.grants || []).some(g => ["author_monthly", "author_annual"].includes(g.planId));
       state.showAuthorPlans = new URLSearchParams(window.location.search).get("upgrade") === "1";
       state.showRepositoryPass = false;
-      state.profilePlan = "author_monthly";
+      // Yearly is the better deal, so it is shown first.
+      state.profilePlan = "author_annual";
       state.openProfileUpgrade = () => {
         state.settingsTab = "billing";
         state.showAuthorPlans = true;
@@ -382,10 +383,78 @@ export const profileController = function (state, http, translate, timeout, quot
       state.profileAuthorPlans = () => (state.billing?.plans || []).filter(p => ["author_monthly", "author_annual"].includes(p.id));
       state.profileSelectedPlan = () => state.profileAuthorPlans().find(p => p.id === state.profilePlan) || state.profileAuthorPlans()[0];
       state.profilePassPlan = () => (state.billing?.plans || []).find(p => p.id === "author_pass");
+      // The Paper pack covers the usual case, so it is listed first.
+      state.profileAddonPlans = () => (state.billing?.plans || []).filter(p => isRepositoryAddon(p.id))
+        .sort((a, b) => Number(b.id === "repo_pack") - Number(a.id === "repo_pack"));
+      state.profileAddonId = "repo_pack";
+      state.profilePackPlan = () => (state.billing?.plans || []).find(p => p.id === "repo_pack");
+      state.profileSlotPlan = () => (state.billing?.plans || []).find(p => p.id === "repo_slot");
+      state.profileRepositories = () => (state.billing?.repositories || []).filter(r => r.status !== "removed");
+      state.openProfileAddon = (planId) => {
+        if (planId) state.profileAddonId = planId;
+        state.showRepositoryPass = true;
+        state.billingRepository = "";
+        nextTick(() => {
+          const panel = document.getElementById("settings-addons-title");
+          panel?.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
+          panel?.focus?.({ preventScroll: true });
+        });
+      };
+      const addonOrder = ["repo_slot", "author_pass", "repo_extend", "repo_never"];
+      state.profileSingleAddons = () => state.profileAddonPlans().filter(p => p.id !== "repo_pack")
+        .sort((a, b) => addonOrder.indexOf(a.id) - addonOrder.indexOf(b.id));
+      state.profileSingleId = "repo_slot";
+      state.profileSingleAddon = () => state.profileSingleAddons().find(p => p.id === state.profileSingleId) || state.profileSingleAddons()[0];
+      state.profileCheapestAddon = () => [...state.profileSingleAddons()].sort((a, b) => (a.amount ?? Infinity) - (b.amount ?? Infinity))[0];
+      state.profileAuthorPlansByValue = () => [...state.profileAuthorPlans()].sort((a, b) => Number(a.interval === "year") - Number(b.interval === "year"));
+      // One line for a pack's three parts.
+      state.profilePackSummary = p => p.parts.map(part => part.planId === "repo_slot" ? "Extra repository"
+        : `${state.profileGrantName(part)} until ${state.billingDate(part.until)}`).join(" · ");
+      state.profileAddonFeatures = id => ({
+        repo_pack: ["One more repository, outside your free ones", `Its own ${state.billingBytes(state.profileSlotPlan()?.storage || state.profilePassPlan()?.storage)} of storage`, "Automatic updates for 180 days", "Online for up to a year", "No subscription"],
+        repo_slot: ["One more repository, outside your free ones", `Its own ${state.billingBytes(state.profileSlotPlan()?.storage)} of storage`, "Valid while the repository exists", "Refresh it by hand"],
+        author_pass: ["Automatic updates for 180 days", `Its own ${state.billingBytes(state.profilePassPlan()?.storage)} of storage`, "No subscription"],
+        repo_extend: ["Online for up to one more year", "Buy again to add another year", "No subscription"],
+        repo_never: ["The link never expires", "No subscription", "Ends only if the payment is refunded"],
+      }[id] || []);
+      state.profileAddonBlurb = id => ({ repo_slot: "One more repository", author_pass: "Auto-updates for 180 days",
+        repo_extend: "Online one more year", repo_never: "The link never expires" }[id] || "");
+      state.profileAuthorPurchase = () => (state.billing?.purchases || []).find(p => p.recurring && ["active", "overdue"].includes(p.status));
+      state.profileRepositoryExpiry = repo => repo.status === "expired" ? "expired"
+        : repo.expirationMode === "never" ? "never expires" : repo.expirationDate ? "expires " + state.billingDate(repo.expirationDate) : "no date";
+      // Annual saving against twelve monthly payments, in whole percent.
+      state.profileAnnualSavings = () => {
+        const monthly = state.profileAuthorPlans().find(p => p.interval === "month")?.amount;
+        const annual = state.profileAuthorPlans().find(p => p.interval === "year")?.amount;
+        return monthly && annual && annual < monthly * 12 ? Math.round((1 - annual / (monthly * 12)) * 100) : 0;
+      };
+      state.profilePurchases = active => (state.billing?.purchases || []).filter(p => ["active", "overdue"].includes(p.status) === active);
+      state.profilePurchaseStatus = p => ({ active: "Active", overdue: "Payment overdue", ended: "Ended", refunded: "Refunded", disputed: "Disputed" }[p.status] || p.status);
+      // Plain wording for how long a purchase lasts; the "no end" sentinel is never shown.
+      state.profilePurchaseTerm = p => {
+        const ended = p.status && !["active", "overdue"].includes(p.status);
+        if (p.recurring) return ended ? (p.until ? "Ended " + state.billingDate(p.until) : "") : (p.cancelAtPeriodEnd ? "Ends " : "Renews ") + state.billingDate(p.until);
+        if (p.planId === "repo_pack") {
+          const dates = p.parts.map(part => part.until).filter(Boolean).map(d => new Date(d).getTime());
+          return ended || !dates.length ? "" : "Until " + state.billingDate(new Date(Math.max(...dates)));
+        }
+        if (!p.until) return ended ? "" : p.planId === "repo_slot" ? "While the repository exists" : "No expiration";
+        return (ended || new Date(p.until).getTime() < Date.now() ? "Ended " : "Until ") + state.billingDate(p.until);
+      };
+      state.profileAddon = () => state.profileAddonPlans().find(p => p.id === state.profileAddonId) || state.profileAddonPlans()[0];
       state.profileAuthorGrant = () => (state.billing?.grants || []).find(g => ["author_monthly", "author_annual"].includes(g.planId) && ["active", "paid", "past_due"].includes(g.status) && new Date(g.until).getTime() > Date.now());
-      state.profileGrantName = grant => ({ author_monthly: "Author monthly", author_annual: "Author annual", author_pass: "Repository pass", conference: "Conference hosting" }[grant.planId] || grant.planId);
+      // The cheapest conference package, for the "from" price.
+      state.profileConferencePlan = () => (state.billing?.plans || []).filter(p => ["conference_workshop", "conference", "conference_large"].includes(p.id) && p.amount != null)
+        .sort((a, b) => a.amount - b.amount)[0];
+      state.profileGrantName = grant => ({ author_monthly: "Author monthly", author_annual: "Author annual", author_pass: "Live updates", repo_extend: "Extended expiration", repo_never: "Never expire", repo_slot: "Extra repository", repo_pack: "Paper pack", conference: "Conference package", conference_workshop: "Workshop package", conference_large: "Large conference package" }[grant.planId] || grant.planId);
 
-      setupBilling(state, http, () => quotaService.load().then(quota => { state.quota = quota; }, console.error));
+      setupBilling(state, http, () => quotaService.load().then(quota => { state.quota = quota; }, console.error), {
+        portalMessage: () => {
+          const grant = state.profileAuthorGrant();
+          if (!grant) return "Your billing details are up to date.";
+          return grant.cancelAtPeriodEnd ? `Renewal cancelled. Your access continues until ${state.billingDate(grant.until)}.` : `Your subscription renews on ${state.billingDate(grant.until)}.`;
+        },
+      });
       state.terms = "";
       state.options = {
         expirationMode: "remove",
@@ -1232,27 +1301,30 @@ export const unifiedDashboardController = function (state, http, location, promi
         const toast = reactive({
           title: `Extending ${item._id}...`,
           date: new Date(),
-          body: `The expiration of ${label} ${item._id} is going to be extended by 6 months.`,
+          body: `The expiration of ${label} ${item._id} is being extended.`,
         });
         state.addToast(toast);
         const endpoint = `${apiBaseOf(item._type)}/${item._id}/extend`;
         http.post(endpoint).then(
-          () => {
+          (res) => {
+            const until = res?.data?.expirationDate ? ` until ${new Date(res.data.expirationDate).toLocaleDateString()}` : "";
             if (item._type === "repo") {
               waitRepoToBeReady(item._id, () => {
                 toast.title = `${item._id} is extended.`;
-                toast.body = `The expiration of ${label} ${item._id} is extended by 6 months.`;
+                toast.body = `${label} ${item._id} is extended${until}.`;
 
               }, undefined, item.status);
             } else {
               toast.title = `${item._id} is extended.`;
-              toast.body = `The expiration of ${label} ${item._id} is extended by 6 months.`;
+              toast.body = `${label} ${item._id} is extended${until}.`;
               loadAll();
             }
           },
           (error) => {
             toast.title = `Error during the extension of ${item._id}.`;
-            toast.body = (error.data && error.data.error) || error.body;
+            const code = error.data && error.data.error;
+            toast.body = code || error.body;
+            if (code && Object.prototype.hasOwnProperty.call(translations.ERRORS, code)) toast.body = translations.ERRORS[code];
             loadAll();
           }
         );
@@ -1447,7 +1519,7 @@ export const anonymizeController = function (state, http, html, params, location
           state.editRepository();
           return;
         }
-        if (state.hostingNeedsPayment()) return state.checkoutRepository();
+        if (state.hostingNeedsPayment()) return state.checkoutRepository(isRepositoryAddon(state.hostingChoice()) ? state.hostingChoice() : "");
         return state.anonymizeRepo(event);
       };
       state.hostingPayment = false;
@@ -1457,7 +1529,7 @@ export const anonymizeController = function (state, http, html, params, location
         const amount = new Intl.NumberFormat(undefined, { style: "currency", currency: plan.currency, minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(plan.amount / 100);
         return amount + (plan.interval === "year" ? " billed annually" : " billed monthly");
       };
-      state.hostingPlan = "author_monthly";
+      state.hostingPlan = "";
       state.hostingSaving = false;
       state.selectedHostingPlan = () => state.authorPlans().find(p => p.id === state.hostingPlan) || state.authorPlans()[0];
       const loadHostingQuota = () => http.get("/api/user/quota").then(res => { state.hostingQuota = res.data; });
@@ -1467,15 +1539,59 @@ export const anonymizeController = function (state, http, html, params, location
       }, { confirmedMessage: "Hosting status refreshed. Your draft is ready to continue." });
       loadHostingQuota().catch(() => {});
       state.authorPlans = () => (state.billing?.plans || []).filter(p => ["author_monthly", "author_annual"].includes(p.id));
+      // A paid, open conference hosts the submission instead of the author.
+      state.conferenceHosting = () => !!(state.conference && state.conference_data?.hosting);
       state.hasAuthorHosting = () => ["author_monthly", "author_annual"].includes(state.billing?.allowance?.plan);
       state.hostingNeedsPayment = () => {
         if (!state.billing?.enabled || state.detectedType !== "repo" || state.hasAuthorHosting() ||
             (state.isUpdate && state.role !== "owner")) return false;
-        const needsLifetime = state.options?.expirationMode === "never" && !state._existingNever;
+        const needsLifetime = state.options?.expirationMode === "never" && !state._existingNever && !state.repositoryGrants("repo_never").length;
         // Reported usage may include removed reservations; admission reclaims them.
-        return !!(needsLifetime || (!state.conference && state.hostingQuotaBlocked));
+        return !!(needsLifetime || (!state.conferenceHosting() && state.hostingQuotaBlocked));
       };
-      state.checkoutRepository = async (pass = false) => {
+      // One-time add-ons the current user bought for this repository.
+      state.repositoryGrants = planId => (state.billing?.grants || []).filter(g => g.planId === planId && g.scope === `repo:${state.repoId}` &&
+        ["active", "paid", "past_due"].includes(g.status) && new Date(g.until).getTime() > Date.now());
+      state.repositoryAddonPlans = () => (state.billing?.plans || []).filter(p => isRepositoryAddon(p.id) &&
+        (["repo_extend", "repo_pack"].includes(p.id) || !state.repositoryGrants(p.id).length));
+      // One-time add-ons that resolve this submission: Never expire for a
+      // never-expiring link, otherwise the paper pack or an extra repository
+      // when the free allowance is full. The first is preselected.
+      state.hostingOneTimePlans = () => {
+        const offered = ids => ids.map(id => (state.billing?.plans || []).find(p => p.id === id && !state.repositoryGrants(id).length)).filter(Boolean);
+        if (state.options?.expirationMode === "never" && !state._existingNever && !state.repositoryGrants("repo_never").length) return offered(["repo_never"]);
+        return state.hostingQuotaBlocked && !state.conferenceHosting() ? offered(["repo_slot", "repo_pack"]) : [];
+      };
+      state.hostingOneTime = () => state.hostingOneTimePlans()[0];
+      state.neverExpireTag = () => {
+        if (state.hasAuthorHosting()) return "Included in your subscription";
+        if (state.repositoryGrants("repo_never").length) return "Paid for this repository";
+        const plan = (state.billing?.plans || []).find(p => p.id === "repo_never");
+        return plan?.amount != null ? `${state.billingAmount(plan)} once, or with a subscription` : "Subscription or one-time add-on";
+      };
+      // Annual before monthly: it is the cheaper subscription.
+      // Subscriptions appear as one option with a monthly/yearly switch.
+      state.hostingCycle = "author_annual";
+      state.hostingSubscriptionPlan = () => state.authorPlans().find(p => p.id === state.hostingCycle) || state.authorPlans().find(p => p.interval === "year") || state.authorPlans()[0];
+      state.hostingAnnualSavings = () => {
+        const monthly = state.authorPlans().find(p => p.interval === "month")?.amount;
+        const annual = state.authorPlans().find(p => p.interval === "year")?.amount;
+        return monthly && annual && annual < monthly * 12 ? Math.round((1 - annual / (monthly * 12)) * 100) : 0;
+      };
+      state.hostingOptionPlans = () => state.hostingOneTimePlans().concat(state.authorPlans().length ? [state.hostingSubscriptionPlan()] : []);
+      state.hostingOptionName = plan => ({ repo_slot: "Add this repository", repo_pack: "Paper pack", repo_never: "Never expire",
+        author_annual: "Author subscription", author_monthly: "Author subscription" }[plan.id] || plan.name);
+      state.hostingOptionBlurb = plan => ({
+        repo_slot: "Hosted outside your free repositories. Refresh it by hand.",
+        repo_pack: "Adds automatic updates for 180 days and keeps the link online for a year.",
+        repo_never: "This link never expires. No subscription.",
+      }[plan.id] || `${plan.repositories} repositories, ${state.billingBytes(plan.storage)}, automatic updates and links that never expire.`);
+      state.hostingChoice = () => {
+        const oneTime = state.hostingOneTimePlans();
+        if (oneTime.some(p => p.id === state.hostingPlan) || state.authorPlans().some(p => p.id === state.hostingPlan)) return state.hostingPlan;
+        return oneTime[0]?.id || state.authorPlans()[0]?.id || "";
+      };
+      state.checkoutRepository = async (addon = "") => {
         if (state.hostingSaving || state.billingBusy || !state.billing?.csrf || state.sourceLoading) return;
         state.hostingSaving = true;
         state.billingError = "";
@@ -1488,8 +1604,8 @@ export const anonymizeController = function (state, http, html, params, location
             checkoutDraftSnapshot = serialized;
           }
           const plan = state.authorPlans().find(p => p.id === state.hostingPlan) || state.authorPlans()[0];
-          if (!pass && !plan) throw new Error("No author plan available");
-          await state.checkout(pass ? "author_pass" : plan.id, pass ? state.repoId : "", { draftId: checkoutDraftId });
+          if (!addon && !plan) throw new Error("No author plan available");
+          await state.checkout(addon || plan.id, addon ? state.repoId : "", { draftId: checkoutDraftId });
         } catch { state.billingError = "Your draft could not be saved for checkout. Your form is unchanged. Please try again."; }
         finally { state.hostingSaving = false; }
       };
@@ -1582,12 +1698,32 @@ export const anonymizeController = function (state, http, html, params, location
         const day = String(d.getDate()).padStart(2, "0");
         return `${y}-${m}-${day}`;
       }
-      // Bound the expiration date: no earlier than today, no later than 1 year
-      // out.
+      // Bound the expiration date: no earlier than today. The latest date
+      // mirrors the server: a year without billing or with an author
+      // subscription, otherwise the free window, extended by this repository's
+      // Extended expiration add-ons or its conference's review window. A saved
+      // later date stays selectable.
       state.minExpirationDate = toLocalDateString(new Date());
-      const maxDate = new Date();
-      maxDate.setFullYear(maxDate.getFullYear() + 1);
-      state.maxExpirationDate = toLocalDateString(maxDate);
+      const updateExpirationLimit = () => {
+        const now = new Date();
+        let maximum = new Date(now);
+        maximum.setFullYear(maximum.getFullYear() + 1);
+        if (state.billing?.enabled && !state.hasAuthorHosting()) {
+          maximum = new Date(now);
+          maximum.setMonth(maximum.getMonth() + (state.billing.freeExpirationMonths || 5));
+          for (const grant of state.repositoryGrants("repo_extend")) if (new Date(grant.until) > maximum) maximum = new Date(grant.until);
+          if (state.conference_data?.endDate && new Date(state.conference_data.endDate) > maximum) maximum = new Date(state.conference_data.endDate);
+          if (state._savedExpirationDate && state._savedExpirationDate > maximum) maximum = new Date(state._savedExpirationDate);
+          // A default or carried-over date must fit the limit; only the saved
+          // date may stay later.
+          const date = state.options?.expirationDate;
+          const saved = state._savedExpirationDate && date instanceof Date && date.getTime() === state._savedExpirationDate.getTime();
+          if (date instanceof Date && date > maximum && !saved) state.options.expirationDate = new Date(maximum);
+        }
+        state.maxExpirationDate = toLocalDateString(maximum);
+      };
+      updateExpirationLimit();
+      state.watch(() => [state.billing, state.repoId, state.conference_data, state.isUpdate, state._savedExpirationDate, state.options?.expirationMode], updateExpirationLimit, true, false);
       state.anonymize_readme = "";
       state.readme = "";
       state.html_readme = "";
@@ -1774,6 +1910,7 @@ export const anonymizeController = function (state, http, html, params, location
               state.source = res.data.source;
               state.role = res.data.role || "owner";
               state._existingNever = res.data.options.expirationMode === "never";
+              state._savedExpirationDate = res.data.options.expirationDate ? new Date(res.data.options.expirationDate) : null;
               state.coauthors = res.data.coauthors || [];
               // Remember the saved branch so the source.branch watcher knows
               // not to bump source.commit to GitHub HEAD on edit-page load
@@ -2689,9 +2826,11 @@ export const anonymizeController = function (state, http, html, params, location
           () => { draft.clear(); window.location.href = "/status/" + state.repoId; },
           (error) => {
             if (error.data) {
-              translate("ERRORS." + error.data.error).then((t) => { state.error = t; }, console.error);
+              // The hosting section explains a hosting limit and offers the fix.
+              const hostingLimit = ["quota_exceeded", "subscription_required_for_never_expiration"].includes(error.data.error);
+              if (!hostingLimit) translate("ERRORS." + error.data.error).then((t) => { state.error = t; }, console.error);
               displayErrorMessage(error.data.error);
-              if (["quota_exceeded", "subscription_required_for_never_expiration"].includes(error.data.error)) {
+              if (hostingLimit) {
                 if (error.data.error === "subscription_required_for_never_expiration") state._existingNever = false;
                 state.hostingQuotaBlocked = true;
                 state.hostingReview = true;
@@ -4041,6 +4180,26 @@ export const newConferenceController = function (state, http, location, params) 
       }
 
       state.plans = [];
+      state.plansLoaded = false;
+      // With billing on, the review packages (one per venue size) are the only
+      // plans; their prices come from Stripe through the billing endpoint.
+      state.conferenceBilling = null;
+      readBilling(http).then(res => { state.conferenceBilling = res.data; }).catch(() => {});
+      state.conferenceTiers = () => state.plans.filter(p => p.id !== "free_conference").map(p => {
+        const priced = (state.conferenceBilling?.plans || []).find(b => b.id === p.id) || {};
+        return { ...p, storage: p.storagePerRepo, ...priced, id: p.id, name: p.name };
+      });
+      state.conferenceAudience = id => ({ conference_workshop: "Workshops and small venues", conference: "A typical conference", conference_large: "Large or multi-track venues" }[id] || "");
+      state.conferencePlanName = id => conferencePlanName(id);
+      state.conferenceAmount = (plan, cents = plan?.amount) => {
+        return new Intl.NumberFormat(undefined, { style: "currency", currency: plan?.currency || "eur",
+          minimumFractionDigits: cents % 100 ? 2 : 0, maximumFractionDigits: 2 }).format(cents / 100);
+      };
+      state.conferenceBytes = value => {
+        const bytes = Number(value) || 0;
+        const exponent = Math.min(4, Math.floor(Math.log2(Math.max(bytes, 1)) / 10));
+        return `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(bytes / 1024 ** exponent)} ${["B", "KiB", "MiB", "GiB", "TiB"][exponent]}`;
+      };
       state.editionMode = false;
       state.saving = false;
       state.error = "";
@@ -4062,6 +4221,10 @@ export const newConferenceController = function (state, http, location, params) 
       function getPlans() {
         http.get("/api/conferences/plans").then((res) => {
           state.plans = res.data;
+          state.plansLoaded = true;
+          // New conferences default to the middle package when it is offered.
+          if (!state.editionMode && state.plans.length && !state.plans.some(p => p.id == state.options.plan.planID))
+            state.options.plan.planID = (state.plans.find(p => p.id === "conference") || state.plans[0]).id;
 
           state.plan = state.plans.filter(
             (f) => f.id == state.options.plan.planID
@@ -4184,8 +4347,13 @@ export const newConferenceController = function (state, http, location, params) 
       };
     };
 
+function conferencePlanName(id) {
+  return { free_conference: "Free (no longer offered to new conferences)", conference_workshop: "Workshop package", conference: "Conference package", conference_large: "Large conference package" }[id] || id || "Free";
+}
+
 export const conferenceController = function (state, http, location, params) {
       setupBilling(state, http, () => getConference(), { confirmedMessage: "Payment status checked. Your conference is ready for submissions once payment is confirmed." });
+      state.conferencePlanName = id => conferencePlanName(id);
       state.watch("user.status", () => {
         if (state.user == null) {
           location.url("/");

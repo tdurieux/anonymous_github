@@ -25,7 +25,7 @@ async function rejects(promise, message) {
   });
   beforeEach(async () => {
     Object.assign(config, { BILLING_ENABLED: true, FREE_AUTHOR_REPOSITORIES: 3, FREE_AUTHOR_STORAGE: 100,
-      PAID_AUTHOR_STORAGE: 1000, PAID_AUTHOR_REPOSITORIES: 20, STRIPE_AUTHOR_MONTHLY_PRICE: "price_monthly", STRIPE_AUTHOR_PASS_PRICE: "price_pass", STRIPE_CONFERENCE_PRICE: "price_conf" });
+      PAID_AUTHOR_STORAGE: 1000, PAID_AUTHOR_REPOSITORIES: 20, STRIPE_AUTHOR_MONTHLY_PRICE: "price_monthly", STRIPE_AUTHOR_PASS_PRICE: "price_pass", STRIPE_CONFERENCE_PRICE: "price_conf", STRIPE_CONFERENCE_SMALL_PRICE: "price_conf_small", STRIPE_CONFERENCE_LARGE_PRICE: "price_conf_large", PAID_CONFERENCE_SMALL_REPOSITORIES: 25, STRIPE_REPO_EXTEND_PRICE: "", STRIPE_REPO_NEVER_PRICE: "", STRIPE_REPO_SLOT_PRICE: "", STRIPE_REPO_PACK_PRICE: "" });
     await Promise.all([BillingPrice, BillingAccount, BillingGrant, BillingQuota, BillingLock, BillingEvent, BillingRevocation, BillingDraft, Repo, Conference].map(m => m.deleteMany({})));
     await BillingAccount.create({ _id: owner, customerId: "cus_owner" });
   });
@@ -243,6 +243,108 @@ async function rejects(promise, message) {
       customer: "cus_owner", status: "complete", payment_status: status, created: Math.floor(Date.now() / 1000),
       line_items: { data: [{ price: { id: "price_pass" }, quantity: 1 }] }, payment_intent: { id: "pi_pass", latest_charge: { amount_refunded: 0, disputed: false } } };
   }
+  function addonSession(id, planId, created = Math.floor(Date.now() / 1000)) {
+    return { id, metadata: { application: "anonymous-github", owner, planId, target: "repo" },
+      customer: "cus_owner", status: "complete", payment_status: "paid", created,
+      line_items: { data: [{ price: { id: `price_${planId}` }, quantity: 1 }] }, payment_intent: { id: `pi_${id}`, latest_charge: { amount_refunded: 0, disputed: false } } };
+  }
+  function sessionsStripe(sessions) {
+    return { checkout: { sessions: { retrieve: async id => sessions.find(s => s.id === id) } } };
+  }
+  it("stacks extended expiration purchases and records never expire once", async () => {
+    Object.assign(config, { STRIPE_REPO_EXTEND_PRICE: "price_repo_extend", STRIPE_REPO_NEVER_PRICE: "price_repo_never" });
+    const year = 365 * 86400000;
+    const first = addonSession("cs_extend_1", "repo_extend");
+    const second = addonSession("cs_extend_2", "repo_extend", first.created + 60);
+    const never = addonSession("cs_never", "repo_never");
+    const stripe = sessionsStripe([first, second, never]);
+    await fulfillCheckout(first.id, stripe);
+    await fulfillCheckout(second.id, stripe);
+    // A duplicate delivery must not add another year.
+    await fulfillCheckout(second.id, stripe);
+    expect((await BillingGrant.findById(first.id)).until.getTime()).to.equal(first.created * 1000 + year);
+    expect((await BillingGrant.findById(second.id)).until.getTime()).to.equal(first.created * 1000 + 2 * year);
+    await fulfillCheckout(never.id, stripe);
+    expect((await BillingGrant.findById(never.id)).until.toISOString()).to.equal("9999-12-31T00:00:00.000Z");
+  });
+  it("hosts an extra repository outside the free allowance for its buyer only", async () => {
+    config.STRIPE_REPO_SLOT_PRICE = "price_repo_slot";
+    await Promise.all(["a", "b", "repo"].map(id => reserveRepository(owner, id, 10)));
+    await rejects(reserveRepository(owner, "four", 10), "quota_exceeded");
+    // Buying a slot for a counted repository frees its place in the free ledger.
+    const slot = addonSession("cs_slot", "repo_slot");
+    await fulfillCheckout(slot.id, sessionsStripe([slot]));
+    expect((await BillingGrant.findById(slot.id)).until.toISOString()).to.equal("9999-12-31T00:00:00.000Z");
+    expect((await BillingQuota.findById(`user:${owner}`)).allocations.map(a => a.repoId)).to.not.include("repo");
+    expect((await allowance(owner, "repo")).plan).to.equal("repo_slot");
+    await reserveRepository(owner, "repo", 10);
+    await reserveRepository(owner, "four", 10);
+    // Another account cannot use a slot bought for the same repository ID.
+    expect((await allowance("507f1f77bcf86cd799439099", "repo")).plan).to.equal("free");
+    config.STRIPE_REPO_SLOT_PRICE = "";
+  });
+  it("fulfills a paper pack as three add-ons that a refund revokes together", async () => {
+    config.STRIPE_REPO_PACK_PRICE = "price_repo_pack";
+    const pack = addonSession("cs_pack", "repo_pack");
+    const stripe = sessionsStripe([pack]);
+    await fulfillCheckout(pack.id, stripe);
+    await fulfillCheckout(pack.id, stripe);
+    const grants = await BillingGrant.find({ paymentIntentId: "pi_cs_pack" }).lean();
+    expect(grants.map(g => g.planId).sort()).to.deep.equal(["author_pass", "repo_extend", "repo_slot"]);
+    expect(grants.find(g => g.planId === "repo_extend").until.getTime()).to.equal(pack.created * 1000 + 365 * 86400000);
+    // Live updates win over the manual-refresh slot while both fund the repository.
+    expect((await allowance(owner, "repo")).plan).to.equal("author_pass");
+    await processBillingEvent({ type: "charge.refunded", data: { object: { payment_intent: "pi_cs_pack", refunded: true } } },
+      { ...stripe, invoicePayments: { list: async () => ({ data: [] }) } });
+    expect(await BillingGrant.countDocuments({ paymentIntentId: "pi_cs_pack", revoked: true })).to.equal(3);
+    expect((await allowance(owner, "repo")).plan).to.equal("free");
+    config.STRIPE_REPO_PACK_PRICE = "";
+  });
+  it("does not let expiration add-ons replace the storage allowance", async () => {
+    await BillingGrant.create([{ _id: "extend", owner, scope: "repo:repo", status: "paid", until: future(), planId: "repo_extend" },
+      { _id: "never", owner, scope: "repo:repo", status: "paid", until: future(), planId: "repo_never" }]);
+    expect((await allowance(owner, "repo")).plan).to.equal("free");
+    await BillingGrant.create({ _id: "pass", owner, scope: "repo:repo", status: "paid", until: future(), planId: "author_pass" });
+    expect((await allowance(owner, "repo")).plan).to.equal("author_pass");
+  });
+  it("limits dated expiration by free window, add-on, subscription and conference", async () => {
+    const { maximumExpiration } = require("../src/core/billing/expiration");
+    const now = new Date("2026-01-10T12:00:00Z");
+    const months = (date, n) => { const d = new Date(date); d.setMonth(d.getMonth() + n); d.setHours(23, 59, 59, 999); return d.getTime(); };
+    expect((await maximumExpiration(owner, "repo", undefined, now)).getTime()).to.equal(months(now, 5));
+    const extended = new Date("2027-06-01T00:00:00Z");
+    await BillingGrant.create({ _id: "extend", owner, scope: "repo:repo", status: "paid", until: extended, planId: "repo_extend" });
+    const withAddon = await maximumExpiration(owner, "repo", undefined, now);
+    expect(withAddon.getTime()).to.be.greaterThan(extended.getTime() - 86400000);
+    expect((await maximumExpiration(owner, "other", undefined, now)).getTime()).to.equal(months(now, 5));
+    await BillingGrant.updateOne({ _id: "extend" }, { $set: { revoked: true } });
+    expect((await maximumExpiration(owner, "repo", undefined, now)).getTime()).to.equal(months(now, 5));
+    await Conference.create({ conferenceID: "LONG", owners: [owner], status: "ready", startDate: now, endDate: new Date("2026-09-01T00:00:00Z"), plan: { planID: "conference" } });
+    expect((await maximumExpiration(owner, "repo", "LONG", now)).toISOString()).to.equal("2026-09-01T00:00:00.000Z");
+    await BillingGrant.create({ _id: "sub", owner, scope: `user:${owner}`, status: "active", until: new Date("2026-02-10T00:00:00Z"), planId: "author_monthly" });
+    expect((await maximumExpiration(owner, "repo", undefined, now)).getTime()).to.equal(months(now, 12));
+  });
+  it("lets a Never expire add-on keep one repository online until it is revoked", async () => {
+    const { neverExpirationDeadline, reconcileNeverExpiration, NEVER_EXPIRATION_GRACE_MS } = require("../src/core/billing/expiration");
+    await rejects(neverExpirationDeadline(owner, undefined, "repo"), "subscription_required_for_never_expiration");
+    await BillingGrant.create({ _id: "never", owner, scope: "repo:repo", status: "paid", until: new Date("9999-12-31T00:00:00Z"), planId: "repo_never" });
+    const before = Date.now();
+    const deadline = await neverExpirationDeadline(owner, undefined, "repo");
+    expect(deadline.getTime()).to.be.at.least(before + NEVER_EXPIRATION_GRACE_MS);
+    await rejects(neverExpirationDeadline(owner, undefined, "other"), "subscription_required_for_never_expiration");
+    await Repo.create({ repoId: "repo", owner, status: "ready", options: { expirationMode: "never" }, billingNeverExpiresUntil: new Date(Date.now() + 86400000) });
+    // A valid add-on rolls a close deadline forward to the full grace period.
+    await reconcileNeverExpiration();
+    const rolled = (await Repo.findOne({ repoId: "repo" })).billingNeverExpiresUntil.getTime();
+    expect(rolled).to.be.at.least(before + NEVER_EXPIRATION_GRACE_MS);
+    // A recent deadline is not rewritten on every run.
+    await reconcileNeverExpiration(new Date(Date.now() + 86400000));
+    expect((await Repo.findOne({ repoId: "repo" })).billingNeverExpiresUntil.getTime()).to.equal(rolled);
+    // After a refund the deadline stops moving and the repository expires.
+    await BillingGrant.updateOne({ _id: "never" }, { $set: { revoked: true } });
+    await reconcileNeverExpiration(new Date(rolled), async () => {});
+    expect((await Repo.findOne({ repoId: "repo" })).options.expirationMode).to.equal("remove");
+  });
   it("ignores an unfinished recurring Checkout before Stripe assigns a subscription", async () => {
     const stripe = { checkout: { sessions: { retrieve: async () => ({
       id: "cs_open", metadata: { application: "anonymous-github", owner, planId: "author_monthly" },
@@ -350,6 +452,18 @@ async function rejects(promise, message) {
     await BillingGrant.updateOne({ _id: "cs_conf" }, { $set: { revoked: true } });
     await rejects(assertConferenceAdmission(owner, "repo", "CONF"), "conference_payment_required");
   });
+  it("activates a smaller conference package with its own capacity and only for its tier", async () => {
+    await Conference.create({ conferenceID: "WS", owners: [owner], status: "pending_payment", startDate: new Date(Date.now() - 1000), endDate: future(), plan: { planID: "conference_workshop" } });
+    await rejects(createCheckout(owner, "conference_large", "WS", {}), "billing_invalid_conference");
+    const value = session(); value.id = "cs_ws"; value.metadata.planId = "conference_workshop"; value.metadata.target = "WS"; value.line_items.data[0].price.id = "price_conf_small";
+    await fulfillCheckout("cs_ws", { checkout: { sessions: { retrieve: async () => value } } });
+    expect((await Conference.findOne({ conferenceID: "WS" })).status).to.equal("ready");
+    const limits = await allowance(owner, "repo", "WS");
+    expect(limits.scope).to.equal("conference:WS");
+    expect(limits.plan).to.equal("conference_workshop");
+    expect(limits.repositories).to.equal(25);
+    await assertConferenceAdmission(owner, "repo", "WS");
+  });
   it("prevents two simultaneous checkout sessions and reuses an open session", async () => {
     let creates = 0;
     const stripe = { prices: { retrieve: async () => ({ active: true, currency: "eur", unit_amount: 500, recurring: { interval: "month", interval_count: 1 } }) }, subscriptions: { list: async () => ({ data: [] }) }, checkout: { sessions: {
@@ -389,7 +503,7 @@ async function rejects(promise, message) {
     const Users = require("../src/core/model/users/users.model").default;
     const routes = require("../src/server/routes/billing");
     await Users.updateOne({ _id: owner }, { $set: { username: "billing-test-author", status: "active" } }, { upsert: true });
-    Object.assign(config, { STRIPE_SECRET_KEY: "sk_test_example", STRIPE_WEBHOOK_SECRET: "whsec_test_example", STRIPE_AUTHOR_MONTHLY_PRICE: "", STRIPE_AUTHOR_ANNUAL_PRICE: "", STRIPE_AUTHOR_PASS_PRICE: "", STRIPE_CONFERENCE_PRICE: "" });
+    Object.assign(config, { STRIPE_SECRET_KEY: "sk_test_example", STRIPE_WEBHOOK_SECRET: "whsec_test_example", STRIPE_AUTHOR_MONTHLY_PRICE: "", STRIPE_AUTHOR_ANNUAL_PRICE: "", STRIPE_AUTHOR_PASS_PRICE: "", STRIPE_CONFERENCE_PRICE: "", STRIPE_CONFERENCE_SMALL_PRICE: "", STRIPE_CONFERENCE_LARGE_PRICE: "" });
     const app = express();
     app.use("/webhook", routes.billingWebhook);
     app.use(express.json());

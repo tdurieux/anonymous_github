@@ -3218,6 +3218,34 @@ code {
 .paper-plan-desc { font-size: 13px; color: var(--ink-soft); }
 .paper-plan-desc ul { padding-left: 18px; margin: 0; }
 
+/* New conference: the single paid review package */
+.conference-package { padding: 20px 22px; background: var(--paper-card); border: 1px solid var(--border-color); border-radius: 10px; margin: 0 0 12px; }
+.conference-package-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin: 0 0 14px; }
+.conference-package-head h3 { font-size: 1.05rem; font-weight: 600; margin: 0 0 2px; }
+.conference-package-head p { margin: 0; font-size: 13px; color: var(--ink-soft); }
+.conference-package-price { display: flex; flex-direction: column; align-items: flex-end; flex: none; }
+.conference-package-price strong { font-size: 1.6rem; font-weight: 600; line-height: 1.1; color: var(--color); font-variant-numeric: tabular-nums; }
+.conference-package-price small { font-size: 12px; color: var(--ink-muted); }
+.conference-package .billing-offer-list { list-style: none; margin: 0 0 14px; padding: 0; font-size: 13px; line-height: 1.5; }
+.conference-package .billing-offer-list li { position: relative; padding-left: 22px; margin: 0 0 6px; }
+.conference-package .billing-offer-list li::before { content: ""; position: absolute; left: 3px; top: 6px; width: 10px; height: 5px; border-left: 1.5px solid var(--ink-muted); border-bottom: 1.5px solid var(--ink-muted); transform: rotate(-45deg); }
+.conference-package h3 { font-size: 0.95rem; font-weight: 600; margin: 0 0 10px; }
+.conference-tiers { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin: 0 0 12px; }
+.conference-tier { position: relative; display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 16px 18px; background: var(--paper-card); border: 1px solid var(--border-color); border-radius: 10px; cursor: pointer; transition: border-color 0.15s ease, box-shadow 0.15s ease; }
+.conference-tier:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--border-color)); }
+.conference-tier.is-selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; background: var(--accent-soft); }
+.conference-tier:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.paper-page .conference-tier input[type="radio"] { position: absolute; opacity: 0; pointer-events: none; }
+.conference-tier-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.conference-tier-head strong { font-size: 15px; font-weight: 600; color: var(--color); }
+.conference-tier-pill { font-size: 11px; font-weight: 500; padding: 1px 8px; border-radius: 999px; color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); white-space: nowrap; }
+.conference-tier-who { font-size: 13px; color: var(--ink-soft); }
+.conference-tier-price { margin-top: 8px; font-size: 12px; color: var(--ink-muted); }
+.conference-tier-price strong { font-size: 1.5rem; font-weight: 600; color: var(--color); font-variant-numeric: tabular-nums; margin-right: 2px; }
+.conference-tier-size { font-size: 13px; color: var(--color); }
+.conference-tier-per { font-size: 12px; color: var(--ink-muted); }
+.conference-package-note { margin: 0; padding-top: 12px; border-top: 1px solid var(--border-color); font-size: 12px; color: var(--ink-muted); }
+
 .paper-settings-copy { color: var(--ink-soft); font-size: 13px; margin: 0 0 14px; }
 
 .anonymize-section-title {
@@ -8784,7 +8812,10 @@ body.dark-mode .markdown-body .gh-light-mode-only { display: none; }
 .hosting-property { margin-bottom: 0; }
 .hosting-property label, .hosting-date .paper-field-label { font-size: 12px; font-weight: 400; margin: 0; }
 .hosting-date .invalid-feedback { grid-column: 1/-1; }
-.anonymize-page .conference-field { border-top: 1px solid var(--border-color); padding: 16px 0; margin: 0; }
+.anonymize-page .conference-field { border-bottom: 1px solid var(--border-color); padding: 0 0 16px; margin: 0 0 14px; }
+.anonymize-page .conference-hosting { margin: 8px 0 0; padding: 8px 12px; border-radius: 8px; font-size: 13px; line-height: 1.45; color: var(--ink-soft); background: color-mix(in srgb, var(--ink-muted) 8%, transparent); }
+.anonymize-page .conference-hosting.is-covered { color: var(--color); background: var(--accent-soft); }
+.anonymize-page .conference-hosting a { font-weight: 600; }
 .subscription-choice { padding: 16px; background: var(--paper-bg-alt); border-radius: 6px; margin-top: 4px; }
 .subscription-choice h3 { font-size: 13px; font-weight: 600; margin: 0 0 10px; }
 .billing-cycle { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; border: 0; padding: 0; margin: 0 0 12px; min-width: 0; }
@@ -8909,6 +8940,9 @@ body.dark-mode .preserve-dialog { background: #242320; color: #faf9f6; }
 .settings-cycles label { display: flex; align-items: center; gap: 8px; border: 1px solid var(--border-color); background: var(--paper-card); border-radius: 5px; padding: 12px; font-size: 13px; margin: 0; cursor: pointer; flex: 1; }
 .settings-cycles label.selected { border-color: var(--accent); background: var(--accent-soft); }
 .settings-cycles input { accent-color: var(--accent); }
+.settings-addons { flex-direction: column; }
+.settings-addons label { align-items: flex-start; }
+.settings-addons small { color: var(--ink-muted); font-size: 12px; }
 .settings-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
 .settings-notice { background: var(--paper-bg-alt); border: 1px solid var(--border-color); border-radius: 5px; padding: 14px 16px; margin: 16px 0; font-size: 13px; }
 .settings-notice p { margin: 6px 0 12px; }
@@ -8919,6 +8953,16 @@ body.dark-mode .preserve-dialog { background: #242320; color: #faf9f6; }
 .settings-purchase { padding: 12px 0; border-bottom: 1px solid var(--border-color); font-size: 13px; overflow-wrap: anywhere; }
 .settings-purchase:last-child { border: 0; }
 .settings-purchase > span { display: block; color: var(--ink-muted); margin-top: 4px; }
+.settings-purchase-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.settings-purchase-parts { margin: 6px 0 0; padding-left: 18px; font-size: 12px; color: var(--ink-muted); }
+.settings-status { display: inline-block; font-size: 12px; font-weight: 500; line-height: 18px; border-radius: 999px; padding: 1px 9px; background: var(--paper-bg-alt); color: var(--ink-muted); white-space: nowrap; }
+.settings-status.is-active { background: var(--accent-soft); color: var(--accent); box-shadow: inset 0 0 0 1px rgba(31, 106, 100, .3); }
+.settings-status.is-overdue, .settings-status.is-refunded, .settings-status.is-disputed { background: rgba(185, 28, 28, .08); color: #b91c1c; }
+body.dark-mode .settings-status.is-overdue, body.dark-mode .settings-status.is-refunded, body.dark-mode .settings-status.is-disputed { background: rgba(248, 113, 113, .16); color: #f87171; }
+.settings-badge { display: inline-block; margin-left: 6px; font-size: 10px; font-weight: 600; letter-spacing: .02em; border-radius: 999px; padding: 1px 7px; background: var(--accent-soft); border: 1px solid var(--accent); vertical-align: middle; }
+.user-settings .settings-comparison th:first-child { width: 22%; }
+.settings-comparison thead .settings-badge { display: table; margin: 6px 0 0; white-space: nowrap; }
+.user-settings .settings-subhead { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-muted); margin: 18px 0 4px; }
 .user-settings .paper-account-card { padding: 24px 0; border: 0; background: none; }
 .user-settings .paper-danger-zone { margin-top: 24px; }
 @media (max-width: 767px) {
@@ -11411,6 +11455,8 @@ mark.md-find.is-current { background: rgba(232,160,30,.85) !important; box-shado
 /* ===== Round 64 ===== */
 /* themed checkbox everywhere in admin + dashboard */
 .paper-page input[type="checkbox"] { -webkit-appearance: none; appearance: none; width: 16px !important; height: 16px !important; margin: 0; border: 1.5px solid #A39D92; border-radius: 4px; background: var(--paper-card); display: inline-grid; place-content: center; cursor: pointer; vertical-align: middle; }
+/* Settings checkboxes sit in the 28px gutter left of their label; the reset above zeroes that offset. */
+.paper-settings-section .form-check > input.form-check-input[type="checkbox"] { position: absolute; margin: 3px 0 0 -28px; }
 .paper-page input[type="checkbox"]::before { content: ""; width: 9px; height: 9px; transform: scale(0); background: #fff; -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 8.5l3.2 3L13 4.5'/%3E%3C/svg%3E") center/contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 8.5l3.2 3L13 4.5'/%3E%3C/svg%3E") center/contain no-repeat; }
 .paper-page input[type="checkbox"]:checked { background: var(--accent); border-color: var(--accent); }
 .paper-page input[type="checkbox"]:checked::before { transform: scale(1); }
@@ -12559,3 +12605,165 @@ input.form-control[type="date"]::-webkit-datetime-edit { padding: 0; }
 .paper-table { overflow: visible !important; }
 .paper-table > .paper-table-head { border-top-left-radius: inherit; border-top-right-radius: inherit; }
 .paper-table > :last-child { border-bottom-left-radius: inherit; border-bottom-right-radius: inherit; }
+/* Hosting & billing tab */
+.user-settings #settings-billing > .settings-scope { margin-bottom: 14px; }
+.user-settings .billing-summary { background: var(--paper-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 24px; }
+.user-settings .billing-summary-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 20px; }
+.user-settings .billing-eyebrow { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-muted); margin: 0 0 6px; }
+.user-settings .billing-plan-name { font-size: 24px; font-weight: 600; line-height: 1.2; letter-spacing: -.01em; margin: 0; }
+.user-settings .billing-plan-meta { font-size: 13px; color: var(--ink-muted); margin: 6px 0 0; }
+.user-settings .billing-summary .quota-track { height: 6px; border-radius: 3px; background: var(--border-color); }
+.user-settings .billing-summary .quota-track .quota-fill { border-radius: 3px; }
+.user-settings .billing-summary .quota-unlimited-tag { display: none; }
+.user-settings .billing-summary .quota-usage { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px; }
+.user-settings .billing-summary .quota-item:has(.quota-unlimited-tag) { display: none; }
+.user-settings .billing-summary .settings-notice { margin: 18px 0 0; }
+.user-settings .billing-footnote { font-size: 12px; line-height: 1.6; color: var(--ink-muted); margin: 16px 0 0; }
+.user-settings .billing-section { margin-top: 44px; }
+.user-settings .billing-section-head { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; }
+.user-settings .billing-section-title { font-size: 18px; font-weight: 600; letter-spacing: -.005em; margin: 0 0 14px; }
+.user-settings .billing-section-title:focus { outline: none; }
+.user-settings .billing-section-head .settings-text-button { font-size: 12px; padding: 0; min-height: 0; }
+.user-settings .billing-offers { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; padding-top: 10px; }
+.user-settings .billing-offer { position: relative; display: flex; flex-direction: column; background: var(--paper-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 24px 22px 22px; min-width: 0; }
+.user-settings .billing-offer.is-recommended { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.user-settings .billing-offer-pill { position: absolute; top: -10px; left: 20px; font-size: 11px; font-weight: 600; line-height: 20px; padding: 0 9px; border-radius: 999px; background: var(--accent); color: #fff; }
+body.dark-mode .user-settings .billing-offer-pill { color: #1A1815; }
+.user-settings .billing-offer h3 { font-size: 16px; font-weight: 600; margin: 0; }
+.user-settings .billing-offer-price { margin: 8px 0 16px; color: var(--ink-muted); font-size: 13px; line-height: 40px; height: 40px; }
+.user-settings .billing-offer-price strong { font-size: 32px; font-weight: 600; letter-spacing: -.02em; color: var(--color); vertical-align: -2px; }
+.user-settings .billing-offer-list { list-style: none; margin: 0 0 20px; padding: 0; font-size: 13px; line-height: 1.5; }
+.user-settings .billing-offer-list li { position: relative; padding-left: 22px; margin: 0 0 6px; }
+.user-settings .billing-offer-list li::before { content: ""; position: absolute; left: 3px; top: 6px; width: 10px; height: 5px; border-left: 1.5px solid var(--ink-muted); border-bottom: 1.5px solid var(--ink-muted); transform: rotate(-45deg); }
+.user-settings .billing-offer > .btn { margin-top: auto; width: 100%; }
+.user-settings .billing-addon-list { display: flex; flex-direction: column; gap: 2px; margin: 0 -8px 20px; }
+.user-settings .billing-addon { display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; gap: 10px; align-items: start; margin: 0; padding: 7px 8px; border-radius: 6px; cursor: pointer; font-weight: 400; }
+.user-settings .billing-addon:hover, .user-settings .billing-addon.is-on { background: var(--paper-bg-alt); }
+.user-settings .billing-addon input { margin: 3px 0 0; accent-color: var(--accent); }
+.user-settings .billing-addon strong { display: block; font-size: 13px; font-weight: 600; line-height: 1.35; }
+.user-settings .billing-addon small { display: block; font-size: 12px; color: var(--ink-muted); }
+.user-settings .billing-addon-price { font-size: 13px; font-weight: 600; white-space: nowrap; line-height: 1.35; }
+.billing-toggle { display: inline-flex; flex-shrink: 0; padding: 2px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--paper-bg-alt); }
+.billing-toggle button { border: 0; background: none; border-radius: 6px; padding: 3px 10px; font-size: 12px; line-height: 18px; color: var(--ink-muted); cursor: pointer; }
+.billing-toggle button.is-on { background: var(--paper-card); color: var(--color); font-weight: 600; box-shadow: 0 1px 2px rgba(0, 0, 0, .1); }
+.billing-toggle button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.billing-toggle-save { margin-left: 5px; font-weight: 600; color: var(--accent); }
+.user-settings .billing-offer-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; height: 26px; margin-bottom: 4px; }
+.user-settings .billing-offer-head .billing-eyebrow { margin: 0; }
+.user-settings .btn-ink:disabled, .user-settings .btn-ink.disabled { background: var(--paper-bg-alt); border-color: var(--border-color); color: var(--ink-muted); opacity: 1; cursor: not-allowed; }
+.user-settings .billing-buy { margin-top: 10px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; background: var(--paper-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 24px; }
+.user-settings .billing-buy-info .billing-offer-price { margin: 4px 0 8px; }
+.user-settings .billing-buy-form { display: flex; flex-direction: column; gap: 10px; padding-left: 32px; border-left: 1px solid var(--border-color); align-self: center; }
+.user-settings .billing-buy-form .paper-field-label { margin: 0; }
+.user-settings .billing-buy-form .btn { width: 100%; }
+.user-settings .billing-buy-form .billing-footnote { margin: 0; }
+.user-settings .billing-buy:focus { outline: none; }
+.user-settings .billing-back { font-size: 13px; padding: 4px 10px; min-height: 0; margin-bottom: 16px; border-color: transparent; background: transparent; margin-left: -10px; }
+.user-settings .billing-back:hover { background: var(--paper-bg-alt); }
+.user-settings .billing-buy h3 { font-size: 18px; font-weight: 600; margin: 0; }
+.user-settings .billing-buy h3 span { font-size: 14px; font-weight: 400; color: var(--ink-muted); margin-left: 8px; }
+.user-settings .billing-buy-desc { font-size: 13px; line-height: 1.55; color: var(--ink-muted); margin: 0; }
+.user-settings .billing-buy-row { display: flex; gap: 12px; align-items: center; }
+.user-settings .billing-buy-row select { flex: 1; min-width: 0; }
+.user-settings .billing-buy-row .btn { flex-shrink: 0; }
+.user-settings .billing-compare { margin-top: 16px; font-size: 13px; }
+.user-settings .billing-compare summary { cursor: pointer; color: var(--accent); width: max-content; list-style: none; display: flex; align-items: center; gap: 6px; }
+.user-settings .billing-compare summary::-webkit-details-marker { display: none; }
+.user-settings .billing-compare summary::before { content: ""; width: 6px; height: 6px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); transition: transform .15s; margin-right: 2px; }
+.user-settings .billing-compare[open] summary::before { transform: rotate(45deg); }
+.user-settings .billing-compare-card { margin-top: 12px; padding: 6px 20px 8px; background: var(--paper-card); border: 1px solid var(--border-color); border-radius: 10px; }
+.user-settings .billing-compare .settings-comparison { width: 100%; margin: 0; font-size: 13px; border-collapse: separate; border-spacing: 0; }
+.user-settings .billing-compare .settings-comparison td.is-recommended { border-bottom-color: transparent; }
+.user-settings .billing-compare .settings-comparison th, .user-settings .billing-compare .settings-comparison td { padding: 10px 14px; border-bottom: 1px solid var(--border-color); }
+.user-settings .billing-compare .settings-comparison tr > :first-child { padding-left: 0; }
+.user-settings .billing-compare .settings-comparison thead th { font-size: 14px; font-weight: 600; vertical-align: bottom; }
+.user-settings .billing-compare .settings-comparison thead th small { display: block; font-size: 12px; font-weight: 400; color: var(--ink-muted); margin-top: 2px; }
+.user-settings .billing-compare .settings-comparison thead th.is-recommended { border-radius: 8px 8px 0 0; }
+.user-settings .billing-compare .settings-comparison tbody tr:last-child td.is-recommended { border-radius: 0 0 8px 8px; }
+.user-settings .billing-compare .settings-comparison tbody tr:last-child > * { border-bottom: 0; }
+.user-settings .billing-compare .settings-comparison th[scope=row] { color: var(--ink-muted); font-weight: 400; }
+.user-settings .billing-compare .settings-comparison .is-recommended { background: var(--accent-soft); }
+.user-settings .billing-empty { font-size: 13px; color: var(--ink-muted); margin: 0; }
+.user-settings .billing-history { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--border-color); }
+.user-settings .billing-history-head, .user-settings .billing-history-row { display: grid; grid-template-columns: minmax(0, 1fr) 160px 120px 88px; gap: 16px; }
+.user-settings .billing-history-head { padding: 0 0 8px; font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-muted); }
+.user-settings .billing-history-head span:nth-child(n+3) { text-align: right; }
+.user-settings .billing-history-row { align-items: baseline; padding: 14px 0; border-bottom: 1px solid var(--border-color); font-size: 13px; }
+.user-settings .billing-history-main strong { display: block; font-weight: 600; overflow-wrap: anywhere; }
+.user-settings .billing-history-main strong a { font-weight: 500; }
+.user-settings .billing-history-main > span { display: block; font-size: 12px; color: var(--ink-muted); margin-top: 3px; }
+.user-settings .billing-history-term { color: var(--ink-muted); }
+.user-settings .billing-history-term:empty::before { content: "—"; }
+.user-settings .billing-history-paid { text-align: right; }
+.user-settings .billing-history-paid small { display: block; color: var(--ink-muted); font-size: 12px; margin-top: 2px; }
+.user-settings .billing-history-status { text-align: right; }
+.user-settings .billing-history-row.is-ended .billing-history-main strong, .user-settings .billing-history-row.is-ended .billing-history-paid { color: var(--ink-muted); }
+.user-settings .billing-manage { display: flex; justify-content: space-between; align-items: center; gap: 20px; margin-top: 20px; padding: 18px 20px; background: var(--paper-card); border: 1px solid var(--border-color); border-radius: 10px; font-size: 13px; }
+.user-settings .billing-manage strong { display: block; font-weight: 600; }
+.user-settings .billing-manage p { margin: 3px 0 0; color: var(--ink-muted); font-size: 12px; line-height: 1.55; }
+.user-settings .billing-manage .btn { flex-shrink: 0; }
+.user-settings .billing-conference { margin: 28px 0 0; font-size: 13px; color: var(--ink-muted); }
+.user-settings .billing-addons { margin-top: 40px; }
+.user-settings .billing-subtitle { font-size: 13px; font-weight: 600; margin: 0; }
+.user-settings .billing-addons-head { display: grid; grid-template-columns: minmax(0, 1fr) 90px 48px; gap: 16px; align-items: baseline; margin-bottom: 8px; }
+.user-settings .billing-addons-head span { text-align: right; }
+.user-settings .billing-addons-head span { font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-muted); }
+.user-settings .billing-addon-rows { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--border-color); }
+.user-settings .billing-addon-rows li { display: grid; grid-template-columns: minmax(0, 1fr) 90px 48px; gap: 16px; align-items: center; padding: 11px 0; border-bottom: 1px solid var(--border-color); font-size: 13px; }
+.user-settings .billing-addon-rows strong { font-weight: 600; margin-right: 8px; }
+.user-settings .billing-addon-rows div span { color: var(--ink-muted); }
+.user-settings .billing-addon-rows .billing-addon-price { text-align: right; font-weight: 500; }
+.user-settings .billing-addon-rows .settings-text-button { justify-self: end; padding: 0; min-height: 0; font-size: 13px; font-weight: 600; }
+body.dark-mode .settings-status.is-active { background: rgba(124, 199, 190, .16); color: #d2f1ed; box-shadow: inset 0 0 0 1px rgba(124, 199, 190, .45); }
+body.dark-mode .user-settings .billing-offer.is-recommended { border-color: rgba(124, 199, 190, .6); box-shadow: none; }
+body.dark-mode .user-settings .billing-summary .quota-track { background: rgba(255, 255, 255, .2); }
+@media (max-width: 900px) {
+  .user-settings .billing-offers { grid-template-columns: 1fr; gap: 24px; }
+  .user-settings .billing-history-head { display: none; }
+  .user-settings .billing-history-row { grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; }
+  .user-settings .billing-history-term:empty { display: none; }
+  .user-settings .billing-addon-rows li { grid-template-columns: minmax(0, 1fr) auto auto; gap: 12px; }
+  .user-settings .billing-addon-rows strong { display: block; }
+  .user-settings .billing-addon-rows .settings-text-button { min-height: 44px; padding: 0 4px; }
+  .user-settings .billing-offer-head { height: auto; flex-wrap: wrap; row-gap: 8px; }
+  .user-settings .billing-history-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .user-settings .billing-history-term { grid-column: 1; grid-row: 2; }
+  .user-settings .billing-history-paid { grid-column: 2; grid-row: 2; text-align: right; color: var(--ink-muted); font-size: 12px; }
+  .user-settings .billing-buy { grid-template-columns: 1fr; gap: 20px; }
+  .user-settings .billing-buy-form { padding-left: 0; border-left: 0; padding-top: 20px; border-top: 1px solid var(--border-color); }
+  .user-settings .billing-history-main { grid-column: 1; grid-row: 1; }
+  .user-settings .billing-history-status { grid-column: 2; grid-row: 1; }
+  .user-settings .billing-history-term { font-size: 12px; color: var(--ink-muted); }
+  .user-settings .billing-buy-row, .user-settings .billing-manage { flex-direction: column; align-items: stretch; }
+}
+@media (max-width: 600px) {
+  .user-settings .billing-summary-head { flex-direction: column; align-items: stretch; }
+  .user-settings .billing-summary .quota-usage { grid-template-columns: 1fr; gap: 16px; }
+  .user-settings .billing-summary-actions .btn { width: 100%; }
+  .settings-nav { overflow-x: auto; gap: 20px; scrollbar-width: none; padding-right: 16px; }
+  .settings-nav button { white-space: nowrap; flex-shrink: 0; }
+}
+/* Anonymize page: choosing how to host a repository */
+.hosting-options { border: 0; padding: 0; margin: 14px 0 0; min-width: 0; }
+.hosting-options-title { font-size: 13px; font-weight: 600; margin: 0 0 8px; padding: 0; }
+.hosting-option { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; gap: 10px; align-items: start; margin: 0 0 8px; padding: 12px 14px; background: var(--paper-card); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; font-weight: 400; }
+.hosting-option:hover:not(.is-selected) { border-color: color-mix(in srgb, var(--accent) 45%, var(--border-color)); }
+.hosting-option.is-selected { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); background: var(--accent-soft); }
+.hosting-option input { width: 16px; height: 16px; margin: 1px 0 0; accent-color: var(--accent); }
+.hosting-subhead { font-size: 13px; font-weight: 600; margin: 22px 0 10px; padding-top: 18px; border-top: 1px solid var(--border-color); }
+.hosting-option-body strong { display: block; font-size: 13px; font-weight: 600; line-height: 1.35; }
+.hosting-option-body small { display: block; font-size: 12px; line-height: 1.45; color: var(--ink-muted); margin-top: 2px; }
+.hosting-option-price { text-align: right; white-space: nowrap; line-height: 1.2; min-width: 64px; }
+.hosting-limit { margin: 12px 0 0; padding: 10px 12px; border-radius: 8px; background: rgba(217, 119, 6, .08); border: 1px solid rgba(217, 119, 6, .28); font-size: 13px; font-weight: 500; }
+body.dark-mode .hosting-limit { background: rgba(251, 191, 36, .1); border-color: rgba(251, 191, 36, .3); }
+.hosting-cycle { margin-top: 8px; }
+.hosting-option-price strong { display: block; font-size: 15px; font-weight: 600; }
+.hosting-option-price small { display: block; font-size: 12px; color: var(--ink-muted); }
+.hosting-payment > .hosting-limit:first-child { margin-top: 4px; }
+.hosting-payment { margin-bottom: 18px; }
+.inline-hosting .capacity-options summary, .hosting-payment .capacity-options summary { list-style: none; display: inline-flex; align-items: center; gap: 6px; color: var(--accent); }
+.hosting-payment .capacity-options summary::-webkit-details-marker { display: none; }
+.hosting-payment .capacity-options summary::before { content: ""; width: 6px; height: 6px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); transition: transform .15s; }
+.hosting-payment .capacity-options[open] summary::before { transform: rotate(45deg); }
+.inline-hosting .hosting-terms { font-size: 12px; color: var(--ink-muted); margin: 4px 0 0; }
+

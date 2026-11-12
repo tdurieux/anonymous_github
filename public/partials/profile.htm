@@ -32,38 +32,106 @@ jane.smith@example.org" v-field="{ state: viewState, set: value =&gt; { terms = 
     <div v-if="billingError" class="settings-notice" role="alert">{{ billingError }} <button type="button" class="btn btn-outline-ink" @click="loadBilling()" :disabled="billingBusy">Try again</button></div>
     <p v-if="billingNotice" class="settings-notice" role="status">{{ billingNotice }}</p>
     <div v-if="billingPending" class="settings-notice" role="status"><strong>Confirming your payment</strong><p>Your allowance will update after confirmation. Please do not pay again.</p><button type="button" class="btn btn-outline-ink" @click="refreshBilling()" :disabled="billingBusy">Check payment status</button></div>
-    <section class="settings-row"><h2>Current plan</h2><div>
-      <div class="settings-inline"><div><strong>{{ profileAuthorGrant() ? 'Author subscription' : (billing?.enabled ? 'Free' : 'Account allowance') }}</strong><p class="settings-help" v-if="profileAuthorGrant()">{{ profileAuthorGrant().cancelAtPeriodEnd ? 'Renewal cancelled · Access until ' : 'Paid access through ' }}{{ billingDate(profileAuthorGrant().until) }}</p></div>
-        <button type="button" class="btn btn-outline-ink" v-if="billing?.enabled && !profileAuthorGrant() && !billingPending && !showAuthorPlans && profileAuthorPlans().length" @click="openProfileUpgrade()">View Author plan</button>
+    <section class="billing-summary">
+      <div class="billing-summary-head">
+        <div>
+          <p class="billing-eyebrow">Current plan</p>
+          <h2 class="billing-plan-name">{{ profileAuthorGrant() ? profileGrantName(profileAuthorGrant()) : (billing?.enabled ? 'Free' : 'Account allowance') }}</h2>
+          <p class="billing-plan-meta" v-if="profileAuthorGrant()">{{ profileAuthorGrant().cancelAtPeriodEnd ? 'Renewal cancelled · access until ' : 'Renews ' }}{{ billingDate(profileAuthorGrant().until) }}<template v-if="profileAuthorPurchase()?.amount != null"> · {{ billingPrice(profileAuthorPurchase()) }}</template></p>
+          <p class="billing-plan-meta" v-else-if="billing?.allowance">{{ billing.allowance.repositories }} repositories · {{ billingBytes(billing.allowance.storage) }} · links up to {{ billing.freeExpirationMonths || 5 }} months</p>
+        </div>
+        <div class="billing-summary-actions" v-if="profileAuthorGrant() &amp;&amp; billing?.portal">
+          <button type="button" class="btn btn-outline-ink" @click="billingPortal()" :disabled="billingBusy">{{ profileAuthorGrant().cancelAtPeriodEnd ? 'Resume renewal' : 'Change or cancel plan' }}</button>
+        </div>
+
       </div>
-      <p class="settings-help" v-if="billing?.allowance">{{ billing.allowance.repositories }} repositories · {{ billingBytes(billing.allowance.storage) }}</p>
       <div id="settings-quota"><quota-usage :quota="quota" :fmt="fmt" v-if="quota"></quota-usage><p v-else role="status">Loading usage…</p></div>
-      <p class="settings-help">Coauthored repositories use their owner's allowance. Conference hosting is separate.</p>
-      <p class="settings-notice" v-if="quota?.repository && !quota.repository.unlimited && quota.repository.used >= quota.repository.total">Your repository allowance is full. <a href="/dashboard">Review your repositories</a> to remove work you no longer need.</p>
-      <p class="settings-notice" v-if="profilePastSubscription()">Your previous subscription is no longer active. Never-expiring repositories receive a 90-day grace period after paid access ends. <a href="/dashboard">Review repository expiration dates</a>.</p>
-      <p class="settings-notice" v-if="profileAuthorGrant()?.status === 'past_due'">A subscription payment is overdue. Use Manage billing to update your payment details.</p>
-      <p class="settings-help" v-if="profileAuthorGrant()?.cancelAtPeriodEnd">When paid access ends, never-expiring repositories enter a 90-day grace period. Dated repositories keep their expiration dates.</p>
-      <div class="settings-plan billing-plan" v-if="showAuthorPlans && !profileAuthorGrant() && !billingPending && profileAuthorPlans().length">
-        <h3 id="settings-plan-comparison" tabindex="-1">Compare plans</h3>
-        <table class="settings-comparison"><caption class="sr-only">Free and Author hosting</caption><thead><tr><th scope="col">Included</th><th scope="col">Free</th><th scope="col">Author</th></tr></thead><tbody>
-          <tr><th scope="row">Active repositories</th><td>{{ billing.allowance?.repositories }}</td><td>{{ profileSelectedPlan()?.repositories }}</td></tr>
-          <tr><th scope="row">Source storage</th><td>{{ billingBytes(billing.allowance?.storage) }}</td><td>{{ billingBytes(profileSelectedPlan()?.storage) }}</td></tr>
-          <tr><th scope="row">Expiration</th><td>Scheduled</td><td>Scheduled or never</td></tr>
-          <tr><th scope="row">Coauthors</th><td>Included</td><td>Included</td></tr>
-          <tr><th scope="row">Reviewer access</th><td>Free</td><td>Free</td></tr>
-        </tbody></table>
-        <fieldset class="settings-cycles"><legend class="sr-only">Billing frequency</legend><label v-for="plan in profileAuthorPlans()" :class="{selected: profileSelectedPlan()?.id === plan.id}"><input type="radio" name="profile-plan" :checked="profileSelectedPlan()?.id === plan.id" @change="profilePlan = plan.id">{{ billingPrice(plan) }}</label></fieldset>
-        <p class="settings-help">Renews {{ profileSelectedPlan()?.interval === 'year' ? 'annually' : 'monthly' }} until cancelled. Tax shown at checkout.</p><p class="settings-help">If paid access ends, never-expiring repositories expire after a 90-day grace period.</p>
-        <div class="settings-actions"><button type="button" class="btn btn-ink" :disabled="billingBusy || billing.checkoutEnabled === false" @click="checkout(profileSelectedPlan().id)">{{ billingBusy ? 'Please wait…' : 'Continue to checkout' }}</button><button type="button" class="btn btn-outline-ink" @click="showAuthorPlans = false">Keep current plan</button></div>
+      <p class="settings-notice" v-if="quota?.repository &amp;&amp; !quota.repository.unlimited &amp;&amp; quota.repository.used >= quota.repository.total">Your free repositories are used up. Add the next one for {{ profileSlotPlan() ? billingPrice(profileSlotPlan()) : 'a one-time payment' }} when you create it, or <a href="/dashboard">remove work you no longer need</a>.</p>
+      <p class="settings-notice" v-if="profileAuthorGrant()?.status === 'past_due'">A subscription payment is overdue. Update your payment details in Manage billing and invoices.</p>
+      <p class="settings-notice" v-if="profilePastSubscription()">Your previous subscription has ended. Never-expiring repositories stay online for a 90-day grace period. <a href="/dashboard">Review expiration dates</a>.</p>
+      <p class="billing-footnote">Coauthored, paid and conference repositories aren't counted here.</p>
+    </section>
+
+    <section class="billing-section" v-if="billing?.enabled &amp;&amp; !profileAuthorGrant() &amp;&amp; (profilePackPlan() || profileAuthorPlans().length)" aria-labelledby="settings-plan-comparison">
+      <h2 class="billing-section-title" id="settings-plan-comparison" tabindex="-1">Get more</h2>
+      <div class="billing-offers" v-if="!(showRepositoryPass &amp;&amp; profileAddon() &amp;&amp; !billingPending)">
+        <article class="billing-offer is-recommended" v-if="profilePackPlan()">
+          <span class="billing-offer-pill">Recommended</span>
+          <div class="billing-offer-head"><p class="billing-eyebrow">For one paper</p></div>
+          <h3>Paper pack</h3>
+          <p class="billing-offer-price"><strong>{{ billingAmount(profilePackPlan()) }}</strong> once</p>
+          <ul class="billing-offer-list"><li>One more repository, outside your free ones</li><li>Its own {{ billingBytes(profileSlotPlan()?.storage || profilePassPlan()?.storage) }} of storage</li><li>Automatic updates for 180 days</li><li>Online for up to a year</li><li>No subscription</li></ul>
+          <button type="button" class="btn btn-ink" @click="openProfileAddon('repo_pack')" :disabled="billingPending || billing.checkoutEnabled === false">Buy a Paper pack</button>
+        </article>
+        <article class="billing-offer" v-if="profileAuthorPlans().length">
+          <div class="billing-offer-head"><p class="billing-eyebrow">For many papers</p><div class="billing-toggle" role="radiogroup" aria-label="Billing frequency"><button type="button" role="radio" v-for="plan in profileAuthorPlansByValue()" :key="plan.id" :aria-checked="profileSelectedPlan()?.id === plan.id ? 'true' : 'false'" :class="{ 'is-on': profileSelectedPlan()?.id === plan.id }" @click="profilePlan = plan.id">{{ plan.interval === 'year' ? 'Yearly' : 'Monthly' }}<span v-if="plan.interval === 'year' &amp;&amp; profileAnnualSavings()" class="billing-toggle-save">−{{ profileAnnualSavings() }}%</span></button></div></div>
+          <h3>Author subscription</h3>
+          <p class="billing-offer-price"><strong>{{ billingAmount(profileSelectedPlan()) }}</strong> per {{ profileSelectedPlan()?.interval === 'year' ? 'year' : 'month' }}</p>
+          <ul class="billing-offer-list"><li>{{ profileSelectedPlan()?.repositories }} repositories, {{ billingBytes(profileSelectedPlan()?.storage) }}</li><li>Automatic updates</li><li>Links that never expire</li><li>Coauthors included</li><li>Cancel renewal anytime</li></ul>
+          <button type="button" class="btn btn-outline-ink" :disabled="billingBusy || billing.checkoutEnabled === false" @click="checkout(profileSelectedPlan().id)">{{ billingBusy ? 'Please wait…' : 'Subscribe' }}</button>
+        </article>
       </div>
-      <p class="settings-help" v-if="billing && (!billing.enabled || billing.checkoutEnabled === false)">New purchases are not available. Existing billing can still be managed below.</p>
-    </div></section>
-    <section class="settings-row"><h2>Billing</h2><div><div class="settings-inline" v-if="billing?.portal"><p class="settings-help">Invoices, payment details, and renewal.</p><button type="button" class="btn btn-outline-ink" @click="billingPortal()" :disabled="billingBusy">Manage billing</button></div><p class="settings-help" v-else>No billing account available.</p><button type="button" class="settings-text-button" v-if="billing?.enabled && !billingPending" @click="refreshBilling()" :disabled="billingBusy">Refresh payment status</button></div></section>
-    <section class="settings-row" v-if="billing?.enabled"><h2>Repository passes</h2><div><div class="settings-inline"><p class="settings-help">One repository for 180 days.<br>No subscription or automatic renewal.</p><button type="button" class="btn btn-outline-ink" v-if="profilePassPlan()" @click="showRepositoryPass = !showRepositoryPass" :disabled="billingPending">Review a pass</button></div>
-      <div class="settings-pass" v-if="showRepositoryPass && profilePassPlan() && !billingPending"><label for="billing-repository">Repository ID you own</label><input id="billing-repository" class="form-control" v-model="billingRepository" placeholder="Existing anonymized repository ID" autocomplete="off"><p class="settings-help">{{ billingPrice(profilePassPlan()) }} · {{ billingBytes(profilePassPlan().storage) }} · Never expire is not included.</p><button type="button" class="btn btn-ink" :disabled="billingBusy || !billingRepository.trim() || billing.checkoutEnabled === false" @click="checkout('author_pass', billingRepository.trim())">Continue to checkout</button></div>
-    </div></section>
-    <section class="settings-row" v-if="billing?.grants?.length"><h2>Your purchases</h2><div><div class="settings-purchase" v-for="grant in billing.grants" :key="grant.scope + grant.planId + grant.until"><strong>{{ profileGrantName(grant) }}</strong><span>{{ grant.scope }}</span><p class="settings-help">{{ grant.status }}<template v-if="grant.status !== 'revoked'"> · Paid access through {{ billingDate(grant.until) }}{{ grant.cancelAtPeriodEnd ? ' · Renewal cancelled' : '' }}</template></p></div></div></section>
-    <section class="settings-row"><h2>Conference hosting</h2><div class="settings-inline"><p class="settings-help">Shared hosting is managed per conference.</p><a href="/conferences" class="btn btn-outline-ink">My conferences</a></div></section>
+
+      <div class="billing-addons" v-if="profileSingleAddons().length &amp;&amp; !(showRepositoryPass &amp;&amp; profileAddon() &amp;&amp; !billingPending)">
+        <div class="billing-addons-head"><h3 class="billing-subtitle">Or pay for one thing</h3><span>One-time</span></div>
+        <ul class="billing-addon-rows"><li v-for="plan in profileSingleAddons()" :key="plan.id"><div><strong>{{ plan.name }}</strong><span>{{ profileAddonBlurb(plan.id) }}</span></div><span class="billing-addon-price">{{ billingAmount(plan) }}</span><button type="button" class="settings-text-button" @click="openProfileAddon(plan.id)" :disabled="billingPending || billing.checkoutEnabled === false">Buy</button></li></ul>
+      </div>
+
+      <div class="billing-buy" v-if="showRepositoryPass &amp;&amp; profileAddon() &amp;&amp; !billingPending" id="settings-addons-title" tabindex="-1">
+        <div class="billing-buy-info">
+          <button type="button" class="btn btn-outline-ink billing-back" @click="showRepositoryPass = false">← All options</button>
+          <h3>{{ profileAddon().name }}</h3>
+          <p class="billing-offer-price"><strong>{{ billingAmount(profileAddon()) }}</strong> once</p>
+          <ul class="billing-offer-list"><li v-for="item in profileAddonFeatures(profileAddon().id)" :key="item">{{ item }}</li></ul>
+        </div>
+        <div class="billing-buy-form">
+          <template v-if="profileRepositories().length">
+            <label class="paper-field-label" for="billing-repository">Which repository?</label>
+            <select id="billing-repository" class="form-control" v-model="billingRepository"><option value="" disabled>Choose a repository</option><option v-for="repo in profileRepositories()" :key="repo.repoId" :value="repo.repoId">{{ repo.repoId }} · {{ profileRepositoryExpiry(repo) }}</option></select>
+            <button type="button" class="btn btn-ink" :disabled="billingBusy || !billingRepository || billing.checkoutEnabled === false" @click="checkout(profileAddon().id, billingRepository)">{{ billingBusy ? 'Please wait…' : 'Continue to checkout' }}</button>
+            <p class="billing-footnote">One-time payment. Tax shown at checkout.</p>
+          </template>
+          <p class="billing-buy-desc" v-else>You have no repositories yet. <a href="/anonymize">Create one</a> first.</p>
+          <p class="billing-footnote" v-if="['repo_slot', 'repo_pack'].includes(profileAddon().id)">Adding a new repository? <a href="/anonymize">Start creating it</a>; the form offers this once your free repositories are in use.</p>
+        </div>
+      </div>
+      <details class="billing-compare"><summary>Compare all features</summary><div class="billing-compare-card">
+        <table class="settings-comparison"><caption class="sr-only">Free, Paper pack and Author hosting</caption><thead><tr><th scope="col"><span class="sr-only">Feature</span></th><th scope="col">Free<small>€0</small></th><th scope="col" class="is-recommended" v-if="profilePackPlan()">Paper pack<small>{{ billingPrice(profilePackPlan()) }}</small></th><th scope="col" v-if="profileAuthorPlans().length">Author<small>{{ billingPrice(profileSelectedPlan()) }}</small></th></tr></thead><tbody>
+          <tr><th scope="row">Repositories</th><td>{{ billing.allowance?.repositories }}</td><td class="is-recommended" v-if="profilePackPlan()">+1</td><td v-if="profileAuthorPlans().length">{{ profileSelectedPlan()?.repositories }}</td></tr>
+          <tr><th scope="row">Source storage</th><td>{{ billingBytes(billing.allowance?.storage) }} total</td><td class="is-recommended" v-if="profilePackPlan()">{{ billingBytes(profileSlotPlan()?.storage || profilePassPlan()?.storage) }} for it</td><td v-if="profileAuthorPlans().length">{{ billingBytes(profileSelectedPlan()?.storage) }} total</td></tr>
+          <tr><th scope="row">Latest expiration</th><td>{{ billing.freeExpirationMonths || 5 }} months ahead</td><td class="is-recommended" v-if="profilePackPlan()">1 year after purchase</td><td v-if="profileAuthorPlans().length">Never</td></tr>
+          <tr><th scope="row">Automatic updates</th><td>No</td><td class="is-recommended" v-if="profilePackPlan()">180 days</td><td v-if="profileAuthorPlans().length">Yes</td></tr>
+          <tr><th scope="row">Renews</th><td>No</td><td class="is-recommended" v-if="profilePackPlan()">No</td><td v-if="profileAuthorPlans().length">Until cancelled</td></tr>
+          <tr><th scope="row">Reviewer access</th><td>Free</td><td class="is-recommended" v-if="profilePackPlan()">Free</td><td v-if="profileAuthorPlans().length">Free</td></tr>
+        </tbody></table></div>
+      </details>
+      <p class="billing-footnote" v-if="billing.checkoutEnabled === false">New purchases are not available right now. Existing billing can still be managed below.</p>
+    </section>
+
+
+    <section class="billing-section" v-if="billing?.enabled">
+      <div class="billing-section-head"><h2 class="billing-section-title">Purchases</h2><button type="button" class="settings-text-button" v-if="!billingPending" @click="refreshBilling()" :disabled="billingBusy">Refresh payment status</button></div>
+      <p class="billing-empty" v-if="!(billing.purchases || []).length">No purchases yet.</p>
+      <div class="billing-history-head" v-if="(billing.purchases || []).length" aria-hidden="true"><span>Purchase</span><span>Period</span><span>Amount</span><span>Status</span></div>
+      <ul class="billing-history" v-if="(billing.purchases || []).length">
+        <li class="billing-history-row" v-for="purchase in profilePurchases(true).concat(profilePurchases(false))" :key="purchase.id" :class="{ 'is-ended': !['active', 'overdue'].includes(purchase.status) }">
+          <div class="billing-history-main">
+            <strong>{{ profileGrantName(purchase) }}<template v-if="purchase.repoId"> · <a :href="'/anonymize/' + encodeURIComponent(purchase.repoId)">{{ purchase.repoId }}</a></template><template v-else-if="purchase.conference"> · <a :href="'/conference/' + encodeURIComponent(purchase.conference)">{{ purchase.conference }}</a></template></strong>
+            <span>{{ [purchase.purchasedAt ? 'Bought ' + billingDate(purchase.purchasedAt) : '', purchase.parts.length ? profilePackSummary(purchase) : ['refunded', 'disputed'].includes(purchase.status) ? 'Payment ' + purchase.status + ', so what it paid for has ended' : purchase.recurring ? 'Account subscription' : ''].filter(Boolean).join(' · ') }}</span>
+          </div>
+          <div class="billing-history-term">{{ profilePurchaseTerm(purchase) }}</div>
+          <div class="billing-history-paid">{{ purchase.amount != null ? billingPrice(purchase) : '' }}</div>
+          <div class="billing-history-status"><span class="settings-status" :class="'is-' + purchase.status">{{ profilePurchaseStatus(purchase) }}</span></div>
+        </li>
+      </ul>
+      <div class="billing-manage">
+        <div><strong>Invoices and payment details</strong><p v-if="billing.portal">Download receipts, update your card or change renewal in Stripe.</p><p v-else>Invoices appear here after your first purchase.</p>
+          <p>Need a refund? <a href="mailto:tdurieux@anonymous.4open.science">Email the maintainer</a> with the payment date, or read the <a href="/faq#faq-plans">refund policy</a>.</p></div>
+        <button type="button" class="btn btn-outline-ink" v-if="billing.portal" @click="billingPortal()" :disabled="billingBusy">Manage billing and invoices</button>
+      </div>
+    </section>
+
+    <p class="billing-conference">Organizing a conference? <template v-if="profileConferencePlan()">Review packages start at {{ billingAmount(profileConferencePlan()) }} once for up to {{ profileConferencePlan().repositories }} submissions, and authors pay nothing.</template><template v-else>One payment hosts every submission, and authors pay nothing.</template> <a href="/conference/new">Create a conference</a></p>
   </section>
       <section id="settings-account" class="settings-account-panel" v-show="settingsTab === 'account'">
         <p class="settings-scope">Your identity, repository access, and account.</p>

@@ -10,7 +10,7 @@ export const BillingAccount = model("billingAccount", new Schema({
 export const BillingGrant = model("billingGrant", new Schema({
   _id: String, owner: { type: String, index: true }, scope: { type: String, index: true },
   planId: String, customerId: String, subscriptionId: String, paymentIntentId: { type: String, index: true },
-  status: String, until: Date, cancelAtPeriodEnd: Boolean,
+  status: String, until: Date, cancelAtPeriodEnd: Boolean, purchasedAt: Date,
   priceId: String,
   revision: { type: Number, default: 0 }, revoked: { type: Boolean, default: false },
   revocationReason: String, revokedAt: Date,

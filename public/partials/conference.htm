@@ -22,7 +22,7 @@
       <span>ID <b class="commit-hash" v-text="conference?.conferenceID"></b></span>
       <span>Review window <b>{{ fmt?.date(conference?.startDate, 'mediumDate') }} &ndash; {{ fmt?.date(conference?.endDate, 'mediumDate') }}</b></span>
       <span>Repositories <b>{{ fmt?.number(conference?.repositories?.length) }}</b></span>
-      <span>Plan <b v-text="conference?.plan?.name || conference?.plan?.planID || &#x27;Free&#x27;"></b></span>
+      <span>Plan <b v-text="conferencePlanName(conference?.plan?.planID)"></b></span>
       <span v-if="conference?.price">Cost so far <b>{{ fmt?.number(conference?.price, 2) }} &euro;</b></span>
     </div>
 
@@ -36,9 +36,9 @@
       <p>This conference is waiting for payment. Authors can join after payment is confirmed. Checkout returns to this conference. Authors within the package do not pay separately.</p>
       <p v-if="billingLoading" role="status">Loading payment options…</p>
       <p v-if="billingError" role="alert">{{ billingError }}</p>
-      <div v-for="plan in (billing?.plans || []).filter(p =&gt; p.id === 'conference')" :key="plan.id">
-        <p>{{ billingPrice(plan) }} for up to {{ plan.repositories }} repositories and {{ billingBytes(plan.storage) }} of source files during the review window. Taxes, if applicable, appear at checkout.</p>
-        <button type="button" class="btn btn-primary" @click="checkout('conference', conference.conferenceID)" :disabled="billingBusy || billingPending || billing?.checkoutEnabled === false">{{ billingBusy ? 'Please wait…' : 'Pay for review package' }}</button>
+      <div v-for="plan in (billing?.plans || []).filter(p =&gt; p.id === conference?.plan?.planID)" :key="plan.id">
+        <p><strong>{{ plan.name }} package</strong>: {{ billingPrice(plan) }} for up to {{ plan.repositories }} repositories and {{ billingBytes(plan.storage) }} of source files during the review window. Taxes, if applicable, appear at checkout.</p>
+        <button type="button" class="btn btn-primary" @click="checkout(plan.id, conference.conferenceID)" :disabled="billingBusy || billingPending || billing?.checkoutEnabled === false">{{ billingBusy ? 'Please wait…' : 'Pay for review package' }}</button>
       </div>
       <p><a href="/profile#settings-billing">Manage invoices</a></p>
     </section>

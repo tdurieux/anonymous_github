@@ -35,7 +35,32 @@ describe("paid access policy", () => {
       }
       expect(() => validateBillingExpiration({ expirationMode: "never" })).not.to.throw();
       expect(() => validateBillingExpiration({ expirationMode: "remove", expirationDate: new Date() })).not.to.throw();
+      // The free window is FREE_EXPIRATION_MONTHS (5) months, not a year.
+      const sevenMonths = new Date(); sevenMonths.setMonth(sevenMonths.getMonth() + 7);
+      expect(() => validateBillingExpiration({ expirationMode: "remove", expirationDate: sevenMonths })).to.throw("invalid_billing_expiration");
+      // An already saved later date stays valid, and a paid limit allows it.
+      expect(() => validateBillingExpiration({ expirationMode: "remove", expirationDate: sevenMonths }, undefined, new Date(sevenMonths))).not.to.throw();
+      const limit = new Date(); limit.setFullYear(limit.getFullYear() + 2);
+      expect(() => validateBillingExpiration({ expirationMode: "remove", expirationDate: sevenMonths }, limit)).not.to.throw();
     } finally { config.BILLING_ENABLED = enabled; }
+  });
+  it("summarizes purchases without internal IDs or the no-end sentinel", async () => {
+    const { purchaseHistory } = require("../src/server/routes/billing");
+    const never = new Date("9999-12-31T00:00:00Z"), later = new Date(Date.now() + 86400000);
+    const rows = await purchaseHistory([
+      { _id: "cs_1:repo_slot", planId: "repo_slot", scope: "repo:paper", status: "paid", until: never },
+      { _id: "cs_1:author_pass", planId: "author_pass", scope: "repo:paper", status: "paid", until: later },
+      { _id: "cs_1:repo_extend", planId: "repo_extend", scope: "repo:paper", status: "paid", until: later },
+      { _id: "cs_2", planId: "repo_never", scope: "repo:other", status: "paid", until: never, revoked: true, revocationReason: "full_refund" },
+      { _id: "sub_1", planId: "author_monthly", scope: "user:me", status: "past_due", until: later },
+    ]);
+    expect(rows).to.have.length(3);
+    const pack = rows.find(r => r.planId === "repo_pack");
+    expect(pack).to.include({ repoId: "paper", status: "active", until: null });
+    expect(pack.parts.find(p => p.planId === "repo_slot").until).to.equal(null);
+    expect(rows.find(r => r.planId === "repo_never")).to.include({ status: "refunded", until: null });
+    expect(rows.find(r => r.planId === "author_monthly")).to.include({ status: "overdue", recurring: true, repoId: null });
+    expect(JSON.stringify(rows)).not.to.include("cs_");
   });
   it("rejects unsafe configured redirect origins", () => {
     const original = config.BILLING_ORIGIN;
@@ -86,6 +111,26 @@ describe("retired conference offers", () => {
     expect(model.options.terms).to.deep.equal(["Author"]);
     expect(model.status).to.equal("ready");
     expect(model.plan.planID).to.equal("conference");
+  });
+  it("only offers the paid review package when billing is enabled", async () => {
+    const { offeredConferencePlans } = require("../src/server/routes/conference");
+    config.BILLING_ENABLED = true; config.STRIPE_CONFERENCE_PRICE = "price_conf";
+    expect(offeredConferencePlans().map(p => p.id)).to.deep.equal(["conference"]);
+    config.STRIPE_CONFERENCE_SMALL_PRICE = "price_small"; config.STRIPE_CONFERENCE_LARGE_PRICE = "price_large";
+    expect(offeredConferencePlans().map(p => p.id)).to.deep.equal(["conference_workshop", "conference", "conference_large"]);
+    expect(offeredConferencePlans().find(p => p.id === "conference_workshop").repositories).to.equal(config.PAID_CONFERENCE_SMALL_REPOSITORIES);
+    expect(offeredConferencePlans()[0]).to.not.have.property("priceId");
+    config.STRIPE_CONFERENCE_SMALL_PRICE = ""; config.STRIPE_CONFERENCE_LARGE_PRICE = "";
+    config.BILLING_ENABLED = false;
+    expect(offeredConferencePlans().map(p => p.id)).to.deep.equal(["free_conference"]);
+  });
+  it("rejects new free conferences when billing is enabled", async () => {
+    config.BILLING_ENABLED = true; config.STRIPE_CONFERENCE_PRICE = "price_conf";
+    body.plan.planID = "free_conference";
+    let error;
+    try { await save({ params: {}, body }, { send: () => {} }); } catch (e) { error = e; }
+    expect(error?.message).to.equal("invalid_plan");
+    expect(saves).to.equal(0);
   });
   for (const change of ["new", "plan", "dates"]) {
     it(`still rejects ${change} purchases or locked changes`, async () => {

@@ -1,6 +1,6 @@
 import Repository from "../../core/Repository";
 import { sourceStorageSize } from "../../core/source/Source";
-import { neverExpirationDeadline, validateBillingExpiration } from "../../core/billing/expiration";
+import { maximumExpiration, neverExpirationDeadline, validateBillingExpiration } from "../../core/billing/expiration";
 import config from "../../config";
 import { assertConferenceAdmission, reserveRepository } from "../../core/billing/quotas";
 import { resetOwnerAccessAlerts } from "../../core/owner-notifications";
@@ -206,10 +206,17 @@ router.post(
       const user = await getUser(req);
       isOwnerCoauthorOrAdmin(repo, user);
 
-      const newExpiration = extendExpirationDate(
+      const maximum = await maximumExpiration(String(repo.model.owner), repo.repoId, repo.model.conference);
+      let newExpiration = extendExpirationDate(
         repo.model.options.expirationDate
       );
-      validateBillingExpiration({ ...repo.model.options, expirationDate: newExpiration });
+      // Extend as far as the repository's limit allows, never shortening it.
+      if (config.BILLING_ENABLED && newExpiration > maximum) {
+        const current = repo.model.options.expirationDate && new Date(repo.model.options.expirationDate);
+        if (current && current >= maximum) throw new AnonymousError("expiration_limit_reached", { httpStatus: 402 });
+        newExpiration = maximum;
+      }
+      validateBillingExpiration({ ...repo.model.options, expirationDate: newExpiration }, maximum);
       const reactivating = repo.status === RepositoryStatus.EXPIRED;
       if (reactivating) await assertConferenceAdmission(String(repo.model.owner), repo.repoId, repo.model.conference);
       const updates: Record<string, Date | string | null> = {
@@ -571,11 +578,12 @@ router.post(
 
       // Keep proposed settings separate until cleanup passes the persisted fences.
       const proposed = new AnonymizedRepositoryModel(repo.model.toObject());
-      if (repo.model.billingManaged) validateBillingExpiration(repoUpdate.options);
+      if (repo.model.billingManaged) validateBillingExpiration(repoUpdate.options,
+        await maximumExpiration(String(repo.model.owner), repo.repoId, repoUpdate.conference), repo.model.options.expirationDate);
       if (config.BILLING_ENABLED && repoUpdate.options.expirationMode === "never" &&
           (repo.model.options.expirationMode !== "never" || repo.model.billingNeverExpiresUntil)) {
         proposed.billingNeverExpiresUntil = await neverExpirationDeadline(String(repo.model.owner),
-          repo.model.options.expirationMode === "never" ? repo.model.billingNeverExpiresUntil : undefined);
+          repo.model.options.expirationMode === "never" ? repo.model.billingNeverExpiresUntil : undefined, repo.repoId);
       } else if (repoUpdate.options.expirationMode !== "never") {
         proposed.billingNeverExpiresUntil = undefined;
       }
@@ -801,9 +809,9 @@ router.post("/", async (req, res) => {
     repo.owner = user.id;
     repo.githubAccess = selectedAccess.binding;
 
-    validateBillingExpiration(repoUpdate.options);
+    validateBillingExpiration(repoUpdate.options, await maximumExpiration(user.id, repoUpdate.repoId, repoUpdate.conference));
     if (repoUpdate.options.expirationMode === "never") {
-      repo.billingNeverExpiresUntil = await neverExpirationDeadline(user.id);
+      repo.billingNeverExpiresUntil = await neverExpirationDeadline(user.id, undefined, repoUpdate.repoId);
     }
     updateRepoModel(repo, repoUpdate);
     repo.source.type = "GitHubStream";
