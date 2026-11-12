@@ -7,7 +7,7 @@ Billing is opt-in. `BILLING_ENABLED=false` preserves self-hosted behavior. This 
 Configure these EUR prices in Stripe. The amounts below are suggested prices, not hard-coded charges:
 
 - Author monthly: €5/month, recurring monthly.
-- Author annual: €30/year, recurring yearly.
+- Author annual: €49/year, recurring yearly. In the first nine days of paid hosting, 6 of 22 subscribers chose it and it brought 79% of revenue, so it keeps its price; it is also easy to expense on a grant.
 - Live updates (`author_pass`): €4 once. Automatic refresh and a separate storage allowance for one existing repository for 180 days from checkout creation.
 - Extended expiration (`repo_extend`): €2 once. One existing repository can be scheduled to expire up to one year after purchase. Purchases stack: each one adds a year after the latest earlier extension.
 - Never expire (`repo_never`): €10 once. It costs more than Extended expiration because it is the only purchase that keeps storage in use indefinitely. One existing repository can use Never expire without a subscription.

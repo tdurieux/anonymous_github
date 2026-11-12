@@ -43,7 +43,7 @@ async function main() {
   const product = await stripe.products.create({ name: "Anonymous GitHub sandbox integration " + run, metadata });
   products.push(product.id);
   for (const [key, amount, interval] of [
-    ["STRIPE_AUTHOR_MONTHLY_PRICE",500,"month"],["STRIPE_AUTHOR_ANNUAL_PRICE",3000,"year"],
+    ["STRIPE_AUTHOR_MONTHLY_PRICE",500,"month"],["STRIPE_AUTHOR_ANNUAL_PRICE",4900,"year"],
     ["STRIPE_AUTHOR_PASS_PRICE",400],["STRIPE_REPO_EXTEND_PRICE",200],["STRIPE_REPO_NEVER_PRICE",1000],["STRIPE_REPO_SLOT_PRICE",200],["STRIPE_REPO_PACK_PRICE",500],["STRIPE_CONFERENCE_SMALL_PRICE",4900],["STRIPE_CONFERENCE_PRICE",14900],["STRIPE_CONFERENCE_LARGE_PRICE",39900]]) {
     const p = await stripe.prices.create({ product: product.id, currency: "eur", unit_amount: amount, metadata, ...(interval ? { recurring: { interval } } : {}) });
     prices.push(p.id); config[key] = p.id;
