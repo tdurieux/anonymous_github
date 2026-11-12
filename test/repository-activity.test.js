@@ -66,9 +66,14 @@ describe("repository activity dates", () => {
     expect(saved.source.commit).to.equal("abc123");
     expect(saved).not.to.have.property("publishedAt");
   });
+  function freeLimit() {
+    const expiration = require("../src/core/billing/expiration");
+    stub(expiration, "maximumExpiration", async () => expiration.freeExpirationLimit());
+  }
   it("allows privacy-only saves after hosting capacity or conference admission ends", async () => {
     const repo = repository(); auth(repo);
     stub(require("../src/config").default, "BILLING_ENABLED", true);
+    freeLimit();
     const quotas = require("../src/core/billing/quotas");
     repo.model.billingManaged = true;
     repo.model.conference = "ended-conf";
@@ -86,6 +91,7 @@ describe("repository activity dates", () => {
   it("rejects an oversized edited source before removing the published files", async () => {
     const repo = repository(); auth(repo); repo.model.billingManaged = true;
     stub(require("../src/config").default, "BILLING_ENABLED", true);
+    freeLimit();
     const quotas = require("../src/core/billing/quotas");
     const access = require("../src/core/github-app");
     const github = require("../src/core/source/GitHubRepository");
@@ -124,21 +130,22 @@ describe("repository activity dates", () => {
       else expect(saved.$unset).to.have.property("billingNeverExpiresUntil", 1);
     });
   }
-  it("rejects repeated extensions beyond one year before changing stored settings", async () => {
+  it("caps extensions at the repository's limit before changing stored settings", async () => {
     const repo = repository(); auth(repo);
     stub(require("../src/config").default, "BILLING_ENABLED", true);
+    freeLimit();
     repo.model.options.expirationMode = "remove";
     repo.model.options.expirationDate = new Date();
     let writes = 0;
     stub(Model, "updateOne", () => ({ exec: async () => { writes++; return { matchedCount: 1 }; } }));
     const extend = handler("repository-private", "/:repoId/extend", "post");
     await extend({}, { json: () => {} });
-    await extend({}, { json: () => {} });
     const savedDate = repo.model.options.expirationDate;
+    expect(savedDate.getTime()).to.equal(require("../src/core/billing/expiration").freeExpirationLimit().getTime());
     let error;
     try { await extend({}, { json: () => {} }); } catch (caught) { error = caught; }
-    expect(error?.message).to.equal("invalid_billing_expiration");
-    expect(writes).to.equal(2);
+    expect(error?.message).to.equal("expiration_limit_reached");
+    expect(writes).to.equal(1);
     expect(repo.model.options.expirationDate).to.deep.equal(savedDate);
   });
   it("does not extend an expired submission in a conference that no longer admits it", async () => {
