@@ -1,5 +1,7 @@
 import config from "../../config";
 import { billingError, billingPlans, isConferencePlan } from "../../core/billing/config";
+import { BillingGrant } from "../../core/billing/models";
+import { usableGrant } from "../../core/billing/quotas";
 import * as express from "express";
 import AnonymousError from "../../core/AnonymousError";
 import Conference from "../../core/Conference";
@@ -241,7 +243,9 @@ router.get(
       const conference = new Conference(data);
       // Authors see whether the conference pays for their repository's hosting.
       const now = new Date();
-      const hosting = isConferencePlan(data.plan?.planID) && data.status === "ready" && data.startDate <= now && data.endDate > now;
+      // Mirror admission: a refunded or disputed package no longer hosts anything.
+      const hosting = config.BILLING_ENABLED && isConferencePlan(data.plan?.planID) && data.status === "ready" && data.startDate <= now && data.endDate > now
+        && (await BillingGrant.find({ scope: `conference:${data.conferenceID}`, revoked: false, until: { $gt: now } }).select("status until revoked").lean()).some(g => usableGrant(g, now));
       try {
         isOwnerOrAdmin(conference.ownerIDs, user);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

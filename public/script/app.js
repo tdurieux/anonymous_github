@@ -1531,7 +1531,7 @@ export const anonymizeController = function (state, http, html, params, location
       };
       state.hostingPlan = "";
       state.hostingSaving = false;
-      state.selectedHostingPlan = () => state.authorPlans().find(p => p.id === state.hostingPlan) || state.authorPlans()[0];
+      state.selectedHostingPlan = () => state.authorPlans().find(p => p.id === state.hostingPlan) || state.hostingSubscriptionPlan?.();
       const loadHostingQuota = () => http.get("/api/user/quota").then(res => { state.hostingQuota = res.data; });
       setupBilling(state, http, async () => {
         await loadHostingQuota();
@@ -1589,7 +1589,7 @@ export const anonymizeController = function (state, http, html, params, location
       state.hostingChoice = () => {
         const oneTime = state.hostingOneTimePlans();
         if (oneTime.some(p => p.id === state.hostingPlan) || state.authorPlans().some(p => p.id === state.hostingPlan)) return state.hostingPlan;
-        return oneTime[0]?.id || state.authorPlans()[0]?.id || "";
+        return oneTime[0]?.id || state.hostingSubscriptionPlan()?.id || "";
       };
       state.checkoutRepository = async (addon = "") => {
         if (state.hostingSaving || state.billingBusy || !state.billing?.csrf || state.sourceLoading) return;
@@ -1603,7 +1603,8 @@ export const anonymizeController = function (state, http, html, params, location
             checkoutDraftId = saved.data.id;
             checkoutDraftSnapshot = serialized;
           }
-          const plan = state.authorPlans().find(p => p.id === state.hostingPlan) || state.authorPlans()[0];
+          // The subscription option shows one cycle; Checkout must open that same cycle.
+          const plan = state.authorPlans().find(p => p.id === state.hostingPlan) || state.hostingSubscriptionPlan();
           if (!addon && !plan) throw new Error("No author plan available");
           await state.checkout(addon || plan.id, addon ? state.repoId : "", { draftId: checkoutDraftId });
         } catch { state.billingError = "Your draft could not be saved for checkout. Your form is unchanged. Please try again."; }
@@ -1708,7 +1709,8 @@ export const anonymizeController = function (state, http, html, params, location
         const now = new Date();
         let maximum = new Date(now);
         maximum.setFullYear(maximum.getFullYear() + 1);
-        if (state.billing?.enabled && !state.hasAuthorHosting()) {
+        // Gists and pull requests keep their one-year limit; billing only limits repositories.
+        if (state.billing?.enabled && state.detectedType === "repo" && !state.hasAuthorHosting()) {
           maximum = new Date(now);
           maximum.setMonth(maximum.getMonth() + (state.billing.freeExpirationMonths || 5));
           for (const grant of state.repositoryGrants("repo_extend")) if (new Date(grant.until) > maximum) maximum = new Date(grant.until);
@@ -1723,7 +1725,7 @@ export const anonymizeController = function (state, http, html, params, location
         state.maxExpirationDate = toLocalDateString(maximum);
       };
       updateExpirationLimit();
-      state.watch(() => [state.billing, state.repoId, state.conference_data, state.isUpdate, state._savedExpirationDate, state.options?.expirationMode], updateExpirationLimit, true, false);
+      state.watch(() => [state.billing, state.repoId, state.conference_data, state.isUpdate, state._savedExpirationDate, state.options?.expirationMode, state.detectedType], updateExpirationLimit, true, false);
       state.anonymize_readme = "";
       state.readme = "";
       state.html_readme = "";

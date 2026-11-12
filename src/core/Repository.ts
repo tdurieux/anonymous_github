@@ -1,6 +1,6 @@
 import { REPOSITORY_ID_COLLATION } from "./repository-id";
-import { allowance, reserveRepository } from "./billing/quotas";
-import { MANUAL_REFRESH_PLANS } from "./billing/config";
+import { reserveRepository } from "./billing/quotas";
+import { hasAutomaticUpdates } from "./billing/expiration";
 import { FILE_TREE_BATCH_SIZE, FILE_LISTING_LIMIT, deleteRowsInBatches } from "./file-tree";
 import { SourceBase, sourceStorageSize } from "./source/Source";
 import { notifyOwnerAccessProblem, withOwnerAccessRecovery } from "./owner-notifications";
@@ -725,7 +725,7 @@ export default class Repository {
     // Reviewer visits must not trigger an unaffordable refresh after paid access ends.
     // Free managed repositories can still be refreshed explicitly by their owner.
     if (config.BILLING_ENABLED && this.model.billingManaged && !opt?.force &&
-      MANUAL_REFRESH_PLANS.includes((await allowance(String(this.model.owner), this.repoId, this.model.conference)).plan)) return;
+      !(await hasAutomaticUpdates(String(this.model.owner), this.repoId, this.model.conference))) return;
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     if (

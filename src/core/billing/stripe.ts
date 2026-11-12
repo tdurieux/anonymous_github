@@ -3,7 +3,7 @@ import { randomUUID } from "crypto";
 import config from "../../config";
 import { BillingAccount, BillingGrant, BillingLock, BillingRevocation, BillingPrice, BillingQuota } from "./models";
 import { REPOSITORY_ID_COLLATION } from "../repository-id";
-import { billingError, billingOrigin, billingPlans, requireBilling, REPOSITORY_ADDONS, REPO_EXTEND_MS, REPO_NEVER_UNTIL, PACK_PLANS, isConferencePlan } from "./config";
+import { billingError, billingOrigin, billingPlans, legacyPricePlans, requireBilling, REPOSITORY_ADDONS, REPO_EXTEND_MS, REPO_NEVER_UNTIL, PACK_PLANS, isConferencePlan } from "./config";
 import { usableGrant } from "./quotas";
 import ConferenceModel from "../model/conference/conferences.model";
 import RepositoryModel from "../model/anonymizedRepositories/anonymizedRepositories.model";
@@ -21,6 +21,22 @@ export async function withBillingLock<T>(id: string, work: () => Promise<T>): Pr
   try { return await work(); }
   finally { clearInterval(heartbeat); await BillingLock.deleteOne({ _id: id, token }); }
 }
+// The plan a Stripe price pays for: the configured price, then a declared
+// legacy price, then a price recorded when it was configured or sold.
+export async function planForPrice(priceId: string | undefined, recurring: boolean) {
+  if (!priceId) return undefined;
+  const plans = billingPlans().filter(p => p.recurring === recurring);
+  const configured = plans.find(p => p.priceId === priceId);
+  if (configured) return configured;
+  const planId = legacyPricePlans().get(priceId) || (await BillingPrice.findById(priceId).lean())?.planId;
+  return plans.find(p => p.id === planId);
+}
+// Record every configured price before it can be replaced, so a later
+// configuration change still recognizes subscriptions sold at that price.
+export async function rememberConfiguredPrices() {
+  const prices = [...billingPlans().filter(p => p.priceId).map(p => [p.priceId, p.id] as const), ...legacyPricePlans()];
+  for (const [priceId, planId] of prices) await BillingPrice.updateOne({ _id: priceId }, { $setOnInsert: { planId } }, { upsert: true });
+}
 export async function syncSubscription(id: string, stripe = stripeClient()) {
   // Compare-and-swap prevents a slow, earlier fetch from overwriting a newer one.
   for (let retry = 0; retry < 4; retry++) {
@@ -31,7 +47,7 @@ export async function syncSubscription(id: string, stripe = stripeClient()) {
     const account = await BillingAccount.findById(owner).lean();
     if (!account || account.customerId !== objectId(sub.customer)) throw billingError("billing_customer_mismatch");
     const priceId = sub.items.data[0]?.price.id;
-    const plan = billingPlans().find(p => p.recurring && p.priceId === priceId);
+    const plan = await planForPrice(priceId, true);
     const invoice = sub.latest_invoice as Stripe.Invoice | null;
     const paid = !!plan && sub.items.data.length === 1 && sub.status === "active" && invoice?.status === "paid";
     const periodEnd = sub.items.data[0]?.current_period_end;
@@ -47,7 +63,7 @@ export async function syncSubscription(id: string, stripe = stripeClient()) {
         }
       }
     }
-    const values = { owner, scope: `user:${owner}`, planId: plan?.id || "unknown", customerId: account.customerId,
+    const values = { owner, scope: `user:${owner}`, planId: plan?.id || "unknown", customerId: account.customerId, priceId,
       subscriptionId: id, status: sub.status, cancelAtPeriodEnd: sub.cancel_at_period_end || !!sub.cancel_at,
       until: paidThrough, ...(sub.start_date ? { purchasedAt: new Date(sub.start_date * 1000) } : {}),
     };
@@ -78,7 +94,7 @@ export async function fulfillCheckout(id: string, stripe = stripeClient()) {
     && previousGrant?.planId === planId && previousGrant?.scope === previousScope
     && (!previousGrant.priceId || previousGrant.priceId === priceId);
   if (!plan || !priceId || session.line_items?.data.length !== 1 || session.line_items.data[0].quantity !== 1 ||
-    !(priceId === plan.priceId || historicalPrice?.planId === planId || acceptedGrant)) throw billingError("billing_invalid_purchase");
+    !(priceId === plan.priceId || historicalPrice?.planId === planId || legacyPricePlans().get(priceId) === planId || acceptedGrant)) throw billingError("billing_invalid_purchase");
   await BillingPrice.updateOne({ _id: priceId }, { $setOnInsert: { planId } }, { upsert: true });
   if (session.payment_status !== "paid" || session.status !== "complete") return;
   const intent = session.payment_intent as Stripe.PaymentIntent | null;
@@ -265,10 +281,9 @@ export async function createCheckout(owner: string, planId: string, target = "",
       account.checkout.params = params;
       await account.save();
     }
-    if (!plan.recurring) {
-      const acceptedPrice = (account.checkout.params as Stripe.Checkout.SessionCreateParams).line_items?.[0]?.price;
-      if (acceptedPrice) await BillingPrice.updateOne({ _id: acceptedPrice }, { $setOnInsert: { planId } }, { upsert: true });
-    }
+    // Subscriptions too: their price must stay recognizable after a price change.
+    const acceptedPrice = (account.checkout.params as Stripe.Checkout.SessionCreateParams).line_items?.[0]?.price;
+    if (acceptedPrice) await BillingPrice.updateOne({ _id: acceptedPrice }, { $setOnInsert: { planId } }, { upsert: true });
     const session = await stripe.checkout.sessions.create(account.checkout.params as Stripe.Checkout.SessionCreateParams, { idempotencyKey: account.checkout.key });
     account.checkout.id = session.id;
     await account.save();

@@ -30,6 +30,18 @@ export function billingPlans() {
     { id: "conference_large" as PlanId, name: "Large conference", priceId: config.STRIPE_CONFERENCE_LARGE_PRICE, recurring: false, capacity: true, repositories: config.PAID_CONFERENCE_LARGE_REPOSITORIES, storage: config.PAID_CONFERENCE_LARGE_STORAGE, description: "For a large venue with several tracks. A review window of up to 180 days. No automatic renewal." },
   ];
 }
+// Retired Stripe prices keep their plan, so existing subscriptions and
+// purchases stay recognized after a price ID is replaced.
+export function legacyPricePlans() {
+  const plans = new Map<string, PlanId>();
+  const ids = new Set(billingPlans().map(p => p.id as string));
+  for (const entry of config.STRIPE_LEGACY_PRICES.split(",").map(e => e.trim()).filter(Boolean)) {
+    const [price, plan] = entry.split(":").map(part => part.trim());
+    if (!price || !plan || !ids.has(plan)) throw new Error(`Invalid STRIPE_LEGACY_PRICES entry: ${entry}`);
+    plans.set(price, plan as PlanId);
+  }
+  return plans;
+}
 export function billingError(code: string, status = 400) { return new AnonymousError(code, { httpStatus: status }); }
 export function billingOrigin() {
   const url = new URL(config.BILLING_ORIGIN);

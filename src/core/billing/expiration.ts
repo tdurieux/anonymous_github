@@ -2,8 +2,8 @@ import { reconcileBillingAccount } from "./reconciliation";
 import { createLogger } from "../logger";
 import config from "../../config";
 import { BillingGrant } from "./models";
-import { billingError } from "./config";
-import { usableGrant } from "./quotas";
+import { billingError, MANUAL_REFRESH_PLANS } from "./config";
+import { allowance, usableGrant } from "./quotas";
 import Repo from "../model/anonymizedRepositories/anonymizedRepositories.model";
 import ConferenceModel from "../model/conference/conferences.model";
 
@@ -17,6 +17,13 @@ async function authorGrants(owner: string) {
 async function hasRepositoryGrant(owner: string, repoId: string, planId: string, now = new Date()) {
   const grants = await BillingGrant.find({ scope: `repo:${repoId}`, owner, planId, revoked: false, until: { $gt: now } }).lean();
   return grants.filter(g => usableGrant(g, now));
+}
+
+// Automatic updates come from the plan that funds the repository, or from the
+// owner's author subscription even when a paid slot funds its storage.
+export async function hasAutomaticUpdates(owner: string, repoId: string, conference?: string, now = new Date()) {
+  if (!MANUAL_REFRESH_PLANS.includes((await allowance(owner, repoId, conference)).plan)) return true;
+  return (await authorGrants(owner)).some(g => usableGrant(g, now));
 }
 
 // This is an author benefit, independent of which scope pays the storage quota.
@@ -81,7 +88,7 @@ export async function reconcileNeverExpiration(now = new Date(), reconcile = rec
     }
     const previous = repo.billingNeverExpiresUntil!;
     // Roll the add-on deadline forward weekly rather than on every run.
-    const rolling = addons.has(`${owner} repo:${repo.repoId}`) && previous.getTime() < now.getTime() + NEVER_EXPIRATION_GRACE_MS - ROLLING_REFRESH_MS
+    let rolling = addons.has(`${owner} repo:${repo.repoId}`) && previous.getTime() < now.getTime() + NEVER_EXPIRATION_GRACE_MS - ROLLING_REFRESH_MS
       ? now.getTime() + NEVER_EXPIRATION_GRACE_MS : 0;
     let deadline = new Date(Math.max(previous.getTime(), deadlines.get(owner)!, rolling));
     if (deadline <= now) {
@@ -92,7 +99,12 @@ export async function reconcileNeverExpiration(now = new Date(), reconcile = rec
           verified.add(owner);
           const fresh = await authorGrants(owner);
           deadlines.set(owner, Math.max(0, ...fresh.filter(g => !g.revoked && g.until).map(g => g.until!.getTime() + NEVER_EXPIRATION_GRACE_MS)));
+          // Reconciliation can recover a missed Never expire purchase too.
+          for (const grant of await BillingGrant.find({ owner, planId: "repo_never", revoked: false, until: { $gt: now } }).select("owner scope status until revoked").lean()) {
+            if (usableGrant(grant, now)) addons.add(`${grant.owner} ${grant.scope}`);
+          }
         }
+        if (addons.has(`${owner} repo:${repo.repoId}`)) rolling = now.getTime() + NEVER_EXPIRATION_GRACE_MS;
         deadline = new Date(Math.max(previous.getTime(), deadlines.get(owner)!, rolling));
       } catch {
         deferred.add(owner);

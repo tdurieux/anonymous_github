@@ -26,6 +26,7 @@ async function rejects(promise, message) {
   beforeEach(async () => {
     Object.assign(config, { BILLING_ENABLED: true, FREE_AUTHOR_REPOSITORIES: 3, FREE_AUTHOR_STORAGE: 100,
       PAID_AUTHOR_STORAGE: 1000, PAID_AUTHOR_REPOSITORIES: 20, STRIPE_AUTHOR_MONTHLY_PRICE: "price_monthly", STRIPE_AUTHOR_PASS_PRICE: "price_pass", STRIPE_CONFERENCE_PRICE: "price_conf", STRIPE_CONFERENCE_SMALL_PRICE: "price_conf_small", STRIPE_CONFERENCE_LARGE_PRICE: "price_conf_large", PAID_CONFERENCE_SMALL_REPOSITORIES: 25, STRIPE_REPO_EXTEND_PRICE: "", STRIPE_REPO_NEVER_PRICE: "", STRIPE_REPO_SLOT_PRICE: "", STRIPE_REPO_PACK_PRICE: "" });
+    Object.assign(config, { STRIPE_AUTHOR_ANNUAL_PRICE: "price_annual", STRIPE_LEGACY_PRICES: "" });
     await Promise.all([BillingPrice, BillingAccount, BillingGrant, BillingQuota, BillingLock, BillingEvent, BillingRevocation, BillingDraft, Repo, Conference].map(m => m.deleteMany({})));
     await BillingAccount.create({ _id: owner, customerId: "cus_owner" });
   });
@@ -463,6 +464,88 @@ async function rejects(promise, message) {
     expect(limits.plan).to.equal("conference_workshop");
     expect(limits.repositories).to.equal(25);
     await assertConferenceAdmission(owner, "repo", "WS");
+  });
+  it("keeps legacy and new annual subscriptions after the annual price is replaced", async () => {
+    const { rememberConfiguredPrices } = require("../src/core/billing/stripe");
+    // Deployed before the switch: the old annual price is recorded at startup.
+    await rememberConfiguredPrices();
+    const annual = (id, price) => subscription({ id, items: { data: [{ price: { id: price }, current_period_end: Math.floor(future().getTime() / 1000) }] } });
+    let legacy = annual("sub_owner", "price_annual");
+    const stripe = { subscriptions: { retrieve: async id => id === "sub_owner" ? legacy : annual(id, "price_annual_new") } };
+    config.STRIPE_AUTHOR_ANNUAL_PRICE = "price_annual_new";
+    await syncSubscription("sub_owner", stripe);
+    let grant = await BillingGrant.findById("sub_owner");
+    expect(grant.planId).to.equal("author_annual");
+    expect(grant.priceId).to.equal("price_annual");
+    expect((await allowance(owner)).plan).to.equal("author_annual");
+    // Webhook updates (renewal, cancellation) keep resolving the legacy price.
+    legacy = { ...legacy, cancel_at_period_end: true };
+    await processBillingEvent({ type: "customer.subscription.updated", data: { object: { id: "sub_owner" } } }, stripe);
+    grant = await BillingGrant.findById("sub_owner");
+    expect(grant.planId).to.equal("author_annual");
+    expect(grant.cancelAtPeriodEnd).to.equal(true);
+    // New subscriptions use the new price.
+    await processBillingEvent({ type: "customer.subscription.created", data: { object: { id: "sub_new" } } }, stripe);
+    expect((await BillingGrant.findById("sub_new")).planId).to.equal("author_annual");
+  });
+  it("recognizes a declared legacy price without a recorded one", async () => {
+    config.STRIPE_AUTHOR_ANNUAL_PRICE = "price_annual_new";
+    const stripe = { subscriptions: { retrieve: async () => subscription({ items: { data: [{ price: { id: "price_annual_old" }, current_period_end: Math.floor(future().getTime() / 1000) }] } }) } };
+    await syncSubscription("sub_owner", stripe);
+    expect((await BillingGrant.findById("sub_owner")).planId).to.equal("unknown");
+    config.STRIPE_LEGACY_PRICES = "price_annual_old:author_annual";
+    await syncSubscription("sub_owner", stripe);
+    expect((await BillingGrant.findById("sub_owner")).planId).to.equal("author_annual");
+    expect((await allowance(owner)).plan).to.equal("author_annual");
+  });
+  it("keeps historical one-time purchases after their price is replaced", async () => {
+    const value = session(); value.id = "cs_old_pass";
+    await fulfillCheckout("cs_old_pass", { checkout: { sessions: { retrieve: async () => value } } });
+    expect((await allowance(owner, "repo")).plan).to.equal("author_pass");
+    config.STRIPE_AUTHOR_PASS_PRICE = "price_pass_new";
+    // A redelivered webhook for the old sale still fulfills and keeps the grant.
+    await fulfillCheckout("cs_old_pass", { checkout: { sessions: { retrieve: async () => value } } });
+    expect((await BillingGrant.findById("cs_old_pass")).revoked).to.not.equal(true);
+    expect((await allowance(owner, "repo")).plan).to.equal("author_pass");
+    // A sale at an old price never recorded is accepted once it is declared.
+    const other = session(); other.id = "cs_older"; other.metadata.target = "other"; other.line_items.data[0].price.id = "price_pass_older";
+    await rejects(fulfillCheckout("cs_older", { checkout: { sessions: { retrieve: async () => other } } }), "billing_invalid_purchase");
+    config.STRIPE_LEGACY_PRICES = "price_pass_older:author_pass";
+    await fulfillCheckout("cs_older", { checkout: { sessions: { retrieve: async () => other } } });
+    expect((await allowance(owner, "other")).plan).to.equal("author_pass");
+  });
+  it("keeps a Never expire link online when reconciliation recovers its purchase", async () => {
+    const { reconcileNeverExpiration, NEVER_EXPIRATION_GRACE_MS } = require("../src/core/billing/expiration");
+    const now = new Date();
+    await Repo.create({ repoId: "recovered", owner, status: "ready", options: { expirationMode: "never" }, billingNeverExpiresUntil: new Date(now.getTime() - 1000) });
+    await reconcileNeverExpiration(now, async () => {
+      await BillingGrant.create({ _id: "never-recovered", owner, scope: "repo:recovered", status: "paid", until: new Date("9999-12-31T00:00:00Z"), planId: "repo_never" });
+    });
+    const repo = await Repo.findOne({ repoId: "recovered" });
+    expect(repo.options.expirationMode).to.equal("never");
+    expect(repo.billingNeverExpiresUntil.getTime()).to.equal(now.getTime() + NEVER_EXPIRATION_GRACE_MS);
+  });
+  it("keeps automatic updates for a paid-slot repository while its owner subscribes", async () => {
+    const { hasAutomaticUpdates } = require("../src/core/billing/expiration");
+    await BillingGrant.create({ _id: "slot", owner, scope: "repo:slotted", status: "paid", until: new Date("9999-12-31T00:00:00Z"), planId: "repo_slot" });
+    expect(await hasAutomaticUpdates(owner, "slotted")).to.equal(false);
+    await BillingGrant.create({ _id: "author", owner, scope: `user:${owner}`, status: "active", until: future(), planId: "author_monthly" });
+    expect(await hasAutomaticUpdates(owner, "slotted")).to.equal(true);
+  });
+  it("only reports conference hosting while its package payment stands", async () => {
+    const utils = require("../src/server/routes/route-utils");
+    const router = require("../src/server/routes/conference").default;
+    const get = router.stack.find(layer => layer.route?.path === "/:conferenceID" && layer.route.methods.get).route.stack[0].handle;
+    const originalUser = utils.getUser;
+    utils.getUser = async () => ({ model: { id: "someone-else" }, isAdmin: false });
+    try {
+      await Conference.create({ conferenceID: "PAID", owners: [owner], status: "ready", startDate: new Date(Date.now() - 1000), endDate: future(), plan: { planID: "conference" } });
+      await BillingGrant.create({ _id: "conf-paid", owner, scope: "conference:PAID", status: "paid", until: future(), planId: "conference" });
+      const hosting = async () => { let body; await get({ params: { conferenceID: "PAID" } }, { json: value => { body = value; } }); return body.hosting; };
+      expect(await hosting()).to.equal(true);
+      await BillingGrant.updateOne({ _id: "conf-paid" }, { $set: { revoked: true } });
+      expect(await hosting()).to.equal(false);
+    } finally { utils.getUser = originalUser; }
   });
   it("prevents two simultaneous checkout sessions and reuses an open session", async () => {
     let creates = 0;

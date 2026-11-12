@@ -14,6 +14,7 @@ interface Config {
   STRIPE_CONFERENCE_PRICE: string;
   STRIPE_CONFERENCE_SMALL_PRICE: string;
   STRIPE_CONFERENCE_LARGE_PRICE: string;
+  STRIPE_LEGACY_PRICES: string;
   STRIPE_REPO_EXTEND_PRICE: string;
   STRIPE_REPO_NEVER_PRICE: string;
   STRIPE_REPO_SLOT_PRICE: string;
@@ -125,6 +126,8 @@ const config: Config = {
   STRIPE_CONFERENCE_PRICE: "",
   STRIPE_CONFERENCE_SMALL_PRICE: "",
   STRIPE_CONFERENCE_LARGE_PRICE: "",
+  // Retired price IDs that existing purchases still use: "price_old:author_annual,price_x:repo_pack".
+  STRIPE_LEGACY_PRICES: "",
   STRIPE_REPO_EXTEND_PRICE: "",
   STRIPE_REPO_NEVER_PRICE: "",
   STRIPE_REPO_SLOT_PRICE: "",
@@ -296,4 +299,7 @@ if (config.BILLING_ENABLED) {
     if (!Number.isSafeInteger(config[key]) || config[key] <= 0) throw new Error(`${key} must be a positive integer`);
   }
   if (!config.STRIPE_SECRET_KEY || !config.STRIPE_WEBHOOK_SECRET) throw new Error("Billing requires STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET");
+  for (const entry of config.STRIPE_LEGACY_PRICES.split(",").map(e => e.trim()).filter(Boolean)) {
+    if (!/^price_[A-Za-z0-9]+:[a-z_]+$/.test(entry)) throw new Error(`Invalid STRIPE_LEGACY_PRICES entry: ${entry}`);
+  }
 }

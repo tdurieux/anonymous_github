@@ -594,6 +594,34 @@ describe("Vue 3 UI", function () {
     });
   }
 
+  it("opens Checkout for the subscription cycle the hosting option shows", async () => {
+    const billing = { ...taskBilling, plans: [...taskBilling.plans,
+      { id: "author_annual", amount: 4900, currency: "eur", interval: "year", repositories: 20, storage: 10737418240, description: "Renews yearly." }] };
+    ui = await browser("/anonymize", { ...repositorySource, "/api/billing/": billing });
+    await delay(20);
+    const state = ui.window.document.querySelector("#sourceUrl")._field.binding.state; state.detectedType = "repo";
+    state.hostingQuotaBlocked = true;
+    expect(state.hostingOneTimePlans()).to.deep.equal([]);
+    expect(state.hostingSubscriptionPlan().id).to.equal("author_annual");
+    expect(state.hostingChoice()).to.equal("author_annual");
+    expect(state.selectedHostingPlan().id).to.equal("author_annual");
+  });
+
+  it("leaves gist and pull request expiration dates outside the repository billing limit", async () => {
+    ui = await browser("/anonymize", { ...repositorySource, "/api/billing/": taskBilling });
+    await delay(20);
+    const state = ui.window.document.querySelector("#sourceUrl")._field.binding.state;
+    const later = new Date(); later.setMonth(later.getMonth() + 10);
+    state.detectedType = "gist";
+    state.options.expirationDate = new ui.window.Date(later.getTime());
+    await delay(20);
+    expect(state.options.expirationDate.getTime()).to.equal(later.getTime());
+    expect(new Date(state.maxExpirationDate).getTime()).to.be.greaterThan(later.getTime());
+    state.detectedType = "repo";
+    await delay(20);
+    expect(state.options.expirationDate.getTime()).to.be.lessThan(later.getTime());
+  });
+
   it("keeps free, conference and coauthor work out of author checkout", async () => {
     ui = await browser("/anonymize", { ...repositorySource, "/api/billing/": taskBilling });
     const state = ui.window.document.querySelector("#sourceUrl")._field.binding.state; state.detectedType = "repo";

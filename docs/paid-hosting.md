@@ -53,6 +53,8 @@ STRIPE_REPO_PACK_PRICE=<one-time EUR price ID, Paper pack>
 STRIPE_CONFERENCE_SMALL_PRICE=<one-time EUR price ID>
 STRIPE_CONFERENCE_PRICE=<one-time EUR price ID>
 STRIPE_CONFERENCE_LARGE_PRICE=<one-time EUR price ID>
+# Optional: retired price IDs still used by existing purchases
+STRIPE_LEGACY_PRICES=price_old_annual:author_annual
 BILLING_AUTOMATIC_TAX=false
 ```
 
@@ -75,7 +77,15 @@ PAID_CONFERENCE_LARGE_REPOSITORIES=400
 PAID_CONFERENCE_LARGE_STORAGE=214748364800
 ```
 
-Changing these values changes the allowance of existing plans too. Keep existing Price IDs configured for as long as subscriptions using them remain active. Plan and conference review-window changes are intentionally locked in this first version.
+Changing these values changes the allowance of existing plans too. Plan and conference review-window changes are intentionally locked in this first version.
+
+### Changing a price
+
+Existing subscriptions and purchases keep the Stripe price they were sold at. The application maps a price to its plan through the configured price, then `STRIPE_LEGACY_PRICES`, then a registry of prices it has seen: every configured price is recorded at startup, and every price is recorded when a checkout is created. To replace a price:
+
+1. Deploy this version while the old price is still configured, so startup records it.
+2. Add the old price to `STRIPE_LEGACY_PRICES` (for example `price_old_annual:author_annual`). This is explicit and also covers prices the registry never saw.
+3. Set the new price ID and restart. New checkouts use the new price; existing subscribers keep theirs, including on renewal and cancellation webhooks.
 
 Configure the Stripe customer portal for payment-method updates, invoice downloads and cancellation. Disable arbitrary subscription product switches. Configure a snapshot webhook at `/api/billing/webhook` using API version `2026-10-28.endive`, matching the installed Stripe SDK, for:
 
