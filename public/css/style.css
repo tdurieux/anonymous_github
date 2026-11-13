@@ -8705,10 +8705,10 @@ input[type="date"].form-control:hover::-webkit-calendar-picker-indicator { backg
   top: 50%;
   font: 700 9.5px/1 var(--font-sans, Inter, sans-serif);
   color: var(--slot-num);
-  text-align: center !important;
-  left: 50% !important;
-  right: auto !important;
-  transform: translate(-50%, -50%) !important;
+  text-align: right !important;
+  left: auto !important;
+  right: 0 !important;
+  transform: translateY(-50%) !important;
   padding: 1px 5px !important;
   border-radius: 3px;
   background: var(--slot-bg);
@@ -8826,7 +8826,7 @@ pre code mark.redact-chip {
   vertical-align: -.24em !important;
   font-size: inherit !important;
   line-height: 1.2em !important;
-  text-align: center !important;
+  text-align: right !important;
   padding: 0 !important;
 }
 .markdown-body pre code mark.redact-chip i, pre code mark.redact-chip i {
@@ -12495,16 +12495,14 @@ body.dark-mode .hosting-limit { background: rgba(251, 191, 36, .1); border-color
 .paper-feature.is-on .paper-feature-tab { border-bottom-color: var(--accent) !important; }
 .page-head + .admin-nav { margin-top: 0 !important; }
 
-/* Redaction masks: the index sits centered in the slot; in headings the slot hugs its number. */
+/* Redaction masks: in headings the slot hugs its number. */
 
 /* ----- File viewer ----- */
-.redact-slot, .markdown-body mark.redact-chip, .dark-mode .markdown-body mark.redact-chip, .demo-output .redact-chip, .dark-mode .demo-output .redact-chip, span.redact, .dark-mode span.redact { justify-content: center !important; }
 .markdown-body :is(h1, h2, h3, h4) mark.redact-chip, .dark-mode .markdown-body :is(h1, h2, h3, h4) mark.redact-chip { min-width: 1.2em !important; padding: 0 .3em !important; justify-content: center !important; }
 .markdown-body :is(h1, h2) mark.redact-chip i { font-size: .55em !important; }
 
 /* Home: the phone hero mock shows whole, with its full border, instead of fading out. */
 /* Home "Before you sign in": the heading column stays in view while the answers scroll. */
-.files .redact-slot, .breadcrumb .redact-slot { justify-content: center !important; }
 
 /* Status: one ready message, the link right under it, and a sidebar card like every other card. */
 .repository-task .page-head { margin-bottom: 20px !important; }
@@ -13619,7 +13617,7 @@ input[type="date"].form-control { font-family: var(--font-sans) !important; font
 .conference-page .dashboard-filter-row { border-bottom: 0 !important; padding-bottom: 0 !important; }
 .conference-page .paper-meta-rule { border-top: 0 !important; padding-top: 4px !important; margin-top: 20px !important; }
 .ov-metric-bad, .overview-page .ov-metric-bad { color: var(--st-bad) !important; font-weight: 600; }
-.markdown-body :is(p, li, td, th, blockquote, dd) mark.redact-chip, .dark-mode .markdown-body :is(p, li, td, th, blockquote, dd) mark.redact-chip { min-width: 2em !important; width: auto !important; padding: 0 .45em !important; text-align: center !important; }
+.markdown-body :is(p, li, td, th, blockquote, dd) mark.redact-chip, .dark-mode .markdown-body :is(p, li, td, th, blockquote, dd) mark.redact-chip { min-width: 2.5em !important; width: auto !important; padding: 0 .34em !important; text-align: right !important; }
 
 /* ----- Anonymize workspace ----- */
 .anonymize-page .anonymize-preview-col.reviewer-preview { display: flex; flex-direction: column; min-height: 0; overflow: hidden !important; padding: 0 !important; background: var(--rp-stage) !important; border-left: 1px solid var(--rp-line); }
@@ -14235,3 +14233,7 @@ body.dark-mode .reviewer-preview .rp-preserved-tag { background: rgba(251, 191, 
 @media (max-width: 767px) {
   .reviewer-preview .file-card-head .rp-preserved-tag { display: none; }
 }
+/* Tree and breadcrumb: the slot centers on the name's capitals, not below the baseline. */
+.files .tree-name .redact-slot, .breadcrumb .redact-slot { position: relative; top: -.15em; }
+/* Text: the slot centers on the line's letters, level with parentheses and punctuation. */
+.markdown-body :is(p, li, td, th, blockquote, dd) mark.redact-chip, .dark-mode .markdown-body :is(p, li, td, th, blockquote, dd) mark.redact-chip { vertical-align: .04em !important; }
