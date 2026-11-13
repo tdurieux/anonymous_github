@@ -11,15 +11,16 @@
     <a href="/admin/errors"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-bug"></use></svg> Errors</a>
   </nav>
 
-  <div class="admin-summary">
-    <span class="summary-total">{{ total >= 0 ? fmt.number(total) : '…' }} <small>{{ total === 1 ? 'repository' : 'repositories' }}</small></span>
-    <span class="summary-meta">{{ fmt?.humanFileSize(totalSize) }} on disk</span>
-    <span class="summary-show-label">Show:</span>
-    <button type="button" class="summary-pill ok" title="Toggle ready filter" :class="{active: query?.ready}" @click="query.ready = !query.ready; query.page = 1" :aria-pressed="!!(query?.ready)">Ready <span class="count">{{ fmt?.number(statusCountFor('ready')) }}</span></button>
-    <button type="button" class="summary-pill warn" title="Toggle preparing filter" :class="{active: query?.preparing}" @click="query.preparing = !query.preparing; query.page = 1" :aria-pressed="!!(query?.preparing)">Preparing <span class="count">{{ fmt?.number(statusCountFor('preparing') + statusCountFor('download')) }}</span></button>
-    <button type="button" class="summary-pill error" title="Toggle errored filter" :class="{active: query?.error}" @click="query.error = !query.error; query.page = 1" :aria-pressed="!!(query?.error)">Errored <span class="count">{{ fmt?.number(statusCountFor('error')) }}</span></button>
-    <button type="button" class="summary-pill" title="Toggle expired filter" :class="{active: query?.expired}" @click="query.expired = !query.expired; query.page = 1" :aria-pressed="!!(query?.expired)">Expired <span class="count">{{ fmt?.number(statusCountFor('expired') + statusCountFor('expiring')) }}</span></button>
-    <button type="button" class="summary-pill" :title="query?.removed ? 'Removed repositories are shown. Click to hide them.' : 'Removed repositories are hidden. Click to include them.'" :class="{active: query?.removed}" @click="query.removed = !query.removed; query.page = 1" :aria-pressed="!!(query?.removed)">Removed <span class="count">{{ fmt?.number(statusCountFor('removed') + statusCountFor('removing')) }}</span></button>
+  <div class="seg-bar">
+    <div class="seg-filter" role="radiogroup" aria-label="Filter by status">
+      <button type="button" role="radio" class="seg-chip" :class="{ active: segView() === 'all' }" :aria-checked="segView() === 'all'" @click="setSegView('all')">All <span class="count">{{ fmt?.number(segCount('all')) }}</span></button>
+      <button type="button" role="radio" class="seg-chip" :class="{ active: segView() === 'ready', 'is-empty': !segCount('ready') }" :aria-checked="segView() === 'ready'" @click="setSegView('ready')"><span class="seg-dot ok" aria-hidden="true"></span>Ready <span class="count">{{ fmt?.number(segCount('ready')) }}</span></button>
+      <button type="button" role="radio" class="seg-chip" :class="{ active: segView() === 'preparing', 'is-empty': !segCount('preparing') }" :aria-checked="segView() === 'preparing'" @click="setSegView('preparing')"><span class="seg-dot warn" aria-hidden="true"></span>Preparing <span class="count">{{ fmt?.number(segCount('preparing')) }}</span></button>
+      <button type="button" role="radio" class="seg-chip" :class="{ active: segView() === 'error', 'is-empty': !segCount('error') }" :aria-checked="segView() === 'error'" @click="setSegView('error')"><span class="seg-dot bad" aria-hidden="true"></span>Error <span class="count">{{ fmt?.number(segCount('error')) }}</span></button>
+      <button type="button" role="radio" class="seg-chip" :class="{ active: segView() === 'expired', 'is-empty': !segCount('expired') }" :aria-checked="segView() === 'expired'" @click="setSegView('expired')"><span class="seg-dot off" aria-hidden="true"></span>Expiring / expired <span class="count">{{ fmt?.number(segCount('expired')) }}</span></button>
+      <button type="button" role="radio" class="seg-chip" :class="{ active: segView() === 'removed', 'is-empty': !segCount('removed') }" :aria-checked="segView() === 'removed'" @click="setSegView('removed')"><span class="seg-dot off" aria-hidden="true"></span>Removing / removed <span class="count">{{ fmt?.number(segCount('removed')) }}</span></button>
+    </div>
+    <p class="seg-countline" role="status"><strong>{{ total >= 0 ? fmt.number(total) : '…' }}</strong> shown<span class="seg-sep">·</span><span class="seg-meta">{{ fmt?.humanFileSize(totalSize) }} on disk</span></p>
   </div>
 
   <div class="alert alert-danger" style="margin: 8px 0;" v-if="fetchError">
@@ -83,19 +84,19 @@
         <svg class="ui-icon record-type-icon" role="img" aria-label="Repository"><use href="#project-type-repo"></use></svg>
         <div class="anon-text">
           <a class="repo-name" target="_blank" v-text="repo?.repoId" :href="safeUrl(&quot;/r/&quot; + (repo?.repoId))"></a>
-          <div class="anon-sub">
-            <a v-text="repo?.source?.repositoryName" :href="safeUrl(&quot;https://github.com/&quot; + (repo?.source?.repositoryName) + &quot;/&quot;)"></a><span class="meta-sep" v-if="repo?.options?.update"><a v-text="repo?.source?.branch" :href="safeUrl(&quot;https://github.com/&quot; + (repo?.source?.fullName) + &quot;/tree/&quot; + (repo?.source?.branch))"></a></span><span class="meta-sep" v-if="!repo?.options?.update"><a class="mono-hash" v-text="repo?.source?.commit?.substring(0, 7)" :href="safeUrl(&quot;https://github.com/&quot; + (repo?.source?.fullName) + &quot;/tree/&quot; + (repo?.source?.commit))"></a></span><span class="meta-sep" v-if="repo?.conference"><svg class="ui-icon" aria-hidden="true"><use href="#project-icon-conference"></use></svg> {{ repo?.conference }}</span><span class="meta-sep" v-if="repo?.size?.storage &gt; 0">{{ fmt?.humanFileSize(repo?.size?.storage) }}</span><span>{{ fmt?.number(repo?.options?.terms?.length) }} {{ repo?.options?.terms?.length === 1 ? 'term' : 'terms' }}</span>
+          <div class="anon-sub anon-meta" data-meta-fit :title="[repo?.source?.fullName || repo?.source?.repositoryName, repo?.options?.update ? 'branch ' + repo?.source?.branch : 'commit ' + repo?.source?.commit?.substring(0, 7), repo?.conference ? 'conference ' + repo?.conference : '', repo?.size?.storage &gt; 0 ? fmt?.humanFileSize(repo?.size?.storage) : '', fmt?.number(repo?.options?.terms?.length) + (repo?.options?.terms?.length === 1 ? ' term' : ' terms')].filter(Boolean).join(' · ')">
+            <a class="src-path" :href="safeUrl(&quot;https://github.com/&quot; + (repo?.source?.repositoryName) + &quot;/&quot;)"><span class="src-owner" v-if="(repo?.source?.repositoryName || '').includes('/')" v-text="(o => o.length > 16 ? o.slice(0, 14) + '…' : o)((repo?.source?.repositoryName || '').split('/')[0])"></span><span class="src-repo" v-text="(repo?.source?.repositoryName || '').includes('/') ? '/' + (repo?.source?.repositoryName || '').split('/').slice(1).join('/') : repo?.source?.repositoryName"></span></a><span class="meta-item" v-if="!repo?.options?.update" :data-meta-label="'commit ' + (repo?.source?.commit || '').substring(0, 7)"><a class="mono-hash" :title="repo?.source?.commit" v-text="repo?.source?.commit?.substring(0, 7)" :href="safeUrl(&quot;https://github.com/&quot; + (repo?.source?.fullName) + &quot;/tree/&quot; + (repo?.source?.commit))"></a></span><span class="meta-item" v-if="repo?.options?.update" :data-meta-label="'branch ' + (repo?.source?.branch || '')"><a v-text="repo?.source?.branch" :href="safeUrl(&quot;https://github.com/&quot; + (repo?.source?.fullName) + &quot;/tree/&quot; + (repo?.source?.branch))"></a></span><span class="meta-item meta-conf" v-if="repo?.conference" :data-meta-label="'conference ' + repo?.conference"><svg class="ui-icon" aria-hidden="true"><use href="#project-icon-conference"></use></svg> {{ repo?.conference }}</span><span class="meta-item" v-if="repo?.size?.storage &gt; 0">{{ fmt?.humanFileSize(repo?.size?.storage) }}</span><span class="meta-item">{{ fmt?.number(repo?.options?.terms?.length) }} {{ repo?.options?.terms?.length === 1 ? 'term' : 'terms' }}</span><span class="meta-more" hidden></span>
           </div>
         </div>
       </div>
       <div class="cell-status" role="cell">
         <span class="status-line">
-          <span class="status-dot" :class="{&#x27;status-removed&#x27;: repo?.status == &#x27;removed&#x27; || repo?.status == &#x27;expired&#x27;, &#x27;status-ready&#x27;: repo?.status == &#x27;ready&#x27;, &#x27;status-error&#x27;: repo?.status == &#x27;error&#x27;, &#x27;status-preparing&#x27;: repo?.status == &#x27;preparing&#x27;}"></span>
-          <span v-text="fmt?.title(repo?.status)"></span>
+          <span class="status-dot" :class="'st-' + (repo?.status || 'unknown')"></span>
+          <span v-text="fmt?.statusLabel(repo?.status)"></span>
         </span>
         <span class="status-sub" v-if="repo?.statusMessage" v-text="fmt?.statusMsg(repo?.statusMessage)" :title="(repo?.statusMessage)"></span>
       </div>
-      <div class="cell-views num" role="cell"><svg class="ui-icon mobile-meta-icon" aria-hidden="true"><use href="#project-icon-eye"></use></svg> <span v-text="fmt?.number(repo?.pageView || 0)"></span></div>
+      <div class="cell-views num" role="cell" :data-unit="(repo?.pageView || 0) === 1 ? 'view' : 'views'"><svg class="ui-icon mobile-meta-icon" aria-hidden="true"><use href="#project-icon-eye"></use></svg> <span v-text="fmt?.number(repo?.pageView || 0)"></span></div>
       <div class="cell-expires" role="cell"><svg class="ui-icon mobile-meta-icon" aria-hidden="true"><use href="#project-icon-clock"></use></svg> <span v-text="(fmt?.humanTime(repo?.anonymizeDate) || '').replace(/^on /, '')"></span></div>
       <div class="cell-actions" role="cell">
         <div class="dropdown">
@@ -126,7 +127,7 @@
   </div>
 
   <div class="admin-toolbar" style="justify-content: space-between; border-bottom: none;">
-    <span style="font-size: 12px; color: var(--ink-muted);">{{ fmt?.number(total) }} results</span>
+    <span aria-hidden="true"></span>
     <div class="pagination-compact" v-if="totalPage &gt; 1">
       <button class="btn btn-sm" @click="query.page = Math.max(1, query.page - 1)" :disabled="query?.page &lt;= 1">
         <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-chevron-left"></use></svg> Previous

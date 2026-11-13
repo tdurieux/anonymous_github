@@ -27,20 +27,20 @@
         <span v-if="!stats?.prev24h">no prior baseline</span>
       </div>
     </div>
-    <div class="kpi-card kpi-error kpi-filter" role="button" tabindex="0" :class="{ 'is-selected': query?.bucket === 'error' }" :aria-pressed="query?.bucket === 'error'" :title="'Show only 5xx errors'" @click="setBucket(query?.bucket === 'error' ? '' : 'error')" @keydown.enter.prevent="setBucket(query?.bucket === 'error' ? '' : 'error')">
-      <div class="kpi-label">Errors (5xx)</div>
+    <div class="kpi-card kpi-error kpi-filter" role="button" tabindex="0" :class="{ 'is-selected': query?.bucket === 'error' }" :aria-pressed="query?.bucket === 'error'" :title="'Show only errors (5xx)'" @click="setBucket(query?.bucket === 'error' ? '' : 'error')" @keydown.enter.prevent="setBucket(query?.bucket === 'error' ? '' : 'error')">
+      <div class="kpi-label">Error</div>
       <div class="kpi-value">{{ fmt?.number(stats?.severity?.error ?? 0) }}</div>
-      <div class="kpi-sub">{{ stats?.unique?.error }} unique</div>
+      <div class="kpi-sub">5xx · {{ stats?.unique?.error }} unique</div>
     </div>
-    <div class="kpi-card kpi-warn kpi-filter" role="button" tabindex="0" :class="{ 'is-selected': query?.bucket === 'warn' }" :aria-pressed="query?.bucket === 'warn'" :title="'Show only 4xx responses'" @click="setBucket(query?.bucket === 'warn' ? '' : 'warn')" @keydown.enter.prevent="setBucket(query?.bucket === 'warn' ? '' : 'warn')">
-      <div class="kpi-label">4xx responses</div>
+    <div class="kpi-card kpi-warn kpi-filter" role="button" tabindex="0" :class="{ 'is-selected': query?.bucket === 'warn' }" :aria-pressed="query?.bucket === 'warn'" :title="'Show only warnings (4xx, aborted requests)'" @click="setBucket(query?.bucket === 'warn' ? '' : 'warn')" @keydown.enter.prevent="setBucket(query?.bucket === 'warn' ? '' : 'warn')">
+      <div class="kpi-label">Warning</div>
       <div class="kpi-value">{{ fmt?.number(stats?.severity?.warn ?? 0) }}</div>
-      <div class="kpi-sub">{{ stats?.unique?.warn }} unique</div>
+      <div class="kpi-sub">4xx, aborted · {{ stats?.unique?.warn }} unique</div>
     </div>
     <div class="kpi-card kpi-info kpi-filter" role="button" tabindex="0" :class="{ 'is-selected': query?.bucket === 'info' }" :aria-pressed="query?.bucket === 'info'" :title="'Show only info events'" @click="setBucket(query?.bucket === 'info' ? '' : 'info')" @keydown.enter.prevent="setBucket(query?.bucket === 'info' ? '' : 'info')">
-      <div class="kpi-label">Info (auth, 404)</div>
+      <div class="kpi-label">Info</div>
       <div class="kpi-value">{{ fmt?.number(stats?.severity?.info ?? 0) }}</div>
-      <div class="kpi-sub">{{ stats?.unique?.info }} unique</div>
+      <div class="kpi-sub">Auth, 404 · {{ stats?.unique?.info }} unique</div>
     </div>
     <div class="kpi-card" :class="{&#x27;kpi-error&#x27;: stats?.dropped &gt; 0}">
       <div class="kpi-label">Distinct errors stored</div>
@@ -56,9 +56,9 @@
     <div class="volume-head">
       <span class="volume-title">Volume · 24h · 1h buckets</span>
       <span class="volume-legend">
-        <span v-if="stats?.severity?.error"><span class="dot dot-error"></span>error</span>
-        <span v-if="stats?.severity?.warn"><span class="dot dot-warn"></span>warn</span>
-        <span v-if="stats?.severity?.info"><span class="dot dot-info"></span>info</span>
+        <span v-if="stats?.severity?.error"><span class="dot dot-error"></span>Error</span>
+        <span v-if="stats?.severity?.warn"><span class="dot dot-warn"></span>Warning</span>
+        <span v-if="stats?.severity?.info"><span class="dot dot-info"></span>Info</span>
       </span>
     </div>
     <div class="volume-bars">
@@ -72,15 +72,15 @@
   </section>
 
   <form class="errors-toolbar" aria-label="Error filters" v-form="viewState">
-    <div class="seg-tabs">
-      <button type="button" :class="{active: query?.bucket === &#x27;&#x27;}" @click="setBucket(&#x27;&#x27;)">All</button>
-      <button type="button" :class="{active: query?.bucket === &#x27;error&#x27;}" @click="setBucket(&#x27;error&#x27;)">5xx</button>
-      <button type="button" :class="{active: query?.bucket === &#x27;warn&#x27;}" @click="setBucket(&#x27;warn&#x27;)">4xx</button>
-      <button type="button" :class="{active: query?.bucket === &#x27;info&#x27;}" @click="setBucket(&#x27;info&#x27;)">Info</button>
+    <div class="seg-filter" role="radiogroup" aria-label="Filter by severity">
+      <button type="button" role="radio" class="seg-chip" :class="{ active: (query?.bucket || '') === '' }" :aria-checked="(query?.bucket || '') === ''" @click="setBucket('')">All <span class="count">{{ fmt?.number((stats?.severity?.error ?? 0) + (stats?.severity?.warn ?? 0) + (stats?.severity?.info ?? 0)) }}</span></button>
+      <button type="button" role="radio" class="seg-chip" :class="{ active: (query?.bucket || '') === 'error', 'is-empty': !(stats?.severity?.error) }" :aria-checked="(query?.bucket || '') === 'error'" @click="setBucket('error')"><span class="seg-dot bad" aria-hidden="true"></span>Error <span class="count">{{ fmt?.number(stats?.severity?.error ?? 0) }}</span></button>
+      <button type="button" role="radio" class="seg-chip" :class="{ active: (query?.bucket || '') === 'warn', 'is-empty': !(stats?.severity?.warn) }" :aria-checked="(query?.bucket || '') === 'warn'" @click="setBucket('warn')"><span class="seg-dot warn" aria-hidden="true"></span>Warning <span class="count">{{ fmt?.number(stats?.severity?.warn ?? 0) }}</span></button>
+      <button type="button" role="radio" class="seg-chip" :class="{ active: (query?.bucket || '') === 'info', 'is-empty': !(stats?.severity?.info) }" :aria-checked="(query?.bucket || '') === 'info'" @click="setBucket('info')"><span class="seg-dot off" aria-hidden="true"></span>Info <span class="count">{{ fmt?.number(stats?.severity?.info ?? 0) }}</span></button>
     </div>
     <div class="search-wrap">
       <svg class="ui-icon search-icon" aria-hidden="true"><use href="#ui-icon-search"></use></svg>
-      <input type="search" class="form-control" placeholder="Search code, module, status…" title="Syntax: code:repo_not_found module:route status:&gt;=400" autocomplete="off" v-field="{ state: viewState, set: value =&gt; { query.search = value }, value: query?.search, form: null, options: {} }">
+      <input type="search" class="form-control" placeholder="Search errors…" title="Search messages, or filter with code:repo_not_found module:route status:&gt;=400" autocomplete="off" v-field="{ state: viewState, set: value =&gt; { query.search = value }, value: query?.search, form: null, options: {} }">
       <span class="filter-count" v-if="parsedFilterCount">{{ parsedFilterCount }} filter{{ parsedFilterCount > 1 ? 's' : '' }}</span>
     </div>
     <div class="select-wrap">
@@ -91,11 +91,11 @@
       </select>
     </div>
     <div class="select-wrap">
-      <label>Group</label>
+      <label title="Rows are always sectioned by severity. This merges repeated events inside each section.">Merge</label>
       <select class="form-control form-control-sm" v-field="{ state: viewState, set: value =&gt; { query.group = value }, value: query?.group, form: null, options: {} }">
-        <option value="">Off</option>
-        <option value="code">By code</option>
-        <option value="module">By module</option>
+        <option value="">Don't merge</option>
+        <option value="code">Same error</option>
+        <option value="module">Same module</option>
       </select>
     </div>
     <label class="autoref">
@@ -121,7 +121,9 @@
       <span class="col-status">Status</span>
     </div>
 
-    <div class="errors-row" v-for="(row, index) in visible" :key="row?._key" :class="{open: expanded[row?._key]}">
+    <template v-for="(row, index) in visible" :key="row?._key">
+    <div class="errors-group-head" v-if="index === 0 || visible[index - 1]?._bucket !== row?._bucket"><span class="sev-dot" :class="'sev-' + row?._bucket"></span>{{ row?._bucket === 'error' ? 'Error' : row?._bucket === 'warn' ? 'Warning' : 'Info' }}<span class="errors-group-count">{{ fmt?.number(visible.filter(r =&gt; r?._bucket === row?._bucket).length) }}</span><span class="errors-group-note" v-if="index === 0">By severity · {{ query?.group === 'code' ? 'repeats merged by error · ' : query?.group === 'module' ? 'repeats merged by module · ' : '' }}{{ query?.sort === 'count' ? 'most frequent first' : 'most recent first' }}</span></div>
+    <div class="errors-row" :class="{open: expanded[row?._key]}">
       <div class="errors-row-main" @click="toggle(row)">
         <div class="col-when">
           <div class="when-rel">{{ relTime(row?.ts) }}</div>
@@ -129,14 +131,14 @@
         </div>
         <div class="col-sev">
           <span class="sev-dot" :class="&#x27;sev-&#x27; + row?._bucket"></span>
-          <span class="sev-label">{{ fmt?.title(row?._bucket) }}</span>
+          <span class="sev-label">{{ row?._bucket === 'error' ? 'Error' : row?._bucket === 'warn' ? 'Warning' : 'Info' }}</span>
         </div>
         <div class="col-mod"><span class="pill pill-module">{{ row?.module }}</span></div>
         <div class="col-msg">
           <strong class="msg-code">{{ row?.displayMessage }}</strong>
           <span class="msg-context" v-if="row?.displayContext &amp;&amp; row?.displayContext !== row?.displayMessage">{{ row?.displayContext }}</span>
           <span class="msg-detail" v-if="row?._detail">{{ row?._detail }}</span>
-          <div class="msg-url" v-if="row?._url">{{ row?._url }}</div>
+          <div class="msg-url" v-if="row?._url" :title="row?._url">{{ row?._url }}</div>
         </div>
         <div class="col-count">
           <span class="count-pill" v-if="row?.count &gt; 1">×{{ row?.count }}</span>
@@ -144,6 +146,7 @@
         </div>
         <div class="col-status">
           <span class="status-pill" v-if="row?._status" :class="String(row?._status).match(/^[23]/) ? 'status-neutral' : (&#x27;status-&#x27; + row?._bucket)" :title="String(row?._status).match(/^2/) &amp;&amp; row?._bucket === 'warn' ? 'Client closed the connection' : null">{{ String(row?._status).match(/^2/) &amp;&amp; row?._bucket === 'warn' ? '—' : row?._status }}</span>
+          <span class="status-empty" v-if="!row?._status" title="No HTTP status for this event">—</span>
         </div>
       </div>
 
@@ -195,5 +198,6 @@
         </div>
       </div>
     </div>
+    </template>
   </div>
 </div>

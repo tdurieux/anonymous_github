@@ -2,7 +2,7 @@
   <!-- Hero: copy on the left, the product on the right -->
   <section class="paper-hero">
     <div class="paper-hero-copy">
-      <div class="paper-eyebrow">For double-blind peer review</div>
+      <div class="paper-eyebrow">For double-anonymous peer review</div>
       <h1 class="hero-title">
         Share the code,<br>
         <span class="accent">not the author.</span>
@@ -27,6 +27,7 @@
         <li>Read-only access</li>
         <li>Set an expiry date</li>
       </ul>
+      <p class="paper-proof-mobile">Used by authors at ICSE &middot; FSE &middot; OOPSLA</p>
     </div>
     <div class="paper-hero-shot">
       <div class="paper-frame">
@@ -49,9 +50,9 @@
             <div class="hero-mock-doc-body">
               <div class="hero-mock-h1">DeepLearnUtils</div>
               <p>Developed by <span class="redact" role="img" aria-label="Redacted term 1"><i>1</i></span> at <span class="redact" role="img" aria-label="Redacted term 2"><i>2</i></span>.</p>
-              <p>Utilities for reproducing the paper&rsquo;s experiments.</p>
-              <div class="hero-mock-h2">Quick start</div>
-              <pre>pip install -r requirements.txt
+              <p class="hm-opt">Utilities for reproducing the paper&rsquo;s experiments.</p>
+              <div class="hero-mock-h2 hm-opt">Quick start</div>
+              <pre class="hm-opt">pip install -r requirements.txt
 python experiments/run.py</pre>
               <p>Contact: <span class="redact" role="img" aria-label="Redacted term 3"><i>3</i></span></p>
             </div>
@@ -63,16 +64,16 @@ python experiments/run.py</pre>
 
 
   <!-- Live stats -->
-  <section class="paper-stats paper-wrap" id="metrics" aria-label="Usage over the last 60 days">
+  <section class="paper-stats paper-wrap" id="metrics" aria-label="Usage over the last 60 days" :class="{ 'is-empty': statsEmpty() }">
     <div class="paper-stats-meta">
-      <div class="paper-stats-meta-left"><span class="paper-stats-dot" aria-hidden="true"></span> Live &middot; last 60 days &middot; updated daily</div>
+      <div class="paper-stats-meta-left" v-if="!statsEmpty()"><span class="paper-stats-dot" aria-hidden="true"></span> <span>Live &middot; last 60 days<span class="paper-stats-daily"> &middot; updated daily</span></span></div>
       <div class="paper-stats-meta-right">Used by authors at ICSE &middot; FSE &middot; OOPSLA</div>
     </div>
-    <div class="paper-stats-grid">
+    <div class="paper-stats-grid" v-if="!statsEmpty()">
       <div class="paper-stat-card" v-for="(card, index) in cards" :key="card?.key">
         <div class="paper-stat-value" :class="{ 'is-pending': !stat }">{{ stat ? fmt?.bigNum(card?.total) : '—' }}</div>
         <div class="paper-stat-label">{{ card?.label }}</div>
-        <div class="paper-stat-delta" v-if="history[card?.key].bars?.length &gt; 1">
+        <div class="paper-stat-delta" v-if="history[card?.key].bars?.length &gt; 1 &amp;&amp; history[card?.key].deltaToday &gt; 0">
           +{{ fmt?.number(history[card?.key].deltaToday) }} today
         </div>
       </div>
@@ -93,8 +94,8 @@ python experiments/run.py</pre>
   </section>
   <div class="demo paper-wrap" aria-label="Try redaction">
     <div class="demo-terms">
-      <label for="demo-terms">Terms to redact <span>comma-separated, try adding your own</span></label>
-      <input id="demo-terms" type="text" v-model="demoTerms" spellcheck="false" autocomplete="off">
+      <label for="demo-terms">Terms to redact <span>comma-separated<span class="dt-try">, try adding your own</span></span></label>
+      <textarea id="demo-terms" class="demo-terms-input" rows="1" v-model="demoTerms" spellcheck="false" autocomplete="off" @keydown.enter.prevent></textarea>
     </div>
     <div class="demo-panes">
       <div class="pane">
@@ -127,11 +128,11 @@ python experiments/run.py</pre>
     <div class="paper-features-list" role="tablist" aria-label="Features" aria-orientation="vertical">
       <div class="paper-feature" v-for="(f, index) in features" :key="f?.key" :class="{&#x27;is-on&#x27;: feature === f?.key}">
         <button type="button" class="paper-feature-tab" role="tab" @click="selectFeature(f.key)" @keydown="featureKeydown($event, index)" :id="&quot;feature-tab-&quot; + (f?.key)" :aria-controls="&quot;feature-panel-&quot; + (f?.key)" :aria-selected="(feature === f?.key)" :tabindex="(feature === f?.key ? 0 : -1)">
-          <span class="paper-eyebrow">{{ f?.num }} &middot; {{ f?.eyebrow }}</span>
-          <span class="paper-feature-title">{{ f?.title }} {{ f?.accent }}</span>
+          <span class="paper-eyebrow"><span class="pf-num">{{ f?.num }}</span><span class="pf-sep"> &middot; </span><span class="pf-name">{{ f?.eyebrow }}</span></span>
+          <span class="paper-feature-title">{{ f?.title.split('-')[0] }}<span class="serif-hy" v-if="f?.title.includes('-')">-</span>{{ f?.title.split('-').slice(1).join('-') }} {{ f?.accent }}</span>
         </button>
         <div class="paper-feature-more">
-          <span class="paper-feature-title paper-feature-title-m" aria-hidden="true">{{ f?.title }} {{ f?.accent }}</span>
+          <span class="paper-feature-title paper-feature-title-m" aria-hidden="true">{{ f?.title.split('-')[0] }}<span class="serif-hy" v-if="f?.title.includes('-')">-</span>{{ f?.title.split('-').slice(1).join('-') }} {{ f?.accent }}</span>
           <p>{{ f?.text }}</p>
           <a class="paper-link-arrow" :href="safeUrl((featureHref(f)))" :target="(featureTarget(f))">{{ f?.cta }} &rarr;</a>
         </div>
@@ -192,13 +193,15 @@ python experiments/run.py</pre>
   </section>
 
   <!-- FAQ teaser -->
-  <section class="paper-qa paper-wrap" aria-labelledby="qa-heading">
-    <div>
-      <div class="paper-eyebrow">Before you sign in</div>
-      <h2 id="qa-heading">The questions that come up most.</h2>
+  <section class="paper-qa paper-qa-r3 paper-wrap" aria-labelledby="qa-heading">
+    <div class="qa-head">
+      <div>
+        <div class="paper-eyebrow">Before you sign in</div>
+        <h2 id="qa-heading">The questions that come up most.</h2>
+      </div>
       <a class="paper-link-arrow" href="/faq">Read the full FAQ &rarr;</a>
     </div>
-    <div>
+    <div class="qa-grid">
       <div class="q">
         <a href="/faq#permissions">What access does GitHub sign-in require?</a>
         <p>
@@ -232,41 +235,8 @@ python experiments/run.py</pre>
     </div>
     <div class="paper-cta-actions">
       <a class="btn-hero" href="/signin" target="_self"><i class="fab fa-github" aria-hidden="true"></i> Sign in with GitHub</a>
-      <a class="paper-link-arrow" href="/faq">Read the FAQ &rarr;</a>
+      <a class="paper-link-arrow" target="_self" href="https://anonymous.4open.science/r/840c8c57-3c32-451e-bf12-0e20be300389/">See an anonymized repository &rarr;</a>
     </div>
   </section>
-  <footer class="paper-footer">
-    <div class="paper-footer-inner">
-      <div class="paper-footer-brand">
-        <div class="paper-footer-mark">Anonymous <em>GitHub</em></div>
-        <p class="paper-footer-tag">
-          A read-only, identity-stripped mirror of your repository, built for
-          double-anonymous peer review.
-        </p>
-      </div>
-      <div class="paper-footer-col">
-        <div class="paper-footer-head">Product</div>
-        <a href="/anonymize">Anonymize</a>
-        <a href="/dashboard" v-if="user">My work</a>
-        <a href="/conferences" v-if="user">Conferences</a>
-        <a href="/faq">FAQ</a>
-      </div>
-      <div class="paper-footer-col">
-        <div class="paper-footer-head">Project</div>
-        <a href="https://github.com/tdurieux/anonymous_github/" target="_blank" rel="noopener">Source code</a>
-        <a href="https://github.com/tdurieux/anonymous_github/issues/new?template=issue_report.yml" target="_blank" rel="noopener">Report a bug</a>
-        <a href="https://github.com/sponsors/tdurieux/" target="_blank" rel="noopener">Support</a>
-      </div>
-      <div class="paper-footer-col">
-        <div class="paper-footer-head">Contact</div>
-        <a href="mailto:tdurieux@anonymous.4open.science">Email maintainer</a>
-        <a href="https://github.com/tdurieux" target="_blank" rel="noopener">@tdurieux</a>
-      </div>
-    </div>
-    <div class="paper-footer-rule"></div>
-    <div class="paper-footer-foot">
-      <span>&copy; {{ year || 2026 }} Anonymous GitHub &middot; GPL-3.0 licensed</span>
-      <span class="paper-footer-meta">Built for reviewers, by researchers.</span>
-    </div>
-  </footer>
+  <partial-view name="partials/footer.htm" :state="viewState"></partial-view>
 </div>

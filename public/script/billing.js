@@ -47,9 +47,9 @@ export function setupBilling(state, http, onRefresh = () => {}, context = {}) {
     const bytes = Number(value) || 0;
     if (bytes < 1024) return `${bytes} B`;
     const exponent = Math.min(4, Math.floor(Math.log2(bytes) / 10));
-    return `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(bytes / 1024 ** exponent)} ${["B", "KiB", "MiB", "GiB", "TiB"][exponent]}`;
+    return `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(bytes / 1024 ** exponent)} ${["B", "KB", "MB", "GB", "TB"][exponent]}`;
   };
-  state.billingDate = value => value ? new Date(value).toLocaleDateString() : "";
+  state.billingDate = value => value ? new Date(value).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) : "";
   state.loadBilling = () => { state.billingError = ""; state.billingLoading = true; return readBilling(http).then(res => { state.billing = res.data; state.emit?.("billing:updated", res.data); })
     .catch(() => { state.billingError = "Billing could not be loaded. Try again."; })
     .finally(() => { state.billingLoading = false; }); };

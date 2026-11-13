@@ -1,5 +1,4 @@
 <div class="container paper-page auth-page">
-  <a class="auth-back" href="/"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-arrow-left"></use></svg> Anonymous GitHub</a>
   <div class="auth-layout">
     <header class="auth-intro">
       <div class="paper-eyebrow">Your research, ready for review</div>
@@ -13,15 +12,14 @@
         <a class="btn btn-ink auth-continue" target="_self" href="/github/login?recover=1" v-if="site_options?.GITHUB_OAUTH_ENABLED">Verify with previous GitHub connection</a>
         <p v-else>Account verification is currently unavailable. Please try again later.</p>
       </section>
-      <section v-if="site_options?.GITHUB_APP_ENABLED &amp;&amp; !accountRecovery">
-        <div class="connection-top"><i class="fab fa-github" aria-hidden="true"></i><span class="connection-badge">Read-only access</span></div>
+      <section class="auth-card" v-if="site_options?.GITHUB_APP_ENABLED &amp;&amp; !accountRecovery">
         <h2>Continue with GitHub</h2>
         <p>Connect through the GitHub App with read-only repository access.</p>
         <ul class="auth-permissions">
           <li><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-check"></use></svg> You choose which repositories to share</li>
           <li><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-check"></use></svg> No permission to write to your code</li>
         </ul>
-        <a class="btn btn-ink auth-continue" target="_self" href="/github/app/login">Sign in with GitHub <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-arrow-right"></use></svg></a>
+        <a class="btn-hero auth-continue auth-continue-github" target="_self" href="/github/app/login"><i class="fab fa-github" aria-hidden="true"></i> Sign in with GitHub</a>
         <small>Your existing anonymizations and connections stay with your account.</small>
       </section>
       <section class="auth-legacy" v-if="!site_options?.GITHUB_APP_ENABLED &amp;&amp; site_options?.GITHUB_OAUTH_ENABLED &amp;&amp; !accountRecovery">
@@ -33,3 +31,4 @@
     </div>
   </div>
 </div>
+<partial-view name="partials/footer.htm" :state="viewState"></partial-view>

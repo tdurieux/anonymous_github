@@ -1,13 +1,12 @@
 <div class="container page paper-page conferences-page">
   <div class="row">
     <div class="w-100">
-      <div class="paper-crumbs"><a href="/dashboard">My work</a> &nbsp;/&nbsp; <span class="here">Conferences</span></div>
-      <div class="d-flex align-items-start justify-content-between flex-wrap page-head-row" style="gap: 12px;">
+      <div class="d-flex align-items-start justify-content-between flex-wrap page-head-row page-head page-head-main" style="gap: 12px;">
         <div>
           <h1 class="paper-page-title">Your <em>conferences</em></h1>
           <p class="paper-page-lede">Group anonymizations by venue, give chairs a shared dashboard, and set one expiry for every submission.</p>
         </div>
-        <a href="/conference/new" class="btn btn-primary">
+        <a href="/conference/new" class="btn btn-primary" v-if="!(conferences &amp;&amp; conferences.length == 0)">
           <svg class="ui-icon mr-1" aria-hidden="true"><use href="#project-icon-plus"></use></svg> New conference
         </a>
       </div>
@@ -124,10 +123,11 @@
         </div>
       </div>
       <div class="paper-table-empty" v-if="!loading &amp;&amp; !error &amp;&amp; filteredConferences?.length == 0">
-        <svg class="ui-icon" aria-hidden="true"><use href="#project-icon-inbox"></use></svg>
+        <span class="empty-icon" aria-hidden="true" v-if="conferences?.length == 0"><svg class="ui-icon"><use href="#project-icon-conference"></use></svg></span>
+        <svg class="ui-icon" aria-hidden="true" v-if="conferences?.length &gt; 0"><use href="#project-icon-inbox"></use></svg>
         <template v-if="conferences?.length == 0"><strong class="empty-title">No conferences yet</strong><span>Create one to group submissions for a venue, share a dashboard with chairs, and set a single expiry date.</span></template>
         <span v-if="conferences?.length &gt; 0">Nothing matches the current filters.</span>
-        <div class="paper-table-empty-actions"><a href="/conference/new" class="btn btn-primary" v-if="false">New conference</a>
+        <div class="paper-table-empty-actions"><a href="/conference/new" class="btn btn-primary conf-empty-new" v-if="conferences?.length == 0"><svg class="ui-icon" aria-hidden="true"><use href="#project-icon-plus"></use></svg> New conference</a>
           <button type="button" class="btn btn-outline-ink" v-if="conferences?.length &gt; 0" @click="search = &#x27;&#x27;; filters.status.ready = true; filters.status.expired = true; filters.status.removed = true;">Clear filters</button>
         </div>
       </div>

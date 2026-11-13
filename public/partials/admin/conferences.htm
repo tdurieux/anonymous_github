@@ -11,14 +11,16 @@
     <a href="/admin/errors"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-bug"></use></svg> Errors</a>
   </nav>
 
-  <div class="admin-summary" :class="{ 'is-empty': total === 0 }">
-    <span class="summary-total">{{ total >= 0 ? fmt.number(total) : '…' }} <small>{{ total === 1 ? 'conference' : 'conferences' }}</small></span>
-    <span class="summary-show-label">Show:</span>
-    <button type="button" class="summary-pill ok" title="Toggle ready filter" :class="{active: query?.ready}" @click="query.ready = !query.ready; query.page = 1" :aria-pressed="!!(query?.ready)">Ready <span class="count">{{ fmt?.number(statusCountFor('ready')) }}</span></button>
-    <button type="button" class="summary-pill warn" title="Toggle preparing filter" :class="{active: query?.preparing}" @click="query.preparing = !query.preparing; query.page = 1" :aria-pressed="!!(query?.preparing)">Preparing <span class="count">{{ fmt?.number(statusCountFor('preparing')) }}</span></button>
-    <button type="button" class="summary-pill error" title="Toggle errored filter" :class="{active: query?.error}" @click="query.error = !query.error; query.page = 1" :aria-pressed="!!(query?.error)">Errored <span class="count">{{ fmt?.number(statusCountFor('error')) }}</span></button>
-    <button type="button" class="summary-pill" title="Toggle expired filter" :class="{active: query?.expired}" @click="query.expired = !query.expired; query.page = 1" :aria-pressed="!!(query?.expired)">Expired <span class="count">{{ fmt?.number(statusCountFor('expired')) }}</span></button>
-    <button type="button" class="summary-pill" title="Toggle removed filter" :class="{active: query?.removed}" @click="query.removed = !query.removed; query.page = 1" :aria-pressed="!!(query?.removed)">Removed <span class="count">{{ fmt?.number(statusCountFor('removed')) }}</span></button>
+  <div class="seg-bar">
+    <div class="seg-filter" role="radiogroup" aria-label="Filter by status">
+      <button type="button" role="radio" class="seg-chip" :class="{ active: segView() === 'all' }" :aria-checked="segView() === 'all'" @click="setSegView('all')">All <span class="count">{{ fmt?.number(segCount('all')) }}</span></button>
+      <button type="button" role="radio" class="seg-chip" :class="{ active: segView() === 'ready', 'is-empty': !segCount('ready') }" :aria-checked="segView() === 'ready'" @click="setSegView('ready')"><span class="seg-dot ok" aria-hidden="true"></span>Ready <span class="count">{{ fmt?.number(segCount('ready')) }}</span></button>
+      <button type="button" role="radio" class="seg-chip" :class="{ active: segView() === 'preparing', 'is-empty': !segCount('preparing') }" :aria-checked="segView() === 'preparing'" @click="setSegView('preparing')"><span class="seg-dot warn" aria-hidden="true"></span>Preparing <span class="count">{{ fmt?.number(segCount('preparing')) }}</span></button>
+      <button type="button" role="radio" class="seg-chip" :class="{ active: segView() === 'error', 'is-empty': !segCount('error') }" :aria-checked="segView() === 'error'" @click="setSegView('error')"><span class="seg-dot bad" aria-hidden="true"></span>Error <span class="count">{{ fmt?.number(segCount('error')) }}</span></button>
+      <button type="button" role="radio" class="seg-chip" :class="{ active: segView() === 'expired', 'is-empty': !segCount('expired') }" :aria-checked="segView() === 'expired'" @click="setSegView('expired')"><span class="seg-dot off" aria-hidden="true"></span>Expired <span class="count">{{ fmt?.number(segCount('expired')) }}</span></button>
+      <button type="button" role="radio" class="seg-chip" :class="{ active: segView() === 'removed', 'is-empty': !segCount('removed') }" :aria-checked="segView() === 'removed'" @click="setSegView('removed')"><span class="seg-dot off" aria-hidden="true"></span>Removed <span class="count">{{ fmt?.number(segCount('removed')) }}</span></button>
+    </div>
+    <p class="seg-countline" role="status"><strong>{{ total >= 0 ? fmt.number(total) : '…' }}</strong> shown</p>
   </div>
 
   <div class="alert alert-danger" style="margin: 8px 0;" v-if="fetchError">
@@ -65,13 +67,13 @@
         <div class="anon-text">
           <a class="repo-name" v-text="conference?.name" :href="safeUrl(&quot;/conference/&quot; + (conference?.conferenceID))"></a>
           <div class="anon-sub">
-            <span>{{ conference?.conferenceID }}</span>&nbsp;&middot;&nbsp;<span>{{ fmt?.number(conference?.price || 0) }} &euro;</span>
+            <span>{{ conference?.conferenceID }}</span><span>{{ fmt?.money(conference?.price || 0) }}</span>
           </div>
         </div>
       </div>
       <div class="cell-status" role="cell">
-        <span class="status-dot" :class="{&#x27;status-removed&#x27;: conference?.status == &#x27;removed&#x27; || conference?.status == &#x27;expired&#x27;, &#x27;status-ready&#x27;: conference?.status == &#x27;ready&#x27;, &#x27;status-error&#x27;: conference?.status == &#x27;error&#x27;, &#x27;status-preparing&#x27;: conference?.status == &#x27;preparing&#x27;}"></span>
-        <span v-text="fmt?.title(conference?.status)"></span>
+        <span class="status-dot" :class="'st-' + (conference?.status || 'unknown')"></span>
+        <span v-text="fmt?.statusLabel(conference?.status)"></span>
       </div>
       <div class="cell-views num" role="cell"><svg class="ui-icon mobile-meta-icon" aria-hidden="true"><use href="#project-type-repo"></use></svg>
         <a title="Show repositories in this conference" v-text="fmt?.number(conference?.repositories?.length || 0)" :href="safeUrl(&quot;/admin/?conference=&quot; + (conference?.conferenceID))"></a>
@@ -99,7 +101,7 @@
   </div>
 
   <div class="admin-toolbar" style="justify-content: space-between; border-bottom: none;">
-    <span style="font-size: 12px; color: var(--ink-muted);">{{ fmt?.number(total) }} results</span>
+    <span aria-hidden="true"></span>
     <div class="pagination-compact" v-if="totalPage &gt; 1">
       <button class="btn btn-sm" @click="query.page = Math.max(1, query.page - 1)" :disabled="query?.page &lt;= 1"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-chevron-left"></use></svg> Previous</button>
       <input type="number" class="form-control form-control-sm" min="1" style="width: 56px;" v-field="{ state: viewState, set: value =&gt; { query.page = value }, value: query?.page, form: null, options: {} }" :max="(totalPage)">

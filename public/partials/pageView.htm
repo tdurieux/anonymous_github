@@ -22,17 +22,18 @@
 <section class="file-card" :class="{ 'is-code': type != 'html', 'no-wrap': !wrapLines }" v-if="(type == 'text' || type == 'code' || type == 'html' || (type == 'html-doc' &amp;&amp; showSource)) &amp;&amp; content != null">
   <header class="file-card-head">
     <div class="file-card-path">
-      <button type="button" class="btn btn-sm btn-icon-only btn-ghost card-files-btn" :class="{ 'is-needed': sidebarHidden }" aria-label="Show file tree" title="Show file tree" @click="sidebarHidden ? (sidebarHidden = false) : (sidebarCollapsed = false)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-sidebar"></use></svg></button>
+      <button type="button" class="btn btn-sm btn-icon-only btn-ghost card-files-btn" :class="{ 'is-needed': sidebarHidden }" title="Show file tree" @click="sidebarHidden ? (sidebarHidden = false) : (sidebarCollapsed = false)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-sidebar"></use></svg><span class="card-files-label">Files</span></button>
       <ol class="breadcrumb paths" aria-label="Path">
         <li class="breadcrumb-item breadcrumb-root"><a :href="safeUrl('/r/' + repoId + '/')" :title="repoId" v-text="/^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(repoId || '') ? 'repository' : repoId"></a></li>
         <li class="breadcrumb-item" v-for="(p, index) in paths" :aria-current="index === paths.length - 1 ? 'page' : null"><template v-for="(seg, si) in redactParts(p)" :key="si"><span v-if="seg.n" class="redact-slot" role="img" :aria-label="'Redacted term ' + seg.n"><i>{{ seg.n }}</i></span><template v-else>{{ seg.t }}</template></template></li>
       </ol>
-      <span class="mobile-sub"><span>{{ type == 'html' ? 'Markdown' : (languageName || 'Text') }}</span><span v-if="type != 'html' &amp;&amp; typeof content === 'string'">{{ fmt?.number(content.split('\n').length) }} lines</span><span v-if="type == 'html' && fileSize(filePath) != null">{{ formatSize(fileSize(filePath)) }}</span><b v-if="redactionCount()">{{ redactionCount() }} redacted</b></span>
+      <span class="mobile-sub ms"><b class="ms-item ms-redact" v-if="redactionCount()" :title="redactionCount() + ' redacted terms'">{{ redactionCount() }}<span class="meta-redact-word"> redacted</span></b><span class="ms-item">{{ type == 'html' ? 'Markdown' : (languageName || 'Text') }}</span><span class="ms-item" v-if="fileSize(filePath) != null">{{ formatSize(fileSize(filePath)) }}</span><span class="ms-item" v-if="type != 'html' &amp;&amp; typeof content === 'string'">{{ fmt?.number(content.split('\n').length) }} lines</span></span>
       <button type="button" class="btn btn-sm btn-icon-only btn-ghost copy-path-btn" v-show="filePath" :aria-label="pathCopied ? 'Path copied' : 'Copy file path'" :title="pathCopied ? 'Path copied' : 'Copy file path'" @click="copyPath()"><svg class="ui-icon" aria-hidden="true"><use :href="pathCopied ? '#ui-icon-check' : '#ui-icon-link'"></use></svg></button>
     </div>
-    <span class="file-card-meta" v-if="type != 'html' &amp;&amp; typeof content === 'string'"><template v-if="languageName">{{ languageName }}<span class="sep">·</span></template>{{ fmt?.number(content.split('\n').length) }} lines<span class="meta-extra"><span class="sep">·</span>{{ content.length &lt; 1024 ? content.length + ' B' : (content.length / 1024).toFixed(1) + ' KB' }}</span><template v-if="redactionCount()"><span class="sep">·</span><span class="meta-redact">{{ redactionCount() }} redacted</span></template></span>
-    <span class="file-card-meta" v-if="type == 'html'">Markdown<template v-if="fileSize(filePath) != null"><span class="sep">·</span>{{ formatSize(fileSize(filePath)) }}</template><template v-if="redactionCount()"><span class="sep">·</span><span class="meta-redact">{{ redactionCount() }} redacted</span></template></span>
+    <span class="file-card-meta" v-if="type != 'html' &amp;&amp; typeof content === 'string'"><template v-if="redactionCount()"><span class="meta-redact" :title="redactionCount() + ' redacted terms'">{{ redactionCount() }}<span class="meta-redact-word"> redacted</span></span><span class="sep">·</span></template>{{ languageName || 'Text' }}<span class="meta-extra"><span class="sep">·</span>{{ content.length &lt; 1024 ? content.length + ' B' : (content.length / 1024).toFixed(1) + ' KB' }}</span><span class="sep">·</span>{{ fmt?.number(content.split('\n').length) }} lines</span>
+    <span class="file-card-meta" v-if="type == 'html'"><template v-if="redactionCount()"><span class="meta-redact" :title="redactionCount() + ' redacted terms'">{{ redactionCount() }}<span class="meta-redact-word"> redacted</span></span><span class="sep">·</span></template>Markdown<template v-if="fileSize(filePath) != null"><span class="sep">·</span>{{ formatSize(fileSize(filePath)) }}</template></span>
     <div class="file-card-actions">
+    <div class="csv-toggle seg-filter" role="radiogroup" aria-label="CSV view" v-if="isCsv()"><button type="button" role="radio" class="seg-chip" :class="{ active: csvView === 'table' }" :aria-checked="csvView === 'table'" @click="csvView = 'table'">Table</button><button type="button" role="radio" class="seg-chip" :class="{ active: csvView === 'raw' }" :aria-checked="csvView === 'raw'" @click="csvView = 'raw'" title="Show the file as text with line numbers">Text</button></div>
     <div class="symbols" v-if="type != 'html' &amp;&amp; symbols().length &gt; 1">
       <button type="button" class="btn btn-sm btn-ghost btn-symbols" :class="{ 'is-on': symbolsOpen }" :aria-expanded="symbolsOpen ? 'true' : 'false'" aria-haspopup="true" title="Symbols in this file" @click="symbolsOpen = !symbolsOpen"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-list"></use></svg><span class="btn-find-label">Symbols</span></button>
       <div class="symbols-menu" v-if="symbolsOpen" role="menu">
@@ -41,9 +42,11 @@
       </div>
     </div>
     <button type="button" class="btn btn-sm btn-ghost btn-icon-only btn-find btn-md-find" v-if="type == 'html'" :class="{ 'is-on': mdFindOpen }" aria-label="Find on this page" :title="'Find on this page (' + (isMac ? '⌘' : 'Ctrl+') + 'F)'" @click="toggleMdFind()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-search"></use></svg></button>
-    <button type="button" class="btn btn-sm btn-ghost btn-icon-only btn-find" v-if="type != 'html'" aria-label="Find in file" :title="'Find in file (' + (isMac ? '⌘' : 'Ctrl+') + 'F)'" @click="findInFile()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-search"></use></svg></button>
-    <button type="button" class="btn btn-sm btn-ghost btn-icon-only btn-goto" v-if="type != 'html'" aria-label="Go to line" :title="'Go to line (' + (isMac ? '⌘' : 'Ctrl+') + 'G)'" @click="gotoLine()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-goto"></use></svg></button>
-    <button type="button" class="btn btn-sm btn-icon-only btn-ghost btn-toggle" v-if="type != 'html'" :class="{ 'is-on': wrapLines }" :aria-pressed="wrapLines ? 'true' : 'false'" aria-label="Wrap long lines" :title="'Wrap long lines (Alt+Z)'" @click="toggleWrap()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-wrap"></use></svg></button>
+    <div class="tb-view" role="group" aria-label="View tools" v-if="type != 'html' &amp;&amp; !(isCsv() &amp;&amp; csvView === 'table')">
+      <button type="button" class="btn btn-sm btn-ghost btn-icon-only btn-goto" v-if="type != 'html'" aria-label="Go to line" :title="'Go to line (' + (isMac ? '⌘' : 'Ctrl+') + 'G)'" @click="gotoLine()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-goto"></use></svg></button>
+      <button type="button" class="btn btn-sm btn-icon-only btn-ghost btn-toggle" v-if="type != 'html'" :class="{ 'is-on': wrapLines }" :aria-pressed="wrapLines ? 'true' : 'false'" aria-label="Wrap lines" :title="'Wrap lines (Alt+Z)'" @click="toggleWrap()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-wrap"></use></svg></button>
+      <button type="button" class="btn btn-sm btn-ghost btn-icon-only btn-find" v-if="type != 'html'" aria-label="Find in file" :title="'Find in file (' + (isMac ? '⌘' : 'Ctrl+') + 'F)'" @click="findInFile()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-search"></use></svg></button>
+    </div>
     <div class="tb-file" role="group" aria-label="File actions">
       <a target="_self" class="tb-seg-btn" :title="type == 'html' ? 'Open the Markdown source' : 'Open the raw file'" :href="safeUrl((url))">Raw</a>
       <button type="button" class="tb-seg-btn tb-seg-icon" v-if="typeof content === 'string'" :aria-label="contentCopied ? 'Copied' : 'Copy file contents'" :title="contentCopied ? 'Copied' : 'Copy file contents'" @click="copyContent()"><svg class="ui-icon" aria-hidden="true"><use :href="contentCopied ? '#ui-icon-check' : '#project-icon-copy'"></use></svg></button>
@@ -62,13 +65,14 @@
       <button type="button" class="btn btn-sm btn-icon-only btn-ghost tb-more-btn" :class="{ 'is-on': moreOpen }" aria-label="More actions" aria-haspopup="true" :aria-expanded="moreOpen ? 'true' : 'false'" @click.stop="tocOpen = false; moreOpen = !moreOpen"><svg viewBox="0 0 24 24" class="ui-icon" aria-hidden="true" style="fill:currentColor;stroke:none"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button>
       <div class="tb-menu" v-if="moreOpen" role="menu" @click="moreOpen = false">
         <div class="tb-menu-note" v-if="options?.publishedAt || options?.sourceCommitDate || options?.anonymizedAt || options?.lastUpdateDate"><svg class="ui-icon" aria-hidden="true"><use href="#project-icon-clock"></use></svg>Snapshot · {{ fmt?.date(options?.publishedAt || options?.sourceCommitDate || options?.anonymizedAt || options?.lastUpdateDate) }}</div>
-        <div class="tb-menu-note tb-menu-meta" v-if="typeof content === 'string'">{{ type == 'html' ? 'Markdown' : (languageName || 'Text') }}<template v-if="type != 'html'"> · {{ fmt?.number(content.split('\n').length) }} lines</template> · {{ type == 'html' &amp;&amp; fileSize(filePath) != null ? formatSize(fileSize(filePath)) : (content.length &lt; 1024 ? content.length + ' B' : (content.length / 1024).toFixed(1) + ' KB') }}</div>
+        <div class="tb-menu-note tb-menu-meta" v-if="typeof content === 'string'">{{ type == 'html' ? 'Markdown' : (languageName || 'Text') }} · {{ type == 'html' &amp;&amp; fileSize(filePath) != null ? formatSize(fileSize(filePath)) : (content.length &lt; 1024 ? content.length + ' B' : (content.length / 1024).toFixed(1) + ' KB') }}<template v-if="type != 'html'"> · {{ fmt?.number(content.split('\n').length) }} lines</template></div>
         <div class="tb-menu-sep" v-if="options?.publishedAt || options?.sourceCommitDate || options?.anonymizedAt || options?.lastUpdateDate"></div>
         <button type="button" role="menuitem" v-if="type == 'html'" @click="toggleMdFind()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-search"></use></svg>Find in file</button>
         <div class="tb-menu-sep" v-if="type == 'html'"></div>
         <button type="button" role="menuitem" v-if="type != 'html'" @click="findInFile()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-search"></use></svg>Find in file</button>
         <button type="button" role="menuitem" v-if="type != 'html'" @click="gotoLine()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-goto"></use></svg>Go to line</button>
         <button type="button" role="menuitemcheckbox" v-if="type != 'html'" :aria-checked="wrapLines ? 'true' : 'false'" @click="toggleWrap()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-wrap"></use></svg>Wrap lines<span class="tb-menu-check" v-if="wrapLines">✓</span></button>
+        <button type="button" role="menuitem" class="tb-csv-view" v-if="isCsv()" @click="csvView = csvView === 'table' ? 'raw' : 'table'; moreOpen = false"><svg class="ui-icon" aria-hidden="true"><use :href="csvView === 'table' ? '#ui-icon-code' : '#ui-icon-list'"></use></svg>{{ csvView === 'table' ? 'Show as text' : 'Show as table' }}</button>
         <div class="tb-menu-sep" v-if="type != 'html'"></div>
         <a role="menuitem" target="_self" v-if="type == 'html'" :href="safeUrl((url))"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-code"></use></svg>View raw</a>
         <a role="menuitem" target="_self" v-if="type != 'html'" :href="safeUrl((url))"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-code"></use></svg>View raw</a>
@@ -89,7 +93,13 @@
       <span class="goto-hint" :class="{ 'is-error': gotoError }">{{ gotoError || 'Line, or line:column' }}</span>
     </form>
   </header>
-  <div class="file-card-body" v-if="type != 'html'" v-code-editor="{ content: content, options: aceOption }"></div>
+  <div class="csv-table-wrap" v-if="isCsv() &amp;&amp; csvView === 'table'" tabindex="0" role="region" :aria-label="'Table view of ' + (paths?.[paths.length - 1] || 'file')">
+    <table class="csv-table">
+      <thead><tr><th class="csv-rownum" scope="col"><span class="sr-only">Row</span></th><th scope="col" v-for="(cell, ci) in (csvRows()[0] || [])" :key="ci" :class="{ 'is-num': csvNumCol(ci) }"><template v-for="(seg, si) in redactParts(cell)" :key="si"><span v-if="seg.n" class="redact-slot" role="img" :aria-label="'Redacted term ' + seg.n"><i>{{ seg.n }}</i></span><template v-else>{{ seg.t }}</template></template></th></tr></thead>
+      <tbody><tr v-for="(row, ri) in csvRows().slice(1)" :key="ri"><td class="csv-rownum">{{ ri + 1 }}</td><td v-for="(cell, ci) in row" :key="ci" :class="{ 'is-num': csvNumCol(ci) }"><template v-for="(seg, si) in redactParts(cell)" :key="si"><span v-if="seg.n" class="redact-slot" role="img" :aria-label="'Redacted term ' + seg.n"><i>{{ seg.n }}</i></span><template v-else>{{ seg.t }}</template></template></td></tr></tbody>
+    </table>
+  </div>
+  <div class="file-card-body" v-if="type != 'html' &amp;&amp; !(isCsv() &amp;&amp; csvView === 'table')" v-code-editor="{ content: content, options: aceOption }"></div>
   <div class="md-find-bar" v-if="type == 'html' &amp;&amp; mdFindOpen" role="search">
     <input type="search" class="md-find-input" placeholder="Find on this page" aria-label="Find on this page" :value="mdFindQuery" @input="mdFindQuery = $event.target.value; runMdFind()" @keydown.enter.prevent="$event.shiftKey ? stepMdFind(-1) : stepMdFind(1)" @keydown.esc.prevent="toggleMdFind(false)">
     <span class="md-find-nav"><button type="button" aria-label="Previous match" @click="stepMdFind(-1)" :disabled="!mdFindTotal"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-chevron-left"></use></svg></button><button type="button" aria-label="Next match" @click="stepMdFind(1)" :disabled="!mdFindTotal"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-chevron-right"></use></svg></button></span>
@@ -106,11 +116,64 @@
   </div>
 </section>
 <html-doc v-if="type == &#x27;html-doc&#x27; &amp;&amp; !showSource &amp;&amp; content != null" :content="content" :base-url="(fileBaseUrl)" :allow-scripts="allowScripts"></html-doc>
-<img class="image-content" v-if="type == &#x27;image&#x27;" :src="safeUrl((url))">
-<iframe class="h-100 overflow-auto w-100 b-0" v-if="type == &#x27;media&#x27;" :src="safeUrl((url))"></iframe>
-<pdfviewer v-if="type == &#x27;pdf&#x27;" :src="safeUrl((url))"></pdfviewer>
-<div v-if="type == &#x27;audio&#x27;"><audio controls="controls"><source :src="safeUrl((url))"></audio></div>
-<div v-if="type == &#x27;IPython&#x27;"><notebook :file="url" :content="content"></notebook></div>
+<section class="file-card file-card-media" :class="'view-' + type" v-if="fileFrame()">
+  <header class="file-card-head">
+    <div class="file-card-path">
+      <button type="button" class="btn btn-sm btn-icon-only btn-ghost card-files-btn" :class="{ 'is-needed': sidebarHidden }" title="Show file tree" @click="sidebarHidden ? (sidebarHidden = false) : (sidebarCollapsed = false)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-sidebar"></use></svg><span class="card-files-label">Files</span></button>
+      <ol class="breadcrumb paths" aria-label="Path">
+        <li class="breadcrumb-item breadcrumb-root"><a :href="safeUrl('/r/' + repoId + '/')" :title="repoId" v-text="/^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(repoId || '') ? 'repository' : repoId"></a></li>
+        <li class="breadcrumb-item" v-for="(p, index) in paths" :aria-current="index === paths.length - 1 ? 'page' : null"><template v-for="(seg, si) in redactParts(p)" :key="si"><span v-if="seg.n" class="redact-slot" role="img" :aria-label="'Redacted term ' + seg.n"><i>{{ seg.n }}</i></span><template v-else>{{ seg.t }}</template></template></li>
+      </ol>
+      <span class="mobile-sub ms"><b class="ms-item ms-redact" v-if="type == 'IPython' &amp;&amp; redactionCount()" :title="redactionCount() + ' redacted terms'">{{ redactionCount() }}<span class="meta-redact-word"> redacted</span></b><span class="ms-item">{{ fileKind() }}</span><span class="ms-item" v-if="imageSize">{{ imageSize }}</span><span class="ms-item" v-if="fileSize(filePath) != null">{{ formatSize(fileSize(filePath)) }}</span></span>
+      <button type="button" class="btn btn-sm btn-icon-only btn-ghost copy-path-btn" v-show="filePath" :aria-label="pathCopied ? 'Path copied' : 'Copy file path'" :title="pathCopied ? 'Path copied' : 'Copy file path'" @click="copyPath()"><svg class="ui-icon" aria-hidden="true"><use :href="pathCopied ? '#ui-icon-check' : '#ui-icon-link'"></use></svg></button>
+    </div>
+    <span class="file-card-meta"><template v-if="type == 'IPython' &amp;&amp; redactionCount()"><span class="meta-redact" :title="redactionCount() + ' redacted terms'">{{ redactionCount() }}<span class="meta-redact-word"> redacted</span></span><span class="sep">·</span></template>{{ fileKind() }}<template v-if="imageSize"><span class="sep">·</span>{{ imageSize }}</template><template v-if="fileSize(filePath) != null"><span class="sep">·</span>{{ formatSize(fileSize(filePath)) }}</template></span>
+    <div class="file-card-actions">
+      <span class="file-card-state" v-if="type == 'error' &amp;&amp; content === 'file_too_big'" title="Files over the size limit can't be previewed or downloaded from this link"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-info"></use></svg>Over the size limit</span>
+      <div class="tb-file" role="group" aria-label="File actions" v-if="type != 'error'">
+        <a target="_self" class="tb-seg-btn" :title="type == 'IPython' ? 'Open the notebook JSON' : 'Open the raw file'" :href="safeUrl((url))">Raw</a>
+        <a target="_self" class="tb-seg-btn tb-seg-icon" aria-label="Download file" title="Download file" :href="safeUrl((url) + &quot;&amp;download=true&quot;)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-download"></use></svg></a>
+      </div>
+      <div class="tb-more">
+        <button type="button" class="btn btn-sm btn-icon-only btn-ghost tb-more-btn" :class="{ 'is-on': moreOpen }" aria-label="More actions" aria-haspopup="true" :aria-expanded="moreOpen ? 'true' : 'false'" @click.stop="moreOpen = !moreOpen"><svg viewBox="0 0 24 24" class="ui-icon" aria-hidden="true" style="fill:currentColor;stroke:none"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button>
+        <div class="tb-menu" v-if="moreOpen" role="menu" @click="moreOpen = false">
+          <div class="tb-menu-note" v-if="options?.publishedAt || options?.sourceCommitDate || options?.anonymizedAt || options?.lastUpdateDate"><svg class="ui-icon" aria-hidden="true"><use href="#project-icon-clock"></use></svg>Snapshot · {{ fmt?.date(options?.publishedAt || options?.sourceCommitDate || options?.anonymizedAt || options?.lastUpdateDate) }}</div>
+          <div class="tb-menu-sep" v-if="options?.publishedAt || options?.sourceCommitDate || options?.anonymizedAt || options?.lastUpdateDate"></div>
+          <a role="menuitem" target="_self" v-if="type != 'error'" :href="safeUrl((url))"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-code"></use></svg>{{ type == 'IPython' ? 'View notebook JSON' : 'View raw' }}</a>
+          <a role="menuitem" target="_self" v-if="type != 'error'" :href="safeUrl((url) + &quot;&amp;download=true&quot;)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-download"></use></svg>Download file</a>
+          <a role="menuitem" target="_self" v-if="options?.download" :href="safeUrl(&quot;/api/repo/&quot; + (repoId) + &quot;/zip&quot;)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-archive"></use></svg>Download ZIP</a>
+          <button type="button" role="menuitem" @click="copyPath()"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-link"></use></svg>Copy file path</button>
+          <div class="tb-menu-sep"></div>
+          <a role="menuitem" href="/faq"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-help"></use></svg>FAQ</a>
+          <a role="menuitem" href="https://github.com/tdurieux/anonymous_github/issues/new?template=issue_report.yml" target="_blank" rel="noopener"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-bug"></use></svg>Report a bug</a>
+        </div>
+      </div>
+    </div>
+  </header>
+  <div class="media-stage" v-if="type == 'image'"><img class="image-content" :src="safeUrl((url))" :alt="paths[paths.length - 1]" @load="onImageLoad($event)"></div>
+  <div class="media-stage" v-if="type == 'media'"><video class="video-content" controls preload="metadata" playsinline :src="safeUrl((url))"></video></div>
+  <div class="media-stage is-audio" v-if="type == 'audio'"><audio controls preload="metadata" :src="safeUrl((url))"></audio></div>
+  <pdfviewer v-if="type == 'pdf'" :src="safeUrl((url))"></pdfviewer>
+  <div class="notebook-body" v-if="type == 'IPython'"><notebook class="markdown-body" :file="url" :content="content"></notebook></div>
+  <div class="file-state" v-if="type == 'binary'">
+    <svg class="ui-icon file-state-icon" aria-hidden="true"><use href="#project-icon-file"></use></svg>
+    <h2 class="file-state-title">No preview for this file</h2>
+    <p class="file-state-msg">This is a binary file. Download it to open it on your computer.</p>
+    <div class="file-state-actions"><a target="_self" class="btn btn-primary" :href="safeUrl((url) + &quot;&amp;download=true&quot;)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-download"></use></svg>Download file</a></div>
+  </div>
+  <div class="file-state" v-if="type == 'error'" role="alert">
+    <svg class="ui-icon file-state-icon" aria-hidden="true"><use href="#ui-icon-warning"></use></svg>
+    <h2 class="file-state-title">{{ content === 'file_too_big' ? 'This file is too large to preview' : 'This file can\'t be shown' }}</h2>
+    <p class="file-state-msg" v-if="content === 'file_too_big'">It is over the size limit for anonymized files, so it can't be previewed or downloaded from this link.</p>
+    <p class="file-state-msg" v-else>{{ fmt.translate('ERRORS.' + content) }}</p>
+    <div class="file-state-actions"><a class="btn btn-primary" :href="safeUrl('/r/' + repoId + '/')">Back to the repository</a><a class="btn btn-outline-ink" href="/faq#formats">Supported files</a></div>
+  </div>
+  <div class="file-state" v-if="content == null &amp;&amp; type != 'error'">
+    <svg class="ui-icon file-state-icon" aria-hidden="true"><use href="#project-icon-file"></use></svg>
+    <h2 class="file-state-title">This file is empty</h2>
+    <p class="file-state-msg">It has no content in this snapshot.</p>
+  </div>
+</section>
 <div class="file-error container d-flex h-100" v-if="type == &#x27;rate_limited&#x27;">
   <div class="paper-ratelimit-card m-auto" style="max-width:520px;">
     <div class="paper-ratelimit-head">
@@ -123,7 +186,7 @@
     <p class="paper-error-msg">This repository will be available in <strong>{{ rateLimitCountdown }}</strong>. The page will reload automatically.</p>
   </div>
 </div>
-<div class="file-error container d-flex h-100" v-if="type == 'error'">
+<div class="file-error container d-flex h-100" v-if="type == 'error' &amp;&amp; !fileFrame()">
   <section class="viewer-error paper-error-card file-error-card m-auto" role="alert" aria-labelledby="viewer-error-title">
     <h1 id="viewer-error-title" class="paper-empty-title">{{ fmt.translate(isSourceAccessError() ? 'VIEWER_ERRORS.access_title' : 'VIEWER_ERRORS.title') }}</h1>
     <p>{{ fmt.translate('ERRORS.' + content) }}</p>
@@ -148,5 +211,4 @@
   <div class="viewer-loading-lines" aria-hidden="true"><span v-for="line in 10" :key="line"></span></div>
 </section>
 <div class="file-error container d-flex h-100" v-if="type == &#x27;empty&#x27;"><h1 class="paper-empty-title m-auto">Empty <em>repository</em>.</h1></div>
-<div class="file-error container d-flex h-100" v-if="content == null &amp;&amp; !['empty', 'loading', 'error', 'rate_limited'].includes(type)"><h1 class="paper-empty-title m-auto">Empty <em>file</em>.</h1></div>
-<div class="file-error container d-flex h-100" v-if="type == &#x27;binary&#x27;"><h1 class="paper-empty-title m-auto">Unsupported <em>binary file</em>. You can <a target="_blank" :href="safeUrl((url) + &quot;&amp;download=true&quot;)">download it</a>.</h1></div>
+<div class="file-error container d-flex h-100" v-if="content == null &amp;&amp; !['empty', 'loading', 'error', 'rate_limited'].includes(type) &amp;&amp; !fileFrame()"><h1 class="paper-empty-title m-auto">Empty <em>file</em>.</h1></div>

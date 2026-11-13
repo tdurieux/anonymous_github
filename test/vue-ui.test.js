@@ -248,7 +248,7 @@ describe("Vue 3 UI", function () {
     expect(ui.window.document.querySelector(".settings-comparison").textContent).to.include("Automatic updates");
     expect(ui.window.document.querySelectorAll(".settings-nav button")[1].getAttribute("aria-current")).to.equal("page");
     expect(ui.window.document.querySelector("#settings-billing").textContent).to.include("/ month");
-    expect(ui.window.document.querySelector("#settings-billing").textContent).to.include("10 GiB");
+    expect(ui.window.document.querySelector("#settings-billing").textContent).to.include("10 GB");
     [...ui.window.document.querySelectorAll(".billing-offer .btn")].find(b => b.textContent.trim() === "Subscribe").click();
     await delay(30);
     const request = ui.requests.find(r => r.url.pathname === "/api/billing/checkout");
@@ -547,9 +547,9 @@ describe("Vue 3 UI", function () {
     state.options.expirationMode = "never"; await delay(20);
     expect(doc.querySelector('.hosting-options').textContent).to.include("20 repositories");
     expect(doc.querySelector('.anonymize-submit-bar').textContent).to.include("Continue to checkout");
-    doc.querySelector('.preview-expand').click(); await delay(10);
+    doc.querySelector('.reviewer-preview .rp-open').click(); await delay(10);
     expect(doc.querySelector('.anonymize-page').classList.contains('preview-expanded')).to.equal(true);
-    doc.querySelector('.preview-expand').click(); await delay(10);
+    doc.querySelector('.reviewer-preview .rp-open').click(); await delay(10);
     expect(state.terms).to.equal("Private Author");
     expect(ui.requests.some(r => r.method === "POST" && r.url.pathname === "/api/repo/")).to.equal(false);
     expect(ui.errors).to.deep.equal([]);
@@ -854,6 +854,8 @@ describe("Vue 3 UI", function () {
 
   it("uses a readable fallback for unknown settings errors", async () => {
     ui = await browser("/profile", { ...repositorySource, "/api/user/default": request => request.method === "POST" ? { __status: 503, body: { error: "untranslated_failure" } } : { terms: [], options: {} } });
+    // Save is disabled on a clean form, so make a change first.
+    await ui.input("#terms", "Changed Author");
     ui.window.document.querySelector("#save").click(); await delay(30);
     expect(ui.window.document.querySelector('[role="alert"]').textContent).to.include("Unable to save your defaults");
     expect(ui.errors).to.deep.equal([]);
@@ -1164,7 +1166,7 @@ describe("Vue 3 UI", function () {
           { name: "source_hit", traffic: "monitor", count: 10, bytes: 1000, ms: 0 }] } });
     await ui.go("/admin/");
     const panel = ui.window.document.querySelector(".ov-cache");
-    expect(panel.textContent).to.include("4.0 KB / 64.0 KB");
+    expect(panel.textContent).to.include("4 KB / 64 KB");
     await ui.input("#cache-traffic", "file", "change");
     expect(panel.textContent).to.include("80.0%");
     await ui.input("#cache-traffic", "zip", "change");
@@ -1200,18 +1202,14 @@ describe("Vue 3 UI", function () {
         runtimeSeries: [{ instance: sample.instance, rss: 20 * 1024 * 1024 }] } });
     await ui.go("/admin/");
     const text = ui.window.document.querySelector(".app-view").textContent;
-    expect(text).to.include("Request performance"); expect(text).to.include("\u2264 250 ms");
-    expect(text).to.include("\u2264 50 ms"); expect(text).to.include("streamer:fixture"); expect(text).to.include("20.0 MB");
-    const routesTab = ui.window.document.querySelector("#performance-routes-tab");
-    routesTab.dispatchEvent(new ui.window.KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
-    await delay(10);
-    expect(ui.window.document.activeElement.id).to.equal("performance-processes-tab");
-    expect(ui.window.document.activeElement.getAttribute("aria-selected")).to.equal("true");
+    expect(text).to.include("Request performance"); expect(text).to.include("\u2264 250\u202Fms");
+    expect(text).to.include("\u2264 50\u202Fms"); expect(text).to.include("streamer:fixture"); expect(text).to.include("20 MB");
+    await ui.input('select[aria-label="Performance metrics"]', "processes", "change");
     expect(ui.window.document.querySelector("#performance-processes").style.display).not.to.equal("none");
+    expect(ui.window.document.querySelector("#performance-routes").style.display).to.equal("none");
     expect(ui.window.document.querySelector(".ov-metric-warning-row").textContent).to.include("Needs attention");
-    ui.window.document.activeElement.dispatchEvent(new ui.window.KeyboardEvent("keydown", { key: "End", bubbles: true }));
-    await delay(10);
-    expect(ui.window.document.activeElement.id).to.equal("performance-stages-tab");
+    await ui.input('select[aria-label="Performance metrics"]', "stages", "change");
+    expect(ui.window.document.querySelector("#performance-stages").style.display).not.to.equal("none");
     const stageRows = ui.window.document.querySelectorAll("#performance-stages tbody tr");
     expect(stageRows).to.have.length(1);
     expect(stageRows[0].textContent).to.include("cache_hit");
@@ -1259,8 +1257,7 @@ describe("Vue 3 UI", function () {
     expect(calls).to.equal(2);
     expect(ui.window.document.querySelector(".ov-performance [role=alert]")).to.equal(null);
     expect(ui.window.document.querySelector("#performance-routes").textContent).to.include("No recorded requests");
-    ui.window.document.querySelector("#performance-stages-tab").click();
-    await delay(10);
+    await ui.input('select[aria-label="Performance metrics"]', "stages", "change");
     expect(ui.window.document.querySelector("#performance-stages").textContent).to.include("No recorded work stages");
     expect(ui.errors).to.deep.equal([]);
   });
@@ -1429,7 +1426,7 @@ describe("Vue 3 UI", function () {
       input.dispatchEvent(new ui.window.Event("blur"));
       await delay(60);
       const workspace = ui.window.document.querySelector(".anonymize-workspace");
-      const button = [...workspace.querySelectorAll("button")].find(b => b.textContent.trim() === "Manage access");
+      const button = [...workspace.querySelectorAll("button")].find(b => b.textContent.trim() === "Manage GitHub access");
       expect(button).not.to.equal(undefined);
       for (let node = button; node; node = node.parentElement) expect(ui.window.getComputedStyle(node).display).not.to.equal("none");
       expect(workspace.textContent).to.include("Signing in does not grant access to private repositories");
@@ -1513,7 +1510,7 @@ describe("Vue 3 UI", function () {
           "/api/repo/owner/repo/branches": [{ name: "main", commit: "abcdef123" }],
           "/api/repo/owner/repo/readme": "",
         });
-        const button = [...ui.window.document.querySelectorAll("button")].find(b => b.textContent.includes(type === "repo" ? "Save changes" : "Update "));
+        const button = [...ui.window.document.querySelectorAll("button")].find(b => b.textContent.includes("Save changes"));
         const posts = () => ui.requests.filter(r => r.method === "POST" && r.url.pathname === endpoint);
         button.click();
         await delay(10);
@@ -1602,7 +1599,7 @@ describe("Vue 3 UI", function () {
       "/api/repo/test": { connection: "github-app", role: "owner",
         source: { fullName: "owner/repo", branch: "main", commit: "saved-sha" }, options: { terms: [], update: false } },
     });
-    expect([...ui.window.document.querySelectorAll("button")].some(b => b.textContent === "Repair GitHub access" || b.textContent === "Manage access")).to.equal(false);
+    expect([...ui.window.document.querySelectorAll("button")].some(b => b.textContent === "Repair GitHub access" || b.textContent.trim() === "Manage GitHub access")).to.equal(false);
   });
 
   for (const status of ["removed", "archived", "preparing", "queue", "download", "removing", "expiring", "ready", "error", "expired"]) {
@@ -1677,6 +1674,12 @@ describe("Vue 3 UI", function () {
         "/api/repo/test/files/": [{ name: file, path: "", sha: "1", size: 5 }],
       });
       await delay(80);
+      if (/\.csv$/.test(file)) {
+        // CSV opens as a table; its Text view is the code editor.
+        expect(ui.window.document.querySelector(".csv-table")).not.to.equal(null);
+        ui.window.document.querySelector(".csv-toggle .seg-chip:last-child").click();
+        await delay(80);
+      }
       const host = ui.window.document.querySelector(".ace_editor");
       expect(host).not.to.equal(null);
       expect(ui.window.ace.edit(host).session.getMode().$id).to.equal("ace/mode/" + mode);
@@ -1777,8 +1780,8 @@ describe("Vue 3 UI", function () {
 
   it("leads a ready status page with the copyable anonymous link", async function () {
     ui = await browser("/status/test", { "/api/repo/test": { repoId: "test", status: "ready", options: {} } });
-    const input = ui.window.document.querySelector(".share-link-input");
-    expect(input.value).to.match(/\/r\/test\/$/);
+    const link = ui.window.document.querySelector(".share-link-url");
+    expect(link.textContent.trim()).to.match(/\/r\/test\/$/);
     expect(ui.window.document.querySelector(".paper-progress")).to.equal(null);
     expect(ui.errors).to.deep.equal([]);
   });
@@ -1801,10 +1804,13 @@ describe("Vue 3 UI", function () {
       "/api/repo/test/files/": [{ name: filename, path: "", size: 1 }, { name: "constructor", path: "" }, { name: "index.js", path: "constructor", size: 2 }, { name: "hello.txt", path: "", size: 3 }],
     });
     const tree = ui.window.document.querySelector("tree");
-    expect(tree.textContent).to.include(filename).and.include("constructor/index.js");
+    // A folder holding a single file stays a folder (only folder chains are joined as "a/b").
+    expect(tree.textContent).to.include(filename).and.include("constructor");
+    expect(tree.querySelector('li.folder > a[data-path="/constructor"]')).to.not.equal(null);
     expect(ui.window.probe).to.equal(undefined);
     await ui.go("/r/test/constructor/index.js");
     expect(ui.window.document.querySelector("tree")).to.equal(tree);
+    expect(tree.querySelector('li.active > a[data-path="/constructor/index.js"]')).to.not.equal(null);
     expect(ui.requests.some(r => r.url.pathname === "/api/repo/test/file/constructor/index.js")).to.equal(true);
     await ui.go("/r/other/hello.txt");
     expect(ui.requests.some(r => r.url.pathname === "/api/repo/other/options")).to.equal(true);
@@ -2001,7 +2007,7 @@ describe("Vue 3 UI", function () {
       "/api/user/dashboard": { items: [{ _type: "repo", repoId: "package", status: "ready",
         source: { fullName: "owner/package", commit } }], total: 1, filtered: 1, attention: 0, cursor: null },
     });
-    expect(ui.window.document.querySelector(".commit-hash").textContent).to.equal(commit.slice(0, 8));
+    expect(ui.window.document.querySelector(".commit-hash").textContent).to.equal(commit.slice(0, 7));
     const state = ui.window.document.querySelector("#search")._field.binding.state;
     await state.showProjectDetails(state.items[0]);
     expect(ui.window.document.querySelector(".project-details").textContent).to.include(commit);

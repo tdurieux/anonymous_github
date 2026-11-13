@@ -112,7 +112,7 @@ export function mountApplication(target = "#app", options = {}) {
       return () => [
         iconsTemplate(root, []),
           // Repository viewers are a full-height app shell; the explorer carries brand and links itself.
-          isolatedConsent || /^\/(r|repository)\//.test(root.path || "") ? null : h("header", { class: ["app-header", { "is-contained": root.path === "/" || root.path === "/faq" }] }, templates["partials/header.htm"](root, headerCache)),
+          isolatedConsent || /^\/(r|repository)\//.test(root.path || "") ? null : h("header", { class: ["app-header", { "is-contained": root.path === "/" || root.path === "/faq", "is-signin": root.path === "/signin" }] }, templates["partials/header.htm"](root, headerCache)),
         h("main", { class: "app-view align-items-stretch w-100" }, h(RouterView, null, {
           default: ({ Component, route }) => Component ? h(Component, { key: route.meta.preserveExplorer ? route.matched[0]?.path : route.path }) : null,
         })),

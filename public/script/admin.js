@@ -1,10 +1,41 @@
-import { reactive } from "vue";
+import { reactive, onScopeDispose } from "vue";
 import { createTimers, createListeners } from "./state.js";
+import { duration, statusMsg } from "./formatters.js";
+
+// One status filter model for every admin list (and the conference page):
+// a single-select segmented control. One rule everywhere: "All N" is every
+// record in the list, removed ones included, and selecting it shows exactly
+// those N rows. The status chips partition All, so their counts add up to it.
+// `flags()` returns the boolean status map the list already filters on.
+export const statusGroup = (status) =>
+  ["preparing", "download", "downloading", "downloaded", "queue", "anonymizing"].includes(status) ? "preparing"
+  : status === "expiring" ? "expired"
+  : status === "removing" ? "removed"
+  : status;
+export function installStatusSegments(state, { flags, keys, count, onChange = () => {} }) {
+  state.segView = () => {
+    const f = flags() || {};
+    if (keys.every((k) => !!f[k])) return "all";
+    const on = keys.filter((k) => !!f[k]);
+    return on.length === 1 ? on[0] : "custom";
+  };
+  state.setSegView = (view) => {
+    const f = flags();
+    if (!f) return;
+    for (const k of keys) f[k] = view === "all" ? true : k === view;
+    onChange();
+  };
+  state.segCount = (view) => view === "all" ? keys.reduce((n, k) => n + count(k), 0) : count(view);
+  // Saved preferences from the old "All hides removed" model come back as a
+  // mixed selection; fold them into All so one chip is always selected.
+  if (flags() && state.segView() === "custom") for (const k of keys) flags()[k] = true;
+}
 
 // Page setup functions run inside Vue effect scopes.
 export const repositoriesAdminController = function (state, http, location) {
       const timers = createTimers();
       const listen = createListeners();
+      watchMetaLines(timers, listen);
       state.Math = Math;
       state.watch("user.status", () => {
         if (state.user == null) {
@@ -128,7 +159,7 @@ export const repositoriesAdminController = function (state, http, location) {
         dateTo: "",
         ready: true,
         expired: true,
-        removed: false,
+        removed: true,
         error: true,
         preparing: true,
       };
@@ -269,6 +300,15 @@ export const repositoriesAdminController = function (state, http, location) {
         }, () => {});
       }
       state.showAllStatuses = () => Object.assign(state.query, { ready: true, expired: true, removed: true, error: true, preparing: true, page: 1 });
+      installStatusSegments(state, {
+        flags: () => state.query,
+        keys: ["ready", "preparing", "error", "expired", "removed"],
+        count: (k) => k === "preparing" ? state.statusCountFor("preparing") + state.statusCountFor("download")
+          : k === "expired" ? state.statusCountFor("expired") + state.statusCountFor("expiring")
+          : k === "removed" ? state.statusCountFor("removed") + state.statusCountFor("removing")
+          : state.statusCountFor(k),
+        onChange: () => { state.query.page = 1; },
+      });
       getRepositories();
       getStatusCounts();
 
@@ -444,6 +484,7 @@ export const usersAdminController = function (state, http, location) {
 
 export const userAdminController = function (state, http, location, params) {
       const timers = createTimers();
+      watchMetaLines(timers, createListeners());
       state.watch("user.status", () => {
         if (state.user == null) {
           location.url("/");
@@ -513,11 +554,16 @@ export const userAdminController = function (state, http, location, params) {
       );
 
       state.statusCountFor = (s) => {
-        return (state.repositories || []).filter((r) => r.status === s).length;
+        return (state.repositories || []).filter((r) => statusGroup(r.status) === s).length;
       };
+      installStatusSegments(state, {
+        flags: () => state.filters.status,
+        keys: ["ready", "preparing", "error", "expired", "removed"],
+        count: (k) => state.statusCountFor(k),
+      });
 
       state.repoFiler = (repo) => {
-        if (state.filters.status[repo.status] == false) return false;
+        if (state.filters.status[statusGroup(repo.status)] == false) return false;
 
         if (state.search.trim().length == 0) return true;
 
@@ -820,7 +866,7 @@ export const conferencesAdminController = function (state, http, location) {
         dateTo: "",
         ready: true,
         expired: true,
-        removed: false,
+        removed: true,
         error: true,
         preparing: true,
       };
@@ -887,6 +933,12 @@ export const conferencesAdminController = function (state, http, location) {
           }
         );
       }
+      installStatusSegments(state, {
+        flags: () => state.query,
+        keys: ["ready", "preparing", "error", "expired", "removed"],
+        count: (k) => state.statusCountFor(k),
+        onChange: () => { state.query.page = 1; },
+      });
       getConferences();
 
       let timeClear = null;
@@ -918,6 +970,11 @@ export const queuesAdminController = function (state, http, location, interval, 
       state.range = "1h";
       state.allStates = ["active", "waiting", "delayed", "failed", "completed"];
       state.stateFilter = { active: true, waiting: true, delayed: true, failed: true, completed: true };
+      installStatusSegments(state, {
+        flags: () => state.stateFilter,
+        keys: state.allStates,
+        count: (k) => (state.jobs || []).filter((j) => j._state === k).length,
+      });
       state.query = {
         search: "",
         autoRefresh: true,
@@ -928,6 +985,8 @@ export const queuesAdminController = function (state, http, location, interval, 
       };
 
       state.jobProgressPct = (job) => {
+        // A completed job is done whatever its last reported progress was (an empty bar beside "Completed" reads as stalled).
+        if (job?._state === "completed") return 100;
         if (job && job.progress && typeof job.progress === "object" && typeof job.progress.percent === "number") {
           return Math.max(0, Math.min(100, Math.round(job.progress.percent)));
         }
@@ -937,12 +996,19 @@ export const queuesAdminController = function (state, http, location, interval, 
         return null;
       };
 
+      // The Detail column: the stage an active job reports, or why a failed job failed; a dash otherwise.
+      const JOB_STAGES = { get_files: "Fetching files", download: "Downloading", downloading: "Downloading", anonymize: "Anonymizing", anonymizing: "Anonymizing", ready: "Ready", removing: "Removing", preparing: "Preparing" };
+      state.jobDetail = (job) => {
+        if (job?._state === "failed") return statusMsg(job.failedReason || "") || "Failed";
+        const stage = job?.progress && typeof job.progress === "object" ? job.progress.status : null;
+        if (job?._state === "active" && stage) return JOB_STAGES[stage] || statusMsg(stage);
+        return "—";
+      };
+
       state.jobDuration = (job) => {
-        if (!job.processedOn) return "-";
+        if (!job.processedOn) return "—";
         const end = job.finishedOn || Date.now();
-        const ms = end - job.processedOn;
-        if (ms < 1000) return ms + "ms";
-        return (ms / 1000).toFixed(1) + "s";
+        return duration(end - job.processedOn);
       };
 
       state.metricsPoints = [];
@@ -1084,10 +1150,11 @@ export const queuesAdminController = function (state, http, location, interval, 
         var dpr = window.devicePixelRatio || 1;
         var rect = canvas.parentElement.getBoundingClientRect();
         var marginLeft = 44;
-        var marginRight = 50;
-        var marginBottom = 20;
-        var totalW = rect.width - 40;
-        var totalH = 180;
+        var marginRight = 44;
+        var marginBottom = 22;
+        // The plot fills its card, which stretches to the height of the stats panel beside it.
+        var totalW = Math.max(200, Math.round(rect.width));
+        var totalH = Math.max(180, Math.min(420, Math.round(rect.height) || 180));
         var w = totalW - marginLeft - marginRight;
         var h = totalH - marginBottom;
         canvas.width = totalW * dpr;
@@ -1103,7 +1170,8 @@ export const queuesAdminController = function (state, http, location, interval, 
         var completedFill = isDark ? "rgba(111,191,138,0.12)" : "rgba(47,125,79,0.08)";
         var failedColor = isDark ? "#F08A82" : "#B42318";
         var failedFill = isDark ? "rgba(240,138,130,0.08)" : "rgba(180,35,24,0.06)";
-        var execColor = isDark ? "#F5C842" : "#B8860B";
+        // One token drives the time line, its seconds axis and its legend key (style.css: --q-time-series).
+        var execColor = getComputedStyle(document.body).getPropertyValue("--q-time-series").trim() || (isDark ? "#E0A94A" : "#946512");
 
         var pts = state.metricsPoints || [];
         if (pts.length === 0) {
@@ -1150,7 +1218,7 @@ export const queuesAdminController = function (state, http, location, interval, 
         // Grid + left Y-axis labels (jobs/min)
         ctx.textAlign = "right";
         ctx.textBaseline = "middle";
-        ctx.font = "10px monospace";
+        ctx.font = "11px Inter, system-ui, sans-serif";
         left.ticks.forEach(function (v) {
           var y = toY(v);
           ctx.strokeStyle = gridColor;
@@ -1160,7 +1228,8 @@ export const queuesAdminController = function (state, http, location, interval, 
           ctx.lineTo(totalW - marginRight, y);
           ctx.stroke();
           ctx.fillStyle = labelColor;
-          ctx.fillText(v >= 1000 ? (v / 1000).toFixed(1) + "k" : String(v), marginLeft - 6, y);
+          // The origin is implied by the baseline; a "0" here would collide with the first time label.
+          if (v !== 0) ctx.fillText(v >= 1000 ? (v / 1000).toFixed(1) + "k" : String(v), marginLeft - 6, y);
         });
 
         // Right Y-axis labels (ms)
@@ -1169,26 +1238,40 @@ export const queuesAdminController = function (state, http, location, interval, 
           right.ticks.forEach(function (v) {
             var y = toYr(v);
             ctx.fillStyle = execColor;
-            ctx.fillText(v >= 1000 ? (v / 1000).toFixed(1) + "s" : v + "ms", totalW - marginRight + 6, y);
+            if (v !== 0) ctx.fillText(duration(v), totalW - marginRight + 6, y);
           });
         }
 
-        // X-axis time labels using actual timestamps
-        var now = Date.now();
-        var xLabelCount = Math.min(6, maxLen);
-        ctx.textAlign = "center";
+        // X-axis time labels: "now" under the newest point, then whole steps back (1, 2, 5, 10, 15, 30 min, 1, 2, 3,
+        // 6, 12 h, 1 d) labelled "<n> ago". Each tick sits on the data point nearest its time, and its label is that
+        // point's real age rounded to the step, so a label never claims a time the line doesn't reach.
+        var tEnd = pts[maxLen - 1].ts, tStart = pts[0].ts;
+        var spanMin = Math.max(0, (tEnd - tStart) / 60000);
+        var niceSteps = [1, 2, 5, 10, 15, 30, 60, 120, 180, 360, 720, 1440, 2880, 10080];
+        var stepMin = niceSteps.find(function (m) { return spanMin / m <= 4; }) || niceSteps[niceSteps.length - 1];
+        var fmtSpan = function (m) { return m < 60 ? m + "m" : m < 1440 ? (m / 60) + "h" : (m / 1440) + "d"; };
+        var nearestIndex = function (t) {
+          var best = 0;
+          for (var j = 1; j < maxLen; j++) if (Math.abs(pts[j].ts - t) < Math.abs(pts[best].ts - t)) best = j;
+          return best;
+        };
+        var tolMs = Math.max((tEnd - tStart) / Math.max(1, maxLen - 1) / 2, (tEnd - tStart) * 0.03);
         ctx.textBaseline = "top";
-        for (var i = 0; i < xLabelCount; i++) {
-          var idx = Math.round((i / (xLabelCount - 1)) * (maxLen - 1));
-          var minsAgo = Math.round((now - pts[idx].ts) / 60000);
+        ctx.fillStyle = labelColor;
+        var lastX = Infinity;
+        for (var k = 0; k * stepMin * 60000 <= (tEnd - tStart) + tolMs && k < 8; k++) {
+          var m = k * stepMin;
+          var idx = nearestIndex(tEnd - m * 60000);
+          if (k > 0 && Math.abs(pts[idx].ts - (tEnd - m * 60000)) > tolMs + 1) continue;
           var x = toX(idx);
-          var lbl;
-          if (minsAgo <= 0) lbl = "now";
-          else if (minsAgo < 60) lbl = minsAgo + "m";
-          else if (minsAgo < 1440) lbl = Math.round(minsAgo / 60) + "h";
-          else lbl = Math.round(minsAgo / 1440) + "d";
-          ctx.fillStyle = labelColor;
-          ctx.fillText(lbl, x, h + 4);
+          var label = m === 0 ? "now" : fmtSpan(m) + " ago";
+          var width = ctx.measureText(label).width;
+          var align = k === 0 ? "right" : idx === 0 ? "left" : "center";
+          var labelRight = align === "right" ? x : align === "left" ? x + width : x + width / 2;
+          if (labelRight > lastX - 12) continue;
+          ctx.textAlign = align;
+          ctx.fillText(label, x, h + 6);
+          lastX = align === "right" ? x - width : align === "left" ? x : x - width / 2;
         }
 
         function drawArea(data, yFn, fillStyle, strokeStyle) {
@@ -1268,7 +1351,7 @@ export const queuesAdminController = function (state, http, location, interval, 
           }
 
           var p = cs.pts[idx];
-          var now = Date.now();
+          var now = cs.pts[cs.pts.length - 1].ts; // same origin as the axis: the series end is "now"
           var minsAgo = Math.round((now - p.ts) / 60000);
           var timeLabel;
           if (minsAgo <= 0) timeLabel = "now";
@@ -1284,7 +1367,7 @@ export const queuesAdminController = function (state, http, location, interval, 
             '<div class="q-tip-completed">&#9679; completed: ' + p.completed + '/min</div>' +
             '<div class="q-tip-failed">&#9679; failed: ' + p.failed + '/min</div>';
           if (p.avgMs > 0) {
-            var dur = p.avgMs >= 1000 ? (p.avgMs / 1000).toFixed(1) + "s" : p.avgMs + "ms";
+            var dur = duration(p.avgMs);
             html += '<div class="q-tip-exec">&#9679; avg time: ' + dur + '</div>';
           }
           tooltip.innerHTML = html;
@@ -1357,13 +1440,13 @@ export const errorsAdminController = function (state, http, location, interval) 
         if (h < 24) return `${h}h ago`;
         const d = Math.floor(h / 24);
         if (d < 7) return `${d}d ago`;
-        return new Date(iso).toLocaleDateString();
+        return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
       };
       state.absTime = (iso) => {
         if (!iso) return "";
         const d = new Date(iso);
         if (isNaN(d.getTime())) return iso;
-        return d.toLocaleString();
+        return d.toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
       };
       state.absTimeShort = (iso) => {
         if (!iso) return "";
@@ -1818,19 +1901,27 @@ export const overviewAdminController = function (state, http, location, interval
         if (!row.ms) return "Not timed";
         for (var i = 0; i <= bounds.length; i++) {
           count += row["b" + i] || 0;
-          if (count >= Math.ceil(row.count * 0.95)) return i < bounds.length ? "≤ " + bounds[i] + " ms" : "> 10 s";
+          if (count >= Math.ceil(row.count * 0.95)) return i < bounds.length ? "≤ " + duration(bounds[i]) : "> 10\u202Fs";
         }
         return "No samples";
+      };
+      // The alert names only the metrics that are actually flagged (> 90%).
+      state.healthAlert = function () {
+        const sys = (state.data && state.data.system) || {};
+        const hot = [["Memory", sys.memPercent], ["Disk", sys.diskPercent]].filter(([, v]) => v > 90);
+        if (!hot.length) return "";
+        const list = hot.map(([n, v]) => n + " is at " + v + "%").join(" and ");
+        return list + ". New anonymizations may fail until " + (hot.length > 1 ? "they drop." : "it drops.");
       };
       state.performanceError = null;
       // 18400 ms reads better as 18.4 s once a value passes one second.
       state.formatMs = function (ms) {
         if (ms == null) return "";
-        return ms < 1000 ? ms + " ms" : +(ms / 1000).toFixed(1) + " s";
+        return duration(ms);
       };
       state.latencyBound = function (row, field) {
         if (!row.count) return "No samples";
-        return row[field] == null ? "> 60 s" : "\u2264 " + state.formatMs(row[field]);
+        return row[field] == null ? "> 60\u202Fs" : "\u2264 " + state.formatMs(row[field]);
       };
       state.firstByteBound = function (row) {
         return state.latencyBound({ count: row.firstByteCount, p95UpperMs: row.firstByteP95UpperMs }, "p95UpperMs");
@@ -1870,7 +1961,7 @@ export const overviewAdminController = function (state, http, location, interval
         var i = 0;
         var v = b;
         while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
-        return v.toFixed(i > 0 ? 1 : 0) + " " + units[i];
+        return v.toFixed(i > 0 ? 1 : 0).replace(/\.0$/, "") + " " + units[i];
       }
       state.humanBytes = humanBytes;
 
@@ -1916,18 +2007,45 @@ export const overviewAdminController = function (state, http, location, interval
         if (status === "preparing") names.push("download");
         var sum = 0;
         names.forEach(function (n) { sum += state.statusCount(n); });
-        return Math.max(0.4, (sum / total) * 100);
+        // A zero count draws no segment; a tiny non-zero count still gets a visible sliver.
+        return sum ? Math.max(0.4, (sum / total) * 100) : 0;
       };
 
+      // Real errors are 5xx + 4xx; Info entries are logged but never counted as errors.
+      state.realErrors = function () {
+        var sev = state.data && state.data.errors && state.data.errors.severity;
+        if (!sev) return 0;
+        return (sev.error || 0) + (sev.warn || 0);
+      };
+      // Each bar is its share of the real errors.
       state.errPct = function (key) {
         if (!state.data || !state.data.errors) return 0;
-        var max = Math.max(
-          state.data.errors.severity.error,
-          state.data.errors.severity.warn,
-          state.data.errors.severity.info,
-          1
-        );
-        return (state.data.errors.severity[key] / max) * 100;
+        var total = state.realErrors();
+        return total ? ((state.data.errors.severity[key] || 0) / total) * 100 : 0;
+      };
+
+      // Hourly real errors (5xx + 4xx) for the last 24 hours, from /api/admin/errors/stats.
+      state.errorHours = function () {
+        var rows = (state.errorStats && state.errorStats.buckets) || [];
+        var max = rows.reduce(function (m, b) { return Math.max(m, (b.error || 0) + (b.warn || 0)); }, 0);
+        return rows.map(function (b) {
+          var n = (b.error || 0) + (b.warn || 0);
+          var h = new Date(b.hour - 3600 * 1000);
+          return {
+            key: b.hour,
+            pct: max && n ? Math.max(6, (n / max) * 100) : 0,
+            errPct: max ? ((b.error || 0) / max) * 100 : 0,
+            warnPct: max ? ((b.warn || 0) / max) * 100 : 0,
+            bad: (b.error || 0) > 0,
+            zero: !n,
+            title: String(h.getHours()).padStart(2, "0") + ":00 · " + (b.error || 0) + " 5xx, " + (b.warn || 0) + " 4xx",
+          };
+        });
+      };
+
+      state.errorHoursPeak = function () {
+        var rows = (state.errorStats && state.errorStats.buckets) || [];
+        return rows.reduce(function (m, b) { return Math.max(m, (b.error || 0) + (b.warn || 0)); }, 0);
       };
 
       function computeDailyHistory(history) {
@@ -1969,30 +2087,86 @@ export const overviewAdminController = function (state, http, location, interval
       var historyMaxes = {};
       state.historyMax = function (field) { return historyMaxes[field] || 0; };
       var historyMins = {};
+      // Top of the value scale: a round number at or above the peak whose half is an integer
+      // (2 -> 2, 7 -> 8, 22 -> 30, 161 -> 200), so the 0 / mid / max ticks are whole numbers.
+      state.axisMax = function (field) {
+        var max = historyMaxes[field] || 0;
+        if (max <= 2) return 2;
+        if (max <= 10) return Math.ceil(max / 2) * 2;
+        var unit = Math.pow(10, Math.floor(Math.log10(max)));
+        return Math.ceil(max / unit) * unit;
+      };
       state.historyBarH = function (d, field) {
         if (!d || !historyMaxes[field]) return 0;
-        return Math.max(1, Math.round((d[field] / historyMaxes[field]) * 140));
-      };
-      // Cumulative totals barely move against a zero baseline, so they are
-      // drawn between the period's minimum and maximum (shown in the legend).
-      state.historyRangeH = function (d, field) {
-        if (!d || historyMaxes[field] == null) return 0;
-        var span = historyMaxes[field] - historyMins[field];
-        if (!span) return 70;
-        return Math.round(8 + ((d[field] - historyMins[field]) / span) * 132);
+        // Zero (or missing) is 0px: the baseline is drawn separately. A non-zero day keeps at least 1px.
+        if (!d[field]) return 0;
+        return Math.max(1, Math.round((d[field] / state.axisMax(field)) * 140));
       };
       state.historyRange = function (field) {
         return { min: historyMins[field], max: historyMaxes[field] };
       };
+      var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
       state.historyLabel = function (d) {
         if (!d || !d.date) return "";
         var dt = new Date(d.date);
-        return (dt.getUTCMonth() + 1) + "/" + dt.getUTCDate();
+        return MONTHS[dt.getUTCMonth()] + " " + dt.getUTCDate();
+      };
+      state.historyHasMissing = function () {
+        return !!(state.data && state.data.history || []).some(function (d) { return d && d._empty; });
+      };
+      state.firstDataIndex = function () {
+        var rows = (state.data && state.data.history) || [];
+        for (var i = 0; i < rows.length; i++) if (!rows[i]._empty) return i;
+        return rows.length;
+      };
+      state.usersFirst = function () {
+        var rows = (state.data && state.data.history) || [];
+        var i = state.firstDataIndex();
+        return rows[i] ? rows[i].nbUsers || 0 : 0;
+      };
+      state.usersGained = function () {
+        var rows = (state.data && state.data.history) || [];
+        return rows.reduce(function (sum, d) { return sum + (d._empty ? 0 : d.dailyUsers || 0); }, 0);
+      };
+      // A cumulative total under 10 users reads better as a number than as a chart.
+      state.usersTiny = function () { return (historyMaxes.nbUsers || 0) < 10; };
+      // Cumulative users as a step line / area anchored at 0, in a viewBox of (days x 140).
+      // A cumulative series on a 0-based axis is a flat slab; zoom the axis to the 30-day range
+      // (two "nice" steps that contain every value) so the growth is visible.
+      state.userAxis = function () {
+        var rows = ((state.data && state.data.history) || []).filter(function (d) { return d && !d._empty && d.nbUsers != null; });
+        if (!rows.length) return { lo: 0, hi: 1 };
+        var lo = Math.min.apply(null, rows.map(function (d) { return d.nbUsers; }));
+        var hi = Math.max.apply(null, rows.map(function (d) { return d.nbUsers; }));
+        var span = Math.max(hi - lo, 1);
+        var p = Math.pow(10, Math.floor(Math.log10(span / 2)));
+        var steps = [1, 2, 2.5, 5, 10, 20, 25, 50, 100].map(function (m) { return m * p; });
+        for (var i = 0; i < steps.length; i++) {
+          var a = Math.floor(lo / steps[i]) * steps[i];
+          if (a + 2 * steps[i] >= hi) return { lo: a, hi: a + 2 * steps[i] };
+        }
+        return { lo: 0, hi: state.axisMax("nbUsers") };
+      };
+      state.userStepPath = function (area) {
+        var rows = (state.data && state.data.history) || [];
+        var ax = state.userAxis();
+        var max = historyMaxes.nbUsers ? ax.hi - ax.lo : 0;
+        var start = state.firstDataIndex();
+        if (!max || start >= rows.length) return "";
+        var y = function (v) { return (140 - (((v || 0) - ax.lo) / max) * 140).toFixed(2); };
+        var d = area ? "M" + start + " 140" : "";
+        for (var i = start; i < rows.length; i++) {
+          var yy = y(rows[i].nbUsers);
+          d += (d ? " L" : "M") + i + " " + yy + " L" + (i + 1) + " " + yy;
+        }
+        if (area) d += " L" + rows.length + " 140 Z";
+        return d;
       };
 
       function load() {
         state.loadPerformance();
         state.loadCache();
+        http.get("/api/admin/errors/stats").then(function (r) { state.errorStats = r.data; }, function () { state.errorStats = null; });
         http.get("/api/admin/overview").then(function (r) {
           r.data.history = computeDailyHistory(r.data.history);
           r.data.daily = {
@@ -2023,3 +2197,51 @@ export const overviewAdminController = function (state, http, location, interval
       var stop = interval(load, 30000);
       state.on("dispose", function () { interval.cancel(stop); });
     };
+
+// Admin repository meta lines ([data-meta-fit]): one fixed order (source · ref · conference · size · terms). Items
+// that don't fit on the line are hidden from the end, and a "+N" chip says how many, its tooltip listing them.
+function fitMetaLine(line) {
+  const chip = line.querySelector(":scope > .meta-more");
+  const items = [...line.querySelectorAll(":scope > .meta-item")];
+  items.forEach((el) => { el.removeAttribute("data-meta-hidden"); });
+  if (chip) { chip.hidden = true; chip.textContent = ""; chip.removeAttribute("title"); chip.removeAttribute("aria-label"); }
+  if (!line.clientWidth) return;
+  // Measure with the source at its natural width, so the tail yields before the repository name does.
+  line.classList.add("is-fitting");
+  if (line.scrollWidth <= line.clientWidth + 1) { line.classList.remove("is-fitting"); return; }
+  const hidden = [];
+  for (let i = items.length - 1; i >= 0 && line.scrollWidth > line.clientWidth + 1; i--) {
+    items[i].setAttribute("data-meta-hidden", "");
+    hidden.unshift(items[i]);
+    if (chip) {
+      const names = hidden.map((el) => el.dataset.metaLabel || el.textContent.trim().replace(/\s+/g, " "));
+      chip.hidden = false;
+      chip.textContent = "+" + hidden.length;
+      chip.title = names.join(" · ");
+      chip.setAttribute("aria-label", hidden.length + " more: " + names.join(", "));
+    }
+  }
+  line.classList.remove("is-fitting");
+}
+// Fits every meta line in the document while the calling controller's scope lives: on render changes, resize and
+// font load. The observer and listener are released with the scope (no work after the view is gone).
+function watchMetaLines(timers, listen) {
+  if (typeof document === "undefined" || typeof MutationObserver === "undefined" || !document.body) return;
+  let queued = false;
+  let observer = null;
+  const fitAll = () => {
+    queued = false;
+    if (!observer) return;
+    document.querySelectorAll("[data-meta-fit]").forEach(fitMetaLine);
+    observer.takeRecords();
+  };
+  const queue = () => { if (!queued && observer) { queued = true; timers.timeout(fitAll, 30); } };
+  observer = new MutationObserver((records) => {
+    if (records.some((r) => !(r.target.closest && r.target.closest(".meta-more")))) queue();
+  });
+  observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+  onScopeDispose(() => { observer.disconnect(); observer = null; });
+  listen(window, "resize", queue);
+  if (document.fonts?.ready) document.fonts.ready.then(queue);
+  queue();
+}
