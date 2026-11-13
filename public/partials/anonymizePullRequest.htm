@@ -99,6 +99,7 @@
             <div class="form-group" id="expiration-date-form" v-show="!(options?.expirationMode==&#x27;never&#x27;)">
               <label for="expirationDate">Expiration date of the anonymized repository</label>
               <input class="form-control" type="date" name="expirationDate" id="expirationDate" v-field="{ state: viewState, set: value =&gt; { options.expirationDate = value }, value: options?.expirationDate, form: &quot;anonymizeForm&quot;, options: {} }">
+              <p class="date-echo" aria-live="polite" v-if="fmt?.dateEcho(options?.expirationDate)">Expires {{ fmt?.dateEcho(options?.expirationDate) }}</p>
               <small class="form-text text-muted" v-show="options?.expirationMode==&#x27;remove&#x27;">After {{ fmt?.date(options?.expirationDate) }}, the repository will be
                 removed and the visitor will not be able to see the content of
                 the repository.</small>

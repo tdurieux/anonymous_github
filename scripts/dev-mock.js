@@ -72,6 +72,16 @@ const repositories = [
     options: opts({ update: true }),
   },
   {
+    // Removed link with a single view: shows the singular unit in the Removed tab.
+    repoId: "icse24-artifact-7B1D",
+    status: "removed",
+    anonymizeDate: ago(700),
+    lastView: ago(640),
+    pageView: 1,
+    source: { fullName: "tdurieux/icse24-artifact", branch: "main", commit: "9e1b44c20000" },
+    options: opts(),
+  },
+  {
     repoId: "JarSift",
     status: "expired",
     anonymizeDate: ago(560),
@@ -189,7 +199,7 @@ const conferences = [
     endDate: ahead(30),
     status: "ready",
     options: opts({ page: true }),
-    plan: { planID: "premium_conference", name: "Premium", pricePerRepository: 0.5 },
+    plan: { planID: "conference", name: "Conference", pricePerRepository: 0 },
     price: 12.5,
     nbRepositories: 2,
     repositories: repositories.slice(0, 4).map((r) => Object.assign({}, r, { addDate: ago(60) })),
@@ -249,11 +259,12 @@ const history = Array.from({ length: 60 }, (_, i) => ({
 }));
 
 // ANON=1 serves the signed-out experience (landing page, FAQ) instead;
-// ADMIN=1 signs in as an administrator so /admin pages render.
+// ADMIN=1 (or a `mock_admin=1` cookie, for one browser context only) signs in
+// as an administrator so /admin pages render.
 app.get("/api/user", (req, res) =>
   process.env.ANON
     ? res.status(401).json({ error: "not_connected" })
-    : res.json({ username: "tdurieux", photo: "https://avatars.githubusercontent.com/u/5577568?v=4", isAdmin: !!process.env.ADMIN })
+    : res.json({ username: "tdurieux", photo: "https://avatars.githubusercontent.com/u/5577568?v=4", isAdmin: !!process.env.ADMIN || /(?:^|;\s*)mock_admin=1/.test(req.headers.cookie || "") })
 );
 // Local connection fixtures keep the account screens usable without GitHub.
 app.get("/github/connections", (req, res) => res.json({
@@ -270,7 +281,23 @@ app.get("/api/user/default", (req, res) =>
   res.json({ terms: ["Jane Smith", "MIT CSAIL"], options: { link: true, image: true, pdf: true, notebook: true, loc: true, page: false, update: false, mode: "GitHubStream", expirationMode: "remove" } })
 );
 app.post("/api/user/default", (req, res) => res.json({}));
-app.get("/api/conferences/plans", (req, res) => res.json(plans));
+// Conference review packages (billing enabled), mirroring src/core/billing/config.ts.
+// Served only with a `mock_billing=1` cookie so the other screens keep the
+// billing-disabled experience.
+const GiB = 1024 ** 3;
+const conferenceTiers = [
+  { id: "conference_workshop", name: "Workshop", repositories: 25, storage: 10 * GiB, amount: 14900 },
+  { id: "conference", name: "Conference", repositories: 100, storage: 50 * GiB, amount: 49000 },
+  { id: "conference_large", name: "Large conference", repositories: 400, storage: 200 * GiB, amount: 149000 },
+];
+const billingOn = (req) => /(?:^|;\s*)mock_billing=1/.test(req.headers.cookie || "");
+app.get("/api/conferences/plans", (req, res) => res.json(billingOn(req)
+  ? conferenceTiers.map((t) => ({ id: t.id, name: t.name, pricePerRepo: 0, storagePerRepo: t.storage, repositories: t.repositories, description: `<li>Up to ${t.repositories} repositories</li><li>Up to 180 days</li><li>Prepaid at checkout</li>` }))
+  : plans));
+app.get("/api/billing/", (req, res) => billingOn(req)
+  ? res.json({ enabled: true, csrf: "local-preview-only", checkoutEnabled: true, freeExpirationMonths: 12, grants: [], purchases: [], repositories: [], portal: false, allowance: null,
+      plans: conferenceTiers.map((t) => ({ id: t.id, name: t.name, description: "", repositories: t.repositories, storage: t.storage, amount: t.amount, currency: "eur" })) })
+  : res.status(404).json({ error: "not mocked: /api/billing/" }));
 app.get("/api/conferences/", (req, res) => res.json(conferences));
 app.get("/api/conferences/:id", (req, res) => {
   const c = conferences.find((x) => x.conferenceID === req.params.id);
@@ -327,6 +354,75 @@ app.get(`/api/repo/${EXPLORER_ID}/file/{*rest}`, (req, res) => {
   const file = req.params.rest.join("/");
   if (!(file in explorerContent)) return res.status(404).json({ error: "file_not_found" });
   res.type("text/plain").send(explorerContent[file]);
+});
+
+// Viewer gallery: a second explorer fixture with one file of every kind the
+// reviewer view renders (PDF, image, SVG, video, notebook, CSV, binary, empty
+// file, empty folder, and a file over the size limit). Binaries live in
+// scripts/fixtures/explorer-gallery; content types follow the real file route.
+const GALLERY_ID = "replication-package-5E1A";
+const GALLERY_DIR = path.join(__dirname, "fixtures", "explorer-gallery");
+const galleryPng = fs.readFileSync(path.join(GALLERY_DIR, "figures", "accuracy.png"));
+const galleryNotebook = JSON.stringify({
+  nbformat: 4, nbformat_minor: 5,
+  metadata: { kernelspec: { name: "python3", display_name: "Python 3" }, language_info: { name: "python" } },
+  cells: [
+    { cell_type: "markdown", metadata: {}, source: ["# Results analysis\n", "\n", "Reproduces Table 2 and Figure 1 of the paper. Run the cells in order; the data is loaded from `results.csv`."] },
+    { cell_type: "code", execution_count: 1, metadata: {}, outputs: [], source: ["import pandas as pd\n", "df = pd.read_csv(\"results.csv\")\n", "df.groupby(\"model\").accuracy.mean()"] },
+    { cell_type: "code", execution_count: 2, metadata: {}, source: ["print(f\"{len(df)} runs by XXXX-1\")"], outputs: [{ output_type: "stream", name: "stdout", text: ["12 runs by XXXX-1\n"] }] },
+    { cell_type: "code", execution_count: 3, metadata: {}, source: ["df.pivot_table(index=\"model\", values=[\"accuracy\", \"plausible\"]).round(1)"], outputs: [{ output_type: "execute_result", execution_count: 3, metadata: {}, data: {
+      "text/html": ["<table border=\"1\" class=\"dataframe\"><thead><tr><th>model</th><th>accuracy</th><th>plausible</th></tr></thead><tbody><tr><th>Baseline</th><td>71.2</td><td>412.0</td></tr><tr><th>+ Aug.</th><td>74.0</td><td>447.0</td></tr><tr><th>Ours</th><td>78.9</td><td>503.0</td></tr></tbody></table>"],
+      "text/plain": ["          accuracy  plausible\nBaseline      71.2      412.0\nOurs          78.9      503.0"] } }] },
+    { cell_type: "markdown", metadata: {}, source: ["## Figure 1\n", "\n", "Accuracy of each configuration on the held-out split."] },
+    { cell_type: "code", execution_count: 4, metadata: {}, source: ["ax = df.groupby(\"model\").accuracy.mean().plot.bar()\n", "ax.figure.savefig(\"figures/accuracy.png\")"], outputs: [{ output_type: "display_data", metadata: {}, data: { "image/png": galleryPng.toString("base64"), "text/plain": ["<Figure size 720x400 with 1 Axes>"] } }] },
+  ],
+}, null, 1);
+const galleryText = {
+  "README.md": "# Replication package\n\nArtifact for *Learning Robust Repair Strategies from Developer Histories*, prepared by XXXX-1.\n\n| File | What it shows |\n| --- | --- |\n| `paper.pdf` | The submitted paper |\n| `analysis.ipynb` | Notebook that rebuilds Table 2 and Figure 1 |\n| `figures/` | Figures as PNG and SVG |\n| `demo/` | A short screen recording of a full run |\n\n![Accuracy](figures/accuracy.png)\n",
+  "results.csv": "model,seed,accuracy,plausible\nBaseline,1,71.0,410\nBaseline,2,71.4,414\n+ Aug.,1,73.8,445\n+ Aug.,2,74.2,449\n+ Pretrain,1,76.0,470\n+ Pretrain,2,76.2,472\nOurs,1,78.7,501\nOurs,2,79.1,505\n",
+  "figures/pipeline.svg": '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="200" viewBox="0 0 640 200" font-family="Inter, Arial, sans-serif" font-size="14"><rect width="640" height="200" fill="#ffffff"/><g fill="#eef6f4" stroke="#1f6f66" stroke-width="1.5"><rect x="20" y="70" width="150" height="60" rx="8"/><rect x="245" y="70" width="150" height="60" rx="8"/><rect x="470" y="70" width="150" height="60" rx="8"/></g><g fill="#1b1a18" text-anchor="middle"><text x="95" y="105">Mine histories</text><text x="320" y="105">Pretrain on edits</text><text x="545" y="105">Rank patches</text></g><g stroke="#6f6a61" stroke-width="1.5" marker-end="url(#a)"><line x1="172" y1="100" x2="240" y2="100"/><line x1="397" y1="100" x2="465" y2="100"/></g><defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#6f6a61"/></marker></defs></svg>\n',
+  "analysis.ipynb": galleryNotebook,
+  "logs/.gitkeep": "",
+};
+const galleryBinary = { "paper.pdf": "paper.pdf", "figures/accuracy.png": "figures/accuracy.png", "demo/demo.mp4": "demo/demo.mp4", "demo/demo.webm": "demo/demo.webm" };
+// Deterministic bytes standing in for a model checkpoint.
+const galleryCheckpoint = Buffer.from(Array.from({ length: 4096 }, (_, i) => (i * 131 + 7) % 256));
+const gallerySize = (name) =>
+  galleryBinary[name] ? fs.statSync(path.join(GALLERY_DIR, galleryBinary[name])).size
+    : name === "models/checkpoint.bin" ? galleryCheckpoint.length
+    : name === "data/train.parquet" ? 312 * 1024 * 1024
+    : Buffer.byteLength(galleryText[name] || "");
+const galleryTree = {
+  "": ["data", "demo", "figures", "logs", "models", "outputs", "README.md", "analysis.ipynb", "paper.pdf", "results.csv"],
+  data: ["train.parquet"],
+  demo: ["demo.mp4", "demo.webm"],
+  figures: ["accuracy.png", "pipeline.svg"],
+  logs: [".gitkeep"],
+  models: ["checkpoint.bin"],
+  outputs: [],
+};
+const galleryFiles = (dir) => (galleryTree[dir] || []).map((name, i) => {
+  const full = (dir ? dir + "/" : "") + name;
+  return full in galleryTree ? { name, path: dir } : { name, path: dir, size: gallerySize(full), sha: "g" + dir.length + i };
+});
+app.get(`/api/repo/${GALLERY_ID}/options`, (req, res) =>
+  res.json({ url: null, download: true, lastUpdateDate: ago(5), anonymizedAt: ago(5), sourceCommitDate: ago(6), expirationDate: ahead(90), isAdmin: false, isOwner: false, hasWebsite: false, truncatedFolders: [], hasSubmodules: false })
+);
+app.get(`/api/repo/${GALLERY_ID}/files/counts`, (req, res) =>
+  res.json({ "": 13, data: 1, demo: 2, figures: 2, logs: 1, models: 1, outputs: 0 })
+);
+app.get(`/api/repo/${GALLERY_ID}/files`, (req, res) => res.json(galleryFiles(req.query.path || "")));
+app.get(`/api/repo/${GALLERY_ID}/file/{*rest}`, (req, res) => {
+  const file = req.params.rest.join("/");
+  if (req.query.download) res.attachment(path.basename(file));
+  if (file === "data/train.parquet") return res.status(413).json({ error: "file_too_big" });
+  if (file === "models/checkpoint.bin") return res.type("application/octet-stream").send(galleryCheckpoint);
+  if (galleryBinary[file]) return res.sendFile(path.join(GALLERY_DIR, galleryBinary[file]));
+  if (file in galleryText) {
+    const mime = require("mime-types").lookup(file);
+    return res.type(mime && !file.endsWith(".ts") ? mime : "text/plain").send(galleryText[file]);
+  }
+  res.status(404).json({ error: "file_not_found" });
 });
 
 app.get("/api/repo/:id", (req, res) => {
@@ -448,6 +544,12 @@ const statusCounts = (rows, withStorage) => {
 const page = (req, rows, withStorage) => {
   const counts = statusCounts(rows, withStorage);
   const sort = { [req.query.sort || "_id"]: req.query.direction === "asc" ? 1 : -1 };
+  // Status flags filter like src/server/routes/admin.ts; counts stay global.
+  const groups = { ready: ["ready"], error: ["error"], expired: ["expired", "expiring"], removed: ["removed", "removing"], preparing: ["preparing", "download"] };
+  if (Object.keys(groups).some((k) => req.query[k] != null)) {
+    const allowed = Object.keys(groups).filter((k) => req.query[k] == "true").flatMap((k) => groups[k]);
+    if (allowed.length) rows = rows.filter((r) => allowed.includes(r.status));
+  }
   const out = { query: {}, page: parseInt(req.query.page, 10) || 1, total: rows.length, sort, results: rows, statusCounts: counts };
   if (withStorage) out.totalSize = counts.reduce((t, c) => t + (c.storage || 0), 0);
   return out;
@@ -694,6 +796,40 @@ const adminTokens = [
 const ok = (req, res) => res.json({ ok: true });
 app.get("/api/admin/overview", (req, res) => res.json(overview));
 app.get("/api/admin/performance", (req, res) => res.json(performanceFor(Number(req.query.minutes))));
+// Shape of GET /api/admin/cache (cacheMetricsReport + blob-cache stats()).
+const CACHE_BUCKETS = [0.1, 1, 10, 100, 1000, 10000];
+const cacheRow = (name, traffic, count, bytes, msEach, bucket) => {
+  const row = { name, traffic, count, bytes, ms: msEach * count };
+  for (let i = 0; i <= CACHE_BUCKETS.length; i++) row["b" + i] = i === bucket ? Math.ceil(count * 0.9) : i === bucket + 1 ? Math.floor(count * 0.1) : 0;
+  return row;
+};
+const cacheFor = (minutes) => {
+  const k = ({ 15: 0.25, 60: 1, 1440: 18, 10080: 110 })[minutes] || 1;
+  const n = (v) => Math.max(1, Math.round(v * k));
+  return {
+    available: true, windowMinutes: [15, 60, 1440, 10080].includes(minutes) ? minutes : 60, sampledAt: Date.now() - 6000, lastFlush: Date.now() - 6000, dropped: 0,
+    enabled: true, filesystemSupported: true, latencyBucketsMs: CACHE_BUCKETS,
+    source: { blobs: 18240, originalBytes: 61.2 * 1024 * MB, storedBytes: 19.4 * 1024 * MB, allocatedBytes: 21.7 * 1024 * MB, activeReaders: 14, decisions: 0, reservedBytes: 96 * MB, budgetBytes: 50 * 1024 * MB, maxObjectBytes: 32 * MB, oldestAccess: Date.now() - 21 * DAY },
+    results: { blobs: 5210, originalBytes: 3.1 * 1024 * MB, storedBytes: 0.9 * 1024 * MB, allocatedBytes: 1.1 * 1024 * MB, activeReaders: 3, decisions: 40211, reservedBytes: 0, budgetBytes: 512 * MB, maxObjectBytes: 32 * MB, oldestAccess: Date.now() - 9 * DAY },
+    rows: [
+      cacheRow("compress", "file", n(210), n(210) * 48000, 7.8, 2),
+      cacheRow("decision_hit", "file", n(8120), n(8120) * 62000, 0, 0),
+      cacheRow("decision_miss", "file", n(640), n(640) * 54000, 0, 0),
+      cacheRow("decompress", "file", n(7930), n(7930) * 61000, 0.31, 1),
+      cacheRow("inspected_changed", "file", n(410), n(410) * 22000, 3.4, 2),
+      cacheRow("inspected_unchanged", "file", n(230), n(230) * 18000, 1.1, 2),
+      cacheRow("rewrite_changed", "file", n(410), n(410) * 22000, 47.9, 3),
+      cacheRow("source_hit", "file", n(7710), n(7710) * 64000, 0, 0),
+      cacheRow("source_miss", "file", n(1050), n(1050) * 71000, 0, 0),
+      cacheRow("source_hit", "website", n(1320), n(1320) * 12000, 0, 0),
+      cacheRow("source_miss", "website", n(88), n(88) * 15000, 0, 0),
+      cacheRow("source_hit", "zip", n(36), n(36) * 4.1 * MB, 0, 0),
+      cacheRow("source_bypass", "monitor", n(540), 0, 0, 0),
+      cacheRow("result_fill", "background", n(120), n(120) * 21000, 12.5, 2),
+    ],
+  };
+};
+app.get("/api/admin/cache", (req, res) => res.json(cacheFor(Number(req.query.minutes))));
 app.get("/api/admin/stats", (req, res) => res.json({
   statusBreakdown: overview.repos.statusBreakdown, totalStorage: overview.repos.totalStorage,
   recentErrors24h: overview.repos.recentErrors24h, totalUsers: overview.users.total, totalConferences: adminConferences.length,
@@ -777,6 +913,12 @@ app.use((req, res, next) => {
 });
 // index: false so "/" falls through to the placeholder-filled index.html below.
 app.use(express.static(PUBLIC_DIR, { etag: false, cacheControl: false, index: false }));
+// Like src/server/index.ts: a README's relative image (/r/<id>/figures/x.png,
+// requested without text/html) redirects to the file endpoint.
+app.get("/r/:repoId/{*rest}", (req, res, next) => {
+  if ((req.headers.accept || "").includes("text/html")) return next();
+  res.redirect(`/api/repo/${req.params.repoId}/file/${req.params.rest.join("/")}`);
+});
 app.get("/{*rest}", (req, res) => res.type("html").send(indexHtml()));
 
 app.listen(PORT, () => {

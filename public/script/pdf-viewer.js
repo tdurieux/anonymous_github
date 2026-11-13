@@ -24,6 +24,8 @@ export default {
         let scheduled = false;
         let resizeTimer = null;
         let zoom = 1;
+        // Page 1's width in PDF points; 100% means one point is 1/72 inch.
+        let baseWidth = 0;
         let currentPage = 1;
         // Page the reader asked for, held against layout shifts until
         // anchorUntil passes.
@@ -146,7 +148,11 @@ export default {
           }
           prevBtn.disabled = currentPage <= 1;
           nextBtn.disabled = currentPage >= total;
-          zoomLabel.textContent = Math.round(zoom * 100) + "%";
+          // At the fit zoom the page fills the column, whatever its real
+          // scale, so say "Fit"; other steps show the true size.
+          zoomLabel.textContent = zoom === 1 || !baseWidth
+            ? "Fit"
+            : Math.round((pageWidth() / (baseWidth * 96 / 72)) * 100) + "%";
           zoomOutBtn.disabled = zoomIndex() === 0;
           zoomInBtn.disabled = zoomIndex() === ZOOM_STEPS.length - 1;
         }
@@ -383,6 +389,7 @@ export default {
                 if (myGeneration !== generation) return;
                 const v = first.getViewport({ scale: 1 });
                 if (v.width && v.height) aspect = v.width / v.height;
+                baseWidth = v.width || 0;
 
                 const width = pageWidth();
                 for (let i = 1; i <= doc.numPages; i++) {

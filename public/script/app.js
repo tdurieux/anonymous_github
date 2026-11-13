@@ -3,6 +3,9 @@ import { reactive, nextTick, markRaw } from "vue";
 import { loadEditor } from "./lazy-assets.js";
 import { createTimers, createListeners } from "./state.js";
 import { formDraft } from "./drafts.js";
+import { statusGroup } from "./admin.js";
+import { humanTime, dateEcho, shortDate } from "./formatters.js";
+import { hangCodeLines } from "./components.js";
 import { escape as globEscape, unescape as globUnescape } from "minimatch";
 import { compilePreserveMatcher, dedupePreservePatterns } from "../../src/core/preserve-files";
 import { termHints, escapeTermLine } from "../../src/core/term-hints";
@@ -15,8 +18,17 @@ if (typeof window !== "undefined" && window.document?.addEventListener) {
     if (!img || img.tagName !== "IMG" || img.dataset.failed || !img.closest?.(".markdown-body, .anonymize-preview-body")) return;
     img.dataset.failed = "1";
     const ph = window.document.createElement("span");
-    ph.className = "img-unavailable";
-    ph.textContent = img.alt ? "Image unavailable: " + img.alt : "Image unavailable";
+    // Badges and icons become a compact inline chip; only images that declare a
+    // large size keep a block placeholder so the page layout stays the same.
+    const w = parseInt(img.getAttribute("width"), 10) || 0;
+    const h = parseInt(img.getAttribute("height"), 10) || 0;
+    ph.className = w >= 200 || h >= 120 ? "img-unavailable is-large" : "img-unavailable";
+    // Never show raw mask tokens: the label is fixed, and the alt text (with masks spelled
+    // out as "[redacted term N]") is only a tooltip.
+    ph.textContent = "Image unavailable";
+    ph.title = img.alt ? "Image unavailable: " + img.alt.replace(/\bXXXX-(\d+)\b/g, "[redacted term $1]") : "Image unavailable";
+    ph.setAttribute("role", "img");
+    ph.setAttribute("aria-label", ph.title);
     img.replaceWith(ph);
   }, true);
 }
@@ -143,6 +155,12 @@ export const installPrismRedactionSlots = () => {
         // Same width as the XXXX-n it replaces, so code columns stay aligned.
         mark.style.setProperty("--slot-ch", m[0].length + "ch");
         mark.textContent = "";
+        // Keep the full term in the text (hidden): Prism re-highlights from
+        // textContent, and a second pass would otherwise turn "XXXX-1" into "1".
+        const src = mark.ownerDocument.createElement("span");
+        src.className = "redact-src";
+        src.textContent = m[0].slice(0, m[0].length - m[1].length);
+        mark.appendChild(src);
         const idx = mark.ownerDocument.createElement("i");
         idx.textContent = m[1];
         mark.appendChild(idx);
@@ -240,22 +258,21 @@ export const mainController = function (state, http, location, timeout) {
       state.darkMode = function (on) {
         localStorage.setItem("darkMode", on);
         state.isDarkMode = on;
-        const darkPrismLink = "/css/prism-okaidia.css";
+        // One syntax palette (style.css "R12.6") colours Prism and Ace in both
+        // themes; prism.css only supplies layout, so dark mode needs no theme file.
         const lightPrismLink = "/css/prism.css";
+        $("link[href='/css/prism-okaidia.css']").remove();
         if (on) {
           $("body").addClass("dark-mode");
-          let link = document.createElement("link");
-          link.href = darkPrismLink;
-          link.rel = "stylesheet";
-          document.head.append(link);
           $(`link[href='${lightPrismLink}']`).remove();
         } else {
           $("body").removeClass("dark-mode");
-          let link = document.createElement("link");
-          link.href = lightPrismLink;
-          link.rel = "stylesheet";
-          document.head.append(link);
-          $(`link[href='${darkPrismLink}']`).remove();
+          if (!document.querySelector(`link[href='${lightPrismLink}']`)) {
+            const link = document.createElement("link");
+            link.href = lightPrismLink;
+            link.rel = "stylesheet";
+            document.head.append(link);
+          }
         }
         state.emit("dark-mode", on);
       };
@@ -349,6 +366,36 @@ export const mainController = function (state, http, location, timeout) {
 export const faqController = function (state, http) {
       const listen = createListeners();
       const timers = createTimers();
+      // Search: filter the static answers in place. Every word must appear in the question or its answer.
+      // Matching answers are shown open while searching; categories without a match are hidden.
+      state.faqQuery = "";
+      state.faqResults = 0;
+      const normalize = (text) => (text || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ");
+      state.filterFaq = () => {
+        const words = normalize(state.faqQuery).trim().split(" ").filter(Boolean);
+        let count = 0;
+        document.querySelectorAll(".faq-section .panel-group").forEach((group) => {
+          let groupCount = 0;
+          group.querySelectorAll(":scope > .panel").forEach((panel) => {
+            const text = panel.dataset.faqText || (panel.dataset.faqText = normalize(panel.textContent));
+            const match = words.every((w) => text.includes(w));
+            panel.classList.toggle("faq-hit", words.length > 0 && match);
+            panel.hidden = words.length > 0 && !match;
+            if (match) groupCount++;
+          });
+          const hide = words.length > 0 && groupCount === 0;
+          group.hidden = hide;
+          const head = group.previousElementSibling;
+          if (head?.classList.contains("faq-cat")) head.hidden = hide;
+          count += groupCount;
+        });
+        state.faqResults = words.length ? count : 0;
+      };
+      state.clearFaqSearch = () => {
+        state.faqQuery = "";
+        state.filterFaq();
+        document.getElementById("faq-search-input")?.focus();
+      };
       const revealAnswer = () => {
         const id = window.location.hash.slice(1);
         const answer = document.getElementById(id);
@@ -715,6 +762,8 @@ export const homeController = function (state, http, location, window, timeout) 
         { key: "pageViews", total: 0, label: "page views" },
         { key: "pullRequests", total: 0, label: "pull requests" },
       ];
+      // True once stats have loaded and every total is zero (fresh or beta deployments).
+      state.statsEmpty = () => !!state.stat && state.cards.every((c) => !c.total);
       function getStat() {
         http.get("/api/stat/").then((res) => {
           state.stat = res.data;
@@ -837,6 +886,11 @@ export const unifiedDashboardController = function (state, http, location, promi
           state.filters.status.progress = true;
         }
       };
+      state.idleText = item => {
+        const t = humanTime(item?.anonymizeDate || item?.lastView) || "";
+        if (/ ago$/.test(t)) return "No activity for " + t.replace(/ ago$/, "");
+        return "No activity since " + t.replace(", " + new Date().getFullYear(), "");
+      };
       state.projectDetailsId = item => "project-details-" + encodeURIComponent(item._type + ":" + (item._id || item._source || "unknown"));
       state.showProjectDetails = async item => {
         state.selectedProject = item;
@@ -895,10 +949,10 @@ export const unifiedDashboardController = function (state, http, location, promi
       // onto these keys so in-progress and error items can be filtered too.
       state.statusKeyLabels = {
         ready: "Ready",
-        progress: "In progress",
+        progress: "Preparing",
         error: "Error",
-        expired: "Expired",
-        removed: "Removed",
+        expired: "Expiring / expired",
+        removed: "Removing / removed",
       };
       const inProgress = ["queue", "download", "downloaded", "preparing", "anonymizing"];
       function statusKey(status) {
@@ -916,6 +970,8 @@ export const unifiedDashboardController = function (state, http, location, promi
       const dashboardPrefDefaults = {
         typeFilter: "all",
         filters: {
+          // Authors open on their live work; removed links sit behind the
+          // "Removed N" view instead of burying the active projects.
           status: { ready: true, progress: true, error: true, expired: true, removed: false },
         },
         orderBy: "-anonymizeDate",
@@ -1020,12 +1076,23 @@ export const unifiedDashboardController = function (state, http, location, promi
         // What the Expires column should show.
         if (item.status === "expired" || item.status === "expiring") {
           item._expiry = { kind: "expired", date: item.options.expirationDate };
+          // "Nov 3" this year, "Nov 3, 2025" otherwise (shared with conference detail).
+          item._expiry.label = shortDate(item.options.expirationDate) || undefined;
         } else if (item.status !== "ready") {
           item._expiry = { kind: "none" };
         } else if (item.options.expirationMode === "never" || !item.options.expirationDate) {
           item._expiry = { kind: "never" };
         } else {
           item._expiry = { kind: "date", date: item.options.expirationDate };
+          // A live link that expires within a week gets a relative, highlighted "in 21 hours" / "in 3 days".
+          const left = new Date(item.options.expirationDate).getTime() - Date.now();
+          if (left > 0 && left <= 7 * 24 * 3600 * 1000) {
+            const hours = Math.max(1, Math.round(left / 3600000));
+            const days = Math.round(left / 86400000);
+            item._expiry.soon = hours < 48
+              ? "in " + hours + (hours === 1 ? " hour" : " hours")
+              : "in " + days + " days";
+          }
         }
         return item;
       }
@@ -1098,6 +1165,7 @@ export const unifiedDashboardController = function (state, http, location, promi
               );
             });
             state.items = items;
+            state.removedCount = items.filter(item => item._statusKey === "removed").length;
             state.loading = false;
           });
       }
@@ -1131,6 +1199,7 @@ export const unifiedDashboardController = function (state, http, location, promi
           state.items = (append ? state.items : []).concat(response.data.items.map(decorateSummary));
           state.dashboardCursor = response.data.cursor;
           state.dashboardTotals = response.data;
+          if (!append) updateRemovedCount();
         }, error => {
           if (generation !== dashboardGeneration) return;
           if (error.status === 404) { legacyDashboard = true; return loadLegacy(); }
@@ -1165,6 +1234,46 @@ export const unifiedDashboardController = function (state, http, location, promi
         Object.keys(state.filters.status).filter((k) => state.filters.status[k] === false).length;
       state.hasHiddenStatus = () => state.hiddenStatusCount() > 0;
 
+      // ---- Status view (Active | Needs attention | Removed N) -------------
+      // "Active" is every status except removed and is the default; "Removed"
+      // shows only removed links. Any other mix is a custom Status filter.
+      const statusKeys = () => Object.keys(state.statusKeyLabels);
+      state.onlyRemovedShown = () => statusKeys().every(k => (k === "removed") === (state.filters.status[k] !== false));
+      state.isActiveDefault = () => statusKeys().every(k => (k === "removed") === (state.filters.status[k] === false));
+      state.statusView = () => {
+        if (state.projectView === "attention") return "attention";
+        if (state.onlyRemovedShown()) return "removed";
+        if (state.filters.status.removed === false) return "active";
+        return "custom";
+      };
+      state.setStatusView = view => {
+        if (view === "attention") return state.setProjectView("attention");
+        state.projectView = "all";
+        statusKeys().forEach(k => { state.filters.status[k] = view === "removed" ? k === "removed" : k !== "removed"; });
+      };
+      // Status chips for filters the view tabs do not already express.
+      state.statusChipKeys = () => {
+        const view = state.statusView();
+        if (view === "removed") return [];
+        return statusKeys().filter(k => state.filters.status[k] === false && !(k === "removed" && view !== "custom"));
+      };
+      // The summary API reports the account total and the filtered count, so the
+      // removed count follows from them whenever status is the only filter. Under a
+      // search or type filter the last known account-wide count is kept.
+      state.removedCount = null;
+      function updateRemovedCount() {
+        if (legacyDashboard) {
+          state.removedCount = state.items.filter(item => item._statusKey === "removed").length;
+          return;
+        }
+        const totals = state.dashboardTotals;
+        if (!totals || state.projectView !== "all" || state.search.trim() || state.typeFilter !== "all") return;
+        if (state.isActiveDefault()) state.removedCount = Math.max(0, totals.total - totals.filtered);
+        else if (state.onlyRemovedShown()) state.removedCount = totals.filtered;
+      }
+      state.showViewTabs = () => state.statusView() !== "active" || state.attentionCount() > 0 || state.removedCount > 0
+        || (state.removedCount == null && !!state.dashboardTotals && state.dashboardTotals.total > state.dashboardTotals.filtered);
+
       state.hasActiveFilters = () =>
         state.projectView !== "all" ||
         state.typeFilter !== "all" ||
@@ -1172,15 +1281,16 @@ export const unifiedDashboardController = function (state, http, location, promi
         Object.keys(state.filters.status).some((k) => state.filters.status[k] === false);
 
       state.showClearFilters = () => state.search.trim().length > 0
-        || state.typeFilter !== "all" || state.hiddenStatusCount() > 1;
+        || state.typeFilter !== "all" || state.statusChipKeys().length > 0;
+      // A plain view (Active, Removed, Needs attention) counts its projects;
+      // a search, type or extra status filter makes it "N shown".
+      state.isPlainView = () => !state.showClearFilters();
 
       state.clearFilters = () => {
-        state.projectView = "all";
+        const view = state.statusView();
         state.typeFilter = "all";
         state.search = "";
-        Object.keys(state.filters.status).forEach((k) => {
-          state.filters.status[k] = true;
-        });
+        state.setStatusView(view === "removed" ? "removed" : "active");
       };
 
       function waitRepoToBeReady(repoId, callback, onError, previousStatus) {
@@ -1307,7 +1417,7 @@ export const unifiedDashboardController = function (state, http, location, promi
         const endpoint = `${apiBaseOf(item._type)}/${item._id}/extend`;
         http.post(endpoint).then(
           (res) => {
-            const until = res?.data?.expirationDate ? ` until ${new Date(res.data.expirationDate).toLocaleDateString()}` : "";
+            const until = res?.data?.expirationDate ? ` until ${new Date(res.data.expirationDate).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}` : "";
             if (item._type === "repo") {
               waitRepoToBeReady(item._id, () => {
                 toast.title = `${item._id} is extended.`;
@@ -1372,6 +1482,16 @@ export const statusController = function (state, http, params) {
         } catch {
           state.addToast?.({ title: "Copy this anonymous link", body: state.shareUrl });
         }
+      };
+
+      // Focusing the link box selects the whole URL, like the read-only field it replaces.
+      state.selectShareUrl = event => {
+        const selection = window.getSelection?.();
+        if (!selection || !event?.target) return;
+        const range = document.createRange();
+        range.selectNodeContents(event.target);
+        selection.removeAllRanges();
+        selection.addRange(range);
       };
 
       var countdownTimer = null;
@@ -1731,6 +1851,35 @@ export const anonymizeController = function (state, http, html, params, location
       state.html_readme = "";
       state.isUpdate = false;
 
+      // Landing: the user's GitHub repositories, so step 1 is a pick, not a blank field.
+      state.userRepos = [];
+      state.userReposStatus = "idle";
+      state.userRepoFilter = "";
+      state.loadUserRepos = (force = false) => {
+        if (state.userReposStatus === "loading") return;
+        state.userReposStatus = "loading";
+        http.get("/api/user/all_repositories", force ? { params: { force: "1" } } : {}).then(
+          (res) => {
+            if (sourceDisposed) return;
+            const rows = Array.isArray(res.data) ? res.data.filter(r => r && r.fullName) : [];
+            state.userRepos = rows.sort((x, y) => x.fullName.localeCompare(y.fullName, undefined, { sensitivity: "base" }));
+            state.userReposStatus = "ready";
+          },
+          () => { if (!sourceDisposed) state.userReposStatus = "error"; }
+        );
+      };
+      state.filteredUserRepos = () => {
+        const q = String(state.userRepoFilter || "").trim().toLowerCase();
+        const rows = state.userRepos || [];
+        return q ? rows.filter(r => r.fullName.toLowerCase().includes(q)) : rows;
+      };
+      state.selectUserRepo = (repo) => {
+        if (!repo?.fullName) return;
+        state.sourceUrl = "https://github.com/" + repo.fullName;
+        return state.urlSelected();
+      };
+      if (!params.repoId && !params.pullRequestId && !params.gistId) Promise.resolve().then(() => { if (!sourceDisposed) state.loadUserRepos(); });
+
       state.previousConfigurations = [];
       state.previousConfigurationId = "";
       let previousRepositories;
@@ -1753,6 +1902,49 @@ export const anonymizeController = function (state, http, html, params, location
           previousRepositories = undefined;
         }
       }
+      // Long PR and gist URLs scroll inside the field, so name the resolved
+      // source underneath: "owner/repo · PR #938", "owner · gist 311fc90…2351".
+      state.sourceSummary = () => {
+        const url = String(state.sourceUrl || "");
+        let m = /github\.com\/([^/\s]+\/[^/\s]+)\/pull\/(\d+)/i.exec(url);
+        if (m) return m[1] + " · PR #" + m[2];
+        m = /gist\.github\.com\/([^/\s]+)\/([0-9a-f]{8,})/i.exec(url);
+        if (m) return m[1] + " · gist " + (m[2].length > 12 ? m[2].slice(0, 7) + "…" + m[2].slice(-4) : m[2]);
+        return "";
+      };
+      // "What reviewers will see": the anonymous URL being configured, shown in
+      // the preview window's address bar and kept in sync with the ID field.
+      state.previewId = () => state.detectedType === "pr" ? state.pullRequestId : state.detectedType === "gist" ? state.gistId : state.repoId;
+      state.previewPath = () => {
+        const id = state.previewId();
+        if (!id) return "";
+        return (state.detectedType === "pr" ? "/pr/" : state.detectedType === "gist" ? "/gist/" : "/r/") + encodeURIComponent(id) + "/";
+      };
+      state.previewUrl = () => {
+        const path = state.previewPath();
+        return path ? "anonymous.4open.science" + path.replace(/\/$/, "") : "";
+      };
+      // Occurrences of XXXX-n in what the preview currently shows.
+      state.previewRedactions = () => {
+        const count = (text) => typeof text === "string" ? (text.match(REDACTION_RE) || []).length : 0;
+        if (state.detectedType === "repo") return count(String(state.html_readme || "").replace(/<[^>]*>/g, " "));
+        const cache = state.detectedType === "pr" ? _prAnonCache : _gistAnonCache;
+        let n = 0;
+        cache.forEach((value) => { n += count(value); });
+        return n;
+      };
+      // Top-level entries for the preview's miniature file tree, from the same
+      // tree the Unredacted-files picker loads (folders first, like the explorer).
+      state.previewTree = () => {
+        if (!state.preserve.commit || !preserveIndex) return [];
+        const root = preserveIndex.dirs.get("");
+        if (!root) return [];
+        const readme = root.files.find((f) => /^readme(\.|$)/i.test(f));
+        const dirs = root.dirs.slice(0, 9).map((d) => ({ name: d, dir: true }));
+        const files = [...root.files].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" })).slice(0, Math.max(3, 14 - dirs.length)).map((f) => ({ name: f, dir: false, readme: f === readme }));
+        if (readme && !files.some((f) => f.readme)) files.push({ name: readme, dir: false, readme: true });
+        return [...dirs, ...files];
+      };
       state.existingConfigurationUrl = () => {
         const previous = state.previousConfigurations.find(repo => repo.repoId === state.previousConfigurationId);
         return previous ? "/anonymize/" + encodeURIComponent(previous.repoId) : null;
@@ -2285,6 +2477,11 @@ export const anonymizeController = function (state, http, html, params, location
           state.preserve.loading = false;
         }
       }
+      // The preview window shows the repository's top-level files once the
+      // commit is known (one tree request, shared with the picker).
+      state.watch("source.commit", (commit) => {
+        if (state.detectedType === "repo" && commit && state.sourceUrl) loadPreserveTree().catch(() => {});
+      });
       state.openPreserveFiles = () => {
         // Picks are saved first, so only the leading run of plain paths can be
         // shown as picks; a plain path after another rule stays a pattern to
@@ -2456,7 +2653,11 @@ export const anonymizeController = function (state, http, html, params, location
           } catch (_) { /* fall through with empty base */ }
           const html = renderMD(state.anonymize_readme, baseUrl);
           state.html_readme = html;
-          timeout(Prism.highlightAll, 150);
+          timeout(() => {
+            Prism.highlightAll();
+            // Wrapped README code in the preview continues under a hanging indent.
+            if (typeof hangCodeLines === "function") document.querySelectorAll(".reviewer-preview .anonymize-preview-body").forEach(hangCodeLines);
+          }, 150);
         }
       );
 
@@ -3198,6 +3399,7 @@ export const exploreController = function (state, http, location, params, html, 
           const normalized = path || "";
           state.files = state.files.filter((f) => f.path !== normalized);
           state.files.push(...res.data);
+          state.loadedFolders = { ...state.loadedFolders, [normalized]: true };
           fetchFileCounts(normalized, generation);
           return res.data;
         }, function (err) {
@@ -3452,7 +3654,8 @@ export const exploreController = function (state, http, location, params, html, 
         if (bytes == null) return "";
         if (bytes < 1024) return bytes + " B";
         const kb = bytes / 1024;
-        return kb < 1024 ? kb.toFixed(1) + " KB" : (kb / 1024).toFixed(1) + " MB";
+        const one = (n) => n.toFixed(1).replace(/\.0$/, "");
+        return kb < 1024 ? one(kb) + " KB" : kb < 1024 * 1024 ? one(kb / 1024) + " MB" : one(kb / 1024 / 1024) + " GB";
       };
       state.fileSize = function (path) {
         if (!path) return null;
@@ -3471,7 +3674,28 @@ export const exploreController = function (state, http, location, params, html, 
           link.focus();
         });
       };
+      // Notebooks: count the same markers in cell sources and text outputs (not in the JSON keys or image data).
+      let nbCount = { content: null, n: 0 };
+      const notebookRedactions = (content) => {
+        if (nbCount.content === content) return nbCount.n;
+        let nb = content;
+        if (typeof nb === "string") { try { nb = JSON.parse(nb); } catch { nb = null; } }
+        const texts = [];
+        const add = (v) => { if (Array.isArray(v)) texts.push(v.join("")); else if (typeof v === "string") texts.push(v); };
+        ((nb && (nb.cells || (nb.worksheets || []).flatMap((w) => w.cells || []))) || []).forEach((cell) => {
+          add(cell?.source ?? cell?.input);
+          (cell?.outputs || []).forEach((o) => {
+            add(o?.text);
+            if (o?.data) { add(o.data["text/plain"]); add(o.data["text/markdown"]); add(o.data["text/html"]); }
+            add(o?.traceback);
+          });
+        });
+        const n = texts.reduce((sum, t) => sum + (t.match(REDACTION_RE) || []).length, 0);
+        nbCount = { content, n };
+        return n;
+      };
       state.redactionCount = function () {
+        if (state.type === "IPython") return notebookRedactions(state.content);
         if (typeof state.content !== "string") return 0;
         const text = state.type === "html" ? state.content.replace(/<[^>]*>/g, " ") : state.content;
         return (text.match(REDACTION_RE) || []).length;
@@ -3529,6 +3753,42 @@ export const exploreController = function (state, http, location, params, html, 
         if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
         state.activeHeading = id;
       };
+      // CSV/TSV files up to 1 MB render as a table (sticky header, rules, tabular
+      // figures) with a Raw toggle back to the code view.
+      state.csvView = "table";
+      let csvCache = { content: null, rows: [] };
+      const parseDelimited = (text, sep) => {
+        const rows = [];
+        let row = [], cell = "", quoted = false;
+        for (let i = 0; i < text.length; i++) {
+          const ch = text[i];
+          if (quoted) {
+            if (ch === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else quoted = false; }
+            else cell += ch;
+          } else if (ch === '"' && cell === "") quoted = true;
+          else if (ch === sep) { row.push(cell); cell = ""; }
+          else if (ch === "\n" || ch === "\r") {
+            if (ch === "\r" && text[i + 1] === "\n") i++;
+            row.push(cell); rows.push(row); row = []; cell = "";
+          } else cell += ch;
+        }
+        if (cell !== "" || row.length) { row.push(cell); rows.push(row); }
+        return rows.filter((r) => r.length > 1 || r[0] !== "");
+      };
+      state.isCsv = () => typeof state.content === "string" && state.type !== "html"
+        && /\.(csv|tsv)$/i.test(state.filePath || "") && state.content.length <= 1024 * 1024;
+      state.csvRows = () => {
+        if (csvCache.content !== state.content) {
+          const sep = /\.tsv$/i.test(state.filePath || "") ? "\t" : ",";
+          csvCache = { content: state.content, rows: parseDelimited(state.content, sep) };
+        }
+        return csvCache.rows;
+      };
+      state.csvNumCol = (ci) => {
+        const rows = state.csvRows().slice(1).map((r) => r[ci]).filter((v) => v != null && String(v).trim() !== "");
+        return rows.length > 0 && rows.every((v) => state.csvNumeric(v));
+      };
+      state.csvNumeric = (value) => /^\s*[-+]?(\d[\d,]*)?(\.\d+)?(e[-+]?\d+)?%?\s*$/i.test(value) && /\d/.test(value);
       state.redactParts = function (text) {
         const out = []; let last = 0; let m; const re = /\bXXXX-(\d+)\b/g;
         text = String(text || "");
@@ -3706,6 +3966,7 @@ export const exploreController = function (state, http, location, params, html, 
           dirPath ? encodePathForUrl(dirPath) : ""
         }`;
         state.showSource = false;
+        state.imageSize = "";
         // Scripts in a repository's HTML are opt-in, per file — see
         // html-doc.js. Reset on navigation so trust never carries over from
         // one file to the next.
@@ -3717,7 +3978,7 @@ export const exploreController = function (state, http, location, params, html, 
           extension = extension.substring(extensionIndex + 1);
         }
 
-        const languageNames = { javascript: "JavaScript", typescript: "TypeScript", tsx: "TSX", jsx: "JSX", python: "Python", java: "Java", c_cpp: "C/C++", csharp: "C#", golang: "Go", rust: "Rust", ruby: "Ruby", php: "PHP", html: "HTML", css: "CSS", scss: "SCSS", json: "JSON", yaml: "YAML", markdown: "Markdown", sh: "Shell", dockerfile: "Dockerfile", xml: "XML", sql: "SQL", kotlin: "Kotlin", swift: "Swift", scala: "Scala", r: "R", julia: "Julia", latex: "LaTeX", toml: "TOML", text: "" };
+        const languageNames = { javascript: "JavaScript", typescript: "TypeScript", tsx: "TSX", jsx: "JSX", python: "Python", java: "Java", c_cpp: "C/C++", csharp: "C#", golang: "Go", rust: "Rust", ruby: "Ruby", php: "PHP", html: "HTML", css: "CSS", scss: "SCSS", json: "JSON", yaml: "YAML", markdown: "Markdown", sh: "Shell", dockerfile: "Dockerfile", xml: "XML", sql: "SQL", kotlin: "Kotlin", swift: "Swift", scala: "Scala", r: "R", julia: "Julia", latex: "LaTeX", toml: "TOML", csv: "CSV", tsv: "TSV", text: "" };
         const detectedMode = getMode(extension);
         state.languageName = languageNames[detectedMode] ?? (detectedMode ? detectedMode.charAt(0).toUpperCase() + detectedMode.slice(1) : "");
         state.aceOption = {
@@ -3921,9 +4182,44 @@ export const exploreController = function (state, http, location, params, html, 
           state.content = "pdf";
           return;
         }
+        if (state.type == "media" || state.type == "audio") {
+          // The player streams (and range-requests) the file itself; reading it
+          // as text first would download a whole video twice.
+          state.content = state.type;
+          return;
+        }
 
         getContent(state.filePath, state.file);
       }
+
+      // Files without a text body (media, notebooks, binaries, empty files and
+      // per-file errors) share the code view's framed card and header.
+      const FRAMED_TYPES = ["image", "media", "audio", "pdf", "IPython", "binary"];
+      const FILE_ERRORS = ["file_too_big", "file_not_found", "file_not_accessible", "file_not_supported", "folder_not_supported"];
+      state.fileFrame = () => {
+        if (!state.filePath) return false;
+        if (FRAMED_TYPES.includes(state.type)) return state.content != null;
+        if (state.type === "error") return FILE_ERRORS.includes(state.content);
+        return state.content == null && ["code", "text"].includes(state.type);
+      };
+      state.fileKind = () => {
+        const name = (state.paths || [])[(state.paths || []).length - 1] || "";
+        const dot = name.lastIndexOf(".");
+        const ext = dot > 0 ? name.slice(dot + 1).toUpperCase() : "";
+        if (state.type === "image") return (ext === "JPG" ? "JPEG" : ext) + " image";
+        const MEDIA_NAMES = { WEBM: "WebM", OGG: "Ogg", OGV: "Ogg", MOV: "QuickTime", M4V: "M4V", MKV: "Matroska" };
+        if (state.type === "media") return (MEDIA_NAMES[ext] || ext) + " video";
+        if (state.type === "audio") return ext + " audio";
+        if (state.type === "pdf") return "PDF";
+        if (state.type === "IPython") return "Jupyter notebook";
+        if (state.type === "binary") return "Binary file";
+        return state.languageName || (ext ? ext + " file" : "File");
+      };
+      state.imageSize = "";
+      state.onImageLoad = (event) => {
+        const img = event.target;
+        if (img?.naturalWidth) state.imageSize = `${img.naturalWidth} × ${img.naturalHeight}`;
+      };
 
       state.isSourceAccessError = () => ["repo_not_found", "token_expired", "github_app_access_required",
         "github_app_reconnect_required", "repo_saml_enforcement", "repo_access_limited"].includes(state.content);
@@ -3933,6 +4229,7 @@ export const exploreController = function (state, http, location, params, html, 
         contentGeneration++;
         cancelContentLoad();
         state.files = [];
+        state.loadedFolders = {};
         state.content = null;
         state.fileCounts = null;
         listingGeneration++;
@@ -4181,6 +4478,34 @@ export const newConferenceController = function (state, http, location, params) 
         location.url("/");
       }
 
+      // Named-month echo under the review-window dates ("Starts Oct 8, 2025 · in 3 weeks").
+      // The partial stays markup-only, so the echo nodes are placed from here.
+      const renderDateEchoes = () => {
+        for (const [id, prefix, key] of [["startDate", "Starts", "startDate"], ["endDate", "Ends", "endDate"]]) {
+          const input = document.getElementById(id);
+          if (!input) continue;
+          let echo = input.parentElement.querySelector(":scope > .date-echo");
+          if (!echo) {
+            echo = document.createElement("p");
+            echo.className = "date-echo";
+            echo.setAttribute("aria-live", "polite");
+            input.insertAdjacentElement("afterend", echo);
+          }
+          const text = dateEcho(state.options?.[key]);
+          echo.textContent = text ? prefix + " " + text : "";
+          echo.hidden = !text;
+        }
+      };
+      if (typeof state.watchGroup === "function") state.watchGroup(["options.startDate", "options.endDate"], () => nextTick(renderDateEchoes));
+      // A short example that fits the field at every width (the label already names it).
+      const shortNameExample = (tries = 20) => {
+        const input = document.querySelector("input#name.form-control");
+        const idInput = document.querySelector("input#conferenceID.form-control");
+        if (idInput) idInput.placeholder = "e.g. ICSE27";
+        if (input) input.placeholder = "e.g. ICSE 2027";
+        else if (tries > 0) setTimeout(() => shortNameExample(tries - 1), 50);
+      };
+      setTimeout(() => shortNameExample(), 0);
       state.plans = [];
       state.plansLoaded = false;
       // With billing on, the review packages (one per venue size) are the only
@@ -4200,7 +4525,7 @@ export const newConferenceController = function (state, http, location, params) 
       state.conferenceBytes = value => {
         const bytes = Number(value) || 0;
         const exponent = Math.min(4, Math.floor(Math.log2(Math.max(bytes, 1)) / 10));
-        return `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(bytes / 1024 ** exponent)} ${["B", "KiB", "MiB", "GiB", "TiB"][exponent]}`;
+        return `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(bytes / 1024 ** exponent)} ${["B", "KB", "MB", "GB", "TB"][exponent]}`;
       };
       state.editionMode = false;
       state.saving = false;
@@ -4350,7 +4675,7 @@ export const newConferenceController = function (state, http, location, params) 
     };
 
 function conferencePlanName(id) {
-  return { free_conference: "Free (no longer offered to new conferences)", conference_workshop: "Workshop package", conference: "Conference package", conference_large: "Large conference package" }[id] || id || "Free";
+  return { free_conference: "Free (no longer offered to new conferences)", conference_workshop: "Workshop package", conference: "Conference package", conference_large: "Large conference package", premium_conference: "Premium (legacy)", unlimited_conference: "Unlimited (legacy)" }[id] || id || "Free";
 }
 
 export const conferenceController = function (state, http, location, params) {
@@ -4368,12 +4693,55 @@ export const conferenceController = function (state, http, location, params) {
 
       state.search = "";
       state.filters = {
-        status: { ready: true, expired: false, removed: false },
+        status: { ready: true, preparing: true, error: true, expired: true, removed: false },
       };
       state.orderBy = "-anonymizeDate";
+      // Same view tabs as the author dashboard: Current (everything except
+      // removed, the default) | Needs attention (errors) | Removed.
+      const conferenceStatusGroup = statusGroup;
+      const confKeys = ["ready", "preparing", "error", "expired", "removed"];
+      const confViewKeys = { current: k => k !== "removed", attention: k => k === "error", removed: k => k === "removed" };
+      state.confView = () => Object.keys(confViewKeys).find(v => confKeys.every(k => confViewKeys[v](k) === (state.filters.status[k] !== false))) || "custom";
+      state.setConfView = (view) => { confKeys.forEach(k => { state.filters.status[k] = (confViewKeys[view] || confViewKeys.current)(k); }); };
+      state.confCount = (view) => (state.conference?.repositories || []).filter((r) => confViewKeys[view](conferenceStatusGroup(r.status))).length;
+
+      state.copyingId = null;
+      state.copyRepoLink = async (repo) => {
+        if (!repo?.repoId || state.copyingId) return;
+        const link = new URL("/r/" + repo.repoId + "/", window.location.origin).href;
+        state.copyingId = repo.repoId;
+        try {
+          await copyText(link);
+          state.addToast({ title: "Link copied", body: "The anonymous link is ready to share." });
+        } catch {
+          state.addToast({ title: "Copy this anonymous link", body: link });
+        } finally { state.copyingId = null; }
+      };
+
+      // Expired rows carry the same "Extend 6 months" remedy as My work. The API lets the repository's authors
+      // and admins extend; anyone else gets an explanation instead of a silent failure.
+      state.extendingId = null;
+      state.extendRepo = (repo) => {
+        if (!repo?.repoId || state.extendingId) return;
+        state.extendingId = repo.repoId;
+        http.post("/api/repo/" + repo.repoId + "/extend").then(
+          (res) => {
+            const until = res?.data?.expirationDate ? ` until ${new Date(res.data.expirationDate).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}` : "";
+            state.addToast({ title: `${repo.repoId} is extended.`, body: `Reviewers can open it again${until}.` });
+            repo.status = "ready";
+            if (res?.data?.expirationDate) repo.options = { ...(repo.options || {}), expirationDate: res.data.expirationDate };
+            state.extendingId = null;
+          },
+          (error) => {
+            const code = error?.status || error?.data?.status;
+            state.addToast({ title: `Couldn't extend ${repo.repoId}.`, body: code === 401 || code === 403 ? "Only the repository's authors can extend this link. Ask them to extend it from My work." : "Try again in a moment." });
+            state.extendingId = null;
+          }
+        );
+      };
 
       state.repoFiler = (repo) => {
-        if (state.filters.status[repo.status] == false) return false;
+        if (state.filters.status[conferenceStatusGroup(repo.status)] == false) return false;
 
         const query = state.search.trim().toLowerCase();
         if (!query) return true;
@@ -4444,3 +4812,12 @@ export const signinController = function (state, http) {
   state.accountRecovery = false;
   http.get("/github/account-recovery").then(res => { state.accountRecovery = res.data.required; }).catch(() => {});
 };
+
+// Repository picker: the bottom fade means "more below", so it goes away once the list is scrolled to the end.
+if (typeof document !== "undefined") {
+  document.addEventListener("scroll", event => {
+    const list = event.target;
+    if (!list || !list.classList || !list.classList.contains("repo-picker-list")) return;
+    list.classList.toggle("is-end", list.scrollTop + list.clientHeight >= list.scrollHeight - 2);
+  }, true);
+}

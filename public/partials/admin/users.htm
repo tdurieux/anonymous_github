@@ -11,12 +11,14 @@
     <a href="/admin/errors"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-bug"></use></svg> Errors</a>
   </nav>
 
-  <div class="admin-summary">
-    <span class="summary-total">{{ total >= 0 ? fmt.number(total) : '…' }} <small>{{ total === 1 ? 'user' : 'users' }}</small></span>
-    <button type="button" class="summary-pill" :class="{active: !query?.status}" @click="query.status = ''; query.page = 1" :aria-pressed="!query?.status">All <span class="count">{{ fmt?.number(total) }}</span></button>
-    <button type="button" class="summary-pill ok" :class="{active: query?.status == &#x27;active&#x27;}" @click="query.status = query.status == &#x27;active&#x27; ? &#x27;&#x27; : &#x27;active&#x27;; query.page = 1" :aria-pressed="!!(query?.status == &#x27;active&#x27;)">Active <span class="count">{{ fmt?.number(statusCountFor('active')) }}</span></button>
-    <button type="button" class="summary-pill error" :class="{active: query?.status == &#x27;banned&#x27;}" @click="query.status = query.status == &#x27;banned&#x27; ? &#x27;&#x27; : &#x27;banned&#x27;; query.page = 1" :aria-pressed="!!(query?.status == &#x27;banned&#x27;)">Banned <span class="count">{{ fmt?.number(statusCountFor('banned')) }}</span></button>
-    <button type="button" class="summary-pill" :class="{active: query?.status == &#x27;removed&#x27;}" @click="query.status = query.status == &#x27;removed&#x27; ? &#x27;&#x27; : &#x27;removed&#x27;; query.page = 1" :aria-pressed="!!(query?.status == &#x27;removed&#x27;)">Removed <span class="count">{{ fmt?.number(statusCountFor('removed')) }}</span></button>
+  <div class="seg-bar">
+    <div class="seg-filter" role="radiogroup" aria-label="Filter by status">
+      <button type="button" role="radio" class="seg-chip" :class="{ active: !query?.status }" :aria-checked="!query?.status" @click="query.status = ''; query.page = 1">All <span class="count">{{ fmt?.number(statusCountFor('active') + statusCountFor('banned') + statusCountFor('removed')) }}</span></button>
+      <button type="button" role="radio" class="seg-chip" :class="{ active: query?.status === 'active', 'is-empty': !statusCountFor('active') }" :aria-checked="query?.status === 'active'" @click="query.status = 'active'; query.page = 1"><span class="seg-dot ok" aria-hidden="true"></span>Active <span class="count">{{ fmt?.number(statusCountFor('active')) }}</span></button>
+      <button type="button" role="radio" class="seg-chip" :class="{ active: query?.status === 'banned', 'is-empty': !statusCountFor('banned') }" :aria-checked="query?.status === 'banned'" @click="query.status = 'banned'; query.page = 1"><span class="seg-dot bad" aria-hidden="true"></span>Banned <span class="count">{{ fmt?.number(statusCountFor('banned')) }}</span></button>
+      <button type="button" role="radio" class="seg-chip" :class="{ active: query?.status === 'removed', 'is-empty': !statusCountFor('removed') }" :aria-checked="query?.status === 'removed'" @click="query.status = 'removed'; query.page = 1"><span class="seg-dot off" aria-hidden="true"></span>Removed <span class="count">{{ fmt?.number(statusCountFor('removed')) }}</span></button>
+    </div>
+    <p class="seg-countline" role="status"><strong>{{ total >= 0 ? fmt.number(total) : '…' }}</strong> shown</p>
   </div>
 
   <div class="alert alert-danger" style="margin: 8px 0;" v-if="fetchError">
@@ -77,9 +79,9 @@
         <img width="28" height="28" class="rounded-circle" style="flex-shrink:0;" v-if="u?.photo" :src="safeUrl((u?.photo))">
         <span class="avatar-fallback" aria-hidden="true" v-else>{{ (u?.username || '?').charAt(0).toUpperCase() }}</span>
         <div class="anon-text">
-          <a class="repo-name" v-text="u?.username" :href="safeUrl(&quot;/admin/users/&quot; + (u?.username))"></a>
-          <div class="anon-sub">
-            <span v-if="u?.emails?.[0]?.email">{{ u?.emails?.[0]?.email }} &middot; </span><a target="_blank" :href="safeUrl(&quot;https://github.com/&quot; + (u?.username))"><i class="fab fa-github"></i> {{ u?.username }}</a><span v-if="u?.dateOfEntry">&nbsp;&middot;&nbsp;Joined {{ fmt?.humanTime(u?.dateOfEntry) }}</span>
+          <span class="user-name-line"><a class="repo-name" v-text="u?.username" :href="safeUrl(&quot;/admin/users/&quot; + (u?.username))"></a><a class="user-gh-link" target="_blank" rel="noopener" :href="safeUrl(&quot;https://github.com/&quot; + (u?.username))" :title="(u?.username) + ' on GitHub'" :aria-label="(u?.username) + ' on GitHub'"><i class="fab fa-github" aria-hidden="true"></i></a></span>
+          <div class="anon-sub meta-dots">
+            <span v-if="u?.emails?.[0]?.email" class="meta-email meta-tail" :title="u?.emails?.[0]?.email">{{ u?.emails?.[0]?.email }}</span><span v-if="u?.dateOfEntry">Joined {{ fmt?.humanTime(u?.dateOfEntry) }}</span>
           </div>
         </div>
       </div>
@@ -87,7 +89,7 @@
         <a :title="u?.repoCount ? 'Show this user’s repositories' : 'Repositories not synced yet'" v-text="u?.repoCount ? fmt?.number(u.repoCount) : 'Not synced'" :class="{ 'is-unsynced': !u?.repoCount }" :href="safeUrl(&quot;/admin/repositories?owner=&quot; + (u?.username))"></a>
       </div>
       <div class="cell-status" role="cell">
-        <span class="status-dot" :class="{&#x27;status-ready&#x27;: u?.status == &#x27;active&#x27;, &#x27;status-removed&#x27;: u?.status == &#x27;removed&#x27; || u?.status == &#x27;banned&#x27;}"></span>
+        <span class="status-dot" :class="'st-' + (u?.status || 'unknown')"></span>
         <span v-text="fmt?.title(u?.status)"></span>
       </div>
       <div class="cell-status" role="cell">
@@ -116,7 +118,7 @@
   </div>
 
   <div class="admin-toolbar" style="justify-content: space-between; border-bottom: none;">
-    <span style="font-size: 12px; color: var(--ink-muted);">{{ fmt?.number(total) }} results</span>
+    <span aria-hidden="true"></span>
     <div class="pagination-compact" v-if="totalPage &gt; 1">
       <button class="btn btn-sm" @click="query.page = Math.max(1, query.page - 1)" :disabled="query?.page &lt;= 1"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-chevron-left"></use></svg> Previous</button>
       <input type="number" class="form-control form-control-sm" min="1" style="width: 56px;" v-field="{ state: viewState, set: value =&gt; { query.page = value }, value: query?.page, form: null, options: {} }" :max="(totalPage)">

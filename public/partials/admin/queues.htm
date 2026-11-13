@@ -22,12 +22,12 @@
   <div class="q-cards">
     <div class="q-card" role="button" tabindex="0" :aria-pressed="selectedQueue === q.key" @keydown.enter.prevent="selectQueue(q.key)" @keydown.space.prevent="selectQueue(q.key)" v-for="(q, index) in queueList" :class="{selected: selectedQueue == q?.key, paused: q?.paused}" @click="selectQueue(q.key)">
       <div class="q-card-head">
-        <span class="q-dot" :class="{&#x27;q-dot-red&#x27;: q?.paused || q?.counts?.failed &gt; 0, &#x27;q-dot-idle&#x27;: !q?.counts?.active &amp;&amp; !q?.counts?.waiting}"></span>
+        <span class="q-dot" :title="q?.paused ? 'Paused' : q?.counts?.failed &gt; 0 ? q.counts.failed + ' failed jobs' : (q?.counts?.active || q?.counts?.waiting) ? 'Running' : 'Idle'" :class="{&#x27;q-dot-red&#x27;: q?.paused || q?.counts?.failed &gt; 0, &#x27;q-dot-idle&#x27;: !q?.counts?.active &amp;&amp; !q?.counts?.waiting}"></span>
         <span class="q-card-name" v-text="q?.label"></span>
       </div>
       <div class="q-card-count" v-text="(q?.counts?.waiting || 0) + (q?.counts?.active || 0) + (q?.counts?.delayed || 0)"></div>
       <div class="q-card-sub">
-        <span>waiting &middot; {{ q?.counts?.active || 0 }} active</span>
+        <span>waiting &middot; {{ q?.counts?.active || 0 }} active<template v-if="q?.counts?.failed"> &middot; <b class="q-card-failed">{{ q.counts.failed }} failed</b></template><template v-if="q?.paused"> &middot; <b class="q-card-failed">paused</b></template></span>
         <div class="q-card-bar" v-if="q?.counts?.active">
           <div class="q-card-bar-fill" :style="{width: (q?.counts?.active / ((q?.counts?.waiting || 0) + (q?.counts?.active || 0) + (q?.counts?.delayed || 0) || 1) * 100) + &#x27;%&#x27;}"></div>
         </div>
@@ -44,7 +44,7 @@
         <button class="btn btn-sm" :class="{active: range == &#x27;24h&#x27;}" @click="setRange(&#x27;24h&#x27;)">24h</button>
         <button class="btn btn-sm" :class="{active: range == &#x27;7d&#x27;}" @click="setRange(&#x27;7d&#x27;)">7d</button>
       </div>
-      <div class="q-section-label">Throughput · {{ selectedQueue }} <span class="q-section-right" v-if="(selectedStats?.completed24h || 0) + (selectedStats?.failed24h || 0) &gt; 0"><span class="q-legend-completed">&#9679;</span> completed <span class="q-legend-failed">&#9679;</span> failed <template v-if="(selectedStats?.completed24h || 0) + (selectedStats?.failed24h || 0) &gt; 0"><span class="q-legend-exec" aria-hidden="true"></span> avg time &middot; {{ range }}</template></span></div>
+      <div class="q-section-label">Throughput · {{ selectedQueue }} <span class="q-section-right" v-if="(selectedStats?.completed24h || 0) + (selectedStats?.failed24h || 0) &gt; 0"><span class="q-legend-completed">&#9679;</span> Completed <span class="q-legend-failed">&#9679;</span> Failed <template v-if="(selectedStats?.completed24h || 0) + (selectedStats?.failed24h || 0) &gt; 0"><span class="q-legend-exec" aria-hidden="true"></span> Avg time &middot; {{ range }}</template></span></div>
       <div class="q-chart-wrap">
         <canvas id="q-throughput-chart" height="180"></canvas>
         <div class="q-chart-empty" v-if="(selectedStats?.completed24h || 0) + (selectedStats?.failed24h || 0) === 0"><strong>No jobs processed in this window</strong><span>Completed and failed jobs will chart here.</span></div>
@@ -96,11 +96,13 @@
   <div class="q-jobs">
     <div class="q-jobs-header">
       <div class="q-section-label">All jobs · {{ selectedQueue }}</div>
-      <div class="q-state-filters">
-        <label class="q-state-toggle" v-for="(s, index) in allStates">
-          <input type="checkbox" v-field="{ state: viewState, set: value =&gt; { stateFilter[s] = value }, value: stateFilter[s], form: null, options: {} }">
-          <span :class="&quot;q-state-chip q-state-&quot; + (s)">{{ s }}</span>
-        </label>
+      <div class="seg-filter" role="radiogroup" aria-label="Filter jobs by state">
+        <button type="button" role="radio" class="seg-chip" :class="{ active: segView() === 'all' }" :aria-checked="segView() === 'all'" @click="setSegView('all')">All <span class="count">{{ fmt?.number(segCount('all')) }}</span></button>
+        <button type="button" role="radio" class="seg-chip" :class="{ active: segView() === 'active', 'is-empty': !segCount('active') }" :aria-checked="segView() === 'active'" @click="setSegView('active')"><span class="seg-dot ok" aria-hidden="true"></span>Active <span class="count">{{ fmt?.number(segCount('active')) }}</span></button>
+        <button type="button" role="radio" class="seg-chip" :class="{ active: segView() === 'waiting', 'is-empty': !segCount('waiting') }" :aria-checked="segView() === 'waiting'" @click="setSegView('waiting')"><span class="seg-dot warn" aria-hidden="true"></span>Waiting <span class="count">{{ fmt?.number(segCount('waiting')) }}</span></button>
+        <button type="button" role="radio" class="seg-chip" :class="{ active: segView() === 'delayed', 'is-empty': !segCount('delayed') }" :aria-checked="segView() === 'delayed'" @click="setSegView('delayed')"><span class="seg-dot warn" aria-hidden="true"></span>Delayed <span class="count">{{ fmt?.number(segCount('delayed')) }}</span></button>
+        <button type="button" role="radio" class="seg-chip" :class="{ active: segView() === 'failed', 'is-empty': !segCount('failed') }" :aria-checked="segView() === 'failed'" @click="setSegView('failed')"><span class="seg-dot bad" aria-hidden="true"></span>Failed <span class="count">{{ fmt?.number(segCount('failed')) }}</span></button>
+        <button type="button" role="radio" class="seg-chip" :class="{ active: segView() === 'completed', 'is-empty': !segCount('completed') }" :aria-checked="segView() === 'completed'" @click="setSegView('completed')"><span class="seg-dot done" aria-hidden="true"></span>Completed <span class="count">{{ fmt?.number(segCount('completed')) }}</span></button>
       </div>
     </div>
 
@@ -117,10 +119,10 @@
       <thead>
         <tr>
           <th>State</th>
-          <th>Job ID</th>
-          <th>Payload</th>
+          <th>Job</th>
+          <th>Detail</th>
           <th>Attempts</th>
-          <th>Duration</th>
+          <th class="q-th-num">Duration</th>
           <th>Progress</th>
           <th></th>
         </tr>
@@ -131,20 +133,17 @@
             <span v-text="job?._state" :class="&quot;q-state-badge q-state-&quot; + (job?._state)"></span>
             <span class="q-delay-hint" v-if="job?._state == &#x27;delayed&#x27; &amp;&amp; job?.delayUntil" v-text="delayCountdown(job?.delayUntil)"></span>
           </td>
-          <td class="q-cell-id">
+          <td class="q-cell-id" :title="'job:' + job?.id + (job?.name &amp;&amp; job?.name !== job?.id ? ' · ' + job.name : '') + (job?.data?.repoId &amp;&amp; job?.data?.repoId !== job?.id ? ' · ' + job.data.repoId : '')">
             <svg class="ui-icon q-chevron" :class="{&#x27;q-chevron-open&#x27;: expanded[job?.id]}" aria-hidden="true"><use href="#ui-icon-chevron-right"></use></svg>
-            <a target="_blank" v-text="&#x27;job:&#x27; + fmt.limitTo(job?.id, 6)" @click="$event.stopPropagation()" :href="safeUrl(&quot;/r/&quot; + (job?.id))"></a>
+            <a target="_blank" class="q-job-link" v-text="job?.data?.repoId || job?.id" @click="$event.stopPropagation()" :href="safeUrl(&quot;/r/&quot; + (job?.data?.repoId || job?.id))"></a>
           </td>
-          <td class="q-cell-payload">
-            <span v-text="job?.name || &#x27;anonymize&#x27;"></span>
-            <span class="q-payload-detail" v-if="job?.data?.repoId &amp;&amp; job?.data?.repoId !== job?.name"> &middot; {{ job?.data?.repoId }}</span>
-          </td>
+          <td class="q-cell-detail" :class="{'is-error': job?._state == 'failed'}" :title="job?._state == 'failed' ? job?.failedReason : ''" v-text="jobDetail(job)"></td>
           <td class="q-cell-num" v-text="job?.attemptsMade || 1"></td>
-          <td class="q-cell-num" v-text="jobDuration(job)"></td>
+          <td class="q-cell-num q-cell-duration" v-text="jobDuration(job)"></td>
           <td class="q-cell-progress">
-            <div class="q-progress-wrap" v-if="jobProgressPct(job) !== null">
-              <div class="q-progress-bar" :style="{&#x27;--pct&#x27;: jobProgressPct(job) + &#x27;%&#x27;}"></div>
-              <span class="q-progress-label" v-text="jobProgressPct(job) + &#x27;%&#x27;"></span>
+            <div class="q-progress-wrap" :class="{'is-indeterminate': jobProgressPct(job) === null}" :aria-label="jobProgressPct(job) === null ? 'Progress not reported' : jobProgressPct(job) + '% done'">
+              <div class="q-progress-bar" :style="{&#x27;--pct&#x27;: (jobProgressPct(job) || 0) + &#x27;%&#x27;}"></div>
+              <span class="q-progress-label" v-text="jobProgressPct(job) === null ? '—' : jobProgressPct(job) + &#x27;%&#x27;"></span>
             </div>
           </td>
           <td class="q-cell-actions">

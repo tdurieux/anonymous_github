@@ -5,16 +5,15 @@
     </div>
     <div class="d-flex align-items-end flex-wrap" style="gap: 12px; justify-content: space-between;">
       <div>
-        <h1 class="paper-page-title" v-text="conference?.name"></h1>
+        <div class="conf-title-row">
+          <h1 class="paper-page-title" v-text="conference?.name"></h1>
+          <span class="conf-status" v-if="conference?.status"><span class="status-dot" aria-hidden="true" :class="&#x27;status-&#x27; + conference?.status"></span><span v-text="fmt?.statusLabel(conference?.status)"></span></span>
+        </div>
         <p class="paper-page-lede" v-if="conference?.url">
           <a target="_blank" rel="noopener" v-text="conference?.url" :href="safeUrl((conference?.url))"></a>
         </p>
       </div>
       <div class="d-flex align-items-center flex-wrap" style="gap: 10px;">
-        <span class="status-pill" :class="{&#x27;status-pill-ready&#x27;: conference?.status == &#x27;ready&#x27;, &#x27;status-pill-removed&#x27;: conference?.status == &#x27;removed&#x27; || conference?.status == &#x27;expired&#x27;}">
-          <span class="status-dot" aria-hidden="true" :class="&#x27;status-&#x27; + conference?.status"></span>
-          <span v-text="fmt?.statusLabel(conference?.status)"></span>
-        </span>
         <a class="btn btn-outline-ink" :href="safeUrl(&quot;/conference/&quot; + (conference?.conferenceID) + &quot;/edit&quot;)"><svg class="ui-icon mr-1" aria-hidden="true"><use href="#ui-icon-edit"></use></svg> Edit conference</a>
       </div>
     </div>
@@ -23,7 +22,7 @@
       <span>Review window <b>{{ fmt?.date(conference?.startDate, 'mediumDate') }} &ndash; {{ fmt?.date(conference?.endDate, 'mediumDate') }}</b></span>
       <span>Repositories <b>{{ fmt?.number(conference?.repositories?.length) }}</b></span>
       <span>Plan <b v-text="conferencePlanName(conference?.plan?.planID)"></b></span>
-      <span v-if="conference?.price">Cost so far <b>{{ fmt?.number(conference?.price, 2) }} &euro;</b></span>
+      <span v-if="conference?.price">Cost so far <b>{{ fmt?.money(conference?.price) }}</b></span>
     </div>
 
     <div class="conference-payment-status" v-if="billingNotice" role="status">
@@ -42,11 +41,17 @@
       </div>
       <p><a href="/profile#settings-billing">Manage invoices</a></p>
     </section>
-    <div class="paper-section-eyebrow">Repositories</div>
-
-    <form class="w-100 dashboard-filter-row" aria-label="Filter repositories" accept-charset="UTF-8" v-form="viewState" @submit.prevent="submitForm($event, () =&gt; { $event.preventDefault() })">
+    <div class="dashboard-meta conf-view-meta">
+      <div class="dashboard-view-tabs" role="group" aria-label="Repository view">
+        <button type="button" :aria-pressed="confView() === 'current'" @click="setConfView('current')" title="Every repository except removed links">Current</button>
+        <button type="button" v-if="confCount('attention') &gt; 0 || confView() === 'attention'" :aria-pressed="confView() === 'attention'" @click="setConfView('attention')" :aria-label="'Needs attention ' + confCount('attention')"><span class="dashboard-attention-prefix">Needs </span><span>attention</span> <span class="attention-count" :class="{'has-attention': confCount('attention') &gt; 0}">{{ fmt?.number(confCount('attention')) }}</span></button>
+        <button type="button" v-if="confCount('removed') &gt; 0 || confView() === 'removed'" :aria-pressed="confView() === 'removed'" @click="setConfView('removed')" title="Links reviewers can no longer open">Removed <span class="attention-count">{{ fmt?.number(confCount('removed')) }}</span></button>
+      </div>
+      <span class="dashboard-count" role="status">{{ search.trim() ? fmt?.number(filteredRepositories?.length || 0) + ' shown' : fmt?.number(filteredRepositories?.length || 0) + ((filteredRepositories?.length || 0) === 1 ? ' repository' : ' repositories') }}</span>
+    </div>
+    <form class="w-100 conf-repo-toolbar" aria-label="Filter repositories" accept-charset="UTF-8" v-form="viewState" @submit.prevent="submitForm($event, () =&gt; { $event.preventDefault() })">
       <div class="search-wrap">
-        <input type="search" id="search" class="form-control" aria-label="Search repositories" placeholder="Search by ID or source repository…" autocomplete="off" v-field="{ state: viewState, set: value =&gt; { search = value }, value: search, form: null, options: {} }">
+        <input type="search" id="search" class="form-control" aria-label="Search repositories" placeholder="Search repositories…" autocomplete="off" v-field="{ state: viewState, set: value =&gt; { search = value }, value: search, form: null, options: {} }">
       </div>
       <div class="dashboard-filter-controls">
         <div class="dropdown">
@@ -74,38 +79,10 @@
             </div>
           </div>
         </div>
-
-        <div class="dropdown">
-          <button class="btn dropdown-toggle" type="button" id="dropdownStatus" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-            <span class="filter-btn-label">Status</span>
-            <span class="filter-btn-value" v-if="filters?.status?.ready &amp;&amp; filters?.status?.expired &amp;&amp; filters?.status?.removed">All</span>
-            <span class="filter-btn-value" v-if="!(filters?.status?.ready &amp;&amp; filters?.status?.expired &amp;&amp; filters?.status?.removed)">
-              {{ (filters?.status?.ready ? 0 : 1) + (filters?.status?.expired ? 0 : 1) + (filters?.status?.removed ? 0 : 1) }} hidden
-            </span>
-          </button>
-          <div class="dropdown-menu" aria-labelledby="dropdownStatus">
-            <h6 class="dropdown-header">Show statuses</h6>
-            <div class="form-check dropdown-item" v-for="(label, key, index) in statusLabels">
-              <input class="form-check-input" type="checkbox" v-field="{ state: viewState, set: value =&gt; { filters.status[key] = value }, value: filters?.status[key], form: null, options: {} }" :id="&quot;status-&quot; + (key)">
-              <label class="form-check-label" :for="&quot;status-&quot; + (key)">{{ label }}</label>
-            </div>
-          </div>
-        </div>
       </div>
     </form>
 
-    <div class="dashboard-meta">
-      <span class="dashboard-count">
-        <span v-if="filteredRepositories?.length === conference?.repositories?.length">{{ fmt?.number(conference?.repositories?.length) }} repositor<span v-if="conference?.repositories?.length === 1">y</span><span v-if="conference?.repositories?.length !== 1">ies</span></span>
-        <span v-if="filteredRepositories?.length !== conference?.repositories?.length">{{ fmt?.number(filteredRepositories?.length) }} of {{ fmt?.number(conference?.repositories?.length) }} shown</span>
-      </span>
-      <template v-for="(v, f, index) in filters?.status"><span class="filter-chip" v-if="v === false">
-        Hiding {{ statusLabels[f] }}
-        <button type="button" class="filter-chip-close" @click="filters.status[f] = true;" :aria-label="&quot;Show &quot; + (statusLabels[f]) + &quot; again&quot;">&times;</button>
-      </span></template>
-    </div>
-
-    <div class="paper-table paper-table-repos w-100" role="table" aria-label="Repositories">
+    <div class="dashboard-page conf-rows"><div class="paper-table paper-table-dashboard paper-table-conf w-100" role="table" aria-label="Repositories" :class="{'is-removed-view': confView() === 'removed'}">
       <div class="paper-table-head" role="row">
         <div role="columnheader">Repository</div>
         <div role="columnheader">Status</div>
@@ -115,42 +92,48 @@
       </div>
       <div class="paper-table-row" role="row" v-for="(repo, index) in filteredRepositories" :key="repo?.repoId" :class="{&#x27;repo-inactive&#x27;: repo?.status == &#x27;expired&#x27; || repo?.status == &#x27;removed&#x27;, &#x27;repo-error&#x27;: repo?.status == &#x27;error&#x27;}">
         <div class="cell-anon" role="cell">
-          <svg class="ui-icon record-type-icon" role="img" aria-label="Repository"><use href="#project-type-repo"></use></svg>
+          <span class="project-type-icon" role="img" aria-label="Repository" title="Repository"><svg class="project-type-svg" aria-hidden="true"><use href="#project-type-repo"></use></svg></span>
           <div class="anon-text">
-            <a class="repo-name" v-text="repo?.repoId" :href="safeUrl(&quot;/r/&quot; + (repo?.repoId) + &quot;/&quot;)"></a>
+            <div class="anon-title">
+              <a class="repo-name" :title="repo?.source?.fullName" :href="safeUrl(&quot;/r/&quot; + (repo?.repoId) + &quot;/&quot;)"><template v-if="(repo?.source?.fullName || '').indexOf('/') > 0"><span class="rn-owner">{{ repo.source.fullName.slice(0, repo.source.fullName.indexOf('/') + 1) }}</span><wbr><span class="rn-repo">{{ repo.source.fullName.slice(repo.source.fullName.indexOf('/') + 1) }}</span></template><template v-else>{{ repo?.source?.fullName || repo?.repoId }}</template></a>
+            </div>
             <div class="anon-sub">
-              <span class="anon-source">
-                <a target="_blank" rel="noopener" v-text="repo?.source?.fullName" :href="safeUrl(&quot;https://github.com/&quot; + (repo?.source?.fullName) + &quot;/&quot;)"></a><span v-if="repo?.options?.update &amp;&amp; repo?.source?.branch"> &middot; <a target="_blank" rel="noopener" v-text="repo?.source?.branch" :href="safeUrl(&quot;https://github.com/&quot; + (repo?.source?.fullName) + &quot;/tree/&quot; + (repo?.source?.branch))"></a></span><span v-if="repo?.source?.commit"> &middot; <a class="commit-hash" target="_blank" rel="noopener" :href="safeUrl(&quot;https://github.com/&quot; + (repo?.source?.fullName) + &quot;/tree/&quot; + (repo?.source?.commit))">@{{ repo?.source?.commit?.substring(0, 8) }}</a></span>
-              </span>
+              <code class="anonymous-id" :title="repo?.repoId"><template v-if="(repo?.repoId || '').length > 14"><span class="id-head">{{ repo.repoId.slice(0, -6) }}</span><span class="id-tail">{{ repo.repoId.slice(-6) }}</span></template><template v-else>{{ repo?.repoId }}</template></code>
+              <span class="commit-hash" v-if="repo?.source?.commit" :title="repo.source.commit">{{ repo.source.commit.substring(0, 7) }}</span>
             </div>
           </div>
         </div>
+        <div class="dashboard-row-meta" role="presentation">
         <div class="cell-status" role="cell">
           <div class="status-line">
             <span class="status-dot" aria-hidden="true" :class="&#x27;status-&#x27; + (repo?.status == &#x27;error&#x27; ? &#x27;error&#x27; : repo?.status == &#x27;ready&#x27; ? &#x27;ready&#x27; : (repo?.status == &#x27;expired&#x27; || repo?.status == &#x27;removed&#x27;) ? repo?.status : &#x27;progress&#x27;)"></span>
             <span class="status-word" v-text="fmt?.statusLabel(repo?.status)"></span>
           </div>
-          <div class="status-sub" v-if="repo?.anonymizeDate">anonymized {{ fmt?.humanTime(repo?.anonymizeDate) }}</div>
+          <div class="status-sub status-sub-error" v-if="repo?.status == 'error' &amp;&amp; repo?.statusMessage" v-text="fmt?.statusMsg(repo?.statusMessage)" :title="repo?.statusMessage"></div>
+          <a class="project-attention-action" v-if="repo?.status == 'error'" :href="safeUrl('/status/' + repo?.repoId)">View status</a>
+          <button type="button" class="project-attention-action" v-if="repo?.status == 'expired'" @click.stop="extendRepo(repo)" :disabled="extendingId === repo?.repoId" title="Reviewers can no longer open this link">Extend 6 months</button>
+          <div class="status-sub status-sub-date" v-if="repo?.anonymizeDate &amp;&amp; repo?.status != 'error' &amp;&amp; repo?.status != 'expired'">anonymized {{ fmt?.humanTime(repo?.anonymizeDate) }}</div>
         </div>
-        <div class="cell-views num" role="cell"><svg class="ui-icon mobile-meta-icon" aria-hidden="true"><use href="#project-icon-eye"></use></svg> <span v-text="fmt?.number(repo?.pageView)"></span></div>
-        <div class="cell-expires" role="cell"><svg class="ui-icon mobile-meta-icon" aria-hidden="true"><use href="#project-icon-clock"></use></svg>
-          <span class="expires-never" v-if="repo?.status == &#x27;ready&#x27; &amp;&amp; (repo?.options?.expirationMode === &#x27;never&#x27; || !repo?.options?.expirationDate)">Never</span>
-          <span v-if="repo?.status == &#x27;ready&#x27; &amp;&amp; repo?.options?.expirationMode !== &#x27;never&#x27; &amp;&amp; repo?.options?.expirationDate" v-text="fmt?.humanTime(repo?.options?.expirationDate)"></span>
-          <span class="expires-past" v-if="repo?.status == &#x27;expired&#x27;">Expired<span v-if="repo?.options?.expirationDate"> {{ fmt?.humanTime(repo?.options?.expirationDate) }}</span></span>
+        <div class="cell-views num" role="cell" :data-unit="(repo?.pageView || 0) === 1 ? 'view' : 'views'" :aria-label="fmt?.number(repo?.pageView || 0) + ((repo?.pageView || 0) === 1 ? ' view' : ' views')"><svg class="project-type-svg mobile-meta-icon" aria-hidden="true"><use href="#project-icon-eye"></use></svg><span>{{ fmt?.number(repo?.pageView || 0) }}</span></div>
+        <div class="cell-expires" role="cell">
+          <svg class="project-type-svg mobile-meta-icon" aria-hidden="true"><use href="#project-icon-clock"></use></svg>
+          <span class="expires-never" v-if="repo?.status == &#x27;ready&#x27; &amp;&amp; (repo?.options?.expirationMode === &#x27;never&#x27; || !repo?.options?.expirationDate)">No expiry</span>
+          <span v-if="repo?.status == &#x27;ready&#x27; &amp;&amp; repo?.options?.expirationMode !== &#x27;never&#x27; &amp;&amp; repo?.options?.expirationDate" v-text="(fmt?.humanTime(repo?.options?.expirationDate) || '').replace(/^on /, '')"></span>
+          <span class="expires-past" v-if="repo?.status == &#x27;expired&#x27;"><span class="expires-past-prefix">Expired </span>{{ fmt?.shortDate(repo?.options?.expirationDate) }}</span>
           <span class="empty-dash" aria-label="Not applicable" v-if="repo?.status != &#x27;ready&#x27; &amp;&amp; repo?.status != &#x27;expired&#x27;">&mdash;</span>
         </div>
+        </div>
         <div class="cell-actions" role="cell">
+          <button type="button" class="copy-url" v-if="repo?.status != 'expired' &amp;&amp; repo?.status != 'removed'" @click.stop="copyRepoLink(repo)" :disabled="!!copyingId" :title="'Copy link: /r/' + repo?.repoId + '/'" :aria-label="'Copy anonymous link for ' + repo?.repoId"><span class="sr-only" aria-live="polite">{{ copyingId === repo?.repoId ? 'Link copied' : '' }}</span><svg class="project-type-svg" aria-hidden="true"><use :href="copyingId === repo?.repoId ? '#ui-icon-check' : '#project-icon-copy'"></use></svg><span class="copy-url-label" aria-hidden="true">{{ copyingId === repo?.repoId ? 'Copied' : 'Copy link' }}</span></button>
+          <a class="row-edit row-open" v-if="repo?.status != 'expired' &amp;&amp; repo?.status != 'removed'" :href="safeUrl(&quot;/r/&quot; + (repo?.repoId) + &quot;/&quot;)" target="_blank" rel="noopener" title="Open what reviewers see" :aria-label="'Open anonymous page for ' + repo?.repoId"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-external-link"></use></svg></a>
           <div class="dropdown">
             <button class="btn btn-icon-dots" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" :aria-label="&quot;Actions for &quot; + (repo?.repoId)">
-              <svg class="ui-icon" aria-hidden="true"><use href="#project-icon-more"></use></svg>
+              <svg class="project-type-svg" aria-hidden="true"><use href="#project-icon-more"></use></svg>
             </button>
             <div class="dropdown-menu dropdown-menu-right">
-              <a class="dropdown-item" :href="safeUrl(&quot;/r/&quot; + (repo?.repoId) + &quot;/&quot;)">
-                <svg class="ui-icon" aria-hidden="true"><use href="#project-icon-eye"></use></svg> View
-              </a>
-              <a class="dropdown-item" :href="safeUrl(&quot;/anonymize/&quot; + (repo?.repoId))">
-                <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-edit"></use></svg> Edit
-              </a>
+              <a class="dropdown-item" :href="safeUrl(&quot;/r/&quot; + (repo?.repoId) + &quot;/&quot;)">View</a>
+              <a class="dropdown-item" :href="safeUrl(&quot;https://github.com/&quot; + (repo?.source?.fullName) + &quot;/&quot;)" target="_blank" rel="noopener">Open source on GitHub</a>
+              <a class="dropdown-item" :href="safeUrl(&quot;/anonymize/&quot; + (repo?.repoId))">Edit</a>
             </div>
           </div>
         </div>
@@ -160,9 +143,9 @@
         <span v-if="!conference?.repositories?.length">No repository has been submitted to this conference yet.</span>
         <span v-if="conference?.repositories?.length">Nothing matches the current filters.</span>
         <div class="paper-table-empty-actions" v-if="conference?.repositories?.length">
-          <button type="button" class="btn btn-outline-ink" @click="search = &#x27;&#x27;; filters.status.ready = true; filters.status.expired = true; filters.status.removed = true;">Clear filters</button>
+          <button type="button" class="btn btn-outline-ink" @click="search = &#x27;&#x27;; setConfView(&#x27;current&#x27;)">Clear filters</button>
         </div>
       </div>
-    </div>
+    </div></div>
   </div>
 </div>

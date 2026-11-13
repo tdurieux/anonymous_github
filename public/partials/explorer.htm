@@ -3,6 +3,7 @@
     <div class="vb-left">
       <a class="vb-logo" href="/">Anonymous <em>GitHub</em></a>
       <button type="button" class="vb-icon vb-sidebar" :aria-label="sidebarHidden ? 'Show file tree' : 'Hide file tree'" :title="sidebarHidden ? 'Show file tree' : 'Hide file tree'" @click="sidebarHidden = !sidebarHidden"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-sidebar"></use></svg></button>
+      <a class="vb-artifact" v-if="repoId" :href="safeUrl('/r/' + repoId + '/')" :title="'Anonymous artifact ' + repoId"><span class="sr-only">Artifact </span><span class="vb-artifact-id">{{ repoId }}</span></a>
     </div>
     <div class="vb-right">
       <span class="vb-snapshot" v-if="options?.sourceCommitDate || options?.anonymizedAt || options?.lastUpdateDate" :title="(options?.expirationDate ? 'Available until ' + fmt?.date(options.expirationDate) + '. ' : '') + ((options?.anonymizedAt &amp;&amp; !options?.publishedAt) ? 'Older repositories have no recorded publication date. The source commit date does not establish when files became available here.' : ((options?.sourceCommitDate ? 'Source commit ' : options?.anonymizedAt ? 'Anonymized ' : 'Updated ') + fmt?.date(options?.sourceCommitDate || options?.anonymizedAt || options?.lastUpdateDate) + (options?.publishedAt ? ' · snapshot ready ' + fmt?.date(options.publishedAt) : '')))">
@@ -32,6 +33,10 @@
       <a class="vb-signin" v-else href="/signin" target="_self"><i class="fab fa-github" aria-hidden="true"></i>Sign in</a>
     </div>
   </header>
+  <div class="vb-context" v-if="repoId">
+    <a class="vb-context-id" :href="safeUrl('/r/' + repoId + '/')" :title="'Anonymous artifact ' + repoId">{{ repoId }}</a>
+    <span class="vb-context-date" v-if="options?.publishedAt || options?.sourceCommitDate || options?.anonymizedAt || options?.lastUpdateDate">Snapshot {{ fmt?.date(options?.publishedAt || options?.sourceCommitDate || options?.anonymizedAt || options?.lastUpdateDate) }}</span>
+  </div>
 
   <button class="sidebar-toggle" v-show="files?.length" @click="sidebarCollapsed = !sidebarCollapsed" :aria-label="(sidebarCollapsed ? &#x27;Show files&#x27; : &#x27;Hide files&#x27;)">
     <svg class="ui-icon" aria-hidden="true"><use :href="sidebarCollapsed ? '#ui-icon-folder' : '#project-icon-close'"></use></svg>
@@ -71,7 +76,7 @@
   <div class="leftCol-backdrop" v-show="files?.length &amp;&amp; !sidebarCollapsed" @click="sidebarCollapsed = true"></div>
 
   <div class="explorer-main">
-    <div class="status-bar" v-show="type != 'error' || files?.length" :class="{ 'is-redundant': ['code', 'text', 'html'].includes(type) &amp;&amp; content != null }">
+    <div class="status-bar" v-show="type != 'error' || files?.length" :class="{ 'is-redundant': (['code', 'text', 'html'].includes(type) &amp;&amp; content != null) || fileFrame() }">
       <button type="button" class="btn btn-sm status-files-btn" v-show="files?.length" aria-label="Show files" title="Show files" @click="sidebarHidden ? (sidebarHidden = false) : (sidebarCollapsed = false)">
         <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-folder"></use></svg><span>Files</span>
       </button>

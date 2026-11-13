@@ -18,7 +18,7 @@ export function initializeTemplate(name, state) {
     state.mdFindCase = false;
     state.accountOpen = false;
     state.helpOpen = false;
-    state.sidebarWidth = Math.min(520, Math.max(220, Number(localStorage.getItem("sidebarWidth")) || 280));
+    state.sidebarWidth = Math.min(520, Math.max(220, Number(localStorage.getItem("sidebarWidth")) || (window.innerWidth >= 1280 ? 320 : 280)));
     // Shared with the app bar so the brand column lines up with the file tree.
     document.documentElement.style.setProperty("--sidebar-w", state.sidebarWidth + "px");
     state.startSidebarResize = (event) => {

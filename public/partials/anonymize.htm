@@ -2,11 +2,22 @@
   <!-- ===== STATE 1: No URL — centered input ===== -->
   <div class="anonymize-landing" v-show="!workspaceOpen &amp;&amp; !isUpdate">
     <div class="anonymize-landing-inner">
-      <div class="paper-crumbs">My work &nbsp;/&nbsp; <span class="here">New anonymization</span></div>
-      <h1 class="paper-page-title">New <em>anonymization</em></h1>
-      <p class="paper-page-lede">
-        Paste a repository, pull request, or gist URL. You&rsquo;ll choose the terms to redact next.
-      </p>
+      <header class="page-head">
+        <div class="paper-crumbs"><a href="/dashboard">My work</a> &nbsp;/&nbsp; <span class="here">New anonymization</span></div>
+        <div class="page-head-main"><div>
+          <h1 class="paper-page-title">New anonymization</h1>
+          <p class="paper-page-lede">Paste a repository, pull request, or gist URL, or pick one of your repositories. You&rsquo;ll choose the terms to redact next.</p>
+        </div></div>
+        <ol class="task-trail flow-trail" aria-label="Anonymization steps"><li aria-current="step">1. Repository</li><li>2. Review and hosting</li><li>3. Review link</li></ol>
+      </header>
+      <aside class="task-summary landing-next" aria-labelledby="landing-next-title">
+        <h2 id="landing-next-title">What happens next</h2>
+        <ol>
+          <li><b>Choose terms to redact.</b> Names, affiliations, and emails are replaced in every text file.</li>
+          <li><b>Pick hosting and expiry.</b> Decide what reviewers may see and when the link stops working.</li>
+          <li><b>Share the review link.</b> Reviewers open it without an account.</li>
+        </ol>
+      </aside>
       <div class="form-group mt-4 mb-2">
         <div class="source-url-label-row">
           <label class="paper-field-label" for="sourceUrl-landing">Source URL</label>
@@ -18,21 +29,43 @@
             <span class="connection-badge" v-if="isUpdate || detectedType === 'gist'">{{ (detectedType === 'gist' ? githubConnections?.gistConnection === 'github-app' : githubConnection === 'github-app') ? 'Read-only GitHub App' : 'Legacy OAuth' }}</span>
           </aside>
         </div>
-        <div class="landing-url-row"><input id="sourceUrl-landing" onblur="this.scrollLeft=0" type="text" class="form-control form-control-lg" placeholder="https://github.com/owner/repository" v-field="{ state: viewState, set: value =&gt; { sourceUrl = value }, value: sourceUrl, form: null, options: { debounce: {default: 1000, blur: 0, click: 0}, updateOn: &#x27;default blur click&#x27; }, change: () =&gt; { urlSelected() } }"><button type="button" class="btn btn-primary landing-continue" :aria-disabled="!sourceUrl ? 'true' : null" @click="sourceUrl && urlSelected()">Continue</button></div>
+        <div class="landing-url-row"><input id="sourceUrl-landing" onblur="this.scrollLeft=0" type="text" class="form-control form-control-lg" placeholder="https://github.com/owner/repository" v-field="{ state: viewState, set: value =&gt; { sourceUrl = value }, value: sourceUrl, form: null, options: { debounce: {default: 1000, blur: 0, click: 0}, updateOn: &#x27;default blur click&#x27; }, change: () =&gt; { urlSelected() } }"><button type="button" class="btn btn-primary landing-continue" :aria-disabled="!sourceUrl?.trim() ? 'true' : null" @click="sourceUrl?.trim() && urlSelected()">Continue</button></div>
       </div>
       <p class="text-danger" role="alert" v-if="sourceUrlError">{{ sourceUrlError }}</p>
-      <small class="form-text" style="color: var(--ink-muted);">
+      <small class="form-text landing-help" style="color: var(--ink-muted);">
         Repository, pull request (…/pull/42) and gist (gist.github.com/…) URLs are all accepted.
       </small>
+      <section class="repo-picker" aria-labelledby="repo-picker-title">
+        <div class="repo-picker-head">
+          <div class="repo-picker-title">
+            <h2 id="repo-picker-title">Your repositories</h2>
+            <span class="repo-picker-count" aria-live="polite" v-if="userReposStatus === 'ready' &amp;&amp; userRepos.length &gt; 0"><template v-if="userRepoFilter &amp;&amp; filteredUserRepos().length !== userRepos.length">{{ filteredUserRepos().length }} of </template>{{ userRepos.length }} {{ userRepos.length === 1 ? 'repository' : 'repositories' }}<span class="repo-picker-more"><span class="repo-picker-more-sep"> · </span>scroll for more</span></span>
+          </div>
+          <input type="search" class="form-control repo-picker-filter" placeholder="Filter…" aria-label="Filter your repositories" autocomplete="off" v-model="userRepoFilter" v-if="userReposStatus === 'ready' &amp;&amp; userRepos.length &gt; 0">
+        </div>
+        <ul class="repo-picker-list" v-if="userReposStatus === 'loading' || userReposStatus === 'idle'" aria-busy="true" aria-label="Loading your repositories">
+          <template v-for="(i, index) in [1, 2, 3, 4]"><li class="repo-picker-row is-skeleton" aria-hidden="true"><span class="skeleton skeleton-line" :style="{ width: (34 + i * 9) + '%' }"></span></li></template>
+        </ul>
+        <ul class="repo-picker-list" v-if="userReposStatus === 'ready' &amp;&amp; filteredUserRepos().length &gt; 0">
+          <template v-for="(repo, index) in filteredUserRepos()" :key="repo.id || repo.fullName"><li class="repo-picker-row">
+            <svg class="project-type-svg" aria-hidden="true"><use href="#project-type-repo"></use></svg>
+            <span class="repo-picker-name" :title="repo.fullName"><span class="repo-picker-owner">{{ repo.fullName.split('/')[0] }}<span class="repo-picker-slash">/</span></span><span class="repo-picker-repo">{{ repo.fullName.split('/').slice(1).join('/') }}</span></span>
+            <button type="button" class="btn btn-outline-ink btn-sm repo-picker-select" @click="selectUserRepo(repo)" :aria-label="'Select ' + repo.fullName">Select</button>
+          </li></template>
+        </ul>
+        <p class="repo-picker-state" v-if="userReposStatus === 'ready' &amp;&amp; userRepos.length &gt; 0 &amp;&amp; filteredUserRepos().length === 0">No repository matches “{{ userRepoFilter }}”.</p>
+        <p class="repo-picker-state" v-if="userReposStatus === 'ready' &amp;&amp; userRepos.length === 0">No repositories found for your GitHub account. Paste a URL above, or grant access below.</p>
+        <p class="repo-picker-state" role="alert" v-if="userReposStatus === 'error'">Your repositories could not be loaded. <button type="button" class="task-text-button" @click="loadUserRepos(true)">Try again</button></p>
       <aside class="repo-access-details" aria-label="GitHub access" v-if="!sourceUrl &amp;&amp; githubConnections?.appEnabled &amp;&amp; githubConnections.appConnected">
         <div class="repo-access-main">
           <div class="repo-access-controls">
-            <span class="access-q" v-if="detectedType !== 'gist' &amp;&amp; githubConnection !== 'oauth'">Repository not listed?</span><button type="button" class="btn btn-outline-ink" v-if="detectedType !== 'gist' &amp;&amp; githubConnection !== 'oauth'" @click="grantGitHubAccess()">Manage access <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-external-link"></use></svg></button>
-            <a class="connection-link" href="/connections" v-if="isUpdate || detectedType === 'gist' || githubConnection === 'oauth'">{{ isUpdate ? 'Change connection' : 'Manage connections' }} &rarr;</a>
+            <span class="access-q" v-if="detectedType !== 'gist' &amp;&amp; githubConnection !== 'oauth'">Repository not listed?</span><button type="button" class="btn btn-outline-ink" v-if="detectedType !== 'gist' &amp;&amp; githubConnection !== 'oauth'" @click="grantGitHubAccess()">Manage GitHub access <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-external-link"></use></svg></button>
+            <a class="connection-link" href="/connections" v-if="isUpdate || detectedType === 'gist' || githubConnection === 'oauth'">Manage GitHub access <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-external-link"></use></svg></a>
           </div>
         </div>
-        <div class="repo-access-note"><span v-if="error &amp;&amp; detectedType !== 'gist' &amp;&amp; githubConnection === 'github-app'">Signing in does not grant access to private repositories. Use Manage access to select this repository, then return here. Organization access may require administrator approval.</span><span><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-info"></use></svg> Anonymized content is public, even from private repositories.</span></div>
+        <div class="repo-access-note"><span v-if="error &amp;&amp; detectedType !== 'gist' &amp;&amp; githubConnection === 'github-app'">Signing in does not grant access to private repositories. Use Manage GitHub access to select this repository, then return here. Organization access may require administrator approval.</span><span><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-info"></use></svg> Anonymized content is public, even from private repositories.</span></div>
       </aside>
+      </section>
     </div>
   </div>
 
@@ -40,6 +73,7 @@
   <div class="anonymize-workspace" v-show="workspaceOpen || isUpdate">
     <header class="anonymize-topbar">
       <div class="anonymize-topbar-inner">
+        <div class="paper-crumbs"><a href="/dashboard">My work</a> &nbsp;/&nbsp; <span class="here">{{ isUpdate ? 'Edit anonymization' : 'New anonymization' }}</span></div>
         <div class="anonymize-topbar-head">
           <h1 class="paper-page-title anonymize-topbar-title">
             <span v-if="!isUpdate">New anonymization</span>
@@ -49,6 +83,8 @@
             {{ detectedType === 'repo' ? 'Repository' : detectedType === 'pr' ? 'Pull request' : 'Gist' }}
           </span>
         </div>
+        <p class="paper-page-lede anonymize-topbar-lede">{{ isUpdate ? 'Changes apply to the existing anonymous link; reviewers keep the same URL.' : 'Choose the terms to redact, what reviewers see, and when the link expires.' }}</p>
+        <ol class="task-trail flow-trail" aria-label="Anonymization steps" v-if="!isUpdate"><li>1. Repository</li><li aria-current="step">2. Review and hosting</li><li>3. Review link</li></ol>
       </div>
     </header>
 
@@ -67,7 +103,6 @@
       <button id="workspace-settings-tab" role="tab" type="button" :aria-selected="mobilePane === 'settings'" aria-controls="workspace-settings" :tabindex="mobilePane === 'settings' ? 0 : -1" @keydown="previewTabKeydown($event)" @click="selectMobilePane('settings')">Settings</button>
       <button id="workspace-preview-tab" role="tab" type="button" :aria-selected="mobilePane === 'preview'" aria-controls="workspace-preview" :tabindex="mobilePane === 'preview' ? 0 : -1" @keydown="previewTabKeydown($event)" @click="selectMobilePane('preview')">Reviewer preview</button>
     </nav>
-    <div class="anonymize-preview-empty" id="workspace-preview" v-if="detectedType !== 'repo' &amp;&amp; !details" role="status">{{ sourceLoading ? 'Loading source…' : 'Choose an accessible source to see its preview.' }}</div>
     <div class="anonymize-split">
       <!-- Form column (left) -->
       <div id="workspace-settings" :role="mobileWorkspace ? 'tabpanel' : null" :aria-labelledby="mobileWorkspace ? 'workspace-settings-tab' : null" class="anonymize-form-col overflow-auto">
@@ -88,6 +123,7 @@
                 </aside>
               </div>
               <input type="text" class="form-control" name="sourceUrl" id="sourceUrl" onblur="this.scrollLeft=0" :disabled="isUpdate &amp;&amp; detectedType !== &#x27;repo&#x27;" placeholder="Paste a GitHub repo or pull request URL" v-field="{ state: viewState, set: value =&gt; { sourceUrl = value }, value: sourceUrl, form: &quot;anonymize&quot;, options: { debounce: {default: 1000, blur: 0, click: 0}, updateOn: &#x27;default blur click&#x27; }, change: () =&gt; { urlSelected() } }" :class="{&#x27;is-invalid&#x27;: anonymize?.sourceUrl?.invalid}">
+              <p class="source-summary" v-if="sourceSummary() &amp;&amp; !anonymize?.sourceUrl?.invalid"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-check"></use></svg>{{ sourceSummary() }}</p>
               <div class="invalid-feedback" v-show="anonymize?.sourceUrl?.errors?.github">
                 Please provide a valid GitHub URL.
               </div>
@@ -114,32 +150,35 @@
               <p>You can review and update its settings before saving.</p>
               <div class="repo-access-controls">
                 <a class="btn btn-ink" :href="existingConfigurationUrl()">Use existing configuration</a>
-                <button type="button" class="btn btn-link" @click="previousConfigurations = []">Create a separate anonymization</button>
+                <button type="button" class="btn btn-outline-ink" @click="previousConfigurations = []">Create a separate one</button>
               </div>
             </aside>
 
             <aside class="repo-access-details" aria-label="GitHub access" v-if="sourceUrl &amp;&amp; githubConnections?.appEnabled &amp;&amp; githubConnections.appConnected">
               <div class="repo-access-main">
                 <div class="repo-access-controls">
-                  <span class="access-q" v-if="detectedType !== 'gist' &amp;&amp; githubConnection !== 'oauth' &amp;&amp; !details">Repository not listed?</span><button type="button" class="btn btn-outline-ink" v-if="detectedType !== 'gist' &amp;&amp; githubConnection !== 'oauth' &amp;&amp; !details" @click="grantGitHubAccess()">Manage access <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-external-link"></use></svg></button>
-                  <a class="connection-link" href="/connections" v-if="isUpdate || detectedType === 'gist' || githubConnection === 'oauth'">{{ isUpdate ? 'Change connection' : 'Manage connections' }} &rarr;</a>
+                  <span class="access-q" v-if="detectedType !== 'gist' &amp;&amp; githubConnection !== 'oauth' &amp;&amp; !details">Repository not listed?</span><button type="button" class="btn btn-outline-ink" v-if="detectedType !== 'gist' &amp;&amp; githubConnection !== 'oauth' &amp;&amp; !details" @click="grantGitHubAccess()">Manage GitHub access <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-external-link"></use></svg></button>
+                  <a class="connection-link" href="/connections" v-if="isUpdate || detectedType === 'gist' || githubConnection === 'oauth'">Manage GitHub access <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-external-link"></use></svg></a>
                 </div>
               </div>
-              <div class="repo-access-note"><span v-if="error &amp;&amp; detectedType !== 'gist' &amp;&amp; githubConnection === 'github-app'">Signing in does not grant access to private repositories. Use Manage access to select this repository, then return here. Organization access may require administrator approval.</span><span v-if="detectedType !== 'gist' &amp;&amp; githubConnection !== 'oauth' &amp;&amp; !details">Select repositories on GitHub, then return here.</span><span><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-info"></use></svg> Selected content will be published, including content from private repositories.</span></div>
+              <div class="repo-access-note"><span v-if="error &amp;&amp; detectedType !== 'gist' &amp;&amp; githubConnection === 'github-app'">Signing in does not grant access to private repositories. Use Manage GitHub access to select this repository, then return here. Organization access may require administrator approval.</span><span v-if="detectedType !== 'gist' &amp;&amp; githubConnection !== 'oauth' &amp;&amp; !details">Select repositories on GitHub, then return here.</span><span><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-info"></use></svg> Selected content will be published, including content from private repositories.</span></div>
             </aside>
 
-            <aside class="repo-access-details" v-if="isUpdate &amp;&amp; detectedType === 'repo' &amp;&amp; role === 'owner' &amp;&amp; accessRepairAllowed &amp;&amp; githubConnections?.appEnabled &amp;&amp; githubConnection === 'github-app' &amp;&amp; sourceUrl === 'https://github.com/' + _originalFullName">
-              <p>If this repository became private or its App installation changed, repair its access here. This keeps the same anonymous URL and published commit.</p>
-              <button type="button" class="btn btn-outline-ink" :disabled="repairingGitHubAccess" @click="repairGitHubAccess()">Repair GitHub access</button>
-              <button type="button" class="btn btn-outline-ink" @click="grantGitHubAccess()">Manage access</button>
-              <p v-if="accessRepairMessage" role="status">{{ accessRepairMessage }}</p>
-            </aside>
+            <details class="repair-disclosure" v-if="isUpdate &amp;&amp; detectedType === 'repo' &amp;&amp; role === 'owner' &amp;&amp; sourceUrl === 'https://github.com/' + _originalFullName" :open="!!(error || accessRepairMessage || reconnectRepositoryId)">
+              <summary>Connection problems?</summary>
+              <div class="repair-step" v-if="accessRepairAllowed &amp;&amp; githubConnections?.appEnabled &amp;&amp; githubConnection === 'github-app' &amp;&amp; sourceUrl === 'https://github.com/' + _originalFullName">
+                <p>If this repository became private or its App installation changed, repair its access here. This keeps the same anonymous URL and published commit.</p>
+                <button type="button" class="btn btn-outline-ink" :disabled="repairingGitHubAccess" @click="repairGitHubAccess()">Repair GitHub access</button>
+                <button type="button" class="btn btn-outline-ink" @click="grantGitHubAccess()">Manage GitHub access <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-external-link"></use></svg></button>
+                <p v-if="accessRepairMessage" role="status">{{ accessRepairMessage }}</p>
+              </div>
 
-            <aside class="repo-access-details" v-if="isUpdate &amp;&amp; detectedType === 'repo' &amp;&amp; role === 'owner' &amp;&amp; sourceUrl === 'https://github.com/' + _originalFullName">
-              <p>If you deleted and recreated this repository, reconnect it before choosing a branch.</p>
-              <button type="button" class="btn btn-outline-ink" @click="reconnectSource()">Reconnect source repository</button>
-              <p v-if="reconnectRepositoryId" role="status">Source reloaded. Review the branch, commit, and anonymization preview, then save to replace the published snapshot.</p>
-            </aside>
+              <div class="repair-step">
+                <p>If you deleted and recreated this repository, reconnect it before choosing a branch.</p>
+                <button type="button" class="btn btn-outline-ink" @click="reconnectSource()">Reconnect source repository</button>
+                <p v-if="reconnectRepositoryId" role="status">Source reloaded. Review the branch, commit, and anonymization preview, then save to replace the published snapshot.</p>
+              </div>
+            </details>
 
             <div class="form-grid-2" v-if="detectedType === &#x27;repo&#x27;">
               <div class="form-group">
@@ -182,7 +221,7 @@
             <div class="form-group" v-show="detectedType === &#x27;repo&#x27;">
               <label class="paper-field-label" for="repoId">Anonymized repository ID</label>
               <input type="text" class="form-control" name="repoId" id="repoId" :disabled="isUpdate" v-field="{ state: viewState, set: value =&gt; { repoId = value }, value: repoId, form: &quot;anonymize&quot;, options: { debounce: {default: 1000, blur: 0, click: 0}, updateOn: &#x27;default blur click&#x27; } }" :class="{&#x27;is-invalid&#x27;: anonymize?.repoId?.invalid}">
-              <small class="form-text text-muted">anonymous.4open.science/r/{{ repoId }}</small>
+              <small class="form-text text-muted anon-url-echo">anonymous.4open.science/<wbr>r/<wbr><span class="anon-url-id">{{ repoId }}</span></small>
               <div class="invalid-feedback" v-show="anonymize?.repoId?.errors?.format">ID can only contain letters and numbers.</div>
               <div class="invalid-feedback" v-show="anonymize?.repoId?.errors?.used">{{ repoId }} is already used.</div>
             </div>
@@ -190,7 +229,7 @@
             <div class="form-group" v-show="detectedType === &#x27;pr&#x27;">
               <label class="paper-field-label" for="pullRequestId">Anonymized pull request ID</label>
               <input type="text" class="form-control" name="pullRequestId" id="pullRequestId" :disabled="isUpdate" v-field="{ state: viewState, set: value =&gt; { pullRequestId = value }, value: pullRequestId, form: &quot;anonymize&quot;, options: { debounce: {default: 1000, blur: 0, click: 0}, updateOn: &#x27;default blur click&#x27; } }" :class="{&#x27;is-invalid&#x27;: anonymize?.pullRequestId?.invalid}">
-              <small class="form-text text-muted">Your share link will be <code>anonymous.4open.science/pr/{{ pullRequestId }}</code>.</small>
+              <small class="form-text text-muted anon-url-echo">anonymous.4open.science/<wbr>pr/<wbr><span class="anon-url-id">{{ pullRequestId }}</span></small>
               <div class="invalid-feedback" v-show="anonymize?.pullRequestId?.errors?.format">ID can only contain letters and numbers.</div>
               <div class="invalid-feedback" v-show="anonymize?.pullRequestId?.errors?.used">{{ pullRequestId }} is already used.</div>
             </div>
@@ -198,7 +237,7 @@
             <div class="form-group" v-show="detectedType === &#x27;gist&#x27;">
               <label class="paper-field-label" for="gistId">Anonymized gist ID</label>
               <input type="text" class="form-control" name="gistId" id="gistId" :disabled="isUpdate" v-field="{ state: viewState, set: value =&gt; { gistId = value }, value: gistId, form: &quot;anonymize&quot;, options: { debounce: {default: 1000, blur: 0, click: 0}, updateOn: &#x27;default blur click&#x27; } }" :class="{&#x27;is-invalid&#x27;: anonymize?.gistId?.invalid}">
-              <small class="form-text text-muted">Your share link will be <code>anonymous.4open.science/gist/{{ gistId }}</code>.</small>
+              <small class="form-text text-muted anon-url-echo">anonymous.4open.science/<wbr>gist/<wbr><span class="anon-url-id">{{ gistId }}</span></small>
               <div class="invalid-feedback" v-show="anonymize?.gistId?.errors?.format">ID can only contain letters and numbers.</div>
               <div class="invalid-feedback" v-show="anonymize?.gistId?.errors?.used">{{ gistId }} is already used.</div>
             </div>
@@ -280,7 +319,7 @@
               </div>
               <div class="form-check">
                 <input class="form-check-input" type="checkbox" id="notebook" name="notebook" v-field="{ state: viewState, set: value =&gt; { options.notebook = value }, value: options?.notebook, form: &quot;anonymize&quot;, options: {} }">
-                <label class="form-check-label" for="notebook">Display Notebooks</label>
+                <label class="form-check-label" for="notebook">Display notebooks</label>
               </div>
               <div class="form-check">
                 <input class="form-check-input" type="checkbox" id="page" name="page" v-field="{ state: viewState, set: value =&gt; { options.page = value }, value: options?.page, form: &quot;anonymize&quot;, options: {} }" :disabled="!details?.hasPage || (details?.pageSource &amp;&amp; details?.pageSource?.branch !== source?.branch)">
@@ -399,6 +438,7 @@
                   <div class="hosting-date" v-if="options?.expirationMode !== 'never'">
                 <label class="paper-field-label" for="expirationDate">Expires</label>
                 <input class="form-control" type="date" name="expirationDate" id="expirationDate" required v-field="{ state: viewState, set: value =&gt; { options.expirationDate = value }, value: options?.expirationDate, form: &quot;anonymize&quot;, options: {} }" :class="{&#x27;is-invalid&#x27;: anonymize?.expirationDate?.invalid}" :min="(minExpirationDate)" :max="(maxExpirationDate)">
+                <p class="date-echo" aria-live="polite" v-if="fmt?.dateEcho(options?.expirationDate)">Expires {{ fmt?.dateEcho(options?.expirationDate) }}</p>
                 <div class="invalid-feedback" v-show="anonymize?.expirationDate?.errors?.min">Pick a date in the future.</div>
                 <div class="invalid-feedback" v-show="anonymize?.expirationDate?.errors?.max">Pick a date on or before {{ fmt?.date(maxExpirationDate) }}.</div>
                 <div class="invalid-feedback" v-show="anonymize?.expirationDate?.errors?.required || anonymize?.expirationDate?.errors?.date">Enter a valid expiration date.</div>
@@ -421,7 +461,7 @@
 
 
           <section class="paper-settings-section" v-show="isUpdate &amp;&amp; detectedType === &#x27;repo&#x27;">
-            <h2 class="paper-section-eyebrow">Coauthors</h2>
+            <h2 class="paper-section-eyebrow">Co-authors</h2>
             <p class="form-text text-muted" style="margin-bottom: 8px;">
               Co-authors can view and edit these settings. They cannot delete the anonymization or manage co-authors.
             </p>
@@ -465,18 +505,20 @@
               <button type="submit" class="btn btn-ink" v-else :disabled="sourceLoading || billingBusy || hostingSaving || billingLoading || (hostingNeedsPayment() &amp;&amp; ((!authorPlans().length &amp;&amp; !hostingOneTime()) || billing?.checkoutEnabled === false))" @click.prevent="submitForm($event, () =&gt; { submitRepository($event) })">{{ hostingSaving ? 'Saving draft…' : hostingNeedsPayment() ? 'Continue to checkout' : isUpdate ? 'Save changes' : 'Create anonymous link' }}</button>
               
             </template>
-            <button type="submit" :disabled="sourceLoading" class="btn btn-ink" v-if="detectedType === &#x27;pr&#x27; &amp;&amp; !isUpdate" @click.prevent="submitForm($event, () =&gt; { anonymizePullRequest($event) })">
-              <svg class="ui-icon mr-1" aria-hidden="true"><use href="#ui-icon-shield"></use></svg> Anonymize Pull Request
+            <button type="submit" :disabled="sourceLoading || !details" class="btn btn-ink" v-if="detectedType === &#x27;pr&#x27; &amp;&amp; !isUpdate" @click.prevent="submitForm($event, () =&gt; { anonymizePullRequest($event) })">
+              Create anonymous link
             </button>
             <button type="submit" :disabled="sourceLoading" class="btn btn-ink" v-if="detectedType === &#x27;pr&#x27; &amp;&amp; isUpdate" @click.prevent="submitForm($event, () =&gt; { anonymizePullRequest($event) })">
-              <svg class="ui-icon mr-1" aria-hidden="true"><use href="#ui-icon-save"></use></svg> Update Pull Request
+              Save changes
             </button>
-            <button type="submit" :disabled="sourceLoading" class="btn btn-ink" v-if="detectedType === &#x27;gist&#x27; &amp;&amp; !isUpdate" @click.prevent="submitForm($event, () =&gt; { anonymizeGist($event) })">
-              <svg class="ui-icon mr-1" aria-hidden="true"><use href="#ui-icon-shield"></use></svg> Anonymize Gist
+            <button type="submit" :disabled="sourceLoading || !details" class="btn btn-ink" v-if="detectedType === &#x27;gist&#x27; &amp;&amp; !isUpdate" @click.prevent="submitForm($event, () =&gt; { anonymizeGist($event) })">
+              Create anonymous link
             </button>
             <button type="submit" :disabled="sourceLoading" class="btn btn-ink" v-if="detectedType === &#x27;gist&#x27; &amp;&amp; isUpdate" @click.prevent="submitForm($event, () =&gt; { anonymizeGist($event) })">
-              <svg class="ui-icon mr-1" aria-hidden="true"><use href="#ui-icon-save"></use></svg> Update Gist
+              Save changes
             </button>
+            <p class="submit-reason" role="status" v-if="sourceLoading">{{ detectedType === 'pr' ? 'Waiting for the pull request to load from GitHub…' : detectedType === 'gist' ? 'Waiting for the gist to load from GitHub…' : 'Waiting for the repository to load from GitHub…' }}</p>
+            <p class="submit-reason" role="status" v-else-if="!details &amp;&amp; !isUpdate">Load an accessible source to continue. See the preview for details.</p>
             <p class="checkout-return-note" v-if="hostingNeedsPayment() &amp;&amp; !billingPending">You pay in Stripe, then come back here to finish.</p>
             <div class="draft-status" role="status" v-if="draftRestored">Your unsaved draft was restored. <button type="button" class="draft-discard" @click="discardDraft()">Discard draft</button></div>
             <div class="draft-status" v-else-if="unsavedChanges">{{ draftSaved ? "Draft saved ·" : "Unsaved changes ·" }} <button type="button" class="draft-discard" @click="discardDraft()">{{ isUpdate ? "Restore saved" : "Discard" }}</button></div>
@@ -484,127 +526,153 @@
         </form>
       </div>
 
-      <!-- Preview column (right) -->
-      <div id="workspace-preview" :role="mobileWorkspace ? 'tabpanel' : null" :aria-labelledby="mobileWorkspace ? 'workspace-preview-tab' : null" class="anonymize-preview-col" v-if="detectedType === &#x27;repo&#x27;">
-        <div class="anonymize-preview-head">
-          <span class="paper-eyebrow">Live preview</span>
-          <span class="anonymize-preview-sub">{{ previewStatus !== 'ready' ? 'README preview' : (readmePreserved() ? 'README left unredacted (Unredacted files)' : (String(terms || '').trim() ? 'README with redactions applied' : 'No terms yet. Add some to see them redacted here.')) }}</span>
-          <button type="button" class="task-text-button preview-expand" @click="previewExpanded = !previewExpanded">{{ previewExpanded ? 'Restore split view' : 'Expand preview' }}</button>
+      <!-- Preview column (right): "What reviewers will see", a miniature reviewer window -->
+      <div id="workspace-preview" :role="mobileWorkspace ? 'tabpanel' : null" :aria-labelledby="mobileWorkspace ? 'workspace-preview-tab' : null" class="anonymize-preview-col reviewer-preview" v-if="detectedType">
+        <div class="rp-caption">
+          <span class="rp-title">What reviewers will see</span>
+          <span class="rp-count" v-if="previewStatus === 'ready' &amp;&amp; previewRedactions() &gt; 0" :title="previewRedactions() + ' redacted terms in this preview'"><span class="redact-slot" aria-hidden="true"><i>{{ previewRedactions() }}</i></span> redacted</span>
+          <span class="rp-count rp-count-none" v-else-if="previewStatus === 'ready' &amp;&amp; !String(terms || '').trim()">No terms yet</span>
+          <span class="rp-count rp-count-none" v-else-if="previewStatus === 'ready' &amp;&amp; readmePreserved()">README left unredacted</span>
+          <span class="rp-spacer"></span>
+          <a class="rp-open is-external" v-if="isUpdate &amp;&amp; previewUrl()" :href="safeUrl(previewPath())" target="_blank" rel="noopener">Open reviewer page <span aria-hidden="true">↗</span></a>
+          <button type="button" class="rp-open is-toggle" v-else @click="previewExpanded = !previewExpanded" :aria-pressed="!!previewExpanded"><svg class="rp-open-icon" viewBox="0 0 16 16" aria-hidden="true"><path v-if="!previewExpanded" d="M9.5 2.5h4v4M13.5 2.5 9 7M6.5 13.5h-4v-4M2.5 13.5 7 9"/><path v-else d="M13.5 6.5h-4v-4M9.5 6.5 14 2M2.5 9.5h4v4M6.5 9.5 2 14"/></svg>{{ previewExpanded ? 'Back to settings' : 'Expand preview' }}</button>
         </div>
-        <div class="anonymize-preview-status" role="status" v-if="sourceLoading &amp;&amp; previewStatus === 'idle'">Loading source…</div>
-        <div class="anonymize-preview-status" role="status" v-if="previewStatus === 'loading'">Updating the anonymized preview…</div>
-        <div class="anonymize-preview-status" role="alert" v-if="previewStatus === 'error'">
-          <p>Unable to generate the anonymized preview. The latest redactions have not been verified.</p>
-          <button class="btn btn-outline-ink" type="button" @click="retryPreview()">Retry preview</button>
-        </div>
-        <div class="anonymize-preview-status" v-if="!sourceLoading &amp;&amp; !readme &amp;&amp; previewStatus === 'idle'">No README is available to preview. Review the published files before sharing.</div>
-        <div class="anonymize-preview-body markdown-body body" v-if="previewStatus === 'ready'" v-html="renderRedacted(sanitize(html_readme))"></div>
-      </div>
+        <div class="rp-window">
+          <div class="rp-chrome" aria-hidden="true"><i></i><i></i><i></i><span class="rp-url">{{ previewUrl() || 'anonymous.4open.science' }}</span></div>
+          <div class="rp-bar" aria-hidden="true"><span class="vb-logo">Anonymous <em>GitHub</em></span><span class="rp-bar-id" v-if="previewId()">{{ previewId() }}</span><span class="rp-bar-kind" v-if="detectedType !== 'repo'">{{ detectedType === 'pr' ? 'Pull request' : 'Gist' }}</span></div>
+          <div class="rp-body" :class="{ 'has-tree': detectedType === 'repo' }">
+            <nav class="rp-tree" v-if="detectedType === 'repo'" aria-label="Files reviewers will see">
+              <template v-if="previewTree().length">
+                <span class="rp-tree-row" v-for="entry in previewTree()" :key="entry.name" :class="{ 'is-dir': entry.dir, 'is-active': entry.readme }"><svg class="rp-tree-icon" viewBox="0 0 16 16" aria-hidden="true"><path v-if="entry.dir" d="M1.5 3.5h4l1.5 1.5h7.5v8h-13z"/><path v-else d="M3.5 1.5h6l3 3v10h-9z"/></svg><span class="rp-tree-name">{{ entry.name }}</span></span>
+              </template>
+              <template v-else>
+                <template v-if="preserve.loading"><span class="rp-tree-row rp-skel-row" v-for="w in [62, 48, 70, 40]" :key="w"><i class="rp-skel" :style="{ width: w + '%' }"></i></span></template>
+                <span class="rp-tree-label" v-if="!preserve.loading"><svg class="rp-tree-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 3.5h4l1.5 1.5h7.5v8h-13z"/></svg>Files</span>
+                <span class="rp-tree-note" v-if="!preserve.loading">Every other file at this commit appears here, with the same redactions.</span>
+              </template>
+            </nav>
+            <div class="rp-doc">
+              <div class="rp-file-head" v-if="detectedType === 'repo' &amp;&amp; (previewStatus === 'ready' || readme)"><span class="rp-file-name">README.md</span><span class="rp-file-meta">Markdown</span></div>
+              <!-- Loading: skeleton inside the window -->
+              <div class="rp-state rp-loading" role="status" v-if="previewStatus === 'loading' || (sourceLoading &amp;&amp; previewStatus !== 'ready' &amp;&amp; previewStatus !== 'error')">
+                <span class="rp-state-text">{{ previewStatus === 'loading' ? 'Updating the anonymized preview…' : (detectedType === 'pr' ? 'Loading the pull request from GitHub…' : detectedType === 'gist' ? 'Loading the gist from GitHub…' : 'Loading the repository from GitHub…') }}</span>
+                <i class="rp-skel rp-skel-title"></i><i class="rp-skel" style="width:92%"></i><i class="rp-skel" style="width:86%"></i><i class="rp-skel" style="width:58%"></i>
+                <i class="rp-skel rp-skel-block"></i><i class="rp-skel" style="width:80%"></i><i class="rp-skel" style="width:66%"></i>
+              </div>
+              <!-- The source itself could not be loaded -->
+              <div class="rp-state rp-error" role="alert" v-else-if="!details &amp;&amp; detectedType !== 'repo'">
+                <strong>Couldn't load {{ sourceSummary() || (detectedType === 'pr' ? 'this pull request' : 'this gist') }}</strong>
+                <p>{{ error || 'GitHub did not return it. Check that the link is right and that Anonymous GitHub can read it.' }}</p>
+                <div class="rp-state-actions"><button type="button" class="btn btn-ink btn-sm" @click="urlSelected(true)">Retry</button><button type="button" class="btn btn-outline-ink btn-sm" v-if="detectedType === 'pr' &amp;&amp; githubConnection !== 'oauth'" @click="grantGitHubAccess()">Manage GitHub access <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-external-link"></use></svg></button><a class="btn btn-outline-ink btn-sm" v-else href="/connections">Manage GitHub access <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-external-link"></use></svg></a></div>
+              </div>
+              <div class="rp-state rp-error" role="alert" v-else-if="!details &amp;&amp; detectedType === 'repo' &amp;&amp; !isUpdate &amp;&amp; error">
+                <strong>Couldn't load this repository</strong>
+                <p>{{ error }}</p>
+                <div class="rp-state-actions"><button type="button" class="btn btn-ink btn-sm" @click="urlSelected(true)">Retry</button><button type="button" class="btn btn-outline-ink btn-sm" v-if="githubConnection !== 'oauth'" @click="grantGitHubAccess()">Manage GitHub access <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-external-link"></use></svg></button></div>
+              </div>
+              <!-- The anonymized preview failed -->
+              <div class="rp-state rp-error" role="alert" v-else-if="previewStatus === 'error'">
+                <strong>Couldn't apply the redactions</strong>
+                <p>Unable to generate the anonymized preview. The latest redactions have not been verified.</p>
+                <div class="rp-state-actions"><button class="btn btn-ink btn-sm" type="button" @click="retryPreview()">Retry preview</button></div>
+              </div>
+              <div class="rp-state rp-empty" v-else-if="detectedType === 'repo' &amp;&amp; !readme &amp;&amp; previewStatus === 'idle'">
+                <strong>No README</strong>
+                <p>Reviewers land on the file list. Open the files you will share and check them before sending the link.</p>
+              </div>
+              <div class="anonymize-preview-body markdown-body body" v-else-if="detectedType === 'repo' &amp;&amp; previewStatus === 'ready'" v-html="renderRedacted(sanitize(html_readme))"></div>
+              <div class="anonymize-preview-body" v-else-if="detectedType === 'gist' &amp;&amp; previewStatus === 'ready'">
 
-      <div id="workspace-preview" :role="mobileWorkspace ? 'tabpanel' : null" :aria-labelledby="mobileWorkspace ? 'workspace-preview-tab' : null" class="anonymize-preview-col" v-if="detectedType === &#x27;gist&#x27; &amp;&amp; details">
-        <div class="anonymize-preview-head">
-          <strong>Gist preview</strong><button type="button" class="task-text-button preview-expand" @click="previewExpanded = !previewExpanded">{{ previewExpanded ? 'Restore split view' : 'Expand preview' }}</button>
-        </div>
-        <div class="anonymize-preview-status" role="status" v-if="sourceLoading &amp;&amp; previewStatus === 'idle'">Loading source…</div>
-        <div class="anonymize-preview-status" role="status" v-if="previewStatus === 'loading'">Updating the anonymized preview…</div>
-        <div class="anonymize-preview-status" role="alert" v-if="previewStatus === 'error'">
-          <p>Unable to generate the anonymized preview. The latest redactions have not been verified.</p>
-          <button class="btn btn-outline-ink" type="button" @click="retryPreview()">Retry preview</button>
-        </div>
-        <div class="anonymize-preview-body" v-if="previewStatus === 'ready'">
-          <div class="d-flex w-100 justify-content-between align-items-center flex-wrap">
-            <h2 class="pr-title mb-1">
-              <span v-if="options?.title">{{ anonymizeGistContent(details?.gist?.description) || 'Untitled gist' }}</span>
-              <span class="badge" :class="{&#x27;badge-success&#x27;: details?.gist?.isPublic, &#x27;badge-secondary&#x27;: !details?.gist?.isPublic}">
-                {{ details?.gist?.isPublic ? 'public' : 'secret' }}
-              </span>
-            </h2>
-            <small v-if="options?.date" v-text="fmt?.date(details?.gist?.updatedDate)"></small>
-          </div>
-          <small v-if="options?.origin">Gist ID: {{ details?.source?.gistId }}</small>
-          <small v-if="options?.username &amp;&amp; details?.gist?.ownerLogin">By @{{ anonymizeGistContent(details?.gist?.ownerLogin) }}</small>
-          <div v-if="options?.content &amp;&amp; previewGistFiles?.length">
-            <ul class="pr-comments mt-3">
-              <li class="pr-comment" v-for="(file, index) in previewGistFiles">
-                <div class="pr-comment-head">
-                  <strong v-text="file?.filename"></strong>
-                  <span class="pr-comment-date" v-if="file?.language">{{ file?.language }}</span>
-                </div>
-                <gist-file :file="file" :terms="terms" :options="options"></gist-file>
-              </li>
-            </ul>
-          </div>
-          <div v-if="options?.comments &amp;&amp; details?.gist?.comments &amp;&amp; details?.gist?.comments?.length">
-            <h3 class="paper-section-eyebrow mt-3">Comments</h3>
-            <ul class="pr-comments">
-              <li class="pr-comment" v-for="(comment, index) in details?.gist?.comments">
-                <div class="pr-comment-head">
-                  <span class="pr-comment-author" v-if="options?.username">
-                    <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-user"></use></svg> @<span v-text="anonymizeGistContent(comment?.author)"></span>
+              <div class="d-flex w-100 justify-content-between align-items-center flex-wrap">
+                <h2 class="pr-title mb-1">
+                  <span v-if="options?.title">{{ anonymizeGistContent(details?.gist?.description) || 'Untitled gist' }}</span>
+                  <span class="badge" :class="{&#x27;badge-success&#x27;: details?.gist?.isPublic, &#x27;badge-secondary&#x27;: !details?.gist?.isPublic}">
+                    {{ details?.gist?.isPublic ? 'public' : 'secret' }}
                   </span>
-                  <span class="pr-comment-date" v-if="options?.date" v-text="fmt?.date(comment?.updatedDate)"></span>
+                </h2>
+                <small v-if="options?.date" v-text="fmt?.date(details?.gist?.updatedDate)"></small>
+              </div>
+              <small v-if="options?.origin">Gist ID: {{ details?.source?.gistId }}</small>
+              <small v-if="options?.username &amp;&amp; details?.gist?.ownerLogin">By @{{ anonymizeGistContent(details?.gist?.ownerLogin) }}</small>
+              <div v-if="options?.content &amp;&amp; previewGistFiles?.length">
+                <ul class="pr-comments mt-3">
+                  <li class="pr-comment" v-for="(file, index) in previewGistFiles">
+                    <div class="pr-comment-head">
+                      <strong v-text="file?.filename"></strong>
+                      <span class="pr-comment-date" v-if="file?.language">{{ file?.language }}</span>
+                    </div>
+                    <gist-file :file="file" :terms="terms" :options="options"></gist-file>
+                  </li>
+                </ul>
+              </div>
+              <div v-if="options?.comments &amp;&amp; details?.gist?.comments &amp;&amp; details?.gist?.comments?.length">
+                <h3 class="paper-section-eyebrow mt-3">Comments</h3>
+                <ul class="pr-comments">
+                  <li class="pr-comment" v-for="(comment, index) in details?.gist?.comments">
+                    <div class="pr-comment-head">
+                      <span class="pr-comment-author" v-if="options?.username">
+                        <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-user"></use></svg> @<span v-text="anonymizeGistContent(comment?.author)"></span>
+                      </span>
+                      <span class="pr-comment-date" v-if="options?.date" v-text="fmt?.date(comment?.updatedDate)"></span>
+                    </div>
+                    <div class="pr-comment-body" v-if="options?.body">
+                      <markdown :content="anonymizeGistContent(comment?.body)" :options="options" :terms="terms"></markdown>
+                    </div>
+                  </li>
+                </ul>
+              </div>
+              </div>
+              <div class="anonymize-preview-body" v-else-if="detectedType === 'pr' &amp;&amp; previewStatus === 'ready'">
+              <div class="d-flex w-100 justify-content-between align-items-center flex-wrap">
+                <h2 class="pr-title mb-1">
+                  <span v-if="options?.title">{{ anonymizePrContent(details?.pullRequest?.title) }}</span>
+                  <span class="badge" :class="{&#x27;badge-success&#x27;:details?.pullRequest?.merged, &#x27;badge-warning&#x27;:details?.pullRequest?.state==&#x27;open&#x27;, &#x27;badge-danger&#x27;:details?.pullRequest?.state==&#x27;closed&#x27; &amp;&amp; !details?.pullRequest?.merged}">
+                    {{ fmt?.title(details?.pullRequest?.merged ? "merged" : details?.pullRequest?.state) }}
+                  </span>
+                </h2>
+                <small v-if="options?.date" v-text="fmt?.date(details?.pullRequest?.updatedDate)"></small>
+              </div>
+              <small v-if="options?.origin">Pull Request on {{ details?.pullRequest?.baseRepositoryFullName }}</small>
+              <div class="pr-body" v-if="options?.body">
+                <markdown :content="anonymizePrContent(details?.pullRequest?.body)" :options="options" :terms="terms"></markdown>
+              </div>
+              <nav class="paper-tabs" role="tablist" v-if="options?.diff || options?.comments">
+                <button class="paper-tab" type="button" role="tab" v-if="options?.diff" :class="{&#x27;active&#x27;: prTabState?.active == &#x27;diff&#x27;}" id="preview-pr-diff-tab" :aria-selected="prTabState?.active === 'diff'" aria-controls="preview-pr-diff-panel" :tabindex="prTabState?.active === 'diff' ? 0 : -1" @keydown="previewTabKeydown($event)" @click="prTabState.active = &#x27;diff&#x27;">
+                  <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-code"></use></svg> Diff
+                </button>
+                <button class="paper-tab" type="button" role="tab" v-if="options?.comments" :class="{&#x27;active&#x27;: prTabState?.active == &#x27;comments&#x27;}" id="preview-pr-comments-tab" :aria-selected="prTabState?.active === 'comments'" aria-controls="preview-pr-comments-panel" :tabindex="prTabState?.active === 'comments' ? 0 : -1" @keydown="previewTabKeydown($event)" @click="prTabState.active = &#x27;comments&#x27;">
+                  <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-comment"></use></svg>
+                  <span v-text="fmt.plural(details?.pullRequest?.comments?.length, {&#x27;0&#x27;: &#x27;No comments&#x27;, &#x27;one&#x27;: &#x27;1 comment&#x27;, &#x27;other&#x27;: &#x27;{} comments&#x27;})"></span>
+                </button>
+              </nav>
+              <div class="anonymize-preview-status" v-if="!options?.diff &amp;&amp; !options?.comments">Diff and comments are hidden by your display settings.</div>
+              <div class="paper-tab-content">
+                <div role="tabpanel" id="preview-pr-diff-panel" aria-labelledby="preview-pr-diff-tab" v-if="options?.diff &amp;&amp; prTabState?.active == &#x27;diff&#x27;">
+                  <div class="pr-diff" v-html="sanitize(fmt?.diff(anonymizePrContent(details?.pullRequest?.diff)))"></div>
                 </div>
-                <div class="pr-comment-body" v-if="options?.body">
-                  <markdown :content="anonymizeGistContent(comment?.body)" :options="options" :terms="terms"></markdown>
+                <div role="tabpanel" id="preview-pr-comments-panel" aria-labelledby="preview-pr-comments-tab" v-if="options?.comments &amp;&amp; prTabState?.active == &#x27;comments&#x27;">
+                  <ul class="pr-comments">
+                    <li class="pr-comment" v-for="(comment, index) in details?.pullRequest?.comments">
+                      <div class="pr-comment-head">
+                        <span class="pr-comment-author" v-if="options?.username">
+                          <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-user"></use></svg> @<span v-text="anonymizePrContent(comment?.author)"></span>
+                        </span>
+                        <span class="pr-comment-date" v-if="options?.date" v-text="fmt?.date(comment?.updatedDate)"></span>
+                      </div>
+                      <div class="pr-comment-body" v-if="options?.body">
+                        <markdown :content="anonymizePrContent(comment?.body)" :options="options" :terms="terms"></markdown>
+                      </div>
+                    </li>
+                  </ul>
                 </div>
-              </li>
-            </ul>
-          </div>
-        </div>
-      </div>
-
-      <div id="workspace-preview" :role="mobileWorkspace ? 'tabpanel' : null" :aria-labelledby="mobileWorkspace ? 'workspace-preview-tab' : null" class="anonymize-preview-col" v-if="detectedType === &#x27;pr&#x27; &amp;&amp; details">
-        <div class="anonymize-preview-head">
-          <strong>Pull request preview</strong><button type="button" class="task-text-button preview-expand" @click="previewExpanded = !previewExpanded">{{ previewExpanded ? 'Restore split view' : 'Expand preview' }}</button>
-        </div>
-        <div class="anonymize-preview-status" role="status" v-if="sourceLoading &amp;&amp; previewStatus === 'idle'">Loading source…</div>
-        <div class="anonymize-preview-status" role="status" v-if="previewStatus === 'loading'">Updating the anonymized preview…</div>
-        <div class="anonymize-preview-status" role="alert" v-if="previewStatus === 'error'">
-          <p>Unable to generate the anonymized preview. The latest redactions have not been verified.</p>
-          <button class="btn btn-outline-ink" type="button" @click="retryPreview()">Retry preview</button>
-        </div>
-        <div class="anonymize-preview-body" v-if="previewStatus === 'ready'">
-          <div class="d-flex w-100 justify-content-between align-items-center flex-wrap">
-            <h2 class="pr-title mb-1">
-              <span v-if="options?.title">{{ anonymizePrContent(details?.pullRequest?.title) }}</span>
-              <span class="badge" :class="{&#x27;badge-success&#x27;:details?.pullRequest?.merged, &#x27;badge-warning&#x27;:details?.pullRequest?.state==&#x27;open&#x27;, &#x27;badge-danger&#x27;:details?.pullRequest?.state==&#x27;closed&#x27; &amp;&amp; !details?.pullRequest?.merged}">
-                {{ fmt?.title(details?.pullRequest?.merged ? "merged" : details?.pullRequest?.state) }}
-              </span>
-            </h2>
-            <small v-if="options?.date" v-text="fmt?.date(details?.pullRequest?.updatedDate)"></small>
-          </div>
-          <small v-if="options?.origin">Pull Request on {{ details?.pullRequest?.baseRepositoryFullName }}</small>
-          <div class="pr-body shadow-sm p-3 mb-4 rounded" style="background: var(--paper-bg-alt)" v-if="options?.body">
-            <markdown :content="anonymizePrContent(details?.pullRequest?.body)" :options="options" :terms="terms"></markdown>
-          </div>
-          <nav class="paper-tabs" role="tablist" v-if="options?.diff || options?.comments">
-            <button class="paper-tab" type="button" role="tab" v-if="options?.diff" :class="{&#x27;active&#x27;: prTabState?.active == &#x27;diff&#x27;}" id="preview-pr-diff-tab" :aria-selected="prTabState?.active === 'diff'" aria-controls="preview-pr-diff-panel" :tabindex="prTabState?.active === 'diff' ? 0 : -1" @keydown="previewTabKeydown($event)" @click="prTabState.active = &#x27;diff&#x27;">
-              <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-code"></use></svg> Diff
-            </button>
-            <button class="paper-tab" type="button" role="tab" v-if="options?.comments" :class="{&#x27;active&#x27;: prTabState?.active == &#x27;comments&#x27;}" id="preview-pr-comments-tab" :aria-selected="prTabState?.active === 'comments'" aria-controls="preview-pr-comments-panel" :tabindex="prTabState?.active === 'comments' ? 0 : -1" @keydown="previewTabKeydown($event)" @click="prTabState.active = &#x27;comments&#x27;">
-              <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-comment"></use></svg>
-              <span v-text="fmt.plural(details?.pullRequest?.comments?.length, {&#x27;0&#x27;: &#x27;No comments&#x27;, &#x27;one&#x27;: &#x27;1 comment&#x27;, &#x27;other&#x27;: &#x27;{} comments&#x27;})"></span>
-            </button>
-          </nav>
-          <div class="anonymize-preview-status" v-if="!options?.diff &amp;&amp; !options?.comments">Diff and comments are hidden by your display settings.</div>
-          <div class="paper-tab-content">
-            <div role="tabpanel" id="preview-pr-diff-panel" aria-labelledby="preview-pr-diff-tab" v-if="options?.diff &amp;&amp; prTabState?.active == &#x27;diff&#x27;">
-              <div class="pr-diff" v-html="sanitize(fmt?.diff(anonymizePrContent(details?.pullRequest?.diff)))"></div>
-            </div>
-            <div role="tabpanel" id="preview-pr-comments-panel" aria-labelledby="preview-pr-comments-tab" v-if="options?.comments &amp;&amp; prTabState?.active == &#x27;comments&#x27;">
-              <ul class="pr-comments">
-                <li class="pr-comment" v-for="(comment, index) in details?.pullRequest?.comments">
-                  <div class="pr-comment-head">
-                    <span class="pr-comment-author" v-if="options?.username">
-                      <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-user"></use></svg> @<span v-text="anonymizePrContent(comment?.author)"></span>
-                    </span>
-                    <span class="pr-comment-date" v-if="options?.date" v-text="fmt?.date(comment?.updatedDate)"></span>
-                  </div>
-                  <div class="pr-comment-body" v-if="options?.body">
-                    <markdown :content="anonymizePrContent(comment?.body)" :options="options" :terms="terms"></markdown>
-                  </div>
-                </li>
-              </ul>
+              </div>
+              </div>
+              <!-- More below: a fade with a way to keep reading (hidden by CSS once the window is scrolled to the end) -->
+              <div class="rp-more" v-if="previewStatus === 'ready'">
+                <a class="rp-more-btn" v-if="isUpdate &amp;&amp; previewUrl()" :href="safeUrl(previewPath())" target="_blank" rel="noopener">Continue reading on the reviewer page <span aria-hidden="true">↗</span></a>
+                <button type="button" class="rp-more-btn" v-else-if="!previewExpanded" @click="previewExpanded = true">Continue reading in the expanded preview</button>
+                <span class="rp-more-btn is-hint" v-else aria-hidden="true">Scroll for more</span>
+              </div>
             </div>
           </div>
         </div>

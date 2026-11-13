@@ -14,6 +14,19 @@ function redactedNodes(text) {
   return out;
 }
 
+// Full names with a break opportunity (<wbr>) after ".", "-" and "_", so long
+// names wrap at a separator rather than mid-word. Redaction slots stay whole.
+function breakableNodes(text) {
+  const parts = redactedNodes(text);
+  const out = [];
+  for (const part of Array.isArray(parts) ? parts : [parts]) {
+    if (typeof part !== "string") { out.push(part); continue; }
+    const pieces = part.split(/(?<=[._-])/);
+    pieces.forEach((piece, i) => { out.push(piece); if (i < pieces.length - 1) out.push(h("wbr")); });
+  }
+  return out;
+}
+
 // File sizes from the API are bytes; the global humanFileSize expects bits.
 function formatBytes(bytes) {
   if (bytes < 1024) return `${bytes} B`;
@@ -103,14 +116,39 @@ export default {
         let node = original, name = node.name;
         const originalPath = (parent + "/" + name).slice(1);
         if (matching.value && !matching.value.files.has(originalPath) && !matching.value.folders.has(originalPath)) return [];
-        while (node.children?.length === 1) { node = node.children[0]; name += "/" + node.name; }
+        // GitHub-style "a/b" rows join folder chains only, and only once the
+        // folder's listing is loaded: a folder that so far holds just the open
+        // file stays a real, expandable folder in its sorted place.
+        while (node.children?.length === 1 && node.children[0].children && props.page?.loadedFolders?.[(parent + "/" + name).slice(1)]) { node = node.children[0]; name += "/" + node.name; }
         const path = parent + "/" + name;
         const folder = !!node.children;
         const open = matching.value ? opens[path] !== false : !!opens[path];
         const truncated = folder && props.page?.options?.truncatedFolders?.includes(path.slice(1));
         const icon = h("span", { class: folder ? "tree-icon-folder" : "far fa-file tree-icon-file", "aria-hidden": "true" },
           folder ? h("svg", { viewBox: "0 0 14 12", focusable: "false" }, h("path", { d: "M1.5 10.5v-9h4l1.5 2h5.5v7z" })) : null);
-        const label = h("span", { class: "tree-name", title: name.replace(/\bXXXX-(\d+)\b/g, "[redacted term $1]") }, redactedNodes(name));
+        // Names show in full: long ones wrap onto a second line, preferably after
+        // ".", "-" or "_" (a <wbr> after each), with CSS overflow-wrap as the fallback.
+        // Only pathological names (over 80 characters) still truncate in the middle so
+        // the end and extension stay visible; a redaction token is never split.
+        let splitName = false, head = name, tail = "", middle = "";
+        if (name.length > 80) {
+          let tailAt = name.length - 12;
+          for (let i = name.length - 18; i <= name.length - 6; i++) if (i > 0 && "-_. ".includes(name[i])) { tailAt = i; break; }
+          splitName = !/XXXX-\d+/.test(name.slice(Math.max(0, tailAt - 12)));
+          head = name.slice(0, tailAt).trimEnd(); tail = name.slice(tailAt).trimStart();
+          if (splitName) {
+            const budget = Math.max(8, 30 - tail.length - 1);
+            if (head.length > budget && !/XXXX-\d+/.test(head)) {
+              let at = -1;
+              for (let i = Math.min(budget, head.length); i >= 4; i--) if (".-_".includes(head[i])) { at = i; break; }
+              const full = name.slice(0, name.length - tail.length);
+              head = (at > 0 ? head.slice(0, at) : head.slice(0, budget)).trimEnd();
+              middle = full.slice(head.length);
+            }
+          }
+        }
+        const label = h("span", { class: { "tree-name": true, "tree-name-split": splitName, "tree-name-wrap": !splitName }, title: name.replace(/\bXXXX-(\d+)\b/g, "[redacted term $1]") },
+          splitName ? [h("span", { class: { "tree-name-head": true, "is-cut": !!middle } }, redactedNodes(head)), middle ? h("span", { class: "tree-name-middle" }, middle) : null, h("span", { class: "tree-name-tail" }, tail)] : breakableNodes(name));
         const onClick = event => {
           focus(event.currentTarget);
           if (!folder) return;
@@ -127,7 +165,7 @@ export default {
         }, [folder ? h("span", { class: "tree-toggle" }) : h("span", { class: "tree-spacer" }), icon, label,
           truncated ? h("span", { class: "truncated-warning", title: props.page.fmt.translate("WARNINGS.folder_truncated") }, h("i", { class: "fas fa-exclamation-triangle" })) : null,
         ]);
-        return h("li", { key: path, class: { file: true, folder, open, active: selectedPath() === path, truncated }, title: folder ? "" : `Size: ${formatBytes(node.size || 0)}` }, [link, folder && open ? renderNodes(node.children, path) : null]);
+        return h("li", { key: path, class: { file: true, folder, open, active: selectedPath() === path, truncated }, title: folder ? "" : `Size: ${formatBytes(node.size || 0)}` }, [link, folder && open ? (node.children.length || !props.page?.loadedFolders?.[path.slice(1)] ? renderNodes(node.children, path) : h("ul", h("li", { class: "tree-empty" }, "Empty folder"))) : null]);
       }));
     }
     return () => h("tree", { ref: host, tabindex: 0, onKeydown: keyboard },

@@ -1,13 +1,15 @@
 <div class="repository-task status-page">
-  <div class="paper-crumbs"><a href="/dashboard">My work</a> / Repository</div>
-  <h1>Prepare your anonymous review link</h1>
-  <p class="task-lede">{{ repo?.status === 'ready' ? 'Your repository is ready to share.' : 'Your settings are saved. Track preparation before sharing the link.' }}</p>
-  <ol class="task-trail" aria-label="Repository progress"><li>1. Repository</li><li>2. Review and hosting</li><li aria-current="step">3. Review link</li></ol>
+  <header class="page-head" :class="{ 'task-ready': repo?.status === 'ready' }">
+    <div class="paper-crumbs"><a href="/dashboard">My work</a> &nbsp;/&nbsp; <span class="here">Review link</span></div>
+    <div class="page-head-main"><div>
+      <h1>{{ repo?.status === 'ready' ? 'Your review link is ready' : 'Prepare your anonymous review link' }}</h1>
+      <p class="task-lede">{{ repo?.status === 'ready' ? 'Share this link with reviewers in your submission.' : 'Your settings are saved. Track preparation before sharing the link.' }}</p>
+    </div>
+    </div>
+    <ol class="task-trail flow-trail" aria-label="Repository progress"><li>1. Repository</li><li>2. Review and hosting</li><li aria-current="step">3. Review link</li></ol>
+  </header>
   <div class="task-columns">
   <section class="task-preparation" aria-label="Repository preparation">
-    <div class="task-ready" v-if="repo?.status === 'ready'" role="status"><strong>Your review link is ready</strong></div>
-    <h2>{{ repoId }}</h2>
-    <p v-if="repo?.status === 'ready'">Share the link with reviewers. They do not need to sign in.</p>
     <p v-if="error" class="text-danger" role="alert">Unable to load repository status. <button type="button" class="task-text-button" @click="getStatus()">Try again</button></p>
 
     <p class="paper-section-copy" v-if="repo?.status !== 'ready'">
@@ -51,37 +53,38 @@
         <li>If you just signed in, the access token may need a moment to propagate &mdash; try again.</li>
       </ul>
       <div class="paper-error-actions">
-        <a class="btn btn-ink" :href="safeUrl(&quot;/anonymize/&quot; + (repoId))"><svg class="ui-icon mr-1" aria-hidden="true"><use href="#ui-icon-edit"></use></svg> Edit anonymization</a>
+        <a class="btn btn-primary" :href="safeUrl(&quot;/anonymize/&quot; + (repoId))"><svg class="ui-icon mr-1" aria-hidden="true"><use href="#ui-icon-edit"></use></svg> Edit anonymization</a>
         <a class="btn" href="/faq"><svg class="ui-icon mr-1" aria-hidden="true"><use href="#ui-icon-help"></use></svg> Read the FAQ</a>
         <a class="btn" href="https://github.com/tdurieux/anonymous_github/issues/new?template=issue_report.yml" target="_blank" rel="noopener"><svg class="ui-icon mr-1" aria-hidden="true"><use href="#ui-icon-bug"></use></svg> Report a bug in Anonymous GitHub</a>
       </div>
     </div>
 
     <div class="share-link" v-if="repo?.status == &#x27;ready&#x27;">
-      <p class="paper-section-copy">Reviewers can browse the repository at this address without seeing who you are.</p>
+      <div class="share-link-label" id="share-url-label">Review link</div>
       <div class="share-link-row">
-        <input id="share-url" class="form-control share-link-input" readonly aria-label="Anonymous link" :value="shareUrl" @focus="$event.target.select()">
-        <button type="button" class="btn btn-ink" @click="copyShareUrl()">
-          <svg class="ui-icon" aria-hidden="true"><use :href="copied ? '#ui-icon-check' : '#project-icon-copy'"></use></svg>
-          <span aria-live="polite" v-text="copied ? 'Copied' : 'Copy link'"></span>
-        </button>
+        <code id="share-url" class="share-link-url" tabindex="0" role="textbox" aria-readonly="true" aria-labelledby="share-url-label" @focus="selectShareUrl($event)">{{ shareUrl }}</code>
+        <div class="share-link-buttons">
+          <button type="button" class="btn btn-primary share-copy" @click="copyShareUrl()">
+            <svg class="ui-icon" aria-hidden="true"><use :href="copied ? '#ui-icon-check' : '#project-icon-copy'"></use></svg>
+            <span aria-live="polite" v-text="copied ? 'Copied' : 'Copy link'"></span>
+          </button>
+          <a class="btn share-open" target="_self" :href="safeUrl(&quot;/r/&quot; + (repoId) + &quot;/&quot;)">
+            <svg class="ui-icon" aria-hidden="true"><use href="#project-icon-eye"></use></svg> Open repository
+          </a>
+        </div>
       </div>
-      <div class="share-link-actions">
-        <a class="btn" target="_self" :href="safeUrl(&quot;/r/&quot; + (repoId) + &quot;/&quot;)">
-          <svg class="ui-icon" aria-hidden="true"><use href="#project-icon-eye"></use></svg> Open repository
-        </a>
-        <a class="btn" target="_self" v-if="repo?.options?.page" :href="safeUrl(&quot;/w/&quot; + (repoId) + &quot;/&quot;)">
-          <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-globe"></use></svg> Open GitHub page
-        </a>
+      <p class="share-link-note">{{ repo?.options?.expirationMode !== 'never' &amp;&amp; repo?.options?.expirationDate ? 'Expires ' + fmt.date(repo.options.expirationDate) : 'Never expires' }}<span aria-hidden="true"> · </span>Reviewers don’t need an account<template v-if="repo?.options?.page"><span aria-hidden="true"> · </span><a target="_self" :href="safeUrl(&quot;/w/&quot; + (repoId) + &quot;/&quot;)">Open GitHub page</a></template></p>
+      <div class="share-link-next">
+        <h2>Need to change something?</h2>
+        <p>Edit the redacted terms or the expiry at any time. The link stays the same.</p>
+        <p class="share-link-next-actions"><a :href="safeUrl(&quot;/anonymize/&quot; + (repoId))">Edit anonymization</a><span aria-hidden="true">·</span><a href="/dashboard">Go to My work</a></p>
       </div>
     </div>
 
   </section>
 
     <aside class="task-summary" aria-label="Repository summary">
-      <h3>{{ repoId }}</h3>
-      <dl><dt>Source</dt><dd>{{ repo?.source?.fullName ? 'https://github.com/' + repo.source.fullName : 'Loading…' }}</dd><dt>Lifetime</dt><dd>{{ repo?.options?.expirationMode === 'never' ? 'Never expire while subscribed' : repo?.options?.expirationDate ? 'Until ' + fmt.date(repo.options.expirationDate) : 'Loading…' }}</dd><dt>Review access</dt><dd>Anonymous and free</dd></dl>
-      <div class="task-summary-foot"><strong>{{ repo?.status === 'ready' ? 'Ready to share' : 'Repository preparation' }}</strong><p>Coauthors do not each need a subscription.</p></div>
+      <dl><dt>Source</dt><dd class="task-source" v-if="repo?.source?.fullName" :title="'https://github.com/' + repo.source.fullName">github.com/<wbr>{{ repo.source.fullName.split('/')[0] }}/<wbr>{{ repo.source.fullName.split('/').slice(1).join('/') }}</dd><dd v-else>Loading…</dd><dt>Lifetime</dt><dd>{{ repo?.options?.expirationMode === 'never' ? 'Never expire while subscribed' : repo?.options?.expirationDate ? 'Until ' + fmt.date(repo.options.expirationDate) : 'Loading…' }}</dd><dt>Review access</dt><dd>Anonymous and free</dd></dl>
     </aside>
   </div>
 </div>

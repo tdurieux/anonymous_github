@@ -1,4 +1,5 @@
-export const humanFileSize = value => window.humanFileSize(value);
+// One size vocabulary across the app (KB, MB, GB, binary multiples), as in the explorer and plans.
+export const humanFileSize = value => String(window.humanFileSize(value)).replace(/([KMGTPEZY])iB$/, "$1B").replace(/\.0 ([KMGTPEZY]?B)$/, " $1");
 export const bigNum = (function () {
     return function bigNum(v) {
       const n = Number(v) || 0;
@@ -108,6 +109,7 @@ export const statusMsg = (function () {
       gist_not_found: "Gist not found on GitHub",
       commit_not_found: "Commit not found on GitHub",
       repo_too_big: "Repository exceeds the size limit",
+      repository_too_big: "Repository exceeds the size limit",
       quota_exceeded: "Storage quota exceeded",
       incomplete_record: "Incomplete record: missing identifier",
     };
@@ -122,6 +124,13 @@ export const statusMsg = (function () {
         return "Rate limited — retrying in " + (min > 0 ? min + "m " + sec + "s" : sec + "s");
       }
       if (codes[msg]) return codes[msg];
+      // "code: server detail" → the plain sentence for the code; the raw text stays in the tooltip.
+      var coded = /^([a-z0-9]+(?:_[a-z0-9]+)+):\s*\S/.exec(msg);
+      if (coded) {
+        if (codes[coded[1]]) return codes[coded[1]];
+        var t = coded[1].replace(/_/g, " ");
+        return t.charAt(0).toUpperCase() + t.slice(1);
+      }
       if (/^[a-z0-9]+(_[a-z0-9]+)+$/.test(msg)) {
         var s = msg.replace(/_/g, " ");
         return s.charAt(0).toUpperCase() + s.slice(1);
@@ -177,11 +186,11 @@ export const diff = (function (html) {
                   ? "+"
                   : line.kind === "remove"
                   ? "-"
-                  : line.kind === "hunk"
-                  ? "@"
                   : "") +
                 "</td>" +
-                '<td class="diff-code">' +
+                '<td class="diff-code" style="--hang:' +
+                Math.min(((line.text || "").match(/^[ \t]*/)[0] || "").replace(/\t/g, "    ").length + 4, 24) +
+                'ch">' +
                 esc(line.text) +
                 "</td>" +
                 "</tr>"
@@ -266,6 +275,11 @@ export const diff = (function (html) {
 export function number(value, digits) {
   return value == null ? "" : Number(value).toLocaleString(undefined, digits == null ? {} : { minimumFractionDigits: digits, maximumFractionDigits: digits });
 }
+// Money everywhere: the locale's currency format, cents only when there are cents.
+export function money(value, currency = "EUR") {
+  const n = Number(value) || 0;
+  return new Intl.NumberFormat(undefined, { style: "currency", currency, minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 }).format(n);
+}
 export function uppercase(value) { return String(value ?? "").toUpperCase(); }
 export function limitTo(value, count, start = 0) { return (value || []).slice(start, start + count); }
 export function filter(values, predicate) {
@@ -299,4 +313,51 @@ export function date(value, format) {
 }
 export function plural(count, forms) {
   return (forms?.[count] ?? forms?.[count === 1 ? "one" : "other"] ?? "").replace(/\{\}/g, count ?? 0);
+}
+// Named-month echo for a native date field ("May 12, 2027 · in 6 months"), so a
+// numeric mm/dd/yyyy value is never the only representation. "YYYY-MM-DD" is
+// read as a local calendar date (not UTC midnight) so it never shifts a day.
+export function dateEcho(value) {
+  if (!value) return "";
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value));
+  const d = m ? new Date(+m[1], +m[2] - 1, +m[3]) : new Date(value);
+  if (isNaN(d)) return "";
+  const label = d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const days = Math.round((d - today) / 86400000);
+  let rel;
+  if (days === 0) rel = "today";
+  else if (days === 1) rel = "tomorrow";
+  else if (days === -1) rel = "yesterday";
+  else {
+    const abs = Math.abs(days);
+    const months = Math.round(abs / 30.44);
+    const unit = abs < 14 ? [abs, "day"] : abs < 60 ? [Math.round(abs / 7), "week"] : months < 18 ? [months, "month"] : [Math.round(abs / 365.25), "year"];
+    const text = unit[0] + " " + unit[1] + (unit[0] === 1 ? "" : "s");
+    rel = days > 0 ? "in " + text : text + " ago";
+  }
+  return label + " · " + rel;
+}
+// One duration format for every admin table: "640 ms", "7.8 ms", "12.8 s", "35m 02s", "2h 05m".
+// At most two decimals, no trailing zeros, a narrow no-break space before the unit.
+export function duration(ms) {
+  if (ms == null || ms === "" || isNaN(ms)) return "";
+  ms = Number(ms);
+  const U = " ";
+  if (ms < 1000) return +(ms < 10 ? ms.toFixed(2) : ms < 100 ? ms.toFixed(1) : Math.round(ms)) + U + "ms";
+  const s = ms / 1000;
+  if (s < 60) return +(s < 10 ? s.toFixed(2) : s.toFixed(1)) + U + "s";
+  const pad = (n) => String(n).padStart(2, "0");
+  const total = Math.round(s);
+  if (total < 3600) return Math.floor(total / 60) + "m " + pad(total % 60) + "s";
+  return Math.floor(total / 3600) + "h " + pad(Math.floor((total % 3600) / 60)) + "m";
+}
+// "Nov 3" in the current year, "Nov 3, 2025" otherwise: the one date format for Expired rows.
+export function shortDate(value) {
+  if (!value) return "";
+  const d = new Date(value);
+  if (isNaN(d)) return "";
+  const opts = { day: "numeric", month: "short" };
+  if (d.getFullYear() !== new Date().getFullYear()) opts.year = "numeric";
+  return d.toLocaleDateString(undefined, opts);
 }

@@ -14,12 +14,28 @@
         <a href="#faq-plans">Plans and billing</a>
         <a href="#faq-features">Features</a>
         <a href="#faq-limitations">Limitations</a>
-        <a href="#faq-privacy">Privacy &amp; Security</a>
-        <a href="#faq-hosting">Self-Hosting</a>
+        <a href="#faq-privacy">Privacy and security</a>
+        <a href="#faq-hosting">Self-hosting</a>
       </nav>
     </aside>
-    <section class="faq-section" aria-label="FAQs">
-      <div>
+    <section class="faq-section" aria-label="FAQs" :class="{ 'faq-searching': !!faqQuery.trim() }">
+      <div class="faq-search" role="search">
+        <label for="faq-search-input">Search questions</label>
+        <div class="faq-search-field">
+          <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-search"></use></svg>
+          <input id="faq-search-input" type="search" class="form-control" v-model="faqQuery" @input="filterFaq()" @search="filterFaq()" @keydown.esc="clearFaqSearch()" placeholder="e.g. expiry, pull request, PDF" autocomplete="off" spellcheck="false" aria-describedby="faq-search-status">
+        </div>
+        <p id="faq-search-status" class="faq-search-status" aria-live="polite"><template v-if="faqQuery.trim() &amp;&amp; faqResults">{{ faqResults === 1 ? '1 result' : faqResults + ' results' }}</template></p>
+      </div>
+      <div class="faq-search-empty" v-if="faqQuery.trim() &amp;&amp; faqResults === 0">
+        <strong>No questions match “{{ faqQuery.trim() }}”.</strong>
+        <p>Try a shorter word, or ask us directly.</p>
+        <div class="faq-search-empty-actions">
+          <button type="button" class="btn btn-outline-ink btn-sm" @click="clearFaqSearch()">Clear search</button>
+          <a class="btn btn-link btn-sm" target="_blank" rel="noopener" href="https://github.com/tdurieux/anonymous_github/issues/new?template=issue_report.yml">Open an issue</a>
+        </div>
+      </div>
+      <div class="faq-list">
 
           <!-- General -->
           <h4 class="faq-cat">
@@ -150,7 +166,7 @@
               <div id="freePlan" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingFreePlan">
                 <div class="panel-body p-3">
                   <p>The default free allowance is 5 repositories you own and 2 GiB of source files in total. Core anonymization and reviewer access remain free. You can manually refresh a repository within your allowance and choose a dated expiration up to 5 months ahead, then extend it again before it expires. Repositories submitted to a conference can stay online until the end of its review window.</p>
-<p>Repositories shared with you as a coauthor do not use your own slots. Gists and pull requests are not included in these repository quotas. The usage shown in your account is the allowance available on this instance.</p>
+<p>Repositories shared with you as a co-author do not use your own slots. Gists and pull requests are not included in these repository quotas. The usage shown in your account is the allowance available on this instance.</p>
                 </div>
               </div>
             </div>
@@ -205,13 +221,13 @@
             <div class="panel panel-default mb-3">
               <div class="panel-heading p-3" role="tab" id="headingPaidCoauthors">
                 <h3 class="panel-title">
-                  <a class="collapsed" role="button" data-toggle="collapse" data-parent="#faq-plans" href="#paidCoauthors" aria-expanded="false" aria-controls="paidCoauthors">Does every coauthor need to pay?</a>
+                  <a class="collapsed" role="button" data-toggle="collapse" data-parent="#faq-plans" href="#paidCoauthors" aria-expanded="false" aria-controls="paidCoauthors">Does every co-author need to pay?</a>
                 </h3>
               </div>
               <div id="paidCoauthors" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingPaidCoauthors">
                 <div class="panel-body p-3">
-                  <p>No. Coauthors can collaborate without buying a subscription. A shared repository uses its owner's allowance, unless a repository pass or paid conference covers it. It does not consume each coauthor's personal allowance.</p>
-<p>A coauthor's subscription does not increase the owner's allowance. If the owner's available capacity is exhausted, a coauthor's refresh or edit may also be blocked. Reviewers never need a paid account.</p>
+                  <p>No. Co-authors can collaborate without buying a subscription. A shared repository uses its owner's allowance, unless a repository pass or paid conference covers it. It does not consume each co-author's personal allowance.</p>
+<p>A co-author's subscription does not increase the owner's allowance. If the owner's available capacity is exhausted, a co-author's refresh or edit may also be blocked. Reviewers never need a paid account.</p>
                 </div>
               </div>
             </div>
@@ -481,9 +497,9 @@ anonymous_github</code></pre>
             </div>
           </div>
 
-          <!-- Privacy & Security -->
+          <!-- Privacy and security -->
           <h4 class="faq-cat">
-            <svg class="ui-icon mr-2" aria-hidden="true"><use href="#ui-icon-shield"></use></svg>Privacy &amp; Security
+            <svg class="ui-icon mr-2" aria-hidden="true"><use href="#ui-icon-shield"></use></svg>Privacy and security
           </h4>
           <div class="panel-group" id="faq-privacy" role="tablist" aria-multiselectable="true">
             <div class="panel panel-default mb-3">
@@ -543,9 +559,9 @@ anonymous_github</code></pre>
             </div>
           </div>
 
-          <!-- Self-Hosting -->
+          <!-- Self-hosting -->
           <h4 class="faq-cat">
-            <svg class="ui-icon mr-2" aria-hidden="true"><use href="#project-icon-storage"></use></svg>Self-Hosting
+            <svg class="ui-icon mr-2" aria-hidden="true"><use href="#project-icon-storage"></use></svg>Self<span class="serif-hy">-</span>hosting
           </h4>
           <div class="panel-group" id="faq-hosting" role="tablist" aria-multiselectable="true">
             <div class="panel panel-default mb-3">
@@ -579,16 +595,7 @@ anonymous_github</code></pre>
             </div>
           </div>
 
-          <div class="text-center mt-5 mb-5 p-4" style="background-color: var(--hover-bg-color); border-radius: 8px;">
-            <p class="mb-2" style="font-size: 1.1rem;">
-              Still have questions?
-            </p>
-            <p class="text-muted mb-0">
-              Open an issue on the
-              <a href="https://github.com/tdurieux/anonymous_github/issues" target="_blank">GitHub repository</a>
-              and we'll be happy to help.
-            </p>
-          </div>
+
 
         </div>
       </section>
@@ -601,3 +608,4 @@ anonymous_github</code></pre>
       </aside>
     </div>
   </div>
+<partial-view name="partials/footer.htm" :state="viewState"></partial-view>

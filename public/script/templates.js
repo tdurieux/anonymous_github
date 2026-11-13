@@ -27,6 +27,7 @@ import { render as template22 } from "../partials/pr-dashboard.htm";
 import { render as template23 } from "../partials/profile.htm";
 import { render as template24 } from "../partials/pullRequest.htm";
 import { render as template25 } from "../partials/status.htm";
+import { render as footerTemplate } from "../partials/footer.htm";
 export const templates = {
 "partials/reviewConsent.htm": reviewConsentTemplate,
   "partials/connections.htm": connectionsTemplate,
@@ -56,5 +57,6 @@ export const templates = {
   "partials/pr-dashboard.htm": template22,
   "partials/profile.htm": template23,
   "partials/pullRequest.htm": template24,
-  "partials/status.htm": template25
+  "partials/status.htm": template25,
+  "partials/footer.htm": footerTemplate
 };

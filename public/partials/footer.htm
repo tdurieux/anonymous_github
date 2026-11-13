@@ -1,0 +1,34 @@
+<footer class="paper-footer">
+  <div class="paper-footer-inner">
+    <div class="paper-footer-brand">
+      <div class="paper-footer-mark">Anonymous <em>GitHub</em></div>
+      <p class="paper-footer-tag">
+        A read-only, identity-stripped mirror of your repository, built for
+        double-anonymous peer review.
+      </p>
+    </div>
+    <div class="paper-footer-col">
+      <div class="paper-footer-head">Product</div>
+      <a href="/anonymize">Anonymize</a>
+      <a href="/dashboard" v-if="user">My work</a>
+      <a href="/conferences" v-if="user">Conferences</a>
+      <a href="/faq">FAQ</a>
+    </div>
+    <div class="paper-footer-col">
+      <div class="paper-footer-head">Project</div>
+      <a href="https://github.com/tdurieux/anonymous_github/" target="_blank" rel="noopener">Source code</a>
+      <a href="https://github.com/tdurieux/anonymous_github/issues/new?template=issue_report.yml" target="_blank" rel="noopener">Report a bug</a>
+      <a href="https://github.com/sponsors/tdurieux/" target="_blank" rel="noopener">Support</a>
+    </div>
+    <div class="paper-footer-col">
+      <div class="paper-footer-head">Contact</div>
+      <a href="mailto:tdurieux@anonymous.4open.science">Email maintainer</a>
+      <a href="https://github.com/tdurieux" target="_blank" rel="noopener">@tdurieux</a>
+    </div>
+  </div>
+  <div class="paper-footer-rule"></div>
+  <div class="paper-footer-foot">
+    <span>&copy; {{ year || new Date().getFullYear() }} Anonymous GitHub &middot; GPL-3.0 licensed</span>
+    <span class="paper-footer-meta">Built for reviewers, by researchers.</span>
+  </div>
+</footer>
