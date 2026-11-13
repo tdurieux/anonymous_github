@@ -63,7 +63,23 @@ export async function syncSubscription(id: string, stripe = stripeClient()) {
         }
       }
     }
-    const values = { owner, scope: `user:${owner}`, planId: plan?.id || "unknown", customerId: account.customerId, priceId,
+    // Snapshot the original invoice price, never the mutable current price.
+    // Legacy grants without this evidence remain incomplete in historical reports.
+    let initialSale: { salePriceId: string; salePlanId: string } | undefined;
+    if (!previous?.salePriceId && invoice?.status === "paid" && invoice.billing_reason === "subscription_create") {
+      const lines = stripe.invoices?.listLineItems
+        ? stripe.invoices.listLineItems(invoice.id, { limit: 100 }) : invoice.lines?.data || [];
+      for await (const line of lines) {
+        const item = line.parent?.subscription_item_details;
+        const originalPrice = objectId(line.pricing?.price_details?.price || null);
+        if (!item?.proration && item?.subscription_item === sub.items.data[0]?.id && originalPrice) {
+          const originalPlan = await planForPrice(originalPrice, true);
+          if (originalPlan) initialSale = { salePriceId: originalPrice, salePlanId: originalPlan.id };
+          break;
+        }
+      }
+    }
+    const values = { ...initialSale, owner, scope: `user:${owner}`, planId: plan?.id || "unknown", customerId: account.customerId, priceId,
       subscriptionId: id, status: sub.status, cancelAtPeriodEnd: sub.cancel_at_period_end || !!sub.cancel_at,
       until: paidThrough, ...(sub.start_date ? { purchasedAt: new Date(sub.start_date * 1000) } : {}),
     };

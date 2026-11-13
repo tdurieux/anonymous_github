@@ -2245,3 +2245,187 @@ function watchMetaLines(timers, listen) {
   if (document.fonts?.ready) document.fonts.ready.then(queue);
   queue();
 }
+
+// Billing: subscriptions, sales and webhook health. Amounts arrive in minor units per currency
+// (Stripe's unit_amount) and are never added across currencies.
+const ZERO_DECIMAL = ["bif", "clp", "djf", "gnf", "jpy", "kmf", "krw", "mga", "pyg", "rwf", "ugx", "vnd", "vuv", "xaf", "xof", "xpf"];
+export const BILLING_FAMILIES = [
+  { id: "subscription", label: "Subscriptions" },
+  { id: "repository", label: "Repository purchases" },
+  { id: "conference", label: "Conferences" },
+];
+// Names from src/core/billing/config.ts, used until the summary (which carries them) arrives.
+const BILLING_PLAN_NAMES = { author_monthly: "Author monthly", author_annual: "Author annual", author_pass: "Live updates", repo_extend: "Extended expiration",
+  repo_never: "Never expire", repo_slot: "Extra repository", repo_pack: "Paper pack", conference_workshop: "Workshop", conference: "Conference", conference_large: "Large conference" };
+export function moneyParts(amounts) {
+  return Object.entries(amounts || {}).filter(([, v]) => v).sort((a, b) => b[1] - a[1]).map(([currency, minor]) => {
+    const value = ZERO_DECIMAL.includes(currency) ? minor : minor / 100;
+    try { return new Intl.NumberFormat(undefined, { style: "currency", currency: currency.toUpperCase(), minimumFractionDigits: value % 1 ? 2 : 0, maximumFractionDigits: 2 }).format(value); }
+    catch (e) { return value + " " + currency.toUpperCase(); }
+  });
+}
+export const billingAdminController = function (state, http, location) {
+      const timers = createTimers();
+      state.Math = Math;
+      state.watch("user.status", () => { if (state.user == null) location.url("/"); });
+      if (state.user == null) { location.url("/"); return; }
+
+      state.families = BILLING_FAMILIES;
+      state.periods = [{ id: "7d", label: "7 days" }, { id: "30d", label: "30 days" }, { id: "90d", label: "90 days" }, { id: "12m", label: "12 months" }, { id: "all", label: "All time" }];
+      const savedPeriod = (() => { try { return localStorage.getItem("admin.billing.period"); } catch (e) { return null; } })();
+      state.period = state.periods.some((p) => p.id === savedPeriod) ? savedPeriod : "30d";
+      state.summary = null;
+      state.summaryError = null;
+      state.summaryLoading = true;
+
+      state.periodLabel = () => (state.periods.find((p) => p.id === state.period) || {}).label || "";
+      // "in 30 days" reads wrong for All time.
+      state.periodPhrase = () => state.period === "all" ? "all time" : "last " + state.periodLabel();
+      state.money = (amounts) => moneyParts(amounts);
+      state.moneyText = (amounts, empty = "—") => moneyParts(amounts).join(" · ") || empty;
+      state.revenueOn = () => !!state.summary?.revenue?.available;
+      state.planName = (id) => ((state.summary?.plans || []).find((p) => p.planId === id) || {}).name || BILLING_PLAN_NAMES[id] || id;
+
+      // Stacked sales chart: one column per bucket, scaled to a rounded axis maximum.
+      state.bucketTotal = (d) => d ? d.subscription + d.repository + d.conference : 0;
+      state.chartMax = () => {
+        const peak = Math.max(0, ...(state.summary?.series || []).map(state.bucketTotal));
+        if (peak <= 4) return 4;
+        const step = Math.pow(10, Math.floor(Math.log10(peak)));
+        // An even maximum keeps the midline label a whole number.
+        return [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10].map((m) => m * step).find((v) => v >= peak && v % 2 === 0) || 10 * step;
+      };
+      state.segmentPct = (d, family) => d && d[family] ? (d[family] / state.chartMax()) * 100 : 0;
+      state.familyTotal = (family) => (state.summary?.series || []).reduce((n, d) => n + d[family], 0);
+      state.bucketLabel = (d) => {
+        if (!d) return "";
+        const date = new Date(d.date);
+        const opts = { timeZone: "UTC", day: "numeric", month: "short" };
+        if (state.summary?.bucket === "month") return date.toLocaleDateString(undefined, { timeZone: "UTC", month: "short", year: "numeric" });
+        if (state.period === "12m" || state.period === "all" || date.getUTCFullYear() !== new Date().getUTCFullYear()) opts.year = "numeric";
+        return (state.summary?.bucket === "week" ? "Week of " : "") + date.toLocaleDateString(undefined, opts);
+      };
+      state.bucketTip = (d) => {
+        const total = state.bucketTotal(d);
+        if (!total) return state.bucketLabel(d) + ": no sales";
+        const parts = BILLING_FAMILIES.filter((f) => d[f.id]).map((f) => d[f.id] + " " + f.label.toLowerCase());
+        return state.bucketLabel(d) + ": " + total + (total === 1 ? " sale" : " sales") + " (" + parts.join(", ") + ")";
+      };
+      state.bucketName = () => ({ day: "day", week: "week", month: "month" })[state.summary?.bucket] || "day";
+      state.seriesSales = () => (state.summary?.series || []).reduce((n, d) => n + state.bucketTotal(d), 0);
+
+      state.plansWithActivity = () => (state.summary?.plans || []).filter((p) => p.active || p.allTimeSales || p.sales);
+      state.planTotals = () => {
+        const sum = (key) => (state.summary?.plans || []).reduce((n, p) => n + (p[key] || 0), 0);
+        return { active: sum("active"), sales: sum("sales"), allTimeSales: sum("allTimeSales") };
+      };
+
+      state.webhookState = () => {
+        const w = state.summary?.webhooks;
+        if (!w) return "ok";
+        if (w.failed || w.reconciliationFailed) return "bad";
+        if (w.oldestPendingSeconds > 900 || w.unreviewedRevocations) return "warn";
+        return "ok";
+      };
+      state.age = (seconds) => seconds ? duration(seconds * 1000) : "—";
+
+      let summaryRequest = 0;
+      state.loadSummary = () => {
+        const request = ++summaryRequest;
+        state.summaryLoading = true;
+        state.summaryError = null;
+        http.get("/api/admin/billing/summary", { params: { period: state.period } }).then((res) => {
+          if (request !== summaryRequest) return;
+          state.summaryLoading = false;
+          const data = res.data;
+          if (!data || !data.subscriptions || !data.sales || !Array.isArray(data.plans)) { state.summaryError = "The billing summary had an unexpected format."; return; }
+          state.summary = data;
+        }, (err) => {
+          if (request !== summaryRequest) return;
+          state.summaryLoading = false;
+          state.summaryError = (err && err.data && err.data.error) || "Could not load billing figures.";
+        });
+      };
+      state.setPeriod = (id) => {
+        if (state.period === id) return;
+        state.period = id;
+        try { localStorage.setItem("admin.billing.period", id); } catch (e) { /* private mode */ }
+        state.loadSummary();
+      };
+
+      // -------- grant list --------
+      state.grants = [];
+      state.total = -1;
+      state.totalPage = 0;
+      state.stateCounts = {};
+      state.statuses = [];
+      state.grantsError = null;
+      state.filtersOpen = false;
+      state.query = { page: 1, limit: 25, search: "", plan: "", status: "", state: "", sort: "purchasedAt", direction: "desc" };
+      const urlParams = location.search();
+      if (urlParams.search) state.query.search = urlParams.search;
+      state.stateView = () => state.query.state || "all";
+      state.setStateView = (view) => { state.query.state = view === "all" ? "" : view; state.query.page = 1; };
+      state.stateCount = (view) => view === "all"
+        ? ["active", "expired", "revoked"].reduce((n, k) => n + (state.stateCounts[k] || 0), 0)
+        : state.stateCounts[view] || 0;
+      state.sortBy = (field) => {
+        if (state.query.sort === field) state.query.direction = state.query.direction === "asc" ? "desc" : "asc";
+        else { state.query.sort = field; state.query.direction = "desc"; }
+        state.query.page = 1;
+      };
+      state.sortIcon = (field) => state.query.sort === field ? (state.query.direction === "asc" ? "fa-arrow-up" : "fa-arrow-down") : "";
+      state.chips = [];
+      const recomputeChips = () => {
+        const out = [];
+        if (state.query.plan) out.push({ key: "plan", label: "Plan", value: state.planName(state.query.plan) });
+        if (state.query.status) out.push({ key: "status", label: "Stripe status", value: state.query.status.replace(/_/g, " ") });
+        state.chips = out;
+      };
+      state.clearFilter = (key) => { state.query[key] = ""; state.query.page = 1; };
+      state.filterPlan = (planId) => {
+        Object.assign(state.query, { plan: planId, page: 1 });
+        const list = document.getElementById("bl-grants");
+        if (list && list.scrollIntoView) list.scrollIntoView({ behavior: "smooth", block: "start" });
+      };
+      state.clearFilters = () => Object.assign(state.query, { search: "", plan: "", status: "", state: "", page: 1 });
+      state.hasFilters = () => !!(state.query.search || state.query.plan || state.query.status || state.query.state);
+      state.statusText = (g) => (g.status || "unknown").replace(/_/g, " ");
+      state.revocationText = (reason) => reason === "dispute" ? "Disputed" : reason === "full_refund" ? "Refunded" : "Revoked";
+      state.scopeHref = (scope) => scope?.kind === "repo" ? "/admin/repositories?search=" + encodeURIComponent(scope.id)
+        : scope?.kind === "conference" ? "/conference/" + encodeURIComponent(scope.id) : null;
+
+      let grantsRequest = 0;
+      function getGrants() {
+        const request = ++grantsRequest;
+        state.grantsError = null;
+        const params = Object.fromEntries(Object.entries(state.query).filter(([, v]) => v !== "" && v != null));
+        http.get("/api/admin/billing/grants", { params }).then((res) => {
+          if (request !== grantsRequest) return;
+          state.total = res.data?.total ?? 0;
+          state.totalPage = Math.ceil(state.total / state.query.limit);
+          state.grants = res.data?.results || [];
+          state.stateCounts = res.data.stateCounts || {};
+          state.statuses = res.data.statuses || [];
+        }, (err) => {
+          if (request !== grantsRequest) return;
+          state.grantsError = (err && err.data && err.data.error) || "Could not load subscriptions and purchases.";
+        });
+      }
+      state.reloadGrants = getGrants;
+
+      state.loadSummary();
+      getGrants();
+      recomputeChips();
+      let timeClear = null;
+      let lastFilters = JSON.stringify({ ...state.query, page: 0 });
+      state.watch("query", () => {
+        // A filter change returns to page 1 before fetching.
+        const filters = JSON.stringify({ ...state.query, page: 0 });
+        if (filters !== lastFilters && state.query.page !== 1) { lastFilters = filters; state.query.page = 1; return; }
+        lastFilters = filters;
+        timers.timeout.cancel(timeClear);
+        timeClear = timers.timeout(getGrants, 300);
+        recomputeChips();
+      }, true);
+    };

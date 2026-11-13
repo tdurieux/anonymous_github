@@ -27,12 +27,14 @@ import { render as template22 } from "../partials/pr-dashboard.htm";
 import { render as template23 } from "../partials/profile.htm";
 import { render as template24 } from "../partials/pullRequest.htm";
 import { render as template25 } from "../partials/status.htm";
+import { render as adminBillingTemplate } from "../partials/admin/billing.htm";
 import { render as footerTemplate } from "../partials/footer.htm";
 export const templates = {
 "partials/reviewConsent.htm": reviewConsentTemplate,
   "partials/connections.htm": connectionsTemplate,
   "partials/signin.htm": signinTemplate,
   "partials/404.htm": template0,
+  "partials/admin/billing.htm": adminBillingTemplate,
   "partials/admin/conferences.htm": template1,
   "partials/admin/errors.htm": template2,
   "partials/admin/overview.htm": template3,

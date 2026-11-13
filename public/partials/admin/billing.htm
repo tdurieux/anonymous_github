@@ -1,0 +1,246 @@
+<div class="container paper-page admin-page overview-page billing-page">
+  <header class="page-head">
+  <div class="paper-crumbs"><a href="/admin/">Admin</a> &nbsp;/&nbsp; <span class="here">Billing</span></div>
+  <div class="ov-header page-head-main">
+    <h1 class="paper-page-title">Billing</h1>
+  </div>
+  </header>
+
+  <nav class="admin-nav">
+    <a href="/admin/"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-chart"></use></svg> Overview</a>
+    <a href="/admin/repositories"><svg class="ui-icon" aria-hidden="true"><use href="#project-type-repo"></use></svg> Repositories</a>
+    <a href="/admin/users"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-users"></use></svg> Users</a>
+    <a href="/admin/conferences"><svg class="ui-icon" aria-hidden="true"><use href="#project-icon-conference"></use></svg> Conferences</a>
+    <a href="/admin/billing" class="active"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-card"></use></svg> Billing</a>
+    <a href="/admin/queues"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-list"></use></svg> Queues</a>
+    <a href="/admin/errors"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-bug"></use></svg> Errors</a>
+  </nav>
+
+  <div class="bl-toolbar">
+    <div class="seg-filter" role="radiogroup" aria-label="Period">
+      <button type="button" role="radio" class="seg-chip" v-for="p in periods" :key="p.id" :class="{ active: period === p.id }" :aria-checked="period === p.id" @click="setPeriod(p.id)">{{ p.label }}</button>
+    </div>
+    <p class="bl-basis" v-if="summary">Sales are new checkouts and subscriptions. Revenue uses Stripe list prices; renewals count toward MRR.</p>
+  </div>
+
+  <div class="ov-performance-message ov-performance-warning bl-message" role="alert" v-if="summaryError">
+    <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-warning"></use></svg>
+    <span>{{ summaryError }}</span>
+    <button type="button" class="btn btn-sm" @click="loadSummary()">Retry</button>
+  </div>
+  <div class="ov-performance-message bl-message" role="status" v-if="summary &amp;&amp; !summary.revenue?.available">
+    <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-info"></use></svg>
+    <span><b>Revenue unavailable.</b> Stripe is not configured on this server, so amounts can't be looked up. Counts are complete.</span>
+  </div>
+  <div class="ov-performance-message ov-performance-warning bl-message" role="status" v-if="summary?.revenue?.missingSales || summary?.revenue?.missingAllTimeSales || summary?.revenue?.missingSubscriptions">
+    <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-warning"></use></svg>
+    <span>Some Stripe prices are unavailable. Affected totals are marked incomplete: {{ fmt?.number(summary.revenue.missingSales || 0) }} period sales, {{ fmt?.number(summary.revenue.missingAllTimeSales || 0) }} historical sales, {{ fmt?.number(summary.revenue.missingSubscriptions || 0) }} active subscriptions.</span>
+  </div>
+
+  <!-- ── Summary tiles ───────────────────────────────────────── -->
+  <section class="ov-kpi-row bl-kpi-row" :class="{ 'is-loading': summaryLoading }" :aria-busy="summaryLoading ? 'true' : 'false'" aria-label="Billing summary">
+    <template v-if="!summary &amp;&amp; summaryLoading">
+      <div class="ov-kpi-card" v-for="n in 6" :key="n" aria-hidden="true"><span class="skeleton skeleton-line-sm" style="width: 60%"></span><span class="skeleton bl-skeleton-value"></span><span class="skeleton skeleton-line-sm" style="width: 80%"></span></div>
+    </template>
+    <template v-if="summary">
+      <div class="ov-kpi-card">
+        <div class="ov-kpi-label">Active subscriptions</div>
+        <div class="ov-kpi-value">{{ fmt?.number(summary.subscriptions.active) }}</div>
+        <div class="ov-kpi-sub">{{ fmt?.number(summary.subscriptions.monthly) }} monthly &middot; {{ fmt?.number(summary.subscriptions.annual) }} annual</div>
+      </div>
+      <div class="ov-kpi-card">
+        <div class="ov-kpi-label">MRR</div>
+        <div class="ov-kpi-value" :class="{ 'bl-muted-value': !revenueOn() }">{{ revenueOn() ? (summary.subscriptions.complete === false ? 'Incomplete' : (money(summary.subscriptions.mrr)[0] || fmt?.money(0))) : 'Unavailable' }}</div>
+        <div class="ov-kpi-sub" v-if="revenueOn() &amp;&amp; money(summary.subscriptions.mrr).length &gt; 1">+ {{ money(summary.subscriptions.mrr).slice(1).join(' · ') }}</div>
+        <div class="ov-kpi-sub" v-else>{{ revenueOn() ? 'Annual plans ÷ 12' : 'Needs Stripe prices' }}</div>
+      </div>
+      <div class="ov-kpi-card">
+        <div class="ov-kpi-label">Sales &middot; {{ periodPhrase() }}</div>
+        <div class="ov-kpi-value">{{ fmt?.number(summary.sales.count) }}</div>
+        <div class="ov-kpi-sub">{{ revenueOn() ? (summary.sales.complete === false ? 'Revenue incomplete' : moneyText(summary.sales.revenue, fmt?.money(0))) : 'Revenue unavailable' }}</div>
+      </div>
+      <div class="ov-kpi-card">
+        <div class="ov-kpi-label">All-time sales</div>
+        <div class="ov-kpi-value">{{ fmt?.number(summary.allTime.count) }}</div>
+        <div class="ov-kpi-sub">{{ revenueOn() ? (summary.allTime.complete === false ? 'Revenue incomplete' : moneyText(summary.allTime.revenue, fmt?.money(0))) : 'Revenue unavailable' }}</div>
+      </div>
+      <div class="ov-kpi-card">
+        <div class="ov-kpi-label">Cancelling</div>
+        <div class="ov-kpi-value">{{ fmt?.number(summary.subscriptions.cancelling) }}</div>
+        <div class="ov-kpi-sub">at period end, of {{ fmt?.number(summary.subscriptions.active) }} active</div>
+      </div>
+      <div class="ov-kpi-card">
+        <div class="ov-kpi-label">Refunds &amp; disputes</div>
+        <div class="ov-kpi-value" :class="{ 'ov-val-warn': summary.reversals.disputes &gt; 0 }">{{ fmt?.number(summary.reversals.refunds + summary.reversals.disputes) }}</div>
+        <div class="ov-kpi-sub">{{ fmt?.number(summary.reversals.refunds) }} {{ summary.reversals.refunds === 1 ? 'refund' : 'refunds' }} &middot; {{ fmt?.number(summary.reversals.disputes) }} {{ summary.reversals.disputes === 1 ? 'dispute' : 'disputes' }}</div>
+      </div>
+    </template>
+  </section>
+
+  <!-- ── Webhook health ──────────────────────────────────────── -->
+  <section class="bl-health" v-if="summary?.webhooks" aria-label="Webhook health">
+    <span class="bl-health-title"><span class="ov-svc-dot" :class="{ 'ov-dot-ok': webhookState() === 'ok', 'ov-dot-warn': webhookState() === 'warn', 'bl-dot-bad': webhookState() === 'bad' }" aria-hidden="true"></span>Stripe webhooks</span>
+    <span class="bl-health-item"><span class="k">Pending</span> {{ fmt?.number(summary.webhooks.pending) }}<template v-if="summary.webhooks.pending"> &middot; oldest {{ age(summary.webhooks.oldestPendingSeconds) }}</template></span>
+    <span class="bl-health-item" :class="{ 'is-bad': summary.webhooks.failed }"><span class="k">Failed</span> {{ fmt?.number(summary.webhooks.failed) }}</span>
+    <span class="bl-health-item bl-health-error" v-if="summary.webhooks.lastError" :title="summary.webhooks.lastError.type + ': ' + summary.webhooks.lastError.error"><span class="k">Last error</span> <code>{{ summary.webhooks.lastError.error }}</code> on {{ summary.webhooks.lastError.type }} &middot; {{ fmt?.humanTime(summary.webhooks.lastError.receivedAt) }}</span>
+    <span class="bl-health-item" v-else><span class="k">Last error</span> none</span>
+    <span class="bl-health-item" :class="{ 'is-warn': summary.webhooks.unreviewedRevocations }"><span class="k">Unreviewed reversals</span> {{ fmt?.number(summary.webhooks.unreviewedRevocations) }}</span>
+  </section>
+
+  <!-- ── Sales over time ─────────────────────────────────────── -->
+  <section class="ov-chart-card bl-chart-card" v-if="summary">
+    <div class="ov-chart-head">
+      <span class="ov-chart-title">Sales per {{ bucketName() }} &middot; {{ periodPhrase() }}</span>
+      <span class="ov-chart-legends" v-if="seriesSales()">
+        <span class="ov-chart-legend" v-for="f in families" :key="f.id"><span class="bl-swatch" :class="'bl-' + f.id" aria-hidden="true"></span>{{ f.label }} &middot; {{ fmt?.number(familyTotal(f.id)) }}</span>
+      </span>
+    </div>
+    <template v-if="seriesSales()">
+      <div class="ov-spark-bars ov-has-axis bl-bars" :class="{ 'is-dense': summary.series.length &gt; 45 }" role="img" :aria-label="fmt?.number(seriesSales()) + ' sales, ' + periodPhrase() + ', by plan family'">
+        <div class="ov-yaxis" aria-hidden="true"><span>{{ fmt?.number(chartMax()) }}</span><span>{{ fmt?.number(chartMax() / 2) }}</span><span>0</span></div>
+        <div class="ov-spark-col has-tip bl-col" v-for="(d, index) in summary.series" :key="index" :data-tip="bucketTip(d)" :class="{ 'is-zero': !bucketTotal(d) }">
+          <span class="bl-stack" :style="{ height: (bucketTotal(d) / chartMax() * 100) + '%' }">
+            <i v-for="f in families" :key="f.id" v-show="d[f.id]" :class="'bl-' + f.id" :style="{ flexGrow: d[f.id] }"></i>
+          </span>
+        </div>
+      </div>
+      <div class="ov-spark-x bl-x">
+        <span>{{ bucketLabel(summary.series[0]) }}</span>
+        <span>{{ bucketLabel(summary.series[Math.floor(summary.series.length / 2)]) }}</span>
+        <span>{{ bucketLabel(summary.series[summary.series.length - 1]) }}</span>
+      </div>
+    </template>
+    <p class="ov-performance-empty bl-empty" v-else role="status">No sales {{ period === 'all' ? 'yet' : 'in the ' + periodPhrase() }}.</p>
+  </section>
+
+  <!-- ── By plan ─────────────────────────────────────────────── -->
+  <section class="ov-panel-card bl-plans" v-if="summary" aria-labelledby="bl-plans-heading">
+    <div class="ov-panel-head">
+      <h2 class="ov-panel-title" id="bl-plans-heading">By plan</h2>
+      <span class="ov-panel-meta">{{ fmt?.number(plansWithActivity().length) }} of {{ fmt?.number(summary.plans.length) }} plans sold</span>
+    </div>
+    <div class="ov-metrics-scroll" tabindex="0" role="region" aria-label="Sales by plan, scroll for more columns">
+      <table class="ov-metrics-table">
+        <caption class="sr-only">Active grants, sales and revenue per plan</caption>
+        <thead>
+          <tr><th scope="col" rowspan="2">Plan</th><th scope="col" rowspan="2" class="num">Active</th><th scope="colgroup" colspan="2" class="bl-group" v-if="period !== 'all'">{{ periodPhrase().replace(/^./, c =&gt; c.toUpperCase()) }}</th><th scope="colgroup" colspan="2" class="bl-group">All time</th></tr>
+          <tr><template v-if="period !== 'all'"><th scope="col" class="num">Sales</th><th scope="col" class="num">Revenue</th></template><th scope="col" class="num">Sales</th><th scope="col" class="num">Revenue</th></tr>
+        </thead>
+        <tbody>
+          <tr v-for="p in summary.plans" :key="p.planId" :class="{ 'bl-idle': !p.active &amp;&amp; !p.sales &amp;&amp; !p.allTimeSales }">
+            <th scope="row" class="bl-plan-name"><span class="bl-swatch" :class="'bl-' + p.family" aria-hidden="true"></span><button type="button" class="bl-link" :title="'Show ' + p.name + ' grants'" @click="filterPlan(p.planId)">{{ p.name }}</button></th>
+            <td class="num">{{ fmt?.number(p.active) }}</td>
+            <template v-if="period !== 'all'"><td class="num">{{ fmt?.number(p.sales) }}</td>
+            <td class="num">{{ revenueOn() ? (p.revenueComplete === false ? 'Incomplete' : moneyText(p.revenue)) : '—' }}</td></template>
+            <td class="num">{{ fmt?.number(p.allTimeSales) }}</td>
+            <td class="num">{{ revenueOn() ? (p.allTimeRevenueComplete === false ? 'Incomplete' : moneyText(p.allTimeRevenue)) : '—' }}</td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr><th scope="row">Total</th><td class="num">{{ fmt?.number(planTotals().active) }}</td><template v-if="period !== 'all'"><td class="num">{{ fmt?.number(planTotals().sales) }}</td><td class="num">{{ revenueOn() ? (summary.sales.complete === false ? 'Incomplete' : moneyText(summary.sales.revenue)) : '—' }}</td></template><td class="num">{{ fmt?.number(planTotals().allTimeSales) }}</td><td class="num">{{ revenueOn() ? (summary.allTime.complete === false ? 'Incomplete' : moneyText(summary.allTime.revenue)) : '—' }}</td></tr>
+        </tfoot>
+      </table>
+    </div>
+    <p class="ov-performance-note bl-note">A paper pack counts once, under Paper pack. Active means paid time remains and the payment wasn't reversed.</p>
+  </section>
+
+  <!-- ── Subscriptions and purchases ─────────────────────────── -->
+  <section class="bl-grants" id="bl-grants" aria-labelledby="bl-grants-heading">
+    <div class="bl-section-head">
+      <h2 class="ov-panel-title" id="bl-grants-heading">Subscriptions and purchases</h2>
+    </div>
+    <div class="seg-bar">
+      <div class="seg-filter" role="radiogroup" aria-label="Filter by state">
+        <button type="button" role="radio" class="seg-chip" :class="{ active: stateView() === 'all' }" :aria-checked="stateView() === 'all'" @click="setStateView('all')">All <span class="count">{{ fmt?.number(stateCount('all')) }}</span></button>
+        <button type="button" role="radio" class="seg-chip" :class="{ active: stateView() === 'active', 'is-empty': !stateCount('active') }" :aria-checked="stateView() === 'active'" @click="setStateView('active')"><span class="seg-dot ok" aria-hidden="true"></span>Active <span class="count">{{ fmt?.number(stateCount('active')) }}</span></button>
+        <button type="button" role="radio" class="seg-chip" :class="{ active: stateView() === 'expired', 'is-empty': !stateCount('expired') }" :aria-checked="stateView() === 'expired'" @click="setStateView('expired')"><span class="seg-dot off" aria-hidden="true"></span>Expired <span class="count">{{ fmt?.number(stateCount('expired')) }}</span></button>
+        <button type="button" role="radio" class="seg-chip" :class="{ active: stateView() === 'revoked', 'is-empty': !stateCount('revoked') }" :aria-checked="stateView() === 'revoked'" @click="setStateView('revoked')"><span class="seg-dot bad" aria-hidden="true"></span>Revoked <span class="count">{{ fmt?.number(stateCount('revoked')) }}</span></button>
+      </div>
+      <p class="seg-countline" role="status"><strong>{{ total &gt;= 0 ? fmt.number(total) : '…' }}</strong> shown</p>
+    </div>
+
+    <div class="alert alert-danger bl-alert" v-if="grantsError">
+      <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-warning"></use></svg> {{ grantsError }} <button type="button" class="btn btn-sm" @click="reloadGrants()">Retry</button>
+    </div>
+
+    <form class="w-100 admin-filter-toolbar" aria-label="Subscriptions and purchases" accept-charset="UTF-8" v-form="viewState" @submit.prevent>
+      <button type="button" class="btn btn-sm admin-filters-toggle" @click="filtersOpen = !filtersOpen" :aria-expanded="filtersOpen ? 'true' : 'false'">Filters<template v-if="query.plan || query.status"> ({{ (query.plan ? 1 : 0) + (query.status ? 1 : 0) }})</template></button>
+      <div class="admin-filter-row" :class="{ 'is-open': filtersOpen }">
+        <div class="search-wrap">
+          <input type="search" class="form-control" aria-label="Search by user" placeholder="Search by user…" autocomplete="off" v-field="{ state: viewState, set: value =&gt; { query.search = value }, value: query?.search, form: null, options: {} }">
+        </div>
+        <span class="admin-filter-inline"><label for="bl-plan">Plan</label>
+          <select id="bl-plan" class="form-control form-control-sm" v-field="{ state: viewState, set: value =&gt; { query.plan = value }, value: query?.plan, form: null, options: {} }">
+            <option value="">Any</option>
+            <optgroup v-for="f in families" :key="f.id" :label="f.label"><option v-for="p in (summary?.plans || []).filter(p =&gt; p.family === f.id)" :key="p.planId" :value="p.planId">{{ p.name }}</option></optgroup>
+          </select>
+        </span>
+        <span class="admin-filter-inline"><label for="bl-status">Stripe status</label>
+          <select id="bl-status" class="form-control form-control-sm" v-field="{ state: viewState, set: value =&gt; { query.status = value }, value: query?.status, form: null, options: {} }">
+            <option value="">Any</option>
+            <option v-for="s in statuses" :key="s" :value="s">{{ s.replace(/_/g, ' ') }}</option>
+          </select>
+        </span>
+        <span class="admin-filter-spacer"></span>
+        <span class="admin-filter-inline" aria-label="Pagination" v-if="totalPage &gt; 1">
+          <button class="btn btn-sm btn-icon" type="button" @click="query.page = Math.max(1, query.page - 1)" :disabled="query?.page &lt;= 1" aria-label="Previous page"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-chevron-left"></use></svg></button>
+          <span class="bl-page">{{ query?.page }}/{{ totalPage || 1 }}</span>
+          <button class="btn btn-sm btn-icon" type="button" @click="query.page = Math.min(totalPage, query.page + 1)" :disabled="query?.page &gt;= totalPage" aria-label="Next page"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-chevron-right"></use></svg></button>
+        </span>
+      </div>
+      <div class="admin-filter-row" v-if="chips?.length">
+        <div class="admin-active-chips">
+          <span class="admin-active-chip" v-for="chip in chips" :key="chip?.key">
+            <span class="key">{{ chip?.label }}</span>
+            <span>{{ chip?.value }}</span>
+            <button type="button" @click="clearFilter(chip.key)" aria-label="Clear filter"><svg class="ui-icon" aria-hidden="true"><use href="#project-icon-close"></use></svg></button>
+          </span>
+        </div>
+      </div>
+    </form>
+
+    <div class="ov-metrics-scroll bl-grant-scroll" tabindex="0" role="region" aria-label="Subscriptions and purchases, scroll for more columns" v-if="grants?.length">
+      <table class="ov-metrics-table bl-grant-table">
+        <caption class="sr-only">Subscriptions and purchases</caption>
+        <thead><tr>
+          <th scope="col">User</th><th scope="col">Plan</th><th scope="col">Status</th>
+          <th scope="col"><button type="button" class="sortable" :class="{ active: query?.sort == 'purchasedAt' }" @click="sortBy('purchasedAt')">Started <svg class="ui-icon sort-direction" aria-hidden="true" v-if="sortIcon('purchasedAt')" :class="{ ascending: sortIcon('purchasedAt') === 'fa-arrow-up' }"><use href="#project-icon-arrow"></use></svg></button></th>
+          <th scope="col"><button type="button" class="sortable" :class="{ active: query?.sort == 'until' }" @click="sortBy('until')">Renews / ends <svg class="ui-icon sort-direction" aria-hidden="true" v-if="sortIcon('until')" :class="{ ascending: sortIcon('until') === 'fa-arrow-up' }"><use href="#project-icon-arrow"></use></svg></button></th>
+          <th scope="col">Cancelling</th><th scope="col">Revoked</th><th scope="col">Applies to</th>
+        </tr></thead>
+        <tbody>
+          <tr v-for="g in grants" :key="g.id">
+            <th scope="row" class="bl-user"><a v-if="g.user" :title="g.user" :href="safeUrl('/admin/users/' + g.user)">{{ g.user }}</a><span class="ov-muted" v-else>Deleted user</span></th>
+            <td><span class="bl-plan-cell"><span class="bl-swatch" :class="'bl-' + g.family" aria-hidden="true"></span>{{ planName(g.planId) }}</span><small v-if="g.pack">Part of a paper pack</small></td>
+            <td><span class="bl-state"><span class="status-dot" :class="g.state === 'active' ? 'st-ready' : g.state === 'revoked' ? 'st-error' : 'st-expired'"></span>{{ g.state === 'active' ? 'Active' : g.state === 'revoked' ? 'Revoked' : 'Expired' }}</span><small v-if="!['active', 'paid'].includes(g.status)">Stripe: {{ statusText(g) }}</small></td>
+            <td>{{ g.purchasedAt ? fmt?.date(g.purchasedAt) : '—' }}</td>
+            <td><template v-if="g.never">Never ends</template><template v-else-if="g.until">{{ fmt?.date(g.until) }}</template><template v-else>—</template><small v-if="g.subscription &amp;&amp; g.state === 'active'">{{ g.cancelAtPeriodEnd ? 'Ends' : 'Renews' }}</small></td>
+            <td><span class="bl-flag" v-if="g.cancelAtPeriodEnd">Cancelling</span><span class="ov-muted" v-else>—</span></td>
+            <td><template v-if="g.revoked"><span class="bl-flag is-bad">{{ revocationText(g.revocationReason) }}</span><small v-if="g.revokedAt">{{ fmt?.date(g.revokedAt) }}</small></template><span class="ov-muted" v-else>—</span></td>
+            <td class="bl-scope"><a v-if="scopeHref(g.scope)" :href="safeUrl(scopeHref(g.scope))"><svg class="ui-icon" aria-hidden="true"><use :href="g.scope.kind === 'conference' ? '#project-icon-conference' : '#project-type-repo'"></use></svg><span>{{ g.scope.id }}</span></a><span class="ov-muted" v-else>Account</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="paper-table-empty" v-if="total === 0">
+      <svg class="ui-icon" aria-hidden="true"><use href="#project-icon-inbox"></use></svg>
+      <span>{{ hasFilters() ? 'No subscriptions or purchases match these filters.' : 'No subscriptions or purchases yet.' }}</span>
+      <button type="button" class="btn btn-sm" v-if="hasFilters()" @click="clearFilters()">Clear filters</button>
+    </div>
+    <div class="admin-empty" v-if="total &lt; 0 &amp;&amp; !grantsError">Loading subscriptions and purchases&hellip;</div>
+
+    <div class="admin-toolbar bl-pager" v-if="total &gt; 0">
+      <span aria-hidden="true"></span>
+      <div class="pagination-compact" v-if="totalPage &gt; 1">
+        <button class="btn btn-sm" @click="query.page = Math.max(1, query.page - 1)" :disabled="query?.page &lt;= 1"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-chevron-left"></use></svg> Previous</button>
+        <input type="number" class="form-control form-control-sm" min="1" style="width: 56px;" aria-label="Page" v-field="{ state: viewState, set: value =&gt; { query.page = value }, value: query?.page, form: null, options: {} }" :max="(totalPage)">
+        <span>of {{ totalPage }}</span>
+        <button class="btn btn-sm" @click="query.page = Math.min(totalPage, query.page + 1)" :disabled="query?.page &gt;= totalPage">Next <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-chevron-right"></use></svg></button>
+      </div>
+      <span class="admin-filter-inline">
+        <label for="bl-limit">Per page</label>
+        <select id="bl-limit" class="form-control form-control-sm" v-field="{ state: viewState, set: value =&gt; { query.limit = value }, value: query?.limit, form: null, options: {} }"><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select>
+      </span>
+    </div>
+  </section>
+</div>
