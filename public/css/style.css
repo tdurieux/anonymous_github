@@ -14214,16 +14214,24 @@ body.dark-mode .auto-update-check .paid-tag { background: rgba(251, 191, 36, .12
 body.dark-mode .reviewer-preview .rp-preserved-tag { background: rgba(251, 191, 36, .12); box-shadow: inset 0 0 0 1px rgba(251, 191, 36, .32); color: #F2C66D; }
 
 /* Capture the reviewer tokens before the workspace applies its form palette. */
-body { --viewer-paper-card: var(--paper-card); --viewer-canvas: var(--canvas-bg-color); --viewer-paper-alt: var(--paper-bg-alt); --viewer-border: var(--border-color); --viewer-color: var(--color); --viewer-muted: var(--ink-muted); }
+.app-view:has(.reviewer-preview) { --viewer-paper-card: var(--paper-card); --viewer-canvas: var(--canvas-bg-color); --viewer-paper-alt: var(--paper-bg-alt); --viewer-border: var(--border-color); --viewer-color: var(--color); --viewer-muted: var(--ink-muted); }
 .reviewer-preview .reviewer-explorer { --paper-card: var(--viewer-paper-card); --canvas-bg-color: var(--viewer-canvas); --paper-bg-alt: var(--viewer-paper-alt); --border-color: var(--viewer-border); --color: var(--viewer-color); --ink-muted: var(--viewer-muted); color: var(--color); background: var(--canvas-bg-color); }
-/* File tools adapt to their pane width in either host. */
-.explorer-content { container: explorer-file / inline-size; }
+/* The preview's narrow file pane drops the secondary file tools. Scoped to the
+   preview: the reviewer page keeps its own header at every width. */
+.reviewer-preview .explorer-content { container: explorer-file / inline-size; }
 /* clean-css ignore:start */
 @container explorer-file (max-width: 700px) {
-  .file-card-head .file-card-meta, .file-card-head .symbols { display: none !important; }
+  .reviewer-preview .file-card-head .file-card-meta, .reviewer-preview .file-card-head .symbols { display: none !important; }
 }
 /* clean-css ignore:end */
 
 /* PR and gist previews retain their existing document surface. */
 .reviewer-preview .rp-main { min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
 .reviewer-preview .rp-document { flex: 1 1 auto; min-height: 0; min-width: 0; overflow: auto; scrollbar-width: thin; position: relative; }
+/* Phones: the explorer's header has no room for the tag next to the path, so
+   the caption's "<name> left unredacted" opens the dialog instead. */
+.reviewer-preview button.rp-count { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 3px; }
+.reviewer-preview button.rp-count:hover { text-decoration-color: currentColor; }
+@media (max-width: 767px) {
+  .reviewer-preview .file-card-head .rp-preserved-tag { display: none; }
+}

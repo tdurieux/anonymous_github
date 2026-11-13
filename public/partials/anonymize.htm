@@ -534,7 +534,7 @@
           <span class="rp-title">What reviewers will see</span>
           <span class="rp-count" v-if="previewStatus === 'ready' &amp;&amp; previewRedactions() &gt; 0" :title="previewRedactions() + ' redacted terms in this preview'"><span class="redact-slot" aria-hidden="true"><i>{{ previewRedactions() }}</i></span> redacted</span>
           <span class="rp-count rp-count-none" v-else-if="previewStatus === 'ready' &amp;&amp; !String(terms || '').trim()">No terms yet</span>
-          <span class="rp-count rp-count-none" v-else-if="previewStatus === 'ready' &amp;&amp; previewPreserved()">{{ previewName(previewFile ? previewFile.slice(previewFile.lastIndexOf('/') + 1) : readmeName()) }} left unredacted</span>
+          <button type="button" class="rp-count rp-count-none" v-else-if="previewStatus === 'ready' &amp;&amp; previewPreserved()" @click="openPreserveFiles()" title="Change it in Leave files unredacted">{{ previewName(previewFile ? previewFile.slice(previewFile.lastIndexOf('/') + 1) : readmeName()) }} left unredacted</button>
           <span class="rp-spacer"></span>
           <a class="rp-open is-external" v-if="isUpdate &amp;&amp; previewUrl()" :href="safeUrl(previewPath())" target="_blank" rel="noopener">Open reviewer page <span aria-hidden="true">↗</span></a>
           <button type="button" class="rp-open is-toggle" v-else @click="previewExpanded = !previewExpanded" :aria-pressed="!!previewExpanded"><svg class="rp-open-icon" viewBox="0 0 16 16" aria-hidden="true"><path v-if="!previewExpanded" d="M9.5 2.5h4v4M13.5 2.5 9 7M6.5 13.5h-4v-4M2.5 13.5 7 9"/><path v-else d="M13.5 6.5h-4v-4M9.5 6.5 14 2M2.5 9.5h4v4M6.5 9.5 2 14"/></svg>{{ previewExpanded ? 'Back to settings' : 'Expand preview' }}</button>

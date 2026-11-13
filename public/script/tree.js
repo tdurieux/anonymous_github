@@ -88,7 +88,12 @@ export default {
       if (!link) return;
       focusedPath = link.dataset.path;
       link.classList.add("tree-focused");
-      // Keep keyboard navigation inside the tree, including an embedded viewer.
+      if (props.selectedPath === undefined) {
+        link.scrollIntoView?.({ block: "nearest" });
+        host.value.focus();
+        return;
+      }
+      // Embedded (the anonymize preview): scroll only the tree, never the page.
       const scroller = host.value.scrollHeight > host.value.clientHeight ? host.value : host.value.closest(".leftCol-body");
       if (scroller) {
         const row = link.getBoundingClientRect(), bounds = scroller.getBoundingClientRect();
@@ -169,8 +174,9 @@ export default {
         };
         const link = h("a", {
           "data-path": path,
-          "aria-expanded": folder ? String(open) : undefined,
-          "aria-current": !folder && selectedPath() === path ? "page" : undefined,
+          // Embedded only: the reviewer page's markup stays as it was.
+          "aria-expanded": props.selectedPath !== undefined && folder ? String(open) : undefined,
+          "aria-current": props.selectedPath !== undefined && !folder && selectedPath() === path ? "page" : undefined,
           href: folder ? undefined : `/r/${encodeURIComponent(route.params.repoId)}${encodePathForUrl(path)}`,
           class: { "tree-focused": focusedPath === path },
           onClick,

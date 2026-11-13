@@ -126,7 +126,11 @@ export default async function start() {
   app.use("/service", createReviewCapabilities(process.env.REVIEW_SERVICE_KEYS));
   app.use("/github/app/webhook", githubAppWebhook);
   app.use("/api/billing/webhook", billingWebhook);
-  app.use(express.json());
+  // The anonymize preview posts whole source files (up to the 1 MB preview
+  // limit, plus JSON escaping); every other route keeps the default limit.
+  const previewJson = express.json({ limit: "3mb" });
+  const defaultJson = express.json();
+  app.use((req, res, next) => (req.path === "/api/anonymize-preview" ? previewJson : defaultJson)(req, res, next));
   // Preserve the empty body used by API validation when no JSON was parsed.
   app.use((req, _res, next) => {
     req.body ??= {};

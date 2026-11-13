@@ -1988,13 +1988,21 @@ export const anonymizeController = function (state, http, html, params, location
       };
       const byName = (a, b) => a.localeCompare(b, undefined, { sensitivity: "base" });
       const baseName = (path) => path.slice(path.lastIndexOf("/") + 1);
+      // Built once per file list and name batch: the form re-renders on every
+      // keystroke, and a new array would rebuild the tree each time.
+      let treeFilesCache = { key: null, files: [] };
       state.previewTreeFiles = () => {
         if (!state.preserve.commit || !previewIndex) return [];
-        return previewIndex.files.map(path => {
+        // Reactive reads: names arriving or terms changing rebuild the list.
+        const key = state.preserve.commit + "\u0000" + state.terms + "\u0000" + _nameAnonCache.size + "\u0000" + previewIndex.files.length;
+        if (treeFilesCache.key === key) return treeFilesCache.files;
+        const files = previewIndex.files.map(path => {
           const name = state.previewPathName(path);
           const slash = name.lastIndexOf("/");
           return { name: name.slice(slash + 1), path: slash < 0 ? "" : name.slice(0, slash), size: 0, sourcePath: path };
         });
+        treeFilesCache = { key, files };
+        return files;
       };
       // Tree paths are anonymized; source paths stay in the adapter for fetching.
       state.selectPreviewPath = (path) => {
@@ -2567,6 +2575,8 @@ export const anonymizeController = function (state, http, html, params, location
           for (let i = 1; i < parts.length; i++) expanded[parts.slice(0, i).join("/")] = true;
         }
         Object.assign(state.preserve, { open: true, search: "", picked, expanded, patterns: patterns.join("\n"), patternsOpen: patterns.length > 0 });
+        // On phones the dialog lives in the Settings pane; opened from the preview, show it.
+        if (state.mobileWorkspace) state.mobilePane = "settings";
         pickVersion++;
         timeout(() => {
           const dialog = document.getElementById("preserve-files-dialog");
@@ -2912,12 +2922,17 @@ export const anonymizeController = function (state, http, html, params, location
         const names = [...pendingNames].filter((name) => !_nameAnonCache.has(name));
         pendingNames.clear();
         if (!names.length || !terms.length) return;
-        http.post("/api/anonymize-preview", { contents: names, options: { terms, image: true, link: true } }).then((res) => {
-          if (nameCacheKey !== key || nameTerms().join("\n") !== key) return;
-          const out = res.data?.contents;
-          if (!Array.isArray(out) || out.length !== names.length) throw Error("Invalid preview response");
-          names.forEach((name, i) => _nameAnonCache.set(name, typeof out[i] === "string" ? out[i] : name));
-        }).catch(() => { if (nameCacheKey === key) names.forEach((name) => failedNames.add(name)); });
+        // The whole tree's names are needed; keep each request well under the
+        // API's JSON body limit.
+        for (let start = 0; start < names.length; start += 400) {
+          const chunk = names.slice(start, start + 400);
+          http.post("/api/anonymize-preview", { contents: chunk, options: { terms, image: true, link: true } }).then((res) => {
+            if (nameCacheKey !== key || nameTerms().join("\n") !== key) return;
+            const out = res.data?.contents;
+            if (!Array.isArray(out) || out.length !== chunk.length) throw Error("Invalid preview response");
+            chunk.forEach((name, i) => _nameAnonCache.set(name, typeof out[i] === "string" ? out[i] : name));
+          }).catch(() => { if (nameCacheKey === key) chunk.forEach((name) => failedNames.add(name)); });
+        }
       }
       state.previewName = (name) => {
         if (!name || !nameTerms().length) return name;

@@ -526,7 +526,7 @@ export const setupFileViewer = function (state, events = state) {
         }
 
         function applyHashFromUrl(scroll) {
-          const m = window.location.hash.match(/^#L(\d+)(?:-L(\d+))?/);
+          const m = !state.preview && window.location.hash.match(/^#L(\d+)(?:-L(\d+))?/);
           if (!m) {
             highlightLines(null);
             return;
@@ -565,7 +565,8 @@ export const setupFileViewer = function (state, events = state) {
               : `#L${from + 1}-L${to + 1}`;
           const url =
             window.location.pathname + window.location.search + hash;
-          window.history.replaceState(null, "", url);
+          // The preview highlights lines without touching the form's URL.
+          if (!state.preview) window.history.replaceState(null, "", url);
           highlightLines(from, to);
           e.stop();
         });
@@ -609,18 +610,21 @@ export const setupFileViewer = function (state, events = state) {
         _editor.setBehavioursEnabled(state.aceOption.enableBehaviours);
         _editor.setFadeFoldWidgets(state.aceOption.fadeFoldWidgets);
         // Ctrl/Cmd+F searches inside the file (Ace searchbox), like GitHub's blob view.
+        // In the preview the shortcuts apply only while the code has focus, so
+        // the form keeps the browser's own Find.
+        const ownsShortcuts = () => !state.preview || _editor.isFocused();
         const removeFindListener = listen(window, "keydown", (event) => {
-          if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === "g" && document.body.contains(_editor.container)) {
+          if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === "g" && document.body.contains(_editor.container) && ownsShortcuts()) {
             event.preventDefault();
             state.gotoLine();
             return;
           }
-          if (event.altKey && !event.ctrlKey && !event.metaKey && event.key.toLowerCase() === "z" && document.body.contains(_editor.container)) {
+          if (event.altKey && !event.ctrlKey && !event.metaKey && event.key.toLowerCase() === "z" && document.body.contains(_editor.container) && ownsShortcuts()) {
             event.preventDefault();
             state.toggleWrap();
             return;
           }
-          if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === "f" && document.body.contains(_editor.container)) {
+          if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === "f" && document.body.contains(_editor.container) && ownsShortcuts()) {
             event.preventDefault();
             state.findInFile();
           }
@@ -697,7 +701,9 @@ export const setupFileViewer = function (state, events = state) {
     if (img?.naturalWidth) state.imageSize = `${img.naturalWidth} × ${img.naturalHeight}`;
   };
 
+  // The reviewer page closes its menus in exploreController; this is the preview's.
   listen(document, "click", e => {
+    if (!state.preview) return;
     if (!e.target.closest?.(".symbols")) state.symbolsOpen = false;
     if (!e.target.closest?.(".tb-more")) state.moreOpen = false;
     if (!e.target.closest?.(".tb-toc-m")) state.tocOpen = false;

@@ -442,6 +442,9 @@ const sourceText = {
   "configs/base.yaml": "# Base configuration (Jane Smith)\ndata: data/train.jsonl\nmodel: transformer-small\nseed: 1\noutput: /home/jsmith/out\n",
   "requirements.txt": "torch>=2.3\nnumpy\npyyaml\n",
   LICENSE: "MIT License\n\nCopyright (c) 2026 Jane Smith\n",
+  // Long and nested names for the tree (wrapping, middle truncation, slots).
+  "experiments/jsmith-ablations/2026-03/robust_repair_baseline_with_pretraining_and_augmentation_seed_1_jsmith_final.yaml": "seed: 1\nowner: jsmith\n",
+  "experiments/jsmith-ablations/2026-03/notes-for-Jane Smith.md": "# Notes\n\nAblations run by Jane Smith.\n",
 };
 // figures/overview.png reuses the gallery image; data/train.csv is over the 1 MB preview limit.
 const sourceBinary = ["figures/overview.png"];
