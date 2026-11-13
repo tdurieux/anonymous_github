@@ -224,6 +224,34 @@ export const mainController = function (state, http, location, timeout) {
         else location.url("/profile?upgrade=1");
       };
 
+      // Header fitter: the media queries in style.css (F2) handle the usual
+      // widths; this catches what they can't predict (wider fonts, an Upgrade
+      // link, long usernames). It adds .nav-fit-1 (extras into the avatar menu),
+      // then .nav-fit-2 (tighter gaps) while the expanded bar overflows.
+      const headerListen = createListeners();
+      const headerTimers = createTimers();
+      let headerFitQueued = false;
+      const fitHeader = () => {
+        headerFitQueued = false;
+        const nav = document.querySelector("nav.navbar.navbar-expand-lg");
+        if (!nav) return;
+        nav.classList.remove("nav-fit-1", "nav-fit-2");
+        if (window.innerWidth < 992) return;
+        const collapse = nav.querySelector(".navbar-collapse");
+        const overflows = () => nav.scrollWidth > nav.clientWidth + 1 || (!!collapse && collapse.scrollWidth > collapse.clientWidth + 1);
+        if (overflows()) nav.classList.add("nav-fit-1");
+        if (overflows()) nav.classList.add("nav-fit-2");
+      };
+      const queueHeaderFit = () => {
+        if (headerFitQueued) return;
+        headerFitQueued = true;
+        nextTick(() => headerTimers.timeout(fitHeader, 0));
+      };
+      headerListen(window, "resize", queueHeaderFit);
+      state.on("routeChange", queueHeaderFit);
+      state.on("billing:updated", queueHeaderFit);
+      if (document.fonts?.ready) document.fonts.ready.then(queueHeaderFit).catch(() => {});
+
       state.title = "Main";
       state.user = { status: "connection" };
       state.site_options;
@@ -303,6 +331,7 @@ export const mainController = function (state, http, location, timeout) {
         http.get("/api/user").then(
           (res) => {
             if (res) state.user = res.data;
+            queueHeaderFit();
             if (state.user?.username) readBilling(http).then(res => updateHeaderBilling(res.data)).catch(() => {});
             else state.headerShowSupport = true;
             if (state.user?.emailNotificationsEnabled && state.user.showEmailPrompt && !state.user.notificationEmail) {
@@ -1683,6 +1712,28 @@ export const anonymizeController = function (state, http, html, params, location
         return state.hostingQuotaBlocked && !state.conferenceHosting() ? offered(["repo_slot", "repo_pack"]) : [];
       };
       state.hostingOneTime = () => state.hostingOneTimePlans()[0];
+      // Automatic updates, as the server decides them (hasAutomaticUpdates):
+      // free hosting and an Extra repository refresh by hand; a conference
+      // package, Live updates or a Paper pack for this repository, or an author
+      // subscription include them. Unknown (billing not loaded, someone else's
+      // repository) counts as included, so no paid hint flashes.
+      const MANUAL_REFRESH_PLANS = ["free", "repo_slot"];
+      state.liveUpdatesIncluded = () => {
+        if (!state.billing?.enabled || state.detectedType !== "repo") return true;
+        if (state.isUpdate && state.role !== "owner") return true;
+        if (state.conferenceHosting() || state.hasAuthorHosting()) return true;
+        const plan = state.billing?.allowance?.plan;
+        if (plan && !MANUAL_REFRESH_PLANS.includes(plan)) return true;
+        return state.repositoryGrants("author_pass").length > 0 || state.repositoryGrants("repo_pack").length > 0;
+      };
+      state.liveUpdatesPrice = () => {
+        const plan = (state.billing?.plans || []).find(p => p.id === "author_pass");
+        return plan?.amount != null ? state.billingAmount(plan) : "";
+      };
+      state.showHostingOptions = () => {
+        state.mobilePane = "settings";
+        nextTick(() => document.getElementById("repository-hosting")?.scrollIntoView({ block: "start", behavior: "smooth" }));
+      };
       state.neverExpireTag = () => {
         if (state.hasAuthorHosting()) return "Included in your subscription";
         if (state.repositoryGrants("repo_never").length) return "Paid for this repository";
@@ -1933,17 +1984,38 @@ export const anonymizeController = function (state, http, html, params, location
         cache.forEach((value) => { n += count(value); });
         return n;
       };
-      // Top-level entries for the preview's miniature file tree, from the same
-      // tree the Unredacted-files picker loads (folders first, like the explorer).
+      // The preview's miniature file tree, from the same tree the
+      // Unredacted-files picker loads. Like the explorer: folders first, then
+      // files, each alphabetical; folders start collapsed and open on click.
+      // Only the open folders' rows are built, so large repositories stay cheap.
+      state.previewTreeOpen = {};
+      const byName = (a, b) => a.localeCompare(b, undefined, { sensitivity: "base" });
+      const baseName = (path) => path.slice(path.lastIndexOf("/") + 1);
       state.previewTree = () => {
         if (!state.preserve.commit || !preserveIndex) return [];
-        const root = preserveIndex.dirs.get("");
-        if (!root) return [];
-        const readme = root.files.find((f) => /^readme(\.|$)/i.test(f));
-        const dirs = root.dirs.slice(0, 9).map((d) => ({ name: d, dir: true }));
-        const files = [...root.files].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" })).slice(0, Math.max(3, 14 - dirs.length)).map((f) => ({ name: f, dir: false, readme: f === readme }));
-        if (readme && !files.some((f) => f.readme)) files.push({ name: readme, dir: false, readme: true });
-        return [...dirs, ...files];
+        const readme = (preserveIndex.dirs.get("")?.files || []).find((f) => /^readme(\.|$)/i.test(f));
+        const rows = [];
+        const walk = (dir, depth) => {
+          const node = preserveIndex.dirs.get(dir);
+          if (!node) return;
+          for (const sub of [...node.dirs].sort((a, b) => byName(baseName(a), baseName(b)))) {
+            const open = !!state.previewTreeOpen[sub];
+            rows.push({ path: sub, name: baseName(sub), dir: true, open, depth });
+            if (open) walk(sub, depth + 1);
+          }
+          for (const file of [...node.files].sort((a, b) => byName(baseName(a), baseName(b)))) {
+            rows.push({ path: file, name: baseName(file), dir: false, readme: file === readme, depth });
+          }
+        };
+        walk("", 0);
+        return rows;
+      };
+      state.previewTreeCount = () => {
+        const root = state.preserve.commit && preserveIndex ? preserveIndex.dirs.get("") : null;
+        return root ? root.dirs.length + root.files.length : 0;
+      };
+      state.togglePreviewFolder = (path) => {
+        state.previewTreeOpen[path] = !state.previewTreeOpen[path];
       };
       state.existingConfigurationUrl = () => {
         const previous = state.previousConfigurations.find(repo => repo.repoId === state.previousConfigurationId);
@@ -2470,6 +2542,7 @@ export const anonymizeController = function (state, http, html, params, location
           preserveIndex = markRaw(buildPreserveIndex(res.data.files || []));
           state.preserve.commit = commit;
           state.preserve.truncated = !!res.data.truncated;
+          state.previewTreeOpen = {};
         } catch (error) {
           state.preserve.error = "The file list could not be loaded from GitHub. You can still use patterns.";
           state.preserve.patternsOpen = true;

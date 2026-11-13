@@ -100,8 +100,8 @@
       </aside>
 
     <nav class="anonymize-mobile-tabs" role="tablist" aria-label="Anonymization workspace">
-      <button id="workspace-settings-tab" role="tab" type="button" :aria-selected="mobilePane === 'settings'" aria-controls="workspace-settings" :tabindex="mobilePane === 'settings' ? 0 : -1" @keydown="previewTabKeydown($event)" @click="selectMobilePane('settings')">Settings</button>
-      <button id="workspace-preview-tab" role="tab" type="button" :aria-selected="mobilePane === 'preview'" aria-controls="workspace-preview" :tabindex="mobilePane === 'preview' ? 0 : -1" @keydown="previewTabKeydown($event)" @click="selectMobilePane('preview')">Reviewer preview</button>
+      <button id="workspace-settings-tab" role="tab" type="button" :aria-selected="mobilePane === 'settings'" aria-controls="workspace-settings" :tabindex="mobilePane === 'settings' ? 0 : -1" @keydown="previewTabKeydown($event)" @click="selectMobilePane('settings')"><span class="tab-label">Settings</span></button>
+      <button id="workspace-preview-tab" role="tab" type="button" :aria-selected="mobilePane === 'preview'" aria-controls="workspace-preview" :tabindex="mobilePane === 'preview' ? 0 : -1" @keydown="previewTabKeydown($event)" @click="selectMobilePane('preview')"><span class="tab-label">Reviewer preview</span></button>
     </nav>
     <div class="anonymize-split">
       <!-- Form column (left) -->
@@ -208,10 +208,11 @@
               </div>
             </div>
 
-            <div class="form-check" v-show="detectedType">
-              <input class="form-check-input" type="checkbox" id="update" name="update" v-field="{ state: viewState, set: value =&gt; { options.update = value }, value: options?.update, form: &quot;anonymize&quot;, options: {} }">
-              <label class="form-check-label" for="update">Auto-update from GitHub</label>
-              <small class="form-text text-muted">Follows the latest version, at most once an hour.</small>
+            <div class="form-check auto-update-check" v-show="detectedType" :class="{ 'is-paid': !liveUpdatesIncluded() }">
+              <input class="form-check-input" type="checkbox" id="update" name="update" aria-describedby="update-help" v-field="{ state: viewState, set: value =&gt; { options.update = value }, value: options?.update, form: &quot;anonymize&quot;, options: {} }">
+              <label class="form-check-label" for="update">Auto-update from GitHub<span class="paid-tag" v-if="!liveUpdatesIncluded()">Paid</span></label>
+              <small class="form-text text-muted" id="update-help" v-if="liveUpdatesIncluded()">Follows the latest version, at most once an hour.</small>
+              <small class="form-text text-muted auto-update-paid" id="update-help" v-else>Needs Live updates<template v-if="liveUpdatesPrice()"> · {{ liveUpdatesPrice() }}</template>, a Paper pack or an author subscription. <a href="#repository-hosting" @click.prevent="showHostingOptions()">Hosting options</a></small>
             </div>
           </section>
 
@@ -412,6 +413,7 @@
               <span v-else-if="hasAuthorHosting()">Your author subscription is active.</span>
               <span v-else-if="hostingQuota?.repository">{{ hostingQuota.repository.used }} of {{ hostingQuota.repository.total }} active repositories · Free</span>
             </p>
+            <p class="hosting-limit auto-update-note" role="status" v-if="detectedType === 'repo' &amp;&amp; options?.update &amp;&amp; !liveUpdatesIncluded()">Automatic updates need a paid option. On free hosting, the link keeps the version you create until you refresh it from My work. Once it exists, add Live updates<template v-if="liveUpdatesPrice()"> ({{ liveUpdatesPrice() }} once)</template> or a Paper pack in <a href="/profile?billing=1">Settings › Hosting &amp; billing</a>, or take an author subscription.</p>
             <div class="hosting-payment" v-if="detectedType === 'repo' &amp;&amp; billing?.enabled">
                 <template v-if="hostingNeedsPayment() &amp;&amp; !billingPending">
                   <p class="hosting-limit" role="status" v-if="options.expirationMode !== 'never' || hostingQuotaBlocked">{{ options.update &amp;&amp; !hostingQuotaBlocked &amp;&amp; hostingQuota?.repository?.used &lt; hostingQuota?.repository?.total ? 'Automatic updates need a paid option for this repository.' : 'Your free repositories are all in use.' }}</p>
@@ -540,19 +542,23 @@
         <div class="rp-window">
           <div class="rp-chrome" aria-hidden="true"><i></i><i></i><i></i><span class="rp-url">{{ previewUrl() || 'anonymous.4open.science' }}</span></div>
           <div class="rp-bar" aria-hidden="true"><span class="vb-logo">Anonymous <em>GitHub</em></span><span class="rp-bar-id" v-if="previewId()">{{ previewId() }}</span><span class="rp-bar-kind" v-if="detectedType !== 'repo'">{{ detectedType === 'pr' ? 'Pull request' : 'Gist' }}</span></div>
-          <div class="rp-body" :class="{ 'has-tree': detectedType === 'repo' }">
-            <nav class="rp-tree" v-if="detectedType === 'repo'" aria-label="Files reviewers will see">
-              <template v-if="previewTree().length">
-                <span class="rp-tree-row" v-for="entry in previewTree()" :key="entry.name" :class="{ 'is-dir': entry.dir, 'is-active': entry.readme }"><svg class="rp-tree-icon" viewBox="0 0 16 16" aria-hidden="true"><path v-if="entry.dir" d="M1.5 3.5h4l1.5 1.5h7.5v8h-13z"/><path v-else d="M3.5 1.5h6l3 3v10h-9z"/></svg><span class="rp-tree-name">{{ entry.name }}</span></span>
-              </template>
+          <div class="rp-body" :class="{ 'has-side': detectedType === 'repo' }">
+            <!-- Sidebar: a miniature of the explorer's file tree -->
+            <nav class="rp-side" v-if="detectedType === 'repo'" aria-label="Files reviewers will see">
+              <ul class="files rp-files" v-if="previewTree().length">
+                <li v-for="entry in previewTree()" :key="entry.path" class="file" :class="{ folder: entry.dir, open: entry.open, active: entry.readme }" :style="{ '--depth': entry.depth }">
+                  <a v-if="entry.dir" role="button" tabindex="0" :aria-expanded="entry.open ? 'true' : 'false'" :title="entry.path" @click="togglePreviewFolder(entry.path)" @keydown.enter.prevent="togglePreviewFolder(entry.path)" @keydown.space.prevent="togglePreviewFolder(entry.path)"><span class="tree-toggle"></span><span class="tree-icon-folder" aria-hidden="true"><svg viewBox="0 0 14 12" focusable="false"><path d="M1.5 10.5v-9h4l1.5 2h5.5v7z"/></svg></span><span class="tree-name">{{ entry.name }}</span></a>
+                  <a v-else :title="entry.path" :aria-current="entry.readme ? 'page' : null"><span class="tree-spacer"></span><span class="far fa-file tree-icon-file" aria-hidden="true"></span><span class="tree-name">{{ entry.name }}</span></a>
+                </li>
+              </ul>
+              <ul class="rp-files-skel" v-else-if="preserve.loading || (sourceLoading &amp;&amp; !preserve.error)" aria-label="Loading the file list"><li v-for="w in [58, 72, 46, 64, 52, 38, 68, 44]" :key="w"><i class="rp-skel" :style="{ width: w + '%' }"></i></li></ul>
               <template v-else>
-                <template v-if="preserve.loading"><span class="rp-tree-row rp-skel-row" v-for="w in [62, 48, 70, 40]" :key="w"><i class="rp-skel" :style="{ width: w + '%' }"></i></span></template>
-                <span class="rp-tree-label" v-if="!preserve.loading"><svg class="rp-tree-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 3.5h4l1.5 1.5h7.5v8h-13z"/></svg>Files</span>
-                <span class="rp-tree-note" v-if="!preserve.loading">Every other file at this commit appears here, with the same redactions.</span>
+                <ul class="files rp-files" v-if="readme || previewStatus === 'ready'"><li class="file active"><a title="README.md" aria-current="page"><span class="tree-spacer"></span><span class="far fa-file tree-icon-file" aria-hidden="true"></span><span class="tree-name">README.md</span></a></li></ul>
+                <p class="rp-side-note">Every other file at this commit appears here, with the same redactions.</p>
               </template>
             </nav>
             <div class="rp-doc">
-              <div class="rp-file-head" v-if="detectedType === 'repo' &amp;&amp; (previewStatus === 'ready' || readme)"><span class="rp-file-name">README.md</span><span class="rp-file-meta">Markdown</span></div>
+              <div class="rp-file-head" v-if="detectedType === 'repo' &amp;&amp; (previewStatus === 'ready' || readme)"><span class="rp-files-btn" aria-hidden="true"><svg class="ui-icon"><use href="#ui-icon-folder"></use></svg>Files<span class="rp-files-count" v-if="previewTreeCount()">{{ previewTreeCount() }}</span></span><span class="rp-file-name">README.md</span><span class="rp-file-meta">Markdown</span></div>
               <!-- Loading: skeleton inside the window -->
               <div class="rp-state rp-loading" role="status" v-if="previewStatus === 'loading' || (sourceLoading &amp;&amp; previewStatus !== 'ready' &amp;&amp; previewStatus !== 'error')">
                 <span class="rp-state-text">{{ previewStatus === 'loading' ? 'Updating the anonymized preview…' : (detectedType === 'pr' ? 'Loading the pull request from GitHub…' : detectedType === 'gist' ? 'Loading the gist from GitHub…' : 'Loading the repository from GitHub…') }}</span>
