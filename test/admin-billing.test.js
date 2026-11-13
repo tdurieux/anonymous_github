@@ -70,9 +70,9 @@ const uri = process.env.BILLING_TEST_MONGODB_URI;
     [alice, bob] = await User.create([{ username: "alice-lab", accessTokens: {} }, { username: "bob" }]);
     const a = String(alice._id), b = String(bob._id);
     await BillingGrant.create([
-      { _id: "sub_m", owner: a, scope: `user:${a}`, planId: "author_monthly", subscriptionId: "sub_m", priceId: "price_monthly", status: "active", until: later(20), purchasedAt: ago(3) },
-      { _id: "sub_y", owner: b, scope: `user:${b}`, planId: "author_annual", subscriptionId: "sub_y", priceId: "price_annual", status: "active", until: later(200), purchasedAt: ago(100), cancelAtPeriodEnd: true },
-      { _id: "sub_old", owner: b, scope: `user:${b}`, planId: "author_monthly", subscriptionId: "sub_old", priceId: "price_monthly", status: "canceled", until: ago(40), purchasedAt: ago(400) },
+      { _id: "sub_m", owner: a, scope: `user:${a}`, planId: "author_monthly", subscriptionId: "sub_m", priceId: "price_monthly", salePriceId: "price_monthly", salePlanId: "author_monthly", status: "active", until: later(20), purchasedAt: ago(3) },
+      { _id: "sub_y", owner: b, scope: `user:${b}`, planId: "author_annual", subscriptionId: "sub_y", priceId: "price_annual", salePriceId: "price_annual", salePlanId: "author_annual", status: "active", until: later(200), purchasedAt: ago(100), cancelAtPeriodEnd: true },
+      { _id: "sub_old", owner: b, scope: `user:${b}`, planId: "author_monthly", subscriptionId: "sub_old", priceId: "price_monthly", salePriceId: "price_monthly", salePlanId: "author_monthly", status: "canceled", until: ago(40), purchasedAt: ago(400) },
       ...["repo_slot", "author_pass", "repo_extend"].map(part => ({ _id: `cs_pack:${part}`, owner: a, scope: "repo:paper-1", planId: part, paymentIntentId: "pi_pack", priceId: "price_pack", status: "paid", until: later(100), purchasedAt: ago(2) })),
       { _id: "cs_never", owner: b, scope: "repo:other", planId: "repo_never", paymentIntentId: "pi_never", priceId: "price_never", status: "paid", until: new Date("9999-12-31T00:00:00Z"), purchasedAt: ago(5), revoked: true, revocationReason: "full_refund", revokedAt: ago(1) },
       { _id: "cs_conf", owner: a, scope: "conference:FSE26", planId: "conference", paymentIntentId: "pi_conf", priceId: "price_conf", status: "paid", until: later(60), purchasedAt: ago(10) },
@@ -132,13 +132,48 @@ const uri = process.env.BILLING_TEST_MONGODB_URI;
 
   it("marks missing historical and active prices independently of period sales", async () => {
     await BillingGrant.deleteOne({ _id: "cs_gone" });
-    await BillingGrant.updateOne({ _id: "sub_y" }, { $set: { priceId: "price_missing" } });
+    await BillingGrant.updateOne({ _id: "sub_y" }, { $set: { priceId: "price_missing", salePriceId: "price_missing" } });
     const s = await report.billingSummary("30d", now, lookup);
     expect(s.revenue).to.include({ missingSales: 0, missingAllTimeSales: 1, missingSubscriptions: 1 });
     expect(s.sales.complete).to.equal(true);
     expect(s.allTime.complete).to.equal(false);
     expect(s.subscriptions.complete).to.equal(false);
     expect(s.plans.find(p => p.planId === "author_annual")).to.include({ revenueComplete: true, allTimeRevenueComplete: false });
+  });
+
+  it("excludes unrelated Stripe reversals and unresolved subscription stubs", async () => {
+    await BillingRevocation.create([
+      { _id: "pi_external", reason: "full_refund", createdAt: ago(1) },
+      { _id: "pi_stub", subscriptionId: "sub_stub", reason: "dispute", createdAt: ago(1) },
+    ]);
+    await BillingGrant.create({ _id: "sub_stub", revoked: true });
+    expect((await report.billingSummary("all", now, lookup)).reversals).to.deep.equal({ refunds: 1, disputes: 0 });
+  });
+
+  it("keeps historical sales prices and plans separate from current MRR", async () => {
+    await BillingGrant.updateOne({ _id: "sub_m" }, { $set: { priceId: "price_annual", planId: "author_annual" } });
+    const s = await report.billingSummary("30d", now, lookup);
+    expect(s.subscriptions.mrr).to.deep.equal({ eur: 800 });
+    expect(s.sales.revenue.eur).to.equal(32000);
+    expect(s.plans.find(p => p.planId === "author_monthly")).to.include({ active: 0, sales: 1 });
+    expect(s.plans.find(p => p.planId === "author_annual")).to.include({ active: 2, sales: 0 });
+    await BillingGrant.updateOne({ _id: "sub_m" }, { $unset: { salePriceId: 1, salePlanId: 1 } });
+    const legacy = await report.billingSummary("30d", now, lookup);
+    expect(legacy.sales.complete).to.equal(false);
+    expect(legacy.subscriptions.complete).to.equal(true);
+  });
+
+  it("searches all matching users before grant pagination, including after 1000 nonbuyers", async () => {
+    await User.insertMany(Array.from({ length: 1001 }, (_, i) => ({ username: "matching-" + i })));
+    const buyer = await User.create({ username: "matching-buyer" });
+    await BillingGrant.create({ _id: "cs_search", owner: String(buyer._id), planId: "repo_slot", status: "paid", until: later(1), purchasedAt: ago(1) });
+    const names = async ids => new Map(ids.map(id => [id, "matching-buyer"]));
+    const s = await report.billingGrants({ search: "MATCHING", limit: 1 }, names, now);
+    expect(s.total).to.equal(1);
+    expect(s.results).to.have.length(1);
+    expect(s.results[0].user).to.equal("matching-buyer");
+    expect(s.stateCounts).to.deep.equal({ active: 1, expired: 0, revoked: 0 });
+    expect((await report.billingGrants({ search: "matching.*" }, names, now)).total).to.equal(0);
   });
 
   it("reports counts without revenue when Stripe is not configured", async () => {

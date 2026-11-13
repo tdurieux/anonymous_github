@@ -405,6 +405,21 @@ async function rejects(promise, message) {
     return { id: "sub_owner", metadata: { application: "anonymous-github", owner }, customer: "cus_owner", status: "active",
       latest_invoice: { status: "paid" }, items: { data: [{ price: { id: "price_monthly" }, current_period_end: Math.floor(future().getTime() / 1000) }] }, cancel_at_period_end: false, ...overrides };
   }
+  it("snapshots the original paid invoice price once across plan changes", async () => {
+    let value = subscription({ start_date: 1700000000,
+      latest_invoice: { id: "in_initial", status: "paid", billing_reason: "subscription_create",
+        lines: { data: [{ parent: { subscription_item_details: { subscription_item: "si_original", proration: false } },
+          pricing: { price_details: { price: "price_monthly" } } }] } },
+      items: { data: [{ id: "si_original", price: { id: "price_monthly" }, current_period_end: Math.floor(future().getTime() / 1000) }] },
+    });
+    const stripe = { subscriptions: { retrieve: async () => value } };
+    await syncSubscription("sub_owner", stripe);
+    expect(await BillingGrant.findById("sub_owner").lean()).to.include({ salePriceId: "price_monthly", salePlanId: "author_monthly" });
+    value = subscription({ latest_invoice: { status: "paid", billing_reason: "subscription_cycle" },
+      items: { data: [{ id: "si_original", price: { id: "price_annual" }, current_period_end: Math.floor(future().getTime() / 1000) }] } });
+    await syncSubscription("sub_owner", stripe);
+    expect(await BillingGrant.findById("sub_owner").lean()).to.include({ priceId: "price_annual", planId: "author_annual", salePriceId: "price_monthly", salePlanId: "author_monthly" });
+  });
   it("recognizes portal cancellations scheduled with cancel_at", async () => {
     await syncSubscription("sub_owner", { subscriptions: { retrieve: async () => subscription({
       cancel_at_period_end: false, cancel_at: Math.floor(future().getTime() / 1000),

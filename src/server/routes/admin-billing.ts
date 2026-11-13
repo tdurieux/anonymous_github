@@ -8,7 +8,6 @@ import { handleError } from "./route-utils";
 const router = express.Router();
 const summaryCache = new AsyncCache<Awaited<ReturnType<typeof billingSummary>>>(30_000, 8);
 
-function escapeRegex(s: string) { return s.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&"); }
 async function usernames(ids: string[]) {
   const users = await UserModel.find({ _id: { $in: ids.filter(id => /^[a-f0-9]{24}$/.test(id)) } }).select("username").lean();
   return new Map(users.map(u => [String(u._id), u.username as string]));
@@ -24,12 +23,7 @@ router.get("/summary", async (req, res) => {
 
 router.get("/grants", async (req, res) => {
   try {
-    let owners: string[] | null = null;
-    if (typeof req.query.search === "string" && req.query.search.trim()) {
-      const users = await UserModel.find({ username: { $regex: escapeRegex(req.query.search.trim()), $options: "i" } }).select("_id").limit(1000).lean();
-      owners = users.map(u => String(u._id));
-    }
-    res.set("Cache-Control", "no-store").json(await billingGrants({ ...req.query, owners }, usernames));
+    res.set("Cache-Control", "no-store").json(await billingGrants({ ...req.query, owners: null }, usernames));
   } catch (error) { handleError(error, res, req); }
 });
 

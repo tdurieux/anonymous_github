@@ -1,5 +1,7 @@
 import { createHash } from "crypto";
+import { InferSchemaType } from "mongoose";
 import config from "../../config";
+import UserModel from "../model/users/users.model";
 import { BillingEvent, BillingGrant, BillingRevocation } from "./models";
 import { billingHealth } from "./events";
 import { stripeClient } from "./stripe";
@@ -18,7 +20,7 @@ export type Money = Record<string, number>;
 type Bucket = "day" | "week" | "month";
 
 export function planFamily(planId?: string | null): Family {
-  if (SUBSCRIPTION_PLANS.includes(planId || "")) return "subscription";
+  if (planId === "subscription_unknown" || SUBSCRIPTION_PLANS.includes(planId || "")) return "subscription";
   if ((CONFERENCE_PLANS as string[]).includes(planId || "")) return "conference";
   return "repository";
 }
@@ -74,12 +76,14 @@ export async function billingSummary(period: string, now = new Date(), lookup?: 
   const since = days == null ? null : new Date(now.getTime() - days * 86400_000);
   const unit = bucketFor(period);
   const isPack = { $regexMatch: { input: { $toString: "$_id" }, regex: PACK_PART } };
+  const subscription = { $ne: [{ $ifNull: ["$subscriptionId", null] }, null] };
   const group = { _id: { plan: "$plan", priceId: "$priceId" }, count: { $sum: 1 } };
   const [facets] = await BillingGrant.aggregate([
     { $project: {
       sale: { $cond: [isPack, { $arrayElemAt: [{ $split: ["$_id", ":"] }, 0] }, "$_id"] },
-      plan: { $cond: [isPack, "repo_pack", { $ifNull: ["$planId", "unknown"] }] },
-      priceId: 1,
+      plan: { $cond: [isPack, "repo_pack", { $cond: [subscription, { $ifNull: ["$salePlanId", "subscription_unknown"] }, { $ifNull: ["$planId", "unknown"] }] }] },
+      priceId: { $cond: [subscription, { $ifNull: ["$salePriceId", null] }, "$priceId"] },
+      currentPriceId: "$priceId", currentPlan: { $cond: [isPack, "repo_pack", { $ifNull: ["$planId", "unknown"] }] },
       // syncSubscription only advances until from a paid invoice and retains it
       // after cancellation. Epoch means no payment has ever granted service.
       purchasedAt: { $cond: [
@@ -90,11 +94,11 @@ export async function billingSummary(period: string, now = new Date(), lookup?: 
       usable: { $and: [{ $ne: ["$revoked", true] }, { $gt: ["$until", now] }, { $in: ["$status", USABLE_STATUSES] }] },
     } },
     { $group: { _id: "$sale", plan: { $first: "$plan" }, priceId: { $first: "$priceId" }, purchasedAt: { $min: "$purchasedAt" },
-      active: { $max: "$usable" }, cancel: { $max: "$cancel" } } },
+      currentPriceId: { $first: "$currentPriceId" }, currentPlan: { $first: "$currentPlan" }, active: { $max: "$usable" }, cancel: { $max: "$cancel" } } },
     { $facet: {
       allTime: [{ $match: { purchasedAt: { $ne: null } } }, { $group: group }],
       period: [{ $match: { purchasedAt: since ? { $gte: since } : { $ne: null } } }, { $group: group }],
-      active: [{ $match: { active: true } }, { $group: { ...group, cancelling: { $sum: { $cond: ["$cancel", 1, 0] } } } }],
+      active: [{ $match: { active: true } }, { $group: { ...group, _id: { plan: "$currentPlan", priceId: "$currentPriceId" }, cancelling: { $sum: { $cond: ["$cancel", 1, 0] } } } }],
       series: [{ $match: { purchasedAt: since ? { $gte: since } : { $ne: null } } },
         { $group: { _id: { bucket: { $dateTrunc: { date: "$purchasedAt", unit, startOfWeek: "monday" } }, plan: "$plan" }, count: { $sum: 1 } } }],
     } },
@@ -122,6 +126,11 @@ export async function billingSummary(period: string, now = new Date(), lookup?: 
   // leaves these records intact; distinct refunded renewals stay distinct.
   const reversals = await BillingRevocation.aggregate([
     ...(since ? [{ $match: { createdAt: { $gte: since } } }] : []),
+    { $lookup: { from: BillingGrant.collection.name, localField: "_id", foreignField: "paymentIntentId",
+      pipeline: [{ $match: { owner: { $type: "string" } } }, { $limit: 1 }], as: "checkout" } },
+    { $lookup: { from: BillingGrant.collection.name, localField: "subscriptionId", foreignField: "_id",
+      pipeline: [{ $match: { owner: { $type: "string" } } }, { $limit: 1 }], as: "subscription" } },
+    { $match: { $or: [{ "checkout.0": { $exists: true } }, { "subscription.0": { $exists: true } }] } },
     { $group: { _id: "$reason", count: { $sum: 1 } } },
   ]);
   const missing = (list: Row[]) => count(list.filter(r => !r._id.priceId || !prices.has(r._id.priceId)));
@@ -188,7 +197,7 @@ export async function billingWebhookHealth() {
     unreviewedRevocations: unreviewed, latestRevocation: latest ? { reason: latest.reason, createdAt: latest.createdAt } : null };
 }
 
-export type GrantQuery = { page?: unknown; limit?: unknown; plan?: unknown; status?: unknown; state?: unknown; owners?: string[] | null; sort?: unknown; direction?: unknown };
+export type GrantQuery = { search?: unknown; page?: unknown; limit?: unknown; plan?: unknown; status?: unknown; state?: unknown; owners?: string[] | null; sort?: unknown; direction?: unknown };
 const STATE_FILTERS = (now: Date): Record<string, Record<string, unknown>> => ({
   active: { revoked: { $ne: true }, until: { $gt: now }, status: { $in: USABLE_STATUSES } },
   expired: { revoked: { $ne: true }, $or: [{ until: { $not: { $gt: now } } }, { status: { $nin: USABLE_STATUSES } }] },
@@ -212,13 +221,37 @@ export async function billingGrants(query: GrantQuery, usernames: (ids: string[]
   const { filter, state } = grantFilter(query, now);
   const states = STATE_FILTERS(now);
   const listed = state ? { $and: [filter, state] } : filter;
-  const [total, grants, stateCounts, statuses] = await Promise.all([
-    BillingGrant.countDocuments(listed),
-    BillingGrant.find(listed).sort({ [sortField]: query.direction === "asc" ? 1 : -1, _id: -1 }).skip((page - 1) * limit).limit(limit)
-      .select("owner scope planId status until cancelAtPeriodEnd purchasedAt revoked revocationReason revokedAt subscriptionId").lean(),
-    Promise.all(Object.entries(states).map(async ([key, f]) => [key, await BillingGrant.countDocuments({ $and: [filter, f] })] as const)),
-    BillingGrant.distinct("status"),
-  ]);
+  const search = typeof query.search === "string" ? query.search.trim() : "";
+  const selection = "owner scope planId status until cancelAtPeriodEnd purchasedAt revoked revocationReason revokedAt subscriptionId";
+  const statuses = await BillingGrant.distinct("status");
+  let total: number, grants: InferSchemaType<typeof BillingGrant.schema>[], stateCounts: [string, number][];
+  if (search) {
+    const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const [result] = await BillingGrant.aggregate([
+      { $match: filter },
+      { $set: { userId: { $convert: { input: "$owner", to: "objectId", onError: null, onNull: null } } } },
+      { $lookup: { from: UserModel.collection.name, localField: "userId", foreignField: "_id",
+        pipeline: [{ $match: { username: { $regex: escaped, $options: "i" } } }, { $project: { _id: 1 } }], as: "user" } },
+      { $match: { "user.0": { $exists: true } } },
+      { $facet: {
+        total: [...(state ? [{ $match: state }] : []), { $count: "count" }],
+        grants: [...(state ? [{ $match: state }] : []),
+          { $sort: { [sortField]: query.direction === "asc" ? 1 : -1, _id: -1 } },
+          { $skip: (page - 1) * limit }, { $limit: limit },
+          { $project: Object.fromEntries(selection.split(" ").map(key => [key, 1])) }],
+        ...Object.fromEntries(Object.entries(states).map(([key, f]) => [key, [{ $match: f }, { $count: "count" }]])),
+      } },
+    ]);
+    total = result.total[0]?.count || 0; grants = result.grants;
+    stateCounts = Object.keys(states).map(key => [key, result[key][0]?.count || 0]);
+  } else {
+    [total, grants, stateCounts] = await Promise.all([
+      BillingGrant.countDocuments(listed),
+      BillingGrant.find(listed).sort({ [sortField]: query.direction === "asc" ? 1 : -1, _id: -1 }).skip((page - 1) * limit).limit(limit)
+        .select(selection).lean(),
+      Promise.all(Object.entries(states).map(async ([key, f]) => [key, await BillingGrant.countDocuments({ $and: [filter, f] })] as [string, number])),
+    ]);
+  }
   const names = await usernames([...new Set(grants.map(g => g.owner).filter((o): o is string => !!o))]);
   const usable = (g: { revoked?: boolean | null; until?: Date | null; status?: string | null }) => !g.revoked && !!g.until && g.until > now && USABLE_STATUSES.includes(g.status || "");
   const results = grants.map(g => {
