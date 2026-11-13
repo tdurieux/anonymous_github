@@ -28,6 +28,9 @@ function harness(date) {
   context.createTimers = () => ({ timeout: Object.assign(context.setTimeout, { cancel: context.clearTimeout }), interval: Object.assign(context.setInterval, { cancel: context.clearInterval }) });
   context.createListeners = () => (target, name, callback) => target.addEventListener(name, callback);
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, "../public/script/billing.js"), "utf8").replaceAll("export function", "function"), context);
+  context.createPageState = parent => Object.create(parent);
+  const viewerSource = fs.readFileSync(path.join(__dirname, "../public/script/file-viewer.js"), "utf8");
+  vm.runInNewContext(viewerSource.replace(/^import .*;$/gm, "").replace(/export const/g, "var"), context);
   const names = [...source.matchAll(/export const (\w+)/g)].map(match => match[1]);
   vm.runInNewContext(source.replace(/^import .*;$/gm, "").replace(/export const/g, "var") + "\nthis.pageSetups = {" + names.join(",") + "};", context);
   Object.assign(defs, context.pageSetups);
@@ -232,6 +235,116 @@ describe("frontend production regressions", function () {
     h.scope.options.preserveFiles = ["/README.md"];
     expect(h.scope.readmePreserved()).to.equal(true);
     expect(typeof h.watches["options.preserveFiles"]).to.equal("function");
+  });
+  it("redacts the root README when only docs/ is left unredacted, and finds the README GitHub shows", async function () {
+    const h = harness(); const timeout = () => 0; timeout.cancel = () => {};
+    h.context.document.getElementById = () => null;
+    h.defs.anonymizeController(h.scope, h.http, {}, {}, {}, () => {}, timeout);
+    h.scope.detectedType = "repo";
+    h.scope.options.preserveFiles = ["/docs/**"];
+    // Before the tree loads only the root README names are assumed.
+    expect(h.scope.readmePreserved()).to.equal(false);
+    expect(h.scope.readmeName()).to.equal("README.md");
+    h.scope.options.preserveFiles = ["docs/"];
+    expect(h.scope.readmePreserved()).to.equal(false);
+    h.scope.source = { commit: "a".repeat(40) };
+    h.scope.sourceUrl = "https://github.com/owner/repo";
+    h.scope.openPreserveFiles();
+    h.requests.at(-1).resolve({ data: { files: ["Readme.markdown", "docs/README.md", "readme.txt", "src/a.py"], binaryFiles: ["fig.png"], truncated: false } });
+    await h.flush();
+    expect(h.scope.readmePath()).to.equal("Readme.markdown");
+    expect(h.scope.readmeName()).to.equal("Readme.markdown");
+    expect(h.scope.readmePreserved()).to.equal(false);
+    h.scope.options.preserveFiles = ["*.markdown"];
+    expect(h.scope.readmePreserved()).to.equal(true);
+    // .github/ comes first, then the root, then docs/.
+    h.scope.source = { commit: "b".repeat(40) };
+    h.scope.preserve.commit = "";
+    h.scope.openPreserveFiles();
+    h.requests.at(-1).resolve({ data: { files: [".github/README.md", "README.md"], truncated: false } });
+    await h.flush();
+    expect(h.scope.readmePath()).to.equal(".github/README.md");
+    // The preview's tree lists binary files too, and marks the open file.
+    h.scope.source = { commit: "c".repeat(40) };
+    h.scope.preserve.commit = "";
+    h.scope.openPreserveFiles();
+    h.requests.at(-1).resolve({ data: { files: ["README.md", "src/a.py"], binaryFiles: ["fig.png"], truncated: false } });
+    await h.flush();
+    expect(Array.from(h.scope.previewTreeFiles(), row => row.name)).to.include.members(["a.py", "fig.png", "README.md"]);
+  });
+  it("redacts preview paths in the same directory and basename contexts as production", async function () {
+    this.timeout(10000);
+    const { anonymizePathCompiled, compileTerms } = require("../src/core/anonymize-utils");
+    for (const term of ["^Alice", "people/Alice"]) {
+      const h = harness(); const pending = [];
+      const timeout = fn => { pending.push(fn); return pending.length; }; timeout.cancel = () => {};
+      h.defs.anonymizeController(h.scope, h.http, {}, {}, {}, () => {}, timeout);
+      h.scope.terms = term;
+      h.scope.previewPathName("people/Alice/report.py");
+      pending.splice(0).forEach(fn => fn());
+      const request = h.requests.find(r => Array.isArray(r.body?.contents));
+      expect(Array.from(request.body.contents)).to.deep.equal(["people/Alice", "report.py"]);
+      const compiled = compileTerms([term]);
+      request.resolve({ data: { contents: request.body.contents.map(name => anonymizePathCompiled(name, compiled)) } });
+      await h.flush();
+      expect(h.scope.previewPathName("people/Alice/report.py")).to.equal(
+        anonymizePathCompiled("people/Alice", compiled) + "/" + anonymizePathCompiled("report.py", compiled));
+    }
+  });
+  it("opens a file of the preview tree, redacted like the README unless it is left unredacted", async function () {
+    const h = harness(); const pending = []; const timeout = fn => { pending.push(fn); return pending.length; }; timeout.cancel = () => {};
+    h.context.document.getElementById = () => null;
+    h.defs.anonymizeController(h.scope, h.http, {}, {}, {}, () => {}, timeout);
+    h.scope.detectedType = "repo";
+    h.scope.terms = "Jane Smith";
+    h.scope.source = { commit: "a".repeat(40), branch: "main" };
+    h.scope.sourceUrl = "https://github.com/owner/repo";
+    h.scope.openPreserveFiles();
+    h.requests.at(-1).resolve({ data: { files: ["README.md", "paper/refs.bib", "src/a.py"], binaryFiles: ["fig.png"], truncated: false } });
+    await h.flush();
+    h.scope.openPreviewFile("src/a.py");
+    const file = h.requests.at(-1);
+    expect(file.url).to.equal("/api/repo/owner/repo/file");
+    expect(file.body.params).to.include({ commit: "a".repeat(40), path: "src/a.py" });
+    expect(h.scope.previewStatus).to.equal("loading");
+    file.resolve({ data: "# Jane Smith\nprint(1)\n", headers: () => "text/plain; charset=utf-8" });
+    await h.flush();
+    pending.splice(0).forEach(fn => fn());
+    const preview = h.requests.at(-1);
+    expect(preview.url).to.equal("/api/anonymize-preview");
+    expect(preview.body.content).to.equal("# Jane Smith\nprint(1)\n");
+    expect(Array.from(preview.body.options.terms)).to.deep.equal(["Jane Smith"]);
+    preview.resolve({ data: { content: "# XXXX-1\nprint(1)\n" } });
+    await h.flush();
+    expect(h.scope.previewStatus).to.equal("ready");
+    expect(h.scope.previewRedactions()).to.equal(1);
+    expect(h.scope.previewViewer.content).to.equal("# XXXX-1\nprint(1)\n");
+    expect(h.scope.previewViewer.aceOption.mode).to.equal("python");
+    expect(h.scope.previewViewer.languageName).to.equal("Python");
+    expect(h.scope.previewViewer.fileBaseUrl).to.equal("https://github.com/owner/repo/raw/main/src/");
+    // The server receives the terms and preservation rules, just like the streamer.
+    h.scope.options.preserveFiles = ["*.bib"];
+    h.scope.openPreviewFile("paper/refs.bib");
+    h.requests.at(-1).resolve({ data: "author = {Jane Smith}", headers: () => "text/plain" });
+    await h.flush();
+    pending.splice(0).forEach(fn => fn());
+    expect(Array.from(h.requests.at(-1).body.options.terms)).to.deep.equal(["Jane Smith"]);
+    expect(h.requests.at(-1).body.options.filePath).to.equal("paper/refs.bib");
+    expect(Array.from(h.requests.at(-1).body.options.preserveFiles)).to.deep.equal(["*.bib"]);
+    expect(h.scope.previewPreserved()).to.equal(true);
+    // Binary files are not fetched; the server's { binary: true } is a note too.
+    const before = h.requests.length;
+    h.scope.openPreviewFile("fig.png");
+    expect(h.requests.length).to.equal(before);
+    expect(h.scope.previewViewer.type).to.equal("binary");
+    expect(h.scope.previewStatus).to.equal("ready");
+    h.scope.openPreviewFile("src/a.py");
+    h.requests.at(-1).resolve({ data: JSON.stringify({ binary: true, size: 10 }), headers: () => "application/json; charset=utf-8" });
+    await h.flush();
+    expect(h.scope.previewViewer.type).to.equal("binary");
+    // Back to the README.
+    h.scope.openPreviewFile("README.md");
+    expect(h.scope.previewFile).to.equal("");
   });
   it("includes PR comment authors and bodies in the preview batch", async function () {
     const h = harness(); const pending = new Map(); let id = 0;

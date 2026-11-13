@@ -73,8 +73,10 @@ describe('conditional credential validation', () => {
       expect(requests[1].headers.authorization).to.equal(`token ${token}`);
       status = 401;
       expect(await checkToken(token)).to.equal(false);
+      expect(await checkToken(token)).to.equal(false);
+      expect(requests).to.have.length(3);
       status = 200;
-      expect(await checkToken(token)).to.equal(true);
+      expect(await checkToken(token + '-rotated')).to.equal(true);
       expect(requests[3].headers['if-none-match']).to.equal(undefined);
       expect(requests.every(request => request.url === 'https://api.github.com/user')).to.equal(true);
     } finally { global.fetch = originalFetch; }

@@ -6,7 +6,7 @@ import { createLogger } from "./logger";
 
 export const LATENCY_BUCKETS = [10, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 30000, 60000];
 export type Service = "api" | "streamer";
-export type Stage = "repository" | "authorization" | "upstream" | "cache_lookup" | "cache_fill" | "worker_wait" | "anonymize" | "streamer_headers";
+export type Stage = "repository" | "credential_resolution" | "upstream" | "cache_lookup" | "cache_fill" | "worker_wait" | "anonymize" | "streamer_headers";
 export interface Metric {
   metric: string; route: string; method: string; count: number; sumMs: number;
   bytes: number; aborted: number; errors: number; slow: number; buckets: number[];

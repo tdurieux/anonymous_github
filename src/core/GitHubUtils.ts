@@ -1,3 +1,4 @@
+import { InvalidCredentialBackoff } from "./invalid-credential-backoff";
 import { isGitHubRateLimitError, OctokitRequestErrorLike } from "./github-rate-limit";
 import { CredentialValidation } from "./credential-validation";
 import { refreshLegacyToken } from "./legacy-token-refresh";
@@ -202,6 +203,8 @@ export async function getRedisGateResetAt(tokenKey: string): Promise<number> {
   }
 }
 
+const invalidCredentials = new InvalidCredentialBackoff();
+
 export function octokit(token: string) {
   const context = githubTokenContext(token);
   const oct = new ThrottledOctokit({
@@ -272,7 +275,11 @@ export function octokit(token: string) {
     }
     throw err;
   });
-  oct.hook.wrap("request", (request, options) => measureStage("upstream", async () => request(options)));
+  oct.hook.wrap("request", (request, options) => {
+    const run = () => measureStage("upstream", async () => request(options));
+    // Managed handles may rotate during renewal; never poison a handle with an old token's denial.
+    return githubTokenContext(token) ? run() : invalidCredentials.run(token, run);
+  });
   return oct;
 }
 
@@ -311,7 +318,7 @@ const checkedRepositoryTokens = new WeakMap<Repository, string>();
 
 export async function getToken(repository: Repository) {
   try {
-    return await measureStage("authorization", () => resolveRepositoryToken(repository));
+    return await measureStage("credential_resolution", () => resolveRepositoryToken(repository));
   } catch (error) {
     void notifyOwnerAccessProblem(repository.owner.id, error, { kind: "repository", id: String(repository.model._id) });
     throw error;

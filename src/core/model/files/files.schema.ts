@@ -19,6 +19,8 @@ const FileSchema = new Schema({
   },
 });
 
+FileSchema.index({ repoId: 1, treeGeneration: 1, submodule: 1 },
+  { name: "file_submodule_status", partialFilterExpression: { submodule: { $exists: true } } });
 FileSchema.index({ metadataPending: 1, repoId: 1, treeGeneration: 1 },
   { partialFilterExpression: { metadataPending: true } });
 FileSchema.index({ treeStaged: 1, repoId: 1, treeGeneration: 1 },
