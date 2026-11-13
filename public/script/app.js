@@ -2014,17 +2014,6 @@ export const anonymizeController = function (state, http, html, params, location
         const root = state.preserve.commit && preserveIndex ? preserveIndex.dirs.get("") : null;
         return root ? root.dirs.length + root.files.length : 0;
       };
-      // Like the explorer, the selected README is scrolled into the sidebar's
-      // view when the list loads (only the sidebar scrolls, not the page).
-      function revealPreviewReadme() {
-        nextTick(() => {
-          const nav = document.querySelector(".reviewer-preview .rp-side");
-          const row = nav?.querySelector(".rp-files > li.active");
-          if (!nav || !row || !nav.clientHeight) return;
-          const bottom = row.getBoundingClientRect().bottom - nav.getBoundingClientRect().top + nav.scrollTop;
-          if (bottom > nav.scrollTop + nav.clientHeight) nav.scrollTop = bottom - nav.clientHeight + row.offsetHeight * 2;
-        });
-      }
       state.togglePreviewFolder = (path) => {
         state.previewTreeOpen[path] = !state.previewTreeOpen[path];
       };
@@ -2554,7 +2543,6 @@ export const anonymizeController = function (state, http, html, params, location
           state.preserve.commit = commit;
           state.preserve.truncated = !!res.data.truncated;
           state.previewTreeOpen = {};
-          revealPreviewReadme();
         } catch (error) {
           state.preserve.error = "The file list could not be loaded from GitHub. You can still use patterns.";
           state.preserve.patternsOpen = true;
