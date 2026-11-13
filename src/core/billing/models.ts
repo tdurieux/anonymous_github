@@ -7,14 +7,17 @@ export const BillingAccount = model("billingAccount", new Schema({
   reconciledAt: Date, reconcileAfter: { type: Date, default: () => new Date(0), index: true }, reconcileError: String,
   checkout: { id: String, key: String, planId: String, target: String, expiresAt: Date, createdAt: Date, params: Schema.Types.Mixed },
 }));
-export const BillingGrant = model("billingGrant", new Schema({
+const grantSchema = new Schema({
   _id: String, owner: { type: String, index: true }, scope: { type: String, index: true },
   planId: String, customerId: String, subscriptionId: String, paymentIntentId: { type: String, index: true },
   status: String, until: Date, cancelAtPeriodEnd: Boolean, purchasedAt: Date,
   priceId: String,
   revision: { type: Number, default: 0 }, revoked: { type: Boolean, default: false },
   revocationReason: String, revokedAt: Date,
-}));
+});
+// The admin billing list sorts grants by purchase date.
+grantSchema.index({ purchasedAt: -1, _id: -1 });
+export const BillingGrant = model("billingGrant", grantSchema);
 export const BillingQuota = model("billingQuota", new Schema({
   _id: String,
   allocations: [{ _id: false, repoId: String, reservationId: String, bytes: Number, baseBytes: Number,

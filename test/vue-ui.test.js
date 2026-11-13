@@ -1129,10 +1129,46 @@ describe("Vue 3 UI", function () {
       expect(ui.window.document.querySelector(".app-view").textContent, route + JSON.stringify(ui.errors)).not.to.equal("");
     }
     ui.app.state.user = { username: "tester", status: "ready", isAdmin: true };
-    for (const route of ["/dashboard", "/claim", "/profile", "/conferences", "/conference/new", "/conference/test", "/conference/test/edit", "/admin/", "/admin/users", "/admin/users/test", "/admin/repositories", "/admin/conferences", "/admin/queues", "/admin/errors"]) {
+    for (const route of ["/dashboard", "/claim", "/profile", "/conferences", "/conference/new", "/conference/test", "/conference/test/edit", "/admin/", "/admin/users", "/admin/users/test", "/admin/repositories", "/admin/conferences", "/admin/billing", "/admin/queues", "/admin/errors"]) {
       await ui.go(route);
       expect(ui.window.document.querySelector(".app-view").textContent, route + JSON.stringify(ui.errors)).not.to.equal("");
     }
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("renders the admin billing tab with per-currency revenue, a stacked chart and linked grants", async function () {
+    const plans = [["author_monthly", "Author monthly", "subscription"], ["repo_pack", "Paper pack", "repository"], ["conference", "Conference", "conference"]]
+      .map(([planId, name, family]) => ({ planId, name, family, active: 1, sales: 1, revenue: { eur: 500 }, allTimeSales: 2, allTimeRevenue: { eur: 1000 } }));
+    const summary = (available) => ({ period: "30d", bucket: "day", subscriptions: { active: 3, monthly: 2, annual: 1, cancelling: 1, mrr: available ? { eur: 1400 } : {} },
+      sales: { count: 4, revenue: available ? { eur: 31300, usd: 2000 } : {} }, allTime: { count: 9, revenue: available ? { eur: 50000 } : {} },
+      reversals: { refunds: 1, disputes: 1, amount: {} }, plans,
+      series: [{ date: "2026-11-12T00:00:00.000Z", subscription: 1, repository: 2, conference: 0 }, { date: "2026-11-13T00:00:00.000Z", subscription: 0, repository: 0, conference: 1 }],
+      revenue: { available, reason: available ? null : "stripe_not_configured", missingSales: 0 },
+      webhooks: { pending: 1, failed: 2, oldestPendingSeconds: 90, lastError: { type: "invoice.paid", error: "api_error", receivedAt: new Date().toISOString() }, unreviewedRevocations: 1 } });
+    const grants = { total: 1, stateCounts: { active: 0, expired: 0, revoked: 1 }, statuses: ["paid"], results: [{ id: "a", user: "alice", planId: "repo_never", family: "repository",
+      status: "paid", state: "revoked", purchasedAt: "2026-11-01", until: null, never: true, revoked: true, revocationReason: "dispute", scope: { kind: "conference", id: "FSE26" } }] };
+    let available = true;
+    ui = await browser("/", { "/api/user": { username: "admin", isAdmin: true, status: "ready" }, "/api/admin/billing/summary": () => summary(available), "/api/admin/billing/grants": grants });
+    await ui.go("/admin/billing");
+    await delay(50);
+    const doc = ui.window.document;
+    const tiles = [...doc.querySelectorAll(".bl-kpi-row .ov-kpi-card")].map(t => t.textContent.replace(/\s+/g, " "));
+    expect(tiles).to.have.length(6);
+    expect(tiles[2]).to.match(/313/).and.to.match(/\$20/);
+    expect(doc.querySelectorAll(".bl-col")).to.have.length(2);
+    expect(doc.querySelectorAll(".bl-col")[0].querySelectorAll(".bl-stack > i:not([style*='display: none'])")).to.have.length(2);
+    expect(doc.querySelector(".bl-health").textContent).to.include("api_error");
+    const row = doc.querySelector(".bl-grant-table tbody tr");
+    expect(row.querySelector("a[href='/admin/users/alice']")).to.not.equal(null);
+    expect(row.querySelector("a[href='/conference/FSE26']")).to.not.equal(null);
+    expect(row.textContent).to.include("Disputed").and.to.include("Never ends");
+    expect(ui.requests.some(r => r.url.pathname === "/api/admin/billing/summary" && r.url.searchParams.get("period") === "30d")).to.equal(true);
+    available = false;
+    [...doc.querySelectorAll(".bl-toolbar .seg-chip")].find(b => b.textContent.includes("7 days")).click();
+    await delay(50);
+    expect(ui.requests.some(r => r.url.searchParams.get("period") === "7d")).to.equal(true);
+    expect(doc.querySelector(".billing-page").textContent).to.include("Revenue unavailable");
+    expect(doc.querySelectorAll(".bl-kpi-row .ov-kpi-card")[1].textContent).to.include("Unavailable");
     expect(ui.errors).to.deep.equal([]);
   });
 

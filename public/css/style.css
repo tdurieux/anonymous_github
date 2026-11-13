@@ -14239,3 +14239,94 @@ body.dark-mode .auto-update-check .paid-tag { background: rgba(251, 191, 36, .12
   .reviewer-preview .rp-files-btn .ui-icon { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; }
   .reviewer-preview .rp-files-count { font-weight: 400; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
 }
+
+/* ── Admin billing (reuses the overview tiles, chart and tables) ─────────── */
+.billing-page { --bl-subscription: #008C7E; --bl-repository: #D0652A; --bl-conference: #6250D6; }
+.dark-mode .billing-page { --bl-subscription: #16A091; --bl-repository: #D95926; --bl-conference: #9085E9; }
+.billing-page .bl-subscription { background: var(--bl-subscription) !important; }
+.billing-page .bl-repository { background: var(--bl-repository) !important; }
+.billing-page .bl-conference { background: var(--bl-conference) !important; }
+.billing-page .bl-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; margin: 4px 0 0; }
+.billing-page .bl-basis { margin: 0; font-size: 12px; color: var(--ink-muted); }
+.billing-page .bl-message { display: flex; align-items: center; gap: 8px; margin: 14px 0 0; padding: 10px 14px; border: 1px solid var(--border-color); border-radius: var(--radius-control, 8px); font-size: 13px; color: var(--color); background: var(--paper-card); }
+.billing-page .bl-message .ui-icon { width: 16px; height: 16px; flex: none; color: var(--ink-muted); }
+.billing-page .bl-message.ov-performance-warning { border-color: color-mix(in srgb, var(--status-progress) 45%, var(--border-color)); background: color-mix(in srgb, var(--status-progress) 8%, var(--paper-card)); }
+.billing-page .bl-message.ov-performance-warning .ui-icon { color: var(--status-progress); }
+.billing-page .bl-message .btn { margin-left: auto; }
+.overview-page .bl-kpi-row { grid-template-columns: repeat(6, minmax(0, 1fr)); margin: 16px 0 16px; }
+.overview-page .bl-kpi-row .ov-kpi-card { min-width: 0; padding: 16px 18px; }
+.overview-page .bl-kpi-row .ov-kpi-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.overview-page .bl-kpi-row .ov-kpi-sub { white-space: normal; overflow-wrap: anywhere; line-height: 1.4; }
+.overview-page .bl-kpi-row .ov-kpi-value { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.overview-page .bl-kpi-row .bl-muted-value { color: var(--ink-muted); font-size: 20px; line-height: 28px; }
+.overview-page .bl-kpi-row.is-loading .ov-kpi-card { opacity: .6; }
+.billing-page .bl-skeleton-value { display: block; width: 50%; height: 28px; margin: 4px 0; border-radius: 6px; }
+@media (max-width: 1279px) { .overview-page .bl-kpi-row { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; } }
+@media (max-width: 767px) { .overview-page .bl-kpi-row { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }
+
+/* Webhook health: one status row. */
+.billing-page .bl-health { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 20px; padding: 10px 16px; margin: 0 0 16px; border: 1px solid var(--border-color); border-radius: var(--radius-control, 8px); background: var(--paper-card); font-size: 13px; font-variant-numeric: tabular-nums; }
+.billing-page .bl-health-title { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
+.billing-page .bl-health-title .ov-svc-dot { width: 8px; height: 8px; margin: 0; border-radius: 50%; }
+.billing-page .bl-dot-bad { background: var(--st-bad, #B42318); }
+.billing-page .bl-health-item .k { color: var(--ink-muted); margin-right: 2px; }
+.billing-page .bl-health-item.is-bad { color: var(--st-bad, #B42318); font-weight: 600; }
+.billing-page .bl-health-item.is-warn { color: #946519; font-weight: 600; }
+.dark-mode .billing-page .bl-health-item.is-warn { color: var(--status-progress); }
+.dark-mode .billing-page .bl-health-item.is-bad { color: #F08A82; }
+.billing-page .bl-health-error { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.billing-page .bl-health-error code { font-size: 12px; color: inherit; background: var(--paper-bg-alt); padding: 1px 5px; border-radius: 4px; }
+
+/* Stacked sales chart. */
+.billing-page .bl-chart-card { margin-bottom: 16px; }
+.billing-page .bl-swatch { display: inline-block; width: 8px; height: 8px; border-radius: 2px; flex: none; }
+.billing-page .bl-bars { position: relative; gap: 3px; }
+.billing-page .bl-bars.is-dense { gap: 1px; }
+.billing-page .bl-col { min-width: 0; }
+.billing-page .bl-stack { display: flex; flex-direction: column-reverse; width: 100%; gap: 1px; border-radius: 2px 2px 0 0; overflow: hidden; }
+.billing-page .bl-stack > i { display: block; min-height: 2px; flex-basis: 0; }
+.billing-page .bl-col:hover .bl-stack { filter: brightness(1.08); }
+.billing-page .bl-col.is-zero .bl-stack { height: 1px !important; background: var(--border-color); }
+.billing-page .bl-empty { margin: 8px 0 4px; padding: 32px 0; text-align: center; color: var(--ink-muted); }
+
+/* By plan and grant tables. */
+.billing-page .bl-plans { margin-bottom: 24px; }
+.billing-page .ov-metrics-table thead th.bl-group { text-align: center; border-bottom: 1px solid var(--border-color); }
+.billing-page .ov-metrics-table tfoot th, .billing-page .ov-metrics-table tfoot td { border-top: 1px solid var(--border-color); border-bottom: 0; font-weight: 600; background: var(--paper-bg-alt); }
+.billing-page .ov-metrics-table tbody tr:last-child > * { border-bottom: 0; }
+.billing-page .bl-plan-name { font-weight: 500; text-align: left; }
+.billing-page .bl-plan-name .bl-swatch, .billing-page .bl-plan-cell .bl-swatch { margin-right: 8px; vertical-align: 1px; }
+.billing-page .bl-link { padding: 0; border: 0; background: none; font: inherit; color: var(--link-color); cursor: pointer; text-align: left; }
+.billing-page .bl-link:hover { text-decoration: underline; }
+.billing-page .bl-idle td, .billing-page .bl-idle .bl-link { color: var(--ink-faint); }
+.billing-page .ov-muted { color: var(--ink-faint); }
+.billing-page .bl-note { margin: 10px 0 0; }
+.billing-page .bl-grants { margin: 8px 0 24px; scroll-margin-top: 16px; }
+.billing-page .bl-section-head { margin: 0 0 8px; }
+.billing-page .bl-section-head h2 { margin: 0; }
+.billing-page .bl-grant-scroll { margin-top: 12px; }
+.billing-page .bl-grant-table th[scope="row"] { font-weight: 500; text-align: left; max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
+.billing-page .bl-grant-table th, .billing-page .bl-grant-table td { padding: 9px 12px; }
+.billing-page .bl-grant-table th[scope="row"] a, .billing-page .bl-scope a { color: var(--link-color); }
+.billing-page .bl-grant-table .sortable { display: inline-flex; align-items: center; gap: 4px; padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: pointer; }
+.billing-page .bl-grant-table .sortable.active { color: var(--color); }
+.billing-page .bl-state { display: inline-flex; align-items: center; gap: 6px; }
+.billing-page .bl-state .status-dot { margin: 0; }
+.billing-page .bl-plan-cell { white-space: nowrap; }
+.billing-page .bl-flag { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; background: color-mix(in srgb, var(--status-progress) 14%, transparent); color: #7A5212; }
+.dark-mode .billing-page .bl-flag { color: var(--status-progress); }
+.billing-page .bl-flag.is-bad { background: color-mix(in srgb, var(--st-bad, #B42318) 12%, transparent); color: #A1251B; }
+.dark-mode .billing-page .bl-flag.is-bad { color: #F08A82; }
+.billing-page .bl-scope a { display: inline-flex; align-items: center; gap: 6px; max-width: 200px; min-width: 0; }
+.billing-page .bl-scope a > span { overflow: hidden; text-overflow: ellipsis; }
+.billing-page .bl-scope .ui-icon { width: 14px; height: 14px; flex: none; color: var(--ink-muted); }
+.billing-page .bl-page { font-family: var(--font-mono); font-size: 12px; color: var(--ink-muted); }
+.billing-page .bl-alert { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
+.billing-page .bl-alert .btn { margin-left: auto; }
+.billing-page .bl-pager { justify-content: space-between; border-bottom: none; margin-top: 8px; }
+.billing-page .paper-table-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-top: 12px; }
+@media (max-width: 767px) {
+  .billing-page .bl-health { gap: 4px 14px; }
+  .billing-page .bl-health-title { flex-basis: 100%; }
+  .billing-page .bl-toolbar .seg-filter { max-width: 100%; overflow-x: auto; }
+}
