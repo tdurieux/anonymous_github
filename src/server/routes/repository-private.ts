@@ -31,7 +31,7 @@ import { RepositoryStatus } from "../../core/types";
 import { octokit, getRedisGateResetAt, getToken } from "../../core/GitHubUtils";
 import { createLogger } from "../../core/logger";
 import { normalizePreserveFiles } from "../../core/preserve-files";
-import { sourceFileList } from "../../core/source-file-list";
+import { sourceFileContent, sourceFileList, isSafeSourcePath } from "../../core/source-file-list";
 
 const logger = createLogger("route:repo");
 
@@ -374,6 +374,34 @@ router.get(
         commit,
         accessToken: token,
       }));
+    } catch (error) {
+      handleError(error, res, req);
+    }
+  }
+);
+
+// One file of a source commit, for the anonymize preview's file viewer. The
+// raw text is returned; the preview redacts it through /api/anonymize-preview.
+// Binary files are reported as { binary: true, size } instead of being sent.
+router.get(
+  "/:owner/:repo/file",
+  async (req, res) => {
+    try {
+      const commit = typeof req.query.commit === "string" ? req.query.commit : "";
+      if (!/^[0-9a-f]{6,40}$/i.test(commit)) throw appError("invalid_commit_format", 400);
+      if (!isSafeSourcePath(req.query.path)) throw appError("invalid_path", 400);
+      const token = await previewToken(req);
+      const file = await sourceFileContent({
+        owner: req.params.owner,
+        repo: req.params.repo,
+        commit,
+        path: req.query.path,
+        accessToken: token,
+      });
+      res.set("Cache-Control", "private, no-store");
+      res.set("X-Content-Type-Options", "nosniff");
+      if (file.binary) return res.json({ binary: true, size: file.size });
+      res.type("text/plain; charset=utf-8").send(file.content);
     } catch (error) {
       handleError(error, res, req);
     }

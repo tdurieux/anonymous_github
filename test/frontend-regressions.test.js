@@ -233,6 +233,94 @@ describe("frontend production regressions", function () {
     expect(h.scope.readmePreserved()).to.equal(true);
     expect(typeof h.watches["options.preserveFiles"]).to.equal("function");
   });
+  it("redacts the root README when only docs/ is left unredacted, and finds the README GitHub shows", async function () {
+    const h = harness(); const timeout = () => 0; timeout.cancel = () => {};
+    h.context.document.getElementById = () => null;
+    h.defs.anonymizeController(h.scope, h.http, {}, {}, {}, () => {}, timeout);
+    h.scope.detectedType = "repo";
+    h.scope.options.preserveFiles = ["/docs/**"];
+    // Before the tree loads only the root README names are assumed.
+    expect(h.scope.readmePreserved()).to.equal(false);
+    expect(h.scope.readmeName()).to.equal("README.md");
+    h.scope.options.preserveFiles = ["docs/"];
+    expect(h.scope.readmePreserved()).to.equal(false);
+    h.scope.source = { commit: "a".repeat(40) };
+    h.scope.sourceUrl = "https://github.com/owner/repo";
+    h.scope.openPreserveFiles();
+    h.requests.at(-1).resolve({ data: { files: ["Readme.markdown", "docs/README.md", "readme.txt", "src/a.py"], binaryFiles: ["fig.png"], truncated: false } });
+    await h.flush();
+    expect(h.scope.readmePath()).to.equal("Readme.markdown");
+    expect(h.scope.readmeName()).to.equal("Readme.markdown");
+    expect(h.scope.readmePreserved()).to.equal(false);
+    h.scope.options.preserveFiles = ["*.markdown"];
+    expect(h.scope.readmePreserved()).to.equal(true);
+    // .github/ comes first, then the root, then docs/.
+    h.scope.source = { commit: "b".repeat(40) };
+    h.scope.preserve.commit = "";
+    h.scope.openPreserveFiles();
+    h.requests.at(-1).resolve({ data: { files: [".github/README.md", "README.md"], truncated: false } });
+    await h.flush();
+    expect(h.scope.readmePath()).to.equal(".github/README.md");
+    // The preview's tree lists binary files too, and marks the open file.
+    h.scope.source = { commit: "c".repeat(40) };
+    h.scope.preserve.commit = "";
+    h.scope.openPreserveFiles();
+    h.requests.at(-1).resolve({ data: { files: ["README.md", "src/a.py"], binaryFiles: ["fig.png"], truncated: false } });
+    await h.flush();
+    expect(h.scope.previewTree().map(row => [row.name, !!row.active])).to.deep.equal([["src", false], ["fig.png", false], ["README.md", true]]);
+  });
+  it("opens a file of the preview tree, redacted like the README unless it is left unredacted", async function () {
+    const h = harness(); const pending = []; const timeout = fn => { pending.push(fn); return pending.length; }; timeout.cancel = () => {};
+    h.context.document.getElementById = () => null;
+    h.defs.anonymizeController(h.scope, h.http, {}, {}, {}, () => {}, timeout);
+    h.scope.detectedType = "repo";
+    h.scope.terms = "Jane Smith";
+    h.scope.source = { commit: "a".repeat(40), branch: "main" };
+    h.scope.sourceUrl = "https://github.com/owner/repo";
+    h.scope.openPreserveFiles();
+    h.requests.at(-1).resolve({ data: { files: ["README.md", "paper/refs.bib", "src/a.py"], binaryFiles: ["fig.png"], truncated: false } });
+    await h.flush();
+    h.scope.openPreviewFile("src/a.py");
+    const file = h.requests.at(-1);
+    expect(file.url).to.equal("/api/repo/owner/repo/file");
+    expect(file.body.params).to.include({ commit: "a".repeat(40), path: "src/a.py" });
+    expect(h.scope.previewStatus).to.equal("loading");
+    file.resolve({ data: "# Jane Smith\nprint(1)\n", headers: () => "text/plain; charset=utf-8" });
+    await h.flush();
+    pending.splice(0).forEach(fn => fn());
+    const preview = h.requests.at(-1);
+    expect(preview.url).to.equal("/api/anonymize-preview");
+    expect(preview.body.content).to.equal("# Jane Smith\nprint(1)\n");
+    expect(Array.from(preview.body.options.terms)).to.deep.equal(["Jane Smith"]);
+    preview.resolve({ data: { content: "# XXXX-1\nprint(1)\n" } });
+    await h.flush();
+    expect(h.scope.previewStatus).to.equal("ready");
+    expect(h.scope.previewRedactions()).to.equal(1);
+    expect(h.scope.previewDoc.html).to.include('class="language-python"');
+    expect(h.scope.previewFileLabel()).to.equal("Python");
+    expect(h.scope.previewTree().find(row => row.active).path).to.equal("src/a.py");
+    // A file left unredacted is sent without terms.
+    h.scope.options.preserveFiles = ["*.bib"];
+    h.scope.openPreviewFile("paper/refs.bib");
+    h.requests.at(-1).resolve({ data: "author = {Jane Smith}", headers: () => "text/plain" });
+    await h.flush();
+    pending.splice(0).forEach(fn => fn());
+    expect(Array.from(h.requests.at(-1).body.options.terms)).to.deep.equal([]);
+    expect(h.scope.previewPreserved()).to.equal(true);
+    // Binary files are not fetched; the server's { binary: true } is a note too.
+    const before = h.requests.length;
+    h.scope.openPreviewFile("fig.png");
+    expect(h.requests.length).to.equal(before);
+    expect(h.scope.previewDoc.kind).to.equal("note");
+    expect(h.scope.previewStatus).to.equal("ready");
+    h.scope.openPreviewFile("src/a.py");
+    h.requests.at(-1).resolve({ data: JSON.stringify({ binary: true, size: 10 }), headers: () => "application/json; charset=utf-8" });
+    await h.flush();
+    expect(h.scope.previewDoc.kind).to.equal("note");
+    // Back to the README.
+    h.scope.openPreviewFile("README.md");
+    expect(h.scope.previewFile).to.equal("");
+  });
   it("includes PR comment authors and bodies in the preview batch", async function () {
     const h = harness(); const pending = new Map(); let id = 0;
     const timeout = fn => { pending.set(++id, fn); return id; }; timeout.cancel = id => pending.delete(id);

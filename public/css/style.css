@@ -14239,3 +14239,36 @@ body.dark-mode .auto-update-check .paid-tag { background: rgba(251, 191, 36, .12
   .reviewer-preview .rp-files-btn .ui-icon { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; }
   .reviewer-preview .rp-files-count { font-weight: 400; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
 }
+
+/* F9. Reviewer preview: every file of the tree opens in the window, redacted
+   as reviewers will see it. File rows are buttons with the explorer's hover
+   and active rail; the file bar names the open file (folder muted) and tags
+   a file left unredacted. Code is plain monospace on the window, like the
+   explorer's viewer. Phones open the same tree as a sheet under the file bar. */
+.reviewer-preview .rp-files .file:not(.folder) > a { cursor: pointer; }
+.reviewer-preview .rp-files .file:not(.folder):not(.active) > a:hover { background: var(--hover-bg-color); color: var(--color); }
+.reviewer-preview .rp-files .file:not(.folder) > a:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.reviewer-preview .rp-file-head { align-items: center; min-width: 0; }
+.reviewer-preview .rp-file-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.reviewer-preview .rp-file-dir { font-weight: 400; color: var(--ink-muted); }
+.reviewer-preview .rp-file-meta { flex: none; white-space: nowrap; }
+.reviewer-preview .rp-preserved-tag { flex: none; margin-left: auto; display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border: 0; border-radius: 10px; background: rgba(217, 119, 6, .1); box-shadow: inset 0 0 0 1px rgba(217, 119, 6, .3); color: #8A4B0A; font: 600 11.5px/1 var(--font-sans); white-space: nowrap; cursor: pointer; }
+.reviewer-preview .rp-preserved-tag:hover { background: rgba(217, 119, 6, .16); }
+.reviewer-preview .rp-preserved-tag:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+body.dark-mode .reviewer-preview .rp-preserved-tag { background: rgba(251, 191, 36, .12); box-shadow: inset 0 0 0 1px rgba(251, 191, 36, .32); color: #F2C66D; }
+.anonymize-page .reviewer-preview .anonymize-preview-body.rp-code-body { max-width: none; padding: 20px 0 40px !important; }
+/* Long lines wrap, as in the explorer's viewer (Ace wrap mode). */
+.reviewer-preview pre.rp-code { margin: 0 !important; padding: 0 32px !important; background: transparent !important; border: 0 !important; border-radius: 0 !important; font: 12.5px/1.65 var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace) !important; color: var(--color); white-space: pre-wrap !important; overflow-wrap: anywhere; overflow: visible; tab-size: 4; }
+.reviewer-preview .rp-code code { font: inherit; background: none !important; padding: 0; color: inherit; white-space: inherit; }
+.reviewer-preview .rp-note strong { font-size: 14px; }
+@media (max-width: 767px) {
+  .reviewer-preview .rp-body.has-side { position: relative; }
+  .reviewer-preview .rp-body.has-side.is-files-open > .rp-side { display: block; position: absolute; z-index: 3; left: 0; right: 0; top: 43px; max-height: min(60vh, calc(100% - 43px)); border-right: 0; border-bottom: 1px solid var(--border-color); box-shadow: 0 12px 24px -12px rgba(40,32,24,.35); }
+  .dark-mode .reviewer-preview .rp-body.has-side.is-files-open > .rp-side { box-shadow: 0 12px 24px -12px rgba(0,0,0,.7); }
+  .reviewer-preview button.rp-files-btn { cursor: pointer; font-family: var(--font-sans); }
+  .reviewer-preview button.rp-files-btn[aria-expanded="true"] { border-color: var(--accent); }
+  .reviewer-preview .rp-files-btn.is-static { color: var(--ink-muted); }
+  .reviewer-preview pre.rp-code { padding: 0 16px !important; font-size: 12px !important; }
+  /* The file name wins over the type label when the tag needs the room. */
+  .reviewer-preview .rp-file-head:has(.rp-preserved-tag) .rp-file-meta { display: none; }
+}

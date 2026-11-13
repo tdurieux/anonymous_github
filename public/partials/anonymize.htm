@@ -534,7 +534,7 @@
           <span class="rp-title">What reviewers will see</span>
           <span class="rp-count" v-if="previewStatus === 'ready' &amp;&amp; previewRedactions() &gt; 0" :title="previewRedactions() + ' redacted terms in this preview'"><span class="redact-slot" aria-hidden="true"><i>{{ previewRedactions() }}</i></span> redacted</span>
           <span class="rp-count rp-count-none" v-else-if="previewStatus === 'ready' &amp;&amp; !String(terms || '').trim()">No terms yet</span>
-          <span class="rp-count rp-count-none" v-else-if="previewStatus === 'ready' &amp;&amp; readmePreserved()">README left unredacted</span>
+          <span class="rp-count rp-count-none" v-else-if="previewStatus === 'ready' &amp;&amp; previewPreserved()">{{ previewName(previewFile ? previewFile.slice(previewFile.lastIndexOf('/') + 1) : readmeName()) }} left unredacted</span>
           <span class="rp-spacer"></span>
           <a class="rp-open is-external" v-if="isUpdate &amp;&amp; previewUrl()" :href="safeUrl(previewPath())" target="_blank" rel="noopener">Open reviewer page <span aria-hidden="true">↗</span></a>
           <button type="button" class="rp-open is-toggle" v-else @click="previewExpanded = !previewExpanded" :aria-pressed="!!previewExpanded"><svg class="rp-open-icon" viewBox="0 0 16 16" aria-hidden="true"><path v-if="!previewExpanded" d="M9.5 2.5h4v4M13.5 2.5 9 7M6.5 13.5h-4v-4M2.5 13.5 7 9"/><path v-else d="M13.5 6.5h-4v-4M9.5 6.5 14 2M2.5 9.5h4v4M6.5 9.5 2 14"/></svg>{{ previewExpanded ? 'Back to settings' : 'Expand preview' }}</button>
@@ -542,26 +542,32 @@
         <div class="rp-window">
           <div class="rp-chrome" aria-hidden="true"><i></i><i></i><i></i><span class="rp-url">{{ previewUrl() || 'anonymous.4open.science' }}</span></div>
           <div class="rp-bar" aria-hidden="true"><span class="vb-logo">Anonymous <em>GitHub</em></span><span class="rp-bar-id" v-if="previewId()">{{ previewId() }}</span><span class="rp-bar-kind" v-if="detectedType !== 'repo'">{{ detectedType === 'pr' ? 'Pull request' : 'Gist' }}</span></div>
-          <div class="rp-body" :class="{ 'has-side': detectedType === 'repo' }">
+          <div class="rp-body" :class="{ 'has-side': detectedType === 'repo', 'is-files-open': previewFilesOpen }">
             <!-- Sidebar: a miniature of the explorer's file tree -->
-            <nav class="rp-side" v-if="detectedType === 'repo'" aria-label="Files reviewers will see">
+            <nav class="rp-side" id="rp-side" v-if="detectedType === 'repo'" aria-label="Files reviewers will see">
               <ul class="files rp-files" v-if="previewTree().length">
-                <li v-for="entry in previewTree()" :key="entry.path" class="file" :class="{ folder: entry.dir, open: entry.open, active: entry.readme }" :style="{ '--depth': entry.depth }">
-                  <a v-if="entry.dir" role="button" tabindex="0" :aria-expanded="entry.open ? 'true' : 'false'" :title="entry.path" @click="togglePreviewFolder(entry.path)" @keydown.enter.prevent="togglePreviewFolder(entry.path)" @keydown.space.prevent="togglePreviewFolder(entry.path)"><span class="tree-toggle"></span><span class="tree-icon-folder" aria-hidden="true"><svg viewBox="0 0 14 12" focusable="false"><path d="M1.5 10.5v-9h4l1.5 2h5.5v7z"/></svg></span><span class="tree-name">{{ entry.name }}</span></a>
-                  <a v-else :title="entry.path" :aria-current="entry.readme ? 'page' : null"><span class="tree-spacer"></span><span class="far fa-file tree-icon-file" aria-hidden="true"></span><span class="tree-name">{{ entry.name }}</span></a>
+                <li v-for="entry in previewTree()" :key="entry.path" class="file" :class="{ folder: entry.dir, open: entry.open, active: entry.active }" :style="{ '--depth': entry.depth }">
+                  <a v-if="entry.dir" role="button" tabindex="0" :data-path="entry.path" :aria-expanded="entry.open ? 'true' : 'false'" :title="previewPathName(entry.path)" @click="togglePreviewFolder(entry.path)" @keydown.enter.prevent="togglePreviewFolder(entry.path)" @keydown.space.prevent="togglePreviewFolder(entry.path)"><span class="tree-toggle"></span><span class="tree-icon-folder" aria-hidden="true"><svg viewBox="0 0 14 12" focusable="false"><path d="M1.5 10.5v-9h4l1.5 2h5.5v7z"/></svg></span><span class="tree-name">{{ previewName(entry.name) }}</span></a>
+                  <a v-else role="button" tabindex="0" :data-path="entry.path" :title="previewPathName(entry.path)" :aria-current="entry.active ? 'page' : null" @click="openPreviewFile(entry.path)" @keydown.enter.prevent="openPreviewFile(entry.path)" @keydown.space.prevent="openPreviewFile(entry.path)"><span class="tree-spacer"></span><span class="far fa-file tree-icon-file" aria-hidden="true"></span><span class="tree-name">{{ previewName(entry.name) }}</span></a>
                 </li>
               </ul>
               <ul class="rp-files-skel" v-else-if="preserve.loading || (sourceLoading &amp;&amp; !preserve.error)" aria-label="Loading the file list"><li v-for="w in [58, 72, 46, 64, 52, 38, 68, 44]" :key="w"><i class="rp-skel" :style="{ width: w + '%' }"></i></li></ul>
               <template v-else>
-                <ul class="files rp-files" v-if="readme || previewStatus === 'ready'"><li class="file active"><a title="README.md" aria-current="page"><span class="tree-spacer"></span><span class="far fa-file tree-icon-file" aria-hidden="true"></span><span class="tree-name">README.md</span></a></li></ul>
+                <ul class="files rp-files" v-if="readme || previewStatus === 'ready'"><li class="file active"><a :title="readmeName()" aria-current="page"><span class="tree-spacer"></span><span class="far fa-file tree-icon-file" aria-hidden="true"></span><span class="tree-name">{{ previewName(readmeName()) }}</span></a></li></ul>
                 <p class="rp-side-note">Every other file at this commit appears here, with the same redactions.</p>
               </template>
             </nav>
             <div class="rp-doc">
-              <div class="rp-file-head" v-if="detectedType === 'repo' &amp;&amp; (previewStatus === 'ready' || readme)"><span class="rp-files-btn" aria-hidden="true"><svg class="ui-icon"><use href="#ui-icon-folder"></use></svg>Files<span class="rp-files-count" v-if="previewTreeCount()">{{ previewTreeCount() }}</span></span><span class="rp-file-name">README.md</span><span class="rp-file-meta">Markdown</span></div>
+              <div class="rp-file-head" v-if="detectedType === 'repo' &amp;&amp; (previewFile || previewStatus === 'ready' || readme)">
+                <button type="button" class="rp-files-btn" v-if="previewTree().length" aria-controls="rp-side" :aria-expanded="previewFilesOpen ? 'true' : 'false'" @click="previewFilesOpen = !previewFilesOpen"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-folder"></use></svg>Files<span class="rp-files-count" v-if="previewTreeCount()">{{ previewTreeCount() }}</span></button>
+                <span class="rp-files-btn is-static" v-else aria-hidden="true"><svg class="ui-icon"><use href="#ui-icon-folder"></use></svg>Files</span>
+                <span class="rp-file-name" :title="previewPathName(previewOpenPath() || readmeName())"><span class="rp-file-dir" v-if="previewOpenPath().includes('/')">{{ previewPathName(previewOpenPath().slice(0, previewOpenPath().lastIndexOf('/') + 1)) }}</span>{{ previewName(previewFile ? previewFile.slice(previewFile.lastIndexOf('/') + 1) : readmeName()) }}</span>
+                <span class="rp-file-meta">{{ previewFileLabel() }}</span>
+                <button type="button" class="rp-preserved-tag" v-if="previewPreserved()" @click="openPreserveFiles()" title="This file is left unredacted. Change it in Leave files unredacted.">Left unredacted</button>
+              </div>
               <!-- Loading: skeleton inside the window -->
               <div class="rp-state rp-loading" role="status" v-if="previewStatus === 'loading' || (sourceLoading &amp;&amp; previewStatus !== 'ready' &amp;&amp; previewStatus !== 'error')">
-                <span class="rp-state-text">{{ previewStatus === 'loading' ? 'Updating the anonymized preview…' : (detectedType === 'pr' ? 'Loading the pull request from GitHub…' : detectedType === 'gist' ? 'Loading the gist from GitHub…' : 'Loading the repository from GitHub…') }}</span>
+                <span class="rp-state-text">{{ previewDoc.loading ? 'Loading ' + previewName(previewFile.slice(previewFile.lastIndexOf('/') + 1)) + ' from GitHub…' : previewStatus === 'loading' ? 'Updating the anonymized preview…' : (detectedType === 'pr' ? 'Loading the pull request from GitHub…' : detectedType === 'gist' ? 'Loading the gist from GitHub…' : 'Loading the repository from GitHub…') }}</span>
                 <i class="rp-skel rp-skel-title"></i><i class="rp-skel" style="width:92%"></i><i class="rp-skel" style="width:86%"></i><i class="rp-skel" style="width:58%"></i>
                 <i class="rp-skel rp-skel-block"></i><i class="rp-skel" style="width:80%"></i><i class="rp-skel" style="width:66%"></i>
               </div>
@@ -576,16 +582,29 @@
                 <p>{{ error }}</p>
                 <div class="rp-state-actions"><button type="button" class="btn btn-ink btn-sm" @click="urlSelected(true)">Retry</button><button type="button" class="btn btn-outline-ink btn-sm" v-if="githubConnection !== 'oauth'" @click="grantGitHubAccess()">Manage GitHub access <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-external-link"></use></svg></button></div>
               </div>
+              <!-- The open file could not be read from GitHub -->
+              <div class="rp-state rp-error" role="alert" v-else-if="previewStatus === 'error' &amp;&amp; previewDoc.loadError">
+                <strong>Couldn't load {{ previewName(previewFile.slice(previewFile.lastIndexOf('/') + 1)) }}</strong>
+                <p>{{ previewDoc.loadError }}</p>
+                <div class="rp-state-actions"><button class="btn btn-ink btn-sm" type="button" @click="retryPreview()">Retry</button><button class="btn btn-outline-ink btn-sm" type="button" @click="openPreviewFile('')">Back to the README</button></div>
+              </div>
               <!-- The anonymized preview failed -->
               <div class="rp-state rp-error" role="alert" v-else-if="previewStatus === 'error'">
                 <strong>Couldn't apply the redactions</strong>
                 <p>Unable to generate the anonymized preview. The latest redactions have not been verified.</p>
                 <div class="rp-state-actions"><button class="btn btn-ink btn-sm" type="button" @click="retryPreview()">Retry preview</button></div>
               </div>
-              <div class="rp-state rp-empty" v-else-if="detectedType === 'repo' &amp;&amp; !readme &amp;&amp; previewStatus === 'idle'">
+              <div class="rp-state rp-empty" v-else-if="detectedType === 'repo' &amp;&amp; !previewFile &amp;&amp; !readme &amp;&amp; previewStatus === 'idle'">
                 <strong>No README</strong>
                 <p>Reviewers land on the file list. Open the files you will share and check them before sending the link.</p>
               </div>
+              <!-- Images, PDFs, binaries and files over 1 MB are not previewed -->
+              <div class="rp-state rp-empty rp-note" v-else-if="detectedType === 'repo' &amp;&amp; previewFile &amp;&amp; previewDoc.kind === 'note' &amp;&amp; previewStatus === 'ready'">
+                <strong>{{ previewFileLabel() }}</strong>
+                <p>Reviewers can open this file; it is not previewed here.{{ previewDoc.note === 'too_big' ? ' Files over 1 MB are only shown on the reviewer page.' : '' }}</p>
+              </div>
+              <div class="anonymize-preview-body rp-code-body" v-else-if="detectedType === 'repo' &amp;&amp; previewFile &amp;&amp; previewDoc.kind === 'code' &amp;&amp; previewStatus === 'ready'" v-html="renderRedacted(sanitize(previewDoc.html))"></div>
+              <div class="anonymize-preview-body markdown-body body" v-else-if="detectedType === 'repo' &amp;&amp; previewFile &amp;&amp; previewStatus === 'ready'" v-html="renderRedacted(sanitize(previewDoc.html))"></div>
               <div class="anonymize-preview-body markdown-body body" v-else-if="detectedType === 'repo' &amp;&amp; previewStatus === 'ready'" v-html="renderRedacted(sanitize(html_readme))"></div>
               <div class="anonymize-preview-body" v-else-if="detectedType === 'gist' &amp;&amp; previewStatus === 'ready'">
 
@@ -674,7 +693,7 @@
               </div>
               </div>
               <!-- More below: a fade with a way to keep reading (hidden by CSS once the window is scrolled to the end) -->
-              <div class="rp-more" v-if="previewStatus === 'ready'">
+              <div class="rp-more" v-if="previewStatus === 'ready' &amp;&amp; !(detectedType === 'repo' &amp;&amp; previewFile &amp;&amp; previewDoc.kind === 'note')">
                 <a class="rp-more-btn" v-if="isUpdate &amp;&amp; previewUrl()" :href="safeUrl(previewPath())" target="_blank" rel="noopener">Continue reading on the reviewer page <span aria-hidden="true">↗</span></a>
                 <button type="button" class="rp-more-btn" v-else-if="!previewExpanded" @click="previewExpanded = true">Continue reading in the expanded preview</button>
                 <span class="rp-more-btn is-hint" v-else aria-hidden="true">Scroll for more</span>

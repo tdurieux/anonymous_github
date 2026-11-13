@@ -1793,7 +1793,7 @@ export const anonymizeController = function (state, http, html, params, location
           state.detectedType = null;
           state.details = null;
           state.sourceUrlError = "";
-          scheduleReadmePreview.cancel();
+          scheduleRepoPreview.cancel();
           refreshPrPreview.cancel();
           refreshGistPreview.cancel();
           state.previewStatus = "idle";
@@ -1975,43 +1975,48 @@ export const anonymizeController = function (state, http, html, params, location
         const path = state.previewPath();
         return path ? "anonymous.4open.science" + path.replace(/\/$/, "") : "";
       };
-      // Occurrences of XXXX-n in what the preview currently shows.
+      // Occurrences of XXXX-n in what the preview currently shows: the open
+      // file for a repository, everything for a PR or a gist.
       state.previewRedactions = () => {
         const count = (text) => typeof text === "string" ? (text.match(REDACTION_RE) || []).length : 0;
-        if (state.detectedType === "repo") return count(String(state.html_readme || "").replace(/<[^>]*>/g, " "));
+        if (state.detectedType === "repo") {
+          if (state.previewFile) return state.previewDoc.kind === "note" ? 0 : count(state.previewDoc.anonymized);
+          return count(String(state.html_readme || "").replace(/<[^>]*>/g, " "));
+        }
         const cache = state.detectedType === "pr" ? _prAnonCache : _gistAnonCache;
         let n = 0;
         cache.forEach((value) => { n += count(value); });
         return n;
       };
       // The preview's miniature file tree, from the same tree the
-      // Unredacted-files picker loads. Like the explorer: folders first, then
-      // files, each alphabetical; folders start collapsed and open on click.
-      // Only the open folders' rows are built, so large repositories stay cheap.
+      // Unredacted-files picker loads (plus the binary files the picker
+      // leaves out). Like the explorer: folders first, then files, each
+      // alphabetical; folders start collapsed and open on click. Only the open
+      // folders' rows are built, so large repositories stay cheap.
       state.previewTreeOpen = {};
       const byName = (a, b) => a.localeCompare(b, undefined, { sensitivity: "base" });
       const baseName = (path) => path.slice(path.lastIndexOf("/") + 1);
       state.previewTree = () => {
-        if (!state.preserve.commit || !preserveIndex) return [];
-        const readme = (preserveIndex.dirs.get("")?.files || []).find((f) => /^readme(\.|$)/i.test(f));
+        if (!state.preserve.commit || !previewIndex) return [];
+        const open = state.previewOpenPath();
         const rows = [];
         const walk = (dir, depth) => {
-          const node = preserveIndex.dirs.get(dir);
+          const node = previewIndex.dirs.get(dir);
           if (!node) return;
           for (const sub of [...node.dirs].sort((a, b) => byName(baseName(a), baseName(b)))) {
-            const open = !!state.previewTreeOpen[sub];
-            rows.push({ path: sub, name: baseName(sub), dir: true, open, depth });
-            if (open) walk(sub, depth + 1);
+            const expanded = !!state.previewTreeOpen[sub];
+            rows.push({ path: sub, name: baseName(sub), dir: true, open: expanded, depth });
+            if (expanded) walk(sub, depth + 1);
           }
           for (const file of [...node.files].sort((a, b) => byName(baseName(a), baseName(b)))) {
-            rows.push({ path: file, name: baseName(file), dir: false, readme: file === readme, depth });
+            rows.push({ path: file, name: baseName(file), dir: false, active: file === open, depth });
           }
         };
         walk("", 0);
         return rows;
       };
       state.previewTreeCount = () => {
-        const root = state.preserve.commit && preserveIndex ? preserveIndex.dirs.get("") : null;
+        const root = state.preserve.commit && previewIndex ? previewIndex.dirs.get("") : null;
         return root ? root.dirs.length + root.files.length : 0;
       };
       state.togglePreviewFolder = (path) => {
@@ -2272,7 +2277,7 @@ export const anonymizeController = function (state, http, html, params, location
         try { o = parseGithubUrl(state.sourceUrl.trim()); }
         catch (_) {
           state.sourceLoading = false;
-          scheduleReadmePreview.cancel();
+          scheduleRepoPreview.cancel();
           refreshPrPreview.cancel();
           refreshGistPreview.cancel();
           state.previewStatus = "idle";
@@ -2300,7 +2305,7 @@ export const anonymizeController = function (state, http, html, params, location
         state.details = null;
         state.branches = [];
         if (!preserveSelection) state.source = { type: "GitHubStream", branch: "", commit: "" };
-        scheduleReadmePreview.cancel();
+        scheduleRepoPreview.cancel();
         refreshPrPreview.cancel();
         refreshGistPreview.cancel();
         _prAnonCache.clear();
@@ -2309,6 +2314,7 @@ export const anonymizeController = function (state, http, html, params, location
         state.anonymize_readme = "";
         state.readme = "";
         state.html_readme = "";
+        resetPreviewFile();
         state.detectedType = null;
         state.gistOAuthRequired = false;
         state.gistAppRequired = false;
@@ -2479,6 +2485,9 @@ export const anonymizeController = function (state, http, html, params, location
       const folderExclusion = (dir) => "!/" + globEscape(dir, globOpts) + "/";
       const patternLines = () => String(state.preserve.patterns || "").split("\n").map((l) => l.trim()).filter(Boolean);
       let preserveIndex = null;
+      // The preview's tree: the picker's text files plus the binary ones.
+      let previewIndex = null;
+      let previewBinary = new Set();
       // The checkboxes use the exact rule list that will be saved (picks first,
       // then patterns) through the server's matcher, so they cannot disagree.
       let pickVersion = 0;
@@ -2533,16 +2542,24 @@ export const anonymizeController = function (state, http, html, params, location
         state.preserve.loading = true;
         state.preserve.error = "";
         preserveIndex = null;
+        previewIndex = null;
         try {
           const o = parseGithubUrl(state.sourceUrl);
           const res = await http.get(`/api/repo/${o.owner}/${o.repo}/tree`, {
             params: { commit, connection: state.githubConnection, anonymizedRepoId: state.isUpdate && params.repoId && parseRepoFullName(state.sourceUrl) === state._originalFullName ? params.repoId : undefined, repositoryID: sourceRepositoryID() },
           });
           if (state.source?.commit !== commit) return;
+          const binaryFiles = Array.isArray(res.data.binaryFiles) ? res.data.binaryFiles : [];
           preserveIndex = markRaw(buildPreserveIndex(res.data.files || []));
+          previewIndex = binaryFiles.length ? markRaw(buildPreserveIndex([...(res.data.files || []), ...binaryFiles])) : preserveIndex;
+          previewBinary = markRaw(new Set(binaryFiles));
+          const wasPreserved = state.readmePreserved();
           state.preserve.commit = commit;
           state.preserve.truncated = !!res.data.truncated;
           state.previewTreeOpen = {};
+          // The README's real path is known now; redo the preview only if
+          // that changes whether it is redacted.
+          if (!state.previewFile && state.readmePreserved() !== wasPreserved) scheduleRepoPreview();
         } catch (error) {
           state.preserve.error = "The file list could not be loaded from GitHub. You can still use patterns.";
           state.preserve.patternsOpen = true;
@@ -2553,6 +2570,7 @@ export const anonymizeController = function (state, http, html, params, location
       // The preview window shows the repository's top-level files once the
       // commit is known (one tree request, shared with the picker).
       state.watch("source.commit", (commit) => {
+        if (state.previewFile) state.openPreviewFile("");
         if (state.detectedType === "repo" && commit && state.sourceUrl) loadPreserveTree().catch(() => {});
       });
       state.openPreserveFiles = () => {
@@ -2634,23 +2652,57 @@ export const anonymizeController = function (state, http, html, params, location
         }
       };
 
-      // GitHub's README lookup order. The exact path is not known here, so the
-      // preview treats the README as unredacted if any candidate is selected:
-      // when unsure, it shows the author more exposure, not less.
-      const README_CANDIDATES = [".github", "", "docs"].flatMap((dir) =>
-        ["README.md", "README", "README.markdown", "README.rst", "README.txt", "readme.md"].map((name) => (dir ? dir + "/" : "") + name));
+      // The README reviewers land on, found the way GitHub does: the first
+      // folder of .github/, the root and docs/ holding a README (any case),
+      // preferring Markdown. Until the file list loads only the root names
+      // are assumed, so a rule on docs/ or .github/ never unredacts it.
+      const README_RE = /^readme(\.[^/]*)?$/i;
+      const README_EXT_ORDER = [".md", ".markdown", ".mdown", ".mkdn", ".rst", ".txt", ""];
+      const ROOT_README_CANDIDATES = ["README.md", "README", "README.markdown", "README.rst", "README.txt", "readme.md"];
+      const readmeRank = (path) => {
+        const name = baseName(path);
+        const dot = name.indexOf(".");
+        const rank = README_EXT_ORDER.indexOf(dot === -1 ? "" : name.slice(dot).toLowerCase());
+        return rank === -1 ? README_EXT_ORDER.length : rank;
+      };
+      const treeLoaded = () => !!preserveIndex && !!state.preserve.commit && state.preserve.commit === state.source?.commit;
+      state.readmePath = () => {
+        if (!treeLoaded()) return "";
+        for (const dir of [".github", "", "docs"]) {
+          const found = (preserveIndex.dirs.get(dir)?.files || []).filter((f) => README_RE.test(baseName(f)));
+          if (found.length) return found.sort((a, b) => readmeRank(a) - readmeRank(b) || byName(a, b))[0];
+        }
+        return "";
+      };
+      state.readmeName = () => baseName(state.readmePath()) || "README.md";
+      // The saved "Leave files unredacted" rules, through the server's matcher.
+      let savedMatcher = { key: null, fn: () => false };
+      const savedPreserveMatcher = () => {
+        const patterns = (state.options?.preserveFiles || []).map((p) => String(p).trim()).filter(Boolean);
+        const key = patterns.join("\n");
+        if (key !== savedMatcher.key) {
+          let fn = () => false;
+          try { if (patterns.length) fn = compilePreserveMatcher(patterns); } catch { /* invalid rules match nothing */ }
+          savedMatcher = { key, fn };
+        }
+        return savedMatcher.fn;
+      };
+      state.pathPreserved = (path) => !!path && savedPreserveMatcher()(path);
       state.readmePreserved = () => {
         if (state.detectedType !== "repo") return false;
-        const patterns = (state.options?.preserveFiles || []).map((p) => String(p).trim()).filter(Boolean);
-        if (!patterns.length) return false;
-        try {
-          const matcher = compilePreserveMatcher(patterns);
-          return README_CANDIDATES.some((path) => matcher(path));
-        } catch { return false; }
+        const matcher = savedPreserveMatcher();
+        if (treeLoaded()) {
+          const path = state.readmePath();
+          return !!path && matcher(path);
+        }
+        return ROOT_README_CANDIDATES.some((path) => matcher(path));
       };
-      function previewOptions() {
+      // The open file is left unredacted (README included).
+      state.previewPreserved = () => state.detectedType === "repo"
+        && (state.previewFile ? state.pathPreserved(state.previewFile) : state.readmePreserved());
+      function previewOptions(preserved) {
         const opts = {
-          terms: state.terms && !state.readmePreserved() ? state.terms.split("\n") : [],
+          terms: state.terms && !preserved ? state.terms.split("\n") : [],
           image: !!state.options.image,
           link: !!state.options.link,
           repoId: state.repoId,
@@ -2696,49 +2748,230 @@ export const anonymizeController = function (state, http, html, params, location
         return schedule;
       }
       state.retryPreview = () => {
-        if (state.detectedType === "repo") scheduleReadmePreview();
+        if (state.detectedType === "repo") {
+          if (state.previewFile && typeof fileRaw !== "string") loadPreviewFile(state.previewFile);
+          else scheduleRepoPreview();
+        }
         if (state.detectedType === "pr") refreshPrPreview();
         if (state.detectedType === "gist") refreshGistPreview();
       };
 
-      const scheduleReadmePreview = makePreviewBatcher(
+      // ---- The preview's file viewer ----
+      // Any file of the tree opens in the window, redacted by the server like
+      // the README; a file left unredacted is sent with no terms. Images,
+      // PDFs and other binary files get a short note instead of content.
+      const PREVIEW_MD_RE = /\.(md|markdown|mdown|mkdn|mdx)$/i;
+      const PREVIEW_IMAGE_RE = /\.(png|jpe?g|gif|svg|ico|bmp|tiff?|webp|avif|heic|heif)$/i;
+      const PREVIEW_PRISM = { js: "javascript", mjs: "javascript", cjs: "javascript", jsx: "javascript", ts: "javascript", tsx: "javascript", py: "python", r: "r", jl: "julia", html: "markup", htm: "markup", xml: "markup", vue: "markup" };
+      const PREVIEW_LANGUAGE = { js: "JavaScript", mjs: "JavaScript", cjs: "JavaScript", jsx: "JSX", ts: "TypeScript", tsx: "TSX", py: "Python", ipynb: "Jupyter notebook", r: "R", jl: "Julia", java: "Java", c: "C", h: "C", cpp: "C++", hpp: "C++", cc: "C++", cs: "C#", go: "Go", rs: "Rust", rb: "Ruby", php: "PHP", html: "HTML", htm: "HTML", css: "CSS", scss: "SCSS", json: "JSON", yml: "YAML", yaml: "YAML", toml: "TOML", ini: "INI", cfg: "Config", sh: "Shell", bash: "Shell", zsh: "Shell", xml: "XML", sql: "SQL", kt: "Kotlin", swift: "Swift", scala: "Scala", tex: "LaTeX", sty: "LaTeX", cls: "LaTeX", bib: "BibTeX", csv: "CSV", tsv: "TSV", txt: "Text", rst: "reStructuredText", m: "MATLAB", lua: "Lua", dockerfile: "Dockerfile", makefile: "Makefile", vue: "Vue" };
+      const fileExtension = (path) => {
+        const name = baseName(path).toLowerCase();
+        if (name === "dockerfile" || name === "makefile") return name;
+        const dot = name.lastIndexOf(".");
+        return dot > 0 ? name.slice(dot + 1) : "";
+      };
+      function previewKind(path) {
+        if (!path) return "readme";
+        if (previewBinary.has(path) || PREVIEW_IMAGE_RE.test(path) || /\.pdf$/i.test(path)) return "note";
+        return PREVIEW_MD_RE.test(path) ? "md" : "code";
+      }
+      // The file bar's type label.
+      state.previewFileLabel = () => {
+        const path = state.previewFile;
+        if (!path) return "Markdown";
+        if (state.previewDoc.note === "too_big") return "Too large to preview";
+        if (PREVIEW_IMAGE_RE.test(path)) return "Image";
+        if (/\.pdf$/i.test(path)) return "PDF";
+        if (state.previewDoc.kind === "note") return "Binary file";
+        if (state.previewDoc.kind === "md") return "Markdown";
+        return PREVIEW_LANGUAGE[fileExtension(path)] || "Text";
+      };
+      const emptyDoc = (path = "", kind = "readme") => ({ path, kind, loading: false, anonymized: "", html: "", note: "", loadError: "" });
+      state.previewFile = "";
+      state.previewDoc = emptyDoc();
+      state.previewFilesOpen = false;
+      let fileGeneration = 0;
+      let fileRaw = null;
+      // The file the preview shows: the open file, else the README.
+      state.previewOpenPath = () => state.previewFile || state.readmePath();
+      state.openPreviewFile = (path) => {
+        path = path || "";
+        if (path && path === state.readmePath()) path = "";
+        fileGeneration++;
+        fileRaw = null;
+        scheduleRepoPreview.cancel();
+        state.previewFilesOpen = false;
+        state.previewFile = path;
+        state.previewDoc = emptyDoc(path, previewKind(path));
+        // Keep the open file visible in the tree.
+        const parts = path.split("/");
+        for (let i = 1; i < parts.length; i++) state.previewTreeOpen[parts.slice(0, i).join("/")] = true;
+        if (!path) {
+          if (state.readme) scheduleRepoPreview();
+          else state.previewStatus = "idle";
+          return;
+        }
+        if (state.previewDoc.kind === "note") {
+          state.previewDoc.note = "binary";
+          state.previewStatus = "ready";
+          return;
+        }
+        loadPreviewFile(path);
+      };
+      function resetPreviewFile() {
+        fileGeneration++;
+        fileRaw = null;
+        state.previewFile = "";
+        state.previewDoc = emptyDoc();
+        state.previewFilesOpen = false;
+      }
+      function loadPreviewFile(path) {
+        const generation = ++fileGeneration;
+        fileRaw = null;
+        Object.assign(state.previewDoc, { loading: true, loadError: "" });
+        state.previewStatus = "loading";
+        let o;
+        try { o = parseGithubUrl(state.sourceUrl); } catch (_) { o = null; }
+        if (!o || !state.source?.commit) {
+          Object.assign(state.previewDoc, { loading: false, loadError: "The repository is still loading. Try again in a moment." });
+          state.previewStatus = "error";
+          return;
+        }
+        http.get(`/api/repo/${o.owner}/${o.repo}/file`, {
+          params: { commit: state.source.commit, path, connection: state.githubConnection, anonymizedRepoId: state.isUpdate && params.repoId && parseRepoFullName(state.sourceUrl) === state._originalFullName ? params.repoId : undefined, repositoryID: sourceRepositoryID() },
+          // Keep the text as is: a JSON or YAML file must not be parsed.
+          transformResponse: (raw) => raw,
+        }).then((res) => {
+          if (generation !== fileGeneration) return;
+          state.previewDoc.loading = false;
+          const type = typeof res.headers === "function" ? res.headers("content-type") || "" : "";
+          if (/json/i.test(type)) {
+            let data = null;
+            try { data = JSON.parse(res.data); } catch (_) { /* not JSON after all */ }
+            if (data && data.binary === true) {
+              Object.assign(state.previewDoc, { kind: "note", note: "binary" });
+              state.previewStatus = "ready";
+              return;
+            }
+          }
+          fileRaw = typeof res.data === "string" ? res.data : "";
+          scheduleRepoPreview();
+        }, (error) => {
+          if (generation !== fileGeneration) return;
+          state.previewDoc.loading = false;
+          const code = viewerErrorCode(error);
+          if (code === "file_too_big") {
+            Object.assign(state.previewDoc, { kind: "note", note: "too_big" });
+            state.previewStatus = "ready";
+            return;
+          }
+          state.previewDoc.loadError = translations.ERRORS[code] || "GitHub did not return this file.";
+          state.previewStatus = "error";
+        });
+      }
+      const escapeCode = (text) => text.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+      // Code and text: the explorer's Prism highlighting (very large files stay plain).
+      function codeHtml(text, path) {
+        const language = text.length <= 300 * 1024 ? PREVIEW_PRISM[fileExtension(path)] || "none" : "none";
+        return `<pre class="rp-code"><code class="language-${language}">${escapeCode(text)}</code></pre>`;
+      }
+      // Relative links and images resolve against the file's folder on GitHub.
+      function rawBaseUrl(path) {
+        try {
+          const o = parseGithubUrl(state.sourceUrl);
+          // Fall back to the repo's default branch when source.branch
+          // hasn't loaded yet — without this, relative <img src="./X">
+          // resolved against a baseUrl like ".../raw//" (no branch
+          // segment), so the browser fetched ".../raw/X" and 404'd
+          // (#407).
+          const branch =
+            state.source.branch ||
+            (state.details && state.details.defaultBranch) ||
+            "main";
+          const dir = path && path.includes("/") ? path.slice(0, path.lastIndexOf("/") + 1) : "";
+          return `https://github.com/${o.owner}/${o.repo}/raw/${branch}/${dir}`;
+        } catch (_) { return ""; }
+      }
+
+      // One batcher for whatever the window shows (README or the open file):
+      // terms, options and unredacted-file rules all re-run it.
+      const repoPreviewBatch = makePreviewBatcher(
         "repo",
         () => {
+          if (state.previewFile) {
+            if (typeof fileRaw !== "string") return null;
+            return { content: fileRaw, options: previewOptions(state.pathPreserved(state.previewFile)) };
+          }
           if (!state.readme) return null;
-          return { content: state.readme, options: previewOptions() };
+          return { content: state.readme, options: previewOptions(state.readmePreserved()) };
         },
         (data) => {
           if (typeof data?.content !== "string") throw Error("Invalid preview response");
-          state.anonymize_readme = data.content;
-          let baseUrl = "";
-          try {
-            const o = parseGithubUrl(state.sourceUrl);
-            // Fall back to the repo's default branch when source.branch
-            // hasn't loaded yet — without this, relative <img src="./X">
-            // resolved against a baseUrl like ".../raw//" (no branch
-            // segment), so the browser fetched ".../raw/X" and 404'd
-            // (#407).
-            const branch =
-              state.source.branch ||
-              (state.details && state.details.defaultBranch) ||
-              "main";
-            baseUrl = `https://github.com/${o.owner}/${o.repo}/raw/${branch}/`;
-          } catch (_) { /* fall through with empty base */ }
-          const html = renderMD(state.anonymize_readme, baseUrl);
-          state.html_readme = html;
+          if (state.previewFile) {
+            const path = state.previewFile;
+            state.previewDoc.anonymized = data.content;
+            state.previewDoc.html = state.previewDoc.kind === "md" ? renderMD(data.content, rawBaseUrl(path)) : codeHtml(data.content, path);
+          } else {
+            state.anonymize_readme = data.content;
+            state.html_readme = renderMD(state.anonymize_readme, rawBaseUrl(state.readmePath()));
+          }
           timeout(() => {
             Prism.highlightAll();
             // Wrapped README code in the preview continues under a hanging indent.
-            if (typeof hangCodeLines === "function") document.querySelectorAll(".reviewer-preview .anonymize-preview-body").forEach(hangCodeLines);
+            if (typeof hangCodeLines === "function") document.querySelectorAll(".reviewer-preview .anonymize-preview-body.markdown-body").forEach(hangCodeLines);
           }, 150);
         }
       );
+      // A file still loading (or that failed to load, or is not previewed)
+      // keeps its state; it is redacted once its text arrives.
+      const scheduleRepoPreview = () => {
+        if (state.previewFile && typeof fileRaw !== "string") return;
+        repoPreviewBatch();
+      };
+      scheduleRepoPreview.cancel = repoPreviewBatch.cancel;
+
+      // ---- Names in the tree and the file bar ----
+      // Redacted the way the server redacts paths: the visible names go through
+      // /api/anonymize-preview in one batch, with the terms only.
+      const _nameAnonCache = reactive(new Map());
+      const pendingNames = new Set();
+      const failedNames = new Set();
+      let nameCacheKey = "";
+      let nameTimer = null;
+      const nameTerms = () => String(state.terms || "").split("\n").filter((line) => line.trim());
+      function flushNames() {
+        nameTimer = null;
+        const terms = nameTerms();
+        const key = terms.join("\n");
+        if (key !== nameCacheKey) { _nameAnonCache.clear(); failedNames.clear(); nameCacheKey = key; }
+        const names = [...pendingNames].filter((name) => !_nameAnonCache.has(name));
+        pendingNames.clear();
+        if (!names.length || !terms.length) return;
+        http.post("/api/anonymize-preview", { contents: names, options: { terms, image: true, link: true } }).then((res) => {
+          if (nameCacheKey !== key || nameTerms().join("\n") !== key) return;
+          const out = res.data?.contents;
+          if (!Array.isArray(out) || out.length !== names.length) throw Error("Invalid preview response");
+          names.forEach((name, i) => _nameAnonCache.set(name, typeof out[i] === "string" ? out[i] : name));
+        }).catch(() => { if (nameCacheKey === key) names.forEach((name) => failedNames.add(name)); });
+      }
+      state.previewName = (name) => {
+        if (!name || !nameTerms().length) return name;
+        if (nameCacheKey === nameTerms().join("\n")) {
+          if (_nameAnonCache.has(name)) return _nameAnonCache.get(name);
+          if (failedNames.has(name)) return name;
+        }
+        pendingNames.add(name);
+        if (!nameTimer) nameTimer = timeout(flushNames, 120);
+        return name;
+      };
+      state.previewPathName = (path) => String(path || "").split("/").map(state.previewName).join("/");
+      state.on("dispose", () => { if (nameTimer) timeout.cancel(nameTimer); });
 
       function anonymizeReadme() {
         if (!state.anonymize || !state.anonymize.terms) return;
         // The "regex characters detected" hint is informational, not a blocker
         // — IP addresses, escaped chars, etc. are all legitimate terms (#430).
-        scheduleReadmePreview();
+        scheduleRepoPreview();
       }
 
       // ========== PR LOGIC ==========
@@ -3186,7 +3419,7 @@ export const anonymizeController = function (state, http, html, params, location
         state.terms = escapeTermLine(state.terms, line);
       };
       state.watch("options.preserveFiles", () => {
-        if (state.detectedType === "repo") scheduleReadmePreview();
+        if (state.detectedType === "repo") scheduleRepoPreview();
       });
       state.watch("terms", () => {
         state.termHints = termHints(state.terms);

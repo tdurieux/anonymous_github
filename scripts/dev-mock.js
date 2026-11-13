@@ -278,7 +278,7 @@ app.get("/api/user/anonymized_repositories", (req, res) => res.json(repositories
 app.get("/api/user/anonymized_pull_requests", (req, res) => res.json(pullRequests));
 app.get("/api/user/anonymized_gists", (req, res) => res.json(gists));
 app.get("/api/user/default", (req, res) =>
-  res.json({ terms: ["Jane Smith", "MIT CSAIL"], options: { link: true, image: true, pdf: true, notebook: true, loc: true, page: false, update: false, mode: "GitHubStream", expirationMode: "remove" } })
+  res.json({ terms: ["Jane Smith", "MIT CSAIL", "jsmith"], options: { link: true, image: true, pdf: true, notebook: true, loc: true, page: false, update: false, mode: "GitHubStream", expirationMode: "remove" } })
 );
 app.post("/api/user/default", (req, res) => res.json({}));
 // Conference review packages (billing enabled), mirroring src/core/billing/config.ts.
@@ -423,6 +423,82 @@ app.get(`/api/repo/${GALLERY_ID}/file/{*rest}`, (req, res) => {
     return res.type(mime && !file.endsWith(".ts") ? mime : "text/plain").send(galleryText[file]);
   }
   res.status(404).json({ error: "file_not_found" });
+});
+
+// Anonymize workspace source: https://github.com/jsmith/robust-repair. The
+// files carry the mock's default terms (Jane Smith, MIT CSAIL, jsmith) so the
+// preview's redactions, its file viewer and the "Leave files unredacted"
+// cases (a docs/ README, a bibliography) can be checked without GitHub.
+// Same endpoints as src/server/routes/repository-private.ts.
+const SOURCE = { owner: "jsmith", repo: "robust-repair", commit: "5be2a7c1d0e94f3b8a6c2d1e0f9a8b7c6d5e4f3a" };
+const sourceText = {
+  "README.md": "# Robust Repair\n\nCode and data for *Learning Robust Repair Strategies from Developer Histories* by Jane Smith (MIT CSAIL).\n\n![Overview](figures/overview.png)\n\n## Getting started\n\n```bash\ngit clone https://github.com/jsmith/robust-repair\npip install -r requirements.txt\npython src/train.py --config configs/base.yaml\n```\n\nThe full documentation is in [docs/](docs/README.md). Questions: open an issue or write to Jane Smith.\n\n## Layout\n\n| Folder | Content |\n| --- | --- |\n| `src/` | Training and evaluation code |\n| `paper/` | LaTeX sources of the paper |\n| `configs/` | Experiment configurations |\n",
+  "docs/README.md": "# Documentation\n\nMaintained by Jane Smith at MIT CSAIL. See [usage](usage.md) for the command line.\n",
+  "docs/usage.md": "# Usage\n\n```bash\npython src/train.py --config configs/base.yaml --seed 1\n```\n\nRuns from the jsmith cluster write to `out/`.\n",
+  "src/train.py": "# Copyright 2026 Jane Smith, MIT CSAIL\n\"\"\"Train the repair model (contact: jsmith).\"\"\"\nimport argparse\n\nimport yaml\n\nfrom jsmith_utils import load_dataset\n\n\ndef main():\n    parser = argparse.ArgumentParser(description=\"Train the model\")\n    parser.add_argument(\"--config\", required=True)\n    parser.add_argument(\"--seed\", type=int, default=1)\n    args = parser.parse_args()\n    with open(args.config) as f:\n        config = yaml.safe_load(f)\n    dataset = load_dataset(config[\"data\"])\n    print(f\"Loaded {len(dataset)} examples for Jane Smith's run\")\n\n\nif __name__ == \"__main__\":\n    main()\n",
+  "src/jsmith-utils/io.js": "// Helpers shared by the evaluation scripts. Author: Jane Smith <jane.smith@csail.mit.edu>\nconst fs = require(\"fs\");\n\n/** Reads one JSON object per line. */\nfunction readJsonLines(path) {\n  return fs.readFileSync(path, \"utf8\").split(\"\\n\").filter(Boolean).map((line) => JSON.parse(line));\n}\n\nmodule.exports = { readJsonLines, lab: \"MIT CSAIL\" };\n",
+  "paper/main.tex": "\\documentclass{article}\n\\title{Learning Robust Repair Strategies from Developer Histories}\n\\author{Jane Smith \\\\ MIT CSAIL}\n\n\\begin{document}\n\\maketitle\n\n\\section{Introduction}\nWe build on our earlier work~\\cite{smith2024repair}, done at MIT CSAIL.\n\n\\bibliographystyle{plain}\n\\bibliography{refs}\n\\end{document}\n",
+  "paper/refs.bib": "@inproceedings{smith2024repair,\n  title     = {Repairing Programs with Developer Histories},\n  author    = {Jane Smith and Ana Lopez},\n  booktitle = {Proceedings of ICSE},\n  year      = {2024},\n  note      = {MIT CSAIL}\n}\n",
+  "configs/base.yaml": "# Base configuration (Jane Smith)\ndata: data/train.jsonl\nmodel: transformer-small\nseed: 1\noutput: /home/jsmith/out\n",
+  "requirements.txt": "torch>=2.3\nnumpy\npyyaml\n",
+  LICENSE: "MIT License\n\nCopyright (c) 2026 Jane Smith\n",
+};
+// figures/overview.png reuses the gallery image; data/train.csv is over the 1 MB preview limit.
+const sourceBinary = ["figures/overview.png"];
+const sourceTooBig = ["data/train.csv"];
+const sourceAccess = (req, res) => {
+  if (/^[0-9a-f]{6,40}$/i.test(String(req.query.commit || ""))) return true;
+  res.status(400).json({ error: "invalid_commit_format" });
+  return false;
+};
+const SOURCE_BASE = `/api/repo/${SOURCE.owner}/${SOURCE.repo}`;
+app.get(SOURCE_BASE + "/", (req, res) => res.json({
+  id: "mock-source-1", externalId: "gh_910001", repo: SOURCE.repo, owner: SOURCE.owner,
+  hasPage: false, fullName: `${SOURCE.owner}/${SOURCE.repo}`, defaultBranch: "main", size: 2048,
+}));
+app.get(SOURCE_BASE + "/branches", (req, res) => res.json([
+  { name: "main", commit: SOURCE.commit, readme: sourceText["README.md"] },
+  { name: "camera-ready", commit: "9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b" },
+]));
+app.get(SOURCE_BASE + "/readme", (req, res) => res.type("text/plain").send(sourceText["README.md"]));
+app.get(SOURCE_BASE + "/tree", (req, res) => {
+  if (!sourceAccess(req, res)) return;
+  res.set("Cache-Control", "private, no-store");
+  res.json({ files: [...Object.keys(sourceText), ...sourceTooBig].sort(), binaryFiles: sourceBinary, truncated: false });
+});
+app.get(SOURCE_BASE + "/file", (req, res) => {
+  if (!sourceAccess(req, res)) return;
+  const file = String(req.query.path || "");
+  if (!file || file.split("/").some((part) => !part || part === "." || part === "..") || /[\\\0]/.test(file)) {
+    return res.status(400).json({ error: "invalid_path" });
+  }
+  res.set("Cache-Control", "private, no-store");
+  // MOCK_FILE_DELAY=ms holds the response so the loading state can be captured.
+  global.setTimeout(() => {
+    if (sourceTooBig.includes(file)) return res.status(413).json({ error: "file_too_big" });
+    if (sourceBinary.includes(file)) return res.json({ binary: true, size: galleryPng.length });
+    if (!(file in sourceText)) return res.status(404).json({ error: "file_not_found" });
+    res.type("text/plain; charset=utf-8").send(sourceText[file]);
+  }, Number(process.env.MOCK_FILE_DELAY || 150));
+});
+// The server's ContentAnonimizer, reduced to what the fixtures need: each
+// term (case-insensitive, whole words) becomes XXXX-<n>; link/image removal
+// when the options ask for it.
+app.post("/api/anonymize-preview", express.json({ limit: "4mb" }), (req, res) => {
+  const body = req.body || {};
+  const opt = body.options || {};
+  const terms = (Array.isArray(opt.terms) ? opt.terms : []).map((t) => String(t).trim()).filter(Boolean);
+  const escape = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const anonymize = (text) => {
+    if (opt.image === false) text = text.replace(/!\[[^\]]*\]\([^)]*\)/g, "XXXX");
+    if (opt.link === false) text = text.replace(/https?:\/\/[^\s)>\]]+/g, "XXXX");
+    if (opt.repoName && opt.repoId) text = text.replace(new RegExp(`https://github\\.com/${escape(opt.repoName)}(?=$|[/?#\\s)])`, "gi"), `https://anonymous.4open.science/r/${opt.repoId}`);
+    terms.forEach((term, i) => { text = text.replace(new RegExp(`(?<![\\p{L}\\p{N}_])${escape(term)}(?![\\p{L}\\p{N}_])`, "giu"), `XXXX-${i + 1}`); });
+    return text;
+  };
+  if (typeof body.content === "string") return res.json({ content: anonymize(body.content) });
+  if (Array.isArray(body.contents) && body.contents.every((c) => typeof c === "string")) return res.json({ contents: body.contents.map(anonymize) });
+  res.status(400).json({ error: "missing_content" });
 });
 
 app.get("/api/repo/:id", (req, res) => {
