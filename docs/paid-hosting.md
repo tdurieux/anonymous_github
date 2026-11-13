@@ -4,12 +4,22 @@ Billing is opt-in. `BILLING_ENABLED=false` preserves self-hosted behavior. This 
 
 ## Offers
 
-Configure four EUR prices in Stripe. The amounts below are suggested launch prices, not hard-coded charges:
+Configure these EUR prices in Stripe. The amounts below are suggested prices, not hard-coded charges:
 
 - Author monthly: €5/month, recurring monthly.
-- Author annual: €49/year, recurring yearly.
-- Author review pass: €15 once, one existing repository for 180 days from checkout creation.
-- Conference review package: €199 once, up to 100 repositories during a fixed review window of at most 180 days.
+- Author annual: €49/year, recurring yearly. In the first nine days of paid hosting, 6 of 22 subscribers chose it and it brought 79% of revenue, so it keeps its price; it is also easy to expense on a grant.
+- Live updates (`author_pass`): €4 once. Automatic refresh and a separate storage allowance for one existing repository for 180 days from checkout creation.
+- Extended expiration (`repo_extend`): €2 once. One existing repository can be scheduled to expire up to one year after purchase. Purchases stack: each one adds a year after the latest earlier extension.
+- Never expire (`repo_never`): €10 once. It costs more than Extended expiration because it is the only purchase that keeps storage in use indefinitely. One existing repository can use Never expire without a subscription.
+- Extra repository (`repo_slot`): €2 once. One more repository beyond the free allowance, with its own `PAID_PASS_STORAGE` allowance, for as long as the repository exists. It does not count toward the free allowance; buying it for a repository already counted removes that repository from the free ledger. It does not include automatic updates.
+- Paper pack (`repo_pack`): €5 once. One checkout for one repository that grants Extra repository, Live updates and Extended expiration together. It is stored as three grants sharing the payment, so a refund or dispute revokes all three.
+- Conference review packages, one per venue size, each for a fixed review window of at most 180 days with automatic updates. With billing enabled they are the only plans for new conferences. The size is chosen at creation and cannot change.
+  - Workshop (`conference_workshop`, `STRIPE_CONFERENCE_SMALL_PRICE`): €49 once, 25 repositories, 10 GiB (about €1.96 per paper).
+  - Conference (`conference`, `STRIPE_CONFERENCE_PRICE`): €149 once, 100 repositories, 50 GiB (about €1.49 per paper). The id is unchanged from the former single package.
+  - Large conference (`conference_large`, `STRIPE_CONFERENCE_LARGE_PRICE`): €399 once, 400 repositories, 200 GiB (about €1 per paper).
+  A tier without a configured price is not offered.
+
+Most authors use the service for one paper at a time, a few times a year. The one-time repository add-ons are the main offer; the subscriptions suit heavy users. Extended expiration and Never expire do not add storage: the repository keeps using its owner's allowance (or its pass or conference allowance).
 
 Checkout uses the configured Stripe Price ID. The settings page displays its actual amount and cadence. Do not configure trials, metered prices, tiered prices, adjustable quantities, or subscription changes to unrelated products in the customer portal. New subscriptions need a paid invoice before access is granted. A failed renewal does not extend paid time. Cancellation at period end keeps access until that period ends; immediate cancellation ends new paid usage immediately.
 
@@ -19,8 +29,8 @@ Default capacities, all measured in source-file bytes:
 
 - Free account: 5 repositories, 2 GiB total.
 - Author subscription: 20 repositories, 10 GiB total, and never-expiring repositories while subscribed.
-- Repository pass: 1 repository, 2 GiB.
-- Conference: 100 repositories, 50 GiB total.
+- Live updates: 1 repository, 2 GiB.
+- Conference packages: 25 repositories / 10 GiB, 100 / 50 GiB, and 400 / 200 GiB.
 
 These are admission limits, not a measure or guarantee of physical disk consumption. Original files, anonymized caches, metadata and backups need additional capacity. Review production usage before enabling billing. File-size safeguards and request throttles still apply to paid users. Reviewers do not need accounts or payment.
 
@@ -35,16 +45,25 @@ STRIPE_SECRET_KEY=<Stripe secret key>
 STRIPE_WEBHOOK_SECRET=<Stripe webhook signing secret>
 STRIPE_AUTHOR_MONTHLY_PRICE=<monthly recurring EUR price ID>
 STRIPE_AUTHOR_ANNUAL_PRICE=<annual recurring EUR price ID>
-STRIPE_AUTHOR_PASS_PRICE=<one-time EUR price ID>
+STRIPE_AUTHOR_PASS_PRICE=<one-time EUR price ID, Live updates>
+STRIPE_REPO_EXTEND_PRICE=<one-time EUR price ID, Extended expiration>
+STRIPE_REPO_NEVER_PRICE=<one-time EUR price ID, Never expire>
+STRIPE_REPO_SLOT_PRICE=<one-time EUR price ID, Extra repository>
+STRIPE_REPO_PACK_PRICE=<one-time EUR price ID, Paper pack>
+STRIPE_CONFERENCE_SMALL_PRICE=<one-time EUR price ID>
 STRIPE_CONFERENCE_PRICE=<one-time EUR price ID>
+STRIPE_CONFERENCE_LARGE_PRICE=<one-time EUR price ID>
+# Optional: retired price IDs still used by existing purchases
+STRIPE_LEGACY_PRICES=price_old_annual:author_annual
 BILLING_AUTOMATIC_TAX=false
 ```
 
 Price IDs can be omitted to hide offers. Use test-mode keys and prices for staging. `BILLING_ORIGIN` must be the application's canonical HTTPS origin; HTTP is accepted only for localhost development. Redirects never use request-supplied hosts or return URLs. Enable and configure Stripe Tax before setting `BILLING_AUTOMATIC_TAX=true`; otherwise configure the appropriate tax treatment in Stripe before launch. Receipts, seller details and portal settings also need configuration in Stripe.
 
-Capacity overrides are positive integers:
+Capacity and expiration overrides are positive integers:
 
 ```text
+FREE_EXPIRATION_MONTHS=5
 FREE_AUTHOR_REPOSITORIES=5
 FREE_AUTHOR_STORAGE=2147483648
 PAID_AUTHOR_REPOSITORIES=20
@@ -52,9 +71,21 @@ PAID_AUTHOR_STORAGE=10737418240
 PAID_PASS_STORAGE=2147483648
 PAID_CONFERENCE_REPOSITORIES=100
 PAID_CONFERENCE_STORAGE=53687091200
+PAID_CONFERENCE_SMALL_REPOSITORIES=25
+PAID_CONFERENCE_SMALL_STORAGE=10737418240
+PAID_CONFERENCE_LARGE_REPOSITORIES=400
+PAID_CONFERENCE_LARGE_STORAGE=214748364800
 ```
 
-Changing these values changes the allowance of existing plans too. Keep existing Price IDs configured for as long as subscriptions using them remain active. Plan and conference review-window changes are intentionally locked in this first version.
+Changing these values changes the allowance of existing plans too. Plan and conference review-window changes are intentionally locked in this first version.
+
+### Changing a price
+
+Existing subscriptions and purchases keep the Stripe price they were sold at. The application maps a price to its plan through the configured price, then `STRIPE_LEGACY_PRICES`, then a registry of prices it has seen: every configured price is recorded at startup, and every price is recorded when a checkout is created. To replace a price:
+
+1. Deploy this version while the old price is still configured, so startup records it.
+2. Add the old price to `STRIPE_LEGACY_PRICES` (for example `price_old_annual:author_annual`). This is explicit and also covers prices the registry never saw.
+3. Set the new price ID and restart. New checkouts use the new price; existing subscribers keep theirs, including on renewal and cancellation webhooks.
 
 Configure the Stripe customer portal for payment-method updates, invoice downloads and cancellation. Disable arbitrary subscription product switches. Configure a snapshot webhook at `/api/billing/webhook` using API version `2026-10-28.endive`, matching the installed Stripe SDK, for:
 
@@ -74,11 +105,11 @@ The webhook is mounted before JSON parsing so Stripe verifies the original reque
 
 ## Lifecycle and migration
 
-New paid conferences remain `pending_payment` until a verified checkout activates them. Collect billing addresses in Stripe. Historic conference plans remain editable and keep their existing status, but are no longer offered to new conferences. There is no automatic charge for historical estimated usage.
+New paid conferences remain `pending_payment` until a verified checkout activates them. Collect billing addresses in Stripe. With billing enabled, the review package is the only conference plan; the free plan is offered only when billing is disabled (and no plan is offered if `STRIPE_CONFERENCE_PRICE` is missing). Historic free conferences remain editable and keep their existing status and behavior. `GET /api/conferences/:id` returns `hosting: true` while a paid conference is active, so the anonymize form can tell authors that the conference pays for their repository. There is no automatic charge for historical estimated usage.
 
-Existing repositories are not deleted or hidden on rollout or subscription expiry. New repositories are marked `billingManaged`; their file trees must fit an allowance before publication. A repository that fails this check remains available in its owner's dashboard for upgrading and retrying. Buy a pass by entering that repository's anonymized ID in Settings. Automatic refresh pauses for billing-managed repositories on the free allowance, including after paid access expires. Owners can still request a refresh within that allowance. Existing review links retain their configured expiration dates. This is not a guarantee of perpetual hosting.
+Existing repositories are not deleted or hidden on rollout or subscription expiry. New repositories are marked `billingManaged`; their file trees must fit an allowance before publication. A repository that fails this check remains available in its owner's dashboard for upgrading and retrying. Buy an add-on from the repository's edit page, or by entering its anonymized ID in Settings. Add-ons can also be bought for an unused repository ID: when the free allowance is full, the create form offers Extra repository and returns to the saved draft after checkout. Automatic refresh pauses for billing-managed repositories on the free allowance, including after paid access expires. Owners can still request a refresh within that allowance. Existing review links retain their configured expiration dates. This is not a guarantee of perpetual hosting.
 
-Allowances are selected in order: paid conference, repository pass, author subscription, free account. MongoDB quota ledgers atomically reserve count and source-file bytes. They initially count existing repositories using stored size metadata. Reservations never shrink during refresh, so a concurrent or failed build cannot release capacity still in use. Confirmed removed repositories release reservations on the next admission. Expired repositories and orphan reservations remain reserved until operator reconciliation. This deliberately favors conservative capacity accounting over overselling. The account usage display uses reserved capacity once a ledger exists. A moved repository can retain conservative reservations in its previous scope until removal.
+Allowances are selected in order: paid conference, Live updates or Extra repository, author subscription, free account. Repository add-ons only apply to the account that bought them. Extended expiration and Never expire grants share the repository scope but are skipped here. MongoDB quota ledgers atomically reserve count and source-file bytes. They initially count existing repositories using stored size metadata. Reservations never shrink during refresh, so a concurrent or failed build cannot release capacity still in use. Confirmed removed repositories release reservations on the next admission. Expired repositories and orphan reservations remain reserved until operator reconciliation. This deliberately favors conservative capacity accounting over overselling. The account usage display uses reserved capacity once a ledger exists. A moved repository can retain conservative reservations in its previous scope until removal.
 
 For billing-managed repositories, on-demand recovery and ZIP downloads from truncated trees are rejected with `repository_tree_incomplete`. This prevents serving unaccounted files beyond the indexed tree. A complete source tree is required; refresh after reducing repository size or excluded content upstream.
 
@@ -110,11 +141,17 @@ The free defaults are 5 repositories and 2 GiB, revised from the initial 10-repo
 
 ### Never-expiring repositories
 
-Monthly and annual author subscribers can choose Never expire. This requires the repository owner's subscription even when a conference pays its storage allowance. A coauthor subscription or a one-time review pass does not unlock it.
+Monthly and annual author subscribers can choose Never expire. This requires the repository owner's subscription even when a conference pays its storage allowance, or a Never expire add-on bought for that repository. A coauthor subscription or Live updates does not unlock it.
 
 Newly selected Never expire repositories store a billing deadline 90 days after the paid-through date. The five-minute maintenance job extends that deadline on renewal and changes overdue repositories to ordinary removal expiration. Cancellation does not shorten the paid-through period. Revocation does not extend a previously recorded deadline. Renewal during the grace period preserves the repository; after expiration, the author must renew and explicitly reactivate it.
 
-Legacy never-expiring repositories have no billing deadline and remain unchanged. Disabling billing disables this reconciliation. Free users can choose a dated expiration within one year and extend it manually. Never expire does not exempt a repository from quotas, abuse controls, or service availability.
+A Never expire add-on also stores a billing deadline, 90 days ahead. Maintenance moves it forward about once a week while the add-on is valid, so a full refund or dispute ends the repository after the grace period like a lapsed subscription.
+
+Legacy never-expiring repositories have no billing deadline and remain unchanged. Disabling billing disables this reconciliation.
+
+### Dated expiration limits
+
+Free users can choose a dated expiration up to `FREE_EXPIRATION_MONTHS` (default 5) months ahead and extend it again later. The dashboard's Extend action moves the date forward by up to 6 months, capped at this limit. Author subscribers keep a one-year limit. An Extended expiration add-on raises the limit to its paid date. A repository in a conference can expire as late as that conference's end date. An already saved later date stays valid, so lowering the limit does not block edits to existing repositories. Without billing, the limit stays at one year. Never expire does not exempt a repository from quotas, abuse controls, or service availability.
 
 Real sandbox validation and repeatable API test instructions are recorded in [Stripe sandbox validation](stripe-sandbox-validation.md).
 

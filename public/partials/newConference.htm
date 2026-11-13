@@ -2,8 +2,8 @@
   <div class="paper-crumbs"><a href="/dashboard">My work</a> &nbsp;/&nbsp; <a href="/conferences">Conferences</a> &nbsp;/&nbsp; <span class="here">{{ editionMode ? 'Edit' : 'New' }}</span></div>
   <h1 class="paper-page-title">{{ editionMode ? 'Edit' : 'Create a' }} <em>conference</em></h1>
   <p class="paper-page-lede">
-    Give chairs access to every anonymization submitted to a venue, and lift
-    author quotas during the review window.
+    Give chairs access to every anonymization submitted to a venue. One
+    payment hosts every submission, so authors don't pay during the review window.
   </p>
 
   <div class="paper-settings-body">
@@ -130,19 +130,40 @@
 
       <section id="conf-plan" class="paper-settings-section">
         <div class="paper-section-eyebrow">Plan</div>
-        <p class="paper-section-copy">The review package is prepaid and covers up to 180 days. Pay from the conference page after creating it. Plan and review dates cannot change after creation.</p>
-
-        <div class="paper-plan-grid">
-          <label class="paper-plan-card" v-for="(plan, index) in plans" :class="{&#x27;selected&#x27;: options?.plan?.planID == plan?.id}">
-            <input type="radio" :disabled="editionMode" name="planPicker" v-field="{ state: viewState, set: value =&gt; { options.plan.planID = value }, value: options?.plan?.planID, form: &quot;conference&quot;, options: {} }" :value="plan?.id">
+        <p class="paper-section-copy" v-if="editionMode">{{ conferencePlanName(options?.plan?.planID) }}. The plan and review dates can't change after creation.</p>
+        <template v-else-if="conferenceTiers().length">
+          <p class="paper-section-copy">Pick the package that fits the number of submissions you expect. One payment hosts every submission, so authors don't pay.</p>
+          <div class="conference-tiers" role="radiogroup" aria-label="Review package size">
+            <label class="conference-tier" v-for="tier in conferenceTiers()" :key="tier.id" :class="{ 'is-selected': options?.plan?.planID === tier.id }">
+              <input type="radio" name="planPicker" :value="tier.id" :checked="options?.plan?.planID === tier.id" @change="options.plan.planID = tier.id">
+              <span class="conference-tier-head"><strong>{{ tier.name }}</strong><span class="conference-tier-pill" v-if="tier.id === 'conference' &amp;&amp; conferenceTiers().length &gt; 1">Most common</span></span>
+              <span class="conference-tier-who">{{ conferenceAudience(tier.id) }}</span>
+              <span class="conference-tier-price" v-if="tier.amount != null"><strong>{{ conferenceAmount(tier) }}</strong> once</span>
+              <span class="conference-tier-size">Up to {{ tier.repositories }} papers · {{ conferenceBytes(tier.storage) }}</span>
+              <span class="conference-tier-per" v-if="tier.amount != null &amp;&amp; tier.repositories">About {{ conferenceAmount(tier, tier.amount / tier.repositories) }} per paper</span>
+            </label>
+          </div>
+          <div class="conference-package">
+            <h3>Every package includes</h3>
+            <ul class="billing-offer-list">
+              <li>A review window of up to 180 days</li>
+              <li>Automatic updates for every submission</li>
+              <li>Links stay online until the review window ends</li>
+              <li>A dashboard of every submission for chairs</li>
+            </ul>
+            <p class="conference-package-note">Nothing renews · Tax shown at checkout · Expecting more submissions? Email <a href="mailto:tdurieux@anonymous.4open.science">tdurieux@anonymous.4open.science</a></p>
+          </div>
+          <p class="paper-section-copy">Create the conference, then pay from its page. Authors can submit once the payment is confirmed.</p>
+        </template>
+        <div class="paper-plan-grid" v-else-if="plans.length">
+          <label class="paper-plan-card" v-for="plan in plans" :key="plan.id" :class="{ selected: options?.plan?.planID == plan?.id }">
+            <input type="radio" name="planPicker" v-field="{ state: viewState, set: value =&gt; { options.plan.planID = value }, value: options?.plan?.planID, form: &quot;conference&quot;, options: {} }" :value="plan?.id">
             <div class="paper-plan-head" v-text="plan?.name"></div>
-            <div class="paper-plan-price">
-              {{ plan.id === "free_conference" ? "Free" : "Prepaid package" }}
-              <span class="paper-plan-per">{{ plan.id === "free_conference" ? "" : "Price on the conference page" }}</span>
-            </div>
+            <div class="paper-plan-price">{{ plan.pricePerRepo &gt; 0 ? fmt?.number(plan.pricePerRepo, 2) + ' € per repository' : 'Free' }}</div>
             <div class="paper-plan-desc" v-html="sanitize(plan?.description)"></div>
           </label>
         </div>
+        <p class="settings-notice" v-else-if="plansLoaded" role="status">New conferences are unavailable right now. Please try again later.</p>
       </section>
 
       <section id="conf-billing" class="paper-settings-section" v-if="plan?.pricePerRepo &gt; 0">

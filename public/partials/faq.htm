@@ -123,6 +123,25 @@
           <h4 class="faq-cat" id="faq-plans-title">Plans and billing</h4>
           <div class="panel-group" id="faq-plans" role="tablist" aria-label="Plans and billing" aria-multiselectable="true">
             <div class="panel panel-default mb-3">
+              <div class="panel-heading p-3" role="tab" id="headingWhyPaid">
+                <h3 class="panel-title">
+                  <a class="collapsed" role="button" data-toggle="collapse" data-parent="#faq-plans" href="#whyPaid" aria-expanded="false" aria-controls="whyPaid">Why is Anonymous GitHub no longer completely free?</a>
+                </h3>
+              </div>
+              <div id="whyPaid" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingWhyPaid">
+                <div class="panel-body p-3">
+                  <p>Anonymous GitHub started as a small free service and was paid for out of pocket. Three things have changed since then:</p>
+<ul>
+<li><strong>Servers cost much more.</strong> Every hosted repository needs storage, bandwidth and backups, and these costs have risen sharply.</li>
+<li><strong>Many more people use it.</strong> More users means more repositories to store and keep up to date, more support requests and more maintenance.</li>
+<li><strong>AI has made security work heavier.</strong> AI-driven scrapers and automated abuse send far more traffic than before. Blocking them and keeping hosted content safe takes constant work.</li>
+</ul>
+<p>The core service stays free: anonymizing a repository, sharing the link and reviewer access cost nothing, and reviewers never need an account. Most authors never need to pay. The paid options are small one-time payments for one repository, plus an optional subscription for heavy users. They are priced to cover running costs, not to make a profit.</p>
+<p>The source code remains open, so you can still <a href="#faq-hosting">host your own instance</a> for free.</p>
+                </div>
+              </div>
+            </div>
+            <div class="panel panel-default mb-3">
               <div class="panel-heading p-3" role="tab" id="headingFreePlan">
                 <h3 class="panel-title">
                   <a class="collapsed" role="button" data-toggle="collapse" data-parent="#faq-plans" href="#freePlan" aria-expanded="false" aria-controls="freePlan">What is included in a free account?</a>
@@ -130,7 +149,7 @@
               </div>
               <div id="freePlan" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingFreePlan">
                 <div class="panel-body p-3">
-                  <p>The default free allowance is 5 repositories you own and 2 GiB of source files in total. Core anonymization and reviewer access remain free. You can manually refresh a repository within your allowance and choose a dated expiration up to one year ahead.</p>
+                  <p>The default free allowance is 5 repositories you own and 2 GiB of source files in total. Core anonymization and reviewer access remain free. You can manually refresh a repository within your allowance and choose a dated expiration up to 5 months ahead, then extend it again before it expires. Repositories submitted to a conference can stay online until the end of its review window.</p>
 <p>Repositories shared with you as a coauthor do not use your own slots. Gists and pull requests are not included in these repository quotas. The usage shown in your account is the allowance available on this instance.</p>
                 </div>
               </div>
@@ -157,8 +176,15 @@
               </div>
               <div id="reviewPass" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingReviewPass">
                 <div class="panel-body p-3">
-                  <p>The author review pass covers one selected repository for 180 days, with a separate 2 GiB allowance and automatic refresh when enabled. It is a one-time purchase and does not renew automatically.</p>
-<p>Enter the anonymized ID of an existing repository you own in <a href="/profile#settings-billing">Plans and billing</a>. A pass does not unlock Never expire and does not override the repository's chosen expiration date.</p>
+                  <p>Yes. These one-time add-ons apply to a single repository you own. None of them renews automatically:</p>
+<ul>
+<li><strong>Paper pack</strong>: an extra repository, automatic updates for 180 days and one more year before it expires, in a single payment. It covers what one paper usually needs during review.</li>
+<li><strong>Extra repository</strong>: host one more repository once your free repositories are used up. It has its own 2 GiB allowance and does not count toward your free repositories. It lasts as long as the repository exists.</li>
+<li><strong>Live updates</strong>: automatic refresh for 180 days, with a separate 2 GiB allowance.</li>
+<li><strong>Extended expiration</strong>: choose an expiration date up to one year after purchase. Buying it again adds another year.</li>
+<li><strong>Never expire</strong>: the repository has no expiration date. A full refund or a payment dispute ends it after a 90-day grace period.</li>
+</ul>
+<p>When your free allowance is full, the Extra repository and Paper pack options are offered as you create the repository. You can also buy an add-on from the repository's edit page, or enter the anonymized ID of an existing repository in <a href="/profile#settings-billing">Plans and billing</a>. Current prices are shown there.</p>
                 </div>
               </div>
             </div>
@@ -170,9 +196,9 @@
               </div>
               <div id="conferencePlans" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingConferencePlans">
                 <div class="panel-body p-3">
-                  <p>A conference review package provides a shared allowance of 100 repositories and 50 GiB for a review window of up to 180 days. The organizer pays once; the package does not renew automatically. A lab organizing a review can use this shared package too.</p>
-<p>The paid conference must be activated by payment before authors can submit under its Conference ID. Eligible repositories use the conference allowance before an author's personal allowance, so authors do not each need a subscription for that capacity.</p>
-<p>The package has a fixed review window. Never expire still requires the repository owner's monthly or annual author subscription. See the available offer when creating a conference.</p>
+                  <p>A conference review package provides a shared allowance for a review window of up to 180 days, with automatic updates for every submission. It comes in three sizes: Workshop (25 repositories, 10 GiB), Conference (100 repositories, 50 GiB) and Large conference (400 repositories, 200 GiB). Choose the size when you create the conference; it cannot change afterwards. The organizer pays once and authors pay nothing (the price is shown when you create the conference); the package does not renew automatically. A lab organizing a review can use this shared package too.</p>
+<p>New conferences no longer have a free plan: every new conference is a review package. Conferences created earlier keep working as before. The conference must be activated by payment before authors can submit under its Conference ID. Eligible repositories use the conference allowance before an author's personal allowance, so authors do not each need a subscription for that capacity.</p>
+<p>The package has a fixed review window. Never expire still requires the repository owner's author subscription or a Never expire add-on for that repository.</p>
                 </div>
               </div>
             </div>
@@ -198,7 +224,7 @@
               <div id="capacity" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingCapacity">
                 <div class="panel-body p-3">
                   <p>The repository limit counts work you own. Storage counts the source-file sizes reserved for those repositories, not just files a reviewer opens. Archived or failed repositories can still reserve capacity, and a refresh does not automatically reduce a previous storage reservation.</p>
-<p>At the repository limit you cannot add another repository to that allowance. An edit or refresh must also fit the available storage. Remove work you no longer need, choose a paid plan, or use an eligible conference allowance.</p>
+<p>At the repository limit you cannot add another repository to that allowance. An edit or refresh must also fit the available storage. Remove work you no longer need, add an Extra repository for the new one, choose a subscription, or use an eligible conference allowance.</p>
 <p>Removing a repository releases its reservation when capacity is next checked. Expired repositories may continue to reserve capacity until cleanup. Reaching a limit does not itself delete existing review links.</p>
                 </div>
               </div>
@@ -211,7 +237,7 @@
               </div>
               <div id="neverExpire" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingNeverExpire">
                 <div class="panel-body p-3">
-                  <p>Never expire is available to monthly and annual author subscribers. If paid access ends, these repositories remain available for a <strong>90-day grace period</strong>, then expire and their hosted content is removed.</p>
+                  <p>Never expire is available to monthly and annual author subscribers, or for one repository with the one-time Never expire add-on. If a subscription ends, these repositories remain available for a <strong>90-day grace period</strong>, then expire and their hosted content is removed.</p>
 <p>Renewing during the grace period keeps them active. After expiration, you must renew and explicitly reactivate the repository; restoring content also requires access to its GitHub source. A repository does not become public on GitHub when it expires.</p>
 <p>Existing never-expiring repositories created before this billing policy retain their settings. Never expire is not a guarantee of perpetual service availability.</p>
                 </div>
@@ -228,6 +254,20 @@
                   <p>Open <a href="/profile#settings-billing">Plans and billing</a> and choose <strong>Manage billing and invoices</strong> to manage renewal. Cancelling renewal keeps subscription benefits until the end of the paid period.</p>
 <p>After paid access ends, repositories fall back to another eligible allowance or the free allowance. Automatic refresh pauses on the free allowance; manual refresh remains available within its limits. Existing review links keep their configured expiration dates, except paid Never expire repositories, which follow the 90-day grace period described above.</p>
 <p>A repository pass or conference package ends after its paid window without automatic renewal.</p>
+                </div>
+              </div>
+            </div>
+            <div class="panel panel-default mb-3">
+              <div class="panel-heading p-3" role="tab" id="headingRefunds">
+                <h3 class="panel-title">
+                  <a class="collapsed" role="button" data-toggle="collapse" data-parent="#faq-plans" href="#refunds" aria-expanded="false" aria-controls="refunds">Can I get a refund?</a>
+                </h3>
+              </div>
+              <div id="refunds" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingRefunds">
+                <div class="panel-body p-3">
+                  <p>Refunds are handled case by case. <a href="mailto:tdurieux@anonymous.4open.science">Email the maintainer</a> with the date of the payment and the repository it was for.</p>
+<p>A full refund ends what that payment bought. For a Paper pack, this means all three parts: the extra repository, automatic updates and the extended expiration. A Never expire repository then expires after a 90-day grace period. A partial refund keeps your access.</p>
+<p>To stop a subscription, cancel its renewal instead of asking for a refund. You keep access until the end of the period you paid for.</p>
                 </div>
               </div>
             </div>

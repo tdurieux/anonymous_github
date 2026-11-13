@@ -3,7 +3,7 @@ import { randomUUID } from "crypto";
 import ConferenceModel from "../model/conference/conferences.model";
 import config from "../../config";
 import { BillingGrant, BillingQuota } from "./models";
-import { billingError, billingPlans } from "./config";
+import { billingError, billingPlans, MANUAL_REFRESH_PLANS, isConferencePlan } from "./config";
 import RepositoryModel from "../model/anonymizedRepositories/anonymizedRepositories.model";
 
 export function usableGrant(grant: { status?: string | null; until?: Date | null; revoked?: boolean | null }, now = new Date()) {
@@ -14,8 +14,13 @@ export async function allowance(owner: string, repoId?: string, conference?: str
   const grants = await BillingGrant.find({ scope: { $in: scopes }, until: { $gt: new Date() }, revoked: false }).lean();
   // A conference pays before the author. There is no double charging of allowance.
   for (const scope of scopes.reverse()) {
-    const grant = grants.find(g => g.scope === scope && usableGrant(g));
-    const plan = grant && billingPlans().find(p => p.id === grant.planId);
+    // Expiration add-ons share the repository scope but carry no storage allowance.
+    // Repository add-ons only fund the owner who bought them; the ID could
+    // otherwise be bought before another account creates that repository.
+    const plan = grants.filter(g => g.scope === scope && usableGrant(g) && (!scope.startsWith("repo:") || g.owner === owner))
+      .map(g => billingPlans().find(p => p.id === g.planId && p.capacity)).filter(Boolean)
+      // Prefer a plan with automatic updates when several fund the same scope.
+      .sort((a, b) => Number(MANUAL_REFRESH_PLANS.includes(a!.id)) - Number(MANUAL_REFRESH_PLANS.includes(b!.id)))[0];
     if (plan) return { scope, repositories: plan.repositories, storage: plan.storage, plan: plan.id };
   }
   return { scope: `user:${owner}`, repositories: config.FREE_AUTHOR_REPOSITORIES, storage: config.FREE_AUTHOR_STORAGE, plan: "free" };
@@ -74,7 +79,7 @@ export async function assertConferenceAdmission(owner: string, repoId: string, c
   if (!conference || !config.BILLING_ENABLED) return;
   const conf = await ConferenceModel.findOne({ conferenceID: conference }).lean();
   if (!conf || conf.status !== "ready" || conf.startDate > new Date() || conf.endDate <= new Date()) throw billingError("conf_not_activated");
-  if (conf.plan.planID === "conference" && (await allowance(owner, repoId, conference)).scope !== `conference:${conference}`) throw billingError("conference_payment_required", 402);
+  if (isConferencePlan(conf.plan.planID) && (await allowance(owner, repoId, conference)).scope !== `conference:${conference}`) throw billingError("conference_payment_required", 402);
 }
 
 // Source trees report LFS pointer sizes. Charge resolved bytes before allowing

@@ -356,12 +356,42 @@
 
           <section class="paper-settings-section hosting-settings" id="repository-hosting" v-show="detectedType" aria-labelledby="hosting-heading">
             <h2 class="paper-section-eyebrow" id="hosting-heading">Hosting &amp; expiration</h2>
-            <p class="hosting-usage" v-if="detectedType === 'repo' &amp;&amp; billing?.enabled">
+            <div class="form-group conference-field">
+              <label class="paper-field-label" for="conference">Conference code <span class="paper-optional">(optional)</span></label>
+              <input class="form-control" id="conference" name="conference" v-field="{ state: viewState, set: value =&gt; { conference = value }, value: conference, form: &quot;anonymize&quot;, options: { debounce: { default: 800, blur: 0 }, updateOn: &#x27;default blur&#x27; } }" :class="{&#x27;is-invalid&#x27;: anonymize?.conference?.invalid}">
+              <p class="conference-hosting" :class="{ 'is-covered': conferenceHosting() }" v-show="conference_data" role="status">
+                <a target="_blank" :href="safeUrl((conference_data?.url))">{{ conference_data?.name }}</a>
+                <template v-if="conferenceHosting()"> hosts this repository until {{ fmt?.date(conference_data?.endDate) }}, with automatic updates. You don't pay anything.</template>
+                <template v-else-if="billing?.enabled &amp;&amp; detectedType === 'repo'"> runs until {{ fmt?.date(conference_data?.endDate) }}. It doesn't pay for hosting, so this repository uses your own allowance.</template>
+                <template v-else> runs until {{ fmt?.date(conference_data?.endDate) }}.</template>
+              </p>
+              <div class="invalid-feedback" v-show="anonymize?.conference?.errors?.activated">The conference is not activated.</div>
+              <small class="form-text text-muted" v-show="!conference_data">Submitting to a conference? Its code applies the venue's settings, and a paid conference hosts the repository for you.</small>
+            </div>
+            <p class="hosting-usage" v-if="detectedType === 'repo' &amp;&amp; billing?.enabled &amp;&amp; !conferenceHosting()">
               <span v-if="isUpdate &amp;&amp; role !== 'owner'">Uses the owner's hosting</span>
               <span v-else-if="hasAuthorHosting()">Your author subscription is active.</span>
-              <span v-else-if="conference">Conference hosting is checked on submission.</span>
               <span v-else-if="hostingQuota?.repository">{{ hostingQuota.repository.used }} of {{ hostingQuota.repository.total }} active repositories · Free</span>
             </p>
+            <div class="hosting-payment" v-if="detectedType === 'repo' &amp;&amp; billing?.enabled">
+                <template v-if="hostingNeedsPayment() &amp;&amp; !billingPending">
+                  <p class="hosting-limit" role="status" v-if="options.expirationMode !== 'never' || hostingQuotaBlocked">{{ options.update &amp;&amp; !hostingQuotaBlocked &amp;&amp; hostingQuota?.repository?.used &lt; hostingQuota?.repository?.total ? 'Automatic updates need a paid option for this repository.' : 'Your free repositories are all in use.' }}</p>
+                  <fieldset class="hosting-options" v-if="billing.checkoutEnabled !== false &amp;&amp; hostingOptionPlans().length">
+                    <legend class="hosting-options-title">{{ hostingOneTime()?.id === 'repo_never' ? 'Keep this link online' : 'Choose how to host this repository' }}</legend>
+                    <label class="hosting-option" v-for="plan in hostingOptionPlans()" :key="plan.id" :class="{ 'is-selected': hostingChoice() === plan.id || (plan.interval &amp;&amp; authorPlans().some(p =&gt; p.id === hostingChoice())) }">
+                      <input type="radio" name="hosting-plan" :value="plan.id" :checked="hostingChoice() === plan.id || (plan.interval &amp;&amp; authorPlans().some(p =&gt; p.id === hostingChoice()))" @change="hostingPlan = plan.interval ? hostingSubscriptionPlan().id : plan.id">
+                      <span class="hosting-option-body"><strong>{{ hostingOptionName(plan) }}</strong><small>{{ hostingOptionBlurb(plan) }}</small>
+                        <span class="hosting-cycle billing-toggle" v-if="plan.interval &amp;&amp; authorPlans().length &gt; 1 &amp;&amp; authorPlans().some(p =&gt; p.id === hostingChoice())" role="radiogroup" aria-label="Billing frequency"><button type="button" role="radio" v-for="cycle in authorPlans()" :key="cycle.id" :aria-checked="hostingSubscriptionPlan().id === cycle.id ? 'true' : 'false'" :class="{ 'is-on': hostingSubscriptionPlan().id === cycle.id }" @click.prevent="hostingCycle = cycle.id; hostingPlan = cycle.id">{{ cycle.interval === 'year' ? 'Yearly' : 'Monthly' }}<span class="billing-toggle-save" v-if="cycle.interval === 'year' &amp;&amp; hostingAnnualSavings()">−{{ hostingAnnualSavings() }}%</span></button></span></span>
+                      <span class="hosting-option-price"><strong>{{ billingAmount(plan.interval ? hostingSubscriptionPlan() : plan) }}</strong><small>{{ plan.interval ? 'per ' + hostingSubscriptionPlan().interval : 'once' }}</small></span>
+                    </label>
+                  </fieldset>
+                  <p v-else role="status">New purchases are temporarily unavailable. Your draft is kept.</p>
+                  <p class="hosting-terms" v-if="authorPlans().some(p =&gt; p.id === hostingChoice())">Renews {{ hostingChoice() === 'author_annual' ? 'yearly' : 'monthly' }} until you cancel. Tax shown at checkout.</p>
+                  <p class="hosting-terms" v-else>One-time payment, nothing renews. Tax shown at checkout.</p>
+                  <details class="capacity-options" v-if="options.expirationMode !== 'never'"><summary>Keep using free hosting</summary><p>Remove a repository you no longer need, or enter the code of a paid conference above. Removing a repository affects its review link.</p><a href="/dashboard">Review my repositories</a><button type="button" class="task-text-button" @click="anonymizeRepo($event)" :disabled="sourceLoading || billingBusy">Recheck capacity and submit</button></details>
+                </template>
+            </div>
+            <h4 class="hosting-subhead" v-if="hostingNeedsPayment() &amp;&amp; !billingPending">Expiration</h4>
             <fieldset class="expiration-choices">
               <legend class="sr-only">Expiration</legend>
               <label class="expiration-choice"><input type="radio" name="expiration-choice" :checked="options.expirationMode !== 'never'" @change="useDatedHosting()" :disabled="billingPending"><span>Expire on a date</span></label>
@@ -375,37 +405,17 @@
               </div>
                 <div class="hosting-property"><label for="expiration">Then</label><select id="expiration" class="form-control" v-model="options.expirationMode"><option value="remove">Remove content</option><option value="redirect">Redirect to GitHub</option></select></div>
               </div>
-              <label class="expiration-choice" v-if="detectedType === 'repo'"><input type="radio" name="expiration-choice" :checked="options.expirationMode === 'never'" @change="options.expirationMode = 'never'" :disabled="billingPending"><span>Never expire<small v-if="options.expirationMode !== 'never' || hasAuthorHosting()">{{ hasAuthorHosting() ? 'Included in your subscription' : 'Author subscription' }}</small></span></label>
+              <label class="expiration-choice" v-if="detectedType === 'repo'"><input type="radio" name="expiration-choice" :checked="options.expirationMode === 'never'" @change="options.expirationMode = 'never'" :disabled="billingPending"><span>Never expire<small v-if="(options.expirationMode !== 'never' || hasAuthorHosting() || repositoryGrants('repo_never').length) &amp;&amp; !(hostingNeedsPayment() &amp;&amp; hostingOptionPlans().length)">{{ neverExpireTag() }}</small></span></label>
             </fieldset>
             <p class="form-text text-muted" v-if="options.expirationMode === 'redirect'">Visitors will be redirected to the original GitHub source on this date, revealing its identity.</p>
-            <div class="form-group conference-field">
-              <label class="paper-field-label" for="conference">Conference code <span class="paper-optional">(optional)</span></label>
-              <input class="form-control" id="conference" name="conference" v-field="{ state: viewState, set: value =&gt; { conference = value }, value: conference, form: &quot;anonymize&quot;, options: { debounce: { default: 800, blur: 0 }, updateOn: &#x27;default blur&#x27; } }" :class="{&#x27;is-invalid&#x27;: anonymize?.conference?.invalid}">
-              <small class="form-text text-muted" v-show="conference_data">
-                <a target="_blank" :href="safeUrl((conference_data?.url))">{{ conference_data?.name }}</a> expires {{ fmt?.date(conference_data?.endDate) }}.
-              </small>
-              <div class="invalid-feedback" v-show="anonymize?.conference?.errors?.activated">The conference is not activated.</div>
-              <small class="form-text text-muted" v-show="!conference_data">Link to a conference to apply its shared defaults.</small>
-            </div>
             <div v-if="detectedType === 'repo' &amp;&amp; billing?.enabled" class="inline-hosting">
               <p v-if="taskValidationError" role="alert" class="text-danger">{{ taskValidationError }}</p>
               <p v-if="billingError" role="alert" class="text-danger">{{ billingError }} <button type="button" class="task-text-button" @click="loadBilling()" :disabled="billingBusy">Reload billing</button></p>
               <div v-if="billingPending" role="status"><p><strong>Confirming your payment…</strong></p><p class="form-text text-muted">Your draft is saved. Please do not pay again.</p></div>
               <p v-else-if="billingNotice" role="status" class="form-text text-muted">{{ billingNotice }}</p>
-              <template v-if="hostingNeedsPayment() &amp;&amp; !billingPending">
-                <p v-if="options.expirationMode !== 'never'" class="capacity-reason">{{ options.update &amp;&amp; !hostingQuotaBlocked &amp;&amp; hostingQuota?.repository?.used < hostingQuota?.repository?.total ? 'Automatic updates require Author hosting.' : 'Your free hosting allowance is full.' }}</p>
-                <div class="subscription-choice" v-if="authorPlans().length &amp;&amp; billing.checkoutEnabled !== false">
-                  <h3>Author subscription</h3>
-                  <fieldset class="billing-cycle"><legend class="sr-only">Billing frequency</legend><label class="cycle-option" v-for="plan in authorPlans()" :key="plan.id" :class="{'selected': selectedHostingPlan()?.id === plan.id}"><input type="radio" name="hosting-plan" :value="plan.id" :checked="selectedHostingPlan()?.id === plan.id" @change="hostingPlan = plan.id"><span>{{ billingPrice(plan) }}</span></label></fieldset>
-                  <p>{{ selectedHostingPlan()?.repositories }} repositories, {{ billingBytes(selectedHostingPlan()?.storage) }}. Coauthors included.</p>
-                  <p class="hosting-terms">Renews {{ selectedHostingPlan()?.interval === 'year' ? 'annually' : 'monthly' }} until cancelled. Tax shown at checkout.</p>
-                  <p class="hosting-terms">If paid access ends, never-expiring repositories expire after 90 days.</p>
-                </div>
-                <p v-else role="status">New purchases are temporarily unavailable. Your draft is kept.</p>
-                <details class="capacity-options" v-if="options.expirationMode !== 'never'"><summary>Keep using free hosting</summary><p>Remove a repository you no longer need, or use conference hosting. Removing a repository affects its review link.</p><a href="/dashboard">Review my repositories</a><button type="button" class="task-text-button" @click="anonymizeRepo($event)" :disabled="sourceLoading || billingBusy">Recheck capacity and submit</button></details>
-              </template>
+              <p class="hosting-terms" v-else-if="options.expirationMode === 'never' &amp;&amp; !billingPending &amp;&amp; !hasAuthorHosting() &amp;&amp; repositoryGrants('repo_never').length">No scheduled expiration. Paid once for this repository.</p>
               <p class="hosting-terms" v-else-if="options.expirationMode === 'never' &amp;&amp; !billingPending">No scheduled expiration while subscribed. A 90-day grace period applies if paid access ends.</p>
-              <details class="repository-pass" v-if="isUpdate &amp;&amp; role === 'owner' &amp;&amp; !hasAuthorHosting()"><summary>Hosting just this repository?</summary><div v-for="plan in (billing?.plans || []).filter(p =&gt; p.id === 'author_pass')" :key="plan.id"><p>{{ billingPrice(plan) }} · {{ billingBytes(plan.storage) }} for 180 days. No renewal. Does not include Never expire.</p><button type="button" class="btn btn-outline-ink" :disabled="billingBusy || hostingSaving || sourceLoading || billing.checkoutEnabled === false || billingPending" @click="checkoutRepository(true)">Review repository pass</button></div></details>
+              <details class="repository-pass" v-if="isUpdate &amp;&amp; role === 'owner' &amp;&amp; !hasAuthorHosting() &amp;&amp; !hostingNeedsPayment() &amp;&amp; repositoryAddonPlans().length"><summary>Pay once for just this repository</summary><div v-for="plan in repositoryAddonPlans()" :key="plan.id"><p><strong>{{ plan.name }}</strong> · {{ billingPrice(plan) }}. {{ plan.description }}</p><button type="button" class="btn btn-outline-ink" :disabled="billingBusy || hostingSaving || sourceLoading || billing.checkoutEnabled === false || billingPending" @click="checkoutRepository(plan.id)">Buy {{ plan.name.toLowerCase() }}</button></div></details>
             </div>
           </section>
 
@@ -452,8 +462,8 @@
           <div class="anonymize-submit-bar" v-show="detectedType">
             <template v-if="detectedType === 'repo'">
               <button type="button" class="btn btn-ink" v-if="billingPending" @click="refreshBilling()" :disabled="billingBusy">Check payment status</button>
-              <button type="submit" class="btn btn-ink" v-else :disabled="sourceLoading || billingBusy || hostingSaving || billingLoading || (hostingNeedsPayment() &amp;&amp; (!authorPlans().length || billing?.checkoutEnabled === false))" @click.prevent="submitForm($event, () =&gt; { submitRepository($event) })">{{ hostingSaving ? 'Saving draft…' : hostingNeedsPayment() ? 'Continue to checkout' : isUpdate ? 'Save changes' : 'Create anonymous link' }}</button>
-              <p class="checkout-return-note" v-if="hostingNeedsPayment() &amp;&amp; !billingPending">Review payment in Stripe, then return to finish.</p>
+              <button type="submit" class="btn btn-ink" v-else :disabled="sourceLoading || billingBusy || hostingSaving || billingLoading || (hostingNeedsPayment() &amp;&amp; ((!authorPlans().length &amp;&amp; !hostingOneTime()) || billing?.checkoutEnabled === false))" @click.prevent="submitForm($event, () =&gt; { submitRepository($event) })">{{ hostingSaving ? 'Saving draft…' : hostingNeedsPayment() ? 'Continue to checkout' : isUpdate ? 'Save changes' : 'Create anonymous link' }}</button>
+              
             </template>
             <button type="submit" :disabled="sourceLoading" class="btn btn-ink" v-if="detectedType === &#x27;pr&#x27; &amp;&amp; !isUpdate" @click.prevent="submitForm($event, () =&gt; { anonymizePullRequest($event) })">
               <svg class="ui-icon mr-1" aria-hidden="true"><use href="#ui-icon-shield"></use></svg> Anonymize Pull Request
@@ -467,6 +477,7 @@
             <button type="submit" :disabled="sourceLoading" class="btn btn-ink" v-if="detectedType === &#x27;gist&#x27; &amp;&amp; isUpdate" @click.prevent="submitForm($event, () =&gt; { anonymizeGist($event) })">
               <svg class="ui-icon mr-1" aria-hidden="true"><use href="#ui-icon-save"></use></svg> Update Gist
             </button>
+            <p class="checkout-return-note" v-if="hostingNeedsPayment() &amp;&amp; !billingPending">You pay in Stripe, then come back here to finish.</p>
             <div class="draft-status" role="status" v-if="draftRestored">Your unsaved draft was restored. <button type="button" class="draft-discard" @click="discardDraft()">Discard draft</button></div>
             <div class="draft-status" v-else-if="unsavedChanges">{{ draftSaved ? "Draft saved ·" : "Unsaved changes ·" }} <button type="button" class="draft-discard" @click="discardDraft()">{{ isUpdate ? "Restore saved" : "Discard" }}</button></div>
           </div>

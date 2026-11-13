@@ -3,11 +3,13 @@ import config from "../../config";
 import { BillingEvent, BillingAccount } from "./models";
 import { processBillingInbox, billingHealth, billingFailure } from "./events";
 import { reconcileBillingAccounts } from "./reconciliation";
+import { rememberConfiguredPrices } from "./stripe";
 import { createLogger } from "../logger";
 const logger = createLogger("billing");
 export async function startBillingMaintenance() {
   if (!config.BILLING_ENABLED) return;
   await Promise.all([BillingEvent.createIndexes(), BillingAccount.createIndexes()]);
+  await rememberConfiguredPrices();
   let eventsRunning = false;
   let reconcileRunning = false;
   const events = async () => {

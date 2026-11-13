@@ -103,6 +103,9 @@
     "conference_not_found": "The requested conference could not be found.",
     "conf_not_found": "The requested conference could not be found.",
     "conf_not_activated": "The conference is not activated.",
+    "conference_payment_required": "This conference's review package is full or not paid. Ask the organizer, or host the repository yourself.",
+    "billing_plan_change_not_supported": "This conference plan cannot be changed.",
+    "billing_invalid_review_window": "Conference packages cover up to 180 days and must end in the future. Check the review dates.",
     "billing_missing": "Billing information is required for this plan.",
     "billing_name_missing": "A billing name is required.",
     "billing_email_missing": "A billing email is required.",
@@ -169,7 +172,9 @@
     "billing_webhook_failed": "The payment notification could not be processed.",
     "billing_customer_not_found": "No billing account was found.",
     "subscription_required_for_never_expiration": "Never-expiring repositories require the owner’s active monthly or annual author subscription. Choose a dated expiration or upgrade in Plans and billing.",
-    "invalid_billing_expiration": "Choose an expiration date within the next year, or select Never expire with an author subscription.",
+    "invalid_billing_expiration": "Choose an earlier expiration date. Free repositories can be scheduled 5 months ahead. Buy Extended expiration or Never expire for this repository in Plans and billing to keep it longer.",
+    "quota_exceeded": "Your free repositories are used up. Add this repository with a one-time payment, choose a subscription, or remove a repository you no longer need.",
+    "expiration_limit_reached": "This repository is already at its latest allowed expiration date. Buy Extended expiration or Never expire for it in Plans and billing to keep it longer.",
     "pending_payment": "Awaiting payment"
   },
   "WARNINGS": {

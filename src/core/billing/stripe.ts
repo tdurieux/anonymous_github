@@ -1,8 +1,10 @@
 import Stripe = require("stripe");
 import { randomUUID } from "crypto";
 import config from "../../config";
-import { BillingAccount, BillingGrant, BillingLock, BillingRevocation, BillingPrice } from "./models";
-import { billingError, billingOrigin, billingPlans, requireBilling } from "./config";
+import { BillingAccount, BillingGrant, BillingLock, BillingRevocation, BillingPrice, BillingQuota } from "./models";
+import { REPOSITORY_ID_COLLATION } from "../repository-id";
+import { billingError, billingOrigin, billingPlans, legacyPricePlans, requireBilling, REPOSITORY_ADDONS, REPO_EXTEND_MS, REPO_NEVER_UNTIL, PACK_PLANS, isConferencePlan } from "./config";
+import { usableGrant } from "./quotas";
 import ConferenceModel from "../model/conference/conferences.model";
 import RepositoryModel from "../model/anonymizedRepositories/anonymizedRepositories.model";
 
@@ -19,6 +21,22 @@ export async function withBillingLock<T>(id: string, work: () => Promise<T>): Pr
   try { return await work(); }
   finally { clearInterval(heartbeat); await BillingLock.deleteOne({ _id: id, token }); }
 }
+// The plan a Stripe price pays for: the configured price, then a declared
+// legacy price, then a price recorded when it was configured or sold.
+export async function planForPrice(priceId: string | undefined, recurring: boolean) {
+  if (!priceId) return undefined;
+  const plans = billingPlans().filter(p => p.recurring === recurring);
+  const configured = plans.find(p => p.priceId === priceId);
+  if (configured) return configured;
+  const planId = legacyPricePlans().get(priceId) || (await BillingPrice.findById(priceId).lean())?.planId;
+  return plans.find(p => p.id === planId);
+}
+// Record every configured price before it can be replaced, so a later
+// configuration change still recognizes subscriptions sold at that price.
+export async function rememberConfiguredPrices() {
+  const prices = [...billingPlans().filter(p => p.priceId).map(p => [p.priceId, p.id] as const), ...legacyPricePlans()];
+  for (const [priceId, planId] of prices) await BillingPrice.updateOne({ _id: priceId }, { $setOnInsert: { planId } }, { upsert: true });
+}
 export async function syncSubscription(id: string, stripe = stripeClient()) {
   // Compare-and-swap prevents a slow, earlier fetch from overwriting a newer one.
   for (let retry = 0; retry < 4; retry++) {
@@ -29,7 +47,7 @@ export async function syncSubscription(id: string, stripe = stripeClient()) {
     const account = await BillingAccount.findById(owner).lean();
     if (!account || account.customerId !== objectId(sub.customer)) throw billingError("billing_customer_mismatch");
     const priceId = sub.items.data[0]?.price.id;
-    const plan = billingPlans().find(p => p.recurring && p.priceId === priceId);
+    const plan = await planForPrice(priceId, true);
     const invoice = sub.latest_invoice as Stripe.Invoice | null;
     const paid = !!plan && sub.items.data.length === 1 && sub.status === "active" && invoice?.status === "paid";
     const periodEnd = sub.items.data[0]?.current_period_end;
@@ -45,9 +63,9 @@ export async function syncSubscription(id: string, stripe = stripeClient()) {
         }
       }
     }
-    const values = { owner, scope: `user:${owner}`, planId: plan?.id || "unknown", customerId: account.customerId,
+    const values = { owner, scope: `user:${owner}`, planId: plan?.id || "unknown", customerId: account.customerId, priceId,
       subscriptionId: id, status: sub.status, cancelAtPeriodEnd: sub.cancel_at_period_end || !!sub.cancel_at,
-      until: paidThrough,
+      until: paidThrough, ...(sub.start_date ? { purchasedAt: new Date(sub.start_date * 1000) } : {}),
     };
     if (!previous) {
       try { await BillingGrant.create({ _id: id, ...values }); return; }
@@ -71,33 +89,57 @@ export async function fulfillCheckout(id: string, stripe = stripeClient()) {
   const priceId = session.line_items?.data[0]?.price?.id;
   const previousGrant = await BillingGrant.findById(id).lean();
   const historicalPrice = priceId ? await BillingPrice.findById(priceId).lean() : null;
-  const previousScope = planId === "conference" ? `conference:${target}` : `repo:${target}`;
+  const previousScope = isConferencePlan(planId) ? `conference:${target}` : `repo:${target}`;
   const acceptedGrant = previousGrant?.owner === owner && previousGrant?.customerId === account.customerId
     && previousGrant?.planId === planId && previousGrant?.scope === previousScope
     && (!previousGrant.priceId || previousGrant.priceId === priceId);
   if (!plan || !priceId || session.line_items?.data.length !== 1 || session.line_items.data[0].quantity !== 1 ||
-    !(priceId === plan.priceId || historicalPrice?.planId === planId || acceptedGrant)) throw billingError("billing_invalid_purchase");
+    !(priceId === plan.priceId || historicalPrice?.planId === planId || legacyPricePlans().get(priceId) === planId || acceptedGrant)) throw billingError("billing_invalid_purchase");
   await BillingPrice.updateOne({ _id: priceId }, { $setOnInsert: { planId } }, { upsert: true });
   if (session.payment_status !== "paid" || session.status !== "complete") return;
   const intent = session.payment_intent as Stripe.PaymentIntent | null;
   const charge = intent?.latest_charge as Stripe.Charge | null;
   const revoked = !!charge && (charge.refunded || charge.disputed);
-  const scope = plan.id === "conference" ? `conference:${target}` : `repo:${target}`;
-  let until = new Date(session.created * 1000 + 180 * 86400_000);
-  if (plan.id === "conference") {
+  const scope = isConferencePlan(plan.id) ? `conference:${target}` : `repo:${target}`;
+  const purchased = new Date(session.created * 1000);
+  // A paper pack is fulfilled as its three add-ons. They share the payment
+  // intent, so a refund or dispute revokes all of them together.
+  const parts: { _id: string; planId: string }[] = plan.id === "repo_pack"
+    ? PACK_PLANS.map(part => ({ _id: `${id}:${part}`, planId: part })) : [{ _id: id, planId: plan.id }];
+  const untilFor = async (part: { _id: string; planId: string }) => {
+    if (part.planId === "repo_never" || part.planId === "repo_slot") return REPO_NEVER_UNTIL;
+    if (part.planId === "repo_extend") {
+      // Extensions stack: each purchase adds a year after any earlier paid limit.
+      // $setOnInsert below keeps this value stable across duplicate deliveries.
+      const earlier = await BillingGrant.find({ _id: { $ne: part._id }, scope, owner, planId: "repo_extend" }).lean();
+      const base = Math.max(purchased.getTime(), ...earlier.filter(g => usableGrant(g, purchased)).map(g => g.until!.getTime()));
+      return new Date(base + REPO_EXTEND_MS);
+    }
+    return new Date(purchased.getTime() + 180 * 86400_000);
+  };
+  let conferenceEnd: Date | undefined;
+  if (isConferencePlan(plan.id)) {
     const conference = await ConferenceModel.findOne({ conferenceID: target });
     // Historical sessions can outlive a deliberately deleted conference.
     if (!conference) return;
-    until = conference.endDate;
+    conferenceEnd = conference.endDate;
   }
-  await BillingGrant.updateOne({ _id: id }, { $setOnInsert: { owner, scope, planId, customerId: account.customerId,
-    paymentIntentId: objectId(session.payment_intent), priceId, status: "paid", until }, ...(revoked ? { $set: { revoked: true } } : {}) }, { upsert: true });
   const reversal = intent && await BillingRevocation.findById(intent.id).lean();
-  if (reversal?.reviewed) await BillingGrant.updateOne({ _id: id }, { $set: { revoked: false } });
-  else if (reversal) await BillingGrant.updateOne({ _id: id }, { $set: { revoked: true, revocationReason: reversal.reason } });
-  if (plan.id === "conference" && (!revoked || reversal?.reviewed)) {
+  for (const part of parts) {
+    const until = conferenceEnd || await untilFor(part);
+    await BillingGrant.updateOne({ _id: part._id }, { $setOnInsert: { owner, scope, planId: part.planId, customerId: account.customerId,
+      paymentIntentId: objectId(session.payment_intent), priceId, status: "paid", until, purchasedAt: purchased }, ...(revoked ? { $set: { revoked: true } } : {}) }, { upsert: true });
+    if (reversal?.reviewed) await BillingGrant.updateOne({ _id: part._id }, { $set: { revoked: false } });
+    else if (reversal) await BillingGrant.updateOne({ _id: part._id }, { $set: { revoked: true, revocationReason: reversal.reason } });
+    if (part.planId === "repo_slot" && !(await BillingGrant.findById(part._id).lean())?.revoked) {
+      // A bought repository no longer counts toward its owner's free allowance.
+      // Its next admission reserves it in its own repository ledger instead.
+      await BillingQuota.updateOne({ _id: `user:${owner}` }, { $pull: { allocations: { repoId: target } } });
+    }
+  }
+  if (isConferencePlan(plan.id) && (!revoked || reversal?.reviewed)) {
     const grant = await BillingGrant.findById(id).lean();
-    if (!grant?.revoked) await ConferenceModel.updateOne({ conferenceID: target, status: "pending_payment", "plan.planID": "conference" }, { $set: { status: "ready" } });
+    if (!grant?.revoked) await ConferenceModel.updateOne({ conferenceID: target, status: "pending_payment", "plan.planID": plan.id }, { $set: { status: "ready" } });
   }
 }
 export async function processBillingEvent(event: Stripe.Event, stripe = stripeClient()) {
@@ -145,15 +187,20 @@ export async function createCheckout(owner: string, planId: string, target = "",
   if (!config.BILLING_CHECKOUT_ENABLED) throw billingError("billing_checkout_disabled", 503);
   const plan = billingPlans().find(p => p.id === planId && p.priceId);
   if (!plan) throw billingError("billing_plan_unavailable");
-  if (plan.id === "conference") {
+  if (isConferencePlan(plan.id)) {
+    // A conference pays for the tier it was created with.
     const conf = await ConferenceModel.findOne({ conferenceID: target, owners: owner });
-    if (!conf || conf.plan.planID !== "conference" || conf.status !== "pending_payment") throw billingError("billing_invalid_conference");
+    if (!conf || conf.plan.planID !== plan.id || conf.status !== "pending_payment") throw billingError("billing_invalid_conference");
     if (conf.endDate <= new Date() || conf.endDate.getTime() - conf.startDate.getTime() > 180 * 86400_000) throw billingError("billing_invalid_review_window");
-  } else if (plan.id === "author_pass") {
-    const repo = await RepositoryModel.exists({ repoId: target, owner, status: { $nin: ["removed", "expired"] } });
-    if (!repo) throw billingError("repo_not_found", 404);
+  } else if (REPOSITORY_ADDONS.includes(plan.id)) {
+    // An add-on can be bought for a repository the owner is about to create:
+    // a full free allowance blocks creation until it is paid for.
+    if (typeof target !== "string" || !/^[0-9a-zA-Z_-]{3,200}$/.test(target)) throw billingError("repo_not_found", 404);
+    const repo = await RepositoryModel.findOne({ repoId: target }, null, { collation: REPOSITORY_ID_COLLATION }).select("repoId owner status").lean();
+    if (repo && (String(repo.owner) !== owner || repo.status === "removed")) throw billingError("repo_not_found", 404);
+    if (repo?.repoId) target = repo.repoId;
   } else target = "";
-  const destination = returnPath || (plan.id === "conference" ? `/conference/${encodeURIComponent(target)}` : "/profile");
+  const destination = returnPath || (isConferencePlan(plan.id) ? `/conference/${encodeURIComponent(target)}` : "/profile");
   if (returnPath && !/^\/anonymize(?:\/[A-Za-z0-9_-]{1,200})?\?billingDraft=[a-f0-9-]{36}$/.test(returnPath)) throw billingError("billing_invalid_draft");
   const outcomeUrl = (outcome: string) => `${billingOrigin()}${destination}${destination.includes("?") ? "&" : "?"}billing=${outcome}`;
   return withBillingLock(`checkout:${owner}`, async () => {
@@ -211,7 +258,9 @@ export async function createCheckout(owner: string, planId: string, target = "",
         if (subscriptions.data.some(s => !["canceled", "incomplete_expired"].includes(s.status))) throw billingError("billing_subscription_exists", 409);
         after = subscriptions.has_more ? subscriptions.data.at(-1)?.id : undefined;
       } while (after);
-    } else if (await BillingGrant.exists({ scope: `${plan.id === "conference" ? "conference" : "repo"}:${target}`, revoked: false, until: { $gt: new Date() } })) throw billingError("billing_already_paid", 409);
+    } else if (isConferencePlan(plan.id) ? await BillingGrant.exists({ scope: `conference:${target}`, revoked: false, until: { $gt: new Date() } })
+      // Extensions stack, so only live updates and never expire can already be paid.
+      : !["repo_extend", "repo_pack"].includes(plan.id) && await BillingGrant.exists({ scope: `repo:${target}`, owner, planId: plan.id, revoked: false, until: { $gt: new Date() } })) throw billingError("billing_already_paid", 409);
     // Persist the idempotency key before sending a request. A timeout can safely retry it.
     if (!account.checkout?.key || account.checkout.id) {
       account.checkout = { key: randomUUID(), planId, target, createdAt: new Date(), expiresAt: new Date(Date.now() + 1860_000) };
@@ -232,10 +281,9 @@ export async function createCheckout(owner: string, planId: string, target = "",
       account.checkout.params = params;
       await account.save();
     }
-    if (!plan.recurring) {
-      const acceptedPrice = (account.checkout.params as Stripe.Checkout.SessionCreateParams).line_items?.[0]?.price;
-      if (acceptedPrice) await BillingPrice.updateOne({ _id: acceptedPrice }, { $setOnInsert: { planId } }, { upsert: true });
-    }
+    // Subscriptions too: their price must stay recognizable after a price change.
+    const acceptedPrice = (account.checkout.params as Stripe.Checkout.SessionCreateParams).line_items?.[0]?.price;
+    if (acceptedPrice) await BillingPrice.updateOne({ _id: acceptedPrice }, { $setOnInsert: { planId } }, { upsert: true });
     const session = await stripe.checkout.sessions.create(account.checkout.params as Stripe.Checkout.SessionCreateParams, { idempotencyKey: account.checkout.key });
     account.checkout.id = session.id;
     await account.save();

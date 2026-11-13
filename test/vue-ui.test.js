@@ -244,16 +244,43 @@ describe("Vue 3 UI", function () {
     ui.window.document.querySelector(".nav-upgrade").click();
     await delay(10);
     expect(ui.window.document.activeElement.id).to.equal("settings-plan-comparison");
-    expect(ui.window.document.querySelector(".settings-comparison").textContent).to.include("Scheduled or never");
+    expect(ui.window.document.querySelector(".settings-comparison").textContent).to.include("Latest expiration");
+    expect(ui.window.document.querySelector(".settings-comparison").textContent).to.include("Automatic updates");
     expect(ui.window.document.querySelectorAll(".settings-nav button")[1].getAttribute("aria-current")).to.equal("page");
     expect(ui.window.document.querySelector("#settings-billing").textContent).to.include("/ month");
     expect(ui.window.document.querySelector("#settings-billing").textContent).to.include("10 GiB");
-    ui.window.document.querySelector(".billing-plan button").click();
+    [...ui.window.document.querySelectorAll(".billing-offer .btn")].find(b => b.textContent.trim() === "Subscribe").click();
     await delay(30);
     const request = ui.requests.find(r => r.url.pathname === "/api/billing/checkout");
     expect(request.payload).to.deep.equal({ planId: "author_monthly", target: "" });
     expect(request.headers["x-csrf-token"]).to.equal("billing-token");
     expect(ui.window.document.querySelector("#settings-billing [role=alert]").textContent).to.include("already have a subscription");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("lists purchases in plain words, grouped as active and ended", async () => {
+    ui = await browser("/profile?billing=portal", {
+      "/api/user": { username: "author" },
+      "/api/billing/": { enabled: true, csrf: "billing-token", portal: true, plans: [], allowance: { repositories: 5, storage: 512 },
+        grants: [{ planId: "author_annual", status: "active", until: "2099-01-01", cancelAtPeriodEnd: true }],
+        purchases: [
+          { id: "a", planId: "repo_pack", repoId: "paper-repo", status: "active", until: null, purchasedAt: "2026-01-02", amount: 500, currency: "eur",
+            parts: [{ planId: "repo_slot", until: null, status: "active" }, { planId: "author_pass", until: "2099-01-01", status: "active" }, { planId: "repo_extend", until: "2099-01-01", status: "active" }] },
+          { id: "b", planId: "repo_never", repoId: "old-repo", status: "refunded", until: null, parts: [] },
+        ] },
+      "/api/billing/refresh": { ok: true, pending: false },
+    });
+    await delay(100);
+    const text = ui.window.document.querySelector("#settings-billing").textContent;
+    expect(text).to.include("Paper pack");
+    expect(text).to.include("Extra repository · Live updates until");
+    expect(text).to.include("Refunded");
+    expect(text).not.to.include("9999");
+    expect(text).not.to.include("repo:");
+    // Returning from the billing portal is not a pending payment.
+    expect(text).not.to.include("Confirming your payment");
+    expect(text).to.include("Renewal cancelled. Your access continues until");
+    expect(ui.window.document.querySelector('a[href="/anonymize/paper-repo"]')).not.to.equal(null);
     expect(ui.errors).to.deep.equal([]);
   });
 
@@ -518,7 +545,7 @@ describe("Vue 3 UI", function () {
     expect(doc.querySelector('.anonymize-preview-body').textContent).to.include("MASKED");
     expect(doc.querySelector('.anonymize-preview-body').textContent).not.to.include("Private Author");
     state.options.expirationMode = "never"; await delay(20);
-    expect(doc.querySelector('.subscription-choice').textContent).to.include("20 repositories");
+    expect(doc.querySelector('.hosting-options').textContent).to.include("20 repositories");
     expect(doc.querySelector('.anonymize-submit-bar').textContent).to.include("Continue to checkout");
     doc.querySelector('.preview-expand').click(); await delay(10);
     expect(doc.querySelector('.anonymize-page').classList.contains('preview-expanded')).to.equal(true);
@@ -567,6 +594,34 @@ describe("Vue 3 UI", function () {
     });
   }
 
+  it("opens Checkout for the subscription cycle the hosting option shows", async () => {
+    const billing = { ...taskBilling, plans: [...taskBilling.plans,
+      { id: "author_annual", amount: 4900, currency: "eur", interval: "year", repositories: 20, storage: 10737418240, description: "Renews yearly." }] };
+    ui = await browser("/anonymize", { ...repositorySource, "/api/billing/": billing });
+    await delay(20);
+    const state = ui.window.document.querySelector("#sourceUrl")._field.binding.state; state.detectedType = "repo";
+    state.hostingQuotaBlocked = true;
+    expect(state.hostingOneTimePlans()).to.deep.equal([]);
+    expect(state.hostingSubscriptionPlan().id).to.equal("author_annual");
+    expect(state.hostingChoice()).to.equal("author_annual");
+    expect(state.selectedHostingPlan().id).to.equal("author_annual");
+  });
+
+  it("leaves gist and pull request expiration dates outside the repository billing limit", async () => {
+    ui = await browser("/anonymize", { ...repositorySource, "/api/billing/": taskBilling });
+    await delay(20);
+    const state = ui.window.document.querySelector("#sourceUrl")._field.binding.state;
+    const later = new Date(); later.setMonth(later.getMonth() + 10);
+    state.detectedType = "gist";
+    state.options.expirationDate = new ui.window.Date(later.getTime());
+    await delay(20);
+    expect(state.options.expirationDate.getTime()).to.equal(later.getTime());
+    expect(new Date(state.maxExpirationDate).getTime()).to.be.greaterThan(later.getTime());
+    state.detectedType = "repo";
+    await delay(20);
+    expect(state.options.expirationDate.getTime()).to.be.lessThan(later.getTime());
+  });
+
   it("keeps free, conference and coauthor work out of author checkout", async () => {
     ui = await browser("/anonymize", { ...repositorySource, "/api/billing/": taskBilling });
     const state = ui.window.document.querySelector("#sourceUrl")._field.binding.state; state.detectedType = "repo";
@@ -577,6 +632,9 @@ describe("Vue 3 UI", function () {
     state.hostingQuotaBlocked = true;
     expect(state.hostingNeedsPayment()).to.equal(true);
     state.conference = "CONF";
+    state.conference_data = { name: "Unpaid", hosting: false };
+    expect(state.hostingNeedsPayment()).to.equal(true);
+    state.conference_data = { name: "Paid", hosting: true };
     expect(state.hostingNeedsPayment()).to.equal(false);
     state.options.expirationMode = "never";
     expect(state.hostingNeedsPayment()).to.equal(true);
@@ -931,6 +989,37 @@ describe("Vue 3 UI", function () {
     expect(preview()).to.include("Updating");
     await delay(230);
     expect(preview()).to.include("LATEST PREVIEW");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("offers a paid review package per venue size for a new conference", async () => {
+    ui = await browser("/conference/new", {
+      "/api/user": { username: "owner" },
+      "/api/conferences/plans": [
+        { id: "conference_workshop", name: "Workshop", pricePerRepo: 0, repositories: 25, storagePerRepo: 10737418240 },
+        { id: "conference", name: "Conference", pricePerRepo: 0, repositories: 100, storagePerRepo: 53687091200 },
+        { id: "conference_large", name: "Large conference", pricePerRepo: 0, repositories: 400, storagePerRepo: 214748364800 }],
+      "/api/billing/": { enabled: true, grants: [], plans: [
+        { id: "conference_workshop", amount: 4900, currency: "eur", repositories: 25, storage: 10737418240 },
+        { id: "conference", amount: 14900, currency: "eur", repositories: 100, storage: 53687091200 },
+        { id: "conference_large", amount: 39900, currency: "eur", repositories: 400, storage: 214748364800 }] },
+    });
+    await delay(30);
+    const doc = ui.window.document;
+    const tiers = [...doc.querySelectorAll(".conference-tier")];
+    expect(tiers.map(t => t.querySelector(".conference-tier-head strong").textContent)).to.deep.equal(["Workshop", "Conference", "Large conference"]);
+    expect(tiers[0].textContent).to.include("49").and.include("Up to 25 papers");
+    expect(doc.querySelector('input[name="planPicker"]:checked').value).to.equal("conference");
+    expect(doc.querySelector("#conf-plan").textContent).to.not.include("Free");
+    doc.querySelector('input[value="conference_workshop"]').click();
+    await delay(20);
+    expect(tiers[0].classList.contains("is-selected")).to.equal(true);
+    await ui.input("#name", "Review venue");
+    await ui.input("#conferenceID", "REVIEW26");
+    doc.querySelector("#send").click();
+    await delay(30);
+    const request = ui.requests.find(r => r.method === "POST" && r.url.pathname === "/api/conferences/");
+    expect(request?.payload.plan.planID).to.equal("conference_workshop");
     expect(ui.errors).to.deep.equal([]);
   });
 

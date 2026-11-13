@@ -44,7 +44,7 @@ async function main() {
   products.push(product.id);
   for (const [key, amount, interval] of [
     ["STRIPE_AUTHOR_MONTHLY_PRICE",500,"month"],["STRIPE_AUTHOR_ANNUAL_PRICE",4900,"year"],
-    ["STRIPE_AUTHOR_PASS_PRICE",1500],["STRIPE_CONFERENCE_PRICE",19900]]) {
+    ["STRIPE_AUTHOR_PASS_PRICE",400],["STRIPE_REPO_EXTEND_PRICE",200],["STRIPE_REPO_NEVER_PRICE",1000],["STRIPE_REPO_SLOT_PRICE",200],["STRIPE_REPO_PACK_PRICE",500],["STRIPE_CONFERENCE_SMALL_PRICE",4900],["STRIPE_CONFERENCE_PRICE",14900],["STRIPE_CONFERENCE_LARGE_PRICE",39900]]) {
     const p = await stripe.prices.create({ product: product.id, currency: "eur", unit_amount: amount, metadata, ...(interval ? { recurring: { interval } } : {}) });
     prices.push(p.id); config[key] = p.id;
   }
@@ -52,9 +52,9 @@ async function main() {
   await Repo.create({ repoId: "sandbox-"+run, owner: buyer.owner, status: "ready" });
   await Conference.create({ conferenceID: "sandbox-"+run, owners: [buyer.owner], status: "pending_payment",
     startDate: new Date(), endDate: new Date(Date.now()+86400000*30), plan: { planID: "conference" } });
-  for (const plan of ["author_monthly","author_annual","author_pass","conference"]) {
+  for (const plan of ["author_monthly","author_annual","author_pass","repo_extend","repo_never","repo_slot","repo_pack","conference"]) {
     await check(plan + " Checkout creation, reuse, unpaid denial and expiry", async () => {
-      const target = ["author_pass","conference"].includes(plan) ? "sandbox-"+run : "";
+      const target = ["author_pass","repo_extend","repo_never","repo_slot","repo_pack","conference"].includes(plan) ? "sandbox-"+run : "";
       const url = await createCheckout(buyer.owner, plan, target, stripe);
       assert.match(url, /^https:\/\/checkout.stripe.com\//);
       assert.equal(await createCheckout(buyer.owner,plan,target,stripe), url);

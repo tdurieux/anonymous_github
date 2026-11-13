@@ -1,8 +1,8 @@
 {
   "core.min.js": "core.d23af1c652.min.js",
-  "vendor.min.js": "vendor.3f99749002.min.js",
+  "vendor.min.js": "vendor.d5b4d04371.min.js",
   "mermaid.min.js": "mermaid.a7356d5ed1.min.js",
-  "all.min.css": "all.c690a01ace.min.css",
+  "all.min.css": "all.8c4e8ecba6.min.css",
   "markdown.min.js": "markdown.6c8dfb7b1d.min.js",
   "pdf.min.js": "pdf.4d9cc6ff49.min.js",
   "notebook.min.js": "notebook.c3144c18ae.min.js",
