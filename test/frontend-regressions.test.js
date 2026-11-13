@@ -272,6 +272,25 @@ describe("frontend production regressions", function () {
     await h.flush();
     expect(Array.from(h.scope.previewTreeFiles(), row => row.name)).to.include.members(["a.py", "fig.png", "README.md"]);
   });
+  it("redacts preview paths in the same directory and basename contexts as production", async function () {
+    this.timeout(10000);
+    const { anonymizePathCompiled, compileTerms } = require("../src/core/anonymize-utils");
+    for (const term of ["^Alice", "people/Alice"]) {
+      const h = harness(); const pending = [];
+      const timeout = fn => { pending.push(fn); return pending.length; }; timeout.cancel = () => {};
+      h.defs.anonymizeController(h.scope, h.http, {}, {}, {}, () => {}, timeout);
+      h.scope.terms = term;
+      h.scope.previewPathName("people/Alice/report.py");
+      pending.splice(0).forEach(fn => fn());
+      const request = h.requests.find(r => Array.isArray(r.body?.contents));
+      expect(Array.from(request.body.contents)).to.deep.equal(["people/Alice", "report.py"]);
+      const compiled = compileTerms([term]);
+      request.resolve({ data: { contents: request.body.contents.map(name => anonymizePathCompiled(name, compiled)) } });
+      await h.flush();
+      expect(h.scope.previewPathName("people/Alice/report.py")).to.equal(
+        anonymizePathCompiled("people/Alice", compiled) + "/" + anonymizePathCompiled("report.py", compiled));
+    }
+  });
   it("opens a file of the preview tree, redacted like the README unless it is left unredacted", async function () {
     const h = harness(); const pending = []; const timeout = fn => { pending.push(fn); return pending.length; }; timeout.cancel = () => {};
     h.context.document.getElementById = () => null;
@@ -302,6 +321,7 @@ describe("frontend production regressions", function () {
     expect(h.scope.previewViewer.content).to.equal("# XXXX-1\nprint(1)\n");
     expect(h.scope.previewViewer.aceOption.mode).to.equal("python");
     expect(h.scope.previewViewer.languageName).to.equal("Python");
+    expect(h.scope.previewViewer.fileBaseUrl).to.equal("https://github.com/owner/repo/raw/main/src/");
     // The server receives the terms and preservation rules, just like the streamer.
     h.scope.options.preserveFiles = ["*.bib"];
     h.scope.openPreviewFile("paper/refs.bib");

@@ -532,6 +532,7 @@
       <div id="workspace-preview" :role="mobileWorkspace ? 'tabpanel' : null" :aria-labelledby="mobileWorkspace ? 'workspace-preview-tab' : null" class="anonymize-preview-col reviewer-preview" v-if="detectedType">
         <div class="rp-caption">
           <span class="rp-title">What reviewers will see</span>
+          <button type="button" class="rp-open" v-if="detectedType === 'repo'" @click="previewViewer.sidebarCollapsed = !previewViewer.sidebarCollapsed" :aria-expanded="!previewViewer.sidebarCollapsed" aria-controls="preview-file-tree">Files</button>
           <span class="rp-count" v-if="previewStatus === 'ready' &amp;&amp; previewRedactions() &gt; 0" :title="previewRedactions() + ' redacted terms in this preview'"><span class="redact-slot" aria-hidden="true"><i>{{ previewRedactions() }}</i></span> redacted</span>
           <span class="rp-count rp-count-none" v-else-if="previewStatus === 'ready' &amp;&amp; !String(terms || '').trim()">No terms yet</span>
           <button type="button" class="rp-count rp-count-none" v-else-if="previewStatus === 'ready' &amp;&amp; previewPreserved()" @click="openPreserveFiles()" title="Change it in Leave files unredacted">{{ previewName(previewFile ? previewFile.slice(previewFile.lastIndexOf('/') + 1) : readmeName()) }} left unredacted</button>
@@ -543,7 +544,7 @@
           <div class="rp-chrome" aria-hidden="true"><i></i><i></i><i></i><span class="rp-url">{{ previewUrl() || 'anonymous.4open.science' }}</span></div>
           <div class="rp-bar" aria-hidden="true"><span class="vb-logo">Anonymous <em>GitHub</em></span><span class="rp-bar-id" v-if="previewId()">{{ previewId() }}</span><span class="rp-bar-kind" v-if="detectedType !== 'repo'">{{ detectedType === 'pr' ? 'Pull request' : 'Gist' }}</span></div>
           <div class="rp-body" :class="{ 'reviewer-explorer': detectedType === 'repo' }">
-            <aside class="leftCol" :class="{ collapsed: previewViewer.sidebarCollapsed }" v-if="detectedType === 'repo'" aria-label="Files reviewers will see">
+            <aside id="preview-file-tree" class="leftCol" :class="{ collapsed: previewViewer.sidebarCollapsed }" v-if="detectedType === 'repo'" aria-label="Files reviewers will see">
               <div class="leftCol-head"><span class="leftCol-eyebrow">Files</span><button type="button" class="leftCol-close" aria-label="Close files" @click="previewViewer.sidebarCollapsed = true"><svg class="ui-icon" aria-hidden="true"><use href="#project-icon-close"></use></svg></button></div>
               <div class="leftCol-body">
                 <tree class="files" :file="previewTreeFiles()" :page="previewViewer" :selected-path="'/' + previewPathName(previewOpenPath())" @select="selectPreviewPath($event)"></tree>

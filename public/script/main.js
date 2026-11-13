@@ -143,7 +143,7 @@ export function mountApplication(target = "#app", options = {}) {
     if (/^\/(r|repository|anonymize|pull-request-anonymize|gist-anonymize|pr|gist)(\/|$)/.test(to.path)) {
       await loadLibrary("markdown");
     }
-    if (/^\/(r|repository)\//.test(to.path)) await loadLibrary("org");
+    if (/^\/(r|repository|anonymize|pull-request-anonymize|gist-anonymize|pr|gist)(\/|$)/.test(to.path)) await loadLibrary("org");
   });
   router.afterEach(to => {
     if (!root) return;

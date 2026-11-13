@@ -2892,7 +2892,8 @@ export const anonymizeController = function (state, http, html, params, location
           if (window.URL?.createObjectURL) viewer.url = previewBlobUrl = window.URL.createObjectURL(new Blob([data.content], { type: "text/plain" }));
           const path = state.previewOpenPath() || state.readmeName();
           viewer.prepareFile(state.previewPathName(path));
-          viewer.renderFileContent(data.content, viewer.type, rawBaseUrl(path), "text/plain");
+          viewer.fileBaseUrl = rawBaseUrl(path);
+          viewer.renderFileContent(data.content, viewer.type, viewer.fileBaseUrl, "text/plain");
           if (!state.previewFile) state.anonymize_readme = data.content;
 
         }
@@ -2944,13 +2945,17 @@ export const anonymizeController = function (state, http, html, params, location
         if (!nameTimer) nameTimer = timeout(flushNames, 120);
         return name;
       };
-      state.previewPathName = (path) => String(path || "").split("/").map(state.previewName).join("/");
+      state.previewPathName = (path) => {
+        path = String(path || "");
+        const slash = path.lastIndexOf("/");
+        return slash < 0 ? state.previewName(path) : state.previewName(path.slice(0, slash)) + "/" + state.previewName(path.slice(slash + 1));
+      };
       state.watch(() => [state.repoId, state.previewPathName(state.previewOpenPath() || state.readmeName()), state.previewTreeFiles()], () => {
         viewer.repoId = state.repoId || "repository";
         viewer.filePath = state.previewPathName(state.previewOpenPath() || state.readmeName());
         viewer.paths = viewer.filePath.split("/");
         viewer.files = state.previewTreeFiles();
-        viewer.loadedFolders = Object.fromEntries([...(previewIndex?.dirs.keys() || [])].map(dir => [state.previewPathName(dir), true]));
+        viewer.loadedFolders = Object.fromEntries([...(previewIndex?.dirs.keys() || [])].map(dir => [state.previewName(dir), true]));
       }, true);
       state.on("dispose", () => { if (nameTimer) timeout.cancel(nameTimer); });
 
