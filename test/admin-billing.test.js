@@ -78,6 +78,7 @@ const uri = process.env.BILLING_TEST_MONGODB_URI;
       { _id: "cs_conf", owner: a, scope: "conference:FSE26", planId: "conference", paymentIntentId: "pi_conf", priceId: "price_conf", status: "paid", until: later(60), purchasedAt: ago(10) },
       { _id: "cs_gone", owner: a, scope: "repo:paper-2", planId: "repo_extend", paymentIntentId: "pi_gone", priceId: "price_retired", status: "paid", until: later(10), purchasedAt: ago(1) },
     ]);
+    await BillingRevocation.create({ _id: "pi_never", reason: "full_refund", createdAt: ago(1) });
   });
   after(async () => { Object.assign(config, original); await mongoose.disconnect(); });
 
@@ -89,7 +90,7 @@ const uri = process.env.BILLING_TEST_MONGODB_URI;
     expect(s.sales.count).to.equal(5);
     expect(s.sales.revenue).to.deep.equal({ eur: 500 + 1500 + 30000, usd: 2000 });
     expect(s.allTime.count).to.equal(7);
-    expect(s.reversals).to.deep.equal({ refunds: 1, disputes: 0, amount: { usd: 2000 } });
+    expect(s.reversals).to.deep.equal({ refunds: 1, disputes: 0 });
     expect(s.revenue).to.include({ available: true, missingSales: 1 });
     const pack = s.plans.find(p => p.planId === "repo_pack");
     expect(pack).to.include({ active: 1, sales: 1, allTimeSales: 1 });
@@ -106,12 +107,46 @@ const uri = process.env.BILLING_TEST_MONGODB_URI;
     expect(lookups).to.deep.equal([]);
   });
 
+  it("excludes never-paid subscriptions while retaining canceled paid sales", async () => {
+    await BillingGrant.create(["incomplete", "incomplete_expired", "canceled"].map(status => ({
+      _id: "sub_unpaid_" + status, planId: "author_monthly", subscriptionId: "sub_unpaid_" + status,
+      priceId: "price_monthly", status, until: new Date(0), purchasedAt: ago(1),
+    })));
+    const s = await report.billingSummary("all", now, lookup);
+    expect(s.sales.count).to.equal(7);
+    expect(s.plans.find(p => p.planId === "author_monthly").allTimeSales).to.equal(2);
+    expect(s.series.reduce((n, d) => n + d.subscription, 0)).to.equal(3);
+  });
+
+  it("retains reinstated refunds and counts separate renewal reversals", async () => {
+    await BillingGrant.updateOne({ _id: "cs_never" }, { $set: { revoked: false }, $unset: { revocationReason: 1, revokedAt: 1 } });
+    await BillingRevocation.updateOne({ _id: "pi_never" }, { $set: { reviewed: true } });
+    await BillingRevocation.create([
+      { _id: "pi_renewal1", subscriptionId: "sub_m", reason: "full_refund", createdAt: ago(60), reviewed: true },
+      { _id: "pi_renewal2", subscriptionId: "sub_m", reason: "full_refund", createdAt: ago(2) },
+      { _id: "pi_dispute", subscriptionId: "sub_m", reason: "dispute", createdAt: ago(1) },
+    ]);
+    expect((await report.billingSummary("30d", now, lookup)).reversals).to.deep.equal({ refunds: 2, disputes: 1 });
+    expect((await report.billingSummary("all", now, lookup)).reversals).to.deep.equal({ refunds: 3, disputes: 1 });
+  });
+
+  it("marks missing historical and active prices independently of period sales", async () => {
+    await BillingGrant.deleteOne({ _id: "cs_gone" });
+    await BillingGrant.updateOne({ _id: "sub_y" }, { $set: { priceId: "price_missing" } });
+    const s = await report.billingSummary("30d", now, lookup);
+    expect(s.revenue).to.include({ missingSales: 0, missingAllTimeSales: 1, missingSubscriptions: 1 });
+    expect(s.sales.complete).to.equal(true);
+    expect(s.allTime.complete).to.equal(false);
+    expect(s.subscriptions.complete).to.equal(false);
+    expect(s.plans.find(p => p.planId === "author_annual")).to.include({ revenueComplete: true, allTimeRevenueComplete: false });
+  });
+
   it("reports counts without revenue when Stripe is not configured", async () => {
     config.STRIPE_SECRET_KEY = "";
     const s = await report.billingSummary("7d", now, lookup);
     expect(lookups).to.deep.equal([]);
     expect(s.revenue).to.include({ available: false, reason: "stripe_not_configured" });
-    expect(s.sales).to.deep.equal({ count: 4, revenue: {} });
+    expect(s.sales).to.deep.equal({ count: 4, revenue: {}, complete: false });
     expect(s.subscriptions.mrr).to.deep.equal({});
   });
 
@@ -151,7 +186,7 @@ const uri = process.env.BILLING_TEST_MONGODB_URI;
   it("serves the summary and the grant list through the admin router", async () => {
     await BillingEvent.create([{ _id: "test:platform:evt_1", eventId: "evt_1", type: "invoice.paid", state: "failed", attempts: 12, lastError: "api_error:rate_limit", receivedAt: ago(1) },
       { _id: "test:platform:evt_2", eventId: "evt_2", type: "checkout.session.completed", state: "pending", receivedAt: new Date(now.getTime() - 120000) }]);
-    await BillingRevocation.create({ _id: "pi_never", reason: "full_refund" });
+
     const router = require("../src/server/routes/admin-billing").default;
     const call = async (path, query) => {
       const handler = router.stack.find(l => l.route?.path === path).route.stack.at(-1).handle;

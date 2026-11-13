@@ -32,9 +32,9 @@
     <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-info"></use></svg>
     <span><b>Revenue unavailable.</b> Stripe is not configured on this server, so amounts can't be looked up. Counts are complete.</span>
   </div>
-  <div class="ov-performance-message ov-performance-warning bl-message" role="status" v-if="summary?.revenue?.missingSales">
+  <div class="ov-performance-message ov-performance-warning bl-message" role="status" v-if="summary?.revenue?.missingSales || summary?.revenue?.missingAllTimeSales || summary?.revenue?.missingSubscriptions">
     <svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-warning"></use></svg>
-    <span>Stripe didn't return the price of {{ fmt?.number(summary.revenue.missingSales) }} {{ summary.revenue.missingSales === 1 ? 'sale' : 'sales' }} in this period. Revenue leaves {{ summary.revenue.missingSales === 1 ? 'it' : 'them' }} out.</span>
+    <span>Some Stripe prices are unavailable. Affected totals are marked incomplete: {{ fmt?.number(summary.revenue.missingSales || 0) }} period sales, {{ fmt?.number(summary.revenue.missingAllTimeSales || 0) }} historical sales, {{ fmt?.number(summary.revenue.missingSubscriptions || 0) }} active subscriptions.</span>
   </div>
 
   <!-- ── Summary tiles ───────────────────────────────────────── -->
@@ -50,19 +50,19 @@
       </div>
       <div class="ov-kpi-card">
         <div class="ov-kpi-label">MRR</div>
-        <div class="ov-kpi-value" :class="{ 'bl-muted-value': !revenueOn() }">{{ revenueOn() ? (money(summary.subscriptions.mrr)[0] || fmt?.money(0)) : 'Unavailable' }}</div>
+        <div class="ov-kpi-value" :class="{ 'bl-muted-value': !revenueOn() }">{{ revenueOn() ? (summary.subscriptions.complete === false ? 'Incomplete' : (money(summary.subscriptions.mrr)[0] || fmt?.money(0))) : 'Unavailable' }}</div>
         <div class="ov-kpi-sub" v-if="revenueOn() &amp;&amp; money(summary.subscriptions.mrr).length &gt; 1">+ {{ money(summary.subscriptions.mrr).slice(1).join(' · ') }}</div>
         <div class="ov-kpi-sub" v-else>{{ revenueOn() ? 'Annual plans ÷ 12' : 'Needs Stripe prices' }}</div>
       </div>
       <div class="ov-kpi-card">
         <div class="ov-kpi-label">Sales &middot; {{ periodPhrase() }}</div>
         <div class="ov-kpi-value">{{ fmt?.number(summary.sales.count) }}</div>
-        <div class="ov-kpi-sub">{{ revenueOn() ? moneyText(summary.sales.revenue, fmt?.money(0)) : 'Revenue unavailable' }}</div>
+        <div class="ov-kpi-sub">{{ revenueOn() ? (summary.sales.complete === false ? 'Revenue incomplete' : moneyText(summary.sales.revenue, fmt?.money(0))) : 'Revenue unavailable' }}</div>
       </div>
       <div class="ov-kpi-card">
         <div class="ov-kpi-label">All-time sales</div>
         <div class="ov-kpi-value">{{ fmt?.number(summary.allTime.count) }}</div>
-        <div class="ov-kpi-sub">{{ revenueOn() ? moneyText(summary.allTime.revenue, fmt?.money(0)) : 'Revenue unavailable' }}</div>
+        <div class="ov-kpi-sub">{{ revenueOn() ? (summary.allTime.complete === false ? 'Revenue incomplete' : moneyText(summary.allTime.revenue, fmt?.money(0))) : 'Revenue unavailable' }}</div>
       </div>
       <div class="ov-kpi-card">
         <div class="ov-kpi-label">Cancelling</div>
@@ -72,7 +72,7 @@
       <div class="ov-kpi-card">
         <div class="ov-kpi-label">Refunds &amp; disputes</div>
         <div class="ov-kpi-value" :class="{ 'ov-val-warn': summary.reversals.disputes &gt; 0 }">{{ fmt?.number(summary.reversals.refunds + summary.reversals.disputes) }}</div>
-        <div class="ov-kpi-sub">{{ fmt?.number(summary.reversals.refunds) }} {{ summary.reversals.refunds === 1 ? 'refund' : 'refunds' }} &middot; {{ fmt?.number(summary.reversals.disputes) }} {{ summary.reversals.disputes === 1 ? 'dispute' : 'disputes' }}<template v-if="revenueOn() &amp;&amp; money(summary.reversals.amount).length"> &middot; {{ moneyText(summary.reversals.amount) }}</template></div>
+        <div class="ov-kpi-sub">{{ fmt?.number(summary.reversals.refunds) }} {{ summary.reversals.refunds === 1 ? 'refund' : 'refunds' }} &middot; {{ fmt?.number(summary.reversals.disputes) }} {{ summary.reversals.disputes === 1 ? 'dispute' : 'disputes' }}</div>
       </div>
     </template>
   </section>
@@ -131,13 +131,13 @@
             <th scope="row" class="bl-plan-name"><span class="bl-swatch" :class="'bl-' + p.family" aria-hidden="true"></span><button type="button" class="bl-link" :title="'Show ' + p.name + ' grants'" @click="filterPlan(p.planId)">{{ p.name }}</button></th>
             <td class="num">{{ fmt?.number(p.active) }}</td>
             <template v-if="period !== 'all'"><td class="num">{{ fmt?.number(p.sales) }}</td>
-            <td class="num">{{ revenueOn() ? moneyText(p.revenue) : '—' }}</td></template>
+            <td class="num">{{ revenueOn() ? (p.revenueComplete === false ? 'Incomplete' : moneyText(p.revenue)) : '—' }}</td></template>
             <td class="num">{{ fmt?.number(p.allTimeSales) }}</td>
-            <td class="num">{{ revenueOn() ? moneyText(p.allTimeRevenue) : '—' }}</td>
+            <td class="num">{{ revenueOn() ? (p.allTimeRevenueComplete === false ? 'Incomplete' : moneyText(p.allTimeRevenue)) : '—' }}</td>
           </tr>
         </tbody>
         <tfoot>
-          <tr><th scope="row">Total</th><td class="num">{{ fmt?.number(planTotals().active) }}</td><template v-if="period !== 'all'"><td class="num">{{ fmt?.number(planTotals().sales) }}</td><td class="num">{{ revenueOn() ? moneyText(summary.sales.revenue) : '—' }}</td></template><td class="num">{{ fmt?.number(planTotals().allTimeSales) }}</td><td class="num">{{ revenueOn() ? moneyText(summary.allTime.revenue) : '—' }}</td></tr>
+          <tr><th scope="row">Total</th><td class="num">{{ fmt?.number(planTotals().active) }}</td><template v-if="period !== 'all'"><td class="num">{{ fmt?.number(planTotals().sales) }}</td><td class="num">{{ revenueOn() ? (summary.sales.complete === false ? 'Incomplete' : moneyText(summary.sales.revenue)) : '—' }}</td></template><td class="num">{{ fmt?.number(planTotals().allTimeSales) }}</td><td class="num">{{ revenueOn() ? (summary.allTime.complete === false ? 'Incomplete' : moneyText(summary.allTime.revenue)) : '—' }}</td></tr>
         </tfoot>
       </table>
     </div>

@@ -79,20 +79,22 @@ export async function billingSummary(period: string, now = new Date(), lookup?: 
     { $project: {
       sale: { $cond: [isPack, { $arrayElemAt: [{ $split: ["$_id", ":"] }, 0] }, "$_id"] },
       plan: { $cond: [isPack, "repo_pack", { $ifNull: ["$planId", "unknown"] }] },
-      priceId: 1, purchasedAt: 1, reason: "$revocationReason",
-      // Checkout-time reversals carry no revocation date; their purchase date stands in.
-      revokedAt: { $ifNull: ["$revokedAt", "$purchasedAt"] },
-      revoked: { $eq: ["$revoked", true] }, cancel: { $eq: ["$cancelAtPeriodEnd", true] },
+      priceId: 1,
+      // syncSubscription only advances until from a paid invoice and retains it
+      // after cancellation. Epoch means no payment has ever granted service.
+      purchasedAt: { $cond: [
+        { $and: [{ $ne: [{ $ifNull: ["$subscriptionId", null] }, null] }, { $not: [{ $gt: ["$until", new Date(0)] }] }] },
+        null, "$purchasedAt",
+      ] },
+      cancel: { $eq: ["$cancelAtPeriodEnd", true] },
       usable: { $and: [{ $ne: ["$revoked", true] }, { $gt: ["$until", now] }, { $in: ["$status", USABLE_STATUSES] }] },
     } },
     { $group: { _id: "$sale", plan: { $first: "$plan" }, priceId: { $first: "$priceId" }, purchasedAt: { $min: "$purchasedAt" },
-      revoked: { $max: "$revoked" }, revokedAt: { $max: "$revokedAt" }, reason: { $min: "$reason" }, active: { $max: "$usable" }, cancel: { $max: "$cancel" } } },
+      active: { $max: "$usable" }, cancel: { $max: "$cancel" } } },
     { $facet: {
       allTime: [{ $match: { purchasedAt: { $ne: null } } }, { $group: group }],
       period: [{ $match: { purchasedAt: since ? { $gte: since } : { $ne: null } } }, { $group: group }],
       active: [{ $match: { active: true } }, { $group: { ...group, cancelling: { $sum: { $cond: ["$cancel", 1, 0] } } } }],
-      reversals: [{ $match: { revoked: true, ...(since ? { revokedAt: { $gte: since } } : {}) } },
-        { $group: { _id: { plan: "$plan", priceId: "$priceId", reason: "$reason" }, count: { $sum: 1 } } }],
       series: [{ $match: { purchasedAt: since ? { $gte: since } : { $ne: null } } },
         { $group: { _id: { bucket: { $dateTrunc: { date: "$purchasedAt", unit, startOfWeek: "monday" } }, plan: "$plan" }, count: { $sum: 1 } } }],
     } },
@@ -100,7 +102,7 @@ export async function billingSummary(period: string, now = new Date(), lookup?: 
   const rows = (name: string) => (facets?.[name] || []) as Row[];
 
   const available = revenueAvailable();
-  const priceIds = [...rows("allTime"), ...rows("active"), ...rows("reversals")].map(r => r._id.priceId).filter((id): id is string => !!id);
+  const priceIds = [...rows("allTime"), ...rows("active")].map(r => r._id.priceId).filter((id): id is string => !!id);
   const prices = available ? await resolvePrices(priceIds, lookup) : new Map<string, Price>();
   // Sums the list price of `rows` per currency. Sales without a known price are left out and reported as missing.
   const money = (list: Row[], value = (p: Price, r: Row) => p.amount * r.count) => {
@@ -116,7 +118,13 @@ export async function billingSummary(period: string, now = new Date(), lookup?: 
   const activeSubs = rows("active").filter(r => SUBSCRIPTION_PLANS.includes(r._id.plan));
   const mrr = available ? money(activeSubs, (p, r) => monthlyAmount(p, r._id.plan) * r.count) : {};
   const missingSales = count(rows("period").filter(r => !r._id.priceId || !prices.has(r._id.priceId)));
-  const reversals = rows("reversals");
+  // Count payment decisions, not mutable access grants. Operator reinstatement
+  // leaves these records intact; distinct refunded renewals stay distinct.
+  const reversals = await BillingRevocation.aggregate([
+    ...(since ? [{ $match: { createdAt: { $gte: since } } }] : []),
+    { $group: { _id: "$reason", count: { $sum: 1 } } },
+  ]);
+  const missing = (list: Row[]) => count(list.filter(r => !r._id.priceId || !prices.has(r._id.priceId)));
   const inPeriod = rows("period"), allTime = rows("allTime");
   const result = {
     period, since, now, bucket: unit,
@@ -125,23 +133,22 @@ export async function billingSummary(period: string, now = new Date(), lookup?: 
       monthly: count(activeSubs.filter(r => r._id.plan === "author_monthly")),
       annual: count(activeSubs.filter(r => r._id.plan === "author_annual")),
       cancelling: activeSubs.reduce((n, r) => n + (r.cancelling || 0), 0),
-      mrr,
+      mrr, complete: available && missing(activeSubs) === 0,
     },
-    sales: { count: count(inPeriod), revenue: available ? money(inPeriod) : {} },
-    allTime: { count: count(allTime), revenue: available ? money(allTime) : {} },
+    sales: { count: count(inPeriod), revenue: available ? money(inPeriod) : {}, complete: available && missing(inPeriod) === 0 },
+    allTime: { count: count(allTime), revenue: available ? money(allTime) : {}, complete: available && missing(allTime) === 0 },
     reversals: {
-      refunds: count(reversals.filter(r => r._id.reason !== "dispute")),
-      disputes: count(reversals.filter(r => r._id.reason === "dispute")),
-      amount: available ? money(reversals) : {},
+      refunds: count(reversals.filter(r => r._id === "full_refund")),
+      disputes: count(reversals.filter(r => r._id === "dispute")),
     },
-    plans: planRows(rows, available ? (list: Row[]) => money(list) : () => ({})),
+    plans: planRows(rows, available ? (list: Row[]) => money(list) : () => ({}), list => available && missing(list) === 0),
     series: fillSeries(rows("series") as unknown as { _id: { bucket: Date; plan: string }; count: number }[], since, now, unit),
-    revenue: { available, reason: available ? null : "stripe_not_configured", missingSales: available ? missingSales : 0, basis: "list_price" },
+    revenue: { available, reason: available ? null : "stripe_not_configured", missingSales: available ? missingSales : 0, missingAllTimeSales: available ? missing(allTime) : 0, missingSubscriptions: available ? missing(activeSubs) : 0, basis: "list_price" },
   };
   return result;
 }
 
-function planRows(rows: (name: string) => Row[], money: (list: Row[]) => Money) {
+function planRows(rows: (name: string) => Row[], money: (list: Row[]) => Money, complete: (list: Row[]) => boolean) {
   const names = new Map(billingPlans().map(p => [p.id as string, p.name]));
   const ids = [...names.keys()];
   for (const name of ["allTime", "active", "period"]) for (const r of rows(name)) if (!ids.includes(r._id.plan)) ids.push(r._id.plan);
@@ -149,6 +156,7 @@ function planRows(rows: (name: string) => Row[], money: (list: Row[]) => Money) 
     const of = (name: string) => rows(name).filter(r => r._id.plan === planId);
     const sum = (list: Row[]) => list.reduce((n, r) => n + r.count, 0);
     return { planId, name: names.get(planId) || planId, family: planFamily(planId),
+      revenueComplete: complete(of("period")), allTimeRevenueComplete: complete(of("allTime")),
       active: sum(of("active")), sales: sum(of("period")), revenue: money(of("period")),
       allTimeSales: sum(of("allTime")), allTimeRevenue: money(of("allTime")) };
   });

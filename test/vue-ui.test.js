@@ -1147,8 +1147,18 @@ describe("Vue 3 UI", function () {
       webhooks: { pending: 1, failed: 2, oldestPendingSeconds: 90, lastError: { type: "invoice.paid", error: "api_error", receivedAt: new Date().toISOString() }, unreviewedRevocations: 1 } });
     const grants = { total: 1, stateCounts: { active: 0, expired: 0, revoked: 1 }, statuses: ["paid"], results: [{ id: "a", user: "alice", planId: "repo_never", family: "repository",
       status: "paid", state: "revoked", purchasedAt: "2026-11-01", until: null, never: true, revoked: true, revocationReason: "dispute", scope: { kind: "conference", id: "FSE26" } }] };
-    let available = true;
-    ui = await browser("/", { "/api/user": { username: "admin", isAdmin: true, status: "ready" }, "/api/admin/billing/summary": () => summary(available), "/api/admin/billing/grants": grants });
+    let available = true, incomplete = false;
+    const response = () => {
+      const value = summary(available);
+      if (incomplete) {
+        value.subscriptions.complete = false;
+        value.allTime.complete = false;
+        value.revenue.missingAllTimeSales = 1;
+        value.revenue.missingSubscriptions = 1;
+      }
+      return value;
+    };
+    ui = await browser("/", { "/api/user": { username: "admin", isAdmin: true, status: "ready" }, "/api/admin/billing/summary": response, "/api/admin/billing/grants": grants });
     await ui.go("/admin/billing");
     await delay(50);
     const doc = ui.window.document;
@@ -1163,6 +1173,12 @@ describe("Vue 3 UI", function () {
     expect(row.querySelector("a[href='/conference/FSE26']")).to.not.equal(null);
     expect(row.textContent).to.include("Disputed").and.to.include("Never ends");
     expect(ui.requests.some(r => r.url.pathname === "/api/admin/billing/summary" && r.url.searchParams.get("period") === "30d")).to.equal(true);
+    incomplete = true;
+    [...doc.querySelectorAll(".bl-toolbar .seg-chip")].find(b => b.textContent.includes("90 days")).click();
+    await delay(50);
+    expect(doc.querySelectorAll(".bl-kpi-row .ov-kpi-card")[1].textContent).to.include("Incomplete");
+    expect(doc.querySelectorAll(".bl-kpi-row .ov-kpi-card")[3].textContent).to.include("Revenue incomplete");
+    expect(doc.querySelector(".billing-page").textContent).to.include("1 historical sales");
     available = false;
     [...doc.querySelectorAll(".bl-toolbar .seg-chip")].find(b => b.textContent.includes("7 days")).click();
     await delay(50);
