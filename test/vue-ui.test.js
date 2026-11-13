@@ -469,6 +469,38 @@ describe("Vue 3 UI", function () {
     "/api/anonymize-preview": request => ({ content: request.payload.content.replaceAll("Private Author", "MASKED") }),
   };
 
+  it("browses redacted preview paths with the explorer tree and Ace renderer", async () => {
+    ui = await browser("/anonymize/saved", {
+      ...repositorySource,
+      "/api/repo/saved": { source: { fullName: "owner/repo", branch: "main", commit: "abcdef123" }, options: { terms: ["Private Author"] } },
+      "/api/repo/owner/repo/tree": { files: ["README.md", "src/other.py", "src/Private Author-utils/train.py"], binaryFiles: [] },
+      "/api/repo/owner/repo/file": "# Private Author\nprint(1)\n",
+      "/api/anonymize-preview": request => {
+        const redact = text => text.replaceAll("Private Author", "XXXX-1");
+        return request.payload.contents ? { contents: request.payload.contents.map(redact) } : { content: redact(request.payload.content) };
+      },
+    });
+    await delay(450);
+    const doc = ui.window.document;
+    const tree = doc.querySelector(".reviewer-preview tree.files");
+    expect(tree).not.to.equal(null);
+    tree.querySelector('a[data-path="/src"]').click();
+    await delay(20);
+    const folder = tree.querySelector('a[data-path="/src/XXXX-1-utils"]');
+    expect(folder.querySelector(".redact-slot i").textContent).to.equal("1");
+    folder.click(); await delay(20);
+    tree.querySelector('a[data-path="/src/XXXX-1-utils/train.py"]').click();
+    await delay(450);
+    expect(ui.app.router.currentRoute.value.path).to.equal("/anonymize/saved");
+    expect(tree.querySelector("li.active > a").dataset.path).to.equal("/src/XXXX-1-utils/train.py");
+    const state = doc.querySelector("#sourceUrl")._field.binding.state;
+    expect(state.previewViewer.content).to.equal("# XXXX-1\nprint(1)\n");
+    expect(state.previewViewer.aceOption.mode).to.equal("python");
+    expect(doc.querySelector(".reviewer-preview .ace_editor")).not.to.equal(null);
+    expect(doc.querySelector(".reviewer-preview .file-card-head .redact-slot i").textContent).to.equal("1");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
   const taskBilling = { enabled: true, csrf: "token", allowance: { plan: "free", repositories: 5 }, plans: [
     { id: "author_monthly", amount: 500, currency: "eur", interval: "month", repositories: 20, storage: 10737418240, description: "Renews monthly." },
   ] };
@@ -542,8 +574,8 @@ describe("Vue 3 UI", function () {
     }
     state.terms = "Private Author";
     await delay(450);
-    expect(doc.querySelector('.anonymize-preview-body').textContent).to.include("MASKED");
-    expect(doc.querySelector('.anonymize-preview-body').textContent).not.to.include("Private Author");
+    expect(doc.querySelector('.reviewer-preview .file-content, .anonymize-preview-body').textContent).to.include("MASKED");
+    expect(doc.querySelector('.reviewer-preview .file-content, .anonymize-preview-body').textContent).not.to.include("Private Author");
     state.options.expirationMode = "never"; await delay(20);
     expect(doc.querySelector('.hosting-options').textContent).to.include("20 repositories");
     expect(doc.querySelector('.anonymize-submit-bar').textContent).to.include("Continue to checkout");
@@ -763,8 +795,8 @@ describe("Vue 3 UI", function () {
     expect(state.details.repo).to.equal("repo");
     expect(state.repositoryID).to.equal("new-id");
     expect(state.source.branch).to.equal("main");
-    expect(ui.window.document.querySelector(".anonymize-preview-body").textContent).to.include("Private Author");
-    expect(ui.window.document.querySelector(".anonymize-preview-body").textContent).not.to.include("OLD PRIVATE README");
+    expect(ui.window.document.querySelector(".file-content, .anonymize-preview-body").textContent).to.include("Private Author");
+    expect(ui.window.document.querySelector(".file-content, .anonymize-preview-body").textContent).not.to.include("OLD PRIVATE README");
     expect(state.sourceLoading).to.equal(false);
     expect(ui.errors).to.deep.equal([]);
   });
@@ -965,7 +997,7 @@ describe("Vue 3 UI", function () {
       [...preview().querySelectorAll("button")].find(b => b.textContent === "Retry preview").click();
       await delay(260);
       expect(preview().textContent).to.include("MASKED");
-      expect(preview().querySelector(".anonymize-preview-body")).not.to.equal(null);
+      expect(preview().querySelector(".file-content, .anonymize-preview-body")).not.to.equal(null);
       expect(ui.errors).to.deep.equal([]);
     });
   }
@@ -1580,7 +1612,7 @@ describe("Vue 3 UI", function () {
       for (let node = button; node; node = node.parentElement) expect(ui.window.getComputedStyle(node).display).not.to.equal("none");
       button.click(); button.click();
       await delay(100);
-      expect(ui.requests.filter(r => r.method === "POST")).to.have.length(1);
+      expect(ui.requests.filter(r => r.method === "POST" && r.url.pathname === "/github/connections/migrate")).to.have.length(1);
       expect(ui.window.document.querySelector("#commit").value).to.equal("saved-sha");
       expect(ui.requests.some(r => r.url.searchParams.get("reconnect") === "1")).to.equal(false);
       expect(ui.window.document.body.textContent).to.include(failed ? "Unable to repair GitHub access" : "GitHub access repaired");
@@ -1631,11 +1663,11 @@ describe("Vue 3 UI", function () {
     });
     const button = [...ui.window.document.querySelectorAll("button")].find(b => b.textContent === "Reconnect source repository");
     expect(button).not.to.equal(undefined);
-    const before = ui.requests.length;
+    const before = ui.requests.filter(r => r.url.searchParams.get("reconnect") === "1").length;
     ui.window.confirm = () => false;
     button.click();
     await delay(20);
-    expect(ui.requests.length).to.equal(before);
+    expect(ui.requests.filter(r => r.url.searchParams.get("reconnect") === "1")).to.have.length(before);
     ui.window.confirm = () => true;
     button.click();
     await delay(100);

@@ -1,11 +1,11 @@
 import { setupBilling, readBilling, isRepositoryAddon } from "./billing.js";
 import { reactive, nextTick, markRaw } from "vue";
+import { setupFileViewer } from "./file-viewer.js";
 import { loadEditor } from "./lazy-assets.js";
-import { createTimers, createListeners } from "./state.js";
+import { createPageState, createTimers, createListeners } from "./state.js";
 import { formDraft } from "./drafts.js";
 import { statusGroup } from "./admin.js";
 import { humanTime, dateEcho, shortDate } from "./formatters.js";
-import { hangCodeLines } from "./components.js";
 import { escape as globEscape, unescape as globUnescape } from "minimatch";
 import { compilePreserveMatcher, dedupePreservePatterns } from "../../src/core/preserve-files";
 import { termHints, escapeTermLine } from "../../src/core/term-hints";
@@ -1793,7 +1793,7 @@ export const anonymizeController = function (state, http, html, params, location
           state.detectedType = null;
           state.details = null;
           state.sourceUrlError = "";
-          scheduleReadmePreview.cancel();
+          scheduleRepoPreview.cancel();
           refreshPrPreview.cancel();
           refreshGistPreview.cancel();
           state.previewStatus = "idle";
@@ -1899,7 +1899,6 @@ export const anonymizeController = function (state, http, html, params, location
       state.watch(() => [state.billing, state.repoId, state.conference_data, state.isUpdate, state._savedExpirationDate, state.options?.expirationMode, state.detectedType], updateExpirationLimit, true, false);
       state.anonymize_readme = "";
       state.readme = "";
-      state.html_readme = "";
       state.isUpdate = false;
 
       // Landing: the user's GitHub repositories, so step 1 is a pick, not a blank field.
@@ -1975,47 +1974,40 @@ export const anonymizeController = function (state, http, html, params, location
         const path = state.previewPath();
         return path ? "anonymous.4open.science" + path.replace(/\/$/, "") : "";
       };
-      // Occurrences of XXXX-n in what the preview currently shows.
+      // Occurrences of XXXX-n in what the preview currently shows: the open
+      // file for a repository, everything for a PR or a gist.
       state.previewRedactions = () => {
         const count = (text) => typeof text === "string" ? (text.match(REDACTION_RE) || []).length : 0;
-        if (state.detectedType === "repo") return count(String(state.html_readme || "").replace(/<[^>]*>/g, " "));
+        if (state.detectedType === "repo") {
+          return state.previewViewer.redactionCount();
+        }
         const cache = state.detectedType === "pr" ? _prAnonCache : _gistAnonCache;
         let n = 0;
         cache.forEach((value) => { n += count(value); });
         return n;
       };
-      // The preview's miniature file tree, from the same tree the
-      // Unredacted-files picker loads. Like the explorer: folders first, then
-      // files, each alphabetical; folders start collapsed and open on click.
-      // Only the open folders' rows are built, so large repositories stay cheap.
-      state.previewTreeOpen = {};
       const byName = (a, b) => a.localeCompare(b, undefined, { sensitivity: "base" });
       const baseName = (path) => path.slice(path.lastIndexOf("/") + 1);
-      state.previewTree = () => {
-        if (!state.preserve.commit || !preserveIndex) return [];
-        const readme = (preserveIndex.dirs.get("")?.files || []).find((f) => /^readme(\.|$)/i.test(f));
-        const rows = [];
-        const walk = (dir, depth) => {
-          const node = preserveIndex.dirs.get(dir);
-          if (!node) return;
-          for (const sub of [...node.dirs].sort((a, b) => byName(baseName(a), baseName(b)))) {
-            const open = !!state.previewTreeOpen[sub];
-            rows.push({ path: sub, name: baseName(sub), dir: true, open, depth });
-            if (open) walk(sub, depth + 1);
-          }
-          for (const file of [...node.files].sort((a, b) => byName(baseName(a), baseName(b)))) {
-            rows.push({ path: file, name: baseName(file), dir: false, readme: file === readme, depth });
-          }
-        };
-        walk("", 0);
-        return rows;
+      // Built once per file list and name batch: the form re-renders on every
+      // keystroke, and a new array would rebuild the tree each time.
+      let treeFilesCache = { key: null, files: [] };
+      state.previewTreeFiles = () => {
+        if (!state.preserve.commit || !previewIndex) return [];
+        // Reactive reads: names arriving or terms changing rebuild the list.
+        const key = state.preserve.commit + "\u0000" + state.terms + "\u0000" + _nameAnonCache.size + "\u0000" + previewIndex.files.length;
+        if (treeFilesCache.key === key) return treeFilesCache.files;
+        const files = previewIndex.files.map(path => {
+          const name = state.previewPathName(path);
+          const slash = name.lastIndexOf("/");
+          return { name: name.slice(slash + 1), path: slash < 0 ? "" : name.slice(0, slash), size: 0, sourcePath: path };
+        });
+        treeFilesCache = { key, files };
+        return files;
       };
-      state.previewTreeCount = () => {
-        const root = state.preserve.commit && preserveIndex ? preserveIndex.dirs.get("") : null;
-        return root ? root.dirs.length + root.files.length : 0;
-      };
-      state.togglePreviewFolder = (path) => {
-        state.previewTreeOpen[path] = !state.previewTreeOpen[path];
+      // Tree paths are anonymized; source paths stay in the adapter for fetching.
+      state.selectPreviewPath = (path) => {
+        const file = state.previewTreeFiles().find(file => "/" + (file.path ? file.path + "/" : "") + file.name === path);
+        if (file) state.openPreviewFile(file.sourcePath);
       };
       state.existingConfigurationUrl = () => {
         const previous = state.previousConfigurations.find(repo => repo.repoId === state.previousConfigurationId);
@@ -2272,7 +2264,7 @@ export const anonymizeController = function (state, http, html, params, location
         try { o = parseGithubUrl(state.sourceUrl.trim()); }
         catch (_) {
           state.sourceLoading = false;
-          scheduleReadmePreview.cancel();
+          scheduleRepoPreview.cancel();
           refreshPrPreview.cancel();
           refreshGistPreview.cancel();
           state.previewStatus = "idle";
@@ -2300,7 +2292,7 @@ export const anonymizeController = function (state, http, html, params, location
         state.details = null;
         state.branches = [];
         if (!preserveSelection) state.source = { type: "GitHubStream", branch: "", commit: "" };
-        scheduleReadmePreview.cancel();
+        scheduleRepoPreview.cancel();
         refreshPrPreview.cancel();
         refreshGistPreview.cancel();
         _prAnonCache.clear();
@@ -2308,7 +2300,7 @@ export const anonymizeController = function (state, http, html, params, location
         state.previewStatus = "idle";
         state.anonymize_readme = "";
         state.readme = "";
-        state.html_readme = "";
+        resetPreviewFile();
         state.detectedType = null;
         state.gistOAuthRequired = false;
         state.gistAppRequired = false;
@@ -2479,6 +2471,9 @@ export const anonymizeController = function (state, http, html, params, location
       const folderExclusion = (dir) => "!/" + globEscape(dir, globOpts) + "/";
       const patternLines = () => String(state.preserve.patterns || "").split("\n").map((l) => l.trim()).filter(Boolean);
       let preserveIndex = null;
+      // The preview's tree: the picker's text files plus the binary ones.
+      let previewIndex = null;
+      let previewBinary = new Set();
       // The checkboxes use the exact rule list that will be saved (picks first,
       // then patterns) through the server's matcher, so they cannot disagree.
       let pickVersion = 0;
@@ -2533,16 +2528,22 @@ export const anonymizeController = function (state, http, html, params, location
         state.preserve.loading = true;
         state.preserve.error = "";
         preserveIndex = null;
+        previewIndex = null;
         try {
           const o = parseGithubUrl(state.sourceUrl);
           const res = await http.get(`/api/repo/${o.owner}/${o.repo}/tree`, {
             params: { commit, connection: state.githubConnection, anonymizedRepoId: state.isUpdate && params.repoId && parseRepoFullName(state.sourceUrl) === state._originalFullName ? params.repoId : undefined, repositoryID: sourceRepositoryID() },
           });
           if (state.source?.commit !== commit) return;
+          const binaryFiles = Array.isArray(res.data.binaryFiles) ? res.data.binaryFiles : [];
           preserveIndex = markRaw(buildPreserveIndex(res.data.files || []));
+          previewIndex = binaryFiles.length ? markRaw(buildPreserveIndex([...(res.data.files || []), ...binaryFiles])) : preserveIndex;
+          previewBinary = markRaw(new Set(binaryFiles));
           state.preserve.commit = commit;
           state.preserve.truncated = !!res.data.truncated;
-          state.previewTreeOpen = {};
+
+          // Pass the resolved README path to the server, including its folder.
+          if (!state.previewFile) scheduleRepoPreview();
         } catch (error) {
           state.preserve.error = "The file list could not be loaded from GitHub. You can still use patterns.";
           state.preserve.patternsOpen = true;
@@ -2553,6 +2554,7 @@ export const anonymizeController = function (state, http, html, params, location
       // The preview window shows the repository's top-level files once the
       // commit is known (one tree request, shared with the picker).
       state.watch("source.commit", (commit) => {
+        if (state.previewFile) state.openPreviewFile("");
         if (state.detectedType === "repo" && commit && state.sourceUrl) loadPreserveTree().catch(() => {});
       });
       state.openPreserveFiles = () => {
@@ -2573,6 +2575,8 @@ export const anonymizeController = function (state, http, html, params, location
           for (let i = 1; i < parts.length; i++) expanded[parts.slice(0, i).join("/")] = true;
         }
         Object.assign(state.preserve, { open: true, search: "", picked, expanded, patterns: patterns.join("\n"), patternsOpen: patterns.length > 0 });
+        // On phones the dialog lives in the Settings pane; opened from the preview, show it.
+        if (state.mobileWorkspace) state.mobilePane = "settings";
         pickVersion++;
         timeout(() => {
           const dialog = document.getElementById("preserve-files-dialog");
@@ -2634,23 +2638,59 @@ export const anonymizeController = function (state, http, html, params, location
         }
       };
 
-      // GitHub's README lookup order. The exact path is not known here, so the
-      // preview treats the README as unredacted if any candidate is selected:
-      // when unsure, it shows the author more exposure, not less.
-      const README_CANDIDATES = [".github", "", "docs"].flatMap((dir) =>
-        ["README.md", "README", "README.markdown", "README.rst", "README.txt", "readme.md"].map((name) => (dir ? dir + "/" : "") + name));
+      // The README reviewers land on, found the way GitHub does: the first
+      // folder of .github/, the root and docs/ holding a README (any case),
+      // preferring Markdown. Until the file list loads only the root names
+      // are assumed, so a rule on docs/ or .github/ never unredacts it.
+      const README_RE = /^readme(\.[^/]*)?$/i;
+      const README_EXT_ORDER = [".md", ".markdown", ".mdown", ".mkdn", ".rst", ".txt", ""];
+      const ROOT_README_CANDIDATES = ["README.md", "README", "README.markdown", "README.rst", "README.txt", "readme.md"];
+      const readmeRank = (path) => {
+        const name = baseName(path);
+        const dot = name.indexOf(".");
+        const rank = README_EXT_ORDER.indexOf(dot === -1 ? "" : name.slice(dot).toLowerCase());
+        return rank === -1 ? README_EXT_ORDER.length : rank;
+      };
+      const treeLoaded = () => !!preserveIndex && !!state.preserve.commit && state.preserve.commit === state.source?.commit;
+      state.readmePath = () => {
+        if (!treeLoaded()) return "";
+        for (const dir of [".github", "", "docs"]) {
+          const found = (preserveIndex.dirs.get(dir)?.files || []).filter((f) => README_RE.test(baseName(f)));
+          if (found.length) return found.sort((a, b) => readmeRank(a) - readmeRank(b) || byName(a, b))[0];
+        }
+        return "";
+      };
+      state.readmeName = () => baseName(state.readmePath()) || "README.md";
+      // The saved "Leave files unredacted" rules, through the server's matcher.
+      let savedMatcher = { key: null, fn: () => false };
+      const savedPreserveMatcher = () => {
+        const patterns = (state.options?.preserveFiles || []).map((p) => String(p).trim()).filter(Boolean);
+        const key = patterns.join("\n");
+        if (key !== savedMatcher.key) {
+          let fn = () => false;
+          try { if (patterns.length) fn = compilePreserveMatcher(patterns); } catch { /* invalid rules match nothing */ }
+          savedMatcher = { key, fn };
+        }
+        return savedMatcher.fn;
+      };
+      state.pathPreserved = (path) => !!path && savedPreserveMatcher()(path);
       state.readmePreserved = () => {
         if (state.detectedType !== "repo") return false;
-        const patterns = (state.options?.preserveFiles || []).map((p) => String(p).trim()).filter(Boolean);
-        if (!patterns.length) return false;
-        try {
-          const matcher = compilePreserveMatcher(patterns);
-          return README_CANDIDATES.some((path) => matcher(path));
-        } catch { return false; }
+        const matcher = savedPreserveMatcher();
+        if (treeLoaded()) {
+          const path = state.readmePath();
+          return !!path && matcher(path);
+        }
+        return ROOT_README_CANDIDATES.some((path) => matcher(path));
       };
+      // The open file is left unredacted (README included).
+      state.previewPreserved = () => state.detectedType === "repo"
+        && (state.previewFile ? state.pathPreserved(state.previewFile) : state.readmePreserved());
       function previewOptions() {
         const opts = {
-          terms: state.terms && !state.readmePreserved() ? state.terms.split("\n") : [],
+          terms: state.terms ? state.terms.split("\n") : [],
+          filePath: state.previewOpenPath() || "README.md",
+          preserveFiles: state.options.preserveFiles || [],
           image: !!state.options.image,
           link: !!state.options.link,
           repoId: state.repoId,
@@ -2696,49 +2736,234 @@ export const anonymizeController = function (state, http, html, params, location
         return schedule;
       }
       state.retryPreview = () => {
-        if (state.detectedType === "repo") scheduleReadmePreview();
+        if (state.detectedType === "repo") {
+          if (state.previewFile && typeof fileRaw !== "string") loadPreviewFile(state.previewFile);
+          else scheduleRepoPreview();
+        }
         if (state.detectedType === "pr") refreshPrPreview();
         if (state.detectedType === "gist") refreshGistPreview();
       };
 
-      const scheduleReadmePreview = makePreviewBatcher(
+      // Source loading is specific to the form. Rendering belongs to the explorer.
+      // Keep the inherited session helpers when Vue receives this nested state.
+      const viewer = markRaw(createPageState(state));
+      Object.defineProperty(state, "previewViewer", { get: () => viewer });
+      setupFileViewer(viewer, state);
+      Object.assign(viewer, { options: {}, files: [], paths: [], content: null, type: "loading",
+        sidebarHidden: false, sidebarCollapsed: true, moreOpen: false, tocOpen: false,
+        gotoOpen: false, mdFindOpen: false, mdFindQuery: "", mdFindTotal: 0, mdFindIndex: 0 });
+      viewer.preview = true;
+      viewer.fileSize = path => path === viewer.filePath && typeof fileRaw === "string"
+        ? new Blob([fileRaw]).size
+        : !state.previewFile && state.readme ? new Blob([state.readme]).size : null;
+      viewer.openPreserveFiles = () => state.openPreserveFiles();
+      viewer.previewPreserved = () => state.previewPreserved();
+      viewer.retryContent = () => state.retryPreview();
+      const unavailablePreview = path => previewBinary.has(path) || /\.(pdf|png|jpe?g|gif|svg|ico|bmp|tiff?|webp|avif|heic|heif|mp4|webm|mp3|wav|zip|bin)$/i.test(path);
+      const emptyDoc = (path = "") => ({ path, loading: false, note: "", loadError: "" });
+      state.previewFile = "";
+      state.previewDoc = emptyDoc();
+      let fileGeneration = 0;
+      let fileRaw = null;
+      // The file the preview shows: the open file, else the README.
+      state.previewOpenPath = () => state.previewFile || state.readmePath();
+      state.openPreviewFile = (path) => {
+        path = path || "";
+        if (path && path === state.readmePath()) path = "";
+        fileGeneration++;
+        fileRaw = null;
+        clearPreviewUrl();
+        scheduleRepoPreview.cancel();
+        state.previewFile = path;
+        state.previewDoc = emptyDoc(path);
+        viewer.sidebarCollapsed = true;
+        viewer.content = null;
+        if (!path) {
+          if (state.readme) scheduleRepoPreview();
+          else state.previewStatus = "idle";
+          return;
+        }
+        if (unavailablePreview(path)) {
+          showPreviewNote("binary");
+          state.previewStatus = "ready";
+          return;
+        }
+        loadPreviewFile(path);
+      };
+      function resetPreviewFile() {
+        fileGeneration++;
+        fileRaw = null;
+        state.previewFile = "";
+        state.previewDoc = emptyDoc();
+        viewer.sidebarCollapsed = true;
+        viewer.content = null;
+      }
+      function loadPreviewFile(path) {
+        const generation = ++fileGeneration;
+        fileRaw = null;
+        Object.assign(state.previewDoc, { loading: true, loadError: "" });
+        state.previewStatus = "loading";
+        let o;
+        try { o = parseGithubUrl(state.sourceUrl); } catch (_) { o = null; }
+        if (!o || !state.source?.commit) {
+          Object.assign(state.previewDoc, { loading: false, loadError: "The repository is still loading. Try again in a moment." });
+          state.previewStatus = "error";
+          return;
+        }
+        http.get(`/api/repo/${o.owner}/${o.repo}/file`, {
+          params: { commit: state.source.commit, path, connection: state.githubConnection, anonymizedRepoId: state.isUpdate && params.repoId && parseRepoFullName(state.sourceUrl) === state._originalFullName ? params.repoId : undefined, repositoryID: sourceRepositoryID() },
+          // Keep the text as is: a JSON or YAML file must not be parsed.
+          transformResponse: (raw) => raw,
+        }).then((res) => {
+          if (generation !== fileGeneration) return;
+          state.previewDoc.loading = false;
+          const type = typeof res.headers === "function" ? res.headers("content-type") || "" : "";
+          if (/json/i.test(type)) {
+            let data = null;
+            try { data = JSON.parse(res.data); } catch (_) { /* not JSON after all */ }
+            if (data && data.binary === true) {
+              showPreviewNote("binary");
+              state.previewStatus = "ready";
+              return;
+            }
+          }
+          fileRaw = typeof res.data === "string" ? res.data : "";
+          scheduleRepoPreview();
+        }, (error) => {
+          if (generation !== fileGeneration) return;
+          state.previewDoc.loading = false;
+          const code = viewerErrorCode(error);
+          if (code === "file_too_big") {
+            showPreviewNote("too_big");
+            state.previewStatus = "ready";
+            return;
+          }
+          state.previewDoc.loadError = translations.ERRORS[code] || "GitHub did not return this file.";
+          state.previewStatus = "error";
+        });
+      }
+      let previewBlobUrl;
+      function clearPreviewUrl() {
+        if (previewBlobUrl) window.URL.revokeObjectURL(previewBlobUrl);
+        previewBlobUrl = undefined;
+        viewer.url = undefined;
+      }
+      state.on("dispose", clearPreviewUrl);
+      function showPreviewNote(note) {
+        clearPreviewUrl();
+        state.previewDoc.note = note;
+        viewer.prepareFile(state.previewPathName(state.previewOpenPath() || state.readmeName()));
+        viewer.type = note === "too_big" ? "error" : "binary";
+        viewer.content = note === "too_big" ? "file_too_big" : "binary";
+      }
+      // Relative links and images resolve against the file's folder on GitHub.
+      function rawBaseUrl(path) {
+        try {
+          const o = parseGithubUrl(state.sourceUrl);
+          // Fall back to the repo's default branch when source.branch
+          // hasn't loaded yet — without this, relative <img src="./X">
+          // resolved against a baseUrl like ".../raw//" (no branch
+          // segment), so the browser fetched ".../raw/X" and 404'd
+          // (#407).
+          const branch =
+            state.source.branch ||
+            (state.details && state.details.defaultBranch) ||
+            "main";
+          const dir = path && path.includes("/") ? path.slice(0, path.lastIndexOf("/") + 1) : "";
+          return `https://github.com/${o.owner}/${o.repo}/raw/${branch}/${dir}`;
+        } catch (_) { return ""; }
+      }
+
+      // One batcher for whatever the window shows (README or the open file):
+      // terms, options and unredacted-file rules all re-run it.
+      const repoPreviewBatch = makePreviewBatcher(
         "repo",
         () => {
+          if (state.previewFile) {
+            if (typeof fileRaw !== "string") return null;
+            return { content: fileRaw, options: previewOptions() };
+          }
           if (!state.readme) return null;
           return { content: state.readme, options: previewOptions() };
         },
         (data) => {
           if (typeof data?.content !== "string") throw Error("Invalid preview response");
-          state.anonymize_readme = data.content;
-          let baseUrl = "";
-          try {
-            const o = parseGithubUrl(state.sourceUrl);
-            // Fall back to the repo's default branch when source.branch
-            // hasn't loaded yet — without this, relative <img src="./X">
-            // resolved against a baseUrl like ".../raw//" (no branch
-            // segment), so the browser fetched ".../raw/X" and 404'd
-            // (#407).
-            const branch =
-              state.source.branch ||
-              (state.details && state.details.defaultBranch) ||
-              "main";
-            baseUrl = `https://github.com/${o.owner}/${o.repo}/raw/${branch}/`;
-          } catch (_) { /* fall through with empty base */ }
-          const html = renderMD(state.anonymize_readme, baseUrl);
-          state.html_readme = html;
-          timeout(() => {
-            Prism.highlightAll();
-            // Wrapped README code in the preview continues under a hanging indent.
-            if (typeof hangCodeLines === "function") document.querySelectorAll(".reviewer-preview .anonymize-preview-body").forEach(hangCodeLines);
-          }, 150);
+          clearPreviewUrl();
+          if (window.URL?.createObjectURL) viewer.url = previewBlobUrl = window.URL.createObjectURL(new Blob([data.content], { type: "text/plain" }));
+          const path = state.previewOpenPath() || state.readmeName();
+          viewer.prepareFile(state.previewPathName(path));
+          viewer.fileBaseUrl = rawBaseUrl(path);
+          viewer.renderFileContent(data.content, viewer.type, viewer.fileBaseUrl, "text/plain");
+          if (!state.previewFile) state.anonymize_readme = data.content;
+
         }
       );
+      // A file still loading (or that failed to load, or is not previewed)
+      // keeps its state; it is redacted once its text arrives.
+      const scheduleRepoPreview = () => {
+        if (state.previewFile && typeof fileRaw !== "string") return;
+        repoPreviewBatch();
+      };
+      scheduleRepoPreview.cancel = repoPreviewBatch.cancel;
+
+      // ---- Names in the tree and the file bar ----
+      // Redacted the way the server redacts paths: the visible names go through
+      // /api/anonymize-preview in one batch, with the terms only.
+      const _nameAnonCache = reactive(new Map());
+      const pendingNames = new Set();
+      const failedNames = new Set();
+      let nameCacheKey = "";
+      let nameTimer = null;
+      const nameTerms = () => String(state.terms || "").split("\n").filter((line) => line.trim());
+      function flushNames() {
+        nameTimer = null;
+        const terms = nameTerms();
+        const key = terms.join("\n");
+        if (key !== nameCacheKey) { _nameAnonCache.clear(); failedNames.clear(); nameCacheKey = key; }
+        const names = [...pendingNames].filter((name) => !_nameAnonCache.has(name));
+        pendingNames.clear();
+        if (!names.length || !terms.length) return;
+        // The whole tree's names are needed; keep each request well under the
+        // API's JSON body limit.
+        for (let start = 0; start < names.length; start += 400) {
+          const chunk = names.slice(start, start + 400);
+          http.post("/api/anonymize-preview", { contents: chunk, options: { terms, image: true, link: true } }).then((res) => {
+            if (nameCacheKey !== key || nameTerms().join("\n") !== key) return;
+            const out = res.data?.contents;
+            if (!Array.isArray(out) || out.length !== chunk.length) throw Error("Invalid preview response");
+            chunk.forEach((name, i) => _nameAnonCache.set(name, typeof out[i] === "string" ? out[i] : name));
+          }).catch(() => { if (nameCacheKey === key) chunk.forEach((name) => failedNames.add(name)); });
+        }
+      }
+      state.previewName = (name) => {
+        if (!name || !nameTerms().length) return name;
+        if (nameCacheKey === nameTerms().join("\n")) {
+          if (_nameAnonCache.has(name)) return _nameAnonCache.get(name);
+          if (failedNames.has(name)) return name;
+        }
+        pendingNames.add(name);
+        if (!nameTimer) nameTimer = timeout(flushNames, 120);
+        return name;
+      };
+      state.previewPathName = (path) => {
+        path = String(path || "");
+        const slash = path.lastIndexOf("/");
+        return slash < 0 ? state.previewName(path) : state.previewName(path.slice(0, slash)) + "/" + state.previewName(path.slice(slash + 1));
+      };
+      state.watch(() => [state.repoId, state.previewPathName(state.previewOpenPath() || state.readmeName()), state.previewTreeFiles()], () => {
+        viewer.repoId = state.repoId || "repository";
+        viewer.filePath = state.previewPathName(state.previewOpenPath() || state.readmeName());
+        viewer.paths = viewer.filePath.split("/");
+        viewer.files = state.previewTreeFiles();
+        viewer.loadedFolders = Object.fromEntries([...(previewIndex?.dirs.keys() || [])].map(dir => [state.previewName(dir), true]));
+      }, true);
+      state.on("dispose", () => { if (nameTimer) timeout.cancel(nameTimer); });
 
       function anonymizeReadme() {
         if (!state.anonymize || !state.anonymize.terms) return;
         // The "regex characters detected" hint is informational, not a blocker
         // — IP addresses, escaped chars, etc. are all legitimate terms (#430).
-        scheduleReadmePreview();
+        scheduleRepoPreview();
       }
 
       // ========== PR LOGIC ==========
@@ -3186,7 +3411,7 @@ export const anonymizeController = function (state, http, html, params, location
         state.terms = escapeTermLine(state.terms, line);
       };
       state.watch("options.preserveFiles", () => {
-        if (state.detectedType === "repo") scheduleReadmePreview();
+        if (state.detectedType === "repo") scheduleRepoPreview();
       });
       state.watch("terms", () => {
         state.termHints = termHints(state.terms);
@@ -3211,17 +3436,10 @@ export const anonymizeController = function (state, http, html, params, location
     };
 
 export const exploreController = function (state, http, location, params, html, promises) {
+      setupFileViewer(state);
       const timers = createTimers();
       installPrismRedactionSlots();
       const listen = createListeners();
-        state.on("dark-mode", (event, on) => {
-          if (!state.aceOption) return;
-          if (on) {
-            state.aceOption.theme = "nord_dark";
-          } else {
-            state.aceOption.theme = "chrome";
-          }
-        });
       let contentGeneration = 0;
       let contentCanceller = null;
       let loadingNoticeTimer = null;
@@ -3348,49 +3566,6 @@ export const exploreController = function (state, http, location, params, html, 
           }
         });
       };
-      const extensionModes = {
-        yml: "yaml",
-        txt: "text",
-        py: "python",
-        js: "javascript",
-        ts: "typescript",
-      };
-      const textFiles = ["license", "txt"];
-      const imageFiles = [
-        "png",
-        "jpg",
-        "jpeg",
-        "gif",
-        "svg",
-        "ico",
-        "bmp",
-        "tiff",
-        "tif",
-        "webp",
-        "avif",
-        "heif",
-        "heic",
-      ];
-      const audioFiles = ["wav", "mp3", "ogg", "wma", "flac", "aac", "m4a"];
-      const mediaFiles = [
-        "mp4",
-        "avi",
-        "webm",
-        "mov",
-        "mpg",
-        "mpeg",
-        "mkv",
-        "flv",
-        "wmv",
-        "3gp",
-        "3g2",
-        "m4v",
-        "f4v",
-        "f4p",
-        "f4a",
-        "f4b",
-      ];
-
       state.on("routeUpdate", function (event, current) {
         if (state.repoId != params.repoId) return init();
         if ((params.path || "") == state.filePath) {
@@ -3561,375 +3736,6 @@ export const exploreController = function (state, http, location, params, html, 
         );
       }
 
-      // Defined as methods rather than inline `showSource = !showSource` in the
-      // template: the toolbar and the file view sit in different child scopes,
-      // so an inline assignment would shadow the value on one of them instead
-      // of updating the controller's.
-      state.toggleSource = function () {
-        state.showSource = !state.showSource;
-      };
-
-      state.toggleAllowScripts = function () {
-        state.allowScripts = !state.allowScripts;
-      };
-
-      // Wrap on wide screens; on phones code scrolls sideways so tokens stay intact.
-      const storedWrap = (() => { try { return window.localStorage?.getItem("wrapLines"); } catch { return null; } })();
-      state.wrapLines = (storedWrap ?? (window.matchMedia?.("(max-width: 767px)").matches ? "false" : "true")) !== "false";
-      state.toggleWrap = function () {
-        state.wrapLines = !state.wrapLines;
-        try { window.localStorage?.setItem("wrapLines", String(state.wrapLines)); } catch { /* storage unavailable */ }
-        state.codeEditor?.session.setUseWrapMode(state.wrapLines);
-      };
-      // Find opens as an overlay at the top right of the code, like an editor.
-      // Find on rendered Markdown pages: highlight matches inside the reading column.
-      function mdFindRoot() { return window.document.querySelector(".reading-layout .markdown-body"); }
-      function clearMdFind() {
-        const root = mdFindRoot();
-        if (!root) return;
-        root.querySelectorAll("mark.md-find").forEach((m) => { m.replaceWith(window.document.createTextNode(m.textContent)); });
-        root.normalize();
-      }
-      state.runMdFind = function () {
-        clearMdFind();
-        state.mdFindTotal = 0;
-        state.mdFindIndex = 0;
-        const q = (state.mdFindQuery || "").trim();
-        const root = mdFindRoot();
-        if (!q || !root) return;
-        const cs = !!state.mdFindCase;
-        const needle = cs ? q : q.toLowerCase();
-        const walker = window.document.createTreeWalker(root, 4);
-        const nodes = [];
-        while (walker.nextNode()) if ((cs ? walker.currentNode.nodeValue : walker.currentNode.nodeValue.toLowerCase()).includes(needle)) nodes.push(walker.currentNode);
-        let total = 0;
-        for (const node of nodes) {
-          const text = node.nodeValue, lower = cs ? text : text.toLowerCase();
-          const frag = window.document.createDocumentFragment();
-          let last = 0, i;
-          while ((i = lower.indexOf(needle, last)) !== -1) {
-            frag.appendChild(window.document.createTextNode(text.slice(last, i)));
-            const m = window.document.createElement("mark");
-            m.className = "md-find";
-            m.textContent = text.slice(i, i + q.length);
-            frag.appendChild(m);
-            total++;
-            last = i + q.length;
-          }
-          frag.appendChild(window.document.createTextNode(text.slice(last)));
-          node.parentNode.replaceChild(frag, node);
-        }
-        state.mdFindTotal = total;
-        if (total) state.stepMdFind(0);
-      };
-      state.stepMdFind = function (delta) {
-        const root = mdFindRoot();
-        if (!root || !state.mdFindTotal) return;
-        const marks = root.querySelectorAll("mark.md-find");
-        state.mdFindIndex = (state.mdFindIndex + delta + marks.length) % marks.length;
-        marks.forEach((m, i) => m.classList.toggle("is-current", i === state.mdFindIndex));
-        marks[state.mdFindIndex]?.scrollIntoView({ block: "center", behavior: "smooth" });
-      };
-      state.toggleMdFind = function (open) {
-        state.mdFindOpen = open === undefined ? !state.mdFindOpen : open;
-        if (!state.mdFindOpen) { clearMdFind(); state.mdFindTotal = 0; return; }
-        nextTick(() => window.document.querySelector(".md-find-input")?.focus());
-      };
-      state.findInFile = function () {
-        const editor = state.codeEditor;
-        if (!editor) return;
-        editor.focus();
-        editor.execCommand("find");
-        // Docked under the toolbar: push the code down while the find bar is open.
-        const dock = () => {
-          const box = editor.searchBox?.element;
-          if (!box) return;
-          editor.renderer.setScrollMargin(52, 12, 0, 0);
-          if (box._dockObserver) return;
-          box._dockObserver = new MutationObserver(() => {
-            editor.renderer.setScrollMargin(box.style.display !== "none" ? 52 : 12, 12, 0, 0);
-          });
-          box._dockObserver.observe(box, { attributes: true, attributeFilter: ["style"] });
-        };
-        dock();
-        setTimeout(dock, 150);
-      };
-      // Lightweight outline: top-level classes, functions and exported constants.
-      const symbolPatterns = [
-        [/^\s*(?:export\s+)?(?:default\s+)?(?:abstract\s+)?class\s+([A-Za-z_$][\w$]*)/, "class"],
-        [/^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?function\s*\*?\s*([A-Za-z_$][\w$]*)/, "function"],
-        [/^\s*(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?(?:function|\([^)]*\)\s*=>|[A-Za-z_$][\w$]*\s*=>)/, "function"],
-        [/^\s*(?:async\s+)?def\s+([A-Za-z_]\w*)/, "function"],
-        [/^\s*class\s+([A-Za-z_]\w*)/, "class"],
-        [/^\s*func\s+(?:\([^)]*\)\s*)?([A-Za-z_]\w*)/, "function"],
-        [/^\s*(?:pub\s+)?fn\s+([A-Za-z_]\w*)/, "function"],
-        [/^\s*(?:public|private|protected|static|\s)+[\w<>\[\],\s]+\s+([A-Za-z_]\w*)\s*\([^;]*\)\s*\{?\s*$/, "function"],
-      ];
-      let symbolCache = { content: null, list: [] };
-      state.symbolsOpen = false;
-      state.symbols = function () {
-        if (typeof state.content !== "string" || state.content.length > 2_000_000) return [];
-        if (symbolCache.content === state.content) return symbolCache.list;
-        const list = [];
-        state.content.split("\n").forEach((text, index) => {
-          for (const [re, kind] of symbolPatterns) {
-            const m = re.exec(text);
-            if (m && !/^(if|for|while|switch|return|catch)$/.test(m[1])) { list.push({ name: m[1], kind, line: index + 1 }); break; }
-          }
-        });
-        symbolCache = { content: state.content, list: list.slice(0, 300) };
-        return symbolCache.list;
-      };
-      state.goToSymbol = function (line) {
-        state.symbolsOpen = false;
-        const editor = state.codeEditor;
-        if (!editor) return;
-        editor.scrollToLine(line - 1, true, true, () => {});
-        editor.gotoLine(line, 0, true);
-        window.history.replaceState(null, "", window.location.pathname + window.location.search + "#L" + line);
-        window.dispatchEvent(new HashChangeEvent("hashchange"));
-      };
-
-      // Go to line: a small popover in the file header (Ace's own prompt ignores the site theme).
-      state.gotoLine = function () {
-        if (!state.codeEditor) return;
-        state.moreOpen = false;
-        state.gotoError = "";
-        state.gotoValue = String(state.codeEditor.getCursorPosition().row + 1);
-        state.gotoOpen = true;
-        setTimeout(() => { const el = window.document.getElementById("goto-input"); if (el) { el.focus(); el.select(); } }, 0);
-      };
-      state.closeGoto = function () {
-        state.gotoOpen = false;
-        state.gotoError = "";
-        state.codeEditor?.focus();
-      };
-      state.submitGoto = function () {
-        const editor = state.codeEditor;
-        if (!editor) return;
-        const m = /^\s*:?\s*(\d+)\s*(?:[:,]\s*(\d+))?\s*$/.exec(state.gotoValue || "");
-        const lines = editor.session.getLength();
-        if (!m || +m[1] < 1 || +m[1] > lines) { state.gotoError = "Enter a line from 1 to " + lines; return; }
-        editor.gotoLine(+m[1], m[2] ? Math.max(0, +m[2] - 1) : 0, true);
-        state.gotoOpen = false;
-        state.gotoError = "";
-        editor.focus();
-      };
-      // Root listing above the README: folders first, then files.
-      state.rootEntries = function () {
-        return [...(state.files || [])].sort((a, b) => {
-          const af = a.size == null, bf = b.size == null;
-          if (af !== bf) return af ? -1 : 1;
-          return a.name.localeCompare(b.name);
-        });
-      };
-      state.formatSize = function (bytes) {
-        if (bytes == null) return "";
-        if (bytes < 1024) return bytes + " B";
-        const kb = bytes / 1024;
-        const one = (n) => n.toFixed(1).replace(/\.0$/, "");
-        return kb < 1024 ? one(kb) + " KB" : kb < 1024 * 1024 ? one(kb / 1024) + " MB" : one(kb / 1024 / 1024) + " GB";
-      };
-      state.fileSize = function (path) {
-        if (!path) return null;
-        const clean = path.replace(/^\/+/, "");
-        const entry = (state.files || []).find((f) => (f.path ? f.path + "/" : "") + f.name === clean);
-        return entry && entry.size != null ? entry.size : null;
-      };
-      state.revealFolder = function (name) {
-        state.sidebarHidden = false;
-        state.sidebarCollapsed = false;
-        nextTick(() => {
-          const link = window.document.querySelector('.files a[data-path="/' + (window.CSS?.escape ? window.CSS.escape(name) : name) + '"]');
-          if (!link) return;
-          if (!link.closest("li")?.classList.contains("open")) link.click();
-          link.scrollIntoView({ block: "nearest" });
-          link.focus();
-        });
-      };
-      // Notebooks: count the same markers in cell sources and text outputs (not in the JSON keys or image data).
-      let nbCount = { content: null, n: 0 };
-      const notebookRedactions = (content) => {
-        if (nbCount.content === content) return nbCount.n;
-        let nb = content;
-        if (typeof nb === "string") { try { nb = JSON.parse(nb); } catch { nb = null; } }
-        const texts = [];
-        const add = (v) => { if (Array.isArray(v)) texts.push(v.join("")); else if (typeof v === "string") texts.push(v); };
-        ((nb && (nb.cells || (nb.worksheets || []).flatMap((w) => w.cells || []))) || []).forEach((cell) => {
-          add(cell?.source ?? cell?.input);
-          (cell?.outputs || []).forEach((o) => {
-            add(o?.text);
-            if (o?.data) { add(o.data["text/plain"]); add(o.data["text/markdown"]); add(o.data["text/html"]); }
-            add(o?.traceback);
-          });
-        });
-        const n = texts.reduce((sum, t) => sum + (t.match(REDACTION_RE) || []).length, 0);
-        nbCount = { content, n };
-        return n;
-      };
-      state.redactionCount = function () {
-        if (state.type === "IPython") return notebookRedactions(state.content);
-        if (typeof state.content !== "string") return 0;
-        const text = state.type === "html" ? state.content.replace(/<[^>]*>/g, " ") : state.content;
-        return (text.match(REDACTION_RE) || []).length;
-      };
-      state.renderRedacted = slotRedactions;
-      // Reading mode: slugged heading ids + an "On this page" outline (like Mintlify/Stripe docs).
-      const slug = (t) => t.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-").slice(0, 60) || "section";
-      state.renderReadme = function (html) {
-        const out = state.renderRedacted(html);
-        if (!out || typeof window.DOMParser !== "function") return out;
-        const doc = new window.DOMParser().parseFromString("<div>" + out + "</div>", "text/html");
-        const seen = {};
-        doc.querySelectorAll("h1, h2, h3").forEach((h) => {
-          let id = h.id || slug(h.textContent);
-          if (seen[id]) id += "-" + (++seen[id]); else seen[id] = 1;
-          h.id = id;
-        });
-        return doc.body.firstChild.innerHTML;
-      };
-      let tocCache = { content: null, list: [] };
-      state.readmeToc = function () {
-        if (state.type !== "html" || typeof state.content !== "string") return [];
-        if (tocCache.content === state.content) return tocCache.list;
-        const doc = new window.DOMParser().parseFromString("<div>" + state.renderReadme(state.sanitize ? state.sanitize(state.content) : state.content) + "</div>", "text/html");
-        const list = [...doc.querySelectorAll("h2, h3")].map((h) => ({ id: h.id, text: h.textContent.trim(), level: h.tagName === "H3" ? 3 : 2 })).slice(0, 40);
-        tocCache = { content: state.content, list };
-        return list;
-      };
-      state.activeHeading = null;
-      listen(window, "scroll", () => {
-        const toc = state.readmeToc ? state.readmeToc() : [];
-        if (!toc.length) return;
-        // Active = the first heading visible below the sticky chrome; if none is on screen,
-        // the last heading already scrolled past (the reader is inside that section).
-        const chrome = 150;
-        let current = "", firstVisible = "";
-        for (const h of toc) {
-          const el = window.document.getElementById(h.id);
-          if (!el) continue;
-          const top = el.getBoundingClientRect().top;
-          if (top < chrome) current = h.id;
-          else if (!firstVisible && top < window.innerHeight - 80) firstVisible = h.id;
-        }
-        if (firstVisible) current = firstVisible;
-        if (state.activeHeading !== current) state.activeHeading = current;
-      }, { capture: true, passive: true });
-      state.scrollToHeading = function (id) {
-        if (!id) {
-          const sc = window.document.querySelector(".explorer-content, .file-card-body, .main-pane");
-          (sc || window).scrollTo({ top: 0, behavior: "smooth" });
-          state.activeHeading = "";
-          return;
-        }
-        const el = window.document.getElementById(id);
-        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-        state.activeHeading = id;
-      };
-      // CSV/TSV files up to 1 MB render as a table (sticky header, rules, tabular
-      // figures) with a Raw toggle back to the code view.
-      state.csvView = "table";
-      let csvCache = { content: null, rows: [] };
-      const parseDelimited = (text, sep) => {
-        const rows = [];
-        let row = [], cell = "", quoted = false;
-        for (let i = 0; i < text.length; i++) {
-          const ch = text[i];
-          if (quoted) {
-            if (ch === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else quoted = false; }
-            else cell += ch;
-          } else if (ch === '"' && cell === "") quoted = true;
-          else if (ch === sep) { row.push(cell); cell = ""; }
-          else if (ch === "\n" || ch === "\r") {
-            if (ch === "\r" && text[i + 1] === "\n") i++;
-            row.push(cell); rows.push(row); row = []; cell = "";
-          } else cell += ch;
-        }
-        if (cell !== "" || row.length) { row.push(cell); rows.push(row); }
-        return rows.filter((r) => r.length > 1 || r[0] !== "");
-      };
-      state.isCsv = () => typeof state.content === "string" && state.type !== "html"
-        && /\.(csv|tsv)$/i.test(state.filePath || "") && state.content.length <= 1024 * 1024;
-      state.csvRows = () => {
-        if (csvCache.content !== state.content) {
-          const sep = /\.tsv$/i.test(state.filePath || "") ? "\t" : ",";
-          csvCache = { content: state.content, rows: parseDelimited(state.content, sep) };
-        }
-        return csvCache.rows;
-      };
-      state.csvNumCol = (ci) => {
-        const rows = state.csvRows().slice(1).map((r) => r[ci]).filter((v) => v != null && String(v).trim() !== "");
-        return rows.length > 0 && rows.every((v) => state.csvNumeric(v));
-      };
-      state.csvNumeric = (value) => /^\s*[-+]?(\d[\d,]*)?(\.\d+)?(e[-+]?\d+)?%?\s*$/i.test(value) && /\d/.test(value);
-      state.redactParts = function (text) {
-        const out = []; let last = 0; let m; const re = /\bXXXX-(\d+)\b/g;
-        text = String(text || "");
-        while ((m = re.exec(text))) { if (m.index > last) out.push({ t: text.slice(last, m.index) }); out.push({ n: m[1] }); last = m.index + m[0].length; }
-        if (last < text.length) out.push({ t: text.slice(last) });
-        return out;
-      };
-      state.pathCopied = false;
-      state.copyPath = async function () {
-        if (!window.navigator.clipboard?.writeText) return;
-        await window.navigator.clipboard.writeText(state.filePath || "");
-        state.pathCopied = true;
-        setTimeout(() => { state.pathCopied = false; }, 1600);
-      };
-      state.contentCopied = false;
-      state.copyContent = async function () {
-        if (typeof state.content !== "string" || !window.navigator.clipboard?.writeText) return;
-        // Rendered Markdown: copy the source, not the HTML.
-        let text = state.content;
-        if (state.type === "html" && state.url) {
-          try { text = await (await window.fetch(state.url, { credentials: "same-origin" })).text(); } catch (_) { return; }
-        }
-        await window.navigator.clipboard.writeText(text);
-        state.contentCopied = true;
-        setTimeout(() => { state.contentCopied = false; }, 1600);
-      };
-
-      function getMode(extension) {
-        if (extensionModes[extension]) {
-          return extensionModes[extension];
-        }
-        return extension;
-      }
-
-      function getType(extension) {
-        if (extension == "pdf") {
-          return "pdf";
-        }
-        // Rendered as a document in a sandboxed frame rather than as source —
-        // see html-doc.js. "html" is reserved for markup we generated
-        // ourselves (rendered markdown/org) and inject directly.
-        if (extension == "html" || extension == "htm") {
-          return "html-doc";
-        }
-        if (extension == "md") {
-          return "md";
-        }
-        if (extension == "org") {
-          return "org";
-        }
-        if (extension == "ipynb") {
-          return "IPython";
-        }
-        if (textFiles.indexOf(extension) > -1) {
-          return "text";
-        }
-        if (imageFiles.indexOf(extension) > -1) {
-          return "image";
-        }
-        if (mediaFiles.indexOf(extension) > -1) {
-          return "media";
-        }
-        if (audioFiles.indexOf(extension) > -1) {
-          return "audio";
-        }
-        return "code";
-      }
-
       function getContent(path, fileInfo) {
         const generation = contentGeneration;
         if (!path) {
@@ -3973,40 +3779,7 @@ export const exploreController = function (state, http, location, params, html, 
             (res) => {
               if (destroyed || generation !== contentGeneration) return;
               cancelContentLoad();
-              state.type = originalType;
-              state.content = res.data;
-              if (state.content == "") {
-                state.content = null;
-              }
-
-              if (state.type == "md") {
-                state.content = renderMD(res.data, location.url() + "/../");
-                state.type = "html";
-              }
-              if (state.type == "org") {
-                const content = contentAbs2Relative(res.data);
-
-                const orgParser = new Org.Parser();
-                const orgDocument = orgParser.parse(content);
-                var orgHTMLDocument = orgDocument.convert(Org.ConverterHTML, {
-                  headerOffset: 1,
-                  exportFromLineNumber: false,
-                  suppressSubScriptHandling: true,
-                  suppressAutoLink: false,
-                });
-                state.content = DOMPurify.sanitize(orgHTMLDocument.toString());
-                state.type = "html";
-              }
-              if (
-                state.type == "code" &&
-                res.headers("content-type") == "application/octet-stream"
-              ) {
-                state.type = "binary";
-                state.content = "binary";
-              }
-              timers.timeout(() => {
-                Prism.highlightAll();
-              }, 50);
+              state.renderFileContent(res.data, originalType, location.url() + "/../", res.headers("content-type"));
             },
             (err) => {
               if (destroyed || generation !== contentGeneration) return;
@@ -4045,207 +3818,7 @@ export const exploreController = function (state, http, location, params, html, 
         // one file to the next.
         state.allowScripts = false;
 
-        let extension = state.filePath.toLowerCase();
-        const extensionIndex = extension.lastIndexOf(".");
-        if (extensionIndex > -1) {
-          extension = extension.substring(extensionIndex + 1);
-        }
-
-        const languageNames = { javascript: "JavaScript", typescript: "TypeScript", tsx: "TSX", jsx: "JSX", python: "Python", java: "Java", c_cpp: "C/C++", csharp: "C#", golang: "Go", rust: "Rust", ruby: "Ruby", php: "PHP", html: "HTML", css: "CSS", scss: "SCSS", json: "JSON", yaml: "YAML", markdown: "Markdown", sh: "Shell", dockerfile: "Dockerfile", xml: "XML", sql: "SQL", kotlin: "Kotlin", swift: "Swift", scala: "Scala", r: "R", julia: "Julia", latex: "LaTeX", toml: "TOML", csv: "CSV", tsv: "TSV", text: "" };
-        const detectedMode = getMode(extension);
-        state.languageName = languageNames[detectedMode] ?? (detectedMode ? detectedMode.charAt(0).toUpperCase() + detectedMode.slice(1) : "");
-        state.aceOption = {
-          readOnly: true,
-          useWrapMode: true,
-          showGutter: true,
-          theme: "chrome",
-          useSoftTab: true,
-          tabSize: 2,
-          fontSize: window.matchMedia?.("(max-width: 767px)").matches ? 12 : 13,
-          keyBinding: "vscode",
-          fullLineSelection: true,
-          highlightActiveLine: false,
-          highlightGutterLine: false,
-          cursor: "hide",
-          showInvisibles: false,
-          showIndentGuides: false,
-          showPrintMargin: false,
-          highlightSelectedWord: false,
-          enableBehaviours: true,
-          fadeFoldWidgets: false,
-          mode: getMode(extension),
-
-          onLoad: function (_editor) {
-            state.codeEditor = markRaw(_editor);
-            {
-              // Render each XXXX-n as its own "redacted" token so the text layer
-              // draws it exactly like the Markdown chip (teal text on a teal tint).
-              const session = _editor.session;
-              const origGetTokens = session.getTokens.bind(session);
-              const re = /\bXXXX-\d+\b/g;
-              session.getTokens = function (row) {
-                const tokens = origGetTokens(row);
-                if (!tokens.some((t) => t.value.indexOf("XXXX-") !== -1)) return tokens;
-                const out = [];
-                for (const t of tokens) {
-                  if (t.value.indexOf("XXXX-") === -1) { out.push(t); continue; }
-                  let last = 0;
-                  re.lastIndex = 0;
-                  let m;
-                  while ((m = re.exec(t.value))) {
-                    if (m.index > last) out.push({ type: t.type, value: t.value.slice(last, m.index) });
-                    out.push({ type: "redacted.n" + m[0].slice(5), value: m[0] });
-                    last = m.index + m[0].length;
-                  }
-                  if (last < t.value.length) out.push({ type: t.type, value: t.value.slice(last) });
-                }
-                return out;
-              };
-              // Each redacted token shows its term number inside the slot.
-              if (!window.document.getElementById("redact-index-rules")) {
-                const st = window.document.createElement("style");
-                st.id = "redact-index-rules";
-                st.textContent = Array.from({ length: 99 }, (_, i) => `.ace_redacted.ace_n${i + 1}::after{content:"${i + 1}"}`).join("");
-                window.document.head.appendChild(st);
-              }
-              _editor.renderer.updateFull(true);
-            }
-            _editor.session.setUseWrapMode(state.wrapLines !== false);
-            // The right-edge fade is a cue only while there is more code to the right.
-            const card = _editor.container.closest?.(".file-card");
-            const syncEdge = () => {
-              if (!card) return;
-              const r = _editor.renderer;
-              const max = (r.layerConfig?.width || 0) - (r.$size?.scrollerWidth || 0);
-              card.classList.toggle("at-right-edge", max <= 2 || r.getScrollLeft() >= max - 2);
-            };
-            _editor.session.on("changeScrollLeft", syncEdge);
-            _editor.renderer.on("afterRender", syncEdge);
-            // On phones code scrolls sideways; keep the scrollbar visible as a cue.
-            if (window.matchMedia?.("(max-width: 767px)").matches) _editor.setOption("hScrollBarAlwaysVisible", true);
-            const Range = ace.require("ace/range").Range;
-            let activeLineMarker = null;
-
-            function highlightLines(from, to) {
-              if (activeLineMarker !== null) {
-                _editor.session.removeMarker(activeLineMarker);
-                activeLineMarker = null;
-              }
-              if (from === null || from === undefined) return;
-              activeLineMarker = _editor.session.addMarker(
-                new Range(from, 0, to, 1),
-                "highlighted-line",
-                "fullLine"
-              );
-            }
-
-            function applyHashFromUrl(scroll) {
-              const m = window.location.hash.match(/^#L(\d+)(?:-L(\d+))?/);
-              if (!m) {
-                highlightLines(null);
-                return;
-              }
-              const from = parseInt(m[1]) - 1;
-              const to = m[2] ? parseInt(m[2]) - 1 : from;
-              highlightLines(from, to);
-              if (scroll) {
-                timers.timeout(() => {
-                  _editor.scrollToLine(from, true, true, function () {});
-                }, 100);
-              }
-            }
-
-            applyHashFromUrl(true);
-
-            // #392 — clicking a gutter line updates the URL to #L<n> and
-            // shift-clicking extends to #L<from>-L<to> so the user can copy
-            // a stable link to a specific line. Use replaceState to avoid
-            // polluting history with every click.
-            let anchorRow = null;
-            _editor.on("guttermousedown", function (e) {
-              const row = e.getDocumentPosition().row;
-              const shift = e.domEvent && e.domEvent.shiftKey;
-              let from = row;
-              let to = row;
-              if (shift && anchorRow !== null) {
-                from = Math.min(anchorRow, row);
-                to = Math.max(anchorRow, row);
-              } else {
-                anchorRow = row;
-              }
-              const hash =
-                from === to
-                  ? `#L${from + 1}`
-                  : `#L${from + 1}-L${to + 1}`;
-              const url =
-                window.location.pathname + window.location.search + hash;
-              window.history.replaceState(null, "", url);
-              highlightLines(from, to);
-              e.stop();
-            });
-
-            const removeHashListener = listen(window, "hashchange", () => applyHashFromUrl(false));
-
-            _editor.setFontSize(state.aceOption.fontSize);
-            _editor.setOptions({
-              fontFamily: "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace",
-            });
-            _editor.container.style.lineHeight = "20px";
-            _editor.renderer.setPadding(16);
-            _editor.renderer.setScrollMargin(12, 12, 0, 0);
-            _editor.renderer.updateFontSize();
-            _editor.setReadOnly(state.aceOption.readOnly);
-            _editor.setKeyboardHandler(state.aceOption.keyBinding);
-            _editor.setSelectionStyle(
-              state.aceOption.fullLineSelection ? "line" : "text"
-            );
-            _editor.setOption("displayIndentGuides", false);
-            _editor.setHighlightActiveLine(
-              state.aceOption.highlightActiveLine
-            );
-            if (state.aceOption.cursor == "hide") {
-              _editor.renderer.$cursorLayer.element.style.display = "none";
-            }
-            _editor.setHighlightGutterLine(
-              state.aceOption.highlightGutterLine
-            );
-            _editor.setShowInvisibles(state.aceOption.showInvisibles);
-            _editor.setDisplayIndentGuides(state.aceOption.showIndentGuides);
-
-            _editor.renderer.setShowPrintMargin(
-              state.aceOption.showPrintMargin
-            );
-            _editor.setHighlightSelectedWord(
-              state.aceOption.highlightSelectedWord
-            );
-            _editor.session.setUseSoftTabs(state.aceOption.useSoftTab);
-            _editor.session.setTabSize(state.aceOption.tabSize);
-            _editor.setBehavioursEnabled(state.aceOption.enableBehaviours);
-            _editor.setFadeFoldWidgets(state.aceOption.fadeFoldWidgets);
-            // Ctrl/Cmd+F searches inside the file (Ace searchbox), like GitHub's blob view.
-            const removeFindListener = listen(window, "keydown", (event) => {
-              if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === "g" && document.body.contains(_editor.container)) {
-                event.preventDefault();
-                state.gotoLine();
-                return;
-              }
-              if (event.altKey && !event.ctrlKey && !event.metaKey && event.key.toLowerCase() === "z" && document.body.contains(_editor.container)) {
-                event.preventDefault();
-                state.toggleWrap();
-                return;
-              }
-              if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === "f" && document.body.contains(_editor.container)) {
-                event.preventDefault();
-                state.findInFile();
-              }
-            });
-            return () => { removeHashListener(); removeFindListener(); };
-          },
-        };
-        if (state.isDarkMode) {
-          state.aceOption.theme = "nord_dark";
-        }
-        state.type = getType(extension);
+        state.prepareFile(state.filePath);
 
         if (state.type == "pdf") {
           // The viewer streams the file itself from state.url, so fetching
@@ -4264,35 +3837,6 @@ export const exploreController = function (state, http, location, params, html, 
 
         getContent(state.filePath, state.file);
       }
-
-      // Files without a text body (media, notebooks, binaries, empty files and
-      // per-file errors) share the code view's framed card and header.
-      const FRAMED_TYPES = ["image", "media", "audio", "pdf", "IPython", "binary"];
-      const FILE_ERRORS = ["file_too_big", "file_not_found", "file_not_accessible", "file_not_supported", "folder_not_supported"];
-      state.fileFrame = () => {
-        if (!state.filePath) return false;
-        if (FRAMED_TYPES.includes(state.type)) return state.content != null;
-        if (state.type === "error") return FILE_ERRORS.includes(state.content);
-        return state.content == null && ["code", "text"].includes(state.type);
-      };
-      state.fileKind = () => {
-        const name = (state.paths || [])[(state.paths || []).length - 1] || "";
-        const dot = name.lastIndexOf(".");
-        const ext = dot > 0 ? name.slice(dot + 1).toUpperCase() : "";
-        if (state.type === "image") return (ext === "JPG" ? "JPEG" : ext) + " image";
-        const MEDIA_NAMES = { WEBM: "WebM", OGG: "Ogg", OGV: "Ogg", MOV: "QuickTime", M4V: "M4V", MKV: "Matroska" };
-        if (state.type === "media") return (MEDIA_NAMES[ext] || ext) + " video";
-        if (state.type === "audio") return ext + " audio";
-        if (state.type === "pdf") return "PDF";
-        if (state.type === "IPython") return "Jupyter notebook";
-        if (state.type === "binary") return "Binary file";
-        return state.languageName || (ext ? ext + " file" : "File");
-      };
-      state.imageSize = "";
-      state.onImageLoad = (event) => {
-        const img = event.target;
-        if (img?.naturalWidth) state.imageSize = `${img.naturalWidth} × ${img.naturalHeight}`;
-      };
 
       state.isSourceAccessError = () => ["repo_not_found", "token_expired", "github_app_access_required",
         "github_app_reconnect_required", "repo_saml_enforcement", "repo_access_limited"].includes(state.content);

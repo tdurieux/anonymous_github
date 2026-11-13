@@ -8322,7 +8322,7 @@ body.dark-mode .preserve-dialog { background: #242320; color: #faf9f6; }
   --rp-line: var(--border-color);
   --rp-skel: var(--paper-card);
 }
-.anonymize-page .reviewer-preview .anonymize-preview-body.markdown-body h1 { font-size: 24px; }
+.anonymize-page .reviewer-preview .rp-document .anonymize-preview-body.markdown-body h1 { font-size: 24px; }
 @media (prefers-reduced-motion: no-preference) { .reviewer-preview .rp-loading .rp-skel, .reviewer-preview .rp-skel-row .rp-skel { animation: rp-pulse 1.4s ease-in-out infinite; }
 }
 @media (min-width: 1200px) {
@@ -8353,15 +8353,15 @@ body.dark-mode .preserve-dialog { background: #242320; color: #faf9f6; }
     background: linear-gradient(to bottom, rgba(250,249,246,0), #FAF9F6) !important;
   }
 }
-.reviewer-preview pre, .reviewer-preview .markdown-body pre, .reviewer-preview .pr-diff pre, .reviewer-preview .pr-diff table { max-width: 100%; }
-.reviewer-preview pre { overflow-x: hidden !important; white-space: pre-wrap !important; overflow-wrap: anywhere !important; word-break: normal !important; }
-.reviewer-preview pre code, .reviewer-preview pre code span { white-space: pre-wrap !important; overflow-wrap: anywhere !important; word-break: normal !important; }
-.reviewer-preview pre code .code-line { display: inline-block; width: 100%; box-sizing: border-box; padding-left: var(--hang, 4ch); text-indent: calc(-1 * var(--hang, 4ch)); vertical-align: top; }
-.reviewer-preview pre code .md-diff-line { padding-left: calc(var(--diff-pad) + var(--hang, 4ch)); text-indent: calc(-1 * var(--hang, 4ch)); vertical-align: top; }
-.reviewer-preview pre, .reviewer-preview pre code { font-family: var(--font-mono) !important; font-size: 12px !important; line-height: 20px !important; }
-.reviewer-preview pre code { display: block; }
-.dark-mode .reviewer-preview pre code .md-diff-line.is-add { background: #1E2A20; }
-.dark-mode .reviewer-preview pre code .md-diff-line.is-remove { background: #33201D; }
+.reviewer-preview .rp-document pre, .reviewer-preview .rp-document .markdown-body pre, .reviewer-preview .rp-document .pr-diff pre, .reviewer-preview .rp-document .pr-diff table { max-width: 100%; }
+.reviewer-preview .rp-document pre { overflow-x: hidden !important; white-space: pre-wrap !important; overflow-wrap: anywhere !important; word-break: normal !important; }
+.reviewer-preview .rp-document pre code, .reviewer-preview .rp-document pre code span { white-space: pre-wrap !important; overflow-wrap: anywhere !important; word-break: normal !important; }
+.reviewer-preview .rp-document pre code .code-line { display: inline-block; width: 100%; box-sizing: border-box; padding-left: var(--hang, 4ch); text-indent: calc(-1 * var(--hang, 4ch)); vertical-align: top; }
+.reviewer-preview .rp-document pre code .md-diff-line { padding-left: calc(var(--diff-pad) + var(--hang, 4ch)); text-indent: calc(-1 * var(--hang, 4ch)); vertical-align: top; }
+.reviewer-preview .rp-document pre, .reviewer-preview .rp-document pre code { font-family: var(--font-mono) !important; font-size: 12px !important; line-height: 20px !important; }
+.reviewer-preview .rp-document pre code { display: block; }
+.dark-mode .reviewer-preview .rp-document pre code .md-diff-line.is-add { background: #1E2A20; }
+.dark-mode .reviewer-preview .rp-document pre code .md-diff-line.is-remove { background: #33201D; }
 .reviewer-preview .rp-open:hover { text-decoration-thickness: 2px; }
 pre code .md-diff-line { display: inline-block; box-sizing: border-box; margin: 0 calc(-1 * var(--diff-pad)); padding: 0 var(--diff-pad); width: calc(100% + 2 * var(--diff-pad)); }
 pre code .md-diff-line.is-add { background: rgba(47,107,62,0.10); color: #1F4A2A; }
@@ -8705,10 +8705,10 @@ input[type="date"].form-control:hover::-webkit-calendar-picker-indicator { backg
   top: 50%;
   font: 700 9.5px/1 var(--font-sans, Inter, sans-serif);
   color: var(--slot-num);
-  text-align: center !important;
-  left: 50% !important;
-  right: auto !important;
-  transform: translate(-50%, -50%) !important;
+  text-align: right !important;
+  left: auto !important;
+  right: 0 !important;
+  transform: translateY(-50%) !important;
   padding: 1px 5px !important;
   border-radius: 3px;
   background: var(--slot-bg);
@@ -8826,7 +8826,7 @@ pre code mark.redact-chip {
   vertical-align: -.24em !important;
   font-size: inherit !important;
   line-height: 1.2em !important;
-  text-align: center !important;
+  text-align: right !important;
   padding: 0 !important;
 }
 .markdown-body pre code mark.redact-chip i, pre code mark.redact-chip i {
@@ -12495,16 +12495,14 @@ body.dark-mode .hosting-limit { background: rgba(251, 191, 36, .1); border-color
 .paper-feature.is-on .paper-feature-tab { border-bottom-color: var(--accent) !important; }
 .page-head + .admin-nav { margin-top: 0 !important; }
 
-/* Redaction masks: the index sits centered in the slot; in headings the slot hugs its number. */
+/* Redaction masks: in headings the slot hugs its number. */
 
 /* ----- File viewer ----- */
-.redact-slot, .markdown-body mark.redact-chip, .dark-mode .markdown-body mark.redact-chip, .demo-output .redact-chip, .dark-mode .demo-output .redact-chip, span.redact, .dark-mode span.redact { justify-content: center !important; }
 .markdown-body :is(h1, h2, h3, h4) mark.redact-chip, .dark-mode .markdown-body :is(h1, h2, h3, h4) mark.redact-chip { min-width: 1.2em !important; padding: 0 .3em !important; justify-content: center !important; }
 .markdown-body :is(h1, h2) mark.redact-chip i { font-size: .55em !important; }
 
 /* Home: the phone hero mock shows whole, with its full border, instead of fading out. */
 /* Home "Before you sign in": the heading column stays in view while the answers scroll. */
-.files .redact-slot, .breadcrumb .redact-slot { justify-content: center !important; }
 
 /* Status: one ready message, the link right under it, and a sidebar card like every other card. */
 .repository-task .page-head { margin-bottom: 20px !important; }
@@ -13619,7 +13617,7 @@ input[type="date"].form-control { font-family: var(--font-sans) !important; font
 .conference-page .dashboard-filter-row { border-bottom: 0 !important; padding-bottom: 0 !important; }
 .conference-page .paper-meta-rule { border-top: 0 !important; padding-top: 4px !important; margin-top: 20px !important; }
 .ov-metric-bad, .overview-page .ov-metric-bad { color: var(--st-bad) !important; font-weight: 600; }
-.markdown-body :is(p, li, td, th, blockquote, dd) mark.redact-chip, .dark-mode .markdown-body :is(p, li, td, th, blockquote, dd) mark.redact-chip { min-width: 2em !important; width: auto !important; padding: 0 .45em !important; text-align: center !important; }
+.markdown-body :is(p, li, td, th, blockquote, dd) mark.redact-chip, .dark-mode .markdown-body :is(p, li, td, th, blockquote, dd) mark.redact-chip { min-width: 2.5em !important; width: auto !important; padding: 0 .34em !important; text-align: right !important; }
 
 /* ----- Anonymize workspace ----- */
 .anonymize-page .anonymize-preview-col.reviewer-preview { display: flex; flex-direction: column; min-height: 0; overflow: hidden !important; padding: 0 !important; background: var(--rp-stage) !important; border-left: 1px solid var(--rp-line); }
@@ -13640,11 +13638,7 @@ input[type="date"].form-control { font-family: var(--font-sans) !important; font
 .reviewer-preview .rp-bar-id { padding-left: 12px; border-left: 1px solid var(--rp-line); font: 500 12px/1 var(--font-mono, ui-monospace, monospace); color: var(--color); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .reviewer-preview .rp-bar-kind { margin-left: auto; font-size: 12px; color: var(--ink-muted); }
 .reviewer-preview .rp-body { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0,1fr); }
-.reviewer-preview .rp-doc { min-height: 0; min-width: 0; overflow: auto; scrollbar-width: thin; position: relative; }
-.reviewer-preview .rp-file-head { position: sticky; top: 0; z-index: 1; display: flex; align-items: baseline; gap: 10px; padding: 10px 24px; background: var(--rp-window); border-bottom: 1px solid var(--rp-line); font-size: 13px; }
-.reviewer-preview .rp-file-name { font-weight: 600; color: var(--color); }
-.reviewer-preview .rp-file-meta { color: var(--ink-muted); }
-.anonymize-page .reviewer-preview .anonymize-preview-body { background: transparent !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; min-height: 0 !important; padding: 24px 32px 40px !important; max-width: 860px; }
+.anonymize-page .reviewer-preview .rp-document .anonymize-preview-body { background: transparent !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; min-height: 0 !important; padding: 24px 32px 40px !important; max-width: 860px; }
 /* States inside the window */
 .reviewer-preview .rp-state { padding: 28px 32px; max-width: 560px; }
 .reviewer-preview .rp-state strong { display: block; font-size: 15px; font-weight: 600; color: var(--color); margin: 0 0 6px; }
@@ -13677,8 +13671,7 @@ input[type="date"].form-control { font-family: var(--font-sans) !important; font
   .reviewer-preview .rp-window { margin: 0; border: 1px solid var(--rp-line); border-radius: 10px; min-height: 64vh; }
   .reviewer-preview .rp-chrome { height: 30px; }
   .reviewer-preview .rp-url { font-size: 11px; margin-left: 6px; }
-      .reviewer-preview .rp-file-head { padding: 9px 16px; }
-  .anonymize-page .reviewer-preview .anonymize-preview-body { padding: 18px 16px 28px !important; }
+  .anonymize-page .reviewer-preview .rp-document .anonymize-preview-body { padding: 18px 16px 28px !important; }
   .reviewer-preview .rp-state { padding: 20px 16px; }
   .reviewer-preview .rp-error, .reviewer-preview .rp-empty { margin: 16px; }
 }
@@ -13934,7 +13927,7 @@ pre code mark.redact-chip,
 .anonymize-page .anonymize-workspace .anonymize-form-col .paper-settings-section { background: transparent !important; box-shadow: none !important; }
 .dark-mode .anonymize-page .anonymize-workspace { background: var(--canvas-bg-color) !important; }
 .dark-mode .reviewer-preview .rp-url { background: var(--canvas-bg-color); }
-.reviewer-preview .anonymize-preview-body > .d-flex:first-child { align-items: baseline !important; }
+.reviewer-preview .rp-document .anonymize-preview-body > .d-flex:first-child { align-items: baseline !important; }
 .dark-mode .csv-table-wrap .csv-table { background: var(--canvas-bg-color); }
 @media (max-width: 767px) {
   .anonymize-workspace .hosting-settings > .expiration-choices:last-child { margin-bottom: 0 !important; }
@@ -14030,7 +14023,7 @@ pre code mark.redact-chip,
 @media (max-width: 767px) {
   .anonymize-page .source-url-label-row .repo-access-switch.repo-access-switch { padding: 3px !important; border-radius: 8px !important; height: 36px; box-sizing: border-box; }
 }
-.reviewer-preview pre code :is(.md-diff-line, .code-line) { line-height: 20px !important; vertical-align: top; margin-top: 0; margin-bottom: 0; border: 0; box-shadow: none; outline: 0; }
+.reviewer-preview .rp-document pre code :is(.md-diff-line, .code-line) { line-height: 20px !important; vertical-align: top; margin-top: 0; margin-bottom: 0; border: 0; box-shadow: none; outline: 0; }
 .status-dot.status-dot:is(.st-expiring, .st-removing, .status-expiring, .status-removing) { background: linear-gradient(90deg, var(--st-off) 50%, transparent 50%) !important; box-shadow: inset 0 0 0 1.5px var(--st-off) !important; }
 .errors-page .errors-group-count { margin-left: 6px; }
 .dark-mode .errors-page .errors-group-count { background: rgba(255,255,255,.07); }
@@ -14202,40 +14195,45 @@ body.dark-mode .auto-update-check .paid-tag { background: rgba(251, 191, 36, .12
 .auto-update-check .auto-update-paid a { white-space: nowrap; }
 .hosting-limit.auto-update-note { font-weight: 400; line-height: 1.5; }
 
-/* F8. Reviewer preview: a vertical file tree, a miniature of the explorer.
-   The sidebar is tinted like the explorer's .leftCol (#F3F1EC / #1F1D1A; the
-   workspace overrides --paper-bg-alt, so the values are spelled out) and runs the full
-   height of the window; the tree and the document scroll on their own. Rows
-   reuse the explorer's .files tree styles; nesting is drawn per row (--depth)
-   with the explorer's 16px step and guide line. Phones hide the sidebar and
-   show the explorer's "Files" button in the file bar instead. */
-.reviewer-preview .rp-body.has-side { display: grid; grid-template-columns: clamp(180px, 24%, 240px) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); overflow: hidden; }
-.reviewer-preview .rp-body.has-side > .rp-doc { min-height: 0; overflow: auto; }
-.reviewer-preview .rp-side { min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; background: #F3F1EC; border-right: 1px solid var(--border-color); }
-.dark-mode .reviewer-preview .rp-side { background: #1F1D1A; }
-.reviewer-preview .rp-side .files.rp-files { height: auto; overflow: visible; margin: 0; padding: 8px 6px; list-style: none; }
-.reviewer-preview .rp-files > li { padding-left: calc(var(--depth, 0) * 16px); background-image: repeating-linear-gradient(to right, transparent 0 7px, var(--border-color) 7px 8px, transparent 8px 16px); background-size: calc(var(--depth, 0) * 16px) 100%; background-repeat: no-repeat; word-break: normal; }
-.reviewer-preview .rp-files a { min-height: 26px; cursor: default; user-select: none; }
-.reviewer-preview .rp-files .file:not(.folder) > a:hover { background: transparent; }
-.reviewer-preview .rp-files .file.active:not(.folder) > a:hover { background: #E8E5DD; }
-.dark-mode .reviewer-preview .rp-files .file.active:not(.folder) > a:hover { background: rgba(255,255,255,.1); }
-.reviewer-preview .rp-files .folder > a { cursor: pointer; }
-.reviewer-preview .rp-files .folder > a:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-.reviewer-preview .rp-files-skel { list-style: none; margin: 0; padding: 8px 6px; }
-.reviewer-preview .rp-files-skel li { display: flex; align-items: center; height: 26px; padding: 0 8px 0 21px; }
-.reviewer-preview .rp-files-skel .rp-skel { height: 9px; }
-@media (prefers-reduced-motion: no-preference) { .reviewer-preview .rp-files-skel .rp-skel { animation: rp-pulse 1.4s ease-in-out infinite; } }
-.reviewer-preview .rp-side-note { margin: 4px 14px 12px; font-size: 12px; line-height: 1.5; color: var(--ink-muted); }
-.reviewer-preview .rp-files-btn { display: none; }
-@media (min-width: 768px) {
-  .reviewer-preview .rp-body.has-side .rp-file-head { padding-left: 32px; padding-right: 32px; }
+/* The reviewer window hosts the explorer tree and pageView, with its own viewport. */
+.reviewer-preview .reviewer-explorer { --sidebar-w: 200px; position: relative; display: grid; grid-template-columns: var(--sidebar-w) minmax(0, 1fr); overflow: hidden; isolation: isolate; }
+.reviewer-explorer > .leftCol { position: relative; width: var(--sidebar-w); min-height: 0; height: auto; grid-column: 1; grid-row: 1; }
+.reviewer-explorer > .explorer-main { grid-column: 2; grid-row: 1; min-height: 0; }
+.reviewer-explorer > .leftCol-backdrop { display: none; }
+@media (max-width: 991px) {
+  .reviewer-preview .reviewer-explorer { grid-template-columns: minmax(0, 1fr); }
+  .reviewer-explorer > .explorer-main { grid-column: 1; }
+  .reviewer-explorer > .leftCol { position: absolute; inset: 0 auto 0 0; width: min(86%, 340px); z-index: 4; }
+  .reviewer-explorer > .leftCol-backdrop { display: block; position: absolute; inset: 0; z-index: 3; }
 }
+.reviewer-preview .rp-preserved-tag { flex: none; margin-left: auto; display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border: 0; border-radius: 10px; background: rgba(217, 119, 6, .1); box-shadow: inset 0 0 0 1px rgba(217, 119, 6, .3); color: #8A4B0A; font: 600 11.5px/1 var(--font-sans); white-space: nowrap; cursor: pointer; }
+.reviewer-preview .rp-preserved-tag:hover { background: rgba(217, 119, 6, .16); }
+.reviewer-preview .rp-preserved-tag:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+body.dark-mode .reviewer-preview .rp-preserved-tag { background: rgba(251, 191, 36, .12); box-shadow: inset 0 0 0 1px rgba(251, 191, 36, .32); color: #F2C66D; }
+
+/* Capture the reviewer tokens before the workspace applies its form palette. */
+.app-view:has(.reviewer-preview) { --viewer-paper-card: var(--paper-card); --viewer-canvas: var(--canvas-bg-color); --viewer-paper-alt: var(--paper-bg-alt); --viewer-border: var(--border-color); --viewer-color: var(--color); --viewer-muted: var(--ink-muted); }
+.reviewer-preview .reviewer-explorer { --paper-card: var(--viewer-paper-card); --canvas-bg-color: var(--viewer-canvas); --paper-bg-alt: var(--viewer-paper-alt); --border-color: var(--viewer-border); --color: var(--viewer-color); --ink-muted: var(--viewer-muted); color: var(--color); background: var(--canvas-bg-color); }
+/* The preview's narrow file pane drops the secondary file tools. Scoped to the
+   preview: the reviewer page keeps its own header at every width. */
+.reviewer-preview .explorer-content { container: explorer-file / inline-size; }
+/* clean-css ignore:start */
+@container explorer-file (max-width: 700px) {
+  .reviewer-preview .file-card-head .file-card-meta, .reviewer-preview .file-card-head .symbols { display: none !important; }
+}
+/* clean-css ignore:end */
+
+/* PR and gist previews retain their existing document surface. */
+.reviewer-preview .rp-main { min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.reviewer-preview .rp-document { flex: 1 1 auto; min-height: 0; min-width: 0; overflow: auto; scrollbar-width: thin; position: relative; }
+/* Phones: the explorer's header has no room for the tag next to the path, so
+   the caption's "<name> left unredacted" opens the dialog instead. */
+.reviewer-preview button.rp-count { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 3px; }
+.reviewer-preview button.rp-count:hover { text-decoration-color: currentColor; }
 @media (max-width: 767px) {
-  .reviewer-preview .rp-body.has-side { display: block; overflow: visible; }
-  .reviewer-preview .rp-side { display: none; }
-  .reviewer-preview .rp-body.has-side .rp-file-head { align-items: center; padding: 6px 16px 6px 8px; }
-  .reviewer-preview .rp-files-btn { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border: 1px solid var(--border-color); border-radius: 6px; background: #F3F1EC; font-size: 13px; font-weight: 500; color: var(--color); white-space: nowrap; }
-  .dark-mode .reviewer-preview .rp-files-btn { background: #1F1D1A; }
-  .reviewer-preview .rp-files-btn .ui-icon { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; }
-  .reviewer-preview .rp-files-count { font-weight: 400; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+  .reviewer-preview .file-card-head .rp-preserved-tag { display: none; }
 }
+/* Tree and breadcrumb: the slot centers on the name's capitals, not below the baseline. */
+.files .tree-name .redact-slot, .breadcrumb .redact-slot { position: relative; top: -.15em; }
+/* Text: the slot centers on the line's letters, level with parentheses and punctuation. */
+.markdown-body :is(p, li, td, th, blockquote, dd) mark.redact-chip, .dark-mode .markdown-body :is(p, li, td, th, blockquote, dd) mark.redact-chip { vertical-align: .04em !important; }
