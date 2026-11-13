@@ -224,6 +224,34 @@ export const mainController = function (state, http, location, timeout) {
         else location.url("/profile?upgrade=1");
       };
 
+      // Header fitter: the media queries in style.css (F2) handle the usual
+      // widths; this catches what they can't predict (wider fonts, an Upgrade
+      // link, long usernames). It adds .nav-fit-1 (extras into the avatar menu),
+      // then .nav-fit-2 (tighter gaps) while the expanded bar overflows.
+      const headerListen = createListeners();
+      const headerTimers = createTimers();
+      let headerFitQueued = false;
+      const fitHeader = () => {
+        headerFitQueued = false;
+        const nav = document.querySelector("nav.navbar.navbar-expand-lg");
+        if (!nav) return;
+        nav.classList.remove("nav-fit-1", "nav-fit-2");
+        if (window.innerWidth < 992) return;
+        const collapse = nav.querySelector(".navbar-collapse");
+        const overflows = () => nav.scrollWidth > nav.clientWidth + 1 || (!!collapse && collapse.scrollWidth > collapse.clientWidth + 1);
+        if (overflows()) nav.classList.add("nav-fit-1");
+        if (overflows()) nav.classList.add("nav-fit-2");
+      };
+      const queueHeaderFit = () => {
+        if (headerFitQueued) return;
+        headerFitQueued = true;
+        nextTick(() => headerTimers.timeout(fitHeader, 0));
+      };
+      headerListen(window, "resize", queueHeaderFit);
+      state.on("routeChange", queueHeaderFit);
+      state.on("billing:updated", queueHeaderFit);
+      if (document.fonts?.ready) document.fonts.ready.then(queueHeaderFit).catch(() => {});
+
       state.title = "Main";
       state.user = { status: "connection" };
       state.site_options;
@@ -303,6 +331,7 @@ export const mainController = function (state, http, location, timeout) {
         http.get("/api/user").then(
           (res) => {
             if (res) state.user = res.data;
+            queueHeaderFit();
             if (state.user?.username) readBilling(http).then(res => updateHeaderBilling(res.data)).catch(() => {});
             else state.headerShowSupport = true;
             if (state.user?.emailNotificationsEnabled && state.user.showEmailPrompt && !state.user.notificationEmail) {
@@ -1683,6 +1712,28 @@ export const anonymizeController = function (state, http, html, params, location
         return state.hostingQuotaBlocked && !state.conferenceHosting() ? offered(["repo_slot", "repo_pack"]) : [];
       };
       state.hostingOneTime = () => state.hostingOneTimePlans()[0];
+      // Automatic updates, as the server decides them (hasAutomaticUpdates):
+      // free hosting and an Extra repository refresh by hand; a conference
+      // package, Live updates or a Paper pack for this repository, or an author
+      // subscription include them. Unknown (billing not loaded, someone else's
+      // repository) counts as included, so no paid hint flashes.
+      const MANUAL_REFRESH_PLANS = ["free", "repo_slot"];
+      state.liveUpdatesIncluded = () => {
+        if (!state.billing?.enabled || state.detectedType !== "repo") return true;
+        if (state.isUpdate && state.role !== "owner") return true;
+        if (state.conferenceHosting() || state.hasAuthorHosting()) return true;
+        const plan = state.billing?.allowance?.plan;
+        if (plan && !MANUAL_REFRESH_PLANS.includes(plan)) return true;
+        return state.repositoryGrants("author_pass").length > 0 || state.repositoryGrants("repo_pack").length > 0;
+      };
+      state.liveUpdatesPrice = () => {
+        const plan = (state.billing?.plans || []).find(p => p.id === "author_pass");
+        return plan?.amount != null ? state.billingAmount(plan) : "";
+      };
+      state.showHostingOptions = () => {
+        state.mobilePane = "settings";
+        nextTick(() => document.getElementById("repository-hosting")?.scrollIntoView({ block: "start", behavior: "smooth" }));
+      };
       state.neverExpireTag = () => {
         if (state.hasAuthorHosting()) return "Included in your subscription";
         if (state.repositoryGrants("repo_never").length) return "Paid for this repository";
@@ -1945,6 +1996,64 @@ export const anonymizeController = function (state, http, html, params, location
         if (readme && !files.some((f) => f.readme)) files.push({ name: readme, dir: false, readme: true });
         return [...dirs, ...files];
       };
+      // The preview's file strip is one row: the first entries that fit
+      // (folders first), the README always, then "+N more". All entries render
+      // so they can be measured; the ones past the fit are taken out of the flow.
+      state.previewTreeFit = Infinity;
+      state.previewTreeTotal = () => {
+        const root = state.preserve.commit && preserveIndex ? preserveIndex.dirs.get("") : null;
+        return root ? root.dirs.length + root.files.length : 0;
+      };
+      state.previewTreeShows = (entry, index) => entry.readme
+        || state.previewTree().slice(0, index).filter((e) => !e.readme).length < state.previewTreeFit;
+      state.previewTreeMore = () => {
+        const tree = state.previewTree();
+        const shown = tree.filter((entry, index) => state.previewTreeShows(entry, index)).length;
+        return Math.max(0, state.previewTreeTotal() - shown);
+      };
+      const treeListen = createListeners();
+      const treeTimers = createTimers();
+      let treeObserver = null;
+      let observedTree = null;
+      let treeFitQueued = false;
+      const fitPreviewTree = () => {
+        treeFitQueued = false;
+        const nav = document.querySelector(".reviewer-preview .rp-tree");
+        if (nav !== observedTree) {
+          treeObserver?.disconnect();
+          observedTree = nav;
+          if (nav && typeof ResizeObserver === "function") {
+            treeObserver ||= new ResizeObserver(() => queuePreviewTreeFit());
+            treeObserver.observe(nav);
+          }
+        }
+        if (!nav || !nav.clientWidth) return;
+        const rows = [...nav.querySelectorAll(".rp-tree-row:not(.rp-skel-row)")];
+        if (!rows.length) return;
+        const cs = getComputedStyle(nav);
+        const gap = parseFloat(cs.columnGap) || 0;
+        const avail = nav.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+        const widths = rows.map((row) => row.getBoundingClientRect().width + gap);
+        const readmeWidth = rows.reduce((sum, row, i) => sum + (row.classList.contains("is-readme") ? widths[i] : 0), 0);
+        const others = widths.filter((_, i) => !rows[i].classList.contains("is-readme"));
+        const everything = others.reduce((a, b) => a + b, 0) + readmeWidth;
+        const total = state.previewTreeTotal();
+        if (everything <= avail && total <= rows.length) { if (state.previewTreeFit !== Infinity) state.previewTreeFit = Infinity; return; }
+        const more = nav.querySelector(".rp-tree-more");
+        const moreWidth = (more ? more.getBoundingClientRect().width : 72) + gap;
+        let used = readmeWidth + moreWidth;
+        let fit = 0;
+        while (fit < others.length && used + others[fit] <= avail) used += others[fit++];
+        if (state.previewTreeFit !== fit) state.previewTreeFit = fit;
+      };
+      const queuePreviewTreeFit = () => {
+        if (treeFitQueued) return;
+        treeFitQueued = true;
+        nextTick(() => treeTimers.timeout(fitPreviewTree, 0));
+      };
+      state.queuePreviewTreeFit = queuePreviewTreeFit;
+      treeListen(window, "resize", queuePreviewTreeFit);
+      state.on("dispose", () => { treeObserver?.disconnect(); treeObserver = null; });
       state.existingConfigurationUrl = () => {
         const previous = state.previousConfigurations.find(repo => repo.repoId === state.previousConfigurationId);
         return previous ? "/anonymize/" + encodeURIComponent(previous.repoId) : null;
@@ -2470,6 +2579,8 @@ export const anonymizeController = function (state, http, html, params, location
           preserveIndex = markRaw(buildPreserveIndex(res.data.files || []));
           state.preserve.commit = commit;
           state.preserve.truncated = !!res.data.truncated;
+          state.previewTreeFit = Infinity;
+          state.queuePreviewTreeFit?.();
         } catch (error) {
           state.preserve.error = "The file list could not be loaded from GitHub. You can still use patterns.";
           state.preserve.patternsOpen = true;

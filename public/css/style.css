@@ -14184,3 +14184,151 @@ pre code mark.redact-chip,
 body.dark-mode .errors-page .seg-info,
 body.dark-mode .errors-page .dot-info,
 body.dark-mode .errors-page .sev-dot.sev-info { background: var(--ink-faint) !important; }
+
+/* ===== Follow-ups after the redesign ===== */
+
+/* F1. One tab indicator for every tab bar. The selected tab gets a straight 2px
+   accent line, as wide as its label, drawn over the bar's 1px bottom rule.
+   Tabs carry no horizontal padding (or set --tab-inset), so the line matches the
+   label; bars with equal-width tabs put the line on an inner .tab-label. Hover
+   only changes the label colour. */
+.admin-nav a,
+.settings-nav button,
+.dashboard-view-tabs button,
+.paper-tabs .paper-tab,
+.errors-page .detail-tabs button,
+.anonymize-mobile-tabs .tab-label,
+.paper-feature-tab .paper-eyebrow { position: relative; }
+.admin-nav a, .admin-nav a:hover, .admin-nav a.active, .admin-nav a.router-link-active,
+.settings-nav button, .settings-nav button[aria-current="page"],
+.dashboard-view-tabs button, .dashboard-view-tabs button[aria-pressed="true"],
+.paper-tabs .paper-tab, .paper-tabs .paper-tab.active,
+.errors-page .detail-tabs button, .errors-page .detail-tabs button.active,
+.anonymize-mobile-tabs button, .anonymize-mobile-tabs button[aria-selected="true"] {
+  box-shadow: none !important;
+  border-bottom-color: transparent !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+}
+.admin-nav a.active::after, .admin-nav a.router-link-active::after,
+.settings-nav button[aria-current="page"]::after,
+.dashboard-view-tabs button[aria-pressed="true"]::after,
+.paper-tabs .paper-tab.active::after,
+.errors-page .detail-tabs button.active::after,
+.anonymize-mobile-tabs button[aria-selected="true"] .tab-label::after {
+  content: "";
+  position: absolute;
+  left: var(--tab-inset, 0);
+  right: var(--tab-inset, 0);
+  bottom: var(--tab-drop, -1px);
+  height: 2px;
+  border-radius: 0;
+  background: var(--accent);
+  pointer-events: none;
+}
+.admin-nav a:hover, .settings-nav button:hover, .dashboard-view-tabs button:hover,
+.paper-tabs .paper-tab:hover, .errors-page .detail-tabs button:hover,
+.anonymize-mobile-tabs button:hover { color: var(--color) !important; }
+.admin-nav a.active, .admin-nav a.router-link-active { color: var(--color) !important; }
+.admin-nav a.active .ui-icon, .admin-nav a.router-link-active .ui-icon { color: var(--accent); }
+/* Admin: the tabs sit on the rule (no 8px gap under the labels). */
+.admin-page .admin-nav { padding-bottom: 0 !important; align-items: stretch; }
+.admin-page .admin-nav a { padding-top: 8px !important; padding-bottom: 10px !important; }
+/* Tabs whose bar has its own 1px rule under them: the tab overlaps it. */
+.paper-tabs .paper-tab { margin-bottom: 0; --tab-inset: 16px; }
+.errors-page .detail-tabs button { --tab-inset: 12px; }
+/* The dashboard and conference tabs keep a 2px transparent border. */
+.dashboard-view-tabs button { --tab-drop: -2px; }
+/* Workspace phone tabs: equal halves, line under the label only. */
+@media (max-width: 767px) {
+  .anonymize-mobile-tabs button { display: flex; justify-content: center; align-items: stretch; padding-top: 0 !important; padding-bottom: 0 !important; }
+  .anonymize-mobile-tabs .tab-label { display: flex; align-items: center; }
+  /* Admin nav: one scrolling row; the rule is an inset shadow so the
+     scroll clip doesn't cut the selected line. */
+  .admin-page .admin-nav { flex-wrap: nowrap !important; overflow-x: auto !important; overflow-y: hidden !important; border-bottom: 0 !important; box-shadow: inset 0 -1px 0 var(--border-color); gap: 20px !important; }
+  .admin-page .admin-nav a { --tab-drop: 0px; }
+  .settings-nav button { max-width: none !important; }
+}
+/* Home features. Desktop: a vertical rail, 1px, with the selected step's 2px line on it.
+   Phone: a horizontal tab bar with one continuous rule. */
+.paper-feature { border-left: 1px solid var(--border-color) !important; }
+.paper-feature.is-on { border-left-color: var(--accent) !important; box-shadow: inset 1px 0 0 var(--accent); }
+@media (max-width: 767px) {
+  .paper-features { column-gap: 0 !important; }
+  .paper-feature, .paper-feature.is-on { border-left: 0 !important; box-shadow: none; }
+  .paper-feature-tab { border-bottom: 1px solid var(--border-color) !important; padding-bottom: 0 !important; }
+  .paper-feature-tab .paper-eyebrow { padding-bottom: 10px; display: inline-flex !important; }
+  .paper-feature-tab { display: flex !important; justify-content: center; }
+  .paper-feature.is-on .paper-feature-tab .paper-eyebrow::after {
+    content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--accent);
+  }
+}
+
+/* F2. Header: labels never wrap. When space runs out (narrow window, wider
+   fonts, an Upgrade link, a long username), the bar degrades in steps:
+   1) signed in: "Report a bug" and "Support" move to the avatar menu
+      (they are already there); 2) tighter gaps; 3) the hamburger, below 992px.
+   The media queries are the baseline; the header fitter in app.js adds
+   .nav-fit-1 / .nav-fit-2 when the bar still overflows. */
+.navbar .nav-link, .navbar .navbar-brand, .navbar .user-chip { white-space: nowrap; }
+.navbar .user-chip-name { max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
+@media (min-width: 992px) and (max-width: 1365.98px) {
+  .navbar .nav-extra-item.in-user-menu { display: none !important; }
+}
+@media (min-width: 992px) {
+  .navbar.nav-fit-1 .nav-extra-item.in-user-menu { display: none !important; }
+}
+@media (min-width: 992px) and (max-width: 1099.98px) {
+  .navbar .navbar-collapse .nav-link { margin-left: 8px !important; margin-right: 8px !important; }
+}
+@media (min-width: 992px) {
+  .navbar.nav-fit-2 .navbar-collapse .nav-link { margin-left: 7px !important; margin-right: 7px !important; }
+  .navbar.nav-fit-2 .user-chip-name { max-width: 90px; }
+}
+
+/* F3. Active filter chips keep the standard 12px gap under the search row. */
+.dashboard-page .dashboard-active-filters-row { margin: 12px 0 12px !important; }
+
+/* F4. "Load more projects": 20px under the table, centred on it. */
+.dashboard-pagination { display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 20px 0 8px; text-align: center; }
+.dashboard-pagination p { margin: 0; }
+.dashboard-pagination .btn { min-width: 180px; justify-content: center; }
+
+/* F5. Reviewer preview file strip: one row, never wraps. The fitter in app.js
+   keeps the entries that fit (folders first), always the README, and counts
+   the rest in a "+N more" chip. Entries past the fit stay measurable but are
+   out of the flow. */
+@media (min-width: 768px) {
+  .reviewer-preview .rp-body.has-tree > .rp-tree.rp-tree { flex-wrap: nowrap !important; overflow: hidden !important; position: relative !important; gap: 4px !important; }
+  .reviewer-preview .rp-body.has-tree > .rp-tree .rp-tree-row { flex: 0 0 auto; max-width: 180px; }
+  .reviewer-preview .rp-body.has-tree > .rp-tree .rp-tree-row.is-overflow { position: absolute !important; visibility: hidden; pointer-events: none; left: 0; top: 0; }
+  .reviewer-preview .rp-tree-more { flex: none; display: inline-flex; align-items: center; height: 22px; padding: 0 8px; margin-left: 2px; border-radius: 11px; border: 1px solid var(--rp-line); font-size: 12px; font-weight: 500; color: var(--ink-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+}
+
+/* F6. Workspace submit bar: always fits its column. The button keeps its
+   natural width and never shrinks or clips; the draft note beside it takes
+   what is left and wraps. Without a note the button spans the bar. Notes
+   about loading or checkout get their own row. Same 20px inset as the fields. */
+.anonymize-submit-bar .draft-status { white-space: normal !important; min-width: 0; }
+@media (min-width: 768px) {
+  .anonymize-workspace .anonymize-form-col .anonymize-submit-bar {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: center;
+    column-gap: 16px !important;
+    row-gap: 6px !important;
+    padding-left: 20px !important;
+    padding-right: 20px !important;
+  }
+  .anonymize-workspace .anonymize-form-col .anonymize-submit-bar:has(> .draft-status) { grid-template-columns: minmax(0, 1fr) auto; }
+  .anonymize-workspace .anonymize-form-col .anonymize-submit-bar > .btn { grid-row: 1; grid-column: -2 / -1; width: 100%; min-width: max-content; white-space: nowrap; }
+  .anonymize-workspace .anonymize-form-col .anonymize-submit-bar > .draft-status { grid-row: 1; grid-column: 1; margin: 0 !important; padding: 0; line-height: 1.4; }
+  .anonymize-workspace .anonymize-form-col .anonymize-submit-bar > p { grid-column: 1 / -1; }
+}
+
+/* F7. Auto-update is paid when the repository has no allowance that includes
+   it: a "Paid" tag on the label and the price in the help line. */
+.auto-update-check .paid-tag { display: inline-flex; align-items: center; height: 18px; margin-left: 8px; padding: 0 7px; border-radius: 9px; vertical-align: 1px; background: rgba(217, 119, 6, .1); box-shadow: inset 0 0 0 1px rgba(217, 119, 6, .3); color: #8A4B0A; font-size: 11px; font-weight: 600; line-height: 1; letter-spacing: .01em; }
+body.dark-mode .auto-update-check .paid-tag { background: rgba(251, 191, 36, .12); box-shadow: inset 0 0 0 1px rgba(251, 191, 36, .32); color: #F2C66D; }
+.auto-update-check .auto-update-paid a { white-space: nowrap; }
+.hosting-limit.auto-update-note { font-weight: 400; line-height: 1.5; }

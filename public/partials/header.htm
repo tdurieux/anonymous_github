@@ -54,13 +54,13 @@
       <!-- "Report a bug" is about this service. Reviewers who land on an
            anonymized repository often think it is about the paper, so the
            label names the service and the tooltip says who to contact. -->
-      <li class="nav-item d-none d-lg-block">
+      <li class="nav-item nav-extra-item d-none d-lg-block" :class="{'in-user-menu': !!user?.username}">
         <a class="nav-link" target="_blank" rel="noopener" href="https://github.com/tdurieux/anonymous_github/issues/new?template=issue_report.yml" title="Report a problem with the Anonymous GitHub service. Questions about an anonymized repository or paper go to its authors." data-offset="30"><svg class="ui-icon d-lg-none mr-1" aria-hidden="true"><use href="#ui-icon-bug"></use></svg>Report a bug
         </a>
       </li>
 
 
-      <li class="nav-item nav-support-item d-none d-lg-block">
+      <li class="nav-item nav-support-item nav-extra-item d-none d-lg-block" :class="{'in-user-menu': !!user?.username}">
         <a class="nav-link nav-support-inline" href="https://ko-fi.com/tdurieux" target="_blank" rel="noopener" title="Donate on Ko-fi to help cover hosting costs">
           <svg class="ui-icon nav-heart" aria-hidden="true"><use href="#ui-icon-heart"></use></svg>Support
         </a>
