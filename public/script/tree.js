@@ -59,15 +59,16 @@ export function fileHierarchy(files) {
 
 export default {
   name: "FileTree",
-  props: ["file", "parent", "searchQuery", "searchResults", "page"],
-  setup(props) {
+  props: ["file", "parent", "searchQuery", "searchResults", "page", "selectedPath"],
+  emits: ["select"],
+  setup(props, { emit }) {
     const route = useRoute();
     const host = ref(null);
     const opens = reactive(Object.create(null));
     let focusedPath = null;
     const hierarchy = computed(() => fileHierarchy(props.file));
-    const selectedPath = () => "/" + (Array.isArray(route.params.path) ? route.params.path.join("/") : route.params.path || "");
-    watch(() => [route.params.repoId, route.params.path], () => {
+    const selectedPath = () => props.selectedPath ?? "/" + (Array.isArray(route.params.path) ? route.params.path.join("/") : route.params.path || "");
+    watch(() => [route.params.repoId, route.params.path, props.selectedPath], () => {
       let path = "";
       selectedPath().split("/").filter(Boolean).forEach(part => { path += "/" + part; opens[path] = true; });
     }, { immediate: true });
@@ -87,8 +88,14 @@ export default {
       if (!link) return;
       focusedPath = link.dataset.path;
       link.classList.add("tree-focused");
-      link.scrollIntoView?.({ block: "nearest" });
-      host.value.focus();
+      // Keep keyboard navigation inside the tree, including an embedded viewer.
+      const scroller = host.value.scrollHeight > host.value.clientHeight ? host.value : host.value.closest(".leftCol-body");
+      if (scroller) {
+        const row = link.getBoundingClientRect(), bounds = scroller.getBoundingClientRect();
+        if (row.top < bounds.top) scroller.scrollTop -= bounds.top - row.top;
+        else if (row.bottom > bounds.bottom) scroller.scrollTop += row.bottom - bounds.bottom;
+      }
+      host.value.focus({ preventScroll: true });
     };
     function keyboard(event) {
       const links = visibleLinks();
@@ -151,7 +158,10 @@ export default {
           splitName ? [h("span", { class: { "tree-name-head": true, "is-cut": !!middle } }, redactedNodes(head)), middle ? h("span", { class: "tree-name-middle" }, middle) : null, h("span", { class: "tree-name-tail" }, tail)] : breakableNodes(name));
         const onClick = event => {
           focus(event.currentTarget);
-          if (!folder) return;
+          if (!folder) {
+            if (props.selectedPath !== undefined) { event.preventDefault(); emit("select", path); }
+            return;
+          }
           event.preventDefault();
           opens[path] = !open;
           if (opens[path] && !node.children.length) props.page.getFiles(path.slice(1));
@@ -159,6 +169,8 @@ export default {
         };
         const link = h("a", {
           "data-path": path,
+          "aria-expanded": folder ? String(open) : undefined,
+          "aria-current": !folder && selectedPath() === path ? "page" : undefined,
           href: folder ? undefined : `/r/${encodeURIComponent(route.params.repoId)}${encodePathForUrl(path)}`,
           class: { "tree-focused": focusedPath === path },
           onClick,

@@ -28,6 +28,9 @@ function harness(date) {
   context.createTimers = () => ({ timeout: Object.assign(context.setTimeout, { cancel: context.clearTimeout }), interval: Object.assign(context.setInterval, { cancel: context.clearInterval }) });
   context.createListeners = () => (target, name, callback) => target.addEventListener(name, callback);
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, "../public/script/billing.js"), "utf8").replaceAll("export function", "function"), context);
+  context.createPageState = parent => Object.create(parent);
+  const viewerSource = fs.readFileSync(path.join(__dirname, "../public/script/file-viewer.js"), "utf8");
+  vm.runInNewContext(viewerSource.replace(/^import .*;$/gm, "").replace(/export const/g, "var"), context);
   const names = [...source.matchAll(/export const (\w+)/g)].map(match => match[1]);
   vm.runInNewContext(source.replace(/^import .*;$/gm, "").replace(/export const/g, "var") + "\nthis.pageSetups = {" + names.join(",") + "};", context);
   Object.assign(defs, context.pageSetups);
@@ -267,7 +270,7 @@ describe("frontend production regressions", function () {
     h.scope.openPreserveFiles();
     h.requests.at(-1).resolve({ data: { files: ["README.md", "src/a.py"], binaryFiles: ["fig.png"], truncated: false } });
     await h.flush();
-    expect(h.scope.previewTree().map(row => [row.name, !!row.active])).to.deep.equal([["src", false], ["fig.png", false], ["README.md", true]]);
+    expect(Array.from(h.scope.previewTreeFiles(), row => row.name)).to.include.members(["a.py", "fig.png", "README.md"]);
   });
   it("opens a file of the preview tree, redacted like the README unless it is left unredacted", async function () {
     const h = harness(); const pending = []; const timeout = fn => { pending.push(fn); return pending.length; }; timeout.cancel = () => {};
@@ -296,27 +299,29 @@ describe("frontend production regressions", function () {
     await h.flush();
     expect(h.scope.previewStatus).to.equal("ready");
     expect(h.scope.previewRedactions()).to.equal(1);
-    expect(h.scope.previewDoc.html).to.include('class="language-python"');
-    expect(h.scope.previewFileLabel()).to.equal("Python");
-    expect(h.scope.previewTree().find(row => row.active).path).to.equal("src/a.py");
-    // A file left unredacted is sent without terms.
+    expect(h.scope.previewViewer.content).to.equal("# XXXX-1\nprint(1)\n");
+    expect(h.scope.previewViewer.aceOption.mode).to.equal("python");
+    expect(h.scope.previewViewer.languageName).to.equal("Python");
+    // The server receives the terms and preservation rules, just like the streamer.
     h.scope.options.preserveFiles = ["*.bib"];
     h.scope.openPreviewFile("paper/refs.bib");
     h.requests.at(-1).resolve({ data: "author = {Jane Smith}", headers: () => "text/plain" });
     await h.flush();
     pending.splice(0).forEach(fn => fn());
-    expect(Array.from(h.requests.at(-1).body.options.terms)).to.deep.equal([]);
+    expect(Array.from(h.requests.at(-1).body.options.terms)).to.deep.equal(["Jane Smith"]);
+    expect(h.requests.at(-1).body.options.filePath).to.equal("paper/refs.bib");
+    expect(Array.from(h.requests.at(-1).body.options.preserveFiles)).to.deep.equal(["*.bib"]);
     expect(h.scope.previewPreserved()).to.equal(true);
     // Binary files are not fetched; the server's { binary: true } is a note too.
     const before = h.requests.length;
     h.scope.openPreviewFile("fig.png");
     expect(h.requests.length).to.equal(before);
-    expect(h.scope.previewDoc.kind).to.equal("note");
+    expect(h.scope.previewViewer.type).to.equal("binary");
     expect(h.scope.previewStatus).to.equal("ready");
     h.scope.openPreviewFile("src/a.py");
     h.requests.at(-1).resolve({ data: JSON.stringify({ binary: true, size: 10 }), headers: () => "application/json; charset=utf-8" });
     await h.flush();
-    expect(h.scope.previewDoc.kind).to.equal("note");
+    expect(h.scope.previewViewer.type).to.equal("binary");
     // Back to the README.
     h.scope.openPreviewFile("README.md");
     expect(h.scope.previewFile).to.equal("");

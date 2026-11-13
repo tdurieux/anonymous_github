@@ -1,4 +1,6 @@
 import * as express from "express";
+import { isPreservedPath, normalizePreserveFiles } from "../../core/preserve-files";
+import { isSafeSourcePath } from "../../core/source-file-list";
 import { ContentAnonimizer } from "../../core/anonymize-utils";
 import { handleError } from "./route-utils";
 import { ensureAuthenticated } from "./connection";
@@ -21,6 +23,8 @@ router.post("/", async (req: express.Request, res: express.Response) => {
       contents?: unknown;
       options?: {
         terms?: string[];
+        filePath?: string;
+        preserveFiles?: string[];
         image?: boolean;
         link?: boolean;
         repoName?: string;
@@ -44,11 +48,20 @@ router.post("/", async (req: express.Request, res: express.Response) => {
     }
 
     const opt = body.options || {};
+    const preserveFiles = normalizePreserveFiles(opt.preserveFiles);
+    if (!preserveFiles) return res.status(400).json({ error: "invalid_preserve_files_format" });
+    if (opt.filePath !== undefined && (typeof opt.filePath !== "string" || !isSafeSourcePath(opt.filePath))) {
+      return res.status(400).json({ error: "invalid_path" });
+    }
+    // Identical to Anonymize: preserving a file disables term replacement only.
+    // Image/link options and self-link rewriting still apply.
+    const terms = isPreservedPath(opt.filePath, preserveFiles) ? [] : opt.terms;
+    res.set("Cache-Control", "private, no-store");
     // Construct one anonymizer per snippet so the wasAnonymized flag is per
     // input. ContentAnonimizer is cheap to instantiate.
     const outputs = inputs.map((content) => {
       const a = new ContentAnonimizer({
-        terms: Array.isArray(opt.terms) ? opt.terms : [],
+        terms: Array.isArray(terms) ? terms : [],
         image: opt.image,
         link: opt.link,
         repoName: opt.repoName,

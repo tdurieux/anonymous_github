@@ -481,24 +481,43 @@ app.get(SOURCE_BASE + "/file", (req, res) => {
     res.type("text/plain; charset=utf-8").send(sourceText[file]);
   }, Number(process.env.MOCK_FILE_DELAY || 150));
 });
-// The server's ContentAnonimizer, reduced to what the fixtures need: each
-// term (case-insensitive, whole words) becomes XXXX-<n>; link/image removal
-// when the options ask for it.
+// Use the production anonymizer for both sides of the visual comparison.
+require("ts-node/register/transpile-only");
+const { ContentAnonimizer } = require("../src/core/anonymize-utils");
+const { isPreservedPath } = require("../src/core/preserve-files");
+const fixtureOptions = { terms: ["Jane Smith", "MIT CSAIL", "jsmith"], image: true, link: true, repoName: "jsmith/robust-repair", branchName: "main", repoId: "robust-repair-preview" };
+function anonymizeFixture(text, opt) {
+  return new ContentAnonimizer({ ...opt, terms: isPreservedPath(opt.filePath, opt.preserveFiles) ? [] : opt.terms }).anonymize(text);
+}
 app.post("/api/anonymize-preview", express.json({ limit: "4mb" }), (req, res) => {
-  const body = req.body || {};
-  const opt = body.options || {};
-  const terms = (Array.isArray(opt.terms) ? opt.terms : []).map((t) => String(t).trim()).filter(Boolean);
-  const escape = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const anonymize = (text) => {
-    if (opt.image === false) text = text.replace(/!\[[^\]]*\]\([^)]*\)/g, "XXXX");
-    if (opt.link === false) text = text.replace(/https?:\/\/[^\s)>\]]+/g, "XXXX");
-    if (opt.repoName && opt.repoId) text = text.replace(new RegExp(`https://github\\.com/${escape(opt.repoName)}(?=$|[/?#\\s)])`, "gi"), `https://anonymous.4open.science/r/${opt.repoId}`);
-    terms.forEach((term, i) => { text = text.replace(new RegExp(`(?<![\\p{L}\\p{N}_])${escape(term)}(?![\\p{L}\\p{N}_])`, "giu"), `XXXX-${i + 1}`); });
-    return text;
-  };
-  if (typeof body.content === "string") return res.json({ content: anonymize(body.content) });
-  if (Array.isArray(body.contents) && body.contents.every((c) => typeof c === "string")) return res.json({ contents: body.contents.map(anonymize) });
+  const body = req.body || {}, opt = body.options || {};
+  res.set("Cache-Control", "private, no-store");
+  if (typeof body.content === "string") return res.json({ content: anonymizeFixture(body.content, opt) });
+  if (Array.isArray(body.contents) && body.contents.every(c => typeof c === "string")) return res.json({ contents: body.contents.map(text => anonymizeFixture(text, opt)) });
   res.status(400).json({ error: "missing_content" });
+});
+// A reviewer repository generated from the exact source fixtures above.
+const fixturePath = path => anonymizeFixture(path, { terms: fixtureOptions.terms });
+const fixturePaths = [...Object.keys(sourceText), ...sourceBinary, ...sourceTooBig];
+app.get("/api/repo/robust-repair-preview/options", (req, res) => res.json({ download: true, truncatedFolders: [], hasSubmodules: false }));
+app.get("/api/repo/robust-repair-preview/files/counts", (req, res) => res.json({ "": fixturePaths.length }));
+app.get("/api/repo/robust-repair-preview/files", (req, res) => {
+  const dir = String(req.query.path || ""), entries = new Map();
+  for (const sourcePath of fixturePaths) {
+    const name = fixturePath(sourcePath);
+    if (dir && !name.startsWith(dir + "/")) continue;
+    const rest = dir ? name.slice(dir.length + 1) : name;
+    const [first, ...nested] = rest.split("/");
+    entries.set(first, nested.length ? { name: first, path: dir } : { name: first, path: dir, size: Buffer.byteLength(sourceText[sourcePath] || ""), sha: "fixture" });
+  }
+  res.json([...entries.values()]);
+});
+app.get("/api/repo/robust-repair-preview/file/{*rest}", (req, res) => {
+  const sourcePath = fixturePaths.find(file => fixturePath(file) === req.params.rest.join("/"));
+  if (sourceTooBig.includes(sourcePath)) return res.status(413).json({ error: "file_too_big" });
+  if (sourceBinary.includes(sourcePath)) return res.type("png").send(galleryPng);
+  if (!sourcePath) return res.status(404).json({ error: "file_not_found" });
+  res.type("text/plain").send(anonymizeFixture(sourceText[sourcePath], { ...fixtureOptions, filePath: sourcePath }));
 });
 
 app.get("/api/repo/:id", (req, res) => {
