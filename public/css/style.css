@@ -8356,26 +8356,8 @@ body.dark-mode .preserve-dialog { background: #242320; color: #faf9f6; }
 .reviewer-preview pre, .reviewer-preview .markdown-body pre, .reviewer-preview .pr-diff pre, .reviewer-preview .pr-diff table { max-width: 100%; }
 .reviewer-preview pre { overflow-x: hidden !important; white-space: pre-wrap !important; overflow-wrap: anywhere !important; word-break: normal !important; }
 .reviewer-preview pre code, .reviewer-preview pre code span { white-space: pre-wrap !important; overflow-wrap: anywhere !important; word-break: normal !important; }
-@media (min-width: 768px) {
-  .reviewer-preview .rp-body.has-tree .anonymize-preview-body {
-    padding-left: 32px !important;
-    padding-right: 32px !important;
-    max-width: none;
-  }
-}
-@media (min-width: 768px) {
-  /* Each paragraph, list, heading or code block sits wholly beside the rail or wholly below it (none changes width
-     mid-way); wrapper divs are not boxed, so the blocks after the rail use the full width. */
-  .reviewer-preview .rp-body.has-tree .anonymize-preview-body li > :is(p, ul, ol) { display: block; }
-}
 .reviewer-preview pre code .code-line { display: inline-block; width: 100%; box-sizing: border-box; padding-left: var(--hang, 4ch); text-indent: calc(-1 * var(--hang, 4ch)); vertical-align: top; }
 .reviewer-preview pre code .md-diff-line { padding-left: calc(var(--diff-pad) + var(--hang, 4ch)); text-indent: calc(-1 * var(--hang, 4ch)); vertical-align: top; }
-@media (min-width: 768px) {
-  .reviewer-preview .rp-body.has-tree > .rp-tree .rp-tree-row.rp-skel-row { width: 120px; }
-}
-@media (min-width: 768px) {
-  .reviewer-preview .rp-body.has-tree .anonymize-preview-body :is(p, ul, ol, dl, h1, h2, h3, h4, h5, h6, blockquote, hr) { display: revert; }
-}
 .reviewer-preview pre, .reviewer-preview pre code { font-family: var(--font-mono) !important; font-size: 12px !important; line-height: 20px !important; }
 .reviewer-preview pre code { display: block; }
 .dark-mode .reviewer-preview pre code .md-diff-line.is-add { background: #1E2A20; }
@@ -10013,16 +9995,6 @@ pre { --diff-pad: 15px; }
 }
 .repo-picker-list::-webkit-scrollbar-track { background: transparent; }
 .repo-picker-list::-webkit-scrollbar-thumb { background: var(--scroll-thumb, #CFC7B9); border-radius: 3px; }
-@media (min-width: 768px) {
-  .reviewer-preview .rp-body.has-tree .rp-file-head {
-    margin-left: 0;
-    position: relative;
-    padding-left: 32px !important;
-    padding-right: 32px !important;
-    border-top: 1px solid var(--rp-line);
-    border-bottom: 1px solid var(--rp-line);
-  }
-}
 .anonymize-page .source-url-label-row .repo-access-switch::before { content: none !important; display: none !important; }
 .dark-mode .anonymize-page .source-url-label-row .repo-access-switch { background: var(--canvas-bg-color) !important; }
 /* Admin: numerals in Inter, readable small labels, honest colours */
@@ -13668,26 +13640,6 @@ input[type="date"].form-control { font-family: var(--font-sans) !important; font
 .reviewer-preview .rp-bar-id { padding-left: 12px; border-left: 1px solid var(--rp-line); font: 500 12px/1 var(--font-mono, ui-monospace, monospace); color: var(--color); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .reviewer-preview .rp-bar-kind { margin-left: auto; font-size: 12px; color: var(--ink-muted); }
 .reviewer-preview .rp-body { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0,1fr); }
-.reviewer-preview .rp-body.has-tree { grid-template-columns: 188px minmax(0,1fr); }
-.reviewer-preview .rp-tree {
-  min-height: 0;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 10px 8px;
-  background: var(--rp-tree);
-  align-self: start;
-  padding-bottom: 56px !important;
-  border-right: 0 !important;
-  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 48px), transparent);
-  mask-image: linear-gradient(to bottom, #000 calc(100% - 48px), transparent);
-  box-shadow: inset -1px 0 0 var(--rp-line);
-}
-.reviewer-preview .rp-tree-row { display: flex; align-items: center; gap: 7px; height: 26px; padding: 0 8px; border-radius: 4px; font-size: 13px; color: var(--color); white-space: nowrap; min-width: 0; }
-.reviewer-preview .rp-tree-icon { width: 14px; height: 14px; flex: none; fill: none; stroke: var(--ink-muted); stroke-width: 1.2; }
-.reviewer-preview .rp-tree-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.reviewer-preview .rp-tree-row.is-active { background: var(--hover-bg-color, #EDEAE4); box-shadow: inset 2px 0 0 var(--accent); font-weight: 500; }
 .reviewer-preview .rp-doc { min-height: 0; min-width: 0; overflow: auto; scrollbar-width: thin; position: relative; }
 .reviewer-preview .rp-file-head { position: sticky; top: 0; z-index: 1; display: flex; align-items: baseline; gap: 10px; padding: 10px 24px; background: var(--rp-window); border-bottom: 1px solid var(--rp-line); font-size: 13px; }
 .reviewer-preview .rp-file-name { font-weight: 600; color: var(--color); }
@@ -13725,14 +13677,11 @@ input[type="date"].form-control { font-family: var(--font-sans) !important; font
   .reviewer-preview .rp-window { margin: 0; border: 1px solid var(--rp-line); border-radius: 10px; min-height: 64vh; }
   .reviewer-preview .rp-chrome { height: 30px; }
   .reviewer-preview .rp-url { font-size: 11px; margin-left: 6px; }
-  .reviewer-preview .rp-body.has-tree { grid-template-columns: minmax(0,1fr); }
-  .reviewer-preview .rp-tree { display: none; }
-  .reviewer-preview .rp-file-head { padding: 9px 16px; }
+      .reviewer-preview .rp-file-head { padding: 9px 16px; }
   .anonymize-page .reviewer-preview .anonymize-preview-body { padding: 18px 16px 28px !important; }
   .reviewer-preview .rp-state { padding: 20px 16px; }
   .reviewer-preview .rp-error, .reviewer-preview .rp-empty { margin: 16px; }
 }
-.reviewer-preview .rp-tree-note { margin: 10px 8px 0; font-size: 12px; line-height: 1.5; color: var(--ink-muted); white-space: normal; }
 .anonymize-page .submit-reason { margin: 8px 0 0; font-size: 12.5px; line-height: 1.45; color: var(--ink-muted); text-align: center; }
 
 /* ----- File viewer ----- */
@@ -14004,34 +13953,6 @@ pre code mark.redact-chip,
   .file-card-head .file-card-path > .breadcrumb { overflow: hidden; }
   .file-card-head .file-card-path > .copy-path-btn { display: none !important; }
 }
-@media (min-width: 768px) {
-  .reviewer-preview .rp-body.has-tree {
-    display: grid !important;
-    grid-template-columns: 188px minmax(0, 1fr);
-    align-items: start;
-    overflow: auto;
-    scrollbar-width: thin;
-  }
-  .reviewer-preview .rp-body.has-tree>.rp-tree {
-    box-sizing: border-box;
-    padding: 10px 8px 14px !important;
-    -webkit-mask-image: none !important;
-    mask-image: none !important;
-    box-shadow: none !important;
-    border-right: 1px solid var(--rp-line) !important;
-    border-bottom: 1px solid var(--rp-line) !important;
-    border-bottom-right-radius: 10px;
-    float: none;
-    position: sticky;
-    top: 0;
-    align-self: start;
-    width: auto;
-    margin: 0 !important;
-    z-index: 2;
-  }
-  .reviewer-preview .rp-body.has-tree>.rp-doc { min-height: 0; overflow: visible !important; min-width: 0; margin-top: 0 !important; }
-  .reviewer-preview .rp-body.has-tree .rp-state { margin-left: 0 !important; padding-left: 0 !important; }
-}
 .anonymize-page .source-url-label-row { display: flex !important; flex-direction: row !important; align-items: center !important; justify-content: space-between !important; flex-wrap: nowrap !important; gap: 12px !important; min-height: 32px; margin-bottom: 8px !important; }
 .anonymize-page .source-url-label-row > .repo-access { display: flex !important; justify-content: flex-end !important; margin: 0 0 0 auto !important; padding: 0 !important; border: 0 !important; background: none !important; flex: none !important; width: auto !important; order: 0 !important; }
 .anonymize-page .source-url-label-row .repo-access-switch { display: inline-flex !important; align-items: center; gap: 0 !important; padding: 2px !important; border: 1px solid var(--border-color) !important; border-radius: 7px !important; background: var(--paper-bg-alt) !important; width: auto !important; flex: none !important; max-width: none !important; margin: 0 !important; }
@@ -14058,10 +13979,6 @@ pre code mark.redact-chip,
 }
 @media (min-width: 768px) {
   .admin-page .paper-table.paper-table-repos .anon-sub:has(.meta-sep) > :first-child { flex: 0 1 auto !important; min-width: 6ch !important; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-}
-@media (min-width: 768px) {
-  .reviewer-preview .rp-body.has-tree .anonymize-preview-body :is(p, ul, ol, dl, h1, h2, h3, h4, h5, h6, pre, blockquote, hr, .highlight) { display: revert; }
-  .reviewer-preview .rp-body.has-tree .anonymize-preview-body :is(pre,.highlight) { display: block; }
 }
 .reviewer-preview .diff-file-table .diff-code { padding-left: calc(12px + var(--hang, 4ch)); text-indent: calc(-1 * var(--hang, 4ch)); }
 .explorer-content notebook .nb-code-scroll { position: relative; }
@@ -14113,52 +14030,12 @@ pre code mark.redact-chip,
 @media (max-width: 767px) {
   .anonymize-page .source-url-label-row .repo-access-switch.repo-access-switch { padding: 3px !important; border-radius: 8px !important; height: 36px; box-sizing: border-box; }
 }
-@media (min-width: 768px) {
-  .reviewer-preview .rp-body.has-tree.has-tree { display: block !important; overflow: auto; scrollbar-width: thin; }
-  .reviewer-preview .rp-body.has-tree>.rp-tree.rp-tree {
-    position: static !important;
-    float: none;
-    display: flex !important;
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    box-sizing: border-box;
-    margin: 0 !important;
-    overflow: visible;
-    background: var(--rp-tree);
-    -webkit-mask-image: none !important;
-    mask-image: none !important;
-    box-shadow: none !important;
-    width: 100% !important;
-    max-width: none;
-    padding: 7px 32px 7px 24px !important;
-    gap: 2px 4px;
-    border: 0 !important;
-    border-bottom: 1px solid var(--rp-line) !important;
-    border-radius: 0 !important;
-    padding-left: 32px !important;
-  }
-  .reviewer-preview .rp-body.has-tree > .rp-tree .rp-tree-row { flex: 0 0 auto; max-width: 220px; }
-  .reviewer-preview .rp-body.has-tree>.rp-tree .rp-tree-note {
-    flex: 0 1 auto;
-    line-height: 1.45;
-    margin: 0 0 0 auto !important;
-    padding-left: 16px;
-    max-width: 480px;
-    font-size: 12px !important;
-    text-align: right;
-    color: var(--ink-muted) !important;
-  }
-}
 .reviewer-preview pre code :is(.md-diff-line, .code-line) { line-height: 20px !important; vertical-align: top; margin-top: 0; margin-bottom: 0; border: 0; box-shadow: none; outline: 0; }
 .status-dot.status-dot:is(.st-expiring, .st-removing, .status-expiring, .status-removing) { background: linear-gradient(90deg, var(--st-off) 50%, transparent 50%) !important; box-shadow: inset 0 0 0 1.5px var(--st-off) !important; }
 .errors-page .errors-group-count { margin-left: 6px; }
 .dark-mode .errors-page .errors-group-count { background: rgba(255,255,255,.07); }
 @media (min-width: 768px) {
   .admin-page .paper-table-repos .cell-status .status-sub { display: -webkit-box !important; -webkit-box-orient: vertical; -webkit-line-clamp: 2; white-space: normal !important; overflow: hidden; text-overflow: clip; }
-}
-@media (min-width: 768px) {
-  .reviewer-preview .rp-body.has-tree > .rp-tree + .rp-doc .rp-file-head { border-top: 0 !important; }
 }
 @media (min-width: 768px) {
   .admin-page.admin-page .paper-table.paper-table-repos .anon-sub.anon-sub > * { flex: 0 0 auto !important; min-width: 0 !important; max-width: 100% !important; overflow: visible; text-overflow: clip; }
@@ -14172,8 +14049,6 @@ pre code mark.redact-chip,
 @media (min-width: 768px) {
   .dashboard-page .paper-table.paper-table-dashboard .paper-table-row.repo-error { padding-left: 12px !important; box-shadow: inset 3px 0 0 var(--status-error) !important; border-left: 0 !important; }
 }
-.reviewer-preview .rp-tree-label { display: inline-flex; align-items: center; gap: 6px; margin: 0; padding: 3px 0; font-size: 12px; font-weight: 500; line-height: 18px; color: var(--ink-muted); white-space: nowrap; }
-.reviewer-preview .rp-tree-label .rp-tree-icon { width: 14px; height: 14px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.2; }
 .admin-page.admin-page .paper-table .cell-anon .anon-sub.anon-meta { display: flex !important; flex-wrap: nowrap; align-items: center; min-width: 0; max-width: 100%; height: auto !important; overflow: hidden; margin-left: 0 !important; gap: 0 !important; line-height: 18px; }
 
 /* ----- Admin ----- */
@@ -14298,12 +14173,6 @@ body.dark-mode .errors-page .sev-dot.sev-info { background: var(--ink-faint) !im
    keeps the entries that fit (folders first), always the README, and counts
    the rest in a "+N more" chip. Entries past the fit stay measurable but are
    out of the flow. */
-@media (min-width: 768px) {
-  .reviewer-preview .rp-body.has-tree > .rp-tree.rp-tree { flex-wrap: nowrap !important; overflow: hidden !important; position: relative !important; gap: 4px !important; }
-  .reviewer-preview .rp-body.has-tree > .rp-tree .rp-tree-row { flex: 0 0 auto; max-width: 180px; }
-  .reviewer-preview .rp-body.has-tree > .rp-tree .rp-tree-row.is-overflow { position: absolute !important; visibility: hidden; pointer-events: none; left: 0; top: 0; }
-  .reviewer-preview .rp-tree-more { flex: none; display: inline-flex; align-items: center; height: 22px; padding: 0 8px; margin-left: 2px; border-radius: 11px; border: 1px solid var(--rp-line); font-size: 12px; font-weight: 500; color: var(--ink-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
-}
 
 /* F6. Workspace submit bar: always fits its column. The button keeps its
    natural width and never shrinks or clips; the draft note beside it takes
@@ -14332,3 +14201,41 @@ body.dark-mode .errors-page .sev-dot.sev-info { background: var(--ink-faint) !im
 body.dark-mode .auto-update-check .paid-tag { background: rgba(251, 191, 36, .12); box-shadow: inset 0 0 0 1px rgba(251, 191, 36, .32); color: #F2C66D; }
 .auto-update-check .auto-update-paid a { white-space: nowrap; }
 .hosting-limit.auto-update-note { font-weight: 400; line-height: 1.5; }
+
+/* F8. Reviewer preview: a vertical file tree, a miniature of the explorer.
+   The sidebar is tinted like the explorer's .leftCol (#F3F1EC / #1F1D1A; the
+   workspace overrides --paper-bg-alt, so the values are spelled out) and runs the full
+   height of the window; the tree and the document scroll on their own. Rows
+   reuse the explorer's .files tree styles; nesting is drawn per row (--depth)
+   with the explorer's 16px step and guide line. Phones hide the sidebar and
+   show the explorer's "Files" button in the file bar instead. */
+.reviewer-preview .rp-body.has-side { display: grid; grid-template-columns: clamp(180px, 24%, 240px) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); overflow: hidden; }
+.reviewer-preview .rp-body.has-side > .rp-doc { min-height: 0; overflow: auto; }
+.reviewer-preview .rp-side { min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; background: #F3F1EC; border-right: 1px solid var(--border-color); }
+.dark-mode .reviewer-preview .rp-side { background: #1F1D1A; }
+.reviewer-preview .rp-side .files.rp-files { height: auto; overflow: visible; margin: 0; padding: 8px 6px; list-style: none; }
+.reviewer-preview .rp-files > li { padding-left: calc(var(--depth, 0) * 16px); background-image: repeating-linear-gradient(to right, transparent 0 7px, var(--border-color) 7px 8px, transparent 8px 16px); background-size: calc(var(--depth, 0) * 16px) 100%; background-repeat: no-repeat; word-break: normal; }
+.reviewer-preview .rp-files a { min-height: 26px; cursor: default; user-select: none; }
+.reviewer-preview .rp-files .file:not(.folder) > a:hover { background: transparent; }
+.reviewer-preview .rp-files .file.active:not(.folder) > a:hover { background: #E8E5DD; }
+.dark-mode .reviewer-preview .rp-files .file.active:not(.folder) > a:hover { background: rgba(255,255,255,.1); }
+.reviewer-preview .rp-files .folder > a { cursor: pointer; }
+.reviewer-preview .rp-files .folder > a:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.reviewer-preview .rp-files-skel { list-style: none; margin: 0; padding: 8px 6px; }
+.reviewer-preview .rp-files-skel li { display: flex; align-items: center; height: 26px; padding: 0 8px 0 21px; }
+.reviewer-preview .rp-files-skel .rp-skel { height: 9px; }
+@media (prefers-reduced-motion: no-preference) { .reviewer-preview .rp-files-skel .rp-skel { animation: rp-pulse 1.4s ease-in-out infinite; } }
+.reviewer-preview .rp-side-note { margin: 4px 14px 12px; font-size: 12px; line-height: 1.5; color: var(--ink-muted); }
+.reviewer-preview .rp-files-btn { display: none; }
+@media (min-width: 768px) {
+  .reviewer-preview .rp-body.has-side .rp-file-head { padding-left: 32px; padding-right: 32px; }
+}
+@media (max-width: 767px) {
+  .reviewer-preview .rp-body.has-side { display: block; overflow: visible; }
+  .reviewer-preview .rp-side { display: none; }
+  .reviewer-preview .rp-body.has-side .rp-file-head { align-items: center; padding: 6px 16px 6px 8px; }
+  .reviewer-preview .rp-files-btn { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border: 1px solid var(--border-color); border-radius: 6px; background: #F3F1EC; font-size: 13px; font-weight: 500; color: var(--color); white-space: nowrap; }
+  .dark-mode .reviewer-preview .rp-files-btn { background: #1F1D1A; }
+  .reviewer-preview .rp-files-btn .ui-icon { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; }
+  .reviewer-preview .rp-files-count { font-weight: 400; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+}

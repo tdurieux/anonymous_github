@@ -1984,76 +1984,50 @@ export const anonymizeController = function (state, http, html, params, location
         cache.forEach((value) => { n += count(value); });
         return n;
       };
-      // Top-level entries for the preview's miniature file tree, from the same
-      // tree the Unredacted-files picker loads (folders first, like the explorer).
+      // The preview's miniature file tree, from the same tree the
+      // Unredacted-files picker loads. Like the explorer: folders first, then
+      // files, each alphabetical; folders start collapsed and open on click.
+      // Only the open folders' rows are built, so large repositories stay cheap.
+      state.previewTreeOpen = {};
+      const byName = (a, b) => a.localeCompare(b, undefined, { sensitivity: "base" });
+      const baseName = (path) => path.slice(path.lastIndexOf("/") + 1);
       state.previewTree = () => {
         if (!state.preserve.commit || !preserveIndex) return [];
-        const root = preserveIndex.dirs.get("");
-        if (!root) return [];
-        const readme = root.files.find((f) => /^readme(\.|$)/i.test(f));
-        const dirs = root.dirs.slice(0, 9).map((d) => ({ name: d, dir: true }));
-        const files = [...root.files].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" })).slice(0, Math.max(3, 14 - dirs.length)).map((f) => ({ name: f, dir: false, readme: f === readme }));
-        if (readme && !files.some((f) => f.readme)) files.push({ name: readme, dir: false, readme: true });
-        return [...dirs, ...files];
+        const readme = (preserveIndex.dirs.get("")?.files || []).find((f) => /^readme(\.|$)/i.test(f));
+        const rows = [];
+        const walk = (dir, depth) => {
+          const node = preserveIndex.dirs.get(dir);
+          if (!node) return;
+          for (const sub of [...node.dirs].sort((a, b) => byName(baseName(a), baseName(b)))) {
+            const open = !!state.previewTreeOpen[sub];
+            rows.push({ path: sub, name: baseName(sub), dir: true, open, depth });
+            if (open) walk(sub, depth + 1);
+          }
+          for (const file of [...node.files].sort((a, b) => byName(baseName(a), baseName(b)))) {
+            rows.push({ path: file, name: baseName(file), dir: false, readme: file === readme, depth });
+          }
+        };
+        walk("", 0);
+        return rows;
       };
-      // The preview's file strip is one row: the first entries that fit
-      // (folders first), the README always, then "+N more". All entries render
-      // so they can be measured; the ones past the fit are taken out of the flow.
-      state.previewTreeFit = Infinity;
-      state.previewTreeTotal = () => {
+      state.previewTreeCount = () => {
         const root = state.preserve.commit && preserveIndex ? preserveIndex.dirs.get("") : null;
         return root ? root.dirs.length + root.files.length : 0;
       };
-      state.previewTreeShows = (entry, index) => entry.readme
-        || state.previewTree().slice(0, index).filter((e) => !e.readme).length < state.previewTreeFit;
-      state.previewTreeMore = () => {
-        const tree = state.previewTree();
-        const shown = tree.filter((entry, index) => state.previewTreeShows(entry, index)).length;
-        return Math.max(0, state.previewTreeTotal() - shown);
+      // Like the explorer, the selected README is scrolled into the sidebar's
+      // view when the list loads (only the sidebar scrolls, not the page).
+      function revealPreviewReadme() {
+        nextTick(() => {
+          const nav = document.querySelector(".reviewer-preview .rp-side");
+          const row = nav?.querySelector(".rp-files > li.active");
+          if (!nav || !row || !nav.clientHeight) return;
+          const bottom = row.getBoundingClientRect().bottom - nav.getBoundingClientRect().top + nav.scrollTop;
+          if (bottom > nav.scrollTop + nav.clientHeight) nav.scrollTop = bottom - nav.clientHeight + row.offsetHeight * 2;
+        });
+      }
+      state.togglePreviewFolder = (path) => {
+        state.previewTreeOpen[path] = !state.previewTreeOpen[path];
       };
-      const treeListen = createListeners();
-      const treeTimers = createTimers();
-      let treeObserver = null;
-      let observedTree = null;
-      let treeFitQueued = false;
-      const fitPreviewTree = () => {
-        treeFitQueued = false;
-        const nav = document.querySelector(".reviewer-preview .rp-tree");
-        if (nav !== observedTree) {
-          treeObserver?.disconnect();
-          observedTree = nav;
-          if (nav && typeof ResizeObserver === "function") {
-            treeObserver ||= new ResizeObserver(() => queuePreviewTreeFit());
-            treeObserver.observe(nav);
-          }
-        }
-        if (!nav || !nav.clientWidth) return;
-        const rows = [...nav.querySelectorAll(".rp-tree-row:not(.rp-skel-row)")];
-        if (!rows.length) return;
-        const cs = getComputedStyle(nav);
-        const gap = parseFloat(cs.columnGap) || 0;
-        const avail = nav.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-        const widths = rows.map((row) => row.getBoundingClientRect().width + gap);
-        const readmeWidth = rows.reduce((sum, row, i) => sum + (row.classList.contains("is-readme") ? widths[i] : 0), 0);
-        const others = widths.filter((_, i) => !rows[i].classList.contains("is-readme"));
-        const everything = others.reduce((a, b) => a + b, 0) + readmeWidth;
-        const total = state.previewTreeTotal();
-        if (everything <= avail && total <= rows.length) { if (state.previewTreeFit !== Infinity) state.previewTreeFit = Infinity; return; }
-        const more = nav.querySelector(".rp-tree-more");
-        const moreWidth = (more ? more.getBoundingClientRect().width : 72) + gap;
-        let used = readmeWidth + moreWidth;
-        let fit = 0;
-        while (fit < others.length && used + others[fit] <= avail) used += others[fit++];
-        if (state.previewTreeFit !== fit) state.previewTreeFit = fit;
-      };
-      const queuePreviewTreeFit = () => {
-        if (treeFitQueued) return;
-        treeFitQueued = true;
-        nextTick(() => treeTimers.timeout(fitPreviewTree, 0));
-      };
-      state.queuePreviewTreeFit = queuePreviewTreeFit;
-      treeListen(window, "resize", queuePreviewTreeFit);
-      state.on("dispose", () => { treeObserver?.disconnect(); treeObserver = null; });
       state.existingConfigurationUrl = () => {
         const previous = state.previousConfigurations.find(repo => repo.repoId === state.previousConfigurationId);
         return previous ? "/anonymize/" + encodeURIComponent(previous.repoId) : null;
@@ -2579,8 +2553,8 @@ export const anonymizeController = function (state, http, html, params, location
           preserveIndex = markRaw(buildPreserveIndex(res.data.files || []));
           state.preserve.commit = commit;
           state.preserve.truncated = !!res.data.truncated;
-          state.previewTreeFit = Infinity;
-          state.queuePreviewTreeFit?.();
+          state.previewTreeOpen = {};
+          revealPreviewReadme();
         } catch (error) {
           state.preserve.error = "The file list could not be loaded from GitHub. You can still use patterns.";
           state.preserve.patternsOpen = true;

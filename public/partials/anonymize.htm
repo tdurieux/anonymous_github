@@ -542,20 +542,23 @@
         <div class="rp-window">
           <div class="rp-chrome" aria-hidden="true"><i></i><i></i><i></i><span class="rp-url">{{ previewUrl() || 'anonymous.4open.science' }}</span></div>
           <div class="rp-bar" aria-hidden="true"><span class="vb-logo">Anonymous <em>GitHub</em></span><span class="rp-bar-id" v-if="previewId()">{{ previewId() }}</span><span class="rp-bar-kind" v-if="detectedType !== 'repo'">{{ detectedType === 'pr' ? 'Pull request' : 'Gist' }}</span></div>
-          <div class="rp-body" :class="{ 'has-tree': detectedType === 'repo' }">
-            <nav class="rp-tree" v-if="detectedType === 'repo'" aria-label="Files reviewers will see">
-              <template v-if="previewTree().length">
-                <span class="rp-tree-row" v-for="(entry, index) in previewTree()" :key="entry.name" :class="{ 'is-dir': entry.dir, 'is-active': entry.readme, 'is-readme': entry.readme, 'is-overflow': !previewTreeShows(entry, index) }" :title="entry.name"><svg class="rp-tree-icon" viewBox="0 0 16 16" aria-hidden="true"><path v-if="entry.dir" d="M1.5 3.5h4l1.5 1.5h7.5v8h-13z"/><path v-else d="M3.5 1.5h6l3 3v10h-9z"/></svg><span class="rp-tree-name">{{ entry.name }}</span></span>
-                <span class="rp-tree-more" v-if="previewTreeMore() &gt; 0" :title="previewTreeMore() + ' more files and folders at the top level'">+{{ previewTreeMore() }} more</span>
-              </template>
+          <div class="rp-body" :class="{ 'has-side': detectedType === 'repo' }">
+            <!-- Sidebar: a miniature of the explorer's file tree -->
+            <nav class="rp-side" v-if="detectedType === 'repo'" aria-label="Files reviewers will see">
+              <ul class="files rp-files" v-if="previewTree().length">
+                <li v-for="entry in previewTree()" :key="entry.path" class="file" :class="{ folder: entry.dir, open: entry.open, active: entry.readme }" :style="{ '--depth': entry.depth }">
+                  <a v-if="entry.dir" role="button" tabindex="0" :aria-expanded="entry.open ? 'true' : 'false'" :title="entry.path" @click="togglePreviewFolder(entry.path)" @keydown.enter.prevent="togglePreviewFolder(entry.path)" @keydown.space.prevent="togglePreviewFolder(entry.path)"><span class="tree-toggle"></span><span class="tree-icon-folder" aria-hidden="true"><svg viewBox="0 0 14 12" focusable="false"><path d="M1.5 10.5v-9h4l1.5 2h5.5v7z"/></svg></span><span class="tree-name">{{ entry.name }}</span></a>
+                  <a v-else :title="entry.path" :aria-current="entry.readme ? 'page' : null"><span class="tree-spacer"></span><span class="far fa-file tree-icon-file" aria-hidden="true"></span><span class="tree-name">{{ entry.name }}</span></a>
+                </li>
+              </ul>
+              <ul class="rp-files-skel" v-else-if="preserve.loading || (sourceLoading &amp;&amp; !preserve.error)" aria-label="Loading the file list"><li v-for="w in [58, 72, 46, 64, 52, 38, 68, 44]" :key="w"><i class="rp-skel" :style="{ width: w + '%' }"></i></li></ul>
               <template v-else>
-                <template v-if="preserve.loading"><span class="rp-tree-row rp-skel-row" v-for="w in [62, 48, 70, 40]" :key="w"><i class="rp-skel" :style="{ width: w + '%' }"></i></span></template>
-                <span class="rp-tree-label" v-if="!preserve.loading"><svg class="rp-tree-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 3.5h4l1.5 1.5h7.5v8h-13z"/></svg>Files</span>
-                <span class="rp-tree-note" v-if="!preserve.loading">Every other file at this commit appears here, with the same redactions.</span>
+                <ul class="files rp-files" v-if="readme || previewStatus === 'ready'"><li class="file active"><a title="README.md" aria-current="page"><span class="tree-spacer"></span><span class="far fa-file tree-icon-file" aria-hidden="true"></span><span class="tree-name">README.md</span></a></li></ul>
+                <p class="rp-side-note">Every other file at this commit appears here, with the same redactions.</p>
               </template>
             </nav>
             <div class="rp-doc">
-              <div class="rp-file-head" v-if="detectedType === 'repo' &amp;&amp; (previewStatus === 'ready' || readme)"><span class="rp-file-name">README.md</span><span class="rp-file-meta">Markdown</span></div>
+              <div class="rp-file-head" v-if="detectedType === 'repo' &amp;&amp; (previewStatus === 'ready' || readme)"><span class="rp-files-btn" aria-hidden="true"><svg class="ui-icon"><use href="#ui-icon-folder"></use></svg>Files<span class="rp-files-count" v-if="previewTreeCount()">{{ previewTreeCount() }}</span></span><span class="rp-file-name">README.md</span><span class="rp-file-meta">Markdown</span></div>
               <!-- Loading: skeleton inside the window -->
               <div class="rp-state rp-loading" role="status" v-if="previewStatus === 'loading' || (sourceLoading &amp;&amp; previewStatus !== 'ready' &amp;&amp; previewStatus !== 'error')">
                 <span class="rp-state-text">{{ previewStatus === 'loading' ? 'Updating the anonymized preview…' : (detectedType === 'pr' ? 'Loading the pull request from GitHub…' : detectedType === 'gist' ? 'Loading the gist from GitHub…' : 'Loading the repository from GitHub…') }}</span>
