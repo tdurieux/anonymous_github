@@ -30,3 +30,18 @@ export async function deleteRowsInBatches(
   logger.info("metadata cleanup deferred", { repoId: filter.repoId, deleted, ms: Date.now() - started });
   return false;
 }
+
+/** Staging markers are bookkeeping; leave the remainder discoverable by maintenance. */
+export async function clearStagedRowsInBatches(
+  collection: Pick<mongo.Collection, "find" | "updateMany">,
+  repoId: string, treeGeneration: string, maxBatches = 10
+): Promise<void> {
+  const filter = { repoId, treeGeneration, treeStaged: true };
+  for (let batch = 0; batch < maxBatches; batch++) {
+    const rows = await collection.find(filter, { projection: { _id: 1 }, limit: FILE_TREE_BATCH_SIZE }).toArray();
+    if (!rows.length) return;
+    await collection.updateMany({ ...filter, _id: { $in: rows.map(row => row._id) } },
+      { $unset: { treeStaged: "" } }, { hint: "_id_" });
+    await setImmediate();
+  }
+}

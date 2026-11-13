@@ -1,3 +1,4 @@
+import { isResponseCancellation } from "./response-cancellation";
 import { canReadCachedRepository } from "./cached-repository-access";
 import { probeStreamerCache } from "./streamer-cache-probe";
 import { notifyOwnerAccessProblem } from "./owner-notifications";
@@ -485,6 +486,7 @@ export default class AnonymizedFile {
             if (res.destroyed || res.writableEnded) cancel();
             try { return await probeStreamerCache(url, payload, headers, cancellation.signal); }
             catch (err) {
+              if (isResponseCancellation(err, res)) { headersDone(); return undefined; }
               headersDone(true);
               const { error } = streamerErrorToAnonymous(err as Error & {
                 response?: { statusCode?: number; body?: unknown };
@@ -531,6 +533,7 @@ export default class AnonymizedFile {
           resStream.once("error", () => headersDone(true));
           resStream.once("close", () => headersDone());
           await streamResponse(resStream, res, (err: Error) => {
+              if (isResponseCancellation(err, res)) return;
               const { error } = streamerErrorToAnonymous(
                 err as Error & {
                   response?: { statusCode?: number; body?: unknown };

@@ -1,7 +1,7 @@
 import { REPOSITORY_ID_COLLATION } from "./repository-id";
 import { reserveRepository } from "./billing/quotas";
 import { hasAutomaticUpdates } from "./billing/expiration";
-import { FILE_TREE_BATCH_SIZE, FILE_LISTING_LIMIT, deleteRowsInBatches } from "./file-tree";
+import { FILE_TREE_BATCH_SIZE, FILE_LISTING_LIMIT, deleteRowsInBatches, clearStagedRowsInBatches } from "./file-tree";
 import { SourceBase, sourceStorageSize } from "./source/Source";
 import { notifyOwnerAccessProblem, withOwnerAccessRecovery } from "./owner-notifications";
 import AnonymizedPathModel from "./model/anonymized-path";
@@ -341,8 +341,7 @@ export default class Repository {
       this.model.treeGeneration = generation;
       if (isConnected) {
         // A crash here is safe: maintenance recognizes the active generation.
-        await FileModel.updateMany({ repoId: this.repoId, treeGeneration: generation, treeStaged: true },
-          { $unset: { treeStaged: "" } }).exec().catch(error => logger.warn("staged tree completion deferred", serializeError(error)));
+        await clearStagedRowsInBatches(FileModel.collection, this.repoId, generation).catch(error => logger.warn("staged tree completion deferred", serializeError(error)));
       }
       this.model.emptyTreeGeneration = fileCount ? undefined : generation;
       this.model.truncatedFolders = truncatedFolders;
@@ -434,7 +433,7 @@ export default class Repository {
     const terminal = current?.status && [RepositoryStatus.EXPIRING, RepositoryStatus.EXPIRED,
       RepositoryStatus.REMOVING, RepositoryStatus.REMOVED].includes(current.status);
     if (current?.treeGeneration === generation && !terminal) {
-      await FileModel.updateMany({ repoId, treeGeneration: generation, treeStaged: true }, { $unset: { treeStaged: "" } }).exec();
+      await clearStagedRowsInBatches(FileModel.collection, repoId, generation);
     } else if (terminal || !current?.stagedFileTrees?.some(stage => stage.generation === generation && stage.until > now)) {
       await deleteRowsInBatches(FileModel.collection, { repoId, treeGeneration: generation, treeStaged: true });
     }

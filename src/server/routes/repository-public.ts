@@ -1,3 +1,4 @@
+import { hasVisibleSubmodules } from "../../core/file-submodules";
 import { FILE_LISTING_LIMIT } from "../../core/file-tree";
 import { folderCounts as scopedFolderCounts } from "../../core/folder-counts";
 import { repositoryFailureStatus } from "../../core/repository-failure-status";
@@ -402,14 +403,7 @@ router.get(
         ),
         // Legacy trees retain .gitmodules until their next tree refresh.
         hasSubmodules:
-          (await FileModel.exists({
-            repoId: repo.repoId,
-            treeGeneration: repo.model.treeGeneration || { $exists: false },
-            $or: [
-              { submodule: { $exists: true, $ne: "included" } },
-              { name: ".gitmodules", path: "" },
-            ],
-          })) != null,
+          await hasVisibleSubmodules(repo.repoId, repo.model.treeGeneration),
       });
     } catch (error) {
       handleError(error, res, req);

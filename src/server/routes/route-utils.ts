@@ -1,3 +1,4 @@
+import { isResponseCancellation } from "../../core/response-cancellation";
 import * as express from "express";
 import AnonymousError from "../../core/AnonymousError";
 import * as db from "../database";
@@ -225,6 +226,7 @@ export function handleError(
   res?: express.Response,
   req?: express.Request
 ) {
+  if (isResponseCancellation(error, res)) return;
   printError(error, req);
   let errorCode = error;
   if (error instanceof Error) {

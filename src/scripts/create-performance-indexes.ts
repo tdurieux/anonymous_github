@@ -19,6 +19,8 @@ async function main() {
   await Repository.collection.createIndex({ "coauthors.githubId": 1 });
   await File.collection.createIndex({ repoId: 1, treeGeneration: 1, path: 1, name: 1 });
   await File.collection.createIndex({ repoId: 1, treeGeneration: 1, path: 1, size: 1 }, { name: "file_counts_covering" });
+  await File.collection.createIndex({ repoId: 1, treeGeneration: 1, submodule: 1 },
+    { name: "file_submodule_status", partialFilterExpression: { submodule: { $exists: true } } });
   await File.collection.createIndex({ metadataPending: 1, repoId: 1, treeGeneration: 1 },
     { partialFilterExpression: { metadataPending: true } });
   await Repository.collection.createIndex({ retiredTreeGenerations: 1 }, { sparse: true });
