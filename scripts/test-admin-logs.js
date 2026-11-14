@@ -61,6 +61,26 @@ const sleep = ms => new Promise(resolve=>setTimeout(resolve,ms));
       assert.equal(trace.events.length,1); assert.equal(trace.events[0].status,[200,429,502,504][i]);
     }
     console.log('PASS actual collector output: missing/unknown release compatibility, edge-only 502/504, excluded 200/429 with retained timelines');
+    const {logRecord}=require('../src/core/log-record');
+    const {serializeError}=require('../src/core/logger');
+    const {safeRedisLog}=require('../src/server/admin-log-investigation');
+    const {logContext}=require('../src/core/log-context');
+    const path=require('node:path');
+    const diagnosticId=randomUUID(), secret='SECRET_private_owner_token';
+    const error=new TypeError('https://user:'+secret+'@example.test/private?token='+secret);
+    error.stack=error.message+'\n    at printError ('+path.resolve('src/server/routes/route-utils.ts')+':200:7)\n    at '+secret+' (/private/'+secret+':1:2)';
+    error.cause=new RangeError(secret);error.cause.stack=error.stack;
+    const diagnostic=logContext.run({requestId:diagnosticId,route:'/api/repo/:repoId/file/:path',method:'GET'},()=>logRecord('error','route',['', {...serializeError(error),httpStatus:500}]));
+    const rawSource={file:'/host/docker/fixture/log.json',message:JSON.stringify({attrs:{tag:'api'},log:JSON.stringify({...diagnostic,url:secret,stack:secret,errorStack:diagnostic.errorStack+'\n    at '+secret+' (/private/'+secret+':1:2)'})})};
+    const projected=execFileSync('docker',['run','--rm','-i','--network','none','--memory','256m',vectorImage,'vrl','-i','/dev/stdin',fs.readFileSync('deploy/logging/sanitize.vrl','utf8')+'\nencode_json(.)'],{encoding:'utf8',input:JSON.stringify(rawSource)+'\n'}).trim().split('\n').map(line=>JSON.parse(JSON.parse(line)))[0];
+    assert.equal(projected.errorType,'TypeError');assert.equal(projected.causeType,'RangeError');
+    assert.equal(projected.errorStack,'at printError (src/server/routes/route-utils.ts:200:7)');
+    assert(!JSON.stringify(projected).includes(secret));
+    const ingested=await fetch(process.env.ADMIN_LOG_URL+'/insert/jsonline?_time_field=timestamp',{method:'POST',body:JSON.stringify(projected),headers:{'Content-Type':'application/stream+json'}});assert(ingested.ok);await sleep(2000);
+    const traced=await investigateLogs(logOptions({kind:'requestId',id:diagnosticId},true),true);
+    const redis=safeRedisLog({ts:diagnostic.timestamp,level:'error',module:'route',raw:[diagnostic]});
+    for(const row of [traced.events[0],redis.raw[0]]) {assert.equal(row.route,diagnostic.route);assert.equal(row.method,'GET');assert.equal(row.errorStack,projected.errorStack);assert.equal(row.causeType,'RangeError');assert(!JSON.stringify(row).includes(secret));}
+    console.log('PASS synthetic exception logger → pinned collector → VictoriaLogs/Redis safe API with normalized route and bounded frames');
     docker('stop',name);
     const unavailable=await investigateLogs(logOptions({})); assert.equal(unavailable.state,'unreachable');
     delete process.env.ADMIN_LOG_URL;

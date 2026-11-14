@@ -1,3 +1,4 @@
+import { errorDiagnostics } from "./log-diagnostics";
 import { logRecord } from "./log-record";
 import { redactSecrets } from "./redact-secrets";
 import { createClient, RedisClientType } from "redis";
@@ -307,7 +308,7 @@ export function serializeError(err: unknown, seen = new WeakSet<object>(), depth
   if (seen.has(err) || depth >= 4) return { message: "error_details_truncated" };
   seen.add(err);
   const e = err as ErrorLike;
-  const out: Record<string, unknown> = {};
+  const out: Record<string, unknown> = errorDiagnostics(err);
   if (e.name) out.name = e.name;
   if (e.message) out.message = e.message;
 

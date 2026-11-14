@@ -53,10 +53,10 @@ function safeRow(input: Record<string, unknown>): Row | null {
   const numeric = ["status", "httpStatus", "ms", "firstByteMs", "responseMs", "attempt", "rss", "memoryRatio", "droppedLogs", "oldestWaitingMs", "waiting"];
   const data: Record<string, unknown> = { ...input, code: input.errorCode };
   for (const key of numeric) if (typeof input[key] === "string" && /^-?\d+(?:\.\d+)?$/.test(input[key] as string)) data[key] = Number(input[key]);
-  // Routes and arbitrary module text never pass through this projection.
-  const projected = logContext.run({}, () => logRecord(["error", "warn", "info", "debug"].includes(String(input.severity)) ? String(input.severity) : "info", String(input.module || "application"), ["", { ...data, route: undefined }]));
+  // Revalidate finite route and diagnostic allowlists; never pass raw strings.
+  const projected = logContext.run({}, () => logRecord(["error", "warn", "info", "debug"].includes(String(input.severity)) ? String(input.severity) : "info", String(input.module || "application"), ["", data]));
   const result: Row = { timestamp: /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$/.test(time) ? time : new Date(time).toISOString(), severity: String(projected.severity), service: services.includes(String(input.service)) ? String(input.service) : "unknown", event: events.has(String(input.event)) ? String(input.event) : "application_log", module: String(projected.module), release: /^(?:[a-f0-9]{7,40}|unknown)$/.test(String(input.release)) ? String(input.release) : "unknown" };
-  for (const key of [...numeric, "errorCode", "requestId", "jobId", "queue"]) if (typeof projected[key] === "string" || typeof projected[key] === "number") result[key] = projected[key] as string | number;
+  for (const key of [...numeric, "errorCode", "requestId", "jobId", "queue", "route", "method", "errorType", "errorStack", "causeType", "causeStack"]) if (typeof projected[key] === "string" || typeof projected[key] === "number") result[key] = projected[key] as string | number;
   if (validTraceId(input.instance)) result.instance = input.instance;
   return result;
 }
@@ -64,7 +64,7 @@ export function safeRedisLog(entry: Record<string, unknown>) {
   const detail = Array.isArray(entry.raw) ? entry.raw.find(value => value && typeof value === "object" && !Array.isArray(value)) || {} : {};
   const row = safeRow({ ...detail, _time: entry.ts, severity: entry.level, module: entry.module,
     errorCode: detail.errorCode || detail.code || detail.message, event: detail.event || entry.message });
-  return row ? { ts: row.timestamp, level: row.severity, module: row.module, message: row.errorCode || row.event, raw: [row] } : null;
+  return row ? { ts: row.timestamp, level: row.severity, module: row.module, message: row.errorCode || row.errorType || row.event, raw: [row] } : null;
 }
 async function rows(base: string, query: string, limit: number, signal: AbortSignal) {
   const text = await read(base + "/select/logsql/query", signal, new URLSearchParams({ query, limit: String(limit) }));
@@ -97,7 +97,7 @@ function timestampKey(value: string | number) {
 function group(records: Row[]) {
   const groups = new Map<string, { fingerprint: string; count: number; first: string; last: string; sample: Row }>();
   for (const row of records) {
-    const key = JSON.stringify([row.service, row.module, row.event, row.errorCode || "", row.severity, row.status || row.httpStatus || ""]);
+    const key = JSON.stringify([row.service, row.module, row.event, row.errorCode || "", row.severity, row.status || row.httpStatus || "", row.errorType || "", String(row.errorStack || "").split("\n")[0]]);
     const fingerprint = createHash("sha256").update(key).digest("hex").slice(0, 24);
     const existing = groups.get(fingerprint);
     if (existing) { existing.count++; existing.first = timestampKey(existing.first) < timestampKey(row.timestamp) ? existing.first : String(row.timestamp); existing.last = timestampKey(existing.last) > timestampKey(row.timestamp) ? existing.last : String(row.timestamp); }

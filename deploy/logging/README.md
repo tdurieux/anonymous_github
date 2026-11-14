@@ -320,3 +320,21 @@ node-redis client against a disposable loopback-only Redis container. It checks
 cold concurrent statistics, recent/grouped-history reads, overload rejection and
 subsequent transaction integrity, unavailable fallback, and restart recovery.
 The fixture uses only synthetic counters and removes its container on exit.
+
+## Safe exception diagnostics
+
+New application errors retain the normalized route template, HTTP method/status,
+a finite error type/code, and up to eight recognized application frames (1 KiB maximum per stack) for the
+exception and a bounded cause chain (three levels, cycles stopped). Raw messages,
+URLs, query strings, repository/file parameters, external frames and absolute
+filesystem roots are not stored. Unknown error types use `UnknownError`; unknown
+function names become `<anonymous>`. Source locations are build-relative for
+compiled code and source-relative in development; line numbers refer to that
+release, not an inferred source map.
+
+`scripts/generate-log-diagnostics.js` derives the finite project file/function
+allowlist from checked-in TypeScript and writes both application and collector
+validation. Regenerate it when adding diagnostic code locations. The admin API
+revalidates every field for both Redis and central logs. Deploy matching app and
+collector versions to preserve new fields; older collectors deliberately drop
+unknown fields. Existing discarded exception details cannot be recovered.

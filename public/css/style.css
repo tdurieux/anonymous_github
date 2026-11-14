@@ -14738,3 +14738,7 @@ body.dark-mode .reviewer-preview .rp-preserved-tag { background: rgba(251, 191, 
  .errors-page .log-investigation-body .log-timeline { padding:16px; }
  .errors-page .log-investigation-body .log-events li { grid-template-columns:minmax(0,1fr); gap:6px; }
 }
+
+.errors-page .log-request-route code { font-size:12px; white-space:normal; overflow-wrap:anywhere; }
+.errors-page .log-error-stack summary { min-height:44px; display:list-item; box-sizing:border-box; padding:12px 0; cursor:pointer; font-size:12px; }
+.errors-page .log-error-stack pre { white-space:pre-wrap; overflow-wrap:anywhere; font-size:11px; padding:12px; background:var(--paper-bg-alt); border:1px solid var(--border-color); border-radius:4px; }

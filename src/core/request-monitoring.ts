@@ -165,6 +165,6 @@ export function monitorRequests(service: Service, metrics = requestMetrics,
       else if (!route.includes("healthcheck")) log.info("request", detail);
     };
     res.once("finish", done); res.once("close", done);
-    context.run(trace, () => logContext.run({ requestId: id, service }, next));
+    context.run(trace, () => logContext.run({ requestId: id, service, route, method }, next));
   };
 }

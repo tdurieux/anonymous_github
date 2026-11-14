@@ -81,6 +81,30 @@ describe("Vue 3 UI", function () {
   let ui;
   afterEach(() => ui?.close());
 
+  it("shows normalized request routes and exception frames in both admin sources", async () => {
+    const now=new Date().toISOString(), requestId='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+    const sample={event:'application_log',service:'api',module:'route',severity:'error',httpStatus:500,method:'GET',route:'/api/repo/:repoId/file/:path',errorType:'TypeError',errorStack:'at printError (build/server/routes/route-utils.js:200:7)',causeType:'RangeError',causeStack:'at <anonymous> (build/core/repository.js:410:9)',requestId};
+    ui=await browser('/',{
+      '/api/user':{username:'admin',isAdmin:true,status:'ready'},
+      '/api/admin/errors/investigation':{state:'ready',window:'1h',groups:[{fingerprint:'diagnostic',count:1,sample,first:now,last:now}]},
+      '/api/admin/errors/correlation':{state:'ready',events:[{...sample,timestamp:now}]},
+      '/api/admin/errors':{available:true,total:1,entries:[{ts:now,level:'error',module:'route',message:'TypeError',raw:[sample]}]},
+    });
+    await ui.go('/admin/errors');const doc=ui.window.document;
+    doc.querySelector('.log-event-button').click();await delay(30);
+    expect(doc.querySelector('#log-detail-title').textContent).equal('TypeError');
+    expect(doc.querySelector('.log-timeline .log-request-route').textContent).include('GET /api/repo/:repoId/file/:path');
+    const frames=doc.querySelector('.log-timeline .log-error-stack');expect(frames.open).equal(false);
+    frames.querySelector('summary').click();expect(frames.open).equal(true);
+    expect(frames.textContent).include(sample.errorStack).and.include('RangeError').and.include(sample.causeStack);
+    doc.querySelector('#error-source-history').click();await delay(20);
+    doc.querySelector('button.errors-row-main').click();await delay(20);
+    expect(doc.querySelector('.history-source .log-request-route').textContent).include(sample.route);
+    [...doc.querySelectorAll('.history-source .detail-tabs button')].find(b=>b.textContent==='Stack').click();await delay(20);
+    expect(doc.querySelector('.stack-pre').textContent).include(sample.errorStack).and.include(sample.causeStack);
+    expect(ui.errors).deep.equal([]);
+  });
+
   it("investigates grouped admin logs with bounded filters and a safe correlated timeline", async () => {
     const requestId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
     const now = new Date().toISOString();
