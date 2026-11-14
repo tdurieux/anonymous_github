@@ -2028,7 +2028,7 @@ export const anonymizeController = function (state, http, html, params, location
         if (field.github || (state.sourceUrlError && state.workspaceOpen)) {
           return { kind: "github", title: "Not a GitHub URL", text: "Paste a repository, pull request, or gist URL from github.com." };
         }
-        if (state.sourceLoading || state.details && !field.used) return null;
+        if (state.sourceLoading || state.details && !field.used && !state.sourceError) return null;
         if (state.gistAppRequired || state.gistOAuthRequired) return { kind: "connect", title: "Couldn't load this gist", text: "Connect GitHub to read gists." };
         const code = state.sourceError || (field.used ? "repo_already_anonymized" : field.access ? "repo_not_accessible" : field.missing ? "repo_not_found" : "");
         if (!code) return null;
@@ -2208,6 +2208,7 @@ export const anonymizeController = function (state, http, html, params, location
         if (!confirm("Reconnect to the repository currently at this GitHub URL? Review its branch and commit before saving. Saving will replace the published snapshot.")) return;
         state.reconnectingSource = true;
         state.reconnectRepositoryId = undefined;
+        state.details = null;
         state.source.commit = "";
         state.source.branch = "";
         state.readme = "";
