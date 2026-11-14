@@ -21,6 +21,19 @@ export function installLogInvestigation(state, http) {
     try { await navigator.clipboard.writeText(String(value)); state.logCopyStatus = "Full value copied"; }
     catch { state.logCopyStatus = "Copy unavailable. Expand the value to select it."; }
   };
+  state.logExplanation = sample => {
+    const service = sample.service || "The application";
+    const event = ({job_failed:"reported a failed job",request_failed:"reported a failed request",request_aborted:"reported an aborted request",edge_request:"recorded an edge request",http_access:"recorded an HTTP request"})[sample.event] || ("recorded “" + (sample.event || "application event") + "”");
+    const status = Number(sample.status || sample.httpStatus);
+    const meaning = ({502:"Bad Gateway",503:"Service Unavailable",504:"Gateway Timeout"})[status];
+    return service + " " + event + (status ? " with HTTP " + status + (meaning ? " (" + meaning + ")" : "") : "") + ".";
+  };
+  state.logEvidence = sample => [
+    sample.errorCode ? "Recorded error code: " + sample.errorCode + "." : "No error code was included in this sample.",
+    sample.ms !== undefined ? "Recorded duration: " + sample.ms + " ms." : "",
+    sample.attempt !== undefined ? "Recorded attempt: " + sample.attempt + "." : "",
+    sample.queue ? "Queue: " + sample.queue + "." : "",
+  ].filter(Boolean).join(" ");
   state.historyDetailFields = row => {
     try { const value = JSON.parse(row?._detailJson || "{}"); return value && typeof value === "object" ? Object.entries(value) : [["value", value]]; }
     catch { return [["record", row?._detailJson || ""]]; }

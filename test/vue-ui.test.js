@@ -136,6 +136,8 @@ describe("Vue 3 UI", function () {
     expect(doc.activeElement.id).to.equal('log-detail-title');
     expect(doc.querySelector('.log-detail').textContent).to.include(requestId).and.include('info');
     expect(doc.querySelector('#log-detail-title').textContent).to.equal('http_access');
+    expect(doc.querySelector('.log-explanation').textContent).to.include('HTTP 504 (Gateway Timeout)').and.include('not its root cause');
+    expect(doc.querySelector('.log-follow-id').textContent).to.include('View timeline');
     expect([...doc.querySelectorAll('.log-detail dt')].map(node => node.textContent)).to.have.members(['First returned', 'Last returned', 'event', 'service', 'severity', 'status', 'requestId']);
     expect(doc.querySelector('.log-detail-row').previousElementSibling.contains(detail)).to.equal(true);
     const identifier = doc.querySelector('.log-detail .log-value-reveal');
@@ -145,6 +147,9 @@ describe("Vue 3 UI", function () {
     let copiedIdentifier;
     Object.defineProperty(ui.window.navigator, 'clipboard', {configurable:true,value:{writeText:async value => { copiedIdentifier = value; }}});
     doc.querySelector('.log-detail .log-copy-value').click(); await delay(30);
+    expect(copiedIdentifier).to.equal(requestId);
+    copiedIdentifier = null;
+    doc.querySelector(".log-row-copy").click(); await delay(20);
     expect(copiedIdentifier).to.equal(requestId);
     doc.querySelector('.log-detail button').click(); await delay(30);
     expect(doc.activeElement).to.equal(detail);
