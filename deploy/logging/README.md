@@ -302,3 +302,16 @@ pinned image, inserts synthetic records, verifies grouping/privacy/correlation,
 stops the backend and verifies unavailable/disabled responses, then removes its
 container. It does not read `.env`, production data or send notifications. UI
 regressions are in `test/vue-ui.test.js`; rebuild the UI before running them.
+
+The Redis admin reader admits at most four concurrent history/statistics operations,
+including the overview's error counters. Excess history requests receive a busy
+response; overview error counters retain their existing fallback. Its 256-command queue fits four complete 51-command statistics
+transactions with headroom. Concurrent first requests share a connection attempt;
+no offline command backlog or automatic reconnect loop is enabled. Admission
+slots remain held until Redis work finishes, even if the HTTP client disconnects.
+
+Run `node scripts/test-admin-redis.js` to exercise the actual admin routes and
+node-redis client against a disposable loopback-only Redis container. It checks
+cold concurrent statistics, recent/grouped-history reads, overload rejection and
+subsequent transaction integrity, unavailable fallback, and restart recovery.
+The fixture uses only synthetic counters and removes its container on exit.
