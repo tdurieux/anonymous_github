@@ -14614,3 +14614,87 @@ body.dark-mode .reviewer-preview .rp-preserved-tag { background: rgba(251, 191, 
  .errors-page .log-detail-identifiers .log-value-reveal > summary { min-height:44px; box-sizing:border-box; padding:12px 10px; }
  .errors-page .log-detail-identifiers .log-value-reveal > span { margin:0; padding:0 10px 10px; }
 }
+
+/* Errors: issue list → focused event inspector. */
+.errors-page .log-list-view .log-table th:first-child { width:52%; }
+.errors-page .log-list-view .log-table th:nth-child(2) { width:18%; }
+.errors-page .log-list-view .log-table th:nth-child(3) { width:12%; }
+.errors-page .log-list-view .log-table th:last-child { width:18%; }
+.errors-page .log-list-view .log-table td { padding:14px 16px; }
+.errors-page .log-query { margin:0; }
+.errors-page .log-query > summary { display:flex; gap:16px; width:fit-content; }
+.errors-page .log-query-hint { float:none; }
+.errors-page .log-local-filters { margin-top:8px; }
+.errors-page .log-back { display:inline-flex; align-items:center; gap:8px; min-height:44px; padding:0; border:0; background:none; color:var(--link-color); font:13px var(--font-sans); cursor:pointer; }
+.errors-page .log-inspector-heading { display:flex; align-items:center; justify-content:space-between; gap:20px; margin:12px 0 24px; }
+.errors-page .log-inspector-eyebrow { color:var(--ink-muted); font-size:12px; margin:0 0 6px; }
+.errors-page .log-inspector #log-detail-title { font:600 24px/1.35 var(--font-sans); margin:0; overflow-wrap:anywhere; }
+.errors-page .log-inspector-heading > div { min-width:0; }
+.errors-page .log-inspector-heading > .log-severity { flex-shrink:0; font-size:12px; }
+.errors-page .log-inspector-tabs { display:flex; gap:28px; border-bottom:1px solid var(--border-color); }
+.errors-page .log-inspector-tabs button { min-height:44px; padding:8px 0; border:0; border-bottom:2px solid transparent; background:none; font:500 14px var(--font-sans); color:var(--ink-muted); cursor:pointer; }
+.errors-page .log-inspector-tabs button.active { color:var(--color); border-bottom-color:var(--accent); }
+.errors-page .log-overview { display:grid; grid-template-columns:minmax(0,1fr) 280px; padding:0; background:var(--paper-card); border:1px solid var(--border-color); border-top:0; }
+.errors-page .log-overview-main { min-width:0; padding:28px; }
+.errors-page .log-overview h3 { font:600 13px var(--font-sans); margin:0 0 12px; }
+.errors-page .log-overview .log-explanation-lead { font:500 17px/1.55 var(--font-sans); color:var(--color); margin:0 0 12px; }
+.errors-page .log-evidence { font:13px/1.6 var(--font-sans); color:var(--ink-soft); }
+.errors-page .log-overview .log-coverage { font-size:12px; line-height:1.6; max-width:65ch; }
+.errors-page .log-overview-context { padding:28px 22px; border-left:1px solid var(--border-color); background:var(--paper-bg-alt); min-width:0; }
+.errors-page .log-occurrence-total { display:block; font:500 28px var(--font-sans); margin-bottom:20px; font-variant-numeric:tabular-nums; }
+.errors-page .log-overview-context dl { display:block; }
+.errors-page .log-overview-context dd { font:13px/1.6 var(--font-sans); }
+.errors-page .log-overview-context .log-identifiers-title { margin-top:28px; }
+.errors-page .log-overview-context .log-value-reveal { padding:0; }
+.errors-page .log-overview-context .log-value-reveal summary { min-height:44px; box-sizing:border-box; padding:12px 10px; }
+.errors-page .log-overview-context .log-value-reveal > span { padding:0 10px 10px; margin:0; font-size:12px; }
+.errors-page .log-overview-context .log-copy-value { padding:0; min-height:32px; border:0; background:none; }
+.errors-page .log-next-step { border-top:1px solid var(--border-color); margin-top:28px; padding-top:24px; }
+.errors-page .log-next-step p { color:var(--ink-soft); font-size:13px; margin:0 0 16px; }
+.errors-page .log-detail-actions { display:flex; flex-wrap:wrap; gap:10px; }
+.errors-page .log-detail-actions .log-trace-button { margin:0; padding:8px 12px; min-height:40px; border:1px solid var(--border-color); border-radius:4px; background:var(--paper-card); }
+.errors-page .log-all-fields { border-top:1px solid var(--border-color); margin-top:28px; padding-top:12px; font-size:13px; }
+.errors-page .log-all-fields > summary { min-height:44px; box-sizing:border-box; padding:12px 0; }
+.errors-page .log-all-fields > summary > span { color:var(--ink-muted); margin-left:8px; }
+.errors-page .log-all-fields dl { grid-template-columns:1fr 1fr; padding-bottom:16px; }
+.errors-page .log-all-fields dt { font-size:12px; }
+.errors-page .log-all-fields dd { font-size:13px; }
+.errors-page .log-inspector .log-timeline { margin:0; padding:24px 28px; border-top:0; border-radius:0; background:var(--paper-card); }
+.errors-page .log-timeline .volume-head { justify-content:space-between; }
+.errors-page .log-timeline h3 { font-size:16px; }
+.errors-page .log-timeline .log-origin { font-size:13px; }
+.errors-page .log-events { list-style:none; padding:0; margin-top:24px; }
+.errors-page .log-events li { display:grid; grid-template-columns:145px minmax(0,1fr); gap:20px; padding:18px 0; border-bottom:1px solid var(--border-color); }
+.errors-page .log-events time { color:var(--ink-muted); font:12px/1.6 var(--font-mono); }
+.errors-page .log-timeline-event-title { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; }
+.errors-page .log-timeline-event-title strong { font-size:14px; overflow-wrap:anywhere; }
+.errors-page .log-timeline-event p { margin:6px 0; color:var(--ink-muted); font-size:12px; }
+.errors-page .log-event-fields > summary, .errors-page .log-timeline-scope > summary { color:var(--ink-muted); font-size:12px; }
+.errors-page .log-event-fields pre, .errors-page .log-raw-sample pre { padding:12px; background:var(--paper-bg-alt); border:1px solid var(--border-color); border-radius:4px; box-shadow:none; white-space:pre-wrap; overflow-wrap:anywhere; font:12px/1.6 var(--font-mono); }
+.errors-page .log-timeline-scope code { display:block; overflow-wrap:anywhere; }
+@media(max-width:767px) {
+ .errors-page .log-list-view .log-table td { padding:0; }
+ .errors-page .log-list-view .log-table td:last-child { grid-column:2; grid-row:2; display:block; }
+ .errors-page .log-inspector-heading { display:block; margin-bottom:16px; }
+ .errors-page .log-inspector-heading > .log-severity { margin-top:12px; }
+ .errors-page .log-inspector #log-detail-title { font-size:21px; }
+ .errors-page .log-overview { grid-template-columns:minmax(0,1fr); }
+ .errors-page .log-overview-main, .errors-page .log-overview-context { padding:20px; }
+ .errors-page .log-overview-context { border-left:0; border-top:1px solid var(--border-color); }
+ .errors-page .log-detail-actions .log-trace-button, .errors-page .log-overview-context .log-copy-value { min-height:44px; }
+ .errors-page .log-inspector .log-timeline { padding:20px; }
+ .errors-page .log-events li { grid-template-columns:minmax(0,1fr); gap:6px; }
+ .errors-page .log-event-fields summary, .errors-page .log-timeline-scope summary { min-height:44px; box-sizing:border-box; padding:12px 0; }
+}
+.errors-page #history-inspector-title { font:600 24px/1.35 var(--font-sans); margin:0; overflow-wrap:anywhere; }
+.errors-page .history-inspector { border-top:0; border-radius:0; }
+.errors-page .history-inspector .errors-row { border:0; }
+.errors-page .history-inspector .errors-row-detail { background:var(--paper-card); padding:24px !important; }
+.errors-page .history-inspector .detail-tabs { margin-bottom:20px; }
+.errors-page .history-inspector .detail-main { min-width:0; }
+@media(max-width:767px) { .errors-page #history-inspector-title { font-size:21px; } .errors-page .history-inspector .errors-row-detail { padding:20px !important; } }
+.errors-page .history-technical { margin:20px 0; border-top:1px solid var(--border-color); }
+.errors-page .history-technical > summary { min-height:44px; padding:12px 0; box-sizing:border-box; font-size:13px; }
+.errors-page .history-inspector .detail-main > div > h3 { font:600 13px var(--font-sans); margin:0 0 12px; }
+.errors-page .history-inspector .log-explanation-lead { font:500 17px/1.55 var(--font-sans); }
+.errors-page .history-source .log-inspector-tabs { margin-bottom:0; flex-wrap:wrap; }

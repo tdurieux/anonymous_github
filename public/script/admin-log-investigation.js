@@ -5,6 +5,7 @@ export function installLogInvestigation(state, http) {
   state.errorSource = "central";
   state.logView = { search: "", severity: "", sort: "recent" };
   state.selectedLog = null;
+  state.logDetailTab = "overview";
   state.logSeverity = (sample) => Number(sample?.status || sample?.httpStatus) >= 500 || ["error", "fatal"].includes(sample?.severity) ? "error" : sample?.severity === "warn" ? "warn" : "info";
   state.filteredLogGroups = () => {
     const search = state.logView.search.trim().toLowerCase();
@@ -39,18 +40,28 @@ export function installLogInvestigation(state, http) {
     catch { return [["record", row?._detailJson || ""]]; }
   };
   state.logFieldText = value => typeof value === "object" ? JSON.stringify(value) : String(value ?? "");
-  let traceOrigin = null, detailOrigin = null, traceSource = null;
+  state.captureErrorScroll = origin => {
+    const positions = [];
+    for (let element = origin?.parentElement; element; element = element.parentElement) positions.push({element,top:element.scrollTop,left:element.scrollLeft});
+    return positions;
+  };
+  state.restoreErrorScroll = positions => positions.forEach(({element,top,left}) => { if(element.isConnected) {element.scrollTop=top;element.scrollLeft=left;} });
+  let traceOrigin = null, detailOrigin = null, traceSource = null, listScroll = [];
   state.selectLog = async (group, origin) => {
     detailOrigin = origin || document.activeElement;
+    listScroll = state.captureErrorScroll(detailOrigin);
+    traceVersion++; state.trace = null; state.traceSelection = null; state.traceLoading = false;
+    state.logDetailTab = "overview";
     state.selectedLog = group;
     await nextTick();
     document.getElementById("log-detail-title")?.focus({ preventScroll: true });
-    detailOrigin?.closest("tr")?.scrollIntoView?.({ block: "start" });
+    document.getElementById("log-detail-title")?.scrollIntoView?.({ block: "nearest" });
   };
   state.closeLogDetail = async () => {
     state.selectedLog = null;
+    traceVersion++; state.trace = null; state.traceSelection = null; state.traceLoading = false;
     await nextTick();
-    if (detailOrigin?.isConnected) detailOrigin.focus();
+    if (detailOrigin?.isConnected) { detailOrigin.focus({preventScroll:true}); state.restoreErrorScroll(listScroll); }
     else document.getElementById("error-source-central")?.focus();
   };
   state.logFilters = { window: "1h", service: "", release: "" };
@@ -91,6 +102,8 @@ export function installLogInvestigation(state, http) {
   };
   state.lookupTrace = async (kind, id, origin, sample) => {
     if (!["requestId", "jobId"].includes(kind) || !uuid.test(id || "")) return;
+    if (state.errorSource === "central" && state.selectedLog) state.logDetailTab = "timeline";
+    if (state.errorSource === "history") state.historyView = "timeline";
     traceSource = state.errorSource;
     traceOrigin = origin || document.activeElement;
     const current = ++traceVersion;
@@ -109,7 +122,15 @@ export function installLogInvestigation(state, http) {
       if (!disposed && current === traceVersion) state.trace = { state: "unreachable", events: [] };
     } finally { if (!disposed && current === traceVersion) state.traceLoading = false; }
   };
+  state.showLogTimeline = origin => {
+    state.logDetailTab = "timeline";
+    if (state.traceSelection) return;
+    const kind = ["requestId","jobId"].find(key=>state.logTraceId(state.selectedLog,key));
+    if (kind) state.lookupTrace(kind,state.selectedLog.sample[kind],origin,state.selectedLog.sample);
+  };
   state.closeTrace = async () => {
+    state.logDetailTab = "overview";
+    state.historyView = "overview";
     traceVersion++; state.trace = null; state.traceSelection = null; state.traceLoading = false;
     await nextTick();
     if (traceOrigin?.isConnected && traceSource === state.errorSource) traceOrigin.focus();
@@ -119,6 +140,9 @@ export function installLogInvestigation(state, http) {
     const value = row?.sample?.[kind] || row?.raw?.find(value => value && typeof value === "object")?.[kind];
     return uuid.test(value || "") ? value : null;
   };
+  state.watch("errorSource", () => {
+    traceVersion++; state.trace = null; state.traceSelection = null; state.traceLoading = false; state.selectedLog = null; state.historySelected = null; state.historyView = "overview"; state.expanded = {};
+  }, false, false);
   const freshnessTimer = window.setInterval(() => {
     state.logSnapshotStale = !!state.logData?.end && Date.now() - Date.parse(state.logData.end) > 90000;
   }, 15000);

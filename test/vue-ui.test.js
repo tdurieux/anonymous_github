@@ -92,8 +92,9 @@ describe("Vue 3 UI", function () {
     });
     await ui.go("/admin/errors");
     const doc = ui.window.document;
-    expect(doc.body.textContent).to.include("Partial results").and.include("Collection is OFF").and.include("dropped events since collector start: unknown");
+    expect(doc.body.textContent).to.include("Partial results").and.include("Collection is off").and.include("dropped events since collector start: unknown");
     expect(doc.querySelector(".log-table img")).to.equal(null);
+    doc.querySelector(".log-event-button").click(); await delay(20);
     doc.querySelector(".log-trace-button").click(); await delay(50);
     expect(doc.querySelectorAll(".log-events li")).to.have.length(2);
     expect(doc.activeElement.id).to.equal("log-timeline-title");
@@ -135,11 +136,10 @@ describe("Vue 3 UI", function () {
     const detail = doc.querySelector('.log-event-button'); detail.focus(); detail.click(); await delay(30);
     expect(doc.activeElement.id).to.equal('log-detail-title');
     expect(doc.querySelector('.log-detail').textContent).to.include(requestId).and.include('info');
+    expect(doc.querySelector('.log-list-view').style.display).to.equal('none');
     expect(doc.querySelector('#log-detail-title').textContent).to.equal('http_access');
-    expect(doc.querySelector('.log-explanation').textContent).to.include('HTTP 504 (Gateway Timeout)').and.include('not its root cause');
-    expect(doc.querySelector('.log-follow-id').textContent).to.include('View timeline');
-    expect([...doc.querySelectorAll('.log-detail dt')].map(node => node.textContent)).to.have.members(['First returned', 'Last returned', 'event', 'service', 'severity', 'status', 'requestId']);
-    expect(doc.querySelector('.log-detail-row').previousElementSibling.contains(detail)).to.equal(true);
+    expect(doc.querySelector('.log-overview-main').textContent).to.include('HTTP 504 (Gateway Timeout)').and.include('does not establish the root cause');
+    expect(doc.querySelector('.log-detail-actions').textContent).to.include('Request timeline');
     const identifier = doc.querySelector('.log-detail .log-value-reveal');
     expect(identifier.open).to.equal(false);
     expect(identifier.querySelector('summary').textContent).not.to.include(requestId);
@@ -148,9 +148,11 @@ describe("Vue 3 UI", function () {
     Object.defineProperty(ui.window.navigator, 'clipboard', {configurable:true,value:{writeText:async value => { copiedIdentifier = value; }}});
     doc.querySelector('.log-detail .log-copy-value').click(); await delay(30);
     expect(copiedIdentifier).to.equal(requestId);
-    expect(doc.querySelector(".log-correlations").textContent).not.to.include("aaaaaaaa");
-    doc.querySelector('.log-detail button').click(); await delay(30);
+    expect(doc.querySelector(".log-table").textContent).not.to.include("aaaaaaaa");
+    doc.querySelector('.log-back').click(); await delay(30);
     expect(doc.activeElement).to.equal(detail);
+    expect(doc.querySelector('.log-list-view').style.display).not.to.equal('none');
+    detail.click(); await delay(30);
     const trigger = doc.querySelector('.log-trace-button'); trigger.focus(); trigger.click(); await delay(30);
     expect(doc.activeElement.id).to.equal('log-timeline-title');
     expect(doc.querySelector('.log-origin').textContent).to.include('http_access').and.include('nginx');
@@ -187,6 +189,7 @@ describe("Vue 3 UI", function () {
     pending[1]({state:'ready',groups:[{fingerprint:'latest',sample,count:1}]}); await delay(30);
     pending[0]({state:'disabled',groups:[]}); await delay(30);
     expect(doc.querySelector('.log-results').textContent).to.include('latest_event');
+    doc.querySelector('.log-event-button').click(); await delay(20);
     doc.querySelector('.log-trace-button').click(); await delay(30);
     doc.querySelector('.log-timeline button').click(); await delay(30);
     traces[0]({state:'ready',events:[{event:'late_event'}]}); await delay(30);
@@ -231,6 +234,41 @@ describe("Vue 3 UI", function () {
     expect(ui.errors).to.deep.equal([]);
   });
 
+  it("preserves inspector list filters and clears details on source change and refresh", async () => {
+    const now = new Date().toISOString(), requestId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const row = {ts:now,level:"error",module:"queue",message:"history_failure",raw:[{requestId,status:502}]};
+    ui = await browser("/", {
+      "/api/user": {username:"admin",isAdmin:true,status:"ready"},
+      "/api/admin/errors": {entries:[row],available:true,total:1},
+      "/api/admin/errors/investigation": {state:"ready",groups:[{fingerprint:"one",sample:{event:"job_failed",errorCode:"fixture_failure",severity:"error",requestId},count:2,first:now,last:now}]},
+      "/api/admin/errors/correlation": {state:"empty",events:[]},
+    });
+    await ui.go('/admin/errors');
+    const doc=ui.window.document;
+    await ui.input('.log-search input','fixture');
+    const open=doc.querySelector('.log-event-button'); open.click(); await delay(20);
+    expect(doc.querySelector('.log-list-view').style.display).to.equal('none');
+    expect(doc.querySelector('.log-all-fields').open).to.equal(false);
+    doc.querySelector('.log-back').click(); await delay(20);
+    expect(doc.activeElement).to.equal(open);
+    expect(doc.querySelector('.log-search input').value).to.equal('fixture');
+    open.click(); await delay(20);
+    doc.querySelector('#error-source-history').click(); await delay(20);
+    expect(doc.querySelector('.log-inspector')).to.equal(null);
+    doc.querySelector('button.errors-row-main').click(); await delay(20);
+    expect(doc.activeElement.id).to.equal('history-inspector-title');
+    doc.querySelector('.history-source .log-back').click(); await delay(20);
+    expect(doc.activeElement.matches('button.errors-row-main')).to.equal(true);
+    doc.querySelector('button.errors-row-main').click(); await delay(20);
+    doc.querySelector('.error-health-strip button').click(); await delay(30);
+    expect(doc.querySelector('#history-inspector-title')).to.equal(null);
+    doc.querySelector('#error-source-central').click(); await delay(20);
+    doc.querySelector('.log-event-button').click(); await delay(20);
+    doc.querySelector('.error-health-strip button').click(); await delay(30);
+    expect(doc.querySelector('#log-detail-title')).to.equal(null);
+    expect(ui.errors).to.deep.equal([]);
+  });
+
   it("lets slow Redis history finish across polls and protects pending older pages", async () => {
     const pending = [], polls = [];
     ui = await browser("/", {
@@ -268,6 +306,35 @@ describe("Vue 3 UI", function () {
     await ui.go('/');
     pending[3].resolve({entries:[entry('disposed_response')],available:true,total:1}); await delay(30);
     expect(doc.body.textContent).not.to.include('disposed_response');
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("lets slow statistics finish independently and discover older history failures", async () => {
+    const pending = [], polls = [];
+    const entry = (message,status) => ({ts:new Date().toISOString(),level:status>=500?"error":"warn",module:"queue",message,raw:[{status}]});
+    ui = await browser("/", {
+      "/api/user": {username:"admin",isAdmin:true,status:"ready"},
+      "/api/admin/errors/investigation": {state:"disabled",groups:[]},
+      "/api/admin/errors/stats": () => new Promise(resolve=>pending.push(resolve)),
+      "/api/admin/errors": request => ({entries:[entry(request.url.searchParams.get('offset')==='250'?'older_failure':'recent_warning',request.url.searchParams.get('offset')==='250'?502:400)],available:true,total:251,nextOffset:request.url.searchParams.get('offset')==='250'?251:250}),
+    });
+    const nativeInterval=ui.window.setInterval.bind(ui.window);
+    ui.window.setInterval=(callback,ms)=>ms===15000?(polls.push(callback),-polls.length):nativeInterval(callback,ms);
+    await ui.go('/admin/errors');
+    const poll=async()=>{polls.forEach(callback=>callback());await delay(25);};
+    await poll();await poll();await poll();
+    expect(pending).to.have.length(1);
+    expect(ui.requests.filter(r=>r.url.pathname==='/api/admin/errors')).to.have.length(4);
+    pending[0]({available:true,last24h:7,severity:{error:1,warn:6,info:0}});await delay(40);
+    expect(ui.window.document.querySelector('.history-source').textContent).to.include('older_failure');
+    expect(ui.window.document.querySelector('.kpi-value').textContent).to.equal('7');
+    await poll();
+    expect(pending).to.have.length(2);
+    pending[1]({__status:503,body:{}});await delay(25);
+    expect(ui.window.document.querySelector('.history-management').textContent).to.include('Redis counters are unavailable');
+    await poll();expect(pending).to.have.length(3);
+    pending[2]({available:true,last24h:9,severity:{error:1,warn:8,info:0}});await delay(30);
+    expect(ui.window.document.querySelector('.kpi-value').textContent).to.equal('9');
     expect(ui.errors).to.deep.equal([]);
   });
 

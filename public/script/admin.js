@@ -1,5 +1,5 @@
 import { installLogInvestigation } from "./admin-log-investigation.js";
-import { reactive, onScopeDispose } from "vue";
+import { reactive, onScopeDispose, nextTick } from "vue";
 import { createTimers, createListeners } from "./state.js";
 import { duration, statusMsg } from "./formatters.js";
 
@@ -1401,7 +1401,7 @@ export const errorsAdminController = function (state, http, location, interval) 
       installLogInvestigation(state, http);
       state.redisCollecting = null;
       state.redisLoading = false;
-      let historyVersion = 0, statsVersion = 0, disposed = false;
+      let historyVersion = 0, statsVersion = 0, statsPending = false, disposed = false;
       state.redisStatsState = "loading";
       const timers = createTimers();
       state.watch("user.status", () => {
@@ -1420,6 +1420,9 @@ export const errorsAdminController = function (state, http, location, interval) 
       state.total = 0;
       state.pageSize = 250;
       state.expanded = {};
+      state.historySelected = null;
+      state.historyView = "overview";
+      let historyOrigin = null, historyScroll = [];
       state.detailTab = {};
       state.copyHint = "";
       state.parsedFilterCount = 0;
@@ -1763,11 +1766,14 @@ export const errorsAdminController = function (state, http, location, interval) 
       }
       state.loadMore = () => loadEntries(true);
       state.canLoadMore = () => (state.redisNextOffset || state.entries.length) < state.total;
-      function loadStats() {
+      function loadStats(background = false) {
+        if (background && statsPending) return;
         const current = ++statsVersion;
+        statsPending = true;
         http.get("/api/admin/errors/stats").then(
           (res) => {
             if (disposed || current !== statsVersion) return;
+            statsPending = false;
             const s = res.data || {};
             state.redisStatsState = s.available === false ? "unavailable" : "ready";
             const delta = s.prev24h ? Math.round(((s.last24h - s.prev24h) / s.prev24h) * 100) : 0;
@@ -1782,14 +1788,14 @@ export const errorsAdminController = function (state, http, location, interval) 
             };
             recompute();
           },
-          () => { if (!disposed && current === statsVersion) state.redisStatsState = "unavailable"; }
+          () => { if (!disposed && current === statsVersion) { statsPending = false; state.redisStatsState = "unavailable"; } }
         );
       }
       function load(background = false) {
         // Polls must not invalidate a slow head or pagination request. Explicit
         // refreshes still supersede it; stats refresh independently of entries.
         if (!background || !state.redisLoading) loadEntries();
-        loadStats();
+        loadStats(background);
       }
 
       // Volume chart: errors and warnings carry the height (scaled to their own peak, up to 44px);
@@ -1810,17 +1816,39 @@ export const errorsAdminController = function (state, http, location, interval) 
         return `${t.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} · ${b.error || 0} err · ${b.warn || 0} warn · ${b.info || 0} info`;
       };
 
-      state.toggle = (row) => {
-        state.expanded[row._key] = !state.expanded[row._key];
+      state.toggle = async (row, origin) => {
+        historyOrigin = origin || document.activeElement;
+        historyScroll = state.captureErrorScroll(historyOrigin);
+        state.historySelected = row;
+        state.historyView = "overview";
+        state.expanded = {[row._key]:true};
+        await nextTick();
+        document.getElementById("history-inspector-title")?.focus({preventScroll:true});
+        document.getElementById("history-inspector-title")?.scrollIntoView?.({block:"nearest"});
+      };
+      state.showHistoryTimeline = origin => {
+        state.historyView = "timeline";
+        if(state.traceSelection) return;
+        const kind=["requestId","jobId"].find(key=>state.logTraceId(state.historySelected,key));
+        if(kind) state.lookupTrace(kind,state.logTraceId(state.historySelected,kind),origin,state.historySelected);
+      };
+      state.closeHistory = async () => {
+        const key = state.historySelected?._key;
+        state.historySelected = null; state.expanded = {};
+        if (state.traceSelection) await state.closeTrace();
+        await nextTick();
+        const target = historyOrigin?.isConnected ? historyOrigin : [...document.querySelectorAll('[data-history-key]')].find(node=>node.dataset.historyKey===key);
+        target?.focus({preventScroll:true});
+        state.restoreErrorScroll(historyScroll);
       };
       state.setBucket = (b) => {
         state.query.bucket = b;
       };
 
-      state.refreshNow = () => load();
+      state.refreshNow = () => { state.historySelected = null; state.historyView = "overview"; state.expanded = {}; if (state.traceSelection) state.closeTrace(); load(); };
       state.clearAll = () => {
         if (!confirm("Clear Redis error history? Central logs are unaffected.")) return;
-        http.delete("/api/admin/errors").then(() => load(), (err) => console.error(err));
+        http.delete("/api/admin/errors").then(() => state.refreshNow(), (err) => console.error(err));
       };
       state.exportCsv = () => {
         const cols = ["ts", "level", "module", "displayMessage", "_status", "_url", "_repoId"];
