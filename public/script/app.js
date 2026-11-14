@@ -2043,7 +2043,10 @@ export const anonymizeController = function (state, http, html, params, location
         const app = type !== "gist" && state.githubConnection === "github-app";
         // "app": the GitHub installation page; "link": the connections page.
         // When editing a repository, "Connection problems?" below the URL opens with the repair steps.
-        const manage = state.isUpdate && type === "repo" ? null : type === "gist" || !state.githubConnection ? "link" : app ? "app" : "link";
+        const hasRepairControls = state.isUpdate && type === "repo" && state.role === "owner" &&
+          state.accessRepairAllowed && state.githubConnections?.appEnabled && app &&
+          state.sourceUrl === "https://github.com/" + state._originalFullName;
+        const manage = hasRepairControls ? null : type === "gist" || !state.githubConnection ? "link" : app ? "app" : "link";
         const title = "Couldn't load " + what;
         if (kind === "github-throttle") return { kind, title, text: "GitHub's API rate limit has been reached. Wait for the limit to reset, then try again. Your repository access settings do not need to change.", retry: true };
         if (kind === "throttle") return { kind, title, text: "Too many requests. Wait a little, then try loading the source again.", retry: true };
