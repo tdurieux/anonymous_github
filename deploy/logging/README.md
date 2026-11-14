@@ -22,9 +22,16 @@ on `fix/remaining-production-findings`; do not deploy it without that base.
    in the repository. Export `GRAFANA_PASSWORD_FILE` as its absolute path and
    `GRAFANA_ADMIN_USER` as a non-default username. No password value belongs in
    a shell command, Compose file, issue, or PR.
-3. Set `APP_RELEASE` to the deployed 7 to 40 character Git SHA. Build the app through
-   the existing deployment workflow. Add the override when recreating services:
-   `docker compose -f docker-compose.yml -f deploy/logging/app.compose.yml up -d`.
+3. Set `APP_RELEASE` to the deployed 7 to 40 character Git SHA. Append the logging
+   overrides to the deployment's existing `COMPOSE_FILE`; do not replace existing
+   overrides. In particular, GitHub App deployments need
+   `docker-compose.github-app.yml` to retain the read-only signing-key mount in
+   both the API and streamers. For a GitHub App deployment with admin logging,
+   the complete list is
+   `COMPOSE_FILE=docker-compose.yml:docker-compose.github-app.yml:deploy/logging/app.compose.yml:deploy/logging/admin.compose.yml`.
+   Preserve any other site-specific overrides too. Run `scripts/deploy.sh`, which
+   checks that each replacement service can sign with the configured key before
+   stopping live services. Never print the key or expanded Compose environment.
    This applies explicit service tags and nonblocking 10 MiB × 3 local buffers to
    the API, all four streamers, MongoDB, Redis and the backup process. BullMQ
    sandbox workers log through the API container. Existing containers need
@@ -41,7 +48,13 @@ on `fix/remaining-production-findings`; do not deploy it without that base.
    can exceed 10 MiB between checks; this is not a hard file quota. Use a dedicated
    filesystem quota if hard local containment is needed. Use rename/reopen, not
    copytruncate. Vector excludes compressed history and reads new files from end.
-6. Set `DOCKER_LOG_DIR` if Docker's data root differs from `/var/lib/docker/containers`,
+6. Set `NGINX_LOG_GID` to the numeric group owning the access log
+   (`stat -c %g /var/log/nginx/anonymous.access.json`; normally the host `adm`
+   group). Vector receives this supplementary group while retaining no Linux
+   capabilities and read-only mounts. Keep logs `0640` and ensure logrotate
+   creates replacements with the same group, as in `nginx.logrotate`; do not
+   make access logs world-readable. Recreate Vector after changing this setting.
+   Set `DOCKER_LOG_DIR` if Docker's data root differs from `/var/lib/docker/containers`,
    and `NGINX_LOG_DIR` if needed. The collector mounts these directories read-only;
    it has no Docker socket, host PID namespace or ability to restart applications.
    Start with `docker compose -f deploy/logging/compose.yml up -d`.
@@ -320,3 +333,7 @@ node-redis client against a disposable loopback-only Redis container. It checks
 cold concurrent statistics, recent/grouped-history reads, overload rejection and
 subsequent transaction integrity, unavailable fallback, and restart recovery.
 The fixture uses only synthetic counters and removes its container on exit.
+
+For the focused restricted-file/rotation regression, run
+`LOGGING_ACCESS_ONLY=1 python3 scripts/test-logging.py`. This uses synthetic
+`0640` logs in an isolated Docker project and preserves capability restrictions.
