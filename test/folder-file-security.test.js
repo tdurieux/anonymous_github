@@ -52,7 +52,7 @@ describe("folder file endpoint disclosure", function () {
   });
   it("blocks a real HTTP redirect to a GitHub tree page before fetching its HTML", async () => {
     const warnings = [];
-    stub(console, "warn", (...args) => warnings.push(args.join(" ")));
+    stub(process.stdout, "write", line => { warnings.push(line); return true; });
     const server = await listen(http.createServer((_req, res) => { res.writeHead(302, { location: "https://github.com/example/private-repo/tree/main/folder?token=secret-query" }); res.end(); }));
     const original = got.stream;
     stub(got, "stream", (_url, options) => original(`http://127.0.0.1:${server.address().port}/raw`, options));

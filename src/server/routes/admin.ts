@@ -1,3 +1,4 @@
+import { jobTrace } from "../../core/log-context";
 import { cacheMetricsReport } from "../../core/cache-observability";
 import { sharedBlobCache, resultBlobCache } from "../../core/blob-cache";
 import { AsyncCache } from "../../core/async-cache";
@@ -983,7 +984,7 @@ router.delete(
     const repo = await getRepo(req, res, { nocheck: true });
     if (!repo) return;
     try {
-      await cacheQueue.add(repo.repoId, { repoId: repo.repoId }, { jobId: `repo-${repo.repoId}` });
+      await cacheQueue.add(repo.repoId, { repoId: repo.repoId, ...jobTrace() }, { jobId: `repo-${repo.repoId}` });
       return res.json({ status: repo.status });
     } catch (error) {
       handleError(error, res, req);

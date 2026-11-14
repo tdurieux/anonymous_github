@@ -1,3 +1,4 @@
+import { jobTrace } from "../core/log-context";
 import { isQuotaFailure } from "../core/repository-failure-status";
 import UserModel from "../core/model/users/users.model";
 import { JobsOptions, Queue, Worker } from "bullmq";
@@ -16,6 +17,8 @@ const logger = createLogger("queue");
 // ERR_BUFFER_OUT_OF_BOUNDS on long term lists / large nested fields.
 export interface RepoJobData {
   repoId: string;
+  requestId?: string;
+  logJobId?: string;
 }
 
 const IN_FLIGHT_STATUSES: RepositoryStatus[] = [
@@ -139,7 +142,7 @@ export async function addRemovalJob(
     if (LIVE_JOB_STATES.has(state)) return false;
     await existing.remove().catch(() => undefined);
   }
-  await queue.add(repoId, { repoId }, { ...REMOVAL_JOB_OPTIONS, jobId });
+  await queue.add(repoId, { repoId, ...jobTrace() }, { ...REMOVAL_JOB_OPTIONS, jobId });
   return true;
 }
 
@@ -302,6 +305,22 @@ export function startWorker() {
       autorun: true,
     }
   );
+  for (const [queue, worker] of [["cache", cacheWorker], ["remove", removeWorker], ["download", downloadWorker]] as const) {
+    worker.on("stalled", () => logger.error("job stalled", { queue }));
+  }
+  let sampling = false;
+  const timer = setInterval(async () => {
+    if (sampling) return;
+    sampling = true;
+    try {
+      for (const [queue, client] of [["cache", cacheQueue], ["remove", removeQueue], ["download", downloadQueue]] as const) {
+        const counts = await client.getJobCounts("waiting", "active", "delayed", "failed");
+        const oldest = (await client.getJobs(["waiting"], 0, 0, true))[0];
+        logger.info("queue heartbeat", { queue, ...counts, oldestWaitingMs: oldest ? Date.now() - oldest.timestamp : 0 });
+      }
+    } catch { /* queue availability is reported through missing heartbeat alerts */ }
+    finally { sampling = false; }
+  }, 30000); timer.unref();
   if (!downloadWorker.isRunning()) downloadWorker.run();
 
   downloadWorker.on("active", async (job) => {

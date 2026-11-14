@@ -1,0 +1,55 @@
+groups:
+  - name: application-logs
+    type: vlogs
+    interval: 30s
+    rules:
+      - alert: SustainedServerErrors
+        expr: '_time:5m service:api outcome:completed | stats count() as total, count() if (status:>=500) as errors | filter errors:>=10 | math errors / total as ratio | filter ratio:>0.05 | fields ratio'
+        for: 5m
+        labels: {severity: warning}
+        annotations: {summary: 'API 5xx exceed 5 percent and 10 requests per five minutes'}
+      - alert: ApiTelemetryMissing
+        expr: '_time:3m service:api event:process_heartbeat | stats count() as heartbeats | filter heartbeats:0'
+        for: 3m
+        labels: {severity: warning}
+        annotations: {summary: 'API heartbeat is missing'}
+      - alert: StreamerTelemetryMissing
+        expr: '_time:3m service:streamer event:process_heartbeat | stats count_uniq(instance) as instances | filter instances:<4'
+        for: 3m
+        labels: {severity: warning}
+        annotations: {summary: 'Fewer than four streamer instances report heartbeats; adjust for planned scaling'}
+      - alert: ApplicationRestartBurst
+        expr: '_time:10m event:process_started | stats by (service) count() as restarts | filter restarts:>4'
+        for: 2m
+        labels: {severity: warning}
+        annotations: {summary: 'Repeated process starts in ten minutes'}
+      - alert: ApplicationMemoryPressure
+        expr: '_time:3m event:process_heartbeat | stats by (service) max(memoryRatio) as ratio | filter ratio:>0.85'
+        for: 5m
+        labels: {severity: warning}
+        annotations: {summary: 'Container usage exceeds 85 percent of its cgroup memory limit'}
+      - alert: QueueStalled
+        expr: '_time:5m event:job_stalled | stats by (queue) count() as stalls | filter stalls:>0'
+        for: 2m
+        labels: {severity: warning}
+        annotations: {summary: 'BullMQ reports stalled jobs'}
+      - alert: QueueWaitingTooLong
+        expr: '_time:3m event:queue_heartbeat | stats by (queue) max(oldestWaitingMs) as age | filter age:>600000'
+        for: 5m
+        labels: {severity: warning}
+        annotations: {summary: 'A runnable job has waited over ten minutes'}
+      - alert: QueueTelemetryMissing
+        expr: '_time:3m event:queue_heartbeat | stats count_uniq(queue) as queues | filter queues:<3'
+        for: 3m
+        labels: {severity: warning}
+        annotations: {summary: 'Queue telemetry is missing'}
+      - alert: WebhookFailures
+        expr: '_time:5m route:"/github/app/webhook" status:>=500 outcome:completed | stats count() as errors | filter errors:>=3'
+        for: 3m
+        labels: {severity: warning}
+        annotations: {summary: 'Repeated webhook server failures; signature rejection is excluded'}
+      - alert: ApplicationLogDrops
+        expr: '_time:3m (event:process_heartbeat OR event:job_completed OR event:job_failed) | stats by (service) max(droppedLogs) as drops | filter drops:>0'
+        for: 2m
+        labels: {severity: warning}
+        annotations: {summary: 'An application process dropped stdout logs since startup'}

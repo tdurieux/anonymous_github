@@ -1,3 +1,4 @@
+import { loggedJob } from "../log-job";
 import { SandboxedJob } from "bullmq";
 import { getRepository as getRepositoryImport } from "../../server/database";
 import { RepoJobData } from "../index";
@@ -42,4 +43,4 @@ export function createRemoveCacheProcessor(database?: Database) {
   ) => processRemoveCache(job, database);
 }
 
-export default createRemoveCacheProcessor();
+export default loggedJob("cache", createRemoveCacheProcessor());

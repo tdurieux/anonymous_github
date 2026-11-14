@@ -1,3 +1,4 @@
+import { logContext } from "./log-context";
 import { AsyncLocalStorage } from "async_hooks";
 import { randomUUID } from "crypto";
 import { performance } from "perf_hooks";
@@ -164,6 +165,6 @@ export function monitorRequests(service: Service, metrics = requestMetrics,
       else if (!route.includes("healthcheck")) log.info("request", detail);
     };
     res.once("finish", done); res.once("close", done);
-    context.run(trace, next);
+    context.run(trace, () => logContext.run({ requestId: id, service }, next));
   };
 }

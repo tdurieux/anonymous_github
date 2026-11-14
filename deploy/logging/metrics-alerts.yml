@@ -1,0 +1,33 @@
+groups:
+  - name: logging-infrastructure
+    rules:
+      - alert: LoggingTelemetryMissing
+        expr: up == 0
+        for: 3m
+        labels: {severity: warning}
+        annotations: {summary: 'A logging component cannot be scraped'}
+      - alert: CollectorDrops
+        expr: sum(increase(vector_buffer_discarded_events_total[5m])) > 0 or sum(increase(vector_component_discarded_events_total{intentional!="true"}[5m])) > 0
+        for: 2m
+        labels: {severity: warning}
+        annotations: {summary: 'Collector dropped events; inspect buffer and transform counters'}
+      - alert: CollectorErrors
+        expr: sum(increase(vector_component_errors_total[5m])) > 0
+        for: 3m
+        labels: {severity: warning}
+        annotations: {summary: 'Collector errors persist'}
+      - alert: LogStoragePressure
+        expr: sum(vl_data_size_bytes) > 8 * 1024^3 or min(vl_free_disk_space_bytes) < 8 * 1024^3
+        for: 5m
+        labels: {severity: warning}
+        annotations: {summary: 'Log storage is near the retention budget or free-space reserve'}
+      - alert: LogIngestionRejected
+        expr: sum(increase(vl_rows_dropped_total[5m])) > 0
+        for: 2m
+        labels: {severity: warning}
+        annotations: {summary: 'VictoriaLogs rejected records'}
+      - alert: LogAlertEvaluationFailed
+        expr: sum(increase(vmalert_execution_errors_total[5m])) > 0
+        for: 3m
+        labels: {severity: warning}
+        annotations: {summary: 'Log alert queries are failing'}

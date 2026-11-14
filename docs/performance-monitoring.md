@@ -156,3 +156,7 @@ The constrained-heap regression fixture can be run without network or MongoDB:
 
 See [Shared blob cache](shared-cache.md) for configuration, storage and quota
 accounting, admin metrics, production observations, rollout and benchmark commands.
+
+For opt-in persistent structured logs, cross-service request/job investigation,
+and private Grafana dashboards, see [operations logging](../deploy/logging/README.md).
+The existing Redis performance/admin endpoints remain available during migration.
