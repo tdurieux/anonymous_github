@@ -1,3 +1,4 @@
+import { sendTrackedEmail } from "./email-history";
 import { createHash, randomUUID } from "crypto";
 import { mongo, Types } from "mongoose";
 import { isGitHubRateLimitError } from "./github-rate-limit";
@@ -577,7 +578,8 @@ export async function notifyOwnerAccessProblem(ownerId: string, error: unknown, 
     let httpStatus: number | undefined;
     try {
       providerStarted = true;
-      const response = await fetch("https://api.resend.com/emails", {
+      const response = await sendTrackedEmail({ kind: "owner-access", recipient: to, ownerId,
+        resourceId: resource.id, resourceKind: resource.kind }, "https://api.resend.com/emails", {
         method: "POST",
         headers: { Authorization: `Bearer ${config.RESEND_API_KEY}`, "Content-Type": "application/json",
           "Idempotency-Key": `owner-access-alert/${attemptId}` },
