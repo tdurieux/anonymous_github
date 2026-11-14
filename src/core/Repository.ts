@@ -561,12 +561,10 @@ export default class Repository {
         await this.markExpired();
       }
     }
-    if (
-      this.status == RepositoryStatus.EXPIRED ||
-      this.status == RepositoryStatus.EXPIRING ||
-      this.status == RepositoryStatus.REMOVING ||
-      this.status == RepositoryStatus.REMOVED
-    ) {
+    if (this.status == RepositoryStatus.REMOVING || this.status == RepositoryStatus.REMOVED) {
+      throw new AnonymousError("is_removed", { object: this, httpStatus: 410 });
+    }
+    if (this.status == RepositoryStatus.EXPIRED || this.status == RepositoryStatus.EXPIRING) {
       throw new AnonymousError("repository_expired", {
         object: this,
         httpStatus: 410,
