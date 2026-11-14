@@ -971,6 +971,14 @@ app.get("/api/admin/users/:username", (req, res) => {
 });
 app.post("/api/admin/users/:username/ban", (req, res) => res.json({ ok: true, reposQueued: 2 }));
 app.post("/api/admin/users/:username/:action", ok);
+app.get("/api/user/repository_picker", (req, res) => {
+  const cursor = Number(req.query.cursor || 0);
+  const query = String(req.query.q || "").toLowerCase();
+  const repos = Array.from({ length: 63 }, (_, id) => ({ id, fullName: `research/project-${String(id + 1).padStart(2, "0")}` }));
+  const matches = repos.filter(repo => repo.fullName.toLowerCase().includes(query));
+  res.json({ items: matches.slice(cursor, cursor + 20), nextCursor: cursor + 20 < matches.length ? cursor + 20 : null });
+});
+
 app.get("/api/user/:username/all_repositories", (req, res) => {
   const u = adminUsers.find((x) => x.username === req.params.username) || adminUsers[0];
   res.json(githubRepos(u));
