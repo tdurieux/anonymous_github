@@ -115,6 +115,10 @@ with tempfile.TemporaryDirectory(prefix=PROJECT) as temp:
         correlated = query('requestId:="' + request_id + '"')
         assert {r['service'] for r in correlated} == {'api', 'streamer', 'worker', 'nginx'}
         assert len(query('jobId:="' + job_id + '"')) == 1
+        assert {r['event'] for r in correlated} == {'request_completed', 'job_failed', 'edge_request'}
+        assert all(r['_msg'] == r['event'] for r in correlated)
+        assert len(query('event:request_completed')) == 2
+        assert len(query('event:job_failed')) == 1
         assert all('requestId' not in r['_stream'] and 'instance' not in r['_stream'] for r in rows)
         print('PASS ingestion, privacy allowlist, malformed input, API/streamer/job/edge correlation')
         # Query every shipped dashboard and alert expression against the real server.
@@ -155,6 +159,7 @@ with tempfile.TemporaryDirectory(prefix=PROJECT) as temp:
         wait_for(lambda: get(vector, '/metrics'))
         before = count()
         append('api', {'event': 'process_heartbeat', 'severity': 'info'})
+        wait_for(lambda: len(query('event:process_heartbeat')) >= 1)
         wait_for(lambda: count() > before)
         print('PASS rename rotation and collector checkpoint restart')
         # Backend failure: sanitized disk spool remains bounded; source writer stays independent.
