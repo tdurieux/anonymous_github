@@ -943,6 +943,33 @@ describe("Vue 3 UI", function () {
     });
   }
 
+  it("shows failed reconnection after previously loading source metadata", async () => {
+    let fail = false;
+    ui = await browser("/anonymize/saved", {
+      ...repositorySource,
+      "/api/repo/saved": { source: { fullName: "owner/repo", branch: "main", commit: "saved123" }, options: { terms: ["Private Author"] } },
+      "/api/repo/owner/repo/": () => fail ? { __status: 403, body: { error: "github_app_reconnect_required" } }
+        : { defaultBranch: "main", repo: "repo", hasPage: false },
+    });
+    await delay(150);
+    const state = ui.window.document.querySelector("#sourceUrl")._field.binding.state;
+    expect(state.details.repo).to.equal("repo");
+    ui.window.confirm = () => true;
+    fail = true;
+    await state.reconnectSource();
+    await delay(30);
+    expect(state.details).to.equal(null);
+    expect(state.sourceProblem().kind).to.equal("reconnect");
+    expect(ui.window.document.querySelector('.source-error a[href="/connections"]')).not.to.equal(null);
+    expect(ui.window.document.querySelector('.rp-error a[href="/connections"]')).not.to.equal(null);
+    fail = false;
+    await state.reconnectSource();
+    await delay(30);
+    expect(state.sourceProblem()).to.equal(null);
+    expect(state.source.commit).to.equal("abcdef123");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
   it("recovers edit source validity after a failed branch refresh", async () => {
     let fail = false;
     ui = await browser("/anonymize/saved", {
