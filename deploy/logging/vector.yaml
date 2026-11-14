@@ -34,7 +34,7 @@ sinks:
     compression: gzip
     healthcheck: {enabled: false}
     query:
-      _msg_field: event
+      _msg_field: _msg
       _time_field: timestamp
       _stream_fields: service,severity
     batch: {max_bytes: 1048576, timeout_secs: 1}
