@@ -1517,7 +1517,7 @@ export const errorsAdminController = function (state, http, location, interval) 
           e._detail = detail.detail && detail.detail !== e._repoId ? detail.detail : null;
           // Walk into `cause` (and `err` for streamer-style entries) to
           // surface the deepest stack.
-          let s = typeof detail.stack === "string" ? detail.stack : null;
+          let s = detail.errorStack || detail.causeStack ? [detail.errorType, detail.errorStack, detail.causeType ? "Caused by " + detail.causeType : null, detail.causeStack].filter(Boolean).join("\n") : (typeof detail.stack === "string" ? detail.stack : null);
           var roots = [detail.cause, detail.err].filter(Boolean);
           for (var ri = 0; !s && ri < roots.length; ri++) {
             var c = roots[ri];

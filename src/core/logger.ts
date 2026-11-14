@@ -1,3 +1,4 @@
+import { errorDiagnostics } from "./log-diagnostics";
 import { logRecord } from "./log-record";
 import { redactSecrets } from "./redact-secrets";
 import { createClient, RedisClientType } from "redis";
@@ -145,6 +146,21 @@ function clampPayload(entry: {
     delete slim.stack;
     delete slim.upstreamBody;
     entry.raw = [slim];
+    s = JSON.stringify(entry);
+    if (s.length <= MAX_PAYLOAD_BYTES) return s;
+  }
+  // Keep reproduction/correlation when bounded paths plus diagnostic stacks exceed
+  // the mirror limit. Reduce frame depth and drop secondary measurements first.
+  if (first && typeof first === "object" && !Array.isArray(first)) {
+    const diagnostic = first as Record<string, unknown>;
+    const compact: Record<string, unknown> = {};
+    for (const key of ["timestamp", "severity", "service", "event", "module", "release", "requestId", "jobId", "method", "route", "requestPath", "repoId", "httpStatus", "status", "errorCode", "errorType", "causeType", "code", "message"]) {
+      if (diagnostic[key] !== undefined) compact[key] = diagnostic[key];
+    }
+    for (const key of ["errorStack", "causeStack"]) {
+      if (typeof diagnostic[key] === "string") compact[key] = diagnostic[key].split("\n")[0];
+    }
+    entry.raw = [compact];
     s = JSON.stringify(entry);
     if (s.length <= MAX_PAYLOAD_BYTES) return s;
   }
@@ -307,7 +323,7 @@ export function serializeError(err: unknown, seen = new WeakSet<object>(), depth
   if (seen.has(err) || depth >= 4) return { message: "error_details_truncated" };
   seen.add(err);
   const e = err as ErrorLike;
-  const out: Record<string, unknown> = {};
+  const out: Record<string, unknown> = errorDiagnostics(err);
   if (e.name) out.name = e.name;
   if (e.message) out.message = e.message;
 
