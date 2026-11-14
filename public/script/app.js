@@ -2036,7 +2036,10 @@ export const anonymizeController = function (state, http, html, params, location
         const app = type !== "gist" && state.githubConnection === "github-app";
         // "app": the GitHub installation page; "link": the connections page.
         // When editing a repository, "Connection problems?" below the URL opens with the repair steps.
-        const manage = state.isUpdate && type === "repo" ? null : type === "gist" || !state.githubConnection ? "link" : app ? "app" : "link";
+        const hasRepairControls = state.isUpdate && type === "repo" && state.role === "owner" &&
+          state.accessRepairAllowed && state.githubConnections?.appEnabled && app &&
+          state.sourceUrl === "https://github.com/" + state._originalFullName;
+        const manage = hasRepairControls ? null : type === "gist" || !state.githubConnection ? "link" : app ? "app" : "link";
         const title = "Couldn't load " + what;
         if (kind === "used") return { kind, title: "Already anonymized", text: `You've already anonymized ${name}. Open it from My work to change its settings.`, dashboard: true };
         if (kind === "access") {

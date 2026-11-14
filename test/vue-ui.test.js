@@ -899,6 +899,31 @@ describe("Vue 3 UI", function () {
     "/api/anonymize-preview": request => ({ content: request.payload.content.replaceAll("Private Author", "MASKED") }),
   };
 
+  for (const [connection, changedSource, action] of [["oauth", false, "link"], ["github-app", true, "app"], ["github-app", false, null]]) {
+    it(`keeps access repair available for editing ${connection}, changed source ${changedSource}`, async () => {
+      ui = await browser("/anonymize/saved", {
+        ...repositorySource,
+        "/api/repo/saved": { source: { fullName: "owner/repo", branch: "main", commit: "saved123" }, options: { terms: ["Private Author"] } },
+      });
+      await delay(100);
+      const state = ui.window.document.querySelector("#sourceUrl")._field.binding.state;
+      state.githubConnection = connection;
+      state.githubConnections = { appEnabled: true, appConnected: true };
+      state.role = "owner";
+      state.accessRepairAllowed = true;
+      state.sourceUrl = changedSource ? "https://github.com/owner/other" : "https://github.com/owner/repo";
+      state.details = null;
+      state.sourceError = "repo_not_found";
+      await delay(30);
+      expect(state.sourceProblem().manage).to.equal(action);
+      const doc = ui.window.document;
+      if (action === "link") expect(doc.querySelector('.source-error a[href="/connections"]')).not.to.equal(null);
+      else if (action === "app") expect(doc.querySelector('.source-error .btn-ink').textContent).to.include("Manage GitHub access");
+      else expect(doc.querySelector('.repair-step')).not.to.equal(null);
+      expect(ui.errors).to.deep.equal([]);
+    });
+  }
+
   it("recovers edit source validity after a failed branch refresh", async () => {
     let fail = false;
     ui = await browser("/anonymize/saved", {
