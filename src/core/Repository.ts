@@ -1,3 +1,4 @@
+import { jobTrace } from "./log-context";
 import { REPOSITORY_ID_COLLATION } from "./repository-id";
 import { reserveRepository } from "./billing/quotas";
 import { hasAutomaticUpdates } from "./billing/expiration";
@@ -855,7 +856,7 @@ export default class Repository {
           const current = await AnonymizedRepositoryModel.exists({ _id: this.model._id, ...this.refreshFilter() });
           if (!current) throw new AnonymousError("invalid_status", { httpStatus: 409 });
         }
-        await downloadQueue.add(this.repoId, { repoId: this.repoId }, {
+        await downloadQueue.add(this.repoId, { repoId: this.repoId, ...jobTrace() }, {
           jobId: `repo-${this.repoId}`,
           attempts: 3,
         });

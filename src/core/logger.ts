@@ -1,3 +1,4 @@
+import { logRecord } from "./log-record";
 import { redactSecrets } from "./redact-secrets";
 import { createClient, RedisClientType } from "redis";
 import config from "../config";
@@ -40,16 +41,6 @@ function resolveThreshold(): number {
 
 const threshold = resolveThreshold();
 
-function formatArg(a: unknown): string {
-  if (typeof a === "string") return a;
-  if (a instanceof Error) return JSON.stringify(serializeError(a));
-  try {
-    return JSON.stringify(a);
-  } catch {
-    return String(a);
-  }
-}
-
 let redisClient: RedisClientType | null = null;
 let redisDisabled = false;
 
@@ -58,6 +49,8 @@ function getRedis(): RedisClientType | null {
   if (redisClient) return redisClient;
   try {
     redisClient = createClient({
+      disableOfflineQueue: true,
+      commandsQueueMaxLength: 128,
       socket: {
         host: config.REDIS_HOSTNAME,
         port: config.REDIS_PORT,
@@ -92,6 +85,13 @@ function getRedis(): RedisClientType | null {
 // Redis is back. Read by /admin/errors/stats so the admin page surfaces
 // "you're losing logs" instead of silently rendering an empty table.
 let droppedInProcess = 0;
+let droppedOutput = 0;
+let outputBroken = false;
+let errorOutputBroken = false;
+// A closed log reader must not become an uncaught EPIPE on the serving process.
+process.stdout.on("error", () => { outputBroken = true; droppedOutput++; });
+process.stderr.on("error", () => { errorOutputBroken = true; droppedOutput++; });
+export function getDroppedOutput() { return droppedOutput; }
 export function getInProcessDropped(): number {
   return droppedInProcess;
 }
@@ -192,8 +192,9 @@ function persistError(entry: {
   message: string;
   raw: unknown[];
 }) {
+  if (process.env.LOG_REDIS_MIRROR === "off") return;
   const client = getRedis();
-  if (!client || !client.isOpen) {
+  if (!client || !client.isReady) {
     droppedInProcess++;
     return;
   }
@@ -204,11 +205,11 @@ function persistError(entry: {
   ) as Record<string, unknown> | undefined;
   const bucket = bucketFor(detail, entry.level);
   const code =
-    (detail && typeof detail.message === "string"
-      ? (detail.message as string)
-      : "") ||
     (detail && typeof detail.code === "string"
       ? (detail.code as string)
+      : "") ||
+    (detail && typeof detail.message === "string"
+      ? (detail.message as string)
       : "") ||
     "_";
   // Routine client misuse (401/403/404 and the allowlisted "expected" 4xx
@@ -252,29 +253,26 @@ function persistError(entry: {
 
 function emit(level: Level, module: string, args: unknown[]) {
   if (LEVEL_ORDER[level] < threshold) return;
-  args = args.map(arg => redactSecrets(arg instanceof Error ? serializeError(arg) : arg));
   const ts = new Date().toISOString();
-  const formatted = args.map(formatArg);
-  const line = `${ts} ${level.toUpperCase()} [${module}] ${formatted.join(" ")}`;
-  const sink =
-    level === "error"
-      ? console.error
-      : level === "warn"
-        ? console.warn
-        : level === "debug"
-          ? console.debug
-          : console.log;
-  sink(line);
+  const record = logRecord(level, module, args);
+  // stdout is a pipe in Docker. Respect backpressure without awaiting it or
+  // building an unbounded userland queue. The next heartbeat reports losses.
+  const output = outputBroken ? process.stderr : process.stdout;
+  if (!(outputBroken && errorOutputBroken) && output.writableLength < 256 * 1024) {
+    try { output.write(JSON.stringify(record) + "\n"); }
+    catch {
+      if (output === process.stdout) outputBroken = true;
+      else errorOutputBroken = true;
+      droppedOutput++;
+    }
+  } else { droppedOutput++; }
   if (level === "error" || level === "warn") {
     persistError({
       ts,
       level,
       module,
-      message: typeof args[0] === "string" ? args[0] : "",
-      raw: args.map((a) => {
-        if (a instanceof Error) return serializeError(a);
-        return a;
-      }),
+      message: String(record.errorCode || record.event),
+      raw: [{ ...record, message: record.errorCode || record.event, code: record.errorCode || record.event }],
     });
   }
 }
@@ -302,10 +300,12 @@ type ErrorLike = {
   url?: string | (() => string | undefined);
 };
 
-export function serializeError(err: unknown): Record<string, unknown> {
+export function serializeError(err: unknown, seen = new WeakSet<object>(), depth = 0): Record<string, unknown> {
   if (err == null) return { value: err };
   if (typeof err !== "object") return { value: String(err) };
 
+  if (seen.has(err) || depth >= 4) return { message: "error_details_truncated" };
+  seen.add(err);
   const e = err as ErrorLike;
   const out: Record<string, unknown> = {};
   if (e.name) out.name = e.name;
@@ -340,7 +340,7 @@ export function serializeError(err: unknown): Record<string, unknown> {
       /* ignore */
     }
   }
-  if (e.cause) out.cause = serializeError(e.cause);
+  if (e.cause) out.cause = serializeError(e.cause, seen, depth + 1);
 
   // Only include the stack when there's nothing else useful — avoids dumping
   // a stack for handled HTTP errors but keeps debuggability for plain Errors.

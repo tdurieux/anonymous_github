@@ -1,0 +1,54 @@
+data_dir: /var/lib/vector
+sources:
+  docker:
+    type: file
+    include: [/host/docker/*/*-json.log]
+    read_from: end
+    max_line_bytes: 65536
+    max_read_bytes: 65536
+    rotate_wait_secs: 60
+    fingerprint: {strategy: device_and_inode}
+  nginx:
+    type: file
+    include: [/host/nginx/anonymous.access.json*]
+    exclude: ['*.gz']
+    read_from: end
+    max_line_bytes: 65536
+    fingerprint: {strategy: device_and_inode}
+  internal:
+    type: internal_metrics
+    scrape_interval_secs: 15
+transforms:
+  safe:
+    type: remap
+    inputs: [docker, nginx]
+    file: /etc/vector/sanitize.vrl
+    drop_on_error: true
+    drop_on_abort: true
+sinks:
+  logs:
+    type: elasticsearch
+    inputs: [safe]
+    endpoints: [http://victorialogs:9428/insert/elasticsearch/]
+    api_version: v8
+    compression: gzip
+    healthcheck: {enabled: false}
+    query:
+      _msg_field: event
+      _time_field: timestamp
+      _stream_fields: service,severity
+    batch: {max_bytes: 1048576, timeout_secs: 1}
+    request: {timeout_secs: 5, concurrency: 1}
+    # Disk fullness drops lack accounting in Vector 0.61.0. Overflow into a
+    # bounded memory stage whose drop_newest losses have observable counters.
+    buffer:
+      - type: disk
+        max_size: 268435488
+        when_full: overflow
+      - type: memory
+        max_events: 1000
+        when_full: drop_newest
+  metrics:
+    type: prometheus_exporter
+    inputs: [internal]
+    address: 0.0.0.0:9598

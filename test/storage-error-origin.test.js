@@ -9,17 +9,16 @@ require("../src/core/storage");
 const FileSystem = require("../src/core/storage/FileSystem").default;
 
 describe("cache write error origins", function () {
-  let directory, previousFolder, messages, previousWarn, previousError;
+  let directory, previousFolder, messages, previousWrite;
   beforeEach(function () {
     directory = fs.mkdtempSync(path.join(os.tmpdir(), "cache-errors-"));
     previousFolder = config.FOLDER; config.FOLDER = directory;
     messages = [];
-    previousWarn = console.warn; previousError = console.error;
-    console.warn = (...args) => messages.push(["warn", args.join(" ")]);
-    console.error = (...args) => messages.push(["error", args.join(" ")]);
+    previousWrite = process.stdout.write;
+    process.stdout.write = line => { const record = JSON.parse(line); messages.push([record.severity, record.event]); return true; };
   });
   afterEach(function () {
-    console.warn = previousWarn; console.error = previousError;
+    process.stdout.write = previousWrite;
     config.FOLDER = previousFolder;
     fs.rmSync(directory, { recursive: true, force: true });
   });
@@ -34,8 +33,8 @@ describe("cache write error origins", function () {
     let caught;
     try { await storage.write("repo", "file.txt", input); } catch (error) { caught = error; }
     expect(caught).to.equal(failure);
-    expect(messages.some(([level, text]) => level === "warn" && text.includes("source stream failed"))).to.equal(true);
-    expect(messages.some(([level, text]) => level === "error" && text.includes("write failed"))).to.equal(false);
+    expect(messages.some(([level, text]) => level === "warn" && text.includes("source_stream_failed"))).to.equal(true);
+    expect(messages.some(([level, text]) => level === "error" && text.includes("write_failed"))).to.equal(false);
     expect(fs.readFileSync(path.join(directory, "repo/original/file.txt"), "utf8")).to.equal("previous");
     expect(fs.readdirSync(path.join(directory, "repo/original"))).to.deep.equal(["file.txt"]);
   });
@@ -45,7 +44,7 @@ describe("cache write error origins", function () {
     let caught;
     try { await storage.write("repo", "file.txt", "new content"); } catch (error) { caught = error; }
     expect(caught).to.be.instanceOf(Error);
-    expect(messages.some(([level, text]) => level === "error" && text.includes("write failed"))).to.equal(true);
+    expect(messages.some(([level, text]) => level === "error" && text.includes("write_failed"))).to.equal(true);
     expect(messages.some(([level]) => level === "warn")).to.equal(false);
     expect(fs.readdirSync(path.join(directory, "repo/original"))).to.deep.equal(["file.txt"]);
   });
