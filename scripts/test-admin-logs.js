@@ -71,17 +71,25 @@ const sleep = ms => new Promise(resolve=>setTimeout(resolve,ms));
     try { requestRoute(null,'api'); } catch (failure) { error=failure; } // real synthetic TypeError in application code
     assert(error instanceof TypeError);
     error.message='https://user:'+secret+'@example.test/private?token='+secret;
-    error.cause=new RangeError(secret);error.cause.stack=error.stack;
-    const diagnostic=logContext.run({requestId:diagnosticId,route:'/api/repo/:repoId/file/:path',method:'GET'},()=>logRecord('error','route',['', {...serializeError(error),httpStatus:500}]));
+    error.stack+='\n    at async '+require('node:path').resolve('src/server/routes/repository-public.ts')+':224:23';
+    error.cause=new RangeError(secret);error.cause.stack='RangeError: '+secret+'\n    at '+require('node:path').resolve('src/core/model/owner-alert-lifecycle.schema.ts')+':12:3';
+    const diagnostic=logContext.run({requestId:diagnosticId,requestPath:'/api/repo/demo-123/file/docs/reproduce%20issue.md',route:'/api/repo/:repoId/file/:path',method:'GET'},()=>logRecord('error','route',['', {...serializeError(error),httpStatus:500}]));
     const rawSource={file:'/host/docker/fixture/log.json',message:JSON.stringify({attrs:{tag:'api'},log:JSON.stringify({...diagnostic,url:secret,stack:secret,errorStack:diagnostic.errorStack+'\n    at '+secret+' (/private/'+secret+':1:2)'})})};
     const projected=execFileSync('docker',['run','--rm','-i','--network','none','--memory','256m',vectorImage,'vrl','-i','/dev/stdin',fs.readFileSync('deploy/logging/sanitize.vrl','utf8')+'\nencode_json(.)'],{encoding:'utf8',input:JSON.stringify(rawSource)+'\n'}).trim().split('\n').map(line=>JSON.parse(JSON.parse(line)))[0];
-    assert.equal(projected.errorType,'TypeError');assert.equal(projected.causeType,'RangeError');
+    assert.equal(projected.requestPath,diagnostic.requestPath);assert.equal(projected.repoId,'demo-123');assert.equal(projected.errorType,'TypeError');assert.equal(projected.causeType,'RangeError');
+    assert.equal(projected.causeStack,'at <anonymous> (src/core/model/owner-alert-lifecycle.schema.ts:12:3)');
+    assert(projected.errorStack.includes('at <anonymous> (src/server/routes/repository-public.ts:224:23)'));
     assert.match(projected.errorStack,/at requestRoute \(src\/core\/request-monitoring.ts:\d+:\d+\)/);
     assert(!JSON.stringify(projected).includes(secret));
+    const invalidPaths=['/api/repo/demo-123/file/a?token='+secret,'/api/repo/demo-123/file/%0a'+secret,'/api/repo/demo-123/file/../'+secret,'/api/repo/demo-123/file/%252e%252e/'+secret,'https://user:'+secret+'@example.test/file'];
+    const invalidSources=invalidPaths.map(requestPath=>({...rawSource,message:JSON.stringify({attrs:{tag:'api'},log:JSON.stringify({...diagnostic,requestPath,errorStack:'at <anonymous> (src/core/model/private.schema.ts:1:2)'})})}));
+    const rejected=execFileSync('docker',['run','--rm','-i','--network','none','--memory','256m',vectorImage,'vrl','-i','/dev/stdin',fs.readFileSync('deploy/logging/sanitize.vrl','utf8')+'\nencode_json(.)'],{encoding:'utf8',input:invalidSources.map(JSON.stringify).join('\n')+'\n'}).trim().split('\n').map(line=>JSON.parse(JSON.parse(line)));
+    assert(rejected.every(row=>!row.requestPath && !row.repoId && !row.errorStack));
+    assert(!JSON.stringify(rejected).includes(secret));
     const ingested=await fetch(process.env.ADMIN_LOG_URL+'/insert/jsonline?_time_field=timestamp',{method:'POST',body:JSON.stringify(projected),headers:{'Content-Type':'application/stream+json'}});assert(ingested.ok);await sleep(2000);
     const traced=await investigateLogs(logOptions({kind:'requestId',id:diagnosticId},true),true);
     const redis=safeRedisLog({ts:diagnostic.timestamp,level:'error',module:'route',raw:[diagnostic]});
-    for(const row of [traced.events[0],redis.raw[0]]) {assert.equal(row.route,diagnostic.route);assert.equal(row.method,'GET');assert.equal(row.errorStack,projected.errorStack);assert.equal(row.causeType,'RangeError');assert(!JSON.stringify(row).includes(secret));}
+    for(const row of [traced.events[0],redis.raw[0]]) {assert.equal(row.requestPath,diagnostic.requestPath);assert.equal(row.repoId,'demo-123');assert.equal(row.route,diagnostic.route);assert.equal(row.method,'GET');assert.equal(row.errorStack,projected.errorStack);assert.equal(row.causeType,'RangeError');assert(!JSON.stringify(row).includes(secret));}
     console.log('PASS synthetic exception logger → pinned collector → VictoriaLogs/Redis safe API with normalized route and bounded frames');
     docker('stop',name);
     const unavailable=await investigateLogs(logOptions({})); assert.equal(unavailable.state,'unreachable');

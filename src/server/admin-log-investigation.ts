@@ -56,7 +56,7 @@ function safeRow(input: Record<string, unknown>): Row | null {
   // Revalidate finite route and diagnostic allowlists; never pass raw strings.
   const projected = logContext.run({}, () => logRecord(["error", "warn", "info", "debug"].includes(String(input.severity)) ? String(input.severity) : "info", String(input.module || "application"), ["", data]));
   const result: Row = { timestamp: /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$/.test(time) ? time : new Date(time).toISOString(), severity: String(projected.severity), service: services.includes(String(input.service)) ? String(input.service) : "unknown", event: events.has(String(input.event)) ? String(input.event) : "application_log", module: String(projected.module), release: /^(?:[a-f0-9]{7,40}|unknown)$/.test(String(input.release)) ? String(input.release) : "unknown" };
-  for (const key of [...numeric, "errorCode", "requestId", "jobId", "queue", "route", "method", "errorType", "errorStack", "causeType", "causeStack"]) if (typeof projected[key] === "string" || typeof projected[key] === "number") result[key] = projected[key] as string | number;
+  for (const key of [...numeric, "errorCode", "requestId", "jobId", "queue", "route", "method", "errorType", "errorStack", "causeType", "causeStack", "repoId", "requestPath"]) if (typeof projected[key] === "string" || typeof projected[key] === "number") result[key] = projected[key] as string | number;
   if (validTraceId(input.instance)) result.instance = input.instance;
   return result;
 }

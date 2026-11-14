@@ -1034,6 +1034,16 @@ export const LOG_SOURCE_FUNCTIONS: Record<string, readonly string[]> = {
     "allowed",
     "logRecord"
   ],
+  "src/core/log-reproduction.ts": [
+    "<anonymous>",
+    "requestReproduction",
+    "safeReproductionPath"
+  ],
+  "build/core/log-reproduction.js": [
+    "<anonymous>",
+    "requestReproduction",
+    "safeReproductionPath"
+  ],
   "src/core/log-schema.ts": [
     "<anonymous>"
   ],

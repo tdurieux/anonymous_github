@@ -101,7 +101,7 @@ describe("Vue 3 UI", function () {
 
   it("shows normalized request routes and exception frames in both admin sources", async () => {
     const now=new Date().toISOString(), requestId='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
-    const sample={event:'application_log',service:'api',module:'route',severity:'error',httpStatus:500,method:'GET',route:'/api/repo/:repoId/file/:path',errorType:'TypeError',errorStack:'at printError (build/server/routes/route-utils.js:200:7)',causeType:'RangeError',causeStack:'at <anonymous> (build/core/repository.js:410:9)',requestId};
+    const sample={event:'application_log',service:'api',module:'route',severity:'error',httpStatus:500,method:'GET',route:'/api/repo/:repoId/file/:path',repoId:'demo-123',requestPath:'/api/repo/demo-123/file/docs/reproduce%20issue.md',errorType:'TypeError',errorStack:'at printError (build/server/routes/route-utils.js:200:7)',causeType:'RangeError',causeStack:'at <anonymous> (build/core/repository.js:410:9)',requestId};
     ui=await browser('/',{
       '/api/user':{username:'admin',isAdmin:true,status:'ready'},
       '/api/admin/errors/investigation':{state:'ready',window:'1h',groups:[{fingerprint:'diagnostic',count:1,sample,first:now,last:now}]},
@@ -111,7 +111,10 @@ describe("Vue 3 UI", function () {
     await ui.go('/admin/errors');const doc=ui.window.document;
     doc.querySelector('.log-event-button').click();await delay(30);
     expect(doc.querySelector('#log-detail-title').textContent).equal('TypeError');
-    expect(doc.querySelector('.log-timeline .log-request-route').textContent).include('GET /api/repo/:repoId/file/:path');
+    expect(doc.querySelector('.log-timeline .log-request-route').textContent).include('GET '+sample.requestPath);
+    expect(doc.querySelector('.log-reproduction').textContent).include('demo-123').and.include(sample.requestPath);
+    let copiedPath;Object.defineProperty(ui.window.navigator,'clipboard',{configurable:true,value:{writeText:async value=>{copiedPath=value;}}});
+    doc.querySelector('.log-reproduction button').click();await delay(10);expect(copiedPath).equal(sample.requestPath);
     const frames=doc.querySelector('.log-timeline .log-error-stack');expect(frames.open).equal(false);
     frames.querySelector('summary').click();expect(frames.open).equal(true);
     expect(frames.textContent).include(sample.errorStack).and.include('RangeError').and.include(sample.causeStack);

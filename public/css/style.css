@@ -14756,3 +14756,10 @@ body.dark-mode .reviewer-preview .rp-preserved-tag { background: rgba(251, 191, 
 .errors-page .history-occurrence > summary::after { content:"+"; position:absolute; right:0; top:16px; color:var(--ink-muted); }
 .errors-page .history-occurrence[open] > summary::after { content:"−"; }
 .errors-page .history-occurrence > pre { white-space:pre-wrap; overflow-wrap:anywhere; }
+
+.errors-page .log-reproduction { margin:16px 0; padding:16px 0; border-block:1px solid var(--border-color); }
+.errors-page .log-reproduction dl { margin:12px 0; }
+.errors-page .log-reproduction dt { font-size:12px; color:var(--ink-muted); font-weight:400; margin:12px 0 4px; }
+.errors-page .log-reproduction dd { margin:0; overflow-wrap:anywhere; }
+.errors-page .log-reproduction .btn { min-height:44px; }
+.errors-page .log-reproduction code { white-space:normal; overflow-wrap:anywhere; word-break:break-word; }

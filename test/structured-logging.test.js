@@ -98,6 +98,19 @@ describe('structured logging privacy and context', function () {
     `], {env: {...process.env, LOG_REDIS_MIRROR: 'on'}, encoding: 'utf8', timeout: 10000});
     expect(child.status, child.stderr).to.equal(0);
   });
+  it('keeps exact reproduction and a frame when Redis payload clamping reduces diagnostics', () => {
+    const child = spawnSync(process.execPath, ['-r','ts-node/register/transpile-only','-e', `
+      const assert=require('node:assert/strict'),redis=require('redis');let payload;
+      const tx={lPush(key,value){payload=value;return tx;},lTrim(){return tx;},hIncrBy(){return tx;},expire(){return tx;},exec(){return Promise.resolve([]);}};
+      redis.createClient=()=>({isReady:true,isOpen:true,on(){},connect(){return Promise.resolve();},multi(){return tx;}});
+      const requestPath='/api/repo/demo-123/file/'+ 'a'.repeat(1950);
+      const frame='at <anonymous> (src/core/model/owner-alert-lifecycle.schema.ts:123456:12345)';
+      const stack=Array(8).fill(frame).join('\\n');
+      require('./src/core/logger').createLogger('route').error('failure',{...Object.fromEntries(['ms','firstByteMs','responseMs','bytes','bytesPerSecond','attempt','rss','memoryLimitBytes','memoryRatio','uptime','activeRequests','waiting','active','delayed','failed','oldestWaitingMs','droppedLogs','loopP95Ms','upstreamStatus'].map(key=>[key,Number.MAX_VALUE])),requestPath,errorType:'TypeError',errorStack:stack,causeType:'Error',causeStack:stack,httpStatus:500});
+      assert(payload.length<=4096);const row=JSON.parse(payload).raw[0];assert.equal(row.requestPath,requestPath);assert.equal(row.repoId,'demo-123');assert.equal(row.errorStack,frame);
+    `],{env:{...process.env,LOG_REDIS_MIRROR:'on'},encoding:'utf8',timeout:10000});
+    expect(child.status,child.stderr).equal(0);
+  });
   it('writes JSON without Redis and bounds a blocked stdout pipe', () => {
     const child = spawnSync(process.execPath, ['-r', 'ts-node/register/transpile-only', '-e', `
       const { createLogger, getDroppedOutput } = require('./src/core/logger');

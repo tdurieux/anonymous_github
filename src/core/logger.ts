@@ -149,6 +149,21 @@ function clampPayload(entry: {
     s = JSON.stringify(entry);
     if (s.length <= MAX_PAYLOAD_BYTES) return s;
   }
+  // Keep reproduction/correlation when bounded paths plus diagnostic stacks exceed
+  // the mirror limit. Reduce frame depth and drop secondary measurements first.
+  if (first && typeof first === "object" && !Array.isArray(first)) {
+    const diagnostic = first as Record<string, unknown>;
+    const compact: Record<string, unknown> = {};
+    for (const key of ["timestamp", "severity", "service", "event", "module", "release", "requestId", "jobId", "method", "route", "requestPath", "repoId", "httpStatus", "status", "errorCode", "errorType", "causeType", "code", "message"]) {
+      if (diagnostic[key] !== undefined) compact[key] = diagnostic[key];
+    }
+    for (const key of ["errorStack", "causeStack"]) {
+      if (typeof diagnostic[key] === "string") compact[key] = diagnostic[key].split("\n")[0];
+    }
+    entry.raw = [compact];
+    s = JSON.stringify(entry);
+    if (s.length <= MAX_PAYLOAD_BYTES) return s;
+  }
   // Step 3: nothing left to trim — replace with a placeholder so the entry
   // still shows up in the list.
   entry.raw = [{ truncated: true, originalBytes: s.length }];

@@ -33,7 +33,7 @@ export function safeDiagnosticFields(value: unknown): Record<string, string> {
     const stack = data(value,key);
     if (typeof stack !== "string" || stack.length > 1024) continue;
     const frames = stack.split("\n").slice(0,8).flatMap(line => {
-      const match = /^at ([A-Za-z_$][A-Za-z0-9_$]*|<anonymous>) \(((?:src|build)\/[A-Za-z0-9_/-]+\.(?:ts|js)):([1-9]\d{0,5}):([1-9]\d{0,4})\)$/.exec(line);
+      const match = /^at ([A-Za-z_$][A-Za-z0-9_$]*|<anonymous>) \(((?:src|build)\/[A-Za-z0-9_./-]+\.(?:ts|js)):([1-9]\d{0,5}):([1-9]\d{0,4})\)$/.exec(line);
       const safe = match && frame(match[2],match[1],match[3],match[4]);
       return safe ? [safe] : [];
     });
@@ -54,7 +54,7 @@ export function errorDiagnostics(error: unknown): Record<string,string> {
     const stack = data(current,"stack");
     const frames: string[] = [];
     if(typeof stack === "string") for(const line of stack.slice(0,16384).split("\n").slice(1,33)) {
-      const match = /^\s*at (?:(?:async )?([^()]+) \()?([^()\s]+):(\d+):(\d+)\)?$/.exec(line);
+      const match = /^\s*at (?:async )?(?:([^()]+) \()?([^()\s]+):(\d+):(\d+)\)?$/.exec(line);
       if(!match) continue;
       const local = relative(root,match[2]).split(sep).join("/");
       if(local.startsWith("../") || local.includes(":")) continue;

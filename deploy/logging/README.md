@@ -326,8 +326,9 @@ The fixture uses only synthetic counters and removes its container on exit.
 New application errors retain the normalized route template, HTTP method/status,
 a finite error type/code, and up to eight recognized application frames (1 KiB maximum per stack) for the
 exception and the deepest inspected cause (at most three levels, cycles stopped). Raw messages,
-URLs, query strings, repository/file parameters, external frames and absolute
-filesystem roots are not stored. Unknown error types use `UnknownError`; unknown
+Upstream URLs, query strings, external frames and absolute filesystem roots are
+not stored. Repository/file parameters are excluded except for the explicitly
+scoped failed-request reproduction context below. Unknown error types use `UnknownError`; unknown
 function names become `<anonymous>`. Source locations are build-relative for
 compiled code and source-relative in development; line numbers refer to that
 release, not an inferred source map.
@@ -338,3 +339,7 @@ validation. Regenerate it when adding diagnostic code locations. The admin API
 revalidates every field for both Redis and central logs. Deploy matching app and
 collector versions to preserve new fields; older collectors deliberately drop
 unknown fields. Existing discarded exception details cannot be recovered.
+
+### Admin reproduction context
+
+Failed application file requests now retain their public anonymous repository ID and encoded request pathname, up to 2 KiB, under the existing admin log access controls. This is an explicit exception to template-only diagnostics: repository-relative filenames are retained for reproduction. Query strings, headers, bodies and upstream owner/repository URLs are still excluded. Filenames are operator-visible data under this policy; no generic filter can guarantee that a user has not put sensitive text in a filename. Successful requests and metrics keep only the normalized route. Only `/api/repo/:repoId/file/:path` is supported; other endpoints and unsafe, oversized, malformed or traversal paths omit reproduction context. Historical records cannot be backfilled. The UI copies the exact captured pathname without a host or query.

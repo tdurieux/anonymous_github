@@ -1,3 +1,4 @@
+import { requestReproduction } from "./log-reproduction";
 import { logContext } from "./log-context";
 import { AsyncLocalStorage } from "async_hooks";
 import { randomUUID } from "crypto";
@@ -116,6 +117,7 @@ export function monitorRequests(service: Service, metrics = requestMetrics,
       : req.originalUrl.startsWith("/w/") ? "website" : "file";
     const trace = { id, service, traffic, stages: {} };
     const route = requestRoute(req.originalUrl, service);
+    const reproduction = service === "api" ? requestReproduction(req.originalUrl) : {};
     const method = methods.has(req.method) ? req.method : "OTHER";
     const started = performance.now();
     let firstByteMs: number | undefined;
@@ -156,7 +158,7 @@ export function monitorRequests(service: Service, metrics = requestMetrics,
       metrics.observe("request", route, method, ms, { bytes, aborted, error: res.statusCode >= 500, slow });
       if (firstByteMs != null) metrics.observe("first_byte", route, method, firstByteMs);
       const responseMs = firstByteMs == null ? null : Math.max(0, ms - firstByteMs);
-      const detail = { requestId: id, service, method, route, status: res.statusCode,
+      const detail = { ...(res.statusCode >= 400 ? reproduction : {}), requestId: id, service, method, route, status: res.statusCode,
         outcome: aborted ? "interrupted" : "completed", ms: Math.round(ms), firstByteMs: firstByteMs == null ? null : Math.round(firstByteMs),
         responseMs: responseMs == null ? null : Math.round(responseMs),
         bytesPerSecond: responseMs != null && responseMs >= 1 && bytes > 0 ? Math.round(bytes * 1000 / responseMs) : null,
@@ -165,6 +167,6 @@ export function monitorRequests(service: Service, metrics = requestMetrics,
       else if (!route.includes("healthcheck")) log.info("request", detail);
     };
     res.once("finish", done); res.once("close", done);
-    context.run(trace, () => logContext.run({ requestId: id, service, route, method }, next));
+    context.run(trace, () => logContext.run({ ...reproduction, requestId: id, service, route, method }, next));
   };
 }

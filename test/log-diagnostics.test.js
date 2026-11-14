@@ -6,12 +6,33 @@ const {errorDiagnostics,safeDiagnosticFields}=require('../src/core/log-diagnosti
 const {serializeError}=require('../src/core/logger');
 const {logRecord}=require('../src/core/log-record');
 const {logContext}=require('../src/core/log-context');
+const {requestReproduction,safeReproductionPath}=require('../src/core/log-reproduction');
 const {requestRoute}=require('../src/core/request-monitoring');
 const {safeRedisLog,investigateLogs,logOptions}=require('../src/server/admin-log-investigation');
 const secret='PRIVATE_TOKEN_owner_filename';
 const frame='at printError (src/server/routes/route-utils.ts:200:7)';
 function failure(){ const error=new TypeError('https://user:'+secret+'@github.com/private/repo?token='+secret); error.stack=error.message+'\n    at printError ('+path.resolve('src/server/routes/route-utils.ts')+':200:7)\n    at '+secret+' ('+path.resolve('src/server/routes/route-utils.ts')+':201:9)\n    at secret (/home/private/'+secret+':1:2)\n    at fn (https://private/'+secret+':1:2)';return error; }
 describe('safe actionable exception diagnostics',()=>{
+ it('keeps bounded anonymous file request context for failures without queries or unsafe paths',()=>{
+  const requestPath='/api/repo/demo-123/file/docs/reproduce%20issue.md';
+  expect(requestReproduction(requestPath+'?token=SECRET')).deep.equal({requestPath,repoId:'demo-123'});
+  for(const value of ['/api/repo/owner/name/readme','https://example.test'+requestPath,requestPath+'?token=SECRET','/api/repo/demo-123/file/%0aSECRET','/api/repo/demo-123/file/../secret','/api/repo/demo-123/file/%252e%252e/secret','/api/repo/demo-123/file/https%3a%2f%2fuser:token@example.test','/api/repo/demo-123/file/'+ 'x'.repeat(2048)]) expect(safeReproductionPath(value),value).equal(undefined);
+  expect(logContext.run({requestPath},()=>logRecord('info','route',['request',{status:200}]))).not.have.property('requestPath');
+  const record=logContext.run({requestPath},()=>logRecord('error','route',['failure',{httpStatus:500}]));
+  expect(record).include({requestPath,repoId:'demo-123'});
+  expect(safeRedisLog({ts:record.timestamp,level:'error',module:'route',raw:[record]}).raw[0]).include({requestPath,repoId:'demo-123'});
+ });
+ it('preserves dotted allowlisted source files and anonymous/named async frames',()=>{
+  const error=new Error(secret);
+  error.stack='Error: '+secret+'\n    at async '+path.resolve('src/server/routes/repository-public.ts')+':224:23\n    at async printError ('+path.resolve('src/server/routes/route-utils.ts')+':200:7)\n    at '+path.resolve('src/core/model/owner-alert-lifecycle.schema.ts')+':12:3\n    at async https://'+secret+':1:2';
+  const record=logRecord('error','route',['',serializeError(error)]);
+  expect(record.errorStack).include('at <anonymous> (src/server/routes/repository-public.ts:224:23)').and.include(frame).and.include('at <anonymous> (src/core/model/owner-alert-lifecycle.schema.ts:12:3)');
+  const redis=safeRedisLog({ts:record.timestamp,level:'error',module:'route',raw:[record]});expect(redis.raw[0].errorStack).equal(record.errorStack);
+  expect(safeDiagnosticFields({errorStack:'at <anonymous> (src/core/model/not-allowlisted.schema.ts:12:3)'})).deep.equal({});
+  expect(JSON.stringify(record)).not.include(secret);
+  error.stack='Error: '+secret+'\n    at external ('+path.resolve('node_modules/dependency/index.js')+':1:2)\n    at async '+path.resolve('src/server/routes/repository-public.ts')+':224:23';
+  expect(errorDiagnostics(error).errorStack).equal('at <anonymous> (src/server/routes/repository-public.ts:224:23)');
+ });
  it('retains only recognized source frames and types, never messages, URLs or roots',()=>{
   const result=errorDiagnostics(failure());
   expect(result.errorType).equal('TypeError'); expect(result.errorStack).include(frame).and.include('at <anonymous>');

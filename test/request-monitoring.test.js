@@ -35,6 +35,18 @@ describe("bounded request monitoring", function () {
   });
   async function listen() { server = await new Promise(resolve => { const s = app.listen(0, "127.0.0.1", () => resolve(s)); }); }
 
+  it("captures failed file reproduction context without changing metric labels or retaining queries", async function () {
+    const {logRecord}=require('../src/core/log-record');
+    const records=[];
+    app.get('/api/repo/:repoId/file/*path',(req,res)=>{
+      records.push(logRecord('error','route',['failure',{httpStatus:500}]));res.status(500).end();
+    });
+    await listen(); await fetch(server,'/api/repo/demo-123/file/docs/reproduce%20issue.md?token=NEVER_CAPTURE');
+    expect(records[0]).include({repoId:'demo-123',requestPath:'/api/repo/demo-123/file/docs/reproduce%20issue.md',route:'/api/repo/:repoId/file/:path'});
+    expect(JSON.stringify(records)).not.include('NEVER_CAPTURE');
+    expect(metrics.drain().every(row=>!JSON.stringify(row).includes('demo-123'))).equal(true);
+  });
+
   it("keeps labels bounded and removes source identities and query values", function () {
     expect(requestRoute("/api/repo/private-name/file/secret.txt?token=abc", "api")).to.equal("/api/repo/:repoId/file/:path");
     expect(requestRoute("/api/repo/secret-owner/secret-repo/readme?branch=secret", "api")).to.equal("/api/repo/:owner/:repo/readme");

@@ -1,3 +1,4 @@
+import { requestReproduction, safeReproductionPath } from "./log-reproduction";
 import { safeDiagnosticFields, errorDiagnostics } from "./log-diagnostics";
 import { LOG_ROUTES } from "./log-diagnostic-schema";
 import { LOG_MODULES, ERROR_CODES, LOG_EVENTS } from "./log-schema";
@@ -30,7 +31,7 @@ export function logRecord(level: string, module: string, args: unknown[]) {
   const context = logContext.getStore() || {};
   const details: Record<string, unknown> = {};
   const keys = [...numbers, "requestId", "jobId", "code", "message", "outcome", "method", "route", "queue",
-    "errorType", "errorStack", "causeType", "causeStack", "stages", "reason", "phase", "event", "deliveryId", "hostname", "service"];
+    "errorType", "errorStack", "causeType", "causeStack", "requestPath", "stages", "reason", "phase", "event", "deliveryId", "hostname", "service"];
   // Do not traverse arbitrary objects or invoke error getters while logging.
   for (const arg of args.slice(0, 8)) if (arg && typeof arg === "object") {
     for (const key of keys) {
@@ -70,6 +71,11 @@ export function logRecord(level: string, module: string, args: unknown[]) {
   if (typeof route === "string" && LOG_ROUTES.includes(route)) record.route = route;
   if (context.method && allowed(["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "OTHER"], context.method)) record.method = context.method;
   Object.assign(record, safeDiagnosticFields(details));
+  // Reproduction data is restricted to failures, not successful traffic/metrics.
+  if (["error", "fatal"].includes(level) || Number(details.status || details.httpStatus) >= 400) {
+    const requestPath = safeReproductionPath(context.requestPath || details.requestPath);
+    if (requestPath) Object.assign(record, requestReproduction(requestPath));
+  }
   if (allowed(["download", "remove", "cache"], details.queue)) record.queue = details.queue;
   if (details.stages && typeof details.stages === "object") for (const key of stages) {
     let value: unknown;

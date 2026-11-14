@@ -35,8 +35,8 @@ for_each(["errorStack", "causeStack"]) -> |_index, key| {
   if is_string(value) && length(string!(value)) <= 1024 {
     frames = []
     for_each(split(string!(value), "\\n", limit: 9)) -> |index, frame| {
-      parts, err = parse_regex(frame, r'^at (?P<function>[A-Za-z_$][A-Za-z0-9_$]*|<anonymous>) \\((?P<file>(?:src|build)/[A-Za-z0-9_/-]+\\.(?:ts|js)):(?P<line>[1-9][0-9]{0,5}):(?P<column>[1-9][0-9]{0,4})\\)$')
-      allowed = get(source_functions, [to_string(parts.file)]) ?? []
+      parts, err = parse_regex(frame, r'^at (?P<function>[A-Za-z_$][A-Za-z0-9_$]*|<anonymous>) \\((?P<file>(?:src|build)/[A-Za-z0-9_./-]+\\.(?:ts|js)):(?P<line>[1-9][0-9]{0,5}):(?P<column>[1-9][0-9]{0,4})\\)$')
+      allowed = array(get(source_functions, [to_string(parts.file)]) ?? null) ?? []
       if index < 8 && err == null && includes(array!(allowed), parts.function) { frames = push(frames, frame) }
     }
     if length(frames) > 0 { out = set!(out, [key], join!(frames, "\\n")) }
