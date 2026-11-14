@@ -2476,6 +2476,9 @@ export const anonymizeController = function (state, http, html, params, location
         const o = parseGithubUrl(state.sourceUrl);
         const request = beginSourceRequest();
         try {
+          // A previous branch failure invalidated the whole source. Recover its
+          // metadata and validity as well as branches, retaining explicit refresh.
+          if (!state.details) { await getRepoDetails(force); return; }
           const branches = await http.get(`/api/repo/${o.owner}/${o.repo}/branches`, {
             params: { reconnect: state.reconnectingSource ? "1" : undefined, anonymizedRepoId: state.isUpdate && params.repoId && parseRepoFullName(state.sourceUrl) === state._originalFullName ? params.repoId : undefined, connection: state.githubConnection, force: force === true || state.reconnectingSource ? "1" : "0", repositoryID: sourceRepositoryID() },
           });
@@ -2514,7 +2517,7 @@ export const anonymizeController = function (state, http, html, params, location
 
       };
 
-      async function getRepoDetails() {
+      async function getRepoDetails(forceBranches = false) {
         const o = parseGithubUrl(state.sourceUrl);
         const request = beginSourceRequest();
         try {
@@ -2535,7 +2538,7 @@ export const anonymizeController = function (state, http, html, params, location
           if (!state.repoId) {
             state.repoId = state.details.repo + "-" + generateRandomId(4);
           }
-          await state.getBranches(state.reconnectingSource);
+          await state.getBranches(forceBranches || state.reconnectingSource);
         } catch (error) {
           if (!isCurrentSource(request)) return;
           // The form and the preview show it; no toast on top.
