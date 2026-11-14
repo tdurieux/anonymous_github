@@ -90,7 +90,7 @@ func (s *Server) checkResource(ctx context.Context, kind string, r M) error {
 				}
 			}
 			if kind == "repo" {
-				return fail(code, repositoryFailureStatus(code))
+				return fail(code, repositoryFailureStatus(str(r["statusMessage"])))
 			}
 			return fail(code, 500)
 		}

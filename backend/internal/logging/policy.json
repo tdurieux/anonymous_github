@@ -687,6 +687,7 @@
     "stage_cache_fill_ms",
     "stage_worker_wait_ms",
     "stage_anonymize_ms",
-    "stage_streamer_headers_ms"
+    "stage_streamer_headers_ms",
+    "listenPort"
   ]
 }

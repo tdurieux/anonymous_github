@@ -32,6 +32,7 @@ func TestResourceStatusErrors(t *testing.T) {
 		http                        int
 	}{
 		{"repo", "queue", "rate_limited:1790000000000", "rate_limited", 425},
+		{"repo", "error", "", "repository_not_accessible", 500},
 		{"repo", "error", "repository_access_revoked", "repository_access_revoked", 500},
 		{"repo", "error", "repo_not_found", "repo_not_found", 404},
 		{"repo", "error", "branch_not_found", "branch_not_found", 404},

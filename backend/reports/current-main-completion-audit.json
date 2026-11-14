@@ -1,0 +1,271 @@
+{
+  "objective": "Bring Go to current committed Node feature parity, preserve provider extensibility and review open PR migration/security/cutover impact.",
+  "status": "implementation_and_review_verified",
+  "reference": {
+    "nodeMain": "511dcd706791e551243fd2682765825f82473afc",
+    "branch": "feat/go-backend-migration",
+    "goCheckpoint": "116cbba",
+    "additionalIntegratedFeature": "PR #953 expiration emails and delivery history",
+    "routeCount": 127,
+    "contractScripts": 65
+  },
+  "requirements": [
+    {
+      "id": "runtime",
+      "requirement": "Run the backend in Go, retaining the browser application and a Node rollback path",
+      "sourceEvidence": [
+        "Dockerfile",
+        "Dockerfile.node",
+        "backend/cmd/server/main.go",
+        "backend/scripts/test-deployment.py"
+      ],
+      "validation": [
+        "dockerBuild",
+        "deploymentSmoke",
+        "runtimeIsolation",
+        "nodeRollback"
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "currentNodeFeatures",
+      "requirement": "Preserve supported features and outputs of committed Node main, including billing/conferences, previews, preservation, notifications, submodules and review capabilities",
+      "sourceEvidence": [
+        "backend/contracts/routes.cjs",
+        "backend/internal/server/routes_test.go",
+        "backend/internal/server/billing_integration_test.go",
+        "backend/internal/server/new_features_test.go",
+        "backend/internal/server/provider_preview_integration_test.go",
+        "backend/internal/server/email_history_integration_test.go"
+      ],
+      "validation": [
+        "contracts",
+        "race",
+        "nodeRegression"
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "security",
+      "requirement": "Retain authentication, scopes, owner isolation, revocation, signed webhooks, safe redirects and bounded transformations",
+      "sourceEvidence": [
+        "backend/internal/security/security_test.go",
+        "backend/internal/server/webhook_integration_test.go",
+        "backend/internal/server/provider_github_archive_test.go",
+        "backend/internal/server/provider_github_content_test.go",
+        "backend/internal/server/provider_identity_integration_test.go",
+        "backend/internal/anonymize/anonymize_test.go",
+        "backend/internal/logging/handler_test.go"
+      ],
+      "validation": [
+        "race",
+        "vulnerabilities",
+        "collector"
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "streaming",
+      "requirement": "Retain streaming file/archive processing, cancellation, content verification and bounded cache/worker behavior",
+      "sourceEvidence": [
+        "backend/internal/server/zip_archive_integration_test.go",
+        "backend/internal/server/zip_transfer_test.go",
+        "backend/internal/server/shared_http_test.go",
+        "backend/internal/anonymize/process_cache_test.go"
+      ],
+      "validation": [
+        "race",
+        "contracts"
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "providers",
+      "requirement": "Allow additional providers through shared interfaces without rewriting lifecycle/content handlers",
+      "sourceEvidence": [
+        "backend/internal/provider/provider.go",
+        "backend/internal/server/http.go",
+        "backend/internal/server/provider_integration_test.go",
+        "backend/internal/server/document_identity_integration_test.go",
+        "backend/README.md"
+      ],
+      "validation": [
+        "race"
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "cutoverReview",
+      "requirement": "Review data/queue handoff and rollback needs without asserting a production rehearsal",
+      "sourceEvidence": [
+        "backend/scripts/migrate-bullmq.cjs",
+        "backend/internal/server/bullmq_handoff_integration_test.go",
+        "backend/internal/server/cache_telemetry_import_integration_test.go",
+        "backend/README.md"
+      ],
+      "validation": [
+        "race",
+        "deploymentSmoke",
+        "nodeRollback"
+      ],
+      "status": "verified"
+    },
+    {
+      "id": "prReview",
+      "requirement": "Review open PRs for migration, security and cutover impact",
+      "sourceEvidence": [
+        "backend/reports/main-alignment.json",
+        "backend/internal/logging/testdata/collector.vrl"
+      ],
+      "validation": [
+        "openPRs"
+      ],
+      "status": "verified"
+    }
+  ],
+  "validation": {
+    "race": {
+      "result": "passed",
+      "log": "/tmp/go-completion-race-clean.log",
+      "sha256": "e76afe243f58b3b86de1c9f6bda8badf76e3fb37649752f78beb40eeb06bfda0",
+      "packages": [
+        "ok  \tgithub.com/tdurieux/anonymous_github/backend/cmd/server\t2.212s",
+        "ok  \tgithub.com/tdurieux/anonymous_github/backend/internal/anonymize\t5.134s",
+        "ok  \tgithub.com/tdurieux/anonymous_github/backend/internal/blobcache\t103.871s",
+        "ok  \tgithub.com/tdurieux/anonymous_github/backend/internal/logging\t1.070s",
+        "ok  \tgithub.com/tdurieux/anonymous_github/backend/internal/provider\t1.043s",
+        "ok  \tgithub.com/tdurieux/anonymous_github/backend/internal/quotagate\t1.326s",
+        "ok  \tgithub.com/tdurieux/anonymous_github/backend/internal/security\t1.044s",
+        "ok  \tgithub.com/tdurieux/anonymous_github/backend/internal/server\t398.107s",
+        "ok  \tgithub.com/tdurieux/anonymous_github/backend/internal/storage\t1.333s"
+      ]
+    },
+    "contracts": {
+      "result": "passed",
+      "log": "/tmp/go-completion-contracts.log",
+      "sha256": "2eb8599a165363a0afdb1f0db53c03f3499f8f750049837df79c1666f1b8b46d",
+      "scripts": 65,
+      "routes": 127,
+      "anonymizationCases": 499,
+      "fileTypeCases": 7876
+    },
+    "vulnerabilities": {
+      "result": "passed",
+      "log": "/tmp/go-completion-vulnerabilities.log",
+      "sha256": "cd603802373c0ab24cb1e859ec21635183b92cc81aeb083b21f3061103e3822f",
+      "reachable": 0,
+      "importedPackages": 0,
+      "unusedModuleAdvisories": 4
+    },
+    "dockerBuild": {
+      "result": "passed",
+      "log": "/tmp/go-final-image.log",
+      "sha256": "8fbc5daccb9c2cbbd262340d70f8214eb89983db3050482cb021128d76737a6b",
+      "image": "sha256:416b628b5ae3fe333ffc5102c9159afb24d3da6b1168b0f64af59f102796e8e4"
+    },
+    "deploymentSmoke": {
+      "result": "passed",
+      "log": "/tmp/go-final-smoke.log",
+      "sha256": "d877fbd4de0ed9bd212ba3f783582721f340ada74ef92bab5b632adefc7af718",
+      "scope": "Disposable MongoDB/Redis/storage, startup, non-root writes, static routes, graceful shutdown and rollback Compose model"
+    },
+    "runtimeIsolation": {
+      "result": "passed",
+      "uid": 10001,
+      "nodeExecutablePresent": false,
+      "image": "sha256:416b628b5ae3fe333ffc5102c9159afb24d3da6b1168b0f64af59f102796e8e4"
+    },
+    "nodeRollback": {
+      "result": "passed",
+      "log": "/tmp/go-final-node-native.log",
+      "sha256": "55e9566a48851f0f435edfb0e6c0b61967650f0052426b94d84bf7780ca5f982",
+      "build": {
+        "result": "passed",
+        "log": "/tmp/go-final-node-image.log",
+        "sha256": "1fb003955de60157771bae8ef105fef7b7a78592383648cd529e68ea3c0b7cc7"
+      },
+      "image": "sha256:f8bdd4052f103c102a16c39af2fa8ca99f306f257a9009e3de50c03114629649"
+    },
+    "collector": {
+      "result": "passed",
+      "log": "/tmp/go-final-collector.log",
+      "sha256": "5a6859a6830c8584af3166de86e21df43e0a833f0900b09ec9b49d3574a276e7",
+      "scope": "Actual request, job, process and queue records through pinned Vector sanitizer; privacy and concurrency race tests"
+    },
+    "nodeRegression": {
+      "result": "passed_after_targeted_fixes",
+      "broadRun": {
+        "result": "1676 passed, 436 skipped, 5 failures",
+        "log": "/tmp/go-pr-node-full.log",
+        "sha256": "387add4974fcb2dfa0e1b41e8fcb1d771da9744c90228756d9f5168618d6ad92"
+      },
+      "fixedFailures": {
+        "result": "25 passed",
+        "log": "/tmp/go-pr-final-node-regressions.log",
+        "sha256": "a3873d5978f257e5a53c0db63fe6fc7174550dc3b6e523a7437ae3e80921151b"
+      },
+      "emailFeature": {
+        "result": "42 passed",
+        "log": "/tmp/go-pr953-node-tests.log",
+        "sha256": "06fd89e336fab5a4cea65772727b09bbfd46c93e9eec059dcd7d07783af48af9"
+      },
+      "limitation": "The broad Node suite was not repeated after repairing its five failures; every failing case passed the targeted rerun. Optional external-service skips are not claimed as executed."
+    },
+    "static": {
+      "result": "passed",
+      "commands": [
+        "go vet ./...",
+        "gofmt -l cmd internal",
+        "git diff --check"
+      ],
+      "typescript": "Passed directly and in freshly rebuilt Node rollback image"
+    },
+    "openPRs": {
+      "result": "reviewed",
+      "numbers": [
+        953,
+        954,
+        955,
+        956,
+        957
+      ],
+      "details": "backend/reports/main-alignment.json",
+      "ci": "Open PR jobs could not start under the previously confirmed account billing block; local results provide validation. No CI-green claim.",
+      "reviewThreads": "953-956 have no review threads. 957 has three unresolved/outdated threads; fixes were inspected in 88d696c/20621c0."
+    }
+  },
+  "scopeAndLimits": [
+    "Current Node means committed main 511dcd7, re-fetched during this audit. Uncommitted work in other checkouts was not modified.",
+    "Open PR #957 is a reviewed, unmerged feature rather than a current-main requirement. Its two new APIs and Redis/UI response changes must be ported together if adopted; its fixed four-streamer health rule is unsuitable for the Go deployment.",
+    "The optional Vector/VictoriaLogs/Grafana stack was reviewed and collector compatibility tested, not deployed.",
+    "Live Stripe test-mode checkout/webhooks, real Resend delivery, OAuth/App callbacks with copied data, and sanitized production restore/queue/rollback rehearsal remain deployment gates. Mocked protocol tests do not prove these live workflows.",
+    "No production or beta deployment, production data change, email delivery, PR merge or external provider adapter release was performed.",
+    "Earlier speed/memory reports are dated workload measurements. This audit makes no new production speedup or live memory claim."
+  ],
+  "intentionalDifferences": [
+    "Preserve supported behavior without reintroducing Node bugs; unknown stored failures remain 500, explicit quota denials 402, and explicit credential/access errors retain their status.",
+    "Submodule ZIP entries use bounded per-file reads after the parent archive stream.",
+    "Owner notification history is conservatively rescanned at startup.",
+    "Stripe display prices and admin billing summaries are not cached.",
+    "No GitLab/Bitbucket implementation is shipped; the tested provider extension interface and documented credential obligations are supplied."
+  ],
+  "source": {
+    "sha256": "4b89fce7c930f971015d2f15a27123d0ff03e97ad198623dfbc3fd823af9c2a2",
+    "files": 397,
+    "algorithm": "Sorted backend-relative path, NUL, bytes, NUL; Go sources/tests, go.mod, go.sum and embedded logging policy."
+  },
+  "updatedAtUTC": "2026-11-14T17:04:39.695978+00:00",
+  "correctedFailures": {
+    "firstAuditRace": {
+      "result": "failed",
+      "log": "/tmp/go-final-parity-race.log",
+      "sha256": "940a66f81926417a9aeda386cb721fd2d9ddd5b3846b8c9ab85de78cf1fe37a6"
+    },
+    "fixes": [
+      "Signal integration now reads the numeric JSON startup port instead of the removed text address field.",
+      "Unknown stored failures remain HTTP 500; only explicit permission failure codes map to HTTP 403."
+    ],
+    "verification": "All packages passed the subsequent full race/database run, including signal shutdown and repository recovery."
+  },
+  "conclusion": "Supported committed-main behavior, runtime migration and provider extensibility are verified under the documented no-bug-parity policy. Open PR migration/security/cutover impact is reviewed, including new unmerged #957. Production deployment and future unmerged feature ports are not represented as completed."
+}

@@ -23,7 +23,7 @@ func serveAndDrain(ctx context.Context, server *http.Server, jobs func(context.C
 	if err != nil {
 		return true, errListen
 	}
-	slog.Info("Go backend listening", "address", listener.Addr().String())
+	slog.Info("server started", "module", "process", "listenPort", listener.Addr().(*net.TCPAddr).Port)
 	workers, cancelWorkers := context.WithCancel(ctx)
 	defer cancelWorkers()
 	jobsDone := make(chan struct{})

@@ -1,7 +1,7 @@
 {
   "mainCommit": "511dcd706791e551243fd2682765825f82473afc",
   "restoredGoFrom": "bff2e343fdc6fc09ff0f373a34bef9716b06bc00^",
-  "status": "Current-main feature implementation complete; isolated validation recorded below, live cutover checks pending",
+  "status": "Current-main implementation and open-PR review verified; production deployment gates remain separate",
   "removedTypeScriptRoutes": [],
   "notes": [
     "Node reference is committed main 511dcd706791e551243fd2682765825f82473afc, not uncommitted work in another checkout.",
@@ -10,12 +10,12 @@
     "No production or beta deployment was performed."
   ],
   "validation": {
-    "goIntegrationRace": "passed with disposable MongoDB/Redis including quota-job, owner-notification and email-history lifecycle tests; server package 389.481s. Final stored-error mapping additionally passed focused resource/status race tests.",
+    "goIntegrationRace": "Final clean full run passed on Go 1.27.4 with disposable MongoDB/Redis, including executable signals, queue heartbeats, provider lifecycle, BullMQ handoff, cache compatibility and repository recovery. Server package: 398.107s.",
     "goVet": "passed on Go 1.27.4",
     "nodeContracts": "65 scripts passed after PR #953 source integration",
     "routeInventory": "127 TypeScript routes verified, including the two email-history routes from PR #953",
-    "goDockerBuild": "passed with Go 1.27.4 and klauspost/compress v1.20.2",
-    "deploymentSmoke": "passed: isolated startup, non-root writes, static routes, graceful shutdown, Node rollback compose model",
+    "goDockerBuild": "Fresh final Go image build passed: sha256:416b628b5ae3fe333ffc5102c9159afb24d3da6b1168b0f64af59f102796e8e4",
+    "deploymentSmoke": "Fresh final image passed isolated startup, non-root writes, static routes, graceful shutdown and rollback Compose-model checks; no Node executable in Go runtime.",
     "reachableVulnerabilities": "none reported by govulncheck v1.9.0; four advisories remain in required modules without reachable calls",
     "existingNodeIndexes": "passed with race detector: pre-existing named submodule index and repeated Go startup",
     "openPRFocusedNodeTests": "42 email-history, expiration and admin UI tests passed; final 25-test activity/error-code/preview regression set passed",
@@ -23,7 +23,8 @@
     "nodeSuite": "Broad run: 1676 passed, 436 skipped, five failures. Fixed missing cache_miss translation, three stale Mongoose query mocks and one stale preview-button selector; all five failures passed in a 25-test focused rerun. Full suite not repeated after these fixes.",
     "typescript": "tsc --noEmit passed",
     "structuredLogging": "Passed race tests for private-data filtering, concurrent output, request traces, process samples, webhook failure diagnostics and persistent job traces. Actual Go records passed the unmodified Vector 0.61.0 sanitizer using the PR-pinned image digest. Final focused regression run and go vet passed.",
-    "oauthDiscoveryDenial": "Disposable database race test passed for OAuth/App discovery, OAuth 401, permission 403 and App reconnect semantics."
+    "oauthDiscoveryDenial": "Disposable database race test passed for OAuth/App discovery, OAuth 401, permission 403 and App reconnect semantics.",
+    "nodeRollback": "Fresh rollback image build and native SQLite/Zstandard round trips passed."
   },
   "changes": [
     "Restore Go backend and Go deployment on top of current main",
@@ -45,7 +46,10 @@
     "Recognize named Express Router imports in route inventory generation",
     "Repair current Node activity-test query mocks and preview-button selector; add the missing cache_miss translation",
     "Emit safe structured JSON logs, persist job/request trace correlation, add process memory heartbeats and webhook failure phases",
-    "Normalize confirmed legacy OAuth discovery credential denial without changing App reconnect errors"
+    "Normalize confirmed legacy OAuth discovery credential denial without changing App reconnect errors",
+    "Emit bounded periodic queue diagnostics with delayed-retry classification and no false healthy samples on database failure",
+    "Support Redis error-mirror opt-out and preserve historical reads",
+    "Use a numeric JSON startup port for executable signal/shutdown validation"
   ],
   "implementedTypeScriptRoutes": [
     {
@@ -131,8 +135,16 @@
     },
     "956": {
       "head": "f084f5cbfc7b328a04b4e7e859ce9fa224c605c4",
-      "result": "Go JSON logging implemented and tested against its pinned, unmodified Vector sanitizer. Request timings, job traces, errors and memory heartbeats retained. Aggregate queue-heartbeat output and deployment of the logging stack remain outstanding; fixed Go ZIP stage/reason fields remain local only."
+      "result": "Safe Go JSON logs and queue/process heartbeats implemented; LOG_REDIS_MIRROR=off supported without deleting history. Actual Go records validated against the pinned Vector sanitizer. Stack deployment remains an operator task; fixed Go ZIP stage/reason fields remain local only."
     },
-    "checks": "GitHub Actions jobs did not start because the account is locked due to a billing issue. This is not a test failure."
-  }
+    "checks": "GitHub Actions jobs did not start because the account is locked due to a billing issue. This is not a test failure.",
+    "957": {
+      "head": "20621c0660ec68ab2b7090f9faec5ba42b737717",
+      "base": "f084f5cbfc7b328a04b4e7e859ce9fa224c605c4",
+      "result": "Reviewed as a new, unmerged feature. Its two investigation/correlation routes, new Redis projection/pagination fields and admin UI are not part of current main or this migration branch. Port those together if adopting #957. Its hard-coded four-streamer health expectation must be adapted for the single Go process; existing Go UUID request/job traces are compatible.",
+      "securityReview": "Admin middleware precedes both routes; query inputs are allowlisted, operator endpoints are fixed configuration, redirects rejected, concurrency limited to two, deadline four seconds and response cap 2 MiB. Responses use safe field projection.",
+      "reviewThreads": "Three formally unresolved, outdated threads. Inspected fixes for Redis transaction queue capacity, absent/unknown releases and info-severity edge 5xx in 88d696c/20621c0; author replies describe real Redis/Vector/VictoriaLogs validation. No review comments or resolutions posted by this migration task."
+    }
+  },
+  "completionAudit": "backend/reports/current-main-completion-audit.json"
 }

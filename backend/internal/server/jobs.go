@@ -55,6 +55,7 @@ func (s *Server) RunJobs(ctx context.Context) {
 	s.removalRecoveryPending.Store(true)
 	s.recoverImportedRemovalJobs(ctx)
 	var workers sync.WaitGroup
+	workers.Go(func() { s.runQueueHeartbeats(ctx) })
 	if s.Config.Billing.Enabled {
 		workers.Go(func() { s.runBillingMaintenance(ctx) })
 	}

@@ -85,6 +85,9 @@ func (s *Server) enqueueError(level, module, message, code string, status int, d
 	if module != "requests" {
 		slog.Log(context.Background(), severity, message, "module", module, "code", code, "httpStatus", status, "requestId", str(detail["requestId"]))
 	}
+	if s.Config.DisableRedisLogMirror {
+		return
+	}
 	at := time.Now().UTC()
 	bucket := errorBucket(status, level)
 	data, err := json.Marshal(M{"ts": at, "module": module, "level": level, "message": message, "raw": []any{message, detail}})

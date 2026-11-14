@@ -4,10 +4,12 @@ import (
 	"bufio"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"net"
 	"net/http"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -54,10 +56,13 @@ func TestExecutableSignalsIntegration(t *testing.T) {
 			go func() {
 				scanner := bufio.NewScanner(stderr)
 				for scanner.Scan() {
-					_, suffix, ok := strings.Cut(scanner.Text(), "address=")
-					if ok {
+					var entry struct {
+						Event string `json:"event"`
+						Port  int    `json:"listenPort"`
+					}
+					if json.Unmarshal(scanner.Bytes(), &entry) == nil && entry.Event == "server_started" && entry.Port > 0 && entry.Port <= 65535 {
 						select {
-						case ready <- strings.Trim(suffix, "\""):
+						case ready <- net.JoinHostPort("127.0.0.1", strconv.Itoa(entry.Port)):
 						default:
 						}
 					}

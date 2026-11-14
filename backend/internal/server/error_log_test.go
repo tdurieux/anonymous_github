@@ -139,6 +139,19 @@ func runErrorLogIntegration(t *testing.T, base *Server) {
 	if ttl := client.TTL(ctx, hourly).Val(); ttl < 47*time.Hour || ttl > 48*time.Hour {
 		t.Fatal(ttl)
 	}
+	// Disabling collection must retain previously recorded history and stop
+	// both new entries and counters, while structured output remains independent.
+	s.Config.DisableRedisLogMirror = true
+	s.recordError(ctx, fail("upstream_error", 502))
+	report, err = s.adminErrors(query("GET", "/api/admin/errors"))
+	if err != nil || number(obj(report)["total"]) != 3 {
+		t.Fatal("mirror opt-out erased or appended history", report, err)
+	}
+	stats, err = s.errorStats(query("GET", "/api/admin/errors/stats"))
+	if err != nil || number(obj(stats)["last24h"]) != 5 {
+		t.Fatal("disabled mirror changed counters", stats, err)
+	}
+	s.Config.DisableRedisLogMirror = false
 	// Malformed legacy entries retain the TypeScript fallback shape.
 	client.LPush(ctx, "admin:errors", "malformed legacy entry")
 	report, err = s.adminErrors(query("GET", "/api/admin/errors?limit=1"))

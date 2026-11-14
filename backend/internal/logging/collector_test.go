@@ -22,6 +22,7 @@ func TestVectorCollector(t *testing.T) {
 	logger.Info("request", "requestId", "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", "route", "/api/repo/:id/file/:path", "status", 200, "ms", 42, "stages", map[string]float64{"upstream": 12})
 	logger.With("service", "worker", "jobId", "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb").Error("job failed", "queue", "download", "code", "quota_exceeded", "attempt", 2, "error", "secret-repository")
 	logger.Info("process heartbeat", "rss", 123456, "memoryRatio", 0.25, "uptime", 30)
+	logger.Info("queue heartbeat", "queue", "download", "waiting", 3, "active", 2, "delayed", 1, "failed", 4, "oldestWaitingMs", 60000)
 	dir := t.TempDir()
 	program, err := os.ReadFile("testdata/collector.vrl")
 	if err != nil {
@@ -46,7 +47,7 @@ func TestVectorCollector(t *testing.T) {
 		t.Fatalf("%v: %s", err, output)
 	}
 	decoder := json.NewDecoder(bytes.NewReader(output))
-	for i, event := range []string{"request_completed", "job_failed", "process_heartbeat"} {
+	for i, event := range []string{"request_completed", "job_failed", "process_heartbeat", "queue_heartbeat"} {
 		var row map[string]any
 		var encoded string
 		if err = decoder.Decode(&encoded); err == nil {
@@ -62,6 +63,9 @@ func TestVectorCollector(t *testing.T) {
 			t.Fatal(row)
 		}
 		if i == 1 && (row["service"] != "worker" || row["errorCode"] != "quota_exceeded" || row["severity"] != "error" || row["jobId"] == nil) {
+			t.Fatal(row)
+		}
+		if i == 3 && (row["queue"] != "download" || row["waiting"] != float64(3) || row["oldestWaitingMs"] != float64(60000)) {
 			t.Fatal(row)
 		}
 		if i == 2 && row["memoryRatio"] != 0.25 {
