@@ -14,6 +14,18 @@ export function installLogInvestigation(state, http) {
     ).slice().sort((a, b) => state.logView.sort === "count" ? b.count - a.count : Date.parse(b.last) - Date.parse(a.last));
   };
   state.shortLogId = id => id ? id.slice(0, 8) : "";
+  state.isLogIdentifier = (key, value) => typeof value === "string" && value.length > 16 && /(?:id|sha|release)$/i.test(key);
+  state.compactLogValue = value => String(value).slice(0, 8) + "…" + String(value).slice(-4);
+  state.logCopyStatus = "";
+  state.copyLogValue = async value => {
+    try { await navigator.clipboard.writeText(String(value)); state.logCopyStatus = "Full value copied"; }
+    catch { state.logCopyStatus = "Copy unavailable. Expand the value to select it."; }
+  };
+  state.historyDetailFields = row => {
+    try { const value = JSON.parse(row?._detailJson || "{}"); return value && typeof value === "object" ? Object.entries(value) : [["value", value]]; }
+    catch { return [["record", row?._detailJson || ""]]; }
+  };
+  state.logFieldText = value => typeof value === "object" ? JSON.stringify(value) : String(value ?? "");
   let traceOrigin = null, detailOrigin = null, traceSource = null;
   state.selectLog = async (group, origin) => {
     detailOrigin = origin || document.activeElement;

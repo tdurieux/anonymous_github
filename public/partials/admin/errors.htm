@@ -11,14 +11,16 @@
     <a href="/admin/errors" class="active" aria-current="page"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-bug"></use></svg> Errors</a>
   </nav>
 
+  <div class="error-source-toolbar">
+  <div class="error-source-switch seg-filter" role="group" aria-label="Log source">
+    <button id="error-source-central" type="button" class="seg-chip" :class="{active:errorSource==='central'}" :aria-pressed="errorSource==='central'" @click="errorSource='central'">Central logs</button>
+    <button id="error-source-history" type="button" class="seg-chip" :class="{active:errorSource==='history'}" :aria-pressed="errorSource==='history'" @click="errorSource='history'">Application history</button>
+  </div>
   <div class="error-health-strip">
     <p class="log-state" role="status" aria-live="polite">{{ errorSource === 'history' ? (redisLoading ? 'Loading application history…' : available === null ? 'Checking Redis…' : available ? 'Redis history is reachable.' : 'Redis history is unavailable. Previously loaded rows may be stale.') : logFailure || (logLoading ? 'Loading central logs…' : logSnapshotStale ? 'This snapshot is stale. Refresh before assessing current health.' : logStateText(logData?.state)) }}</p>
     <button type="button" class="btn btn-sm" :disabled="errorSource === 'central' ? logLoading : redisLoading" @click="errorSource === 'central' ? refreshLogs() : refreshNow()">{{ (errorSource === 'central' ? logLoading : redisLoading) ? 'Refreshing…' : 'Refresh' }}<span class="sr-only">{{ errorSource === 'central' ? ' central logs' : ' history' }}</span></button>
     <button v-if="errorSource === 'central' &amp;&amp; (logFailure || ['disabled','misconfigured','unreachable','busy'].includes(logData?.state))" type="button" class="btn btn-sm" @click="errorSource = 'history'">Open application history</button>
   </div>
-  <div class="error-source-switch seg-filter" role="group" aria-label="Log source">
-    <button id="error-source-central" type="button" class="seg-chip" :class="{active:errorSource==='central'}" :aria-pressed="errorSource==='central'" @click="errorSource='central'">Central logs</button>
-    <button id="error-source-history" type="button" class="seg-chip" :class="{active:errorSource==='history'}" :aria-pressed="errorSource==='history'" @click="errorSource='history'">Application history</button>
   </div>
   <section v-show="errorSource==='central'" class="log-investigation" aria-labelledby="central-logs-title" :aria-busy="logLoading">
     <div class="volume-head"><h2 class="sr-only" id="central-logs-title">Central logs</h2><a v-if="logData?.grafanaUrl" :href="safeUrl(logData.grafanaUrl)" target="_blank" rel="noopener noreferrer">Open in Grafana</a></div>
@@ -51,20 +53,20 @@
       <div class="log-results">
         <div class="log-table-scroll" v-if="filteredLogGroups().length"><table class="log-table" role="table">
           <caption class="sr-only">Returned events grouped by service, module, code, severity and status. Select an event for sample details.</caption>
-          <thead><tr><th scope="col">Event / service</th><th scope="col">Severity</th><th scope="col">Count</th><th scope="col">Last seen</th><th scope="col">Sample</th></tr></thead>
+          <thead><tr><th scope="col">Event</th><th scope="col">Severity</th><th scope="col">Count</th><th scope="col">Last seen</th><th scope="col">Correlate sample</th></tr></thead>
           <tbody><template v-for="group in filteredLogGroups()" :key="group.fingerprint"><tr :class="{'log-selected':selectedLog?.fingerprint===group.fingerprint}">
-            <td><button class="log-event-button" type="button" :aria-label="'Inspect ' + (group.sample.errorCode || group.sample.event)" @click="selectLog(group, $event.currentTarget)" :aria-expanded="selectedLog?.fingerprint===group.fingerprint" aria-controls="log-detail"><strong>{{ group.sample.errorCode || group.sample.event }}</strong><span class="log-meta"><span class="log-service">{{ group.sample.service }}</span><span class="log-module"> / {{ group.sample.module }}</span></span></button></td>
-            <td><span class="log-severity" :class="'log-severity-'+logSeverity(group.sample)">{{ logSeverity(group.sample)==='error' ? 'Failure' : logSeverity(group.sample)==='warn' ? 'Warning' : 'Info' }}</span><span class="log-meta" v-if="group.sample.status || group.sample.httpStatus">HTTP {{ group.sample.status || group.sample.httpStatus }}</span></td>
+            <td><button class="log-event-button" type="button" :aria-label="'Inspect ' + (group.sample.errorCode || group.sample.event)" @click="selectLog(group, $event.currentTarget)" :aria-expanded="selectedLog?.fingerprint===group.fingerprint" aria-controls="log-detail"><span class="log-event-title"><strong>{{ group.sample.errorCode || group.sample.event }}</strong><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-arrow-right"></use></svg></span><span class="log-meta"><span class="log-service">{{ group.sample.service }}</span><span class="log-module"> / {{ group.sample.module }}</span></span></button></td>
+            <td class="log-level"><span class="log-severity" :class="'log-severity-'+logSeverity(group.sample)">{{ logSeverity(group.sample)==='error' ? 'Failure' : logSeverity(group.sample)==='warn' ? 'Warning' : 'Info' }}</span><span class="log-http" v-if="group.sample.status || group.sample.httpStatus">HTTP {{ group.sample.status || group.sample.httpStatus }}</span></td>
             <td class="log-count"><span class="sr-only">Count </span>{{ group.count }}</td>
             <td><time :datetime="group.last" :title="absTime(group.last)">{{ relTime(group.last) }}</time></td>
-            <td><button type="button" class="btn btn-sm log-trace-button" v-if="logTraceId(group,'requestId')" @click="lookupTrace('requestId',group.sample.requestId,$event.currentTarget,group.sample)">Request <span class="log-short-id">{{ shortLogId(group.sample.requestId) }}</span></button><button type="button" class="btn btn-sm log-trace-button" v-if="logTraceId(group,'jobId')" @click="lookupTrace('jobId',group.sample.jobId,$event.currentTarget,group.sample)">Job <span class="log-short-id">{{ shortLogId(group.sample.jobId) }}</span></button><span class="log-meta" v-if="!logTraceId(group,'requestId') &amp;&amp; !logTraceId(group,'jobId')">No correlation ID</span></td>
+            <td><button type="button" class="log-trace-button" v-if="logTraceId(group,'requestId')" @click="lookupTrace('requestId',group.sample.requestId,$event.currentTarget,group.sample)">Request <span class="log-short-id">{{ shortLogId(group.sample.requestId) }}</span></button><button type="button" class="log-trace-button" v-if="logTraceId(group,'jobId')" @click="lookupTrace('jobId',group.sample.jobId,$event.currentTarget,group.sample)">Job <span class="log-short-id">{{ shortLogId(group.sample.jobId) }}</span></button><span class="log-meta" v-if="!logTraceId(group,'requestId') &amp;&amp; !logTraceId(group,'jobId')">No correlation ID</span></td>
           </tr>
           <tr class="log-detail-row" v-if="selectedLog?.fingerprint===group.fingerprint"><td colspan="5">      <aside class="log-detail" id="log-detail" v-if="selectedLog" aria-labelledby="log-detail-title">
         <div class="volume-head log-detail-heading"><div><h3 id="log-detail-title" tabindex="-1">{{ selectedLog.sample.errorCode || selectedLog.sample.event }}</h3><span class="log-meta">Event sample</span></div><button class="btn btn-sm" @click="closeLogDetail()">Close details</button></div>
         <p class="log-coverage">One sample from {{ selectedLog.count }} returned occurrences. IDs and release may differ across the group.</p>
         <section class="log-detail-section"><h4>Returned occurrences</h4><dl class="log-detail-dates"><div><dt>First returned</dt><dd>{{ absTime(selectedLog.first) }}</dd></div><div><dt>Last returned</dt><dd>{{ absTime(selectedLog.last) }}</dd></div></dl></section>
-        <section class="log-detail-section"><h4>Event context</h4><dl><template v-for="(value,key) in selectedLog.sample" :key="key"><div v-if="['service','module','event','errorCode','severity','status','httpStatus'].includes(key)"><dt>{{ key }}</dt><dd>{{ value }}</dd></div></template></dl></section>
-        <section class="log-detail-section" v-if="Object.keys(selectedLog.sample).some(key => !['service','module','event','errorCode','severity','status','httpStatus'].includes(key))"><h4>Identifiers and metadata</h4><dl class="log-detail-identifiers"><template v-for="(value,key) in selectedLog.sample" :key="key"><div v-if="!['service','module','event','errorCode','severity','status','httpStatus'].includes(key)"><dt>{{ key }}</dt><dd>{{ value }}</dd></div></template></dl></section>
+        <section class="log-detail-section"><h4>Event context</h4><dl><template v-for="(value,key) in selectedLog.sample" :key="key"><div v-if="['service','module','event','errorCode','severity','status','httpStatus'].includes(key)"><dt>{{ key }}</dt><dd><template v-if="isLogIdentifier(key,value)"><details class="log-value-reveal"><summary>{{ compactLogValue(value) }}</summary><span>{{ value }}</span></details><button type="button" class="log-copy-value" @click="copyLogValue(value)">Copy full {{ key }}</button></template><template v-else>{{ value }}</template></dd></div></template></dl></section>
+        <section class="log-detail-section" v-if="Object.keys(selectedLog.sample).some(key => !['service','module','event','errorCode','severity','status','httpStatus'].includes(key))"><h4>Identifiers and metadata</h4><dl class="log-detail-identifiers"><template v-for="(value,key) in selectedLog.sample" :key="key"><div v-if="!['service','module','event','errorCode','severity','status','httpStatus'].includes(key)"><dt>{{ key }}</dt><dd><template v-if="isLogIdentifier(key,value)"><details class="log-value-reveal"><summary>{{ compactLogValue(value) }}</summary><span>{{ value }}</span></details><button type="button" class="log-copy-value" @click="copyLogValue(value)">Copy full {{ key }}</button></template><template v-else>{{ value }}</template></dd></div></template></dl></section>
       </aside></td></tr>
           </template></tbody>
         </table></div>
@@ -85,8 +87,151 @@
         </details>
       </details>
   </section>
+  <p class="log-copy-status" role="status" v-if="logCopyStatus">{{ logCopyStatus }}</p>
   <section v-show="errorSource==='history'" class="history-source" :aria-busy="redisLoading">
-  <div class="volume-head"><h2 class="redis-history-title">Application history</h2><div class="errors-actions"><button class="btn btn-sm" type="button" @click="exportCsv()">Export Redis CSV</button><button class="btn btn-sm btn-outline-danger" type="button" @click="clearAll()">Clear Redis history</button></div></div>
+  <h2 class="sr-only">Application history</h2>
+  <p class="history-warning" role="status" v-if="redisCollecting !== true">{{ redisCollecting === false ? 'Collection is off; retained history is not receiving new events.' : 'Collection status is unknown.' }}</p>
+
+  <form class="errors-toolbar" aria-label="Error filters" v-form="viewState">
+    <div class="seg-filter" role="group" aria-label="Filter by severity">
+      <button type="button"  class="seg-chip" :class="{ active: (query?.bucket || '') === '' }" :aria-pressed="(query?.bucket || '') === ''" @click="setBucket('')">All </button>
+      <button type="button"  class="seg-chip" :class="{ active: (query?.bucket || '') === 'error', 'is-empty': !(stats?.severity?.error) }" :aria-pressed="(query?.bucket || '') === 'error'" @click="setBucket('error')"><span class="seg-dot bad" aria-hidden="true"></span>Error </button>
+      <button type="button"  class="seg-chip" :class="{ active: (query?.bucket || '') === 'warn', 'is-empty': !(stats?.severity?.warn) }" :aria-pressed="(query?.bucket || '') === 'warn'" @click="setBucket('warn')"><span class="seg-dot warn" aria-hidden="true"></span>Warning </button>
+      <button type="button"  class="seg-chip" :class="{ active: (query?.bucket || '') === 'info', 'is-empty': !(stats?.severity?.info) }" :aria-pressed="(query?.bucket || '') === 'info'" @click="setBucket('info')"><span class="seg-dot off" aria-hidden="true"></span>Info </button>
+    </div>
+    <div class="search-wrap">
+      <svg class="ui-icon search-icon" aria-hidden="true"><use href="#ui-icon-search"></use></svg>
+      <input type="search" class="form-control" aria-label="Search application history" placeholder="Search history…" title="Search messages, or filter with code:repo_not_found module:route status:&gt;=400" autocomplete="off" v-field="{ state: viewState, set: value =&gt; { query.search = value }, value: query?.search, form: null, options: {} }">
+      <span class="filter-count" v-if="parsedFilterCount">{{ parsedFilterCount }} filter{{ parsedFilterCount > 1 ? 's' : '' }}</span>
+    </div>
+    <details class="history-view-options"><summary>View options</summary><div class="history-view-controls">
+    <div class="select-wrap">
+      <label for="history-sort">Sort</label>
+      <select id="history-sort" class="form-control form-control-sm" v-field="{ state: viewState, set: value =&gt; { query.sort = value }, value: query?.sort, form: null, options: {} }">
+        <option value="recent">Most recent</option>
+        <option value="count">Most frequent</option>
+      </select>
+    </div>
+    <div class="select-wrap">
+      <label for="history-merge" title="Rows are always sectioned by severity. This merges repeated events inside each section.">Merge</label>
+      <select id="history-merge" class="form-control form-control-sm" v-field="{ state: viewState, set: value =&gt; { query.group = value }, value: query?.group, form: null, options: {} }">
+        <option value="">Don't merge</option>
+        <option value="code">Same error</option>
+        <option value="module">Same module</option>
+      </select>
+    </div>
+    <label class="autoref">
+      <input type="checkbox" v-field="{ state: viewState, set: value =&gt; { query.autoRefresh = value }, value: query?.autoRefresh, form: null, options: {} }">
+      <span class="auto-refresh-label">Auto-refresh</span>
+    </label>
+
+    </div></details>
+  </form>
+
+  <p role="status" v-if="redisLoading">Loading application history…</p>
+  <div class="admin-empty" v-if="!redisLoading &amp;&amp; !visible?.length &amp;&amp; available === true">No matching entries in the loaded Redis history.</div>
+  <p v-if="redisRedacted">{{ redisRedacted }} invalid legacy records were omitted. Older valid records may still be available.</p>
+  <div class="errors-pager" v-if="entries?.length || canLoadMore()">
+    <span>{{ query?.group &amp;&amp; visible?.length !== entries?.length ? fmt?.number(visible?.length) + (visible?.length === 1 ? ' group' : ' groups') + ' from ' : '' }}{{ fmt?.number(entries?.length) }} safe entries loaded · {{ fmt?.number(redisNextOffset || entries?.length) }} of {{ fmt?.number(total) }} stored records scanned</span>
+    <button class="btn btn-sm" type="button" v-if="canLoadMore()" @click="loadMore()" :disabled="redisLoading">Load 250 older</button>
+  </div>
+
+  <div class="errors-list" v-if="visible?.length">
+    <div class="errors-list-head">
+      <span class="col-when">When</span>
+      <span class="col-sev">Severity</span>
+      <span class="col-mod">Module</span>
+      <span class="col-msg">Message</span>
+      <span class="col-count" title="Total occurrences since first seen">Total</span>
+      <span class="col-status">Status</span>
+    </div>
+
+    <template v-for="(row, index) in visible" :key="row?._key">
+    <div class="errors-group-head" v-if="index === 0 || visible[index - 1]?._bucket !== row?._bucket"><span class="sev-dot" :class="'sev-' + row?._bucket"></span>{{ row?._bucket === 'error' ? 'Error' : row?._bucket === 'warn' ? 'Warning' : 'Info' }}<span class="errors-group-count">{{ fmt?.number(visible.filter(r =&gt; r?._bucket === row?._bucket).length) }}</span><span class="errors-group-note" v-if="index === 0">By severity · {{ query?.group === 'code' ? 'repeats merged by error · ' : query?.group === 'module' ? 'repeats merged by module · ' : '' }}{{ query?.sort === 'count' ? 'most frequent first' : 'most recent first' }}</span></div>
+    <div class="errors-row" :class="{open: expanded[row?._key]}">
+      <button type="button" class="errors-row-main" :aria-expanded="!!expanded[row?._key]" :aria-controls="'history-detail-' + index" @click="toggle(row)">
+        <span class="col-when">
+          <span class="when-rel">{{ relTime(row?.ts) }}</span>
+          <span class="when-abs">{{ absTimeShort(row?.ts) }}</span>
+        </span>
+        <span class="col-sev">
+          <span class="sev-dot" :class="&#x27;sev-&#x27; + row?._bucket"></span>
+          <span class="sev-label">{{ row?._bucket === 'error' ? 'Error' : row?._bucket === 'warn' ? 'Warning' : 'Info' }}</span>
+        </span>
+        <span class="col-mod"><span class="pill pill-module">{{ row?.module }}</span></span>
+        <span class="col-msg">
+          <strong class="msg-code">{{ row?.displayMessage }}</strong>
+          <span class="msg-context" v-if="row?.displayContext &amp;&amp; row?.displayContext !== row?.displayMessage">{{ row?.displayContext }}</span>
+          <span class="msg-detail" v-if="row?._detail">{{ row?._detail }}</span>
+          <span class="msg-url" v-if="row?._url" :title="row?._url">{{ row?._url }}</span>
+        </span>
+        <span class="col-count">
+          <span class="count-pill" v-if="row?.count &gt; 1">×{{ row?.count }}</span>
+          <span class="count-pill count-pill-muted" v-if="row?.count === 1">×1</span>
+        </span>
+        <span class="col-status">
+          <span class="status-pill" v-if="row?._status" :class="String(row?._status).match(/^[23]/) ? 'status-neutral' : (&#x27;status-&#x27; + row?._bucket)" :title="String(row?._status).match(/^2/) &amp;&amp; row?._bucket === 'warn' ? 'Client closed the connection' : null">{{ String(row?._status).match(/^2/) &amp;&amp; row?._bucket === 'warn' ? '—' : row?._status }}</span>
+          <span class="status-empty" v-if="!row?._status" title="No HTTP status for this event">—</span>
+        </span>
+      </button>
+
+      <div class="errors-row-detail" :id="'history-detail-' + index" v-if="expanded[row?._key]">
+        <div class="detail-tabs">
+          <button type="button" :class="{active: !detailTab[row?._key] || detailTab[row?._key] === 'summary'}" @click="detailTab[row._key] = 'summary'">Details</button>
+          <button type="button" :class="{active: detailTab[row?._key] === &#x27;raw&#x27;}" @click="detailTab[row._key] = &#x27;raw&#x27;">Raw</button>
+          <button type="button" v-if="row?._stack" :class="{active: detailTab[row?._key] === &#x27;stack&#x27;}" @click="detailTab[row._key] = &#x27;stack&#x27;">Stack</button>
+          <button type="button" v-if="row?.count &gt; 1" :class="{active: detailTab[row?._key] === &#x27;related&#x27;}" @click="detailTab[row._key] = &#x27;related&#x27;">Related ({{ row?.count }})</button>
+        </div>
+        <div class="detail-body">
+          <div class="detail-main">
+            <dl class="history-fields" v-if="!detailTab[row?._key] || detailTab[row?._key] === 'summary'"><div v-for="[key,value] in historyDetailFields(row)" :key="key"><dt>{{ key }}</dt><dd><template v-if="isLogIdentifier(key,value)"><details class="log-value-reveal"><summary>{{ compactLogValue(value) }}</summary><span>{{ value }}</span></details><button type="button" class="log-copy-value" @click="copyLogValue(value)">Copy full {{ key }}</button></template><template v-else>{{ logFieldText(value) }}</template></dd></div></dl>
+            <pre v-if="detailTab[row?._key] === &#x27;raw&#x27;">{{ row?._rawJson }}</pre>
+            <pre class="stack-pre" v-if="detailTab[row?._key] === &#x27;stack&#x27;">{{ row?._stack }}</pre>
+            <div class="related-list" v-if="detailTab[row?._key] === &#x27;related&#x27;">
+              <div class="related-row" v-for="(r, index) in row?._related" :key="index">
+                <span class="when-abs">{{ absTimeShort(r?.ts) }}</span>
+                <span class="msg-url">{{ r?._url }}</span>
+                <span class="status-pill" v-if="r?._status" :class="&#x27;status-&#x27; + r?._bucket">{{ r?._status }}</span>
+              </div>
+            </div>
+            <div class="detail-actions">
+              <button class="btn btn-sm" type="button" v-if="logTraceId(row, 'requestId')" @click="lookupTrace('requestId', logTraceId(row, 'requestId'), $event.currentTarget, row)">Request {{ shortLogId(logTraceId(row, 'requestId')) }}</button>
+              <button class="btn btn-sm" type="button" v-if="logTraceId(row, 'jobId')" @click="lookupTrace('jobId', logTraceId(row, 'jobId'), $event.currentTarget, row)">Job {{ shortLogId(logTraceId(row, 'jobId')) }}</button>
+              <button class="btn btn-sm" type="button" v-if="row?._url" title="Copy a curl that reproduces the request" @click="copyCurl(row)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-code"></use></svg> Copy curl</button>
+              <button class="btn btn-sm" type="button" @click="copyJson(row)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-clipboard"></use></svg> Copy JSON</button>
+              <span class="copy-hint" v-if="copyHint">{{ copyHint }}</span>
+            </div>
+          </div>
+          <aside class="detail-aside">
+            <div class="aside-block">
+              <div class="aside-label">First seen</div>
+              <div class="aside-value" :title="(absTime(row?._firstSeen))">{{ relTime(row?._firstSeen) }}</div>
+            </div>
+            <div class="aside-block">
+              <div class="aside-label">Last seen</div>
+              <div class="aside-value" :title="(absTime(row?.ts))">{{ relTime(row?.ts) }}</div>
+            </div>
+            <div class="aside-block">
+              <div class="aside-label">Occurrences</div>
+              <div class="aside-value">{{ row?.count }}<span class="aside-sub" v-if="row?._lastHourCount"> · {{ row?._lastHourCount }} this hour</span></div>
+            </div>
+            <div class="aside-block" v-if="row?._repoId">
+              <div class="aside-label">Repository</div>
+              <a class="aside-value" :href="safeUrl(&quot;/r/&quot; + (row?._repoId))">{{ isLogIdentifier('repoId',row?._repoId) ? compactLogValue(row?._repoId) : row?._repoId }}</a><details class="log-value-reveal" v-if="isLogIdentifier('repoId',row?._repoId)"><summary>Full repository ID</summary>{{ row?._repoId }}</details><button type="button" class="log-copy-value" @click="copyLogValue(row?._repoId)">Copy full repository ID</button>
+            </div>
+            <div class="aside-block" v-if="row?._url">
+              <div class="aside-label">URL</div>
+              <div class="aside-value mono">{{ row?._url }}</div>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </div>
+    </template>
+  </div>
+
+  <details class="history-management"><summary>History settings, export and diagnostics</summary>
+  <div class="volume-head"><div class="errors-actions"><button class="btn btn-sm" type="button" @click="exportCsv()">Export Redis CSV</button><button class="btn btn-sm btn-outline-danger" type="button" @click="clearAll()">Clear Redis history</button></div></div>
   <p role="status">{{ redisCollecting === false ? 'Collection is OFF (LOG_REDIS_MIRROR=off); retained history is not receiving new events.' : redisCollecting === true ? 'The application is configured to mirror warnings and errors.' : 'Collection status is unknown.' }}</p>
   <p class="log-coverage">Redis mirror: hourly counters cover 24 hours; stored rows are a rotating snapshot and may cover a shorter or longer period. Counts are not combined with central logs.</p>
   <p v-if="redisStatsState !== 'ready' || available !== true">Redis counters are {{ redisStatsState === 'loading' ? 'loading' : 'unavailable' }}.</p>
@@ -145,150 +290,18 @@
   </section>
 
 </details>
-  <form class="errors-toolbar" aria-label="Error filters" v-form="viewState">
-    <div class="seg-filter" role="group" aria-label="Filter by severity">
-      <button type="button"  class="seg-chip" :class="{ active: (query?.bucket || '') === '' }" :aria-pressed="(query?.bucket || '') === ''" @click="setBucket('')">All </button>
-      <button type="button"  class="seg-chip" :class="{ active: (query?.bucket || '') === 'error', 'is-empty': !(stats?.severity?.error) }" :aria-pressed="(query?.bucket || '') === 'error'" @click="setBucket('error')"><span class="seg-dot bad" aria-hidden="true"></span>Error </button>
-      <button type="button"  class="seg-chip" :class="{ active: (query?.bucket || '') === 'warn', 'is-empty': !(stats?.severity?.warn) }" :aria-pressed="(query?.bucket || '') === 'warn'" @click="setBucket('warn')"><span class="seg-dot warn" aria-hidden="true"></span>Warning </button>
-      <button type="button"  class="seg-chip" :class="{ active: (query?.bucket || '') === 'info', 'is-empty': !(stats?.severity?.info) }" :aria-pressed="(query?.bucket || '') === 'info'" @click="setBucket('info')"><span class="seg-dot off" aria-hidden="true"></span>Info </button>
-    </div>
-    <div class="search-wrap">
-      <svg class="ui-icon search-icon" aria-hidden="true"><use href="#ui-icon-search"></use></svg>
-      <input type="search" class="form-control" aria-label="Search application history" placeholder="Search history…" title="Search messages, or filter with code:repo_not_found module:route status:&gt;=400" autocomplete="off" v-field="{ state: viewState, set: value =&gt; { query.search = value }, value: query?.search, form: null, options: {} }">
-      <span class="filter-count" v-if="parsedFilterCount">{{ parsedFilterCount }} filter{{ parsedFilterCount > 1 ? 's' : '' }}</span>
-    </div>
-    <div class="select-wrap">
-      <label for="history-sort">Sort</label>
-      <select id="history-sort" class="form-control form-control-sm" v-field="{ state: viewState, set: value =&gt; { query.sort = value }, value: query?.sort, form: null, options: {} }">
-        <option value="recent">Most recent</option>
-        <option value="count">Most frequent</option>
-      </select>
-    </div>
-    <div class="select-wrap">
-      <label for="history-merge" title="Rows are always sectioned by severity. This merges repeated events inside each section.">Merge</label>
-      <select id="history-merge" class="form-control form-control-sm" v-field="{ state: viewState, set: value =&gt; { query.group = value }, value: query?.group, form: null, options: {} }">
-        <option value="">Don't merge</option>
-        <option value="code">Same error</option>
-        <option value="module">Same module</option>
-      </select>
-    </div>
-    <label class="autoref">
-      <input type="checkbox" v-field="{ state: viewState, set: value =&gt; { query.autoRefresh = value }, value: query?.autoRefresh, form: null, options: {} }">
-      <span class="auto-refresh-label">Auto-refresh</span>
-    </label>
-    <button class="btn btn-sm btn-icon" type="button" title="Refresh now" @click="refreshNow()" aria-label="Refresh" :disabled="redisLoading"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-refresh"></use></svg></button>
-  </form>
-
-  <p role="status" v-if="redisLoading">Loading application history…</p>
-  <div class="admin-empty" v-if="!redisLoading &amp;&amp; !visible?.length &amp;&amp; available === true">No matching entries in the loaded Redis history.</div>
-  <p v-if="redisRedacted">{{ redisRedacted }} invalid legacy records were omitted. Older valid records may still be available.</p>
-  <div class="errors-pager" v-if="entries?.length || canLoadMore()">
-    <span>{{ query?.group &amp;&amp; visible?.length !== entries?.length ? fmt?.number(visible?.length) + (visible?.length === 1 ? ' group' : ' groups') + ' from ' : '' }}{{ fmt?.number(entries?.length) }} safe entries loaded · {{ fmt?.number(redisNextOffset || entries?.length) }} of {{ fmt?.number(total) }} stored records scanned</span>
-    <button class="btn btn-sm" type="button" v-if="canLoadMore()" @click="loadMore()" :disabled="redisLoading">Load 250 older</button>
-  </div>
-
-  <div class="errors-list" v-if="visible?.length">
-    <div class="errors-list-head">
-      <span class="col-when">When</span>
-      <span class="col-sev">Severity</span>
-      <span class="col-mod">Module</span>
-      <span class="col-msg">Message</span>
-      <span class="col-count" title="Total occurrences since first seen">Total</span>
-      <span class="col-status">Status</span>
-    </div>
-
-    <template v-for="(row, index) in visible" :key="row?._key">
-    <div class="errors-group-head" v-if="index === 0 || visible[index - 1]?._bucket !== row?._bucket"><span class="sev-dot" :class="'sev-' + row?._bucket"></span>{{ row?._bucket === 'error' ? 'Error' : row?._bucket === 'warn' ? 'Warning' : 'Info' }}<span class="errors-group-count">{{ fmt?.number(visible.filter(r =&gt; r?._bucket === row?._bucket).length) }}</span><span class="errors-group-note" v-if="index === 0">By severity · {{ query?.group === 'code' ? 'repeats merged by error · ' : query?.group === 'module' ? 'repeats merged by module · ' : '' }}{{ query?.sort === 'count' ? 'most frequent first' : 'most recent first' }}</span></div>
-    <div class="errors-row" :class="{open: expanded[row?._key]}">
-      <button type="button" class="errors-row-main" :aria-expanded="!!expanded[row?._key]" :aria-controls="'history-detail-' + index" @click="toggle(row)">
-        <span class="col-when">
-          <span class="when-rel">{{ relTime(row?.ts) }}</span>
-          <span class="when-abs">{{ absTimeShort(row?.ts) }}</span>
-        </span>
-        <span class="col-sev">
-          <span class="sev-dot" :class="&#x27;sev-&#x27; + row?._bucket"></span>
-          <span class="sev-label">{{ row?._bucket === 'error' ? 'Error' : row?._bucket === 'warn' ? 'Warning' : 'Info' }}</span>
-        </span>
-        <span class="col-mod"><span class="pill pill-module">{{ row?.module }}</span></span>
-        <span class="col-msg">
-          <strong class="msg-code">{{ row?.displayMessage }}</strong>
-          <span class="msg-context" v-if="row?.displayContext &amp;&amp; row?.displayContext !== row?.displayMessage">{{ row?.displayContext }}</span>
-          <span class="msg-detail" v-if="row?._detail">{{ row?._detail }}</span>
-          <span class="msg-url" v-if="row?._url" :title="row?._url">{{ row?._url }}</span>
-        </span>
-        <span class="col-count">
-          <span class="count-pill" v-if="row?.count &gt; 1">×{{ row?.count }}</span>
-          <span class="count-pill count-pill-muted" v-if="row?.count === 1">×1</span>
-        </span>
-        <span class="col-status">
-          <span class="status-pill" v-if="row?._status" :class="String(row?._status).match(/^[23]/) ? 'status-neutral' : (&#x27;status-&#x27; + row?._bucket)" :title="String(row?._status).match(/^2/) &amp;&amp; row?._bucket === 'warn' ? 'Client closed the connection' : null">{{ String(row?._status).match(/^2/) &amp;&amp; row?._bucket === 'warn' ? '—' : row?._status }}</span>
-          <span class="status-empty" v-if="!row?._status" title="No HTTP status for this event">—</span>
-        </span>
-      </button>
-
-      <div class="errors-row-detail" :id="'history-detail-' + index" v-if="expanded[row?._key]">
-        <div class="detail-tabs">
-          <button type="button" :class="{active: detailTab[row?._key] === &#x27;raw&#x27; || !detailTab[row?._key]}" @click="detailTab[row._key] = &#x27;raw&#x27;">Raw</button>
-          <button type="button" v-if="row?._stack" :class="{active: detailTab[row?._key] === &#x27;stack&#x27;}" @click="detailTab[row._key] = &#x27;stack&#x27;">Stack</button>
-          <button type="button" v-if="row?.count &gt; 1" :class="{active: detailTab[row?._key] === &#x27;related&#x27;}" @click="detailTab[row._key] = &#x27;related&#x27;">Related ({{ row?.count }})</button>
-        </div>
-        <div class="detail-body">
-          <div class="detail-main">
-            <pre v-if="(detailTab[row?._key] || &#x27;raw&#x27;) === &#x27;raw&#x27;">{{ row?._detailJson }}</pre>
-            <pre class="stack-pre" v-if="detailTab[row?._key] === &#x27;stack&#x27;">{{ row?._stack }}</pre>
-            <div class="related-list" v-if="detailTab[row?._key] === &#x27;related&#x27;">
-              <div class="related-row" v-for="(r, index) in row?._related" :key="index">
-                <span class="when-abs">{{ absTimeShort(r?.ts) }}</span>
-                <span class="msg-url">{{ r?._url }}</span>
-                <span class="status-pill" v-if="r?._status" :class="&#x27;status-&#x27; + r?._bucket">{{ r?._status }}</span>
-              </div>
-            </div>
-            <div class="detail-actions">
-              <button class="btn btn-sm" type="button" v-if="logTraceId(row, 'requestId')" @click="lookupTrace('requestId', logTraceId(row, 'requestId'), $event.currentTarget, row)">Request {{ shortLogId(logTraceId(row, 'requestId')) }}</button>
-              <button class="btn btn-sm" type="button" v-if="logTraceId(row, 'jobId')" @click="lookupTrace('jobId', logTraceId(row, 'jobId'), $event.currentTarget, row)">Job {{ shortLogId(logTraceId(row, 'jobId')) }}</button>
-              <button class="btn btn-sm" type="button" v-if="row?._url" title="Copy a curl that reproduces the request" @click="copyCurl(row)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-code"></use></svg> Copy curl</button>
-              <button class="btn btn-sm" type="button" @click="copyJson(row)"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-clipboard"></use></svg> Copy JSON</button>
-              <span class="copy-hint" v-if="copyHint">{{ copyHint }}</span>
-            </div>
-          </div>
-          <aside class="detail-aside">
-            <div class="aside-block">
-              <div class="aside-label">First seen</div>
-              <div class="aside-value" :title="(absTime(row?._firstSeen))">{{ relTime(row?._firstSeen) }}</div>
-            </div>
-            <div class="aside-block">
-              <div class="aside-label">Last seen</div>
-              <div class="aside-value" :title="(absTime(row?.ts))">{{ relTime(row?.ts) }}</div>
-            </div>
-            <div class="aside-block">
-              <div class="aside-label">Occurrences</div>
-              <div class="aside-value">{{ row?.count }}<span class="aside-sub" v-if="row?._lastHourCount"> · {{ row?._lastHourCount }} this hour</span></div>
-            </div>
-            <div class="aside-block" v-if="row?._repoId">
-              <div class="aside-label">Repository</div>
-              <a class="aside-value" :href="safeUrl(&quot;/r/&quot; + (row?._repoId))">{{ row?._repoId }}</a>
-            </div>
-            <div class="aside-block" v-if="row?._url">
-              <div class="aside-label">URL</div>
-              <div class="aside-value mono">{{ row?._url }}</div>
-            </div>
-          </aside>
-        </div>
-      </div>
-    </div>
-    </template>
-  </div>
+  </details>
 
   </section>
     <section class="log-timeline" v-if="traceSelection" aria-labelledby="log-timeline-title" :aria-busy="traceLoading">
       <div class="volume-head"><h3 id="log-timeline-title" tabindex="-1">Correlated timeline</h3><button type="button" class="btn btn-sm" @click="closeTrace()">Close timeline</button></div>
       <p class="log-origin" v-if="traceSelection.context"><span>Sample from </span><strong>{{ traceSelection.context.event }}</strong><span v-if="traceSelection.context.service"> · {{ traceSelection.context.service }}</span></p>
-      <p class="log-id">{{ traceSelection.kind }} · {{ traceSelection.id }}</p>
+      <div class="log-id"><details class="log-value-reveal"><summary>{{ traceSelection.kind }} · {{ compactLogValue(traceSelection.id) }}</summary><span>{{ traceSelection.id }}</span></details><button type="button" class="log-copy-value" @click="copyLogValue(traceSelection.id)">Copy full ID</button></div>
       <p role="status">{{ traceLoading ? 'Looking up correlated events…' : trace?.state === 'empty' ? 'No correlated events found in this window.' : logStateText(trace?.state) }}</p>
       <p v-if="trace && !traceLoading">{{ absTime(trace.start) }} – {{ absTime(trace.end) }} · at most 200 earliest matching events across services. Service and release filters do not narrow this timeline.</p>
       <a v-if="trace?.grafanaUrl" :href="safeUrl(trace.grafanaUrl)" target="_blank" rel="noopener noreferrer">Open this correlation in Grafana</a>
       <ol class="log-events" v-if="trace?.events?.length">
-        <li v-for="(event, index) in trace.events" :key="index"><time :datetime="event.timestamp" :title="event.timestamp">{{ absTimeShort(event.timestamp) }}</time> · <strong>{{ event.service }}</strong> · {{ event.event }}<span v-if="event.errorCode"> · {{ event.errorCode }}</span><span v-if="event.status"> · HTTP {{ event.status }}</span><span v-if="event.ms !== undefined"> · {{ event.ms }} ms</span><span v-if="event.attempt"> · attempt {{ event.attempt }}</span><br><code v-if="event.requestId">request {{ event.requestId }} </code><code v-if="event.jobId">job {{ event.jobId }}</code></li>
+        <li v-for="(event, index) in trace.events" :key="index"><time :datetime="event.timestamp" :title="event.timestamp">{{ absTimeShort(event.timestamp) }}</time> · <strong>{{ event.service }}</strong> · {{ event.event }}<span v-if="event.errorCode"> · {{ event.errorCode }}</span><span v-if="event.status"> · HTTP {{ event.status }}</span><span v-if="event.ms !== undefined"> · {{ event.ms }} ms</span><span v-if="event.attempt"> · attempt {{ event.attempt }}</span><br><div v-for="kind in ['requestId','jobId']" :key="kind"><template v-if="event[kind]"><details class="log-value-reveal"><summary>{{ kind }} · {{ compactLogValue(event[kind]) }}</summary><code>{{ event[kind] }}</code></details><button type="button" class="log-copy-value" @click="copyLogValue(event[kind])">Copy full {{ kind }}</button></template></div></li>
       </ol>
     </section>
 

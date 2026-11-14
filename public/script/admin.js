@@ -1481,6 +1481,9 @@ export const errorsAdminController = function (state, http, location, interval) 
         return "info";
       }
       function decorate(e) {
+        // Preserve the API's safe record before adding UI-only fields. Raw and
+        // Copy JSON must not silently omit fields through the summary projection.
+        e._rawJson = JSON.stringify(e, null, 2);
         const detail = (e.raw || []).find(
           (a) => a && typeof a === "object" && !Array.isArray(a)
         );
@@ -1532,7 +1535,7 @@ export const errorsAdminController = function (state, http, location, interval) 
         return e;
       }
 
-      // Build a curated, column-aligned JSON payload for the Raw tab. Mirrors
+      // Build a curated, column-aligned payload for the readable Details tab. Mirrors
       // the reference admin design: name / code / kind / httpStatus / module /
       // detail / url / ts on aligned colons. We can't just JSON.stringify the
       // raw entry because it includes the human "anonymous error" wrapper
@@ -1543,6 +1546,7 @@ export const errorsAdminController = function (state, http, location, interval) 
           if (v === undefined || v === null || v === "") return;
           fields.push([k, v]);
         };
+        for (const key of ["service", "event", "severity", "requestId", "jobId"]) push(key, detail && detail[key]);
         push("name", detail && detail.name);
         push("code", entry.displayMessage || (detail && detail.message));
         if (entry._bucket) push("kind", entry._bucket);
@@ -1840,7 +1844,7 @@ export const errorsAdminController = function (state, http, location, interval) 
         timers.timeout(() => { state.copyHint = "";  }, 1500);
       }
       state.copyJson = (row) => {
-        navigator.clipboard.writeText(row._detailJson).then(() => flashCopy("JSON"));
+        navigator.clipboard.writeText(row._rawJson).then(() => flashCopy("JSON"));
       };
       state.copyCurl = (row) => {
         if (!row._url) return;

@@ -111,9 +111,11 @@ describe("Vue 3 UI", function () {
   it("filters returned groups without hiding edge 5xx and restores investigation focus", async () => {
     const requestId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
     const now = new Date().toISOString();
+    const historySample = {requestId, jobId:"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", service:"worker", event:"job_failed", severity:"error", status:502};
+    const historyEntry = {ts:now,level:"error",module:"queue",message:"history_only",raw:[historySample]};
     ui = await browser("/", {
       "/api/user": {username:"admin",isAdmin:true,status:"ready"},
-      "/api/admin/errors": {entries:[{ts:now,level:"error",module:"queue",message:"history_only",raw:[]}],available:true,total:1},
+      "/api/admin/errors": {entries:[historyEntry],available:true,total:1},
       "/api/admin/errors/investigation": {state:"ready",window:"1h",captured:12,end:now,groups:[
         {fingerprint:"edge",count:9,last:now,first:now,sample:{event:"http_access",service:"nginx",severity:"info",status:504,requestId}},
         {fingerprint:"warn",count:3,last:now,first:now,sample:{event:"retry",service:"worker",severity:"warn"}},
@@ -136,6 +138,14 @@ describe("Vue 3 UI", function () {
     expect(doc.querySelector('#log-detail-title').textContent).to.equal('http_access');
     expect([...doc.querySelectorAll('.log-detail dt')].map(node => node.textContent)).to.have.members(['First returned', 'Last returned', 'event', 'service', 'severity', 'status', 'requestId']);
     expect(doc.querySelector('.log-detail-row').previousElementSibling.contains(detail)).to.equal(true);
+    const identifier = doc.querySelector('.log-detail .log-value-reveal');
+    expect(identifier.open).to.equal(false);
+    expect(identifier.querySelector('summary').textContent).not.to.include(requestId);
+    expect(identifier.querySelector('span').textContent).to.equal(requestId);
+    let copiedIdentifier;
+    Object.defineProperty(ui.window.navigator, 'clipboard', {configurable:true,value:{writeText:async value => { copiedIdentifier = value; }}});
+    doc.querySelector('.log-detail .log-copy-value').click(); await delay(30);
+    expect(copiedIdentifier).to.equal(requestId);
     doc.querySelector('.log-detail button').click(); await delay(30);
     expect(doc.activeElement).to.equal(detail);
     const trigger = doc.querySelector('.log-trace-button'); trigger.focus(); trigger.click(); await delay(30);
@@ -148,6 +158,13 @@ describe("Vue 3 UI", function () {
     expect(row.getAttribute('aria-expanded')).to.equal('false'); row.click(); await delay(30);
     expect(row.getAttribute('aria-expanded')).to.equal('true');
     expect(doc.getElementById(row.getAttribute('aria-controls'))).not.to.equal(null);
+    expect(doc.querySelector('.history-fields')).not.to.equal(null);
+    expect(doc.querySelector('.detail-main pre')).to.equal(null);
+    [...doc.querySelectorAll('.detail-tabs button')].find(button => button.textContent === 'Raw').click(); await delay(30);
+    expect(JSON.parse(doc.querySelector('.detail-main pre').textContent)).to.deep.equal(historyEntry);
+    [...doc.querySelectorAll('.detail-actions button')].find(button => button.textContent.includes('Copy JSON')).click(); await delay(30);
+    expect(JSON.parse(copiedIdentifier)).to.deep.equal(historyEntry);
+    expect(doc.querySelector('.history-management').open).to.equal(false);
     expect(ui.requests.filter(r=>r.url.pathname==='/api/admin/errors/investigation')).to.have.length(1);
     expect(ui.errors).to.deep.equal([]);
   });
@@ -204,7 +221,8 @@ describe("Vue 3 UI", function () {
     const button=ui.window.document.querySelector(".errors-pager button");
     expect(button).not.to.equal(null); button.click(); await delay(40);
     expect(ui.window.document.body.textContent).to.include("upstream_error").and.include("invalid legacy records were omitted");
-    ui.window.document.querySelector('button[aria-label="Refresh"]').click(); await delay(40);
+    ui.window.document.querySelector('#error-source-history').click(); await delay(30);
+    ui.window.document.querySelector('.error-health-strip button').click(); await delay(40);
     expect(ui.requests.filter(r => r.url.pathname === "/api/admin/errors").at(-1).url.searchParams.get("limit")).to.equal("251");
     expect(ui.window.document.body.textContent).to.include("upstream_error");
     expect(ui.errors).to.deep.equal([]);
