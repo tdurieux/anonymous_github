@@ -43,6 +43,9 @@ func scriptableFile(name string) bool {
 }
 func textFile(name string, sample []byte) bool { return filetype.Text(name, sample) }
 func (s *Server) blob(ctx context.Context, r, row M) (io.ReadCloser, error) {
+	if err := s.assertFileOrigin(ctx, row); err != nil {
+		return nil, err
+	}
 	if number(row["size"]) > anonymize.MaxInput {
 		return nil, fail("file_too_big", 413)
 	}
@@ -57,12 +60,15 @@ func (s *Server) blob(ctx context.Context, r, row M) (io.ReadCloser, error) {
 			return nil, e
 		}
 	}
-	return s.cachedBlob(ctx, r, p, a, provider.Entry{Path: path.Join(str(row["path"]), str(row["name"])), Revision: str(row["sha"]), Size: number(row["size"])})
+	return s.cachedBlob(ctx, r, p, a, fileProviderEntry(row))
 }
 func (s *Server) transformed(ctx context.Context, r, row M) (io.Reader, func(), bool, error) {
 	return s.transformedResponse(ctx, r, row, nil)
 }
 func (s *Server) transformedResponse(ctx context.Context, r, row M, response *sharedResponse) (io.Reader, func(), bool, error) {
+	if err := s.assertFileOrigin(ctx, row); err != nil {
+		return nil, nil, false, err
+	}
 	var body io.ReadCloser
 	var err error
 	if s.sourceCache != nil && number(row["size"]) <= anonymize.MaxInput {
@@ -71,7 +77,7 @@ func (s *Server) transformedResponse(ctx context.Context, r, row M, response *sh
 			return nil, nil, false, accessErr
 		}
 		if a.Ref.Provider != "archive" {
-			entry := provider.Entry{Path: path.Join(str(row["path"]), str(row["name"])), Revision: str(row["sha"]), Size: number(row["size"])}
+			entry := fileProviderEntry(row)
 			if _, err = security.RelativePath(entry.Path); err == nil {
 				body, err = s.sharedSourceRead(ctx, r, p, a, entry, true)
 			}
@@ -109,7 +115,7 @@ func (s *Server) transformBody(ctx context.Context, r, row M, body io.ReadCloser
 	name := str(row["name"])
 	isText := textFile(name, sample)
 	if source, ok := body.(*blobcache.Reader); ok && s.resultCache != nil {
-		opt, err := s.anonymizerOptions(r, "repo")
+		opt, err := s.fileAnonymizerOptions(r, row)
 		if err != nil {
 			body.Close()
 			return nil, nil, isText, err
@@ -150,7 +156,7 @@ func (s *Server) transformBody(ctx context.Context, r, row M, body io.ReadCloser
 		}
 		return file, cleanup, false, nil
 	}
-	opt, err := s.anonymizerOptions(r, "repo")
+	opt, err := s.fileAnonymizerOptions(r, row)
 	if err != nil {
 		body.Close()
 		return nil, nil, false, err
@@ -201,6 +207,12 @@ func (s *Server) file(q *request) (any, error) {
 	}
 	if selected == nil {
 		return nil, fail("file_not_found", 404)
+	}
+	if selected["size"] == nil || str(selected["submodule"]) != "" {
+		return nil, fail("folder_not_supported", 404)
+	}
+	if err = s.assertFileOrigin(q.ctx(), selected); err != nil {
+		return nil, err
 	}
 	name := str(selected["name"])
 	if !fileAllowed(name, obj(r["options"])) {
@@ -341,7 +353,7 @@ func (s *Server) zip(q *request) (any, error) {
 	// Consume bounded metadata batches instead of retaining the entire tree.
 	// No limit: a successful ZIP must contain every eligible file.
 	rows, err := s.Store.DB.Collection("files").Find(q.ctx(), M{"repoId": r["repoId"], "treeGeneration": activeGeneration(r), "size": M{"$ne": nil}},
-		options.Find().SetBatchSize(128).SetProjection(M{"_id": 0, "path": 1, "name": 1, "size": 1, "sha": 1}))
+		options.Find().SetBatchSize(128).SetProjection(M{"_id": 0, "path": 1, "name": 1, "size": 1, "sha": 1, "upstream": 1, "submodule": 1}))
 	if err != nil {
 		return nil, err
 	}
@@ -519,4 +531,12 @@ func (s *Server) sourceRepository(mode string) handler {
 
 func (s *Server) authorizeContent(ctx context.Context, r M) (string, error) {
 	return "", s.authorizeSource(ctx, r)
+}
+
+func (s *Server) fileAnonymizerOptions(r, row M) (anonymize.Options, error) {
+	opt, err := s.anonymizerOptions(r, "repo")
+	if err == nil && anonymize.PreservedPath(path.Join(str(row["path"]), str(row["name"])), opt.PreserveFiles) {
+		opt.Terms = []string{}
+	}
+	return opt, err
 }

@@ -6,6 +6,7 @@ const config={MAX_FILE_SIZE:100*1024*1024,SHARED_CACHE_ENABLED:false};
 let current, transfers=0;
 class File {
  constructor(){}
+ async assertContentFile(){}
  async originalPath(){return current.name}
  isFileSupported(){return true}
  async sha(){return 'blob'}

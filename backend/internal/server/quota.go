@@ -25,6 +25,24 @@ func (s *Server) quota(q *request) (any, error) {
 	if err != nil {
 		return nil, err
 	}
+	var limits M
+	if s.Config.Billing.Enabled {
+		limits, err = s.billingAllowance(q.ctx(), q.Identity.ID, "", "")
+		if err != nil {
+			return nil, err
+		}
+		funded := []M{}
+		for _, row := range rows {
+			allowance, e := s.billingAllowance(q.ctx(), q.Identity.ID, str(row["repoId"]), str(row["conference"]))
+			if e != nil {
+				return nil, e
+			}
+			if allowance["scope"] == limits["scope"] {
+				funded = append(funded, row)
+			}
+		}
+		rows = funded
+	}
 	var used, files float64
 	uncached := []M{}
 	matches := []M{}
@@ -59,5 +77,21 @@ func (s *Server) quota(q *request) (any, error) {
 			}
 		}
 	}
-	return M{"storage": M{"used": used, "total": int64(2) * 1024 * 1024 * 1024 * 8}, "file": M{"used": files, "total": 0}, "repository": M{"used": len(rows), "total": 20}}, nil
+	if limits != nil {
+		count := int64(len(rows))
+		reserved, e := s.Store.one(q.ctx(), "billingquotas", M{"_id": limits["scope"]})
+		if e != nil {
+			return nil, e
+		}
+		if reserved != nil {
+			used = 0
+			allocations := arr(reserved["allocations"])
+			count = int64(len(allocations))
+			for _, value := range allocations {
+				used += decimal(obj(value)["bytes"])
+			}
+		}
+		return M{"storage": M{"unit": "bytes", "used": used, "total": limits["storage"]}, "file": M{"used": files, "total": 0}, "repository": M{"used": count, "total": limits["repositories"]}}, nil
+	}
+	return M{"storage": M{"unit": "legacy", "used": used, "total": int64(2) * 1024 * 1024 * 1024 * 8}, "file": M{"used": files, "total": 0}, "repository": M{"used": len(rows), "total": 20}}, nil
 }

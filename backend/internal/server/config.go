@@ -15,6 +15,9 @@ import (
 )
 
 type Config struct {
+	ReviewKeys                                                                                 *string
+	Billing                                                                                    BillingConfig
+	EmailAPIKey, EmailFrom                                                                     string
 	GitHubPermissionTTL                                                                        time.Duration
 	SharedCacheDecisions                                                                       bool
 	SharedResultBytes                                                                          int64
@@ -53,7 +56,18 @@ func envInt(key string, fallback int) int {
 	return v
 }
 func LoadConfig() (Config, error) {
-	c := Config{CacheMonitoring: envBool("CACHE_MONITORING_ENABLED", true), Storage: env("STORAGE", "filesystem"), S3Bucket: os.Getenv("S3_BUCKET"), S3Region: os.Getenv("S3_REGION"), S3Endpoint: os.Getenv("S3_ENDPOINT"), S3ID: os.Getenv("S3_CLIENT_ID"), S3Secret: os.Getenv("S3_CLIENT_SECRET"), Address: ":" + env("PORT", "5000"), MongoURI: os.Getenv("MONGODB_URI"), Database: env("MONGODB_DATABASE", "production"), RedisAddress: net.JoinHostPort(env("REDIS_HOSTNAME", "redis"), env("REDIS_PORT", "6379")), SessionSecret: os.Getenv("SESSION_SECRET"), Root: env("FOLDER", "repositories"), PublicDir: env("PUBLIC_DIR", "public"), Hostname: env("APP_HOSTNAME", "localhost:5000"), Mask: env("ANONYMIZATION_MASK", "XXXX"), ClientID: os.Getenv("CLIENT_ID"), ClientSecret: os.Getenv("CLIENT_SECRET"), Callback: env("AUTH_CALLBACK", "http://localhost:5000/github/auth"), AppID: os.Getenv("GITHUB_APP_ID"), AppClientID: os.Getenv("GITHUB_APP_CLIENT_ID"), AppClientSecret: os.Getenv("GITHUB_APP_CLIENT_SECRET"), AppCallback: env("GITHUB_APP_CALLBACK", "http://localhost:5000/github/app/callback"), AppSlug: os.Getenv("GITHUB_APP_SLUG"), AppPrivateKey: os.Getenv("GITHUB_APP_PRIVATE_KEY"), AppWebhookSecret: os.Getenv("GITHUB_APP_WEBHOOK_SECRET"), AppEnabled: envBool("GITHUB_APP_ENABLED", false), AppNewConnections: envBool("GITHUB_APP_NEW_CONNECTIONS", true), OAuthEnabled: envBool("GITHUB_OAUTH_ENABLED", true), Download: envBool("ENABLE_DOWNLOAD", true), SecureCookies: envBool("COOKIE_SECURE", os.Getenv("NODE_ENV") == "production"), RateLimit: envInt("RATE_LIMIT", 1000), Workers: envInt("ANONYMIZATION_WORKERS", 1)}
+	c := Config{EmailAPIKey: os.Getenv("RESEND_API_KEY"), EmailFrom: os.Getenv("EMAIL_FROM"), CacheMonitoring: envBool("CACHE_MONITORING_ENABLED", true), Storage: env("STORAGE", "filesystem"), S3Bucket: os.Getenv("S3_BUCKET"), S3Region: os.Getenv("S3_REGION"), S3Endpoint: os.Getenv("S3_ENDPOINT"), S3ID: os.Getenv("S3_CLIENT_ID"), S3Secret: os.Getenv("S3_CLIENT_SECRET"), Address: ":" + env("PORT", "5000"), MongoURI: os.Getenv("MONGODB_URI"), Database: env("MONGODB_DATABASE", "production"), RedisAddress: net.JoinHostPort(env("REDIS_HOSTNAME", "redis"), env("REDIS_PORT", "6379")), SessionSecret: os.Getenv("SESSION_SECRET"), Root: env("FOLDER", "repositories"), PublicDir: env("PUBLIC_DIR", "public"), Hostname: env("APP_HOSTNAME", "localhost:5000"), Mask: env("ANONYMIZATION_MASK", "XXXX"), ClientID: os.Getenv("CLIENT_ID"), ClientSecret: os.Getenv("CLIENT_SECRET"), Callback: env("AUTH_CALLBACK", "http://localhost:5000/github/auth"), AppID: os.Getenv("GITHUB_APP_ID"), AppClientID: os.Getenv("GITHUB_APP_CLIENT_ID"), AppClientSecret: os.Getenv("GITHUB_APP_CLIENT_SECRET"), AppCallback: env("GITHUB_APP_CALLBACK", "http://localhost:5000/github/app/callback"), AppSlug: os.Getenv("GITHUB_APP_SLUG"), AppPrivateKey: os.Getenv("GITHUB_APP_PRIVATE_KEY"), AppWebhookSecret: os.Getenv("GITHUB_APP_WEBHOOK_SECRET"), AppEnabled: envBool("GITHUB_APP_ENABLED", false), AppNewConnections: envBool("GITHUB_APP_NEW_CONNECTIONS", true), OAuthEnabled: envBool("GITHUB_OAUTH_ENABLED", true), Download: envBool("ENABLE_DOWNLOAD", true), SecureCookies: envBool("COOKIE_SECURE", os.Getenv("NODE_ENV") == "production"), RateLimit: envInt("RATE_LIMIT", 1000), Workers: envInt("ANONYMIZATION_WORKERS", 1)}
+	if raw, ok := os.LookupEnv("REVIEW_SERVICE_KEYS"); ok {
+		c.ReviewKeys = &raw
+	}
+	if _, err := parseReviewRegistry(c.ReviewKeys); err != nil {
+		return c, err
+	}
+	var billingErr error
+	c.Billing, billingErr = loadBillingConfig()
+	if billingErr != nil {
+		return c, billingErr
+	}
 	if raw, ok := os.LookupEnv("GITHUB_PERMISSION_CACHE_SECONDS"); ok {
 		seconds, err := strconv.Atoi(raw)
 		if err != nil || seconds < 0 || seconds > 3600 {

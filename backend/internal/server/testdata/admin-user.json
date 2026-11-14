@@ -13,6 +13,7 @@
         "default": {
           "terms": []
         },
+        "emailPromptNever": false,
         "isAdmin": false,
         "repositories": [],
         "status": "active",
@@ -33,6 +34,7 @@
         "default": {
           "terms": []
         },
+        "emailPromptNever": false,
         "isAdmin": false,
         "repositories": [],
         "status": "active",
@@ -105,6 +107,7 @@
             "Alice"
           ]
         },
+        "emailPromptNever": false,
         "repositories": [],
         "_id": "111111111111111111111111",
         "username": "sample",
@@ -168,6 +171,7 @@
         "default": {
           "terms": []
         },
+        "emailPromptNever": false,
         "isAdmin": false,
         "status": "active",
         "_id": "111111111111111111111111",
@@ -250,6 +254,7 @@
         "default": {
           "terms": []
         },
+        "emailPromptNever": false,
         "isAdmin": false,
         "status": "active",
         "_id": "111111111111111111111111",
@@ -323,6 +328,7 @@
         "default": {
           "terms": []
         },
+        "emailPromptNever": false,
         "isAdmin": false,
         "status": "active",
         "_id": "111111111111111111111111",
@@ -399,6 +405,7 @@
       "expected": {
         "externalIDs": null,
         "default": null,
+        "emailPromptNever": false,
         "_id": "111111111111111111111111",
         "username": "sample",
         "dateOfEntry": "2030-01-01T12:00:00.000Z",
@@ -427,6 +434,7 @@
         "default": {
           "terms": []
         },
+        "emailPromptNever": false,
         "isAdmin": false,
         "repositories": [],
         "status": "active",

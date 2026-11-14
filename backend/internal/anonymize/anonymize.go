@@ -22,13 +22,14 @@ const MaxInput = 100 * 1024 * 1024
 const MaxOutput = 4 * MaxInput
 
 type Options struct {
-	Terms      []string `json:"terms" bson:"terms"`
-	Image      *bool    `json:"image,omitempty" bson:"image,omitempty"`
-	Link       *bool    `json:"link,omitempty" bson:"link,omitempty"`
-	RepoName   string   `json:"repoName,omitempty"`
-	BranchName string   `json:"branchName,omitempty"`
-	RepoID     string   `json:"repoId,omitempty"`
-	SourceURLs []string `json:"sourceURLs"`
+	PreserveFiles []string `json:"preserveFiles,omitempty" bson:"preserveFiles,omitempty"`
+	Terms         []string `json:"terms" bson:"terms"`
+	Image         *bool    `json:"image,omitempty" bson:"image,omitempty"`
+	Link          *bool    `json:"link,omitempty" bson:"link,omitempty"`
+	RepoName      string   `json:"repoName,omitempty"`
+	BranchName    string   `json:"branchName,omitempty"`
+	RepoID        string   `json:"repoId,omitempty"`
+	SourceURLs    []string `json:"sourceURLs"`
 }
 type Context struct {
 	Mask     string `json:"mask"`

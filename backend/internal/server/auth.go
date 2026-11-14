@@ -332,6 +332,10 @@ func (s *Server) oauthCallback(q *request) (any, error) {
 	if err = s.saveGrant(q, user["_id"], flow.Provider, tokens); err != nil {
 		return nil, err
 	}
+	s.saveRegistrationEmail(q.ctx(), user, str(tokens["access_token"]))
+	if err = s.resetOwnerAlerts(q.ctx(), user["_id"], "", nil); err != nil {
+		return nil, err
+	}
 	if err = q.login(user); err != nil {
 		return nil, err
 	}

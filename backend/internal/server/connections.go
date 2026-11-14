@@ -50,7 +50,7 @@ func (s *Server) connections(q *request) (any, error) {
 			return nil, e
 		}
 		installations := []M{}
-		out := M{"csrf": q.Session["githubConnectionCSRF"], "appEnabled": s.Config.AppEnabled && s.Config.AppNewConnections, "oauthEnabled": s.Config.OAuthEnabled, "oauthConnected": oauthToken != "", "appConnected": app, "gistConnection": "oauth"}
+		out := M{"notificationEmail": accountNotificationEmail(q.User), "emailNotificationsEnabled": s.Config.EmailAPIKey != "" && s.Config.EmailFrom != "", "csrf": q.Session["githubConnectionCSRF"], "appEnabled": s.Config.AppEnabled && s.Config.AppNewConnections, "oauthEnabled": s.Config.OAuthEnabled, "oauthConnected": oauthToken != "", "appConnected": app, "gistConnection": "oauth"}
 		if seenApp && s.Config.AppEnabled {
 			out["gistConnection"] = "github-app"
 		}
@@ -354,10 +354,21 @@ func (s *Server) revokeGrant(ctx context.Context, owner any, provider string) er
 	return e
 }
 func (s *Server) deleteAccount(q *request) (any, error) {
+	if err := s.cancelAccountBilling(q.ctx(), q.Identity.ID); err != nil {
+		return nil, err
+	}
+	finish, err := s.beginAlertDeactivation(q.ctx(), q.User["_id"])
+	if err != nil {
+		return nil, err
+	}
+	defer finish()
 	if err := s.removeAccountResources(q); err != nil {
 		return nil, err
 	}
 	owner := q.User["_id"]
+	if _, err = s.Store.DB.Collection("billingdrafts").DeleteMany(q.ctx(), M{"owner": q.Identity.ID}); err != nil {
+		return nil, err
+	}
 	// Removed records remain as tombstones and may still carry legacy credentials.
 	for _, kind := range []string{"repo", "pr", "gist"} {
 		if _, err := s.Store.DB.Collection(collection(kind)).UpdateMany(q.ctx(), M{"owner": owner}, M{"$unset": M{"source.accessToken": "", "accessToken": ""}}); err != nil {
@@ -376,7 +387,7 @@ func (s *Server) deleteAccount(q *request) (any, error) {
 	if _, err := s.Store.DB.Collection("dashboardnames").DeleteMany(q.ctx(), M{"owner": owner}); err != nil {
 		return nil, err
 	}
-	_, err := s.Store.update(q.ctx(), "users", M{"_id": owner}, M{"$inc": M{"repositoryDiscoveryRevision": 1}, "$set": M{"status": "removed", "username": "deleted-" + str(owner), "emails": []any{}, "apiTokens": []any{}, "repositories": []any{}}, "$unset": M{"accessTokens": "", "accessTokenDates": "", "externalIDs": "", "photo": "", "default": "", "projectNames": ""}})
+	_, err = s.Store.update(q.ctx(), "users", M{"_id": owner}, M{"$inc": M{"repositoryDiscoveryRevision": 1}, "$set": M{"status": "removed", "username": "deleted-" + str(owner), "emails": []any{}, "apiTokens": []any{}, "repositories": []any{}}, "$unset": M{"accessTokens": "", "accessTokenDates": "", "externalIDs": "", "photo": "", "default": "", "projectNames": "", "notificationEmail": "", "emailPromptNever": "", "accessAlertAfter": ""}})
 	if err != nil {
 		return nil, err
 	}

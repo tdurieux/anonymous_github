@@ -18,12 +18,17 @@ func (s *Store) ensureIndexes(ctx context.Context) error {
 		}
 	}
 	indexes := map[string][]mongo.IndexModel{
+		"billinggrants":   {{Keys: bson.D{{Key: "owner", Value: 1}}}, {Keys: bson.D{{Key: "scope", Value: 1}, {Key: "until", Value: 1}}}, {Keys: bson.D{{Key: "paymentIntentId", Value: 1}}}},
+		"billingaccounts": {{Keys: bson.D{{Key: "reconcileAfter", Value: 1}}}},
+		"billingevents":   {{Keys: bson.D{{Key: "state", Value: 1}, {Key: "nextAttemptAt", Value: 1}}}},
+		"billingdrafts":   {{Keys: bson.D{{Key: "expiresAt", Value: 1}}, Options: options.Index().SetExpireAfterSeconds(0)}},
+
 		"gocachemetrics":         {{Keys: bson.D{{Key: "period", Value: 1}, {Key: "bucket", Value: 1}}}, {Keys: bson.D{{Key: "expires", Value: 1}}, Options: options.Index().SetExpireAfterSeconds(0)}},
 		"anonymizedrepositories": {{Keys: bson.D{{Key: "conferenceMembership.id", Value: 1}}, Options: options.Index().SetSparse(true)}},
 		"users":                  {{Keys: bson.D{{Key: "username", Value: 1}}, Options: options.Index().SetUnique(true)}, {Keys: bson.D{{Key: "externalIDs.github", Value: 1}}}, {Keys: bson.D{{Key: "apiTokens.tokenHash", Value: 1}}}},
 		"repositories":           {{Keys: bson.D{{Key: "externalId", Value: 1}}, Options: options.Index().SetUnique(true)}},
 		"githubinstallations":    {{Keys: bson.D{{Key: "appId", Value: 1}, {Key: "installationId", Value: 1}}, Options: options.Index().SetUnique(true)}},
-		"files":                  {{Keys: bson.D{{Key: "repoId", Value: 1}, {Key: "treeGeneration", Value: 1}, {Key: "path", Value: 1}, {Key: "name", Value: 1}}}, {Keys: bson.D{{Key: "metadataPending", Value: 1}, {Key: "repoId", Value: 1}, {Key: "treeGeneration", Value: 1}}, Options: options.Index().SetPartialFilterExpression(M{"metadataPending": true})}},
+		"files":                  {{Keys: bson.D{{Key: "repoId", Value: 1}, {Key: "treeGeneration", Value: 1}, {Key: "submodule", Value: 1}}, Options: options.Index().SetName("file_submodule_status").SetPartialFilterExpression(M{"submodule": M{"$exists": true}})}, {Keys: bson.D{{Key: "repoId", Value: 1}, {Key: "treeGeneration", Value: 1}, {Key: "path", Value: 1}, {Key: "name", Value: 1}}}, {Keys: bson.D{{Key: "metadataPending", Value: 1}, {Key: "repoId", Value: 1}, {Key: "treeGeneration", Value: 1}}, Options: options.Index().SetPartialFilterExpression(M{"metadataPending": true})}},
 		"gojobs":                 {{Keys: bson.D{{Key: "state", Value: 1}, {Key: "priority", Value: 1}, {Key: "availableAt", Value: 1}, {Key: "queueOrder", Value: 1}, {Key: "createdAt", Value: 1}, {Key: "_id", Value: 1}}}, {Keys: bson.D{{Key: "kind", Value: 1}, {Key: "resourceId", Value: 1}, {Key: "action", Value: 1}, {Key: "state", Value: 1}}}, {Keys: bson.D{{Key: "state", Value: 1}, {Key: "availableAt", Value: 1}}}, {Keys: bson.D{{Key: "state", Value: 1}, {Key: "leaseUntil", Value: 1}}}, {Keys: bson.D{{Key: "action", Value: 1}, {Key: "state", Value: 1}, {Key: "createdAt", Value: -1}}}},
 		"dashboardnames":         {{Keys: bson.D{{Key: "owner", Value: 1}, {Key: "type", Value: 1}, {Key: "artifactId", Value: 1}}, Options: options.Index().SetUnique(true)}},
 		"dailystats":             {{Keys: bson.D{{Key: "date", Value: 1}}, Options: options.Index().SetUnique(true)}},

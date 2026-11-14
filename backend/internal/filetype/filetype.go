@@ -26,19 +26,26 @@ var names = map[string]bool{"license": true, "licence": true, "copying": true, "
 var additional = map[string]bool{"license": true, "dockerfile": true, "sbt": true, "ipynb": true, "gp": true, "out": true, "sol": true, "in": true, "jsonl": true, "ndjson": true, "bat": true, "cmd": true, "ts": true}
 var textual = map[string]bool{"application/json": true, "application/ld+json": true, "application/xml": true, "application/javascript": true, "application/ecmascript": true, "application/typescript": true, "application/toml": true, "application/sql": true, "application/x-sql": true, "application/x-sh": true, "application/x-csh": true, "application/x-yaml": true, "application/yaml": true, "application/x-httpd-php": true, "application/graphql": true, "application/x-tex": true, "application/x-latex": true, "application/x-perl": true, "application/x-ruby": true, "application/x-python": true}
 
-func Text(name string, data []byte) bool {
+func ClassifyName(name string) (bool, bool) {
 	base := strings.ToLower(path.Base(name))
 	parts := strings.Split(base, ".")
 	ext := parts[len(parts)-1]
 	if names[base] || additional[ext] {
-		return true
+		return true, true
 	}
 	mime := strings.Split(MIME(path.Ext(base)), ";")[0]
 	if mime != "" {
-		return strings.HasPrefix(mime, "text/") || textual[mime] || strings.HasSuffix(mime, "+json") || strings.HasSuffix(mime, "+xml") || strings.HasSuffix(mime, "+yaml")
+		return strings.HasPrefix(mime, "text/") || textual[mime] || strings.HasSuffix(mime, "+json") || strings.HasSuffix(mime, "+xml") || strings.HasSuffix(mime, "+yaml"), true
+	}
+	return false, false
+}
+func Text(name string, data []byte) bool {
+	if text, known := ClassifyName(name); known {
+		return text
 	}
 	return len(data) > 0 && !binary(data)
 }
+
 func binary(data []byte) bool {
 	if len(data) == 0 {
 		return false

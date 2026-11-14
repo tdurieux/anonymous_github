@@ -68,7 +68,7 @@ These tokens cannot access GitHub previews, file downloads, or admin routes.
 
 ## Self-hosting
 
-On this migration branch, Docker runs the Go backend, including streaming and background workers. The branch includes current `main` sources, but newer billing, preview, and email APIs still need Go implementations; see the [alignment status](backend/README.md#branch-alignment-status-november-14-2026). See the [Go deployment and cutover guide](backend/README.md#default-deployment) before upgrading an existing installation. It covers queue handoff, storage permissions, staging checks and the preserved Node rollback stack. A full production staging rehearsal is still required before cutover.
+On this migration branch, Docker runs the Go backend, including streaming and background workers. The branch includes current `main` sources and Go implementations of billing, source previews, email preferences, access notifications and public submodules; see the [alignment status](backend/README.md#branch-alignment-status-november-14-2026). See the [Go deployment and cutover guide](backend/README.md#default-deployment) before upgrading an existing installation. It covers queue handoff, storage permissions, staging checks and the preserved Node rollback stack. A full production staging rehearsal is still required before cutover.
 
 The following Node instructions also support the CLI, asset build and rollback backend.
 

@@ -67,8 +67,14 @@ func (s *Server) openMeasuredSource(ctx context.Context, p provider.Repositories
 	done := s.startStage(ctx, "upstream")
 	body, err := p.Open(ctx, access, entry)
 	if err != nil {
+		s.scheduleOwnerAlert(access.OwnerID, access.Ref.AnonymousID, err)
+	}
+	if err != nil {
 		done(err)
 		return nil, err
+	}
+	if s.Config.Billing.Enabled && access.Ref.AnonymousID != "" {
+		body = &billingContentReader{ReadCloser: body, s: s, ctx: ctx, repoID: access.Ref.AnonymousID, key: entry.Path, expected: entry.Size}
 	}
 	return &measuredSource{ReadCloser: body, done: done}, nil
 }
@@ -76,6 +82,9 @@ func (s *Server) openMeasuredSource(ctx context.Context, p provider.Repositories
 func (s *Server) authorizeMeasured(ctx context.Context, p provider.Repositories, access provider.Access) error {
 	done := s.startStage(ctx, "authorization")
 	err := p.Authorize(ctx, access)
+	if err != nil {
+		s.scheduleOwnerAlert(access.OwnerID, access.Ref.AnonymousID, err)
+	}
 	done(err)
 	return err
 }

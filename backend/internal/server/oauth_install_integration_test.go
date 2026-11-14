@@ -28,6 +28,9 @@ func runOAuthInstallIntegration(t *testing.T, base *Server) {
 		}
 		calls := 0
 		s.HTTP = &http.Client{Transport: roundTrip(func(r *http.Request) (*http.Response, error) {
+			if r.URL.Path == "/user/emails" {
+				return &http.Response{StatusCode: 200, Header: http.Header{}, Body: io.NopCloser(strings.NewReader("[]"))}, nil
+			}
 			calls++
 			data := M{}
 			switch r.URL.Path {

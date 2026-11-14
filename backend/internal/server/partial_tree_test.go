@@ -101,6 +101,8 @@ func runGitHubPartialTreeIntegration(t *testing.T, s *Server, owner any) {
 				} else {
 					payload = M{"truncated": true, "tree": []M{{"path": "docs", "sha": child, "type": "tree"}, {"path": "root.txt", "sha": commit, "type": "blob", "size": 1}, {"path": "submodule", "sha": commit, "type": "commit"}}}
 				}
+			case "/repos/owner/repo/contents/submodule":
+				payload = M{"sha": commit, "submodule_git_url": "https://example.test/owner/private"}
 			case "/repos/owner/repo/git/trees/" + child:
 				payload = M{"truncated": true, "tree": []M{{"path": "visible.txt", "sha": commit, "type": "blob", "size": 2}}}
 			default:

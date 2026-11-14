@@ -36,6 +36,8 @@ func runOAuthCallbackIntegration(t *testing.T, s *Server, token string) {
 			case "github.com/login/oauth/access_token":
 				exchanges++
 				value = M{"access_token": "synthetic-callback-access", "refresh_token": "synthetic-callback-refresh", "expires_in": 3600, "refresh_token_expires_in": 7200}
+			case "api.github.com/user/emails":
+				return &http.Response{StatusCode: 200, Header: http.Header{}, Body: io.NopCloser(strings.NewReader("[]"))}, nil
 			case "api.github.com/user":
 				profiles++
 				value = M{"id": profileID, "login": "oauth-callback-fixture", "avatar_url": "https://avatar.test/image"}

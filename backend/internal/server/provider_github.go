@@ -171,13 +171,18 @@ func (g *githubProvider) TreeWithTruncation(ctx context.Context, a provider.Acce
 		if kind != "blob" && kind != "tree" && kind != "commit" {
 			continue
 		}
-		out = append(out, provider.Entry{Path: str(row["path"]), Revision: str(row["sha"]), Size: number(row["size"]), Directory: kind != "blob"})
+		entry := provider.Entry{Path: str(row["path"]), Revision: str(row["sha"]), Size: number(row["size"]), Directory: kind != "blob"}
+		if kind == "commit" {
+			entry.Submodule = "unsupported"
+		}
+		out = append(out, entry)
 	}
-	return out, truncated, nil
+	out, err := g.expandSubmodules(ctx, a, token, out)
+	return out, truncated, err
 }
 func (g *githubProvider) Open(ctx context.Context, a provider.Access, f provider.Entry) (io.ReadCloser, error) {
 	dir, name := path.Split(f.Path)
-	return g.server.githubBlob(ctx, providerRecord(a), M{"path": strings.TrimSuffix(dir, "/"), "name": name, "sha": f.Revision, "size": f.Size})
+	return g.server.githubBlob(ctx, providerRecord(a), M{"path": strings.TrimSuffix(dir, "/"), "name": name, "sha": f.Revision, "size": f.Size, "upstream": originDocument(f.Origin)})
 }
 func (g *githubProvider) PublicURL(r provider.Ref) string {
 	if !safeRepositoryName(r.Name) {
@@ -209,8 +214,19 @@ func (s *Server) githubBlob(ctx context.Context, r, row M) (io.ReadCloser, error
 	if err != nil {
 		return nil, err
 	}
+	if origin := upstreamOrigin(row["upstream"]); origin != nil {
+		if !validFileOrigin(origin) {
+			return nil, fail("invalid_source", 400)
+		}
+		name, token = origin.Repository, ""
+		r = M{"source": M{"repositoryName": name, "commit": origin.Commit}}
+		dir, base := path.Split(origin.Path)
+		row = M{"path": strings.TrimSuffix(dir, "/"), "name": base, "sha": sha, "size": row["size"]}
+	}
 	req, _ := http.NewRequestWithContext(ctx, "GET", "https://api.github.com/repos/"+name+"/git/blobs/"+sha, nil)
-	req.Header.Set("Authorization", "Bearer "+token)
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
 	req.Header.Set("Accept", "application/vnd.github.raw+json")
 	req.Header.Set("User-Agent", "Anonymous-GitHub")
 	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
@@ -258,6 +274,9 @@ func (g *githubProvider) Branch(ctx context.Context, a provider.Access, name str
 }
 
 func (g *githubProvider) FileMetadata(ctx context.Context, a provider.Access, requested string) (*provider.Entry, error) {
+	if path.Base(requested) == ".gitmodules" {
+		return nil, fail("file_not_found", 404)
+	}
 	relative, err := security.RelativePath(requested)
 	if err != nil || relative != requested || !safeRepositoryName(a.Ref.Name) || !commitID.MatchString(a.Ref.Commit) {
 		return nil, fail("invalid_source", 400)

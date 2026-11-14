@@ -47,7 +47,10 @@ type Branch struct {
 	Name, Commit string
 	Readme       *string
 }
+type FileOrigin struct{ Provider, Repository, Commit, Path string }
 type Entry struct {
+	Origin         *FileOrigin
+	Submodule      string
 	Path, Revision string
 	Size           int64
 	Directory      bool

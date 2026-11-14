@@ -1,0 +1,3427 @@
+[
+  {
+    "patterns": [
+      "*.bib"
+    ],
+    "path": "refs.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "*.bib"
+    ],
+    "path": "sub/refs.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "*.bib"
+    ],
+    "path": "secret.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "*.bib"
+    ],
+    "path": "paper",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*.bib"
+    ],
+    "path": "paper/a.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "*.bib"
+    ],
+    "path": "paper/private/a.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "*.bib"
+    ],
+    "path": "paper/a.json",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*.bib"
+    ],
+    "path": "paper/{a,b}.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "*.bib"
+    ],
+    "path": "file01.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*.bib"
+    ],
+    "path": "file02.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*.bib"
+    ],
+    "path": "file03.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*.bib"
+    ],
+    "path": "file04.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*.bib"
+    ],
+    "path": "filea.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*.bib"
+    ],
+    "path": "fileb.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*.bib"
+    ],
+    "path": "filec.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*.bib"
+    ],
+    "path": "a.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "*.bib"
+    ],
+    "path": "b.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "*.bib"
+    ],
+    "path": "c.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "*.bib"
+    ],
+    "path": "ab.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "*.bib"
+    ],
+    "path": ".bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "*.bib"
+    ],
+    "path": ".hidden",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*.bib"
+    ],
+    "path": "sub/.hidden",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*.bib"
+    ],
+    "path": "[draft].bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "*.bib"
+    ],
+    "path": "private/a.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "*.bib"
+    ],
+    "path": "d.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "/refs.bib"
+    ],
+    "path": "refs.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "/refs.bib"
+    ],
+    "path": "sub/refs.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "/refs.bib"
+    ],
+    "path": "secret.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "/refs.bib"
+    ],
+    "path": "paper",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "/refs.bib"
+    ],
+    "path": "paper/a.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "/refs.bib"
+    ],
+    "path": "paper/private/a.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "/refs.bib"
+    ],
+    "path": "paper/a.json",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "/refs.bib"
+    ],
+    "path": "paper/{a,b}.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "/refs.bib"
+    ],
+    "path": "file01.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "/refs.bib"
+    ],
+    "path": "file02.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "/refs.bib"
+    ],
+    "path": "file03.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "/refs.bib"
+    ],
+    "path": "file04.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "/refs.bib"
+    ],
+    "path": "filea.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "/refs.bib"
+    ],
+    "path": "fileb.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "/refs.bib"
+    ],
+    "path": "filec.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "/refs.bib"
+    ],
+    "path": "a.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "/refs.bib"
+    ],
+    "path": "b.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "/refs.bib"
+    ],
+    "path": "c.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "/refs.bib"
+    ],
+    "path": "ab.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "/refs.bib"
+    ],
+    "path": ".bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "/refs.bib"
+    ],
+    "path": ".hidden",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "/refs.bib"
+    ],
+    "path": "sub/.hidden",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "/refs.bib"
+    ],
+    "path": "[draft].bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "/refs.bib"
+    ],
+    "path": "private/a.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "/refs.bib"
+    ],
+    "path": "d.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "paper/**",
+      "!paper/private/"
+    ],
+    "path": "refs.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "paper/**",
+      "!paper/private/"
+    ],
+    "path": "sub/refs.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "paper/**",
+      "!paper/private/"
+    ],
+    "path": "secret.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "paper/**",
+      "!paper/private/"
+    ],
+    "path": "paper",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "paper/**",
+      "!paper/private/"
+    ],
+    "path": "paper/a.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "paper/**",
+      "!paper/private/"
+    ],
+    "path": "paper/private/a.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "paper/**",
+      "!paper/private/"
+    ],
+    "path": "paper/a.json",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "paper/**",
+      "!paper/private/"
+    ],
+    "path": "paper/{a,b}.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "paper/**",
+      "!paper/private/"
+    ],
+    "path": "file01.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "paper/**",
+      "!paper/private/"
+    ],
+    "path": "file02.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "paper/**",
+      "!paper/private/"
+    ],
+    "path": "file03.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "paper/**",
+      "!paper/private/"
+    ],
+    "path": "file04.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "paper/**",
+      "!paper/private/"
+    ],
+    "path": "filea.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "paper/**",
+      "!paper/private/"
+    ],
+    "path": "fileb.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "paper/**",
+      "!paper/private/"
+    ],
+    "path": "filec.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "paper/**",
+      "!paper/private/"
+    ],
+    "path": "a.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "paper/**",
+      "!paper/private/"
+    ],
+    "path": "b.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "paper/**",
+      "!paper/private/"
+    ],
+    "path": "c.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "paper/**",
+      "!paper/private/"
+    ],
+    "path": "ab.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "paper/**",
+      "!paper/private/"
+    ],
+    "path": ".bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "paper/**",
+      "!paper/private/"
+    ],
+    "path": ".hidden",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "paper/**",
+      "!paper/private/"
+    ],
+    "path": "sub/.hidden",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "paper/**",
+      "!paper/private/"
+    ],
+    "path": "[draft].bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "paper/**",
+      "!paper/private/"
+    ],
+    "path": "private/a.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "paper/**",
+      "!paper/private/"
+    ],
+    "path": "d.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!secret.bib",
+      "secret.bib"
+    ],
+    "path": "refs.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!secret.bib",
+      "secret.bib"
+    ],
+    "path": "sub/refs.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!secret.bib",
+      "secret.bib"
+    ],
+    "path": "secret.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!secret.bib",
+      "secret.bib"
+    ],
+    "path": "paper",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!secret.bib",
+      "secret.bib"
+    ],
+    "path": "paper/a.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!secret.bib",
+      "secret.bib"
+    ],
+    "path": "paper/private/a.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!secret.bib",
+      "secret.bib"
+    ],
+    "path": "paper/a.json",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!secret.bib",
+      "secret.bib"
+    ],
+    "path": "paper/{a,b}.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!secret.bib",
+      "secret.bib"
+    ],
+    "path": "file01.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!secret.bib",
+      "secret.bib"
+    ],
+    "path": "file02.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!secret.bib",
+      "secret.bib"
+    ],
+    "path": "file03.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!secret.bib",
+      "secret.bib"
+    ],
+    "path": "file04.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!secret.bib",
+      "secret.bib"
+    ],
+    "path": "filea.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!secret.bib",
+      "secret.bib"
+    ],
+    "path": "fileb.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!secret.bib",
+      "secret.bib"
+    ],
+    "path": "filec.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!secret.bib",
+      "secret.bib"
+    ],
+    "path": "a.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!secret.bib",
+      "secret.bib"
+    ],
+    "path": "b.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!secret.bib",
+      "secret.bib"
+    ],
+    "path": "c.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!secret.bib",
+      "secret.bib"
+    ],
+    "path": "ab.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!secret.bib",
+      "secret.bib"
+    ],
+    "path": ".bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!secret.bib",
+      "secret.bib"
+    ],
+    "path": ".hidden",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!secret.bib",
+      "secret.bib"
+    ],
+    "path": "sub/.hidden",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!secret.bib",
+      "secret.bib"
+    ],
+    "path": "[draft].bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!secret.bib",
+      "secret.bib"
+    ],
+    "path": "private/a.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!secret.bib",
+      "secret.bib"
+    ],
+    "path": "d.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "paper/"
+    ],
+    "path": "refs.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "paper/"
+    ],
+    "path": "sub/refs.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "paper/"
+    ],
+    "path": "secret.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "paper/"
+    ],
+    "path": "paper",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "paper/"
+    ],
+    "path": "paper/a.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "paper/"
+    ],
+    "path": "paper/private/a.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "paper/"
+    ],
+    "path": "paper/a.json",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "paper/"
+    ],
+    "path": "paper/{a,b}.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "paper/"
+    ],
+    "path": "file01.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "paper/"
+    ],
+    "path": "file02.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "paper/"
+    ],
+    "path": "file03.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "paper/"
+    ],
+    "path": "file04.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "paper/"
+    ],
+    "path": "filea.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "paper/"
+    ],
+    "path": "fileb.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "paper/"
+    ],
+    "path": "filec.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "paper/"
+    ],
+    "path": "a.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "paper/"
+    ],
+    "path": "b.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "paper/"
+    ],
+    "path": "c.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "paper/"
+    ],
+    "path": "ab.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "paper/"
+    ],
+    "path": ".bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "paper/"
+    ],
+    "path": ".hidden",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "paper/"
+    ],
+    "path": "sub/.hidden",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "paper/"
+    ],
+    "path": "[draft].bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "paper/"
+    ],
+    "path": "private/a.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "paper/"
+    ],
+    "path": "d.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "/paper/\\{a,b\\}.bib"
+    ],
+    "path": "refs.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "/paper/\\{a,b\\}.bib"
+    ],
+    "path": "sub/refs.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "/paper/\\{a,b\\}.bib"
+    ],
+    "path": "secret.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "/paper/\\{a,b\\}.bib"
+    ],
+    "path": "paper",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "/paper/\\{a,b\\}.bib"
+    ],
+    "path": "paper/a.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "/paper/\\{a,b\\}.bib"
+    ],
+    "path": "paper/private/a.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "/paper/\\{a,b\\}.bib"
+    ],
+    "path": "paper/a.json",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "/paper/\\{a,b\\}.bib"
+    ],
+    "path": "paper/{a,b}.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "/paper/\\{a,b\\}.bib"
+    ],
+    "path": "file01.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "/paper/\\{a,b\\}.bib"
+    ],
+    "path": "file02.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "/paper/\\{a,b\\}.bib"
+    ],
+    "path": "file03.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "/paper/\\{a,b\\}.bib"
+    ],
+    "path": "file04.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "/paper/\\{a,b\\}.bib"
+    ],
+    "path": "filea.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "/paper/\\{a,b\\}.bib"
+    ],
+    "path": "fileb.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "/paper/\\{a,b\\}.bib"
+    ],
+    "path": "filec.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "/paper/\\{a,b\\}.bib"
+    ],
+    "path": "a.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "/paper/\\{a,b\\}.bib"
+    ],
+    "path": "b.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "/paper/\\{a,b\\}.bib"
+    ],
+    "path": "c.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "/paper/\\{a,b\\}.bib"
+    ],
+    "path": "ab.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "/paper/\\{a,b\\}.bib"
+    ],
+    "path": ".bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "/paper/\\{a,b\\}.bib"
+    ],
+    "path": ".hidden",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "/paper/\\{a,b\\}.bib"
+    ],
+    "path": "sub/.hidden",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "/paper/\\{a,b\\}.bib"
+    ],
+    "path": "[draft].bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "/paper/\\{a,b\\}.bib"
+    ],
+    "path": "private/a.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "/paper/\\{a,b\\}.bib"
+    ],
+    "path": "d.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "**/*.{bib,json}"
+    ],
+    "path": "refs.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "**/*.{bib,json}"
+    ],
+    "path": "sub/refs.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "**/*.{bib,json}"
+    ],
+    "path": "secret.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "**/*.{bib,json}"
+    ],
+    "path": "paper",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "**/*.{bib,json}"
+    ],
+    "path": "paper/a.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "**/*.{bib,json}"
+    ],
+    "path": "paper/private/a.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "**/*.{bib,json}"
+    ],
+    "path": "paper/a.json",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "**/*.{bib,json}"
+    ],
+    "path": "paper/{a,b}.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "**/*.{bib,json}"
+    ],
+    "path": "file01.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "**/*.{bib,json}"
+    ],
+    "path": "file02.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "**/*.{bib,json}"
+    ],
+    "path": "file03.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "**/*.{bib,json}"
+    ],
+    "path": "file04.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "**/*.{bib,json}"
+    ],
+    "path": "filea.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "**/*.{bib,json}"
+    ],
+    "path": "fileb.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "**/*.{bib,json}"
+    ],
+    "path": "filec.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "**/*.{bib,json}"
+    ],
+    "path": "a.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "**/*.{bib,json}"
+    ],
+    "path": "b.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "**/*.{bib,json}"
+    ],
+    "path": "c.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "**/*.{bib,json}"
+    ],
+    "path": "ab.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "**/*.{bib,json}"
+    ],
+    "path": ".bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "**/*.{bib,json}"
+    ],
+    "path": ".hidden",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "**/*.{bib,json}"
+    ],
+    "path": "sub/.hidden",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "**/*.{bib,json}"
+    ],
+    "path": "[draft].bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "**/*.{bib,json}"
+    ],
+    "path": "private/a.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "**/*.{bib,json}"
+    ],
+    "path": "d.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "file{01..03}.txt"
+    ],
+    "path": "refs.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "file{01..03}.txt"
+    ],
+    "path": "sub/refs.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "file{01..03}.txt"
+    ],
+    "path": "secret.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "file{01..03}.txt"
+    ],
+    "path": "paper",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "file{01..03}.txt"
+    ],
+    "path": "paper/a.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "file{01..03}.txt"
+    ],
+    "path": "paper/private/a.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "file{01..03}.txt"
+    ],
+    "path": "paper/a.json",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "file{01..03}.txt"
+    ],
+    "path": "paper/{a,b}.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "file{01..03}.txt"
+    ],
+    "path": "file01.txt",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "file{01..03}.txt"
+    ],
+    "path": "file02.txt",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "file{01..03}.txt"
+    ],
+    "path": "file03.txt",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "file{01..03}.txt"
+    ],
+    "path": "file04.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "file{01..03}.txt"
+    ],
+    "path": "filea.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "file{01..03}.txt"
+    ],
+    "path": "fileb.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "file{01..03}.txt"
+    ],
+    "path": "filec.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "file{01..03}.txt"
+    ],
+    "path": "a.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "file{01..03}.txt"
+    ],
+    "path": "b.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "file{01..03}.txt"
+    ],
+    "path": "c.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "file{01..03}.txt"
+    ],
+    "path": "ab.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "file{01..03}.txt"
+    ],
+    "path": ".bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "file{01..03}.txt"
+    ],
+    "path": ".hidden",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "file{01..03}.txt"
+    ],
+    "path": "sub/.hidden",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "file{01..03}.txt"
+    ],
+    "path": "[draft].bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "file{01..03}.txt"
+    ],
+    "path": "private/a.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "file{01..03}.txt"
+    ],
+    "path": "d.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "file{a..c}.txt"
+    ],
+    "path": "refs.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "file{a..c}.txt"
+    ],
+    "path": "sub/refs.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "file{a..c}.txt"
+    ],
+    "path": "secret.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "file{a..c}.txt"
+    ],
+    "path": "paper",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "file{a..c}.txt"
+    ],
+    "path": "paper/a.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "file{a..c}.txt"
+    ],
+    "path": "paper/private/a.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "file{a..c}.txt"
+    ],
+    "path": "paper/a.json",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "file{a..c}.txt"
+    ],
+    "path": "paper/{a,b}.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "file{a..c}.txt"
+    ],
+    "path": "file01.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "file{a..c}.txt"
+    ],
+    "path": "file02.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "file{a..c}.txt"
+    ],
+    "path": "file03.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "file{a..c}.txt"
+    ],
+    "path": "file04.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "file{a..c}.txt"
+    ],
+    "path": "filea.txt",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "file{a..c}.txt"
+    ],
+    "path": "fileb.txt",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "file{a..c}.txt"
+    ],
+    "path": "filec.txt",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "file{a..c}.txt"
+    ],
+    "path": "a.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "file{a..c}.txt"
+    ],
+    "path": "b.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "file{a..c}.txt"
+    ],
+    "path": "c.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "file{a..c}.txt"
+    ],
+    "path": "ab.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "file{a..c}.txt"
+    ],
+    "path": ".bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "file{a..c}.txt"
+    ],
+    "path": ".hidden",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "file{a..c}.txt"
+    ],
+    "path": "sub/.hidden",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "file{a..c}.txt"
+    ],
+    "path": "[draft].bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "file{a..c}.txt"
+    ],
+    "path": "private/a.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "file{a..c}.txt"
+    ],
+    "path": "d.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "@(a|b).bib"
+    ],
+    "path": "refs.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "@(a|b).bib"
+    ],
+    "path": "sub/refs.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "@(a|b).bib"
+    ],
+    "path": "secret.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "@(a|b).bib"
+    ],
+    "path": "paper",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "@(a|b).bib"
+    ],
+    "path": "paper/a.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "@(a|b).bib"
+    ],
+    "path": "paper/private/a.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "@(a|b).bib"
+    ],
+    "path": "paper/a.json",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "@(a|b).bib"
+    ],
+    "path": "paper/{a,b}.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "@(a|b).bib"
+    ],
+    "path": "file01.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "@(a|b).bib"
+    ],
+    "path": "file02.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "@(a|b).bib"
+    ],
+    "path": "file03.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "@(a|b).bib"
+    ],
+    "path": "file04.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "@(a|b).bib"
+    ],
+    "path": "filea.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "@(a|b).bib"
+    ],
+    "path": "fileb.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "@(a|b).bib"
+    ],
+    "path": "filec.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "@(a|b).bib"
+    ],
+    "path": "a.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "@(a|b).bib"
+    ],
+    "path": "b.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "@(a|b).bib"
+    ],
+    "path": "c.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "@(a|b).bib"
+    ],
+    "path": "ab.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "@(a|b).bib"
+    ],
+    "path": ".bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "@(a|b).bib"
+    ],
+    "path": ".hidden",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "@(a|b).bib"
+    ],
+    "path": "sub/.hidden",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "@(a|b).bib"
+    ],
+    "path": "[draft].bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "@(a|b).bib"
+    ],
+    "path": "private/a.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "@(a|b).bib"
+    ],
+    "path": "d.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "+(a|b).bib"
+    ],
+    "path": "refs.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "+(a|b).bib"
+    ],
+    "path": "sub/refs.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "+(a|b).bib"
+    ],
+    "path": "secret.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "+(a|b).bib"
+    ],
+    "path": "paper",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "+(a|b).bib"
+    ],
+    "path": "paper/a.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "+(a|b).bib"
+    ],
+    "path": "paper/private/a.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "+(a|b).bib"
+    ],
+    "path": "paper/a.json",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "+(a|b).bib"
+    ],
+    "path": "paper/{a,b}.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "+(a|b).bib"
+    ],
+    "path": "file01.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "+(a|b).bib"
+    ],
+    "path": "file02.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "+(a|b).bib"
+    ],
+    "path": "file03.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "+(a|b).bib"
+    ],
+    "path": "file04.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "+(a|b).bib"
+    ],
+    "path": "filea.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "+(a|b).bib"
+    ],
+    "path": "fileb.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "+(a|b).bib"
+    ],
+    "path": "filec.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "+(a|b).bib"
+    ],
+    "path": "a.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "+(a|b).bib"
+    ],
+    "path": "b.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "+(a|b).bib"
+    ],
+    "path": "c.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "+(a|b).bib"
+    ],
+    "path": "ab.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "+(a|b).bib"
+    ],
+    "path": ".bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "+(a|b).bib"
+    ],
+    "path": ".hidden",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "+(a|b).bib"
+    ],
+    "path": "sub/.hidden",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "+(a|b).bib"
+    ],
+    "path": "[draft].bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "+(a|b).bib"
+    ],
+    "path": "private/a.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "+(a|b).bib"
+    ],
+    "path": "d.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "?(a|b).bib"
+    ],
+    "path": "refs.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "?(a|b).bib"
+    ],
+    "path": "sub/refs.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "?(a|b).bib"
+    ],
+    "path": "secret.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "?(a|b).bib"
+    ],
+    "path": "paper",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "?(a|b).bib"
+    ],
+    "path": "paper/a.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "?(a|b).bib"
+    ],
+    "path": "paper/private/a.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "?(a|b).bib"
+    ],
+    "path": "paper/a.json",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "?(a|b).bib"
+    ],
+    "path": "paper/{a,b}.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "?(a|b).bib"
+    ],
+    "path": "file01.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "?(a|b).bib"
+    ],
+    "path": "file02.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "?(a|b).bib"
+    ],
+    "path": "file03.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "?(a|b).bib"
+    ],
+    "path": "file04.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "?(a|b).bib"
+    ],
+    "path": "filea.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "?(a|b).bib"
+    ],
+    "path": "fileb.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "?(a|b).bib"
+    ],
+    "path": "filec.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "?(a|b).bib"
+    ],
+    "path": "a.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "?(a|b).bib"
+    ],
+    "path": "b.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "?(a|b).bib"
+    ],
+    "path": "c.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "?(a|b).bib"
+    ],
+    "path": "ab.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "?(a|b).bib"
+    ],
+    "path": ".bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "?(a|b).bib"
+    ],
+    "path": ".hidden",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "?(a|b).bib"
+    ],
+    "path": "sub/.hidden",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "?(a|b).bib"
+    ],
+    "path": "[draft].bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "?(a|b).bib"
+    ],
+    "path": "private/a.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "?(a|b).bib"
+    ],
+    "path": "d.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*(a|b).bib"
+    ],
+    "path": "refs.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*(a|b).bib"
+    ],
+    "path": "sub/refs.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*(a|b).bib"
+    ],
+    "path": "secret.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*(a|b).bib"
+    ],
+    "path": "paper",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*(a|b).bib"
+    ],
+    "path": "paper/a.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "*(a|b).bib"
+    ],
+    "path": "paper/private/a.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "*(a|b).bib"
+    ],
+    "path": "paper/a.json",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*(a|b).bib"
+    ],
+    "path": "paper/{a,b}.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*(a|b).bib"
+    ],
+    "path": "file01.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*(a|b).bib"
+    ],
+    "path": "file02.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*(a|b).bib"
+    ],
+    "path": "file03.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*(a|b).bib"
+    ],
+    "path": "file04.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*(a|b).bib"
+    ],
+    "path": "filea.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*(a|b).bib"
+    ],
+    "path": "fileb.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*(a|b).bib"
+    ],
+    "path": "filec.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*(a|b).bib"
+    ],
+    "path": "a.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "*(a|b).bib"
+    ],
+    "path": "b.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "*(a|b).bib"
+    ],
+    "path": "c.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*(a|b).bib"
+    ],
+    "path": "ab.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "*(a|b).bib"
+    ],
+    "path": ".bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "*(a|b).bib"
+    ],
+    "path": ".hidden",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*(a|b).bib"
+    ],
+    "path": "sub/.hidden",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*(a|b).bib"
+    ],
+    "path": "[draft].bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*(a|b).bib"
+    ],
+    "path": "private/a.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "*(a|b).bib"
+    ],
+    "path": "d.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!private/**"
+    ],
+    "path": "refs.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!private/**"
+    ],
+    "path": "sub/refs.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!private/**"
+    ],
+    "path": "secret.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!private/**"
+    ],
+    "path": "paper",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!private/**"
+    ],
+    "path": "paper/a.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!private/**"
+    ],
+    "path": "paper/private/a.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!private/**"
+    ],
+    "path": "paper/a.json",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!private/**"
+    ],
+    "path": "paper/{a,b}.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!private/**"
+    ],
+    "path": "file01.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!private/**"
+    ],
+    "path": "file02.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!private/**"
+    ],
+    "path": "file03.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!private/**"
+    ],
+    "path": "file04.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!private/**"
+    ],
+    "path": "filea.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!private/**"
+    ],
+    "path": "fileb.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!private/**"
+    ],
+    "path": "filec.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!private/**"
+    ],
+    "path": "a.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!private/**"
+    ],
+    "path": "b.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!private/**"
+    ],
+    "path": "c.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!private/**"
+    ],
+    "path": "ab.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!private/**"
+    ],
+    "path": ".bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!private/**"
+    ],
+    "path": ".hidden",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!private/**"
+    ],
+    "path": "sub/.hidden",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!private/**"
+    ],
+    "path": "[draft].bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!private/**"
+    ],
+    "path": "private/a.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "*.bib",
+      "!private/**"
+    ],
+    "path": "d.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "[!a]*.bib"
+    ],
+    "path": "refs.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "[!a]*.bib"
+    ],
+    "path": "sub/refs.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "[!a]*.bib"
+    ],
+    "path": "secret.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "[!a]*.bib"
+    ],
+    "path": "paper",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "[!a]*.bib"
+    ],
+    "path": "paper/a.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "[!a]*.bib"
+    ],
+    "path": "paper/private/a.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "[!a]*.bib"
+    ],
+    "path": "paper/a.json",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "[!a]*.bib"
+    ],
+    "path": "paper/{a,b}.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "[!a]*.bib"
+    ],
+    "path": "file01.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "[!a]*.bib"
+    ],
+    "path": "file02.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "[!a]*.bib"
+    ],
+    "path": "file03.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "[!a]*.bib"
+    ],
+    "path": "file04.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "[!a]*.bib"
+    ],
+    "path": "filea.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "[!a]*.bib"
+    ],
+    "path": "fileb.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "[!a]*.bib"
+    ],
+    "path": "filec.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "[!a]*.bib"
+    ],
+    "path": "a.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "[!a]*.bib"
+    ],
+    "path": "b.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "[!a]*.bib"
+    ],
+    "path": "c.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "[!a]*.bib"
+    ],
+    "path": "ab.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "[!a]*.bib"
+    ],
+    "path": ".bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "[!a]*.bib"
+    ],
+    "path": ".hidden",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "[!a]*.bib"
+    ],
+    "path": "sub/.hidden",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "[!a]*.bib"
+    ],
+    "path": "[draft].bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "[!a]*.bib"
+    ],
+    "path": "private/a.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "[!a]*.bib"
+    ],
+    "path": "d.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "**/.hidden"
+    ],
+    "path": "refs.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "**/.hidden"
+    ],
+    "path": "sub/refs.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "**/.hidden"
+    ],
+    "path": "secret.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "**/.hidden"
+    ],
+    "path": "paper",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "**/.hidden"
+    ],
+    "path": "paper/a.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "**/.hidden"
+    ],
+    "path": "paper/private/a.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "**/.hidden"
+    ],
+    "path": "paper/a.json",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "**/.hidden"
+    ],
+    "path": "paper/{a,b}.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "**/.hidden"
+    ],
+    "path": "file01.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "**/.hidden"
+    ],
+    "path": "file02.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "**/.hidden"
+    ],
+    "path": "file03.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "**/.hidden"
+    ],
+    "path": "file04.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "**/.hidden"
+    ],
+    "path": "filea.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "**/.hidden"
+    ],
+    "path": "fileb.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "**/.hidden"
+    ],
+    "path": "filec.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "**/.hidden"
+    ],
+    "path": "a.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "**/.hidden"
+    ],
+    "path": "b.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "**/.hidden"
+    ],
+    "path": "c.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "**/.hidden"
+    ],
+    "path": "ab.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "**/.hidden"
+    ],
+    "path": ".bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "**/.hidden"
+    ],
+    "path": ".hidden",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "**/.hidden"
+    ],
+    "path": "sub/.hidden",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "**/.hidden"
+    ],
+    "path": "[draft].bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "**/.hidden"
+    ],
+    "path": "private/a.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "**/.hidden"
+    ],
+    "path": "d.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "[draft].bib"
+    ],
+    "path": "refs.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "[draft].bib"
+    ],
+    "path": "sub/refs.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "[draft].bib"
+    ],
+    "path": "secret.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "[draft].bib"
+    ],
+    "path": "paper",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "[draft].bib"
+    ],
+    "path": "paper/a.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "[draft].bib"
+    ],
+    "path": "paper/private/a.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "[draft].bib"
+    ],
+    "path": "paper/a.json",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "[draft].bib"
+    ],
+    "path": "paper/{a,b}.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "[draft].bib"
+    ],
+    "path": "file01.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "[draft].bib"
+    ],
+    "path": "file02.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "[draft].bib"
+    ],
+    "path": "file03.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "[draft].bib"
+    ],
+    "path": "file04.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "[draft].bib"
+    ],
+    "path": "filea.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "[draft].bib"
+    ],
+    "path": "fileb.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "[draft].bib"
+    ],
+    "path": "filec.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "[draft].bib"
+    ],
+    "path": "a.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "[draft].bib"
+    ],
+    "path": "b.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "[draft].bib"
+    ],
+    "path": "c.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "[draft].bib"
+    ],
+    "path": "ab.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "[draft].bib"
+    ],
+    "path": ".bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "[draft].bib"
+    ],
+    "path": ".hidden",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "[draft].bib"
+    ],
+    "path": "sub/.hidden",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "[draft].bib"
+    ],
+    "path": "[draft].bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "[draft].bib"
+    ],
+    "path": "private/a.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "[draft].bib"
+    ],
+    "path": "d.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "\\[draft\\].bib"
+    ],
+    "path": "refs.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "\\[draft\\].bib"
+    ],
+    "path": "sub/refs.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "\\[draft\\].bib"
+    ],
+    "path": "secret.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "\\[draft\\].bib"
+    ],
+    "path": "paper",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "\\[draft\\].bib"
+    ],
+    "path": "paper/a.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "\\[draft\\].bib"
+    ],
+    "path": "paper/private/a.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "\\[draft\\].bib"
+    ],
+    "path": "paper/a.json",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "\\[draft\\].bib"
+    ],
+    "path": "paper/{a,b}.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "\\[draft\\].bib"
+    ],
+    "path": "file01.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "\\[draft\\].bib"
+    ],
+    "path": "file02.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "\\[draft\\].bib"
+    ],
+    "path": "file03.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "\\[draft\\].bib"
+    ],
+    "path": "file04.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "\\[draft\\].bib"
+    ],
+    "path": "filea.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "\\[draft\\].bib"
+    ],
+    "path": "fileb.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "\\[draft\\].bib"
+    ],
+    "path": "filec.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "\\[draft\\].bib"
+    ],
+    "path": "a.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "\\[draft\\].bib"
+    ],
+    "path": "b.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "\\[draft\\].bib"
+    ],
+    "path": "c.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "\\[draft\\].bib"
+    ],
+    "path": "ab.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "\\[draft\\].bib"
+    ],
+    "path": ".bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "\\[draft\\].bib"
+    ],
+    "path": ".hidden",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "\\[draft\\].bib"
+    ],
+    "path": "sub/.hidden",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "\\[draft\\].bib"
+    ],
+    "path": "[draft].bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "\\[draft\\].bib"
+    ],
+    "path": "private/a.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "\\[draft\\].bib"
+    ],
+    "path": "d.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "{a,{b,c}}.bib"
+    ],
+    "path": "refs.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "{a,{b,c}}.bib"
+    ],
+    "path": "sub/refs.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "{a,{b,c}}.bib"
+    ],
+    "path": "secret.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "{a,{b,c}}.bib"
+    ],
+    "path": "paper",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "{a,{b,c}}.bib"
+    ],
+    "path": "paper/a.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "{a,{b,c}}.bib"
+    ],
+    "path": "paper/private/a.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "{a,{b,c}}.bib"
+    ],
+    "path": "paper/a.json",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "{a,{b,c}}.bib"
+    ],
+    "path": "paper/{a,b}.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "{a,{b,c}}.bib"
+    ],
+    "path": "file01.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "{a,{b,c}}.bib"
+    ],
+    "path": "file02.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "{a,{b,c}}.bib"
+    ],
+    "path": "file03.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "{a,{b,c}}.bib"
+    ],
+    "path": "file04.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "{a,{b,c}}.bib"
+    ],
+    "path": "filea.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "{a,{b,c}}.bib"
+    ],
+    "path": "fileb.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "{a,{b,c}}.bib"
+    ],
+    "path": "filec.txt",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "{a,{b,c}}.bib"
+    ],
+    "path": "a.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "{a,{b,c}}.bib"
+    ],
+    "path": "b.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "{a,{b,c}}.bib"
+    ],
+    "path": "c.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "{a,{b,c}}.bib"
+    ],
+    "path": "ab.bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "{a,{b,c}}.bib"
+    ],
+    "path": ".bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "{a,{b,c}}.bib"
+    ],
+    "path": ".hidden",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "{a,{b,c}}.bib"
+    ],
+    "path": "sub/.hidden",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "{a,{b,c}}.bib"
+    ],
+    "path": "[draft].bib",
+    "expected": false
+  },
+  {
+    "patterns": [
+      "{a,{b,c}}.bib"
+    ],
+    "path": "private/a.bib",
+    "expected": true
+  },
+  {
+    "patterns": [
+      "{a,{b,c}}.bib"
+    ],
+    "path": "d.bib",
+    "expected": false
+  }
+]

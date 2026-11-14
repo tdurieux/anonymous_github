@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"math"
 	"strings"
@@ -8,11 +9,74 @@ import (
 )
 
 var plans = []M{
-	{"id": "free_conference", "name": "Free", "pricePerRepo": 0, "storagePerRepo": -1, "description": "<li><strong>Quota is deducted from user account</strong></li>\n    <li>No-download</li>\n    <li>Conference dashboard</li>"},
-	{"id": "premium_conference", "name": "Premium", "pricePerRepo": 0.5, "storagePerRepo": 500 * 8 * 1024, "description": "<li>500Mo / repository</li>\n    <li>Repository download</li>\n    <li>Conference dashboard</li>"},
-	{"id": "unlimited_conference", "name": "Unlimited", "pricePerRepo": 3, "storagePerRepo": 0, "description": "<li><strong>Unlimited</strong> repository size</li>\n    <li>Repository download</li>\n    <li>Conference dashboard</li>"},
+	{"id": "free_conference", "name": "Free", "pricePerRepo": 0, "storagePerRepo": -1, "repositories": 0},
+	{"id": "conference_workshop", "name": "Workshop", "pricePerRepo": 0, "storagePerRepo": int64(10) << 30, "repositories": 25},
+	{"id": "conference", "name": "Conference", "pricePerRepo": 0, "storagePerRepo": int64(50) << 30, "repositories": 100},
+	{"id": "conference_large", "name": "Large conference", "pricePerRepo": 0, "storagePerRepo": int64(200) << 30, "repositories": 400},
 }
 
+func (s *Server) offeredConferencePlans() []M {
+	out := []M{}
+	if !s.Config.Billing.Enabled {
+		return []M{{"id": "free_conference", "name": "Free", "pricePerRepo": 0, "storagePerRepo": -1, "repositories": 0, "description": "<li>Uses each author's allowance</li><li>Conference dashboard</li>"}}
+	}
+	for _, p := range s.Config.Billing.Plans {
+		if conferencePlan(p.ID) && p.PriceID != "" {
+			out = append(out, M{"id": p.ID, "name": p.Name, "pricePerRepo": 0, "storagePerRepo": p.Storage, "repositories": p.Repositories, "description": fmt.Sprintf("<li>Up to %d repositories</li><li>Up to 180 days</li><li>Prepaid at checkout</li>", p.Repositories)})
+		}
+	}
+	return out
+}
+func (s *Server) validateConferenceChange(body, existing M, now time.Time) (M, error) {
+	id := str(obj(body["plan"])["planID"])
+	if existing != nil {
+		if id != str(obj(existing["plan"])["planID"]) {
+			return nil, fail("billing_plan_change_not_supported", 400)
+		}
+		start, end, err := conferenceFormDates(body)
+		if err != nil {
+			return nil, err
+		}
+		if conferencePlan(id) && (!start.Equal(date(existing["startDate"])) || !end.Equal(date(existing["endDate"]))) {
+			return nil, fail("billing_review_window_locked", 400)
+		}
+	}
+	// Reuse the required-field checks; retired plans remain editable.
+	copy := M{}
+	for k, v := range body {
+		copy[k] = v
+	}
+	copy["plan"] = M{"planID": "free_conference"}
+	if _, err := validateConferenceForm(copy, now); err != nil {
+		return nil, err
+	}
+	start, startOK, err := javascriptDateValue(body["startDate"])
+	if err != nil {
+		return nil, err
+	}
+	end, endOK, err := javascriptDateValue(body["endDate"])
+	if err != nil {
+		return nil, err
+	}
+	if !startOK || !endOK {
+		return nil, fail("conf_start_date_invalid", 400)
+	}
+	if conferencePlan(id) && end.Sub(start) > 180*24*time.Hour {
+		return nil, fail("billing_invalid_review_window", 400)
+	}
+	for _, p := range s.offeredConferencePlans() {
+		if p["id"] == id {
+			return p, nil
+		}
+	}
+	if existing != nil {
+		return M{}, nil
+	}
+	if conferencePlan(id) {
+		return nil, fail("billing_invalid_review_window", 400)
+	}
+	return nil, fail("invalid_plan", 400)
+}
 func conferenceOwner(q *request, c M) bool {
 	if q.Identity.Admin {
 		return true
@@ -108,14 +172,30 @@ func (s *Server) conferences(q *request) (any, error) {
 		}
 	}
 	if q.R.Method == "GET" {
+		hosting := false
+		if s.Config.Billing.Enabled && conferencePlan(str(obj(c["plan"])["planID"])) && c["status"] == "ready" && !date(c["startDate"]).After(time.Now()) && date(c["endDate"]).After(time.Now()) {
+			grants, e := s.Store.list(q.ctx(), "billinggrants", M{"scope": "conference:" + str(c["conferenceID"]), "revoked": false, "until": M{"$gt": time.Now()}}, 0, nil)
+			if e != nil {
+				return nil, e
+			}
+			for _, g := range grants {
+				if usableBillingGrant(g, time.Now()) {
+					hosting = true
+					break
+				}
+			}
+		}
 		if !conferenceOwner(q, c) {
-			return selectFields(c, "conferenceID", "name", "url", "startDate", "endDate", "options"), nil
+			out := selectFields(c, "conferenceID", "name", "url", "startDate", "endDate", "options")
+			out["hosting"] = hosting
+			return out, nil
 		}
 		c, err = s.reconcileConference(q.ctx(), c)
 		if err != nil {
 			return nil, err
 		}
 		out := conferenceJSON(c)
+		out["hosting"] = hosting
 		rows, err := s.Store.list(q.ctx(), "anonymizedrepositories", M{"_id": M{"$in": conferenceRepositoryIDs(c)}}, 0, nil)
 		if err != nil {
 			return nil, err
@@ -141,7 +221,7 @@ func (s *Server) conferences(q *request) (any, error) {
 		return q.text("ok"), nil
 	}
 	body := q.Body
-	plan, err := validateConferenceForm(body, time.Now())
+	plan, err := s.validateConferenceChange(body, c, time.Now())
 	if err != nil {
 		return nil, err
 	}
@@ -156,7 +236,6 @@ func (s *Server) conferences(q *request) (any, error) {
 	set := selectFields(body, "name", "url")
 	set["startDate"] = start
 	set["endDate"] = end
-	set["status"] = "ready"
 	options, err := conferenceOptions(body)
 	if err != nil {
 		return nil, err
@@ -171,8 +250,11 @@ func (s *Server) conferences(q *request) (any, error) {
 		set["owners"] = []any{q.User["_id"]}
 		set["repositories"] = []any{}
 		set["status"] = "ready"
+		if conferencePlan(planID) {
+			set["status"] = "pending_payment"
+		}
 		set["dateOfEntry"] = time.Now()
-		set["plan"] = M{"planID": planID, "pricePerRepository": plan["pricePerRepo"], "quota": M{"size": plan["storagePerRepo"], "file": 0, "repository": 0}}
+		set["plan"] = M{"planID": planID, "pricePerRepository": plan["pricePerRepo"], "quota": M{"size": plan["storagePerRepo"], "file": 0, "repository": plan["repositories"]}}
 		if body["billing"] != nil {
 			set["billing"] = selectFields(obj(body["billing"]), "name", "email", "address", "address2", "city", "zip", "country", "vat")
 		}
@@ -244,6 +326,12 @@ func validateConferenceForm(body M, now time.Time) (M, error) {
 	}
 	if plan == nil {
 		return nil, fail("invalid_plan", 400)
+	}
+	if !startOK || !endOK {
+		return nil, fail("conf_start_date_invalid", 400)
+	}
+	if conferencePlan(str(plan["id"])) && end.Sub(start) > 180*24*time.Hour {
+		return nil, fail("billing_invalid_review_window", 400)
 	}
 	if decimal(plan["pricePerRepo"]) > 0 {
 		if !inputTruthy(body["billing"]) {

@@ -102,7 +102,6 @@ func sendSharedBlob(ctx context.Context, w http.ResponseWriter, body *blobcache.
 		record = encoded.Record()
 	}
 	h := w.Header()
-	h.Set("Accept-Ranges", "none")
 	if record.Encoding == "gzip" && response.encoding == "gzip" {
 		h.Set("Content-Encoding", "gzip")
 		h.Set("Content-Length", strconv.FormatInt(record.Stored, 10))

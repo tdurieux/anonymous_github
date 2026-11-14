@@ -1,0 +1,11 @@
+const fs=require('node:fs');
+const assert=require('node:assert/strict');
+process.env.SESSION_SECRET ||= 'synthetic-preserve-contract';
+require('ts-node/register/transpile-only');
+const {isPreservedPath,normalizePreserveFiles}=require('../../src/core/preserve-files');
+const patterns=[['*.bib'],['/refs.bib'],['paper/**','!paper/private/'],['*.bib','!secret.bib','secret.bib'],['paper/'],['/paper/\\{a,b\\}.bib'],['**/*.{bib,json}'],['file{01..03}.txt'],['file{a..c}.txt'],['@(a|b).bib'],['+(a|b).bib'],['?(a|b).bib'],['*(a|b).bib'],['*.bib','!private/**'],['[!a]*.bib'],['**/.hidden'],['[draft].bib'],['\\[draft\\].bib'],['{a,{b,c}}.bib']];
+const paths=['refs.bib','sub/refs.bib','secret.bib','paper','paper/a.bib','paper/private/a.bib','paper/a.json','paper/{a,b}.bib','file01.txt','file02.txt','file03.txt','file04.txt','filea.txt','fileb.txt','filec.txt','a.bib','b.bib','c.bib','ab.bib','.bib','.hidden','sub/.hidden','[draft].bib','private/a.bib','d.bib'];
+const cases=patterns.flatMap(patterns=>paths.map(path=>({patterns,path,expected:isPreservedPath(path,patterns)})));
+const target='backend/internal/anonymize/testdata/preserve-files.json';const output=JSON.stringify(cases,null,2)+'\n';
+if(process.argv.includes('--check'))assert.equal(fs.readFileSync(target,'utf8'),output);else fs.writeFileSync(target,output);
+console.log(`${cases.length} preservation cases`);

@@ -155,7 +155,7 @@ func (s *Server) webview(q *request) (any, error) {
 	if ext != ".md" {
 		delivery = response
 	}
-	reader, cleanup, _, e := s.transformedResponse(q.ctx(), r, selected, delivery)
+	reader, cleanup, isText, e := s.transformedResponse(q.ctx(), r, selected, delivery)
 	if response.eligible {
 		sharedVary(q.W.Header())
 	}
@@ -168,6 +168,9 @@ func (s *Server) webview(q *request) (any, error) {
 		return nil, e
 	}
 	defer cleanup()
+	if isText {
+		q.W.Header().Set("Accept-Ranges", "none")
+	}
 	if current, e := s.Store.one(q.ctx(), collection("repo"), contentRevisionFilter(r)); e != nil {
 		return nil, e
 	} else if current == nil {

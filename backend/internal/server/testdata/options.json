@@ -17,7 +17,8 @@
       "terms": [
         "Alice",
         ""
-      ]
+      ],
+      "preserveFiles": []
     },
     "input": "Alice 0 1 -42 true false 0.000001 1e-7 100000000000000000000 1e+21 keep",
     "output": "XXXX-1 0 1 -42 true false 0.000001 1e-7 100000000000000000000 1e+21 keep"
@@ -46,7 +47,8 @@
         "false",
         "-42",
         "0"
-      ]
+      ],
+      "preserveFiles": []
     },
     "input": "Alice 0 1 -42 true false 0.000001 1e-7 100000000000000000000 1e+21 keep",
     "output": "Alice XXXX-5 XXXX-XXXX-1 XXXX-4 XXXX-2 XXXX-3 XXXX-5.000001 1e-7 100000000000000000000 1e+21 keep"
@@ -73,7 +75,8 @@
         "1e-7",
         "100000000000000000000",
         "1e+21"
-      ]
+      ],
+      "preserveFiles": []
     },
     "input": "Alice 0 1 -42 true false 0.000001 1e-7 100000000000000000000 1e+21 keep",
     "output": "Alice 0 1 -42 true false XXXX-1 XXXX-2 XXXX-3 1e+21 keep"
@@ -98,7 +101,8 @@
         "",
         "false",
         "Alice"
-      ]
+      ],
+      "preserveFiles": []
     },
     "input": "Alice 0 1 -42 true false 0.000001 1e-7 100000000000000000000 1e+21 keep",
     "output": "XXXX-3 0 1 -42 true XXXX-2 0.000001 1e-7 100000000000000000000 1e+21 keep"
@@ -123,7 +127,8 @@
         "0",
         "1.25",
         "9007199254740992"
-      ]
+      ],
+      "preserveFiles": []
     },
     "input": "Alice 0 1 -42 true false 0.000001 1e-7 100000000000000000000 1e+21 keep",
     "output": "Alice XXXX-1 1 -42 true false XXXX-1.000001 1e-7 100000000000000000000 1e+21 keep"
@@ -169,6 +174,7 @@
         "Alice",
         ""
       ],
+      "preserveFiles": [],
       "expirationMode": "never",
       "update": true,
       "image": true,
@@ -225,6 +231,7 @@
         "Alice",
         ""
       ],
+      "preserveFiles": [],
       "expirationMode": "never",
       "update": false,
       "image": false,
@@ -274,6 +281,7 @@
         "Alice",
         ""
       ],
+      "preserveFiles": [],
       "update": null,
       "image": null,
       "pdf": null,
@@ -318,6 +326,7 @@
         "Alice",
         ""
       ],
+      "preserveFiles": [],
       "update": false,
       "image": false,
       "pdf": false,
@@ -362,6 +371,7 @@
         "Alice",
         ""
       ],
+      "preserveFiles": [],
       "update": true,
       "image": true,
       "pdf": true,
@@ -406,6 +416,7 @@
         "Alice",
         ""
       ],
+      "preserveFiles": [],
       "update": false,
       "image": false,
       "pdf": false,
@@ -450,6 +461,7 @@
         "Alice",
         ""
       ],
+      "preserveFiles": [],
       "update": true,
       "image": true,
       "pdf": true,
@@ -494,6 +506,7 @@
         "Alice",
         ""
       ],
+      "preserveFiles": [],
       "update": true,
       "image": true,
       "pdf": true,
@@ -538,6 +551,7 @@
         "Alice",
         ""
       ],
+      "preserveFiles": [],
       "update": false,
       "image": false,
       "pdf": false,
@@ -582,6 +596,7 @@
         "Alice",
         ""
       ],
+      "preserveFiles": [],
       "update": true,
       "image": true,
       "pdf": true,
@@ -626,6 +641,7 @@
         "Alice",
         ""
       ],
+      "preserveFiles": [],
       "update": false,
       "image": false,
       "pdf": false,
@@ -656,7 +672,8 @@
       "terms": [
         "Alice",
         ""
-      ]
+      ],
+      "preserveFiles": []
     },
     "input": "Alice 0 1 -42 true false 0.000001 1e-7 100000000000000000000 1e+21 keep",
     "output": "XXXX-1 0 1 -42 true false 0.000001 1e-7 100000000000000000000 1e+21 keep"
@@ -681,7 +698,8 @@
       "terms": [
         "Alice",
         ""
-      ]
+      ],
+      "preserveFiles": []
     },
     "input": "Alice 0 1 -42 true false 0.000001 1e-7 100000000000000000000 1e+21 keep",
     "output": "XXXX-1 0 1 -42 true false 0.000001 1e-7 100000000000000000000 1e+21 keep"
@@ -706,7 +724,8 @@
       "terms": [
         "Alice",
         ""
-      ]
+      ],
+      "preserveFiles": []
     },
     "input": "Alice 0 1 -42 true false 0.000001 1e-7 100000000000000000000 1e+21 keep",
     "output": "XXXX-1 0 1 -42 true false 0.000001 1e-7 100000000000000000000 1e+21 keep"
@@ -731,7 +750,8 @@
       "terms": [
         "Alice",
         ""
-      ]
+      ],
+      "preserveFiles": []
     },
     "input": "Alice 0 1 -42 true false 0.000001 1e-7 100000000000000000000 1e+21 keep",
     "output": "XXXX-1 0 1 -42 true false 0.000001 1e-7 100000000000000000000 1e+21 keep"
@@ -757,6 +777,7 @@
         "Alice",
         ""
       ],
+      "preserveFiles": [],
       "expirationDate": "1970-01-01T00:00:00.001Z"
     },
     "input": "Alice 0 1 -42 true false 0.000001 1e-7 100000000000000000000 1e+21 keep",
@@ -783,6 +804,7 @@
         "Alice",
         ""
       ],
+      "preserveFiles": [],
       "expirationDate": "1970-01-01T00:00:00.001Z"
     },
     "input": "Alice 0 1 -42 true false 0.000001 1e-7 100000000000000000000 1e+21 keep",
@@ -809,6 +831,7 @@
         "Alice",
         ""
       ],
+      "preserveFiles": [],
       "expirationDate": "1969-12-31T23:59:59.999Z"
     },
     "input": "Alice 0 1 -42 true false 0.000001 1e-7 100000000000000000000 1e+21 keep",
@@ -835,6 +858,7 @@
         "Alice",
         ""
       ],
+      "preserveFiles": [],
       "expirationDate": "2023-11-14T22:13:20.123Z"
     },
     "input": "Alice 0 1 -42 true false 0.000001 1e-7 100000000000000000000 1e+21 keep",
@@ -861,6 +885,7 @@
         "Alice",
         ""
       ],
+      "preserveFiles": [],
       "expirationDate": "2026-06-01T12:30:00.000Z"
     },
     "input": "Alice 0 1 -42 true false 0.000001 1e-7 100000000000000000000 1e+21 keep",
@@ -887,6 +912,7 @@
         "Alice",
         ""
       ],
+      "preserveFiles": [],
       "expirationDate": "0001-01-01T00:00:00.000Z"
     },
     "input": "Alice 0 1 -42 true false 0.000001 1e-7 100000000000000000000 1e+21 keep",
@@ -913,6 +939,7 @@
         "Alice",
         ""
       ],
+      "preserveFiles": [],
       "expirationDate": "2026-03-01T00:00:00.000Z"
     },
     "input": "Alice 0 1 -42 true false 0.000001 1e-7 100000000000000000000 1e+21 keep",
@@ -939,6 +966,7 @@
         "Alice",
         ""
       ],
+      "preserveFiles": [],
       "expirationDate": "2026-03-01T00:00:00.000Z"
     },
     "input": "Alice 0 1 -42 true false 0.000001 1e-7 100000000000000000000 1e+21 keep",
@@ -965,6 +993,7 @@
         "Alice",
         ""
       ],
+      "preserveFiles": [],
       "expirationDate": "2026-03-01T00:00:00.000Z"
     },
     "input": "Alice 0 1 -42 true false 0.000001 1e-7 100000000000000000000 1e+21 keep",
@@ -995,6 +1024,7 @@
         "Alice",
         ""
       ],
+      "preserveFiles": [],
       "expirationDate": "2026-03-01T00:00:00.000Z"
     },
     "input": "Alice 0 1 -42 true false 0.000001 1e-7 100000000000000000000 1e+21 keep",
@@ -1023,6 +1053,7 @@
         "Alice",
         ""
       ],
+      "preserveFiles": [],
       "expirationDate": "2026-03-01T00:00:00.000Z"
     },
     "input": "Alice 0 1 -42 true false 0.000001 1e-7 100000000000000000000 1e+21 keep",
@@ -1049,6 +1080,7 @@
         "Alice",
         ""
       ],
+      "preserveFiles": [],
       "expirationDate": "2026-02-28T23:00:00.000Z"
     },
     "input": "Alice 0 1 -42 true false 0.000001 1e-7 100000000000000000000 1e+21 keep",
@@ -1215,6 +1247,7 @@
         "Alice",
         ""
       ],
+      "preserveFiles": [],
       "pageSource": {
         "branch": "docs",
         "path": "/"
@@ -1244,7 +1277,8 @@
       "terms": [
         "Alice",
         ""
-      ]
+      ],
+      "preserveFiles": []
     },
     "input": "Alice 0 1 -42 true false 0.000001 1e-7 100000000000000000000 1e+21 keep",
     "output": "XXXX-1 0 1 -42 true false 0.000001 1e-7 100000000000000000000 1e+21 keep"

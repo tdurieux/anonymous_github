@@ -1,8 +1,40 @@
 {
   "mainCommit": "511dcd706791e551243fd2682765825f82473afc",
   "restoredGoFrom": "bff2e343fdc6fc09ff0f373a34bef9716b06bc00^",
-  "status": "Branch synchronized; current-main behavior parity is not complete",
-  "newTypeScriptRoutes": [
+  "status": "Current-main feature implementation complete; isolated validation recorded below, live cutover checks pending",
+  "removedTypeScriptRoutes": [],
+  "notes": [
+    "Node reference is committed main 511dcd706791e551243fd2682765825f82473afc, not uncommitted work in another checkout.",
+    "Route coverage is supplemented by differential fixtures, isolated MongoDB/Redis integration tests and mocked upstream lifecycle tests; it is not a proof of complete behavioral equivalence.",
+    "Live Stripe test-mode checkout/webhooks, Resend delivery, OAuth/App callbacks and a sanitized production-data upgrade still require staging validation.",
+    "No production or beta deployment was performed."
+  ],
+  "validation": {
+    "goIntegrationRace": "passed on Go 1.27.4 with disposable MongoDB/Redis; final index-name change additionally passed its focused race test and rebuilt deployment smoke test",
+    "goVet": "passed on Go 1.27.4",
+    "nodeContracts": "65 scripts passed on Go 1.27.4",
+    "routeInventory": "125 current TypeScript routes verified",
+    "goDockerBuild": "passed with Go 1.27.4 and klauspost/compress v1.20.2",
+    "deploymentSmoke": "passed: isolated startup, non-root writes, static routes, graceful shutdown, Node rollback compose model",
+    "reachableVulnerabilities": "none reported by govulncheck v1.9.0; four advisories remain in required modules without reachable calls",
+    "existingNodeIndexes": "passed with race detector: pre-existing named submodule index and repeated Go startup"
+  },
+  "changes": [
+    "Restore Go backend and Go deployment on top of current main",
+    "Update Node rollback Dockerfile to current main runtime and native dependency checks",
+    "Migrate shared cache decision classification column and clear stale classification when Go replaces a decision",
+    "Implement billing checkout, drafts, portal, signed webhooks, reconciliation, grants, revocation, scoped quotas and admin reporting",
+    "Preserve existing unmanaged hosting and implement paid conference activation/immutable plans",
+    "Implement source tree/file previews through optional provider capabilities",
+    "Implement preserveFiles rules for previews, individual files and ZIP output",
+    "Implement email preferences, verified registration email capture and owner access alerts with durable recipient guards",
+    "Expand direct public GitHub submodules and retain source provenance without sharing parent credentials",
+    "Implement mounted review capabilities endpoint and protected review page",
+    "Refresh current Node contract fixtures and add preservation, billing, review, provider preview, submodule and notification tests",
+    "Patch reachable vulnerabilities GO-2026-6859 and GO-2026-6865 by updating Go and klauspost/compress",
+    "Reuse the existing Node submodule index name during Go startup"
+  ],
+  "implementedTypeScriptRoutes": [
     {
       "method": "GET",
       "path": "/api/admin/billing/grants"
@@ -56,22 +88,11 @@
       "path": "/github/connections/email"
     }
   ],
-  "removedTypeScriptRoutes": [],
-  "notes": [
-    "Historical Go route fixtures remain unchanged. The routes.cjs --check gate detects the new inventory and remains blocking.",
-    "New TypeScript behavior on existing routes also requires a separate compatibility audit.",
-    "No production or beta deployment was performed."
-  ],
-  "validation": {
-    "goTest": "passed; database integration tests require their separate Docker runner",
-    "goVet": "passed",
-    "npmBuild": "passed",
-    "routeInventory": "fails: current TypeScript inventory differs from historical Go contract",
-    "cacheRace": "passed: Node interoperability, replacement classification, capacity and expiry batches"
-  },
-  "changes": [
-    "Restore Go backend and Go deployment on top of current main",
-    "Update Node rollback Dockerfile to current main runtime and native dependency checks",
-    "Migrate shared cache decision classification column and clear stale classification when Go replaces a decision"
+  "routeCount": 125,
+  "contractScripts": 65,
+  "implementationDifferences": [
+    "Owner notification history is conservatively rescanned at startup rather than using Node migration checkpoints.",
+    "Submodule ZIP entries use bounded per-file source reads after the parent tar stream, rather than a second tar stream for each child.",
+    "Stripe price display and admin summary responses are not cached; checkout/reconciliation persistence and idempotency are retained."
   ]
 }

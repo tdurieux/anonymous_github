@@ -7,13 +7,17 @@ const path = 'src/server/routes/conference.ts';
 const tree = ts.createSourceFile(path, fs.readFileSync(path, 'utf8'), ts.ScriptTarget.Latest, true);
 const validator = tree.statements.find(s => ts.isFunctionDeclaration(s) && s.name?.text === 'validateConferenceForm');
 const plans = tree.statements.find(s => ts.isVariableStatement(s) && s.declarationList.declarations.some(d => d.name.getText(tree) === 'plans'));
-assert.ok(validator && plans);
+assert.ok(validator);
+process.env.SESSION_SECRET ||= 'synthetic-conference-contract';
+require('ts-node/register/transpile-only');
+const billing = require('../../src/core/billing/config');
+const helpers=tree.statements.filter(s=>ts.isFunctionDeclaration(s)&&['conferencePlans','offeredConferencePlans'].includes(s.name?.text));
 const now = '2030-01-01T00:00:00.000Z';
 class FixedDate extends Date { constructor(...args) { super(...(args.length ? args : [now])); } }
 class AnonymousError extends Error { constructor(code, options) { super(code); this.status = options.httpStatus; } }
-const code = ts.transpileModule(`${plans.getText(tree)}\n${validator.getText(tree)}\nmodule.exports = validateConferenceForm;`, {compilerOptions: {target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS}}).outputText;
+const code = ts.transpileModule(`${helpers.map(s=>s.getText(tree)).join("\n")}\n${validator.getText(tree)}\nmodule.exports = validateConferenceForm;`, {compilerOptions: {target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS}}).outputText;
 const moduleObject = {exports: {}};
-vm.runInNewContext(code, {module: moduleObject, AnonymousError, Date: FixedDate});
+vm.runInNewContext(code, {module: moduleObject, exports:moduleObject.exports, AnonymousError, Date: FixedDate, config:{BILLING_ENABLED:false}, billingPlans:billing.billingPlans, isConferencePlan:billing.isConferencePlan, billingError:(code,status=400)=>new AnonymousError(code,{httpStatus:status})});
 const base = {name: 'Conference', conferenceID: 'conference-test', startDate: '2031-01-01', endDate: '2031-02-01', plan: {planID: 'free_conference'}};
 const cases = [];
 function add(name, change) {

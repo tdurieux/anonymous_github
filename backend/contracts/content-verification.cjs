@@ -12,7 +12,7 @@ function visit(node) {
   ts.forEachChild(node, visit);
 }
 visit(tree); assert.ok(expression);
-const code=ts.transpileModule(`module.exports=function(expected){return ${expression}}`, {compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+const code=ts.transpileModule(`module.exports=function(expected,origin){return ${expression}}`, {compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
 const fixture={exports:{}};
 vm.runInNewContext(code,{module:fixture,Buffer,createHash,setTimeout,clearTimeout});
 const git = value => createHash('sha1').update(`blob ${Buffer.byteLength(value)}\0`).update(value).digest('hex');
@@ -40,7 +40,7 @@ const inputs=[
  for (const [name,pointer,revision=git(pointer)] of inputs) {
    const row={name,pointer,revision,proof};
    let fetched=0;
-   const verify=fixture.exports.call({data:{getToken:async()=> 'synthetic'},downloadFile:()=>{fetched++;return Readable.from([Buffer.from(pointer)]);}}, {sha:revision});
+   const verify=fixture.exports.call({data:{getToken:async()=> 'synthetic'},downloadFile:()=>{fetched++;return Readable.from([Buffer.from(pointer)]);}}, {sha:revision}, {downloadFile:()=>{fetched++;return Readable.from([Buffer.from(pointer)]);}});
    try { row.expected=await verify(proof); } catch(error) { row.error=error.message; }
    row.fetched=fetched;rows.push(row);
  }

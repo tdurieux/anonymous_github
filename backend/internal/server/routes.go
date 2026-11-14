@@ -10,6 +10,14 @@ import (
 func queryEscape(s string) string { return url.QueryEscape(s) }
 func (s *Server) register() {
 	s.registerAdmin()
+	s.add("GET", "/api/admin/billing/grants", "admin", s.billingGrantReport)
+	s.add("GET", "/api/admin/billing/summary", "admin", s.billingSummaryReport)
+	s.add("POST", "/api/billing/webhook", "", s.billingWebhook)
+	s.add("GET", "/api/billing", "user", s.billingAPI)
+	s.add("GET", "/api/billing/draft/:id", "user", s.billingAPI)
+	for _, action := range []string{"draft", "checkout", "portal", "refresh"} {
+		s.add("POST", "/api/billing/"+action, "user", s.billingAPI)
+	}
 	s.add("GET", "/api/providers", "user", s.providerCapabilities)
 	s.add("GET", "/api/providers/:provider/gist/:id", "user", s.embeddedSource("gist"))
 	s.add("GET", "/api/providers/:provider/pr/:id", "user", s.embeddedSource("pr"))
@@ -44,7 +52,7 @@ func (s *Server) register() {
 	s.add("POST", "/github/connections/migrate", "user", s.connections)
 	s.add("POST", "/github/connections/disconnect-oauth", "user", s.connections)
 	s.add("DELETE", "/api/user", "user", s.deleteAccount)
-	s.add("GET", "/api/conferences/plans", "user", func(q *request) (any, error) { return plans, nil })
+	s.add("GET", "/api/conferences/plans", "user", func(q *request) (any, error) { return s.offeredConferencePlans(), nil })
 	for _, method := range []string{"GET", "POST"} {
 		s.add(method, "/api/conferences", "user", s.conferences)
 	}
@@ -67,9 +75,9 @@ func (s *Server) register() {
 		return M{"required": number(flow["expires"]) > time.Now().UnixMilli()}, nil
 	})
 	s.add("GET", "/api/user/logout", "user", s.logout)
-	s.add("GET", "/api/user", "user", func(q *request) (any, error) {
-		return userProfile(q.User), nil
-	})
+	s.add("GET", "/api/user", "user", s.accountProfile)
+	s.add("GET", "/github/connections/email", "user", s.accountEmail)
+	s.add("POST", "/github/connections/email", "user", s.accountEmail)
 	s.add("GET", "/api/user/default", "user", func(q *request) (any, error) { return userDefaults(q.User), nil })
 	s.add("POST", "/api/user/default", "user", func(q *request) (any, error) {
 		value, err := castUserDefaults(q.Body)
@@ -114,6 +122,10 @@ func (s *Server) register() {
 	s.add("DELETE", "/api/repo/:id/coauthors/:username", "user", s.coauthors)
 	s.add("GET", "/api/repo/:id/file/*path", "", s.file)
 	s.add("GET", "/api/repo/:id/zip", "", s.zip)
+	s.add("GET", "/api/repo/:owner/:repo/tree", "user", s.sourcePreview)
+	s.add("GET", "/api/repo/:owner/:repo/file", "user", s.sourcePreview)
+	s.add("GET", "/api/providers/:provider/repository/tree", "user", s.sourcePreview)
+	s.add("GET", "/api/providers/:provider/repository/file", "user", s.sourcePreview)
 	s.add("GET", "/api/repo/:owner/:repo/branches", "user", s.sourceRepository("branches"))
 	s.add("GET", "/api/repo/:owner/:repo/readme", "user", s.sourceRepository("readme"))
 	s.add("GET", "/api/repo/:owner/:repo", "user", s.sourceRepository("metadata"))

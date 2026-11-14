@@ -49,6 +49,9 @@ func (s *Server) RunJobs(ctx context.Context) {
 	s.removalRecoveryPending.Store(true)
 	s.recoverImportedRemovalJobs(ctx)
 	var workers sync.WaitGroup
+	if s.Config.Billing.Enabled {
+		workers.Go(func() { s.runBillingMaintenance(ctx) })
+	}
 	for _, queue := range workerQueues {
 		for i := 0; i < queue.concurrency; i++ {
 			workers.Go(func() { s.jobLoop(ctx, queue.name) })
@@ -134,6 +137,9 @@ func (s *Server) runJob(ctx context.Context, job M) (jobErr error) {
 	}
 	if action == "prepare" {
 		defer func() {
+			if jobErr != nil {
+				_ = s.notifyOwnerAccessProblem(ctx, kind, r, providerFailure(jobErr))
+			}
 			if jobErr == nil {
 				return
 			}
@@ -236,7 +242,7 @@ func (s *Server) prepareTree(ctx context.Context, r M) error {
 		if f.Size < 0 {
 			return fail("invalid_file_size", 422)
 		}
-		entries = append(entries, M{"path": f.Path, "sha": f.Revision, "size": f.Size, "type": kind})
+		entries = append(entries, M{"path": f.Path, "sha": f.Revision, "size": f.Size, "type": kind, "upstream": originDocument(f.Origin), "submodule": f.Submodule})
 	}
 	generation, err := security.RandomToken()
 	if err != nil {
@@ -263,11 +269,22 @@ func (s *Server) prepareTree(ctx context.Context, r M) error {
 		}
 		dir, name := path.Split(p)
 		row := M{"repoId": r["repoId"], "treeGeneration": generation, "treeStaged": true, "name": name, "path": strings.TrimSuffix(dir, "/"), "sha": item["sha"]}
+		if item["upstream"] != nil && len(obj(item["upstream"])) > 0 {
+			row["upstream"] = item["upstream"]
+		}
+		if str(item["submodule"]) != "" {
+			row["submodule"] = item["submodule"]
+		}
 		if kind == "blob" {
 			row["size"] = number(item["size"])
 			total += number(item["size"])
 		}
 		rows = append(rows, row)
+	}
+	if boolean(r["billingManaged"]) {
+		if err := s.reserveBillingRepository(ctx, str(r["owner"]), str(r["repoId"]), total, str(r["conference"]), "", 0); err != nil {
+			return err
+		}
 	}
 	if len(rows) > 0 {
 		if _, err = s.Store.DB.Collection("files").InsertMany(ctx, rows); err != nil {
@@ -320,6 +337,9 @@ func (s *Server) prepareEmbedded(ctx context.Context, kind string, r M) error {
 	return nil
 }
 func (s *Server) maintenance(ctx context.Context) {
+	if err := s.reconcileBillingExpiration(ctx); err != nil {
+		s.recordError(ctx, err)
+	}
 	s.recoverImportedRemovalJobs(ctx)
 	if s.pool != nil {
 		s.pool.PruneResults()

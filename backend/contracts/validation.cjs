@@ -2,12 +2,14 @@
 const fs=require('node:fs');const vm=require('node:vm');const assert=require('node:assert/strict');const ts=require('typescript');
 class AnonymousError extends Error{constructor(message,options){super(message);this.httpStatus=options?.httpStatus}}
 const specifications=[['repo','repository','validateNewRepo','repoId'],['gist','gist','validateNewGist','gistId'],['pr','pullRequest','validateNewPullRequest','pullRequestId']];
+process.env.SESSION_SECRET ||= 'synthetic-validation';require('ts-node/register/transpile-only');
+const {normalizePreserveFiles}=require('../../src/core/preserve-files');
 const cases=[];
 for(const [kind,file,name,id] of specifications){
  const path=`src/server/routes/${file}-private.ts`;const text=fs.readFileSync(path,'utf8');const tree=ts.createSourceFile(path,text,ts.ScriptTarget.Latest,true);
  const declaration=tree.statements.find(s=>ts.isFunctionDeclaration(s)&&s.name?.text===name);assert.ok(declaration,name);
  const code=ts.transpileModule(`${declaration.getText(tree)};module.exports=${name}`,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText;
- const module={exports:{}};vm.runInNewContext(code,{module,AnonymousError});const validate=module.exports;
+ const module={exports:{}};vm.runInNewContext(code,{module,AnonymousError,normalizePreserveFiles});const validate=module.exports;
  const base={[id]:'example',source:{branch:'main',commit:'abc123',gistId:'snippet',repositoryFullName:'owner/repo',pullRequestId:42},options:{},terms:[]};
  const add=(name,change)=>{const body=structuredClone(base);change(body);let expected=null;try{validate(body)}catch(e){assert.ok(e instanceof AnonymousError,`${kind}/${name}: unexpected TS runtime exception`);expected={code:e.message,status:e.httpStatus}}cases.push({name:`${kind}/${name}`,kind,body,expected})};
  add('valid',()=>{});

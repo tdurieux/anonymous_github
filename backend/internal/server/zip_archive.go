@@ -183,6 +183,9 @@ func (s *Server) readArchiveInputs(ctx context.Context, r M, p provider.Reposito
 		seen[relative] = true
 		dir, name := path.Split(relative)
 		dir = strings.TrimSuffix(dir, "/")
+		if name == ".gitmodules" {
+			continue
+		}
 		if !fileAllowed(name, obj(r["options"])) {
 			continue
 		}
@@ -226,7 +229,7 @@ func (s *Server) readArchiveInputs(ctx context.Context, r M, p provider.Reposito
 	}
 	// Git export-ignore can omit tracked blobs. Retrieve only those exceptional
 	// entries via the regular provider path, preserving the existing ZIP output.
-	rows, err := s.Store.DB.Collection("files").Find(ctx, M{"repoId": r["repoId"], "treeGeneration": activeGeneration(r), "size": M{"$ne": nil}}, options.Find().SetBatchSize(128).SetProjection(M{"path": 1, "name": 1, "sha": 1, "size": 1}))
+	rows, err := s.Store.DB.Collection("files").Find(ctx, M{"repoId": r["repoId"], "treeGeneration": activeGeneration(r), "size": M{"$ne": nil}}, options.Find().SetBatchSize(128).SetProjection(M{"path": 1, "name": 1, "sha": 1, "size": 1, "upstream": 1, "submodule": 1}))
 	if err != nil {
 		return err
 	}
@@ -279,7 +282,7 @@ func spoolArchiveInput(ctx context.Context, body io.Reader, size int64, row M, p
 		return archiveInput{}, err
 	}
 	err = nil // An empty file has a valid empty prefix.
-	entry := provider.Entry{Path: path.Join(str(row["path"]), str(row["name"])), Revision: str(row["sha"]), Size: number(row["size"])}
+	entry := fileProviderEntry(row)
 	proof := provider.ContentProof{GitSHA: hex.EncodeToString(gitHash.Sum(nil)), SHA256: hex.EncodeToString(digest.Sum(nil)), Size: n}
 	if verifier, exists := p.(provider.ArchiveContentVerifier); exists {
 		err = verifier.VerifyArchiveContent(ctx, access, entry, proof, prefix[:count])

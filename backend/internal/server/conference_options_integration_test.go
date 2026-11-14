@@ -17,7 +17,7 @@ func runConferenceOptionsIntegration(t *testing.T, s *Server, token, otherToken 
 	t.Run("conference option casts persist and appear in public output", func(t *testing.T) {
 		ctx := context.Background()
 		id := "conference-options"
-		seed := M{"_id": bson.NewObjectID(), "conferenceID": id, "name": "Original", "status": "ready", "owners": []any{owner}, "repositories": []any{}, "billing": M{"name": "Private payer"}}
+		seed := M{"_id": bson.NewObjectID(), "conferenceID": id, "name": "Original", "plan": M{"planID": "free_conference"}, "status": "ready", "owners": []any{owner}, "repositories": []any{}, "billing": M{"name": "Private payer"}}
 		if _, err := s.Store.DB.Collection("conferences").InsertOne(ctx, seed); err != nil {
 			t.Fatal(err)
 		}

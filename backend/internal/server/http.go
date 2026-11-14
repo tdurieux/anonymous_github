@@ -46,6 +46,8 @@ type route struct {
 	handler  handler
 }
 type Server struct {
+	ownerAlertSlots        chan struct{}
+	review                 *reviewRegistry
 	webFiles               webFileCache
 	permissions            permissionCache
 	publicStats            publicStatsState
@@ -110,11 +112,15 @@ func (q *request) redirect(s string) any {
 type written struct{}
 
 func New(c Config, store *Store, extensions ...provider.Provider) (*Server, error) {
+	review, err := parseReviewRegistry(c.ReviewKeys)
+	if err != nil {
+		return nil, err
+	}
 	root, err := os.OpenRoot(c.PublicDir)
 	if err != nil {
 		return nil, errors.New("public_directory_unavailable")
 	}
-	s := &Server{Config: c, Store: store, public: root, started: time.Now(), HTTP: &http.Client{Timeout: 30 * time.Second, CheckRedirect: func(req *http.Request, via []*http.Request) error {
+	s := &Server{ownerAlertSlots: make(chan struct{}, 16), review: review, Config: c, Store: store, public: root, started: time.Now(), HTTP: &http.Client{Timeout: 30 * time.Second, CheckRedirect: func(req *http.Request, via []*http.Request) error {
 		if len(via) >= 5 {
 			return errors.New("too_many_redirects")
 		}
@@ -126,6 +132,13 @@ func New(c Config, store *Store, extensions ...provider.Provider) (*Server, erro
 		}
 		return nil
 	}}}
+	initCtx, initCancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	initErr := s.initializeOwnerAlerts(initCtx)
+	initCancel()
+	if initErr != nil {
+		root.Close()
+		return nil, initErr
+	}
 	binary, err := os.Executable()
 	if err != nil {
 		root.Close()
@@ -254,6 +267,23 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			writeError(w, fail("server_error", 500))
 		}
 	}()
+	if r.URL.Path == "/service" || strings.HasPrefix(r.URL.Path, "/service/") {
+		s.reviewCapabilities(w, r)
+		return
+	}
+	if reviewConsentPath(r.URL.Path) {
+		s.reviewConsentPage(w, r)
+		return
+	}
+	if strings.TrimSuffix(r.URL.Path, "/") == "/api/billing/webhook" {
+		result, err := s.billingWebhook(&request{W: w, R: r, Server: s})
+		if err != nil {
+			writeError(w, err)
+		} else {
+			writeJSON(w, result)
+		}
+		return
+	}
 	if r.URL.Path == "/github/app/webhook" {
 		s.webhook(w, r)
 		return
@@ -305,7 +335,11 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		if r.Body != nil && r.ContentLength != 0 && (r.Method == "POST" || r.Method == "PUT" || r.Method == "PATCH" || r.Method == "DELETE") {
 			if strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
-				d := json.NewDecoder(http.MaxBytesReader(w, r.Body, 100*1024))
+				limit := int64(100 * 1024)
+				if r.URL.Path == "/api/anonymize-preview" {
+					limit = 3 * 1024 * 1024
+				}
+				d := json.NewDecoder(http.MaxBytesReader(w, r.Body, limit))
 				if err := d.Decode(&q.Body); err != nil {
 					writeError(w, fail("invalid_request", 400))
 					return

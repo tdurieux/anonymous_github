@@ -422,7 +422,10 @@
           "country": "Country"
         }
       },
-      "expected": null
+      "expected": {
+        "code": "invalid_plan",
+        "status": 400
+      }
     },
     {
       "name": "premium_conference/missing billing",
@@ -436,7 +439,7 @@
         }
       },
       "expected": {
-        "code": "billing_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -453,7 +456,7 @@
         "billing": {}
       },
       "expected": {
-        "code": "billing_name_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -477,7 +480,7 @@
         }
       },
       "expected": {
-        "code": "billing_name_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -501,7 +504,7 @@
         }
       },
       "expected": {
-        "code": "billing_name_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -525,7 +528,7 @@
         }
       },
       "expected": {
-        "code": "billing_name_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -549,7 +552,7 @@
         }
       },
       "expected": {
-        "code": "billing_name_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -572,7 +575,10 @@
           "country": "Country"
         }
       },
-      "expected": null
+      "expected": {
+        "code": "invalid_plan",
+        "status": 400
+      }
     },
     {
       "name": "premium_conference/email/null",
@@ -594,7 +600,7 @@
         }
       },
       "expected": {
-        "code": "billing_email_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -618,7 +624,7 @@
         }
       },
       "expected": {
-        "code": "billing_email_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -642,7 +648,7 @@
         }
       },
       "expected": {
-        "code": "billing_email_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -666,7 +672,7 @@
         }
       },
       "expected": {
-        "code": "billing_email_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -689,7 +695,10 @@
           "country": "Country"
         }
       },
-      "expected": null
+      "expected": {
+        "code": "invalid_plan",
+        "status": 400
+      }
     },
     {
       "name": "premium_conference/address/null",
@@ -711,7 +720,7 @@
         }
       },
       "expected": {
-        "code": "billing_address_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -735,7 +744,7 @@
         }
       },
       "expected": {
-        "code": "billing_address_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -759,7 +768,7 @@
         }
       },
       "expected": {
-        "code": "billing_address_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -783,7 +792,7 @@
         }
       },
       "expected": {
-        "code": "billing_address_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -806,7 +815,10 @@
           "country": "Country"
         }
       },
-      "expected": null
+      "expected": {
+        "code": "invalid_plan",
+        "status": 400
+      }
     },
     {
       "name": "premium_conference/city/null",
@@ -828,7 +840,7 @@
         }
       },
       "expected": {
-        "code": "billing_city_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -852,7 +864,7 @@
         }
       },
       "expected": {
-        "code": "billing_city_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -876,7 +888,7 @@
         }
       },
       "expected": {
-        "code": "billing_city_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -900,7 +912,7 @@
         }
       },
       "expected": {
-        "code": "billing_city_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -923,7 +935,10 @@
           "country": "Country"
         }
       },
-      "expected": null
+      "expected": {
+        "code": "invalid_plan",
+        "status": 400
+      }
     },
     {
       "name": "premium_conference/zip/null",
@@ -945,7 +960,7 @@
         }
       },
       "expected": {
-        "code": "billing_zip_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -969,7 +984,7 @@
         }
       },
       "expected": {
-        "code": "billing_zip_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -993,7 +1008,7 @@
         }
       },
       "expected": {
-        "code": "billing_zip_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -1017,7 +1032,7 @@
         }
       },
       "expected": {
-        "code": "billing_zip_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -1040,7 +1055,10 @@
           "country": "Country"
         }
       },
-      "expected": null
+      "expected": {
+        "code": "invalid_plan",
+        "status": 400
+      }
     },
     {
       "name": "premium_conference/country/null",
@@ -1062,7 +1080,7 @@
         }
       },
       "expected": {
-        "code": "billing_country_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -1086,7 +1104,7 @@
         }
       },
       "expected": {
-        "code": "billing_country_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -1110,7 +1128,7 @@
         }
       },
       "expected": {
-        "code": "billing_country_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -1134,7 +1152,7 @@
         }
       },
       "expected": {
-        "code": "billing_country_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -1157,7 +1175,10 @@
           "country": " "
         }
       },
-      "expected": null
+      "expected": {
+        "code": "invalid_plan",
+        "status": 400
+      }
     },
     {
       "name": "unlimited_conference/valid",
@@ -1178,7 +1199,10 @@
           "country": "Country"
         }
       },
-      "expected": null
+      "expected": {
+        "code": "invalid_plan",
+        "status": 400
+      }
     },
     {
       "name": "unlimited_conference/missing billing",
@@ -1192,7 +1216,7 @@
         }
       },
       "expected": {
-        "code": "billing_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -1209,7 +1233,7 @@
         "billing": {}
       },
       "expected": {
-        "code": "billing_name_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -1233,7 +1257,7 @@
         }
       },
       "expected": {
-        "code": "billing_name_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -1257,7 +1281,7 @@
         }
       },
       "expected": {
-        "code": "billing_name_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -1281,7 +1305,7 @@
         }
       },
       "expected": {
-        "code": "billing_name_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -1305,7 +1329,7 @@
         }
       },
       "expected": {
-        "code": "billing_name_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -1328,7 +1352,10 @@
           "country": "Country"
         }
       },
-      "expected": null
+      "expected": {
+        "code": "invalid_plan",
+        "status": 400
+      }
     },
     {
       "name": "unlimited_conference/email/null",
@@ -1350,7 +1377,7 @@
         }
       },
       "expected": {
-        "code": "billing_email_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -1374,7 +1401,7 @@
         }
       },
       "expected": {
-        "code": "billing_email_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -1398,7 +1425,7 @@
         }
       },
       "expected": {
-        "code": "billing_email_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -1422,7 +1449,7 @@
         }
       },
       "expected": {
-        "code": "billing_email_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -1445,7 +1472,10 @@
           "country": "Country"
         }
       },
-      "expected": null
+      "expected": {
+        "code": "invalid_plan",
+        "status": 400
+      }
     },
     {
       "name": "unlimited_conference/address/null",
@@ -1467,7 +1497,7 @@
         }
       },
       "expected": {
-        "code": "billing_address_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -1491,7 +1521,7 @@
         }
       },
       "expected": {
-        "code": "billing_address_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -1515,7 +1545,7 @@
         }
       },
       "expected": {
-        "code": "billing_address_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -1539,7 +1569,7 @@
         }
       },
       "expected": {
-        "code": "billing_address_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -1562,7 +1592,10 @@
           "country": "Country"
         }
       },
-      "expected": null
+      "expected": {
+        "code": "invalid_plan",
+        "status": 400
+      }
     },
     {
       "name": "unlimited_conference/city/null",
@@ -1584,7 +1617,7 @@
         }
       },
       "expected": {
-        "code": "billing_city_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -1608,7 +1641,7 @@
         }
       },
       "expected": {
-        "code": "billing_city_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -1632,7 +1665,7 @@
         }
       },
       "expected": {
-        "code": "billing_city_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -1656,7 +1689,7 @@
         }
       },
       "expected": {
-        "code": "billing_city_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -1679,7 +1712,10 @@
           "country": "Country"
         }
       },
-      "expected": null
+      "expected": {
+        "code": "invalid_plan",
+        "status": 400
+      }
     },
     {
       "name": "unlimited_conference/zip/null",
@@ -1701,7 +1737,7 @@
         }
       },
       "expected": {
-        "code": "billing_zip_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -1725,7 +1761,7 @@
         }
       },
       "expected": {
-        "code": "billing_zip_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -1749,7 +1785,7 @@
         }
       },
       "expected": {
-        "code": "billing_zip_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -1773,7 +1809,7 @@
         }
       },
       "expected": {
-        "code": "billing_zip_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -1796,7 +1832,10 @@
           "country": "Country"
         }
       },
-      "expected": null
+      "expected": {
+        "code": "invalid_plan",
+        "status": 400
+      }
     },
     {
       "name": "unlimited_conference/country/null",
@@ -1818,7 +1857,7 @@
         }
       },
       "expected": {
-        "code": "billing_country_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -1842,7 +1881,7 @@
         }
       },
       "expected": {
-        "code": "billing_country_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -1866,7 +1905,7 @@
         }
       },
       "expected": {
-        "code": "billing_country_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -1890,7 +1929,7 @@
         }
       },
       "expected": {
-        "code": "billing_country_missing",
+        "code": "invalid_plan",
         "status": 400
       }
     },
@@ -1913,7 +1952,10 @@
           "country": " "
         }
       },
-      "expected": null
+      "expected": {
+        "code": "invalid_plan",
+        "status": 400
+      }
     },
     {
       "name": "startDate/date/\"March 1 2031\"",
@@ -1984,7 +2026,10 @@
           "planID": "free_conference"
         }
       },
-      "expected": null
+      "expected": {
+        "code": "conf_start_date_invalid",
+        "status": 400
+      }
     },
     {
       "name": "startDate/date/{}",
@@ -1997,7 +2042,10 @@
           "planID": "free_conference"
         }
       },
-      "expected": null
+      "expected": {
+        "code": "conf_start_date_invalid",
+        "status": 400
+      }
     },
     {
       "name": "startDate/date/{\"toString\":\"bad\"}",
@@ -2028,7 +2076,10 @@
           "planID": "free_conference"
         }
       },
-      "expected": null
+      "expected": {
+        "code": "conf_start_date_invalid",
+        "status": 400
+      }
     },
     {
       "name": "startDate/date/[\"2031\",\"1\",\"1\"]",
@@ -2097,7 +2148,10 @@
           "planID": "free_conference"
         }
       },
-      "expected": null
+      "expected": {
+        "code": "conf_start_date_invalid",
+        "status": 400
+      }
     },
     {
       "name": "endDate/date/\"March 1 2031\"",
@@ -2165,7 +2219,10 @@
           "planID": "free_conference"
         }
       },
-      "expected": null
+      "expected": {
+        "code": "conf_start_date_invalid",
+        "status": 400
+      }
     },
     {
       "name": "endDate/date/{}",
@@ -2178,7 +2235,10 @@
           "planID": "free_conference"
         }
       },
-      "expected": null
+      "expected": {
+        "code": "conf_start_date_invalid",
+        "status": 400
+      }
     },
     {
       "name": "endDate/date/{\"toString\":\"bad\"}",
@@ -2209,7 +2269,10 @@
           "planID": "free_conference"
         }
       },
-      "expected": null
+      "expected": {
+        "code": "conf_start_date_invalid",
+        "status": 400
+      }
     },
     {
       "name": "endDate/date/[\"2031\",\"1\",\"1\"]",
@@ -2284,7 +2347,10 @@
           "planID": "free_conference"
         }
       },
-      "expected": null
+      "expected": {
+        "code": "conf_start_date_invalid",
+        "status": 400
+      }
     },
     {
       "name": "invalid start before expired end",

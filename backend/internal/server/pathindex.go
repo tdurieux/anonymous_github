@@ -229,7 +229,7 @@ func (s *Server) buildPathIndex(ctx context.Context, r M, key, token string) err
 	if err := s.checkPathSnapshot(work, r); err != nil {
 		return err
 	}
-	cursor, e := s.Store.DB.Collection("files").Find(work, M{"repoId": r["repoId"], "treeGeneration": activeGeneration(r)}, options.Find().SetSort(bson.D{{Key: "path", Value: 1}, {Key: "name", Value: 1}}).SetBatchSize(256).SetProjection(M{"path": 1, "name": 1, "size": 1, "sha": 1, "metadataPending": 1, "recoverySnapshot": 1}))
+	cursor, e := s.Store.DB.Collection("files").Find(work, M{"repoId": r["repoId"], "treeGeneration": activeGeneration(r)}, options.Find().SetSort(bson.D{{Key: "path", Value: 1}, {Key: "name", Value: 1}}).SetBatchSize(256).SetProjection(M{"path": 1, "name": 1, "size": 1, "sha": 1, "upstream": 1, "submodule": 1, "metadataPending": 1, "recoverySnapshot": 1}))
 	if e != nil {
 		return e
 	}
@@ -299,7 +299,7 @@ return 1`, []string{key + ":lock", temp}, batch...).Int()
 			return fail("invalid_anonymized_path", 422)
 		}
 		field := "p:" + p
-		data, err := json.Marshal(selectFields(row, "path", "name", "size", "sha"))
+		data, err := json.Marshal(selectFields(row, "path", "name", "size", "sha", "upstream", "submodule"))
 		if err != nil {
 			return err
 		}

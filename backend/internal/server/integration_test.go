@@ -129,6 +129,8 @@ func TestBackendIntegration(t *testing.T) {
 		server.ServeHTTP(w, req)
 		return w
 	}
+	t.Run("owner notification lifecycle", func(t *testing.T) { runOwnerAlertsIntegration(t, server) })
+	t.Run("billing lifecycle", func(t *testing.T) { runBillingIntegration(t, server) })
 	t.Run("second provider lifecycle", func(t *testing.T) { runProviderIntegration(t, server, fakeProvider, call, token, otherToken) })
 	t.Run("public statistics cache", func(t *testing.T) { runPublicStatsIntegration(t, server) })
 	t.Run("overview rolling activity counts", func(t *testing.T) { runOverviewIntegration(t, server) })

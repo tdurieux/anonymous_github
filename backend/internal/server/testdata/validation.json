@@ -11,7 +11,9 @@
         "repositoryFullName": "owner/repo",
         "pullRequestId": 42
       },
-      "options": {},
+      "options": {
+        "preserveFiles": []
+      },
       "terms": []
     },
     "expected": null
@@ -128,7 +130,9 @@
         "repositoryFullName": "owner/repo",
         "pullRequestId": 42
       },
-      "options": {},
+      "options": {
+        "preserveFiles": []
+      },
       "terms": []
     },
     "expected": null
@@ -512,7 +516,9 @@
         "repositoryFullName": "owner/repo",
         "pullRequestId": 42
       },
-      "options": {},
+      "options": {
+        "preserveFiles": []
+      },
       "terms": []
     },
     "expected": {
@@ -532,7 +538,9 @@
         "repositoryFullName": "owner/repo",
         "pullRequestId": 42
       },
-      "options": {},
+      "options": {
+        "preserveFiles": []
+      },
       "terms": []
     },
     "expected": {
@@ -552,7 +560,9 @@
         "repositoryFullName": "owner/repo",
         "pullRequestId": 42
       },
-      "options": {},
+      "options": {
+        "preserveFiles": []
+      },
       "terms": []
     },
     "expected": {
@@ -572,7 +582,9 @@
         "repositoryFullName": "owner/repo",
         "pullRequestId": 42
       },
-      "options": {},
+      "options": {
+        "preserveFiles": []
+      },
       "terms": []
     },
     "expected": null

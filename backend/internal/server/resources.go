@@ -224,6 +224,12 @@ func (s *Server) publicOptions(kind string) handler {
 			if err != nil {
 				return nil, err
 			}
+			if sub == nil {
+				sub, err = s.Store.one(q.ctx(), "files", M{"repoId": r["repoId"], "treeGeneration": activeGeneration(r), "submodule": M{"$exists": true, "$ne": "included"}})
+				if err != nil {
+					return nil, err
+				}
+			}
 			out["hasSubmodules"] = sub != nil
 		}
 		return out, nil
@@ -251,6 +257,22 @@ func (s *Server) preview(q *request) (any, error) {
 	if json.Unmarshal(b, &opt) != nil {
 		return nil, fail("invalid_options", 400)
 	}
+
+	preserved, err := anonymize.NormalizePreserveFiles(obj(q.Body["options"])["preserveFiles"])
+	if err != nil {
+		return nil, fail(err.Error(), 400)
+	}
+	file, present := obj(q.Body["options"])["filePath"]
+	if present {
+		value, ok := file.(string)
+		if !ok || !safeSourcePath(value) {
+			return nil, fail("invalid_path", 400)
+		}
+		if anonymize.PreservedPath(value, preserved) {
+			opt.Terms = []string{}
+		}
+	}
+	q.W.Header().Set("Cache-Control", "private, no-store")
 	e, err := anonymize.New(opt, anonymize.Context{Mask: s.Config.Mask, Hostname: s.Config.Hostname})
 	if err != nil {
 		return nil, fail(err.Error(), 400)
@@ -304,7 +326,7 @@ func validatedOptions(kind string, body M) (M, error) {
 	fields := []string{"expirationMode", "expirationDate", "update", "image", "link"}
 	switch kind {
 	case "repo":
-		fields = append(fields, "pdf", "notebook", "page", "pageSource")
+		fields = append(fields, "pdf", "notebook", "page", "pageSource", "preserveFiles")
 	case "gist", "pr":
 		fields = append(fields, "title", "body", "comments", "origin", "username", "date")
 		if kind == "gist" {
@@ -314,6 +336,13 @@ func validatedOptions(kind string, body M) (M, error) {
 		}
 	}
 	opt := selectFields(obj(body["options"]), fields...)
+	if kind == "repo" {
+		patterns, err := anonymize.NormalizePreserveFiles(opt["preserveFiles"])
+		if err != nil {
+			return nil, fail(err.Error(), 400)
+		}
+		opt["preserveFiles"] = patterns
+	}
 	castStringField := func(fields M, key string) error {
 		value, exists := fields[key]
 		if !exists || value == nil {
@@ -430,6 +459,43 @@ func (s *Server) saveResource(kind string, create bool) handler {
 			return nil, fail("invalid_"+idKey(kind), 400)
 		}
 
+		billingFields := M{}
+		if kind == "repo" && s.Config.Billing.Enabled {
+			owner := q.Identity.ID
+			if previous != nil {
+				owner = str(previous["owner"])
+			}
+			managed := previous == nil || boolean(previous["billingManaged"])
+			oldSource := obj(previous["source"])
+			sourceChanged := previous == nil || str(body["fullName"]) != str(oldSource["repositoryName"]) || str(source["branch"]) != str(oldSource["branch"]) || str(source["commit"]) != str(oldSource["commit"])
+			needsAdmission := sourceChanged || oldConference != newConference || shouldReactivateRepository(str(previous["status"]), opt, time.Now())
+			if managed {
+				billingFields, err = s.billingResourceSettings(q.ctx(), owner, id, newConference, opt, previous)
+				if err != nil {
+					return nil, err
+				}
+			} else if opt["expirationMode"] == "never" && (obj(previous["options"])["expirationMode"] != "never" || previous["billingNeverExpiresUntil"] != nil) {
+				existing := time.Time{}
+				if obj(previous["options"])["expirationMode"] == "never" {
+					existing = date(previous["billingNeverExpiresUntil"])
+				}
+				deadline, e := s.billingNeverDeadline(q.ctx(), owner, id, existing)
+				if e != nil {
+					return nil, e
+				}
+				billingFields["billingNeverExpiresUntil"] = deadline
+			}
+			if needsAdmission {
+				if err = s.billingConferenceAdmission(q.ctx(), owner, id, newConference); err != nil {
+					return nil, err
+				}
+				if managed {
+					if err = s.reserveBillingRepository(q.ctx(), owner, id, number(obj(previous["size"])["storage"]), newConference, "", 0); err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
 		_, reconnectRequested := body["reconnectRepositoryId"]
 		// Settings-only saves must not need a working GitHub grant or replace its identity binding.
 		if kind == "repo" && previous != nil && !reconnectRequested {
@@ -438,6 +504,9 @@ func (s *Server) saveResource(kind string, create bool) handler {
 			if same {
 				now := membershipSaveTime(previous)
 				set := M{"options": opt, "conference": str(body["conference"]), "settingsSavedAt": now}
+				for key, value := range billingFields {
+					set[key] = value
+				}
 				recordConferenceMembership(set, oldConference, newConference, now)
 				reactivating := shouldReactivateRepository(str(previous["status"]), opt, now)
 				if reactivating {
@@ -486,6 +555,9 @@ func (s *Server) saveResource(kind string, create bool) handler {
 
 		now := membershipSaveTime(previous)
 		record := M{idKey(kind): id, "owner": owner, "source": savedSource, "options": opt, "conference": str(body["conference"]), "settingsSavedAt": now, "anonymizeDate": now, "status": "preparing", "statusDate": now, "githubAccess": binding}
+		for key, value := range billingFields {
+			record[key] = value
+		}
 		if id, e := sourceProvider(savedSource); e == nil && id != "github" {
 			delete(record, "githubAccess")
 			record["providerAccess"] = binding
@@ -548,6 +620,11 @@ func (s *Server) lifecycle(kind, action string) handler {
 			return s.extendResource(q.ctx(), kind, r)
 		}
 
+		if action == "refresh" && q.Identity.ID == str(r["owner"]) {
+			if err = s.resetOwnerAlerts(q.ctx(), r["owner"], kind, r["_id"]); err != nil {
+				return nil, err
+			}
+		}
 		if action == "refresh" && kind != "repo" {
 			if err = s.refreshEmbedded(q.ctx(), kind, r); err != nil {
 				return nil, err
@@ -562,6 +639,11 @@ func (s *Server) lifecycle(kind, action string) handler {
 			if !q.Identity.Owns(str(r["owner"])) {
 				return nil, fail("not_authorized", 403)
 			}
+			finish, e := s.beginAlertDeactivation(q.ctx(), r["owner"])
+			if e != nil {
+				return nil, e
+			}
+			defer finish()
 			status, job = "removing", "remove"
 		}
 		if (str(r["status"]) == "removing" || str(r["status"]) == "expiring") && !(kind == "repo" && action == "remove") {

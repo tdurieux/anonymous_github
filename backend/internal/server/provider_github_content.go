@@ -30,7 +30,14 @@ func (g *githubProvider) VerifyContent(ctx context.Context, a provider.Access, e
 		if err != nil {
 			return nil, err
 		}
-		return g.server.githubPointer(ctx, a.Ref.Name, entry.Revision, token)
+		name := a.Ref.Name
+		if entry.Origin != nil {
+			if !validFileOrigin(entry.Origin) {
+				return nil, fail("invalid_source", 400)
+			}
+			name, token = entry.Origin.Repository, ""
+		}
+		return g.server.githubPointer(ctx, name, entry.Revision, token)
 	})
 }
 
@@ -47,7 +54,9 @@ func (s *Server) githubPointer(ctx context.Context, name, revision, token string
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+token)
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
 	req.Header.Set("Accept", "application/vnd.github.raw+json")
 	req.Header.Set("User-Agent", "Anonymous-GitHub")
 	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")

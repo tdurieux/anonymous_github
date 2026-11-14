@@ -5,7 +5,7 @@ const schema=require('../../src/core/model/conference/conferences.schema').defau
 const Model=mongoose.model('conference_date_contract',schema);
 const source=ts.createSourceFile('conference.ts',fs.readFileSync('src/server/routes/conference.ts','utf8'),ts.ScriptTarget.Latest,true);
 const apply=source.statements.find(n=>ts.isFunctionDeclaration(n)&&n.name?.text==='applyConferenceForm');
-const mod={exports:{}};vm.runInNewContext(ts.transpile(apply.getText(source)+';module.exports=applyConferenceForm',{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}),{module:mod,exports:{},Date});
+const mod={exports:{}};vm.runInNewContext(ts.transpile(apply.getText(source)+';module.exports=applyConferenceForm',{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}),{module:mod,exports:{},Date,isConferencePlan:id=>["conference","conference_workshop","conference_large"].includes(id)});
 const values=['March 1 2031','2031-02-30','0001-01-01','0000-01-01','-000001-01-01','+010000-01-01','2031-01-01T24:00:00Z','2031-01-01T01:00:00+02:00','invalid','',null,false,true,0,1,1.5,-1.5,1924992000000,'1924992000000',8640000000000001,{}, {toString:'bad'}, {valueOf:1},[],['2031','1','1'],[1],[null]];
 const cases=[];
 for(const field of ['startDate','endDate'])for(const value of values){

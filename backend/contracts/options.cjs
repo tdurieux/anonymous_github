@@ -22,7 +22,7 @@ for (const [kind, route, helper, modelName] of [
     compilerOptions: {target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS},
   }).outputText;
   const module = {exports: {}};
-  vm.runInNewContext(code, {module, Date});
+  vm.runInNewContext(code, {module, Date, normalizePreserveFiles: require("../../src/core/preserve-files").normalizePreserveFiles});
   const schema = require(`../../src/core/model/${modelName}/${modelName}.schema.ts`).default;
   const Model = mongoose.model(`options_contract_${kind}`, schema);
   const add = (name, options, terms = ['Alice', '']) => {

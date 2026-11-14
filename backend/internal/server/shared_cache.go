@@ -205,6 +205,10 @@ func (s *Server) sharedSourceRead(ctx context.Context, r M, p provider.Repositor
 		context.AfterFunc(work, func() { bounded.Close() })
 		return bounded, nil
 	}
+	if err = s.reserveBillingExpansion(ctx, a.Ref.AnonymousID, entry.Path, reader.Record().Size-entry.Size); err != nil {
+		reader.Close()
+		return nil, err
+	}
 	if reader.Record().Size > anonymize.MaxInput {
 		reader.Close()
 		return nil, fail("file_too_big", 413)

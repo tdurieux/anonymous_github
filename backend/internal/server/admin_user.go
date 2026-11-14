@@ -27,8 +27,8 @@ func omitEmptyObject(value M, key string) {
 func adminUserJSON(user M, repositories []M, now time.Time) M {
 	// Explicit public metadata prevents legacy token fields and credential
 	// envelopes from becoming part of this administrator response.
-	out := selectFields(user, "_id", "__v", "username", "photo", "status", "isAdmin", "emails", "dateOfEntry", "externalIDs", "accessTokenDates", "projectNames", "default")
-	defaults(out, M{"isAdmin": false, "status": "active", "dateOfEntry": now, "emails": []any{}})
+	out := selectFields(user, "_id", "__v", "username", "photo", "status", "isAdmin", "emails", "dateOfEntry", "externalIDs", "accessTokenDates", "projectNames", "default", "notificationEmail", "emailPromptNever")
+	defaults(out, M{"emailPromptNever": false, "isAdmin": false, "status": "active", "dateOfEntry": now, "emails": []any{}})
 	for _, key := range []string{"externalIDs", "accessTokenDates"} {
 		omitEmptyObject(out, key)
 	}

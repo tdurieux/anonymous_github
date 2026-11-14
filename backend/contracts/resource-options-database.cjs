@@ -12,12 +12,12 @@ const mongoose=require('mongoose');
  const tree=ts.createSourceFile('route-utils.ts',fs.readFileSync('src/server/routes/route-utils.ts','utf8'),ts.ScriptTarget.Latest,true);
  const errorHelper=tree.statements.find(s=>ts.isFunctionDeclaration(s)&&s.name?.text==='handleError');
  const errorModule={exports:{}};
- vm.runInNewContext(ts.transpile(errorHelper.getText(tree).replace(/^export\s+/, '')+';module.exports=handleError',{target:ts.ScriptTarget.ES2022}),{module:errorModule,Error,AnonymousError:require('../../src/core/AnonymousError').default,printError:()=>{}});
+ vm.runInNewContext(ts.transpile(errorHelper.getText(tree).replace(/^export\s+/, '')+';module.exports=handleError',{target:ts.ScriptTarget.ES2022}),{module:errorModule,Error,AnonymousError:require('../../src/core/AnonymousError').default,printError:()=>{},isResponseCancellation:()=>false});
  const cases=[];
  for(const [kind,route,helper,modelName] of [['repo','repository','updateRepoModel','anonymizedRepositories'],['gist','gist','updateGistModel','anonymizedGists'],['pr','pullRequest','updatePullRequestModel','anonymizedPullRequests']]){
   const source=ts.createSourceFile(route,fs.readFileSync(`src/server/routes/${route}-private.ts`,'utf8'),ts.ScriptTarget.Latest,true);
   const fn=source.statements.find(s=>ts.isFunctionDeclaration(s)&&s.name?.text===helper);
-  const mod={exports:{}};vm.runInNewContext(ts.transpile(fn.getText(source)+';module.exports='+helper,{target:ts.ScriptTarget.ES2022}),{module:mod,Date});
+  const mod={exports:{}};vm.runInNewContext(ts.transpile(fn.getText(source)+';module.exports='+helper,{target:ts.ScriptTarget.ES2022}),{module:mod,Date,normalizePreserveFiles:require("../../src/core/preserve-files").normalizePreserveFiles});
   const Model=connection.model(modelName,require(`../../src/core/model/${modelName}/${modelName}.schema.ts`).default);
   const options=[{}, {image:'bad'}, {image:[]}, {image:{}}, {expirationDate:'bad'}, {expirationDate:[]}, {expirationDate:{}}, {expirationDate:{toString:'bad'}}, {expirationDate:1e16}, {expirationDate:'0001-01-01'}, {expirationDate:['2030','3','1']}, {image:'bad',expirationDate:'bad',link:false}, {image:true,link:false}, {expirationMode:0}, {expirationMode:true}, {expirationMode:{}}, {expirationMode:[]}, {expirationMode:{_id:'date'}}, {pageSource:{branch:1,path:false}}, {pageSource:{branch:{},path:'/'}}, {pageSource:{branch:[],path:{}}}, {pageSource:null}, {pageSource:true}, {pageSource:[]}, {pageSource:{unknown:'ignored'}}];
   for(const create of [true,false])for(const input of options){

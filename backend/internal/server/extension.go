@@ -18,6 +18,23 @@ func (s *Server) extendResource(ctx context.Context, kind string, r M) (M, error
 		base = now
 	}
 	next := base.In(time.Local).AddDate(0, 6, 0)
+	if kind == "repo" && s.Config.Billing.Enabled {
+		maximum, err := s.billingMaximumExpiration(ctx, str(r["owner"]), str(r["repoId"]), str(r["conference"]), now)
+		if err != nil {
+			return nil, err
+		}
+		if next.After(maximum) {
+			next = maximum
+		}
+		if !next.After(base) {
+			return nil, fail("expiration_limit_reached", 402)
+		}
+		if str(r["status"]) == "expired" {
+			if err := s.billingConferenceAdmission(ctx, str(r["owner"]), str(r["repoId"]), str(r["conference"])); err != nil {
+				return nil, err
+			}
+		}
+	}
 	set := M{"options.expirationDate": next}
 	if kind == "repo" {
 		set["settingsSavedAt"] = now

@@ -14,7 +14,7 @@ import (
 )
 
 func runConferenceFormIntegration(t *testing.T, s *Server, token, otherToken string, owner any) {
-	t.Run("conference forms preserve history and restore status", func(t *testing.T) {
+	t.Run("conference edits preserve history and status", func(t *testing.T) {
 		ctx := context.Background()
 		call := func(method, id, auth string, body M) *httptest.ResponseRecorder {
 			raw, _ := json.Marshal(body)
@@ -56,13 +56,14 @@ func runConferenceFormIntegration(t *testing.T, s *Server, token, otherToken str
 				t.Fatal(err)
 			}
 			checkError(call("POST", id, otherToken, M{}), 401, "not_authorized")
-			checkError(call("POST", id, token, M{}), 400, "conf_name_missing")
+			checkError(call("POST", id, token, M{}), 400, "billing_plan_change_not_supported")
 			body := valid()
 			body["plan"] = M{"planID": "unknown"}
-			checkError(call("POST", id, token, body), 400, "invalid_plan")
+			checkError(call("POST", id, token, body), 400, "billing_plan_change_not_supported")
 			body = valid()
 			body["plan"] = M{"planID": "premium_conference"}
-			checkError(call("POST", id, token, body), 400, "billing_missing")
+			body["name"] = ""
+			checkError(call("POST", id, token, body), 400, "conf_name_missing")
 			after, err := s.Store.one(ctx, "conferences", M{"conferenceID": id})
 			if err != nil {
 				t.Fatal(err)
@@ -71,6 +72,7 @@ func runConferenceFormIntegration(t *testing.T, s *Server, token, otherToken str
 				t.Fatal("rejected edit mutated conference")
 			}
 			body = valid()
+			body["plan"] = M{"planID": "premium_conference"}
 			body["billing"] = M{"name": "Ignored payer"}
 			w := call("POST", id, token, body)
 			if w.Code != 200 || w.Body.String() != "ok" {
@@ -80,7 +82,7 @@ func runConferenceFormIntegration(t *testing.T, s *Server, token, otherToken str
 			if err != nil {
 				t.Fatal(err)
 			}
-			if after["status"] != "ready" || after["name"] != "Updated" {
+			if after["status"] != status || after["name"] != "Updated" {
 				t.Fatal(after)
 			}
 			for _, field := range []string{"_id", "conferenceID", "owners", "repositories", "plan", "billing"} {

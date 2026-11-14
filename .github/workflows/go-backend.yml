@@ -64,6 +64,7 @@ jobs:
           node backend/contracts/resources.cjs --check
           node backend/contracts/validation.cjs --check
           node backend/contracts/options.cjs --check
+          node backend/contracts/preserve-files.cjs --check
           node backend/contracts/dates.cjs --check
           node backend/contracts/reactivation.cjs --check
           node backend/contracts/oauth-tokens.cjs --check

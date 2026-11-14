@@ -44,7 +44,9 @@ func (s *Server) rawBlob(ctx context.Context, r, row M, token string) (io.ReadCl
 		parts[i] = url.PathEscape(p)
 	}
 	req, _ := http.NewRequestWithContext(ctx, "GET", "https://github.com/"+name+"/raw/"+commit+"/"+strings.Join(parts, "/"), nil)
-	req.Header.Set("Authorization", "Bearer "+token)
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
 	req.Header.Set("User-Agent", "Anonymous-GitHub")
 	client := *s.HTTP
 	client.CheckRedirect = func(next *http.Request, via []*http.Request) error {

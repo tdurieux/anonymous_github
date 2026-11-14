@@ -31,7 +31,7 @@ func (s *Server) cachedPlainWebFile(key string) M {
 	return row
 }
 func (s *Server) cachePlainWebFile(key string, row M) {
-	data, err := json.Marshal(selectFields(row, "path", "name", "size", "sha"))
+	data, err := json.Marshal(selectFields(row, "path", "name", "size", "sha", "upstream", "submodule"))
 	if err != nil {
 		return
 	}

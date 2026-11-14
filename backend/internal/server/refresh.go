@@ -11,6 +11,15 @@ import (
 // A durable compare-and-swap claim prevents simultaneous viewers from starting
 // competing refreshes. Failure leaves the saved tree intact.
 func (s *Server) autoRefresh(ctx context.Context, r M) error {
+	if boolean(r["billingManaged"]) {
+		allowed, err := s.billingAutomaticUpdates(ctx, str(r["owner"]), str(r["repoId"]), str(r["conference"]))
+		if err != nil {
+			return err
+		}
+		if !allowed {
+			return nil
+		}
+	}
 	return s.updateRepository(ctx, r, false, "")
 }
 func refreshRevisionFilter(r M, token string) M {

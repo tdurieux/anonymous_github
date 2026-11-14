@@ -86,7 +86,7 @@ func runUserDefaultsIntegration(t *testing.T, s *Server) {
 		if err := json.Unmarshal(w.Body.Bytes(), &profile); err != nil {
 			t.Fatal(err)
 		}
-		if w.Code != 200 || !reflect.DeepEqual(profile, M{"username": "user-defaults-fixture", "isAdmin": false}) {
+		if w.Code != 200 || !reflect.DeepEqual(profile, M{"username": "user-defaults-fixture", "isAdmin": false, "emailNotificationsEnabled": false, "notificationEmail": "", "showEmailPrompt": false}) {
 			t.Fatal("absent photo", w.Code, w.Body)
 		}
 		if _, err := s.Store.update(ctx, "users", M{"_id": id}, M{"$set": M{"photo": nil}}); err != nil {
