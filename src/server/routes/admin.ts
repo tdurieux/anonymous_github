@@ -1,3 +1,4 @@
+import { investigateLogs, logOptions, safeRedisLog } from "../admin-log-investigation";
 import { jobTrace } from "../../core/log-context";
 import { cacheMetricsReport } from "../../core/cache-observability";
 import { sharedBlobCache, resultBlobCache } from "../../core/blob-cache";
@@ -43,25 +44,41 @@ const execFileAsync = promisify(execFile);
 const diskUsageCache = new AsyncCache<string>(30000, 1);
 
 let errorLogClient: RedisClientType | null = null;
+let errorLogConnecting: Promise<RedisClientType | null> | null = null;
+// Each admitted operation queues at most 51 commands (49 stats reads + MULTI/EXEC).
+// Keep headroom above 4 * 51, and reject excess work before touching the client.
+const ERROR_LOG_CONCURRENCY = 4;
+let errorLogActive = 0;
 
 let errorStatsCache: { data: unknown; ts: number } | null = null;
 const ERROR_STATS_CACHE_TTL = 30_000;
 async function getErrorLogClient(): Promise<RedisClientType | null> {
-  if (errorLogClient && errorLogClient.isOpen) return errorLogClient;
-  try {
-    errorLogClient = createClient({
+  if (errorLogClient?.isReady) return errorLogClient;
+  if (errorLogConnecting) return errorLogConnecting;
+  errorLogConnecting = (async () => {
+    const client = createClient({
       socket: {
         host: config.REDIS_HOSTNAME,
         port: config.REDIS_PORT,
+        connectTimeout: 1500,
+        reconnectStrategy: false,
       },
+      disableOfflineQueue: true,
+      commandsQueueMaxLength: 256,
     }) as RedisClientType;
-    errorLogClient.on("error", () => undefined);
-    await errorLogClient.connect();
-    return errorLogClient;
-  } catch (err) {
-    logger.error("error log redis connect failed", serializeError(err));
-    return null;
-  }
+    client.on("error", () => undefined);
+    try {
+      await client.connect();
+      errorLogClient = client;
+      return client;
+    } catch (err) {
+      if (client.isOpen) client.destroy();
+      logger.error("error log redis connect failed", serializeError(err));
+      return null;
+    }
+  })();
+  try { return await errorLogConnecting; }
+  finally { errorLogConnecting = null; }
 }
 
 const router = express.Router();
@@ -84,6 +101,17 @@ router.use(
     }
   }
 );
+
+// These routes inherit both authentication and admin authorization above.
+for (const [path, correlation] of [["/errors/investigation", false], ["/errors/correlation", true]] as const) {
+  router.get(path, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    let options;
+    try { options = logOptions(req.query as Record<string, unknown>, correlation); }
+    catch { return res.status(400).json({ error: "invalid_request" }); }
+    return res.json(await investigateLogs(options, correlation));
+  });
+}
 
 router.use("/tokens", adminTokensRouter);
 router.use("/billing", adminBillingRouter);
@@ -442,6 +470,10 @@ router.get("/queues", dashboardCache, async (req, res) => {
 // the full ERROR_LOG_MAX entries on every poll — payloads can be a few KB
 // each once detail() enrichment is included.
 router.get("/errors", async (req, res) => {
+  if (errorLogActive >= ERROR_LOG_CONCURRENCY) {
+    return res.status(503).json({ available: false, error: "logging_busy" });
+  }
+  errorLogActive++;
   try {
     const client = await getErrorLogClient();
     if (!client) {
@@ -452,6 +484,7 @@ router.get("/errors", async (req, res) => {
         total: 0,
         max: ERROR_LOG_MAX,
         available: false,
+        redisCollecting: process.env.LOG_REDIS_MIRROR !== "off",
       });
     }
     const offset = Math.max(0, parseInt(String(req.query.offset || "0"), 10) || 0);
@@ -466,27 +499,36 @@ router.get("/errors", async (req, res) => {
     ]);
     const entries = raw.map((s) => {
       try {
-        return JSON.parse(s);
+        return safeRedisLog(JSON.parse(s));
       } catch {
-        return { ts: null, module: null, message: s, raw: [] };
+        return null;
       }
-    });
+    }).filter(Boolean);
     res.json({
       entries,
       offset,
       limit,
       total,
+      nextOffset: offset + raw.length,
+      redactedEntries: raw.length - entries.length,
       max: ERROR_LOG_MAX,
       available: true,
+      redisCollecting: process.env.LOG_REDIS_MIRROR !== "off",
     });
   } catch (error) {
     handleError(error, res, req);
+  } finally {
+    errorLogActive--;
   }
 });
 
 // Aggregated stats from the precomputed hourly counters (HINCRBY on each
 // persistError). No JSON parsing of stored entries — O(48 small HGETALLs).
 router.get("/errors/stats", dashboardCache, async (req, res) => {
+  if (errorLogActive >= ERROR_LOG_CONCURRENCY) {
+    return res.status(503).json({ available: false, error: "logging_busy" });
+  }
+  errorLogActive++;
   try {
     if (
       errorStatsCache &&
@@ -614,10 +656,16 @@ router.get("/errors/stats", dashboardCache, async (req, res) => {
     res.json(data);
   } catch (error) {
     handleError(error, res, req);
+  } finally {
+    errorLogActive--;
   }
 });
 
 router.delete("/errors", async (req, res) => {
+  if (errorLogActive >= ERROR_LOG_CONCURRENCY) {
+    return res.status(503).json({ available: false, error: "logging_busy" });
+  }
+  errorLogActive++;
   try {
     const client = await getErrorLogClient();
     if (!client) return res.json({ ok: true, cleared: 0 });
@@ -643,6 +691,8 @@ router.delete("/errors", async (req, res) => {
     res.json({ ok: true, cleared: len, hourlyCleared: hourlyKeys.length });
   } catch (error) {
     handleError(error, res, req);
+  } finally {
+    errorLogActive--;
   }
 });
 
@@ -720,38 +770,43 @@ router.get("/overview", async (req, res) => {
 
     // Error stats (from Redis hourly counters)
     let errorStats = { last24h: 0, severity: { error: 0, warn: 0, info: 0 } };
-    try {
-      const client = await getErrorLogClient();
-      if (client) {
-        const nowDate = new Date();
-        const keys: string[] = [];
-        for (let i = 23; i >= 0; i--) {
-          const d = new Date(nowDate.getTime() - i * 3600 * 1000);
-          const anchor = new Date(
-            Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), d.getUTCHours())
-          );
-          const y = anchor.getUTCFullYear();
-          const m = String(anchor.getUTCMonth() + 1).padStart(2, "0");
-          const day = String(anchor.getUTCDate()).padStart(2, "0");
-          const h = String(anchor.getUTCHours()).padStart(2, "0");
-          keys.push(`${ERROR_LOG_HOURLY_PREFIX}${y}${m}${day}${h}`);
+    if (errorLogActive < ERROR_LOG_CONCURRENCY) {
+      errorLogActive++;
+      try {
+        const client = await getErrorLogClient();
+        if (client) {
+          const nowDate = new Date();
+          const keys: string[] = [];
+          for (let i = 23; i >= 0; i--) {
+            const d = new Date(nowDate.getTime() - i * 3600 * 1000);
+            const anchor = new Date(
+              Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), d.getUTCHours())
+            );
+            const y = anchor.getUTCFullYear();
+            const m = String(anchor.getUTCMonth() + 1).padStart(2, "0");
+            const day = String(anchor.getUTCDate()).padStart(2, "0");
+            const h = String(anchor.getUTCHours()).padStart(2, "0");
+            keys.push(`${ERROR_LOG_HOURLY_PREFIX}${y}${m}${day}${h}`);
+          }
+          const pipe = client.multi();
+          for (const k of keys) pipe.hGetAll(k);
+          const results = (await pipe.exec()) as unknown as Record<string, string>[];
+          let total = 0;
+          const sev = { error: 0, warn: 0, info: 0 };
+          for (const h of results) {
+            const flat = h || {};
+            total += parseInt(flat.total || "0", 10) || 0;
+            sev.error += parseInt(flat["bucket:error"] || "0", 10) || 0;
+            sev.warn += parseInt(flat["bucket:warn"] || "0", 10) || 0;
+            sev.info += parseInt(flat["bucket:info"] || "0", 10) || 0;
+          }
+          errorStats = { last24h: total, severity: sev };
         }
-        const pipe = client.multi();
-        for (const k of keys) pipe.hGetAll(k);
-        const results = (await pipe.exec()) as unknown as Record<string, string>[];
-        let total = 0;
-        const sev = { error: 0, warn: 0, info: 0 };
-        for (const h of results) {
-          const flat = h || {};
-          total += parseInt(flat.total || "0", 10) || 0;
-          sev.error += parseInt(flat["bucket:error"] || "0", 10) || 0;
-          sev.warn += parseInt(flat["bucket:warn"] || "0", 10) || 0;
-          sev.info += parseInt(flat["bucket:info"] || "0", 10) || 0;
-        }
-        errorStats = { last24h: total, severity: sev };
+      } catch {
+        // Redis unavailable — keep defaults
+      } finally {
+        errorLogActive--;
       }
-    } catch {
-      // Redis unavailable — keep defaults
     }
 
     // Daily history (last 30 days) from DailyStatsModel

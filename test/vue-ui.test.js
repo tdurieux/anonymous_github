@@ -81,6 +81,76 @@ describe("Vue 3 UI", function () {
   let ui;
   afterEach(() => ui?.close());
 
+  it("investigates grouped admin logs with bounded filters and a safe correlated timeline", async () => {
+    const requestId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const now = new Date().toISOString();
+    ui = await browser("/", {
+      "/api/user": {username:"admin",isAdmin:true,status:"ready"},
+      "/api/admin/errors": {entries:[],available:true,redisCollecting:false,total:0},
+      "/api/admin/errors/investigation": {state:"partial",window:"1h",start:now,end:now,captured:3,groups:[{fingerprint:"fixture",count:3,first:now,last:now,sample:{service:"worker",release:"abcdef1",event:"job_failed",severity:"error",module:"queue",errorCode:"<img src=x onerror=evil>",requestId}}],telemetry:{missing:["streamers"],partial:true,instances:[],collector:{state:"unreachable",dropped:null}}},
+      "/api/admin/errors/correlation": {state:"ready",start:now,end:now,events:[{timestamp:now,service:"api",event:"request_completed",requestId},{timestamp:now,service:"worker",event:"job_failed",requestId,ms:25}]},
+    });
+    await ui.go("/admin/errors");
+    const doc = ui.window.document;
+    expect(doc.body.textContent).to.include("Partial results").and.include("Collection is OFF").and.include("dropped events since collector start: unknown");
+    expect(doc.querySelector(".log-table img")).to.equal(null);
+    doc.querySelector(".log-trace-button").click(); await delay(50);
+    expect(doc.querySelectorAll(".log-events li")).to.have.length(2);
+    expect(doc.activeElement.id).to.equal("log-timeline-title");
+    const request = ui.requests.find(r=>r.url.pathname==="/api/admin/errors/correlation");
+    expect(request.url.searchParams.get("id")).to.equal(requestId);
+    expect(request.url.searchParams.get("kind")).to.equal("requestId");
+    await ui.input("#log-service","worker","change");
+    await ui.input("#log-window","6h","change");
+    doc.querySelector(".log-filters").dispatchEvent(new ui.window.Event("submit",{bubbles:true,cancelable:true})); await delay(40);
+    const last = ui.requests.filter(r=>r.url.pathname==="/api/admin/errors/investigation").at(-1);
+    expect(last.url.searchParams.get("service")).to.equal("worker"); expect(last.url.searchParams.get("window")).to.equal("6h");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("keeps Redis history usable when admin central lookup is disabled or unreachable", async () => {
+    let state = "disabled";
+    ui = await browser("/", {
+      "/api/user": {username:"admin",isAdmin:true,status:"ready"},
+      "/api/admin/errors": {entries:[{ts:new Date().toISOString(),level:"error",module:"queue",message:"upstream_error",raw:[{code:"upstream_error",status:502}]}],available:true,redisCollecting:true,total:1},
+      "/api/admin/errors/investigation": () => ({state,groups:[]}),
+    });
+    await ui.go("/admin/errors");
+    expect(ui.window.document.body.textContent).to.include("Central lookup is not configured").and.include("upstream_error");
+    state = "unreachable";
+    ui.window.document.querySelector(".log-filters").dispatchEvent(new ui.window.Event("submit",{bubbles:true,cancelable:true})); await delay(40);
+    expect(ui.window.document.body.textContent).to.include("Central logging is unreachable").and.include("Redis history is reachable");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("loads older safe Redis records when a whole page was rejected", async () => {
+    ui = await browser("/", {
+      "/api/user": {username:"admin",isAdmin:true,status:"ready"},
+      "/api/admin/errors/investigation": {state:"disabled",groups:[]},
+      "/api/admin/errors": request => request.url.searchParams.get("offset") === "250" || Number(request.url.searchParams.get("limit")) >= 251
+        ? {entries:[{ts:new Date().toISOString(),level:"error",module:"queue",message:"upstream_error",raw:[{code:"upstream_error",status:502}]}],available:true,total:251,nextOffset:251}
+        : {entries:[],available:true,total:251,nextOffset:250,redactedEntries:250},
+    });
+    await ui.go("/admin/errors");
+    const button=ui.window.document.querySelector(".errors-pager button");
+    expect(button).not.to.equal(null); button.click(); await delay(40);
+    expect(ui.window.document.body.textContent).to.include("upstream_error").and.include("invalid legacy records were omitted");
+    ui.window.document.querySelector('button[aria-label="Refresh"]').click(); await delay(40);
+    expect(ui.requests.filter(r => r.url.pathname === "/api/admin/errors").at(-1).url.searchParams.get("limit")).to.equal("251");
+    expect(ui.window.document.body.textContent).to.include("upstream_error");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("marks an old central health snapshot stale without claiming current health", async () => {
+    ui = await browser("/", {
+      "/api/user": {username:"admin",isAdmin:true,status:"ready"},
+      "/api/admin/errors/investigation": {state:"ready",end:new Date(Date.now()-120000).toISOString(),groups:[]},
+    });
+    await ui.go("/admin/errors");
+    expect(ui.window.document.querySelector(".log-state").textContent).to.include("snapshot is stale");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
   it("starts a deep-linked file and editor before directory listings finish", async () => {
     const pendingDirectories = [];
     let releaseFile;
