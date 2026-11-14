@@ -1,0 +1,94 @@
+name: anonymous-observability
+x-common: &common
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options: {max-size: 5m, max-file: '2', mode: non-blocking, max-buffer-size: 1m}
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+services:
+  victorialogs:
+    <<: *common
+    image: victoriametrics/victoria-logs:v1.54.0@sha256:ee4e820cac3721f5f5d91641b950c22439593adc4224f9655e5333d5a84c1dfe
+    command:
+      - -storageDataPath=/storage
+      - -retentionPeriod=7d
+      - -retention.maxDiskSpaceUsageBytes=10GiB
+      - -storage.minFreeDiskSpaceBytes=5GiB
+      - -memory.allowedBytes=512MiB
+    volumes: [logs:/storage]
+    mem_limit: 768m
+    cpus: 1.0
+    networks: [private]
+  vector:
+    <<: *common
+    image: timberio/vector:0.61.0-debian@sha256:f6c23b5a7e16fb2838d33619ef7acf4bad2289a7cf22bc90efc2371f520c4ea2
+    command: [--config, /etc/vector/vector.yaml]
+    # File access only: no Docker API socket and no host PID namespace.
+    user: '0:0'
+    volumes:
+      - ./vector.yaml:/etc/vector/vector.yaml:ro
+      - ./sanitize.vrl:/etc/vector/sanitize.vrl:ro
+      - ${DOCKER_LOG_DIR:-/var/lib/docker/containers}:/host/docker:ro
+      - ${NGINX_LOG_DIR:-/var/log/nginx}:/host/nginx:ro
+      - spool:/var/lib/vector
+    environment:
+      VECTOR_LOG: warn
+    mem_limit: 256m
+    cpus: 0.5
+    networks: [private]
+  grafana:
+    <<: *common
+    image: grafana/grafana:13.3.1@sha256:0615ec4fbd4072004b7d86b46ded63013a74b7d6eb1119273dd89e8fa25c13cf
+    ports: ['127.0.0.1:${GRAFANA_PORT:-3300}:3000']
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:?Set a non-default admin username}
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_password
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+      GF_AUTH_ANONYMOUS_ENABLED: 'false'
+      GF_ANALYTICS_REPORTING_ENABLED: 'false'
+      GF_ANALYTICS_CHECK_FOR_UPDATES: 'false'
+      GF_PLUGINS_PREINSTALL_AUTO_UPDATE: 'false'
+      GF_PLUGINS_DISABLE_PLUGINS: grafana-lokiexplore-app,grafana-metricsdrilldown-app,grafana-exploretraces-app,grafana-pyroscope-app,grafana-pathfinder-app
+      GF_PLUGINS_PREINSTALL_SYNC: victoriametrics-logs-datasource@0.34.0
+    secrets: [grafana_password]
+    volumes:
+      - grafana:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    mem_limit: 384m
+    networks: [private, plugin_download]
+  prometheus:
+    <<: *common
+    image: prom/prometheus:v3.16.0@sha256:e04987641b57704f408e31f6373ba4138ecf27cb4a165d24aabb6c38fddd0f06
+    command: [--config.file=/etc/prometheus/prometheus.yml, --storage.tsdb.path=/prometheus, --storage.tsdb.retention.time=7d, --storage.tsdb.retention.size=512MB, --web.enable-remote-write-receiver]
+    volumes: [metrics:/prometheus, './prometheus.yml:/etc/prometheus/prometheus.yml:ro', './metrics-alerts.yml:/etc/prometheus/alerts.yml:ro']
+    mem_limit: 256m
+    networks: [private]
+  vmalert:
+    <<: *common
+    image: victoriametrics/vmalert:v1.156.0@sha256:4fea7d1a888d4db4ff18804434ef0f3ca8eb6482e289c50d32001c2db218287c
+    command: [-rule=/etc/alerts.yml, -datasource.url=http://victorialogs:9428, -notifier.url=http://alertmanager:9093, -remoteWrite.url=http://prometheus:9090, -remoteRead.url=http://prometheus:9090]
+    volumes: ['./log-alerts.yml:/etc/alerts.yml:ro']
+    mem_limit: 128m
+    networks: [private]
+  alertmanager:
+    <<: *common
+    image: prom/alertmanager:v0.35.0@sha256:e638797febd034838eca8b98cdbd46f951e9bf7f178777aa8669167406a9946c
+    command: [--config.file=/etc/alertmanager.yml, --storage.path=/alertmanager, --cluster.listen-address=]
+    volumes: [alerts:/alertmanager, './alertmanager.yml:/etc/alertmanager.yml:ro']
+    mem_limit: 64m
+    networks: [private]
+secrets:
+  grafana_password:
+    file: ${GRAFANA_PASSWORD_FILE:?Set path to an existing secret file}
+networks:
+  private:
+    internal: true
+  plugin_download: {}
+volumes:
+  logs: {}
+  spool: {}
+  grafana: {}
+  metrics: {}
+  alerts: {}

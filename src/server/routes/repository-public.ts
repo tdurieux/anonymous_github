@@ -1,3 +1,4 @@
+import { jobTrace } from "../../core/log-context";
 import { hasVisibleSubmodules } from "../../core/file-submodules";
 import { FILE_LISTING_LIMIT } from "../../core/file-tree";
 import { folderCounts as scopedFolderCounts } from "../../core/folder-counts";
@@ -342,7 +343,7 @@ router.get(
             repo.statusActivityDate < fiveMinuteAgo
           ) {
             await repo.updateStatus(RepositoryStatus.PREPARING);
-            await downloadQueue.add(repo.repoId, { repoId: repo.repoId }, {
+            await downloadQueue.add(repo.repoId, { repoId: repo.repoId, ...jobTrace() }, {
               jobId: `repo-${repo.repoId}`,
               attempts: 3,
             });

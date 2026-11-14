@@ -125,7 +125,8 @@ describe("removal recovery", function () {
       AnonymizedRepositoryModel.find = () => ({ lean: async () => [] });
       await queueModule.recoverStuckRemoving();
       expect(repo.status).to.equal("removing");
-      expect(added[1]).to.deep.equal({ repoId: repo.repoId });
+      expect(added[1]).to.deep.include({ repoId: repo.repoId });
+      expect(added[1].logJobId).to.match(/^[a-f0-9-]{36}$/);
     });
   }
 
@@ -164,7 +165,8 @@ describe("removal recovery", function () {
     let added;
     queueModule.removeQueue.add = async (...args) => { added = args; };
     await queueModule.recoverStuckRemoving();
-    expect(added[1]).to.deep.equal({ repoId: repo.repoId });
+    expect(added[1]).to.deep.include({ repoId: repo.repoId });
+    expect(added[1].logJobId).to.match(/^[a-f0-9-]{36}$/);
   });
 });
 
@@ -392,7 +394,8 @@ describe("removal workers", function () {
     expect(await addRemovalJob("repo-1", queue)).to.equal(true);
     expect(removed).to.equal(true);
     expect(added[0]).to.equal("repo-1");
-    expect(added[1]).to.deep.equal({ repoId: "repo-1" });
+    expect(added[1]).to.deep.include({ repoId: "repo-1" });
+    expect(added[1].logJobId).to.match(/^[a-f0-9-]{36}$/);
     expect(added[2].jobId).to.equal("repo-repo-1");
     expect(added[2].attempts).to.equal(3);
     expect(added[2].removeOnFail).to.deep.equal({ count: 1000 });

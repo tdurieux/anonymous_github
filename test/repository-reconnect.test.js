@@ -107,7 +107,8 @@ describe("reconnecting a recreated repository", () => {
     expect(saved.update.$set.statusDate).to.be.instanceOf(Date);
     expect(saved.update.$set.source.commitDate).to.deep.equal(new Date("2026-09-29T00:00:00Z"));
     expect(removals).to.deep.equal([{ accessRevision: "old", replacement: true }]);
-    expect(jobs[0][1]).to.deep.equal({ repoId: "recreated" });
+    expect(jobs[0][1]).to.include({ repoId: "recreated" });
+    expect(jobs[0][1].logJobId).to.match(/^[a-f0-9-]{36}$/);
   });
   it("rebuilds when only the repository identity changed", async () => {
     await handler("/:repoId/", "post")(form({ source: { branch: "main", commit: "deadbeef" } }), { json: () => {} });

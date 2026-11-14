@@ -1,0 +1,15 @@
+# Run this configuration hourly, using a dedicated logrotate state file.
+/var/log/nginx/anonymous.access.json {
+    hourly
+    rotate 6
+    maxsize 10M
+    missingok
+    notifempty
+    compress
+    delaycompress
+    create 0640 www-data adm
+    sharedscripts
+    postrotate
+        /usr/sbin/nginx -s reopen
+    endscript
+}

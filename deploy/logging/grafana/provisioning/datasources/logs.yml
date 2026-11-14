@@ -1,0 +1,22 @@
+apiVersion: 1
+datasources:
+  - name: Logs
+    uid: anonymous-logs
+    type: victoriametrics-logs-datasource
+    access: proxy
+    url: http://victorialogs:9428
+    isDefault: true
+    editable: false
+  - name: Logging health
+    uid: logging-health
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    editable: false
+  - name: Alert state
+    uid: logging-alerts
+    type: alertmanager
+    access: proxy
+    url: http://alertmanager:9093
+    jsonData: {implementation: prometheus}
+    editable: false

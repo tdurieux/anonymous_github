@@ -84,7 +84,8 @@ describe("repository refresh and restoration", () => {
       expect(response.status).to.equal("preparing");
       expect(repo.model.source.commit).to.equal(commit);
       expect(repo.repoId).to.equal("restore-me");
-      expect(added[1]).to.deep.equal({ repoId: "restore-me" });
+      expect(added[1]).to.deep.include({ repoId: "restore-me" });
+      expect(added[1].logJobId).to.match(/^[a-f0-9-]{36}$/);
     });
   }
 

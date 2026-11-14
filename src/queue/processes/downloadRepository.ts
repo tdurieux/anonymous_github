@@ -1,3 +1,4 @@
+import { loggedJob } from "../log-job";
 import { githubQuotaKey } from "../../core/github-token-context";
 import { isQuotaFailure } from "../../core/repository-failure-status";
 import { SandboxedJob, UnrecoverableError } from "bullmq";
@@ -13,7 +14,7 @@ import { DelayedError } from "bullmq";
 
 const logger = createLogger("queue:download");
 
-export default async function (job: SandboxedJob<RepoJobData, void>) {
+export default loggedJob("download", async function (job: SandboxedJob<RepoJobData, void>) {
   const {
     connect,
     getRepository,
@@ -170,4 +171,4 @@ export default async function (job: SandboxedJob<RepoJobData, void>) {
   } finally {
     clearInterval(statusInterval);
   }
-}
+});

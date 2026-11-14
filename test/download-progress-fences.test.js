@@ -27,7 +27,7 @@ describe("download progress publication fences", function () {
 
   it("keeps a captured publication fence valid when a queue progress tick runs", async function () {
     const { repo, stored } = setup(); let tick;
-    stub(global, "setInterval", callback => { tick = callback; return 1; });
+    stub(global, "setInterval", callback => { tick = callback; return { unref() {} }; });
     stub(global, "clearInterval", () => {});
     stub(db, "connect", async () => {});
     stub(db, "getRepository", async () => repo);

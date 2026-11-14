@@ -1,0 +1,35 @@
+# Add after docker-compose.yml. Recreating containers is a deployment action.
+x-buffer: &buffer
+  driver: json-file
+  options: &options
+    max-size: '10m'
+    max-file: '3'
+    mode: non-blocking
+    max-buffer-size: '1m'
+services:
+  anonymous_github:
+    logging:
+      <<: *buffer
+      options: {<<: *options, tag: api}
+    environment:
+      APP_RELEASE: ${APP_RELEASE:-unknown}
+      LOG_REDIS_MIRROR: ${LOG_REDIS_MIRROR:-on}
+  streamer:
+    logging:
+      <<: *buffer
+      options: {<<: *options, tag: streamer}
+    environment:
+      APP_RELEASE: ${APP_RELEASE:-unknown}
+      LOG_REDIS_MIRROR: ${LOG_REDIS_MIRROR:-on}
+  mongodb:
+    logging:
+      <<: *buffer
+      options: {<<: *options, tag: mongodb}
+  redis:
+    logging:
+      <<: *buffer
+      options: {<<: *options, tag: redis}
+  mongodb-backup:
+    logging:
+      <<: *buffer
+      options: {<<: *options, tag: mongodb-backup}

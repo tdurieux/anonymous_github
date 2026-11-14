@@ -1,0 +1,10 @@
+route:
+  receiver: local-only
+  group_by: [alertname, service, queue]
+  group_wait: 1m
+  group_interval: 5m
+  repeat_interval: 4h
+receivers:
+  - name: local-only
+# Deliberately no email, webhook, chat or pager receiver. Firing/resolved state
+# remains available in the private UI. Add a receiver only after approval.

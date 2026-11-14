@@ -9,17 +9,26 @@ function observeLine(summary, line) {
   // Older releases rely on Node's stderr. New releases also emit a redacted
   // process_fatal_error event before Node terminates.
   if (/ECONNRESET|socket hang up/i.test(line)) summary.connectionResets++;
-  const match = /^\S+ (INFO|WARN|ERROR) \[([^\]]+)\] .*? (\{.*\})$/.exec(line);
-  if (!match) {
-    if (/Unhandled ['"]error['"] event|unhandled(?:promise)?rejection|FATAL ERROR|heap out of memory/i.test(line)) summary.fatalErrors++;
-    return;
+  let data, level, scope;
+  try {
+    const record = JSON.parse(line);
+    if (record && typeof record === "object" && typeof record.severity === "string") {
+      data = record; level = record.severity.toUpperCase(); scope = record.module;
+      data.code = record.errorCode || record.event;
+    }
+  } catch { /* Support pre-migration mixed text/JSON too. */ }
+  if (!data) {
+    const match = /^\S+ (INFO|WARN|ERROR) \[([^\]]+)\] .*? (\{.*\})$/.exec(line);
+    if (!match) {
+      if (/Unhandled ['"]error['"] event|unhandled(?:promise)?rejection|FATAL ERROR|heap out of memory/i.test(line)) summary.fatalErrors++;
+      return;
+    }
+    try { data = JSON.parse(match[3]); } catch { return; }
+    [, level, scope] = match;
   }
-  let data;
-  try { data = JSON.parse(match[3]); } catch { return; }
-  const [, level, scope] = match;
   if (level === "ERROR") summary.errors++;
   if (level === "WARN") summary.warnings++;
-  if (data.code === "process_fatal_error" || /startup failed/i.test(line)) summary.fatalErrors++;
+  if (data.code === "process_fatal_error" || /startup[ _]failed/i.test(line)) summary.fatalErrors++;
   if (data.code === "token_refresh_failed") summary.tokenRefreshFailures++;
   if (scope === "anonymized-file" && data.code === "file_not_found") summary.missingFiles++;
   if (scope === "requests" && typeof data.ms === "number") {

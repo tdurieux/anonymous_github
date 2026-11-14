@@ -1,0 +1,21 @@
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+rule_files: [/etc/prometheus/alerts.yml]
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: [alertmanager:9093]
+scrape_configs:
+  - job_name: victorialogs
+    static_configs:
+      - targets: [victorialogs:9428]
+  - job_name: collector
+    static_configs:
+      - targets: [vector:9598]
+  - job_name: log-alerts
+    static_configs:
+      - targets: [vmalert:8880]
+  - job_name: prometheus
+    static_configs:
+      - targets: [localhost:9090]

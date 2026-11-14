@@ -19,15 +19,17 @@ describe("credential and webhook failure diagnostics", () => {
   afterEach(() => restores.splice(0).reverse().forEach(restore => restore()));
   it("logs generic upstream 401 as warning while retaining server errors", () => {
     const warnings = [], errors = [];
-    stub(console, "warn", (...args) => warnings.push(args));
-    stub(console, "error", (...args) => errors.push(args));
+    stub(process.stdout, "write", line => {
+      const record = JSON.parse(line);
+      (record.severity === "warn" ? warnings : errors).push(line); return true;
+    });
     handleError(Object.assign(new Error("denied"), { status: 401 }), response());
     handleError(Object.assign(new Error("failed"), { response: { statusCode: 503 } }), response());
     expect(warnings).to.have.length(1); expect(errors).to.have.length(1);
     expect(errors.flat().join(" ")).to.include('"httpStatus":503');
   });
   it("logs got HTTP401 as warning with its actual status", () => {
-    const warnings = []; stub(console, "warn", (...args) => warnings.push(args));
+    const warnings = []; stub(process.stdout, "write", line => { warnings.push(line); return true; });
     const failure = Object.assign(new Error("Unauthorized"), { response: { statusCode: 401 } });
     Object.setPrototypeOf(failure, require("got").HTTPError.prototype);
     const res = response(); handleError(failure, res);
@@ -51,16 +53,16 @@ describe("credential and webhook failure diagnostics", () => {
   it("logs signed webhook persistence failures without secrets and still returns 503", async () => {
     stub(config, "GITHUB_APP_ENABLED", true); stub(config, "GITHUB_APP_ID", "123");
     stub(config, "GITHUB_APP_WEBHOOK_SECRET", "test-secret");
-    const messages = []; stub(console, "error", (...args) => messages.push(args));
+    const messages = []; stub(process.stdout, "write", line => { messages.push(line); return true; });
     stub(Installation, "updateOne", async () => { throw new Error("secret-token https://private/?token=secret"); });
     const body = Buffer.from(JSON.stringify({ action: "added", installation: { id: 4, app_id: 123 }, private: "private-body" }));
-    const req = { body, headers: { "x-github-event": "installation_repositories", "x-github-delivery": "abcd-1234",
+    const req = { body, headers: { "x-github-event": "installation_repositories", "x-github-delivery": "abcdef12-1234-1234-1234-abcdef123456",
       "x-hub-signature-256": "sha256=" + createHmac("sha256", "test-secret").update(body).digest("hex") } };
     const handler = githubAppWebhook.stack.find(layer => layer.route).route.stack.at(-1).handle;
     const res = response(); await handler(req, res);
     expect(res.code).to.equal(503); expect(res.body.error).to.equal("webhook_processing_failed");
     const text = JSON.stringify(messages);
-    expect(text).to.include("persist_installation_block").and.include("abcd-1234");
+    expect(text).to.include("persist_installation_block").and.include("abcdef12-1234-1234-1234-abcdef123456");
     expect(text).not.to.include("secret-token"); expect(text).not.to.include("private-body"); expect(text).not.to.include("https://");
     expect(text).not.to.include(req.headers["x-hub-signature-256"]);
   });

@@ -1,3 +1,4 @@
+import { loggedJob } from "../log-job";
 import { SandboxedJob } from "bullmq";
 import { getRepository as getRepositoryImport } from "../../server/database";
 import { RepositoryStatus } from "../../core/types";
@@ -61,4 +62,4 @@ export function createRemoveRepositoryProcessor(database?: Database) {
   ) => processRemoveRepository(job, database);
 }
 
-export default createRemoveRepositoryProcessor();
+export default loggedJob("remove", createRemoveRepositoryProcessor());

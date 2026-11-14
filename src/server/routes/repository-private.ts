@@ -1,3 +1,4 @@
+import { jobTrace } from "../../core/log-context";
 import Repository from "../../core/Repository";
 import { sourceStorageSize } from "../../core/source/Source";
 import { maximumExpiration, neverExpirationDeadline, validateBillingExpiration } from "../../core/billing/expiration";
@@ -42,7 +43,7 @@ router.use(ensureAuthenticated);
 
 async function enqueueSavedSnapshot(model: IAnonymizedRepositoryDocument) {
   try {
-    await downloadQueue.add(model.repoId, { repoId: model.repoId }, {
+    await downloadQueue.add(model.repoId, { repoId: model.repoId, ...jobTrace() }, {
       jobId: `repo-${model.repoId}`, attempts: 3,
     });
   } catch (error) {
@@ -878,7 +879,7 @@ router.post("/", async (req, res) => {
     }
 
     res.send({ status: repo.status });
-    downloadQueue.add(repo.repoId, { repoId: repo.repoId }, {
+    downloadQueue.add(repo.repoId, { repoId: repo.repoId, ...jobTrace() }, {
       jobId: `repo-${repo.repoId}`,
       attempts: 3,
     });
