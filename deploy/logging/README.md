@@ -41,7 +41,13 @@ on `fix/remaining-production-findings`; do not deploy it without that base.
    can exceed 10 MiB between checks; this is not a hard file quota. Use a dedicated
    filesystem quota if hard local containment is needed. Use rename/reopen, not
    copytruncate. Vector excludes compressed history and reads new files from end.
-6. Set `DOCKER_LOG_DIR` if Docker's data root differs from `/var/lib/docker/containers`,
+6. Set `NGINX_LOG_GID` to the numeric group owning the access log
+   (`stat -c %g /var/log/nginx/anonymous.access.json`; normally the host `adm`
+   group). Vector receives this supplementary group while retaining no Linux
+   capabilities and read-only mounts. Keep logs `0640` and ensure logrotate
+   creates replacements with the same group, as in `nginx.logrotate`; do not
+   make access logs world-readable. Recreate Vector after changing this setting.
+   Set `DOCKER_LOG_DIR` if Docker's data root differs from `/var/lib/docker/containers`,
    and `NGINX_LOG_DIR` if needed. The collector mounts these directories read-only;
    it has no Docker socket, host PID namespace or ability to restart applications.
    Start with `docker compose -f deploy/logging/compose.yml up -d`.
@@ -320,3 +326,7 @@ node-redis client against a disposable loopback-only Redis container. It checks
 cold concurrent statistics, recent/grouped-history reads, overload rejection and
 subsequent transaction integrity, unavailable fallback, and restart recovery.
 The fixture uses only synthetic counters and removes its container on exit.
+
+For the focused restricted-file/rotation regression, run
+`LOGGING_ACCESS_ONLY=1 python3 scripts/test-logging.py`. This uses synthetic
+`0640` logs in an isolated Docker project and preserves capability restrictions.
