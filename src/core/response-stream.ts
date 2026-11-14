@@ -1,15 +1,20 @@
-import { Readable, Writable } from "stream";
+import { PassThrough, Readable, Writable } from "stream";
 
 /** Cancel upstream on every response terminal event, including a pre-header close. */
 export function streamResponse(source: Readable, response: Writable,
   onError: (error: Error) => void): Promise<void> {
   return new Promise((resolve, reject) => {
+    // Got copies every upstream header/status when piped to ServerResponse.
+    // A plain stream keeps response policy with the caller's explicit allowlist.
+    const body = new PassThrough();
     const cleanup = () => {
       response.removeListener("close", done);
       response.removeListener("finish", done);
       response.removeListener("error", failed);
       source.removeListener("error", upstreamFailed);
-      source.unpipe(response);
+      source.unpipe(body);
+      body.unpipe(response);
+      body.destroy();
       source.destroy();
     };
     const done = () => { cleanup(); resolve(); };
@@ -22,6 +27,6 @@ export function streamResponse(source: Readable, response: Writable,
     if (response.destroyed || response.writableEnded) done();
     else if (source.errored) upstreamFailed(source.errored);
     else if (source.destroyed || source.readableEnded) upstreamFailed(new Error("upstream_stream_closed"));
-    else source.pipe(response);
+    else { body.pipe(response); source.pipe(body); }
   });
 }
