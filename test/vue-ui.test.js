@@ -133,6 +133,8 @@ describe("Vue 3 UI", function () {
     const detail = doc.querySelector('.log-event-button'); detail.focus(); detail.click(); await delay(30);
     expect(doc.activeElement.id).to.equal('log-detail-title');
     expect(doc.querySelector('.log-detail').textContent).to.include(requestId).and.include('info');
+    expect(doc.querySelector('#log-detail-title').textContent).to.equal('http_access');
+    expect([...doc.querySelectorAll('.log-detail dt')].map(node => node.textContent)).to.have.members(['First returned', 'Last returned', 'event', 'service', 'severity', 'status', 'requestId']);
     expect(doc.querySelector('.log-detail-row').previousElementSibling.contains(detail)).to.equal(true);
     doc.querySelector('.log-detail button').click(); await delay(30);
     expect(doc.activeElement).to.equal(detail);
