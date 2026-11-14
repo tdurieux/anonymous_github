@@ -1962,6 +1962,79 @@ export const anonymizeController = function (state, http, html, params, location
         if (m) return m[1] + " · gist " + (m[2].length > 12 ? m[2].slice(0, 7) + "…" + m[2].slice(-4) : m[2]);
         return "";
       };
+      // A source that failed to load gets one message with its fix, shared by
+      // the form (under the URL) and the preview pane. `sourceError` is the
+      // server's error code; `sourceErrorText` its translation, used for codes
+      // without their own wording here.
+      state.sourceError = "";
+      state.sourceErrorText = "";
+      const sourceErrorKinds = {
+        repo_access_limited: "access", repo_not_accessible: "access", repo_saml_enforcement: "access",
+        repo_already_anonymized: "used",
+        repo_not_found: "missing", github_app_access_required: "missing", pull_request_not_found: "missing", gist_not_found: "missing", token_expired: "missing",
+      };
+      const recordSourceError = (error) => {
+        const code = error?.data?.error || (error?.status === 404 ? "repo_not_found" : "unknown_error");
+        state.sourceError = code;
+        state.sourceErrorText = "";
+        if (!sourceErrorKinds[code]) translate("ERRORS." + code).then(text => { if (state.sourceError === code && text !== "ERRORS." + code) state.sourceErrorText = text; }, () => {});
+        displayErrorMessage(code);
+        setValidity("sourceUrl", "missing", false);
+      };
+      const clearSourceError = () => { state.sourceError = ""; state.sourceErrorText = ""; };
+      // Fields that depend on the source wait for it, except when editing a
+      // saved anonymization: its settings stay editable even if GitHub fails.
+      state.sourceReady = () => !!state.isUpdate || !!state.details;
+      state.sourceProblem = () => {
+        const field = state.anonymize?.sourceUrl?.errors || {};
+        if (field.github || (state.sourceUrlError && state.workspaceOpen)) {
+          return { kind: "github", title: "Not a GitHub URL", text: "Paste a repository, pull request, or gist URL from github.com." };
+        }
+        if (state.sourceLoading || state.details && !field.used) return null;
+        if (state.gistAppRequired || state.gistOAuthRequired) return { kind: "connect", title: "Couldn't load this gist", text: "Connect GitHub to read gists." };
+        const code = state.sourceError || (field.used ? "repo_already_anonymized" : field.access ? "repo_not_accessible" : field.missing ? "repo_not_found" : "");
+        if (!code) return null;
+        const kind = sourceErrorKinds[code] || "other";
+        const type = state.detectedType;
+        let name = "this gist";
+        try {
+          const o = parseGithubUrl(String(state.sourceUrl || "").trim());
+          if (type === "pr") name = `pull request #${o.pullRequestId} in ${o.owner}/${o.repo}`;
+          else if (type !== "gist") name = `${o.owner}/${o.repo}`;
+        } catch (_) { /* named generically */ }
+        const what = type === "pr" ? "this pull request" : type === "gist" ? "this gist" : "this repository";
+        const app = type !== "gist" && state.githubConnection === "github-app";
+        // "app": the GitHub installation page; "link": the connections page.
+        // When editing a repository, "Connection problems?" below the URL opens with the repair steps.
+        const manage = state.isUpdate && type === "repo" ? null : type === "gist" || !state.githubConnection ? "link" : app ? "app" : "link";
+        const title = "Couldn't load " + what;
+        if (kind === "used") return { kind, title: "Already anonymized", text: `You've already anonymized ${name}. Open it from My work to change its settings.`, dashboard: true };
+        if (kind === "access") {
+          const reason = code === "repo_saml_enforcement" ? "Its organization requires single sign-on." : "Its organization restricts third-party apps.";
+          const note = code === "repo_saml_enforcement"
+            ? "Authorize your GitHub session for the organization, then try again."
+            : "An organization owner may need to approve Anonymous GitHub. You can also anonymize a personal fork.";
+          return { kind, title, text: `We can't read ${name}. ${reason}`, note, manage, retry: true };
+        }
+        if (kind === "missing") {
+          const who = app ? "the Anonymous GitHub app hasn't been given access to it" : "your GitHub account can't see it";
+          return { kind, title, text: `We can't read ${name}. It doesn't exist, or ${who}.`, manage, retry: true };
+        }
+        return { kind, title, text: state.sourceErrorText || "GitHub didn't return it. Try again in a moment.", retry: true };
+      };
+      // Why the primary button is disabled, said next to it.
+      state.submitBlockedReason = () => {
+        if (state.sourceLoading) return state.detectedType === "pr" ? "Waiting for the pull request to load from GitHub…" : state.detectedType === "gist" ? "Waiting for the gist to load from GitHub…" : "Waiting for the repository to load from GitHub…";
+        if (state.sourceReady()) return "";
+        if (state.sourceProblem()?.kind === "github") return "Enter a GitHub URL to continue.";
+        return state.detectedType === "pr" ? "Add a pull request you can access to continue." : state.detectedType === "gist" ? "Add a gist you can access to continue." : "Add a repository you can access to continue.";
+      };
+      // The publication warning applies once the source is known to be private.
+      state.sourceIsPrivate = () => {
+        if (!state.details) return false;
+        if (state.detectedType === "gist") return state.details.gist ? !state.details.gist.isPublic : true;
+        return state.details.private !== false;
+      };
       // "What reviewers will see": the anonymous URL being configured, shown in
       // the preview window's address bar and kept in sync with the ID field.
       state.previewId = () => state.detectedType === "pr" ? state.pullRequestId : state.detectedType === "gist" ? state.gistId : state.repoId;
@@ -2264,6 +2337,8 @@ export const anonymizeController = function (state, http, html, params, location
         try { o = parseGithubUrl(state.sourceUrl.trim()); }
         catch (_) {
           state.sourceLoading = false;
+          state.details = null;
+          clearSourceError();
           scheduleRepoPreview.cancel();
           refreshPrPreview.cancel();
           refreshGistPreview.cancel();
@@ -2277,6 +2352,7 @@ export const anonymizeController = function (state, http, html, params, location
         selectedSourceKey = key;
         state.sourceUrlError = "";
         setValidity("sourceUrl", "github", true);
+        clearSourceError();
         const transferFocus = document.activeElement?.id === "sourceUrl-landing";
         state.workspaceOpen = true;
         // Show the pasted URL from its start, not scrolled to the caret.
@@ -2386,15 +2462,9 @@ export const anonymizeController = function (state, http, html, params, location
           if (!isCurrentSource(request)) return;
           state.branches = [];
           state.sourceUnreachable = error && (error.status === 404 || (error.data && error.data.error === "repo_not_found"));
-          const code = (error && error.data && error.data.error) || (error && error.status === 404 ? "repo_not_found" : "unknown_error");
-          translate("ERRORS." + code).then((translation) => {
-            state.toasts = state.toasts || [];
-            state.addToast({ title: "Error", date: new Date(), body: translation });
-            state.error = translation;
-          }, console.error);
-          if (typeof setValidity === "function") {
-            setValidity("sourceUrl", "missing", false);
-          }
+          // Without branches the source is not usable: report it like a failed load.
+          state.details = null;
+          recordSourceError(error);
         } finally { finishSourceRequest(request); }
 
       };
@@ -2404,6 +2474,7 @@ export const anonymizeController = function (state, http, html, params, location
         const request = beginSourceRequest();
         try {
           resetValidity();
+          clearSourceError();
           // force=1 so newly enabled features (e.g. GitHub Pages — see
           // #364) are reflected without waiting for the cached metadata to
           // expire. The endpoint hits the GitHub API once.
@@ -2422,14 +2493,8 @@ export const anonymizeController = function (state, http, html, params, location
           await state.getBranches(state.reconnectingSource);
         } catch (error) {
           if (!isCurrentSource(request)) return;
-          if (error.data) {
-            translate("ERRORS." + error.data.error).then((translation) => {
-              state.addToast({ title: "Error", date: new Date(), body: translation });
-              state.error = translation;
-            }, console.error);
-            displayErrorMessage(error.data.error);
-          }
-          setValidity("sourceUrl", "missing", false);
+          // The form and the preview show it; no toast on top.
+          recordSourceError(error);
           throw error;
         } finally { finishSourceRequest(request); }
       }
@@ -2972,6 +3037,7 @@ export const anonymizeController = function (state, http, html, params, location
         const request = beginSourceRequest();
         try {
           resetValidity();
+          clearSourceError();
           const res = await http.get(`/api/pr/${o.owner}/${o.repo}/${o.pullRequestId}`, { params: { connection: state.githubConnection } });
           if (!isCurrentSource(request)) return;
           state.details = res.data;
@@ -2980,14 +3046,8 @@ export const anonymizeController = function (state, http, html, params, location
           }
         } catch (error) {
           if (!isCurrentSource(request)) return;
-          if (error.data) {
-            translate("ERRORS." + error.data.error).then((translation) => {
-              state.addToast({ title: "Error", date: new Date(), body: translation });
-              state.error = translation;
-            }, console.error);
-            displayErrorMessage(error.data.error);
-          }
-          setValidity("sourceUrl", "missing", false);
+          // The form and the preview show it; no toast on top.
+          recordSourceError(error);
           throw error;
         } finally { finishSourceRequest(request); }
       }
@@ -3043,6 +3103,7 @@ export const anonymizeController = function (state, http, html, params, location
         const request = beginSourceRequest();
         try {
           resetValidity();
+          clearSourceError();
           state.gistOAuthRequired = false;
           state.gistAppRequired = false;
           const res = await http.get(`/api/gist/source/${o.gistId}`);
@@ -3063,14 +3124,7 @@ export const anonymizeController = function (state, http, html, params, location
             setValidity("sourceUrl", "missing", false);
             return;
           }
-          if (error.data) {
-            translate("ERRORS." + error.data.error).then((translation) => {
-              state.addToast({ title: "Error", date: new Date(), body: translation });
-              state.error = translation;
-            }, console.error);
-            displayErrorMessage(error.data.error);
-          }
-          setValidity("sourceUrl", "missing", false);
+          recordSourceError(error);
           throw error;
         } finally { finishSourceRequest(request); }
       }

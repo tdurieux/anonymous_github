@@ -8,6 +8,8 @@ export interface IRepository {
   size?: number;
   defaultBranch?: string;
   hasPage: boolean;
+  /** GitHub visibility, refreshed each time the metadata is fetched. */
+  private?: boolean;
   pageSource?: {
     branch: string;
     path: string;

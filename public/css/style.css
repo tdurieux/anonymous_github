@@ -14738,3 +14738,13 @@ body.dark-mode .reviewer-preview .rp-preserved-tag { background: rgba(251, 191, 
  .errors-page .log-investigation-body .log-timeline { padding:16px; }
  .errors-page .log-investigation-body .log-events li { grid-template-columns:minmax(0,1fr); gap:6px; }
 }
+/* ===== Source errors (anonymize workspace) ===== */
+/* One block under the URL: what happened, an optional note, then the fix. */
+.source-error { margin-top: 6px; }
+.source-error .invalid-feedback { display: block; margin: 0; font-size: 13px; line-height: 1.5; }
+.source-error-note { margin: 4px 0 0; font-size: 12.5px; line-height: 1.5; color: var(--ink-muted); }
+.source-error .repo-access-controls { margin-top: 10px; gap: 8px; }
+.anonymize-page .source-error .repo-access-controls .btn { display: inline-flex; align-items: center; gap: 6px; }
+.anonymize-page .source-public-note { margin: 12px 0 16px; font-size: 12.5px; }
+/* "Don't see your repository?" sits under the picker list as a quiet link. */
+.repo-picker-access { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; margin: 0; padding: 12px 16px 0; font-size: 13px; color: var(--ink-muted); }

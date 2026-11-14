@@ -1826,7 +1826,14 @@ describe("Vue 3 UI", function () {
       const button = [...workspace.querySelectorAll("button")].find(b => b.textContent.trim() === "Manage GitHub access");
       expect(button).not.to.equal(undefined);
       for (let node = button; node; node = node.parentElement) expect(ui.window.getComputedStyle(node).display).not.to.equal("none");
-      expect(workspace.textContent).to.include("Signing in does not grant access to private repositories");
+      const message = workspace.querySelector(".source-error");
+      expect(message.textContent).to.include("We can't read " + (type === "pr" ? "pull request #7 in owner/private" : "owner/private"));
+      expect(message.textContent).to.include("the Anonymous GitHub app hasn't been given access to it");
+      expect(workspace.textContent).not.to.include("Repository not listed?");
+      // Nothing that depends on the source (branch, commit and its validation) is shown.
+      const commit = workspace.querySelector("#commit");
+      if (commit) expect(ui.window.getComputedStyle(commit.closest(".form-grid-2")).display).to.equal("none");
+      expect(workspace.querySelector(".anonymize-submit-bar .btn-ink").disabled).to.equal(true);
       button.click();
       const draft = JSON.parse(ui.window.sessionStorage.getItem("github-access-draft"));
       expect(draft.draft.sourceUrl).to.equal(sourceUrl);
