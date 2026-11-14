@@ -1,0 +1,58 @@
+{
+  "verifiedAt": "2026-11-03T15:42:06.881Z",
+  "hostname": "beta.durieux.me",
+  "checks": [
+    {
+      "query": "download=",
+      "status": 200,
+      "attachment": false
+    },
+    {
+      "query": "download[]=",
+      "status": 200,
+      "attachment": true
+    },
+    {
+      "query": "download[x]=",
+      "status": 200,
+      "attachment": true
+    },
+    {
+      "query": "download=&download=",
+      "status": 200,
+      "attachment": true
+    },
+    {
+      "query": "q=README",
+      "status": 200,
+      "found": true
+    },
+    {
+      "query": "q=%EF%BB%BFREADME%EF%BB%BF",
+      "status": 200,
+      "found": true
+    },
+    {
+      "query": "q=%C3%A9",
+      "status": 200,
+      "found": false
+    },
+    {
+      "query": "q[]=README",
+      "status": 500,
+      "found": false
+    },
+    {
+      "endpoint": "files",
+      "query": "",
+      "status": 200
+    },
+    {
+      "endpoint": "files",
+      "query": "path[]=docs",
+      "status": 500
+    }
+  ],
+  "productionChanged": false,
+  "result": "passed"
+}

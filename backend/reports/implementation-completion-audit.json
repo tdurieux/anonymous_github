@@ -1,0 +1,141 @@
+{
+  "objective": "Have the Go implementation preserve supported TypeScript behavior and make additional source providers easy to support.",
+  "policy": "Preserve functionality and supported outputs; do not reproduce TypeScript bugs. Production cutover and shipping a new external provider are separate from implementation parity.",
+  "status": "implementation_verified",
+  "requirements": [
+    {
+      "requirement": "Retain the existing API surface and supported output behavior",
+      "evidence": [
+        "backend/contracts/routes.cjs extracts 112 mounted routes from TypeScript AST",
+        "backend/internal/server/routes_test.go checks Go dispatch for every extracted route",
+        "64 CI contract commands passed on current source",
+        "Resource, validation, HTTP, dashboard, conference, admin and webhook contracts execute actual TypeScript code"
+      ],
+      "status": "verified"
+    },
+    {
+      "requirement": "Retain repository, gist and PR lifecycle and access controls",
+      "evidence": [
+        "backend/internal/server/integration_test.go",
+        "backend/internal/server/provider_integration_test.go",
+        "backend/internal/server/resource_options_integration_test.go",
+        "backend/internal/server/repository_recovery_integration_test.go",
+        "backend/internal/server/conference_recovery_integration_test.go"
+      ],
+      "status": "verified"
+    },
+    {
+      "requirement": "Preserve anonymization output with bounded regex execution",
+      "evidence": [
+        "backend/contracts/differential.cjs: 499 behavior cases and cross-language credential checks",
+        "backend/contracts/file-types.cjs: 7876 file type cases",
+        "backend/internal/anonymize/anonymize_test.go: output limits and regex deadline",
+        "backend/internal/anonymize/process_cache_test.go: process cancellation and publication controls"
+      ],
+      "status": "verified"
+    },
+    {
+      "requirement": "Support provider adapters without rewriting lifecycle and content handlers",
+      "evidence": [
+        "backend/internal/provider/provider.go: repository interface and optional discovery/documents/tree capabilities",
+        "backend/internal/server/http.go: New accepts registered provider extensions",
+        "backend/internal/server/provider_integration_test.go: non-GitHub fixture with nested names and opaque revisions",
+        "backend/internal/server/provider_identity_integration_test.go and document_identity_integration_test.go: server-owned binding and immutable identity validation",
+        "backend/README.md Provider adapters: registration, required methods, security obligations and API examples"
+      ],
+      "status": "verified"
+    },
+    {
+      "requirement": "Retain security controls and deployment isolation",
+      "evidence": [
+        "backend/internal/security/security_test.go",
+        "backend/internal/server/integration_test.go: scoped tokens, private access, revocation, forged sessions and unsigned webhooks",
+        "Current govulncheck: zero reachable and imported-package findings; four unused-module advisories",
+        "Current deployment smoke test: isolated volumes, non-root writes, static routes and graceful shutdown"
+      ],
+      "status": "verified"
+    },
+    {
+      "requirement": "Validate beta and report performance without unsupported claims",
+      "evidence": [
+        "backend/reports/shadow-monitoring-authenticated-deployment.json: 94 authenticated requests and temporary key revocation",
+        "backend/reports/transform-benchmark.json",
+        "backend/reports/http-archive-benchmark.json",
+        "backend/reports/transformed-cache-benchmark.jsonl",
+        "backend/reports/shadow-performance-browser-validation.json"
+      ],
+      "status": "verified_with_recorded_workload_limits"
+    }
+  ],
+  "intentionalDifferences": [
+    "Invalid resource options return 400 without partial database writes.",
+    "Cache-ID operator objects are rejected.",
+    "Structured JSON errors replace framework-generated HTML parser errors.",
+    "Resource bounds, cancellation and credential isolation remain enforced."
+  ],
+  "operationalLimits": [
+    "No production data or production deployment changed.",
+    "Production restore/queue handoff/rollback requires a separate target-data rehearsal.",
+    "Live private-repository revocation and suspension are not proven by public beta tests; automated protocol tests cover these controls.",
+    "No GitLab or Bitbucket adapter shipped. New adapters need their own provider-specific credential connection flow.",
+    "Performance measurements describe recorded workloads, not an overall production speedup."
+  ],
+  "updatedAtUTC": "2026-11-03T18:13:34.084892+00:00",
+  "checks": {
+    "contracts": {
+      "result": "passed",
+      "file": "/tmp/go-parity-final-contracts.log",
+      "sha256": "9ec7d3649e3b762da5f45076bcf5055dde3b08c98a6715262bde62dfa64d371d"
+    },
+    "vulnerabilities": {
+      "result": "passed",
+      "file": "/tmp/go-parity-final-vulnerabilities.log",
+      "sha256": "cd603802373c0ab24cb1e859ec21635183b92cc81aeb083b21f3061103e3822f"
+    },
+    "deployment": {
+      "result": "passed",
+      "file": "/tmp/go-parity-final-deployment.log",
+      "sha256": "a511be3848a8bdfc3d044f07e4e25a0fd28d58edc6f34bae47f0859cc6cf8683"
+    },
+    "static": {
+      "goVet": "passed ./...",
+      "gofmt": "passed cmd internal"
+    },
+    "firstFullRace": {
+      "result": "failed",
+      "file": "/tmp/go-parity-final-race.log",
+      "sha256": "4e0664c9b63d596b1f546cb66f3c92db5c7968b8bee7784695c6f9d041c78e4b",
+      "cause": "Shared TestBackendIntegration context expired at five minutes after expanded provider lifecycle checks. Subsequent DB operations failed with context deadline exceeded.",
+      "fix": "Use the Go test runner deadline, reserving five seconds for cleanup. Application deadlines unchanged."
+    },
+    "interruptedFullRace": {
+      "result": "terminated",
+      "file": "/tmp/go-parity-final-race-rerun.log",
+      "execSessionID": 17108,
+      "exitCode": 143,
+      "cause": "SIGTERM; process confirmed terminal and disposable services removed. No completed test result."
+    },
+    "fullRaceRerun": {
+      "result": "passed",
+      "file": "/tmp/go-parity-final-race-complete.log",
+      "sha256": "0ce54b362a54110feb9551427e8c65fb27738cd9f9299425574498161dab42ef",
+      "packages": [
+        "ok  \tgithub.com/tdurieux/anonymous_github/backend/cmd/server\t2.836s",
+        "ok  \tgithub.com/tdurieux/anonymous_github/backend/internal/anonymize\t2.301s",
+        "ok  \tgithub.com/tdurieux/anonymous_github/backend/internal/blobcache\t100.344s",
+        "ok  \tgithub.com/tdurieux/anonymous_github/backend/internal/provider\t1.043s",
+        "ok  \tgithub.com/tdurieux/anonymous_github/backend/internal/quotagate\t1.291s",
+        "ok  \tgithub.com/tdurieux/anonymous_github/backend/internal/security\t1.053s",
+        "ok  \tgithub.com/tdurieux/anonymous_github/backend/internal/server\t383.719s",
+        "ok  \tgithub.com/tdurieux/anonymous_github/backend/internal/storage\t1.275s"
+      ],
+      "disposableInfrastructureCleanedUp": true
+    }
+  },
+  "source": {
+    "sha256": "800d00337ffc0eba9983b59489a525da86e4a880f0525b63c0ce9c0b8d1dafac",
+    "files": 342,
+    "algorithm": "SHA-256 over sorted backend-relative path, NUL, file bytes, NUL; Go sources, go.mod and go.sum"
+  },
+  "conclusion": "Supported TypeScript functionality and outputs are implemented and verified under the documented compatibility policy. Shared provider interfaces and non-GitHub lifecycle coverage satisfy the provider extension requirement. No implementation requirement remains open; production cutover limits are listed separately."
+}

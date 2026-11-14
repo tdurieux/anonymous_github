@@ -1,0 +1,36 @@
+{
+  "verifiedAt": "2026-11-03T12:19:48.910Z",
+  "hostname": "beta.durieux.me",
+  "browserProfile": "incognito",
+  "dashboard": "rendered with authenticated API responses",
+  "connections": "GitHub App and legacy OAuth both rendered Connected",
+  "adminOverview": {
+    "result": "passed after backend field fix",
+    "cards": [
+      "7",
+      "15%",
+      "90%",
+      "68%",
+      "0m"
+    ]
+  },
+  "fix": {
+    "files": [
+      "internal/server/system_overview.go",
+      "internal/server/system_overview_linux.go",
+      "internal/server/system_overview_other.go",
+      "internal/server/system_overview_test.go",
+      "internal/server/observability.go"
+    ],
+    "unitTest": "TestSystemOverviewBrowserContract passed",
+    "raceTest": "TestSystemOverviewBrowserContract passed with -race",
+    "deployment": "rebuilt and verified in browser"
+  },
+  "temporaryKeyRevoked": true,
+  "testSessionLoggedOut": true,
+  "productionChanged": false,
+  "limits": [
+    "Read-only browser smoke checks, not every form or workflow",
+    "/api/message returns expected 404 because beta has no message.txt"
+  ]
+}

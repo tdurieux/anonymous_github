@@ -1,0 +1,566 @@
+[
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": "March 1 2031",
+      "endDate": "2032-01-01"
+    },
+    "expected": {
+      "startDate": "2031-03-01T00:00:00.000Z",
+      "endDate": "2032-01-01T00:00:00.000Z"
+    }
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": "2031-02-30",
+      "endDate": "2032-01-01"
+    },
+    "expected": {
+      "startDate": "2031-03-02T00:00:00.000Z",
+      "endDate": "2032-01-01T00:00:00.000Z"
+    }
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": "0001-01-01",
+      "endDate": "2032-01-01"
+    },
+    "expected": {
+      "startDate": "0001-01-01T00:00:00.000Z",
+      "endDate": "2032-01-01T00:00:00.000Z"
+    }
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": "0000-01-01",
+      "endDate": "2032-01-01"
+    },
+    "expected": {
+      "startDate": "0000-01-01T00:00:00.000Z",
+      "endDate": "2032-01-01T00:00:00.000Z"
+    }
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": "-000001-01-01",
+      "endDate": "2032-01-01"
+    },
+    "expected": {
+      "startDate": "-000001-01-01T00:00:00.000Z",
+      "endDate": "2032-01-01T00:00:00.000Z"
+    }
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": "+010000-01-01",
+      "endDate": "2032-01-01"
+    },
+    "expected": {
+      "startDate": "+010000-01-01T00:00:00.000Z",
+      "endDate": "2032-01-01T00:00:00.000Z"
+    }
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": "2031-01-01T24:00:00Z",
+      "endDate": "2032-01-01"
+    },
+    "expected": {
+      "startDate": "2031-01-02T00:00:00.000Z",
+      "endDate": "2032-01-01T00:00:00.000Z"
+    }
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": "2031-01-01T01:00:00+02:00",
+      "endDate": "2032-01-01"
+    },
+    "expected": {
+      "startDate": "2030-12-31T23:00:00.000Z",
+      "endDate": "2032-01-01T00:00:00.000Z"
+    }
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": "invalid",
+      "endDate": "2032-01-01"
+    },
+    "error": true
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": "",
+      "endDate": "2032-01-01"
+    },
+    "error": true
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": null,
+      "endDate": "2032-01-01"
+    },
+    "expected": {
+      "startDate": "1970-01-01T00:00:00.000Z",
+      "endDate": "2032-01-01T00:00:00.000Z"
+    }
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": false,
+      "endDate": "2032-01-01"
+    },
+    "expected": {
+      "startDate": "1970-01-01T00:00:00.000Z",
+      "endDate": "2032-01-01T00:00:00.000Z"
+    }
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": true,
+      "endDate": "2032-01-01"
+    },
+    "expected": {
+      "startDate": "1970-01-01T00:00:00.001Z",
+      "endDate": "2032-01-01T00:00:00.000Z"
+    }
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": 0,
+      "endDate": "2032-01-01"
+    },
+    "expected": {
+      "startDate": "1970-01-01T00:00:00.000Z",
+      "endDate": "2032-01-01T00:00:00.000Z"
+    }
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": 1,
+      "endDate": "2032-01-01"
+    },
+    "expected": {
+      "startDate": "1970-01-01T00:00:00.001Z",
+      "endDate": "2032-01-01T00:00:00.000Z"
+    }
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": 1.5,
+      "endDate": "2032-01-01"
+    },
+    "expected": {
+      "startDate": "1970-01-01T00:00:00.001Z",
+      "endDate": "2032-01-01T00:00:00.000Z"
+    }
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": -1.5,
+      "endDate": "2032-01-01"
+    },
+    "expected": {
+      "startDate": "1969-12-31T23:59:59.999Z",
+      "endDate": "2032-01-01T00:00:00.000Z"
+    }
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": 1924992000000,
+      "endDate": "2032-01-01"
+    },
+    "expected": {
+      "startDate": "2031-01-01T00:00:00.000Z",
+      "endDate": "2032-01-01T00:00:00.000Z"
+    }
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": "1924992000000",
+      "endDate": "2032-01-01"
+    },
+    "error": true
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": 8640000000000001,
+      "endDate": "2032-01-01"
+    },
+    "error": true
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": {},
+      "endDate": "2032-01-01"
+    },
+    "error": true
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": {
+        "toString": "bad"
+      },
+      "endDate": "2032-01-01"
+    },
+    "error": true
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": {
+        "valueOf": 1
+      },
+      "endDate": "2032-01-01"
+    },
+    "error": true
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": [],
+      "endDate": "2032-01-01"
+    },
+    "error": true
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": [
+        "2031",
+        "1",
+        "1"
+      ],
+      "endDate": "2032-01-01"
+    },
+    "expected": {
+      "startDate": "2031-01-01T00:00:00.000Z",
+      "endDate": "2032-01-01T00:00:00.000Z"
+    }
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": [
+        1
+      ],
+      "endDate": "2032-01-01"
+    },
+    "expected": {
+      "startDate": "2001-01-01T00:00:00.000Z",
+      "endDate": "2032-01-01T00:00:00.000Z"
+    }
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": [
+        null
+      ],
+      "endDate": "2032-01-01"
+    },
+    "error": true
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": "2031-01-01",
+      "endDate": "March 1 2031"
+    },
+    "expected": {
+      "startDate": "2031-01-01T00:00:00.000Z",
+      "endDate": "2031-03-01T00:00:00.000Z"
+    }
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": "2031-01-01",
+      "endDate": "2031-02-30"
+    },
+    "expected": {
+      "startDate": "2031-01-01T00:00:00.000Z",
+      "endDate": "2031-03-02T00:00:00.000Z"
+    }
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": "2031-01-01",
+      "endDate": "0001-01-01"
+    },
+    "expected": {
+      "startDate": "2031-01-01T00:00:00.000Z",
+      "endDate": "0001-01-01T00:00:00.000Z"
+    }
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": "2031-01-01",
+      "endDate": "0000-01-01"
+    },
+    "expected": {
+      "startDate": "2031-01-01T00:00:00.000Z",
+      "endDate": "0000-01-01T00:00:00.000Z"
+    }
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": "2031-01-01",
+      "endDate": "-000001-01-01"
+    },
+    "expected": {
+      "startDate": "2031-01-01T00:00:00.000Z",
+      "endDate": "-000001-01-01T00:00:00.000Z"
+    }
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": "2031-01-01",
+      "endDate": "+010000-01-01"
+    },
+    "expected": {
+      "startDate": "2031-01-01T00:00:00.000Z",
+      "endDate": "+010000-01-01T00:00:00.000Z"
+    }
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": "2031-01-01",
+      "endDate": "2031-01-01T24:00:00Z"
+    },
+    "expected": {
+      "startDate": "2031-01-01T00:00:00.000Z",
+      "endDate": "2031-01-02T00:00:00.000Z"
+    }
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": "2031-01-01",
+      "endDate": "2031-01-01T01:00:00+02:00"
+    },
+    "expected": {
+      "startDate": "2031-01-01T00:00:00.000Z",
+      "endDate": "2030-12-31T23:00:00.000Z"
+    }
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": "2031-01-01",
+      "endDate": "invalid"
+    },
+    "error": true
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": "2031-01-01",
+      "endDate": ""
+    },
+    "error": true
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": "2031-01-01",
+      "endDate": null
+    },
+    "expected": {
+      "startDate": "2031-01-01T00:00:00.000Z",
+      "endDate": "1970-01-01T00:00:00.000Z"
+    }
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": "2031-01-01",
+      "endDate": false
+    },
+    "expected": {
+      "startDate": "2031-01-01T00:00:00.000Z",
+      "endDate": "1970-01-01T00:00:00.000Z"
+    }
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": "2031-01-01",
+      "endDate": true
+    },
+    "expected": {
+      "startDate": "2031-01-01T00:00:00.000Z",
+      "endDate": "1970-01-01T00:00:00.001Z"
+    }
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": "2031-01-01",
+      "endDate": 0
+    },
+    "expected": {
+      "startDate": "2031-01-01T00:00:00.000Z",
+      "endDate": "1970-01-01T00:00:00.000Z"
+    }
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": "2031-01-01",
+      "endDate": 1
+    },
+    "expected": {
+      "startDate": "2031-01-01T00:00:00.000Z",
+      "endDate": "1970-01-01T00:00:00.001Z"
+    }
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": "2031-01-01",
+      "endDate": 1.5
+    },
+    "expected": {
+      "startDate": "2031-01-01T00:00:00.000Z",
+      "endDate": "1970-01-01T00:00:00.001Z"
+    }
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": "2031-01-01",
+      "endDate": -1.5
+    },
+    "expected": {
+      "startDate": "2031-01-01T00:00:00.000Z",
+      "endDate": "1969-12-31T23:59:59.999Z"
+    }
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": "2031-01-01",
+      "endDate": 1924992000000
+    },
+    "expected": {
+      "startDate": "2031-01-01T00:00:00.000Z",
+      "endDate": "2031-01-01T00:00:00.000Z"
+    }
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": "2031-01-01",
+      "endDate": "1924992000000"
+    },
+    "error": true
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": "2031-01-01",
+      "endDate": 8640000000000001
+    },
+    "error": true
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": "2031-01-01",
+      "endDate": {}
+    },
+    "error": true
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": "2031-01-01",
+      "endDate": {
+        "toString": "bad"
+      }
+    },
+    "error": true
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": "2031-01-01",
+      "endDate": {
+        "valueOf": 1
+      }
+    },
+    "error": true
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": "2031-01-01",
+      "endDate": []
+    },
+    "error": true
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": "2031-01-01",
+      "endDate": [
+        "2031",
+        "1",
+        "1"
+      ]
+    },
+    "expected": {
+      "startDate": "2031-01-01T00:00:00.000Z",
+      "endDate": "2031-01-01T00:00:00.000Z"
+    }
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": "2031-01-01",
+      "endDate": [
+        1
+      ]
+    },
+    "expected": {
+      "startDate": "2031-01-01T00:00:00.000Z",
+      "endDate": "2001-01-01T00:00:00.000Z"
+    }
+  },
+  {
+    "body": {
+      "name": "Conference",
+      "startDate": "2031-01-01",
+      "endDate": [
+        null
+      ]
+    },
+    "error": true
+  }
+]

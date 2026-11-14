@@ -1,0 +1,87 @@
+[
+  {
+    "name": "token-0",
+    "token": "",
+    "scope": "",
+    "expected": [
+      "gh_rate_gate:e3b0c44298fc1c149afbf4c8"
+    ]
+  },
+  {
+    "name": "token-1",
+    "token": "synthetic-oauth",
+    "scope": "",
+    "expected": [
+      "gh_rate_gate:4e3123649321fcdea843dcca"
+    ]
+  },
+  {
+    "name": "token-2",
+    "token": "ghp_synthetic",
+    "scope": "",
+    "expected": [
+      "gh_rate_gate:70232f9dabd7738e42ca5e32"
+    ]
+  },
+  {
+    "name": "token-3",
+    "token": "github_pat_synthetic",
+    "scope": "",
+    "expected": [
+      "gh_rate_gate:f3283c7673338ce53105e7e4"
+    ]
+  },
+  {
+    "name": "token-4",
+    "token": "synthetic-ü-🔑",
+    "scope": "",
+    "expected": [
+      "gh_rate_gate:d81aab95ad5e5bc4a4bd54a6"
+    ]
+  },
+  {
+    "name": "installation-1",
+    "token": "synthetic-installation-1",
+    "scope": "installation:123:1",
+    "expected": [
+      "gh_rate_gate:49bdd0cc2a308c01195c228d",
+      "gh_rate_gate:installation:1"
+    ]
+  },
+  {
+    "name": "installation-42",
+    "token": "synthetic-installation-42",
+    "scope": "installation:123:42",
+    "expected": [
+      "gh_rate_gate:a678e8f5ee266fc1987d415f",
+      "gh_rate_gate:installation:42"
+    ]
+  },
+  {
+    "name": "installation-9007199254740991",
+    "token": "synthetic-installation-9007199254740991",
+    "scope": "installation:123:9007199254740991",
+    "expected": [
+      "gh_rate_gate:211d6bdaaaf51f2eb9145c38",
+      "gh_rate_gate:installation:9007199254740991"
+    ]
+  },
+  {
+    "name": "app-user-000000000000000000000001",
+    "token": "synthetic-app-user-000000000000000000000001",
+    "scope": "app-user:000000000000000000000001",
+    "expected": [
+      "gh_rate_gate:dd52a0089c6479c96a8fa1b6",
+      "gh_rate_gate:app-user:000000000000000000000001"
+    ]
+  },
+  {
+    "name": "app-user-abcdefabcdefabcdefabcdef",
+    "token": "synthetic-app-user-abcdefabcdefabcdefabcdef",
+    "scope": "app-user:abcdefabcdefabcdefabcdef",
+    "expected": [
+      "gh_rate_gate:02f42289369727acc0d169f8",
+      "gh_rate_gate:app-user:abcdefabcdefabcdefabcdef"
+    ]
+  }
+]

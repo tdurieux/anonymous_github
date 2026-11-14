@@ -6,80 +6,47 @@ services:
         max-size: "25m"
         max-file: "4"
     build: .
+    init: true
+    stop_grace_period: 45s
+    read_only: true
+    tmpfs:
+      - /tmp:size=2147483648,mode=1777
+    pids_limit: 128
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
     restart: always
-    image: tdurieux/anonymous_github:v2
+    image: anonymous-github-go:${GO_IMAGE_TAG:-local}
     ports:
-      - $EXPOSED_PORT:5000
+      - ${EXPOSED_PORT:-5000}:5000
     deploy:
       resources:
         limits:
           memory: 3G
+          pids: 128
     env_file:
-      - ./.env
+      - ${APP_ENV_FILE:-./.env}
     volumes:
-      - ./repositories:/app/repositories/
+      - ${REPOSITORIES_DIR:-./repositories}:/app/repositories/
     environment:
       - PORT=5000
       - REDIS_HOSTNAME=redis
       - DB_HOSTNAME=mongodb
-      - STREAMER_ENTRYPOINT=http://streamer:5000/
+      - GOMEMLIMIT=768MiB
+      - ANONYMIZATION_MEMORY_MB=512
     healthcheck:
       test:
         - CMD
-        - node
-        - healthcheck.js
+        - /usr/local/bin/anonymous-server
+        - healthcheck
       interval: 5s
       timeout: 5s
       retries: 3
-      start_period: 2s
+      start_period: 20s
     depends_on:
       mongodb:
         condition: service_healthy
       redis:
         condition: service_healthy
-      streamer:
-        condition: service_healthy
-
-  streamer:
-    logging:
-      driver: json-file
-      options:
-        max-size: "25m"
-        max-file: "4"
-    build: .
-    restart: always
-    image: tdurieux/anonymous_github:v2
-    deploy:
-      mode: replicated
-      replicas: 4
-      endpoint_mode: dnsrr
-      resources:
-        limits:
-          memory: 768M
-    entrypoint: ["node", "--max-old-space-size=512", "./build/streamer/index.js"]
-    env_file:
-      - ./.env
-    volumes:
-      - ./repositories:/app/repositories/
-    environment:
-      - PORT=5000
-      - SERVICE_NAME=Streamer
-      - DB_HOSTNAME=mongodb
-      - REDIS_HOSTNAME=redis
-    depends_on:
-      mongodb:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test:
-        - CMD
-        - node
-        - healthcheck.js
-      interval: 5s
-      timeout: 5s
-      retries: 3
-      start_period: 2s
 
   redis:
     image: "redis:alpine"
@@ -121,7 +88,7 @@ services:
     links:
       - mongodb
     env_file:
-      - ./.env
+      - ${APP_ENV_FILE:-./.env}
     volumes:
       - ./db_backups:/backup
     environment:

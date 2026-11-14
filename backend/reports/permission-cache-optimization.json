@@ -1,0 +1,121 @@
+{
+  "measuredAt": "2026-11-04T06:36:21.500234+00:00",
+  "deployment": "beta.durieux.me",
+  "image": "sha256:b279b1b3437e54068fb0e1f83fdd595387166b52f204c29b5e6d708a68402ab8",
+  "permissionCacheSeconds": 3600,
+  "file": "/api/repo/anonymous_github-72DE/file/gulpfile.js?v=dd09af1c",
+  "notes": [
+    "Sequential live samples, not a controlled load benchmark.",
+    "Warm medians exclude the first request in each series.",
+    "Every post-deploy file body matched the pre-deploy SHA-256.",
+    "Local account, credential and installation checks remain live."
+  ],
+  "before": {
+    "samples": [
+      {
+        "status": 200,
+        "ms": 1897,
+        "bytes": 6007,
+        "id": "9f16462b-8277-482e-a5c4-bd8748656dce",
+        "serverMs": 1558.0,
+        "authorizationMs": 1511.287288
+      },
+      {
+        "status": 200,
+        "ms": 398,
+        "bytes": 6007,
+        "id": "de5ce9df-acfe-4c53-9e75-8c4f50c91908",
+        "serverMs": 357.0,
+        "authorizationMs": 328.736663
+      },
+      {
+        "status": 200,
+        "ms": 356,
+        "bytes": 6007,
+        "id": "5d030cc7-8134-4404-860c-5e8bb47b6561",
+        "serverMs": 315.0,
+        "authorizationMs": 289.065312
+      },
+      {
+        "status": 200,
+        "ms": 501,
+        "bytes": 6007,
+        "id": "70046936-d3f3-4e78-bc34-2e5a52c17f65",
+        "serverMs": 457.0,
+        "authorizationMs": 407.164346
+      }
+    ],
+    "warmMedians": {
+      "ms": 398,
+      "serverMs": 357.0,
+      "authorizationMs": 328.736663
+    }
+  },
+  "after": {
+    "samples": [
+      {
+        "status": 200,
+        "ms": 1527,
+        "bytes": 6007,
+        "id": "1fa381e0-23e5-46f4-98a9-24af5a3731e8",
+        "sha256": "f5d54d3ace8a175687a60b10f1e324cc17316a6f49111299d61ffe30b41b0633",
+        "serverMs": 1084.0,
+        "authorizationMs": 1030.124039
+      },
+      {
+        "status": 200,
+        "ms": 113,
+        "bytes": 6007,
+        "id": "c2fe4b45-c657-41d4-9c7f-c366409aa41a",
+        "sha256": "f5d54d3ace8a175687a60b10f1e324cc17316a6f49111299d61ffe30b41b0633",
+        "serverMs": 35.0,
+        "authorizationMs": 4.361316
+      },
+      {
+        "status": 200,
+        "ms": 108,
+        "bytes": 6007,
+        "id": "b9cd121b-a53c-49d9-9f66-cc0f6c8268d2",
+        "sha256": "f5d54d3ace8a175687a60b10f1e324cc17316a6f49111299d61ffe30b41b0633",
+        "serverMs": 32.0,
+        "authorizationMs": 4.830455
+      },
+      {
+        "status": 200,
+        "ms": 94,
+        "bytes": 6007,
+        "id": "f5e64477-045a-4d6b-b7a7-23799f858dc6",
+        "sha256": "f5d54d3ace8a175687a60b10f1e324cc17316a6f49111299d61ffe30b41b0633",
+        "serverMs": 29.0,
+        "authorizationMs": 4.426811
+      },
+      {
+        "status": 200,
+        "ms": 103,
+        "bytes": 6007,
+        "id": "16d193fd-af7f-408a-bf66-eeb075e47b3e",
+        "sha256": "f5d54d3ace8a175687a60b10f1e324cc17316a6f49111299d61ffe30b41b0633",
+        "serverMs": 28.0,
+        "authorizationMs": 4.270152
+      }
+    ],
+    "warmMedians": {
+      "ms": 105.5,
+      "serverMs": 30.5,
+      "authorizationMs": 4.3940635
+    }
+  },
+  "validation": {
+    "raceTests": "targeted permission cache, installation, App selection and signed webhook suites passed (server 47.060s)",
+    "goVet": "passed",
+    "liveDeployment": {
+      "result": "passed",
+      "checks": 132,
+      "repeatedContentChecks": 3,
+      "exactZipContents": "passed",
+      "testRepositoryRemoved": true,
+      "temporaryKeyRevoked": true
+    },
+    "zipCheckNote": "Compare CRC-validated entry names and SHA-256 of decompressed contents; streaming flush timing can legitimately alter compressed framing."
+  }
+}

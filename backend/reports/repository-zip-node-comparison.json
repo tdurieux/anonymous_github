@@ -1,0 +1,83 @@
+{
+  "recordedAt": "2026-11-04T07:12:26.398Z",
+  "node": "v24.14.1",
+  "go": "go version go1.27.3 linux/amd64",
+  "nodeSourceSHA256": "ccef1fc05af9de24f0d2bf9223d478c2455de0305129babf05d0ad2c22a0b185",
+  "goBinarySHA256": "99beec84cb1ac35125705e1d267c8a1820647282380af312a8d3b81418c8a34b",
+  "benchmarkScriptSHA256": "aebc3ee79db1d9ff8d87ee1e95af1ea437df0ace1563b8d126043ae5447562f5",
+  "fixture": {
+    "repository": "tdurieux/anonymous_github",
+    "commit": "b09ef0e5b0027756ad86eb3353a5ff6416016ade",
+    "originalFiles": 1017,
+    "originalBytes": 28687144,
+    "addedFixture": "1000 copies of snapshot gulpfile.js in benchmark-1000",
+    "terms": [
+      "tdurieux"
+    ]
+  },
+  "method": {
+    "entrypoints": [
+      "src/server/index.ts",
+      "backend/cmd/server"
+    ],
+    "provider": "Same pre-seeded archive snapshot; no GitHub API calls or production database",
+    "localZipOrigin": "Only codeload origin in temporary compiled TS redirected to loopback serving the identical snapshot ZIP; no tracked TS sources changed",
+    "zipAuthorization": "Disposable admin API key to allow the TypeScript local ZIP route",
+    "sharedCache": true,
+    "encoding": "identity",
+    "cold": "First endpoint request per fresh process/storage; earlier cases may warm shared dependencies",
+    "warm": "32 requests per concurrency 1 and 8; ZIP 3 requests at concurrency 1",
+    "order": "Node then Go; Go then Node",
+    "resources": "Process tree CPU and RSS; excludes MongoDB, Redis and client; CPU may include background work",
+    "scope": "HTTP backend only; excludes browser rendering, CDN, GitHub authorization and network fetch",
+    "limits": [
+      "OS page cache was not dropped.",
+      "Process RSS includes caches retained from preceding cases; it is not per-request allocation.",
+      "Both selected small source files contain no occurrence of the configured term; replacement-heavy text is not represented by these file timings."
+    ]
+  },
+  "results": [
+    {
+      "runtime": "node",
+      "repeat": 0,
+      "results": [
+        {
+          "name": "repository ZIP",
+          "cold": {
+            "ms": 0,
+            "firstBodyMs": null,
+            "status": 0,
+            "bytes": 28
+          },
+          "output": {
+            "status": 0,
+            "error": "incomplete response: aborted"
+          },
+          "warm": [],
+          "diagnostic": "DataCloneError in TypeScript anonymization worker"
+        }
+      ]
+    },
+    {
+      "runtime": "node",
+      "repeat": 1,
+      "results": [
+        {
+          "name": "repository ZIP",
+          "cold": {
+            "ms": 0,
+            "firstBodyMs": null,
+            "status": 0,
+            "bytes": 28
+          },
+          "output": {
+            "status": 0,
+            "error": "incomplete response: aborted"
+          },
+          "warm": [],
+          "diagnostic": "DataCloneError in TypeScript anonymization worker"
+        }
+      ]
+    }
+  ]
+}

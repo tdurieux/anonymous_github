@@ -1,0 +1,101 @@
+# Isolated rehearsal only. Never attach production volumes, databases or Redis.
+# docker compose --env-file .env.go-shadow -f backend/compose.shadow.yml up -d --build
+name: anonymous-go-shadow
+services:
+  app:
+    image: anonymous-github-go:shadow
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 45s
+    read_only: true
+    tmpfs: ["/tmp:size=2147483648,mode=1777"]
+    mem_limit: 3g
+    pids_limit: 128
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    volumes: [shadow_repositories:/app/repositories]
+    environment:
+      PORT: "5000"
+      NODE_ENV: production
+      SESSION_SECRET: ${SHADOW_SESSION_SECRET:?Generate .env.go-shadow first}
+      CREDENTIAL_KEYS: ${SHADOW_CREDENTIAL_KEYS:?Generate .env.go-shadow first}
+      CREDENTIAL_ACTIVE_KEY_ID: shadow-v1
+      MONGODB_URI: mongodb://shadow:${SHADOW_DB_PASSWORD:?Generate .env.go-shadow first}@mongodb:27017/shadow?authSource=admin
+      REDIS_HOSTNAME: redis
+      STORAGE: filesystem
+      FOLDER: /app/repositories
+      PUBLIC_DIR: /app/public
+      APP_HOSTNAME: localhost:5001
+      COOKIE_SECURE: "false"
+      GITHUB_OAUTH_ENABLED: "false"
+      GITHUB_APP_ENABLED: "false"
+      GITHUB_APP_NEW_CONNECTIONS: "false"
+      GOMEMLIMIT: 768MiB
+      ANONYMIZATION_MEMORY_MB: "512"
+      SHARED_CACHE_ENABLED: "true"
+      SHARED_CACHE_BYTES: "1073741824"
+      SHARED_CACHE_RESULT_BYTES: "536870912"
+    depends_on:
+      mongodb: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: "3"}
+  gateway:
+    image: nginx:alpine
+    user: "101:101"
+    entrypoint: [nginx, -g, "daemon off;"]
+    restart: unless-stopped
+    read_only: true
+    tmpfs: [/tmp]
+    mem_limit: 64m
+    pids_limit: 32
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    ports: ["127.0.0.1:5001:8080"]
+    volumes: ["./shadow-nginx.conf:/etc/nginx/nginx.conf:ro"]
+    networks: [default, ingress]
+    depends_on:
+      app: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, "http://127.0.0.1:8080/api/healthcheck"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  mongodb:
+    image: mongo:7
+    restart: unless-stopped
+    mem_limit: 1g
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: shadow
+      MONGO_INITDB_ROOT_PASSWORD: ${SHADOW_DB_PASSWORD:?Generate .env.go-shadow first}
+    volumes: [shadow_mongodb:/data/db, shadow_mongodb_config:/data/configdb]
+    command: [mongod, --wiredTigerCacheSizeGB, "0.25", --quiet]
+    healthcheck:
+      test: [CMD, mongosh, --quiet, --eval, "db.adminCommand({ping:1}).ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    mem_limit: 256m
+    command: [redis-server, --maxmemory, 128mb, --maxmemory-policy, noeviction, --appendonly, "yes"]
+    volumes: [shadow_redis:/data]
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+networks:
+  default:
+    internal: true
+  ingress: {}
+volumes:
+  shadow_repositories:
+  shadow_mongodb:
+  shadow_mongodb_config:
+  shadow_redis:

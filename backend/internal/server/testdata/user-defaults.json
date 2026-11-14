@@ -1,0 +1,834 @@
+{
+  "cases": [
+    {
+      "name": "case-0",
+      "body": {},
+      "rejected": false,
+      "stored": {},
+      "expected": {
+        "options": {},
+        "terms": []
+      }
+    },
+    {
+      "name": "case-1",
+      "body": {
+        "terms": [
+          "Alice",
+          ""
+        ]
+      },
+      "rejected": false,
+      "stored": {
+        "terms": [
+          "Alice",
+          ""
+        ]
+      },
+      "expected": {
+        "options": {},
+        "terms": [
+          "Alice",
+          ""
+        ]
+      }
+    },
+    {
+      "name": "case-2",
+      "body": {
+        "terms": [
+          1,
+          true,
+          false,
+          null,
+          0,
+          1e+21
+        ]
+      },
+      "rejected": false,
+      "stored": {
+        "terms": [
+          "1",
+          "true",
+          "false",
+          null,
+          "0",
+          "1e+21"
+        ]
+      },
+      "expected": {
+        "options": {},
+        "terms": [
+          "1",
+          "true",
+          "false",
+          null,
+          "0",
+          "1e+21"
+        ]
+      }
+    },
+    {
+      "name": "case-3",
+      "body": {
+        "terms": "Alice"
+      },
+      "rejected": false,
+      "stored": {
+        "terms": [
+          "Alice"
+        ]
+      },
+      "expected": {
+        "options": {},
+        "terms": [
+          "Alice"
+        ]
+      }
+    },
+    {
+      "name": "case-4",
+      "body": {
+        "terms": null
+      },
+      "rejected": false,
+      "stored": {
+        "terms": null
+      },
+      "expected": {
+        "options": {},
+        "terms": null
+      }
+    },
+    {
+      "name": "case-5",
+      "body": {
+        "terms": [
+          {}
+        ]
+      },
+      "rejected": true
+    },
+    {
+      "name": "case-6",
+      "body": {
+        "terms": []
+      },
+      "rejected": false,
+      "stored": {
+        "terms": []
+      },
+      "expected": {
+        "options": {},
+        "terms": []
+      }
+    },
+    {
+      "name": "case-7",
+      "body": {
+        "options": {}
+      },
+      "rejected": false,
+      "stored": {
+        "options": {}
+      },
+      "expected": {
+        "options": {},
+        "terms": []
+      }
+    },
+    {
+      "name": "case-8",
+      "body": {
+        "options": null
+      },
+      "rejected": false,
+      "stored": {
+        "options": null
+      },
+      "expected": {
+        "options": null,
+        "terms": []
+      }
+    },
+    {
+      "name": "case-9",
+      "body": {
+        "unknown": "discard",
+        "options": {
+          "unknown": true,
+          "expirationDate": "2030-01-01",
+          "pageSource": {
+            "branch": "main"
+          }
+        }
+      },
+      "rejected": false,
+      "stored": {
+        "options": {}
+      },
+      "expected": {
+        "options": {},
+        "terms": []
+      }
+    },
+    {
+      "name": "case-10",
+      "body": {
+        "options": {
+          "update": true,
+          "image": true,
+          "pdf": true,
+          "notebook": true,
+          "link": true
+        }
+      },
+      "rejected": false,
+      "stored": {
+        "options": {
+          "update": true,
+          "image": true,
+          "pdf": true,
+          "notebook": true,
+          "link": true
+        }
+      },
+      "expected": {
+        "options": {
+          "update": true,
+          "image": true,
+          "pdf": true,
+          "notebook": true,
+          "link": true
+        },
+        "terms": []
+      }
+    },
+    {
+      "name": "case-11",
+      "body": {
+        "options": {
+          "update": false,
+          "image": false,
+          "pdf": false,
+          "notebook": false,
+          "link": false
+        }
+      },
+      "rejected": false,
+      "stored": {
+        "options": {
+          "update": false,
+          "image": false,
+          "pdf": false,
+          "notebook": false,
+          "link": false
+        }
+      },
+      "expected": {
+        "options": {
+          "update": false,
+          "image": false,
+          "pdf": false,
+          "notebook": false,
+          "link": false
+        },
+        "terms": []
+      }
+    },
+    {
+      "name": "case-12",
+      "body": {
+        "options": {
+          "update": null,
+          "image": null,
+          "pdf": null,
+          "notebook": null,
+          "link": null
+        }
+      },
+      "rejected": false,
+      "stored": {
+        "options": {
+          "update": null,
+          "image": null,
+          "pdf": null,
+          "notebook": null,
+          "link": null
+        }
+      },
+      "expected": {
+        "options": {
+          "update": null,
+          "image": null,
+          "pdf": null,
+          "notebook": null,
+          "link": null
+        },
+        "terms": []
+      }
+    },
+    {
+      "name": "case-13",
+      "body": {
+        "options": {
+          "update": 0,
+          "image": 0,
+          "pdf": 0,
+          "notebook": 0,
+          "link": 0
+        }
+      },
+      "rejected": false,
+      "stored": {
+        "options": {
+          "update": false,
+          "image": false,
+          "pdf": false,
+          "notebook": false,
+          "link": false
+        }
+      },
+      "expected": {
+        "options": {
+          "update": false,
+          "image": false,
+          "pdf": false,
+          "notebook": false,
+          "link": false
+        },
+        "terms": []
+      }
+    },
+    {
+      "name": "case-14",
+      "body": {
+        "options": {
+          "update": 1,
+          "image": 1,
+          "pdf": 1,
+          "notebook": 1,
+          "link": 1
+        }
+      },
+      "rejected": false,
+      "stored": {
+        "options": {
+          "update": true,
+          "image": true,
+          "pdf": true,
+          "notebook": true,
+          "link": true
+        }
+      },
+      "expected": {
+        "options": {
+          "update": true,
+          "image": true,
+          "pdf": true,
+          "notebook": true,
+          "link": true
+        },
+        "terms": []
+      }
+    },
+    {
+      "name": "case-15",
+      "body": {
+        "options": {
+          "update": "0",
+          "image": "0",
+          "pdf": "0",
+          "notebook": "0",
+          "link": "0"
+        }
+      },
+      "rejected": false,
+      "stored": {
+        "options": {
+          "update": false,
+          "image": false,
+          "pdf": false,
+          "notebook": false,
+          "link": false
+        }
+      },
+      "expected": {
+        "options": {
+          "update": false,
+          "image": false,
+          "pdf": false,
+          "notebook": false,
+          "link": false
+        },
+        "terms": []
+      }
+    },
+    {
+      "name": "case-16",
+      "body": {
+        "options": {
+          "update": "1",
+          "image": "1",
+          "pdf": "1",
+          "notebook": "1",
+          "link": "1"
+        }
+      },
+      "rejected": false,
+      "stored": {
+        "options": {
+          "update": true,
+          "image": true,
+          "pdf": true,
+          "notebook": true,
+          "link": true
+        }
+      },
+      "expected": {
+        "options": {
+          "update": true,
+          "image": true,
+          "pdf": true,
+          "notebook": true,
+          "link": true
+        },
+        "terms": []
+      }
+    },
+    {
+      "name": "case-17",
+      "body": {
+        "options": {
+          "update": "true",
+          "image": "true",
+          "pdf": "true",
+          "notebook": "true",
+          "link": "true"
+        }
+      },
+      "rejected": false,
+      "stored": {
+        "options": {
+          "update": true,
+          "image": true,
+          "pdf": true,
+          "notebook": true,
+          "link": true
+        }
+      },
+      "expected": {
+        "options": {
+          "update": true,
+          "image": true,
+          "pdf": true,
+          "notebook": true,
+          "link": true
+        },
+        "terms": []
+      }
+    },
+    {
+      "name": "case-18",
+      "body": {
+        "options": {
+          "update": "false",
+          "image": "false",
+          "pdf": "false",
+          "notebook": "false",
+          "link": "false"
+        }
+      },
+      "rejected": false,
+      "stored": {
+        "options": {
+          "update": false,
+          "image": false,
+          "pdf": false,
+          "notebook": false,
+          "link": false
+        }
+      },
+      "expected": {
+        "options": {
+          "update": false,
+          "image": false,
+          "pdf": false,
+          "notebook": false,
+          "link": false
+        },
+        "terms": []
+      }
+    },
+    {
+      "name": "case-19",
+      "body": {
+        "options": {
+          "update": "yes",
+          "image": "yes",
+          "pdf": "yes",
+          "notebook": "yes",
+          "link": "yes"
+        }
+      },
+      "rejected": false,
+      "stored": {
+        "options": {
+          "update": true,
+          "image": true,
+          "pdf": true,
+          "notebook": true,
+          "link": true
+        }
+      },
+      "expected": {
+        "options": {
+          "update": true,
+          "image": true,
+          "pdf": true,
+          "notebook": true,
+          "link": true
+        },
+        "terms": []
+      }
+    },
+    {
+      "name": "case-20",
+      "body": {
+        "options": {
+          "update": "no",
+          "image": "no",
+          "pdf": "no",
+          "notebook": "no",
+          "link": "no"
+        }
+      },
+      "rejected": false,
+      "stored": {
+        "options": {
+          "update": false,
+          "image": false,
+          "pdf": false,
+          "notebook": false,
+          "link": false
+        }
+      },
+      "expected": {
+        "options": {
+          "update": false,
+          "image": false,
+          "pdf": false,
+          "notebook": false,
+          "link": false
+        },
+        "terms": []
+      }
+    },
+    {
+      "name": "case-21",
+      "body": {
+        "options": {
+          "update": "",
+          "image": "",
+          "pdf": "",
+          "notebook": "",
+          "link": ""
+        }
+      },
+      "rejected": true
+    },
+    {
+      "name": "case-22",
+      "body": {
+        "options": {
+          "update": 2,
+          "image": 2,
+          "pdf": 2,
+          "notebook": 2,
+          "link": 2
+        }
+      },
+      "rejected": true
+    },
+    {
+      "name": "case-23",
+      "body": {
+        "options": {
+          "update": [],
+          "image": [],
+          "pdf": [],
+          "notebook": [],
+          "link": []
+        }
+      },
+      "rejected": true
+    },
+    {
+      "name": "case-24",
+      "body": {
+        "options": {
+          "update": {},
+          "image": {},
+          "pdf": {},
+          "notebook": {},
+          "link": {}
+        }
+      },
+      "rejected": true
+    },
+    {
+      "name": "case-25",
+      "body": {
+        "options": {
+          "page": null,
+          "expirationMode": null
+        }
+      },
+      "rejected": false,
+      "stored": {
+        "options": {
+          "page": null,
+          "expirationMode": null
+        }
+      },
+      "expected": {
+        "options": {
+          "page": null,
+          "expirationMode": null
+        },
+        "terms": []
+      }
+    },
+    {
+      "name": "case-26",
+      "body": {
+        "options": {
+          "page": true,
+          "expirationMode": true
+        }
+      },
+      "rejected": false,
+      "stored": {
+        "options": {
+          "page": "true",
+          "expirationMode": "true"
+        }
+      },
+      "expected": {
+        "options": {
+          "page": "true",
+          "expirationMode": "true"
+        },
+        "terms": []
+      }
+    },
+    {
+      "name": "case-27",
+      "body": {
+        "options": {
+          "page": false,
+          "expirationMode": false
+        }
+      },
+      "rejected": false,
+      "stored": {
+        "options": {
+          "page": "false",
+          "expirationMode": "false"
+        }
+      },
+      "expected": {
+        "options": {
+          "page": "false",
+          "expirationMode": "false"
+        },
+        "terms": []
+      }
+    },
+    {
+      "name": "case-28",
+      "body": {
+        "options": {
+          "page": 0,
+          "expirationMode": 0
+        }
+      },
+      "rejected": false,
+      "stored": {
+        "options": {
+          "page": "0",
+          "expirationMode": "0"
+        }
+      },
+      "expected": {
+        "options": {
+          "page": "0",
+          "expirationMode": "0"
+        },
+        "terms": []
+      }
+    },
+    {
+      "name": "case-29",
+      "body": {
+        "options": {
+          "page": "docs",
+          "expirationMode": "docs"
+        }
+      },
+      "rejected": false,
+      "stored": {
+        "options": {
+          "page": "docs",
+          "expirationMode": "docs"
+        }
+      },
+      "expected": {
+        "options": {
+          "page": "docs",
+          "expirationMode": "docs"
+        },
+        "terms": []
+      }
+    },
+    {
+      "name": "case-30",
+      "body": {
+        "options": {
+          "page": {},
+          "expirationMode": {}
+        }
+      },
+      "rejected": true
+    },
+    {
+      "name": "case-31",
+      "body": {
+        "options": {
+          "page": [],
+          "expirationMode": []
+        }
+      },
+      "rejected": true
+    },
+    {
+      "name": "case-32",
+      "body": {
+        "options": false
+      },
+      "rejected": false,
+      "stored": {
+        "options": false
+      },
+      "expected": {
+        "options": false,
+        "terms": []
+      }
+    },
+    {
+      "name": "case-33",
+      "body": {
+        "options": true
+      },
+      "rejected": false,
+      "stored": {
+        "options": true
+      },
+      "expected": {
+        "options": true,
+        "terms": []
+      }
+    },
+    {
+      "name": "case-34",
+      "body": {
+        "options": 0
+      },
+      "rejected": false,
+      "stored": {
+        "options": 0
+      },
+      "expected": {
+        "options": 0,
+        "terms": []
+      }
+    },
+    {
+      "name": "case-35",
+      "body": {
+        "options": 1
+      },
+      "rejected": false,
+      "stored": {
+        "options": 1
+      },
+      "expected": {
+        "options": 1,
+        "terms": []
+      }
+    },
+    {
+      "name": "case-36",
+      "body": {
+        "options": "bad"
+      },
+      "rejected": false,
+      "stored": {
+        "options": "bad"
+      },
+      "expected": {
+        "options": "bad",
+        "terms": []
+      }
+    },
+    {
+      "name": "case-37",
+      "body": {
+        "options": []
+      },
+      "rejected": false,
+      "stored": {
+        "options": []
+      },
+      "expected": {
+        "options": [],
+        "terms": []
+      }
+    }
+  ],
+  "initial": [
+    {
+      "user": {},
+      "expected": {
+        "options": {},
+        "terms": []
+      }
+    },
+    {
+      "user": {
+        "default": null
+      },
+      "expected": null
+    },
+    {
+      "user": {
+        "default": {}
+      },
+      "expected": {
+        "options": {},
+        "terms": []
+      }
+    },
+    {
+      "user": {
+        "default": {
+          "options": {}
+        }
+      },
+      "expected": {
+        "options": {},
+        "terms": []
+      }
+    }
+  ]
+}

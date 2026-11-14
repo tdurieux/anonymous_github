@@ -1,0 +1,79 @@
+{
+  "verifiedAt": "2026-11-03T20:58:28.560881+00:00",
+  "image": "sha256:03a3cacc1db58e32280727fd5ee7c0fc36c41ddae15ddb43bb5a105f3edea4c9",
+  "changes": [
+    "Internal shared source reads defer their release authorization to the transformed output release. Cold producers still authorize before reading upstream or legacy bytes. Raw callers still authorize on source release.",
+    "Binary fallback output now also checks lifecycle and authorization after copying.",
+    "Unacceptable encoding responses explicitly authorize before returning 406.",
+    "Webview removes its second pre-content authorization; initial page authorization and final output authorization remain.",
+    "Non-Markdown webview assets negotiate and serve cached gzip directly with Vary and Content-Length; Markdown wrapping and sandbox headers remain."
+  ],
+  "comparison": [
+    {
+      "route": "/api/repo/:id/file/*path",
+      "beforeMs": [
+        853,
+        787,
+        711
+      ],
+      "afterMs": [
+        461,
+        356,
+        376
+      ],
+      "beforeMedianMs": 787,
+      "afterMedianMs": 376,
+      "reductionPercent": 52.2
+    },
+    {
+      "route": "/w/:id/*path",
+      "beforeMs": [
+        1480,
+        1459,
+        1468
+      ],
+      "afterMs": [
+        740,
+        696,
+        781
+      ],
+      "beforeMedianMs": 1468,
+      "afterMedianMs": 740,
+      "reductionPercent": 49.6
+    },
+    {
+      "route": "/api/repo/:id/zip",
+      "beforeMs": [
+        4216,
+        3995,
+        4335
+      ],
+      "afterMs": [
+        2397,
+        2219,
+        2338
+      ],
+      "beforeMedianMs": 4216,
+      "afterMedianMs": 2338,
+      "reductionPercent": 44.5
+    }
+  ],
+  "validation": {
+    "raceIntegration": "passed, 17.177s server; shared source/result/HTTP, fallback, legacy cache, metadata contracts",
+    "vet": "passed",
+    "newCoverage": [
+      "One authorization per warm transformed file",
+      "Revocation during cold fill rejects final transformed output",
+      "Gzip website response decodes to same anonymized content as file",
+      "Website GET/HEAD deny revoked access and preserve sandbox"
+    ],
+    "beforeLiveChecks": 133,
+    "afterLiveChecks": 133,
+    "result": "passed",
+    "temporaryKeysRevoked": true,
+    "temporaryRepositoriesRemoved": true
+  },
+  "limitations": "Three serial samples on a small GitHub App fixture with existing source caches, not a load test. Website live fixture is a file asset, not a large Markdown page or directory listing. Gzip encoding and decoded parity additionally tested using a larger local fixture.",
+  "remainingWebsiteCost": "Webview still scans repository metadata to resolve anonymized paths and directory indexes. A dedicated collision-aware index would improve large repositories; the existing file index has different collision behavior and cannot be substituted directly.",
+  "productionChanged": false
+}

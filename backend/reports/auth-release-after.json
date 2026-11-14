@@ -1,0 +1,2548 @@
+{
+  "deploymentChecks": {
+    "verifiedAt": "2026-11-03T20:13:22.535Z",
+    "hostname": "beta.durieux.me",
+    "configurationMode": "GitHub App enabled alongside legacy OAuth",
+    "checks": [
+      {
+        "method": "GET",
+        "route": "/api/user",
+        "requestID": "92af5526-cf15-4074-9508-ff35677e0d54",
+        "status": 401,
+        "expected": 401,
+        "bytes": 25,
+        "elapsedMs": 274
+      },
+      {
+        "method": "GET",
+        "route": "/api/user",
+        "requestID": "8c904bdd-147a-47db-ac56-baf425d8bd5e",
+        "status": 200,
+        "expected": 200,
+        "bytes": 100,
+        "elapsedMs": 89
+      },
+      {
+        "method": "GET",
+        "route": "/github/connections",
+        "requestID": "d517f0dc-ece9-4102-95e3-be9ab95b6689",
+        "status": 200,
+        "expected": 200,
+        "bytes": 456,
+        "elapsedMs": 650
+      },
+      {
+        "method": "GET",
+        "route": "/api/providers",
+        "requestID": "67926504-67df-46f8-8559-f74a57079c67",
+        "status": 200,
+        "expected": 200,
+        "bytes": 144,
+        "elapsedMs": 58
+      },
+      {
+        "method": "GET",
+        "route": "/api/user/dashboard",
+        "requestID": "d1fc1097-69de-4dd3-b45c-be9444c0ed5c",
+        "status": 200,
+        "expected": 200,
+        "bytes": 796,
+        "elapsedMs": 82
+      },
+      {
+        "method": "GET",
+        "route": "/api/user/default",
+        "requestID": "4fba91f8-07c9-4105-bc7d-52c832c3aeef",
+        "status": 200,
+        "expected": 200,
+        "bytes": 25,
+        "elapsedMs": 57
+      },
+      {
+        "method": "GET",
+        "route": "/api/user/quota",
+        "requestID": "db442065-c2d0-4289-b893-d3fec59b5ef8",
+        "status": 200,
+        "expected": 200,
+        "bytes": 115,
+        "elapsedMs": 40
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/overview",
+        "requestID": "d04272af-d78c-458a-a453-5fc491f32832",
+        "status": 200,
+        "expected": 200,
+        "bytes": 1134,
+        "elapsedMs": 123
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/users",
+        "requestID": "f20342d5-50e6-4e48-a4c4-e3321acbbca4",
+        "status": 200,
+        "expected": 200,
+        "bytes": 526,
+        "elapsedMs": 52
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/repos",
+        "requestID": "04964e19-19aa-4fd6-a12f-529502546db9",
+        "status": 200,
+        "expected": 200,
+        "bytes": 11980,
+        "elapsedMs": 65
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/queues",
+        "requestID": "4857ad9a-ede3-4134-9908-d7d3c2c9f5a4",
+        "status": 200,
+        "expected": 200,
+        "bytes": 4965,
+        "elapsedMs": 82
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/performance",
+        "requestID": "71b166f0-022a-4a54-b862-f416ae1f59dd",
+        "status": 200,
+        "expected": 200,
+        "bytes": 37422,
+        "elapsedMs": 116
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/errors",
+        "requestID": "4eedd466-330d-46d4-865f-16669ea96edc",
+        "status": 200,
+        "expected": 200,
+        "bytes": 57215,
+        "elapsedMs": 75
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/errors/stats",
+        "requestID": "1cee3ef2-113a-46d9-a07b-9b09963d25ea",
+        "status": 200,
+        "expected": 200,
+        "bytes": 1394,
+        "elapsedMs": 215
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/tokens",
+        "requestID": "3561eeb8-4162-4d0b-885c-40b465d3fefb",
+        "status": 200,
+        "expected": 200,
+        "bytes": 160,
+        "elapsedMs": 162
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/errors?limit=5001",
+        "requestID": "9bf24a5b-cd2d-4ea5-b936-fb63d0515a2f",
+        "status": 200,
+        "expected": 200,
+        "bytes": 141277,
+        "elapsedMs": 113
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/errors/stats",
+        "requestID": "be5375e7-d9ca-4125-9adf-6ccff7457f93",
+        "status": 200,
+        "expected": 200,
+        "bytes": 1394,
+        "elapsedMs": 46
+      },
+      {
+        "method": "GET",
+        "route": "/api/repo/go-beta-check-1793736802538-missing",
+        "requestID": "43d0fe8c-d682-43fc-98a9-44f791267da2",
+        "status": 404,
+        "expected": 404,
+        "bytes": 26,
+        "elapsedMs": 35
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/errors/stats",
+        "requestID": "9ea45513-5f90-4f58-8491-3714431f03a9",
+        "status": 200,
+        "expected": 200,
+        "bytes": 1394,
+        "elapsedMs": 52
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/queues/metrics?queue=download&range=1h",
+        "requestID": "3e8e8857-d6c9-4a14-a06b-2ab3a3500162",
+        "status": 200,
+        "expected": 200,
+        "bytes": 3413,
+        "elapsedMs": 52
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/queues/metrics?queue=download&range=6h",
+        "requestID": "ac98ba9e-c7e2-4f4f-a824-6ba4015115cd",
+        "status": 200,
+        "expected": 200,
+        "bytes": 20213,
+        "elapsedMs": 51
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/queues/metrics?queue=download&range=24h",
+        "requestID": "fc6b9615-1148-4b89-a62a-89935f0dda66",
+        "status": 200,
+        "expected": 200,
+        "bytes": 80723,
+        "elapsedMs": 64
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/queues/metrics?queue=download&range=7d",
+        "requestID": "1952bf87-de20-467e-bb4d-dc184400ff33",
+        "status": 200,
+        "expected": 200,
+        "bytes": 564562,
+        "elapsedMs": 166
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/queues/metrics?queue=remove&range=1h",
+        "requestID": "3c82e090-c60a-41c4-9f8e-0e312f1b7cb6",
+        "status": 200,
+        "expected": 200,
+        "bytes": 3405,
+        "elapsedMs": 47
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/queues/metrics?queue=cache&range=1h",
+        "requestID": "33fde05e-fc96-4434-ba3a-2e50f024d72a",
+        "status": 200,
+        "expected": 200,
+        "bytes": 3401,
+        "elapsedMs": 44
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/queues/metrics?queue=download&range=unrecognized",
+        "requestID": "52ea2817-ebb7-463a-9141-6737e8661099",
+        "status": 200,
+        "expected": 200,
+        "bytes": 3423,
+        "elapsedMs": 42
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/queues/metrics?queue=unknown",
+        "requestID": "51f25fc2-aa35-4330-97c0-3af4102439a8",
+        "status": 404,
+        "expected": 404,
+        "bytes": 27,
+        "elapsedMs": 36
+      },
+      {
+        "method": "GET",
+        "route": "/api/stat",
+        "requestID": "632f1ced-de81-42db-9f11-f3bb69cae746",
+        "status": 200,
+        "expected": 200,
+        "bytes": 69,
+        "elapsedMs": 53
+      },
+      {
+        "method": "GET",
+        "route": "/api/stat/history?days=-2",
+        "requestID": "82c3d0ee-0041-42bb-870b-567b9e9135d1",
+        "status": 200,
+        "expected": 200,
+        "bytes": 105,
+        "elapsedMs": 38
+      },
+      {
+        "method": "GET",
+        "route": "/api/stat/history?days=0",
+        "requestID": "5622ad98-0772-47db-a878-86957fe69df0",
+        "status": 200,
+        "expected": 200,
+        "bytes": 105,
+        "elapsedMs": 56
+      },
+      {
+        "method": "GET",
+        "route": "/api/stat/history?days=0x10",
+        "requestID": "e079f15c-7d7a-4f4e-81ed-1fc7d6d32a31",
+        "status": 200,
+        "expected": 200,
+        "bytes": 105,
+        "elapsedMs": 44
+      },
+      {
+        "method": "GET",
+        "route": "/api/stat/history?days=7suffix",
+        "requestID": "c3970271-3388-4bd5-a4a9-0c4f584399ed",
+        "status": 200,
+        "expected": 200,
+        "bytes": 105,
+        "elapsedMs": 44
+      },
+      {
+        "method": "GET",
+        "route": "/api/stat/history?days=999",
+        "requestID": "c783f7de-4a3b-42ef-b451-756a1c0753b9",
+        "status": 200,
+        "expected": 200,
+        "bytes": 105,
+        "elapsedMs": 41
+      },
+      {
+        "method": "GET",
+        "route": "/api/stat/history?days[]=7&days[]=30",
+        "requestID": "b6734273-9b72-48de-a52b-8b28d04e5aeb",
+        "status": 200,
+        "expected": 200,
+        "bytes": 105,
+        "elapsedMs": 35
+      },
+      {
+        "method": "GET",
+        "route": "/api/stat/history?days[1]=7&days[0]=1",
+        "requestID": "0339fd5c-a412-4e43-a2a4-7b99994a460a",
+        "status": 200,
+        "expected": 200,
+        "bytes": 105,
+        "elapsedMs": 37
+      },
+      {
+        "method": "GET",
+        "route": "/api/stat/history?days[x]=7",
+        "requestID": "d86733cb-01c6-441c-b9db-7d7cad9c44f1",
+        "status": 200,
+        "expected": 200,
+        "bytes": 105,
+        "elapsedMs": 36
+      },
+      {
+        "method": "GET",
+        "route": "/api/user/dashboard?statuses[]=",
+        "requestID": "e91e4689-a5d0-4ff7-9e63-97c62f9fc624",
+        "status": 200,
+        "expected": 200,
+        "bytes": 64,
+        "elapsedMs": 55
+      },
+      {
+        "method": "GET",
+        "route": "/api/user/dashboard?type[]=repo",
+        "requestID": "e9fe011a-2a25-4b70-9a62-1a43829e7fb0",
+        "status": 200,
+        "expected": 200,
+        "bytes": 64,
+        "elapsedMs": 62
+      },
+      {
+        "method": "GET",
+        "route": "/api/user/dashboard?sort[]=",
+        "requestID": "0d856e46-18e6-4818-9c4b-128e4de603f3",
+        "status": 400,
+        "expected": 400,
+        "bytes": 24,
+        "elapsedMs": 34
+      },
+      {
+        "method": "GET",
+        "route": "/api/user/dashboard?cursor[]=",
+        "requestID": "d8fb3699-4b32-492f-b343-5f30e8b3969e",
+        "status": 400,
+        "expected": 400,
+        "bytes": 26,
+        "elapsedMs": 43
+      },
+      {
+        "method": "GET",
+        "route": "/api/user/dashboard?sort=anonymizeDate&limit=5&cursor=eyJzb3J0IjoiYW5vbnltaXplRGF0ZSIsInR5cGUiOiJyZXBvIiwiaWQiOiIwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDEiLCJ2YWx1ZSI6IjIwMjQtMDMtMDFUMDA6MDA6MDAuMDAwWiJ9",
+        "requestID": "4473dd70-9b3b-404f-817b-4af680847d75",
+        "status": 200,
+        "expected": 200,
+        "bytes": 796,
+        "elapsedMs": 72
+      },
+      {
+        "method": "GET",
+        "route": "/api/user/dashboard?sort=anonymizeDate&limit=5&cursor=eyJzb3J0IjoiYW5vbnltaXplRGF0ZSIsInR5cGUiOiJyZXBvIiwiaWQiOiIwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDEiLCJ2YWx1ZSI6Ik1hcmNoIDEgMjAyNCJ9",
+        "requestID": "8dddd7df-bbc8-4796-8256-08dccd9644b9",
+        "status": 200,
+        "expected": 200,
+        "bytes": 796,
+        "elapsedMs": 55
+      },
+      {
+        "method": "GET",
+        "route": "/api/user/dashboard?sort=anonymizeDate&limit=5&cursor=eyJzb3J0IjoiYW5vbnltaXplRGF0ZSIsInR5cGUiOiJyZXBvIiwiaWQiOiIwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDEiLCJ2YWx1ZSI6IjIwMjQtMDItMzAifQ",
+        "requestID": "b08d7dc9-ffec-4b20-83a9-41d5b067b1f9",
+        "status": 200,
+        "expected": 200,
+        "bytes": 796,
+        "elapsedMs": 53
+      },
+      {
+        "method": "GET",
+        "route": "/api/user/dashboard?sort=anonymizeDate&limit=5&cursor=eyJzb3J0IjoiYW5vbnltaXplRGF0ZSIsInR5cGUiOiJyZXBvIiwiaWQiOiIwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDEiLCJ2YWx1ZSI6IjIwMjQtMDItMjlUMjQ6MDA6MDBaIn0",
+        "requestID": "c1f26210-f710-4c9a-b316-f8ae2a2eb35d",
+        "status": 200,
+        "expected": 200,
+        "bytes": 796,
+        "elapsedMs": 51
+      },
+      {
+        "method": "GET",
+        "route": "/api/user/dashboard?sort=anonymizeDate&limit=5&cursor=eyJzb3J0IjoiYW5vbnltaXplRGF0ZSIsInR5cGUiOiJyZXBvIiwiaWQiOiIwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDEiLCJ2YWx1ZSI6WyIyMDI0IiwiMyIsIjEiXX0",
+        "requestID": "89be1c6a-974a-46fc-aeef-25402cfcd961",
+        "status": 200,
+        "expected": 200,
+        "bytes": 796,
+        "elapsedMs": 52
+      },
+      {
+        "method": "GET",
+        "route": "/api/user/dashboard?sort=anonymizeDate&limit=5&cursor=eyJzb3J0IjoiYW5vbnltaXplRGF0ZSIsInR5cGUiOiJyZXBvIiwiaWQiOiIwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDEiLCJ2YWx1ZSI6Im5vdCBhIGRhdGUifQ",
+        "requestID": "01704acd-f52d-4889-9f2c-34aceb6a034a",
+        "status": 400,
+        "expected": 400,
+        "bytes": 26,
+        "elapsedMs": 34
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/performance?minutes=6e1",
+        "requestID": "e63804a0-f7db-4295-8170-c6c6fc98d408",
+        "status": 200,
+        "expected": 200,
+        "bytes": 68636,
+        "elapsedMs": 115
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/performance?minutes[]=60",
+        "requestID": "a57ab9d0-c911-4fa0-bea2-e1b6b69cd4e3",
+        "status": 200,
+        "expected": 200,
+        "bytes": 68638,
+        "elapsedMs": 91
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/performance?minutes[0]=15",
+        "requestID": "a5fada31-47f8-4bf8-8da4-dd425a6ab829",
+        "status": 200,
+        "expected": 200,
+        "bytes": 37436,
+        "elapsedMs": 84
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/queues/metrics?queue[]=cache&range[]=6h",
+        "requestID": "d78e823e-0aad-403e-858b-570e80e81b93",
+        "status": 200,
+        "expected": 200,
+        "bytes": 20201,
+        "elapsedMs": 52
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/queues/metrics?range[]=",
+        "requestID": "8280a0bb-252a-4d39-a3dd-024e0b90b0eb",
+        "status": 200,
+        "expected": 200,
+        "bytes": 3411,
+        "elapsedMs": 33
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/queues/metrics?range=toString",
+        "requestID": "c2cbdda9-6387-4004-a944-862dda7a2e71",
+        "status": 200,
+        "expected": 200,
+        "bytes": 51,
+        "elapsedMs": 36
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/queues/metrics?queue[]=",
+        "requestID": "7a0cd777-a5bb-4436-8b7f-fdf22885297a",
+        "status": 404,
+        "expected": 404,
+        "bytes": 27,
+        "elapsedMs": 29
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/queues?queue[]=remove",
+        "requestID": "d4f7653b-786e-459a-a746-a7e522dced53",
+        "status": 200,
+        "expected": 200,
+        "bytes": 4692,
+        "elapsedMs": 72
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/errors?offset[]=2&limit[]=7",
+        "requestID": "8c94d6ae-0612-4ccf-8b6a-d2f2d449f2f4",
+        "status": 200,
+        "expected": 200,
+        "bytes": 2636,
+        "elapsedMs": 41
+      },
+      {
+        "method": "GET",
+        "route": "/api/repo/octocat/Hello-World?connection=",
+        "requestID": "c2f31300-a3fc-4003-afcb-764e151f4890",
+        "status": 400,
+        "expected": 400,
+        "bytes": 30,
+        "elapsedMs": 30
+      },
+      {
+        "method": "GET",
+        "route": "/api/repo/octocat/Hello-World?connection[]=oauth",
+        "requestID": "7a393f11-e5e4-4333-a6fd-2341e2f1b6a3",
+        "status": 400,
+        "expected": 400,
+        "bytes": 30,
+        "elapsedMs": 47
+      },
+      {
+        "method": "GET",
+        "route": "/api/repo/octocat/Hello-World?connection=oauth&connection[]=github-app",
+        "requestID": "449fbcb3-958c-4178-8bb4-fd33378357f2",
+        "status": 400,
+        "expected": 400,
+        "bytes": 30,
+        "elapsedMs": 32
+      },
+      {
+        "method": "GET",
+        "route": "/api/repo/octocat/Hello-World?repositoryID[]=invalid",
+        "requestID": "be76221a-a07a-45a9-b884-f0fe3e4f9427",
+        "status": 500,
+        "expected": 500,
+        "bytes": 26,
+        "elapsedMs": 31
+      },
+      {
+        "method": "GET",
+        "route": "/api/repo/octocat/Hello-World?repositoryID=invalid",
+        "requestID": "24e68826-d8fd-43c5-8386-1acf9c0df10f",
+        "status": 500,
+        "expected": 500,
+        "bytes": 26,
+        "elapsedMs": 28
+      },
+      {
+        "method": "GET",
+        "route": "/api/repo/octocat/Hello-World?repositoryID[$exists]=true",
+        "requestID": "335b7709-6d08-4cc0-9be4-7959e0722ce0",
+        "status": 500,
+        "expected": 500,
+        "bytes": 26,
+        "elapsedMs": 40
+      },
+      {
+        "method": "GET",
+        "route": "/api/user/search/github-users?q[]=ab",
+        "requestID": "199489ea-8235-41a9-a101-8ee231c0f3e2",
+        "status": 200,
+        "expected": 200,
+        "bytes": 2,
+        "elapsedMs": 27
+      },
+      {
+        "method": "GET",
+        "route": "/api/user/search/github-users?q[length]=1",
+        "requestID": "fd3d2bcd-764a-413a-b8a2-341e2bf41e4a",
+        "status": 200,
+        "expected": 200,
+        "bytes": 2,
+        "elapsedMs": 40
+      },
+      {
+        "method": "GET",
+        "route": "/api/user/search/github-users?q=ab&q=cd",
+        "requestID": "a4aff669-0e96-4254-a98a-e4a34f59d824",
+        "status": 500,
+        "expected": 500,
+        "bytes": 26,
+        "elapsedMs": 29
+      },
+      {
+        "method": "GET",
+        "route": "/api/user/search/github-users?q[x]=ab",
+        "requestID": "5eed9cdb-ab3c-4f98-b4f4-3cdac206c791",
+        "status": 500,
+        "expected": 500,
+        "bytes": 26,
+        "elapsedMs": 31
+      },
+      {
+        "method": "GET",
+        "route": "/api/user/search/github-users?q[length][toString]=1",
+        "requestID": "927e23ad-0052-4e76-b149-9b0368a13e11",
+        "status": 500,
+        "expected": 500,
+        "bytes": 26,
+        "elapsedMs": 25
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/repos?page[]=2&limit[]=2&sort[]=status&direction[]=asc&format[]=csv",
+        "requestID": "39bab574-b902-47b4-b445-72982db42b9a",
+        "status": 200,
+        "expected": 200,
+        "bytes": 2568,
+        "elapsedMs": 52
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/repos?page=1000001&limit=1",
+        "requestID": "c2ba7c3b-9548-46f5-a7f1-c31bdc9bd519",
+        "status": 200,
+        "expected": 200,
+        "bytes": 193,
+        "elapsedMs": 35
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/repos?page=-1",
+        "requestID": "b1008917-3f20-444c-acc2-c308f093b03f",
+        "status": 500,
+        "expected": 500,
+        "bytes": 26,
+        "elapsedMs": 30
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/repos?page[toString]=x",
+        "requestID": "24059a54-90a2-4ee0-abb7-c882cb2ed295",
+        "status": 500,
+        "expected": 500,
+        "bytes": 26,
+        "elapsedMs": 44
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/users?page[]=2&limit[]=2&sort[]=status&direction[]=asc&format[]=csv",
+        "requestID": "e42d1801-5264-4f89-baa6-b219246f0451",
+        "status": 200,
+        "expected": 200,
+        "bytes": 106,
+        "elapsedMs": 38
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/users?page=1000001&limit=1",
+        "requestID": "fa407388-1f04-4dff-95cc-e16f241ae7c8",
+        "status": 200,
+        "expected": 200,
+        "bytes": 112,
+        "elapsedMs": 38
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/users?page=-1",
+        "requestID": "9cf56577-ee3c-4520-aa19-cad9c70535e0",
+        "status": 500,
+        "expected": 500,
+        "bytes": 26,
+        "elapsedMs": 36
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/users?page[toString]=x",
+        "requestID": "3b08bf96-dd3d-444f-bfad-a5618426d4bf",
+        "status": 500,
+        "expected": 500,
+        "bytes": 26,
+        "elapsedMs": 33
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/users?limit=-1",
+        "requestID": "21d38d5b-7f8e-419f-bca3-e99a7fae061a",
+        "status": 500,
+        "expected": 500,
+        "bytes": 26,
+        "elapsedMs": 47
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/conferences?page[]=2&limit[]=2&sort[]=status&direction[]=asc&format[]=csv",
+        "requestID": "bbd2c865-ce96-48ad-a726-ce56cf69c738",
+        "status": 200,
+        "expected": 200,
+        "bytes": 80,
+        "elapsedMs": 36
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/conferences?page=1000001&limit=1",
+        "requestID": "875e348a-442b-40ba-94dd-c8e05f173c04",
+        "status": 200,
+        "expected": 200,
+        "bytes": 86,
+        "elapsedMs": 35
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/conferences?page=-1",
+        "requestID": "84c63f73-a8ca-43cf-8221-fe604b5598f9",
+        "status": 500,
+        "expected": 500,
+        "bytes": 26,
+        "elapsedMs": 30
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/conferences?page[toString]=x",
+        "requestID": "2bd04775-7093-4088-92dc-01407269b604",
+        "status": 500,
+        "expected": 500,
+        "bytes": 26,
+        "elapsedMs": 30
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/repos?limit=-1",
+        "requestID": "0b1aec43-c47a-4fe5-b6de-1a2732541e3f",
+        "status": 200,
+        "expected": 200,
+        "bytes": 1410,
+        "elapsedMs": 38
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/repos?ready[]=true",
+        "requestID": "2a75bf8a-1611-44c5-b7ff-acf241db8ae6",
+        "status": 200,
+        "expected": 200,
+        "bytes": 1935,
+        "elapsedMs": 37
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/conferences?limit=-1",
+        "requestID": "4cb08c73-3596-403e-a04e-439dc1d8ce67",
+        "status": 200,
+        "expected": 200,
+        "bytes": 80,
+        "elapsedMs": 33
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/conferences?ready[]=true",
+        "requestID": "eb578bca-7b46-467d-91ef-0c199c7d72b4",
+        "status": 200,
+        "expected": 200,
+        "bytes": 117,
+        "elapsedMs": 36
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/repos?search[]=x",
+        "requestID": "08478eb2-6570-4f71-9a98-12379ebb3514",
+        "status": 500,
+        "expected": 500,
+        "bytes": 26,
+        "elapsedMs": 28
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/users?search[]=x",
+        "requestID": "0d599bc8-5c9a-4b27-8663-16053843682d",
+        "status": 500,
+        "expected": 500,
+        "bytes": 26,
+        "elapsedMs": 28
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/conferences?search[]=x",
+        "requestID": "bcbbd23b-70f4-4d73-b3fe-b1a4ff0f64a6",
+        "status": 500,
+        "expected": 500,
+        "bytes": 26,
+        "elapsedMs": 29
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/users?status[]=active",
+        "requestID": "0fecb76b-44e5-4f9b-a733-d51262bd8d39",
+        "status": 200,
+        "expected": 200,
+        "bytes": 99,
+        "elapsedMs": 50
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/users?status[$in][]=active",
+        "requestID": "c5a6a08a-f2b8-4979-8ce4-41d4bd0a9f44",
+        "status": 200,
+        "expected": 200,
+        "bytes": 553,
+        "elapsedMs": 39
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/users?status[a]=active",
+        "requestID": "fe4f3020-4e24-4d30-bd78-476fbc6042da",
+        "status": 500,
+        "expected": 500,
+        "bytes": 26,
+        "elapsedMs": 28
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/users?status[$in]=active",
+        "requestID": "8c642cc3-2d24-4225-b485-87e353df54aa",
+        "status": 500,
+        "expected": 500,
+        "bytes": 26,
+        "elapsedMs": 31
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/repos?owner[a]=x",
+        "requestID": "d3b8893f-955d-4e78-a3fc-7b8be6186f84",
+        "status": 500,
+        "expected": 500,
+        "bytes": 26,
+        "elapsedMs": 28
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/repos?conference[$unknown]=x",
+        "requestID": "5d9aef10-9941-4ae4-b39a-bd53b8f42ffe",
+        "status": 500,
+        "expected": 500,
+        "bytes": 26,
+        "elapsedMs": 28
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/repos?dateFrom[]=2024-02-30",
+        "requestID": "0e2e75fb-eb82-44fa-a6d8-c80c0024bc08",
+        "status": 200,
+        "expected": 200,
+        "bytes": 12042,
+        "elapsedMs": 42
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/repos?dateTo=March%201%202024",
+        "requestID": "8f3b5d5e-e340-43cf-a210-f18b7b1f3ccd",
+        "status": 200,
+        "expected": 200,
+        "bytes": 156,
+        "elapsedMs": 34
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/repos?dateFrom[toString]=x",
+        "requestID": "0fa29056-5ec2-4adb-9575-686df9b1ec37",
+        "status": 500,
+        "expected": 500,
+        "bytes": 26,
+        "elapsedMs": 27
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/users?dateFrom[]=2024-02-30",
+        "requestID": "180dd2d4-b58e-4174-b636-d61f919f031c",
+        "status": 200,
+        "expected": 200,
+        "bytes": 458,
+        "elapsedMs": 53
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/users?dateTo=March%201%202024",
+        "requestID": "5d4d9689-ea73-4c2b-a4aa-dd06a52c7860",
+        "status": 200,
+        "expected": 200,
+        "bytes": 129,
+        "elapsedMs": 35
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/users?dateFrom[toString]=x",
+        "requestID": "dc625355-4d27-4b7e-912d-0f36b207e53d",
+        "status": 500,
+        "expected": 500,
+        "bytes": 26,
+        "elapsedMs": 27
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/conferences?dateFrom[]=2024-02-30",
+        "requestID": "28abbffe-a089-4ce0-8ae9-c66b89ff3451",
+        "status": 200,
+        "expected": 200,
+        "bytes": 138,
+        "elapsedMs": 36
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/conferences?dateTo=March%201%202024",
+        "requestID": "db506a0e-e51e-44db-9a4f-6f825f5a1aa7",
+        "status": 200,
+        "expected": 200,
+        "bytes": 138,
+        "elapsedMs": 33
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/conferences?dateFrom[toString]=x",
+        "requestID": "116bffd3-e79f-403f-8f2a-53c1006e7ca4",
+        "status": 500,
+        "expected": 500,
+        "bytes": 26,
+        "elapsedMs": 28
+      },
+      {
+        "method": "GET",
+        "route": "/github/connections",
+        "requestID": "bd362f07-3c14-4001-a940-9bd67a92bd16",
+        "status": 200,
+        "expected": 200,
+        "bytes": 456,
+        "elapsedMs": 783
+      },
+      {
+        "method": "POST",
+        "route": "/api/admin/tokens",
+        "requestID": "e79c9b2a-8e46-4e5c-8504-550cde50616e",
+        "status": 200,
+        "expected": 200,
+        "bytes": 186,
+        "elapsedMs": 43
+      },
+      {
+        "method": "GET",
+        "route": "/api/user",
+        "requestID": "8b472f79-805e-41dc-ba3a-e26afb5e2094",
+        "status": 200,
+        "expected": 200,
+        "bytes": 100,
+        "elapsedMs": 31
+      },
+      {
+        "method": "DELETE",
+        "route": "/api/admin/tokens/6aea406baf3a2cca466ec438",
+        "requestID": "b63c8973-72cf-4a87-b161-d40121528cdb",
+        "status": 200,
+        "expected": 200,
+        "bytes": 13,
+        "elapsedMs": 37
+      },
+      {
+        "method": "GET",
+        "route": "/api/user",
+        "requestID": "d16c878f-682a-4ddf-b039-7c565cc93e08",
+        "status": 401,
+        "expected": 401,
+        "bytes": 25,
+        "elapsedMs": 29
+      },
+      {
+        "method": "POST",
+        "route": "/github/login-token",
+        "requestID": "bc883a15-3737-42c8-9584-29496edde5f2",
+        "status": 200,
+        "expected": 200,
+        "bytes": 33,
+        "elapsedMs": 31
+      },
+      {
+        "method": "GET",
+        "route": "/api/user",
+        "requestID": "09bcdad1-c4d1-4183-a6a7-5e0a9270d845",
+        "status": 200,
+        "expected": 200,
+        "bytes": 100,
+        "elapsedMs": 29
+      },
+      {
+        "method": "GET",
+        "route": "/api/user/logout",
+        "requestID": "7fb579f2-2cc4-4052-8d66-b3db71a63d42",
+        "status": 302,
+        "expected": 302,
+        "bytes": 24,
+        "elapsedMs": 28
+      },
+      {
+        "method": "GET",
+        "route": "/api/user",
+        "requestID": "59114ddc-6949-4acc-9bcb-2a12c81fe01e",
+        "status": 401,
+        "expected": 401,
+        "bytes": 25,
+        "elapsedMs": 27
+      },
+      {
+        "method": "POST",
+        "route": "/api/anonymize-preview",
+        "requestID": "efcfd370-9f22-4c93-be51-4b56fa1dd946",
+        "status": 200,
+        "expected": 200,
+        "bytes": 26,
+        "elapsedMs": 35
+      },
+      {
+        "method": "GET",
+        "route": "/api/providers/github/repository/metadata?name=tdurieux%2Fsynctex-js&connection=github-app",
+        "requestID": "eea75634-d68f-4847-b599-9991cd208258",
+        "status": 200,
+        "expected": 200,
+        "bytes": 230,
+        "elapsedMs": 3383
+      },
+      {
+        "method": "GET",
+        "route": "/api/providers/github/repository/branches?name=tdurieux%2Fsynctex-js&connection=github-app",
+        "requestID": "0a237b63-4c21-4202-8a6b-36d283467ce7",
+        "status": 200,
+        "expected": 200,
+        "bytes": 2623,
+        "elapsedMs": 3342
+      },
+      {
+        "method": "GET",
+        "route": "/api/providers/github/repository/readme?name=tdurieux%2Fsynctex-js&connection=github-app",
+        "requestID": "d6abe967-72d9-49cc-8d4a-51209dcd2e35",
+        "status": 200,
+        "expected": 200,
+        "bytes": 2303,
+        "elapsedMs": 3394
+      },
+      {
+        "method": "POST",
+        "route": "/api/repo",
+        "requestID": "524e1d62-3336-492b-909f-d4e0f83c0c10",
+        "status": 200,
+        "expected": 200,
+        "bytes": 22,
+        "elapsedMs": 3928
+      },
+      {
+        "method": "GET",
+        "route": "/api/repo/go-beta-check-1793736802538",
+        "requestID": "9dff0d7e-f09e-41e1-b45a-36ec71317182",
+        "status": 200,
+        "expected": 200,
+        "bytes": 510,
+        "elapsedMs": 84
+      },
+      {
+        "method": "GET",
+        "route": "/api/repo/go-beta-check-1793736802538/file/LICENSE",
+        "requestID": "7f3d1bdd-e4d8-4053-b5f4-e847bd9dc5f7",
+        "status": 200,
+        "expected": 200,
+        "bytes": 1074,
+        "elapsedMs": 812
+      },
+      {
+        "method": "GET",
+        "route": "/api/repo/go-beta-check-1793736802538/files",
+        "requestID": "39933933-4557-4c01-b528-d757f9f3f008",
+        "status": 200,
+        "expected": 200,
+        "bytes": 170,
+        "elapsedMs": 33
+      },
+      {
+        "method": "GET",
+        "route": "/api/repo/go-beta-check-1793736802538/zip",
+        "requestID": "106b2184-7259-494c-9b1f-f938c1293fe3",
+        "status": 200,
+        "expected": 200,
+        "bytes": 7166,
+        "elapsedMs": 4178
+      },
+      {
+        "method": "GET",
+        "route": "/api/repo/go-beta-check-1793736802538/file/LICENSE",
+        "requestID": "d146aa38-d691-4abf-8d33-3ddab59926f0",
+        "status": 200,
+        "expected": 200,
+        "bytes": 1074,
+        "elapsedMs": 875
+      },
+      {
+        "method": "GET",
+        "route": "/api/repo/go-beta-check-1793736802538/zip",
+        "requestID": "c20a0025-ec47-40fe-83c6-2de77bc7f1da",
+        "status": 200,
+        "expected": 200,
+        "bytes": 7166,
+        "elapsedMs": 4043
+      },
+      {
+        "method": "GET",
+        "route": "/api/repo/go-beta-check-1793736802538/file/LICENSE",
+        "requestID": "81be7809-d70b-4bb3-94b0-98f186436c43",
+        "status": 200,
+        "expected": 200,
+        "bytes": 1074,
+        "elapsedMs": 800
+      },
+      {
+        "method": "GET",
+        "route": "/api/repo/go-beta-check-1793736802538/zip",
+        "requestID": "7924deb9-7a06-4581-91ac-b8ae0e2c5baf",
+        "status": 200,
+        "expected": 200,
+        "bytes": 7166,
+        "elapsedMs": 4070
+      },
+      {
+        "method": "GET",
+        "route": "/api/admin/performance",
+        "requestID": "366775ed-6359-49a4-bd0e-a637c0b5a606",
+        "status": 200,
+        "expected": 200,
+        "bytes": 37225,
+        "elapsedMs": 137
+      },
+      {
+        "method": "GET",
+        "route": "/api/user",
+        "requestID": "96239993-1648-4dfe-810b-a32677006379",
+        "status": 401,
+        "expected": 401,
+        "bytes": 25,
+        "elapsedMs": 34
+      },
+      {
+        "method": "DELETE",
+        "route": "/api/repo/go-beta-check-1793736802538",
+        "requestID": "e4897fe6-59ef-420f-b299-03a6f10a51c4",
+        "status": 200,
+        "expected": 200,
+        "bytes": 21,
+        "elapsedMs": 47
+      },
+      {
+        "method": "GET",
+        "route": "/api/repo/go-beta-check-1793736802538",
+        "requestID": "a517b837-1f0e-4d83-bdfa-ab43e181db97",
+        "status": 200,
+        "expected": 200,
+        "bytes": 560,
+        "elapsedMs": 36
+      },
+      {
+        "method": "GET",
+        "route": "/api/repo/go-beta-check-1793736802538",
+        "requestID": "9a47ef34-3c20-4c7a-bd97-6485eb05bcb0",
+        "status": 200,
+        "expected": 200,
+        "bytes": 559,
+        "elapsedMs": 35
+      },
+      {
+        "method": "GET",
+        "route": "/api/repo/go-beta-check-1793736802538/file/LICENSE",
+        "requestID": "c14adddc-0e86-49a9-96a3-3d11fd49d3ed",
+        "status": 410,
+        "expected": 410,
+        "bytes": 30,
+        "elapsedMs": 28
+      },
+      {
+        "method": "GET",
+        "route": "/api/user",
+        "requestID": "e1baa91f-853e-47ce-923c-ac6c90ad2f17",
+        "status": 401,
+        "expected": 401,
+        "bytes": 25,
+        "elapsedMs": 40
+      }
+    ],
+    "productionChanged": false,
+    "overviewHistoryFresh": "passed",
+    "overviewBrowserFields": "passed",
+    "queueOverviewFields": "passed",
+    "errorMonitoring": {
+      "maxEntries": 5000,
+      "hourlyBuckets": 24,
+      "routine404Counted": true
+    },
+    "queueMetricWindows": [
+      {
+        "queue": "download",
+        "range": "1h",
+        "points": 60
+      },
+      {
+        "queue": "download",
+        "range": "6h",
+        "points": 360
+      },
+      {
+        "queue": "download",
+        "range": "24h",
+        "points": 1440
+      },
+      {
+        "queue": "download",
+        "range": "7d",
+        "points": 10080
+      },
+      {
+        "queue": "remove",
+        "range": "1h",
+        "points": 60
+      },
+      {
+        "queue": "cache",
+        "range": "1h",
+        "points": 60
+      },
+      {
+        "queue": "download",
+        "range": "unrecognized",
+        "points": 60
+      }
+    ],
+    "publicStatistics": {
+      "anonymousAccess": true,
+      "windows": [
+        {
+          "query": "days=-2",
+          "days": 1,
+          "rows": 1
+        },
+        {
+          "query": "days=0",
+          "days": 30,
+          "rows": 1
+        },
+        {
+          "query": "days=0x10",
+          "days": 16,
+          "rows": 1
+        },
+        {
+          "query": "days=7suffix",
+          "days": 7,
+          "rows": 1
+        },
+        {
+          "query": "days=999",
+          "days": 365,
+          "rows": 1
+        },
+        {
+          "query": "days[]=7&days[]=30",
+          "days": 7,
+          "rows": 1
+        },
+        {
+          "query": "days[1]=7&days[0]=1",
+          "days": 1,
+          "rows": 1
+        },
+        {
+          "query": "days[x]=7",
+          "days": 30,
+          "rows": 1
+        }
+      ]
+    },
+    "dashboardExtendedQueries": "passed",
+    "dashboardDateCursors": "passed",
+    "monitoringExtendedQueries": "passed",
+    "adminExtendedQueries": "passed",
+    "previewConnectionQueries": "passed",
+    "previewCacheHintRejections": "passed",
+    "userSearchQueries": "passed",
+    "adminListPaginationQueries": "passed",
+    "adminListFilterQueries": "passed",
+    "adminListCastingQueries": "passed",
+    "adminListDateQueries": "passed",
+    "apiKeyLifecycle": "passed",
+    "sessionLoginLogout": "passed",
+    "exactZipContents": "passed",
+    "repeatedContentChecks": 3,
+    "performanceMonitoring": {
+      "requests": true,
+      "processSamples": true,
+      "runtimeHistory": true,
+      "stages": [
+        "repository",
+        "authorization",
+        "worker_wait",
+        "anonymize"
+      ],
+      "upstreamObserved": true,
+      "upstreamNote": "Shared-cache hits need no upstream read; provider timing is checked by the integration suite."
+    },
+    "result": "passed",
+    "testRepositoryRemoved": true,
+    "temporaryKeyRevoked": true,
+    "betaAccountAdmin": true,
+    "uniqueRequestIDsVerified": 130
+  },
+  "image": "sha256:e4c0f3bdc8311851f11a584616771d22a1eb5dcda2d44d115be0101c57674df2",
+  "traces": [
+    {
+      "requestID": "92af5526-cf15-4074-9508-ff35677e0d54",
+      "route": "/api/user",
+      "status": 401,
+      "serverMs": 2,
+      "firstByteMs": 2.440078,
+      "bytes": 25,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "8c904bdd-147a-47db-ac56-baf425d8bd5e",
+      "route": "/api/user",
+      "status": 200,
+      "serverMs": 7,
+      "firstByteMs": 7.350763,
+      "bytes": 100,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "d517f0dc-ece9-4102-95e3-be9ab95b6689",
+      "route": "/github/connections",
+      "status": 200,
+      "serverMs": 594,
+      "firstByteMs": 594.455175,
+      "bytes": 456,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "67926504-67df-46f8-8559-f74a57079c67",
+      "route": "/api/providers",
+      "status": 200,
+      "serverMs": 5,
+      "firstByteMs": 5.397495,
+      "bytes": 144,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "d1fc1097-69de-4dd3-b45c-be9444c0ed5c",
+      "route": "/api/user/dashboard",
+      "status": 200,
+      "serverMs": 21,
+      "firstByteMs": 21.228708,
+      "bytes": 796,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "4fba91f8-07c9-4105-bc7d-52c832c3aeef",
+      "route": "/api/user/default",
+      "status": 200,
+      "serverMs": 5,
+      "firstByteMs": 4.610757,
+      "bytes": 25,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "db442065-c2d0-4289-b893-d3fec59b5ef8",
+      "route": "/api/user/quota",
+      "status": 200,
+      "serverMs": 6,
+      "firstByteMs": 6.401882,
+      "bytes": 115,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "d04272af-d78c-458a-a453-5fc491f32832",
+      "route": "/api/admin/overview",
+      "status": 200,
+      "serverMs": 67,
+      "firstByteMs": 65.547509,
+      "bytes": 583,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "f20342d5-50e6-4e48-a4c4-e3321acbbca4",
+      "route": "/api/admin/users",
+      "status": 200,
+      "serverMs": 12,
+      "firstByteMs": 11.643001,
+      "bytes": 526,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "04964e19-19aa-4fd6-a12f-529502546db9",
+      "route": "/api/admin/repos",
+      "status": 200,
+      "serverMs": 15,
+      "firstByteMs": 12.244846,
+      "bytes": 2252,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "4857ad9a-ede3-4134-9908-d7d3c2c9f5a4",
+      "route": "/api/admin/queues",
+      "status": 200,
+      "serverMs": 27,
+      "firstByteMs": 25.067812,
+      "bytes": 772,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "71b166f0-022a-4a54-b862-f416ae1f59dd",
+      "route": "/api/admin/performance",
+      "status": 200,
+      "serverMs": 51,
+      "firstByteMs": 47.388249,
+      "bytes": 4464,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "4eedd466-330d-46d4-865f-16669ea96edc",
+      "route": "/api/admin/errors",
+      "status": 200,
+      "serverMs": 22,
+      "firstByteMs": 16.637856,
+      "bytes": 8541,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "1cee3ef2-113a-46d9-a07b-9b09963d25ea",
+      "route": "/api/admin/errors/stats",
+      "status": 200,
+      "serverMs": 7,
+      "firstByteMs": 5.689557,
+      "bytes": 266,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "3561eeb8-4162-4d0b-885c-40b465d3fefb",
+      "route": "/api/admin/tokens",
+      "status": 200,
+      "serverMs": 7,
+      "firstByteMs": 6.667622,
+      "bytes": 160,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "9bf24a5b-cd2d-4ea5-b936-fb63d0515a2f",
+      "route": "/api/admin/errors",
+      "status": 200,
+      "serverMs": 38,
+      "firstByteMs": 27.216298,
+      "bytes": 20323,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "be5375e7-d9ca-4125-9adf-6ccff7457f93",
+      "route": "/api/admin/errors/stats",
+      "status": 200,
+      "serverMs": 8,
+      "firstByteMs": 6.514999,
+      "bytes": 266,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "43d0fe8c-d682-43fc-98a9-44f791267da2",
+      "route": "/api/repo/:id",
+      "status": 404,
+      "serverMs": 6,
+      "firstByteMs": 6.070003,
+      "bytes": 26,
+      "stagesMs": {
+        "repository": 1.279095
+      }
+    },
+    {
+      "requestID": "9ea45513-5f90-4f58-8491-3714431f03a9",
+      "route": "/api/admin/errors/stats",
+      "status": 200,
+      "serverMs": 8,
+      "firstByteMs": 6.392329,
+      "bytes": 266,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "3e8e8857-d6c9-4a14-a06b-2ab3a3500162",
+      "route": "/api/admin/queues/metrics",
+      "status": 200,
+      "serverMs": 10,
+      "firstByteMs": 8.428846,
+      "bytes": 211,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "ac98ba9e-c7e2-4f4f-a824-6ba4015115cd",
+      "route": "/api/admin/queues/metrics",
+      "status": 200,
+      "serverMs": 11,
+      "firstByteMs": 9.010161,
+      "bytes": 600,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "fc6b9615-1148-4b89-a62a-89935f0dda66",
+      "route": "/api/admin/queues/metrics",
+      "status": 200,
+      "serverMs": 12,
+      "firstByteMs": 8.10019,
+      "bytes": 1966,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "1952bf87-de20-467e-bb4d-dc184400ff33",
+      "route": "/api/admin/queues/metrics",
+      "status": 200,
+      "serverMs": 101,
+      "firstByteMs": 83.764568,
+      "bytes": 9716,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "3c82e090-c60a-41c4-9f8e-0e312f1b7cb6",
+      "route": "/api/admin/queues/metrics",
+      "status": 200,
+      "serverMs": 8,
+      "firstByteMs": 6.621152,
+      "bytes": 205,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "33fde05e-fc96-4434-ba3a-2e50f024d72a",
+      "route": "/api/admin/queues/metrics",
+      "status": 200,
+      "serverMs": 8,
+      "firstByteMs": 6.597779,
+      "bytes": 188,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "52ea2817-ebb7-463a-9141-6737e8661099",
+      "route": "/api/admin/queues/metrics",
+      "status": 200,
+      "serverMs": 7,
+      "firstByteMs": 5.391655,
+      "bytes": 222,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "51f25fc2-aa35-4330-97c0-3af4102439a8",
+      "route": "/api/admin/queues/metrics",
+      "status": 404,
+      "serverMs": 5,
+      "firstByteMs": 4.598956,
+      "bytes": 27,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "632f1ced-de81-42db-9f11-f3bb69cae746",
+      "route": "/api/stat",
+      "status": 200,
+      "serverMs": 4,
+      "firstByteMs": 4.260357,
+      "bytes": 69,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "82c3d0ee-0041-42bb-870b-567b9e9135d1",
+      "route": "/api/stat/history",
+      "status": 200,
+      "serverMs": 3,
+      "firstByteMs": 2.775265,
+      "bytes": 105,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "5622ad98-0772-47db-a878-86957fe69df0",
+      "route": "/api/stat/history",
+      "status": 200,
+      "serverMs": 4,
+      "firstByteMs": 3.749927,
+      "bytes": 105,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "e079f15c-7d7a-4f4e-81ed-1fc7d6d32a31",
+      "route": "/api/stat/history",
+      "status": 200,
+      "serverMs": 4,
+      "firstByteMs": 3.68609,
+      "bytes": 105,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "c3970271-3388-4bd5-a4a9-0c4f584399ed",
+      "route": "/api/stat/history",
+      "status": 200,
+      "serverMs": 4,
+      "firstByteMs": 3.797063,
+      "bytes": 105,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "c783f7de-4a3b-42ef-b451-756a1c0753b9",
+      "route": "/api/stat/history",
+      "status": 200,
+      "serverMs": 3,
+      "firstByteMs": 3.218785,
+      "bytes": 105,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "b6734273-9b72-48de-a52b-8b28d04e5aeb",
+      "route": "/api/stat/history",
+      "status": 200,
+      "serverMs": 1,
+      "firstByteMs": 0.950782,
+      "bytes": 105,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "0339fd5c-a412-4e43-a2a4-7b99994a460a",
+      "route": "/api/stat/history",
+      "status": 200,
+      "serverMs": 2,
+      "firstByteMs": 1.605862,
+      "bytes": 105,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "d86733cb-01c6-441c-b9db-7d7cad9c44f1",
+      "route": "/api/stat/history",
+      "status": 200,
+      "serverMs": 1,
+      "firstByteMs": 1.045825,
+      "bytes": 105,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "e91e4689-a5d0-4ff7-9e63-97c62f9fc624",
+      "route": "/api/user/dashboard",
+      "status": 200,
+      "serverMs": 20,
+      "firstByteMs": 19.894045,
+      "bytes": 64,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "e9fe011a-2a25-4b70-9a62-1a43829e7fb0",
+      "route": "/api/user/dashboard",
+      "status": 200,
+      "serverMs": 21,
+      "firstByteMs": 20.55172,
+      "bytes": 64,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "0d856e46-18e6-4818-9c4b-128e4de603f3",
+      "route": "/api/user/dashboard",
+      "status": 400,
+      "serverMs": 5,
+      "firstByteMs": 4.789879,
+      "bytes": 24,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "d8fb3699-4b32-492f-b343-5f30e8b3969e",
+      "route": "/api/user/dashboard",
+      "status": 400,
+      "serverMs": 5,
+      "firstByteMs": 5.266365,
+      "bytes": 26,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "4473dd70-9b3b-404f-817b-4af680847d75",
+      "route": "/api/user/dashboard",
+      "status": 200,
+      "serverMs": 19,
+      "firstByteMs": 18.946164,
+      "bytes": 796,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "8dddd7df-bbc8-4796-8256-08dccd9644b9",
+      "route": "/api/user/dashboard",
+      "status": 200,
+      "serverMs": 19,
+      "firstByteMs": 19.486192,
+      "bytes": 796,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "b08d7dc9-ffec-4b20-83a9-41d5b067b1f9",
+      "route": "/api/user/dashboard",
+      "status": 200,
+      "serverMs": 19,
+      "firstByteMs": 19.146876,
+      "bytes": 796,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "c1f26210-f710-4c9a-b316-f8ae2a2eb35d",
+      "route": "/api/user/dashboard",
+      "status": 200,
+      "serverMs": 19,
+      "firstByteMs": 19.081205,
+      "bytes": 796,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "89be1c6a-974a-46fc-aeef-25402cfcd961",
+      "route": "/api/user/dashboard",
+      "status": 200,
+      "serverMs": 20,
+      "firstByteMs": 19.571728,
+      "bytes": 796,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "01704acd-f52d-4889-9f2c-34aceb6a034a",
+      "route": "/api/user/dashboard",
+      "status": 400,
+      "serverMs": 6,
+      "firstByteMs": 5.532614,
+      "bytes": 26,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "e63804a0-f7db-4295-8170-c6c6fc98d408",
+      "route": "/api/admin/performance",
+      "status": 200,
+      "serverMs": 84,
+      "firstByteMs": 79.029918,
+      "bytes": 7170,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "a57ab9d0-c911-4fa0-bea2-e1b6b69cd4e3",
+      "route": "/api/admin/performance",
+      "status": 200,
+      "serverMs": 62,
+      "firstByteMs": 56.675417,
+      "bytes": 7210,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "a5fada31-47f8-4bf8-8da4-dd425a6ab829",
+      "route": "/api/admin/performance",
+      "status": 200,
+      "serverMs": 52,
+      "firstByteMs": 48.132301,
+      "bytes": 4507,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "d78e823e-0aad-403e-858b-570e80e81b93",
+      "route": "/api/admin/queues/metrics",
+      "status": 200,
+      "serverMs": 11,
+      "firstByteMs": 9.236138,
+      "bytes": 568,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "8280a0bb-252a-4d39-a3dd-024e0b90b0eb",
+      "route": "/api/admin/queues/metrics",
+      "status": 200,
+      "serverMs": 6,
+      "firstByteMs": 4.950646,
+      "bytes": 215,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "c2cbdda9-6387-4004-a944-862dda7a2e71",
+      "route": "/api/admin/queues/metrics",
+      "status": 200,
+      "serverMs": 5,
+      "firstByteMs": 5.169341,
+      "bytes": 51,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "7a0cd777-a5bb-4436-8b7f-fdf22885297a",
+      "route": "/api/admin/queues/metrics",
+      "status": 404,
+      "serverMs": 5,
+      "firstByteMs": 4.963222,
+      "bytes": 27,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "d4f7653b-786e-459a-a746-a7e522dced53",
+      "route": "/api/admin/queues",
+      "status": 200,
+      "serverMs": 27,
+      "firstByteMs": 25.354781,
+      "bytes": 730,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "8c94d6ae-0612-4ccf-8b6a-d2f2d449f2f4",
+      "route": "/api/admin/errors",
+      "status": 200,
+      "serverMs": 8,
+      "firstByteMs": 6.239222,
+      "bytes": 837,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "c2f31300-a3fc-4003-afcb-764e151f4890",
+      "route": "/api/repo/:owner/:repo",
+      "status": 400,
+      "serverMs": 6,
+      "firstByteMs": 6.324666,
+      "bytes": 30,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "7a393f11-e5e4-4333-a6fd-2341e2f1b6a3",
+      "route": "/api/repo/:owner/:repo",
+      "status": 400,
+      "serverMs": 5,
+      "firstByteMs": 4.683355,
+      "bytes": 30,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "449fbcb3-958c-4178-8bb4-fd33378357f2",
+      "route": "/api/repo/:owner/:repo",
+      "status": 400,
+      "serverMs": 5,
+      "firstByteMs": 4.546653,
+      "bytes": 30,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "be76221a-a07a-45a9-b884-f0fe3e4f9427",
+      "route": "/api/repo/:owner/:repo",
+      "status": 500,
+      "serverMs": 5,
+      "firstByteMs": 5.390881,
+      "bytes": 26,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "24e68826-d8fd-43c5-8386-1acf9c0df10f",
+      "route": "/api/repo/:owner/:repo",
+      "status": 500,
+      "serverMs": 4,
+      "firstByteMs": 3.670366,
+      "bytes": 26,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "335b7709-6d08-4cc0-9be4-7959e0722ce0",
+      "route": "/api/repo/:owner/:repo",
+      "status": 500,
+      "serverMs": 4,
+      "firstByteMs": 3.689258,
+      "bytes": 26,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "199489ea-8235-41a9-a101-8ee231c0f3e2",
+      "route": "/api/user/search/github-users",
+      "status": 200,
+      "serverMs": 3,
+      "firstByteMs": 3.266913,
+      "bytes": 2,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "fd3d2bcd-764a-413a-b8a2-341e2bf41e4a",
+      "route": "/api/user/search/github-users",
+      "status": 200,
+      "serverMs": 3,
+      "firstByteMs": 2.994012,
+      "bytes": 2,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "a4aff669-0e96-4254-a98a-e4a34f59d824",
+      "route": "/api/user/search/github-users",
+      "status": 500,
+      "serverMs": 6,
+      "firstByteMs": 6.313171,
+      "bytes": 26,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "5eed9cdb-ab3c-4f98-b4f4-3cdac206c791",
+      "route": "/api/user/search/github-users",
+      "status": 500,
+      "serverMs": 7,
+      "firstByteMs": 6.747163,
+      "bytes": 26,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "927e23ad-0052-4e76-b149-9b0368a13e11",
+      "route": "/api/user/search/github-users",
+      "status": 500,
+      "serverMs": 3,
+      "firstByteMs": 3.020981,
+      "bytes": 26,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "39bab574-b902-47b4-b445-72982db42b9a",
+      "route": "/api/admin/repos",
+      "status": 200,
+      "serverMs": 11,
+      "firstByteMs": 9.491644,
+      "bytes": 903,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "c2ba7c3b-9548-46f5-a7f1-c31bdc9bd519",
+      "route": "/api/admin/repos",
+      "status": 200,
+      "serverMs": 7,
+      "firstByteMs": 7.287441,
+      "bytes": 193,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "b1008917-3f20-444c-acc2-c308f093b03f",
+      "route": "/api/admin/repos",
+      "status": 500,
+      "serverMs": 5,
+      "firstByteMs": 4.848909,
+      "bytes": 26,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "24059a54-90a2-4ee0-abb7-c882cb2ed295",
+      "route": "/api/admin/repos",
+      "status": 500,
+      "serverMs": 4,
+      "firstByteMs": 4.269029,
+      "bytes": 26,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "e42d1801-5264-4f89-baa6-b219246f0451",
+      "route": "/api/admin/users",
+      "status": 200,
+      "serverMs": 10,
+      "firstByteMs": 10.345097,
+      "bytes": 106,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "fa407388-1f04-4dff-95cc-e16f241ae7c8",
+      "route": "/api/admin/users",
+      "status": 200,
+      "serverMs": 9,
+      "firstByteMs": 9.469732,
+      "bytes": 112,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "9cf56577-ee3c-4520-aa19-cad9c70535e0",
+      "route": "/api/admin/users",
+      "status": 500,
+      "serverMs": 8,
+      "firstByteMs": 7.740581,
+      "bytes": 26,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "3b08bf96-dd3d-444f-bfad-a5618426d4bf",
+      "route": "/api/admin/users",
+      "status": 500,
+      "serverMs": 4,
+      "firstByteMs": 4.319753,
+      "bytes": 26,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "21d38d5b-7f8e-419f-bca3-e99a7fae061a",
+      "route": "/api/admin/users",
+      "status": 500,
+      "serverMs": 7,
+      "firstByteMs": 7.257968,
+      "bytes": 26,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "bbd2c865-ce96-48ad-a726-ce56cf69c738",
+      "route": "/api/admin/conferences",
+      "status": 200,
+      "serverMs": 9,
+      "firstByteMs": 8.787399,
+      "bytes": 80,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "875e348a-442b-40ba-94dd-c8e05f173c04",
+      "route": "/api/admin/conferences",
+      "status": 200,
+      "serverMs": 9,
+      "firstByteMs": 8.653576,
+      "bytes": 86,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "84c63f73-a8ca-43cf-8221-fe604b5598f9",
+      "route": "/api/admin/conferences",
+      "status": 500,
+      "serverMs": 6,
+      "firstByteMs": 5.988224,
+      "bytes": 26,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "2bd04775-7093-4088-92dc-01407269b604",
+      "route": "/api/admin/conferences",
+      "status": 500,
+      "serverMs": 5,
+      "firstByteMs": 5.401861,
+      "bytes": 26,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "0b1aec43-c47a-4fe5-b6de-1a2732541e3f",
+      "route": "/api/admin/repos",
+      "status": 200,
+      "serverMs": 12,
+      "firstByteMs": 10.7675,
+      "bytes": 722,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "2a75bf8a-1611-44c5-b7ff-acf241db8ae6",
+      "route": "/api/admin/repos",
+      "status": 200,
+      "serverMs": 12,
+      "firstByteMs": 10.280041,
+      "bytes": 859,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "4cb08c73-3596-403e-a04e-439dc1d8ce67",
+      "route": "/api/admin/conferences",
+      "status": 200,
+      "serverMs": 8,
+      "firstByteMs": 8.147064,
+      "bytes": 80,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "eb578bca-7b46-467d-91ef-0c199c7d72b4",
+      "route": "/api/admin/conferences",
+      "status": 200,
+      "serverMs": 9,
+      "firstByteMs": 8.836492,
+      "bytes": 117,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "08478eb2-6570-4f71-9a98-12379ebb3514",
+      "route": "/api/admin/repos",
+      "status": 500,
+      "serverMs": 4,
+      "firstByteMs": 4.041616,
+      "bytes": 26,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "0d599bc8-5c9a-4b27-8663-16053843682d",
+      "route": "/api/admin/users",
+      "status": 500,
+      "serverMs": 5,
+      "firstByteMs": 5.039458,
+      "bytes": 26,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "bcbbd23b-70f4-4d73-b3fe-b1a4ff0f64a6",
+      "route": "/api/admin/conferences",
+      "status": 500,
+      "serverMs": 4,
+      "firstByteMs": 4.198773,
+      "bytes": 26,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "0fecb76b-44e5-4f9b-a733-d51262bd8d39",
+      "route": "/api/admin/users",
+      "status": 200,
+      "serverMs": 10,
+      "firstByteMs": 9.835938,
+      "bytes": 99,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "c5a6a08a-f2b8-4979-8ce4-41d4bd0a9f44",
+      "route": "/api/admin/users",
+      "status": 200,
+      "serverMs": 11,
+      "firstByteMs": 10.986556,
+      "bytes": 553,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "fe4f3020-4e24-4d30-bd78-476fbc6042da",
+      "route": "/api/admin/users",
+      "status": 500,
+      "serverMs": 5,
+      "firstByteMs": 4.560012,
+      "bytes": 26,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "8c642cc3-2d24-4225-b485-87e353df54aa",
+      "route": "/api/admin/users",
+      "status": 500,
+      "serverMs": 6,
+      "firstByteMs": 5.97107,
+      "bytes": 26,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "d3b8893f-955d-4e78-a3fc-7b8be6186f84",
+      "route": "/api/admin/repos",
+      "status": 500,
+      "serverMs": 4,
+      "firstByteMs": 4.241369,
+      "bytes": 26,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "5d9aef10-9941-4ae4-b39a-bd53b8f42ffe",
+      "route": "/api/admin/repos",
+      "status": 500,
+      "serverMs": 5,
+      "firstByteMs": 4.940782,
+      "bytes": 26,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "0e2e75fb-eb82-44fa-a6d8-c80c0024bc08",
+      "route": "/api/admin/repos",
+      "status": 200,
+      "serverMs": 16,
+      "firstByteMs": 13.824754,
+      "bytes": 2292,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "8f3b5d5e-e340-43cf-a210-f18b7b1f3ccd",
+      "route": "/api/admin/repos",
+      "status": 200,
+      "serverMs": 9,
+      "firstByteMs": 9.000251,
+      "bytes": 156,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "0fa29056-5ec2-4adb-9575-686df9b1ec37",
+      "route": "/api/admin/repos",
+      "status": 500,
+      "serverMs": 4,
+      "firstByteMs": 4.486879,
+      "bytes": 26,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "180dd2d4-b58e-4174-b636-d61f919f031c",
+      "route": "/api/admin/users",
+      "status": 200,
+      "serverMs": 10,
+      "firstByteMs": 9.677692,
+      "bytes": 458,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "5d4d9689-ea73-4c2b-a4aa-dd06a52c7860",
+      "route": "/api/admin/users",
+      "status": 200,
+      "serverMs": 10,
+      "firstByteMs": 10.185532,
+      "bytes": 129,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "dc625355-4d27-4b7e-912d-0f36b207e53d",
+      "route": "/api/admin/users",
+      "status": 500,
+      "serverMs": 4,
+      "firstByteMs": 4.387646,
+      "bytes": 26,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "28abbffe-a089-4ce0-8ae9-c66b89ff3451",
+      "route": "/api/admin/conferences",
+      "status": 200,
+      "serverMs": 9,
+      "firstByteMs": 8.919728,
+      "bytes": 138,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "db506a0e-e51e-44db-9a4f-6f825f5a1aa7",
+      "route": "/api/admin/conferences",
+      "status": 200,
+      "serverMs": 8,
+      "firstByteMs": 8.485272,
+      "bytes": 138,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "116bffd3-e79f-403f-8f2a-53c1006e7ca4",
+      "route": "/api/admin/conferences",
+      "status": 500,
+      "serverMs": 4,
+      "firstByteMs": 3.734143,
+      "bytes": 26,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "bd362f07-3c14-4001-a940-9bd67a92bd16",
+      "route": "/github/connections",
+      "status": 200,
+      "serverMs": 753,
+      "firstByteMs": 752.730567,
+      "bytes": 456,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "e79c9b2a-8e46-4e5c-8504-550cde50616e",
+      "route": "/api/admin/tokens",
+      "status": 200,
+      "serverMs": 9,
+      "firstByteMs": 9.284489,
+      "bytes": 186,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "8b472f79-805e-41dc-ba3a-e26afb5e2094",
+      "route": "/api/user",
+      "status": 200,
+      "serverMs": 6,
+      "firstByteMs": 5.838684,
+      "bytes": 100,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "b63c8973-72cf-4a87-b161-d40121528cdb",
+      "route": "/api/admin/tokens/:id",
+      "status": 200,
+      "serverMs": 7,
+      "firstByteMs": 6.935645,
+      "bytes": 13,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "d16c878f-682a-4ddf-b039-7c565cc93e08",
+      "route": "/api/user",
+      "status": 401,
+      "serverMs": 3,
+      "firstByteMs": 2.877162,
+      "bytes": 25,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "bc883a15-3737-42c8-9584-29496edde5f2",
+      "route": "/github/login-token",
+      "status": 200,
+      "serverMs": 7,
+      "firstByteMs": 6.736172,
+      "bytes": 33,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "09bcdad1-c4d1-4183-a6a7-5e0a9270d845",
+      "route": "/api/user",
+      "status": 200,
+      "serverMs": 3,
+      "firstByteMs": 2.881258,
+      "bytes": 100,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "7fb579f2-2cc4-4052-8d66-b3db71a63d42",
+      "route": "/api/user/logout",
+      "status": 302,
+      "serverMs": 3,
+      "firstByteMs": 3.229201,
+      "bytes": 24,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "59114ddc-6949-4acc-9bcb-2a12c81fe01e",
+      "route": "/api/user",
+      "status": 401,
+      "serverMs": 1,
+      "firstByteMs": 1.218853,
+      "bytes": 25,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "efcfd370-9f22-4c93-be51-4b56fa1dd946",
+      "route": "/api/anonymize-preview",
+      "status": 200,
+      "serverMs": 5,
+      "firstByteMs": 4.820359,
+      "bytes": 26,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "eea75634-d68f-4847-b599-9991cd208258",
+      "route": "/api/providers/:provider/repository/metadata",
+      "status": 200,
+      "serverMs": 3355,
+      "firstByteMs": 3354.956965,
+      "bytes": 230,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "0a237b63-4c21-4202-8a6b-36d283467ce7",
+      "route": "/api/providers/:provider/repository/branches",
+      "status": 200,
+      "serverMs": 3317,
+      "firstByteMs": 3315.696237,
+      "bytes": 998,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "d6abe967-72d9-49cc-8d4a-51209dcd2e35",
+      "route": "/api/providers/:provider/repository/readme",
+      "status": 200,
+      "serverMs": 3361,
+      "firstByteMs": 3358.9631,
+      "bytes": 878,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "524e1d62-3336-492b-909f-d4e0f83c0c10",
+      "route": "/api/repo",
+      "status": 200,
+      "serverMs": 3900,
+      "firstByteMs": 3899.645368,
+      "bytes": 22,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "9dff0d7e-f09e-41e1-b45a-36ec71317182",
+      "route": "/api/repo/:id",
+      "status": 200,
+      "serverMs": 8,
+      "firstByteMs": 8.127001,
+      "bytes": 510,
+      "stagesMs": {
+        "repository": 1.595351
+      }
+    },
+    {
+      "requestID": "7f3d1bdd-e4d8-4053-b5f4-e847bd9dc5f7",
+      "route": "/api/repo/:id/file/*path",
+      "status": 200,
+      "serverMs": 784,
+      "firstByteMs": 781.57289,
+      "bytes": 672,
+      "stagesMs": {
+        "anonymize": 13.157028,
+        "authorization": 691.0036620000001,
+        "cache_fill": 57.465902,
+        "cache_lookup": 2.282394,
+        "repository": 2.029032,
+        "worker_wait": 0.02187
+      }
+    },
+    {
+      "requestID": "39933933-4557-4c01-b528-d757f9f3f008",
+      "route": "/api/repo/:id/files",
+      "status": 200,
+      "serverMs": 7,
+      "firstByteMs": 7.389028,
+      "bytes": 170,
+      "stagesMs": {
+        "repository": 2.463586
+      }
+    },
+    {
+      "requestID": "106b2184-7259-494c-9b1f-f938c1293fe3",
+      "route": "/api/repo/:id/zip",
+      "status": 200,
+      "serverMs": 4152,
+      "firstByteMs": 3351.867978,
+      "bytes": 7166,
+      "stagesMs": {
+        "anonymize": 96.061766,
+        "authorization": 3870.61723,
+        "cache_fill": 147.571655,
+        "cache_lookup": 11.005676000000003,
+        "repository": 2.16016,
+        "worker_wait": 0.099976
+      }
+    },
+    {
+      "requestID": "d146aa38-d691-4abf-8d33-3ddab59926f0",
+      "route": "/api/repo/:id/file/*path",
+      "status": 200,
+      "serverMs": 813,
+      "firstByteMs": 810.549835,
+      "bytes": 672,
+      "stagesMs": {
+        "authorization": 785.951564,
+        "cache_lookup": 1.7022009999999999,
+        "repository": 2.210586
+      }
+    },
+    {
+      "requestID": "c20a0025-ec47-40fe-83c6-2de77bc7f1da",
+      "route": "/api/repo/:id/zip",
+      "status": 200,
+      "serverMs": 4018,
+      "firstByteMs": 3239.719705,
+      "bytes": 7166,
+      "stagesMs": {
+        "authorization": 3928.9969919999994,
+        "cache_lookup": 9.505242,
+        "repository": 2.458816
+      }
+    },
+    {
+      "requestID": "81be7809-d70b-4bb3-94b0-98f186436c43",
+      "route": "/api/repo/:id/file/*path",
+      "status": 200,
+      "serverMs": 733,
+      "firstByteMs": 729.780856,
+      "bytes": 672,
+      "stagesMs": {
+        "authorization": 706.085898,
+        "cache_lookup": 1.618744,
+        "repository": 2.3111
+      }
+    },
+    {
+      "requestID": "7924deb9-7a06-4581-91ac-b8ae0e2c5baf",
+      "route": "/api/repo/:id/zip",
+      "status": 200,
+      "serverMs": 4044,
+      "firstByteMs": 3294.913027,
+      "bytes": 7166,
+      "stagesMs": {
+        "authorization": 3955.438313,
+        "cache_lookup": 9.775472,
+        "repository": 2.685298
+      }
+    },
+    {
+      "requestID": "366775ed-6359-49a4-bd0e-a637c0b5a606",
+      "route": "/api/admin/performance",
+      "status": 200,
+      "serverMs": 66,
+      "firstByteMs": 61.686888,
+      "bytes": 4499,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "96239993-1648-4dfe-810b-a32677006379",
+      "route": "/api/user",
+      "status": 401,
+      "serverMs": 3,
+      "firstByteMs": 3.377833,
+      "bytes": 25,
+      "stagesMs": {}
+    },
+    {
+      "requestID": "e4897fe6-59ef-420f-b299-03a6f10a51c4",
+      "route": "/api/repo/:id",
+      "status": 200,
+      "serverMs": 11,
+      "firstByteMs": 11.440041,
+      "bytes": 21,
+      "stagesMs": {
+        "repository": 1.703247
+      }
+    },
+    {
+      "requestID": "a517b837-1f0e-4d83-bdfa-ab43e181db97",
+      "route": "/api/repo/:id",
+      "status": 200,
+      "serverMs": 7,
+      "firstByteMs": 7.068029,
+      "bytes": 560,
+      "stagesMs": {
+        "repository": 1.676334
+      }
+    },
+    {
+      "requestID": "9a47ef34-3c20-4c7a-bd97-6485eb05bcb0",
+      "route": "/api/repo/:id",
+      "status": 200,
+      "serverMs": 8,
+      "firstByteMs": 8.388416,
+      "bytes": 559,
+      "stagesMs": {
+        "repository": 1.859563
+      }
+    },
+    {
+      "requestID": "c14adddc-0e86-49a9-96a3-3d11fd49d3ed",
+      "route": "/api/repo/:id/file/*path",
+      "status": 410,
+      "serverMs": 3,
+      "firstByteMs": 3.319531,
+      "bytes": 30,
+      "stagesMs": {
+        "repository": 2.136851
+      }
+    },
+    {
+      "requestID": "e1baa91f-853e-47ce-923c-ac6c90ad2f17",
+      "route": "/api/user",
+      "status": 401,
+      "serverMs": 2,
+      "firstByteMs": 2.378812,
+      "bytes": 25,
+      "stagesMs": {}
+    }
+  ],
+  "summary": {
+    "/api/repo/:id/file/*path": {
+      "serverMs": [
+        784,
+        813,
+        733
+      ],
+      "medianServerMs": 784,
+      "authorizationMs": [
+        691.0036620000001,
+        785.951564,
+        706.085898
+      ]
+    },
+    "/api/repo/:id/zip": {
+      "serverMs": [
+        4152,
+        4018,
+        4044
+      ],
+      "medianServerMs": 4044,
+      "authorizationMs": [
+        3870.61723,
+        3928.9969919999994,
+        3955.438313
+      ]
+    }
+  }
+}

@@ -1,0 +1,77 @@
+{
+  "mainCommit": "511dcd706791e551243fd2682765825f82473afc",
+  "restoredGoFrom": "bff2e343fdc6fc09ff0f373a34bef9716b06bc00^",
+  "status": "Branch synchronized; current-main behavior parity is not complete",
+  "newTypeScriptRoutes": [
+    {
+      "method": "GET",
+      "path": "/api/admin/billing/grants"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/billing/summary"
+    },
+    {
+      "method": "GET",
+      "path": "/api/billing"
+    },
+    {
+      "method": "GET",
+      "path": "/api/billing/draft/:id"
+    },
+    {
+      "method": "GET",
+      "path": "/api/repo/:owner/:repo/file"
+    },
+    {
+      "method": "GET",
+      "path": "/api/repo/:owner/:repo/tree"
+    },
+    {
+      "method": "GET",
+      "path": "/github/connections/email"
+    },
+    {
+      "method": "POST",
+      "path": "/api/billing/checkout"
+    },
+    {
+      "method": "POST",
+      "path": "/api/billing/draft"
+    },
+    {
+      "method": "POST",
+      "path": "/api/billing/portal"
+    },
+    {
+      "method": "POST",
+      "path": "/api/billing/refresh"
+    },
+    {
+      "method": "POST",
+      "path": "/api/billing/webhook"
+    },
+    {
+      "method": "POST",
+      "path": "/github/connections/email"
+    }
+  ],
+  "removedTypeScriptRoutes": [],
+  "notes": [
+    "Historical Go route fixtures remain unchanged. The routes.cjs --check gate detects the new inventory and remains blocking.",
+    "New TypeScript behavior on existing routes also requires a separate compatibility audit.",
+    "No production or beta deployment was performed."
+  ],
+  "validation": {
+    "goTest": "passed; database integration tests require their separate Docker runner",
+    "goVet": "passed",
+    "npmBuild": "passed",
+    "routeInventory": "fails: current TypeScript inventory differs from historical Go contract",
+    "cacheRace": "passed: Node interoperability, replacement classification, capacity and expiry batches"
+  },
+  "changes": [
+    "Restore Go backend and Go deployment on top of current main",
+    "Update Node rollback Dockerfile to current main runtime and native dependency checks",
+    "Migrate shared cache decision classification column and clear stale classification when Go replaces a decision"
+  ]
+}

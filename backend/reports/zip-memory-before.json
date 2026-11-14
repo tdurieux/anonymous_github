@@ -1,0 +1,70 @@
+{
+  "recordedAt": "2026-11-04T08:18:48.380Z",
+  "node": "v24.14.1",
+  "go": "go version go1.27.3 linux/amd64",
+  "nodeSourceSHA256": "ccef1fc05af9de24f0d2bf9223d478c2455de0305129babf05d0ad2c22a0b185",
+  "goBinarySHA256": "21a84b62aee32f574fe552610afd27092b7e60cd36c3cc943710a1e94ba502cc",
+  "benchmarkScriptSHA256": "9c48ba40bbfab912462028ce5456f172769b4a71497f04e53ef5bf04db434f5c",
+  "fixture": {
+    "repository": "tdurieux/anonymous_github",
+    "commit": "b09ef0e5b0027756ad86eb3353a5ff6416016ade",
+    "originalFiles": 1017,
+    "originalBytes": 28687144,
+    "terms": [
+      "tdurieux"
+    ],
+    "addedFixture": "1000 copies of snapshot gulpfile.js in benchmark-1000"
+  },
+  "method": {
+    "entrypoints": [
+      "src/server/index.ts",
+      "backend/cmd/server"
+    ],
+    "provider": "Same pre-seeded archive snapshot; no GitHub API calls or production database",
+    "localZipOrigin": false,
+    "zipAuthorization": "Disposable admin API key to allow the TypeScript local ZIP route",
+    "sharedCache": true,
+    "encoding": "identity",
+    "cold": "First endpoint request per fresh process/storage; earlier cases may warm shared dependencies",
+    "warm": "1 requests per tested concurrency",
+    "rounds": 1,
+    "order": "go",
+    "resources": "Process tree CPU and RSS; excludes MongoDB, Redis and client; CPU may include background work",
+    "scope": "HTTP backend only; excludes browser rendering, CDN, GitHub authorization and network fetch"
+  },
+  "results": [
+    {
+      "runtime": "go",
+      "repeat": 0,
+      "results": [
+        {
+          "name": "repository ZIP",
+          "cold": {
+            "ms": 40264.038648,
+            "firstBodyMs": 177.61004400000093,
+            "status": 200,
+            "bytes": 13045815
+          },
+          "output": {
+            "status": 200,
+            "sha256": "72d41a3fe5dcbf91eb33c1682cd4db5ccb220160c35e58e310ead96ac39ac600",
+            "entries": 2017
+          },
+          "warm": [
+            {
+              "concurrency": 1,
+              "requests": 1,
+              "p50Ms": 39293.266413000005,
+              "p95Ms": 39293.266413000005,
+              "p50FirstBodyMs": 148.60325800000282,
+              "requestsPerSecond": 0.025418685391377722,
+              "cpuMs": 38020,
+              "peakProcessTreeRssBytes": 696705024,
+              "bytes": 13045799
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

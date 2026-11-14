@@ -27,3 +27,5 @@ docker-compose*.yml
 /esdata
 /secrets
 /.impeccable
+/backend/reports
+/backend/bin

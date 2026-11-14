@@ -1,0 +1,38 @@
+const fs = require('node:fs');
+const vm = require('node:vm');
+const assert = require('node:assert/strict');
+const ts = require('typescript');
+require('ts-node/register/transpile-only');
+const mongoose = require('mongoose');
+const schema = require('../../src/core/model/conference/conferences.schema.ts').default;
+const Model = mongoose.model('conference_options_contract', schema);
+const path = 'src/server/routes/conference.ts';
+const tree = ts.createSourceFile(path, fs.readFileSync(path, 'utf8'), ts.ScriptTarget.Latest, true);
+const declaration = tree.statements.find(s => ts.isFunctionDeclaration(s) && s.name?.text === 'applyConferenceForm');
+assert.ok(declaration);
+const code = ts.transpileModule(`${declaration.getText(tree)};module.exports=applyConferenceForm`, {compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText;
+const moduleObject = {exports:{}};
+vm.runInNewContext(code,{module:moduleObject,exports:{},Date});
+const cases=[];
+function add(name, options, present=true) {
+ const body={name:'Conference',startDate:'2030-01-01',endDate:'2031-01-01'};
+ if(present)body.options=options;
+ const document=new Model({options:{image:true,link:true,expirationMode:'never'}});
+ moduleObject.exports(document,body,false);
+ const error=document.validateSync();
+ const expected={};
+ if(!error && document.toObject().options !== undefined) expected.options=document.toObject().options;
+ cases.push({name,body,rejected:!!error,expected});
+}
+add('absent',undefined,false);
+add('null',null);
+add('empty',{});
+for(const value of [true,false,null,0,1,'0','1','true','false','yes','no','',2,'False',[],{}])add(`flags/${JSON.stringify(value)}`,Object.fromEntries(['update','image','pdf','notebook','link','page'].map(key=>[key,value])));
+for(const value of [null,'','2030-04-03','2030-04-03T12:34:56.789Z','invalid','March 1 2030','2030-02-29','2030-02-28T24:00:00Z','0001-01-01','1700000000000','275761','275760','-271821','1e12','0x100000','Infinity',['2030','3','1'],[],{}, {toString:'bad'},0,1700000000000,1.5,-1.5,false,1e16])add(`date/${JSON.stringify(value)}`,{expirationDate:value});
+for(const value of [null,'never',0,true,{},[]])add(`mode/${JSON.stringify(value)}`,{expirationMode:value});
+add('unknown',{terms:['private'],pageSource:{branch:'main'},download:true,unknown:'discard'});
+for(const value of [[],false,true,0,1,'bad'])add(`root/${JSON.stringify(value)}`,value);
+const target='backend/internal/server/testdata/conference-options.json';
+const output=JSON.stringify(cases,null,2)+'\n';
+if(process.argv.includes('--check'))assert.equal(fs.readFileSync(target,'utf8'),output,'TypeScript conference option contract changed');else fs.writeFileSync(target,output);
+console.log(`${cases.length} TypeScript conference option contracts ${process.argv.includes('--check')?'verified':'generated'}`);

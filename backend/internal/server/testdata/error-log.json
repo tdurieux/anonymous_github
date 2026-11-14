@@ -1,0 +1,214 @@
+{
+  "max": 5000,
+  "classification": [
+    {
+      "level": "warn",
+      "status": 0,
+      "bucket": "warn"
+    },
+    {
+      "level": "warn",
+      "status": 200,
+      "bucket": "warn"
+    },
+    {
+      "level": "warn",
+      "status": 399,
+      "bucket": "warn"
+    },
+    {
+      "level": "warn",
+      "status": 400,
+      "bucket": "warn"
+    },
+    {
+      "level": "warn",
+      "status": 401,
+      "bucket": "info"
+    },
+    {
+      "level": "warn",
+      "status": 403,
+      "bucket": "info"
+    },
+    {
+      "level": "warn",
+      "status": 404,
+      "bucket": "info"
+    },
+    {
+      "level": "warn",
+      "status": 409,
+      "bucket": "warn"
+    },
+    {
+      "level": "warn",
+      "status": 429,
+      "bucket": "warn"
+    },
+    {
+      "level": "warn",
+      "status": 499,
+      "bucket": "warn"
+    },
+    {
+      "level": "warn",
+      "status": 500,
+      "bucket": "error"
+    },
+    {
+      "level": "warn",
+      "status": 503,
+      "bucket": "error"
+    },
+    {
+      "level": "error",
+      "status": 0,
+      "bucket": "error"
+    },
+    {
+      "level": "error",
+      "status": 200,
+      "bucket": "error"
+    },
+    {
+      "level": "error",
+      "status": 399,
+      "bucket": "error"
+    },
+    {
+      "level": "error",
+      "status": 400,
+      "bucket": "warn"
+    },
+    {
+      "level": "error",
+      "status": 401,
+      "bucket": "info"
+    },
+    {
+      "level": "error",
+      "status": 403,
+      "bucket": "info"
+    },
+    {
+      "level": "error",
+      "status": 404,
+      "bucket": "info"
+    },
+    {
+      "level": "error",
+      "status": 409,
+      "bucket": "warn"
+    },
+    {
+      "level": "error",
+      "status": 429,
+      "bucket": "warn"
+    },
+    {
+      "level": "error",
+      "status": 499,
+      "bucket": "warn"
+    },
+    {
+      "level": "error",
+      "status": 500,
+      "bucket": "error"
+    },
+    {
+      "level": "error",
+      "status": 503,
+      "bucket": "error"
+    }
+  ],
+  "pagination": [
+    {
+      "input": "",
+      "offset": 0,
+      "limit": 250
+    },
+    {
+      "input": "0",
+      "offset": 0,
+      "limit": 250
+    },
+    {
+      "input": "-1",
+      "offset": 0,
+      "limit": 1
+    },
+    {
+      "input": "-22",
+      "offset": 0,
+      "limit": 1
+    },
+    {
+      "input": "1",
+      "offset": 1,
+      "limit": 1
+    },
+    {
+      "input": "250",
+      "offset": 250,
+      "limit": 250
+    },
+    {
+      "input": "5000",
+      "offset": 5000,
+      "limit": 5000
+    },
+    {
+      "input": "5001",
+      "offset": 5001,
+      "limit": 5000
+    },
+    {
+      "input": "12suffix",
+      "offset": 12,
+      "limit": 12
+    },
+    {
+      "input": "1.5",
+      "offset": 1,
+      "limit": 1
+    },
+    {
+      "input": "1e3",
+      "offset": 1,
+      "limit": 1
+    },
+    {
+      "input": "0x10",
+      "offset": 0,
+      "limit": 250
+    },
+    {
+      "input": "+13",
+      "offset": 13,
+      "limit": 13
+    },
+    {
+      "input": " 25 ",
+      "offset": 25,
+      "limit": 25
+    },
+    {
+      "input": "nonsense",
+      "offset": 0,
+      "limit": 250
+    },
+    {
+      "input": "9999999999999999",
+      "offset": 9007199254740991,
+      "limit": 5000
+    }
+  ],
+  "noisy": [
+    "repository_expired",
+    "repository_not_ready",
+    "repoId_already_used",
+    "invalid_repoId",
+    "page_not_supported_on_different_branch"
+  ]
+}
