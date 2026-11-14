@@ -1290,6 +1290,37 @@ describe("Vue 3 UI", function () {
     expect(ui.errors).to.deep.equal([]);
   });
 
+  for (const [status, code, kind] of [
+    [500, "repo_not_found", "server"], [503, "internal_error", "server"],
+    [502, "github_unavailable", "upstream"], [429, "repo_not_accessible", "throttle"],
+    [429, "github_rate_limit_exceeded", "github-throttle"], [404, "repo_not_found", "missing"],
+  ]) it(`classifies source failure ${status}/${code} and recovers on retry`, async () => {
+    let recovered = false;
+    ui = await browser("/anonymize", {
+      ...repositorySource,
+      "/api/repo/owner/repo/": () => recovered ? repositorySource["/api/repo/owner/repo/"]
+        : { __status: status, body: { error: code, detail: "private diagnostic" } },
+    });
+    const state = ui.window.document.querySelector("#sourceUrl")._field.binding.state;
+    state.sourceUrl = "https://github.com/owner/repo";
+    await state.urlSelected();
+    await delay(30);
+    expect(state.sourceProblem().kind).to.equal(kind);
+    expect(state.sourceReady()).to.equal(false);
+    expect(state.sourceProblem().retry).to.equal(true);
+    expect(state.sourceProblem().text).not.to.include("private diagnostic");
+    if (kind !== "missing") {
+      expect(state.sourceProblem().manage).to.equal(undefined);
+      expect(state.submitBlockedReason()).to.include("load successfully");
+    }
+    recovered = true;
+    await state.urlSelected(true);
+    await delay(30);
+    expect(state.sourceProblem()).to.equal(null);
+    expect(state.sourceReady()).to.equal(true);
+    expect(ui.errors).to.deep.equal([]);
+  });
+
   it("allows creation when duplicate lookup fails", async () => {
     ui = await browser("/anonymize", {
       ...repositorySource,
