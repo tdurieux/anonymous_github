@@ -284,7 +284,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "event:process_heartbeat | stats by (service, instance) max(rss) as rss, max(memoryRatio) as memory_ratio, max(droppedLogs) as dropped_logs",
+          "expr": "(event:process_heartbeat OR event:job_completed OR event:job_failed) | stats by (service, instance) max(rss) as rss, max(memoryRatio) as memory_ratio, max(droppedLogs) as dropped_logs",
           "queryType": "instant",
           "editorMode": "code",
           "maxLines": 200

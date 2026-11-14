@@ -39,10 +39,15 @@ sinks:
       _stream_fields: service,severity
     batch: {max_bytes: 1048576, timeout_secs: 1}
     request: {timeout_secs: 5, concurrency: 1}
+    # Disk fullness drops lack accounting in Vector 0.61.0. Overflow into a
+    # bounded memory stage whose drop_newest losses have observable counters.
     buffer:
-      type: disk
-      max_size: 268435488
-      when_full: drop_newest
+      - type: disk
+        max_size: 268435488
+        when_full: overflow
+      - type: memory
+        max_events: 1000
+        when_full: drop_newest
   metrics:
     type: prometheus_exporter
     inputs: [internal]

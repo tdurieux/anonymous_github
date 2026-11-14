@@ -102,7 +102,10 @@ for this stack and alert at 8 GiB used or under 8 GiB free. Keep application dat
 on a different filesystem for protection from a logging flood. At the free-space
 reserve, ingest stops and Vector queues sanitized records.
 
-Vector's persistent disk buffer is 256 MiB, with `drop_newest`. Its files and
+Vector's persistent disk buffer is 256 MiB, followed by a 1,000-event memory
+overflow buffer with `drop_newest`. The memory stage makes full-buffer losses
+observable in Vector 0.61.0; its disk-only drop path omits fullness-loss counters.
+The overflow stage is volatile and can deliver records out of order. Disk files and
 checkpoints survive collector restarts. Allocation and metadata add overhead;
 budget 512 MiB on disk. Outages cause retries with one in-flight request. Once
 the buffer fills, new records are lost; applications do not wait. Vector syncs
@@ -195,8 +198,22 @@ privacy, correlation, query syntax, rotation, restart, backend outage and recove
 retention rejection and fixture storage size. It never reads production logs or
 uses the application `.env`. The optional `--stress` writes 500,000 synthetic records while the backend is
 stopped, checks the buffer bound and collector liveness, and waits for the real
-CollectorDrops alert to fire. Allow 1 GiB temporary disk and several minutes.
+CollectorDrops alert to fire. Allow 1 GiB temporary disk and up to 15 minutes with the 0.5 CPU collector limit.
 These fixtures do not establish sustained production throughput.
+
+Local results on 2026-11-14: application build, TypeScript and lint passed. The full
+suite had 1,656 passing, 441 skipped and five failures also reproduced on base
+`b456ab8`: one missing `cache_miss` translation, three activity-date mocks missing
+`hint()`, and one existing Vue split-preview expectation. A focused logging and
+job-reconnection run passed 34 tests. Skipped database tests were not executed.
+The synthetic 10,000-record batch contained 2,070,000 raw JSON bytes; the entire
+VictoriaLogs fixture store occupied about 357–358 KB of data and indexes,
+including earlier records. This is a fixture measurement, not a production ratio.
+The backend-outage stress run submitted 500,000 records, observed 136,532,570
+buffered bytes without collector restart/OOM, and verified that `CollectorDrops`
+reached firing after its sustained two-minute threshold. The overflow stage
+reported its losses. A separate real query verified terminal worker drop counts
+in the dashboard.
 
 Official references checked 2026-11-14:
 
@@ -206,3 +223,5 @@ Official references checked 2026-11-14:
 - [VictoriaLogs metrics](https://docs.victoriametrics.com/victorialogs/metrics/)
 - [vmalert LogsQL integration](https://docs.victoriametrics.com/victorialogs/vmalert/)
 - [Grafana plugin provisioning](https://grafana.com/docs/grafana/latest/setup-grafana/configure-grafana/)
+
+- [Pinned Vector buffer sender accounting](https://github.com/vectordotdev/vector/blob/v0.61.0/lib/vector-buffers/src/topology/channel/sender.rs)

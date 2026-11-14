@@ -253,7 +253,6 @@ function persistError(entry: {
 
 function emit(level: Level, module: string, args: unknown[]) {
   if (LEVEL_ORDER[level] < threshold) return;
-  args = args.map(arg => redactSecrets(arg instanceof Error ? serializeError(arg) : arg));
   const ts = new Date().toISOString();
   const record = logRecord(level, module, args);
   // stdout is a pipe in Docker. Respect backpressure without awaiting it or
@@ -272,8 +271,8 @@ function emit(level: Level, module: string, args: unknown[]) {
       ts,
       level,
       module,
-      message: String(record.event),
-      raw: [{ ...record, code: record.errorCode || record.event }],
+      message: String(record.errorCode || record.event),
+      raw: [{ ...record, message: record.errorCode || record.event, code: record.errorCode || record.event }],
     });
   }
 }
@@ -301,10 +300,12 @@ type ErrorLike = {
   url?: string | (() => string | undefined);
 };
 
-export function serializeError(err: unknown): Record<string, unknown> {
+export function serializeError(err: unknown, seen = new WeakSet<object>(), depth = 0): Record<string, unknown> {
   if (err == null) return { value: err };
   if (typeof err !== "object") return { value: String(err) };
 
+  if (seen.has(err) || depth >= 4) return { message: "error_details_truncated" };
+  seen.add(err);
   const e = err as ErrorLike;
   const out: Record<string, unknown> = {};
   if (e.name) out.name = e.name;
@@ -339,7 +340,7 @@ export function serializeError(err: unknown): Record<string, unknown> {
       /* ignore */
     }
   }
-  if (e.cause) out.cause = serializeError(e.cause);
+  if (e.cause) out.cause = serializeError(e.cause, seen, depth + 1);
 
   // Only include the stack when there's nothing else useful — avoids dumping
   // a stack for handled HTTP errors but keeps debuggability for plain Errors.

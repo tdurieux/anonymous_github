@@ -5,6 +5,7 @@ import { logContext, validTraceId } from "./log-context";
 // No arbitrary strings: upstream errors, paths and even innocuous-looking messages
 // can contain a private repository name. Add diagnostics here deliberately.
 const instance = randomUUID();
+const allowed = (values: readonly string[], value: unknown): value is string => typeof value === "string" && values.includes(value);
 const events: Record<string, string> = {
   ...LOG_EVENTS,
   request: "request_completed", "slow request": "request_slow", "request interrupted": "request_cancelled",
@@ -25,11 +26,22 @@ const numbers = ["status", "httpStatus", "ms", "firstByteMs", "responseMs", "byt
 const stages = ["repository", "credential_resolution", "upstream", "cache_lookup", "cache_fill", "worker_wait", "anonymize", "streamer_headers"];
 export function logRecord(level: string, module: string, args: unknown[]) {
   const context = logContext.getStore() || {};
-  const details = Object.assign({}, ...args.filter(a => a && typeof a === "object" && !Array.isArray(a)));
-  const first = typeof args[0] === "string" ? args[0] : "";
-  const event = events[first] || (module.includes("webhook") ? "webhook_log" : "application_log");
+  const details: Record<string, unknown> = {};
+  const keys = [...numbers, "requestId", "jobId", "code", "message", "outcome", "method", "route", "queue",
+    "stages", "reason", "phase", "event", "deliveryId", "hostname", "service"];
+  // Do not traverse arbitrary objects or invoke error getters while logging.
+  for (const arg of args.slice(0, 8)) if (arg && typeof arg === "object") {
+    for (const key of keys) {
+      try {
+        const property = Object.getOwnPropertyDescriptor(arg, key);
+        if (property && "value" in property) details[key] = property.value;
+      } catch { /* A hostile Proxy must not make logging throw. */ }
+    }
+  }
+  const first = typeof args[0] === "string" && args[0].length < 256 ? args[0] : "";
+  const event = (Object.hasOwn(events, first) ? events[first] : undefined) || (module.includes("webhook") ? "webhook_log" : "application_log");
   const record: Record<string, unknown> = { timestamp: new Date().toISOString(), severity: level,
-    service: context.service || (["api", "streamer", "worker"].includes(details.service) ? details.service : undefined) || (process.env.SERVICE_NAME?.toLowerCase() === "streamer" ? "streamer" : "api"),
+    service: context.service || (allowed(["api", "streamer", "worker"], details.service) ? details.service : undefined) || (process.env.SERVICE_NAME?.toLowerCase() === "streamer" ? "streamer" : "api"),
     instance, release: /^[a-f0-9]{7,40}$/.test(process.env.APP_RELEASE || "") ? process.env.APP_RELEASE : "unknown",
     event, message: event, module: LOG_MODULES.includes(module) ? module : "application" };
   for (const key of ["requestId", "jobId"] as const) {
@@ -38,21 +50,22 @@ export function logRecord(level: string, module: string, args: unknown[]) {
   }
   if (Number.isSafeInteger(context.attempt)) record.attempt = context.attempt;
   for (const key of numbers) if (typeof details[key] === "number" && Number.isFinite(details[key])) record[key] = details[key];
-  const code = [details.code, details.message].find(value => errorCodes.has(value));
+  const code = [details.code, details.message].find(value => typeof value === "string" && errorCodes.has(value));
   if (code) record.errorCode = code;
-  if (["protocol", "credentials", "port", "host"].includes(details.reason)) record.reason = details.reason;
-  if (["parse", "find_grant_owners", "reconcile_grant", "persist_installation_block", "reconcile_installation"].includes(details.phase)) record.phase = details.phase;
-  if (["github_app_authorization", "installation", "installation_repositories"].includes(details.event)) record.webhookEvent = details.event;
+  if (allowed(["protocol", "credentials", "port", "host"], details.reason)) record.reason = details.reason;
+  if (allowed(["parse", "find_grant_owners", "reconcile_grant", "persist_installation_block", "reconcile_installation"], details.phase)) record.phase = details.phase;
+  if (allowed(["github_app_authorization", "installation", "installation_repositories"], details.event)) record.webhookEvent = details.event;
   if (validTraceId(details.deliveryId)) record.deliveryId = details.deliveryId;
-  if (["github.com", "api.github.com", "codeload.github.com", "raw.githubusercontent.com", "media.githubusercontent.com"].includes(details.hostname)) record.upstreamHost = details.hostname;
+  if (allowed(["github.com", "api.github.com", "codeload.github.com", "raw.githubusercontent.com", "media.githubusercontent.com"], details.hostname)) record.upstreamHost = details.hostname;
   else if (details.hostname) record.upstreamHost = "other";
-  if (["completed", "interrupted"].includes(details.outcome)) record.outcome = details.outcome;
-  if (["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "OTHER"].includes(details.method)) record.method = details.method;
+  if (allowed(["completed", "interrupted"], details.outcome)) record.outcome = details.outcome;
+  if (allowed(["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "OTHER"], details.method)) record.method = details.method;
   // Route labels are generated by request-monitoring, never from URLs in arbitrary errors.
   if (module === "requests" && typeof details.route === "string") record.route = details.route;
-  if (["download", "remove", "cache"].includes(details.queue)) record.queue = details.queue;
+  if (allowed(["download", "remove", "cache"], details.queue)) record.queue = details.queue;
   if (details.stages && typeof details.stages === "object") for (const key of stages) {
-    const value = details.stages[key];
+    let value: unknown;
+    try { value = Object.getOwnPropertyDescriptor(details.stages, key)?.value; } catch { continue; }
     if (typeof value === "number" && Number.isFinite(value)) record[`stage_${key}_ms`] = value;
   }
   return record;

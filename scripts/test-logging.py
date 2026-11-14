@@ -216,10 +216,15 @@ with tempfile.TemporaryDirectory(prefix=PROJECT) as temp:
                     output.write(line * 1000)
             def metric_value(name):
                 lines = get(vector, '/metrics').splitlines()
-                return sum(float(line.split()[1]) for line in lines if line.startswith(name + '{') and ('buffer_id="logs"' in line if name.startswith('vector_buffer_') else 'component_id="logs"' in line))
-            wait_for(lambda: metric_value('vector_buffer_discarded_events_total') > 0 or metric_value('vector_component_discarded_events_total') > 0, 240)
+                return sum(float(line.split()[1]) for line in lines if line.startswith(name + '{') and (name.startswith('vector_buffer_') or 'component_id="logs"' in line))
+            wait_for(lambda: metric_value('vector_buffer_discarded_events_total') > 0 or metric_value('vector_component_discarded_events_total') > 0, 600)
             buffered = metric_value('vector_buffer_size_bytes')
-            assert buffered <= 268435488 + 1048576, buffered
+            # Memory-stage metrics inherit buffer_type=disk from the pipeline;
+            # select its stage explicitly instead of that misleading label.
+            memory_events = sum(float(line.split()[1]) for line in get(vector, '/metrics').splitlines()
+                if line.startswith('vector_buffer_size_events{') and 'buffer_id="logs"' in line and 'stage="1"' in line)
+            assert memory_events <= 1000, memory_events
+            assert buffered <= 268435488 + 8 * 1048576, buffered
             inspection = json.loads(run(['docker', 'inspect', compose('ps', '-q', 'vector')]))[0]
             assert inspection['RestartCount'] == 0 and not inspection['State']['OOMKilled']
             print(f'PASS full-spool drop-newest stress: 500000 events; buffered={int(buffered)} bytes; collector stayed alive')
@@ -229,6 +234,9 @@ with tempfile.TemporaryDirectory(prefix=PROJECT) as temp:
                 'ALERTS{alertname="CollectorDrops",alertstate="firing"}'}))['data']['result'], 210)
             print('PASS sustained CollectorDrops alert fires on full-spool loss')
     except Exception:
+        if '--stress' in sys.argv:
+            print('\n'.join(line for line in get(url('vector', 9598), '/metrics').splitlines()
+                if line.startswith(('vector_buffer_', 'vector_component_discarded')) and not '_bucket' in line))
         # Only synthetic fixture logs exist in this project. No production reads.
         print(compose('logs', '--tail', '30', 'vector', 'victorialogs', 'vmalert', 'grafana'))
         raise

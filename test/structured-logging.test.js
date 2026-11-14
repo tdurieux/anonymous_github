@@ -7,7 +7,8 @@ const { logRecord } = require('../src/core/log-record');
 const { logContext, jobTrace } = require('../src/core/log-context');
 const { loggedJob } = require('../src/queue/log-job');
 
-describe('structured logging privacy and context', () => {
+describe('structured logging privacy and context', function () {
+  this.timeout(15000); // Child processes compile TypeScript before exercising pipe failures.
   it('keeps the production summary compatible with JSON and legacy records', () => {
     const { logSummary, observeLine } = require('../scripts/check-production-logs');
     const summary = logSummary();
@@ -48,6 +49,15 @@ describe('structured logging privacy and context', () => {
     catch (error) { expect(error.message).to.equal('fixture failure'); return; }
     throw new Error('job failure was swallowed');
   });
+  it('ignores cyclic objects and hostile getters without losing safe fields', () => {
+    const value = {status: 502}; value.self = value;
+    Object.defineProperty(value, 'message', {get() { throw new Error('getter invoked'); }});
+    value.method = {toString() { throw new Error('toString invoked'); }};
+    const record = logRecord('error', 'route', ['__proto__', value]);
+    expect(record).to.include({event: 'application_log', status: 502});
+    const failure = new Error('fixture'); failure.cause = failure;
+    expect(require('../src/core/logger').serializeError(failure).cause.message).to.equal('error_details_truncated');
+  });
   it('rejects injected correlation IDs and non-finite measurements', () => {
     const row = logRecord('warn', 'fixture', ['request', { requestId: 'bad\nsecret', jobId: 'private', ms: Infinity, status: NaN }]);
     expect(row).not.to.have.any.keys('requestId', 'jobId', 'ms', 'status');
@@ -77,12 +87,14 @@ describe('structured logging privacy and context', () => {
   it('preserves admin error codes and expected-error ring suppression', () => {
     const child = spawnSync(process.execPath, ['-r', 'ts-node/register/transpile-only', '-e', `
       const redis = require('redis');
-      let pushes = 0; const fields = [];
-      const tx = {lPush() {pushes++; return tx;}, lTrim() {return tx;},
+      let pushes = 0, last; const fields = [];
+      const tx = {lPush(key, value) {pushes++; last = JSON.parse(value); return tx;}, lTrim() {return tx;},
         hIncrBy(key, field) { fields.push(field); return tx; }, expire() {return tx;}, exec() {return Promise.resolve([]);} };
       redis.createClient = () => ({isReady:true, isOpen:true, on() {}, connect() {return Promise.resolve();}, multi() {return tx;}});
       require('./src/core/logger').createLogger('route').warn('repository_not_ready', {message:'repository_not_ready', httpStatus:409});
       if (pushes !== 0 || !fields.includes('cb:warn:repository_not_ready')) process.exitCode = 1;
+      require('./src/core/logger').createLogger('route').warn('invalid_request', {message:'invalid_request', httpStatus:400});
+      if (pushes !== 1 || last.raw[0].message !== 'invalid_request' || last.message !== 'invalid_request') process.exitCode = 1;
     `], {env: {...process.env, LOG_REDIS_MIRROR: 'on'}, encoding: 'utf8', timeout: 10000});
     expect(child.status, child.stderr).to.equal(0);
   });
