@@ -225,3 +225,80 @@ Official references checked 2026-11-14:
 - [Grafana plugin provisioning](https://grafana.com/docs/grafana/latest/setup-grafana/configure-grafana/)
 
 - [Pinned Vector buffer sender accounting](https://github.com/vectordotdev/vector/blob/v0.61.0/lib/vector-buffers/src/topology/channel/sender.rs)
+
+## Admin Errors integration
+
+The existing Errors page has a central investigation section and a separate
+Redis history section. The application starts and serves normally without
+VictoriaLogs. Only authenticated admins can invoke the lookup endpoints; ordinary
+request handlers never query logging services. With `ADMIN_LOG_URL` unset, lookup
+is disabled and Redis remains available by default. `LOG_REDIS_MIRROR=off` is
+shown as collection off, even when old Redis rows remain readable.
+
+To enable lookup after approval, attach only the API to the logging stack's
+private network with the optional `admin.compose.yml` override. Set
+`LOGGING_NETWORK` to that existing network name, for example `logging_private`
+when the logging Compose project is named `logging`. Do not publish query or
+collector ports. The override sets `ADMIN_LOG_URL=http://victorialogs:9428` and
+`ADMIN_LOG_VECTOR_URL=http://vector:9598`. Both are operator-controlled origins,
+without paths, query strings or embedded credentials; no browser can choose an
+endpoint. A separate logging host must use a restricted private network or VPN.
+An authenticated proxy must provide its own operator-managed access mechanism;
+this client deliberately does not forward user cookies or authorization headers.
+
+Optionally set `ADMIN_LOG_GRAFANA_URL` to the private dashboard URL, for example
+`https://grafana.internal/d/anonymous-operations`. It is an outbound operator link,
+not a replacement for the in-page timeline. The application removes configured
+query strings before adding bounded time and opaque correlation variables.
+Never put a secret in any of these URL settings.
+
+Admins can select 15 minutes, one hour, six hours or 24 hours, a fixed service,
+and an exact release SHA. The server fetches at most 1,001 recent warning/error
+records and shows at most 1,000. Groups count those returned records, with safe
+fingerprints based on service/module/event/error code/severity/status, independent
+of request/job IDs and release. First/last occurrence applies only to that bounded
+snapshot. A limit or malformed record produces partial coverage, not a complete
+count. These counts are never added to Redis counters or mirrored rows.
+
+Click a request or job ID for at most 200 earliest matching events across services
+in the selected window. Job lookups can additionally follow up to four associated
+request UUIDs. IDs are diagnostics, not authorization. The server accepts only
+fixed templates, UUIDs and enumerated filters, rejects unknown parameters,
+rejects backend redirects, caps each response at 2 MiB, times out the entire
+lookup after four seconds, and allows two concurrent investigations per API
+process. No arbitrary LogsQL is accepted. Backend records and legacy Redis rows
+are projected through the safe application schema before reaching the browser;
+URLs, request bodies, private identities and IPs are omitted.
+
+Health is separate from error counts. Heartbeats use an independent five-minute
+bounded scan and a 90-second freshness threshold, expecting one API, four
+streamers and three queues. Missing data, stale telemetry, truncation, disabled
+configuration, invalid configuration, a busy reader and an unreachable backend
+have distinct states. Collector counters exclude intentional transform filtering
+but include full-buffer drops, and are explicitly unknown if collector metrics
+are disabled/unreachable. Application drops are per-process cumulative values
+since startup, not window deltas; collector counters reset on collector restart.
+A successful empty error query alone never means telemetry is healthy. Central
+queries run only on page entry or explicit Apply / refresh; the UI marks a
+snapshot older than 90 seconds stale without polling the backend. Redis refresh
+is separate. Clear and CSV export actions apply only to Redis history.
+
+Rollback this integration by removing `admin.compose.yml` from the application
+Compose invocation and unsetting the three `ADMIN_LOG_*` variables, then recreate
+only the API through the existing workflow. This does not delete central data or
+change collection. Keep the infrastructure running independently if desired.
+Verify disabled lookup and Redis availability locally before applying changes.
+
+Local verification for the admin integration:
+
+```sh
+npm run build
+LOG_REDIS_MIRROR=off npx mocha test/admin-log-investigation.test.js
+LOG_REDIS_MIRROR=off node scripts/test-admin-logs.js
+```
+
+The last command starts a temporary loopback-only VictoriaLogs container from the
+pinned image, inserts synthetic records, verifies grouping/privacy/correlation,
+stops the backend and verifies unavailable/disabled responses, then removes its
+container. It does not read `.env`, production data or send notifications. UI
+regressions are in `test/vue-ui.test.js`; rebuild the UI before running them.

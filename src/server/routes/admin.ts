@@ -1,3 +1,4 @@
+import { investigateLogs, logOptions, safeRedisLog } from "../admin-log-investigation";
 import { jobTrace } from "../../core/log-context";
 import { cacheMetricsReport } from "../../core/cache-observability";
 import { sharedBlobCache, resultBlobCache } from "../../core/blob-cache";
@@ -52,7 +53,11 @@ async function getErrorLogClient(): Promise<RedisClientType | null> {
       socket: {
         host: config.REDIS_HOSTNAME,
         port: config.REDIS_PORT,
+        connectTimeout: 1500,
+        reconnectStrategy: false,
       },
+      disableOfflineQueue: true,
+      commandsQueueMaxLength: 32,
     }) as RedisClientType;
     errorLogClient.on("error", () => undefined);
     await errorLogClient.connect();
@@ -83,6 +88,17 @@ router.use(
     }
   }
 );
+
+// These routes inherit both authentication and admin authorization above.
+for (const [path, correlation] of [["/errors/investigation", false], ["/errors/correlation", true]] as const) {
+  router.get(path, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    let options;
+    try { options = logOptions(req.query as Record<string, unknown>, correlation); }
+    catch { return res.status(400).json({ error: "invalid_request" }); }
+    return res.json(await investigateLogs(options, correlation));
+  });
+}
 
 router.use("/tokens", adminTokensRouter);
 router.use("/billing", adminBillingRouter);
@@ -450,6 +466,7 @@ router.get("/errors", async (req, res) => {
         total: 0,
         max: ERROR_LOG_MAX,
         available: false,
+        redisCollecting: process.env.LOG_REDIS_MIRROR !== "off",
       });
     }
     const offset = Math.max(0, parseInt(String(req.query.offset || "0"), 10) || 0);
@@ -464,18 +481,21 @@ router.get("/errors", async (req, res) => {
     ]);
     const entries = raw.map((s) => {
       try {
-        return JSON.parse(s);
+        return safeRedisLog(JSON.parse(s));
       } catch {
-        return { ts: null, module: null, message: s, raw: [] };
+        return null;
       }
-    });
+    }).filter(Boolean);
     res.json({
       entries,
       offset,
       limit,
       total,
+      nextOffset: offset + raw.length,
+      redactedEntries: raw.length - entries.length,
       max: ERROR_LOG_MAX,
       available: true,
+      redisCollecting: process.env.LOG_REDIS_MIRROR !== "off",
     });
   } catch (error) {
     handleError(error, res, req);

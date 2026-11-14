@@ -1,3 +1,4 @@
+import { installLogInvestigation } from "./admin-log-investigation.js";
 import { reactive, onScopeDispose } from "vue";
 import { createTimers, createListeners } from "./state.js";
 import { duration, statusMsg } from "./formatters.js";
@@ -1397,6 +1398,9 @@ export const queuesAdminController = function (state, http, location, interval, 
     };
 
 export const errorsAdminController = function (state, http, location, interval) {
+      installLogInvestigation(state, http);
+      state.redisCollecting = null;
+      state.redisStatsState = "loading";
       const timers = createTimers();
       state.watch("user.status", () => {
         if (state.user == null) {
@@ -1409,7 +1413,7 @@ export const errorsAdminController = function (state, http, location, interval) 
 
       state.entries = [];
       state.visible = [];
-      state.available = true;
+      state.available = null;
       state.cap = 1000;
       state.total = 0;
       state.pageSize = 250;
@@ -1659,7 +1663,7 @@ export const errorsAdminController = function (state, http, location, interval) 
         const group = state.query.group;
         if (group) {
           const keyOf = (r) =>
-            group === "module" ? r.module : (r.displayMessage || r.message || "_");
+            group === "module" ? JSON.stringify([r.module, r._bucket]) : JSON.stringify([r.raw?.[0]?.service || "unknown", r.module, r.displayMessage || r.message || "_", r._bucket, r._status]);
           const map = new Map();
           for (const r of rows) {
             const k = keyOf(r);
@@ -1724,7 +1728,7 @@ export const errorsAdminController = function (state, http, location, interval) 
         // request the SAME-sized window from the head so we don't blow away
         // their loaded tail. Newer entries take the top, the oldest visible
         // ones drop off naturally as the redis list rotates.
-        const offset = append ? state.entries.length : 0;
+        const offset = append ? (state.redisNextOffset || state.entries.length) : 0;
         const limit = append
           ? state.pageSize
           : Math.max(state.pageSize, state.entries.length || state.pageSize);
@@ -1734,21 +1738,25 @@ export const errorsAdminController = function (state, http, location, interval) 
             (res) => {
               const next = (res.data.entries || []).map(decorate);
               state.entries = append ? state.entries.concat(next) : next;
+              state.redisRedacted = (append ? state.redisRedacted || 0 : 0) + (res.data.redactedEntries || 0);
+              state.redisNextOffset = res.data.nextOffset ?? (offset + (res.data.entries || []).length);
               state.available = !!res.data.available;
+              state.redisCollecting = res.data.redisCollecting !== false;
               state.cap = res.data.max || state.cap;
               state.total = res.data.total || state.entries.length;
               state._autoLoading = false;
               recompute();
             },
-            (err) => { state._autoLoading = false; console.error(err); }
+            () => { state._autoLoading = false; state.available = false; }
           );
       }
       state.loadMore = () => loadEntries(true);
-      state.canLoadMore = () => state.entries.length < state.total;
+      state.canLoadMore = () => (state.redisNextOffset || state.entries.length) < state.total;
       function loadStats() {
         http.get("/api/admin/errors/stats").then(
           (res) => {
             const s = res.data || {};
+            state.redisStatsState = s.available === false ? "unavailable" : "ready";
             const delta = s.prev24h ? Math.round(((s.last24h - s.prev24h) / s.prev24h) * 100) : 0;
             state.stats = {
               last24h: s.last24h || 0,
@@ -1761,7 +1769,7 @@ export const errorsAdminController = function (state, http, location, interval) 
             };
             recompute();
           },
-          (err) => console.error(err)
+          () => { state.redisStatsState = "unavailable"; }
         );
       }
       function load() {
@@ -1796,7 +1804,7 @@ export const errorsAdminController = function (state, http, location, interval) 
 
       state.refreshNow = load;
       state.clearAll = () => {
-        if (!confirm("Clear all captured errors?")) return;
+        if (!confirm("Clear Redis error history? Central logs are unaffected.")) return;
         http.delete("/api/admin/errors").then(load, (err) => console.error(err));
       };
       state.exportCsv = () => {

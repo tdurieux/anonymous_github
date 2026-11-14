@@ -14328,3 +14328,32 @@ body.dark-mode .reviewer-preview .rp-preserved-tag { background: rgba(251, 191, 
 .files .tree-name .redact-slot, .breadcrumb .redact-slot { position: relative; top: -.15em; }
 /* Text: the slot centers on the line's letters, level with parentheses and punctuation. */
 .markdown-body :is(p, li, td, th, blockquote, dd) mark.redact-chip, .dark-mode .markdown-body :is(p, li, td, th, blockquote, dd) mark.redact-chip { vertical-align: .04em !important; }
+
+/* Admin log investigation uses the existing paper surface and native controls. */
+.errors-page .log-investigation { margin: 24px 0 32px; padding-bottom: 24px; border-bottom: 1px solid var(--line, #ddd); }
+.errors-page .log-investigation h2, .errors-page .redis-history-title { font-size: 1.35rem; margin: 0 0 12px; }
+.errors-page .log-investigation h3 { font-size: 1rem; margin: 16px 0 8px; }
+.errors-page .log-filters { align-items: end; flex-wrap: wrap; }
+.errors-page .log-filters label { display: grid; gap: 4px; font-weight: 600; }
+.errors-page .log-state { font-weight: 600; margin-top: 12px; }
+.errors-page .log-coverage, .errors-page .log-health { font-size: .875rem; }
+.errors-page .log-table-scroll { overflow-x: auto; margin-top: 16px; }
+.errors-page .log-table { width: 100%; border-collapse: collapse; font-size: .875rem; }
+.errors-page .log-table caption { text-align: left; caption-side: top; padding: 8px 0; }
+.errors-page .log-table th, .errors-page .log-table td { text-align: left; vertical-align: top; padding: 10px 8px; border-bottom: 1px solid var(--line, #ddd); }
+.errors-page .log-trace-button { display: block; margin-bottom: 6px; max-width: 270px; white-space: normal; overflow-wrap: anywhere; text-align: left; }
+.errors-page .log-id, .errors-page .log-events code, .errors-page .log-health li { overflow-wrap: anywhere; }
+.errors-page .log-events { padding-left: 22px; }
+.errors-page .log-events li { padding: 8px 0; border-bottom: 1px solid var(--line, #ddd); }
+.errors-page .log-investigation :focus-visible { outline: 2px solid var(--accent, #39739d); outline-offset: 3px; }
+@media (max-width: 600px) {
+  .errors-page .log-filters label { width: 100%; }
+  .errors-page .log-table { min-width: 660px; }
+  .errors-page .log-investigation .volume-head { flex-wrap: wrap; gap: 8px; }
+}
+
+.errors-page .log-events code { display: block; }
+@media (max-width: 600px) {
+  .errors-page .errors-header { flex-direction: column; align-items: flex-start; }
+  .errors-page .errors-actions { flex-wrap: wrap; }
+}

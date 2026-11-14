@@ -1,0 +1,13 @@
+# Optional: add only after the independent logging stack is running.
+# API retains its application network; no logging port is published.
+services:
+  anonymous_github:
+    environment:
+      ADMIN_LOG_URL: http://victorialogs:9428
+      ADMIN_LOG_VECTOR_URL: http://vector:9598
+      ADMIN_LOG_GRAFANA_URL: ${ADMIN_LOG_GRAFANA_URL:-}
+    networks: [default, admin_logging]
+networks:
+  admin_logging:
+    external: true
+    name: ${LOGGING_NETWORK:?Set the existing logging project's private network name}
