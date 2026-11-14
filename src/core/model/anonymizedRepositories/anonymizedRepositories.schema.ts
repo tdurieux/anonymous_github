@@ -5,6 +5,7 @@ import { Schema } from "mongoose";
 const AnonymizedRepositorySchema = new Schema({
   billingManaged: Boolean,
   billingNeverExpiresUntil: Date,
+  expirationEmailClaimedFor: { type: Date, select: false },
   accessAlertGeneration: { type: String, select: false },
   accessAlertClaimedAt: { type: Date, select: false },
   accessAlertAttemptId: { type: String, select: false },

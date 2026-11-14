@@ -1,3 +1,4 @@
+import { render as adminEmailsTemplate } from "../partials/admin/emails.htm";
 import { render as reviewConsentTemplate } from "../partials/reviewConsent.htm";
 import { render as connectionsTemplate } from "../partials/connections.htm";
 import { render as signinTemplate } from "../partials/signin.htm";
@@ -35,6 +36,7 @@ export const templates = {
   "partials/signin.htm": signinTemplate,
   "partials/404.htm": template0,
   "partials/admin/billing.htm": adminBillingTemplate,
+  "partials/admin/emails.htm": adminEmailsTemplate,
   "partials/admin/conferences.htm": template1,
   "partials/admin/errors.htm": template2,
   "partials/admin/overview.htm": template3,

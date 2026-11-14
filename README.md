@@ -139,9 +139,25 @@ the [MongoDB replication guide](docs/mongodb-replication.md).
 ### Owner email alerts
 
 Set `RESEND_API_KEY` and `EMAIL_FROM` on the web server and download workers to
-send access alerts through [Resend](https://resend.com/docs/api-reference/emails/send-email).
+send access and repository expiration alerts through [Resend](https://resend.com/docs/api-reference/emails/send-email).
 Use a sender address on a domain verified in Resend. `APP_HOSTNAME` sets the
-host used for the connections link in emails.
+host used for links in emails.
+
+After repository expiration completes, the owner receives an email with the
+anonymous repository name, expiration date, and a dashboard link. This uses the
+owner's alert address, falling back to their saved email. Each repository's
+expiration date gets one delivery attempt across workers. Failed or ambiguous
+deliveries retain the guard to prevent duplicate emails and are logged without
+email addresses. Existing expired repositories are not scanned for notifications.
+
+Administrators can inspect email attempts at `/admin/emails`, filtered by type
+and provider outcome. Tracking covers new expiration and GitHub access emails;
+older sends are not backfilled. History stores the recipient address, resource
+identity, timestamps, and HTTP status in MongoDB, without message bodies or API
+keys. Accepted means the provider accepted the message, not confirmed inbox
+delivery. Unknown outcomes and interrupted sends remain visible for investigation.
+Audit storage failures are logged and do not stop delivery, so history can be
+incomplete during a database outage.
 
 Registration saves a verified GitHub email address, preferring the primary address.
 OAuth requests `user:email`; GitHub App sign-in uses the read-only email permission
