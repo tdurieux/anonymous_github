@@ -1,9 +1,10 @@
+import { rejectStreamerRedirects } from "./streamer-response";
 import got, { Response } from "got";
 
 /** Wait only for headers; the body remains a backpressured stream. */
 export async function probeStreamerCache(url: string, json: Record<string, unknown>, headers: Record<string, string>, signal?: AbortSignal) {
-  const stream = got.stream(url, { method: "POST", json: { ...json, token: "", cacheOnly: true },
-    headers, timeout: { response: 15000 }, decompress: false });
+  const stream = rejectStreamerRedirects(got.stream(url, { followRedirect: false, method: "POST", json: { ...json, token: "", cacheOnly: true },
+    headers, timeout: { response: 15000 }, decompress: false }));
   const responseReady = new Promise<Response>((resolve, reject) => {
     stream.once("response", resolve);
     stream.once("error", reject);
@@ -14,6 +15,7 @@ export async function probeStreamerCache(url: string, json: Record<string, unkno
   if (signal?.aborted) abort();
   try {
     const response = await responseReady;
+    if (stream.errored) throw stream.errored;
     return { stream, response };
   } catch (error) {
     stream.destroy();

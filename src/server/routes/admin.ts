@@ -24,6 +24,7 @@ import { ensureAuthenticated } from "./connection";
 import { handleError, getUser, isOwnerOrAdmin, getRepo } from "./route-utils";
 import adminTokensRouter from "./admin-tokens";
 import adminBillingRouter from "./admin-billing";
+import adminEmailsRouter from "./admin-emails";
 import { octokit, getToken } from "../../core/GitHubUtils";
 import {
   createLogger,
@@ -114,6 +115,7 @@ for (const [path, correlation] of [["/errors/investigation", false], ["/errors/c
 
 router.use("/tokens", adminTokensRouter);
 router.use("/billing", adminBillingRouter);
+router.use("/emails", adminEmailsRouter);
 
 router.get("/performance", async (req, res) => {
   res.set("Cache-Control", "no-store");
