@@ -14738,3 +14738,9 @@ body.dark-mode .reviewer-preview .rp-preserved-tag { background: rgba(251, 191, 
  .errors-page .log-investigation-body .log-timeline { padding:16px; }
  .errors-page .log-investigation-body .log-events li { grid-template-columns:minmax(0,1fr); gap:6px; }
 }
+
+.repo-picker-pagination { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--border-color); }
+@media (max-width: 480px) {
+  .repo-picker-head { flex-wrap: wrap; }
+  .repo-picker-filter.form-control { width: 100%; max-width: 100%; }
+}

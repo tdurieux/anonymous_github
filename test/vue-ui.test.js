@@ -394,6 +394,78 @@ describe("Vue 3 UI", function () {
     expect(ui.errors).to.deep.equal([]);
   });
 
+  it("pages the repository picker and searches beyond the loaded page", async () => {
+    ui = await browser("/anonymize", {
+      "/api/user/repository_picker": request => {
+        const cursor = Number(request.url.searchParams.get("cursor"));
+        const q = request.url.searchParams.get("q");
+        if (q && cursor === 0) return { items: [], nextCursor: 100 };
+        return { items: [{ id: cursor + 1, fullName: q ? "org/needle" : `org/repo-${cursor}` }], nextCursor: cursor === 0 ? 20 : null };
+      },
+    });
+    const picker = () => ui.window.document.querySelector(".repo-picker");
+    const button = text => [...picker().querySelectorAll("button")].find(b => b.textContent.trim() === text);
+    expect(picker().textContent).to.include("repo-0");
+    expect(button("Previous").disabled).to.equal(true);
+    button("Next").click();
+    await delay(30);
+    expect(picker().textContent).to.include("repo-20");
+    button("Previous").click();
+    await delay(30);
+    expect(picker().textContent).to.include("repo-0");
+    await ui.input(".repo-picker-filter", "needle");
+    await delay(350);
+    expect(picker().textContent).to.include("needle");
+    expect(picker().textContent).not.to.include("repo-0");
+    expect(ui.requests.some(r => r.url.searchParams.get("q") === "needle" && r.url.searchParams.get("cursor") === "100")).to.equal(true);
+    expect(ui.requests.some(r => r.url.pathname === "/api/user/all_repositories")).to.equal(false);
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("ignores stale repository responses after the search changes", async () => {
+    let finish;
+    ui = await browser("/anonymize", {
+      "/api/user/repository_picker": request => request.url.searchParams.get("q")
+        ? { items: [{ id: 2, fullName: "org/current" }], nextCursor: null }
+        : new Promise(resolve => { finish = resolve; }),
+    });
+    await ui.input(".repo-picker-filter", "current");
+    await delay(350);
+    finish({ items: [{ id: 1, fullName: "org/stale" }], nextCursor: 20 });
+    await delay(30);
+    const picker = ui.window.document.querySelector(".repo-picker");
+    expect(picker.textContent).to.include("current");
+    expect(picker.textContent).not.to.include("stale");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("bounds sparse searches and lets the user continue and retry", async () => {
+    let fail = false;
+    ui = await browser("/anonymize", {
+      "/api/user/repository_picker": request => {
+        if (fail) return { __status: 503, body: {} };
+        const cursor = Number(request.url.searchParams.get("cursor"));
+        return { items: [], nextCursor: cursor + 100 };
+      },
+    });
+    await ui.input(".repo-picker-filter", "absent");
+    await delay(350);
+    const searches = () => ui.requests.filter(r => r.url.searchParams.get("q") === "absent");
+    expect(searches()).to.have.length(5);
+    const button = text => [...ui.window.document.querySelectorAll(".repo-picker button")].find(b => b.textContent.trim() === text);
+    expect(ui.window.document.querySelector(".repo-picker").textContent).to.include("No matches yet");
+    fail = true;
+    button("Continue search").click();
+    await delay(30);
+    expect(button("Try again")).not.to.equal(undefined);
+    fail = false;
+    button("Try again").click();
+    await delay(30);
+    expect(searches()[6].url.searchParams.get("cursor")).to.equal("500");
+    expect(searches()).to.have.length(11);
+    expect(ui.errors).to.deep.equal([]);
+  });
+
   it("starts a deep-linked file and editor before directory listings finish", async () => {
     const pendingDirectories = [];
     let releaseFile;
