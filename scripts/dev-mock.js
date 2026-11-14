@@ -995,17 +995,27 @@ app.post("/api/admin/queues/pause-all", ok);
 app.post("/api/admin/queue/:name/retry-failed", (req, res) => res.json({ retried: 2, total: 2 }));
 app.post("/api/admin/queue/:name/:action", ok);
 app.delete("/api/admin/queue/:name/:id", ok);
-// Illustrative email history for local admin UI development.
-app.get("/api/admin/emails", (req, res) => {
-  if (req.query.state === "rejected") return res.status(503).json({ error: "Simulated history outage" });
-  const entries = ["accepted", "unknown", "sending"].map((state, index) => ({
-    _id: oid(900 + index), kind: index ? "owner-access" : "repository-expiration",
-    recipient: index ? "author@example.com" : "research-team-with-a-long-address@example.com",
+// Illustrative email history. Cookies independently simulate empty/error states.
+const emailHistory = Array.from({ length: 64 }, (_, index) => {
+  const state = ["accepted", "rejected", "unknown", "sending"][index % 4];
+  return { _id: `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
+    kind: index % 2 ? "owner-access" : "repository-expiration",
+    recipient: index ? `author${index}@example.com` : "research-team-with-a-long-address@example.com",
     resourceKind: "repository", resourceId: oid(800 + index),
-    createdAt: ago(index), completedAt: state === "sending" ? null : ago(index), state,
-    httpStatus: state === "accepted" ? 200 : null,
-  })).filter(row => (!req.query.state || row.state === req.query.state) && (!req.query.kind || row.kind === req.query.kind));
-  res.json({ entries, nextCursor: null });
+    createdAt: ago(index / 24), completedAt: state === "sending" ? null : ago(index / 24), state,
+    httpStatus: state === "accepted" ? 200 : state === "rejected" ? 429 : null };
+});
+app.get("/api/admin/emails", (req, res) => {
+  const cookie = req.headers.cookie || "";
+  if (/mock_emails_error=1/.test(cookie)) return res.status(503).json({ error: "Simulated history outage" });
+  let rows = /mock_emails_empty=1/.test(cookie) ? [] : emailHistory;
+  rows = rows.filter(row => (!req.query.state || row.state === req.query.state) && (!req.query.kind || row.kind === req.query.kind));
+  if (req.query.before) {
+    const [date, id] = String(req.query.before).split("|");
+    rows = rows.filter(row => row.createdAt < date || (row.createdAt === date && row._id < id));
+  }
+  const entries = rows.slice(0, 50), last = entries.at(-1);
+  res.json({ entries, nextCursor: rows.length > 50 ? `${last.createdAt}|${last._id}` : null });
 });
 app.get("/api/admin/errors", (req, res) => {
   const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);

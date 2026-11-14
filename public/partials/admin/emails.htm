@@ -1,7 +1,7 @@
 <div class="container paper-page admin-page emails-page">
   <header class="page-head">
     <div class="paper-crumbs"><a href="/admin/">Admin</a> &nbsp;/&nbsp; <span class="here">Emails</span></div>
-    <div class="page-head-main"><h1 class="paper-page-title">Emails</h1></div>
+    <div class="ov-header page-head-main"><h1 class="paper-page-title">Emails</h1></div>
   </header>
   <nav class="admin-nav">
     <a href="/admin/"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-chart"></use></svg> Overview</a>
@@ -14,7 +14,8 @@
     <a href="/admin/errors"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-bug"></use></svg> Errors</a>
   </nav>
 
-  <p class="email-help">Email attempts recorded since tracking was enabled. Accepted means Resend accepted the message, not that it reached the inbox. Pending and unknown outcomes may need checking in Resend.</p>
+  <p class="email-help">Provider acceptance does not confirm inbox delivery.</p>
+  <details class="email-about"><summary>About this history</summary><p>Tracking covers new email attempts, without backfilling older sends. Pending and unknown outcomes may need checking in Resend. Audit storage failures can leave history incomplete.</p></details>
   <form class="email-toolbar" @submit.prevent="loadEmails()" aria-label="Filter email history">
     <label>Status
       <select v-model="emailState" @change="loadEmails()">
@@ -26,21 +27,22 @@
         <option value="">All types</option><option value="repository-expiration">Repository expiration</option><option value="owner-access">GitHub access</option>
       </select>
     </label>
-    <button class="btn" type="submit" :disabled="emailLoading">{{ emailLoading ? 'Loading…' : 'Refresh' }}</button>
+    <div class="email-toolbar-actions"><button class="btn" type="submit" :disabled="emailLoading">{{ emailLoading ? 'Loading…' : 'Refresh' }}</button><button v-if="hasEmailFilters()" class="btn" type="button" @click="clearEmailFilters()">Clear filters</button></div>
   </form>
-  <p v-if="emailError" class="ov-performance-message ov-performance-warning" role="alert">{{ emailError }} <button class="btn btn-sm" type="button" @click="loadEmails()">Retry</button></p>
-  <p v-if="emailLoading &amp;&amp; !emailRows.length" role="status">Loading email history…</p>
-  <p v-if="!emailLoading &amp;&amp; !emailError &amp;&amp; !emailRows.length" class="ov-performance-empty" role="status">No email attempts match these filters.</p>
-  <div v-if="emailRows.length" class="email-table-wrap" tabindex="0" role="region" aria-label="Email delivery history" :aria-busy="emailLoading">
-    <table class="table email-table">
-      <caption class="sr-only">Email attempts, newest first</caption>
-      <thead><tr><th scope="col">Attempted</th><th scope="col">Recipient</th><th scope="col">Email type</th><th scope="col">Outcome</th><th scope="col">Resource</th></tr></thead>
-      <tbody><tr v-for="row in emailRows" :key="row._id">
-        <td><time :datetime="row.createdAt">{{ emailTime(row.createdAt) }}</time></td>
-        <td class="email-recipient">{{ row.recipient }}</td>
-        <td>{{ emailKindLabel(row.kind) }}</td>
-        <td><span class="email-outcome" :class="'email-outcome-' + row.state">{{ emailStatusLabel(row.state) }}</span><small v-if="row.httpStatus" class="email-detail">HTTP {{ row.httpStatus }}</small><small v-if="row.completedAt" class="email-detail">{{ emailTime(row.completedAt) }}</small></td>
-        <td>{{ row.resourceKind }}<small class="email-detail">{{ row.resourceId }}</small></td>
+  <p class="sr-only" role="status" aria-live="polite" aria-atomic="true">{{ emailAnnouncement }}</p>
+  <div v-if="emailError" class="email-state email-state-error" role="alert"><span>{{ emailError }}</span><button class="btn btn-sm" type="button" :disabled="emailLoading" @click="retryEmails()">Retry</button></div>
+  <p v-if="emailLoading &amp;&amp; !emailRows.length" class="email-state">Loading email history…</p>
+  <div v-if="!emailLoading &amp;&amp; !emailError &amp;&amp; !emailRows.length" class="email-state"><p>{{ hasEmailFilters() ? 'No email attempts match these filters.' : 'No email attempts recorded yet.' }}</p><button v-if="hasEmailFilters()" type="button" class="btn btn-sm" @click="clearEmailFilters()">Clear filters</button></div>
+  <div v-if="emailRows.length" class="email-table-wrap" :aria-busy="emailLoading">
+    <table class="email-table" role="table">
+      <caption class="sr-only">Email attempts, newest first. Times use your local time zone.</caption>
+      <thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader">Recipient</th><th scope="col" role="columnheader">Outcome</th><th scope="col" role="columnheader">Attempted</th><th scope="col" role="columnheader">Email type</th><th scope="col" role="columnheader">Resource</th></tr></thead>
+      <tbody role="rowgroup"><tr v-for="row in emailRows" :key="row._id" role="row">
+        <td class="email-recipient" role="cell"><span class="email-mobile-label" aria-hidden="true">Recipient</span>{{ row.recipient }}</td>
+        <td class="email-result" role="cell"><span class="email-mobile-label" aria-hidden="true">Outcome</span><span class="email-outcome" :class="'email-outcome-' + row.state">{{ emailStatusLabel(row.state) }}</span><small v-if="row.httpStatus" class="email-detail">HTTP {{ row.httpStatus }}</small><small v-if="row.completedAt" class="email-detail">Completed {{ emailTime(row.completedAt) }}</small></td>
+        <td class="email-attempted" role="cell"><span class="email-mobile-label" aria-hidden="true">Attempted</span><time :datetime="row.createdAt">{{ emailTime(row.createdAt) }}</time></td>
+        <td role="cell"><span class="email-mobile-label" aria-hidden="true">Email type</span>{{ emailKindLabel(row.kind) }}</td>
+        <td class="email-resource" role="cell"><span class="email-mobile-label" aria-hidden="true">Resource</span>{{ row.resourceKind }}<small class="email-detail">{{ row.resourceId }}</small></td>
       </tr></tbody>
     </table>
   </div>

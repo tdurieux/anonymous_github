@@ -2437,16 +2437,29 @@ export const emailsAdminController = function (state, http, location) {
   state.emailKind = "";
   state.emailLoading = false;
   state.emailError = "";
+  state.emailAnnouncement = "";
   state.emailNextCursor = null;
   state.emailStatusLabel = (value) => ({ sending: "Outcome pending", accepted: "Accepted", rejected: "Rejected", unknown: "Unknown outcome" }[value] || value);
   state.emailKindLabel = (value) => value === "repository-expiration" ? "Repository expiration" : "GitHub access";
-  state.emailTime = (value) => value ? new Date(value).toLocaleString() : "Not recorded";
-  let generation = 0;
+  state.emailTime = (value) => value ? new Date(value).toLocaleString(undefined, {
+    year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", timeZoneName: "short",
+  }) : "Not recorded";
+  state.hasEmailFilters = () => !!(state.emailState || state.emailKind);
+  state.clearEmailFilters = () => { state.emailState = ""; state.emailKind = ""; return state.loadEmails(); };
+  let generation = 0, lastFilters = "", failedMore = false;
+  state.on("dispose", () => { generation++; });
+  state.retryEmails = () => state.loadEmails(failedMore);
   state.loadEmails = async (more = false) => {
+    const filters = JSON.stringify([state.emailState, state.emailKind]);
+    const changed = filters !== lastFilters;
+    lastFilters = filters;
+    if (changed) more = false;
+    if (more && (state.emailLoading || !state.emailNextCursor)) return;
     const current = ++generation;
     state.emailLoading = true;
     state.emailError = "";
-    if (!more) { state.emailRows = []; state.emailNextCursor = null; }
+    state.emailAnnouncement = more ? "Loading older emails." : "Loading email history.";
+    if (changed) { state.emailRows = []; state.emailNextCursor = null; }
     try {
       const response = await http.get("/api/admin/emails", { params: {
         state: state.emailState || undefined, kind: state.emailKind || undefined,
@@ -2455,8 +2468,14 @@ export const emailsAdminController = function (state, http, location) {
       if (current !== generation) return;
       state.emailRows = more ? state.emailRows.concat(response.data.entries) : response.data.entries;
       state.emailNextCursor = response.data.nextCursor;
+      state.emailAnnouncement = `Email history loaded. ${state.emailRows.length} attempts shown.`;
     } catch {
-      if (current === generation) state.emailError = "Could not load email history. Try again.";
+      if (current === generation) {
+        failedMore = more;
+        state.emailError = more ? "Could not load older emails. Your loaded history is still shown."
+          : state.emailRows.length ? "Could not refresh email history. Previously loaded results are still shown." : "Could not load email history.";
+        state.emailAnnouncement = "";
+      }
     } finally { if (current === generation) state.emailLoading = false; }
   };
   state.loadEmails();
