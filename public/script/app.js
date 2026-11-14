@@ -2003,7 +2003,8 @@ export const anonymizeController = function (state, http, html, params, location
         repo_already_anonymized: "used",
         github_rate_limit_exceeded: "github-throttle",
         rate_limited: "throttle", github_unavailable: "upstream", internal_error: "server", unreachable: "server",
-        repo_not_found: "missing", github_app_access_required: "missing", pull_request_not_found: "missing", gist_not_found: "missing", token_expired: "missing",
+        github_app_reconnect_required: "reconnect", token_expired: "reconnect",
+        repo_not_found: "missing", github_app_access_required: "missing", pull_request_not_found: "missing", gist_not_found: "missing",
       };
       const recordSourceError = (error) => {
         const reported = typeof error?.data?.error === "string" ? error.data.error : "";
@@ -2052,6 +2053,7 @@ export const anonymizeController = function (state, http, html, params, location
         if (kind === "throttle") return { kind, title, text: "Too many requests. Wait a little, then try loading the source again.", retry: true };
         if (kind === "upstream") return { kind, title, text: "GitHub is temporarily unavailable. Try loading the source again in a moment.", retry: true };
         if (kind === "server") return { kind, title, text: "Anonymous GitHub could not load the source because of a server error. Try again in a moment. This does not mean the repository is missing or that you need to change its permissions.", retry: true };
+        if (kind === "reconnect") return { kind, title, text: "Your GitHub authorization has expired or was revoked. Reconnect your GitHub account, then try loading the source again.", manage: "link", retry: true };
         if (kind === "used") return { kind, title: "Already anonymized", text: `You've already anonymized ${name}. Open it from My work to change its settings.`, dashboard: true };
         if (kind === "access") {
           const reason = code === "repo_saml_enforcement" ? "Its organization requires single sign-on." : "Its organization restricts third-party apps.";

@@ -924,6 +924,25 @@ describe("Vue 3 UI", function () {
     });
   }
 
+  for (const code of ["github_app_reconnect_required", "token_expired"]) {
+    it(`offers account reconnection when source loading returns ${code}`, async () => {
+      ui = await browser("/anonymize", {
+        ...repositorySource,
+        "/api/repo/owner/repo/": { __status: 403, body: { error: code } },
+      });
+      const state = ui.window.document.querySelector("#sourceUrl")._field.binding.state;
+      state.sourceUrl = "https://github.com/owner/repo";
+      await state.urlSelected();
+      await delay(30);
+      expect(state.sourceProblem().kind).to.equal("reconnect");
+      expect(state.sourceProblem().manage).to.equal("link");
+      expect(state.sourceReady()).to.equal(false);
+      expect(ui.window.document.querySelector('.source-error a[href="/connections"]')).not.to.equal(null);
+      expect(ui.window.document.querySelector('.rp-error a[href="/connections"]')).not.to.equal(null);
+      expect(ui.errors).to.deep.equal([]);
+    });
+  }
+
   it("recovers edit source validity after a failed branch refresh", async () => {
     let fail = false;
     ui = await browser("/anonymize/saved", {
