@@ -95,9 +95,10 @@ describe("Vue 3 UI", function () {
     expect(doc.body.textContent).to.include("Partial results").and.include("Collection is off").and.include("dropped events since collector start: unknown");
     expect(doc.querySelector(".log-table img")).to.equal(null);
     doc.querySelector(".log-event-button").click(); await delay(20);
-    doc.querySelector(".log-trace-button").click(); await delay(50);
+    await delay(50);
     expect(doc.querySelectorAll(".log-events li")).to.have.length(2);
-    expect(doc.activeElement.id).to.equal("log-timeline-title");
+    expect(doc.activeElement.id).to.equal("log-detail-title");
+    expect(ui.requests.filter(r=>r.url.pathname==="/api/admin/errors/correlation")).to.have.length(1);
     const request = ui.requests.find(r=>r.url.pathname==="/api/admin/errors/correlation");
     expect(request.url.searchParams.get("id")).to.equal(requestId);
     expect(request.url.searchParams.get("kind")).to.equal("requestId");
@@ -138,8 +139,8 @@ describe("Vue 3 UI", function () {
     expect(doc.querySelector('.log-detail').textContent).to.include(requestId).and.include('info');
     expect(doc.querySelector('.log-list-view').style.display).to.equal('none');
     expect(doc.querySelector('#log-detail-title').textContent).to.equal('http_access');
-    expect(doc.querySelector('.log-overview-main').textContent).to.include('HTTP 504 (Gateway Timeout)').and.include('does not establish the root cause');
-    expect(doc.querySelector('.log-detail-actions').textContent).to.include('Request timeline');
+    expect(doc.querySelector('.log-sample-panel').textContent).to.include('http_access').and.include('nginx');
+    expect(doc.querySelector('#trace-selector-requestId').getAttribute('aria-pressed')).to.equal('true');
     const identifier = doc.querySelector('.log-detail .log-value-reveal');
     expect(identifier.open).to.equal(false);
     expect(identifier.querySelector('summary').textContent).not.to.include(requestId);
@@ -155,7 +156,7 @@ describe("Vue 3 UI", function () {
     detail.click(); await delay(30);
     const trigger = doc.querySelector('.log-trace-button'); trigger.focus(); trigger.click(); await delay(30);
     expect(doc.activeElement.id).to.equal('log-timeline-title');
-    expect(doc.querySelector('.log-origin').textContent).to.include('http_access').and.include('nginx');
+    expect(doc.querySelector('#log-timeline-title').textContent).to.equal('Related events');
     doc.querySelector('.log-timeline button').click(); await delay(30);
     expect(doc.activeElement).to.equal(trigger);
     doc.querySelector('#error-source-history').click(); await delay(30);
@@ -190,10 +191,55 @@ describe("Vue 3 UI", function () {
     pending[0]({state:'disabled',groups:[]}); await delay(30);
     expect(doc.querySelector('.log-results').textContent).to.include('latest_event');
     doc.querySelector('.log-event-button').click(); await delay(20);
-    doc.querySelector('.log-trace-button').click(); await delay(30);
+    expect(traces).to.have.length(1);
     doc.querySelector('.log-timeline button').click(); await delay(30);
     traces[0]({state:'ready',events:[{event:'late_event'}]}); await delay(30);
     expect(doc.querySelector('.log-timeline')).to.equal(null);
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("automatically follows one sample ID and isolates late events across inspectors", async () => {
+    const requestId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", jobId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    const traces = [];
+    ui = await browser("/", {
+      "/api/user": {username:"admin",isAdmin:true,status:"ready"},
+      "/api/admin/errors/investigation": {state:"ready",window:"6h",groups:[
+        {fingerprint:"both",count:1,sample:{event:"both_ids",requestId,jobId,severity:"error"}},
+        {fingerprint:"job",count:1,sample:{event:"job_only",jobId,severity:"error"}},
+        {fingerprint:"none",count:1,sample:{event:"no_id",service:"nginx",status:504,severity:"info"}},
+      ]},
+      "/api/admin/errors/correlation": request => new Promise(resolve => traces.push({request,resolve})),
+    });
+    await ui.go('/admin/errors');
+    const doc=ui.window.document, open=index=>doc.querySelectorAll('.log-event-button')[index].click();
+    open(0); await delay(30);
+    expect(traces).to.have.length(1);
+    expect(traces[0].request.url.searchParams.get('kind')).to.equal('requestId');
+    expect(traces[0].request.url.searchParams.get('id')).to.equal(requestId);
+    expect(traces[0].request.url.searchParams.get('window')).to.equal('6h');
+    doc.querySelector('.log-all-fields summary').click();
+    doc.querySelector('.log-value-reveal summary').click(); await delay(30);
+    expect(traces).to.have.length(1); // Native disclosure must never trigger another lookup.
+    doc.querySelector('.log-back').click(); await delay(20);
+    open(1); await delay(30);
+    expect(traces).to.have.length(2);
+    expect(traces[1].request.url.searchParams.get('kind')).to.equal('jobId');
+    expect(traces[1].request.url.searchParams.get('id')).to.equal(jobId);
+    traces[1].resolve({state:'ready',events:[{event:'current_job_event'}]}); await delay(30);
+    traces[0].resolve({state:'ready',events:[{event:'obsolete_request_event'}]}); await delay(30);
+    expect(doc.querySelector('.log-events').textContent).to.include('current_job_event').and.not.include('obsolete_request_event');
+    doc.querySelector('.log-back').click(); await delay(20);
+    open(2); await delay(30);
+    expect(traces).to.have.length(2);
+    expect(doc.querySelector('.log-no-trace').textContent).to.include('no correlation ID').and.include('HTTP 504').and.include('recorded');
+    expect(doc.querySelector('.log-sample-panel').textContent).to.include('nginx');
+    expect(doc.querySelector('.log-timeline')).to.equal(null);
+    doc.querySelector('.log-back').click(); await delay(20);
+    open(0); await delay(30);
+    doc.querySelector('#error-source-history').click(); await delay(20);
+    traces[2].resolve({state:'ready',events:[{event:'obsolete_source_event'}]}); await delay(30);
+    expect(doc.querySelector('.log-inspector')).to.equal(null);
+    expect(doc.querySelector('.log-events')).to.equal(null);
     expect(ui.errors).to.deep.equal([]);
   });
 

@@ -54,8 +54,11 @@ export function installLogInvestigation(state, http) {
     state.logDetailTab = "overview";
     state.selectedLog = group;
     await nextTick();
+    if (disposed || state.selectedLog !== group || state.errorSource !== "central") return;
     document.getElementById("log-detail-title")?.focus({ preventScroll: true });
-    document.getElementById("log-detail-title")?.scrollIntoView?.({ block: "nearest" });
+    document.querySelector(".log-inspector")?.scrollIntoView?.({ block: "start" });
+    const kind = ["requestId","jobId"].find(key=>state.logTraceId(group,key));
+    if (kind) state.lookupTrace(kind,group.sample[kind],document.getElementById("trace-selector-"+kind),group.sample,true);
   };
   state.closeLogDetail = async () => {
     state.selectedLog = null;
@@ -100,7 +103,7 @@ export function installLogInvestigation(state, http) {
       state.logFailure = error?.status === 400 ? "Use a Git release SHA or ‘unknown’ and retry." : "Could not load central log status. Retry or open Application history.";
     } finally { if (!disposed && current === version) state.logLoading = false; }
   };
-  state.lookupTrace = async (kind, id, origin, sample) => {
+  state.lookupTrace = async (kind, id, origin, sample, preserveFocus = false) => {
     if (!["requestId", "jobId"].includes(kind) || !uuid.test(id || "")) return;
     if (state.errorSource === "central" && state.selectedLog) state.logDetailTab = "timeline";
     if (state.errorSource === "history") state.historyView = "timeline";
@@ -112,11 +115,11 @@ export function installLogInvestigation(state, http) {
       service: sample.service || sample.module,
     } : null }; state.trace = null; state.traceLoading = true;
     await nextTick();
+    if (disposed || current !== traceVersion) return;
     const heading = document.getElementById("log-timeline-title");
-    heading?.focus();
-    heading?.scrollIntoView?.({ block: "nearest" });
+    if (!preserveFocus) { heading?.focus(); heading?.scrollIntoView?.({ block: "nearest" }); }
     try {
-      const response = await http.get("/api/admin/errors/correlation", { params: { kind, id, window: state.logData?.window || state.logFilters.window } });
+      const response = await http.get("/api/admin/errors/correlation", { params: { kind, id, window: state.logData?.window || state.logAppliedFilters.window } });
       if (!disposed && current === traceVersion) state.trace = response.data;
     } catch {
       if (!disposed && current === traceVersion) state.trace = { state: "unreachable", events: [] };

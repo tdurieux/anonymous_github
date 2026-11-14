@@ -14698,3 +14698,43 @@ body.dark-mode .reviewer-preview .rp-preserved-tag { background: rgba(251, 191, 
 .errors-page .history-inspector .detail-main > div > h3 { font:600 13px var(--font-sans); margin:0 0 12px; }
 .errors-page .history-inspector .log-explanation-lead { font:500 17px/1.55 var(--font-sans); }
 .errors-page .history-source .log-inspector-tabs { margin-bottom:0; flex-wrap:wrap; }
+
+/* Investigation-first inspector: related events are the primary content. */
+.errors-page .log-facts-strip { display:flex; flex-wrap:wrap; gap:12px 28px; padding:0 0 20px; color:var(--ink-muted); font-size:12px; }
+.errors-page .log-facts-strip strong, .errors-page .log-facts-strip time { color:var(--ink-soft); font-weight:500; font-variant-numeric:tabular-nums; }
+.errors-page .log-investigation-body { display:grid; grid-template-columns:minmax(0,1fr) 260px; border:1px solid var(--border-color); border-radius:6px; padding:0; background:var(--paper-card); }
+.errors-page .log-related-main { min-width:0; }
+.errors-page .log-correlation-selector { display:flex; align-items:center; flex-wrap:wrap; gap:8px; padding:12px 20px; border-bottom:1px solid var(--border-color); font-size:12px; color:var(--ink-muted); }
+.errors-page .log-correlation-selector .log-trace-button { margin:0; padding:7px 10px; min-height:36px; border:1px solid transparent; border-radius:4px; font-size:12px; }
+.errors-page .log-correlation-selector .log-trace-button[aria-pressed=true] { border-color:var(--border-color); background:var(--paper-bg-alt); color:var(--color); }
+.errors-page .log-selector-mark { margin-left:6px; }
+.errors-page .log-correlation-window { margin-left:auto; }
+.errors-page .log-investigation-body .log-timeline { padding:20px; border:0; }
+.errors-page .log-investigation-body .log-timeline h3 { font-size:14px; }
+.errors-page .log-investigation-body .log-events { margin:16px 0; }
+.errors-page .log-investigation-body .log-events li { grid-template-columns:88px minmax(0,1fr); gap:16px; padding:16px 0; }
+.errors-page .log-investigation-body .log-events time { font-size:11px; padding-top:2px; }
+.errors-page .log-investigation-body .log-timeline-event { position:relative; padding-left:16px; border-left:1px solid var(--border-color); }
+.errors-page .log-investigation-body .log-timeline-event::before { content:''; position:absolute; top:6px; left:-4px; width:7px; height:7px; border-radius:50%; background:var(--ink-muted); }
+.errors-page .log-sample-panel { min-width:0; border-left:1px solid var(--border-color); padding:20px; background:var(--paper-bg-alt); border-radius:0 6px 6px 0; }
+.errors-page .log-sample-panel h3, .errors-page .log-no-trace h3 { font:600 14px var(--font-sans); margin:0 0 10px; }
+.errors-page .log-sample-panel dl { display:block; }
+.errors-page .log-sample-panel dt { font-size:11px; }
+.errors-page .log-sample-panel dd { font-size:12px; }
+.errors-page .log-sample-panel .log-value-reveal { padding:0; }
+.errors-page .log-sample-panel .log-value-reveal summary { min-height:44px; padding:12px 8px; box-sizing:border-box; font-size:12px; }
+.errors-page .log-sample-panel .log-value-reveal > span { padding:0 8px 8px; margin:0; }
+.errors-page .log-sample-panel .log-copy-value { min-height:32px; border:0; background:none; padding:0; }
+.errors-page .log-sample-panel .log-all-fields { margin-top:16px; }
+.errors-page .log-sample-panel .log-all-fields summary { font-size:12px; }
+.errors-page .log-no-trace { padding:24px; font-size:13px; }
+@media(max-width:767px) {
+ .errors-page .log-inspector-heading { margin-top:4px; }
+ .errors-page .log-facts-strip { gap:8px 16px; padding-bottom:16px; }
+ .errors-page .log-investigation-body { grid-template-columns:minmax(0,1fr); }
+ .errors-page .log-sample-panel { border-left:0; border-top:1px solid var(--border-color); border-radius:0 0 6px 6px; }
+ .errors-page .log-correlation-selector { padding:10px 14px; }
+ .errors-page .log-correlation-selector .log-trace-button, .errors-page .log-sample-panel .log-copy-value { min-height:44px; }
+ .errors-page .log-investigation-body .log-timeline { padding:16px; }
+ .errors-page .log-investigation-body .log-events li { grid-template-columns:minmax(0,1fr); gap:6px; }
+}
