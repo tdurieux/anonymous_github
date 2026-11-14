@@ -23,15 +23,19 @@ func runDiscoveryIntegration(t *testing.T, base *Server) {
 			failure    string
 			want       []string
 			wantError  bool
+			status     int
 		}{
-			{"OAuth only", true, false, "", []string{"legacy/one", "legacy/two"}, false},
-			{"App only", false, true, "", []string{"app/two", "app/three"}, false},
-			{"combined order and replacement", true, true, "", []string{"legacy/one", "app/two", "app/three"}, false},
-			{"installation failure fallback", true, true, "/user/installations", []string{"legacy/one", "legacy/two"}, false},
-			{"repository failure fallback", true, true, "/user/installations/1/repositories", []string{"legacy/one", "legacy/two"}, false},
-			{"discard partial App results", true, true, "/user/installations/2/repositories", []string{"legacy/one", "legacy/two"}, false},
-			{"App failure without OAuth", false, true, "/user/installations/2/repositories", nil, true},
-			{"OAuth failure remains fatal", true, true, "/user/repos", nil, true},
+			{"OAuth only", true, false, "", []string{"legacy/one", "legacy/two"}, false, 0},
+			{"App only", false, true, "", []string{"app/two", "app/three"}, false, 0},
+			{"combined order and replacement", true, true, "", []string{"legacy/one", "app/two", "app/three"}, false, 0},
+			{"installation failure fallback", true, true, "/user/installations", []string{"legacy/one", "legacy/two"}, false, 0},
+			{"repository failure fallback", true, true, "/user/installations/1/repositories", []string{"legacy/one", "legacy/two"}, false, 0},
+			{"discard partial App results", true, true, "/user/installations/2/repositories", []string{"legacy/one", "legacy/two"}, false, 0},
+			{"App failure without OAuth", false, true, "/user/installations/2/repositories", nil, true, 0},
+			{"OAuth failure remains fatal", true, true, "/user/repos", nil, true, 0},
+			{"OAuth credential denied", true, false, "/user/repos", nil, true, 401},
+			{"OAuth permission denied", true, false, "/user/repos", nil, true, 403},
+			{"App credential denied", false, true, "/user/installations", nil, true, 401},
 		} {
 			t.Run(c.name, func(t *testing.T) {
 				ctx := context.Background()
@@ -78,6 +82,9 @@ func runDiscoveryIntegration(t *testing.T, base *Server) {
 					var body any
 					if path == c.failure {
 						status = 500
+						if c.status != 0 {
+							status = c.status
+						}
 						body = M{"message": "synthetic private upstream detail"}
 					} else {
 						switch path {
@@ -110,6 +117,15 @@ func runDiscoveryIntegration(t *testing.T, base *Server) {
 					var api *APIError
 					if !errors.As(err, &api) || strings.Contains(err.Error(), "private upstream") {
 						t.Fatalf("unexpected discovery error: %v", err)
+					}
+					if c.status == 401 && c.oauth && (api.Code != "token_expired" || api.Status != 401) {
+						t.Fatal("OAuth denial misclassified", api)
+					}
+					if c.status == 401 && !c.oauth && api.Code != "github_app_reconnect_required" {
+						t.Fatal("App denial misclassified", api)
+					}
+					if c.status == 403 && api.Code == "token_expired" {
+						t.Fatal("Permission denial treated as expired token")
 					}
 					if len(repos) != 0 {
 						t.Fatal("returned partial discovery on failure")

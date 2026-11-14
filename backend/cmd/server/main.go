@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"github.com/tdurieux/anonymous_github/backend/internal/anonymize"
+	"github.com/tdurieux/anonymous_github/backend/internal/logging"
 	"github.com/tdurieux/anonymous_github/backend/internal/server"
 	"log/slog"
 	"net/http"
@@ -51,7 +52,7 @@ func configureLogging() {
 	case "error":
 		level = slog.LevelError
 	}
-	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level})))
+	slog.SetDefault(slog.New(logging.New(os.Stderr, level, os.Getenv("APP_RELEASE"))))
 }
 func run() int {
 	configureLogging()
@@ -85,6 +86,7 @@ func run() int {
 			app.Close()
 		}
 	}()
+	slog.Info("process started", "module", "process")
 	httpServer := &http.Server{Addr: config.Address, Handler: app, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 30 * time.Second, WriteTimeout: 2 * time.Minute, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 32 * 1024}
 	drained, err = serveAndDrain(ctx, httpServer, app.RunJobs, 30*time.Second)
 	if err != nil {

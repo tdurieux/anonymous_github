@@ -21,7 +21,9 @@
     "openPRFocusedNodeTests": "42 email-history, expiration and admin UI tests passed; final 25-test activity/error-code/preview regression set passed",
     "frontendBuild": "passed with regenerated asset manifest and bundles",
     "nodeSuite": "Broad run: 1676 passed, 436 skipped, five failures. Fixed missing cache_miss translation, three stale Mongoose query mocks and one stale preview-button selector; all five failures passed in a 25-test focused rerun. Full suite not repeated after these fixes.",
-    "typescript": "tsc --noEmit passed"
+    "typescript": "tsc --noEmit passed",
+    "structuredLogging": "Passed race tests for private-data filtering, concurrent output, request traces, process samples, webhook failure diagnostics and persistent job traces. Actual Go records passed the unmodified Vector 0.61.0 sanitizer using the PR-pinned image digest. Final focused regression run and go vet passed.",
+    "oauthDiscoveryDenial": "Disposable database race test passed for OAuth/App discovery, OAuth 401, permission 403 and App reconnect semantics."
   },
   "changes": [
     "Restore Go backend and Go deployment on top of current main",
@@ -41,7 +43,9 @@
     "Stop automatic hosting-quota retries, preserve HTTP 402, and retain explicit owner recovery",
     "Preserve Node HTTP status mappings for stored repository failures",
     "Recognize named Express Router imports in route inventory generation",
-    "Repair current Node activity-test query mocks and preview-button selector; add the missing cache_miss translation"
+    "Repair current Node activity-test query mocks and preview-button selector; add the missing cache_miss translation",
+    "Emit safe structured JSON logs, persist job/request trace correlation, add process memory heartbeats and webhook failure phases",
+    "Normalize confirmed legacy OAuth discovery credential denial without changing App reconnect errors"
   ],
   "implementedTypeScriptRoutes": [
     {
@@ -123,11 +127,11 @@
     },
     "955": {
       "head": "b456ab8739374bf8bb3a690ad55698fb61615dd1",
-      "result": "Go hosting-quota retry and stored-error status fixes implemented. Broader diagnostic parity remains to review."
+      "result": "Quota retries/status mapping fixed; webhook failure phases and structured error severity implemented. Legacy OAuth discovery 401 maps to token_expired while App and permission errors remain distinct. Go direct-folder queries already use equality."
     },
     "956": {
       "head": "f084f5cbfc7b328a04b4e7e859ce9fa224c605c4",
-      "result": "Stacked on #955. Go text logs are incompatible with the new JSON collector schema; structured logging adaptation remains outstanding."
+      "result": "Go JSON logging implemented and tested against its pinned, unmodified Vector sanitizer. Request timings, job traces, errors and memory heartbeats retained. Aggregate queue-heartbeat output and deployment of the logging stack remain outstanding; fixed Go ZIP stage/reason fields remain local only."
     },
     "checks": "GitHub Actions jobs did not start because the account is locked due to a billing issue. This is not a test failure."
   }

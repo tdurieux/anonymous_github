@@ -3,11 +3,13 @@ package server
 import (
 	"context"
 	"errors"
+	"github.com/google/uuid"
 	"github.com/tdurieux/anonymous_github/backend/internal/provider"
 	"github.com/tdurieux/anonymous_github/backend/internal/security"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
+	"log/slog"
 	"path"
 	"strconv"
 	"strings"
@@ -29,7 +31,11 @@ func (s *Server) enqueue(ctx context.Context, kind, id, action string) error {
 		return err
 	}
 	key := kind + ":" + id + ":" + action
-	_, err = s.Store.DB.Collection("gojobs").UpdateOne(ctx, M{"_id": key, "state": M{"$nin": []string{"active", "waiting", "delayed"}}}, M{"$set": M{"kind": kind, "resourceId": id, "action": action, "state": "waiting", "attempts": 0, "priority": 0, "availableAt": time.Now(), "createdAt": time.Now()}}, options.UpdateOne().SetUpsert(true))
+	requestID := ""
+	if trace := traceFrom(ctx); trace != nil {
+		requestID = trace.id
+	}
+	_, err = s.Store.DB.Collection("gojobs").UpdateOne(ctx, M{"_id": key, "state": M{"$nin": []string{"active", "waiting", "delayed"}}}, M{"$set": M{"kind": kind, "resourceId": id, "action": action, "logJobId": uuid.NewString(), "requestId": requestID, "state": "waiting", "attempts": 0, "priority": 0, "availableAt": time.Now(), "createdAt": time.Now()}}, options.UpdateOne().SetUpsert(true))
 	if mongo.IsDuplicateKeyError(err) {
 		return nil
 	}
@@ -112,12 +118,31 @@ func (s *Server) jobLoop(ctx context.Context, queue string) {
 		}
 		work, cancel := context.WithTimeout(ctx, 90*time.Second)
 		jobStarted := time.Now()
+		jobID := str(job["logJobId"])
+		if parsed, parseErr := uuid.Parse(jobID); parseErr != nil || parsed.String() != jobID {
+			jobID = uuid.NewString()
+			s.Store.update(ctx, "gojobs", M{"_id": job["_id"], "lease": token}, M{"$set": M{"logJobId": jobID}})
+		}
+		logger := slog.Default().With("jobId", jobID, "requestId", str(job["requestId"]), "service", "worker", "module", "queue", "queue", queue, "attempt", number(job["attempts"]))
+		logger.InfoContext(work, "job started")
 		err = s.runJob(work, job)
 		if _, delayed := jobRateLimit(job, err, time.Now()); !delayed {
 			s.queueMetric(ctx, job, err != nil, time.Since(jobStarted))
 		}
 		cancel()
-		s.finishJob(ctx, job, err, time.Now())
+		finishErr := s.finishJob(ctx, job, err, time.Now())
+		if finishErr != nil {
+			logger.ErrorContext(ctx, "job failed", "ms", float64(time.Since(jobStarted))/float64(time.Millisecond))
+		} else if err != nil {
+			code := "upstream_error"
+			var api *APIError
+			if errors.As(providerFailure(err), &api) {
+				code = api.Code
+			}
+			logger.WarnContext(ctx, "job failed", "code", code, "ms", float64(time.Since(jobStarted))/float64(time.Millisecond))
+		} else {
+			logger.InfoContext(ctx, "job completed", "ms", float64(time.Since(jobStarted))/float64(time.Millisecond))
+		}
 	}
 }
 func (s *Server) runJob(ctx context.Context, job M) (jobErr error) {

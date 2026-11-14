@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"log/slog"
 	"os"
 	"runtime"
 	"strconv"
@@ -65,6 +66,11 @@ func (s *Server) processSample(now time.Time) M {
 	if !m.lastFlush.IsZero() {
 		sample["lastFlushAt"] = m.lastFlush.UnixMilli()
 	}
+	fields := []any{"module", "process", "rss", system["processRss"], "memoryLimitBytes", sample["memoryLimitBytes"], "uptime", uptime, "activeRequests", m.active.Load()}
+	if limit := number(sample["memoryLimitBytes"]); limit > 0 {
+		fields = append(fields, "memoryRatio", float64(number(system["processRss"]))/float64(limit))
+	}
+	slog.Info("process heartbeat", fields...)
 	m.sampledAt = now
 	return sample
 }

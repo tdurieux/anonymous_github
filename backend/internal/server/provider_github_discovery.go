@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/tdurieux/anonymous_github/backend/internal/provider"
 )
@@ -66,6 +67,10 @@ func (g *githubProvider) List(ctx context.Context, request provider.ListRequest)
 		}
 		err := s.githubPages(ctx, endpoint, oauthToken, "", func(r M) bool { remember(r); return false })
 		if err != nil {
+			var upstream *githubHTTPError
+			if errors.As(err, &upstream) && upstream.status == 401 {
+				return nil, fail("token_expired", 401)
+			}
 			return nil, err
 		}
 	}

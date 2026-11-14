@@ -29,6 +29,13 @@ jobs:
           go vet ./...
       - name: Integration and race tests
         run: backend/scripts/test-integration.sh
+      - name: Structured log collector compatibility
+        working-directory: backend
+        env:
+          GO_TEST_VECTOR_IMAGE: timberio/vector:0.61.0-debian@sha256:f6c23b5a7e16fb2838d33619ef7acf4bad2289a7cf22bc90efc2371f520c4ea2
+        run: |
+          docker pull "$GO_TEST_VECTOR_IMAGE"
+          go test -race ./internal/logging -run '^TestVectorCollector$'
       - name: Output compatibility
         env:
           SESSION_SECRET: synthetic-ci-session

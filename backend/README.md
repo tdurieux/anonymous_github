@@ -5,7 +5,7 @@
 This branch includes `main` through `511dcd7`. Go now implements the 13 APIs added since the previous migration, along with paid hosting, bibliography preservation, account email preferences, access notifications, direct public GitHub submodules, and the mounted review-service capability endpoint. The current 127-route inventory and Node differential contracts are checked in CI. See [the alignment report](reports/main-alignment.json) for validation and remaining staging checks. Route coverage alone does not establish complete behavioral equivalence.
 
 
-The migration branch also includes PR #953’s expiration emails and admin delivery history, with a Go implementation backed by the same collection. Hosting-quota failures no longer enter automatic retry loops. Open PR #956 still needs a Go logging adapter for its JSON collector; its operational stack has not been deployed.
+The migration branch also includes PR #953’s expiration emails and admin delivery history, with a Go implementation backed by the same collection. Hosting-quota failures no longer enter automatic retry loops. Go emits structured JSON compatible with PR #956’s collector. The operational logging stack has not been deployed.
 
 This directory implements the API, authentication, repository processing, file serving, storage adapters and background jobs in Go. The existing browser application remains JavaScript. Node is used to build browser assets, run differential tests and perform offline data migration; it is absent from the runtime image.
 
@@ -83,6 +83,12 @@ docker build -t anonymous-github-go:local .
 Exclude local database dumps and unrelated large directories from the build context. The runtime runs as UID/GID 10001 and needs writable repository storage and temporary space. Both Compose configurations add a read-only root filesystem, dropped capabilities, process/memory limits and a health check.
 
 The separate `.github/workflows/go-backend.yml` workflow runs formatting, static checks, integration/race tests, output comparisons, vulnerability scanning and the image build.
+
+## Structured logs
+
+Go writes JSON to stderr with fixed event names, severity, generated trace IDs, status codes and bounded diagnostic fields. Arbitrary messages, errors, URLs, repository identifiers, payloads and credentials are discarded before serialization. `LOG_LEVEL` keeps its existing behavior; `APP_RELEASE` accepts a 7–40 character lowercase Git SHA. Job trace IDs persist across retries, and originating request IDs propagate through the job record. Process heartbeats include RSS, the container memory limit and active requests.
+
+The collector policy and unmodified Vector sanitizer fixture are pinned to PR #956 commit `f084f5c`. `GO_TEST_VECTOR_IMAGE=timberio/vector:0.61.0-debian go test -race ./internal/logging` checks real Go output through Vector in a network-isolated container. CI uses the image digest from that PR. Updating the collector requires reviewing both the field allowlist and its privacy tests. Fixed Go ZIP stages and reasons remain in local JSON logs; the pinned collector discards those additional fields. The logging stack itself is not installed by this migration change, and aggregate queue-heartbeat output remains a follow-up to the existing admin queue metrics.
 
 ## Configuration
 

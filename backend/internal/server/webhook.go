@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/tdurieux/anonymous_github/backend/internal/security"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
+	"log/slog"
 	"mime"
 	"net/http"
 	"time"
@@ -41,53 +42,70 @@ func (s *Server) webhook(w http.ResponseWriter, r *http.Request) {
 		writeError(w, fail("invalid_webhook_signature", 401))
 		return
 	}
-	var decoded any
-	if json.Unmarshal(body, &decoded) != nil {
+	eventName := r.Header.Get("X-GitHub-Event")
+	phase := "parse"
+	failed := func(cause error) {
+		fields := []any{"module", "github-app-webhook", "phase", phase, "webhookEvent", eventName, "deliveryId", r.Header.Get("X-GitHub-Delivery")}
+		if trace := traceFrom(r.Context()); trace != nil {
+			fields = append(fields, "requestId", trace.id)
+		}
+		var api *APIError
+		if errors.As(providerFailure(cause), &api) && api.Status >= 400 && api.Status <= 599 {
+			fields = append(fields, "upstreamStatus", api.Status)
+		}
+		slog.ErrorContext(r.Context(), "webhook processing failed", fields...)
 		writeError(w, fail("webhook_processing_failed", 503))
+	}
+	var decoded any
+	if err = json.Unmarshal(body, &decoded); err != nil {
+		failed(err)
 		return
 	}
-	eventName := r.Header.Get("X-GitHub-Event")
 	if decoded == nil && (eventName == "installation" || eventName == "installation_repositories" || eventName == "github_app_authorization") {
-		writeError(w, fail("webhook_processing_failed", 503))
+		failed(err)
 		return
 	}
 	event := obj(decoded)
 	installation := obj(event["installation"])
 	if (eventName == "installation" || eventName == "installation_repositories") && jsonSafeInteger(installation["id"]) && str(installation["app_id"]) == s.Config.AppID {
+		phase = "persist_installation_block"
 		revision, err := security.RandomToken()
 		if err != nil {
-			writeError(w, fail("webhook_processing_failed", 503))
+			failed(err)
 			return
 		}
 		filter := M{"appId": s.Config.AppID, "installationId": installation["id"]}
 		_, err = s.Store.DB.Collection("githubinstallations").UpdateOne(r.Context(), filter, M{"$set": M{"blocked": true, "revision": revision, "reconciliationPending": str(event["action"]) != "deleted"}}, options.UpdateOne().SetUpsert(true))
 		if err != nil {
-			writeError(w, fail("webhook_processing_failed", 503))
+			failed(err)
 			return
 		}
 		if str(event["action"]) != "deleted" {
+			phase = "reconcile_installation"
 			jwt, err := s.appJWT()
 			if err != nil {
-				writeError(w, fail("webhook_processing_failed", 503))
+				failed(err)
 				return
 			}
 			err = s.reconcileInstallation(r.Context(), number(installation["id"]), revision, jwt)
 			if err != nil {
-				writeError(w, fail("webhook_processing_failed", 503))
+				failed(err)
 				return
 			}
 		}
 	}
 	if eventName == "github_app_authorization" && str(event["action"]) == "revoked" && inputTruthy(obj(event["sender"])["id"]) {
+		phase = "find_grant_owners"
 		users, err := s.Store.list(r.Context(), "users", M{"externalIDs.github": str(obj(event["sender"])["id"])}, 0, nil)
 		if err != nil {
-			writeError(w, fail("webhook_processing_failed", 503))
+			failed(err)
 			return
 		}
+		phase = "reconcile_grant"
 		for _, u := range users {
 			row, err := s.Store.one(r.Context(), "credentials", M{"ownerId": u["_id"], "provider": "github-app-user"})
 			if err != nil {
-				writeError(w, fail("webhook_processing_failed", 503))
+				failed(err)
 				return
 			}
 			if row == nil || boolean(row["revoked"]) {
@@ -95,12 +113,12 @@ func (s *Server) webhook(w http.ResponseWriter, r *http.Request) {
 			}
 			ok, err := s.Store.update(r.Context(), "credentials", M{"_id": row["_id"], "revision": row["revision"]}, M{"$set": M{"reconciliationPending": true}})
 			if err != nil {
-				writeError(w, fail("webhook_processing_failed", 503))
+				failed(err)
 				return
 			}
 			if ok {
 				if err = s.reconcileGrant(r.Context(), row); err != nil {
-					writeError(w, fail("webhook_processing_failed", 503))
+					failed(err)
 					return
 				}
 			}

@@ -53,7 +53,7 @@ func (t *requestTrace) log(r *http.Request, state *responseState, route, method 
 	if aborted {
 		outcome = "interrupted"
 	}
-	fields := []any{"requestId", t.id, "service", "api", "method", method, "route", route, "status", status, "outcome", outcome, "ms", math.Round(float64(elapsed) / float64(time.Millisecond)), "firstByteMs", firstByte, "bytes", bytes, "stages", stages}
+	fields := []any{"requestId", t.id, "service", "api", "module", "requests", "method", method, "route", route, "status", status, "outcome", outcome, "ms", math.Round(float64(elapsed) / float64(time.Millisecond)), "firstByteMs", firstByte, "bytes", bytes, "stages", stages}
 	switch {
 	case aborted:
 		t.logger.WarnContext(r.Context(), "request interrupted", fields...)

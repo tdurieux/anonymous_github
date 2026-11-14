@@ -1,0 +1,61 @@
+# Rebuild the event from scratch BEFORE the disk buffer. Never retain message,
+# Docker metadata, Mongo attr/command, request path, host, UA, cookie or headers.
+raw, err = parse_json(string!(.message))
+if err != null { raw = {} }
+service = "nginx"
+record = raw
+if starts_with(string!(.file), "/host/docker/") {
+  service = string(raw.attrs.tag) ?? "unknown"
+  if !includes(["api", "streamer", "mongodb", "redis", "mongodb-backup"], service) { abort }
+  record, err = parse_json(string(raw.log) ?? "")
+  if err != null { record = {} }
+}
+out = {"timestamp": now(), "service": service, "severity": "info", "event": "service_output"}
+# Use capture time for unsupported formats. Invalid/old producer timestamps
+# cannot defeat retention or crash the collector.
+event_time = raw.time
+if exists(record.time) { event_time = record.time }
+if exists(record.timestamp) { event_time = record.timestamp }
+parsed, err = parse_timestamp(string(event_time) ?? "", format: "%+")
+if err == null { out.timestamp = parsed }
+if service == "mongodb" {
+  out.event = "mongodb_event"
+  if is_integer(record.id) { out.mongoEventId = record.id }
+  if includes(["W", "E", "F"], record.s) { out.severity = "warn" }
+  if includes(["E", "F"], record.s) { out.severity = "error" }
+} else if service == "nginx" {
+  out.event = "edge_request"
+  record.requestId = record.app_request_id
+  record.firstByteMs = (to_float(record.upstream_header_time) ?? 0.0) * 1000.0
+  record.ms = (to_float(record.request_time) ?? 0.0) * 1000.0
+  if is_string(record.edge_request_id) && match(string!(record.edge_request_id), r'^[a-f0-9]{32}$') { out.edge_request_id = record.edge_request_id }
+  if is_string(record.cf_ray) && match(string!(record.cf_ray), r'^[a-f0-9]{16}-[A-Z]{3}$') { out.cf_ray = record.cf_ray }
+  if includes(["PASSED", "DELAYED", "REJECTED", "DELAYED_DRY_RUN", "REJECTED_DRY_RUN"], record.limit_req_status) { out.limit_req_status = record.limit_req_status }
+  # Deliberately omit IPs by default. Original edge JSON has short, restricted
+  # host retention for incident response; no plain or unsalted hashed IP archive.
+} else if includes(["api", "streamer"], service) {
+  if record.service == "worker" { out.service = "worker" }
+  if includes(["debug", "info", "warn", "error"], record.severity) { out.severity = record.severity }
+  if includes(["account_removed", "application_log", "billing_maintenance_failed", "billing_reconciliation_deferred", "billing_requires_attention", "billing_worker_failed", "blob_api_failed_falling_back_to_raw_url", "branch_not_found", "cache_removal_failed", "cache_removed", "checking_repository_status_and_unused_repositories", "cleared_lock_for_active_job", "conference_expire_failed", "content_expiration_failed", "daily_stats_snapshot_failed", "daily_stats_snapshot_stored", "download_completed", "download_start", "downloaded", "downloadfile_failed", "downloading_file", "downloading_gist", "downloading_pull_request", "downloading_via_raw_url_lfs", "duplicate_stripe_customer_requires_review", "ensuretodaysnapshot_failed", "error_log_redis_connect_failed", "expired_repository_cleanup_failed", "failed_removal_recovery_failed", "failed_to_persist_error_status", "failed_to_record_repository_removal_error", "gettoken", "github_primary_rate_limit_hit", "github_secondary_rate_limit_hit", "grant_revocation_failed", "initial_repository_status_check_failed", "job_completed", "job_failed", "job_stalled", "job_started", "lastusedat_update_failed", "login_token_failed", "login_token_req_login_failed", "logout_after_account_removal_failed", "logout_failed", "lookup_failed", "markerrorifinflight_failed", "markerrorifremoving_failed", "metadata_cleanup_complete", "metadata_cleanup_deferred", "owner_access_alert_reset_unavailable", "owner_access_email_accepted", "owner_access_email_audit_unavailable", "owner_access_email_claim_cleanup_unavailable", "owner_access_email_deferred_recovery_unavailable", "owner_access_email_delivery_failed", "owner_access_email_preparation_cleanup_unavailable", "owner_access_email_recovery_recorded", "owner_access_email_recovery_unavailable", "owner_access_email_result_reconciliation_required", "owner_access_email_unavailable", "pr_comments_404_continuing_without_them", "process_fatal_error", "process_heartbeat", "process_started", "progress", "queue_heartbeat", "queued_for_download", "rate_limit_gate_active_delaying_job_before_work", "rate_limit_gate_set", "rate_limited_delaying_job", "recover_failed", "recovered_expired_repository_cleanup", "recovered_file_from_truncated_tree", "recovered_file_invalidation_failed", "recovered_stuck_repo", "recoverstuckpreparing_failed", "recoverstuckremoving_failed", "redis_client_error", "redis_rate_limit_gate_written", "rejected_upstream_download_destination", "removal_failed", "removal_recovery_failed", "removecache_save_failed", "removed_cache_for_unused_repository", "removing_cache", "removing_repository", "repo_claimed", "repository_cache_removal_failed", "repository_expiration_failed", "repository_expired", "repository_removal_failed", "repository_removed", "request_cancelled", "request_completed", "request_slow", "requeued_failed_removal", "requeued_interrupted_removal", "reset", "retired_tree_cleanup_deferred", "retired_tree_cleanup_failed", "running_daily_stats_snapshot", "s3_body_stream_error", "send_failed", "server_started", "source_stream_failed_cache_write_discarded", "staged_tree_cleanup_failed", "staged_tree_completion_deferred", "streamer_fetch_failed", "streamer_started", "streamer_startup_failed", "streamer_zip_fetch_failed", "temporary_storage_cleanup_deferred", "token_refresh_failed_backing_off", "up_to_date", "update_queued", "verify_failed", "waiting_for_rate_limit_gate", "webhook_log", "webhook_processing_failed", "write_failed", "zip_stream_failed"], record.event) { out.event = record.event }
+  if is_string(record.release) && match(string!(record.release), r'^[a-f0-9]{7,40}$') { out.release = record.release }
+  if is_string(record.instance) && match(string!(record.instance), r'^[a-f0-9-]{36}$') { out.instance = record.instance }
+  if includes(["ABORT_ERR", "ECONNREFUSED", "ECONNRESET", "ENOTFOUND", "EPIPE", "ETIMEDOUT", "billing_address_missing", "billing_city_missing", "billing_country_missing", "billing_email_missing", "billing_missing", "billing_name_missing", "billing_zip_missing", "branch_not_found", "branch_not_specified", "cache_busy", "cache_miss", "cannot_coauthor_self", "commit_not_specified", "conf_end_date_invalid", "conf_end_date_missing", "conf_id_missing", "conf_id_used", "conf_name_missing", "conf_not_activated", "conf_not_found", "conf_start_date_invalid", "conf_start_date_missing", "conference_not_found", "connection_changed", "download_not_enabled", "expiration_limit_reached", "file_listing_too_large", "file_not_accessible", "file_not_found", "file_not_supported", "file_too_big", "folder_not_supported", "gistId_already_used", "gistId_not_specified", "gist_expired", "gist_not_found", "gist_not_ready", "github_app_access_required", "github_app_reconnect_required", "github_identity_mismatch", "github_rate_limit_exceeded", "github_token_invalid", "github_user_not_found", "invalid_commit_format", "invalid_cursor", "invalid_file_path", "invalid_gistId", "invalid_path", "invalid_plan", "invalid_preserve_files_format", "invalid_project_name", "invalid_pullRequestId", "invalid_repo", "invalid_repoId", "invalid_request", "invalid_settings", "invalid_signature", "invalid_sort", "invalid_status", "invalid_terms_format", "invalid_token_id", "invalid_token_options", "is_removed", "not_authorized", "not_connected", "options_not_provided", "page_not_activated", "page_not_supported_on_different_branch", "path_not_defined", "path_not_specified", "pullRequestId_already_used", "pullRequestId_is_not_a_number", "pullRequestId_not_specified", "pull_request_expired", "pull_request_not_found", "pull_request_not_ready", "token_refresh_failed", "quota_exceeded", "rate_limited", "readme_not_available", "repoId_already_used", "repoId_not_defined", "repoUrl_not_defined", "repo_access_limited", "repo_empty", "repo_not_accessible", "repo_not_found", "repo_saml_enforcement", "repository_archived", "repository_changed", "repository_expired", "repository_job_cancelled", "repository_not_found", "repository_not_ready", "repository_not_specified", "repository_tree_incomplete", "repository_tree_too_large", "s3_config_not_provided", "source_not_provided", "storage_delete_failed", "storage_write_size_mismatch", "submodule_not_available", "terms_not_specified", "token_expired", "token_limit_reached", "unable_to_connect_user", "unable_to_download", "upstream_error", "upstream_timeout", "user_not_found", "username_not_defined", "webhook_processing_failed"], record.errorCode) { out.errorCode = record.errorCode }
+  if includes(["admin", "anonymized-file", "auth", "billing", "dailyStats", "file-tree", "fs", "gh-stream", "gist", "github", "github-app-webhook", "owner-notifications", "process", "pull-request", "queue", "queue:cache", "queue:download", "queue:remove", "repository", "repository-public", "requests", "route", "route:repo", "s3", "schedule", "server", "streamer", "temporary-storage", "token-auth", "user", "zip-stream"], record.module) { out.module = record.module }
+  if includes(["protocol", "credentials", "port", "host"], record.reason) { out.reason = record.reason }
+  if includes(["parse", "find_grant_owners", "reconcile_grant", "persist_installation_block", "reconcile_installation"], record.phase) { out.phase = record.phase }
+  if includes(["github_app_authorization", "installation", "installation_repositories"], record.webhookEvent) { out.webhookEvent = record.webhookEvent }
+  if includes(["github.com", "api.github.com", "codeload.github.com", "raw.githubusercontent.com", "media.githubusercontent.com", "other"], record.upstreamHost) { out.upstreamHost = record.upstreamHost }
+  if includes(["download", "remove", "cache"], record.queue) { out.queue = record.queue }
+  if includes(["completed", "interrupted"], record.outcome) { out.outcome = record.outcome }
+}
+for_each(["requestId", "jobId", "deliveryId"]) -> |_index, key| {
+  value = get(record, [key]) ?? null
+  if is_string(value) && match(string!(value), r'^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$') { out = set!(out, [key], value) }
+}
+for_each(["status", "httpStatus", "ms", "firstByteMs", "responseMs", "bytes", "bytesPerSecond", "attempt", "rss", "memoryLimitBytes", "memoryRatio", "uptime", "activeRequests", "waiting", "active", "delayed", "failed", "oldestWaitingMs", "droppedLogs", "loopP95Ms", "upstreamStatus", "stage_repository_ms", "stage_credential_resolution_ms", "stage_upstream_ms", "stage_cache_lookup_ms", "stage_cache_fill_ms", "stage_worker_wait_ms", "stage_anonymize_ms", "stage_streamer_headers_ms"]) -> |_index, key| {
+  value = get(record, [key]) ?? null
+  if is_integer(value) || is_float(value) { out = set!(out, [key], value) }
+}
+if includes(["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "OTHER"], record.method) { out.method = record.method }
+if includes(["/", "other", "/dashboard", "/anonymize", "/healthcheck", "/api/healthcheck", "/api", "/api/download", "/api/stat", "/api/stat/history", "/api/options", "/api/message", "/api/user", "/api/user/quota", "/api/user/dashboard", "/api/repo", "/api/anonymize-preview", "/api/admin/overview", "/api/admin/performance", "/api/admin/errors", "/api/admin/errors/stats", "/api/admin/queues", "/api/admin/queues/metrics", "/github/app/webhook", "/api/repo/:repoId", "/api/repo/:repoId/file/:path", "/api/repo/:repoId/files", "/api/repo/:repoId/files/counts", "/api/repo/:repoId/files/search", "/api/repo/:repoId/zip", "/api/repo/:repoId/options", "/api/repo/:repoId/refresh", "/api/repo/:repoId/coauthors", "/api/repo/:repoId/extend", "/api/repo/:owner/:repo/readme", "/api/repo/:owner/:repo/branches", "/w/:repoId/:path", "/r/:repoId/:path", "/api/pr/:id/:path", "/api/gist/:id/:path", "/assets/:path", "/github/:action", "/api/admin/:action", "/api/user/:action", "/api/repo/:id/file/:path", "/api/repo/:id/files/counts", "/api/repo/:id/files/search", "/api/repo/:id/files", "/api/repo/:id/zip", "/api/repo/:id", "/viewer/:id/:path"], record.route) { out.route = record.route }
+. = out
