@@ -1,3 +1,4 @@
+import { sendTrackedEmail } from "./email-history";
 import config from "../config";
 import RepositoryModel from "./model/anonymizedRepositories/anonymizedRepositories.model";
 import UserModel from "./model/users/users.model";
@@ -27,7 +28,8 @@ export async function notifyRepositoryExpired(id: unknown): Promise<void> {
     }, { $set: { expirationEmailClaimedFor: expirationDate } }).exec();
     if (!claim.matchedCount) return;
     // Keep the claim even after a timeout: the provider may have accepted the email.
-    const response = await fetch("https://api.resend.com/emails", {
+    const response = await sendTrackedEmail({ kind: "repository-expiration", recipient: to, ownerId: String(repo.owner),
+      resourceId: String(repo._id), resourceKind: "repository" }, "https://api.resend.com/emails", {
       method: "POST",
       headers: { Authorization: `Bearer ${config.RESEND_API_KEY}`, "Content-Type": "application/json",
         "Idempotency-Key": `repository-expired/${repo._id}/${expirationDate.getTime()}` },

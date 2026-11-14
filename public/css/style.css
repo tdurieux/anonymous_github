@@ -14328,3 +14328,18 @@ body.dark-mode .reviewer-preview .rp-preserved-tag { background: rgba(251, 191, 
 .files .tree-name .redact-slot, .breadcrumb .redact-slot { position: relative; top: -.15em; }
 /* Text: the slot centers on the line's letters, level with parentheses and punctuation. */
 .markdown-body :is(p, li, td, th, blockquote, dd) mark.redact-chip, .dark-mode .markdown-body :is(p, li, td, th, blockquote, dd) mark.redact-chip { vertical-align: .04em !important; }
+
+/* Email delivery history uses the existing admin table and form controls. */
+.email-help { max-width: 75ch; margin: 1.5rem 0; color: var(--ink-muted); }
+.email-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 1rem; margin-bottom: 1.5rem; }
+.email-toolbar label { margin-bottom: 0; display: grid; gap: .4rem; font-weight: 600; }
+.email-toolbar select { min-width: 11rem; max-width: 100%; }
+.email-table-wrap { overflow-x: auto; }
+.email-table { width: 100%; min-width: 720px; }
+.email-table th, .email-table td { padding: .85rem 1rem; text-align: left; vertical-align: top; }
+.email-recipient { overflow-wrap: anywhere; max-width: 22rem; }
+.email-detail { display: block; color: var(--ink-muted); overflow-wrap: anywhere; margin-top: .25rem; }
+.email-outcome { font-weight: 600; }
+.email-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 1rem; align-items: center; margin-top: 1rem; }
+
+.email-table td:last-child .email-detail { white-space: nowrap; }

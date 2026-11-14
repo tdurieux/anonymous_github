@@ -995,6 +995,18 @@ app.post("/api/admin/queues/pause-all", ok);
 app.post("/api/admin/queue/:name/retry-failed", (req, res) => res.json({ retried: 2, total: 2 }));
 app.post("/api/admin/queue/:name/:action", ok);
 app.delete("/api/admin/queue/:name/:id", ok);
+// Illustrative email history for local admin UI development.
+app.get("/api/admin/emails", (req, res) => {
+  if (req.query.state === "rejected") return res.status(503).json({ error: "Simulated history outage" });
+  const entries = ["accepted", "unknown", "sending"].map((state, index) => ({
+    _id: oid(900 + index), kind: index ? "owner-access" : "repository-expiration",
+    recipient: index ? "author@example.com" : "research-team-with-a-long-address@example.com",
+    resourceKind: "repository", resourceId: oid(800 + index),
+    createdAt: ago(index), completedAt: state === "sending" ? null : ago(index), state,
+    httpStatus: state === "accepted" ? 200 : null,
+  })).filter(row => (!req.query.state || row.state === req.query.state) && (!req.query.kind || row.kind === req.query.kind));
+  res.json({ entries, nextCursor: null });
+});
 app.get("/api/admin/errors", (req, res) => {
   const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
   const limit = Math.min(5000, Math.max(1, parseInt(req.query.limit, 10) || 250));

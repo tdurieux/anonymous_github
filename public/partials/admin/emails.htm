@@ -1,0 +1,48 @@
+<div class="container paper-page admin-page emails-page">
+  <header class="page-head">
+    <div class="paper-crumbs"><a href="/admin/">Admin</a> &nbsp;/&nbsp; <span class="here">Emails</span></div>
+    <div class="page-head-main"><h1 class="paper-page-title">Emails</h1></div>
+  </header>
+  <nav class="admin-nav">
+    <a href="/admin/"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-chart"></use></svg> Overview</a>
+    <a href="/admin/repositories"><svg class="ui-icon" aria-hidden="true"><use href="#project-type-repo"></use></svg> Repositories</a>
+    <a href="/admin/users"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-users"></use></svg> Users</a>
+    <a href="/admin/conferences"><svg class="ui-icon" aria-hidden="true"><use href="#project-icon-conference"></use></svg> Conferences</a>
+    <a href="/admin/billing"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-card"></use></svg> Billing</a>
+    <a href="/admin/queues"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-list"></use></svg> Queues</a>
+    <a href="/admin/emails" class="active" aria-current="page"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-list"></use></svg> Emails</a>
+    <a href="/admin/errors"><svg class="ui-icon" aria-hidden="true"><use href="#ui-icon-bug"></use></svg> Errors</a>
+  </nav>
+
+  <p class="email-help">Email attempts recorded since tracking was enabled. Accepted means Resend accepted the message, not that it reached the inbox. Pending and unknown outcomes may need checking in Resend.</p>
+  <form class="email-toolbar" @submit.prevent="loadEmails()" aria-label="Filter email history">
+    <label>Status
+      <select v-model="emailState" @change="loadEmails()">
+        <option value="">All statuses</option><option value="accepted">Accepted</option><option value="rejected">Rejected</option><option value="unknown">Unknown outcome</option><option value="sending">Outcome pending</option>
+      </select>
+    </label>
+    <label>Email type
+      <select v-model="emailKind" @change="loadEmails()">
+        <option value="">All types</option><option value="repository-expiration">Repository expiration</option><option value="owner-access">GitHub access</option>
+      </select>
+    </label>
+    <button class="btn" type="submit" :disabled="emailLoading">{{ emailLoading ? 'Loading…' : 'Refresh' }}</button>
+  </form>
+  <p v-if="emailError" class="ov-performance-message ov-performance-warning" role="alert">{{ emailError }} <button class="btn btn-sm" type="button" @click="loadEmails()">Retry</button></p>
+  <p v-if="emailLoading &amp;&amp; !emailRows.length" role="status">Loading email history…</p>
+  <p v-if="!emailLoading &amp;&amp; !emailError &amp;&amp; !emailRows.length" class="ov-performance-empty" role="status">No email attempts match these filters.</p>
+  <div v-if="emailRows.length" class="email-table-wrap" tabindex="0" role="region" aria-label="Email delivery history" :aria-busy="emailLoading">
+    <table class="table email-table">
+      <caption class="sr-only">Email attempts, newest first</caption>
+      <thead><tr><th scope="col">Attempted</th><th scope="col">Recipient</th><th scope="col">Email type</th><th scope="col">Outcome</th><th scope="col">Resource</th></tr></thead>
+      <tbody><tr v-for="row in emailRows" :key="row._id">
+        <td><time :datetime="row.createdAt">{{ emailTime(row.createdAt) }}</time></td>
+        <td class="email-recipient">{{ row.recipient }}</td>
+        <td>{{ emailKindLabel(row.kind) }}</td>
+        <td><span class="email-outcome" :class="'email-outcome-' + row.state">{{ emailStatusLabel(row.state) }}</span><small v-if="row.httpStatus" class="email-detail">HTTP {{ row.httpStatus }}</small><small v-if="row.completedAt" class="email-detail">{{ emailTime(row.completedAt) }}</small></td>
+        <td>{{ row.resourceKind }}<small class="email-detail">{{ row.resourceId }}</small></td>
+      </tr></tbody>
+    </table>
+  </div>
+  <div class="email-footer" v-if="emailRows.length"><span>{{ emailRows.length }} attempts shown</span><button v-if="emailNextCursor" class="btn" type="button" :disabled="emailLoading" @click="loadEmails(true)">{{ emailLoading ? 'Loading…' : 'Load older emails' }}</button></div>
+</div>

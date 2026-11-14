@@ -150,6 +150,15 @@ expiration date gets one delivery attempt across workers. Failed or ambiguous
 deliveries retain the guard to prevent duplicate emails and are logged without
 email addresses. Existing expired repositories are not scanned for notifications.
 
+Administrators can inspect email attempts at `/admin/emails`, filtered by type
+and provider outcome. Tracking covers new expiration and GitHub access emails;
+older sends are not backfilled. History stores the recipient address, resource
+identity, timestamps, and HTTP status in MongoDB, without message bodies or API
+keys. Accepted means the provider accepted the message, not confirmed inbox
+delivery. Unknown outcomes and interrupted sends remain visible for investigation.
+Audit storage failures are logged and do not stop delivery, so history can be
+incomplete during a database outage.
+
 Registration saves a verified GitHub email address, preferring the primary address.
 OAuth requests `user:email`; GitHub App sign-in uses the read-only email permission
 described in the setup guide. Later sign-ins also fill missing addresses. Saved

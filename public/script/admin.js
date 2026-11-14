@@ -2429,3 +2429,35 @@ export const billingAdminController = function (state, http, location) {
         recomputeChips();
       }, true);
     };
+
+export const emailsAdminController = function (state, http, location) {
+  if (state.user == null) { location.url("/"); return; }
+  state.emailRows = [];
+  state.emailState = "";
+  state.emailKind = "";
+  state.emailLoading = false;
+  state.emailError = "";
+  state.emailNextCursor = null;
+  state.emailStatusLabel = (value) => ({ sending: "Outcome pending", accepted: "Accepted", rejected: "Rejected", unknown: "Unknown outcome" }[value] || value);
+  state.emailKindLabel = (value) => value === "repository-expiration" ? "Repository expiration" : "GitHub access";
+  state.emailTime = (value) => value ? new Date(value).toLocaleString() : "Not recorded";
+  let generation = 0;
+  state.loadEmails = async (more = false) => {
+    const current = ++generation;
+    state.emailLoading = true;
+    state.emailError = "";
+    if (!more) { state.emailRows = []; state.emailNextCursor = null; }
+    try {
+      const response = await http.get("/api/admin/emails", { params: {
+        state: state.emailState || undefined, kind: state.emailKind || undefined,
+        before: more ? state.emailNextCursor : undefined,
+      } });
+      if (current !== generation) return;
+      state.emailRows = more ? state.emailRows.concat(response.data.entries) : response.data.entries;
+      state.emailNextCursor = response.data.nextCursor;
+    } catch {
+      if (current === generation) state.emailError = "Could not load email history. Try again.";
+    } finally { if (current === generation) state.emailLoading = false; }
+  };
+  state.loadEmails();
+};
