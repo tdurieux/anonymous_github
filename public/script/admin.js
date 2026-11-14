@@ -2432,43 +2432,127 @@ export const billingAdminController = function (state, http, location) {
 
 export const emailsAdminController = function (state, http, location) {
   if (state.user == null) { location.url("/"); return; }
+  state.Math = Math;
+  const browser = typeof window !== "undefined" ? window : null;
+  const query = browser ? new URLSearchParams(browser.location.search) : null;
+  const periods = ["7d", "30d", "90d", "all"];
+  const statuses = ["accepted", "rejected", "unknown", "sending"];
   state.emailRows = [];
-  state.emailState = "";
-  state.emailKind = "";
+  state.emailState = statuses.includes(query?.get("state")) ? query.get("state") : "";
+  state.emailKind = ["repository-expiration", "owner-access"].includes(query?.get("kind")) ? query.get("kind") : "";
+  state.emailPeriod = periods.includes(query?.get("period")) ? query.get("period") : "7d";
+  state.emailSearch = query?.get("search") || "";
+  let appliedSearch = state.emailSearch.trim();
   state.emailLoading = false;
   state.emailError = "";
   state.emailAnnouncement = "";
   state.emailNextCursor = null;
-  state.emailStatusLabel = (value) => ({ sending: "Outcome pending", accepted: "Accepted", rejected: "Rejected", unknown: "Unknown outcome" }[value] || value);
-  state.emailKindLabel = (value) => value === "repository-expiration" ? "Repository expiration" : "GitHub access";
-  state.emailTime = (value) => value ? new Date(value).toLocaleString(undefined, {
-    year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", timeZoneName: "short",
-  }) : "Not recorded";
-  state.hasEmailFilters = () => !!(state.emailState || state.emailKind);
-  state.clearEmailFilters = () => { state.emailState = ""; state.emailKind = ""; return state.loadEmails(); };
-  let generation = 0, lastFilters = "", failedMore = false;
-  state.on("dispose", () => { generation++; });
+  state.emailSummary = null;
+  state.emailSummaryError = "";
+  state.emailSummaryLoading = false;
+  state.emailUpdated = null;
+  state.emailPage = 1;
+  state.selectedEmailId = null;
+  state.emailCopyMessage = "";
+  state.emailCopiedValue = null;
+  state.emailTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  state.emailStatusLabel = (value) => ({ sending: "Pending", accepted: "Accepted", rejected: "Rejected", unknown: "Unknown" }[value] || value);
+  state.emailKindLabel = (value) => ({ "repository-expiration": "Repository expiration", "owner-access": "GitHub access" }[value] || value);
+  state.emailTime = (value) => value ? new Date(value).toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", timeZoneName: "short" }) : "Not recorded";
+  state.emailShortTime = (value) => {
+    if (!value) return "Not recorded";
+    const date = new Date(value);
+    return date.toLocaleString(undefined, { ...(state.emailPeriod === "all" || date.getFullYear() !== new Date().getFullYear() ? { year: "numeric" } : {}), month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  };
+  state.emailExplanation = (row) => {
+    if (row.state === "accepted") return "The provider accepted this request. Inbox delivery is not confirmed.";
+    if (row.state === "sending") return "The attempt was recorded, but no final outcome has been recorded. Check the provider before sending again.";
+    if (row.state === "unknown") return "The provider outcome could not be confirmed. Check the provider before sending again to avoid duplicates.";
+    const reasons = { 400: "The provider rejected the request as invalid.", 401: "The provider rejected authentication.", 403: "The provider denied this request.", 404: "The provider could not find the requested endpoint or resource.", 422: "The provider could not process the request.", 429: "The provider rejected the request because of rate limiting." };
+    return reasons[row.httpStatus] || (row.httpStatus >= 500 ? "The provider reported a server error." : "The provider rejected this request.");
+  };
+  state.toggleEmail = (row) => { state.selectedEmailId = state.selectedEmailId === row._id ? null : row._id; state.emailCopyMessage = ""; state.emailCopiedValue = null; };
+  let disposed = false, generation = 0, summaryGeneration = 0, lastFilters = "", lastSummaryFilters = "", failedMore = false, pendingPage = null;
+  state.copyEmail = async (value) => {
+    state.emailCopiedValue = null;
+    try {
+      if (!browser?.navigator?.clipboard) throw new Error("Clipboard unavailable");
+      await browser.navigator.clipboard.writeText(String(value));
+      if (!disposed) { state.emailCopyMessage = "Copied."; state.emailCopiedValue = String(value); }
+    } catch { if (!disposed) state.emailCopyMessage = "Could not copy. Select and copy the text manually."; }
+  };
+  const params = () => ({ period: state.emailPeriod, search: appliedSearch || undefined, kind: state.emailKind || undefined });
+  const persist = () => {
+    if (!browser) return;
+    try {
+      const url = new URL(browser.location.href);
+      for (const [key, value] of Object.entries({ ...params(), state: state.emailState })) {
+        if (value) url.searchParams.set(key, value); else url.searchParams.delete(key);
+      }
+      browser.history.replaceState(null, "", url.pathname + url.search + url.hash);
+    } catch { /* History may be unavailable in embedded browsers. */ }
+  };
+  state.hasEmailFilters = () => !!(state.emailState || state.emailKind || appliedSearch || state.emailPeriod !== "7d");
+  state.emailVisibleRows = () => state.emailRows.slice((state.emailPage - 1) * 25, state.emailPage * 25);
+  state.emailTotal = () => state.emailSummary ? (state.emailState ? state.emailSummary.counts[state.emailState] : state.emailSummary.total) : null;
+  state.emailPageCount = () => state.emailTotal() == null ? null : Math.max(1, Math.ceil(state.emailTotal() / 25));
+  state.emailDayTotal = (day) => statuses.reduce((sum, key) => sum + (Number(day[key]) || 0), 0);
+  state.emailChartTotal = () => (state.emailSummary?.series || []).reduce((total, day) => total + state.emailDayTotal(day), 0);
+  state.jumpToEmailHistory = () => { const heading = browser?.document?.querySelector("#email-history-title"); if (heading) { heading.focus({ preventScroll: true }); heading.scrollIntoView({ block: "start" }); } };
+  state.emailChartMax = () => Math.max(1, ...(state.emailSummary?.series || []).map(state.emailDayTotal));
+  state.emailDayLabel = (day) => {
+    const value = typeof day === "string" ? day : day?.date;
+    if (!value) return "";
+    const date = new Date(value + "T12:00:00Z");
+    return Number.isNaN(date.getTime()) ? "" : date.toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
+  };
+  const changePage = (page) => {
+    state.emailPage = page; state.selectedEmailId = null; pendingPage = null;
+    const start = (page - 1) * 25 + 1, end = Math.min(page * 25, state.emailRows.length);
+    state.emailAnnouncement = `Page ${page}. Showing attempts ${start} to ${end}.`;
+    const heading = browser?.document?.querySelector("#email-history-title");
+    if (heading) {
+      heading.setAttribute("tabindex", "-1");
+      heading.focus({ preventScroll: true });
+      heading.scrollIntoView({ block: "start", behavior: "auto" });
+    }
+  };
+  state.loadEmailSummary = async () => {
+    const filter = JSON.stringify(params());
+    if (filter !== lastSummaryFilters) state.emailSummary = null;
+    lastSummaryFilters = filter;
+    const current = ++summaryGeneration;
+    state.emailSummaryLoading = true; state.emailSummaryError = "";
+    try {
+      const response = await http.get("/api/admin/emails/summary", { params: params() });
+      if (current === summaryGeneration) state.emailSummary = response.data;
+    } catch {
+      if (current === summaryGeneration) state.emailSummaryError = state.emailSummary ? "Could not refresh the summary. Previously loaded totals are still shown." : "Email summary is unavailable.";
+    } finally { if (current === summaryGeneration) state.emailSummaryLoading = false; }
+  };
   state.retryEmails = () => state.loadEmails(failedMore);
   state.loadEmails = async (more = false) => {
-    const filters = JSON.stringify([state.emailState, state.emailKind]);
+    const filters = JSON.stringify([state.emailState, state.emailKind, state.emailPeriod, appliedSearch]);
     const changed = filters !== lastFilters;
     lastFilters = filters;
     if (changed) more = false;
     if (more && (state.emailLoading || !state.emailNextCursor)) return;
     const current = ++generation;
-    state.emailLoading = true;
-    state.emailError = "";
+    state.emailLoading = true; state.emailError = "";
     state.emailAnnouncement = more ? "Loading older emails." : "Loading email history.";
-    if (changed) { state.emailRows = []; state.emailNextCursor = null; }
+    if (changed) { state.emailRows = []; state.emailNextCursor = null; state.emailPage = 1; state.selectedEmailId = null; pendingPage = null; }
+    if (!more) pendingPage = null;
+    persist();
     try {
-      const response = await http.get("/api/admin/emails", { params: {
-        state: state.emailState || undefined, kind: state.emailKind || undefined,
-        before: more ? state.emailNextCursor : undefined,
-      } });
+      const response = await http.get("/api/admin/emails", { params: { ...params(), state: state.emailState || undefined, before: more ? state.emailNextCursor : undefined } });
       if (current !== generation) return;
       state.emailRows = more ? state.emailRows.concat(response.data.entries) : response.data.entries;
       state.emailNextCursor = response.data.nextCursor;
-      state.emailAnnouncement = `Email history loaded. ${state.emailRows.length} attempts shown.`;
+      if (!more) state.emailPage = 1;
+      state.emailUpdated = new Date().toISOString();
+      state.emailAnnouncement = `Email history loaded. ${state.emailRows.length} attempts loaded.`;
+      if (more && pendingPage && state.emailRows.length > (pendingPage - 1) * 25) changePage(pendingPage);
+      return true;
     } catch {
       if (current === generation) {
         failedMore = more;
@@ -2478,5 +2562,27 @@ export const emailsAdminController = function (state, http, location) {
       }
     } finally { if (current === generation) state.emailLoading = false; }
   };
-  state.loadEmails();
+  state.emailPreviousPage = () => { if (!state.emailLoading && state.emailPage > 1) changePage(state.emailPage - 1); };
+  state.emailNextPage = async () => {
+    if (state.emailLoading) return;
+    const target = state.emailPage + 1;
+    const filter = lastFilters;
+    if (state.emailRows.length <= (target - 1) * 25 && state.emailNextCursor) {
+      pendingPage = target;
+      await state.loadEmails(true);
+    }
+    if (!disposed && filter === lastFilters && state.emailPage !== target && state.emailRows.length > (target - 1) * 25) changePage(target);
+  };
+  state.refreshEmails = () => Promise.all([state.loadEmails(), state.loadEmailSummary()]);
+  state.applyEmailFilters = () => { appliedSearch = state.emailSearch.trim(); return state.refreshEmails(); };
+  state.setEmailStatus = (value) => { state.emailState = statuses.includes(value) ? value : ""; return state.loadEmails(); };
+  state.clearEmailFilters = () => { state.emailState = ""; state.emailKind = ""; state.emailSearch = ""; state.emailPeriod = "7d"; return state.applyEmailFilters(); };
+  let navTimer;
+  if (browser?.setTimeout) navTimer = browser.setTimeout(() => {
+    const nav = browser.document?.querySelector(".emails-page .admin-nav");
+    const active = nav?.querySelector('[aria-current="page"]');
+    if (nav && active) nav.scrollLeft = Math.max(0, active.offsetLeft - nav.offsetLeft - (nav.clientWidth - active.offsetWidth) / 2);
+  }, 0);
+  state.on("dispose", () => { disposed = true; generation++; summaryGeneration++; if (navTimer != null) browser.clearTimeout(navTimer); });
+  state.refreshEmails();
 };

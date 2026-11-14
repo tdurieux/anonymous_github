@@ -4,7 +4,7 @@ require("ts-node/register/transpile-only");
 const Users = require("../src/core/model/users/users.model").default;
 const history = require("../src/core/email-history");
 const admin = require("../src/server/routes/admin").default;
-const { emailHistoryQuery } = require("../src/server/routes/admin-emails");
+const { emailHistoryQuery, emailHistoryPeriod, emailHistorySummary } = require("../src/server/routes/admin-emails");
 
 describe("email delivery history", () => {
   const restores = [];
@@ -65,12 +65,13 @@ describe("email delivery history", () => {
     const router = require("../src/server/routes/admin-emails").default;
     const handler = router.stack.find(layer => layer.route?.path === "/").route.stack[0].handle;
     const records = Array.from({ length: 51 }, (_, index) => ({ _id: String(index), createdAt: new Date("2026-01-01"), state: "accepted" }));
-    let limit, filter, sort, result, cache;
-    stub(history, "emailHistoryCollection", () => ({ find: query => {
-      filter = query;
+    let limit, filter, sort, result, cache, options;
+    stub(history, "emailHistoryCollection", () => ({ find: (query, value) => {
+      filter = query; options = value;
       return { sort: value => { sort = value; return { limit: count => { limit = count; return { toArray: async () => records }; } }; } };
     } }));
     await handler({ query: { state: "accepted" } }, { set: (key, value) => { cache = [key, value]; }, json: value => { result = value; } });
+    expect(options.maxTimeMS).to.equal(5000);
     expect(limit).to.equal(51); expect(sort).to.deep.equal({ createdAt: -1, _id: -1 });
     expect(filter).to.deep.equal({ state: "accepted" });
     expect(result.entries).to.have.length(50);
@@ -87,6 +88,75 @@ describe("email delivery history", () => {
     stub(history, "emailHistoryCollection", () => { throw Error("private database info"); });
     await handler({ query: {} }, res);
     expect(code).to.equal(503); expect(body.error).not.to.include("private");
+  });
+  it("uses UTC calendar periods and rejects malformed period or search input", () => {
+    const now = new Date("2026-11-14T23:59:00.000Z");
+    expect(emailHistoryPeriod("7d", now)).to.deep.equal({ period: "7d", chartDays: 7, start: new Date("2026-11-08T00:00:00.000Z") });
+    expect(emailHistoryQuery({ period: "30d" }, now).createdAt.$gte.toISOString()).to.equal("2026-10-16T00:00:00.000Z");
+    expect(emailHistoryQuery({ period: "all" }, now)).to.deep.equal({});
+    expect(emailHistoryQuery({}, now)).to.deep.equal({});
+    for (const query of [{ period: "1d" }, { period: [] }, { period: "" }, { search: [] }, { search: { $ne: "" } }, { search: "a".repeat(201) }]) {
+      expect(() => emailHistoryQuery(query)).to.throw();
+    }
+  });
+  it("searches literal recipient text and exact IDs without losing the cursor or period", () => {
+    const now = new Date("2026-11-14T12:00:00.000Z");
+    const before = "2026-11-12T12:00:00.000Z|aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+    const query = emailHistoryQuery({ search: "  a+b.[test]@example.com  ", before, period: "7d" }, now);
+    const regex = new RegExp(query.$or[0].recipient.$regex, query.$or[0].recipient.$options);
+    expect(regex.test("A+B.[test]@example.com")).to.equal(true);
+    expect(regex.test("abxt@example.com")).to.equal(false);
+    expect(query.$or.slice(1)).to.deep.equal([{ _id: "a+b.[test]@example.com" }, { ownerId: "a+b.[test]@example.com" }, { resourceId: "a+b.[test]@example.com" }]);
+    expect(query.$and[0].$or).to.have.length(2);
+    expect(query.createdAt.$gte.toISOString()).to.equal("2026-11-08T00:00:00.000Z");
+    expect(emailHistoryQuery({ search: "   " })).to.deep.equal({});
+  });
+  it("zero fills UTC daily series and keeps all-time totals independent of the chart", () => {
+    const period = emailHistoryPeriod("all", new Date("2026-11-14T12:00:00.000Z"));
+    const result = emailHistorySummary([{ _id: "accepted", count: 75 }, { _id: "unknown", count: 3 }], [
+      { _id: { date: "2026-11-14", state: "accepted" }, count: 2 },
+      { _id: { date: "2025-01-01", state: "accepted" }, count: 50 },
+    ], period);
+    expect(result.total).to.equal(78);
+    expect(result.counts).to.deep.equal({ accepted: 75, rejected: 0, unknown: 3, sending: 0 });
+    expect(result.series).to.have.length(30);
+    expect(result.series[0]).to.deep.equal({ date: "2026-10-16", accepted: 0, rejected: 0, unknown: 0, sending: 0 });
+    expect(result.series.at(-1).accepted).to.equal(2);
+    expect(result.chartDays).to.equal(30);
+    expect(result.period).to.equal("all");
+  });
+  it("aggregates the whole filtered dataset independently of state and cursor with bounded database time", async () => {
+    const router = require("../src/server/routes/admin-emails").default;
+    const handler = router.stack.find(layer => layer.route?.path === "/summary").route.stack[0].handle;
+    let pipeline, options, result, cache;
+    stub(history, "emailHistoryCollection", () => ({ aggregate: (stages, opts) => {
+      pipeline = stages; options = opts;
+      return { toArray: async () => [{ counts: [{ _id: "accepted", count: 120 }, { _id: "rejected", count: 8 }], daily: [] }] };
+    } }));
+    await handler({ query: { state: "rejected", before: "ignored", period: "7d", kind: "owner-access", search: "research" } }, {
+      set: (key, value) => { cache = [key, value]; }, json: value => { result = value; },
+    });
+    expect(pipeline[0].$match).not.to.have.property("state");
+    expect(pipeline[0].$match).not.to.have.property("$and");
+    expect(pipeline[0].$match.kind).to.equal("owner-access");
+    expect(pipeline[0].$match.$or[0].recipient.$regex).to.equal("research");
+    expect(pipeline[1].$facet.daily[1].$group._id.date.$dateToString.timezone).to.equal("UTC");
+    expect(options.maxTimeMS).to.equal(5000);
+    expect(result.total).to.equal(128);
+    expect(result.series).to.have.length(7);
+    expect(cache).to.deep.equal(["Cache-Control", "no-store"]);
+  });
+  it("reports invalid summary filters and aggregate failures without exposing database errors", async () => {
+    const router = require("../src/server/routes/admin-emails").default;
+    const handler = router.stack.find(layer => layer.route?.path === "/summary").route.stack[0].handle;
+    let code, body;
+    const res = { set() {}, status(value) { code = value; return this; }, json(value) { body = value; } };
+    await handler({ query: { period: "wrong" } }, res);
+    expect(code).to.equal(400);
+    stub(history, "emailHistoryCollection", () => ({ aggregate: () => ({ toArray: async () => { throw Error("private timeout info"); } }) }));
+    await handler({ query: {} }, res);
+    expect(code).to.equal(503);
+    expect(body.error).not.to.include("private");
   });
   it("mounts history behind authentication and administrator checks", () => {
     const emails = require("../src/server/routes/admin-emails").default;

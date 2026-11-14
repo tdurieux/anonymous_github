@@ -1001,21 +1001,62 @@ const emailHistory = Array.from({ length: 64 }, (_, index) => {
   return { _id: `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
     kind: index % 2 ? "owner-access" : "repository-expiration",
     recipient: index ? `author${index}@example.com` : "research-team-with-a-long-address@example.com",
-    resourceKind: "repository", resourceId: oid(800 + index),
+    ownerId: oid(100 + index), resourceKind: "repository", resourceId: oid(800 + index),
     createdAt: ago(index / 24), completedAt: state === "sending" ? null : ago(index / 24), state,
     httpStatus: state === "accepted" ? 200 : state === "rejected" ? 429 : null };
 });
-app.get("/api/admin/emails", (req, res) => {
-  const cookie = req.headers.cookie || "";
-  if (/mock_emails_error=1/.test(cookie)) return res.status(503).json({ error: "Simulated history outage" });
-  let rows = /mock_emails_empty=1/.test(cookie) ? [] : emailHistory;
-  rows = rows.filter(row => (!req.query.state || row.state === req.query.state) && (!req.query.kind || row.kind === req.query.kind));
-  if (req.query.before) {
-    const [date, id] = String(req.query.before).split("|");
-    rows = rows.filter(row => row.createdAt < date || (row.createdAt === date && row._id < id));
+function emailPeriod(query) {
+  const period = query.period === undefined ? "all" : query.period;
+  if (typeof period !== "string" || !["7d", "30d", "90d", "all"].includes(period)) throw Error("Invalid period");
+  const chartDays = period === "all" ? 30 : parseInt(period, 10), now = new Date();
+  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - chartDays + 1));
+  return { period, chartDays, start };
+}
+function emailFilteredRows(req, summary = false) {
+  const period = emailPeriod(req.query);
+  const search = req.query.search;
+  if (search !== undefined && (typeof search !== "string" || search.length > 200)) throw Error("Invalid search");
+  if (req.query.kind && !["repository-expiration", "owner-access"].includes(req.query.kind)) throw Error("Invalid type");
+  if (!summary && req.query.state && !["accepted", "rejected", "unknown", "sending"].includes(req.query.state)) throw Error("Invalid status");
+  const needle = (search || "").trim();
+  let rows = /mock_emails_empty=1/.test(req.headers.cookie || "") ? [] : emailHistory;
+  rows = rows.filter(row => (summary || !req.query.state || row.state === req.query.state)
+    && (!req.query.kind || row.kind === req.query.kind)
+    && (period.period === "all" || row.createdAt >= period.start.toISOString())
+    && (!needle || row.recipient.toLowerCase().includes(needle.toLowerCase()) || [row._id, row.ownerId, row.resourceId].includes(needle)));
+  if (!summary && req.query.before) {
+    if (typeof req.query.before !== "string" || req.query.before.length > 200) throw Error("Invalid cursor");
+    const [date, id, extra] = req.query.before.split("|");
+    if (extra || !id || !/^[0-9a-f-]{36}$/.test(id) || !Number.isFinite(new Date(date).getTime())) throw Error("Invalid cursor");
+    const timestamp = new Date(date).toISOString();
+    rows = rows.filter(row => row.createdAt < timestamp || (row.createdAt === timestamp && row._id < id));
   }
-  const entries = rows.slice(0, 50), last = entries.at(-1);
-  res.json({ entries, nextCursor: rows.length > 50 ? `${last.createdAt}|${last._id}` : null });
+  return { rows, ...period };
+}
+app.get("/api/admin/emails/summary", (req, res) => {
+  res.set("Cache-Control", "no-store");
+  if (/mock_emails_error=1/.test(req.headers.cookie || "")) return res.status(503).json({ error: "Simulated history outage" });
+  try {
+    const { rows, period, chartDays, start } = emailFilteredRows(req, true);
+    const empty = () => ({ accepted: 0, rejected: 0, unknown: 0, sending: 0 });
+    const counts = empty();
+    const series = Array.from({ length: chartDays }, (_, index) => ({ date: new Date(start.getTime() + index * 86400000).toISOString().slice(0, 10), ...empty() }));
+    for (const row of rows) {
+      counts[row.state]++;
+      const day = series.find(point => point.date === row.createdAt.slice(0, 10));
+      if (day) day[row.state]++;
+    }
+    res.json({ counts, total: rows.length, series, chartDays, period });
+  } catch { res.status(400).json({ error: "Invalid email history filters." }); }
+});
+app.get("/api/admin/emails", (req, res) => {
+  res.set("Cache-Control", "no-store");
+  if (/mock_emails_error=1/.test(req.headers.cookie || "")) return res.status(503).json({ error: "Simulated history outage" });
+  try {
+    const { rows } = emailFilteredRows(req);
+    const entries = rows.slice(0, 50), last = entries.at(-1);
+    res.json({ entries, nextCursor: rows.length > 50 ? `${last.createdAt}|${last._id}` : null });
+  } catch { res.status(400).json({ error: "Invalid email history filters." }); }
 });
 app.get("/api/admin/errors", (req, res) => {
   const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
