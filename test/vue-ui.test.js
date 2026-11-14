@@ -148,9 +148,7 @@ describe("Vue 3 UI", function () {
     Object.defineProperty(ui.window.navigator, 'clipboard', {configurable:true,value:{writeText:async value => { copiedIdentifier = value; }}});
     doc.querySelector('.log-detail .log-copy-value').click(); await delay(30);
     expect(copiedIdentifier).to.equal(requestId);
-    copiedIdentifier = null;
-    doc.querySelector(".log-row-copy").click(); await delay(20);
-    expect(copiedIdentifier).to.equal(requestId);
+    expect(doc.querySelector(".log-correlations").textContent).not.to.include("aaaaaaaa");
     doc.querySelector('.log-detail button').click(); await delay(30);
     expect(doc.activeElement).to.equal(detail);
     const trigger = doc.querySelector('.log-trace-button'); trigger.focus(); trigger.click(); await delay(30);
@@ -230,6 +228,46 @@ describe("Vue 3 UI", function () {
     ui.window.document.querySelector('.error-health-strip button').click(); await delay(40);
     expect(ui.requests.filter(r => r.url.pathname === "/api/admin/errors").at(-1).url.searchParams.get("limit")).to.equal("251");
     expect(ui.window.document.body.textContent).to.include("upstream_error");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("lets slow Redis history finish across polls and protects pending older pages", async () => {
+    const pending = [], polls = [];
+    ui = await browser("/", {
+      "/api/user": {username:"admin",isAdmin:true,status:"ready"},
+      "/api/admin/errors": request => new Promise(resolve => pending.push({request,resolve})),
+      "/api/admin/errors/investigation": {state:"disabled",groups:[]},
+    });
+    const nativeInterval = ui.window.setInterval.bind(ui.window);
+    ui.window.setInterval = (callback, ms) => ms === 15000 ? (polls.push(callback), -polls.length) : nativeInterval(callback, ms);
+    await ui.go("/admin/errors");
+    const doc = ui.window.document;
+    doc.querySelector('#error-source-history').click(); await delay(10);
+    const poll = async () => { polls.forEach(callback => callback()); await delay(20); };
+    expect(polls).to.have.length(2); // History polling and central snapshot freshness.
+    await poll(); await poll(); await poll(); // 15s, 30s, 45s, while request is pending.
+    expect(pending).to.have.length(1);
+    expect(doc.querySelector('.error-health-strip button').disabled).to.equal(true);
+    expect(ui.requests.filter(r=>r.url.pathname==='/api/admin/errors/stats')).to.have.length(4);
+    const entry = message => ({ts:new Date().toISOString(),level:"error",module:"queue",message,raw:[{status:502}]});
+    pending[0].resolve({entries:[entry('slow_success')],available:true,total:251,nextOffset:250}); await delay(30);
+    expect(doc.querySelector('.history-source').textContent).to.include('slow_success');
+    expect(doc.querySelector('.error-health-strip button').disabled).to.equal(false);
+    await poll();
+    expect(pending).to.have.length(2);
+    pending[1].resolve({entries:[entry('next_poll_success')],available:true,total:251,nextOffset:250}); await delay(30);
+    doc.querySelector('.errors-pager button').click(); await delay(20);
+    expect(pending[2].request.url.searchParams.get('offset')).to.equal('250');
+    await poll(); await poll();
+    expect(pending).to.have.length(3);
+    pending[2].resolve({entries:[entry('older_success')],available:true,total:251,nextOffset:251}); await delay(30);
+    expect(doc.querySelector('.history-source').textContent).to.include('next_poll_success').and.include('older_success');
+    await poll();
+    expect(pending).to.have.length(4);
+    expect(pending[3].request.url.searchParams.get('limit')).to.equal('251');
+    await ui.go('/');
+    pending[3].resolve({entries:[entry('disposed_response')],available:true,total:1}); await delay(30);
+    expect(doc.body.textContent).not.to.include('disposed_response');
     expect(ui.errors).to.deep.equal([]);
   });
 

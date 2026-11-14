@@ -1785,8 +1785,10 @@ export const errorsAdminController = function (state, http, location, interval) 
           () => { if (!disposed && current === statsVersion) state.redisStatsState = "unavailable"; }
         );
       }
-      function load() {
-        loadEntries();
+      function load(background = false) {
+        // Polls must not invalidate a slow head or pagination request. Explicit
+        // refreshes still supersede it; stats refresh independently of entries.
+        if (!background || !state.redisLoading) loadEntries();
         loadStats();
       }
 
@@ -1815,10 +1817,10 @@ export const errorsAdminController = function (state, http, location, interval) 
         state.query.bucket = b;
       };
 
-      state.refreshNow = load;
+      state.refreshNow = () => load();
       state.clearAll = () => {
         if (!confirm("Clear Redis error history? Central logs are unaffected.")) return;
-        http.delete("/api/admin/errors").then(load, (err) => console.error(err));
+        http.delete("/api/admin/errors").then(() => load(), (err) => console.error(err));
       };
       state.exportCsv = () => {
         const cols = ["ts", "level", "module", "displayMessage", "_status", "_url", "_repoId"];
@@ -1855,7 +1857,7 @@ export const errorsAdminController = function (state, http, location, interval) 
 
       load();
       const stop = interval(() => {
-        if (state.query.autoRefresh) load();
+        if (state.query.autoRefresh) load(true);
       }, 15000);
       state.on("dispose", () => { disposed = true; historyVersion++; statsVersion++; interval.cancel(stop); });
 

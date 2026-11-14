@@ -14597,30 +14597,18 @@ body.dark-mode .reviewer-preview .rp-preserved-tag { background: rgba(251, 191, 
 
 .email-jump { font-size:12px; margin-right:auto; }
 
-/* Compact correlation identities: timeline and exact-copy are separate actions. */
-.errors-page .log-correlations { display:flex; flex-wrap:wrap; gap:8px 14px; }
-.errors-page .log-correlation { display:flex; align-items:center; gap:2px; }
-.errors-page .log-correlation .log-trace-button { display:flex; flex-direction:column; align-items:flex-start; gap:2px; min-height:44px; margin:0; padding:3px 0; }
-.errors-page .log-correlation-label { color:var(--ink-muted); font-size:11px; line-height:1.3; }
-.errors-page .log-correlation .log-short-id { font-size:11px; color:var(--link-color); white-space:nowrap; }
-.errors-page .log-row-copy { display:inline-flex; align-items:center; justify-content:center; width:28px; min-height:36px; padding:0; border:0; border-radius:4px; background:transparent; color:var(--ink-muted); cursor:pointer; }
-.errors-page .log-row-copy:hover { color:var(--link-color); background:var(--accent-soft); }
-@media(max-width:767px) { .errors-page .log-row-copy { width:44px; min-height:44px; } .errors-page .log-correlations { gap:8px 16px; } }
+.errors-page .log-correlations { display:flex; flex-wrap:wrap; gap:8px 16px; }
+.errors-page .log-correlations .log-trace-button { min-height:44px; margin:0; }
 
 .errors-page .log-explanation { margin:16px 0; max-width:760px; }
 .errors-page .log-explanation p { margin:6px 0; font-size:13px; line-height:1.6; }
 .errors-page .log-explanation .log-explanation-lead { font-size:15px; font-weight:500; color:var(--color); }
-.errors-page .log-correlation { border:1px solid var(--border-color); border-radius:5px; background:var(--paper-bg-alt); gap:0; }
-.errors-page .log-correlation .log-trace-button { padding:4px 8px; }
-.errors-page .log-correlation .log-short-id { font-size:12px; }
-.errors-page .log-correlations { gap:8px; }
-.errors-page .log-row-copy { border-left:1px solid var(--border-color); border-radius:0 4px 4px 0; align-self:stretch; }
 .errors-page .log-detail-identifiers > div { display:block; }
 .errors-page .log-detail-identifiers dt { margin-bottom:6px; }
 .errors-page .log-detail-identifiers dd { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; }
 .errors-page .log-detail-identifiers .log-value-reveal { flex:1 1 100%; padding:8px 10px; border:1px solid var(--border-color); border-radius:4px; background:var(--paper-card); font:13px var(--font-mono); }
 .errors-page .log-detail-identifiers .log-copy-value, .errors-page .log-follow-id { min-height:32px; padding:4px 8px; border:1px solid var(--border-color); border-radius:4px; background:var(--paper-card); color:var(--link-color); font:12px var(--font-sans); cursor:pointer; }
-@media(max-width:767px) { .errors-page .log-detail-identifiers .log-copy-value, .errors-page .log-follow-id { min-height:44px; } .errors-page .log-correlation .log-trace-button { padding:4px 6px; } }
+@media(max-width:767px) { .errors-page .log-detail-identifiers .log-copy-value, .errors-page .log-follow-id { min-height:44px; } }
 @media(max-width:767px) {
  .errors-page .log-detail-identifiers .log-value-reveal { padding:0; }
  .errors-page .log-detail-identifiers .log-value-reveal > summary { min-height:44px; box-sizing:border-box; padding:12px 10px; }
