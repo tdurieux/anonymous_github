@@ -1400,6 +1400,8 @@ export const queuesAdminController = function (state, http, location, interval, 
 export const errorsAdminController = function (state, http, location, interval) {
       installLogInvestigation(state, http);
       state.redisCollecting = null;
+      state.redisLoading = false;
+      let historyVersion = 0, statsVersion = 0, disposed = false;
       state.redisStatsState = "loading";
       const timers = createTimers();
       state.watch("user.status", () => {
@@ -1724,6 +1726,9 @@ export const errorsAdminController = function (state, http, location, interval) 
       }
 
       function loadEntries(append) {
+        if (append && state.redisLoading) return;
+        const current = ++historyVersion;
+        state.redisLoading = true;
         // On auto-refresh after the user has paginated ("Load older"),
         // request the SAME-sized window from the head so we don't blow away
         // their loaded tail. Newer entries take the top, the oldest visible
@@ -1736,6 +1741,8 @@ export const errorsAdminController = function (state, http, location, interval) 
           .get("/api/admin/errors", { params: { offset, limit } })
           .then(
             (res) => {
+              if (disposed || current !== historyVersion) return;
+              state.redisLoading = false;
               const next = (res.data.entries || []).map(decorate);
               state.entries = append ? state.entries.concat(next) : next;
               state.redisRedacted = (append ? state.redisRedacted || 0 : 0) + (res.data.redactedEntries || 0);
@@ -1747,14 +1754,16 @@ export const errorsAdminController = function (state, http, location, interval) 
               state._autoLoading = false;
               recompute();
             },
-            () => { state._autoLoading = false; state.available = false; }
+            () => { if (disposed || current !== historyVersion) return; state.redisLoading = false; state._autoLoading = false; state.available = false; }
           );
       }
       state.loadMore = () => loadEntries(true);
       state.canLoadMore = () => (state.redisNextOffset || state.entries.length) < state.total;
       function loadStats() {
+        const current = ++statsVersion;
         http.get("/api/admin/errors/stats").then(
           (res) => {
+            if (disposed || current !== statsVersion) return;
             const s = res.data || {};
             state.redisStatsState = s.available === false ? "unavailable" : "ready";
             const delta = s.prev24h ? Math.round(((s.last24h - s.prev24h) / s.prev24h) * 100) : 0;
@@ -1769,7 +1778,7 @@ export const errorsAdminController = function (state, http, location, interval) 
             };
             recompute();
           },
-          () => { state.redisStatsState = "unavailable"; }
+          () => { if (!disposed && current === statsVersion) state.redisStatsState = "unavailable"; }
         );
       }
       function load() {
@@ -1844,7 +1853,7 @@ export const errorsAdminController = function (state, http, location, interval) 
       const stop = interval(() => {
         if (state.query.autoRefresh) load();
       }, 15000);
-      state.on("dispose", () => interval.cancel(stop));
+      state.on("dispose", () => { disposed = true; historyVersion++; statsVersion++; interval.cancel(stop); });
 
       state.watch("query.search", recompute);
       state.watch("query.bucket", recompute);

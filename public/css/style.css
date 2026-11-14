@@ -14329,34 +14329,110 @@ body.dark-mode .reviewer-preview .rp-preserved-tag { background: rgba(251, 191, 
 /* Text: the slot centers on the line's letters, level with parentheses and punctuation. */
 .markdown-body :is(p, li, td, th, blockquote, dd) mark.redact-chip, .dark-mode .markdown-body :is(p, li, td, th, blockquote, dd) mark.redact-chip { vertical-align: .04em !important; }
 
-/* Admin log investigation uses the existing paper surface and native controls. */
-.errors-page .log-investigation { margin: 24px 0 32px; padding-bottom: 24px; border-bottom: 1px solid var(--line, #ddd); }
-.errors-page .log-investigation h2, .errors-page .redis-history-title { font-size: 1.35rem; margin: 0 0 12px; }
-.errors-page .log-investigation h3 { font-size: 1rem; margin: 16px 0 8px; }
-.errors-page .log-filters { align-items: end; flex-wrap: wrap; }
-.errors-page .log-filters label { display: grid; gap: 4px; font-weight: 600; }
-.errors-page .log-state { font-weight: 600; margin-top: 12px; }
-.errors-page .log-coverage, .errors-page .log-health { font-size: .875rem; }
-.errors-page .log-table-scroll { overflow-x: auto; margin-top: 16px; }
-.errors-page .log-table { width: 100%; border-collapse: collapse; font-size: .875rem; }
-.errors-page .log-table caption { text-align: left; caption-side: top; padding: 8px 0; }
-.errors-page .log-table th, .errors-page .log-table td { text-align: left; vertical-align: top; padding: 10px 8px; border-bottom: 1px solid var(--line, #ddd); }
-.errors-page .log-trace-button { display: block; margin-bottom: 6px; max-width: 270px; white-space: normal; overflow-wrap: anywhere; text-align: left; }
-.errors-page .log-id, .errors-page .log-events code, .errors-page .log-health li { overflow-wrap: anywhere; }
-.errors-page .log-events { padding-left: 22px; }
-.errors-page .log-events li { padding: 8px 0; border-bottom: 1px solid var(--line, #ddd); }
-.errors-page .log-investigation :focus-visible { outline: 2px solid var(--accent, #39739d); outline-offset: 3px; }
-@media (max-width: 600px) {
-  .errors-page .log-filters label { width: 100%; }
-  .errors-page .log-table { min-width: 660px; }
-  .errors-page .log-investigation .volume-head { flex-wrap: wrap; gap: 8px; }
+/* Errors uses the admin paper shell, controls, and semantic status colors. */
+.errors-page .error-health-strip { display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:12px 0; border-bottom:1px solid var(--border-color); }
+.errors-page .log-state { margin:0; font-size:12px; color:var(--ink-soft); }
+.errors-page .error-source-switch { display:flex; gap:24px; margin:16px 0 20px; padding:0; border:0; border-bottom:1px solid var(--border-color); background:none; border-radius:0; }
+.errors-page .error-source-switch .seg-chip { border:0; border-bottom:2px solid transparent; border-radius:0; padding:8px 0; background:none; color:var(--ink-soft); }
+.errors-page .error-source-switch .seg-chip.active { border-bottom-color:var(--accent); color:var(--color); background:none; }
+.errors-page .log-investigation { margin:0; }
+.errors-page .log-investigation h2, .errors-page .redis-history-title { font-size:18px; margin:0; }
+.errors-page .volume-head { gap:12px; flex-wrap:wrap; margin-bottom:14px; }
+.errors-page .log-filters, .errors-page .log-local-filters { display:flex; flex-wrap:wrap; align-items:end; gap:10px; margin:14px 0 10px; }
+.errors-page .log-filters label, .errors-page .log-local-filters label { display:grid; gap:6px; margin:0; font-size:12px; font-weight:500; min-width:0; }
+.errors-page .log-filters label { flex:1; }
+.errors-page .log-filters .form-control, .errors-page .log-local-filters .form-control { width:100%; min-width:0; }
+.errors-page .log-local-filters .log-search { flex:1; min-width:180px; }
+.errors-page .log-coverage, .errors-page .log-meta { font-size:12px; color:var(--ink-muted); }
+.errors-page .log-coverage { margin:8px 0 14px; }
+.errors-page .log-meta { display:block; margin-top:4px; }
+.errors-page .log-workspace { display:flex; align-items:start; gap:20px; }
+.errors-page .log-results { flex:1; min-width:0; }
+.errors-page .log-table-scroll { border:1px solid var(--border-color); border-radius:8px; overflow:hidden; background:var(--paper-card); }
+.errors-page .log-table { width:100%; table-layout:fixed; border-collapse:collapse; font-size:12px; }
+.errors-page .log-table th, .errors-page .log-table td { padding:12px; text-align:left; vertical-align:middle; overflow-wrap:anywhere; }
+.errors-page .log-table th { background:var(--paper-bg-alt); color:var(--ink-muted); font-size:11px; font-weight:500; }
+.errors-page .log-table th:first-child { width:34%; }
+.errors-page .log-table th:nth-child(3) { width:9%; text-align:right; }
+.errors-page .log-table td.log-count { text-align:right; font-variant-numeric:tabular-nums; }
+.errors-page .log-table th:last-child { width:21%; }
+.errors-page .log-table tbody tr + tr { border-top:1px solid var(--border-color); }
+.errors-page .log-selected { background:var(--paper-bg-alt); }
+.errors-page .log-event-button { display:block; width:100%; min-height:44px; border:0; background:none; color:var(--link-color); padding:0; text-align:left; font:inherit; cursor:pointer; overflow-wrap:anywhere; }
+.errors-page .log-event-button:hover { text-decoration:underline; }
+.errors-page .log-severity { display:inline-flex; align-items:center; gap:6px; font-weight:500; }
+.errors-page .log-severity::before { content:''; width:6px; height:6px; border-radius:50%; background:currentColor; flex-shrink:0; }
+.errors-page .log-severity-error { color:var(--status-error); }
+.errors-page .log-severity-warn { color:var(--status-progress); }
+.errors-page .log-severity-info { color:var(--ink-muted); }
+.errors-page .log-trace-button { display:inline-block; margin:3px 4px 3px 0; max-width:100%; white-space:normal; text-align:left; }
+.errors-page .log-detail { min-width:0; padding:8px; overflow-wrap:anywhere; }
+.errors-page .log-table .log-detail-row > td { background:var(--paper-bg-alt); }
+.errors-page .log-table tbody tr { scroll-margin-top:80px; }
+.errors-page .log-origin { color:var(--ink-soft); margin:0 0 10px; }
+.errors-page .log-detail dl { display:grid; grid-template-columns:1fr 1fr; gap:0 24px; }
+.errors-page .log-detail-row .log-detail { width:100%; }
+.errors-page .log-detail h3, .errors-page .log-timeline h3 { font-size:14px; margin:0; }
+.errors-page .log-detail dl { margin:0; font-size:12px; }
+.errors-page .log-detail dl > div { margin-top:12px; }
+.errors-page .log-detail dt { font-weight:400; font-size:11px; color:var(--ink-muted); }
+.errors-page .log-detail dd { margin:3px 0 0; }
+.errors-page .log-health, .errors-page .history-summary { margin:20px 0; font-size:12px; color:var(--ink-soft); }
+.errors-page summary { cursor:pointer; padding:8px 0; }
+.errors-page .log-health summary span { margin-left:8px; color:var(--ink-muted); }
+.errors-page .log-health p { margin:8px 0; max-width:75ch; }
+.errors-page .log-timeline { margin-top:20px; padding:20px; background:var(--paper-bg-alt); border:1px solid var(--border-color); border-radius:8px; font-size:12px; }
+.errors-page .log-id, .errors-page .log-events code, .errors-page .log-health li { overflow-wrap:anywhere; }
+.errors-page .log-events { padding-left:20px; }
+.errors-page .log-events li { padding:12px 0; border-bottom:1px solid var(--border-color); }
+.errors-page .log-events code { display:block; color:var(--ink-soft); }
+.errors-page .log-loading { padding:28px 16px; background:var(--paper-bg-alt); color:var(--ink-soft); }
+.errors-page :focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+.errors-page button.errors-row-main { border:0; background:none; color:inherit; width:100%; text-align:left; font:inherit; }
+.errors-page button.errors-row-main:hover { background:var(--hover-bg-color); }
+.errors-page .errors-row-main .col-when, .errors-page .errors-row-main .col-msg { display:block; }
+.errors-page .errors-row-main .when-rel, .errors-page .errors-row-main .when-abs { display:block; }
+.errors-page .history-source > p { font-size:12px; color:var(--ink-soft); margin:10px 0; }
+.errors-page .errors-actions { display:flex; flex-wrap:wrap; gap:8px; }
+@media (max-width:1100px) {
+ .errors-page .log-workspace { flex-direction:column; }
+ .errors-page .log-results, .errors-page .log-detail { width:100%; }
+}
+@media (max-width:767px) {
+ .errors-page .log-filters label { flex:1 1 40%; }
+ .errors-page .log-local-filters .log-search { flex-basis:100%; }
+ .errors-page .log-local-filters label { flex:1; }
+ .errors-page .log-table, .errors-page .log-table tbody { display:block; }
+ .errors-page .log-table thead { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
+ .errors-page .log-table tbody tr { display:grid; grid-template-columns:1fr auto; gap:8px 12px; padding:14px; }
+ .errors-page .log-table td { display:block; padding:0; min-width:0; }
+ .errors-page .log-table td:first-child { grid-column:1/-1; }
+ .errors-page .log-table td:nth-child(4) { color:var(--ink-muted); }
+ .errors-page .log-table td:last-child { grid-column:1/-1; display:flex; flex-wrap:wrap; gap:8px; }
+ .errors-page .log-table tbody tr.log-detail-row { display:block; padding:14px; }
+ .errors-page .log-table .log-detail-row > td { display:block; }
+ .errors-page .log-detail dl { grid-template-columns:1fr; }
+ .errors-page .log-detail { padding:0; }
+ .errors-page .log-count::before { content:'×'; }
+ .errors-page .log-timeline { padding:14px; }
+ .errors-page .errors-toolbar > :first-child { min-width:0; }
+ .errors-page .errors-toolbar .seg-filter { flex-wrap:wrap; }
+ .errors-page .errors-row-main { gap:8px; padding-left:12px; padding-right:12px; }
+ .errors-page .history-source .errors-list-head { display:none; }
+ .errors-page .history-source .errors-row-main { grid-template-columns:minmax(0,1fr) auto !important; }
+ .errors-page .history-source .errors-row-main .col-msg { grid-column:1/-1; grid-row:1; }
+ .errors-page .history-source .errors-row-main .col-when { grid-column:1; }
+ .errors-page .history-source .errors-row-main .col-count { grid-column:2; grid-row:2; }
+ .errors-page .history-source .errors-row-main .col-status { grid-column:2; }
 }
 
-.errors-page .log-events code { display: block; }
-@media (max-width: 600px) {
-  .errors-page .errors-header { flex-direction: column; align-items: flex-start; }
-  .errors-page .errors-actions { flex-wrap: wrap; }
-}
+.errors-page .log-query { border-bottom:1px solid var(--border-color); margin:0 0 12px; font-size:12px; }
+.errors-page .log-query-hint { float:right; color:var(--link-color); }
+.errors-page .log-investigation > .volume-head:has(.sr-only):not(:has(a)) { margin:0; }
+.errors-page .error-source-switch .seg-chip { box-shadow:none; }
+.errors-page .log-filters > label { min-width:0 !important; }
+@media(max-width:767px) { .errors-page .log-filters > label { width:auto !important; flex:1 1 40%; } }
+
 /* Email operations: shared admin surfaces, compact history, progressive details. */
 .emails-page .email-overview-toolbar, .emails-page .email-section-head, .emails-page .email-refresh { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
 .email-overview-toolbar { margin:20px 0 10px; }
