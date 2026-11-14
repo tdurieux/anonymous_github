@@ -1,5 +1,10 @@
+export function isQuotaFailure(code?: string): boolean {
+  return code === "quota_exceeded";
+}
+
 /** Persisted repository failures need the same client status as the original error. */
 export function repositoryFailureStatus(code?: string): number {
+  if (isQuotaFailure(code)) return 402;
   switch (code) {
     case "repo_not_found": case "branch_not_found": case "commit_not_found": return 404;
     case "repo_not_accessible": case "repository_not_accessible": return 403;
