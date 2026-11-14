@@ -2,8 +2,10 @@
 
 ## Branch alignment status, November 14, 2026
 
-This branch includes `main` through `511dcd7`. Go now implements the 13 APIs added since the previous migration, along with paid hosting, bibliography preservation, account email preferences, access notifications, direct public GitHub submodules, and the mounted review-service capability endpoint. The current 125-route inventory and Node differential contracts are checked in CI. See [the alignment report](reports/main-alignment.json) for validation and remaining staging checks. Route coverage alone does not establish complete behavioral equivalence.
+This branch includes `main` through `511dcd7`. Go now implements the 13 APIs added since the previous migration, along with paid hosting, bibliography preservation, account email preferences, access notifications, direct public GitHub submodules, and the mounted review-service capability endpoint. The current 127-route inventory and Node differential contracts are checked in CI. See [the alignment report](reports/main-alignment.json) for validation and remaining staging checks. Route coverage alone does not establish complete behavioral equivalence.
 
+
+The migration branch also includes PR #953’s expiration emails and admin delivery history, with a Go implementation backed by the same collection. Hosting-quota failures no longer enter automatic retry loops. Open PR #956 still needs a Go logging adapter for its JSON collector; its operational stack has not been deployed.
 
 This directory implements the API, authentication, repository processing, file serving, storage adapters and background jobs in Go. The existing browser application remains JavaScript. Node is used to build browser assets, run differential tests and perform offline data migration; it is absent from the runtime image.
 
@@ -94,7 +96,7 @@ Anonymization defaults to one child process, a queue of 16, and a 512 MiB weight
 
 ## Verified behavior
 
-Implementation verification is complete under the documented policy of preserving supported functionality without reproducing TypeScript bugs. The final full backend race suite, 64 CI contract commands, static checks and isolated deployment smoke test passed. Beta is healthy. Production-data cutover and shipping additional provider adapters remain separate operational work. See `reports/implementation-completion-audit.json` for requirement-by-requirement evidence and limits.
+Earlier migration verification is recorded in `reports/implementation-completion-audit.json`. Those results describe the earlier code and deployment, not the current live beta state. Use `reports/main-alignment.json` for current-main alignment, open-PR gaps and validation. Production-data cutover and additional provider adapters remain separate operational work.
 
 Reports in `reports/` record the comparison and benchmark results. `reports/compatibility-audit.json` records the 64-command CI contract run, race/integration results, static checks, source fingerprints and rollback-image checks. `reports/implementation-completion-audit.json` maps the implementation requirements to their verification evidence. Its limits distinguish automated evidence from pending live staging validation:
 

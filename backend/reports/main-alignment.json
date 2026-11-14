@@ -10,14 +10,18 @@
     "No production or beta deployment was performed."
   ],
   "validation": {
-    "goIntegrationRace": "passed on Go 1.27.4 with disposable MongoDB/Redis; final index-name change additionally passed its focused race test and rebuilt deployment smoke test",
+    "goIntegrationRace": "passed with disposable MongoDB/Redis including quota-job, owner-notification and email-history lifecycle tests; server package 389.481s. Final stored-error mapping additionally passed focused resource/status race tests.",
     "goVet": "passed on Go 1.27.4",
-    "nodeContracts": "65 scripts passed on Go 1.27.4",
-    "routeInventory": "125 current TypeScript routes verified",
+    "nodeContracts": "65 scripts passed after PR #953 source integration",
+    "routeInventory": "127 TypeScript routes verified, including the two email-history routes from PR #953",
     "goDockerBuild": "passed with Go 1.27.4 and klauspost/compress v1.20.2",
     "deploymentSmoke": "passed: isolated startup, non-root writes, static routes, graceful shutdown, Node rollback compose model",
     "reachableVulnerabilities": "none reported by govulncheck v1.9.0; four advisories remain in required modules without reachable calls",
-    "existingNodeIndexes": "passed with race detector: pre-existing named submodule index and repeated Go startup"
+    "existingNodeIndexes": "passed with race detector: pre-existing named submodule index and repeated Go startup",
+    "openPRFocusedNodeTests": "42 email-history, expiration and admin UI tests passed; final 25-test activity/error-code/preview regression set passed",
+    "frontendBuild": "passed with regenerated asset manifest and bundles",
+    "nodeSuite": "Broad run: 1676 passed, 436 skipped, five failures. Fixed missing cache_miss translation, three stale Mongoose query mocks and one stale preview-button selector; all five failures passed in a 25-test focused rerun. Full suite not repeated after these fixes.",
+    "typescript": "tsc --noEmit passed"
   },
   "changes": [
     "Restore Go backend and Go deployment on top of current main",
@@ -32,7 +36,12 @@
     "Implement mounted review capabilities endpoint and protected review page",
     "Refresh current Node contract fixtures and add preservation, billing, review, provider preview, submodule and notification tests",
     "Patch reachable vulnerabilities GO-2026-6859 and GO-2026-6865 by updating Go and klauspost/compress",
-    "Reuse the existing Node submodule index name during Go startup"
+    "Reuse the existing Node submodule index name during Go startup",
+    "Integrate PR #953 expiration notifications and admin delivery-history UI/API in both backends; add Go delivery claims, metadata-only audit records and pagination tests",
+    "Stop automatic hosting-quota retries, preserve HTTP 402, and retain explicit owner recovery",
+    "Preserve Node HTTP status mappings for stored repository failures",
+    "Recognize named Express Router imports in route inventory generation",
+    "Repair current Node activity-test query mocks and preview-button selector; add the missing cache_miss translation"
   ],
   "implementedTypeScriptRoutes": [
     {
@@ -86,13 +95,40 @@
     {
       "method": "POST",
       "path": "/github/connections/email"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/emails"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/emails/summary"
     }
   ],
-  "routeCount": 125,
+  "routeCount": 127,
   "contractScripts": 65,
   "implementationDifferences": [
     "Owner notification history is conservatively rescanned at startup rather than using Node migration checkpoints.",
     "Submodule ZIP entries use bounded per-file source reads after the parent tar stream, rather than a second tar stream for each child.",
     "Stripe price display and admin summary responses are not cached; checkout/reconciliation persistence and idempotency are retained."
-  ]
+  ],
+  "openPRReview": {
+    "953": {
+      "head": "99bf9f173e5e748dec59fb37450142edd7fc4ec5",
+      "result": "Source/UI integrated in migration branch; Go implementation added. PR remains open."
+    },
+    "954": {
+      "head": "c227bf0421cfed14a0fcf404b1ca93c6f1450507",
+      "result": "Reviewed upstream redirect and response-header isolation against existing Go protections. No PR merge performed."
+    },
+    "955": {
+      "head": "b456ab8739374bf8bb3a690ad55698fb61615dd1",
+      "result": "Go hosting-quota retry and stored-error status fixes implemented. Broader diagnostic parity remains to review."
+    },
+    "956": {
+      "head": "f084f5cbfc7b328a04b4e7e859ce9fa224c605c4",
+      "result": "Stacked on #955. Go text logs are incompatible with the new JSON collector schema; structured logging adaptation remains outstanding."
+    },
+    "checks": "GitHub Actions jobs did not start because the account is locked due to a billing issue. This is not a test failure."
+  }
 }

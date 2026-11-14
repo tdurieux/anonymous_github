@@ -152,13 +152,15 @@ func (s *Server) runJob(ctx context.Context, job M) (jobErr error) {
 				}
 				return
 			}
-			if number(job["attempts"]) >= jobMaxAttempts(job) {
+			if permanentPreparationFailure(job, jobErr) || number(job["attempts"]) >= jobMaxAttempts(job) {
 				code := "preparation_failed"
 				var api *APIError
 				if errors.As(providerFailure(jobErr), &api) {
 					code = api.Code
 				}
-				s.Store.update(ctx, collection(kind), revisionFilter(r), M{"$set": M{"status": "error", "statusDate": time.Now(), "statusMessage": code}})
+				if _, err := s.Store.update(ctx, collection(kind), revisionFilter(r), M{"$set": M{"status": "error", "statusDate": time.Now(), "statusMessage": code}}); err != nil {
+					jobErr = err
+				}
 			}
 		}()
 	}
@@ -195,7 +197,10 @@ func (s *Server) runJob(ctx context.Context, job M) (jobErr error) {
 		if kind == "pr" {
 			set["pullRequest"] = clearedDocumentPayload(kind, r["pullRequest"])
 		}
-		_, err = s.Store.update(ctx, collection(kind), revisionFilter(r), M{"$set": set})
+		updated, err := s.Store.update(ctx, collection(kind), revisionFilter(r), M{"$set": set})
+		if err == nil && updated && kind == "repo" && action == "expire" {
+			s.notifyRepositoryExpired(ctx, r["_id"])
+		}
 		return err
 	}
 	if str(r["status"]) != "preparing" && str(r["status"]) != "queue" && str(r["status"]) != "download" {

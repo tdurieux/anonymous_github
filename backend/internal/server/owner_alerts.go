@@ -249,9 +249,7 @@ func (s *Server) notifyOwnerAccessProblem(ctx context.Context, kind string, reso
 		return err
 	}
 	started = true
-	client := *s.HTTP
-	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
-	response, sendErr := client.Do(request)
+	response, sendErr := s.sendTrackedEmail(request, M{"kind": "owner-access", "recipient": email, "ownerId": str(owner["_id"]), "resourceId": str(resource["_id"]), "resourceKind": alertResourceKind(kind)})
 	state, status := "failed", 0
 	if sendErr == nil {
 		status = response.StatusCode

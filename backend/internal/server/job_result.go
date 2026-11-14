@@ -20,6 +20,13 @@ func jobRateLimit(job M, err error, now time.Time) (time.Time, bool) {
 	return reset, true
 }
 
+// A hosting-capacity denial needs an explicit retry after the owner changes
+// their plan or releases capacity. Provider 429 limits still use timed retries.
+func permanentPreparationFailure(job M, err error) bool {
+	var api *APIError
+	return str(job["action"]) == "prepare" && errors.As(providerFailure(err), &api) && api.Code == "quota_exceeded"
+}
+
 func (s *Server) finishJob(ctx context.Context, job M, jobErr error, now time.Time) error {
 	set := M{"state": "completed", "finishedAt": now}
 	unset := M{"lease": "", "leaseUntil": "", "error": ""}
@@ -37,7 +44,7 @@ func (s *Server) finishJob(ctx context.Context, job M, jobErr error, now time.Ti
 		if errors.As(providerFailure(jobErr), &api) {
 			set["error"] = api.Code
 		}
-		if number(job["attempts"]) < jobMaxAttempts(job) {
+		if !permanentPreparationFailure(job, jobErr) && number(job["attempts"]) < jobMaxAttempts(job) {
 			set["state"] = "waiting"
 			set["availableAt"] = now.Add(jobBackoff(job))
 		}

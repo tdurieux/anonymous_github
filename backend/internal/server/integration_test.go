@@ -130,6 +130,8 @@ func TestBackendIntegration(t *testing.T) {
 		return w
 	}
 	t.Run("owner notification lifecycle", func(t *testing.T) { runOwnerAlertsIntegration(t, server) })
+	t.Run("email delivery history", func(t *testing.T) { runEmailHistoryIntegration(t, server) })
+	t.Run("hosting quota jobs", func(t *testing.T) { runQuotaJobIntegration(t, server) })
 	t.Run("billing lifecycle", func(t *testing.T) { runBillingIntegration(t, server) })
 	t.Run("second provider lifecycle", func(t *testing.T) { runProviderIntegration(t, server, fakeProvider, call, token, otherToken) })
 	t.Run("public statistics cache", func(t *testing.T) { runPublicStatsIntegration(t, server) })

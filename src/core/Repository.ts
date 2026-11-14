@@ -4,6 +4,7 @@ import { hasAutomaticUpdates } from "./billing/expiration";
 import { FILE_TREE_BATCH_SIZE, FILE_LISTING_LIMIT, deleteRowsInBatches, clearStagedRowsInBatches } from "./file-tree";
 import { SourceBase, sourceStorageSize } from "./source/Source";
 import { notifyOwnerAccessProblem, withOwnerAccessRecovery } from "./owner-notifications";
+import { notifyRepositoryExpired } from "./repository-expiration-email";
 import AnonymizedPathModel from "./model/anonymized-path";
 import storage from "./storage";
 import { contentGenerationPrefix, contentRetirementMarker } from "./content-generation";
@@ -1045,6 +1046,7 @@ export default class Repository {
         statusDate: new Date(), isReseted: true, size: { storage: 0, file: 0 } },
         $unset: { cleanupToken: "", cleanupUntil: "", pathIndexKey: "", pathIndexBuiltAt: "", sizeComputedAt: "", emptyTreeGeneration: "", retiredTreeGenerations: "", retiredPathIndexKeys: "", retiredContentPrefixes: "", legacyContentCleanupPending: "", stagedFileTrees: "" } }).exec();
       if (result.matchedCount) { this.model.status = RepositoryStatus.EXPIRED; this.model.isReseted = true; this.model.size = { storage: 0, file: 0 }; this.model.sizeComputedAt = undefined; this.model.emptyTreeGeneration = undefined; }
+      if (result.matchedCount) await notifyRepositoryExpired(this.model._id);
     } finally {
       clearInterval(heartbeat);
       await AnonymizedRepositoryModel.updateOne({ _id: this.model._id, cleanupToken: token }, { $unset: { cleanupToken: "", cleanupUntil: "" } }).exec();

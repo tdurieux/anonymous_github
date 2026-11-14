@@ -236,6 +236,9 @@ func (s *Server) repositoryOptionsCheck(ctx context.Context, r M) error {
 	case "queue", "archived", "expired", "expiring", "removed", "removing":
 		return s.checkResource(ctx, "repo", r)
 	}
+	if str(r["statusMessage"]) == "quota_exceeded" {
+		return fail("quota_exceeded", 402)
+	}
 	if d, valid := storedDate(r["statusDate"]); valid && d.Before(time.Now().Add(-5*time.Minute)) {
 		now := time.Now()
 		changed, e := s.Store.update(ctx, collection("repo"), revisionFilter(r), M{"$set": M{"status": "preparing", "statusDate": now}, "$unset": M{"statusMessage": ""}})

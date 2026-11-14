@@ -11,9 +11,14 @@ function sourceFile(file) {
  file=path.normalize(file);
  if(modules.has(file)) return modules.get(file);
  const tree=ts.createSourceFile(file,fs.readFileSync(file,'utf8'),ts.ScriptTarget.Latest,true);
- const m={file,tree,imports:new Map(),aliases:new Map(),roots:new Set(),exports:new Map(),calls:[]};
+ const m={file,tree,imports:new Map(),aliases:new Map(),roots:new Set(),routerFactories:new Set(["express.Router","express"]),exports:new Map(),calls:[]};
  modules.set(file,m);
  for(const node of tree.statements) {
+  if(ts.isImportDeclaration(node) && node.importClause && node.moduleSpecifier.text==='express') {
+   if(node.importClause.name) { m.routerFactories.add(node.importClause.name.text); m.routerFactories.add(node.importClause.name.text+'.Router'); }
+   const bindings=node.importClause.namedBindings;
+   if(bindings && ts.isNamedImports(bindings)) for(const item of bindings.elements) if((item.propertyName||item.name).text==='Router') m.routerFactories.add(item.name.text);
+  }
   if(ts.isImportDeclaration(node) && node.importClause && node.moduleSpecifier.text.startsWith('.')) {
    const base=path.resolve(path.dirname(file),node.moduleSpecifier.text);
    const target=fs.existsSync(base+'.ts')?base+'.ts':path.join(base,'index.ts');
@@ -27,7 +32,7 @@ function sourceFile(file) {
   if(ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) {
    const name=node.name.text,value=node.initializer;
    if(ts.isIdentifier(value) || ts.isPropertyAccessExpression(value)) m.aliases.set(name,value);
-   if(ts.isCallExpression(value) && (value.expression.getText(tree)==='express.Router' || value.expression.getText(tree)==='express')) m.roots.add(name);
+   if(ts.isCallExpression(value) && m.routerFactories.has(value.expression.getText(tree))) m.roots.add(name);
   }
   if(ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)) m.calls.push(node);
   ts.forEachChild(node,walk);

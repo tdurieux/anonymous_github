@@ -10,6 +10,8 @@ import (
 func queryEscape(s string) string { return url.QueryEscape(s) }
 func (s *Server) register() {
 	s.registerAdmin()
+	s.add("GET", "/api/admin/emails", "admin", s.adminEmailHistory)
+	s.add("GET", "/api/admin/emails/summary", "admin", s.adminEmailHistory)
 	s.add("GET", "/api/admin/billing/grants", "admin", s.billingGrantReport)
 	s.add("GET", "/api/admin/billing/summary", "admin", s.billingSummaryReport)
 	s.add("POST", "/api/billing/webhook", "", s.billingWebhook)

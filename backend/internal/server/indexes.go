@@ -18,10 +18,11 @@ func (s *Store) ensureIndexes(ctx context.Context) error {
 		}
 	}
 	indexes := map[string][]mongo.IndexModel{
-		"billinggrants":   {{Keys: bson.D{{Key: "owner", Value: 1}}}, {Keys: bson.D{{Key: "scope", Value: 1}, {Key: "until", Value: 1}}}, {Keys: bson.D{{Key: "paymentIntentId", Value: 1}}}},
-		"billingaccounts": {{Keys: bson.D{{Key: "reconcileAfter", Value: 1}}}},
-		"billingevents":   {{Keys: bson.D{{Key: "state", Value: 1}, {Key: "nextAttemptAt", Value: 1}}}},
-		"billingdrafts":   {{Keys: bson.D{{Key: "expiresAt", Value: 1}}, Options: options.Index().SetExpireAfterSeconds(0)}},
+		emailDeliveryHistory: {{Keys: bson.D{{Key: "createdAt", Value: -1}, {Key: "_id", Value: -1}}}, {Keys: bson.D{{Key: "state", Value: 1}, {Key: "createdAt", Value: -1}, {Key: "_id", Value: -1}}}, {Keys: bson.D{{Key: "kind", Value: 1}, {Key: "createdAt", Value: -1}, {Key: "_id", Value: -1}}}},
+		"billinggrants":      {{Keys: bson.D{{Key: "owner", Value: 1}}}, {Keys: bson.D{{Key: "scope", Value: 1}, {Key: "until", Value: 1}}}, {Keys: bson.D{{Key: "paymentIntentId", Value: 1}}}},
+		"billingaccounts":    {{Keys: bson.D{{Key: "reconcileAfter", Value: 1}}}},
+		"billingevents":      {{Keys: bson.D{{Key: "state", Value: 1}, {Key: "nextAttemptAt", Value: 1}}}},
+		"billingdrafts":      {{Keys: bson.D{{Key: "expiresAt", Value: 1}}, Options: options.Index().SetExpireAfterSeconds(0)}},
 
 		"gocachemetrics":         {{Keys: bson.D{{Key: "period", Value: 1}, {Key: "bucket", Value: 1}}}, {Keys: bson.D{{Key: "expires", Value: 1}}, Options: options.Index().SetExpireAfterSeconds(0)}},
 		"anonymizedrepositories": {{Keys: bson.D{{Key: "conferenceMembership.id", Value: 1}}, Options: options.Index().SetSparse(true)}},

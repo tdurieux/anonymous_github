@@ -218,198 +218,212 @@
   },
   {
     "method": "GET",
+    "path": "/api/admin/emails/summary",
+    "source": "src/server/routes/admin-emails.ts",
+    "line": 63,
+    "verification": "first matching Go handler; behavior verified separately"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/emails",
+    "source": "src/server/routes/admin-emails.ts",
+    "line": 86,
+    "verification": "first matching Go handler; behavior verified separately"
+  },
+  {
+    "method": "GET",
     "path": "/api/admin/performance",
     "source": "src/server/routes/admin.ts",
-    "line": 89,
+    "line": 91,
     "verification": "first matching Go handler; behavior verified separately"
   },
   {
     "method": "GET",
     "path": "/api/admin/cache",
     "source": "src/server/routes/admin.ts",
-    "line": 95,
+    "line": 97,
     "verification": "first matching Go handler; behavior verified separately"
   },
   {
     "method": "POST",
     "path": "/api/admin/queue/:name/:repo_id",
     "source": "src/server/routes/admin.ts",
-    "line": 182,
+    "line": 184,
     "verification": "first matching Go handler; behavior verified separately"
   },
   {
     "method": "DELETE",
     "path": "/api/admin/queue/:name/:repo_id",
     "source": "src/server/routes/admin.ts",
-    "line": 207,
+    "line": 209,
     "verification": "first matching Go handler; behavior verified separately"
   },
   {
     "method": "POST",
     "path": "/api/admin/queue/:name/retry-failed",
     "source": "src/server/routes/admin.ts",
-    "line": 235,
+    "line": 237,
     "verification": "first matching Go handler; behavior verified separately"
   },
   {
     "method": "POST",
     "path": "/api/admin/queue/:name/drain",
     "source": "src/server/routes/admin.ts",
-    "line": 256,
+    "line": 258,
     "verification": "first matching Go handler; behavior verified separately"
   },
   {
     "method": "POST",
     "path": "/api/admin/queue/:name/pause",
     "source": "src/server/routes/admin.ts",
-    "line": 267,
+    "line": 269,
     "verification": "first matching Go handler; behavior verified separately"
   },
   {
     "method": "POST",
     "path": "/api/admin/queue/:name/resume",
     "source": "src/server/routes/admin.ts",
-    "line": 278,
+    "line": 280,
     "verification": "first matching Go handler; behavior verified separately"
   },
   {
     "method": "POST",
     "path": "/api/admin/queue/:name/empty",
     "source": "src/server/routes/admin.ts",
-    "line": 289,
+    "line": 291,
     "verification": "first matching Go handler; behavior verified separately"
   },
   {
     "method": "POST",
     "path": "/api/admin/queues/pause-all",
     "source": "src/server/routes/admin.ts",
-    "line": 300,
+    "line": 302,
     "verification": "first matching Go handler; behavior verified separately"
   },
   {
     "method": "GET",
     "path": "/api/admin/queues/metrics",
     "source": "src/server/routes/admin.ts",
-    "line": 356,
+    "line": 358,
     "verification": "first matching Go handler; behavior verified separately"
   },
   {
     "method": "GET",
     "path": "/api/admin/queues",
     "source": "src/server/routes/admin.ts",
-    "line": 371,
+    "line": 373,
     "verification": "first matching Go handler; behavior verified separately"
   },
   {
     "method": "GET",
     "path": "/api/admin/errors",
     "source": "src/server/routes/admin.ts",
-    "line": 441,
+    "line": 443,
     "verification": "first matching Go handler; behavior verified separately"
   },
   {
     "method": "GET",
     "path": "/api/admin/errors/stats",
     "source": "src/server/routes/admin.ts",
-    "line": 486,
+    "line": 488,
     "verification": "first matching Go handler; behavior verified separately"
   },
   {
     "method": "DELETE",
     "path": "/api/admin/errors",
     "source": "src/server/routes/admin.ts",
-    "line": 617,
+    "line": 619,
     "verification": "first matching Go handler; behavior verified separately"
   },
   {
     "method": "GET",
     "path": "/api/admin/overview",
     "source": "src/server/routes/admin.ts",
-    "line": 647,
+    "line": 649,
     "verification": "first matching Go handler; behavior verified separately"
   },
   {
     "method": "GET",
     "path": "/api/admin/stats",
     "source": "src/server/routes/admin.ts",
-    "line": 832,
+    "line": 834,
     "verification": "first matching Go handler; behavior verified separately"
   },
   {
     "method": "GET",
     "path": "/api/admin/repos",
     "source": "src/server/routes/admin.ts",
-    "line": 861,
+    "line": 863,
     "verification": "first matching Go handler; behavior verified separately"
   },
   {
     "method": "DELETE",
     "path": "/api/admin/repos/:repoId",
     "source": "src/server/routes/admin.ts",
-    "line": 980,
+    "line": 982,
     "verification": "first matching Go handler; behavior verified separately"
   },
   {
     "method": "GET",
     "path": "/api/admin/repos/:repoId/github",
     "source": "src/server/routes/admin.ts",
-    "line": 995,
+    "line": 997,
     "verification": "first matching Go handler; behavior verified separately"
   },
   {
     "method": "GET",
     "path": "/api/admin/users",
     "source": "src/server/routes/admin.ts",
-    "line": 1088,
+    "line": 1090,
     "verification": "first matching Go handler; behavior verified separately"
   },
   {
     "method": "GET",
     "path": "/api/admin/users/:username",
     "source": "src/server/routes/admin.ts",
-    "line": 1152,
+    "line": 1154,
     "verification": "first matching Go handler; behavior verified separately"
   },
   {
     "method": "GET",
     "path": "/api/admin/users/:username/repos",
     "source": "src/server/routes/admin.ts",
-    "line": 1179,
+    "line": 1181,
     "verification": "first matching Go handler; behavior verified separately"
   },
   {
     "method": "POST",
     "path": "/api/admin/users/:username/ban",
     "source": "src/server/routes/admin.ts",
-    "line": 1200,
+    "line": 1202,
     "verification": "first matching Go handler; behavior verified separately"
   },
   {
     "method": "POST",
     "path": "/api/admin/users/:username/activate",
     "source": "src/server/routes/admin.ts",
-    "line": 1236,
+    "line": 1238,
     "verification": "first matching Go handler; behavior verified separately"
   },
   {
     "method": "POST",
     "path": "/api/admin/users/:username/promote",
     "source": "src/server/routes/admin.ts",
-    "line": 1254,
+    "line": 1256,
     "verification": "first matching Go handler; behavior verified separately"
   },
   {
     "method": "POST",
     "path": "/api/admin/users/:username/demote",
     "source": "src/server/routes/admin.ts",
-    "line": 1272,
+    "line": 1274,
     "verification": "first matching Go handler; behavior verified separately"
   },
   {
     "method": "GET",
     "path": "/api/admin/conferences",
     "source": "src/server/routes/admin.ts",
-    "line": 1290,
+    "line": 1292,
     "verification": "first matching Go handler; behavior verified separately"
   },
   {

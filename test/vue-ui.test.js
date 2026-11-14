@@ -579,9 +579,9 @@ describe("Vue 3 UI", function () {
     state.options.expirationMode = "never"; await delay(20);
     expect(doc.querySelector('.hosting-options').textContent).to.include("20 repositories");
     expect(doc.querySelector('.anonymize-submit-bar').textContent).to.include("Continue to checkout");
-    doc.querySelector('.reviewer-preview .rp-open').click(); await delay(10);
+    doc.querySelector('.reviewer-preview .rp-open.is-toggle').click(); await delay(10);
     expect(doc.querySelector('.anonymize-page').classList.contains('preview-expanded')).to.equal(true);
-    doc.querySelector('.reviewer-preview .rp-open').click(); await delay(10);
+    doc.querySelector('.reviewer-preview .rp-open.is-toggle').click(); await delay(10);
     expect(state.terms).to.equal("Private Author");
     expect(ui.requests.some(r => r.method === "POST" && r.url.pathname === "/api/repo/")).to.equal(false);
     expect(ui.errors).to.deep.equal([]);

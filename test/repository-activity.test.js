@@ -211,7 +211,7 @@ describe("repository activity dates", () => {
     const repo = repository(); auth(repo);
     repo.model.settingsSavedAt = new Date("2026-03-01");
     repo.model.publishedAt = new Date("2026-02-01");
-    stub(Files, "exists", async () => null);
+    stub(Files, "exists", () => Object.assign(Promise.resolve(null), { hint: () => Promise.resolve(null) }));
     let body;
     await handler("repository-public", "/:repoId/options", "get")({}, { header: () => {}, json: value => { body = value; } });
     expect(body.lastUpdateDate).to.deep.equal(repo.model.settingsSavedAt);
@@ -220,7 +220,7 @@ describe("repository activity dates", () => {
   });
   it("does not invent publication or settings dates for legacy repositories", async () => {
     const repo = repository(); auth(repo);
-    stub(Files, "exists", async () => null);
+    stub(Files, "exists", () => Object.assign(Promise.resolve(null), { hint: () => Promise.resolve(null) }));
     let body;
     await handler("repository-public", "/:repoId/options", "get")({}, { header: () => {}, json: value => { body = value; } });
     expect(body.publishedAt).to.equal(undefined);
@@ -232,7 +232,7 @@ describe("repository activity dates", () => {
     const repo = repository(); auth(repo);
     repo.model.options.expirationMode = "remove";
     repo.model.options.expirationDate = new Date("2099-01-01");
-    stub(Files, "exists", async () => null);
+    stub(Files, "exists", () => Object.assign(Promise.resolve(null), { hint: () => Promise.resolve(null) }));
     let body;
     await handler("repository-public", "/:repoId/options", "get")({}, { header: () => {}, json: value => { body = value; } });
     expect(body.expirationDate).to.deep.equal(new Date("2099-01-01"));

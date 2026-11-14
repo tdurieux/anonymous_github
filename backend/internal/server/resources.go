@@ -89,6 +89,9 @@ func (s *Server) checkResource(ctx context.Context, kind string, r M) error {
 					code = prefix + "_not_available"
 				}
 			}
+			if kind == "repo" {
+				return fail(code, repositoryFailureStatus(code))
+			}
 			return fail(code, 500)
 		}
 		if kind == "repo" && strings.HasPrefix(str(r["statusMessage"]), "rate_limited:") {
@@ -904,4 +907,26 @@ func (s *Server) embeddedOutput(ctx context.Context, kind string, r M) (M, error
 		}
 	}
 	return out, nil
+}
+
+// Preserve the status of a repository failure after it is stored by a worker.
+func repositoryFailureStatus(code string) int {
+	switch code {
+	case "quota_exceeded":
+		return 402
+	case "repo_not_found", "branch_not_found", "commit_not_found":
+		return 404
+	case "repo_not_accessible", "repository_not_accessible":
+		return 403
+	case "token_expired", "not_connected":
+		return 401
+	case "github_rate_limit_exceeded":
+		return 429
+	case "github_unavailable":
+		return 502
+	case "repo_empty":
+		return 409
+	default:
+		return 500
+	}
 }
