@@ -1905,30 +1905,60 @@ export const anonymizeController = function (state, http, html, params, location
       state.userRepos = [];
       state.userReposStatus = "idle";
       state.userRepoFilter = "";
-      state.loadUserRepos = (force = false) => {
-        if (state.userReposStatus === "loading") return;
+      state.userRepoPage = 1;
+      state.userRepoNext = null;
+      let repoRequest = 0, repoSearchTimer;
+      let repoPages = [0];
+      state.on("dispose", () => { repoRequest++; clearTimeout(repoSearchTimer); });
+      state.loadUserRepos = async () => {
+        clearTimeout(repoSearchTimer);
+        const request = ++repoRequest;
+        const query = state.userRepoFilter.trim();
         state.userReposStatus = "loading";
-        http.get("/api/user/all_repositories", force ? { params: { force: "1" } } : {}).then(
-          (res) => {
-            if (sourceDisposed) return;
-            const rows = Array.isArray(res.data) ? res.data.filter(r => r && r.fullName) : [];
-            state.userRepos = rows.sort((x, y) => x.fullName.localeCompare(y.fullName, undefined, { sensitivity: "base" }));
-            state.userReposStatus = "ready";
-          },
-          () => { if (!sourceDisposed) state.userReposStatus = "error"; }
-        );
+        state.userRepos = [];
+        let cursor = repoPages[state.userRepoPage - 1];
+        try {
+          // Bound each search pass; sparse searches can continue from the footer.
+          for (let batch = 0; batch < 5; batch++) {
+            const res = await http.get("/api/user/repository_picker", { params: {
+              cursor, q: query, connection: state.githubConnection,
+            } });
+            if (sourceDisposed || request !== repoRequest) return;
+            state.userRepos = res.data.items || [];
+            state.userRepoNext = res.data.nextCursor ?? null;
+            if (state.userRepos.length || state.userRepoNext === null || !query) break;
+            cursor = state.userRepoNext;
+          }
+          state.userReposStatus = "ready";
+        } catch (_) {
+          if (!sourceDisposed && request === repoRequest) state.userReposStatus = "error";
+        }
       };
-      state.filteredUserRepos = () => {
-        const q = String(state.userRepoFilter || "").trim().toLowerCase();
-        const rows = state.userRepos || [];
-        return q ? rows.filter(r => r.fullName.toLowerCase().includes(q)) : rows;
+      state.changeUserRepoPage = (direction) => {
+        if (state.userReposStatus === "loading") return;
+        if (direction > 0 && state.userRepoNext !== null) {
+          repoPages[state.userRepoPage] = state.userRepoNext;
+          state.userRepoPage++;
+        } else if (direction < 0 && state.userRepoPage > 1) state.userRepoPage--;
+        else return;
+        state.loadUserRepos();
       };
+      state.watch(() => [state.userRepoFilter, state.githubConnection], () => {
+        if (params.repoId || params.pullRequestId || params.gistId) return;
+        repoRequest++;
+        clearTimeout(repoSearchTimer);
+        repoPages = [0];
+        state.userRepoPage = 1;
+        state.userRepoNext = null;
+        state.userRepos = [];
+        state.userReposStatus = "loading";
+        repoSearchTimer = setTimeout(() => { if (!sourceDisposed) state.loadUserRepos(); }, 300);
+      }, true, false);
       state.selectUserRepo = (repo) => {
         if (!repo?.fullName) return;
         state.sourceUrl = "https://github.com/" + repo.fullName;
         return state.urlSelected();
       };
-      if (!params.repoId && !params.pullRequestId && !params.gistId) Promise.resolve().then(() => { if (!sourceDisposed) state.loadUserRepos(); });
 
       state.previousConfigurations = [];
       state.previousConfigurationId = "";
@@ -2338,7 +2368,10 @@ export const anonymizeController = function (state, http, html, params, location
           state.githubConnection = "github-app";
           if (state.sourceUrl && state.workspaceOpen) refreshGitHubAccess();
         }
-      }).catch(() => {});
+      }).catch(() => {}).finally(() => {
+        if (!sourceDisposed && !params.repoId && !params.pullRequestId && !params.gistId
+            && state.userReposStatus === "idle") state.loadUserRepos();
+      });
 
       // Keep the same input focused until a complete GitHub URL can be loaded.
       state.urlSelected = async (preserveDraft = false) => {

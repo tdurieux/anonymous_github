@@ -1,3 +1,6 @@
+import { repositoryPickerPage } from "../../core/github-repository-picker";
+import { appUserToken } from "../../core/github-app";
+import { getCredentialToken } from "../../core/credentials";
 import AnonymousError from "../../core/AnonymousError";
 import { BillingQuota, BillingDraft } from "../../core/billing/models";
 import { cancelAccountBilling } from "../../core/billing/stripe";
@@ -369,6 +372,25 @@ export async function getAllRepositories(user: User, force: boolean) {
     };
   });
 }
+router.get("/repository_picker", async (req, res) => {
+  try {
+    const user = await getUser(req);
+    const cursor = req.query.cursor === undefined ? 0 : Number(req.query.cursor);
+    const query = typeof req.query.q === "string" ? req.query.q.trim() : "";
+    const connection = req.query.connection;
+    if (!Number.isSafeInteger(cursor) || cursor < 0 || cursor > 1000000 || query.length > 200
+        || (connection !== undefined && connection !== "oauth" && connection !== "github-app")) {
+      res.status(400).json({ error: "Invalid repository search" });
+      return;
+    }
+    const token = connection === "github-app" ? await appUserToken(user.id)
+      : connection === "oauth" ? await getCredentialToken(user.id) : await user.getAccessToken();
+    if (!token) { res.status(401).json({ error: "GitHub connection required" }); return; }
+    res.set("Cache-Control", "no-store");
+    res.json(await repositoryPickerPage(token, cursor, query));
+  } catch (error) { handleError(error, res, req); }
+});
+
 router.get(
   "/all_repositories",
   async (req, res) => {

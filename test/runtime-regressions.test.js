@@ -120,6 +120,15 @@ describe("Runtime regression fixes", function () {
   });
 
   describe("Repository.check()", function () {
+    for (const status of ["removed", "removing", "expired", "expiring"]) it(`reports ${status} without claiming every inactive repository expired`, async () => {
+      const repo = new Repository({ owner: "507f191e810c19729de860ea", status,
+        options: { expirationMode: "remove", expirationDate: new Date(Date.now() + 86400000) }, source: {} });
+      let error;
+      try { await repo.check(); } catch (caught) { error = caught; }
+      expect(error?.message).to.equal(status.startsWith("remov") ? "is_removed" : "repository_expired");
+      expect(error?.httpStatus).to.equal(410);
+      expect(repo.status).to.equal(status);
+    });
     it("records logical expiration before throwing repository_expired", async function () {
       const repo = new Repository({
         owner: "507f191e810c19729de860ea",

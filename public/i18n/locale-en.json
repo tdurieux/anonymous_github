@@ -91,7 +91,7 @@
     "readme_not_available": "No README for the repository is found.",
     "page_not_supported_on_different_branch": "GitHub Pages is served from a different branch than the one selected. Pick the branch that GitHub Pages is configured to use.",
     "page_not_activated": "GitHub Pages is not enabled on this repository. Enable it in the repository settings on GitHub before anonymizing.",
-    "is_removed": "This resource has been removed and is no longer available.",
+    "is_removed": "This resource has been removed. If you own it, open My work and select Removed to review its settings and available recovery options.",
     "conf_name_missing": "A conference name is required.",
     "conf_id_missing": "A conference ID is required.",
     "conf_id_used": "This conference ID is already in use. Please choose a different one.",

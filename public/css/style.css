@@ -14751,3 +14751,9 @@ body.dark-mode .reviewer-preview .rp-preserved-tag { background: rgba(251, 191, 
 .anonymize-page .source-public-note { margin: 12px 0 16px; font-size: 12.5px; }
 /* "Don't see your repository?" sits under the picker list as a quiet link. */
 .repo-picker-access { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; margin: 0; padding: 12px 16px 0; font-size: 13px; color: var(--ink-muted); }
+
+.repo-picker-pagination { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--border-color); }
+@media (max-width: 480px) {
+  .repo-picker-head { flex-wrap: wrap; }
+  .repo-picker-filter.form-control { width: 100%; max-width: 100%; }
+}

@@ -30,6 +30,7 @@ if (args[0] === "inspect") {
 if (args[0] === "compose") {
   if (args[1] === "build") { if (state.buildFails) finish("", 1); state.built = true; finish(); }
   if (args[1] === "stop") { state.stopped = true; finish(); }
+  if (args[1] === "run" && args.at(-1).endsWith("check-github-app-key.js")) { finish("", args.includes(state.preflightFails) ? 1 : 0); }
   if (args[1] === "run") { if (state.reconcileFails) finish("", 1); state.reconciled = true; finish(); }
   if (args[1] === "up") { if (args.includes("streamer")) state.streamers = true; else state.api = true; finish(); }
   if (args[1] === "ps") {
@@ -50,6 +51,22 @@ finish("unexpected docker call", 2);
     } finally { fs.rmSync(directory, { recursive: true, force: true }); }
   }
 
+  for (const preflightFails of ["anonymous_github", "streamer"]) it(`keeps working containers when ${preflightFails} key preflight fails`, () => {
+    const result = deploy({ preflightFails });
+    expect(result.status).not.to.equal(0);
+    expect(result.calls.some(args => args[0] === "compose" && ["stop", "up"].includes(args[1]))).to.equal(false);
+    expect(result.calls.some(args => args.includes("./build/scripts/reconcile-legacy-owner-alerts.js"))).to.equal(false);
+  });
+  it("checks both replacement services before stopping working instances", () => {
+    const result = deploy();
+    expect(result.status, result.stderr).to.equal(0);
+    const stop = result.calls.findIndex(args => args[1] === "stop");
+    for (const service of ["anonymous_github", "streamer"]) {
+      const check = result.calls.findIndex(args => args.includes(service) && args.includes("./build/scripts/check-github-app-key.js"));
+      expect(check).to.be.greaterThan(-1); expect(check).to.be.lessThan(stop);
+      expect(result.calls[check]).to.include.members(["--no-deps", "--rm", "--entrypoint", "node"]);
+    }
+  });
   for (const sharedCache of [true, false]) it(`coordinates cache rollout with ${sharedCache ? "existing" : "new"} caching`, () => {
     const result = deploy({ oldProtocol: "recipient-v2", sharedCache, coordinated: sharedCache ? 0 : 1 });
     expect(result.status, result.stderr).to.equal(0);
@@ -70,7 +87,7 @@ finish("unexpected docker call", 2);
     const stop = result.calls.findIndex(args => args[0] === "compose" && args[1] === "stop");
     const up = result.calls.findIndex(args => args[0] === "compose" && args[1] === "up");
     expect(stop).to.be.greaterThan(-1); expect(up).to.be.greaterThan(stop);
-    const reconcile = result.calls.findIndex(args => args[0] === "compose" && args[1] === "run");
+    const reconcile = result.calls.findIndex(args => args.includes("./build/scripts/reconcile-legacy-owner-alerts.js"));
     expect(reconcile).to.be.greaterThan(stop); expect(reconcile).to.be.lessThan(up);
     expect(result.calls[reconcile]).to.include("./build/scripts/reconcile-legacy-owner-alerts.js");
     const checked = result.calls.slice(stop + 1, up).filter(args => args[0] === "inspect").map(args => args.at(-1));
@@ -87,7 +104,7 @@ finish("unexpected docker call", 2);
     const result = deploy({ oldProtocol: "recipient-v1" });
     expect(result.status, result.stderr).to.equal(0);
     const stop = result.calls.findIndex(args => args[0] === "compose" && args[1] === "stop");
-    const reconcile = result.calls.findIndex(args => args[0] === "compose" && args[1] === "run");
+    const reconcile = result.calls.findIndex(args => args.includes("./build/scripts/reconcile-legacy-owner-alerts.js"));
     const up = result.calls.findIndex(args => args[0] === "compose" && args[1] === "up");
     expect(stop).to.be.greaterThan(-1); expect(reconcile).to.be.greaterThan(stop); expect(up).to.be.greaterThan(reconcile);
   });
@@ -116,7 +133,7 @@ finish("unexpected docker call", 2);
   for (const stopped of [true, false]) it(`reconciles legacy ${stopped ? "stopped" : "running"} containers when the replacement was already built`, () => {
     const result = deploy({ built: true, stopped, force: 0 });
     expect(result.status, result.stderr).to.equal(0);
-    const reconcile = result.calls.findIndex(args => args[0] === "compose" && args[1] === "run");
+    const reconcile = result.calls.findIndex(args => args.includes("./build/scripts/reconcile-legacy-owner-alerts.js"));
     const up = result.calls.findIndex(args => args[0] === "compose" && args[1] === "up");
     expect(reconcile).to.be.greaterThan(-1); expect(up).to.be.greaterThan(reconcile);
     expect(result.stdout).not.to.include("nothing to deploy");
