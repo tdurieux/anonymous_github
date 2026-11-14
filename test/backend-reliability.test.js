@@ -155,7 +155,7 @@ describe("removal recovery", function () {
     expect(repo.status).to.equal("removing");
     let publicError;
     try { await repo.check(); } catch (error) { publicError = error; }
-    expect(publicError.message).to.equal("repository_expired");
+    expect(publicError.message).to.equal("is_removed");
 
     AnonymizedRepositoryModel.find = (filter) => ({
       lean: async () => repo.status === filter.status ? [repo.model] : [],

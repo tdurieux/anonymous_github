@@ -55,6 +55,13 @@ before="$(image_id "$IMAGE")"
 docker compose build anonymous_github
 after="$(image_id "$IMAGE")"
 
+# Validate replacement configuration before stopping any working container.
+# A healthy HTTP endpoint does not prove that the GitHub App key is mounted.
+for service in anonymous_github streamer; do
+    log "Checking GitHub App configuration in ${service}"
+    docker compose run --rm --no-deps --entrypoint node "$service" ./build/scripts/check-github-app-key.js
+done
+
 if [[ $legacy_alerts == 1 ]]; then
     protocol="$(docker image inspect -f '{{index .Config.Labels "science.4open.owner-alert-protocol"}}' "$IMAGE")"
     [[ $protocol == recipient-v2 ]] || { warn "replacement image lacks recipient alert migration support"; exit 1; }

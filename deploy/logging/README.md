@@ -22,9 +22,16 @@ on `fix/remaining-production-findings`; do not deploy it without that base.
    in the repository. Export `GRAFANA_PASSWORD_FILE` as its absolute path and
    `GRAFANA_ADMIN_USER` as a non-default username. No password value belongs in
    a shell command, Compose file, issue, or PR.
-3. Set `APP_RELEASE` to the deployed 7 to 40 character Git SHA. Build the app through
-   the existing deployment workflow. Add the override when recreating services:
-   `docker compose -f docker-compose.yml -f deploy/logging/app.compose.yml up -d`.
+3. Set `APP_RELEASE` to the deployed 7 to 40 character Git SHA. Append the logging
+   overrides to the deployment's existing `COMPOSE_FILE`; do not replace existing
+   overrides. In particular, GitHub App deployments need
+   `docker-compose.github-app.yml` to retain the read-only signing-key mount in
+   both the API and streamers. For a GitHub App deployment with admin logging,
+   the complete list is
+   `COMPOSE_FILE=docker-compose.yml:docker-compose.github-app.yml:deploy/logging/app.compose.yml:deploy/logging/admin.compose.yml`.
+   Preserve any other site-specific overrides too. Run `scripts/deploy.sh`, which
+   checks that each replacement service can sign with the configured key before
+   stopping live services. Never print the key or expanded Compose environment.
    This applies explicit service tags and nonblocking 10 MiB × 3 local buffers to
    the API, all four streamers, MongoDB, Redis and the backup process. BullMQ
    sandbox workers log through the API container. Existing containers need
