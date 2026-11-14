@@ -1,3 +1,4 @@
+import { rejectStreamerRedirects } from "./streamer-response";
 import { isResponseCancellation } from "./response-cancellation";
 import { canReadCachedRepository } from "./cached-repository-access";
 import { probeStreamerCache } from "./streamer-cache-probe";
@@ -412,7 +413,8 @@ export default class AnonymizedFile {
     }
 
     // use the streamer service
-    const content = got.stream(join(config.STREAMER_ENTRYPOINT, "api"), {
+    const content = rejectStreamerRedirects(got.stream(join(config.STREAMER_ENTRYPOINT, "api"), {
+      followRedirect: false,
       method: "POST",
       headers: requestHeaders(),
       json: {
@@ -429,7 +431,7 @@ export default class AnonymizedFile {
         size: await this.size(),
         anonymizerOptions: anonymizer.opt,
       },
-    });
+    }));
     content.on("error", err => {
       const { error } = streamerErrorToAnonymous(err, { repoId: this.repository.repoId, filePath: this.anonymizedPath });
       void notifyOwnerAccessProblem(this.repository.owner.id, error, { kind: "repository", id: String(this.repository.model._id) });
@@ -504,17 +506,17 @@ export default class AnonymizedFile {
             } catch (error) { cached.stream.destroy(); throw error; }
           }
           if (res.destroyed || res.writableEnded) { cached?.stream.destroy(); headersDone(); resolve(); return; }
-          const resStream = cached?.stream || got.stream(url, {
+          const resStream = cached?.stream || rejectStreamerRedirects(got.stream(url, {
+            followRedirect: false,
             method: "POST", headers, decompress: false,
             json: { ...payload, token: await githubTokenForStreamer(await this.repository.getToken(), this.repository.model.source.repositoryName) },
-          });
+          }));
           // Forward Content-Type from the streamer's upstream response.
-          // got.stream(...).pipe(res) forwards body bytes only — without
-          // this, the parent response has no Content-Type and the browser
-          // guesses (text renders as download, images as octet-stream).
-          const forwardHeaders = (upstream: { headers: Record<string, string | string[] | undefined> }) => {
+          // streamResponse isolates the body from Got's implicit header forwarding.
+          // Only approved content headers may reach the public response.
+          const forwardHeaders = (upstream: { statusCode?: number; headers: Record<string, string | string[] | undefined> }) => {
             headersDone();
-            if (res.headersSent) return;
+            if (res.headersSent || (upstream.statusCode !== undefined && upstream.statusCode !== 200)) return;
             for (const header of ["content-encoding", "content-length", "vary", "accept-ranges"]) {
               const value = upstream.headers[header];
               if (typeof value === "string") res.setHeader(header, value);
