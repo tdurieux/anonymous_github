@@ -899,6 +899,35 @@ describe("Vue 3 UI", function () {
     "/api/anonymize-preview": request => ({ content: request.payload.content.replaceAll("Private Author", "MASKED") }),
   };
 
+  it("recovers edit source validity after a failed branch refresh", async () => {
+    let fail = false;
+    ui = await browser("/anonymize/saved", {
+      ...repositorySource,
+      "/api/repo/saved": { source: { fullName: "owner/repo", branch: "main", commit: "saved123" }, options: { terms: ["Private Author"], update: false } },
+      "/api/repo/owner/repo/branches": () => fail ? { __status: 503, body: { error: "github_unavailable" } }
+        : [{ name: "main", commit: "latest456" }],
+    });
+    await delay(150);
+    const state = ui.window.document.querySelector("#sourceUrl")._field.binding.state;
+    expect(state.source.commit).to.equal("saved123");
+    fail = true;
+    await state.getBranches(true);
+    expect(state.details).to.equal(null);
+    expect(state.anonymize.sourceUrl.errors.missing).to.equal(true);
+    expect(state.sourceProblem()).not.to.equal(null);
+    fail = false;
+    const metadataBefore = ui.requests.filter(r => r.url.pathname === "/api/repo/owner/repo/").length;
+    await state.getBranches(true);
+    await delay(30);
+    expect(ui.requests.filter(r => r.url.pathname === "/api/repo/owner/repo/")).to.have.length(metadataBefore + 1);
+    expect(state.details.repo).to.equal("repo");
+    expect(state.anonymize.sourceUrl.errors.missing).not.to.equal(true);
+    expect(state.sourceProblem()).to.equal(null);
+    expect(state.source.commit).to.equal("latest456");
+    expect(state.terms).to.equal("Private Author");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
   it("browses redacted preview paths with the explorer tree and Ace renderer", async () => {
     ui = await browser("/anonymize/saved", {
       ...repositorySource,
