@@ -325,7 +325,7 @@ The fixture uses only synthetic counters and removes its container on exit.
 
 New application errors retain the normalized route template, HTTP method/status,
 a finite error type/code, and up to eight recognized application frames (1 KiB maximum per stack) for the
-exception and a bounded cause chain (three levels, cycles stopped). Raw messages,
+exception and the deepest inspected cause (at most three levels, cycles stopped). Raw messages,
 URLs, query strings, repository/file parameters, external frames and absolute
 filesystem roots are not stored. Unknown error types use `UnknownError`; unknown
 function names become `<anonymous>`. Source locations are build-relative for
