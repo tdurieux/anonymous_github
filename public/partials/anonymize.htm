@@ -527,7 +527,7 @@
         <div class="rp-window">
           <div class="rp-chrome" aria-hidden="true"><i></i><i></i><i></i><span class="rp-url">{{ previewUrl() || 'anonymous.4open.science' }}</span></div>
           <div class="rp-bar" aria-hidden="true"><span class="vb-logo">Anonymous <em>GitHub</em></span><span class="rp-bar-id" v-if="previewId()">{{ previewId() }}</span><span class="rp-bar-kind" v-if="detectedType !== 'repo'">{{ detectedType === 'pr' ? 'Pull request' : 'Gist' }}</span></div>
-          <div class="rp-body" :class="{ 'reviewer-explorer': detectedType === 'repo' }">
+          <div class="rp-body" :class="{ 'reviewer-explorer': detectedType === 'repo', 'no-tree': detectedType === 'repo' && !details }">
             <aside id="preview-file-tree" class="leftCol" :class="{ collapsed: previewViewer.sidebarCollapsed }" v-if="detectedType === 'repo'" v-show="details" aria-label="Files reviewers will see">
               <div class="leftCol-head"><span class="leftCol-eyebrow">Files</span><button type="button" class="leftCol-close" aria-label="Close files" @click="previewViewer.sidebarCollapsed = true"><svg class="ui-icon" aria-hidden="true"><use href="#project-icon-close"></use></svg></button></div>
               <div class="leftCol-body">

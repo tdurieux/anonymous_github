@@ -14206,6 +14206,9 @@ body.dark-mode .auto-update-check .paid-tag { background: rgba(251, 191, 36, .12
   .reviewer-explorer > .leftCol { position: absolute; inset: 0 auto 0 0; width: min(86%, 340px); z-index: 4; }
   .reviewer-explorer > .leftCol-backdrop { display: block; position: absolute; inset: 0; z-index: 3; }
 }
+/* No source loaded: no tree column, the state uses the full window. */
+.reviewer-preview .reviewer-explorer.no-tree { grid-template-columns: minmax(0, 1fr); }
+.reviewer-explorer.no-tree > .explorer-main { grid-column: 1; }
 .reviewer-preview .rp-preserved-tag { flex: none; margin-left: auto; display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border: 0; border-radius: 10px; background: rgba(217, 119, 6, .1); box-shadow: inset 0 0 0 1px rgba(217, 119, 6, .3); color: #8A4B0A; font: 600 11.5px/1 var(--font-sans); white-space: nowrap; cursor: pointer; }
 .reviewer-preview .rp-preserved-tag:hover { background: rgba(217, 119, 6, .16); }
 .reviewer-preview .rp-preserved-tag:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
