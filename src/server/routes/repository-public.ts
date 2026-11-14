@@ -1,7 +1,7 @@
 import { hasVisibleSubmodules } from "../../core/file-submodules";
 import { FILE_LISTING_LIMIT } from "../../core/file-tree";
 import { folderCounts as scopedFolderCounts } from "../../core/folder-counts";
-import { repositoryFailureStatus } from "../../core/repository-failure-status";
+import { isQuotaFailure, repositoryFailureStatus } from "../../core/repository-failure-status";
 import { anonymizePath } from "../../core/anonymize-utils";
 import * as express from "express";
 import config from "../../config";
@@ -338,6 +338,7 @@ router.get(
         if (repo.status != "ready") {
           if (
             repo.status != RepositoryStatus.QUEUE &&
+            !isQuotaFailure(repo.model.statusMessage) &&
             repo.statusActivityDate < fiveMinuteAgo
           ) {
             await repo.updateStatus(RepositoryStatus.PREPARING);

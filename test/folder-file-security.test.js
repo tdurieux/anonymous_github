@@ -51,13 +51,18 @@ describe("folder file endpoint disclosure", function () {
     } finally { await close(server); }
   });
   it("blocks a real HTTP redirect to a GitHub tree page before fetching its HTML", async () => {
-    const server = await listen(http.createServer((_req, res) => { res.writeHead(302, { location: "https://github.com/example/private-repo/tree/main/folder" }); res.end(); }));
+    const warnings = [];
+    stub(console, "warn", (...args) => warnings.push(args.join(" ")));
+    const server = await listen(http.createServer((_req, res) => { res.writeHead(302, { location: "https://github.com/example/private-repo/tree/main/folder?token=secret-query" }); res.end(); }));
     const original = got.stream;
     stub(got, "stream", (_url, options) => original(`http://127.0.0.1:${server.address().port}/raw`, options));
     const source = new GitHubStream({ repoId: "test", organization: "example", repoName: "repo", commit: "main", getToken: () => "" });
     try {
       const error = await collect(await source.downloadWithFallback("", "tree-sha", "folder")).catch(error => error);
       expect(error.message).to.equal("upstream_error");
+      expect(warnings.join(" ")).to.include("github.com").and.include("host");
+      expect(warnings.join(" ")).not.to.include("private-repo");
+      expect(warnings.join(" ")).not.to.include("secret-query");
     } finally { await close(server); }
   });
   it("rejects a successful web-page response before emitting any bytes", async () => {

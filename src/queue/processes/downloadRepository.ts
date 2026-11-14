@@ -1,5 +1,6 @@
 import { githubQuotaKey } from "../../core/github-token-context";
-import { SandboxedJob } from "bullmq";
+import { isQuotaFailure } from "../../core/repository-failure-status";
+import { SandboxedJob, UnrecoverableError } from "bullmq";
 import { config } from "dotenv";
 config();
 import { notifyOwnerAccessProblem } from "../../core/owner-notifications";
@@ -144,7 +145,8 @@ export default async function (job: SandboxedJob<RepoJobData, void>) {
       throw error;
     }
     await notifyOwnerAccessProblem(repo.owner.id, error, { kind: "repository", id: String(repo.model._id) });
-    logger.error("finished with error", {
+    const quotaDenied = error instanceof Error && isQuotaFailure(error.message);
+    logger[quotaDenied ? "warn" : "error"]("finished with error", {
       ...serializeError(error),
       repoId: job.data.repoId,
       url: `/api/repo/${job.data.repoId}`,
@@ -161,6 +163,9 @@ export default async function (job: SandboxedJob<RepoJobData, void>) {
         url: `/api/repo/${job.data.repoId}`,
       });
     }
+    // Permanent for this attempt, not for the repository: owner refresh
+    // performs admission again after capacity or the plan changes.
+    if (quotaDenied) throw new UnrecoverableError("quota_exceeded");
     throw error;
   } finally {
     clearInterval(statusInterval);

@@ -1,3 +1,4 @@
+import AnonymousError from "../../core/AnonymousError";
 import { BillingQuota, BillingDraft } from "../../core/billing/models";
 import { cancelAccountBilling } from "../../core/billing/stripe";
 import { allowance } from "../../core/billing/quotas";
@@ -9,7 +10,7 @@ import CredentialModel from "../../core/model/credentials/credentials.model";
 import * as express from "express";
 import config from "../../config";
 import { ensureAuthenticated } from "./connection";
-import { handleError, getUser, isOwnerOrAdmin } from "./route-utils";
+import { explicitErrorStatus, handleError, getUser, isOwnerOrAdmin } from "./route-utils";
 import UserModel from "../../core/model/users/users.model";
 import AnonymizedRepositoryModel from "../../core/model/anonymizedRepositories/anonymizedRepositories.model";
 import AnonymizedPullRequestModel from "../../core/model/anonymizedPullRequests/anonymizedPullRequests.model";
@@ -352,9 +353,14 @@ router.get(
   }
 );
 
-async function getAllRepositories(user: User, force: boolean) {
-  const repos = await user.getGitHubRepositories({
-    force,
+export async function getAllRepositories(user: User, force: boolean) {
+  const repos = await user.getGitHubRepositories({ force }).catch(error => {
+    // Normalize confirmed GitHub credential denial only at this provider boundary.
+    // Preserve App-specific reconnect errors and all permission/rate-limit failures.
+    if (!(error instanceof AnonymousError) && explicitErrorStatus(error) === 401) {
+      throw new AnonymousError("token_expired", { httpStatus: 401, cause: error });
+    }
+    throw error;
   });
   return repos.map((x) => {
     return {

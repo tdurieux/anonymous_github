@@ -1,3 +1,4 @@
+import { createLogger } from "../../core/logger";
 import { REPOSITORY_ID_COLLATION } from "../../core/repository-id";
 import { notificationEmail, normalizeEmail, resetOwnerAccessAlerts } from "../../core/owner-notifications";
 import { saveRegistrationEmail } from "../../core/registration-email";
@@ -14,7 +15,7 @@ import GistModel from "../../core/model/anonymizedGists/anonymizedGists.model";
 import { getCredentialToken } from "../../core/credentials";
 import { APP_PROVIDER, appError, appUserToken, AppInstallation, clearAppTokenCache, exchangeAppToken,
   githubRequest, GitHubRepositoryInfo, reconcileAppGrant, reconcileInstallation, installationURL, saveAppGrant, selectRepositoryAccess, userInstallations } from "../../core/github-app";
-import { getUser, handleError } from "./route-utils";
+import { explicitErrorStatus, getUser, handleError } from "./route-utils";
 import { isDisabledAccount, safeAuthReturnTo } from "./auth-utils";
 
 type Flow = { state: string; expires: number; ownerId?: string; returnTo: string; repository?: string; install?: boolean };
@@ -304,16 +305,22 @@ export function validWebhookSignature(body: Buffer, signature: unknown, secret: 
   const expected = createHmac("sha256", secret).update(body).digest();
   return timingSafeEqual(expected, Buffer.from(signature.slice(7), "hex"));
 }
+const webhookLogger = createLogger("github-app-webhook");
 export const githubAppWebhook = express.Router();
 githubAppWebhook.post("/", express.raw({ type: "application/json", limit: "2mb" }), async (req, res) => {
   if (!config.GITHUB_APP_ENABLED || !Buffer.isBuffer(req.body) || !validWebhookSignature(req.body, req.headers["x-hub-signature-256"], config.GITHUB_APP_WEBHOOK_SECRET)) {
     return res.status(401).json({ error: "invalid_webhook_signature" });
   }
+  let phase = "parse";
+  let action: string | undefined;
+  const event = req.headers["x-github-event"];
   try {
     const body = JSON.parse(req.body.toString("utf8"));
-    const event = req.headers["x-github-event"];
+    action = typeof body.action === "string" && /^[a-z_]{1,64}$/.test(body.action) ? body.action : undefined;
     if (event === "github_app_authorization" && body.action === "revoked" && body.sender?.id) {
+      phase = "find_grant_owners";
       const users = await UserModel.find({ "externalIDs.github": String(body.sender.id) }).select("_id").lean();
+      phase = "reconcile_grant";
       for (const user of users) await reconcileAppGrant(String(user._id));
     }
     if (["installation", "installation_repositories"].includes(String(event)) && Number.isSafeInteger(body.installation?.id) && String(body.installation.app_id) === config.GITHUB_APP_ID) {
@@ -322,11 +329,25 @@ githubAppWebhook.post("/", express.raw({ type: "application/json", limit: "2mb" 
       // to reactivate an installation. Duplicate events are safe to replay.
       const filter = { appId: config.GITHUB_APP_ID, installationId: installation.id };
       const revision = randomUUID();
+      phase = "persist_installation_block";
       await InstallationModel.updateOne(filter, { $set: { blocked: true, revision,
         reconciliationPending: body.action !== "deleted" } }, { upsert: true });
       clearAppTokenCache();
+      phase = "reconcile_installation";
       if (body.action !== "deleted") await reconcileInstallation(installation.id, revision);
     }
     return res.status(204).end();
-  } catch { return res.status(503).json({ error: "webhook_processing_failed" }); }
+  } catch (error) {
+    const delivery = req.headers["x-github-delivery"];
+    // Never log payloads, signatures, upstream bodies or URLs (which may contain tokens).
+    webhookLogger.error("webhook processing failed", {
+      phase, action,
+      event: typeof event === "string" && /^[a-z_]{1,64}$/.test(event) ? event : undefined,
+      deliveryId: typeof delivery === "string" && /^[a-f0-9-]{1,64}$/i.test(delivery) ? delivery : undefined,
+      requestId: res.getHeader("X-Request-Id"),
+      upstreamStatus: explicitErrorStatus(error),
+      errorClass: error instanceof Error ? error.constructor.name : "UnknownError",
+    });
+    return res.status(503).json({ error: "webhook_processing_failed" });
+  }
 });

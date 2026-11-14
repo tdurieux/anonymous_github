@@ -1,3 +1,4 @@
+import { isQuotaFailure } from "../core/repository-failure-status";
 import UserModel from "../core/model/users/users.model";
 import { JobsOptions, Queue, Worker } from "bullmq";
 import config from "../config";
@@ -313,13 +314,13 @@ export function startWorker() {
   downloadWorker.on("failed", async (job, err) => {
     if (job) recordMetric("download", "failed", Date.now() - (job.processedOn || job.timestamp));
     const repoId = job?.data?.repoId;
-    logger.error("download failed", {
+    logger[isQuotaFailure(err?.message) ? "warn" : "error"]("download failed", {
       ...serializeError(err),
       repoId,
     });
     if (!repoId) return;
     if (job && typeof job.attemptsMade === "number" && job.opts?.attempts) {
-      if (job.attemptsMade < job.opts.attempts) return;
+      if (job.attemptsMade < job.opts.attempts && err?.name !== "UnrecoverableError") return;
     }
     await markErrorIfInFlight(repoId, err?.message || "preparation_failed");
   });
