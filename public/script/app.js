@@ -1971,10 +1971,17 @@ export const anonymizeController = function (state, http, html, params, location
       const sourceErrorKinds = {
         repo_access_limited: "access", repo_not_accessible: "access", repo_saml_enforcement: "access",
         repo_already_anonymized: "used",
+        github_rate_limit_exceeded: "github-throttle",
+        rate_limited: "throttle", github_unavailable: "upstream", internal_error: "server", unreachable: "server",
         repo_not_found: "missing", github_app_access_required: "missing", pull_request_not_found: "missing", gist_not_found: "missing", token_expired: "missing",
       };
       const recordSourceError = (error) => {
-        const code = error?.data?.error || (error?.status === 404 ? "repo_not_found" : "unknown_error");
+        const reported = typeof error?.data?.error === "string" ? error.data.error : "";
+        // Status takes precedence over misleading payloads from a failed gateway.
+        const code = error?.status === 429
+          ? (sourceErrorKinds[reported] === "github-throttle" ? reported : "rate_limited")
+          : error?.status >= 500 ? (reported === "github_unavailable" ? reported : "internal_error")
+            : reported || (error?.status === 404 ? "repo_not_found" : "unknown_error");
         state.sourceError = code;
         state.sourceErrorText = "";
         if (!sourceErrorKinds[code]) translate("ERRORS." + code).then(text => { if (state.sourceError === code && text !== "ERRORS." + code) state.sourceErrorText = text; }, () => {});
@@ -2008,6 +2015,10 @@ export const anonymizeController = function (state, http, html, params, location
         // When editing a repository, "Connection problems?" below the URL opens with the repair steps.
         const manage = state.isUpdate && type === "repo" ? null : type === "gist" || !state.githubConnection ? "link" : app ? "app" : "link";
         const title = "Couldn't load " + what;
+        if (kind === "github-throttle") return { kind, title, text: "GitHub's API rate limit has been reached. Wait for the limit to reset, then try again. Your repository access settings do not need to change.", retry: true };
+        if (kind === "throttle") return { kind, title, text: "Too many requests. Wait a little, then try loading the source again.", retry: true };
+        if (kind === "upstream") return { kind, title, text: "GitHub is temporarily unavailable. Try loading the source again in a moment.", retry: true };
+        if (kind === "server") return { kind, title, text: "Anonymous GitHub could not load the source because of a server error. Try again in a moment. This does not mean the repository is missing or that you need to change its permissions.", retry: true };
         if (kind === "used") return { kind, title: "Already anonymized", text: `You've already anonymized ${name}. Open it from My work to change its settings.`, dashboard: true };
         if (kind === "access") {
           const reason = code === "repo_saml_enforcement" ? "Its organization requires single sign-on." : "Its organization restricts third-party apps.";
@@ -2027,6 +2038,7 @@ export const anonymizeController = function (state, http, html, params, location
         if (state.sourceLoading) return state.detectedType === "pr" ? "Waiting for the pull request to load from GitHub…" : state.detectedType === "gist" ? "Waiting for the gist to load from GitHub…" : "Waiting for the repository to load from GitHub…";
         if (state.sourceReady()) return "";
         if (state.sourceProblem()?.kind === "github") return "Enter a GitHub URL to continue.";
+        if (["github-throttle", "throttle", "upstream", "server"].includes(state.sourceProblem()?.kind)) return "Wait for the source to load successfully before continuing.";
         return state.detectedType === "pr" ? "Add a pull request you can access to continue." : state.detectedType === "gist" ? "Add a gist you can access to continue." : "Add a repository you can access to continue.";
       };
       // The publication warning applies once the source is known to be private.
