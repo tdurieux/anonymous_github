@@ -176,6 +176,14 @@ function ensureUrl(
   if (origin) payload.url = origin;
 }
 
+/** Use the same validated upstream status for response mapping and log severity. */
+export function explicitErrorStatus(error: unknown): number | undefined {
+  const value = error as { httpStatus?: number; status?: number; response?: { statusCode?: number };
+    $metadata?: { httpStatusCode?: number } } | null;
+  return [value?.httpStatus, value?.status, value?.response?.statusCode, value?.$metadata?.httpStatusCode]
+    .find(status => Number.isInteger(status) && status! >= 400 && status! <= 599);
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function printError(error: any, req?: express.Request) {
   if (error instanceof AnonymousError) {
@@ -189,7 +197,7 @@ function printError(error: any, req?: express.Request) {
     // 4xx are expected client errors (not_found, expired, not_connected) —
     // route them to warn so the admin Errors page can split server faults
     // (5xx) from client misuse (4xx) cleanly.
-    const status = error.httpStatus;
+    const status = explicitErrorStatus(error);
     if (typeof status === "number" && status >= 400 && status < 500) {
       logger.warn(summary, payload);
     } else {
@@ -198,7 +206,8 @@ function printError(error: any, req?: express.Request) {
   } else if (error instanceof HTTPError) {
     const payload: Record<string, unknown> = serializeError(error);
     ensureUrl(payload, req);
-    logger.error(error.code || error.name || "HTTPError", payload);
+    const status = explicitErrorStatus(error);
+    logger[status && status < 500 ? "warn" : "error"](error.code || error.name || "HTTPError", payload);
   } else {
     // Unhandled errors: use the error class name (SyntaxError, TypeError,
     // RangeError, ...) as the summary so the admin page shows
@@ -208,7 +217,7 @@ function printError(error: any, req?: express.Request) {
       typeof serialized.status !== "number" &&
       typeof serialized.httpStatus !== "number"
     ) {
-      serialized.httpStatus = 500;
+      serialized.httpStatus = explicitErrorStatus(error) ?? 500;
     }
     ensureUrl(serialized, req);
     const summary =
@@ -216,7 +225,8 @@ function printError(error: any, req?: express.Request) {
         ((error as { name?: string }).name ||
           (error as { message?: string }).message)) ||
       "UnhandledError";
-    logger.error(summary, serialized);
+    const status = explicitErrorStatus(error);
+    logger[status && status < 500 ? "warn" : "error"](summary, serialized);
   }
 }
 
@@ -235,8 +245,7 @@ export function handleError(
     errorCode = String(error);
   }
   let status = 500;
-  const explicitStatus = [error?.httpStatus, error?.status, error?.response?.statusCode,
-    error?.$metadata?.httpStatusCode].find(value => Number.isInteger(value) && value >= 400 && value <= 599);
+  const explicitStatus = explicitErrorStatus(error);
   if (explicitStatus !== undefined) {
     status = explicitStatus;
   } else if (

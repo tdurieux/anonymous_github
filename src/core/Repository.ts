@@ -213,7 +213,9 @@ export default class Repository {
       ? new RegExp(`^${escapedPath}`)
       : undefined;
     if (opt.recursive === false) {
-      pathQuery = escapedPath ? new RegExp(`^${escapedPath}$`) : "";
+      // Equality bounds the path index to this directory. An anchored regex
+      // still scans its descendants before filtering out their paths.
+      pathQuery = opt.path || "";
     }
 
     const query: FilterQuery<IFile> = {

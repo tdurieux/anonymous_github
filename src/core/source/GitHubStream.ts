@@ -139,10 +139,14 @@ export default class GitHubStream extends GitHubBase {
       this.data.commit || "HEAD",
       filePath
     );
-    logger.debug("downloading via raw URL (LFS)", { url });
+    logger.debug("downloading via raw URL (LFS)");
     const assertDownloadUrl = (value: URL) => {
       if (value.protocol !== "https:" || value.username || value.password || value.port ||
           !["raw.githubusercontent.com", "media.githubusercontent.com"].includes(value.hostname)) {
+        logger.warn("rejected upstream download destination", {
+          hostname: value.hostname, protocol: value.protocol,
+          reason: value.protocol !== "https:" ? "protocol" : value.username || value.password ? "credentials" : value.port ? "port" : "host",
+        });
         throw new AnonymousError("upstream_error", { httpStatus: 502 });
       }
     };

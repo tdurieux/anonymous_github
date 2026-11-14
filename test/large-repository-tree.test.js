@@ -451,6 +451,43 @@ const uri = process.env.PERFORMANCE_MONGO_URI;
     expect(files[0]).not.to.be.instanceOf(mongoose.Document);
   });
 
+  it("bounds a direct directory listing to its immediate children in the path index", async () => {
+    const repo = new Repository(await repository({ status: "ready", treeGeneration: "old" }));
+    await rows(12000, i => ({ path: `src/deep/${i}` }));
+    await rows(9, i => ({ path: "src", name: `direct${i}.txt` }));
+    const find = File.find; let query;
+    File.find = function (...args) { query = find.apply(this, args); return query; };
+    try {
+      const files = await repo.files({ recursive: false, path: "src" });
+      expect(files).to.have.length(9);
+      const plan = await query.clone().explain("executionStats");
+      expect(plan.executionStats.totalKeysExamined).to.be.at.most(10);
+      expect(plan.executionStats.totalDocsExamined).to.equal(9);
+    } finally { File.find = find; }
+  });
+
+  for (const generation of ["old", undefined]) {
+    it(`uses literal case-sensitive directory paths for ${generation || "legacy"} listings`, async () => {
+      const repo = new Repository(await repository({ status: "ready", treeGeneration: generation }));
+      const paths = ["", "猫.[x] +$", "Src", "src", "src\n", "src/deep"];
+      await File.collection.insertMany(paths.flatMap((directory, i) => [
+        { repoId: "large", ...(generation ? { treeGeneration: generation } : {}),
+          path: directory, name: `wanted${i}`, size: 1, sha: "b".repeat(40) },
+        { repoId: "large", treeGeneration: "staged", path: directory, name: "hidden", size: 1 },
+      ]));
+      // Explicit null is not a legacy snapshot, even though Mongo indexes
+      // missing and null fields alike.
+      await File.collection.insertOne({ repoId: "large", treeGeneration: null, path: "src", name: "null-generation", size: 1 });
+      for (const [i, directory] of paths.entries()) {
+        const files = await repo.files({ recursive: false, path: directory });
+        expect(files.map(file => file.name)).to.deep.equal([`wanted${i}`]);
+      }
+      expect((await repo.files({ recursive: false })).map(file => file.name)).to.deep.equal(["wanted0"]);
+      expect((await repo.files({ recursive: true, path: "src" })).map(file => file.name).sort())
+        .to.deep.equal(["wanted3", "wanted4", "wanted5"]);
+    });
+  }
+
   it("preserves rows that stop matching the deletion filter after selection", async () => {
     await rows(2);
     let checks = 0;
