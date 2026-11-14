@@ -39,23 +39,28 @@
         <div class="repo-picker-head">
           <div class="repo-picker-title">
             <h2 id="repo-picker-title">Your repositories</h2>
-            <span class="repo-picker-count" aria-live="polite" v-if="userReposStatus === 'ready' &amp;&amp; userRepos.length &gt; 0"><template v-if="userRepoFilter &amp;&amp; filteredUserRepos().length !== userRepos.length">{{ filteredUserRepos().length }} of </template>{{ userRepos.length }} {{ userRepos.length === 1 ? 'repository' : 'repositories' }}<span class="repo-picker-more"><span class="repo-picker-more-sep"> · </span>scroll for more</span></span>
+            <span class="repo-picker-count" role="status" v-if="userReposStatus === 'loading'">{{ userRepoFilter.trim() ? 'Searching repositories…' : 'Loading repositories…' }}</span>
           </div>
-          <input type="search" class="form-control repo-picker-filter" placeholder="Filter…" aria-label="Filter your repositories" autocomplete="off" v-model="userRepoFilter" v-if="userReposStatus === 'ready' &amp;&amp; userRepos.length &gt; 0">
+          <input type="search" class="form-control repo-picker-filter" placeholder="Search repositories…" aria-label="Search your repositories" autocomplete="off" maxlength="200" v-model="userRepoFilter">
         </div>
         <ul class="repo-picker-list" v-if="userReposStatus === 'loading' || userReposStatus === 'idle'" aria-busy="true" aria-label="Loading your repositories">
           <template v-for="(i, index) in [1, 2, 3, 4]"><li class="repo-picker-row is-skeleton" aria-hidden="true"><span class="skeleton skeleton-line" :style="{ width: (34 + i * 9) + '%' }"></span></li></template>
         </ul>
-        <ul class="repo-picker-list" v-if="userReposStatus === 'ready' &amp;&amp; filteredUserRepos().length &gt; 0">
-          <template v-for="(repo, index) in filteredUserRepos()" :key="repo.id || repo.fullName"><li class="repo-picker-row">
+        <ul class="repo-picker-list" v-if="userReposStatus === 'ready' &amp;&amp; userRepos.length &gt; 0">
+          <template v-for="(repo, index) in userRepos" :key="repo.id || repo.fullName"><li class="repo-picker-row">
             <svg class="project-type-svg" aria-hidden="true"><use href="#project-type-repo"></use></svg>
             <span class="repo-picker-name" :title="repo.fullName"><span class="repo-picker-owner">{{ repo.fullName.split('/')[0] }}<span class="repo-picker-slash">/</span></span><span class="repo-picker-repo">{{ repo.fullName.split('/').slice(1).join('/') }}</span></span>
             <button type="button" class="btn btn-outline-ink btn-sm repo-picker-select" @click="selectUserRepo(repo)" :aria-label="'Select ' + repo.fullName">Select</button>
           </li></template>
         </ul>
-        <p class="repo-picker-state" v-if="userReposStatus === 'ready' &amp;&amp; userRepos.length &gt; 0 &amp;&amp; filteredUserRepos().length === 0">No repository matches “{{ userRepoFilter }}”.</p>
-        <p class="repo-picker-state" v-if="userReposStatus === 'ready' &amp;&amp; userRepos.length === 0">No repositories found for your GitHub account. Paste a URL above, or grant access below.</p>
-        <p class="repo-picker-state" role="alert" v-if="userReposStatus === 'error'">Your repositories could not be loaded. <button type="button" class="task-text-button" @click="loadUserRepos(true)">Try again</button></p>
+        <p class="repo-picker-state" role="status" v-if="userReposStatus === 'ready' &amp;&amp; userRepos.length === 0 &amp;&amp; userRepoFilter.trim()">{{ userRepoNext !== null ? 'No matches yet. Continue searching the remaining repositories.' : userRepoPage > 1 ? 'No more matching repositories.' : 'No matching repositories found.' }}</p>
+        <p class="repo-picker-state" v-if="userReposStatus === 'ready' &amp;&amp; userRepos.length === 0 &amp;&amp; !userRepoFilter.trim()">No repositories found. Paste a URL above, or grant access below.</p>
+        <p class="repo-picker-state" role="alert" v-if="userReposStatus === 'error'">Your repositories could not be loaded. <button type="button" class="task-text-button" @click="loadUserRepos()">Try again</button></p>
+        <nav class="repo-picker-pagination" aria-label="Repository pages" v-if="userRepoPage &gt; 1 || userRepoNext !== null">
+          <button type="button" class="btn btn-outline-ink btn-sm" :disabled="userRepoPage === 1 || userReposStatus === 'loading'" @click="changeUserRepoPage(-1)">Previous</button>
+          <span class="repo-picker-count" role="status">Page {{ userRepoPage }}</span>
+          <button type="button" class="btn btn-outline-ink btn-sm" :disabled="userRepoNext === null || userReposStatus !== 'ready'" @click="changeUserRepoPage(1)">{{ userRepoFilter.trim() &amp;&amp; !userRepos.length ? 'Continue search' : 'Next' }}</button>
+        </nav>
       <aside class="repo-access-details" aria-label="GitHub access" v-if="!sourceUrl &amp;&amp; githubConnections?.appEnabled &amp;&amp; githubConnections.appConnected">
         <div class="repo-access-main">
           <div class="repo-access-controls">

@@ -41,7 +41,13 @@ on `fix/remaining-production-findings`; do not deploy it without that base.
    can exceed 10 MiB between checks; this is not a hard file quota. Use a dedicated
    filesystem quota if hard local containment is needed. Use rename/reopen, not
    copytruncate. Vector excludes compressed history and reads new files from end.
-6. Set `DOCKER_LOG_DIR` if Docker's data root differs from `/var/lib/docker/containers`,
+6. Set `NGINX_LOG_GID` to the numeric group owning the access log
+   (`stat -c %g /var/log/nginx/anonymous.access.json`; normally the host `adm`
+   group). Vector receives this supplementary group while retaining no Linux
+   capabilities and read-only mounts. Keep logs `0640` and ensure logrotate
+   creates replacements with the same group, as in `nginx.logrotate`; do not
+   make access logs world-readable. Recreate Vector after changing this setting.
+   Set `DOCKER_LOG_DIR` if Docker's data root differs from `/var/lib/docker/containers`,
    and `NGINX_LOG_DIR` if needed. The collector mounts these directories read-only;
    it has no Docker socket, host PID namespace or ability to restart applications.
    Start with `docker compose -f deploy/logging/compose.yml up -d`.
@@ -343,3 +349,6 @@ unknown fields. Existing discarded exception details cannot be recovered.
 ### Admin reproduction context
 
 Failed application file requests now retain their public anonymous repository ID and encoded request pathname, up to 2 KiB, under the existing admin log access controls. This is an explicit exception to template-only diagnostics: repository-relative filenames are retained for reproduction. Query strings, headers, bodies and upstream owner/repository URLs are still excluded. Filenames are operator-visible data under this policy; no generic filter can guarantee that a user has not put sensitive text in a filename. Successful requests and metrics keep only the normalized route. Only `/api/repo/:repoId/file/:path` is supported; other endpoints and unsafe, oversized, malformed or traversal paths omit reproduction context. Historical records cannot be backfilled. The UI copies the exact captured pathname without a host or query.
+For the focused restricted-file/rotation regression, run
+`LOGGING_ACCESS_ONLY=1 python3 scripts/test-logging.py`. This uses synthetic
+`0640` logs in an isolated Docker project and preserves capability restrictions.
