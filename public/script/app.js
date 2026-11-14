@@ -2001,7 +2001,8 @@ export const anonymizeController = function (state, http, html, params, location
       const sourceErrorKinds = {
         repo_access_limited: "access", repo_not_accessible: "access", repo_saml_enforcement: "access",
         repo_already_anonymized: "used",
-        repo_not_found: "missing", github_app_access_required: "missing", pull_request_not_found: "missing", gist_not_found: "missing", token_expired: "missing",
+        github_app_reconnect_required: "reconnect", token_expired: "reconnect",
+        repo_not_found: "missing", github_app_access_required: "missing", pull_request_not_found: "missing", gist_not_found: "missing",
       };
       const recordSourceError = (error) => {
         const code = error?.data?.error || (error?.status === 404 ? "repo_not_found" : "unknown_error");
@@ -2041,6 +2042,7 @@ export const anonymizeController = function (state, http, html, params, location
           state.sourceUrl === "https://github.com/" + state._originalFullName;
         const manage = hasRepairControls ? null : type === "gist" || !state.githubConnection ? "link" : app ? "app" : "link";
         const title = "Couldn't load " + what;
+        if (kind === "reconnect") return { kind, title, text: "Your GitHub authorization has expired or was revoked. Reconnect your GitHub account, then try loading the source again.", manage: "link", retry: true };
         if (kind === "used") return { kind, title: "Already anonymized", text: `You've already anonymized ${name}. Open it from My work to change its settings.`, dashboard: true };
         if (kind === "access") {
           const reason = code === "repo_saml_enforcement" ? "Its organization requires single sign-on." : "Its organization restricts third-party apps.";
