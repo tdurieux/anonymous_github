@@ -35,6 +35,8 @@ export function installLogInvestigation(state, http) {
     sample.attempt !== undefined ? "Recorded attempt: " + sample.attempt + "." : "",
     sample.queue ? "Queue: " + sample.queue + "." : "",
   ].filter(Boolean).join(" ");
+  state.occurrenceTime = value => Number.isFinite(Date.parse(value)) ? new Date(value).toLocaleString(undefined, {dateStyle:"medium",timeStyle:"medium"}) : "Time not captured";
+  state.historyOccurrences = row => (row?._related || []).slice().sort((a,b) => Date.parse(b.ts)-Date.parse(a.ts));
   state.historyDetailFields = row => {
     try { const value = JSON.parse(row?._detailJson || "{}"); return value && typeof value === "object" ? Object.entries(value) : [["value", value]]; }
     catch { return [["record", row?._detailJson || ""]]; }
