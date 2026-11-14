@@ -899,6 +899,106 @@ describe("Vue 3 UI", function () {
     "/api/anonymize-preview": request => ({ content: request.payload.content.replaceAll("Private Author", "MASKED") }),
   };
 
+  for (const [connection, changedSource, action] of [["oauth", false, "link"], ["github-app", true, "app"], ["github-app", false, null]]) {
+    it(`keeps access repair available for editing ${connection}, changed source ${changedSource}`, async () => {
+      ui = await browser("/anonymize/saved", {
+        ...repositorySource,
+        "/api/repo/saved": { source: { fullName: "owner/repo", branch: "main", commit: "saved123" }, options: { terms: ["Private Author"] } },
+      });
+      await delay(100);
+      const state = ui.window.document.querySelector("#sourceUrl")._field.binding.state;
+      state.githubConnection = connection;
+      state.githubConnections = { appEnabled: true, appConnected: true };
+      state.role = "owner";
+      state.accessRepairAllowed = true;
+      state.sourceUrl = changedSource ? "https://github.com/owner/other" : "https://github.com/owner/repo";
+      state.details = null;
+      state.sourceError = "repo_not_found";
+      await delay(30);
+      expect(state.sourceProblem().manage).to.equal(action);
+      const doc = ui.window.document;
+      if (action === "link") expect(doc.querySelector('.source-error a[href="/connections"]')).not.to.equal(null);
+      else if (action === "app") expect(doc.querySelector('.source-error .btn-ink').textContent).to.include("Manage GitHub access");
+      else expect(doc.querySelector('.repair-step')).not.to.equal(null);
+      expect(ui.errors).to.deep.equal([]);
+    });
+  }
+
+  for (const code of ["github_app_reconnect_required", "token_expired"]) {
+    it(`offers account reconnection when source loading returns ${code}`, async () => {
+      ui = await browser("/anonymize", {
+        ...repositorySource,
+        "/api/repo/owner/repo/": { __status: 403, body: { error: code } },
+      });
+      const state = ui.window.document.querySelector("#sourceUrl")._field.binding.state;
+      state.sourceUrl = "https://github.com/owner/repo";
+      await state.urlSelected();
+      await delay(30);
+      expect(state.sourceProblem().kind).to.equal("reconnect");
+      expect(state.sourceProblem().manage).to.equal("link");
+      expect(state.sourceReady()).to.equal(false);
+      expect(ui.window.document.querySelector('.source-error a[href="/connections"]')).not.to.equal(null);
+      expect(ui.window.document.querySelector('.rp-error a[href="/connections"]')).not.to.equal(null);
+      expect(ui.errors).to.deep.equal([]);
+    });
+  }
+
+  it("shows failed reconnection after previously loading source metadata", async () => {
+    let fail = false;
+    ui = await browser("/anonymize/saved", {
+      ...repositorySource,
+      "/api/repo/saved": { source: { fullName: "owner/repo", branch: "main", commit: "saved123" }, options: { terms: ["Private Author"] } },
+      "/api/repo/owner/repo/": () => fail ? { __status: 403, body: { error: "github_app_reconnect_required" } }
+        : { defaultBranch: "main", repo: "repo", hasPage: false },
+    });
+    await delay(150);
+    const state = ui.window.document.querySelector("#sourceUrl")._field.binding.state;
+    expect(state.details.repo).to.equal("repo");
+    ui.window.confirm = () => true;
+    fail = true;
+    await state.reconnectSource();
+    await delay(30);
+    expect(state.details).to.equal(null);
+    expect(state.sourceProblem().kind).to.equal("reconnect");
+    expect(ui.window.document.querySelector('.source-error a[href="/connections"]')).not.to.equal(null);
+    expect(ui.window.document.querySelector('.rp-error a[href="/connections"]')).not.to.equal(null);
+    fail = false;
+    await state.reconnectSource();
+    await delay(30);
+    expect(state.sourceProblem()).to.equal(null);
+    expect(state.source.commit).to.equal("abcdef123");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
+  it("recovers edit source validity after a failed branch refresh", async () => {
+    let fail = false;
+    ui = await browser("/anonymize/saved", {
+      ...repositorySource,
+      "/api/repo/saved": { source: { fullName: "owner/repo", branch: "main", commit: "saved123" }, options: { terms: ["Private Author"], update: false } },
+      "/api/repo/owner/repo/branches": () => fail ? { __status: 503, body: { error: "github_unavailable" } }
+        : [{ name: "main", commit: "latest456" }],
+    });
+    await delay(150);
+    const state = ui.window.document.querySelector("#sourceUrl")._field.binding.state;
+    expect(state.source.commit).to.equal("saved123");
+    fail = true;
+    await state.getBranches(true);
+    expect(state.details).to.equal(null);
+    expect(state.anonymize.sourceUrl.errors.missing).to.equal(true);
+    expect(state.sourceProblem()).not.to.equal(null);
+    fail = false;
+    const metadataBefore = ui.requests.filter(r => r.url.pathname === "/api/repo/owner/repo/").length;
+    await state.getBranches(true);
+    await delay(30);
+    expect(ui.requests.filter(r => r.url.pathname === "/api/repo/owner/repo/")).to.have.length(metadataBefore + 1);
+    expect(state.details.repo).to.equal("repo");
+    expect(state.anonymize.sourceUrl.errors.missing).not.to.equal(true);
+    expect(state.sourceProblem()).to.equal(null);
+    expect(state.source.commit).to.equal("latest456");
+    expect(state.terms).to.equal("Private Author");
+    expect(ui.errors).to.deep.equal([]);
+  });
+
   it("browses redacted preview paths with the explorer tree and Ace renderer", async () => {
     ui = await browser("/anonymize/saved", {
       ...repositorySource,
@@ -1943,7 +2043,14 @@ describe("Vue 3 UI", function () {
       const button = [...workspace.querySelectorAll("button")].find(b => b.textContent.trim() === "Manage GitHub access");
       expect(button).not.to.equal(undefined);
       for (let node = button; node; node = node.parentElement) expect(ui.window.getComputedStyle(node).display).not.to.equal("none");
-      expect(workspace.textContent).to.include("Signing in does not grant access to private repositories");
+      const message = workspace.querySelector(".source-error");
+      expect(message.textContent).to.include("We can't read " + (type === "pr" ? "pull request #7 in owner/private" : "owner/private"));
+      expect(message.textContent).to.include("the Anonymous GitHub app hasn't been given access to it");
+      expect(workspace.textContent).not.to.include("Repository not listed?");
+      // Nothing that depends on the source (branch, commit and its validation) is shown.
+      const commit = workspace.querySelector("#commit");
+      if (commit) expect(ui.window.getComputedStyle(commit.closest(".form-grid-2")).display).to.equal("none");
+      expect(workspace.querySelector(".anonymize-submit-bar .btn-ink").disabled).to.equal(true);
       button.click();
       const draft = JSON.parse(ui.window.sessionStorage.getItem("github-access-draft"));
       expect(draft.draft.sourceUrl).to.equal(sourceUrl);

@@ -25,6 +25,7 @@ export class GitHubRepository {
       repo: this.repo,
       owner: this.owner,
       hasPage: this._data.hasPage,
+      private: this._data.private,
       pageSource: this._data.pageSource,
       fullName: this.fullName,
       defaultBranch: this._data.defaultBranch,
@@ -392,6 +393,7 @@ export async function getRepositoryFromGitHub(opt: {
     model.size = r.size;
     model.defaultBranch = r.default_branch;
     model.hasPage = r.has_pages;
+    model.private = r.private;
     if (pageSource) model.pageSource = pageSource;
     return new GitHubRepository(model);
   }
@@ -405,6 +407,7 @@ export async function getRepositoryFromGitHub(opt: {
       size: r.size,
       defaultBranch: r.default_branch,
       hasPage: r.has_pages,
+      private: r.private,
       ...(pageSource ? { pageSource } : {}),
     },
     $setOnInsert: { externalId: "gh_" + r.id },

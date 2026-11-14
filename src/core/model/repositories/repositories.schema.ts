@@ -15,6 +15,7 @@ const RepositorySchema = new Schema({
     default: "github",
   },
   hasPage: { type: Boolean, default: false },
+  private: Boolean,
   pageSource: {
     branch: { type: String },
     path: String,

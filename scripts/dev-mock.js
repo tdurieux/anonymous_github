@@ -277,6 +277,8 @@ app.get("/api/user/quota", (req, res) => res.json(quota));
 app.get("/api/user/anonymized_repositories", (req, res) => res.json(repositories));
 app.get("/api/user/anonymized_pull_requests", (req, res) => res.json(pullRequests));
 app.get("/api/user/anonymized_gists", (req, res) => res.json(gists));
+// The landing picker: repositories the GitHub App can read.
+app.get("/api/user/all_repositories", (req, res) => res.json(["jsmith/robust-repair", "jsmith/thesis-code", "tdurieux/anonymous_github", "acme-lab/benchmarks"].map((fullName, i) => ({ id: "r" + i, fullName }))));
 app.get("/api/user/default", (req, res) =>
   res.json({ terms: ["Jane Smith", "MIT CSAIL", "jsmith"], options: { link: true, image: true, pdf: true, notebook: true, loc: true, page: false, update: false, mode: "GitHubStream", expirationMode: "remove" } })
 );
@@ -457,7 +459,7 @@ const sourceAccess = (req, res) => {
 const SOURCE_BASE = `/api/repo/${SOURCE.owner}/${SOURCE.repo}`;
 app.get(SOURCE_BASE + "/", (req, res) => res.json({
   id: "mock-source-1", externalId: "gh_910001", repo: SOURCE.repo, owner: SOURCE.owner,
-  hasPage: false, fullName: `${SOURCE.owner}/${SOURCE.repo}`, defaultBranch: "main", size: 2048,
+  hasPage: false, private: true, fullName: `${SOURCE.owner}/${SOURCE.repo}`, defaultBranch: "main", size: 2048,
 }));
 app.get(SOURCE_BASE + "/branches", (req, res) => res.json([
   { name: "main", commit: SOURCE.commit, readme: sourceText["README.md"] },
@@ -484,6 +486,29 @@ app.get(SOURCE_BASE + "/file", (req, res) => {
     res.type("text/plain; charset=utf-8").send(sourceText[file]);
   }, Number(process.env.MOCK_FILE_DELAY || 150));
 });
+// Source URLs that fail, for the workspace's source error states:
+//   jsmith/missing-repo      not found, or the GitHub App was not given access
+//   acme-lab/restricted-tool the organization restricts third-party access
+//   jsmith/slow-repo         never answers within a capture (loading state)
+// plus a pull request and a gist that cannot be read.
+const failingSources = { "jsmith/missing-repo": [404, "repo_not_found"], "acme-lab/restricted-tool": [403, "repo_access_limited"] };
+app.get("/api/repo/:owner/:repo/{*rest}", (req, res, next) => {
+  const name = `${req.params.owner}/${req.params.repo}`;
+  if (name === "jsmith/slow-repo") return global.setTimeout(() => res.status(404).json({ error: "repo_not_found" }), 120000);
+  const failure = failingSources[name];
+  if (!failure) return next();
+  res.status(failure[0]).json({ error: failure[1] });
+});
+app.get("/api/pr/jsmith/missing-repo/:id", (req, res) => res.status(404).json({ error: "pull_request_not_found" }));
+app.get("/api/gist/source/:id", (req, res) => res.status(404).json({ error: "gist_not_found" }));
+// Edit mode: one saved anonymization whose source loads, one whose source no longer does.
+const editFixture = (repoId, fullName) => ({
+  repoId, status: "ready", role: "owner", connection: "github-app", anonymizeDate: ago(12), coauthors: [],
+  source: { type: "GitHubStream", fullName, branch: "main", commit: SOURCE.commit },
+  options: opts({ terms: ["Jane Smith", "MIT CSAIL", "jsmith"], expirationDate: ahead(160) }),
+});
+app.get("/api/repo/robust-repair-preview", (req, res) => res.json(editFixture("robust-repair-preview", `${SOURCE.owner}/${SOURCE.repo}`)));
+app.get("/api/repo/missing-repo-4F2A", (req, res) => res.json(editFixture("missing-repo-4F2A", "jsmith/missing-repo")));
 // Use the production anonymizer for both sides of the visual comparison.
 require("ts-node/register/transpile-only");
 const { ContentAnonimizer } = require("../src/core/anonymize-utils");
