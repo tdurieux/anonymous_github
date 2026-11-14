@@ -26,6 +26,8 @@ services:
     command: [--config, /etc/vector/vector.yaml]
     # File access only: no Docker API socket and no host PID namespace.
     user: '0:0'
+    # Match the host logrotate group; keep cap_drop ALL and read-only mounts.
+    group_add: ['${NGINX_LOG_GID:?Set the numeric group owning Nginx access logs}']
     volumes:
       - ./vector.yaml:/etc/vector/vector.yaml:ro
       - ./sanitize.vrl:/etc/vector/sanitize.vrl:ro

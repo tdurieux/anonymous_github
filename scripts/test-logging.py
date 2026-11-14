@@ -45,12 +45,15 @@ with tempfile.TemporaryDirectory(prefix=PROJECT) as temp:
     log = docker / 'fixture/fixture-json.log'
     log.touch()
     edge = nginx / 'anonymous.access.json'
+    reader_gid = os.getgid() if os.getgid() != 0 else 65534
     edge.touch()
+    if os.getuid() == 0: os.chown(edge, 65534, reader_gid)
+    edge.chmod(0o640)  # root without DAC capabilities needs the supplementary group
     password = temp / 'password'
     password.write_text(secrets.token_urlsafe(32))
     password.chmod(0o644)  # temp directory is 0700; Grafana uid must read the bind mount
     env = {**os.environ, 'GRAFANA_ADMIN_USER': 'local-test', 'GRAFANA_PASSWORD_FILE': str(password),
-           'DOCKER_LOG_DIR': str(docker), 'NGINX_LOG_DIR': str(nginx), 'GRAFANA_PORT': '0'}
+           'NGINX_LOG_GID': str(reader_gid), 'DOCKER_LOG_DIR': str(docker), 'NGINX_LOG_DIR': str(nginx), 'GRAFANA_PORT': '0'}
     override = temp / 'override.yml'
     override.write_text(yaml.safe_dump({'services': {
         'victorialogs': {'ports': ['127.0.0.1::9428']},
@@ -121,6 +124,22 @@ with tempfile.TemporaryDirectory(prefix=PROJECT) as temp:
         assert len(query('event:job_failed')) == 1
         assert all('requestId' not in r['_stream'] and 'instance' not in r['_stream'] for r in rows)
         print('PASS ingestion, privacy allowlist, malformed input, API/streamer/job/edge correlation')
+        # Rename/create rotation must retain read access to both inodes.
+        edge.rename(nginx / 'anonymous.access.json.1')
+        edge.touch(); edge.chmod(0o640)
+        if os.getuid() == 0: os.chown(edge, 65534, reader_gid)
+        time.sleep(2)  # discover the empty replacement before appending (read_from=end)
+        rotation_id = str(uuid.uuid4())
+        with edge.open('a') as out:
+            out.write(json.dumps({'status': 502, 'request_time': 0.1,
+                'app_request_id': rotation_id, 'route': '/api/repo/:id'}) + '\n')
+        wait_for(lambda: len(query('requestId:="' + rotation_id + '"')) == 1)
+        inspection = json.loads(run(['docker', 'inspect', compose('ps', '-q', 'vector')]))[0]
+        assert str(reader_gid) in inspection['HostConfig']['GroupAdd']
+        assert 'ALL' in inspection['HostConfig']['CapDrop']
+        print('PASS restricted 0640 Nginx access and rename/create rotation with no capabilities')
+        if os.environ.get('LOGGING_ACCESS_ONLY') == '1':
+            sys.exit(0)
         # Query every shipped dashboard and alert expression against the real server.
         dashboard = json.loads((CONFIG / 'grafana/dashboards/operations.json').read_text())
         for panel in dashboard['panels']:
