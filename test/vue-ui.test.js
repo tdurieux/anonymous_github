@@ -81,6 +81,24 @@ describe("Vue 3 UI", function () {
   let ui;
   afterEach(() => ui?.close());
 
+  it("renders useful history occurrences with visible times and selected tabs", async () => {
+    const entries=[0,2,1].map(n=>({ts:new Date(Date.UTC(2026,10,14,12,n)).toISOString(),level:'error',module:'route',message:'application_log',raw:[{event:'application_log',service:'api',httpStatus:500,...(n===2?{method:'GET',route:'/api/repo/:repoId/file/:path'}:{})}]}));
+    ui=await browser('/',{'/api/user':{username:'admin',isAdmin:true,status:'ready'},'/api/admin/errors':{available:true,total:3,entries},'/api/admin/errors/investigation':{state:'disabled',groups:[]}});
+    await ui.go('/admin/errors'); const doc=ui.window.document;
+    doc.querySelector('#error-source-history').click();await delay(20);
+    doc.querySelector('button.errors-row-main').click();await delay(20);
+    const tab=[...doc.querySelectorAll('.history-source .detail-tabs button')].find(b=>b.textContent.startsWith('Occurrences'));
+    tab.click();await delay(20);
+    expect(tab.getAttribute('aria-pressed')).equal('true');expect(tab.classList.contains('active')).equal(true);
+    const items=[...doc.querySelectorAll('.history-occurrence-list li')];expect(items).length(3);
+    expect(items.map(item=>item.querySelector('time').getAttribute('datetime'))).deep.equal([entries[1].ts,entries[2].ts,entries[0].ts]);
+    expect(items[0].textContent).include('GET /api/repo/:repoId/file/:path');
+    expect(items[1].textContent).include('Request route was not captured.').and.include('Exception frames were not captured.');
+    expect(items[0].querySelector('time').classList.contains('when-abs')).equal(false);
+    const record=items[0].querySelector('details');record.querySelector('summary').click();expect(record.open).equal(true);
+    expect(record.querySelector('.history-occurrence-record pre').textContent).include('application_log');expect(ui.errors).deep.equal([]);
+  });
+
   it("shows normalized request routes and exception frames in both admin sources", async () => {
     const now=new Date().toISOString(), requestId='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
     const sample={event:'application_log',service:'api',module:'route',severity:'error',httpStatus:500,method:'GET',route:'/api/repo/:repoId/file/:path',errorType:'TypeError',errorStack:'at printError (build/server/routes/route-utils.js:200:7)',causeType:'RangeError',causeStack:'at <anonymous> (build/core/repository.js:410:9)',requestId};
