@@ -24,7 +24,7 @@
       <h2 id="central-logs-title">Central log investigation</h2>
       <a v-if="logData?.grafanaUrl" :href="safeUrl(logData.grafanaUrl)" target="_blank" rel="noopener noreferrer">Open in Grafana</a>
     </div>
-    <p>Warnings and errors from VictoriaLogs. Counts describe only this bounded result window and are never added to Redis history.</p>
+    <p>Warnings, errors and Nginx 5xx responses from VictoriaLogs. Counts describe only this bounded result window and are never added to Redis history.</p>
     <form class="errors-toolbar log-filters" @submit.prevent="refreshLogs()">
       <label>Time window
         <select class="form-control" v-model="logFilters.window" id="log-window">

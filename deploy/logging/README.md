@@ -254,7 +254,11 @@ Never put a secret in any of these URL settings.
 
 Admins can select 15 minutes, one hour, six hours or 24 hours, a fixed service,
 and an exact release SHA. The server fetches at most 1,001 recent warning/error
-records and shows at most 1,000. Groups count those returned records, with safe
+records, including Nginx edge responses with status 500–599 even when their
+recorded severity is info, and shows at most 1,000. Successful edge responses and
+429 rate limits are not server failures; their records remain available through
+correlated timelines. The unknown release filter matches both missing fields and
+explicit `unknown` values for compatibility with existing collected data. Groups count those returned records, with safe
 fingerprints based on service/module/event/error code/severity/status, independent
 of request/job IDs and release. First/last occurrence applies only to that bounded
 snapshot. A limit or malformed record produces partial coverage, not a complete
@@ -298,7 +302,8 @@ LOG_REDIS_MIRROR=off node scripts/test-admin-logs.js
 ```
 
 The last command starts a temporary loopback-only VictoriaLogs container from the
-pinned image, inserts synthetic records, verifies grouping/privacy/correlation,
+pinned image, runs synthetic fixtures through the pinned Vector collector program,
+and verifies grouping/privacy/correlation and historical release/edge compatibility,
 stops the backend and verifies unavailable/disabled responses, then removes its
 container. It does not read `.env`, production data or send notifications. UI
 regressions are in `test/vue-ui.test.js`; rebuild the UI before running them.

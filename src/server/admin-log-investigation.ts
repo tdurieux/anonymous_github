@@ -146,7 +146,9 @@ export async function investigateLogs(options: Options, correlation = false) {
       const unique = records.sort((a, b) => timestampKey(a.timestamp).localeCompare(timestampKey(b.timestamp)));
       return { ...common, state: partial || unique.length > 200 ? "partial" : unique.length ? "ready" : "empty", events: unique.slice(0, 200), limit: 200 };
     }
-    const filter = `${range(options)} (severity:error OR severity:warn)${options.service ? ` service:${options.service}` : ""}${options.release ? ` release:${options.release}` : ""}`;
+    // Historical collector output omits unknown releases and keeps edge 5xx at info.
+    const release = options.release === "unknown" ? ' (release:unknown OR release:"")' : options.release ? ` release:${options.release}` : "";
+    const filter = `${range(options)} (severity:error OR severity:warn OR (service:nginx event:edge_request status:>=500 status:<600))${options.service ? ` service:${options.service}` : ""}${release}`;
     const [errors, heartbeat, drops] = await Promise.all([
       rows(base, `${filter} | sort by (_time) desc`, 1001, controller.signal),
       rows(base, '_time:5m (event:process_heartbeat OR event:queue_heartbeat OR event:job_completed OR event:job_failed) | sort by (_time) desc', 501, controller.signal),

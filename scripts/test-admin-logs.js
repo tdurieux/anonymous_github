@@ -31,6 +31,36 @@ const sleep = ms => new Promise(resolve=>setTimeout(resolve,ms));
     const timeline=await investigateLogs(logOptions({kind:'jobId',id:jobId},true),true);
     assert.equal(timeline.state,'ready'); assert.deepEqual([...new Set(timeline.events.map(row=>row.service))].sort(),['api','streamer','worker']);
     console.log('PASS real filtered grouping, privacy projection and job→request cross-service correlation');
+    // Run the deployed collector program in its pinned Vector image, then ingest
+    // its real output alongside historical absent/explicit-unknown releases.
+    const vectorImage = fs.readFileSync('deploy/logging/compose.yml','utf8').match(/image: (timberio\/vector:[^\s]+)/)[1];
+    const app = {timestamp:new Date().toISOString(),severity:'error',service:'api',event:'application_log',module:'queue',errorCode:'upstream_error'};
+    const edgeIds = [200,429,502,504].map(()=>randomUUID());
+    const source = [undefined,'unknown','abcdef1'].map(release=>({file:'/host/docker/fixture/log.json',message:JSON.stringify({attrs:{tag:'api'},log:JSON.stringify({...app,release})})}));
+    source.push(...[200,429,502,504].map((status,i)=>({file:'/host/nginx/anonymous.access.json',message:JSON.stringify({time:new Date().toISOString(),status,app_request_id:edgeIds[i],request_time:0.1,upstream_header_time:0.01})})));
+    const collected = execFileSync('docker',['run','--rm','-i','--network','none','--memory','256m',vectorImage,'vrl','-i','/dev/stdin',fs.readFileSync('deploy/logging/sanitize.vrl','utf8')+'\nencode_json(.)'],{encoding:'utf8',input:source.map(JSON.stringify).join('\n')+'\n'}).trim().split('\n').map(line=>JSON.parse(JSON.parse(line)));
+    assert.equal(collected.length,7);
+    assert(!Object.hasOwn(collected[0],'release')); assert(!Object.hasOwn(collected[1],'release'));
+    assert.equal(collected[2].release,'abcdef1');
+    assert(collected.slice(3).every(row=>row.severity==='info' && row.event==='edge_request'));
+    const fixtures=[...collected,{...app},{...app,release:'unknown'}];
+    const insert=await fetch(process.env.ADMIN_LOG_URL+'/insert/jsonline?_time_field=timestamp',{method:'POST',body:fixtures.map(JSON.stringify).join('\n'),headers:{'Content-Type':'application/stream+json'}});
+    assert(insert.ok); await sleep(2000);
+    const unknown=await investigateLogs(logOptions({service:'api',release:'unknown'}));
+    assert.equal(unknown.captured,4); assert(unknown.groups.every(group=>group.sample.release==='unknown'));
+    assert.equal((await investigateLogs(logOptions({service:'api',release:'abcdef1'}))).captured,3);
+    const edge=await investigateLogs(logOptions({service:'nginx',release:'unknown'}));
+    assert.equal(edge.captured,2); assert.deepEqual(edge.groups.map(group=>group.sample.status).sort(),[502,504]);
+    assert(edge.groups.every(group=>group.sample.severity==='info'));
+    const all=await investigateLogs(logOptions({}));
+    assert.equal(all.groups.filter(group=>group.sample.service==='nginx').reduce((n,group)=>n+group.count,0),2);
+    // Successful and rate-limited edge records remain searchable in timelines,
+    // but are not added to the server-failure investigation results.
+    for(let i=0;i<4;i++) {
+      const trace=await investigateLogs(logOptions({kind:'requestId',id:edgeIds[i]},true),true);
+      assert.equal(trace.events.length,1); assert.equal(trace.events[0].status,[200,429,502,504][i]);
+    }
+    console.log('PASS actual collector output: missing/unknown release compatibility, edge-only 502/504, excluded 200/429 with retained timelines');
     docker('stop',name);
     const unavailable=await investigateLogs(logOptions({})); assert.equal(unavailable.state,'unreachable');
     delete process.env.ADMIN_LOG_URL;
