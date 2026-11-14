@@ -127,7 +127,7 @@ describe("Vue 3 UI", function () {
     ui = await browser("/", {
       "/api/user": {username:"admin",isAdmin:true,status:"ready"},
       "/api/admin/errors/investigation": {state:"disabled",groups:[]},
-      "/api/admin/errors": request => request.url.searchParams.get("offset") === "250"
+      "/api/admin/errors": request => request.url.searchParams.get("offset") === "250" || Number(request.url.searchParams.get("limit")) >= 251
         ? {entries:[{ts:new Date().toISOString(),level:"error",module:"queue",message:"upstream_error",raw:[{code:"upstream_error",status:502}]}],available:true,total:251,nextOffset:251}
         : {entries:[],available:true,total:251,nextOffset:250,redactedEntries:250},
     });
@@ -135,6 +135,9 @@ describe("Vue 3 UI", function () {
     const button=ui.window.document.querySelector(".errors-pager button");
     expect(button).not.to.equal(null); button.click(); await delay(40);
     expect(ui.window.document.body.textContent).to.include("upstream_error").and.include("invalid legacy records were omitted");
+    ui.window.document.querySelector('button[aria-label="Refresh"]').click(); await delay(40);
+    expect(ui.requests.filter(r => r.url.pathname === "/api/admin/errors").at(-1).url.searchParams.get("limit")).to.equal("251");
+    expect(ui.window.document.body.textContent).to.include("upstream_error");
     expect(ui.errors).to.deep.equal([]);
   });
 

@@ -1731,7 +1731,7 @@ export const errorsAdminController = function (state, http, location, interval) 
         const offset = append ? (state.redisNextOffset || state.entries.length) : 0;
         const limit = append
           ? state.pageSize
-          : Math.max(state.pageSize, state.entries.length || state.pageSize);
+          : Math.max(state.pageSize, state.redisNextOffset || state.entries.length || state.pageSize);
         http
           .get("/api/admin/errors", { params: { offset, limit } })
           .then(
