@@ -158,7 +158,7 @@ export function monitorRequests(service: Service, metrics = requestMetrics,
       metrics.observe("request", route, method, ms, { bytes, aborted, error: res.statusCode >= 500, slow });
       if (firstByteMs != null) metrics.observe("first_byte", route, method, firstByteMs);
       const responseMs = firstByteMs == null ? null : Math.max(0, ms - firstByteMs);
-      const detail = { ...(res.statusCode >= 400 ? reproduction : {}), requestId: id, service, method, route, status: res.statusCode,
+      const detail = { ...reproduction, requestId: id, service, method, route, status: res.statusCode,
         outcome: aborted ? "interrupted" : "completed", ms: Math.round(ms), firstByteMs: firstByteMs == null ? null : Math.round(firstByteMs),
         responseMs: responseMs == null ? null : Math.round(responseMs),
         bytesPerSecond: responseMs != null && responseMs >= 1 && bytes > 0 ? Math.round(bytes * 1000 / responseMs) : null,

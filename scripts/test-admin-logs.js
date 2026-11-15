@@ -90,6 +90,19 @@ const sleep = ms => new Promise(resolve=>setTimeout(resolve,ms));
     const traced=await investigateLogs(logOptions({kind:'requestId',id:diagnosticId},true),true);
     const redis=safeRedisLog({ts:diagnostic.timestamp,level:'error',module:'route',raw:[diagnostic]});
     for(const row of [traced.events[0],redis.raw[0]]) {assert.equal(row.requestPath,diagnostic.requestPath);assert.equal(row.repoId,'demo-123');assert.equal(row.route,diagnostic.route);assert.equal(row.method,'GET');assert.equal(row.errorStack,projected.errorStack);assert.equal(row.causeType,'RangeError');assert(!JSON.stringify(row).includes(secret));}
+    const paths=['/api/repo/demo-123','/api/repo/demo-123/zip','/api/repo/demo-123/files/docs/nested%20folder/','/api/repo/demo-123/files/counts','/api/repo/demo-123/options','/api/repo/demo-123/file/README.md'];
+    const pathRecords=paths.map((requestPath,i)=>logContext.run({requestId:randomUUID(),requestPath},()=>logRecord(i%2?'warn':'info','requests',['request',{status:200,outcome:i%2?'interrupted':'completed'}])));
+    const pathSources=pathRecords.map(record=>({...rawSource,message:JSON.stringify({attrs:{tag:'api'},log:JSON.stringify(record)})}));
+    const pathOutput=execFileSync('docker',['run','--rm','-i','--network','none','--memory','256m',vectorImage,'vrl','-i','/dev/stdin',fs.readFileSync('deploy/logging/sanitize.vrl','utf8')+'\nencode_json(.)'],{encoding:'utf8',input:pathSources.map(JSON.stringify).join('\n')+'\n'}).trim().split('\n').map(line=>JSON.parse(JSON.parse(line)));
+    assert.deepEqual(pathOutput.map(x=>x.requestPath),paths);
+    const pathInsert=await fetch(process.env.ADMIN_LOG_URL+'/insert/jsonline?_time_field=timestamp',{method:'POST',body:pathOutput.map(JSON.stringify).join('\n'),headers:{'Content-Type':'application/stream+json'}});
+    assert(pathInsert.ok);await sleep(2000);
+    for(let i=0;i<paths.length;i++){
+      const result=await investigateLogs(logOptions({kind:'requestId',id:pathRecords[i].requestId},true),true);
+      assert.equal(result.events[0].requestPath,paths[i]);
+      assert.equal(result.events[0].repoId,'demo-123');
+    }
+    console.log('PASS successful and interrupted anonymous endpoint paths through collector and central API');
     console.log('PASS synthetic exception logger → pinned collector → VictoriaLogs/Redis safe API with normalized route and bounded frames');
     docker('stop',name);
     const unavailable=await investigateLogs(logOptions({})); assert.equal(unavailable.state,'unreachable');

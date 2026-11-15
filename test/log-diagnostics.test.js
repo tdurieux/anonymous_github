@@ -13,14 +13,27 @@ const secret='PRIVATE_TOKEN_owner_filename';
 const frame='at printError (src/server/routes/route-utils.ts:200:7)';
 function failure(){ const error=new TypeError('https://user:'+secret+'@github.com/private/repo?token='+secret); error.stack=error.message+'\n    at printError ('+path.resolve('src/server/routes/route-utils.ts')+':200:7)\n    at '+secret+' ('+path.resolve('src/server/routes/route-utils.ts')+':201:9)\n    at secret (/home/private/'+secret+':1:2)\n    at fn (https://private/'+secret+':1:2)';return error; }
 describe('safe actionable exception diagnostics',()=>{
- it('keeps bounded anonymous file request context for failures without queries or unsafe paths',()=>{
+ it('keeps bounded anonymous request context without queries or unsafe paths',()=>{
   const requestPath='/api/repo/demo-123/file/docs/reproduce%20issue.md';
   expect(requestReproduction(requestPath+'?token=SECRET')).deep.equal({requestPath,repoId:'demo-123'});
   for(const value of ['/api/repo/owner/name/readme','https://example.test'+requestPath,requestPath+'?token=SECRET','/api/repo/demo-123/file/%0aSECRET','/api/repo/demo-123/file/../secret','/api/repo/demo-123/file/%252e%252e/secret','/api/repo/demo-123/file/https%3a%2f%2fuser:token@example.test','/api/repo/demo-123/file/'+ 'x'.repeat(2048)]) expect(safeReproductionPath(value),value).equal(undefined);
-  expect(logContext.run({requestPath},()=>logRecord('info','route',['request',{status:200}]))).not.have.property('requestPath');
+  expect(logContext.run({requestPath},()=>logRecord('info','route',['request',{status:200}]))).have.property('requestPath',requestPath);
   const record=logContext.run({requestPath},()=>logRecord('error','route',['failure',{httpStatus:500}]));
   expect(record).include({requestPath,repoId:'demo-123'});
   expect(safeRedisLog({ts:record.timestamp,level:'error',module:'route',raw:[record]}).raw[0]).include({requestPath,repoId:'demo-123'});
+ });
+ it('preserves anonymous endpoints at all outcomes through both API projections',async()=>{
+  for(const suffix of ['', '/', '/zip', '/files', '/files/docs/nested%20folder/', '/files/counts', '/files/search', '/options', '/refresh', '/coauthors', '/extend', '/file/README.md']){
+   const requestPath='/api/repo/demo-123'+suffix;
+   expect(requestReproduction(requestPath+'?token=SECRET')).deep.equal({requestPath,repoId:'demo-123'});
+   for(const status of [200,304,404,500]){
+    const row=logContext.run({requestPath},()=>logRecord('info','requests',['request',{status,outcome:'interrupted'}]));
+    expect(row).include({requestPath,repoId:'demo-123'});
+    expect(safeRedisLog({ts:row.timestamp,level:'info',module:'requests',raw:[row]}).raw[0]).include({requestPath,repoId:'demo-123'});
+   }
+  }
+  for(const suffix of ['/files/../secret','/files/%2fsecret','/files/%0aSECRET','/files/%252e%252e/secret','/zip?token=SECRET'])
+   expect(safeReproductionPath('/api/repo/demo-123'+suffix)).equal(undefined);
  });
  it('preserves dotted allowlisted source files and anonymous/named async frames',()=>{
   const error=new Error(secret);
