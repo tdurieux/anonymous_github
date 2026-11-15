@@ -110,7 +110,9 @@ export const statusMsg = (function () {
       commit_not_found: "Commit not found on GitHub",
       repo_too_big: "Repository exceeds the size limit",
       repository_too_big: "Repository exceeds the size limit",
-      quota_exceeded: "Storage quota exceeded",
+      quota_exceeded: "Hosting allowance exceeded",
+      quota_repository_limit: "Repository limit reached",
+      quota_storage_limit: "Storage allowance exceeded",
       incomplete_record: "Incomplete record: missing identifier",
     };
     return function (msg) {

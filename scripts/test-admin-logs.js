@@ -119,6 +119,20 @@ const sleep = ms => new Promise(resolve=>setTimeout(resolve,ms));
     const deployView=await investigateLogs(logOptions({release:'abcdef3'}));
     assert.equal(deployView.groups[0].sample.deploymentId,deploymentId);assert.equal(deployView.groups[0].sample.deploymentOutcome,'failed');assert.equal(deployView.groups[0].sample.restartMs,3000);
     console.log('PASS deployment evidence, request timings/bytes and release baseline through pinned collector and central API');
+    const quotaId = randomUUID();
+    const quotaFields = {quotaUsedRepositories:1,quotaRepositoryLimit:5,quotaUsedBytes:120000000,
+      quotaRequestedBytes:6000000000,quotaProjectedBytes:6000000000,quotaStorageLimit:5368709120};
+    const quotaRecord = logRecord('warn','billing',['quota admission denied',{
+      code:'quota_storage_limit',httpStatus:402,requestId:quotaId,...quotaFields,owner:secret,source:secret}]);
+    const quotaOutput = execFileSync('docker',['run','--rm','-i','--network','none','--memory','256m',vectorImage,'vrl','-i','/dev/stdin',fs.readFileSync('deploy/logging/sanitize.vrl','utf8')+'\nencode_json(.)'],{encoding:'utf8',input:JSON.stringify({file:'/host/docker/fixture/log.json',message:JSON.stringify({attrs:{tag:'api'},log:JSON.stringify(quotaRecord)})})+'\n'}).trim().split('\n').map(line=>JSON.parse(JSON.parse(line)))[0];
+    assert.equal(quotaOutput.event,'quota_denied');assert.equal(quotaOutput.errorCode,'quota_storage_limit');
+    assert(!JSON.stringify(quotaOutput).includes(secret));
+    assert((await fetch(process.env.ADMIN_LOG_URL+'/insert/jsonline?_time_field=timestamp',{method:'POST',body:JSON.stringify(quotaOutput),headers:{'Content-Type':'application/stream+json'}})).ok);await sleep(2000);
+    const quotaView=await investigateLogs(logOptions({kind:'requestId',id:quotaId},true),true);
+    const redisQuota=safeRedisLog({ts:quotaRecord.timestamp,level:'warn',module:'billing',raw:[quotaRecord]});
+    for(const [key,value] of Object.entries(quotaFields)) {assert.equal(quotaView.events[0][key],value);assert.equal(redisQuota.raw[0][key],value);}
+    assert.equal(quotaView.events[0].errorCode,'quota_storage_limit');
+    console.log('PASS quota denial reason and exact numeric admission snapshot through collector and both safe admin APIs');
     docker('stop',name);
     const unavailable=await investigateLogs(logOptions({})); assert.equal(unavailable.state,'unreachable');
     delete process.env.ADMIN_LOG_URL;

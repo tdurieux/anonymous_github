@@ -166,7 +166,7 @@ export default loggedJob("download", async function (job: SandboxedJob<RepoJobDa
     }
     // Permanent for this attempt, not for the repository: owner refresh
     // performs admission again after capacity or the plan changes.
-    if (quotaDenied) throw new UnrecoverableError("quota_exceeded");
+    if (quotaDenied) throw new UnrecoverableError((error as Error).message);
     throw error;
   } finally {
     clearInterval(statusInterval);

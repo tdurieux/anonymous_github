@@ -1,5 +1,5 @@
 export function isQuotaFailure(code?: string): boolean {
-  return code === "quota_exceeded";
+  return code === "quota_exceeded" || code === "quota_repository_limit" || code === "quota_storage_limit";
 }
 
 /** Persisted repository failures need the same client status as the original error. */

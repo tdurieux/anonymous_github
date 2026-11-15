@@ -103,7 +103,7 @@ describe("repository refresh and restoration", () => {
       stub(quotas, "allowance", async () => ({ plan: "author_monthly" }));
       stub(quotas, "reserveRepository", async (_owner, _id, bytes) => {
         expect(bytes).to.equal(999);
-        throw new Error("quota_exceeded");
+        throw new Error("quota_storage_limit");
       });
       stub(Stream.prototype, "iterateFiles", async function* () {
         expect(this.data.commit).to.equal("new-sha"); yield { size: 999 };
@@ -115,7 +115,7 @@ describe("repository refresh and restoration", () => {
       repo.resetSate = async () => { throw new Error("must preserve files"); };
       let error;
       try { await repo.updateIfNeeded({ force }); } catch (caught) { error = caught; }
-      expect(error?.message).to.equal(force ? "quota_exceeded" : undefined);
+      expect(error?.message).to.equal(force ? "quota_storage_limit" : undefined);
       expect(repo.model.source.commit).to.equal("saved-sha");
       expect(repo.status).to.equal("ready");
     });

@@ -1,5 +1,6 @@
 import { jobTrace } from "./log-context";
 import { REPOSITORY_ID_COLLATION } from "./repository-id";
+import { isQuotaFailure } from "./repository-failure-status";
 import { reserveRepository } from "./billing/quotas";
 import { hasAutomaticUpdates } from "./billing/expiration";
 import { FILE_TREE_BATCH_SIZE, FILE_LISTING_LIMIT, deleteRowsInBatches, clearStagedRowsInBatches } from "./file-tree";
@@ -804,7 +805,7 @@ export default class Repository {
             await reserveRepository(String(this.model.owner), this.repoId,
               storageBytes, this.model.conference);
           } catch (error) {
-            if (!opt?.force && error instanceof Error && error.message === "quota_exceeded") return;
+            if (!opt?.force && error instanceof Error && isQuotaFailure(error.message)) return;
             throw error;
           }
         }

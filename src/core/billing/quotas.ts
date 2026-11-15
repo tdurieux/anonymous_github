@@ -1,10 +1,14 @@
 import { REPOSITORY_ID_COLLATION } from "../repository-id";
 import { randomUUID } from "crypto";
+import { createLogger } from "../logger";
+
 import ConferenceModel from "../model/conference/conferences.model";
 import config from "../../config";
 import { BillingGrant, BillingQuota } from "./models";
 import { billingError, billingPlans, MANUAL_REFRESH_PLANS, isConferencePlan } from "./config";
 import RepositoryModel from "../model/anonymizedRepositories/anonymizedRepositories.model";
+
+const logger = createLogger("billing");
 
 export function usableGrant(grant: { status?: string | null; until?: Date | null; revoked?: boolean | null }, now = new Date()) {
   return !grant.revoked && !!grant.until && grant.until > now && ["active", "paid", "past_due"].includes(grant.status || "");
@@ -68,11 +72,39 @@ export async function reserveRepository(owner: string, repoId: string, bytes: nu
   const baseBytes = { $max: [bytes, { $ifNull: [{ $getField: { field: "baseBytes", input: previous } },
     { $subtract: [{ $ifNull: [{ $getField: { field: "bytes", input: previous } }, 0] }, sumExpansions(oldExpansions)] }] }] };
   const reservedBytes = { $add: [baseBytes, sumExpansions(expansions)] };
-  const result = await BillingQuota.updateOne({ _id: limits.scope, $expr: { $and: [
+  const admitted = { $and: [
     { $lt: [{ $size: others }, limits.repositories] },
     { $lte: [{ $add: [{ $sum: { $map: { input: others, as: "a", in: "$$a.bytes" } } }, reservedBytes] }, limits.storage] },
-  ] } }, [{ $set: { allocations: { $concatArrays: [others, [{ repoId: { $literal: repoId }, reservationId: randomUUID(), bytes: reservedBytes, baseBytes, expansions, createdAt: new Date() }]] } } }]);
-  if (!result.matchedCount) throw billingError("quota_exceeded", 402);
+  ] };
+  // Return the atomic pre-image even on denial. A later read could observe a
+  // concurrent reservation/removal and misidentify which limit rejected this one.
+  const before = await BillingQuota.findOneAndUpdate({ _id: limits.scope }, [{ $set: {
+    allocations: { $cond: [admitted,
+      { $concatArrays: [others, [{ repoId: { $literal: repoId }, reservationId: randomUUID(), bytes: reservedBytes, baseBytes, expansions, createdAt: new Date() }]] },
+      "$allocations"] },
+  } }], { new: false }).lean();
+  if (!before) throw billingError("quota_exceeded", 402);
+  const allocations = before.allocations || [];
+  const otherAllocations = allocations.filter(a => a.repoId !== repoId);
+  const prior = allocations.find(a => a.repoId === repoId);
+  const priorExpansions = prior?.expansions || [];
+  const priorExpansionBytes = priorExpansions.reduce((sum, e) => sum + (e.bytes || 0), 0);
+  const expansionBytes = expansion
+    ? priorExpansions.filter(e => e.key !== expansion.key).reduce((sum, e) => sum + (e.bytes || 0), 0)
+      + Math.max(expansion.bytes, priorExpansions.filter(e => e.key === expansion.key).reduce((sum, e) => sum + (e.bytes || 0), 0))
+    : priorExpansionBytes;
+  const requestedBytes = Math.max(bytes, prior?.baseBytes ?? ((prior?.bytes || 0) - priorExpansionBytes)) + expansionBytes;
+  const otherBytes = otherAllocations.reduce((sum, a) => sum + (a.bytes || 0), 0);
+  const code = otherAllocations.length >= limits.repositories ? "quota_repository_limit"
+    : otherBytes + requestedBytes > limits.storage ? "quota_storage_limit" : undefined;
+  if (code) {
+    logger.warn("quota admission denied", { code, httpStatus: 402,
+      quotaUsedRepositories: allocations.length, quotaRepositoryLimit: limits.repositories,
+      quotaUsedBytes: allocations.reduce((sum, a) => sum + (a.bytes || 0), 0),
+      quotaRequestedBytes: requestedBytes, quotaProjectedBytes: otherBytes + requestedBytes,
+      quotaStorageLimit: limits.storage });
+    throw billingError(code, 402);
+  }
 }
 
 export async function assertConferenceAdmission(owner: string, repoId: string, conference?: string) {

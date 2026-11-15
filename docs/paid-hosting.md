@@ -27,8 +27,8 @@ Only repository hosting is covered. Gists and pull requests retain their existin
 
 Default capacities, all measured in source-file bytes:
 
-- Free account: 5 repositories, 2 GiB total.
-- Author subscription: 20 repositories, 10 GiB total, and never-expiring repositories while subscribed.
+- Free account: 5 repositories, 5 GiB total.
+- Author subscription: 20 repositories, 40 GiB total, and never-expiring repositories while subscribed.
 - Live updates: 1 repository, 2 GiB.
 - Conference packages: 25 repositories / 10 GiB, 100 / 50 GiB, and 400 / 200 GiB.
 
@@ -65,9 +65,9 @@ Capacity and expiration overrides are positive integers:
 ```text
 FREE_EXPIRATION_MONTHS=5
 FREE_AUTHOR_REPOSITORIES=5
-FREE_AUTHOR_STORAGE=2147483648
+FREE_AUTHOR_STORAGE=5368709120
 PAID_AUTHOR_REPOSITORIES=20
-PAID_AUTHOR_STORAGE=10737418240
+PAID_AUTHOR_STORAGE=42949672960
 PAID_PASS_STORAGE=2147483648
 PAID_CONFERENCE_REPOSITORIES=100
 PAID_CONFERENCE_STORAGE=53687091200
@@ -137,7 +137,7 @@ Back up billing collections with the rest of MongoDB. Watch source bytes, physic
 
 Only repositories owned by an account consume its allowance. Joining another author's repository does not consume a slot, and coauthors do not need subscriptions. A coauthor's own subscription does not increase the owner's allowance. Edits and refreshes use the owner's allowance, or the repository's paid conference/pass allowance. If that allowance is full, a collaborator's attempt to refresh or enlarge the repository can also be blocked. Existing review links remain available.
 
-The free defaults are 5 repositories and 2 GiB, revised from the initial 10-repository proposal after the November 2, 2026 production audit. The audit counted ready, unexpired repositories; stored sizes were estimates rather than a fresh recount. Paid author subscriptions retain 20 repositories, 10 GiB and automatic refresh.
+The defaults are 5 repositories and 5 GiB for free accounts, and 20 repositories and 40 GiB for author subscriptions. Paid author subscriptions include automatic refresh.
 
 ### Never-expiring repositories
 
@@ -306,3 +306,5 @@ Accepted one-time prices are stored in `billingprices` when checkout starts and 
 existing purchases are fulfilled. Hiding an offer by removing its configured price
 does not remove this mapping or invalidate paid grants. Include the mapping in backups
 so reconciliation can reconstruct grants for retired offers and process their refunds.
+
+Storage defaults increased to 5 GiB for free accounts and 40 GiB for author subscriptions after issue #973. Explicit environment overrides still take precedence; deployment must update older overrides. Repository add-ons and conference capacities are unchanged. Admission errors distinguish repository count from storage. Quota denial logs record numeric usage, requested reservation and limits from the atomic pre-admission snapshot, without account or source identities. Reservations retain their high-water mark across refreshes, so usage can exceed the current published tree size.
