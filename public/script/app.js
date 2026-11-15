@@ -3436,7 +3436,7 @@ export const anonymizeController = function (state, http, html, params, location
           (error) => {
             if (error.data) {
               // The hosting section explains a hosting limit and offers the fix.
-              const hostingLimit = ["quota_exceeded", "subscription_required_for_never_expiration"].includes(error.data.error);
+              const hostingLimit = ["quota_exceeded", "quota_repository_limit", "quota_storage_limit", "subscription_required_for_never_expiration"].includes(error.data.error);
               if (!hostingLimit) translate("ERRORS." + error.data.error).then((t) => { state.error = t; }, console.error);
               displayErrorMessage(error.data.error);
               if (hostingLimit) {

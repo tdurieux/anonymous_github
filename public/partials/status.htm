@@ -46,7 +46,7 @@
       </div>
       <p class="paper-error-msg" v-if="repo?.statusMessage">{{ fmt?.translate('ERRORS.' + repo?.statusMessage) }}</p>
       <p class="paper-error-msg" v-if="!repo?.statusMessage">No additional details were reported. The most common causes are private repositories, missing branches, and rate limits.</p>
-      <p v-if="repo?.statusMessage === 'quota_exceeded'"><a :href="safeUrl('/anonymize/' + repoId)">Review this repository’s hosting</a>, then retry preparation.</p>
+      <p v-if="['quota_exceeded', 'quota_repository_limit', 'quota_storage_limit'].includes(repo?.statusMessage)"><a :href="safeUrl('/anonymize/' + repoId)">Review this repository’s hosting</a>, then retry preparation.</p>
       <ul class="paper-error-hints">
         <li>Make sure the source URL points to a repository or pull request you can access.</li>
         <li>Check that the chosen branch and commit still exist on GitHub.</li>

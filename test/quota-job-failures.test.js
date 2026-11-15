@@ -24,7 +24,7 @@ describe("quota job failures", () => {
     };
   }
   it("maps stored quota errors to 402, leaving unknown failures as 500", () => {
-    expect(repositoryFailureStatus("quota_exceeded")).to.equal(402);
+    for (const code of ["quota_exceeded", "quota_repository_limit", "quota_storage_limit"]) expect(repositoryFailureStatus(code)).to.equal(402);
     expect(repositoryFailureStatus("unexpected")).to.equal(500);
   });
   it("does not let public reads retry an old quota denial", async () => {
@@ -41,16 +41,16 @@ describe("quota job failures", () => {
     }
     expect(enqueues).to.equal(0); expect(writes).to.equal(0);
   });
-  for (const code of ["quota_exceeded", "github_unavailable"]) {
+  for (const code of ["quota_exceeded", "quota_repository_limit", "quota_storage_limit", "github_unavailable"]) {
     it(`classifies ${code} at the worker boundary and preserves its status message`, async () => {
-      const repo = repository(); const failure = new AnonymousError(code, { httpStatus: code === "quota_exceeded" ? 402 : 502 });
+      const repo = repository(); const failure = new AnonymousError(code, { httpStatus: code.startsWith("quota_") ? 402 : 502 });
       stub(db, "connect", async () => {}); stub(db, "getRepository", async () => repo);
       stub(gh, "getToken", async () => "test-token"); stub(gh, "getRedisGateResetAt", async () => 0);
       stub(notifications, "notifyOwnerAccessProblem", async () => {});
       repo.anonymize = async () => { throw failure; };
       const error = await require("../src/queue/processes/downloadRepository").default({ data: { repoId: repo.repoId }, updateProgress() {} }).catch(error => error);
       expect(repo.status).to.equal("error"); expect(repo.model.statusMessage).to.equal(code);
-      if (code === "quota_exceeded") expect(error).to.be.instanceOf(UnrecoverableError);
+      if (code.startsWith("quota_")) expect(error).to.be.instanceOf(UnrecoverableError);
       else expect(error).to.equal(failure);
     });
   }

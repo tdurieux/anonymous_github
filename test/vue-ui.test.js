@@ -1055,11 +1055,11 @@ describe("Vue 3 UI", function () {
     expect(ui.requests.some(r => r.method === "POST" && r.url.pathname === "/api/repo/")).to.equal(false);
     expect(ui.errors).to.deep.equal([]);
   });
-  for (const rejected of [false, true]) {
-    it(`attempts server admission with reported full quota (${rejected ? "rejected" : "accepted"})`, async () => {
+  for (const rejected of [false, "quota_exceeded", "quota_repository_limit", "quota_storage_limit"]) {
+    it(`attempts server admission with reported full quota (${rejected || "accepted"})`, async () => {
       ui = await browser("/anonymize", { ...repositorySource,
         "/api/billing/": taskBilling, "/api/user/quota": { repository: { used: 5, total: 5 } },
-        "/api/repo/": rejected ? { __status: 403, body: { error: "quota_exceeded" } } : {},
+        "/api/repo/": rejected ? { __status: 403, body: { error: rejected } } : {},
       });
       const doc = ui.window.document;
       const state = doc.querySelector("#sourceUrl")._field.binding.state;
@@ -1070,7 +1070,7 @@ describe("Vue 3 UI", function () {
       doc.querySelector(".anonymize-submit-bar button").click(); await delay(80);
       expect(ui.requests.filter(r => r.method === "POST" && r.url.pathname === "/api/repo/")).to.have.length(1);
       expect(ui.requests.some(r => r.url.pathname === "/api/billing/checkout" || r.url.pathname === "/api/billing/draft")).to.equal(false);
-      expect(state.hostingNeedsPayment()).to.equal(rejected);
+      expect(state.hostingNeedsPayment()).to.equal(!!rejected);
       if (rejected) expect(doc.querySelector(".anonymize-submit-bar").textContent).to.include("Continue to checkout");
     });
   }

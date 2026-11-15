@@ -48,6 +48,44 @@ async function rejects(promise, message) {
       expect(plan.executionStats.totalKeysExamined).to.equal(1);
     } finally { Repo.find = find; }
   });
+  it("admits source storage up to the new 5 GiB free and 40 GiB subscription defaults", async () => {
+    config.FREE_AUTHOR_STORAGE = 5 * 1024 ** 3;
+    config.PAID_AUTHOR_STORAGE = 40 * 1024 ** 3;
+    await reserveRepository(owner, "one", 5 * 1024 ** 3);
+    await rejects(reserveRepository(owner, "one", 5 * 1024 ** 3 + 1), "quota_storage_limit");
+    await BillingGrant.create({ _id: "larger-plan", owner, scope: `user:${owner}`,
+      status: "active", until: future(), planId: "author_monthly" });
+    await reserveRepository(owner, "one", 40 * 1024 ** 3);
+    await rejects(reserveRepository(owner, "one", 40 * 1024 ** 3 + 1), "quota_storage_limit");
+  });
+  it("distinguishes storage from count and leaves a denied replacement unchanged", async () => {
+    await reserveRepository(owner, "same", 80);
+    const before = await BillingQuota.findById(`user:${owner}`).lean();
+    await rejects(reserveRepository(owner, "same", 101), "quota_storage_limit");
+    expect(await BillingQuota.findById(`user:${owner}`).lean()).to.deep.equal(before);
+    // Shrinking the published tree must not shrink the reservation high-water mark.
+    await reserveRepository(owner, "same", 20);
+    expect((await BillingQuota.findById(`user:${owner}`)).allocations[0].bytes).to.equal(80);
+    await rejects(reserveRepository(owner, "other", 21), "quota_storage_limit");
+    await reserveRepository(owner, "other", 10);
+    await reserveRepository(owner, "third", 10);
+    await reserveRepository(owner, "same", 80); // Update at the count cap is allowed.
+    await rejects(reserveRepository(owner, "fourth", 0), "quota_repository_limit");
+  });
+  it("reports the rejecting atomic snapshot even if another request frees capacity immediately", async () => {
+    await reserveRepository(owner, "same", 100);
+    const originalUpdate = BillingQuota.findOneAndUpdate;
+    BillingQuota.findOneAndUpdate = function (...args) {
+      const query = originalUpdate.apply(this, args);
+      return { lean: async () => {
+        const before = await query.lean();
+        await BillingQuota.updateOne({ _id: `user:${owner}` }, { $set: { allocations: [] } });
+        return before;
+      } };
+    };
+    try { await rejects(reserveRepository(owner, "same", 101), "quota_storage_limit"); }
+    finally { BillingQuota.findOneAndUpdate = originalUpdate; }
+  });
   it("atomically admits only three concurrent repositories", async () => {
     const results = await Promise.allSettled(Array.from({ length: 12 }, (_, i) => reserveRepository(owner, `repo-${i}`, 10)));
     expect(results.filter(r => r.status === "fulfilled")).to.have.length(3);
@@ -79,7 +117,7 @@ async function rejects(promise, message) {
     await Promise.all(Array.from({ length: 8 }, () => reserveFileExpansion("lfs", "file-a", 40)));
     expect((await BillingQuota.findById(`user:${owner}`)).allocations[0].bytes).to.equal(50);
     await reserveFileExpansion("lfs", "file-b", 40);
-    await rejects(reserveFileExpansion("lfs", "file-c", 20), "quota_exceeded");
+    await rejects(reserveFileExpansion("lfs", "file-c", 20), "quota_storage_limit");
     await reserveRepository(owner, "lfs", 15);
     expect((await BillingQuota.findById(`user:${owner}`)).allocations[0].bytes).to.equal(95);
     await reserveFileExpansion("lfs", "file-a", 1);
@@ -114,14 +152,14 @@ async function rejects(promise, message) {
       const repo = new Repository(model);
       repo.resetSate = async () => {
         expect((await Repo.findOne({ repoId: "published" })).status).to.equal("removing");
-        await rejects(reserveRepository(owner, "competitor", 1), "quota_exceeded");
+        await rejects(reserveRepository(owner, "competitor", 1), "quota_repository_limit");
       };
       db.isConnected = true;
       try { await repo.remove({ replacement }); }
       finally { db.isConnected = wasConnected; }
       expect((await Repo.findOne({ repoId: "published" })).status).to.equal(replacement ? "preparing" : "removed");
       if (replacement) {
-        await rejects(reserveRepository(owner, "competitor", 1), "quota_exceeded");
+        await rejects(reserveRepository(owner, "competitor", 1), "quota_repository_limit");
         expect((await BillingQuota.findById(`user:${owner}`)).allocations[0].bytes).to.equal(20);
       } else await reserveRepository(owner, "competitor", 1);
     });
@@ -145,7 +183,7 @@ async function rejects(promise, message) {
         expect((await Repo.findById(model._id)).status).to.equal("preparing");
         if (fails) throw Error("quota_exceeded");
         await saved.reserve(...args);
-        await rejects(saved.reserve(owner, "competitor", 1), "quota_exceeded");
+        await rejects(saved.reserve(owner, "competitor", 1), "quota_repository_limit");
       };
       try {
         const router = require("../src/server/routes/repository-private").default;
@@ -176,14 +214,14 @@ async function rejects(promise, message) {
       }
       return update.apply(this, args);
     };
-    try { await rejects(reserveRepository(owner, "competitor", 1), "quota_exceeded"); }
+    try { await rejects(reserveRepository(owner, "competitor", 1), "quota_repository_limit"); }
     finally { BillingQuota.updateOne = update; }
     expect(interleaved).to.equal(true);
     expect((await BillingQuota.findById(`user:${owner}`)).allocations[0].bytes).to.equal(20);
   });
   it("counts legacy repositories and releases removed repositories", async () => {
     await Repo.create(["one", "two", "three"].map(repoId => ({ repoId, owner, status: "ready", size: { storage: 10 } })));
-    await rejects(reserveRepository(owner, "four", 1), "quota_exceeded");
+    await rejects(reserveRepository(owner, "four", 1), "quota_repository_limit");
     await Repo.updateOne({ repoId: "one" }, { $set: { status: "removed" } });
     await reserveRepository(owner, "four", 1);
     expect((await BillingQuota.findById(`user:${owner}`)).allocations.map(a => a.repoId)).not.to.include("one");
@@ -200,10 +238,10 @@ async function rejects(promise, message) {
     await BillingGrant.create({ _id: "coauthor-sub", owner: collaborator,
       scope: `user:${collaborator}`, status: "active", until: future(), planId: "author_monthly" });
     expect((await allowance(owner, "one")).plan).to.equal("free");
-    await rejects(reserveRepository(owner, "four", 1), "quota_exceeded");
+    await rejects(reserveRepository(owner, "four", 1), "quota_repository_limit");
     // Editing shared work at the owner's count cap is allowed if its bytes fit.
     await reserveRepository(owner, "one", 20);
-    await rejects(reserveRepository(owner, "one", 90), "quota_exceeded");
+    await rejects(reserveRepository(owner, "one", 90), "quota_storage_limit");
   });
   it("uses a conference allowance before an author's subscription", async () => {
     await BillingGrant.create([{ _id: "sub", owner, scope: `user:${owner}`, status: "active", until: future(), planId: "author_monthly" },
@@ -271,7 +309,7 @@ async function rejects(promise, message) {
   it("hosts an extra repository outside the free allowance for its buyer only", async () => {
     config.STRIPE_REPO_SLOT_PRICE = "price_repo_slot";
     await Promise.all(["a", "b", "repo"].map(id => reserveRepository(owner, id, 10)));
-    await rejects(reserveRepository(owner, "four", 10), "quota_exceeded");
+    await rejects(reserveRepository(owner, "four", 10), "quota_repository_limit");
     // Buying a slot for a counted repository frees its place in the free ledger.
     const slot = addonSession("cs_slot", "repo_slot");
     await fulfillCheckout(slot.id, sessionsStripe([slot]));
