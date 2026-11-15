@@ -121,11 +121,28 @@ describe('structured logging privacy and context', function () {
       reportOutputDrops(fields=>logger.info('process heartbeat',fields));
       blocked=false;
       reportOutputDrops(fields=>{assert.equal(fields.droppedLogsInterval,3);logger.info('process heartbeat',fields);});
-      reportOutputDrops(fields=>{assert.equal(fields.droppedLogsInterval,0);assert.equal(fields.droppedLogs,3);logger.info('process heartbeat',fields);});
+      setImmediate(()=>reportOutputDrops(fields=>{assert.equal(fields.droppedLogsInterval,0);assert.equal(fields.droppedLogs,3);logger.info('process heartbeat',fields);}));
     `],{env:{...process.env,LOG_REDIS_MIRROR:'off'},encoding:'utf8',timeout:10000});
     expect(child.status,child.stderr).equal(0);
     const rows=child.stdout.trim().split('\n').map(JSON.parse);
     expect(rows.map(r=>r.droppedLogsInterval)).deep.equal([3,0]);
+  });
+  it('retains earlier losses when a report write fails asynchronously', () => {
+    const child=spawnSync(process.execPath,['-r','ts-node/register/transpile-only','-e',`
+      const assert=require('node:assert/strict');
+      const {createLogger,reportOutputDrops}=require('./src/core/logger');
+      const logger=createLogger('process');let blocked=true;
+      Object.defineProperty(process.stdout,'writableLength',{get:()=>blocked?300000:0});
+      logger.info('request');logger.info('request');blocked=false;
+      process.stdout.write=(line,callback)=>{setImmediate(()=>callback(new Error('EPIPE')));return true;};
+      reportOutputDrops(fields=>logger.info('process heartbeat',fields));
+      setImmediate(()=>{
+        reportOutputDrops(fields=>{assert.equal(fields.droppedLogsInterval,3);logger.info('process heartbeat',fields);});
+        setImmediate(()=>reportOutputDrops(fields=>{assert.equal(fields.droppedLogsInterval,0);logger.info('process heartbeat',fields);}));
+      });
+    `],{env:{...process.env,LOG_REDIS_MIRROR:'off'},encoding:'utf8',timeout:10000});
+    expect(child.status,child.stderr).equal(0);
+    expect(child.stderr.trim().split('\n').filter(line=>line.startsWith('{')).map(JSON.parse).map(r=>r.droppedLogsInterval)).deep.equal([3,0]);
   });
   it('writes JSON without Redis and bounds a blocked stdout pipe', () => {
     const child = spawnSync(process.execPath, ['-r', 'ts-node/register/transpile-only', '-e', `

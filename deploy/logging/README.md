@@ -424,10 +424,12 @@ configure `ADMIN_LOG_GRAFANA_URL` to that investigation dashboard to use them.
 Metrics rules link to the operations dashboard and include the exact PromQL query.
 No notification receiver is added or enabled.
 
-`ApplicationLogDrops` uses `droppedLogsInterval`, the losses since the last emitted
+`ApplicationLogDrops` uses `droppedLogsInterval`, the losses since the last stream-acknowledged
 process report, so it recovers after losses stop. `droppedLogs` remains cumulative
 for historical diagnosis. If emitting the report itself drops a record, the
-watermark stays unchanged and the next report includes those losses. A dead
+watermark stays unchanged and the next report includes those losses. Concurrent
+reports before acknowledgement can repeat a delta; it is an alert signal, not an
+exact window loss total. A successful write does not prove collector ingestion. A dead
 process or broken pair of stdout/stderr pipes still needs missing-heartbeat alerts.
 Older applications without interval fields cannot drive the new interval rule;
 roll out matching application and alert versions together. Collector/storage

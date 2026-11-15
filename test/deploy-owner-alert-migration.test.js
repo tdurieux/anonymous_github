@@ -28,7 +28,7 @@ if (args[0] === "inspect") {
   finish(state.unhealthy ? "unhealthy" : "healthy");
 }
 if (args[0] === "compose") {
-  if (args[1] === "build") { if (state.buildFails) finish("", 1); state.built = true; finish(); }
+  if (args[1] === "build") { if (state.signal) { process.kill(process.ppid, state.signal); finish(); } if (state.buildFails) finish("", 1); state.built = true; finish(); }
   if (args[1] === "stop") { state.stopped = true; finish(); }
   if (args[1] === "run" && args.at(-1).endsWith("check-github-app-key.js")) { finish("", args.includes(state.preflightFails) ? 1 : 0); }
   if (args[1] === "run") { if (state.reconcileFails) finish("", 1); state.reconciled = true; finish(); }
@@ -59,6 +59,12 @@ finish("unexpected docker call", 2);
     expect(events.at(-1)).include({deploymentOperation:"rollback",deploymentOutcome:"completed",release:"abcdef1",exitCode:0});
     expect(new Set(events.map(row=>row.deploymentId)).size).equal(1);
     expect(events.at(-1).restartMs).at.least(0);
+  });
+  for (const [signal, code] of [["SIGHUP",129],["SIGINT",130],["SIGTERM",143]]) it(`records ${signal} termination as failed`, () => {
+    const result=deploy({signal,operation:"rollback"});
+    expect(result.status,result.stderr).equal(code);
+    const events=result.stdout.split("\n").filter(line=>line.startsWith("{")).map(JSON.parse);
+    expect(events.at(-1)).include({deploymentPhase:"finish",deploymentOutcome:"failed",exitCode:code});
   });
   it("records failure when API or streamers fail health checks", () => {
     const result=deploy({unhealthy:true});

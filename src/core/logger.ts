@@ -90,15 +90,18 @@ let droppedOutput = 0;
 let outputBroken = false;
 let errorOutputBroken = false;
 // A closed log reader must not become an uncaught EPIPE on the serving process.
-process.stdout.on("error", () => { outputBroken = true; droppedOutput++; });
-process.stderr.on("error", () => { errorOutputBroken = true; droppedOutput++; });
+process.stdout.on("error", () => { outputBroken = true; });
+process.stderr.on("error", () => { errorOutputBroken = true; });
 export function getDroppedOutput() { return droppedOutput; }
 let reportedDrops = 0;
-/** Advance the interval only when emitting the report did not itself drop a record. */
+let dropReportWatermark: number | undefined;
+/** Advance only after the output stream acknowledges the report's write. */
 export function reportOutputDrops(report: (fields: { droppedLogs: number; droppedLogsInterval: number }) => void) {
   const before = droppedOutput;
-  report({ droppedLogs: before, droppedLogsInterval: Math.max(0, before - reportedDrops) });
-  if (droppedOutput === before) reportedDrops = before;
+  const previous = dropReportWatermark;
+  dropReportWatermark = before;
+  try { report({ droppedLogs: before, droppedLogsInterval: Math.max(0, before - reportedDrops) }); }
+  finally { dropReportWatermark = previous; }
 }
 export function getInProcessDropped(): number {
   return droppedInProcess;
@@ -282,7 +285,14 @@ function emit(level: Level, module: string, args: unknown[]) {
   // building an unbounded userland queue. The next heartbeat reports losses.
   const output = outputBroken ? process.stderr : process.stdout;
   if (!(outputBroken && errorOutputBroken) && output.writableLength < 256 * 1024) {
-    try { output.write(JSON.stringify(record) + "\n"); }
+    const watermark = dropReportWatermark;
+    try { output.write(JSON.stringify(record) + "\n", error => {
+      if (error) {
+        if (output === process.stdout) outputBroken = true;
+        else errorOutputBroken = true;
+        droppedOutput++;
+      } else if (watermark !== undefined) reportedDrops = Math.max(reportedDrops, watermark);
+    }); }
     catch {
       if (output === process.stdout) outputBroken = true;
       else errorOutputBroken = true;

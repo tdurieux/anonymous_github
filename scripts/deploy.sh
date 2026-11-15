@@ -53,6 +53,9 @@ deployment_finished() {
     exit "$code"
 }
 trap deployment_finished EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 deployment_event start started 0
 
 image_id() { docker image inspect --format '{{.Id}}' "$1" 2>/dev/null || true; }
