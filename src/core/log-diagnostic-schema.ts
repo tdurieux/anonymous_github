@@ -785,6 +785,7 @@ export const LOG_SOURCE_FUNCTIONS: Record<string, readonly string[]> = {
     "abort",
     "assertActive",
     "decisionKey",
+    "localFailure",
     "send",
     "sendCached",
     "sendSharedContent"
@@ -794,6 +795,7 @@ export const LOG_SOURCE_FUNCTIONS: Record<string, readonly string[]> = {
     "abort",
     "assertActive",
     "decisionKey",
+    "localFailure",
     "send",
     "sendCached",
     "sendSharedContent"

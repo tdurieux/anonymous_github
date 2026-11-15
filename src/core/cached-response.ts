@@ -1,3 +1,4 @@
+import { recordResponseFailure } from "./request-evidence";
 import { createGzip } from "zlib";
 import { createHash } from "crypto";
 import { Readable, PassThrough } from "stream";
@@ -49,9 +50,14 @@ async function sendCached(content: Readable, res: Response,
     if (isText && !res.getHeader("Content-Type")) res.type("text/plain");
     if (isText) res.setHeader("Accept-Ranges", "none");
     else res.removeHeader("Accept-Ranges");
+    // Install evidence before pipeline's listeners destroy the response.
+    const localFailure = () => { if (!res.destroyed) recordResponseFailure(res, "unknown", "local_abort"); };
+    stream.once("error", localFailure);
     if (record.encoding === "identity" && !res.req.acceptsEncodings("identity")) {
       res.setHeader("Content-Encoding", "gzip"); res.removeHeader("Content-Length");
-      await pipeline(stream, createGzip(), res);
+      const gzip = createGzip();
+      gzip.once("error", localFailure);
+      await pipeline(stream, gzip, res);
     } else await pipeline(stream, res);
     return true;
   };
