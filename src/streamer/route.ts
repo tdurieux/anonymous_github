@@ -1,3 +1,4 @@
+import { recordResponseFailure } from "../core/request-evidence";
 import { sendSharedContent } from "../core/cached-response";
 import * as express from "express";
 import GitHubStream from "../core/source/GitHubStream";
@@ -125,9 +126,9 @@ router.post("/", async (req: express.Request, res: express.Response) => {
       anonymizer.destroy();
     }
     content
-      .on("error", handleStreamError)
+      .on("error", error => { if (!res.destroyed) recordResponseFailure(res, "unknown", "local_abort"); handleStreamError(error); })
       .pipe(anonymizer)
-      .on("error", handleStreamError)
+      .on("error", error => { if (!res.destroyed) recordResponseFailure(res, "streamer", "local_abort"); handleStreamError(error); })
       .pipe(res)
       .on("error", handleStreamError)
       .on("close", () => {

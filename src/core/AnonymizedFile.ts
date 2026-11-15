@@ -1,3 +1,4 @@
+import { recordResponseFailure } from "./request-evidence";
 import { rejectStreamerRedirects } from "./streamer-response";
 import { isResponseCancellation } from "./response-cancellation";
 import { canReadCachedRepository } from "./cached-repository-access";
@@ -585,9 +586,9 @@ export default class AnonymizedFile {
           reject(error);
         }
         content
-          .on("error", handleStreamError)
+          .on("error", error => { if (!res.destroyed) recordResponseFailure(res, "unknown", "local_abort"); handleStreamError(error); })
           .pipe(anonymizer)
-          .on("error", handleStreamError)
+          .on("error", error => { if (!res.destroyed) recordResponseFailure(res, "api", "local_abort"); handleStreamError(error); })
           .pipe(res)
           .on("error", handleStreamError)
           .on("finish", () => {

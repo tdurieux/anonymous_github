@@ -23,14 +23,14 @@ const errorCodes = new Set([
   "ECONNRESET", "ECONNREFUSED", "ETIMEDOUT", "ENOTFOUND", "EPIPE", "ABORT_ERR",
   "upstream_error", "upstream_timeout", "invalid_signature", "webhook_processing_failed",
 ]);
-const numbers = ["status", "httpStatus", "ms", "firstByteMs", "responseMs", "bytes", "bytesPerSecond",
+export const LOG_NUMBERS = ["expectedBytes", "measuredMs", "unattributedMs", "overlapMs","status", "httpStatus", "ms", "firstByteMs", "responseMs", "bytes", "bytesPerSecond",
   "attempt", "rss", "memoryLimitBytes", "memoryRatio", "uptime", "activeRequests", "waiting", "active", "delayed", "failed",
   "oldestWaitingMs", "droppedLogs", "loopP95Ms", "upstreamStatus"];
-const stages = ["repository", "credential_resolution", "upstream", "cache_lookup", "cache_fill", "worker_wait", "anonymize", "streamer_headers"];
+export const LOG_STAGES = ["transfer", "database","repository", "credential_resolution", "upstream", "cache_lookup", "cache_fill", "worker_wait", "anonymize", "streamer_headers"];
 export function logRecord(level: string, module: string, args: unknown[]) {
   const context = logContext.getStore() || {};
   const details: Record<string, unknown> = {};
-  const keys = [...numbers, "requestId", "jobId", "code", "message", "outcome", "method", "route", "queue",
+  const keys = [...LOG_NUMBERS, "requestId", "jobId", "hopId", "parentHopId", "cancellationOrigin", "cancellationEvidence", "endpointKind", "stageCounts", "stageOpen", "code", "message", "outcome", "method", "route", "queue",
     "errorType", "errorStack", "causeType", "causeStack", "requestPath", "stages", "reason", "phase", "event", "deliveryId", "hostname", "service"];
   // Do not traverse arbitrary objects or invoke error getters while logging.
   for (const arg of args.slice(0, 8)) if (arg && typeof arg === "object") {
@@ -50,12 +50,12 @@ export function logRecord(level: string, module: string, args: unknown[]) {
     service: context.service || (allowed(["api", "streamer", "worker"], details.service) ? details.service : undefined) || (process.env.SERVICE_NAME?.toLowerCase() === "streamer" ? "streamer" : "api"),
     instance, release: /^[a-f0-9]{7,40}$/.test(process.env.APP_RELEASE || "") ? process.env.APP_RELEASE : "unknown",
     event, message: event, module: LOG_MODULES.includes(module) ? module : "application" };
-  for (const key of ["requestId", "jobId"] as const) {
+  for (const key of ["requestId", "jobId", "hopId", "parentHopId"] as const) {
     const value = details[key] || context[key];
     if (validTraceId(value)) record[key] = value;
   }
   if (Number.isSafeInteger(context.attempt)) record.attempt = context.attempt;
-  for (const key of numbers) if (typeof details[key] === "number" && Number.isFinite(details[key])) record[key] = details[key];
+  for (const key of LOG_NUMBERS) if (typeof details[key] === "number" && Number.isFinite(details[key])) record[key] = details[key];
   const code = [details.code, details.message].find(value => typeof value === "string" && errorCodes.has(value));
   if (code) record.errorCode = code;
   if (allowed(["protocol", "credentials", "port", "host"], details.reason)) record.reason = details.reason;
@@ -64,21 +64,33 @@ export function logRecord(level: string, module: string, args: unknown[]) {
   if (validTraceId(details.deliveryId)) record.deliveryId = details.deliveryId;
   if (allowed(["github.com", "api.github.com", "codeload.github.com", "raw.githubusercontent.com", "media.githubusercontent.com"], details.hostname)) record.upstreamHost = details.hostname;
   else if (details.hostname) record.upstreamHost = "other";
+  for (const [key, values] of Object.entries({ cancellationOrigin: ["unknown", "api", "streamer", "timeout", "upstream"],
+    cancellationEvidence: ["response_close", "request_aborted", "upstream_error", "timeout", "local_abort"], endpointKind: ["public", "internal"] })) {
+    if (allowed(values, details[key])) record[key] = details[key];
+  }
   if (allowed(["completed", "interrupted"], details.outcome)) record.outcome = details.outcome;
   if (allowed(["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "OTHER"], details.method)) record.method = details.method;
   // Only fixed route labels survive; never raw URLs or request parameters.
   const route = context.route || details.route;
-  if (typeof route === "string" && LOG_ROUTES.includes(route)) record.route = route;
+  if (typeof route === "string" && LOG_ROUTES.includes(route)) record.route = route.replace(/^\/api\/repo\/:id(?=\/|$)/, "/api/repo/:repoId");
   if (context.method && allowed(["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "OTHER"], context.method)) record.method = context.method;
   Object.assign(record, safeDiagnosticFields(details));
   // Anonymous request paths are diagnostic fields, never metric labels.
   const requestPath = safeReproductionPath(context.requestPath || details.requestPath, record.method);
   if (requestPath) Object.assign(record, requestReproduction(requestPath, record.method));
   if (allowed(["download", "remove", "cache"], details.queue)) record.queue = details.queue;
-  if (details.stages && typeof details.stages === "object") for (const key of stages) {
+  if (details.stages && typeof details.stages === "object") for (const key of LOG_STAGES) {
     let value: unknown;
     try { value = Object.getOwnPropertyDescriptor(details.stages, key)?.value; } catch { continue; }
     if (typeof value === "number" && Number.isFinite(value)) record[`stage_${key}_ms`] = value;
+  }
+  for (const [field, suffix] of [["stageCounts", "count"], ["stageOpen", "open"]]) {
+    if (!details[field] || typeof details[field] !== "object") continue;
+    for (const stage of LOG_STAGES) {
+      let value: unknown;
+      try { value = Object.getOwnPropertyDescriptor(details[field], stage)?.value; } catch { continue; }
+      if (typeof value === "number" && Number.isSafeInteger(value) && value >= 0) record[`stage_${stage}_${suffix}`] = value;
+    }
   }
   return record;
 }

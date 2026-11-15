@@ -26,7 +26,7 @@ function request(port, path, encoding = "gzip", extra = {}) {
 }
 describe("shared cache HTTP and telemetry integration", function () {
   this.timeout(15000);
-  let root, old, server, port, fills, body;
+  let root, old, server, port, fills, body, requestLogs;
   beforeEach(async () => {
     old = { ...config }; closeBlobCaches(); closeCacheMetrics();
     root = await fs.mkdtemp(join(tmpdir(), "shared-http-"));
@@ -34,7 +34,8 @@ describe("shared cache HTTP and telemetry integration", function () {
       SHARED_CACHE_BYTES: 16 * 1024 ** 2, SHARED_CACHE_RESULT_BYTES: 8 * 1024 ** 2, SHARED_CACHE_MAX_FILE_BYTES: 1024 ** 2,
       SHARED_CACHE_FREE_BYTES: 0, CACHE_MONITORING_ENABLED: true });
     fills = 0; body = Buffer.from("Public documentation with no identifying names.\n".repeat(100));
-    const app = express(); app.use(monitorRequests("api", undefined, { info() {}, warn() {} }));
+    requestLogs = [];
+    const app = express(); app.use(monitorRequests("api", undefined, { info: (_, row) => requestLogs.push(row), warn: (_, row) => requestLogs.push(row) }));
     app.get("/:project/:mode", async (req, res) => {
       if (req.headers.authorization !== "test-access") return res.status(403).end();
       const source = new GitHubStream({ repoId: req.params.project, organization: "org", repoName: "repo", commit: "commit", getToken: async () => "" });
@@ -55,6 +56,27 @@ describe("shared cache HTTP and telemetry integration", function () {
   afterEach(async () => {
     await new Promise(resolve => server.close(resolve)); closeBlobCaches(); closeCacheMetrics(); Object.assign(config, old);
     await fs.rm(root, { recursive: true, force: true });
+  });
+  it("records a shared result cache read failure before pipeline destroys the response", async () => {
+    await request(port, "/a/changed", "identity", {authorization:"test-access"});
+    const results = resultBlobCache(), original = results.open;
+    results.open = async function (...args) {
+      const stored = await Reflect.apply(original, this, args);
+      if (!stored) return stored;
+      const broken = new Readable({read() {}});
+      broken.cachedBlob = stored.cachedBlob; stored.destroy();
+      setTimeout(() => broken.push(Buffer.from("partial")), 10);
+      setTimeout(() => broken.destroy(Object.assign(new Error("PRIVATE local cache"), {code:"EIO"})), 30);
+      return broken;
+    };
+    try {
+      await assert.rejects(request(port, "/a/changed", "identity", {authorization:"test-access"}));
+      await new Promise(resolve => setTimeout(resolve, 20));
+      const row = requestLogs.at(-1);
+      assert.equal(row.status, 200); assert.equal(row.outcome, "interrupted");
+      assert.equal(row.cancellationOrigin, "unknown"); assert.equal(row.cancellationEvidence, "local_abort");
+      assert.equal(row.bytes, 7); assert.ok(row.expectedBytes > 7);
+    } finally { results.open = original; }
   });
   for (const mode of ["fill", "hit", "bypass"]) {
     it(`enforces resolved-byte billing admission on shared source ${mode}`, async () => {

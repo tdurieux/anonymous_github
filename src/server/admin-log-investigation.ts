@@ -1,5 +1,5 @@
 import { createHash } from "crypto";
-import { logRecord } from "../core/log-record";
+import { logRecord, LOG_NUMBERS, LOG_STAGES } from "../core/log-record";
 import { logContext, validTraceId } from "../core/log-context";
 import { LOG_EVENTS } from "../core/log-schema";
 
@@ -50,13 +50,16 @@ function safeRow(input: Record<string, unknown>): Row | null {
   const time = typeof input._time === "string" ? input._time : input.timestamp;
   if (typeof time !== "string" || !Number.isFinite(Date.parse(time))) return null;
   // Reuse the application's reviewed projection. Never return raw backend data.
-  const numeric = ["status", "httpStatus", "ms", "firstByteMs", "responseMs", "attempt", "rss", "memoryRatio", "droppedLogs", "oldestWaitingMs", "waiting"];
+  const numeric = [...LOG_NUMBERS, ...LOG_STAGES.flatMap(stage => [`stage_${stage}_ms`, `stage_${stage}_count`, `stage_${stage}_open`])];
   const data: Record<string, unknown> = { ...input, code: input.errorCode };
   for (const key of numeric) if (typeof input[key] === "string" && /^-?\d+(?:\.\d+)?$/.test(input[key] as string)) data[key] = Number(input[key]);
+  for (const [field, suffix] of [["stages", "ms"], ["stageCounts", "count"], ["stageOpen", "open"]]) {
+    data[field] = Object.fromEntries(LOG_STAGES.map(stage => [stage, data[`stage_${stage}_${suffix}`]]));
+  }
   // Revalidate finite route and diagnostic allowlists; never pass raw strings.
   const projected = logContext.run({}, () => logRecord(["error", "warn", "info", "debug"].includes(String(input.severity)) ? String(input.severity) : "info", String(input.module || "application"), ["", data]));
   const result: Row = { timestamp: /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$/.test(time) ? time : new Date(time).toISOString(), severity: String(projected.severity), service: services.includes(String(input.service)) ? String(input.service) : "unknown", event: events.has(String(input.event)) ? String(input.event) : "application_log", module: String(projected.module), release: /^(?:[a-f0-9]{7,40}|unknown)$/.test(String(input.release)) ? String(input.release) : "unknown" };
-  for (const key of [...numeric, "errorCode", "requestId", "jobId", "queue", "route", "method", "errorType", "errorStack", "causeType", "causeStack", "repoId", "requestPath"]) if (typeof projected[key] === "string" || typeof projected[key] === "number") result[key] = projected[key] as string | number;
+  for (const key of [...numeric, "outcome", "endpointKind", "cancellationOrigin", "cancellationEvidence", "hopId", "parentHopId", "errorCode", "requestId", "jobId", "queue", "route", "method", "errorType", "errorStack", "causeType", "causeStack", "repoId", "requestPath"]) if (typeof projected[key] === "string" || typeof projected[key] === "number") result[key] = projected[key] as string | number;
   if (validTraceId(input.instance)) result.instance = input.instance;
   return result;
 }

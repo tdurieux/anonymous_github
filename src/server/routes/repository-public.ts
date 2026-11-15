@@ -1,3 +1,4 @@
+import { recordUpstreamFailure } from "../../core/request-evidence";
 import { jobTrace } from "../../core/log-context";
 import { hasVisibleSubmodules } from "../../core/file-submodules";
 import { FILE_LISTING_LIMIT } from "../../core/file-tree";
@@ -89,6 +90,7 @@ router.get(
             },
           })
           .on("error", (err: Error & { response?: { statusCode?: number; body?: unknown } }) => {
+            if (!res.destroyed) recordUpstreamFailure(res, err, "streamer");
             headersDone(true);
             const upstreamStatus = err?.response?.statusCode;
             let upstreamBody: string | undefined;

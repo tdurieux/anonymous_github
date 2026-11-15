@@ -174,6 +174,7 @@ describe("bounded request monitoring", function () {
       await ready; client.destroy(); await terminal;
       expect(logs).to.have.length(1); expect(logs[0][0]).to.equal("request interrupted");
       expect(logs[0][1].outcome).to.equal("interrupted");
+      expect(logs[0][1].cancellationOrigin).to.equal("unknown");
       expect(logs[0][1]).include({requestPath:"/api/repo/demo-123/zip",repoId:"demo-123"});
       expect(JSON.stringify(logs)).not.include("SECRET");
       const row = metrics.drain().find(row => row.data.metric === "request").data;
@@ -185,6 +186,50 @@ describe("bounded request monitoring", function () {
       }
     });
   }
+
+  for (const code of ["ETIMEDOUT", "ECONNRESET"]) {
+    it(`records causal ${code} before a truncated 200 closes`, async function () {
+      const { streamResponse } = require("../src/core/response-stream");
+      app.get("/", (_req, res) => {
+        const source = new Readable({ read() {} });
+        res.setHeader("Content-Length", "100");
+        void streamResponse(source, res, () => res.destroy());
+        source.push("partial");
+        setTimeout(() => source.destroy(Object.assign(new Error("PRIVATE"), {code})), 20);
+      });
+      await listen();
+      await fetch(server, "/").catch(() => undefined);
+      await delay(20);
+      const detail = logs[0][1];
+      expect(detail).include({status:200,outcome:"interrupted",bytes:7,expectedBytes:100,
+        cancellationOrigin:code === "ETIMEDOUT" ? "timeout" : "streamer"});
+      expect(JSON.stringify(logs)).not.include("PRIVATE");
+    });
+  }
+
+  it("correlates repeated streamer hops without accepting public caller IDs", async function () {
+    const upstream = express(); const hops=[];
+    upstream.use(monitorRequests("streamer",new RequestMetrics(),{info:(_,row)=>hops.push(row),warn:(_,row)=>hops.push(row)}));
+    upstream.post("/api",(_req,res)=>res.end("ok"));
+    const streamer = await new Promise(resolve => {const s=upstream.listen(0,"127.0.0.1",()=>resolve(s));});
+    try {
+      app.get("/", async (_req,res)=>{
+        await fetch(streamer,"/api",{method:"POST",headers:requestHeaders()});
+        await fetch(streamer,"/api",{method:"POST",headers:requestHeaders()});
+        res.end("ok");
+      });
+      await listen();
+      const forged="11111111-1111-1111-1111-111111111111";
+      await fetch(server,"/",{headers:{"x-request-id":forged,"x-parent-hop-id":forged}});
+      const parent=logs[0][1];
+      expect(parent.requestId).not.equal(forged);
+      expect(parent.parentHopId).equal(undefined);
+      expect(hops).length(2);
+      expect(hops[0].hopId).not.equal(hops[1].hopId);
+      for(const hop of hops) expect(hop).include({requestId:parent.requestId,parentHopId:parent.hopId,endpointKind:"internal",outcome:"completed"});
+      expect(parent).not.have.property("cancellationOrigin");
+    } finally {streamer.closeAllConnections();await new Promise(resolve=>streamer.close(resolve));}
+  });
 
   it("keeps overlapping request IDs and asynchronous stages isolated", async function () {
     let doneA, doneB;

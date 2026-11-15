@@ -359,3 +359,56 @@ Application requests to the supported anonymous repository endpoints retain thei
 For the focused restricted-file/rotation regression, run
 `LOGGING_ACCESS_ONLY=1 python3 scripts/test-logging.py`. This uses synthetic
 `0640` logs in an isolated Docker project and preserves capability restrictions.
+
+## Request evidence contract
+
+`outcome=completed` means Node emitted response `finish`. It does not prove that
+an end user received the body. A 200 can have `outcome=interrupted`. Count public
+API outcomes once; correlated streamer hops describe the same operation and must
+not be added to public failure counts. `endpointKind` distinguishes public API
+from internal streamer requests. Each middleware invocation has a fresh `hopId`;
+`parentHopId` links streamer calls to the API hop, including repeated cache probes.
+Public caller correlation headers are ignored. Internal IDs are diagnostics, not
+proof of caller identity. Existing job UUIDs and attempt numbers remain separate.
+
+For interrupted responses, `cancellationOrigin` and `cancellationEvidence` retain
+the first observed causal boundary. Explicit upstream errors identify the failing
+upstream hop; ETIMEDOUT identifies a timeout. A request abort or response close
+alone has origin `unknown`: the peer may be a proxy, API or browser, and a close
+can also follow server teardown. No client-action claim is inferred from 200,
+socket close, or lack of error logs. ZIP processing failures with no identified
+upstream retain unknown origin with local-abort evidence. Historical records lack
+this evidence and cannot be reclassified reliably.
+
+`bytes` counts encoded body bytes passed to Node response writes, including
+buffered writes; it is not an acknowledgement from the peer. `expectedBytes` is
+only the response Content-Length, absent when unknown. Source file size is not
+comparable after anonymization/compression. HEAD, 204 and 304 have zero expected
+body bytes. `firstByteMs` is the existing header-write boundary, not a measured
+network first byte. `responseMs` and `stage_transfer_ms` cover header write through
+finish/close, including backpressure and waits for content.
+
+Named stage durations are inclusive sums of instrumented spans, clipped at the
+response terminal event. Repeated and parallel spans add to their stage totals.
+`stage_<name>_count` counts instrumented calls, not hidden library retries;
+`stage_<name>_open` counts spans still running at termination. Uninstrumented
+library retries/backoff stay inside their enclosing span and cannot be separated.
+`measuredMs` is the union of all spans, `overlapMs` is the excess of their summed
+durations over that union, and `unattributedMs` is request time outside any span.
+Do not add transfer, credential, database, cache, upstream or anonymization totals
+to estimate request duration. Millisecond rounding of legacy request totals may
+cause sub-millisecond differences. Storage is fixed per stage, not per call.
+
+`database` measures Mongoose Query/Aggregate execution after database setup,
+including pool/buffering wait and conversion. It excludes document saves, bulk
+writes and direct driver operations. `repository` remains the application
+repository lookup, which can enclose database time. Credential resolution can
+enclose database and GitHub work. GitHub `upstream` spans cover the existing
+Octokit request wrapper or explicitly instrumented stream intervals. Cache lookup,
+fill, worker admission, anonymization and streamer-header spans retain their
+existing call boundaries. Missing stages mean unavailable instrumentation, never
+zero cost. Unattributed time is visible; it is not evidence of a stall.
+
+The admin API and Redis projection preserve these allowlisted fields. Collector
+and application versions must be updated together. No ordinary request depends
+on the collector, Grafana or VictoriaLogs being available.
