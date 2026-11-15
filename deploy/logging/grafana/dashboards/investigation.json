@@ -110,11 +110,11 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "service:~${service:json} release:~${release:json} event:~${event:json}",
+          "expr": "service:~\"$service\" release:~\"$release\" event:~\"$event\"",
           "queryType": "instant",
           "editorMode": "code",
           "maxLines": 200,
-          "packJson": true
+          "packJson": false
         }
       ],
       "options": {

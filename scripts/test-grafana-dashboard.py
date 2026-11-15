@@ -34,7 +34,7 @@ def query(panel, target, start=None, end=None):
     for name in ['request_id', 'job_id', 'edge_id']:
         target['expr'] = target['expr'].replace('${' + name + ':json}', '"fixture-not-present"').replace('$' + name, 'fixture-not-present')
     for name in ['service', 'release', 'event']:
-        target['expr'] = target['expr'].replace('${' + name + ':json}', '".*"').replace('$' + name, '*')
+        target['expr'] = target['expr'].replace('${' + name + ':json}', '".*"').replace('$' + name, '.*')
     result = request('/api/ds/query', {'from': str(start or int((time.time()-3600)*1000)),
                                      'to': str(end or int(time.time()*1000)), 'queries': [target]})['results'][target['refId']]
     assert not result.get('error'), (panel['title'], result.get('error'))
