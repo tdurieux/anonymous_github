@@ -71,11 +71,9 @@ export function logRecord(level: string, module: string, args: unknown[]) {
   if (typeof route === "string" && LOG_ROUTES.includes(route)) record.route = route;
   if (context.method && allowed(["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "OTHER"], context.method)) record.method = context.method;
   Object.assign(record, safeDiagnosticFields(details));
-  // Reproduction data is restricted to failures, not successful traffic/metrics.
-  if (["error", "fatal"].includes(level) || Number(details.status || details.httpStatus) >= 400) {
-    const requestPath = safeReproductionPath(context.requestPath || details.requestPath);
-    if (requestPath) Object.assign(record, requestReproduction(requestPath));
-  }
+  // Anonymous request paths are diagnostic fields, never metric labels.
+  const requestPath = safeReproductionPath(context.requestPath || details.requestPath, record.method);
+  if (requestPath) Object.assign(record, requestReproduction(requestPath, record.method));
   if (allowed(["download", "remove", "cache"], details.queue)) record.queue = details.queue;
   if (details.stages && typeof details.stages === "object") for (const key of stages) {
     let value: unknown;

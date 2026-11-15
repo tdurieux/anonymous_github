@@ -47,6 +47,49 @@ describe("bounded request monitoring", function () {
     expect(metrics.drain().every(row=>!JSON.stringify(row).includes('demo-123'))).equal(true);
   });
 
+  it("records the actual listing path on successful requests while keeping metrics templated", async function () {
+    app.get('/api/repo/:repoId/files',(_req,res)=>res.json([]));
+    await listen(); await fetch(server,'/api/repo/demo-123/files?path=docs%2Fnested&token=SECRET');
+    expect(logs[0][1]).include({status:200,requestPath:'/api/repo/demo-123/files',repoId:'demo-123'});
+    expect(JSON.stringify(logs)).not.include('SECRET');
+    expect(JSON.stringify(metrics.drain())).not.include('demo-123');
+  });
+
+  it("never captures upstream identities from files-named source repository handlers", async function () {
+    const {logRecord}=require('../src/core/log-record');
+    const records=[];
+    for(const action of ['readme','branches','tree','file'])
+      app.get('/api/repo/:owner/:repo/'+action,(_req,res)=>{
+        records.push(logRecord('error','route',['failure',{httpStatus:403}]));res.status(403).end();
+      });
+    await listen();
+    for(const action of ['readme','branches','tree','file'])
+      await fetch(server,'/api/repo/private-owner/files/'+action);
+    expect(JSON.stringify([...records,...logs])).not.include('private-owner');
+  });
+
+  it("distinguishes anonymous POST actions from GET source metadata at the same URL", async function () {
+    const {logRecord}=require('../src/core/log-record');
+    const records=[];
+    for(const action of ['refresh','extend','coauthors'])
+      app.post('/api/repo/:repoId/'+action,(_req,res)=>{
+        records.push(logRecord('info','route',['request',{status:200}]));res.end();
+      });
+    app.get('/api/repo/:owner/:repo/',(_req,res)=>{
+      records.push(logRecord('error','route',['failure',{httpStatus:403}]));res.status(403).end();
+    });
+    await listen();
+    for(const action of ['refresh','extend','coauthors']){
+      for(const method of ['GET','HEAD','POST']){
+        await fetch(server,'/api/repo/private-owner/'+action+'/?token=SECRET',{method});
+        const detail=logs.at(-1)[1];
+        if(method==='POST')expect(detail.requestPath).equal('/api/repo/private-owner/'+action+'/');
+        else {expect(detail).not.have.property('requestPath');expect(records.at(-1)).not.have.property('requestPath');}
+      }
+    }
+    expect(JSON.stringify(logs)).not.include('SECRET');
+  });
+
   it("keeps labels bounded and removes source identities and query values", function () {
     expect(requestRoute("/api/repo/private-name/file/secret.txt?token=abc", "api")).to.equal("/api/repo/:repoId/file/:path");
     expect(requestRoute("/api/repo/secret-owner/secret-repo/readme?branch=secret", "api")).to.equal("/api/repo/:owner/:repo/readme");
@@ -94,7 +137,8 @@ describe("bounded request monitoring", function () {
       expect(callbacks).to.equal(gzip ? 0 : body.length / 16384);
       const row = metrics.drain().find(row => row.data.metric === "request").data;
       expect(row.bytes).to.equal(result.body.length); expect(row.aborted).to.equal(0); expect(row.count).to.equal(1);
-      expect(JSON.stringify(logs)).not.to.include("private.txt"); expect(JSON.stringify(logs)).not.to.include("secret");
+      expect(logs[0][1].requestPath).to.equal("/api/repo/private/file/private.txt");
+      expect(JSON.stringify(row)).not.to.include("private.txt"); expect(JSON.stringify(logs)).not.to.include("secret");
       expect(logs[0][1].requestId).to.equal(result.headers["x-request-id"]);
       expect(activeRequestCount()).to.equal(0);
     });
@@ -124,12 +168,14 @@ describe("bounded request monitoring", function () {
     it(`records a disconnect ${headersSent ? "after" : "before"} headers exactly once`, async function () {
       let arrived; const ready = new Promise(resolve => { arrived = resolve; });
       let finished; const terminal = new Promise(resolve => { finished = resolve; });
-      app.get("/", (_req, res) => { if (headersSent) { res.type("text/plain"); res.write("partial"); } arrived(); res.on("close", finished); });
+      app.get("/api/repo/:repoId/zip", (_req, res) => { if (headersSent) { res.type("text/plain"); res.write("partial"); } arrived(); res.on("close", finished); });
       await listen();
-      const client = http.get({ host: "127.0.0.1", port: server.address().port, path: "/" }); client.on("error", () => {});
+      const client = http.get({ host: "127.0.0.1", port: server.address().port, path: "/api/repo/demo-123/zip?token=SECRET" }); client.on("error", () => {});
       await ready; client.destroy(); await terminal;
       expect(logs).to.have.length(1); expect(logs[0][0]).to.equal("request interrupted");
       expect(logs[0][1].outcome).to.equal("interrupted");
+      expect(logs[0][1]).include({requestPath:"/api/repo/demo-123/zip",repoId:"demo-123"});
+      expect(JSON.stringify(logs)).not.include("SECRET");
       const row = metrics.drain().find(row => row.data.metric === "request").data;
       expect(row.count).to.equal(1); expect(row.aborted).to.equal(1); expect(activeRequestCount()).to.equal(0);
       if (!headersSent) {

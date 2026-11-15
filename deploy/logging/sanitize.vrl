@@ -59,12 +59,14 @@ for_each(["status", "httpStatus", "ms", "firstByteMs", "responseMs", "bytes", "b
 if includes(["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "OTHER"], record.method) { out.method = record.method }
 if includes(["/", "other", "/dashboard", "/anonymize", "/healthcheck", "/api/healthcheck", "/api", "/api/download", "/api/stat", "/api/stat/history", "/api/options", "/api/message", "/api/user", "/api/user/quota", "/api/user/dashboard", "/api/repo", "/api/anonymize-preview", "/api/admin/overview", "/api/admin/performance", "/api/admin/errors", "/api/admin/errors/stats", "/api/admin/queues", "/api/admin/queues/metrics", "/github/app/webhook", "/api/repo/:repoId", "/api/repo/:repoId/file/:path", "/api/repo/:repoId/files", "/api/repo/:repoId/files/counts", "/api/repo/:repoId/files/search", "/api/repo/:repoId/zip", "/api/repo/:repoId/options", "/api/repo/:repoId/refresh", "/api/repo/:repoId/coauthors", "/api/repo/:repoId/extend", "/api/repo/:owner/:repo/readme", "/api/repo/:owner/:repo/branches", "/w/:repoId/:path", "/r/:repoId/:path", "/api/pr/:id/:path", "/api/gist/:id/:path", "/assets/:path", "/github/:action", "/api/admin/:action", "/api/user/:action", "/api/repo/:id/file/:path", "/api/repo/:id/files/counts", "/api/repo/:id/files/search", "/api/repo/:id/files", "/api/repo/:id/zip", "/api/repo/:id", "/viewer/:id/:path"], record.route) { out.route = record.route }
 # VictoriaLogs consumes its message field; keep event independently searchable.
-# Explicit reproduction context for failed application file requests, never query strings.
-if includes(["error", "fatal"], out.severity) || to_int(out.status) >= 400 || to_int(out.httpStatus) >= 400 {
+# Anonymous application request context at every outcome, never query strings.
+{
   path = to_string(record.requestPath) ?? ""
-  parsed, path_error = parse_regex(path, r'^/api/repo/(?P<repo>[A-Za-z0-9_-]{3,200})/file/(?P<file>[A-Za-z0-9._~!$&\'()+,;=@%/-]+)$')
+  parsed, path_error = parse_regex(path, r'^/api/repo/(?P<repo>[A-Za-z0-9_-]{3,200})(?:/(?P<file>file/[A-Za-z0-9._~!$&\'()+,;=@%/-]+|files(?:/(?:counts|search))?/?|(?:zip|options|refresh|coauthors|extend)/?))?/?$')
+  action = replace(to_string(parsed.file), r'/+$', "")
+  allowed_methods = if action == "" { ["GET", "HEAD", "POST", "DELETE"] } else if includes(["refresh", "extend", "coauthors"], action) { ["POST"] } else { ["GET", "HEAD"] }
   decoded = decode_percent(to_string(parsed.file))
-  if path_error == null && length(path) <= 2048 && !match(path, r'%(?:[^a-fA-F0-9]|[a-fA-F0-9][^a-fA-F0-9]|[a-fA-F0-9]?$)') && !match(decoded, r'[\x00-\x1f\x7f-\x9f\x{2028}-\x{202e}\x{2066}-\x{2069}\x{fffd}\\:?#%]|^/|(^|/)\.\.?(/|$)') {
+  if path_error == null && includes(allowed_methods, out.method) && length(path) <= 2048 && !match(path, r'%(?:[^a-fA-F0-9]|[a-fA-F0-9][^a-fA-F0-9]|[a-fA-F0-9]?$)') && !match(decoded, r'[\x00-\x1f\x7f-\x9f\x{2028}-\x{202e}\x{2066}-\x{2069}\x{fffd}\\:?#%]|//|(^|/)\.\.?(/|$)') {
     out.requestPath = path
     out.repoId = parsed.repo
   }
