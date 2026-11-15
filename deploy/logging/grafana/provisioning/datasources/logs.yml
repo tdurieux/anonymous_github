@@ -5,6 +5,13 @@ datasources:
     type: victoriametrics-logs-datasource
     access: proxy
     url: http://victorialogs:9428
+    jsonData:
+      logLevelRules:
+        - {field: severity, operator: equals, value: debug, level: debug, enabled: true}
+        - {field: severity, operator: equals, value: info, level: info, enabled: true}
+        - {field: severity, operator: equals, value: warn, level: warn, enabled: true}
+        - {field: severity, operator: equals, value: error, level: error, enabled: true}
+        - {field: severity, operator: equals, value: fatal, level: fatal, enabled: true}
     isDefault: true
     editable: false
   - name: Logging health

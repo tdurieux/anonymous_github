@@ -1,0 +1,237 @@
+{
+  "uid": "anonymous-investigation",
+  "title": "Anonymous GitHub investigation",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "tags": [
+    "operations"
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "request_id",
+        "label": "Request UUID",
+        "type": "textbox",
+        "current": {
+          "text": "",
+          "value": ""
+        }
+      },
+      {
+        "name": "job_id",
+        "label": "Job UUID",
+        "type": "textbox",
+        "current": {
+          "text": "",
+          "value": ""
+        }
+      },
+      {
+        "name": "edge_id",
+        "label": "Edge request ID",
+        "type": "textbox",
+        "current": {
+          "text": "",
+          "value": ""
+        }
+      },
+      {
+        "name": "service",
+        "label": "Service",
+        "type": "textbox",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        }
+      },
+      {
+        "name": "release",
+        "label": "Release",
+        "type": "textbox",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        }
+      },
+      {
+        "name": "event",
+        "label": "Event",
+        "type": "textbox",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 200,
+      "title": "Filtered events",
+      "type": "logs",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 10
+      },
+      "description": "Regular-expression filters. .* includes missing values. Only sanitized fields are available. Expand a line for request/job IDs.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "nan",
+                "result": {
+                  "text": "Not measured",
+                  "color": "gray"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "datasource": {
+        "type": "victoriametrics-logs-datasource",
+        "uid": "anonymous-logs"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "service:~${service:json} release:~${release:json} event:~${event:json}",
+          "queryType": "instant",
+          "editorMode": "code",
+          "maxLines": 200,
+          "packJson": true
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLogLabels": false,
+        "showCommonLabels": false,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true,
+        "enableLogDetails": true
+      }
+    },
+    {
+      "id": 10,
+      "title": "Request correlation",
+      "type": "logs",
+      "datasource": {
+        "type": "victoriametrics-logs-datasource",
+        "uid": "anonymous-logs"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 10,
+        "w": 24,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "requestId:* requestId:=${request_id:json}",
+          "queryType": "instant",
+          "editorMode": "code",
+          "maxLines": 200
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLogLabels": false,
+        "showCommonLabels": false,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true,
+        "enableLogDetails": true
+      },
+      "description": "Legacy correlation link. Open the investigation dashboard to enter IDs and filter events."
+    },
+    {
+      "id": 11,
+      "title": "Job correlation",
+      "type": "logs",
+      "datasource": {
+        "type": "victoriametrics-logs-datasource",
+        "uid": "anonymous-logs"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 18,
+        "w": 24,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "jobId:* jobId:=${job_id:json}",
+          "queryType": "instant",
+          "editorMode": "code",
+          "maxLines": 200
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLogLabels": false,
+        "showCommonLabels": false,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true,
+        "enableLogDetails": true
+      },
+      "description": "Legacy correlation link. Open the investigation dashboard to enter IDs and filter events."
+    },
+    {
+      "id": 12,
+      "title": "Edge to application correlation",
+      "type": "logs",
+      "datasource": {
+        "type": "victoriametrics-logs-datasource",
+        "uid": "anonymous-logs"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 26,
+        "w": 24,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(edge_request_id:* edge_request_id:=${edge_id:json}) OR (requestId:* requestId:=${request_id:json})",
+          "queryType": "instant",
+          "editorMode": "code",
+          "maxLines": 200
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLogLabels": false,
+        "showCommonLabels": false,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true,
+        "enableLogDetails": true
+      },
+      "description": "Legacy correlation link. Open the investigation dashboard to enter IDs and filter events."
+    }
+  ],
+  "links": [
+    {
+      "type": "link",
+      "title": "Operations overview",
+      "url": "/d/anonymous-operations",
+      "keepTime": true
+    }
+  ]
+}

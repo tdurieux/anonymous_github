@@ -2,7 +2,7 @@
   "uid": "anonymous-operations",
   "title": "Anonymous GitHub operations",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "refresh": "30s",
   "time": {
     "from": "now-1h",
@@ -20,7 +20,8 @@
         "current": {
           "text": "",
           "value": ""
-        }
+        },
+        "hide": 2
       },
       {
         "name": "job_id",
@@ -29,7 +30,8 @@
         "current": {
           "text": "",
           "value": ""
-        }
+        },
+        "hide": 2
       },
       {
         "name": "edge_id",
@@ -38,430 +40,1373 @@
         "current": {
           "text": "",
           "value": ""
-        }
+        },
+        "hide": 2
       }
     ]
   },
   "panels": [
     {
-      "id": 1,
-      "title": "Failures and cancellations",
-      "type": "logs",
-      "datasource": {
-        "type": "victoriametrics-logs-datasource",
-        "uid": "anonymous-logs"
-      },
+      "id": 100,
+      "title": "Observed activity, not an uptime probe",
+      "type": "text",
       "gridPos": {
         "x": 0,
         "y": 0,
-        "w": 12,
-        "h": 8
+        "w": 24,
+        "h": 3
       },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "severity:error OR event:request_cancelled",
-          "queryType": "instant",
-          "editorMode": "code",
-          "maxLines": 200
-        }
-      ],
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "nan",
+                "result": {
+                  "text": "Not measured",
+                  "color": "gray"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
       "options": {
-        "showTime": true,
-        "sortOrder": "Descending"
-      }
+        "mode": "markdown",
+        "content": "Selected range. Check reporting before reading zeros. Empty alerts do not prove health."
+      },
+      "targets": []
     },
     {
-      "id": 2,
-      "title": "First byte versus transfer time",
-      "type": "table",
-      "datasource": {
-        "type": "victoriametrics-logs-datasource",
-        "uid": "anonymous-logs"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 0,
-        "w": 12,
-        "h": 8
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "event:request* | stats by (service, route) quantile(0.95, firstByteMs) as first_byte_p95_ms, quantile(0.95, responseMs) as transfer_p95_ms",
-          "queryType": "instant",
-          "editorMode": "code",
-          "maxLines": 200
-        }
-      ],
-      "options": {
-        "showTime": true,
-        "sortOrder": "Descending"
-      }
-    },
-    {
-      "id": 3,
-      "title": "Request stages",
-      "type": "table",
-      "datasource": {
-        "type": "victoriametrics-logs-datasource",
-        "uid": "anonymous-logs"
-      },
+      "id": 101,
+      "title": "API requests",
+      "type": "stat",
       "gridPos": {
         "x": 0,
-        "y": 8,
-        "w": 12,
-        "h": 8
+        "y": 3,
+        "w": 6,
+        "h": 4
       },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "event:request* | stats by (service) avg(stage_upstream_ms) as upstream_ms, avg(stage_worker_wait_ms) as worker_wait_ms, avg(stage_anonymize_ms) as anonymize_ms",
-          "queryType": "instant",
-          "editorMode": "code",
-          "maxLines": 200
-        }
-      ],
-      "options": {
-        "showTime": true,
-        "sortOrder": "Descending"
-      }
-    },
-    {
-      "id": 4,
-      "title": "Traffic and rate limits",
-      "type": "table",
+      "description": "Completed API request events, including slow requests in selected range. Streamer and edge events are excluded.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "nan",
+                "result": {
+                  "text": "Not measured",
+                  "color": "gray"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
       "datasource": {
         "type": "victoriametrics-logs-datasource",
         "uid": "anonymous-logs"
       },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "service:api event:request* outcome:completed | stats count() as requests",
+          "queryType": "stats",
+          "editorMode": "code",
+          "maxLines": 200,
+          "packJson": true
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 102,
+      "title": "API server errors",
+      "type": "stat",
+      "gridPos": {
+        "x": 6,
+        "y": 3,
+        "w": 6,
+        "h": 4
+      },
+      "description": "Completed API requests with status 500 or higher. Interrupted requests are separate. Zero means no matching collected events; check freshness.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "nan",
+                "result": {
+                  "text": "Not measured",
+                  "color": "gray"
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "datasource": {
+        "type": "victoriametrics-logs-datasource",
+        "uid": "anonymous-logs"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "service:api event:request* outcome:completed | stats count() if (status:>=500) as errors",
+          "queryType": "stats",
+          "editorMode": "code",
+          "maxLines": 200,
+          "packJson": true
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 103,
+      "title": "API header time \u00b7 p95",
+      "type": "stat",
       "gridPos": {
         "x": 12,
-        "y": 8,
-        "w": 12,
-        "h": 8
+        "y": 3,
+        "w": 6,
+        "h": 4
       },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "service:nginx | stats by (status, limit_req_status) count() as requests",
-          "queryType": "instant",
-          "editorMode": "code",
-          "maxLines": 200
-        }
-      ],
-      "options": {
-        "showTime": true,
-        "sortOrder": "Descending"
-      }
-    },
-    {
-      "id": 5,
-      "title": "Authentication versus upstream failures",
-      "type": "table",
+      "description": "95th percentile of firstByteMs: request start to Node writeHead, in the selected range. Not client receipt. Missing samples are not zero latency.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "noValue": "No data",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "nan",
+                "result": {
+                  "text": "Not measured",
+                  "color": "gray"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
       "datasource": {
         "type": "victoriametrics-logs-datasource",
         "uid": "anonymous-logs"
       },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "service:api event:request* outcome:completed firstByteMs:* | stats quantile(0.95, firstByteMs) as latency",
+          "queryType": "stats",
+          "editorMode": "code",
+          "maxLines": 200,
+          "packJson": true
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 104,
+      "title": "Interrupted API requests",
+      "type": "stat",
+      "gridPos": {
+        "x": 18,
+        "y": 3,
+        "w": 6,
+        "h": 4
+      },
+      "description": "API request_cancelled events, selected range. A disconnect does not identify the initiator; proxy, upstream and timeout causes may be involved.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "nan",
+                "result": {
+                  "text": "Not measured",
+                  "color": "gray"
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "datasource": {
+        "type": "victoriametrics-logs-datasource",
+        "uid": "anonymous-logs"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "service:api event:request_cancelled | stats count() as interrupted",
+          "queryType": "stats",
+          "editorMode": "code",
+          "maxLines": 200,
+          "packJson": true
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 110,
+      "title": "Reporting \u00b7 3 min before range end",
+      "type": "table",
       "gridPos": {
         "x": 0,
-        "y": 16,
-        "w": 12,
-        "h": 8
+        "y": 7,
+        "w": 10,
+        "h": 5
+      },
+      "description": "Heartbeats in the three minutes before the selected range end. Expected API: 1; streamer: 4. Missing rows mean missing telemetry. Counts may include recently replaced instances. Memory is peak container usage / limit, not process RSS.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "nan",
+                "result": {
+                  "text": "Not measured",
+                  "color": "gray"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Reporting instances"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Peak container memory"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              }
+            ]
+          }
+        ]
+      },
+      "datasource": {
+        "type": "victoriametrics-logs-datasource",
+        "uid": "anonymous-logs"
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "errorCode:* OR status:401 OR status:403 OR status:>=500 | stats by (service, errorCode, status) count() as events",
+          "expr": "_time:3m event:process_heartbeat | stats by (service) count_uniq(instance) as instances, max(memoryRatio) as memory_ratio",
           "queryType": "instant",
           "editorMode": "code",
-          "maxLines": 200
+          "maxLines": 200,
+          "packJson": true
+        }
+      ],
+      "transformations": [
+        {
+          "id": "extractFields",
+          "options": {
+            "source": "Line",
+            "format": "json",
+            "replace": true,
+            "keepTime": false
+          }
+        },
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "names": [
+                "service",
+                "instances",
+                "memory_ratio"
+              ]
+            }
+          }
+        },
+        {
+          "id": "convertFieldType",
+          "options": {
+            "conversions": [
+              {
+                "targetField": "instances",
+                "destinationType": "number"
+              },
+              {
+                "targetField": "memory_ratio",
+                "destinationType": "number"
+              }
+            ]
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "service": 0,
+              "instances": 1,
+              "memory_ratio": 2
+            },
+            "renameByName": {
+              "service": "Service",
+              "instances": "Reporting instances",
+              "memory_ratio": "Peak container memory"
+            }
+          }
         }
       ],
       "options": {
-        "showTime": true,
-        "sortOrder": "Descending"
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
       }
     },
     {
-      "id": 6,
-      "title": "Release comparison",
+      "id": 111,
+      "title": "Firing alerts \u00b7 at range end",
       "type": "table",
-      "datasource": {
-        "type": "victoriametrics-logs-datasource",
-        "uid": "anonymous-logs"
-      },
       "gridPos": {
-        "x": 12,
-        "y": 16,
-        "w": 12,
-        "h": 8
+        "x": 10,
+        "y": 7,
+        "w": 14,
+        "h": 5
+      },
+      "description": "Firing alert identities at the selected range end, from Prometheus and remote-written log rules. Empty results mean no reported firing series, not proof of health. Check telemetry below. For memory pressure inspect container usage, not just RSS.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "nan",
+                "result": {
+                  "text": "Not measured",
+                  "color": "gray"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "logging-health"
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "service:api outcome:completed | stats by (release) count() as requests, count() if (status:>=500) as server_errors, quantile(0.95, firstByteMs) as first_byte_p95_ms",
-          "queryType": "instant",
-          "editorMode": "code",
-          "maxLines": 200
+          "expr": "ALERTS{alertstate=\"firing\"}",
+          "instant": true,
+          "range": false,
+          "legendFormat": "What needs attention \u00b7 active alerts",
+          "format": "table"
         }
       ],
-      "options": {
-        "showTime": true,
-        "sortOrder": "Descending"
-      }
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "Value": true,
+              "__name__": true,
+              "stats_result": true,
+              "alertgroup": true,
+              "alertstate": true
+            },
+            "renameByName": {
+              "alertname": "Alert",
+              "service": "Service",
+              "severity": "Severity",
+              "instance": "Target",
+              "job": "Component",
+              "queue": "Queue"
+            }
+          }
+        }
+      ],
+      "links": [
+        {
+          "title": "Alert details",
+          "url": "/alerting/list"
+        },
+        {
+          "title": "What each alert means and what to check",
+          "url": "https://github.com/tdurieux/anonymous_github/blob/main/deploy/logging/dashboard-validation.md#responding-to-alerts",
+          "targetBlank": true
+        }
+      ]
     },
     {
-      "id": 7,
-      "title": "Crashes and restarts",
-      "type": "logs",
-      "datasource": {
-        "type": "victoriametrics-logs-datasource",
-        "uid": "anonymous-logs"
-      },
+      "id": 120,
+      "title": "Traffic \u00b7 edge and API are separate",
+      "type": "timeseries",
       "gridPos": {
         "x": 0,
-        "y": 24,
+        "y": 12,
         "w": 12,
-        "h": 8
+        "h": 7
       },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "event:process_fatal_error OR event:process_started",
-          "queryType": "instant",
-          "editorMode": "code",
-          "maxLines": 200
-        }
-      ],
-      "options": {
-        "showTime": true,
-        "sortOrder": "Descending"
-      }
-    },
-    {
-      "id": 8,
-      "title": "Queue stalls and failures",
-      "type": "logs",
+      "description": "Events per interval. Edge counts include requests rejected before the API. Never add these series together.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "nan",
+                "result": {
+                  "text": "Not measured",
+                  "color": "gray"
+                }
+              }
+            }
+          ],
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
       "datasource": {
         "type": "victoriametrics-logs-datasource",
         "uid": "anonymous-logs"
       },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "service:nginx event:edge_request | stats count() as requests",
+          "queryType": "statsRange",
+          "editorMode": "code",
+          "maxLines": 200,
+          "packJson": true,
+          "legendFormat": "Edge requests",
+          "step": "1m"
+        },
+        {
+          "refId": "B",
+          "expr": "service:api event:request* outcome:completed | stats count() as requests",
+          "queryType": "statsRange",
+          "editorMode": "code",
+          "maxLines": 200,
+          "packJson": true,
+          "legendFormat": "API completed",
+          "step": "1m"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 121,
+      "title": "API latency \u00b7 headers vs post-header duration",
+      "type": "timeseries",
       "gridPos": {
         "x": 12,
-        "y": 24,
+        "y": 12,
         "w": 12,
-        "h": 8
+        "h": 7
       },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "event:job_stalled OR event:job_failed OR event:queue_heartbeat",
-          "queryType": "instant",
-          "editorMode": "code",
-          "maxLines": 200
-        }
-      ],
-      "options": {
-        "showTime": true,
-        "sortOrder": "Descending"
-      }
-    },
-    {
-      "id": 9,
-      "title": "Memory and lost application logs",
-      "type": "table",
+      "description": "p95 per interval. firstByteMs measures request start to writeHead; responseMs measures writeHead to finish/close. Neither proves delivery to the client. Only measured fields contribute.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "nan",
+                "result": {
+                  "text": "Not measured",
+                  "color": "gray"
+                }
+              }
+            }
+          ],
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "first_byte"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Headers written \u00b7 p95"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "response_duration"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "After headers \u00b7 p95"
+              }
+            ]
+          }
+        ]
+      },
       "datasource": {
         "type": "victoriametrics-logs-datasource",
         "uid": "anonymous-logs"
       },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "service:api event:request* outcome:completed | stats quantile(0.95, firstByteMs) as first_byte, quantile(0.95, responseMs) as response_duration",
+          "queryType": "statsRange",
+          "editorMode": "code",
+          "maxLines": 200,
+          "packJson": true,
+          "legendFormat": "{{__name__}}",
+          "step": "1m"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 130,
+      "title": "Queues \u00b7 3 min before range end",
+      "type": "table",
+      "gridPos": {
+        "x": 0,
+        "y": 19,
+        "w": 12,
+        "h": 6
+      },
+      "description": "Peak values in the three minutes before the selected range end. Expected queues: download, cache, remove. Missing rows mean missing telemetry. Waiting over 10 minutes meets the age condition of QueueWaitingTooLong.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "nan",
+                "result": {
+                  "text": "Not measured",
+                  "color": "gray"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Waiting"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Active"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Oldest waiting"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "ms"
+              }
+            ]
+          }
+        ]
+      },
+      "datasource": {
+        "type": "victoriametrics-logs-datasource",
+        "uid": "anonymous-logs"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "_time:3m event:queue_heartbeat | stats by (queue) max(waiting) as waiting, max(active) as active, max(oldestWaitingMs) as oldest",
+          "queryType": "instant",
+          "editorMode": "code",
+          "maxLines": 200,
+          "packJson": true
+        }
+      ],
+      "transformations": [
+        {
+          "id": "extractFields",
+          "options": {
+            "source": "Line",
+            "format": "json",
+            "replace": true,
+            "keepTime": false
+          }
+        },
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "names": [
+                "queue",
+                "waiting",
+                "active",
+                "oldest"
+              ]
+            }
+          }
+        },
+        {
+          "id": "convertFieldType",
+          "options": {
+            "conversions": [
+              {
+                "targetField": "waiting",
+                "destinationType": "number"
+              },
+              {
+                "targetField": "active",
+                "destinationType": "number"
+              },
+              {
+                "targetField": "oldest",
+                "destinationType": "number"
+              }
+            ]
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "queue": 0,
+              "waiting": 1,
+              "active": 2,
+              "oldest": 3
+            },
+            "renameByName": {
+              "queue": "Queue",
+              "waiting": "Waiting",
+              "active": "Active",
+              "oldest": "Oldest waiting"
+            }
+          }
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      }
+    },
+    {
+      "id": 131,
+      "title": "What changed \u00b7 API releases",
+      "type": "table",
+      "gridPos": {
+        "x": 12,
+        "y": 19,
+        "w": 12,
+        "h": 6
+      },
+      "description": "Selected range. Compare request volume before comparing error counts. Missing release or latency is unreported, not a successful measurement.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "nan",
+                "result": {
+                  "text": "Not measured",
+                  "color": "gray"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Requests"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "5xx"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "First byte p95"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "ms"
+              }
+            ]
+          }
+        ]
+      },
+      "datasource": {
+        "type": "victoriametrics-logs-datasource",
+        "uid": "anonymous-logs"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "service:api event:request* outcome:completed | stats by (release) count() as requests, count() if (status:>=500) as errors, quantile(0.95, firstByteMs) as latency",
+          "queryType": "instant",
+          "editorMode": "code",
+          "maxLines": 200,
+          "packJson": true
+        }
+      ],
+      "transformations": [
+        {
+          "id": "extractFields",
+          "options": {
+            "source": "Line",
+            "format": "json",
+            "replace": true,
+            "keepTime": false
+          }
+        },
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "names": [
+                "release",
+                "requests",
+                "errors",
+                "latency"
+              ]
+            }
+          }
+        },
+        {
+          "id": "convertFieldType",
+          "options": {
+            "conversions": [
+              {
+                "targetField": "requests",
+                "destinationType": "number"
+              },
+              {
+                "targetField": "errors",
+                "destinationType": "number"
+              },
+              {
+                "targetField": "latency",
+                "destinationType": "number"
+              }
+            ]
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "release": 0,
+              "requests": 1,
+              "errors": 2,
+              "latency": 3
+            },
+            "renameByName": {
+              "release": "Release",
+              "requests": "Requests",
+              "errors": "5xx",
+              "latency": "First byte p95"
+            }
+          }
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      }
+    },
+    {
+      "id": 140,
+      "title": "Log storage \u00b7 10 GiB retention budget",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 25,
+        "w": 12,
+        "h": 7
+      },
+      "description": "VictoriaLogs stored data. Retention budget 10 GiB; warning rule at 8 GiB. This is log storage only.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "nan",
+                "result": {
+                  "text": "Not measured",
+                  "color": "gray"
+                }
+              }
+            }
+          ],
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "logging-health"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(vl_data_size_bytes)",
+          "instant": false,
+          "range": true,
+          "legendFormat": "Log storage \u00b7 10 GiB retention budget"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 141,
+      "title": "Disk available \u00b7 5 GiB ingestion reserve",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 12,
+        "y": 25,
+        "w": 12,
+        "h": 7
+      },
+      "description": "Underlying filesystem free space. Warning at 8 GiB; ingestion reserve 5 GiB.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "nan",
+                "result": {
+                  "text": "Not measured",
+                  "color": "gray"
+                }
+              }
+            }
+          ],
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "logging-health"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "min(vl_free_disk_space_bytes)",
+          "instant": false,
+          "range": true,
+          "legendFormat": "Disk available \u00b7 5 GiB ingestion reserve"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 142,
+      "title": "Telemetry scrape status",
+      "type": "stat",
       "gridPos": {
         "x": 0,
         "y": 32,
         "w": 12,
-        "h": 8
+        "h": 4
+      },
+      "description": "Scrape status at selected range end for each configured monitoring target. 1 = reachable, 0 = scrape failed, no data = unknown. This does not prove application availability.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "Unavailable",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "Reporting",
+                  "color": "green"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "logging-health"
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "(event:process_heartbeat OR event:job_completed OR event:job_failed) | stats by (service, instance) max(rss) as rss, max(memoryRatio) as memory_ratio, max(droppedLogs) as dropped_logs",
-          "queryType": "instant",
-          "editorMode": "code",
-          "maxLines": 200
+          "expr": "up",
+          "instant": true,
+          "range": false,
+          "legendFormat": "{{job}}"
         }
       ],
       "options": {
-        "showTime": true,
-        "sortOrder": "Descending"
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
       }
     },
     {
-      "id": 10,
-      "title": "Request correlation",
-      "type": "logs",
-      "datasource": {
-        "type": "victoriametrics-logs-datasource",
-        "uid": "anonymous-logs"
-      },
+      "id": 143,
+      "title": "Log ingestion \u00b7 records per second",
+      "type": "timeseries",
       "gridPos": {
         "x": 12,
         "y": 32,
         "w": 12,
-        "h": 8
+        "h": 6
+      },
+      "description": "VictoriaLogs ingestion rate, rolling five minutes. No data means metric unavailable. Zero means no observed ingestion, not healthy application traffic.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "nan",
+                "result": {
+                  "text": "Not measured",
+                  "color": "gray"
+                }
+              }
+            }
+          ],
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "logging-health"
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "requestId:=\"$request_id\"",
-          "queryType": "instant",
-          "editorMode": "code",
-          "maxLines": 200
+          "expr": "sum(rate(vl_rows_ingested_total[5m]))",
+          "instant": false,
+          "range": true,
+          "legendFormat": "Log ingestion \u00b7 records per second"
         }
       ],
       "options": {
-        "showTime": true,
-        "sortOrder": "Descending"
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
       }
     },
     {
-      "id": 11,
-      "title": "Job correlation",
-      "type": "logs",
-      "datasource": {
-        "type": "victoriametrics-logs-datasource",
-        "uid": "anonymous-logs"
-      },
+      "id": 190,
+      "title": "Request and job correlation \u00b7 legacy links",
+      "type": "row",
+      "collapsed": true,
       "gridPos": {
         "x": 0,
         "y": 40,
-        "w": 12,
-        "h": 8
+        "w": 24,
+        "h": 1
       },
-      "targets": [
+      "panels": [
         {
-          "refId": "A",
-          "expr": "jobId:=\"$job_id\"",
-          "queryType": "instant",
-          "editorMode": "code",
-          "maxLines": 200
+          "id": 10,
+          "title": "Request correlation",
+          "type": "logs",
+          "datasource": {
+            "type": "victoriametrics-logs-datasource",
+            "uid": "anonymous-logs"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 41,
+            "w": 24,
+            "h": 8
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "requestId:* requestId:=${request_id:json}",
+              "queryType": "instant",
+              "editorMode": "code",
+              "maxLines": 200
+            }
+          ],
+          "options": {
+            "showTime": true,
+            "sortOrder": "Descending"
+          },
+          "description": "Legacy correlation link. Open the investigation dashboard to enter IDs and filter events."
+        },
+        {
+          "id": 11,
+          "title": "Job correlation",
+          "type": "logs",
+          "datasource": {
+            "type": "victoriametrics-logs-datasource",
+            "uid": "anonymous-logs"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 49,
+            "w": 24,
+            "h": 8
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "jobId:* jobId:=${job_id:json}",
+              "queryType": "instant",
+              "editorMode": "code",
+              "maxLines": 200
+            }
+          ],
+          "options": {
+            "showTime": true,
+            "sortOrder": "Descending"
+          },
+          "description": "Legacy correlation link. Open the investigation dashboard to enter IDs and filter events."
+        },
+        {
+          "id": 12,
+          "title": "Edge to application correlation",
+          "type": "logs",
+          "datasource": {
+            "type": "victoriametrics-logs-datasource",
+            "uid": "anonymous-logs"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 57,
+            "w": 24,
+            "h": 8
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "(edge_request_id:* edge_request_id:=${edge_id:json}) OR (requestId:* requestId:=${request_id:json})",
+              "queryType": "instant",
+              "editorMode": "code",
+              "maxLines": 200
+            }
+          ],
+          "options": {
+            "showTime": true,
+            "sortOrder": "Descending"
+          },
+          "description": "Legacy correlation link. Open the investigation dashboard to enter IDs and filter events."
         }
       ],
-      "options": {
-        "showTime": true,
-        "sortOrder": "Descending"
-      }
-    },
+      "targets": []
+    }
+  ],
+  "description": "Operator overview. Logs summarize observed events, not uptime. Open investigation for individual requests and jobs.",
+  "links": [
     {
-      "id": 12,
-      "title": "Edge to application correlation",
-      "type": "logs",
-      "datasource": {
-        "type": "victoriametrics-logs-datasource",
-        "uid": "anonymous-logs"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 40,
-        "w": 12,
-        "h": 8
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "edge_request_id:=\"$edge_id\" OR requestId:=\"$request_id\"",
-          "queryType": "instant",
-          "editorMode": "code",
-          "maxLines": 200
-        }
-      ],
-      "options": {
-        "showTime": true,
-        "sortOrder": "Descending"
-      }
-    },
-    {
-      "id": 20,
-      "title": "Storage bytes",
-      "type": "timeseries",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "logging-health"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 48,
-        "w": 12,
-        "h": 8
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(vl_data_size_bytes)"
-        }
-      ]
-    },
-    {
-      "id": 21,
-      "title": "Free disk bytes",
-      "type": "timeseries",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "logging-health"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 48,
-        "w": 12,
-        "h": 8
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "min(vl_free_disk_space_bytes)"
-        }
-      ]
-    },
-    {
-      "id": 22,
-      "title": "Collector discarded events",
-      "type": "timeseries",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "logging-health"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 56,
-        "w": 12,
-        "h": 8
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "(sum(rate(vector_buffer_discarded_events_total[5m])) or vector(0)) + (sum(rate(vector_component_discarded_events_total{intentional!=\"true\"}[5m])) or vector(0))"
-        }
-      ]
-    },
-    {
-      "id": 23,
-      "title": "Firing alerts",
-      "type": "timeseries",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "logging-health"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 56,
-        "w": 12,
-        "h": 8
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "ALERTS{alertstate=\"firing\"}"
-        }
-      ]
+      "type": "link",
+      "title": "Investigate requests & jobs",
+      "url": "/d/anonymous-investigation",
+      "includeVars": true,
+      "keepTime": true
     }
   ]
 }
