@@ -18,6 +18,46 @@ COORDINATED_RESTART="${COORDINATED_RESTART:-0}"
 log()  { printf '==> %s\n' "$*"; }
 warn() { printf '!!  %s\n' "$*" >&2; }
 
+# Local, finite deployment evidence. Collection is opt-in via a pre-created file.
+# Logging failure must never change deployment behavior or expose shell commands.
+deployment_started=$(date +%s)
+restart_started=0
+deployment_id=$(cat /proc/sys/kernel/random/uuid 2>/dev/null || true)
+[[ $deployment_id =~ ^[a-f0-9-]{36}$ ]] || deployment_id=""
+deployment_release=${APP_RELEASE:-unknown}
+[[ $deployment_release =~ ^[a-f0-9]{7,40}$ ]] || deployment_release=unknown
+deployment_operation=${DEPLOY_OPERATION:-deploy}
+[[ $deployment_operation == rollback ]] || deployment_operation=deploy
+deployment_outcome=completed
+deployment_event() {
+    local phase="$1" outcome="$2" code="$3" now elapsed restart_ms record
+    now=$(date +%s); elapsed=$(( (now - deployment_started) * 1000 )); restart_ms=0
+    if (( restart_started > 0 )); then restart_ms=$(( (now - restart_started) * 1000 )); fi
+    printf -v record '{"timestamp":"%s","service":"api","severity":"%s","event":"deployment","deploymentId":"%s","release":"%s","deploymentOperation":"%s","deploymentPhase":"%s","deploymentOutcome":"%s","ms":%d,"restartMs":%d,"exitCode":%d}' \
+        "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$([[ $code == 0 ]] && echo info || echo error)" "$deployment_id" "$deployment_release" "$deployment_operation" "$phase" "$outcome" "$elapsed" "$restart_ms" "$code"
+    printf '%s\n' "$record" || true
+    if [[ -n ${DEPLOY_EVENT_FILE:-} ]]; then
+        if [[ -f $DEPLOY_EVENT_FILE && ! -L $DEPLOY_EVENT_FILE ]]; then
+            (printf '%s\n' "$record" >> "$DEPLOY_EVENT_FILE") 2>/dev/null || warn "deployment event file unavailable"
+        else warn "deployment event file must already exist and must not be a symlink"; fi
+    fi
+    return 0
+}
+restart_event() {
+    if (( restart_started == 0 )); then restart_started=$(date +%s); deployment_event restart started 0; fi
+}
+deployment_finished() {
+    local code=$?
+    if (( code != 0 )); then deployment_outcome=failed; fi
+    deployment_event finish "$deployment_outcome" "$code"
+    exit "$code"
+}
+trap deployment_finished EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+deployment_event start started 0
+
 image_id() { docker image inspect --format '{{.Id}}' "$1" 2>/dev/null || true; }
 
 wait_healthy() {
@@ -67,6 +107,7 @@ if [[ $legacy_alerts == 1 ]]; then
     [[ $protocol == recipient-v2 ]] || { warn "replacement image lacks recipient alert migration support"; exit 1; }
     TIMEOUT="${MIGRATION_HEALTH_TIMEOUT:-900}"
     log "Pausing legacy application writers before recipient alert migration"
+    restart_event
     docker compose stop -t 30 anonymous_github streamer
     for app in "${apps[@]}"; do
         running="$(docker inspect -f '{{.State.Running}}' "$app")"
@@ -96,6 +137,7 @@ for app in "${apps[@]}"; do
 done
 if [[ $COORDINATED_RESTART == 1 ]]; then
     log "Coordinated application restart for shared cache compatibility"
+    restart_event
     docker compose stop -t 30 anonymous_github streamer
     for app in "${apps[@]}"; do
         [[ $(docker inspect -f '{{.State.Running}}' "$app") == false ]] || { warn "cache writer $app is still running"; exit 1; }
@@ -116,13 +158,18 @@ fi
 mapfile -t olds < <(list_streamers)
 if [[ ${#olds[@]} -eq 0 ]]; then
     log "Cold start — bringing the whole stack up"
+    restart_event
     docker compose up -d --remove-orphans
+    api="$(docker compose ps -q anonymous_github)"
+    [[ -n $api ]] || { warn "API container missing after cold start"; exit 1; }
+    wait_healthy "$api"
     docker compose ps
     exit 0
 fi
 
 # 3. No-op if image unchanged
 if [[ -n $before && $before == "$after" && $FORCE != 1 ]]; then
+    deployment_outcome=unchanged
     log "Image unchanged — nothing to deploy (FORCE=1 to override)"
     docker compose ps
     exit 0
@@ -152,6 +199,7 @@ if [[ $fail == 1 ]]; then
 fi
 
 # Drop olds and reconcile scale.
+restart_event
 docker rm -f "${olds[@]}" >/dev/null
 docker compose up -d --no-deps --no-recreate --scale "streamer=${REPLICAS}" streamer >/dev/null
 
@@ -160,6 +208,7 @@ docker compose up -d --no-deps --no-recreate --scale "streamer=${REPLICAS}" stre
 log "Recreating API"
 docker compose up -d --no-deps --remove-orphans anonymous_github
 api="$(docker compose ps -q anonymous_github | head -1)"
-[[ -n $api ]] && wait_healthy "$api" || true
+[[ -n $api ]] || { warn "API container missing after restart"; exit 1; }
+wait_healthy "$api"
 
 docker compose ps

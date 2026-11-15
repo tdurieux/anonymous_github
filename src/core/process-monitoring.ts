@@ -1,5 +1,5 @@
 import { logMemory } from "./log-memory";
-import { createLogger, serializeError, getDroppedOutput } from "./logger";
+import { createLogger, serializeError, reportOutputDrops } from "./logger";
 
 /** Observe fatal errors without overriding Node's default exit behavior. */
 export function installFatalErrorLogging(service: "api" | "streamer") {
@@ -9,8 +9,8 @@ export function installFatalErrorLogging(service: "api" | "streamer") {
   });
   logger.info("process started", { service });
   const heartbeat = setInterval(() => {
-    void logMemory().then(memory => logger.info("process heartbeat", {
-      service, uptime: process.uptime(), ...memory, droppedLogs: getDroppedOutput() }));
+    void logMemory().then(memory => reportOutputDrops(drops => logger.info("process heartbeat", {
+      service, uptime: process.uptime(), ...memory, ...drops })));
   }, 30000);
   heartbeat.unref();
   process.on("uncaughtExceptionMonitor", report);

@@ -412,3 +412,82 @@ zero cost. Unattributed time is visible; it is not evidence of a stall.
 The admin API and Redis projection preserve these allowlisted fields. Collector
 and application versions must be updated together. No ordinary request depends
 on the collector, Grafana or VictoriaLogs being available.
+
+## Alert investigation
+
+Log rules carry a fixed investigation query, an action description and a relative
+Grafana link. The links target `/d/anonymous-investigation` from dashboard PR #971,
+with anchored service/event filters and a one-hour context window. Resolve relative
+links against the configured private Grafana origin, not a public host. Admin
+links preserve bounded epoch time limits and add anchored service/release filters;
+configure `ADMIN_LOG_GRAFANA_URL` to that investigation dashboard to use them.
+Metrics rules link to the operations dashboard and include the exact PromQL query.
+No notification receiver is added or enabled.
+
+`ApplicationLogDrops` uses `droppedLogsInterval`, the losses since the last stream-acknowledged
+process report, so it recovers after losses stop. `droppedLogs` remains cumulative
+for historical diagnosis. If emitting the report itself drops a record, the
+watermark stays unchanged and the next report includes those losses. Concurrent
+reports before acknowledgement can repeat a delta; it is an alert signal, not an
+exact window loss total. A successful write does not prove collector ingestion. A dead
+process or broken pair of stdout/stderr pipes still needs missing-heartbeat alerts.
+Older applications without interval fields cannot drive the new interval rule;
+roll out matching application and alert versions together. Collector/storage
+loss counters retain their rate-based alerts and reset semantics.
+
+Run `python3 scripts/test-operational-alerts.py` for isolated, pinned rule tests.
+Real VictoriaLogs/vmalert tests accelerate only lookback/hold/evaluation durations,
+keeping predicates and numeric thresholds unchanged. They prove firing and recovery
+for 5xx, queue stalls/wait age, missing process/queue telemetry, memory, restart,
+webhook and application loss alerts. The notifier is explicitly blackholed.
+Promtool uses simulated time for every infrastructure rule, including disk reserve,
+collector drops/errors, rejected rows and evaluation errors. These tests do not
+prove production notification delivery, which remains disabled.
+
+## Deployment evidence
+
+`scripts/deploy.sh` emits finite JSON events for start, restart-window start and
+terminal outcome. `deploymentId` correlates the run; `deploymentOperation=rollback`
+is an explicit operator label via `DEPLOY_OPERATION=rollback`, never an inferred or
+automatically executed rollback. `deploymentOutcome` is completed, failed or
+unchanged. `APP_RELEASE` supplies a validated commit SHA; absent/invalid values
+remain unknown. Elapsed and restart durations use second-resolution wall-clock
+measurements expressed in milliseconds. The restart window begins before stopping
+or removing old instances and ends at the terminal event. It is an orchestration
+window, not measured user-visible downtime. SIGKILL/host loss can omit the terminal
+event; a started event alone does not imply success. Failed API health checks now
+produce a nonzero deployment result instead of a successful exit.
+
+JSON always goes to the operator's stdout. Central collection is opt-in: an
+operator may pre-create `/var/log/nginx/anonymous.deploy.json` owned by the deploy
+operator, group `adm`, mode `0640`, then set `DEPLOY_EVENT_FILE` to that file when
+running the deployment script. It must be an existing regular non-symlink file;
+failure to append is reported locally and never blocks deployment. Vector reads
+it through the existing read-only Nginx directory mount and supplemental group.
+The supplied hourly rotation stanza retains six archives at a 1 MiB threshold.
+Copytruncate preserves operator ownership but has a small concurrent-write loss
+window. Do not claim this optional host file is enabled until configured and
+verified. Configuration and VRL files remain 0644; no capability or secret mount
+changes are made. Use the complete application Compose override list and mounted
+GitHub App key described by the deployment runbook. This PR does not deploy.
+
+## Incident counts and release comparison
+
+Central groups retain first/last occurrence within the bounded selected snapshot.
+`count` is records, `affectedRequests` is distinct captured request UUIDs within a
+group, and `uncorrelatedRecords` counts records without a request UUID. Do not add
+request counts across service groups or Redis mirrors. Fingerprints include safe
+error code/type and the first recognized file/function, ignoring line/column shifts
+between builds. Different functions remain distinct; unavailable stacks cannot
+establish a precise source location.
+
+When an exact release is selected, one extra bounded query compares with other
+known releases in the preceding 24 hours. `known` means that fingerprint was
+observed there; `not_seen_in_baseline` means it was absent from a nonempty complete
+baseline, a candidate regression rather than proof. Missing, empty or truncated
+baselines yield `unknown` for unseen signatures. The API returns comparison bounds
+and coverage explicitly. Each query remains capped at 1,001 records/2 MiB and the
+whole investigation shares its existing four-second deadline and admission limit.
+Historical repositories with blank status messages are not reconstructed and are
+not treated as new service failures. Finite lifecycle codes such as
+`preparation_interrupted` and `commit_not_found` are retained for future evidence.

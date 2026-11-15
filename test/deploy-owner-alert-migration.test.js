@@ -25,10 +25,10 @@ if (args[0] === "inspect") {
   if (args.some(a => a.includes("Config.Env"))) finish(state.sharedCache ? "SHARED_CACHE_ENABLED=true\\n" : "");
   if (args.some(a => a.includes("Labels"))) finish(state.oldProtocol || "<no value>");
   if (args.includes("{{.State.Running}}")) finish(state.stopped && !state.refuseStop ? "false" : "true");
-  finish("healthy");
+  finish(state.unhealthy ? "unhealthy" : "healthy");
 }
 if (args[0] === "compose") {
-  if (args[1] === "build") { if (state.buildFails) finish("", 1); state.built = true; finish(); }
+  if (args[1] === "build") { if (state.signal) { process.kill(process.ppid, state.signal); finish(); } if (state.buildFails) finish("", 1); state.built = true; finish(); }
   if (args[1] === "stop") { state.stopped = true; finish(); }
   if (args[1] === "run" && args.at(-1).endsWith("check-github-app-key.js")) { finish("", args.includes(state.preflightFails) ? 1 : 0); }
   if (args[1] === "run") { if (state.reconcileFails) finish("", 1); state.reconciled = true; finish(); }
@@ -45,12 +45,34 @@ finish("unexpected docker call", 2);
       const result = spawnSync("bash", [path.join(directory, "scripts/deploy.sh")], {
         encoding: "utf8", timeout: 8000,
         env: { ...process.env, PATH: directory + path.delimiter + process.env.PATH,
-          COORDINATED_RESTART: String(options.coordinated ?? 0), FORCE: String(options.force ?? 1), STREAMER_REPLICAS: "4", TASK_DOCKER_STATE: statePath, TASK_DOCKER_LOG: logPath },
+          APP_RELEASE: "abcdef1", DEPLOY_OPERATION: options.operation || "deploy", HEALTH_TIMEOUT: options.unhealthy ? "1" : "90", MIGRATION_HEALTH_TIMEOUT: options.unhealthy ? "1" : "900", COORDINATED_RESTART: String(options.coordinated ?? 0), FORCE: String(options.force ?? 1), STREAMER_REPLICAS: "4", TASK_DOCKER_STATE: statePath, TASK_DOCKER_LOG: logPath },
       });
       return { ...result, calls: fs.readFileSync(logPath, "utf8").trim().split("\n").map(line => JSON.parse(line)) };
     } finally { fs.rmSync(directory, { recursive: true, force: true }); }
   }
 
+  it("records finite deployment start, restart and rollback outcome", () => {
+    const result = deploy({operation:"rollback"});
+    expect(result.status, result.stderr).equal(0);
+    const events = result.stdout.split("\n").filter(line=>line.startsWith("{")).map(JSON.parse);
+    expect(events.map(row=>row.deploymentPhase)).deep.equal(["start","restart","finish"]);
+    expect(events.at(-1)).include({deploymentOperation:"rollback",deploymentOutcome:"completed",release:"abcdef1",exitCode:0});
+    expect(new Set(events.map(row=>row.deploymentId)).size).equal(1);
+    expect(events.at(-1).restartMs).at.least(0);
+  });
+  for (const [signal, code] of [["SIGHUP",129],["SIGINT",130],["SIGTERM",143]]) it(`records ${signal} termination as failed`, () => {
+    const result=deploy({signal,operation:"rollback"});
+    expect(result.status,result.stderr).equal(code);
+    const events=result.stdout.split("\n").filter(line=>line.startsWith("{")).map(JSON.parse);
+    expect(events.at(-1)).include({deploymentPhase:"finish",deploymentOutcome:"failed",exitCode:code});
+  });
+  it("records failure when API or streamers fail health checks", () => {
+    const result=deploy({unhealthy:true});
+    expect(result.status).not.equal(0);
+    const events=result.stdout.split("\n").filter(line=>line.startsWith("{")).map(JSON.parse);
+    expect(events.at(-1)).include({deploymentPhase:"finish",deploymentOutcome:"failed"});
+    expect(events.at(-1).exitCode).not.equal(0);
+  });
   for (const preflightFails of ["anonymous_github", "streamer"]) it(`keeps working containers when ${preflightFails} key preflight fails`, () => {
     const result = deploy({ preflightFails });
     expect(result.status).not.to.equal(0);
