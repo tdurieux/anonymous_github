@@ -1,3 +1,4 @@
+import { recordUpstreamFailure } from "./request-evidence";
 import { rejectStreamerRedirects } from "./streamer-response";
 import { isResponseCancellation } from "./response-cancellation";
 import { canReadCachedRepository } from "./cached-repository-access";
@@ -585,7 +586,7 @@ export default class AnonymizedFile {
           reject(error);
         }
         content
-          .on("error", handleStreamError)
+          .on("error", error => { if (!res.destroyed) recordUpstreamFailure(res, error); handleStreamError(error); })
           .pipe(anonymizer)
           .on("error", handleStreamError)
           .pipe(res)

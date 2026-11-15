@@ -858,6 +858,14 @@ export const LOG_SOURCE_FUNCTIONS: Record<string, readonly string[]> = {
     "replaceCredential",
     "setCredential"
   ],
+  "src/core/database-timing.ts": [
+    "<anonymous>",
+    "installDatabaseTiming"
+  ],
+  "build/core/database-timing.js": [
+    "<anonymous>",
+    "installDatabaseTiming"
+  ],
   "src/core/email-history.ts": [
     "<anonymous>",
     "complete",
@@ -959,6 +967,14 @@ export const LOG_SOURCE_FUNCTIONS: Record<string, readonly string[]> = {
   "build/core/github-rate-limit.js": [
     "<anonymous>",
     "isGitHubRateLimitError"
+  ],
+  "src/core/github-repository-picker.ts": [
+    "<anonymous>",
+    "repositoryPickerPage"
+  ],
+  "build/core/github-repository-picker.js": [
+    "<anonymous>",
+    "repositoryPickerPage"
   ],
   "src/core/github-token-context.ts": [
     "<anonymous>",
@@ -1482,34 +1498,54 @@ export const LOG_SOURCE_FUNCTIONS: Record<string, readonly string[]> = {
   "build/core/repository-id.js": [
     "<anonymous>"
   ],
+  "src/core/request-evidence.ts": [
+    "<anonymous>",
+    "expectedResponseBytes",
+    "recordResponseFailure",
+    "recordUpstreamFailure",
+    "responseEvidence"
+  ],
+  "build/core/request-evidence.js": [
+    "<anonymous>",
+    "expectedResponseBytes",
+    "recordResponseFailure",
+    "recordUpstreamFailure",
+    "responseEvidence"
+  ],
   "src/core/request-monitoring.ts": [
     "<anonymous>",
     "activeRequestCount",
+    "advance",
     "cacheTraffic",
     "count",
     "done",
     "drain",
+    "finish",
     "measureStage",
     "monitorRequests",
     "observe",
     "recordCacheHit",
     "requestHeaders",
     "requestRoute",
+    "start",
     "startStage"
   ],
   "build/core/request-monitoring.js": [
     "<anonymous>",
     "activeRequestCount",
+    "advance",
     "cacheTraffic",
     "count",
     "done",
     "drain",
+    "finish",
     "measureStage",
     "monitorRequests",
     "observe",
     "recordCacheHit",
     "requestHeaders",
     "requestRoute",
+    "start",
     "startStage"
   ],
   "src/core/response-cancellation.ts": [
@@ -2103,6 +2139,14 @@ export const LOG_SOURCE_FUNCTIONS: Record<string, readonly string[]> = {
   "build/scripts/billing-operations.js": [
     "<anonymous>",
     "main"
+  ],
+  "src/scripts/check-github-app-key.ts": [
+    "<anonymous>",
+    "checkGitHubAppKey"
+  ],
+  "build/scripts/check-github-app-key.js": [
+    "<anonymous>",
+    "checkGitHubAppKey"
   ],
   "src/scripts/create-performance-indexes.ts": [
     "<anonymous>",
@@ -2860,4 +2904,4 @@ export const LOG_SOURCE_FUNCTIONS: Record<string, readonly string[]> = {
   ]
 };
 export const LOG_ERROR_TYPES = ["Error","TypeError","RangeError","ReferenceError","SyntaxError","URIError","EvalError","AggregateError","AnonymousError","HTTPError","RequestError","MongoServerError","MongoNetworkError","MongoServerSelectionError","ValidationError","TimeoutError","AbortError","UnknownError"];
-export const LOG_ROUTES = ["/","other","/dashboard","/anonymize","/healthcheck","/api/healthcheck","/api","/api/download","/api/stat","/api/stat/history","/api/options","/api/message","/api/user","/api/user/quota","/api/user/dashboard","/api/repo","/api/anonymize-preview","/api/admin/overview","/api/admin/performance","/api/admin/errors","/api/admin/errors/stats","/api/admin/queues","/api/admin/queues/metrics","/github/app/webhook","/api/repo/:repoId","/api/repo/:repoId/file/:path","/api/repo/:repoId/files","/api/repo/:repoId/files/counts","/api/repo/:repoId/files/search","/api/repo/:repoId/zip","/api/repo/:repoId/options","/api/repo/:repoId/refresh","/api/repo/:repoId/coauthors","/api/repo/:repoId/extend","/api/repo/:owner/:repo/readme","/api/repo/:owner/:repo/branches","/w/:repoId/:path","/r/:repoId/:path","/api/pr/:id/:path","/api/gist/:id/:path","/assets/:path","/github/:action","/api/admin/:action","/api/user/:action","/api/repo/:id/file/:path","/api/repo/:id/files/counts","/api/repo/:id/files/search","/api/repo/:id/files","/api/repo/:id/zip","/api/repo/:id","/viewer/:id/:path"];
+export const LOG_ROUTES = ["/","other","/dashboard","/anonymize","/healthcheck","/api/healthcheck","/api","/api/download","/api/stat","/api/stat/history","/api/options","/api/message","/api/user","/api/user/quota","/api/user/dashboard","/api/repo","/api/anonymize-preview","/api/admin/overview","/api/admin/performance","/api/admin/errors","/api/admin/errors/stats","/api/admin/queues","/api/admin/queues/metrics","/github/app/webhook","/api/repo/:repoId","/api/repo/:repoId/file/:path","/api/repo/:repoId/files","/api/repo/:repoId/files/counts","/api/repo/:repoId/files/search","/api/repo/:repoId/zip","/api/repo/:repoId/options","/api/repo/:repoId/refresh","/api/repo/:repoId/coauthors","/api/repo/:repoId/extend","/api/repo/:owner/:repo","/api/repo/:owner/:repo/tree","/api/repo/:owner/:repo/file","/api/repo/:owner/:repo/readme","/api/repo/:owner/:repo/branches","/w/:repoId/:path","/r/:repoId/:path","/api/pr/:id/:path","/api/gist/:id/:path","/assets/:path","/github/:action","/api/admin/:action","/api/user/:action","/api/repo/:id/file/:path","/api/repo/:id/files/counts","/api/repo/:id/files/search","/api/repo/:id/files","/api/repo/:id/zip","/api/repo/:id","/viewer/:id/:path"];

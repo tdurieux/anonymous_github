@@ -1,3 +1,4 @@
+import { recordUpstreamFailure } from "./request-evidence";
 import { PassThrough, Readable, Writable } from "stream";
 
 /** Cancel upstream on every response terminal event, including a pre-header close. */
@@ -19,7 +20,7 @@ export function streamResponse(source: Readable, response: Writable,
     };
     const done = () => { cleanup(); resolve(); };
     const failed = (error: Error) => { cleanup(); reject(error); };
-    const upstreamFailed = (error: Error) => { onError(error); done(); };
+    const upstreamFailed = (error: Error) => { if (!response.destroyed) recordUpstreamFailure(response, error, "streamer"); onError(error); done(); };
     response.once("close", done);
     response.once("finish", done);
     response.once("error", failed);

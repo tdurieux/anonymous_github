@@ -1,5 +1,6 @@
+import { responseEvidence, expectedResponseBytes } from "./request-evidence";
 import { requestReproduction } from "./log-reproduction";
-import { logContext } from "./log-context";
+import { logContext, validTraceId } from "./log-context";
 import { AsyncLocalStorage } from "async_hooks";
 import { randomUUID } from "crypto";
 import { performance } from "perf_hooks";
@@ -8,13 +9,55 @@ import { createLogger } from "./logger";
 
 export const LATENCY_BUCKETS = [10, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 30000, 60000];
 export type Service = "api" | "streamer";
-export type Stage = "repository" | "credential_resolution" | "upstream" | "cache_lookup" | "cache_fill" | "worker_wait" | "anonymize" | "streamer_headers";
+export type Stage = "transfer" | "database" | "repository" | "credential_resolution" | "upstream" | "cache_lookup" | "cache_fill" | "worker_wait" | "anonymize" | "streamer_headers";
 export interface Metric {
   metric: string; route: string; method: string; count: number; sumMs: number;
   bytes: number; aborted: number; errors: number; slow: number; buckets: number[];
 }
 const logger = createLogger("requests");
-const context = new AsyncLocalStorage<{ id: string; service: Service; traffic?: string; stages: Partial<Record<Stage, number>> }>();
+interface Trace { id: string; hopId: string; service: Service; traffic?: string; timing: RequestTiming }
+const context = new AsyncLocalStorage<Trace>();
+
+/** Constant storage: integrate active spans instead of retaining a per-call timeline. */
+export class RequestTiming {
+  stages: Partial<Record<Stage, number>> = {};
+  counts: Partial<Record<Stage, number>> = {};
+  open: Partial<Record<Stage, number>> = {};
+  private last: number;
+  private covered = 0;
+  private concurrent = 0;
+  private ended = false;
+  constructor(private started = performance.now(), private now = () => performance.now()) { this.last = started; }
+  private advance(at: number) {
+    const elapsed = Math.max(0, at - this.last);
+    let active = 0;
+    for (const stage of Object.keys(this.open) as Stage[]) {
+      const count = this.open[stage] || 0;
+      this.stages[stage] = (this.stages[stage] || 0) + elapsed * count;
+      active += count;
+    }
+    if (active) this.covered += elapsed;
+    this.concurrent += elapsed * Math.max(0, active - 1);
+    this.last = at;
+  }
+  start(stage: Stage) {
+    if (this.ended) return () => undefined;
+    this.advance(this.now());
+    this.counts[stage] = (this.counts[stage] || 0) + 1;
+    this.open[stage] = (this.open[stage] || 0) + 1;
+    let done = false;
+    return () => {
+      if (done || this.ended) return;
+      done = true; this.advance(this.now()); this.open[stage]!--;
+    };
+  }
+  finish(at = this.now()) {
+    if (!this.ended) { this.advance(at); this.ended = true; }
+    return { stages: { ...this.stages }, stageCounts: { ...this.counts }, stageOpen: { ...this.open },
+      measuredMs: this.covered, unattributedMs: Math.max(0, this.last - this.started - this.covered), overlapMs: this.concurrent };
+  }
+}
+
 const methods = new Set(["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]);
 const staticRoutes = new Set([
   "/", "/dashboard", "/anonymize", "/healthcheck", "/api/healthcheck", "/api/stat", "/api/stat/history",
@@ -24,11 +67,16 @@ const staticRoutes = new Set([
 ]);
 
 /** Fixed labels: never use repository IDs, file names or query strings as metric keys. */
-export function requestRoute(url: string, service: Service): string {
+export function requestRoute(url: string, service: Service, method = "GET"): string {
   const path = url.split("?", 1)[0].replace(/\/+$/, "") || "/";
   if (service === "streamer") return ["/api/download", "/api", "/healthcheck"].includes(path) ? path : "other";
   if (staticRoutes.has(path)) return path;
   if (/^\/api\/repo\//.test(path)) {
+    if (["GET", "HEAD"].includes(method)) {
+      const source = path.match(/^\/api\/repo\/[^/]+\/[^/]+\/(readme|branches|tree|file)$/);
+      if (source && !/^\/api\/repo\/[^/]+\/file\//.test(path)) return `/api/repo/:owner/:repo/${source[1]}`;
+      if (/^\/api\/repo\/[^/]+\/[^/]+$/.test(path) && !/\/(file|files|zip|options)$/.test(path)) return "/api/repo/:owner/:repo";
+    }
     const match = path.match(/^\/api\/repo\/[^/]+\/(file|files|zip|options|refresh|coauthors|extend)(?:\/|$)/);
     if (match) {
       const subroute = match[1] === "files" && /\/(counts|search)$/.exec(path);
@@ -79,7 +127,7 @@ let activeRequests = 0;
 export function activeRequestCount() { return activeRequests; }
 export function requestHeaders(): Record<string, string> {
   const id = context.getStore()?.id;
-  return id ? { "x-request-id": id, "x-cache-traffic": cacheTraffic() } : {};
+  return id ? { "x-request-id": id, "x-cache-traffic": cacheTraffic(), "x-parent-hop-id": context.getStore()!.hopId } : {};
 }
 export function cacheTraffic() { return context.getStore()?.traffic || "background"; }
 export function recordCacheHit(cache: "source" | "transformed", hit: boolean) {
@@ -90,12 +138,13 @@ export function recordCacheHit(cache: "source" | "transformed", hit: boolean) {
 export function startStage(stage: Stage) {
   const started = performance.now();
   const trace = context.getStore();
+  const stop = trace?.timing.start(stage);
   let ended = false;
   return (error = false) => {
     if (ended) return; ended = true;
     if (!trace) return;
     const ms = performance.now() - started;
-    trace.stages[stage] = (trace.stages[stage] || 0) + ms;
+    stop?.();
     requestMetrics.observe(stage, "all", "all", ms, { error });
   };
 }
@@ -109,25 +158,29 @@ export function monitorRequests(service: Service, metrics = requestMetrics,
   log: Pick<typeof logger, "info" | "warn"> = logger): RequestHandler {
   return (req, res, next) => {
     const forwarded = service === "streamer" ? req.get("x-request-id") : undefined;
-    const id = forwarded && /^[a-f0-9-]{36}$/.test(forwarded) ? forwarded : randomUUID();
+    const id = validTraceId(forwarded) ? forwarded : randomUUID();
     const forwardedTraffic = service === "streamer" ? req.get("x-cache-traffic") : undefined;
     const traffic = forwardedTraffic && ["file", "website", "zip", "monitor", "background"].includes(forwardedTraffic)
       ? forwardedTraffic : /uptime|healthcheck|monitor/i.test(req.get("user-agent") || "") ? "monitor"
       : /\/zip(?:[/?]|$)|\/download(?:[/?]|$)/.test(req.originalUrl) ? "zip"
       : req.originalUrl.startsWith("/w/") ? "website" : "file";
-    const trace = { id, service, traffic, stages: {} };
-    const route = requestRoute(req.originalUrl, service);
+    const started = performance.now();
+    const hopId = randomUUID();
+    const parent = service === "streamer" ? req.get("x-parent-hop-id") : undefined;
+    const parentHopId = validTraceId(parent) ? parent : undefined;
+    const trace = { id, hopId, service, traffic, timing: new RequestTiming(started) };
+    const route = requestRoute(req.originalUrl, service, req.method);
     const reproduction = service === "api" ? requestReproduction(req.originalUrl, req.method) : {};
     const method = methods.has(req.method) ? req.method : "OTHER";
-    const started = performance.now();
     let firstByteMs: number | undefined;
+    let transferDone: (() => void) | undefined;
     let bytes = 0;
     let ended = false;
     activeRequests++;
     res.setHeader("X-Request-ID", id);
     const writeHead = res.writeHead;
     res.writeHead = function (this: typeof res, ...args: unknown[]): typeof res {
-      firstByteMs ??= performance.now() - started;
+      if (firstByteMs == null) { firstByteMs = performance.now() - started; transferDone = trace.timing.start("transfer"); }
       return Reflect.apply(writeHead, this, args);
     };
     const count = (chunk: unknown, encoding: unknown) => {
@@ -151,6 +204,7 @@ export function monitorRequests(service: Service, metrics = requestMetrics,
       if (ended) return; ended = true;
       activeRequests--;
       res.removeListener("finish", done); res.removeListener("close", done);
+      transferDone?.();
       const ms = performance.now() - started;
       const aborted = !res.writableFinished;
       const transfer = /\/(file|zip)(?:\/|$)/.test(route) || route.startsWith("/w/") || service === "streamer";
@@ -162,11 +216,13 @@ export function monitorRequests(service: Service, metrics = requestMetrics,
         outcome: aborted ? "interrupted" : "completed", ms: Math.round(ms), firstByteMs: firstByteMs == null ? null : Math.round(firstByteMs),
         responseMs: responseMs == null ? null : Math.round(responseMs),
         bytesPerSecond: responseMs != null && responseMs >= 1 && bytes > 0 ? Math.round(bytes * 1000 / responseMs) : null,
-        bytes, stages: trace.stages };
+        bytes, expectedBytes: expectedResponseBytes(req.method, res.statusCode, res.getHeader("content-length")),
+        endpointKind: service === "streamer" ? "internal" : "public", hopId, parentHopId,
+        ...(aborted ? responseEvidence(res, req.aborted) : {}), ...trace.timing.finish(started + ms) };
       if (slow || aborted) log.warn(aborted ? "request interrupted" : "slow request", detail);
       else if (!route.includes("healthcheck")) log.info("request", detail);
     };
     res.once("finish", done); res.once("close", done);
-    context.run(trace, () => logContext.run({ ...reproduction, requestId: id, service, route, method }, next));
+    context.run(trace, () => logContext.run({ ...reproduction, requestId: id, hopId, parentHopId, service, route, method }, next));
   };
 }

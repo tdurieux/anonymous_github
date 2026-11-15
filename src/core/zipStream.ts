@@ -1,3 +1,4 @@
+import { recordUpstreamFailure, recordResponseFailure } from "./request-evidence";
 import got from "got";
 import config from "../config";
 import { MAX_SUBMODULE_ENTRIES, SubmoduleMount, safeRepositoryPath, validateMounts } from "./source/github-submodules";
@@ -169,6 +170,7 @@ export async function streamAnonymizedZip(
   };
   const fail = (error: Error) => {
     if (stopped) return;
+    recordResponseFailure(res, "unknown", "local_abort");
     logger.error("zip stream failed", serializeError(error));
     stop();
     const destroyable = res as unknown as {
@@ -197,7 +199,7 @@ export async function streamAnonymizedZip(
     input.once("close", () => upstreamDone(!input.readableEnded));
     parser = Parse() as Transform;
     downloadStream
-      .on("error", fail)
+      .on("error", error => { recordUpstreamFailure(res, error); fail(error); })
       .pipe(parser)
       .on("entry", (entry: Readable & { type: string; path: string; autodrain: () => void }) => {
         if (stopped) {

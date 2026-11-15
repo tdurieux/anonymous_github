@@ -1,3 +1,4 @@
+import { installDatabaseTiming } from "../core/database-timing";
 import InstallationModel from "../core/model/github-installation";
 import { credentialCipher } from "../core/credentials";
 import CredentialModel from "../core/model/credentials/credentials.model";
@@ -24,6 +25,7 @@ export const database = mongoose.connection;
 export let isConnected = false;
 
 export async function connect(overrides: Pick<ConnectOptions, "appName" | "maxPoolSize" | "minPoolSize"> = {}) {
+  installDatabaseTiming();
   credentialCipher(); // Refuse to serve persisted credentials without a valid keyring.
   mongoose.set("strictQuery", false);
   const options: ConnectOptions = {

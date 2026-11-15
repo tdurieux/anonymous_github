@@ -1,3 +1,4 @@
+import { recordUpstreamFailure } from "../core/request-evidence";
 import { sendSharedContent } from "../core/cached-response";
 import * as express from "express";
 import GitHubStream from "../core/source/GitHubStream";
@@ -125,7 +126,7 @@ router.post("/", async (req: express.Request, res: express.Response) => {
       anonymizer.destroy();
     }
     content
-      .on("error", handleStreamError)
+      .on("error", error => { if (!res.destroyed) recordUpstreamFailure(res, error); handleStreamError(error); })
       .pipe(anonymizer)
       .on("error", handleStreamError)
       .pipe(res)
