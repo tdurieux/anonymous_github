@@ -93,6 +93,13 @@ let errorOutputBroken = false;
 process.stdout.on("error", () => { outputBroken = true; droppedOutput++; });
 process.stderr.on("error", () => { errorOutputBroken = true; droppedOutput++; });
 export function getDroppedOutput() { return droppedOutput; }
+let reportedDrops = 0;
+/** Advance the interval only when emitting the report did not itself drop a record. */
+export function reportOutputDrops(report: (fields: { droppedLogs: number; droppedLogsInterval: number }) => void) {
+  const before = droppedOutput;
+  report({ droppedLogs: before, droppedLogsInterval: Math.max(0, before - reportedDrops) });
+  if (droppedOutput === before) reportedDrops = before;
+}
 export function getInProcessDropped(): number {
   return droppedInProcess;
 }

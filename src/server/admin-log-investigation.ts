@@ -4,7 +4,7 @@ import { logContext, validTraceId } from "../core/log-context";
 import { LOG_EVENTS } from "../core/log-schema";
 
 const services = ["api", "streamer", "worker", "nginx", "mongodb", "redis", "backup"];
-const events = new Set([...Object.values(LOG_EVENTS), "application_log", "webhook_log", "request_completed", "request_slow", "request_cancelled", "process_fatal_error", "process_started", "process_heartbeat", "job_started", "job_completed", "job_failed", "job_stalled", "queue_heartbeat", "edge_request", "infrastructure_log"]);
+const events = new Set([...Object.values(LOG_EVENTS), "deployment", "application_log", "webhook_log", "request_completed", "request_slow", "request_cancelled", "process_fatal_error", "process_started", "process_heartbeat", "job_started", "job_completed", "job_failed", "job_stalled", "queue_heartbeat", "edge_request", "infrastructure_log"]);
 const windows: Record<string, number> = { "15m": 15, "1h": 60, "6h": 360, "24h": 1440 };
 let active = 0;
 export class InvalidLogQuery extends Error {}
@@ -59,7 +59,7 @@ function safeRow(input: Record<string, unknown>): Row | null {
   // Revalidate finite route and diagnostic allowlists; never pass raw strings.
   const projected = logContext.run({}, () => logRecord(["error", "warn", "info", "debug"].includes(String(input.severity)) ? String(input.severity) : "info", String(input.module || "application"), ["", data]));
   const result: Row = { timestamp: /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$/.test(time) ? time : new Date(time).toISOString(), severity: String(projected.severity), service: services.includes(String(input.service)) ? String(input.service) : "unknown", event: events.has(String(input.event)) ? String(input.event) : "application_log", module: String(projected.module), release: /^(?:[a-f0-9]{7,40}|unknown)$/.test(String(input.release)) ? String(input.release) : "unknown" };
-  for (const key of [...numeric, "outcome", "endpointKind", "cancellationOrigin", "cancellationEvidence", "hopId", "parentHopId", "errorCode", "requestId", "jobId", "queue", "route", "method", "errorType", "errorStack", "causeType", "causeStack", "repoId", "requestPath"]) if (typeof projected[key] === "string" || typeof projected[key] === "number") result[key] = projected[key] as string | number;
+  for (const key of [...numeric, "deploymentId", "deploymentOperation", "deploymentPhase", "deploymentOutcome", "outcome", "endpointKind", "cancellationOrigin", "cancellationEvidence", "hopId", "parentHopId", "errorCode", "requestId", "jobId", "queue", "route", "method", "errorType", "errorStack", "causeType", "causeStack", "repoId", "requestPath"]) if (typeof projected[key] === "string" || typeof projected[key] === "number") result[key] = projected[key] as string | number;
   if (validTraceId(input.instance)) result.instance = input.instance;
   return result;
 }
@@ -88,6 +88,8 @@ function grafana(o: Options) {
     if (!["http:", "https:"].includes(url.protocol) || url.username || url.password) return null;
     url.search = ""; url.hash = "";
     url.searchParams.set("from", String(Date.parse(o.start))); url.searchParams.set("to", String(Date.parse(o.end)));
+    if (o.service) url.searchParams.set("var-service", `^${o.service}$`);
+    if (o.release) url.searchParams.set("var-release", `^${o.release}$`);
     if (o.id) url.searchParams.set(o.kind === "jobId" ? "var-job_id" : "var-request_id", o.id);
     return url.toString();
   } catch { return null; }
@@ -97,16 +99,28 @@ function grafana(o: Options) {
 function timestampKey(value: string | number) {
   return String(value).replace(/(?:\.(\d+))?Z$/, (_match, fraction = "") => `.${fraction.padEnd(9, "0")}Z`);
 }
-function group(records: Row[]) {
-  const groups = new Map<string, { fingerprint: string; count: number; first: string; last: string; sample: Row }>();
+export function incidentGroups(records: Row[], baseline?: { records: Row[]; partial: boolean }) {
+  const signature = (row: Row) => JSON.stringify([row.service, row.module, row.event, row.errorCode || "", row.severity,
+    row.status || row.httpStatus || "", row.errorType || "", String(row.errorStack || "").split("\n")[0].replace(/:\d+:\d+\)$/, ")")]);
+  const known = new Set((baseline?.records || []).map(signature));
+  const groups = new Map<string, { fingerprint: string; count: number; first: string; last: string; sample: Row;
+    requests: Set<string>; uncorrelatedRecords: number; releases: Set<string>; regression: string }>();
   for (const row of records) {
-    const key = JSON.stringify([row.service, row.module, row.event, row.errorCode || "", row.severity, row.status || row.httpStatus || "", row.errorType || "", String(row.errorStack || "").split("\n")[0]]);
+    const key = signature(row);
     const fingerprint = createHash("sha256").update(key).digest("hex").slice(0, 24);
-    const existing = groups.get(fingerprint);
+    let existing = groups.get(fingerprint);
     if (existing) { existing.count++; existing.first = timestampKey(existing.first) < timestampKey(row.timestamp) ? existing.first : String(row.timestamp); existing.last = timestampKey(existing.last) > timestampKey(row.timestamp) ? existing.last : String(row.timestamp); }
-    else groups.set(fingerprint, { fingerprint, count: 1, first: String(row.timestamp), last: String(row.timestamp), sample: row });
+    else {
+      existing = { fingerprint, count: 1, first: String(row.timestamp), last: String(row.timestamp), sample: row,
+        requests: new Set(), releases: new Set(), uncorrelatedRecords: 0,
+        regression: known.has(key) ? "known" : baseline && !baseline.partial && baseline.records.length ? "not_seen_in_baseline" : "unknown" };
+      groups.set(fingerprint, existing);
+    }
+    if (validTraceId(row.requestId)) existing.requests.add(row.requestId); else existing.uncorrelatedRecords++;
+    if (typeof row.release === "string") existing.releases.add(row.release);
   }
-  return [...groups.values()].sort((a, b) => timestampKey(b.last).localeCompare(timestampKey(a.last)));
+  return [...groups.values()].map(({ requests, releases, ...value }) => ({ ...value, affectedRequests: requests.size, releases: [...releases] }))
+    .sort((a, b) => timestampKey(b.last).localeCompare(timestampKey(a.last)));
 }
 async function collector(signal: AbortSignal) {
   try {
@@ -152,10 +166,13 @@ export async function investigateLogs(options: Options, correlation = false) {
     // Historical collector output omits unknown releases and keeps edge 5xx at info.
     const release = options.release === "unknown" ? ' (release:unknown OR release:"")' : options.release ? ` release:${options.release}` : "";
     const filter = `${range(options)} (severity:error OR severity:warn OR (service:nginx event:edge_request status:>=500 status:<600))${options.service ? ` service:${options.service}` : ""}${release}`;
-    const [errors, heartbeat, drops] = await Promise.all([
+    const baselineStart = new Date(Date.parse(options.start) - 24 * 60 * 60 * 1000).toISOString();
+    const compareRelease = options.release && options.release !== "unknown";
+    const [errors, heartbeat, drops, baseline] = await Promise.all([
       rows(base, `${filter} | sort by (_time) desc`, 1001, controller.signal),
       rows(base, '_time:5m (event:process_heartbeat OR event:queue_heartbeat OR event:job_completed OR event:job_failed) | sort by (_time) desc', 501, controller.signal),
       collector(controller.signal),
+      compareRelease ? rows(base, `_time:[${baselineStart}, ${options.start}) (severity:error OR severity:warn OR (service:nginx event:edge_request status:>=500 status:<600))${options.service ? ` service:${options.service}` : ""} NOT release:${options.release} NOT release:unknown NOT release:"" | sort by (_time) desc`, 1001, controller.signal) : Promise.resolve(undefined),
     ]);
     const latest = new Map<string, Row>();
     for (const row of heartbeat.records) {
@@ -167,7 +184,8 @@ export async function investigateLogs(options: Options, correlation = false) {
     const queues = new Set(recent.filter(row => row.event === "queue_heartbeat").map(row => row.queue).filter(Boolean)).size;
     const missing = [...(!recent.some(row => row.service === "api" && row.event === "process_heartbeat") ? ["API"] : []), ...(streamers < 4 ? ["streamers"] : []), ...(queues < 3 ? ["queues"] : [])];
     const records = errors.records.slice(0, 1000);
-    return { ...common, state: errors.partial || heartbeat.partial ? "partial" : missing.length ? "stale" : records.length ? "ready" : "empty", groups: group(records), captured: records.length, limit: 1000, telemetry: { missing, streamers, queues, partial: heartbeat.partial, instances: [...latest.values()].map(row => ({ service: row.service, instance: row.instance, last: row.timestamp, dropped: row.droppedLogs ?? null })), collector: drops } };
+    return { ...common, state: errors.partial || heartbeat.partial ? "partial" : missing.length ? "stale" : records.length ? "ready" : "empty", groups: incidentGroups(records, baseline), baseline: baseline ? { start: baselineStart, end: options.start, captured: baseline.records.length,
+      partial: baseline.partial, comparison: "other_releases_previous_24h" } : null, captured: records.length, limit: 1000, telemetry: { missing, streamers, queues, partial: heartbeat.partial, instances: [...latest.values()].map(row => ({ service: row.service, instance: row.instance, last: row.timestamp, dropped: row.droppedLogs ?? null })), collector: drops } };
   } catch { return { ...common, state: "unreachable", groups: [], events: [] }; }
   finally { controller.abort(); clearTimeout(timer); active--; }
 }

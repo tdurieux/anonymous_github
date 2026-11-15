@@ -1079,6 +1079,7 @@ export const LOG_SOURCE_FUNCTIONS: Record<string, readonly string[]> = {
     "getRedis",
     "hourKey",
     "persistError",
+    "reportOutputDrops",
     "resolveThreshold",
     "serializeError",
     "trimErrorLike",
@@ -1096,6 +1097,7 @@ export const LOG_SOURCE_FUNCTIONS: Record<string, readonly string[]> = {
     "getRedis",
     "hourKey",
     "persistError",
+    "reportOutputDrops",
     "resolveThreshold",
     "serializeError",
     "trimErrorLike",
@@ -2205,7 +2207,7 @@ export const LOG_SOURCE_FUNCTIONS: Record<string, readonly string[]> = {
     "collector",
     "endpoint",
     "grafana",
-    "group",
+    "incidentGroups",
     "investigateLogs",
     "logOptions",
     "range",
@@ -2213,6 +2215,7 @@ export const LOG_SOURCE_FUNCTIONS: Record<string, readonly string[]> = {
     "rows",
     "safeRedisLog",
     "safeRow",
+    "signature",
     "timestampKey"
   ],
   "build/server/admin-log-investigation.js": [
@@ -2220,7 +2223,7 @@ export const LOG_SOURCE_FUNCTIONS: Record<string, readonly string[]> = {
     "collector",
     "endpoint",
     "grafana",
-    "group",
+    "incidentGroups",
     "investigateLogs",
     "logOptions",
     "range",
@@ -2228,6 +2231,7 @@ export const LOG_SOURCE_FUNCTIONS: Record<string, readonly string[]> = {
     "rows",
     "safeRedisLog",
     "safeRow",
+    "signature",
     "timestampKey"
   ],
   "src/server/dailyStatsSnapshot.ts": [

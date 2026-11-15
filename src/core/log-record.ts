@@ -10,7 +10,7 @@ import { logContext, validTraceId } from "./log-context";
 const instance = randomUUID();
 const allowed = (values: readonly string[], value: unknown): value is string => typeof value === "string" && values.includes(value);
 const events: Record<string, string> = {
-  ...LOG_EVENTS,
+  ...LOG_EVENTS, deployment: "deployment",
   request: "request_completed", "slow request": "request_slow", "request interrupted": "request_cancelled",
   "process fatal error": "process_fatal_error", "process started": "process_started",
   "process heartbeat": "process_heartbeat", "job started": "job_started", "job completed": "job_completed",
@@ -18,19 +18,19 @@ const events: Record<string, string> = {
 };
 const errorCodes = new Set([
   ...ERROR_CODES,
-  "token_refresh_failed", "quota_exceeded", "github_rate_limit_exceeded", "github_app_reconnect_required", "github_token_invalid",
+  "repo_renamed", "preparation_interrupted", "commit_not_found", "zip_not_available", "token_refresh_failed", "quota_exceeded", "github_rate_limit_exceeded", "github_app_reconnect_required", "github_token_invalid",
   "repository_expired", "repository_not_ready", "repository_not_found", "repository_job_cancelled",
   "ECONNRESET", "ECONNREFUSED", "ETIMEDOUT", "ENOTFOUND", "EPIPE", "ABORT_ERR",
   "upstream_error", "upstream_timeout", "invalid_signature", "webhook_processing_failed",
 ]);
-export const LOG_NUMBERS = ["expectedBytes", "measuredMs", "unattributedMs", "overlapMs","status", "httpStatus", "ms", "firstByteMs", "responseMs", "bytes", "bytesPerSecond",
+export const LOG_NUMBERS = ["restartMs", "exitCode","droppedLogsInterval","expectedBytes", "measuredMs", "unattributedMs", "overlapMs","status", "httpStatus", "ms", "firstByteMs", "responseMs", "bytes", "bytesPerSecond",
   "attempt", "rss", "memoryLimitBytes", "memoryRatio", "uptime", "activeRequests", "waiting", "active", "delayed", "failed",
   "oldestWaitingMs", "droppedLogs", "loopP95Ms", "upstreamStatus"];
 export const LOG_STAGES = ["transfer", "database","repository", "credential_resolution", "upstream", "cache_lookup", "cache_fill", "worker_wait", "anonymize", "streamer_headers"];
 export function logRecord(level: string, module: string, args: unknown[]) {
   const context = logContext.getStore() || {};
   const details: Record<string, unknown> = {};
-  const keys = [...LOG_NUMBERS, "requestId", "jobId", "hopId", "parentHopId", "cancellationOrigin", "cancellationEvidence", "endpointKind", "stageCounts", "stageOpen", "code", "message", "outcome", "method", "route", "queue",
+  const keys = [...LOG_NUMBERS, "requestId", "jobId", "hopId", "parentHopId", "deploymentId", "deploymentOperation", "deploymentPhase", "deploymentOutcome", "cancellationOrigin", "cancellationEvidence", "endpointKind", "stageCounts", "stageOpen", "code", "message", "outcome", "method", "route", "queue",
     "errorType", "errorStack", "causeType", "causeStack", "requestPath", "stages", "reason", "phase", "event", "deliveryId", "hostname", "service"];
   // Do not traverse arbitrary objects or invoke error getters while logging.
   for (const arg of args.slice(0, 8)) if (arg && typeof arg === "object") {
@@ -50,8 +50,8 @@ export function logRecord(level: string, module: string, args: unknown[]) {
     service: context.service || (allowed(["api", "streamer", "worker"], details.service) ? details.service : undefined) || (process.env.SERVICE_NAME?.toLowerCase() === "streamer" ? "streamer" : "api"),
     instance, release: /^[a-f0-9]{7,40}$/.test(process.env.APP_RELEASE || "") ? process.env.APP_RELEASE : "unknown",
     event, message: event, module: LOG_MODULES.includes(module) ? module : "application" };
-  for (const key of ["requestId", "jobId", "hopId", "parentHopId"] as const) {
-    const value = details[key] || context[key];
+  for (const key of ["requestId", "jobId", "hopId", "parentHopId", "deploymentId"] as const) {
+    const value = details[key] || (key === "deploymentId" ? undefined : context[key]);
     if (validTraceId(value)) record[key] = value;
   }
   if (Number.isSafeInteger(context.attempt)) record.attempt = context.attempt;
@@ -64,7 +64,7 @@ export function logRecord(level: string, module: string, args: unknown[]) {
   if (validTraceId(details.deliveryId)) record.deliveryId = details.deliveryId;
   if (allowed(["github.com", "api.github.com", "codeload.github.com", "raw.githubusercontent.com", "media.githubusercontent.com"], details.hostname)) record.upstreamHost = details.hostname;
   else if (details.hostname) record.upstreamHost = "other";
-  for (const [key, values] of Object.entries({ cancellationOrigin: ["unknown", "api", "streamer", "timeout", "upstream"],
+  for (const [key, values] of Object.entries({ deploymentOperation: ["deploy", "rollback"], deploymentPhase: ["start", "restart", "finish"], deploymentOutcome: ["started", "completed", "failed", "unchanged"], cancellationOrigin: ["unknown", "api", "streamer", "timeout", "upstream"],
     cancellationEvidence: ["response_close", "request_aborted", "upstream_error", "timeout", "local_abort"], endpointKind: ["public", "internal"] })) {
     if (allowed(values, details[key])) record[key] = details[key];
   }

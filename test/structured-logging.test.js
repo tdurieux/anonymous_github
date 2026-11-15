@@ -111,6 +111,22 @@ describe('structured logging privacy and context', function () {
     `],{env:{...process.env,LOG_REDIS_MIRROR:'on'},encoding:'utf8',timeout:10000});
     expect(child.status,child.stderr).equal(0);
   });
+  it('reports interval drops once and retries a dropped report without resetting history', () => {
+    const child=spawnSync(process.execPath,['-r','ts-node/register/transpile-only','-e',`
+      const assert=require('node:assert/strict');
+      const {createLogger,reportOutputDrops}=require('./src/core/logger');
+      const logger=createLogger('process');let blocked=true;
+      Object.defineProperty(process.stdout,'writableLength',{get:()=>blocked?300000:0});
+      logger.info('request');logger.info('request');
+      reportOutputDrops(fields=>logger.info('process heartbeat',fields));
+      blocked=false;
+      reportOutputDrops(fields=>{assert.equal(fields.droppedLogsInterval,3);logger.info('process heartbeat',fields);});
+      reportOutputDrops(fields=>{assert.equal(fields.droppedLogsInterval,0);assert.equal(fields.droppedLogs,3);logger.info('process heartbeat',fields);});
+    `],{env:{...process.env,LOG_REDIS_MIRROR:'off'},encoding:'utf8',timeout:10000});
+    expect(child.status,child.stderr).equal(0);
+    const rows=child.stdout.trim().split('\n').map(JSON.parse);
+    expect(rows.map(r=>r.droppedLogsInterval)).deep.equal([3,0]);
+  });
   it('writes JSON without Redis and bounds a blocked stdout pipe', () => {
     const child = spawnSync(process.execPath, ['-r', 'ts-node/register/transpile-only', '-e', `
       const { createLogger, getDroppedOutput } = require('./src/core/logger');

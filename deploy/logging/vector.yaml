@@ -15,13 +15,20 @@ sources:
     read_from: end
     max_line_bytes: 65536
     fingerprint: {strategy: device_and_inode}
+  deployments:
+    type: file
+    include: [/host/nginx/anonymous.deploy.json*]
+    exclude: ['*.gz']
+    read_from: end
+    max_line_bytes: 4096
+    fingerprint: {strategy: device_and_inode}
   internal:
     type: internal_metrics
     scrape_interval_secs: 15
 transforms:
   safe:
     type: remap
-    inputs: [docker, nginx]
+    inputs: [docker, nginx, deployments]
     file: /etc/vector/sanitize.vrl
     drop_on_error: true
     drop_on_abort: true

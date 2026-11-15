@@ -1,55 +1,115 @@
 groups:
-  - name: application-logs
-    type: vlogs
-    interval: 30s
-    rules:
-      - alert: SustainedServerErrors
-        expr: '_time:5m service:api outcome:completed | stats count() as total, count() if (status:>=500) as errors | filter errors:>=10 | math errors / total as ratio | filter ratio:>0.05 | fields ratio'
-        for: 5m
-        labels: {severity: warning}
-        annotations: {summary: 'API 5xx exceed 5 percent and 10 requests per five minutes'}
-      - alert: ApiTelemetryMissing
-        expr: '_time:3m service:api event:process_heartbeat | stats count() as heartbeats | filter heartbeats:0'
-        for: 3m
-        labels: {severity: warning}
-        annotations: {summary: 'API heartbeat is missing'}
-      - alert: StreamerTelemetryMissing
-        expr: '_time:3m service:streamer event:process_heartbeat | stats count_uniq(instance) as instances | filter instances:<4'
-        for: 3m
-        labels: {severity: warning}
-        annotations: {summary: 'Fewer than four streamer instances report heartbeats; adjust for planned scaling'}
-      - alert: ApplicationRestartBurst
-        expr: '_time:10m event:process_started | stats by (service) count() as restarts | filter restarts:>4'
-        for: 2m
-        labels: {severity: warning}
-        annotations: {summary: 'Repeated process starts in ten minutes'}
-      - alert: ApplicationMemoryPressure
-        expr: '_time:3m event:process_heartbeat | stats by (service) max(memoryRatio) as ratio | filter ratio:>0.85'
-        for: 5m
-        labels: {severity: warning}
-        annotations: {summary: 'Container usage exceeds 85 percent of its cgroup memory limit'}
-      - alert: QueueStalled
-        expr: '_time:5m event:job_stalled | stats by (queue) count() as stalls | filter stalls:>0'
-        for: 2m
-        labels: {severity: warning}
-        annotations: {summary: 'BullMQ reports stalled jobs'}
-      - alert: QueueWaitingTooLong
-        expr: '_time:3m event:queue_heartbeat | stats by (queue) max(oldestWaitingMs) as age | filter age:>600000'
-        for: 5m
-        labels: {severity: warning}
-        annotations: {summary: 'A runnable job has waited over ten minutes'}
-      - alert: QueueTelemetryMissing
-        expr: '_time:3m event:queue_heartbeat | stats count_uniq(queue) as queues | filter queues:<3'
-        for: 3m
-        labels: {severity: warning}
-        annotations: {summary: 'Queue telemetry is missing'}
-      - alert: WebhookFailures
-        expr: '_time:5m route:"/github/app/webhook" status:>=500 outcome:completed | stats count() as errors | filter errors:>=3'
-        for: 3m
-        labels: {severity: warning}
-        annotations: {summary: 'Repeated webhook server failures; signature rejection is excluded'}
-      - alert: ApplicationLogDrops
-        expr: '_time:3m (event:process_heartbeat OR event:job_completed OR event:job_failed) | stats by (service) max(droppedLogs) as drops | filter drops:>0'
-        for: 2m
-        labels: {severity: warning}
-        annotations: {summary: 'An application process dropped stdout logs since startup'}
+- name: application-logs
+  type: vlogs
+  interval: 30s
+  rules:
+  - alert: SustainedServerErrors
+    expr: _time:5m service:api outcome:completed | stats count() as total, count() if (status:>=500) as errors | filter errors:>=10 | math errors / total as ratio | filter ratio:>0.05 | fields ratio
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: API 5xx exceed 5 percent and 10 requests per five minutes
+      description: Compare completed API 5xx by release and route; follow a request UUID to streamer and edge evidence.
+      investigation_url: /d/anonymous-investigation?from=now-1h&to=now&var-service=%5Eapi%24&var-event=.%2A
+      investigation_query: _time:5m service:api outcome:completed
+      runbook_url: https://github.com/tdurieux/anonymous_github/blob/main/deploy/logging/README.md#alert-investigation
+  - alert: ApiTelemetryMissing
+    expr: _time:3m service:api event:process_heartbeat | stats count() as heartbeats | filter heartbeats:0
+    for: 3m
+    labels:
+      severity: warning
+    annotations:
+      summary: API heartbeat is missing
+      description: Check API container health and collector ingestion. Missing logs alone do not establish an API outage.
+      investigation_url: /d/anonymous-investigation?from=now-1h&to=now&var-service=%5Eapi%24&var-event=%5Eprocess_heartbeat%24
+      investigation_query: _time:3m service:api event:process_heartbeat
+      runbook_url: https://github.com/tdurieux/anonymous_github/blob/main/deploy/logging/README.md#alert-investigation
+  - alert: StreamerTelemetryMissing
+    expr: _time:3m service:streamer event:process_heartbeat | stats count_uniq(instance) as instances | filter instances:<4
+    for: 3m
+    labels:
+      severity: warning
+    annotations:
+      summary: Fewer than four streamer instances report heartbeats; adjust for planned scaling
+      description: Check expected replica count and recent deployment window, then container health and collector ingestion.
+      investigation_url: /d/anonymous-investigation?from=now-1h&to=now&var-service=%5Estreamer%24&var-event=%5Eprocess_heartbeat%24
+      investigation_query: _time:3m service:streamer event:process_heartbeat
+      runbook_url: https://github.com/tdurieux/anonymous_github/blob/main/deploy/logging/README.md#alert-investigation
+  - alert: ApplicationRestartBurst
+    expr: _time:10m event:process_started | stats by (service) count() as restarts | filter restarts:>4
+    for: 2m
+    labels:
+      severity: warning
+    annotations:
+      summary: Repeated process starts in ten minutes
+      description: Compare process starts with deployment events; inspect fatal errors and container exit reasons.
+      investigation_url: /d/anonymous-investigation?from=now-1h&to=now&var-service=.%2A&var-event=%5Eprocess_started%24
+      investigation_query: _time:10m event:process_started
+      runbook_url: https://github.com/tdurieux/anonymous_github/blob/main/deploy/logging/README.md#alert-investigation
+  - alert: ApplicationMemoryPressure
+    expr: _time:3m event:process_heartbeat | stats by (service) max(memoryRatio) as ratio | filter ratio:>0.85
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: Container usage exceeds 85 percent of its cgroup memory limit
+      description: Inspect cgroup usage and release, including cache and worker memory; RSS alone excludes page cache.
+      investigation_url: /d/anonymous-investigation?from=now-1h&to=now&var-service=.%2A&var-event=%5Eprocess_heartbeat%24
+      investigation_query: _time:3m event:process_heartbeat
+      runbook_url: https://github.com/tdurieux/anonymous_github/blob/main/deploy/logging/README.md#alert-investigation
+  - alert: QueueStalled
+    expr: _time:5m event:job_stalled | stats by (queue) count() as stalls | filter stalls:>0
+    for: 2m
+    labels:
+      severity: warning
+    annotations:
+      summary: BullMQ reports stalled jobs
+      description: Follow job UUID and attempt; check worker exits and Redis lock renewal before retrying.
+      investigation_url: /d/anonymous-investigation?from=now-1h&to=now&var-service=.%2A&var-event=%5Ejob_stalled%24
+      investigation_query: _time:5m event:job_stalled
+      runbook_url: https://github.com/tdurieux/anonymous_github/blob/main/deploy/logging/README.md#alert-investigation
+  - alert: QueueWaitingTooLong
+    expr: _time:3m event:queue_heartbeat | stats by (queue) max(oldestWaitingMs) as age | filter age:>600000
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: A runnable job has waited over ten minutes
+      description: Compare runnable waiting age with worker heartbeats, concurrency and failures; delayed jobs are excluded.
+      investigation_url: /d/anonymous-investigation?from=now-1h&to=now&var-service=.%2A&var-event=%5Equeue_heartbeat%24
+      investigation_query: _time:3m event:queue_heartbeat
+      runbook_url: https://github.com/tdurieux/anonymous_github/blob/main/deploy/logging/README.md#alert-investigation
+  - alert: QueueTelemetryMissing
+    expr: _time:3m event:queue_heartbeat | stats count_uniq(queue) as queues | filter queues:<3
+    for: 3m
+    labels:
+      severity: warning
+    annotations:
+      summary: Queue telemetry is missing
+      description: Check API queue sampler and Redis connectivity; missing telemetry is not proof that queues are empty.
+      investigation_url: /d/anonymous-investigation?from=now-1h&to=now&var-service=.%2A&var-event=%5Equeue_heartbeat%24
+      investigation_query: _time:3m event:queue_heartbeat
+      runbook_url: https://github.com/tdurieux/anonymous_github/blob/main/deploy/logging/README.md#alert-investigation
+  - alert: WebhookFailures
+    expr: _time:5m route:"/github/app/webhook" status:>=500 outcome:completed | stats count() as errors | filter errors:>=3
+    for: 3m
+    labels:
+      severity: warning
+    annotations:
+      summary: Repeated webhook server failures; signature rejection is excluded
+      description: Inspect webhook route 5xx and safe error code; signature rejection is excluded.
+      investigation_url: /d/anonymous-investigation?from=now-1h&to=now&var-service=%5Eapi%24&var-event=.%2A
+      investigation_query: _time:5m route:"/github/app/webhook" status:>=500 outcome:completed
+      runbook_url: https://github.com/tdurieux/anonymous_github/blob/main/deploy/logging/README.md#alert-investigation
+  - alert: ApplicationLogDrops
+    expr: _time:3m (event:process_heartbeat OR event:job_completed OR event:job_failed) | stats by (service) sum(droppedLogsInterval) as drops | filter drops:>0
+    for: 2m
+    labels:
+      severity: warning
+    annotations:
+      summary: Application log output dropped records in the last three minutes
+      description: Inspect interval loss and stdout backpressure; cumulative droppedLogs is historical, not a current rate.
+      investigation_url: /d/anonymous-investigation?from=now-1h&to=now&var-service=.%2A&var-event=%5Eprocess_heartbeat%24
+      investigation_query: _time:3m (event:process_heartbeat OR event:job_completed OR event:job_failed)
+      runbook_url: https://github.com/tdurieux/anonymous_github/blob/main/deploy/logging/README.md#alert-investigation

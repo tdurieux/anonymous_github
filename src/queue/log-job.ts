@@ -2,7 +2,7 @@ import { logMemory } from "../core/log-memory";
 import { randomUUID } from "crypto";
 import { SandboxedJob } from "bullmq";
 import { logContext, validTraceId } from "../core/log-context";
-import { createLogger, getDroppedOutput } from "../core/logger";
+import { createLogger, reportOutputDrops } from "../core/logger";
 import type { RepoJobData } from "./index";
 const logger = createLogger("queue");
 export function loggedJob(queue: "download" | "remove" | "cache", work: (job: SandboxedJob<RepoJobData, void>) => Promise<void>) {
@@ -14,14 +14,14 @@ export function loggedJob(queue: "download" | "remove" | "cache", work: (job: Sa
     logger.info("job started", { queue });
     const started = Date.now();
     const heartbeat = setInterval(() => {
-      void logMemory().then(memory => logger.info("process heartbeat", { queue, ...memory, uptime: process.uptime(), droppedLogs: getDroppedOutput() }));
+      void logMemory().then(memory => reportOutputDrops(drops => logger.info("process heartbeat", { queue, ...memory, uptime: process.uptime(), ...drops })));
     }, 30000); heartbeat.unref();
     try {
       await work(job);
-      logger.info("job completed", { queue, ms: Date.now() - started, droppedLogs: getDroppedOutput() });
+      reportOutputDrops(drops => logger.info("job completed", { queue, ms: Date.now() - started, ...drops }));
     } catch (error) {
       const expected = error instanceof Error && ["DelayedError", "RateLimitDelayError"].includes(error.name);
-      logger[expected ? "info" : "error"]("job failed", { queue, ms: Date.now() - started, droppedLogs: getDroppedOutput() });
+      reportOutputDrops(drops => logger[expected ? "info" : "error"]("job failed", { queue, ms: Date.now() - started, ...drops }));
       throw error;
     } finally { clearInterval(heartbeat); }
   });

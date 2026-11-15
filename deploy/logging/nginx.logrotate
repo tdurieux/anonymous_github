@@ -13,3 +13,16 @@
         /usr/sbin/nginx -s reopen
     endscript
 }
+
+# Optional deployment event file. Pre-create it for the deploy operator with
+# group adm and mode 0640; copytruncate preserves that explicit ownership.
+/var/log/nginx/anonymous.deploy.json {
+    hourly
+    rotate 6
+    maxsize 1M
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+}
