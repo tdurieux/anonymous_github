@@ -40,6 +40,22 @@ describe('bounded admin log investigation', function () {
     expect(calls[0][1].body.get('limit')).to.equal('1001');
     expect(calls[0][1].body.get('query')).to.include('service:worker release:abcdef1');
   });
+  for (const failure of ['oversized', 'unavailable']) it(`keeps current incidents when the optional baseline is ${failure}`, async () => {
+    process.env.ADMIN_LOG_URL = 'http://logging.test';
+    global.fetch = async (url, options) => {
+      const query=options.body.get('query');
+      if (query.includes('NOT release:')) {
+        if (failure === 'unavailable') throw new Error('backend unavailable');
+        return new Response((JSON.stringify(event({release:'abcdef2'}))+'\n').repeat(10000));
+      }
+      return new Response(query.includes('severity:error') ? JSON.stringify(event({})) : '');
+    };
+    const result=await investigateLogs(logOptions({release:'abcdef1'}));
+    expect(result.state).equal('stale');
+    expect(result.groups).length(1);
+    expect(result.groups[0]).include({count:1,regression:'unknown'});
+    expect(result.baseline).include({partial:true,captured:0});
+  });
   it('sanitizes legacy Redis history and does not invent correlation IDs', () => {
     const row = logContext.run({requestId:id}, () => safeRedisLog({ts:new Date().toISOString(),level:'error',module:'route',message:'secret',raw:[{message:'invalid_request',url:'private',stack:'secret',cookies:'secret',status:400}]}));
     expect(row.message).to.equal('invalid_request'); expect(JSON.stringify(row)).not.to.match(/private|secret|requestId/);

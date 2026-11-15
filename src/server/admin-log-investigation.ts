@@ -172,7 +172,7 @@ export async function investigateLogs(options: Options, correlation = false) {
       rows(base, `${filter} | sort by (_time) desc`, 1001, controller.signal),
       rows(base, '_time:5m (event:process_heartbeat OR event:queue_heartbeat OR event:job_completed OR event:job_failed) | sort by (_time) desc', 501, controller.signal),
       collector(controller.signal),
-      compareRelease ? rows(base, `_time:[${baselineStart}, ${options.start}) (severity:error OR severity:warn OR (service:nginx event:edge_request status:>=500 status:<600))${options.service ? ` service:${options.service}` : ""} NOT release:${options.release} NOT release:unknown NOT release:"" | sort by (_time) desc`, 1001, controller.signal) : Promise.resolve(undefined),
+      compareRelease ? rows(base, `_time:[${baselineStart}, ${options.start}) (severity:error OR severity:warn OR (service:nginx event:edge_request status:>=500 status:<600))${options.service ? ` service:${options.service}` : ""} NOT release:${options.release} NOT release:unknown NOT release:"" | sort by (_time) desc`, 1001, controller.signal).catch(() => ({ records: [], partial: true })) : Promise.resolve(undefined),
     ]);
     const latest = new Map<string, Row>();
     for (const row of heartbeat.records) {
