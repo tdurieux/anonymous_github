@@ -3,10 +3,15 @@
 // Listing folders use query parameters; a wildcard here would capture upstream
 // /:owner/files/{readme,branches,tree,file} source lookups.
 const anonymousRequest = /^\/api\/repo\/([A-Za-z0-9_-]{3,200})(?:\/(file\/[A-Za-z0-9._~!$&'()+,;=@%/-]+|files(?:\/(?:counts|search))?\/?|(?:zip|options|refresh|coauthors|extend)\/?))?\/?$/;
-export function safeReproductionPath(value: unknown): string | undefined {
+export function safeReproductionPath(value: unknown, method: unknown): string | undefined {
   if (typeof value !== "string" || value.length > 2048) return undefined;
   const match = anonymousRequest.exec(value);
   if (!match || /%(?![a-fA-F0-9]{2})/.test(value)) return undefined;
+  const action = (match[2] || "").replace(/\/+$/, "");
+  const allowedMethods = !action ? ["GET", "HEAD", "POST", "DELETE"]
+    : ["refresh", "extend", "coauthors"].includes(action) ? ["POST"] : ["GET", "HEAD"];
+  // GET coauthors is shadowed by the earlier source metadata handler.
+  if (typeof method !== "string" || !allowedMethods.includes(method)) return undefined;
   try {
     const path = decodeURIComponent(match[2] || "");
     // Reject controls, traversal, URL syntax, encoded delimiters and double encoding.
@@ -15,7 +20,7 @@ export function safeReproductionPath(value: unknown): string | undefined {
   } catch { return undefined; }
   return value;
 }
-export function requestReproduction(url: string) {
-  const requestPath = safeReproductionPath(url.split("?", 1)[0]);
+export function requestReproduction(url: string, method: unknown) {
+  const requestPath = safeReproductionPath(url.split("?", 1)[0], method);
   return requestPath ? { requestPath, repoId: anonymousRequest.exec(requestPath)![1] } : {};
 }

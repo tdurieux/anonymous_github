@@ -14,38 +14,54 @@ const frame='at printError (src/server/routes/route-utils.ts:200:7)';
 function failure(){ const error=new TypeError('https://user:'+secret+'@github.com/private/repo?token='+secret); error.stack=error.message+'\n    at printError ('+path.resolve('src/server/routes/route-utils.ts')+':200:7)\n    at '+secret+' ('+path.resolve('src/server/routes/route-utils.ts')+':201:9)\n    at secret (/home/private/'+secret+':1:2)\n    at fn (https://private/'+secret+':1:2)';return error; }
 describe('safe actionable exception diagnostics',()=>{
  it('keeps bounded anonymous request context without queries or unsafe paths',()=>{
-  const requestPath='/api/repo/demo-123/file/docs/reproduce%20issue.md';
-  expect(requestReproduction(requestPath+'?token=SECRET')).deep.equal({requestPath,repoId:'demo-123'});
-  for(const value of ['/api/repo/owner/name/readme','https://example.test'+requestPath,requestPath+'?token=SECRET','/api/repo/demo-123/file/%0aSECRET','/api/repo/demo-123/file/../secret','/api/repo/demo-123/file/%252e%252e/secret','/api/repo/demo-123/file/https%3a%2f%2fuser:token@example.test','/api/repo/demo-123/file/'+ 'x'.repeat(2048)]) expect(safeReproductionPath(value),value).equal(undefined);
-  expect(logContext.run({requestPath},()=>logRecord('info','route',['request',{status:200}]))).have.property('requestPath',requestPath);
-  const record=logContext.run({requestPath},()=>logRecord('error','route',['failure',{httpStatus:500}]));
+  const method='GET', requestPath='/api/repo/demo-123/file/docs/reproduce%20issue.md';
+  expect(requestReproduction(requestPath+'?token=SECRET',method)).deep.equal({requestPath,repoId:'demo-123'});
+  for(const value of ['/api/repo/owner/name/readme','https://example.test'+requestPath,requestPath+'?token=SECRET','/api/repo/demo-123/file/%0aSECRET','/api/repo/demo-123/file/../secret','/api/repo/demo-123/file/%252e%252e/secret','/api/repo/demo-123/file/https%3a%2f%2fuser:token@example.test','/api/repo/demo-123/file/'+ 'x'.repeat(2048)]) expect(safeReproductionPath(value,"GET"),value).equal(undefined);
+  expect(logContext.run({requestPath,method},()=>logRecord('info','route',['request',{status:200}]))).have.property('requestPath',requestPath);
+  const record=logContext.run({requestPath,method},()=>logRecord('error','route',['failure',{httpStatus:500}]));
   expect(record).include({requestPath,repoId:'demo-123'});
   expect(safeRedisLog({ts:record.timestamp,level:'error',module:'route',raw:[record]}).raw[0]).include({requestPath,repoId:'demo-123'});
  });
  it('preserves anonymous endpoints at all outcomes through both API projections',async()=>{
   for(const suffix of ['', '/', '/zip', '/files',  '/files/counts', '/files/search', '/options', '/refresh', '/coauthors', '/extend', '/file/README.md']){
+   const method=['/refresh','/extend','/coauthors'].includes(suffix)?'POST':'GET';
    const requestPath='/api/repo/demo-123'+suffix;
-   expect(requestReproduction(requestPath+'?token=SECRET')).deep.equal({requestPath,repoId:'demo-123'});
+   expect(requestReproduction(requestPath+'?token=SECRET',method)).deep.equal({requestPath,repoId:'demo-123'});
    for(const status of [200,304,404,500]){
-    const row=logContext.run({requestPath},()=>logRecord('info','requests',['request',{status,outcome:'interrupted'}]));
+    const row=logContext.run({requestPath,method},()=>logRecord('info','requests',['request',{status,outcome:'interrupted'}]));
     expect(row).include({requestPath,repoId:'demo-123'});
     expect(safeRedisLog({ts:row.timestamp,level:'info',module:'requests',raw:[row]}).raw[0]).include({requestPath,repoId:'demo-123'});
    }
   }
   for(const suffix of ['/files/../secret','/files/%2fsecret','/files/%0aSECRET','/files/%252e%252e/secret','/zip?token=SECRET'])
-   expect(safeReproductionPath('/api/repo/demo-123'+suffix)).equal(undefined);
+   expect(safeReproductionPath('/api/repo/demo-123'+suffix,'GET')).equal(undefined);
  });
  it('rejects upstream lookups for repositories named files at every logging boundary',()=>{
   for(const action of ['readme','branches','tree','file']){
    const requestPath='/api/repo/private-owner/files/'+action;
    for(const suffix of ['', '/', '?token=SECRET']){
-    expect(requestReproduction(requestPath+suffix)).deep.equal({});
+    expect(requestReproduction(requestPath+suffix,"GET")).deep.equal({});
     for(const status of [200,403,500]){
-     const row=logContext.run({requestPath:requestPath+suffix},()=>logRecord('error','route',['failure',{httpStatus:status}]));
+     const row=logContext.run({requestPath:requestPath+suffix,method:"GET"},()=>logRecord('error','route',['failure',{httpStatus:status}]));
      expect(row).not.have.property('requestPath');expect(row).not.have.property('repoId');
      const redis=safeRedisLog({ts:row.timestamp,level:'error',module:'route',raw:[{...row,requestPath:requestPath+suffix,repoId:'private-owner'}]});
      expect(redis.raw[0]).not.have.property('requestPath');expect(redis.raw[0]).not.have.property('repoId');
     }
+   }
+  }
+ });
+ it('requires the anonymous action method and omits ambiguous GET source metadata',()=>{
+  for(const action of ['refresh','extend','coauthors']){
+   for(const suffix of ['', '/']){
+    const requestPath='/api/repo/private-owner/'+action+suffix;
+    for(const method of ['GET','HEAD',undefined,'OPTIONS']){
+     expect(safeReproductionPath(requestPath,method)).equal(undefined);
+     const row=logContext.run({requestPath,method},()=>logRecord('error','route',['failure',{httpStatus:403}]));
+     expect(row).not.have.property('requestPath');
+     const redis=safeRedisLog({ts:row.timestamp,level:'error',module:'route',raw:[{...row,requestPath,repoId:'private-owner'}]});
+     expect(redis.raw[0]).not.have.property('requestPath');
+    }
+    expect(requestReproduction(requestPath,'POST')).deep.equal({requestPath,repoId:'private-owner'});
    }
   }
  });

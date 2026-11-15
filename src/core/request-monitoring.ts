@@ -117,7 +117,7 @@ export function monitorRequests(service: Service, metrics = requestMetrics,
       : req.originalUrl.startsWith("/w/") ? "website" : "file";
     const trace = { id, service, traffic, stages: {} };
     const route = requestRoute(req.originalUrl, service);
-    const reproduction = service === "api" ? requestReproduction(req.originalUrl) : {};
+    const reproduction = service === "api" ? requestReproduction(req.originalUrl, req.method) : {};
     const method = methods.has(req.method) ? req.method : "OTHER";
     const started = performance.now();
     let firstByteMs: number | undefined;

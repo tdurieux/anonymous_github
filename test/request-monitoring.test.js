@@ -68,6 +68,28 @@ describe("bounded request monitoring", function () {
     expect(JSON.stringify([...records,...logs])).not.include('private-owner');
   });
 
+  it("distinguishes anonymous POST actions from GET source metadata at the same URL", async function () {
+    const {logRecord}=require('../src/core/log-record');
+    const records=[];
+    for(const action of ['refresh','extend','coauthors'])
+      app.post('/api/repo/:repoId/'+action,(_req,res)=>{
+        records.push(logRecord('info','route',['request',{status:200}]));res.end();
+      });
+    app.get('/api/repo/:owner/:repo/',(_req,res)=>{
+      records.push(logRecord('error','route',['failure',{httpStatus:403}]));res.status(403).end();
+    });
+    await listen();
+    for(const action of ['refresh','extend','coauthors']){
+      for(const method of ['GET','HEAD','POST']){
+        await fetch(server,'/api/repo/private-owner/'+action+'/?token=SECRET',{method});
+        const detail=logs.at(-1)[1];
+        if(method==='POST')expect(detail.requestPath).equal('/api/repo/private-owner/'+action+'/');
+        else {expect(detail).not.have.property('requestPath');expect(records.at(-1)).not.have.property('requestPath');}
+      }
+    }
+    expect(JSON.stringify(logs)).not.include('SECRET');
+  });
+
   it("keeps labels bounded and removes source identities and query values", function () {
     expect(requestRoute("/api/repo/private-name/file/secret.txt?token=abc", "api")).to.equal("/api/repo/:repoId/file/:path");
     expect(requestRoute("/api/repo/secret-owner/secret-repo/readme?branch=secret", "api")).to.equal("/api/repo/:owner/:repo/readme");

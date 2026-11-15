@@ -63,8 +63,10 @@ if includes(["/", "other", "/dashboard", "/anonymize", "/healthcheck", "/api/hea
 {
   path = to_string(record.requestPath) ?? ""
   parsed, path_error = parse_regex(path, r'^/api/repo/(?P<repo>[A-Za-z0-9_-]{3,200})(?:/(?P<file>file/[A-Za-z0-9._~!$&\'()+,;=@%/-]+|files(?:/(?:counts|search))?/?|(?:zip|options|refresh|coauthors|extend)/?))?/?$')
+  action = replace(to_string(parsed.file), r'/+$', "")
+  allowed_methods = if action == "" { ["GET", "HEAD", "POST", "DELETE"] } else if includes(["refresh", "extend", "coauthors"], action) { ["POST"] } else { ["GET", "HEAD"] }
   decoded = decode_percent(to_string(parsed.file))
-  if path_error == null && length(path) <= 2048 && !match(path, r'%(?:[^a-fA-F0-9]|[a-fA-F0-9][^a-fA-F0-9]|[a-fA-F0-9]?$)') && !match(decoded, r'[\x00-\x1f\x7f-\x9f\x{2028}-\x{202e}\x{2066}-\x{2069}\x{fffd}\\:?#%]|//|(^|/)\.\.?(/|$)') {
+  if path_error == null && includes(allowed_methods, out.method) && length(path) <= 2048 && !match(path, r'%(?:[^a-fA-F0-9]|[a-fA-F0-9][^a-fA-F0-9]|[a-fA-F0-9]?$)') && !match(decoded, r'[\x00-\x1f\x7f-\x9f\x{2028}-\x{202e}\x{2066}-\x{2069}\x{fffd}\\:?#%]|//|(^|/)\.\.?(/|$)') {
     out.requestPath = path
     out.repoId = parsed.repo
   }
