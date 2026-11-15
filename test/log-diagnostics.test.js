@@ -23,7 +23,7 @@ describe('safe actionable exception diagnostics',()=>{
   expect(safeRedisLog({ts:record.timestamp,level:'error',module:'route',raw:[record]}).raw[0]).include({requestPath,repoId:'demo-123'});
  });
  it('preserves anonymous endpoints at all outcomes through both API projections',async()=>{
-  for(const suffix of ['', '/', '/zip', '/files', '/files/docs/nested%20folder/', '/files/counts', '/files/search', '/options', '/refresh', '/coauthors', '/extend', '/file/README.md']){
+  for(const suffix of ['', '/', '/zip', '/files',  '/files/counts', '/files/search', '/options', '/refresh', '/coauthors', '/extend', '/file/README.md']){
    const requestPath='/api/repo/demo-123'+suffix;
    expect(requestReproduction(requestPath+'?token=SECRET')).deep.equal({requestPath,repoId:'demo-123'});
    for(const status of [200,304,404,500]){
@@ -34,6 +34,20 @@ describe('safe actionable exception diagnostics',()=>{
   }
   for(const suffix of ['/files/../secret','/files/%2fsecret','/files/%0aSECRET','/files/%252e%252e/secret','/zip?token=SECRET'])
    expect(safeReproductionPath('/api/repo/demo-123'+suffix)).equal(undefined);
+ });
+ it('rejects upstream lookups for repositories named files at every logging boundary',()=>{
+  for(const action of ['readme','branches','tree','file']){
+   const requestPath='/api/repo/private-owner/files/'+action;
+   for(const suffix of ['', '/', '?token=SECRET']){
+    expect(requestReproduction(requestPath+suffix)).deep.equal({});
+    for(const status of [200,403,500]){
+     const row=logContext.run({requestPath:requestPath+suffix},()=>logRecord('error','route',['failure',{httpStatus:status}]));
+     expect(row).not.have.property('requestPath');expect(row).not.have.property('repoId');
+     const redis=safeRedisLog({ts:row.timestamp,level:'error',module:'route',raw:[{...row,requestPath:requestPath+suffix,repoId:'private-owner'}]});
+     expect(redis.raw[0]).not.have.property('requestPath');expect(redis.raw[0]).not.have.property('repoId');
+    }
+   }
+  }
  });
  it('preserves dotted allowlisted source files and anonymous/named async frames',()=>{
   const error=new Error(secret);

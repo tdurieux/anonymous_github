@@ -48,11 +48,24 @@ describe("bounded request monitoring", function () {
   });
 
   it("records the actual listing path on successful requests while keeping metrics templated", async function () {
-    app.get('/api/repo/:repoId/files/*path',(_req,res)=>res.json([]));
-    await listen(); await fetch(server,'/api/repo/demo-123/files/docs/nested%20folder/?token=SECRET');
-    expect(logs[0][1]).include({status:200,requestPath:'/api/repo/demo-123/files/docs/nested%20folder/',repoId:'demo-123'});
+    app.get('/api/repo/:repoId/files',(_req,res)=>res.json([]));
+    await listen(); await fetch(server,'/api/repo/demo-123/files?path=docs%2Fnested&token=SECRET');
+    expect(logs[0][1]).include({status:200,requestPath:'/api/repo/demo-123/files',repoId:'demo-123'});
     expect(JSON.stringify(logs)).not.include('SECRET');
     expect(JSON.stringify(metrics.drain())).not.include('demo-123');
+  });
+
+  it("never captures upstream identities from files-named source repository handlers", async function () {
+    const {logRecord}=require('../src/core/log-record');
+    const records=[];
+    for(const action of ['readme','branches','tree','file'])
+      app.get('/api/repo/:owner/:repo/'+action,(_req,res)=>{
+        records.push(logRecord('error','route',['failure',{httpStatus:403}]));res.status(403).end();
+      });
+    await listen();
+    for(const action of ['readme','branches','tree','file'])
+      await fetch(server,'/api/repo/private-owner/files/'+action);
+    expect(JSON.stringify([...records,...logs])).not.include('private-owner');
   });
 
   it("keeps labels bounded and removes source identities and query values", function () {

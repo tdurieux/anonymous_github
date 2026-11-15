@@ -62,7 +62,7 @@ if includes(["/", "other", "/dashboard", "/anonymize", "/healthcheck", "/api/hea
 # Anonymous application request context at every outcome, never query strings.
 {
   path = to_string(record.requestPath) ?? ""
-  parsed, path_error = parse_regex(path, r'^/api/repo/(?P<repo>[A-Za-z0-9_-]{3,200})(?:/(?P<file>file/[A-Za-z0-9._~!$&\'()+,;=@%/-]+|files(?:/[A-Za-z0-9._~!$&\'()+,;=@%/-]*)?|(?:zip|options|refresh|coauthors|extend)/?))?/?$')
+  parsed, path_error = parse_regex(path, r'^/api/repo/(?P<repo>[A-Za-z0-9_-]{3,200})(?:/(?P<file>file/[A-Za-z0-9._~!$&\'()+,;=@%/-]+|files(?:/(?:counts|search))?/?|(?:zip|options|refresh|coauthors|extend)/?))?/?$')
   decoded = decode_percent(to_string(parsed.file))
   if path_error == null && length(path) <= 2048 && !match(path, r'%(?:[^a-fA-F0-9]|[a-fA-F0-9][^a-fA-F0-9]|[a-fA-F0-9]?$)') && !match(decoded, r'[\x00-\x1f\x7f-\x9f\x{2028}-\x{202e}\x{2066}-\x{2069}\x{fffd}\\:?#%]|//|(^|/)\.\.?(/|$)') {
     out.requestPath = path

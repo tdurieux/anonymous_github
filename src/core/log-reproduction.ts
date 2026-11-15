@@ -1,6 +1,8 @@
 // Explicit admin diagnostics: public anonymous repository ID and request pathname only.
 // Never collect upstream owner/repository URLs, headers, query strings or bodies.
-const anonymousRequest = /^\/api\/repo\/([A-Za-z0-9_-]{3,200})(?:\/(file\/[A-Za-z0-9._~!$&'()+,;=@%/-]+|files(?:\/[A-Za-z0-9._~!$&'()+,;=@%/-]*)?|(?:zip|options|refresh|coauthors|extend)\/?))?\/?$/;
+// Listing folders use query parameters; a wildcard here would capture upstream
+// /:owner/files/{readme,branches,tree,file} source lookups.
+const anonymousRequest = /^\/api\/repo\/([A-Za-z0-9_-]{3,200})(?:\/(file\/[A-Za-z0-9._~!$&'()+,;=@%/-]+|files(?:\/(?:counts|search))?\/?|(?:zip|options|refresh|coauthors|extend)\/?))?\/?$/;
 export function safeReproductionPath(value: unknown): string | undefined {
   if (typeof value !== "string" || value.length > 2048) return undefined;
   const match = anonymousRequest.exec(value);
