@@ -107,3 +107,22 @@ for panel_id in (110, 130):
     assert any(values for frame in fresh for values in frame['data']['values']), panel['title']
     assert not any(values for frame in stale for values in frame['data']['values']), panel['title']
 print('PASS real correlation matches and range-end freshness/staleness')
+
+panel = by_id[122]
+target = {**panel['targets'][0], 'expr': 'release:="fff0002" ' + panel['targets'][0]['expr']}
+frames = query(panel, target, fixture_end-3600000, fixture_end)
+rows = []
+for frame in frames:
+    for field, values in zip(frame['schema']['fields'], frame['data']['values']):
+        if field['name'] == 'labels':
+            rows.extend(json.loads(value) if isinstance(value, str) else value for value in values)
+groups = {(row['route'], row['method']): row for row in rows}
+assert len(groups) == 3, groups
+get_repo = groups[('/api/repo/:repoId', 'GET')]
+assert [float(get_repo[k]) for k in ['requests','header_samples','header_p95','response_samples','response_p95']] == [2,2,1200,2,3000], get_repo
+post_repo = groups[('/api/repo/:repoId', 'POST')]
+assert [float(post_repo[k]) for k in ['requests','header_p95','response_p95']] == [1,70,90], post_repo
+missing = groups[('/api/repo/:repoId/file/:path', 'GET')]
+assert [int(missing[k]) for k in ['requests','header_samples','response_samples']] == [1,0,0], missing
+assert all((k not in missing or missing[k] is None or str(missing[k]).lower() == 'nan') for k in ['header_p95','response_p95']), missing
+print('PASS endpoint/method separation, slow completion, excluded interruption/streamer, absent timing coverage')

@@ -738,12 +738,271 @@
       }
     },
     {
+      "id": 122,
+      "title": "Latency by API endpoint \u00b7 slowest 30 by header p95",
+      "type": "table",
+      "gridPos": {
+        "x": 0,
+        "y": 19,
+        "w": 24,
+        "h": 8
+      },
+      "description": "Selected range, grouped by sanitized route template and HTTP method. Includes normal and slow completed API requests; excludes interruptions, edge and streamer hops. Header time is request start to writeHead; post-header time ends at finish/close, not client receipt. Sample counts show measured coverage; absent timings remain Not measured. Missing route or method is Unreported. Sorted by header p95, up to 30 groups.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "Not measured",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "nan",
+                "result": {
+                  "text": "Not measured",
+                  "color": "gray"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Requests"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Header samples"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Header p95"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "ms"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Post-header samples"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Post-header p95"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "ms"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "API endpoint"
+            },
+            "properties": [
+              {
+                "id": "noValue",
+                "value": "Unreported"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "": {
+                        "text": "Unreported"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.width",
+                "value": 320
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Method"
+            },
+            "properties": [
+              {
+                "id": "noValue",
+                "value": "Unreported"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "": {
+                        "text": "Unreported"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "datasource": {
+        "type": "victoriametrics-logs-datasource",
+        "uid": "anonymous-logs"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "service:api event:request* outcome:completed | stats by (route, method) count() as requests, count() if (firstByteMs:*) as header_samples, quantile(0.95, firstByteMs) as header_p95, count() if (responseMs:*) as response_samples, quantile(0.95, responseMs) as response_p95 | sort by (header_p95) desc | limit 30",
+          "queryType": "instant",
+          "editorMode": "code",
+          "maxLines": 30,
+          "packJson": true
+        }
+      ],
+      "transformations": [
+        {
+          "id": "extractFields",
+          "options": {
+            "source": "Line",
+            "format": "json",
+            "replace": true,
+            "keepTime": false
+          }
+        },
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "names": [
+                "route",
+                "method",
+                "requests",
+                "header_samples",
+                "header_p95",
+                "response_samples",
+                "response_p95"
+              ]
+            }
+          }
+        },
+        {
+          "id": "convertFieldType",
+          "options": {
+            "conversions": [
+              {
+                "targetField": "requests",
+                "destinationType": "number"
+              },
+              {
+                "targetField": "header_samples",
+                "destinationType": "number"
+              },
+              {
+                "targetField": "header_p95",
+                "destinationType": "number"
+              },
+              {
+                "targetField": "response_samples",
+                "destinationType": "number"
+              },
+              {
+                "targetField": "response_p95",
+                "destinationType": "number"
+              }
+            ]
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "route": 0,
+              "method": 1,
+              "requests": 2,
+              "header_samples": 3,
+              "header_p95": 4,
+              "response_samples": 5,
+              "response_p95": 6
+            },
+            "renameByName": {
+              "route": "API endpoint",
+              "method": "Method",
+              "requests": "Requests",
+              "header_samples": "Header samples",
+              "header_p95": "Header p95",
+              "response_samples": "Post-header samples",
+              "response_p95": "Post-header p95"
+            }
+          }
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      }
+    },
+    {
       "id": 130,
       "title": "Queues \u00b7 3 min before range end",
       "type": "table",
       "gridPos": {
         "x": 0,
-        "y": 19,
+        "y": 27,
         "w": 12,
         "h": 6
       },
@@ -895,7 +1154,7 @@
       "type": "table",
       "gridPos": {
         "x": 12,
-        "y": 19,
+        "y": 27,
         "w": 12,
         "h": 6
       },
@@ -1047,7 +1306,7 @@
       "type": "timeseries",
       "gridPos": {
         "x": 0,
-        "y": 25,
+        "y": 33,
         "w": 12,
         "h": 7
       },
@@ -1111,7 +1370,7 @@
       "type": "timeseries",
       "gridPos": {
         "x": 12,
-        "y": 25,
+        "y": 33,
         "w": 12,
         "h": 7
       },
@@ -1175,7 +1434,7 @@
       "type": "stat",
       "gridPos": {
         "x": 0,
-        "y": 32,
+        "y": 40,
         "w": 12,
         "h": 4
       },
@@ -1238,7 +1497,7 @@
       "type": "timeseries",
       "gridPos": {
         "x": 12,
-        "y": 32,
+        "y": 40,
         "w": 12,
         "h": 6
       },
@@ -1303,7 +1562,7 @@
       "collapsed": true,
       "gridPos": {
         "x": 0,
-        "y": 40,
+        "y": 48,
         "w": 24,
         "h": 1
       },
@@ -1318,7 +1577,7 @@
           },
           "gridPos": {
             "x": 0,
-            "y": 41,
+            "y": 49,
             "w": 24,
             "h": 8
           },
@@ -1347,7 +1606,7 @@
           },
           "gridPos": {
             "x": 0,
-            "y": 49,
+            "y": 57,
             "w": 24,
             "h": 8
           },
@@ -1376,7 +1635,7 @@
           },
           "gridPos": {
             "x": 0,
-            "y": 57,
+            "y": 65,
             "w": 24,
             "h": 8
           },

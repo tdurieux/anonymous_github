@@ -6,6 +6,7 @@ python3 scripts/grafana-fixtures.py stop
 State and a generated password stay in /tmp/grafana-dashboard-fixtures (0700).
 Only the grafana-dashboard-fixtures Compose project is managed by this script.
 """
+import base64
 import datetime
 import json
 import os
@@ -69,7 +70,7 @@ try:
             t = now - minute * 60
             for i in range(15 + minute % 8):
                 status = 503 if minute < 12 and i == 0 else 200
-                emit('api', 'request_completed', t, requestId=rid, route='/api/repo/:repoId/file/:path', status=status,
+                emit('api', 'request_completed', t, requestId=rid, route='/api/repo/:repoId/file/:path', method='GET', status=status,
                      outcome='completed', firstByteMs=40+minute*2+i*3, responseMs=500+minute*5,
                      release='abcdef1' if minute<30 else 'abcdef0')
                 nginx.write(json.dumps({'time':stamp(t), 'status':status, 'request_time':.8,
@@ -81,9 +82,36 @@ try:
                 emit('api','queue_heartbeat',t,queue=queue,waiting=3 if queue=='download' else 0,active=1,oldestWaitingMs=45000 if queue=='download' else 0)
         for event,outcome,status,latency in [('request_completed','completed',200,40),('request_slow','completed',503,1200),('request_cancelled','interrupted',503,None)]:
             emit('api',event,now,requestId=rid,release='fff0001',outcome=outcome,status=status,firstByteMs=latency)
+        # Independent endpoint groups, slow completion, missing timings and excluded hops.
+        for service, event, outcome, route, method, header, response in [
+            ('api','request_completed','completed','/api/repo/:repoId','GET',20,80),
+            ('api','request_slow','completed','/api/repo/:repoId','GET',1200,3000),
+            ('api','request_completed','completed','/api/repo/:repoId','POST',70,90),
+            ('api','request_completed','completed','/api/repo/:repoId/file/:path','GET',None,None),
+            ('api','request_cancelled','interrupted','/api/repo/:repoId','GET',9999,9999),
+            ('streamer','request_completed','completed','/api/repo/:repoId','GET',8888,8888),
+        ]:
+            emit(service,event,now,requestId=rid,release='fff0002',route=route,method=method,
+                 outcome=outcome,status=200,firstByteMs=header,responseMs=response)
         emit('api','job_failed',now,jobId=jid,requestId=rid,errorCode='ETIMEDOUT',queue='download')
     (STATE / 'ids.json').write_text(json.dumps({'request_id':rid,'job_id':jid}))
-    time.sleep(3)
+    # Vector batching and VictoriaLogs visibility can take longer than startup.
+    auth = base64.b64encode(('local-test:' + password.read_text()).encode()).decode()
+    deadline = time.monotonic() + 60
+    while True:
+        req = urllib.request.Request(url + '/api/ds/query', headers={
+            'Authorization':'Basic ' + auth, 'Content-Type':'application/json'},
+            data=json.dumps({'from':str(int((now-3600)*1000)), 'to':str(int((now+2)*1000)),
+                'queries':[{'refId':'A','datasource':{'type':'victoriametrics-logs-datasource','uid':'anonymous-logs'},
+                    'expr':'release:="fff0002" service:api outcome:completed | stats count() as requests',
+                    'queryType':'stats'}]}).encode())
+        result = json.loads(urllib.request.urlopen(req, timeout=10).read())
+        frames = result['results']['A'].get('frames', [])
+        counts = [v for frame in frames for field, values in zip(frame['schema']['fields'], frame['data']['values'])
+                  if field['type']=='number' for v in values]
+        if counts == [4]: break
+        if time.monotonic() > deadline: raise RuntimeError('Endpoint fixtures did not become queryable')
+        time.sleep(1)
     print('Fixture Grafana: ' + url)
     print('Username: local-test; password file: ' + str(password))
     print('Run GRAFANA_TEST_URL="$(cat ' + str(STATE / 'url') + ')" GRAFANA_TEST_PASSWORD_FILE=' + str(password) + ' python3 scripts/test-grafana-dashboard.py')
