@@ -1102,7 +1102,8 @@ app.delete("/api/admin/errors", (req, res) => res.json({ ok: true, cleared: erro
 // ---- Admin billing (/api/admin/billing/*) --------------------------------
 // Grants as stored in Mongo (BillingGrant), summarized the way
 // src/core/billing/report.ts does: a paper pack's three grants are one sale,
-// revenue is the Stripe list price per currency (minor units).
+// the list shows one row per sale, revenue is the Stripe list price per
+// currency (minor units), and an unknown price leaves its sales out of revenue.
 // Cookies: mock_billing_empty=1 (no sales), mock_billing_norevenue=1 (Stripe
 // not configured), mock_billing_slow=1 (summary never answers: loading state).
 const BILLING_PLANS = [
@@ -1111,60 +1112,97 @@ const BILLING_PLANS = [
   ["repo_slot", "Extra repository", "repository"], ["repo_pack", "Paper pack", "repository"],
   ["conference_workshop", "Workshop", "conference"], ["conference", "Conference", "conference"], ["conference_large", "Large conference", "conference"],
 ];
+// Stripe prices by id. "price_retired" is unknown, like a deleted price.
 const BILLING_PRICES = {
-  author_monthly: { eur: 500, interval: "month" }, author_annual: { eur: 4800, interval: "year" }, author_pass: { eur: 400 },
-  repo_extend: { eur: 300 }, repo_never: { eur: 1500 }, repo_slot: { eur: 300 }, repo_pack: { eur: 800 },
-  conference_workshop: { eur: 9900 }, conference: { eur: 29900 }, conference_large: { usd: 64900 }, // a price in another currency stays apart
+  price_author_monthly: { currency: "eur", amount: 500, interval: "month" }, price_author_annual: { currency: "eur", amount: 4800, interval: "year" },
+  price_author_pass: { currency: "eur", amount: 400 }, price_repo_extend: { currency: "eur", amount: 300 }, price_repo_never: { currency: "eur", amount: 1500 },
+  price_repo_slot: { currency: "eur", amount: 300 }, price_repo_pack: { currency: "eur", amount: 800 },
+  price_conference_workshop: { currency: "eur", amount: 9900 }, price_conference: { currency: "eur", amount: 29900 },
+  price_conference_large: { currency: "usd", amount: 64900 }, // a price in another currency stays apart
 };
 const NEVER = "9999-12-31T00:00:00.000Z";
+const PACK_PARTS = ["repo_slot", "author_pass", "repo_extend"];
 const billingGrants = (() => {
   // Deterministic pseudo-random sales over 14 months, denser recently.
   let seed = 7;
   const rand = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
   const owners = adminUsers.filter((u) => u.status === "active");
-  const repos = ["anonymous_github-C72C", "icse24-artifact-7B1D", "JarSift", "runtime-repair-experiments-very-long-identifier-2ff4", "replication-package-5E1A"];
+  const repos = ["anonymous_github-C72C", "icse24-artifact-7B1D", "JarSift-0A3E", "runtime-repair-experiments-very-long-identifier-2ff4", "replication-package-5E1A"];
   const out = [];
+  const sale = (plan, owner, days, repo, extra = {}) => {
+    const purchasedAt = ago(days);
+    const base = { owner: owner._id, purchasedAt, status: "paid", revoked: false, cancelAtPeriodEnd: false, priceId: "price_" + plan };
+    const id = extra.id || rand().toString(36).slice(2, 10);
+    if (plan === "author_monthly" || plan === "author_annual") {
+      const period = plan === "author_annual" ? 365 : 30;
+      const ended = extra.ended ?? (rand() < 0.25 && days > 40);
+      const until = ended ? ago(Math.max(1, days - period * 2)) : ahead(period - (days % period) || 1);
+      out.push({ ...base, _id: "sub_" + id, scope: "user:" + owner._id, planId: plan, subscription: true, status: ended ? "canceled" : extra.status || (rand() < 0.06 ? "past_due" : "active"), until,
+        cancelAtPeriodEnd: !ended && (extra.cancel ?? rand() < 0.18) });
+    } else if (plan === "repo_pack") {
+      for (const part of PACK_PARTS) out.push({ ...base, _id: "cs_" + id + ":" + part, scope: "repo:" + repo, planId: part, pack: true, ...extra.grant,
+        until: part === "repo_slot" ? NEVER : ago(days - (part === "author_pass" ? 180 : 365)) });
+    } else if (plan.startsWith("conference")) {
+      out.push({ ...base, _id: "cs_" + id, scope: "conference:" + repo, planId: plan, until: ago(days - 160), ...extra.grant });
+    } else {
+      const length = { author_pass: 180, repo_extend: 365 }[plan];
+      out.push({ ...base, _id: "cs_" + id, scope: "repo:" + repo, planId: plan, until: length ? ago(days - length) : NEVER, ...extra.grant });
+    }
+  };
   const weights = [["author_monthly", 14], ["author_annual", 6], ["author_pass", 10], ["repo_extend", 8], ["repo_never", 6], ["repo_slot", 7], ["repo_pack", 9], ["conference_workshop", 2], ["conference", 2], ["conference_large", 1]];
   const total = weights.reduce((n, [, w]) => n + w, 0);
   const pick = () => { let r = rand() * total; for (const [id, w] of weights) { if ((r -= w) < 0) return id; } return "repo_slot"; };
   for (let i = 0; i < 150; i++) {
-    const days = Math.floor(Math.pow(rand(), 1.6) * 420);
+    const days = 8 + Math.floor(Math.pow(rand(), 1.6) * 412);
     const plan = pick(), owner = owners[Math.floor(rand() * owners.length)];
-    const purchasedAt = ago(days + rand());
-    const base = { owner: owner._id, purchasedAt, status: "paid", revoked: false, cancelAtPeriodEnd: false };
-    const id = (rand().toString(36).slice(2, 10));
-    if (plan.startsWith("author_") && plan !== "author_pass") {
-      const period = plan === "author_annual" ? 365 : 30;
-      const ended = rand() < 0.25 && days > 40;
-      const until = ended ? ago(Math.max(1, days - period * 2)) : ahead(period - (days % period) || 1);
-      out.push({ ...base, _id: "sub_" + id, scope: "user:" + owner._id, planId: plan, subscription: true, status: ended ? "canceled" : rand() < 0.06 ? "past_due" : "active", until, cancelAtPeriodEnd: !ended && rand() < 0.18 });
-    } else if (plan === "repo_pack") {
-      const repo = repos[Math.floor(rand() * repos.length)];
-      for (const part of ["repo_slot", "author_pass", "repo_extend"]) out.push({ ...base, _id: "cs_" + id + ":" + part, scope: "repo:" + repo, planId: part, pack: true, until: part === "repo_slot" ? NEVER : ago(days - (part === "author_pass" ? 180 : 365)) });
-    } else if (plan.startsWith("conference")) {
-      out.push({ ...base, _id: "cs_" + id, scope: "conference:" + ["FSE25", "ICSE26-AE", "FSE23"][Math.floor(rand() * 3)], planId: plan, until: ago(days - 160) });
-    } else {
-      const length = { author_pass: 180, repo_extend: 365 }[plan];
-      out.push({ ...base, _id: "cs_" + id, scope: "repo:" + repos[Math.floor(rand() * repos.length)], planId: plan, until: length ? ago(days - length) : NEVER });
-    }
+    const target = plan.startsWith("conference") ? ["FSE25", "ICSE26-AE", "FSE23"][Math.floor(rand() * 3)] : repos[Math.floor(rand() * repos.length)];
+    sale(plan, owner, days + rand(), target);
   }
-  // Reversals: a recent refund, an older dispute.
-  const oneOffs = out.filter((g) => g._id.startsWith("cs_") && !g.pack);
-  Object.assign(oneOffs[2], { revoked: true, revocationReason: "full_refund", revokedAt: ago(3) });
+  // The last week, shaped like production: several paper packs, subscriptions
+  // with one cancelling, extra repositories whose ids are short codes, a
+  // conference, a USD sale, a refund and a sale whose price is unknown.
+  const [tdurieux, alice, bob, noemail, longname, dmitri] = owners;
+  const week = [
+    ["author_monthly", alice, 0.2, null, { cancel: false, ended: false }], ["repo_slot", bob, 0.3, "031F"], ["repo_slot", bob, 0.35, "43E2"],
+    ["repo_slot", noemail, 0.4, "Concept_Drift_Under_Shift-7C1A"], ["repo_pack", longname, 0.5, "BioASQ-Cond-EDE1"],
+    ["repo_pack", dmitri, 1.3, "GECO-submission-E487"], ["author_monthly", tdurieux, 1.4, null, { cancel: true, ended: false }],
+    ["author_annual", bob, 1.5, null, { cancel: false, ended: false }], ["author_pass", alice, 1.6, "mmse-prediction-benchmark-2D9F"],
+    ["author_annual", dmitri, 1.7, null, { cancel: false, ended: false, status: "past_due" }], ["repo_slot", noemail, 1.8, "ADD-28CC"],
+    ["repo_pack", alice, 2.2, "AWR-452D"], ["conference", tdurieux, 2.4, "ICSE27"], ["repo_never", bob, 2.6, "replication-package-5E1A", { grant: { revoked: true, revocationReason: "full_refund", revokedAt: ago(1.1) } }],
+    ["repo_pack", bob, 3.3, "icse24-artifact-7B1D"], ["conference_large", dmitri, 3.5, "FSE27"], ["author_monthly", noemail, 4.2, null, { cancel: false, ended: false }],
+    ["repo_extend", longname, 4.4, "JarSift-0A3E", { grant: { priceId: "price_retired" } }], ["author_monthly", bob, 5.3, null, { cancel: false, ended: false }],
+    ["repo_pack", tdurieux, 5.5, "anonymous_github-C72C"], ["author_annual", alice, 6.2, null, { cancel: false, ended: false }], ["repo_slot", dmitri, 6.4, "4B7A"],
+  ];
+  for (const [plan, owner, days, target, extra] of week) sale(plan, owner, days, target, extra);
+  // Older reversals: a dispute and a refund.
+  const oneOffs = out.filter((g) => g._id.startsWith("cs_") && !g.pack && !g.revoked && g.purchasedAt < ago(8));
   Object.assign(oneOffs[9], { revoked: true, revocationReason: "dispute", revokedAt: ago(40) });
   Object.assign(oneOffs[14], { revoked: true, revocationReason: "full_refund", revokedAt: ago(12) });
   return out.sort((a, b) => b.purchasedAt.localeCompare(a.purchasedAt));
 })();
 const billingUsable = (g, now) => !g.revoked && g.until > now && ["active", "paid", "past_due"].includes(g.status);
 const billingFamily = (planId) => (BILLING_PLANS.find((p) => p[0] === planId) || [])[2] || "repository";
+// Mirrors periodStart in src/core/billing/report.ts: N days are N daily buckets ending today.
+const billingUnit = (period) => period === "12m" ? "week" : period === "all" ? "month" : "day";
+const billingTrunc = (d, unit) => { const x = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), unit === "month" ? 1 : d.getUTCDate())); if (unit === "week") x.setUTCDate(x.getUTCDate() - ((x.getUTCDay() + 6) % 7)); return x; };
+function billingSince(period, now = new Date()) {
+  const days = { "7d": 7, "30d": 30, "90d": 90, "12m": 365 }[period];
+  if (!days) return null;
+  const unit = billingUnit(period), start = billingTrunc(now, unit);
+  start.setUTCDate(start.getUTCDate() - (unit === "week" ? 7 * (Math.floor(days / 7) - 1) : days - 1));
+  return start;
+}
 function billingSales(grants) {
   const sales = new Map();
+  const now = new Date().toISOString();
   for (const g of grants) {
     const key = g.pack ? g._id.split(":")[0] : g._id;
-    const sale = sales.get(key) || { plan: g.pack ? "repo_pack" : g.planId, purchasedAt: g.purchasedAt, revoked: false, active: false, cancel: false };
-    const now = new Date().toISOString();
+    const sale = sales.get(key) || { id: key, plan: g.pack ? "repo_pack" : g.planId, priceId: g.priceId, owner: g.owner, scope: g.scope, status: g.status, subscription: !!g.subscription,
+      purchasedAt: g.purchasedAt, until: g.until, revoked: false, active: false, cancel: false, parts: [] };
     sale.revoked = sale.revoked || g.revoked; sale.reason = sale.reason || g.revocationReason; sale.revokedAt = sale.revokedAt || g.revokedAt;
     sale.active = sale.active || billingUsable(g, now); sale.cancel = sale.cancel || g.cancelAtPeriodEnd;
+    if (g.until > sale.until) sale.until = g.until;
+    if (g.pack) sale.parts.push({ planId: g.planId, until: g.until === NEVER ? null : g.until, never: g.until === NEVER });
     sales.set(key, sale);
   }
   return [...sales.values()];
@@ -1173,37 +1211,52 @@ function billingSummary(req) {
   const cookie = req.headers.cookie || "";
   const empty = /mock_billing_empty=1/.test(cookie), revenue = !/mock_billing_norevenue=1/.test(cookie);
   const period = ["7d", "30d", "90d", "12m", "all"].includes(req.query.period) ? req.query.period : "30d";
-  const days = { "7d": 7, "30d": 30, "90d": 90, "12m": 365 }[period];
-  const now = new Date(), since = days ? new Date(now - days * DAY) : null;
+  const now = new Date(), since = billingSince(period, now);
   const sales = empty ? [] : billingSales(billingGrants);
   const inPeriod = (date) => date && (!since || new Date(date) >= since);
-  const money = (list, fn = () => 1) => { if (!revenue) return {}; const m = {}; for (const s of list) { const [currency, amount] = Object.entries(BILLING_PRICES[s.plan]).find(([k]) => k !== "interval"); m[currency] = Math.round((m[currency] || 0) + amount * fn(s)); } return m; };
+  const known = (s) => !!BILLING_PRICES[s.priceId];
+  const money = (list, fn = () => 1) => { if (!revenue) return {}; const m = {}; for (const s of list.filter(known)) { const { currency, amount } = BILLING_PRICES[s.priceId]; m[currency] = Math.round((m[currency] || 0) + amount * fn(s)); } return m; };
+  const complete = (list) => revenue && list.every(known);
   const subs = sales.filter((s) => s.active && billingFamily(s.plan) === "subscription");
   const reversals = sales.filter((s) => s.revoked && inPeriod(s.revokedAt));
-  const unit = period === "12m" ? "week" : period === "all" ? "month" : "day";
-  const trunc = (d) => { const x = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), unit === "month" ? 1 : d.getUTCDate())); if (unit === "week") x.setUTCDate(x.getUTCDate() - ((x.getUTCDay() + 6) % 7)); return x; };
+  const unit = billingUnit(period);
   const next = (d) => { const x = new Date(d); if (unit === "month") x.setUTCMonth(x.getUTCMonth() + 1); else x.setUTCDate(x.getUTCDate() + (unit === "week" ? 7 : 1)); return x; };
   const first = since || (sales.length ? new Date(sales.reduce((m, s) => s.purchasedAt < m ? s.purchasedAt : m, sales[0].purchasedAt)) : null);
   const series = [];
   if (first) {
     const buckets = new Map();
-    for (let d = trunc(first); d <= now; d = next(d)) { const b = { date: d.toISOString(), subscription: 0, repository: 0, conference: 0 }; buckets.set(d.getTime(), b); series.push(b); }
-    for (const s of sales) if (inPeriod(s.purchasedAt)) { const b = buckets.get(trunc(new Date(s.purchasedAt)).getTime()); if (b) b[billingFamily(s.plan)]++; }
+    for (let d = billingTrunc(first, unit); d <= now; d = next(d)) {
+      const b = { date: d.toISOString(), subscription: 0, repository: 0, conference: 0, revenue: { subscription: {}, repository: {}, conference: {} }, missing: 0 };
+      buckets.set(d.getTime(), b); series.push(b);
+    }
+    for (const s of sales) {
+      if (!inPeriod(s.purchasedAt)) continue;
+      const b = buckets.get(billingTrunc(new Date(s.purchasedAt), unit).getTime());
+      if (!b) continue;
+      const family = billingFamily(s.plan);
+      b[family]++;
+      if (!revenue) continue;
+      const price = BILLING_PRICES[s.priceId];
+      if (price) b.revenue[family][price.currency] = (b.revenue[family][price.currency] || 0) + price.amount;
+      else b.missing++;
+    }
   }
   const periodSales = sales.filter((s) => inPeriod(s.purchasedAt));
   return {
     period, since, now, bucket: unit,
     subscriptions: { active: subs.length, monthly: subs.filter((s) => s.plan === "author_monthly").length, annual: subs.filter((s) => s.plan === "author_annual").length,
-      cancelling: subs.filter((s) => s.cancel).length, mrr: money(subs, (s) => s.plan === "author_annual" ? 1 / 12 : 1) },
-    sales: { count: periodSales.length, revenue: money(periodSales) },
-    allTime: { count: sales.length, revenue: money(sales) },
-    reversals: { refunds: reversals.filter((s) => s.reason !== "dispute").length, disputes: reversals.filter((s) => s.reason === "dispute").length, amount: money(reversals) },
+      cancelling: subs.filter((s) => s.cancel).length, mrr: money(subs, (s) => s.plan === "author_annual" ? 1 / 12 : 1), complete: complete(subs) },
+    sales: { count: periodSales.length, revenue: money(periodSales), complete: complete(periodSales) },
+    allTime: { count: sales.length, revenue: money(sales), complete: complete(sales) },
+    reversals: { refunds: reversals.filter((s) => s.reason !== "dispute").length, disputes: reversals.filter((s) => s.reason === "dispute").length },
     plans: BILLING_PLANS.map(([planId, name, family]) => {
       const of = (list) => list.filter((s) => s.plan === planId);
-      return { planId, name, family, active: of(sales.filter((s) => s.active)).length, sales: of(periodSales).length, revenue: money(of(periodSales)), allTimeSales: of(sales).length, allTimeRevenue: money(of(sales)) };
+      return { planId, name, family, active: of(sales.filter((s) => s.active)).length, sales: of(periodSales).length, revenue: money(of(periodSales)), revenueComplete: complete(of(periodSales)),
+        allTimeSales: of(sales).length, allTimeRevenue: money(of(sales)), allTimeRevenueComplete: complete(of(sales)) };
     }),
     series,
-    revenue: { available: revenue, reason: revenue ? null : "stripe_not_configured", missingSales: 0, basis: "list_price" },
+    revenue: { available: revenue, reason: revenue ? null : "stripe_not_configured", basis: "list_price",
+      missingSales: revenue ? periodSales.filter((s) => !known(s)).length : 0, missingAllTimeSales: revenue ? sales.filter((s) => !known(s)).length : 0, missingSubscriptions: revenue ? subs.filter((s) => !known(s)).length : 0 },
     webhooks: empty
       ? { pending: 0, failed: 0, oldestPendingSeconds: 0, unresolved: 0, reconciliationFailed: 0, lastError: null, unreviewedRevocations: 0, latestRevocation: null }
       : { pending: 2, failed: 1, oldestPendingSeconds: 140, unresolved: 0, reconciliationFailed: 0, unreviewedRevocations: 1, latestRevocation: { reason: "full_refund", createdAt: ago(3) },
@@ -1215,26 +1268,31 @@ app.get("/api/admin/billing/summary", (req, res) => {
   res.json(billingSummary(req));
 });
 app.get("/api/admin/billing/grants", (req, res) => {
-  const now = new Date().toISOString();
-  const word = (v) => typeof v === "string" && /^[a-z_]{1,40}$/.test(v) ? v : "";
-  const plan = word(req.query.plan), status = word(req.query.status), state = word(req.query.state);
+  const cookie = req.headers.cookie || "";
+  const revenue = !/mock_billing_norevenue=1/.test(cookie);
+  const word = (v) => typeof v === "string" && /^[a-z0-9_]{1,40}$/.test(v) ? v : "";
+  const plan = word(req.query.plan), status = word(req.query.status), state = word(req.query.state), since = billingSince(word(req.query.period));
   const search = String(req.query.search || "").toLowerCase();
-  const name = (g) => (adminUsers.find((u) => u._id === g.owner) || {}).username;
-  const stateOf = (g) => g.revoked ? "revoked" : billingUsable(g, now) ? "active" : "expired";
-  let rows = /mock_billing_empty=1/.test(req.headers.cookie || "") ? [] : billingGrants;
-  rows = rows.filter((g) => (!plan || (plan === "repo_pack" ? g.pack : g.planId === plan)) && (!status || g.status === status) && (!search || (name(g) || "").toLowerCase().includes(search)));
+  const name = (s) => (adminUsers.find((u) => u._id === s.owner) || {}).username;
+  const stateOf = (s) => s.revoked ? "revoked" : s.active ? "active" : "expired";
+  let rows = /mock_billing_empty=1/.test(cookie) ? [] : billingSales(billingGrants);
+  rows = rows.filter((s) => (!plan || s.plan === plan) && (!status || s.status === status) && (!since || new Date(s.purchasedAt) >= since) && (!search || (name(s) || "").toLowerCase().includes(search)));
   const stateCounts = { active: 0, expired: 0, revoked: 0 };
-  for (const g of rows) stateCounts[stateOf(g)]++;
-  if (state) rows = rows.filter((g) => stateOf(g) === state);
+  for (const s of rows) stateCounts[stateOf(s)]++;
+  if (state) rows = rows.filter((s) => stateOf(s) === state);
   const field = req.query.sort === "until" ? "until" : "purchasedAt", dir = req.query.direction === "asc" ? 1 : -1;
   rows = [...rows].sort((a, b) => dir * a[field].localeCompare(b[field]));
   const pageNo = Math.max(1, parseInt(req.query.page, 10) || 1), limit = Math.min(100, parseInt(req.query.limit, 10) || 25);
-  const results = rows.slice((pageNo - 1) * limit, pageNo * limit).map((g) => {
-    const [kind, id] = g.scope.split(/:(.*)/s);
-    return { id: g._id.replace(/[^a-z0-9]/gi, "").slice(-12), user: name(g) || null, planId: g.planId, pack: !!g.pack, family: billingFamily(g.planId), subscription: !!g.subscription,
-      status: g.status, state: stateOf(g), purchasedAt: g.purchasedAt, until: g.until === NEVER ? null : g.until, never: g.until === NEVER,
-      cancelAtPeriodEnd: g.cancelAtPeriodEnd, revoked: g.revoked, revocationReason: g.revocationReason || null, revokedAt: g.revokedAt || null,
-      scope: kind === "repo" || kind === "conference" ? { kind, id } : { kind: "account", id: null } };
+  const results = rows.slice((pageNo - 1) * limit, pageNo * limit).map((s) => {
+    const [kind, id] = s.scope.split(/:(.*)/s);
+    const price = revenue && BILLING_PRICES[s.priceId];
+    return { id: s.id.replace(/[^a-z0-9]/gi, "").slice(-12), user: name(s) || null, planId: s.plan, pack: s.plan === "repo_pack", family: billingFamily(s.plan), subscription: s.subscription,
+      parts: [...s.parts].sort((a, b) => PACK_PARTS.indexOf(a.planId) - PACK_PARTS.indexOf(b.planId)),
+      status: s.status, state: stateOf(s), purchasedAt: s.purchasedAt, until: s.until === NEVER ? null : s.until, never: s.until === NEVER,
+      cancelAtPeriodEnd: s.cancel, revoked: s.revoked, revocationReason: s.reason || null, revokedAt: s.revokedAt || null,
+      scope: kind === "repo" || kind === "conference" ? { kind, id } : { kind: "account", id: null },
+      amount: price ? { value: price.amount, currency: price.currency, interval: s.subscription ? price.interval : null, intervalCount: 1 } : null,
+      amountMissing: price ? null : revenue ? "unresolved" : "stripe_not_configured" };
   });
   res.json({ page: pageNo, limit, total: rows.length, results, stateCounts, statuses: [...new Set(billingGrants.map((g) => g.status))].sort() });
 });

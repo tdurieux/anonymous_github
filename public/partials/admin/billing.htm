@@ -93,13 +93,13 @@
     <div class="ov-chart-head">
       <span class="ov-chart-title">Sales per {{ bucketName() }} &middot; {{ periodPhrase() }}</span>
       <span class="ov-chart-legends" v-if="seriesSales()">
-        <span class="ov-chart-legend" v-for="f in families" :key="f.id"><span class="bl-swatch" :class="'bl-' + f.id" aria-hidden="true"></span>{{ f.label }} &middot; {{ fmt?.number(familyTotal(f.id)) }}</span>
+        <span class="ov-chart-legend" v-for="f in families" :key="f.id"><span class="bl-swatch" :class="'bl-' + f.id" aria-hidden="true"></span>{{ f.label }} &middot; {{ legendText(f.id) }}</span>
       </span>
     </div>
     <template v-if="seriesSales()">
       <div class="ov-spark-bars ov-has-axis bl-bars" :class="{ 'is-dense': summary.series.length &gt; 45 }" role="img" :aria-label="fmt?.number(seriesSales()) + ' sales, ' + periodPhrase() + ', by plan family'">
         <div class="ov-yaxis" aria-hidden="true"><span>{{ fmt?.number(chartMax()) }}</span><span>{{ fmt?.number(chartMax() / 2) }}</span><span>0</span></div>
-        <div class="ov-spark-col has-tip bl-col" v-for="(d, index) in summary.series" :key="index" :data-tip="bucketTip(d)" :class="{ 'is-zero': !bucketTotal(d) }">
+        <div class="ov-spark-col has-tip bl-col" v-for="(d, index) in summary.series" :key="index" :data-tip="bucketTip(d)" :class="[tipSide(index), { 'is-zero': !bucketTotal(d) }]">
           <span class="bl-stack" :style="{ height: (bucketTotal(d) / chartMax() * 100) + '%' }">
             <i v-for="f in families" :key="f.id" v-show="d[f.id]" :class="'bl-' + f.id" :style="{ flexGrow: d[f.id] }"></i>
           </span>
@@ -127,9 +127,15 @@
           <tr><th scope="col" rowspan="2">Plan</th><th scope="col" rowspan="2" class="num">Active</th><th scope="colgroup" colspan="2" class="bl-group" v-if="period !== 'all'">{{ periodPhrase().replace(/^./, c =&gt; c.toUpperCase()) }}</th><th scope="colgroup" colspan="2" class="bl-group">All time</th></tr>
           <tr><template v-if="period !== 'all'"><th scope="col" class="num">Sales</th><th scope="col" class="num">Revenue</th></template><th scope="col" class="num">Sales</th><th scope="col" class="num">Revenue</th></tr>
         </thead>
-        <tbody>
-          <tr v-for="p in summary.plans" :key="p.planId" :class="{ 'bl-idle': !p.active &amp;&amp; !p.sales &amp;&amp; !p.allTimeSales }">
-            <th scope="row" class="bl-plan-name"><span class="bl-swatch" :class="'bl-' + p.family" aria-hidden="true"></span><button type="button" class="bl-link" :title="'Show ' + p.name + ' grants'" @click="filterPlan(p.planId)">{{ p.name }}</button></th>
+        <tbody v-for="f in families" :key="f.id" v-show="familyPlans(f.id).length">
+          <tr class="bl-family-row">
+            <th scope="rowgroup" class="bl-plan-name"><span class="bl-swatch" :class="'bl-' + f.id" aria-hidden="true"></span>{{ f.label }}</th>
+            <td class="num">{{ fmt?.number(familySum(f.id, 'active')) }}</td>
+            <template v-if="period !== 'all'"><td class="num">{{ fmt?.number(familySum(f.id, 'sales')) }}</td><td class="num">{{ familyMoney(f.id, 'revenue', 'revenueComplete') }}</td></template>
+            <td class="num">{{ fmt?.number(familySum(f.id, 'allTimeSales')) }}</td><td class="num">{{ familyMoney(f.id, 'allTimeRevenue', 'allTimeRevenueComplete') }}</td>
+          </tr>
+          <tr v-for="p in familyPlans(f.id)" :key="p.planId" :class="{ 'bl-idle': !p.active &amp;&amp; !p.sales &amp;&amp; !p.allTimeSales }">
+            <th scope="row" class="bl-plan-name bl-plan-child"><button type="button" class="bl-link" :title="'Show ' + p.name + ' sales'" @click="filterPlan(p.planId)">{{ p.name }}</button></th>
             <td class="num">{{ fmt?.number(p.active) }}</td>
             <template v-if="period !== 'all'"><td class="num">{{ fmt?.number(p.sales) }}</td>
             <td class="num">{{ revenueOn() ? (p.revenueComplete === false ? 'Incomplete' : moneyText(p.revenue)) : '—' }}</td></template>
@@ -142,7 +148,7 @@
         </tfoot>
       </table>
     </div>
-    <p class="ov-performance-note bl-note">A paper pack counts once, under Paper pack. Active means paid time remains and the payment wasn't reversed.</p>
+    <p class="ov-performance-note bl-note">A paper pack counts once, under Paper pack, here, in the chart and in the list below. Active means paid time remains and the payment wasn't reversed.</p>
   </section>
 
   <!-- ── Subscriptions and purchases ─────────────────────────── -->
@@ -165,7 +171,7 @@
     </div>
 
     <form class="w-100 admin-filter-toolbar" aria-label="Subscriptions and purchases" accept-charset="UTF-8" v-form="viewState" @submit.prevent>
-      <button type="button" class="btn btn-sm admin-filters-toggle" @click="filtersOpen = !filtersOpen" :aria-expanded="filtersOpen ? 'true' : 'false'">Filters<template v-if="query.plan || query.status"> ({{ (query.plan ? 1 : 0) + (query.status ? 1 : 0) }})</template></button>
+      <button type="button" class="btn btn-sm admin-filters-toggle" @click="filtersOpen = !filtersOpen" :aria-expanded="filtersOpen ? 'true' : 'false'">Filters<template v-if="filterCount()"> ({{ filterCount() }})</template></button>
       <div class="admin-filter-row" :class="{ 'is-open': filtersOpen }">
         <div class="search-wrap">
           <input type="search" class="form-control" aria-label="Search by user" placeholder="Search by user…" autocomplete="off" v-field="{ state: viewState, set: value =&gt; { query.search = value }, value: query?.search, form: null, options: {} }">
@@ -174,6 +180,12 @@
           <select id="bl-plan" class="form-control form-control-sm" v-field="{ state: viewState, set: value =&gt; { query.plan = value }, value: query?.plan, form: null, options: {} }">
             <option value="">Any</option>
             <optgroup v-for="f in families" :key="f.id" :label="f.label"><option v-for="p in (summary?.plans || []).filter(p =&gt; p.family === f.id)" :key="p.planId" :value="p.planId">{{ p.name }}</option></optgroup>
+          </select>
+        </span>
+        <span class="admin-filter-inline"><label for="bl-period">Started</label>
+          <select id="bl-period" class="form-control form-control-sm" v-field="{ state: viewState, set: value =&gt; { query.period = value }, value: query?.period, form: null, options: {} }">
+            <option value="">Any time</option>
+            <option v-for="p in periods.filter(p =&gt; p.id !== 'all')" :key="p.id" :value="p.id">Last {{ p.label }}</option>
           </select>
         </span>
         <span class="admin-filter-inline"><label for="bl-status">Stripe status</label>
@@ -207,18 +219,17 @@
           <th scope="col">User</th><th scope="col">Plan</th><th scope="col">Status</th>
           <th scope="col"><button type="button" class="sortable" :class="{ active: query?.sort == 'purchasedAt' }" @click="sortBy('purchasedAt')">Started <svg class="ui-icon sort-direction" aria-hidden="true" v-if="sortIcon('purchasedAt')" :class="{ ascending: sortIcon('purchasedAt') === 'fa-arrow-up' }"><use href="#project-icon-arrow"></use></svg></button></th>
           <th scope="col"><button type="button" class="sortable" :class="{ active: query?.sort == 'until' }" @click="sortBy('until')">Renews / ends <svg class="ui-icon sort-direction" aria-hidden="true" v-if="sortIcon('until')" :class="{ ascending: sortIcon('until') === 'fa-arrow-up' }"><use href="#project-icon-arrow"></use></svg></button></th>
-          <th scope="col">Cancelling</th><th scope="col">Revoked</th><th scope="col">Applies to</th>
+          <th scope="col" class="num">Amount</th><th scope="col">Applies to</th>
         </tr></thead>
         <tbody>
           <tr v-for="g in grants" :key="g.id">
             <th scope="row" class="bl-user"><a v-if="g.user" :title="g.user" :href="safeUrl('/admin/users/' + g.user)">{{ g.user }}</a><span class="ov-muted" v-else>Deleted user</span></th>
-            <td><span class="bl-plan-cell"><span class="bl-swatch" :class="'bl-' + g.family" aria-hidden="true"></span>{{ planName(g.planId) }}</span><small v-if="g.pack">Part of a paper pack</small></td>
-            <td><span class="bl-state"><span class="status-dot" :class="g.state === 'active' ? 'st-ready' : g.state === 'revoked' ? 'st-error' : 'st-expired'"></span>{{ g.state === 'active' ? 'Active' : g.state === 'revoked' ? 'Revoked' : 'Expired' }}</span><small v-if="!['active', 'paid'].includes(g.status)">Stripe: {{ statusText(g) }}</small></td>
-            <td>{{ g.purchasedAt ? fmt?.date(g.purchasedAt) : '—' }}</td>
-            <td><template v-if="g.never">Never ends</template><template v-else-if="g.until">{{ fmt?.date(g.until) }}</template><template v-else>—</template><small v-if="g.subscription &amp;&amp; g.state === 'active'">{{ g.cancelAtPeriodEnd ? 'Ends' : 'Renews' }}</small></td>
-            <td><span class="bl-flag" v-if="g.cancelAtPeriodEnd">Cancelling</span><span class="ov-muted" v-else>—</span></td>
-            <td><template v-if="g.revoked"><span class="bl-flag is-bad">{{ revocationText(g.revocationReason) }}</span><small v-if="g.revokedAt">{{ fmt?.date(g.revokedAt) }}</small></template><span class="ov-muted" v-else>—</span></td>
-            <td class="bl-scope"><a v-if="scopeHref(g.scope)" :href="safeUrl(scopeHref(g.scope))"><svg class="ui-icon" aria-hidden="true"><use :href="g.scope.kind === 'conference' ? '#project-icon-conference' : '#project-type-repo'"></use></svg><span>{{ g.scope.id }}</span></a><span class="ov-muted" v-else>Account</span></td>
+            <td><span class="bl-plan-cell" :title="familyLabel(g.family)"><span class="bl-swatch" :class="'bl-' + g.family" aria-hidden="true"></span>{{ planName(g.planId) }}</span><small v-if="g.pack" :title="packPartsTitle(g)">{{ packParts(g) }}</small></td>
+            <td><span class="bl-state"><span class="status-dot" :class="g.state === 'active' ? 'st-ready' : g.state === 'revoked' ? 'st-error' : 'st-expired'"></span>{{ g.state === 'active' ? 'Active' : g.state === 'revoked' ? 'Revoked' : 'Expired' }}</span><small v-if="g.revoked">{{ revocationText(g.revocationReason) }}<template v-if="g.revokedAt"> &middot; {{ fmt?.date(g.revokedAt) }}</template></small><small v-else-if="!['active', 'paid'].includes(g.status)">Stripe: {{ statusText(g) }}</small></td>
+            <td class="bl-date">{{ g.purchasedAt ? fmt?.date(g.purchasedAt) : '—' }}</td>
+            <td class="bl-date">{{ endText(g) }}<small v-if="g.subscription &amp;&amp; g.cancelAtPeriodEnd &amp;&amp; g.state === 'active'"><span class="bl-flag">Cancelling</span></small><small v-else-if="packNote(g)">{{ packNote(g) }}</small></td>
+            <td class="num bl-amount" :title="amountTitle(g)"><span :class="{ 'ov-muted': !g.amount }">{{ amountText(g) }}</span></td>
+            <td class="bl-scope"><a v-if="scopeHref(g.scope)" :href="safeUrl(scopeHref(g.scope))" :title="g.scope.id"><svg class="ui-icon" aria-hidden="true"><use :href="g.scope.kind === 'conference' ? '#project-icon-conference' : '#project-type-repo'"></use></svg><span>{{ g.scope.id }}</span></a><span class="ov-muted" v-else>Account</span></td>
           </tr>
         </tbody>
       </table>

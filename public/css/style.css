@@ -14284,6 +14284,11 @@ body.dark-mode .reviewer-preview .rp-preserved-tag { background: rgba(251, 191, 
 .billing-page .bl-stack > i { display: block; min-height: 2px; flex-basis: 0; }
 .billing-page .bl-col:hover .bl-stack { filter: brightness(1.08); }
 .billing-page .bl-col.is-zero .bl-stack { height: 1px !important; background: var(--border-color); }
+/* Multi-line tooltip: one line per family, then the total. Edge columns open inward. */
+.billing-page .bl-col.has-tip::after { white-space: pre; line-height: 1.6; text-align: left; padding: 8px 10px; }
+.billing-page .bl-col.has-tip.tip-start::after { left: 0; transform: translateY(4px); }
+.billing-page .bl-col.has-tip.tip-end::after { left: auto; right: 0; transform: translateY(4px); }
+.billing-page .bl-col.has-tip.tip-start:hover::after, .billing-page .bl-col.has-tip.tip-end:hover::after { transform: translateY(0); }
 .billing-page .bl-empty { margin: 8px 0 4px; padding: 32px 0; text-align: center; color: var(--ink-muted); }
 
 /* By plan and grant tables. */
@@ -14297,13 +14302,23 @@ body.dark-mode .reviewer-preview .rp-preserved-tag { background: rgba(251, 191, 
 .billing-page .bl-link:hover { text-decoration: underline; }
 .billing-page .bl-idle td, .billing-page .bl-idle .bl-link { color: var(--ink-faint); }
 .billing-page .ov-muted { color: var(--ink-faint); }
+.billing-page .bl-family-row > * { font-weight: 600; background: color-mix(in srgb, var(--paper-bg-alt) 60%, transparent); }
+.billing-page .bl-plan-name.bl-plan-child { padding-left: 28px; font-weight: 400; }
 .billing-page .bl-note { margin: 10px 0 0; }
 .billing-page .bl-grants { margin: 8px 0 24px; scroll-margin-top: 16px; }
 .billing-page .bl-section-head { margin: 0 0 8px; }
 .billing-page .bl-section-head h2 { margin: 0; }
 .billing-page .bl-grant-scroll { margin-top: 12px; }
-.billing-page .bl-grant-table th[scope="row"] { font-weight: 500; text-align: left; max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
-.billing-page .bl-grant-table th, .billing-page .bl-grant-table td { padding: 9px 12px; }
+.billing-page .bl-grant-table th[scope="row"] { font-weight: 500; text-align: left; max-width: 168px; overflow: hidden; text-overflow: ellipsis; }
+.billing-page .bl-grant-table th, .billing-page .bl-grant-table td { padding: 9px 10px; }
+/* Every row is two lines tall, whether or not a cell has a second line. */
+.billing-page .bl-grant-table tbody th, .billing-page .bl-grant-table tbody td { height: 58px; }
+.billing-page .bl-grant-table small .bl-flag { font-size: 11px; padding: 0 7px; }
+.billing-page .bl-grant-table .bl-amount { white-space: nowrap; }
+/* Inter's tabular figures also widen hyphens, so names and repository ids
+   ("thomas-u-grund", "BioASQ-Cond-EDE1") use proportional figures; amounts and dates stay tabular. */
+.billing-page .bl-grant-table { font-variant-numeric: normal; }
+.billing-page .bl-grant-table .num, .billing-page .bl-grant-table .bl-date { font-variant-numeric: tabular-nums; }
 .billing-page .bl-grant-table th[scope="row"] a, .billing-page .bl-scope a { color: var(--link-color); }
 .billing-page .bl-grant-table .sortable { display: inline-flex; align-items: center; gap: 4px; padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: pointer; }
 .billing-page .bl-grant-table .sortable.active { color: var(--color); }
@@ -14314,7 +14329,7 @@ body.dark-mode .reviewer-preview .rp-preserved-tag { background: rgba(251, 191, 
 .dark-mode .billing-page .bl-flag { color: var(--status-progress); }
 .billing-page .bl-flag.is-bad { background: color-mix(in srgb, var(--st-bad, #B42318) 12%, transparent); color: #A1251B; }
 .dark-mode .billing-page .bl-flag.is-bad { color: #F08A82; }
-.billing-page .bl-scope a { display: inline-flex; align-items: center; gap: 6px; max-width: 200px; min-width: 0; }
+.billing-page .bl-scope a { display: inline-flex; align-items: center; gap: 6px; max-width: 184px; min-width: 0; }
 .billing-page .bl-scope a > span { overflow: hidden; text-overflow: ellipsis; }
 .billing-page .bl-scope .ui-icon { width: 14px; height: 14px; flex: none; color: var(--ink-muted); }
 .billing-page .bl-page { font-family: var(--font-mono); font-size: 12px; color: var(--ink-muted); }
