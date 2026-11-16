@@ -1,7 +1,7 @@
 import { installLogInvestigation } from "./admin-log-investigation.js";
 import { reactive, onScopeDispose, nextTick } from "vue";
 import { createTimers, createListeners } from "./state.js";
-import { duration, statusMsg } from "./formatters.js";
+import { duration, statusMsg, number as formatNumber, date as formatDate } from "./formatters.js";
 
 // One status filter model for every admin list (and the conference page):
 // a single-select segmented control. One rule everywhere: "All N" is every
@@ -2302,7 +2302,7 @@ function watchMetaLines(timers, listen) {
 const ZERO_DECIMAL = ["bif", "clp", "djf", "gnf", "jpy", "kmf", "krw", "mga", "pyg", "rwf", "ugx", "vnd", "vuv", "xaf", "xof", "xpf"];
 export const BILLING_FAMILIES = [
   { id: "subscription", label: "Subscriptions" },
-  { id: "repository", label: "Repository purchases" },
+  { id: "repository", label: "Repository add-ons" },
   { id: "conference", label: "Conferences" },
 ];
 // Names from src/core/billing/config.ts, used until the summary (which carries them) arrives.
@@ -2348,6 +2348,16 @@ export const billingAdminController = function (state, http, location) {
       };
       state.segmentPct = (d, family) => d && d[family] ? (d[family] / state.chartMax()) * 100 : 0;
       state.familyTotal = (family) => (state.summary?.series || []).reduce((n, d) => n + d[family], 0);
+      const addMoney = (into, amounts) => { for (const [c, v] of Object.entries(amounts || {})) into[c] = (into[c] || 0) + v; return into; };
+      state.familyRevenue = (family) => (state.summary?.series || []).reduce((m, d) => addMoney(m, d.revenue?.[family]), {});
+      state.seriesMissing = () => (state.summary?.series || []).reduce((n, d) => n + (d.missing || 0), 0);
+      // "17 · €85", or just the count when revenue is unavailable or incomplete.
+      state.legendText = (family) => {
+        const count = formatNumber(state.familyTotal(family));
+        if (!state.revenueOn() || state.seriesMissing()) return count;
+        const money = moneyParts(state.familyRevenue(family));
+        return money.length ? count + " · " + money.join(" · ") : count;
+      };
       state.bucketLabel = (d) => {
         if (!d) return "";
         const date = new Date(d.date);
@@ -2356,16 +2366,39 @@ export const billingAdminController = function (state, http, location) {
         if (state.period === "12m" || state.period === "all" || date.getUTCFullYear() !== new Date().getUTCFullYear()) opts.year = "numeric";
         return (state.summary?.bucket === "week" ? "Week of " : "") + date.toLocaleDateString(undefined, opts);
       };
+      // One line per family with its count and list-price revenue, then the
+      // bucket total per currency. The tooltip is monospace, so padding aligns columns.
       state.bucketTip = (d) => {
         const total = state.bucketTotal(d);
-        if (!total) return state.bucketLabel(d) + ": no sales";
-        const parts = BILLING_FAMILIES.filter((f) => d[f.id]).map((f) => d[f.id] + " " + f.label.toLowerCase());
-        return state.bucketLabel(d) + ": " + total + (total === 1 ? " sale" : " sales") + " (" + parts.join(", ") + ")";
+        const head = state.bucketLabel(d) + " · " + (total ? total + (total === 1 ? " sale" : " sales") : "no sales");
+        if (!total) return head;
+        const revenue = state.revenueOn();
+        const rows = BILLING_FAMILIES.filter((f) => d[f.id]).map((f) => [f.label, String(d[f.id]), revenue ? moneyParts(d.revenue?.[f.id]).join(" · ") : ""]);
+        const sum = BILLING_FAMILIES.reduce((m, f) => addMoney(m, d.revenue?.[f.id]), {});
+        const footer = !revenue ? ["Revenue unavailable"]
+          : [...(moneyParts(sum).length ? ["Total " + moneyParts(sum).join(" · ")] : []), ...(d.missing ? [d.missing + (d.missing === 1 ? " sale" : " sales") + " without a known price"] : [])];
+        const width = (i) => Math.max(...rows.map((r) => r[i].length));
+        const lines = rows.map((r) => (r[0].padEnd(width(0)) + "  " + r[1].padStart(width(1)) + (r[2] ? "  " + r[2] : "")).trimEnd());
+        return [head, ...lines, ...footer].join("\n");
+      };
+      // Tips near the edges open inward so they stay inside the card.
+      state.tipSide = (index) => {
+        const n = (state.summary?.series || []).length;
+        return n < 3 ? "" : index < n / 4 ? "tip-start" : index >= n * 3 / 4 ? "tip-end" : "";
       };
       state.bucketName = () => ({ day: "day", week: "week", month: "month" })[state.summary?.bucket] || "day";
       state.seriesSales = () => (state.summary?.series || []).reduce((n, d) => n + state.bucketTotal(d), 0);
 
       state.plansWithActivity = () => (state.summary?.plans || []).filter((p) => p.active || p.allTimeSales || p.sales);
+      state.familyLabel = (family) => (BILLING_FAMILIES.find((f) => f.id === family) || {}).label || "";
+      state.familyPlans = (family) => (state.summary?.plans || []).filter((p) => p.family === family);
+      state.familySum = (family, key) => state.familyPlans(family).reduce((n, p) => n + (p[key] || 0), 0);
+      state.familyMoney = (family, key, completeKey) => {
+        if (!state.revenueOn()) return "—";
+        const plans = state.familyPlans(family);
+        if (plans.some((p) => p[completeKey] === false)) return "Incomplete";
+        return state.moneyText(plans.reduce((m, p) => addMoney(m, p[key]), {}));
+      };
       state.planTotals = () => {
         const sum = (key) => (state.summary?.plans || []).reduce((n, p) => n + (p[key] || 0), 0);
         return { active: sum("active"), sales: sum("sales"), allTimeSales: sum("allTimeSales") };
@@ -2412,7 +2445,7 @@ export const billingAdminController = function (state, http, location) {
       state.statuses = [];
       state.grantsError = null;
       state.filtersOpen = false;
-      state.query = { page: 1, limit: 25, search: "", plan: "", status: "", state: "", sort: "purchasedAt", direction: "desc" };
+      state.query = { page: 1, limit: 25, search: "", plan: "", status: "", state: "", period: "", sort: "purchasedAt", direction: "desc" };
       const urlParams = location.search();
       if (urlParams.search) state.query.search = urlParams.search;
       state.stateView = () => state.query.state || "all";
@@ -2431,6 +2464,7 @@ export const billingAdminController = function (state, http, location) {
         const out = [];
         if (state.query.plan) out.push({ key: "plan", label: "Plan", value: state.planName(state.query.plan) });
         if (state.query.status) out.push({ key: "status", label: "Stripe status", value: state.query.status.replace(/_/g, " ") });
+        if (state.query.period) out.push({ key: "period", label: "Started", value: "last " + ((state.periods.find((p) => p.id === state.query.period) || {}).label || state.query.period) });
         state.chips = out;
       };
       state.clearFilter = (key) => { state.query[key] = ""; state.query.page = 1; };
@@ -2439,8 +2473,41 @@ export const billingAdminController = function (state, http, location) {
         const list = document.getElementById("bl-grants");
         if (list && list.scrollIntoView) list.scrollIntoView({ behavior: "smooth", block: "start" });
       };
-      state.clearFilters = () => Object.assign(state.query, { search: "", plan: "", status: "", state: "", page: 1 });
-      state.hasFilters = () => !!(state.query.search || state.query.plan || state.query.status || state.query.state);
+      state.clearFilters = () => Object.assign(state.query, { search: "", plan: "", status: "", state: "", period: "", page: 1 });
+      state.hasFilters = () => !!(state.query.search || state.query.plan || state.query.status || state.query.state || state.query.period);
+      state.filterCount = () => ["plan", "status", "period"].filter((k) => state.query[k]).length;
+      // A sale's list price: "€5 / month" for a subscription, once for a pack.
+      state.amountText = (g) => {
+        if (!g.amount) return "—";
+        const money = moneyParts({ [g.amount.currency]: g.amount.value })[0] || "—";
+        if (!g.amount.interval) return money;
+        const every = g.amount.intervalCount > 1 ? g.amount.intervalCount + " " + g.amount.interval + "s" : g.amount.interval;
+        return money + " / " + every;
+      };
+      state.amountTitle = (g) => g.amount ? "Stripe list price" + (g.pack ? " of the whole pack" : "") : ({
+        stripe_not_configured: "Revenue unavailable: Stripe is not configured on this server.",
+        unresolved: "Revenue unavailable: this Stripe price could not be looked up.",
+        unrecorded: "Revenue unavailable: no sale price was recorded for this subscription.",
+      })[g.amountMissing] || "Revenue unavailable.";
+      // "Renews / ends" as one line, with at most one quiet second line.
+      state.endText = (g) => {
+        if (g.never) return "Never ends";
+        if (!g.until) return "—";
+        const date = formatDate(g.until);
+        if (g.state !== "active") return (new Date(g.until) < new Date() ? "Ended " : "Ends ") + date;
+        if (g.subscription) return (g.cancelAtPeriodEnd ? "Ends " : "Renews ") + date;
+        return "Until " + date;
+      };
+      // The part of a pack that runs out first, while the repository itself never ends.
+      state.packNote = (g) => {
+        const updates = (g.parts || []).find((p) => p.planId === "author_pass");
+        if (!g.pack || !updates || !updates.until) return "";
+        return (new Date(updates.until) < new Date() ? "Updates ended " : "Updates until ") + formatDate(updates.until);
+      };
+      // Short names keep the pack row within the table; the title has the full ones.
+      const PACK_PART_SHORT = { repo_slot: "repository", author_pass: "updates", repo_extend: "+1 year" };
+      state.packParts = (g) => (g.parts || []).map((p) => PACK_PART_SHORT[p.planId] || state.planName(p.planId)).join(", ").replace(/^./, (c) => c.toUpperCase());
+      state.packPartsTitle = (g) => "Paper pack: " + (g.parts || []).map((p) => state.planName(p.planId)).join(", ");
       state.statusText = (g) => (g.status || "unknown").replace(/_/g, " ");
       state.revocationText = (reason) => reason === "dispute" ? "Disputed" : reason === "full_refund" ? "Refunded" : "Revoked";
       state.scopeHref = (scope) => scope?.kind === "repo" ? "/admin/repositories?search=" + encodeURIComponent(scope.id)

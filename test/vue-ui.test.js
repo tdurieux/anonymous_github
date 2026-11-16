@@ -1735,11 +1735,16 @@ describe("Vue 3 UI", function () {
     const summary = (available) => ({ period: "30d", bucket: "day", subscriptions: { active: 3, monthly: 2, annual: 1, cancelling: 1, mrr: available ? { eur: 1400 } : {} },
       sales: { count: 4, revenue: available ? { eur: 31300, usd: 2000 } : {} }, allTime: { count: 9, revenue: available ? { eur: 50000 } : {} },
       reversals: { refunds: 1, disputes: 1, amount: {} }, plans,
-      series: [{ date: "2026-11-12T00:00:00.000Z", subscription: 1, repository: 2, conference: 0 }, { date: "2026-11-13T00:00:00.000Z", subscription: 0, repository: 0, conference: 1 }],
+      series: [{ date: "2026-11-12T00:00:00.000Z", subscription: 1, repository: 2, conference: 0, revenue: available ? { subscription: { eur: 500 }, repository: { eur: 800, usd: 2000 }, conference: {} } : { subscription: {}, repository: {}, conference: {} }, missing: 0 },
+        { date: "2026-11-13T00:00:00.000Z", subscription: 0, repository: 0, conference: 1, revenue: { subscription: {}, repository: {}, conference: available ? { eur: 30000 } : {} }, missing: 0 }],
       revenue: { available, reason: available ? null : "stripe_not_configured", missingSales: 0 },
       webhooks: { pending: 1, failed: 2, oldestPendingSeconds: 90, lastError: { type: "invoice.paid", error: "api_error", receivedAt: new Date().toISOString() }, unreviewedRevocations: 1 } });
     const grants = { total: 1, stateCounts: { active: 0, expired: 0, revoked: 1 }, statuses: ["paid"], results: [{ id: "a", user: "alice", planId: "repo_never", family: "repository",
-      status: "paid", state: "revoked", purchasedAt: "2026-11-01", until: null, never: true, revoked: true, revocationReason: "dispute", scope: { kind: "conference", id: "FSE26" } }] };
+      status: "paid", state: "revoked", purchasedAt: "2026-11-01", until: null, never: true, revoked: true, revocationReason: "dispute", scope: { kind: "conference", id: "FSE26" }, amount: null, amountMissing: "unresolved" },
+    { id: "b", user: "bob", planId: "repo_pack", pack: true, family: "repository", parts: [{ planId: "repo_slot", until: null, never: true }, { planId: "author_pass", until: "2027-05-15T00:00:00.000Z", never: false }, { planId: "repo_extend", until: "2027-11-16T00:00:00.000Z", never: false }],
+      status: "paid", state: "active", purchasedAt: "2026-11-16", until: null, never: true, scope: { kind: "repo", id: "BioASQ-Cond-EDE1" }, amount: { value: 800, currency: "eur", interval: null, intervalCount: 1 } },
+    { id: "c", user: "carol", planId: "author_monthly", family: "subscription", subscription: true, status: "active", state: "active", purchasedAt: "2026-11-15", until: "2026-12-15T00:00:00.000Z", cancelAtPeriodEnd: true,
+      scope: { kind: "account", id: null }, amount: { value: 500, currency: "eur", interval: "month", intervalCount: 1 } }] };
     let available = true, incomplete = false;
     const response = () => {
       const value = summary(available);
@@ -1765,6 +1770,18 @@ describe("Vue 3 UI", function () {
     expect(row.querySelector("a[href='/admin/users/alice']")).to.not.equal(null);
     expect(row.querySelector("a[href='/conference/FSE26']")).to.not.equal(null);
     expect(row.textContent).to.include("Disputed").and.to.include("Never ends");
+    expect(doc.querySelectorAll(".bl-grant-table thead th")).to.have.length(7);
+    expect(row.querySelector(".bl-amount").textContent.trim()).to.equal("—");
+    expect(row.querySelector(".bl-amount").getAttribute("title")).to.include("could not be looked up");
+    const [, pack, sub] = doc.querySelectorAll(".bl-grant-table tbody tr");
+    expect(pack.textContent).to.include("Paper pack").and.to.include("Repository, updates, +1 year").and.to.include("Updates until");
+    expect(pack.querySelector(".bl-amount").textContent).to.match(/€8/);
+    expect(sub.querySelector(".bl-amount").textContent).to.match(/€5 \/ month/);
+    expect(sub.textContent).to.include("Ends").and.to.include("Cancelling");
+    const tip = doc.querySelectorAll(".bl-col")[0].getAttribute("data-tip");
+    expect(tip).to.include("3 sales").and.to.include("Repository add-ons").and.to.match(/Total .*€13/).and.to.match(/\$20/);
+    expect(doc.querySelector(".ov-chart-legends").textContent).to.include("Repository add-ons").and.not.to.include("Repository purchases");
+    expect([...doc.querySelectorAll(".bl-family-row")].map(r => r.querySelector("th").textContent.trim())).to.deep.equal(["Subscriptions", "Repository add-ons", "Conferences"]);
     expect(ui.requests.some(r => r.url.pathname === "/api/admin/billing/summary" && r.url.searchParams.get("period") === "30d")).to.equal(true);
     incomplete = true;
     [...doc.querySelectorAll(".bl-toolbar .seg-chip")].find(b => b.textContent.includes("90 days")).click();
@@ -1778,6 +1795,7 @@ describe("Vue 3 UI", function () {
     expect(ui.requests.some(r => r.url.searchParams.get("period") === "7d")).to.equal(true);
     expect(doc.querySelector(".billing-page").textContent).to.include("Revenue unavailable");
     expect(doc.querySelectorAll(".bl-kpi-row .ov-kpi-card")[1].textContent).to.include("Unavailable");
+    expect(doc.querySelectorAll(".bl-col")[0].getAttribute("data-tip")).to.include("Revenue unavailable").and.not.to.include("€");
     expect(ui.errors).to.deep.equal([]);
   });
 
