@@ -1,3 +1,4 @@
+import { anonymizationErrorCode } from "./anonymization-errors";
 import { Worker } from "worker_threads";
 import { existsSync } from "fs";
 import { join } from "path";
@@ -31,18 +32,19 @@ export function anonymizeOnWorker(message: Job["message"], size: number, signal:
     // Bind the stage factory to the submitting request, not the preceding job.
     const transformDone = AsyncResource.bind(() => startStage("anonymize"));
     const job: Job = { message, weight, signal, resolve, reject, waitingDone, transformDone };
-    job.abort = () => {
+    const removeWaiting = (code: string) => {
       const index = waiting.indexOf(job);
       if (index < 0) return;
       waiting.splice(index, 1);
       clearTimeout(job.timer);
       signal.removeEventListener("abort", job.abort!);
       waitingDone(true);
-      reject(new Error("anonymization_cancelled"));
+      reject(new Error(code));
     };
+    job.abort = () => removeWaiting("anonymization_cancelled");
     if (signal.aborted) { waitingDone(true); return reject(new Error("anonymization_cancelled")); }
     signal.addEventListener("abort", job.abort, { once: true });
-    job.timer = setTimeout(job.abort, 30_000);
+    job.timer = setTimeout(() => removeWaiting("anonymization_queue_timeout"), 30_000);
     waiting.push(job);
     pump();
   });
@@ -81,8 +83,8 @@ function pump() {
       } else { idle.push(worker); worker.unref(); release(); }
       if (error) job.reject(error); else job.resolve(changed);
     };
-    const message = (result: { error?: string; changed?: boolean }) => finish(result.error ? new Error(result.error) : undefined, result.changed);
-    const failed = (error: Error) => finish(error);
+    const message = (result: { error?: string; changed?: boolean }) => finish(result.error ? new Error(anonymizationErrorCode({ message: result.error })) : undefined, result.changed);
+    const failed = (error: Error) => finish(new Error(anonymizationErrorCode(error)));
     const exited = () => finish(new Error("anonymization_worker_exited"));
     const cancel = () => finish(new Error("anonymization_cancelled"));
     const deadline = setTimeout(() => finish(new Error("anonymization_deadline_exceeded")), 15_000);

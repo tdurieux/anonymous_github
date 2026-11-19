@@ -212,7 +212,7 @@ export async function streamAnonymizedZip(
         if (entry.type === "File") {
           try {
             const relativePath = entry.path.substring(entry.path.indexOf("/") + 1);
-            if (!safeRepositoryPath(relativePath)) throw new AnonymousError("invalid_file_path", { httpStatus: 502 });
+            if (!safeRepositoryPath(relativePath)) throw new AnonymousError("zip_unsafe_entry_path", { httpStatus: 502 });
             if (relativePath.split("/").pop() === ".gitmodules") { entry.autodrain(); return; }
             if (prefix && ++childEntries > MAX_SUBMODULE_ENTRIES) throw new AnonymousError("file_too_big", { httpStatus: 413 });
             const mountedPath = prefix ? `${prefix}/${relativePath}` : relativePath;

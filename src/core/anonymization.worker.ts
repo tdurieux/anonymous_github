@@ -1,3 +1,4 @@
+import { anonymizationErrorCode } from "./anonymization-errors";
 import config from "../config";
 import { parentPort } from "worker_threads";
 import { readFileSync, writeFileSync } from "fs";
@@ -21,6 +22,6 @@ parentPort!.on("message", ({ input, output, options, maxOutput, context }) => {
     writeFileSync(output, bytes, { flag: "wx" });
     parentPort!.postMessage({ changed: anonymizer.wasAnonymized });
   } catch (error) {
-    parentPort!.postMessage({ error: (error as Error).message });
+    parentPort!.postMessage({ error: anonymizationErrorCode(error) });
   }
 });

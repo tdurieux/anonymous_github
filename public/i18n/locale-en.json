@@ -69,6 +69,7 @@
     "invalid_path": "The provided path is invalid or missing.",
     "path_not_specified": "A file path must be specified.",
     "path_not_defined": "The file path has not been resolved yet.",
+    "zip_unsafe_entry_path": "This repository contains a filename that cannot be safely included in a ZIP archive. Rename filenames containing backslashes or unsafe path components in the source repository and update the anonymization.",
     "invalid_file_path": "The requested file path is not valid.",
     "invalid_request": "The request is missing required fields or is malformed.",
     "invalid_project_name": "Use a project name of up to 100 characters without line breaks or control characters.",
