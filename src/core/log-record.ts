@@ -1,3 +1,4 @@
+import { ANONYMIZATION_ERRORS } from "./anonymization-errors";
 import { requestReproduction, safeReproductionPath } from "./log-reproduction";
 import { safeDiagnosticFields, errorDiagnostics } from "./log-diagnostics";
 import { LOG_ROUTES } from "./log-diagnostic-schema";
@@ -17,13 +18,13 @@ const events: Record<string, string> = {
   "job failed": "job_failed", "job stalled": "job_stalled", "queue heartbeat": "queue_heartbeat",
 };
 const errorCodes = new Set([
-  ...ERROR_CODES,
+  ...ERROR_CODES, ...ANONYMIZATION_ERRORS, "zip_unsafe_entry_path",
   "repo_renamed", "preparation_interrupted", "commit_not_found", "zip_not_available", "token_refresh_failed", "quota_exceeded", "quota_repository_limit", "quota_storage_limit", "github_rate_limit_exceeded", "github_app_reconnect_required", "github_token_invalid",
   "repository_expired", "repository_not_ready", "repository_not_found", "repository_job_cancelled",
   "ECONNRESET", "ECONNREFUSED", "ETIMEDOUT", "ENOTFOUND", "EPIPE", "ABORT_ERR",
   "upstream_error", "upstream_timeout", "invalid_signature", "webhook_processing_failed",
 ]);
-export const LOG_NUMBERS = ["quotaUsedRepositories", "quotaRepositoryLimit", "quotaUsedBytes", "quotaRequestedBytes", "quotaProjectedBytes", "quotaStorageLimit", "restartMs", "exitCode","droppedLogsInterval","expectedBytes", "measuredMs", "unattributedMs", "overlapMs","status", "httpStatus", "ms", "firstByteMs", "responseMs", "bytes", "bytesPerSecond",
+export const LOG_NUMBERS = ["memoryUsedBytes", "memoryFileCacheBytes", "memoryWorkingSetBytes", "memoryWorkingSetRatio", "quotaUsedRepositories", "quotaRepositoryLimit", "quotaUsedBytes", "quotaRequestedBytes", "quotaProjectedBytes", "quotaStorageLimit", "restartMs", "exitCode","droppedLogsInterval","expectedBytes", "measuredMs", "unattributedMs", "overlapMs","status", "httpStatus", "ms", "firstByteMs", "responseMs", "bytes", "bytesPerSecond",
   "attempt", "rss", "memoryLimitBytes", "memoryRatio", "uptime", "activeRequests", "waiting", "active", "delayed", "failed",
   "oldestWaitingMs", "droppedLogs", "loopP95Ms", "upstreamStatus"];
 export const LOG_STAGES = ["transfer", "database","repository", "credential_resolution", "upstream", "cache_lookup", "cache_fill", "worker_wait", "anonymize", "streamer_headers"];

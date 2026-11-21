@@ -58,6 +58,29 @@ describe("ZIP stream errors", function () {
   });
   }
 
+  it("rejects backslash archive entries with a specific safe error, without emitting their contents", async function () {
+    const input = await fixture();
+    // Replace both ZIP filename headers without changing their byte lengths.
+    const name = Buffer.from("repo/README.md");
+    for (let at = input.indexOf(name); at !== -1; at = input.indexOf(name, at + name.length)) input[at + 5] = 92;
+    const previous = got.stream;
+    const response = new PassThrough();
+    const chunks = [], errors = [];
+    response.on("data", chunk => chunks.push(chunk));
+    response.on("error", error => errors.push(error));
+    const closed = new Promise(resolve => response.once("close", resolve));
+    try {
+      got.stream = () => Readable.from([input]);
+      await streamAnonymizedZip({
+        repoId:"test", organization:"owner", repoName:"public", commit:"abc",
+        getToken:()=>"", anonymizerOptions:{terms:["private"]},
+      }, response);
+      await closed;
+      expect(errors.map(error => error.message)).to.deep.equal(["zip_unsafe_entry_path"]);
+      expect(Buffer.concat(chunks).includes(Buffer.from("private source content"))).to.equal(false);
+    } finally { got.stream = previous; response.destroy(); }
+  });
+
   it("aborts a download on an asynchronous anonymization timeout without crashing", async function () {
     const input = await fixture();
     const previous = { stream: got.stream, zip: GitHubDownload.prototype.getZipUrl, flush: AnonymizeTransformer.prototype._flush };

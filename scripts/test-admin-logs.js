@@ -133,6 +133,17 @@ const sleep = ms => new Promise(resolve=>setTimeout(resolve,ms));
     for(const [key,value] of Object.entries(quotaFields)) {assert.equal(quotaView.events[0][key],value);assert.equal(redisQuota.raw[0][key],value);}
     assert.equal(quotaView.events[0].errorCode,'quota_storage_limit');
     console.log('PASS quota denial reason and exact numeric admission snapshot through collector and both safe admin APIs');
+    const workerEvidenceId = randomUUID();
+    const workerEvidenceRecords = ["anonymization_deadline_exceeded","anonymization_queue_timeout","zip_unsafe_entry_path"].map(code =>
+      logRecord('error','zip-stream',[new Error(code),{requestId:workerEvidenceId,memoryUsedBytes:750,memoryFileCacheBytes:450,memoryWorkingSetBytes:350,memoryWorkingSetRatio:350/768}]));
+    const workerEvidenceOutput = execFileSync('docker',['run','--rm','-i','--network','none','--memory','256m',vectorImage,'vrl','-i','/dev/stdin',fs.readFileSync('deploy/logging/sanitize.vrl','utf8')+'\nencode_json(.)'],{encoding:'utf8',input:workerEvidenceRecords.map(record=>JSON.stringify({file:'/host/docker/fixture/log.json',message:JSON.stringify({attrs:{tag:'api'},log:JSON.stringify(record)})})).join('\n')+'\n'}).trim().split('\n').map(line=>JSON.parse(JSON.parse(line)));
+    assert.deepEqual(workerEvidenceOutput.map(row=>row.errorCode),workerEvidenceRecords.map(row=>row.errorCode));
+    assert((await fetch(process.env.ADMIN_LOG_URL+'/insert/jsonline?_time_field=timestamp',{method:'POST',body:workerEvidenceOutput.map(JSON.stringify).join('\n'),headers:{'Content-Type':'application/stream+json'}})).ok);await sleep(2000);
+    const workerEvidenceView=await investigateLogs(logOptions({kind:'requestId',id:workerEvidenceId},true),true);
+    assert.equal(workerEvidenceView.events.length,3);
+    for(const row of workerEvidenceView.events) {assert.equal(row.memoryUsedBytes,750);assert.equal(row.memoryWorkingSetBytes,350);}
+    for(const row of workerEvidenceRecords) assert.equal(safeRedisLog({ts:row.timestamp,level:'error',module:'zip-stream',raw:[row]}).raw[0].memoryWorkingSetBytes,350);
+    console.log('PASS worker/ZIP failure codes and memory breakdown through collector and both admin APIs');
     docker('stop',name);
     const unavailable=await investigateLogs(logOptions({})); assert.equal(unavailable.state,'unreachable');
     delete process.env.ADMIN_LOG_URL;

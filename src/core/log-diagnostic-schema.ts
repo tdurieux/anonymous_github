@@ -326,6 +326,16 @@ export const LOG_SOURCE_FUNCTIONS: Record<string, readonly string[]> = {
     "repositoryMembership",
     "toJSON"
   ],
+  "src/core/anonymization-errors.ts": [
+    "<anonymous>",
+    "anonymizationErrorCode",
+    "data"
+  ],
+  "build/core/anonymization-errors.js": [
+    "<anonymous>",
+    "anonymizationErrorCode",
+    "data"
+  ],
   "src/core/anonymization-pool.ts": [
     "<anonymous>",
     "anonymizeOnWorker",
@@ -338,6 +348,7 @@ export const LOG_SOURCE_FUNCTIONS: Record<string, readonly string[]> = {
     "pump",
     "release",
     "releaseSpool",
+    "removeWaiting",
     "reserveSpool"
   ],
   "build/core/anonymization-pool.js": [
@@ -352,6 +363,7 @@ export const LOG_SOURCE_FUNCTIONS: Record<string, readonly string[]> = {
     "pump",
     "release",
     "releaseSpool",
+    "removeWaiting",
     "reserveSpool"
   ],
   "src/core/anonymization.worker.ts": [
@@ -1038,11 +1050,13 @@ export const LOG_SOURCE_FUNCTIONS: Record<string, readonly string[]> = {
   ],
   "src/core/log-memory.ts": [
     "<anonymous>",
-    "logMemory"
+    "logMemory",
+    "memoryBreakdown"
   ],
   "build/core/log-memory.js": [
     "<anonymous>",
-    "logMemory"
+    "logMemory",
+    "memoryBreakdown"
   ],
   "src/core/log-record.ts": [
     "<anonymous>",
